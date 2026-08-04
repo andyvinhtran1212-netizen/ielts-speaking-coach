@@ -28,7 +28,10 @@ function load(items, want) {
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const nodes = {
-    'hf-qpick-list': { innerHTML: '' },
+    // `dataset` có ở CẢ HAI node: bộ hiển thị đánh dấu chế độ chọn lên chính
+    // danh sách (data-pick), và một node giả thiếu thuộc tính ấy sẽ đổ ở nơi mã
+    // thật chạy bình thường.
+    'hf-qpick-list': { innerHTML: '', dataset: {} },
     'hf-qpick-foot': { innerHTML: '', textContent: '', dataset: {} },
   };
   const $ = (id) => nodes[id];

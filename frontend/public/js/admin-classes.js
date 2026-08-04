@@ -699,12 +699,23 @@ function tallyRow(r) {
   // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
   const band = (r.score === null || r.score === undefined) ? '—' : Number(r.score).toFixed(1);
   const empty = (r.score === null || r.score === undefined);
-  return `<div class="av-tally__row" data-status="${esc(r.status)}">
+  // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này
+  // để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh tên em ấy.
+  // Mỗi cờ nói đủ ba thứ — chuyện gì, vì sao, làm gì tiếp; một chấm đỏ không
+  // kèm việc phải làm sẽ bị bỏ qua sau vài lần.
+  const flags = (r.flags || []).map((f) => `
+      <li class="av-flag" data-sev="${esc(f.severity)}">
+        <strong>${esc(f.label)}</strong>
+        <span>${esc(f.why)}</span>
+        <em>${esc(f.action)}</em>
+      </li>`).join('');
+  return `<div class="av-tally__row" data-status="${esc(r.status)}"
+       ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
     <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
-  </div>`;
+  </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
 
 function hhmm(iso) {
@@ -737,6 +748,12 @@ function renderTally(d) {
   }
   if (d && d.homework_stale) {
     notes.push('Chưa đối chiếu được bài nộp mới nhất — số có thể còn thiếu.');
+  }
+  if (c.flagged) {
+    // ĐẾM RIÊNG, không trừ vào "đã nộp": một bài nộp rồi mà chấm hỏng vẫn là đã
+    // nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa làm bài, trong
+    // khi lỗi nằm ở phía hệ thống.
+    notes.push(`<strong>${c.flagged} bài cần xem lại</strong> — lý do ghi ngay dưới tên.`);
   }
   return `<div class="av-tally" data-state="${sealed ? 'sealed' : 'live'}">
     <div class="av-tally__head">
@@ -792,15 +809,71 @@ const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'List
 
 let _testsBySkill = {};
 
+/** 'daily' | 'lesson' — loại bài đang chọn. */
+function hfKind() {
+  const el = document.querySelector('input[name="hf-kind"]:checked');
+  return el ? el.value : 'daily';
+}
+
+/**
+ * Loại bài quyết định NGUỒN ĐỀ và CÁCH NHẬP HẠN, nên nó đổi cả bộ mặt ô này.
+ *
+ * "Sau buổi học" đương nhiên là Speaking, và Part do bộ đề quyết — nên hai ô ấy
+ * biến mất chứ không chỉ bị khoá. Một ô hiện ra mà không bấm được vẫn bắt người
+ * ta dừng lại đọc xem vì sao.
+ */
+function applyHomeworkKind() {
+  const lesson = hfKind() === 'lesson';
+  $('hf-skill-field').hidden = lesson;
+  if (lesson) $('hf-skill').value = 'speaking';
+
+  $('hf-kind-note').textContent = lesson
+    ? 'Đề lấy từ kho của khoá này, giao trọn bộ. Hạn tính bằng số ngày kể từ hôm nay.'
+    : 'Đề lấy từ kho chủ đề chung. Hạn là một mốc trong ngày.';
+
+  $('hf-due-date-field').hidden = lesson;
+  $('hf-due-days-field').hidden = !lesson;
+  $('hf-due-resolve').hidden = !lesson;
+
+  // DỌN bộ chọn câu trước khi đổi nguồn.
+  //
+  // Hai nguồn đề dùng CHUNG một danh sách và chung `_qpick`. Không dọn thì đổi
+  // từ bài theo buổi về bài hằng ngày sẽ để lại nguyên 12 câu của buổi cũ nằm
+  // dưới nhãn "Câu hỏi" — và `_qpick.picked` vẫn giữ id của những câu ấy, nên
+  // bấm Giao sẽ gửi id thuộc bộ đề khác. Danh sách chỉ hiện lại sau khi đúng
+  // một trong hai bộ nạp đã chạy xong.
+  _qpick = { items: [], picked: [], want: 1, topicId: null, part: null,
+             mode: lesson ? 'subset' : 'order' };
+  $('hf-qpick-field').hidden = true;
+  $('hf-qpick').hidden = true;
+  $('hf-qpick-list').innerHTML = '';
+  $('hf-qpick-foot').innerHTML = '';
+
+  applyHomeworkSkill();
+  renderDueResolve();
+}
+
 /** Show only the fields the chosen skill actually uses. */
 function applyHomeworkSkill() {
-  const skill = $('hf-skill').value;
+  const lesson = hfKind() === 'lesson';
+  const skill = lesson ? 'speaking' : $('hf-skill').value;
   const isSpeaking = skill === 'speaking';
-  $('hf-topic-field').hidden = !isSpeaking;
+
+  $('hf-topic-field').hidden = lesson || !isSpeaking;
+  $('hf-set-field').hidden = !lesson;
+  // Part biến mất ở bài theo buổi — nó là thuộc tính của BỘ ĐỀ. Nhưng "Kiểu
+  // luyện" vẫn còn, vì đó vẫn là lựa chọn thật của giáo viên.
   $('hf-speaking-row').hidden = !isSpeaking;
-  $('hf-test-field').hidden = isSpeaking;
-  $('homework-modal-title').textContent = 'Giao bài ' + (SKILL_LABEL[skill] || '');
-  if (isSpeaking) loadSpeakingTopics();
+  const partField = $('hf-part') && $('hf-part').closest('.adm-field');
+  if (partField) partField.hidden = lesson;
+  $('hf-test-field').hidden = lesson || isSpeaking;
+
+  $('homework-modal-title').textContent = lesson
+    ? 'Giao bài sau buổi học'
+    : 'Giao bài ' + (SKILL_LABEL[skill] || '');
+
+  if (lesson) loadLessonSets();
+  else if (isSpeaking) loadSpeakingTopics();
   else loadTests(skill);
 }
 
@@ -912,7 +985,13 @@ async function loadTests(skill) {
  * thành 2. Ràng buộc "đúng N câu" tự đọc được, không cần bộ đếm ở chỗ khác.
  */
 
-let _qpick = { items: [], picked: [], want: 1, topicId: null, part: null };
+// `mode` quyết định ô chọn NÓI GÌ:
+//   'order'  — kho chung: số trong ô là THỨ TỰ BẤM, và nó là thông tin thật
+//              (giáo viên đang sắp mạch hội thoại).
+//   'subset' — bộ đề của buổi: người soạn đã sắp mạch, backend luôn xếp lại
+//              theo thứ tự trong bộ. Đánh số theo cú bấm ở đó sẽ là nói dối
+//              về thứ mà cú bấm quyết định — nên số là số CỦA BỘ, đứng yên.
+let _qpick = { items: [], picked: [], want: 1, topicId: null, part: null, mode: 'order' };
 /** Nghe thử một câu. MỘT trình phát dùng chung: hai câu phát chồng lên nhau thì
  *  không nghe được câu nào, và giáo viên sẽ tưởng audio hỏng. */
 let _preview = null;
@@ -946,15 +1025,19 @@ function qmode() {
 
 function renderQpick() {
   const { items, picked, want } = _qpick;
+  const subset = _qpick.mode === 'subset';
   const listEl = $('hf-qpick-list');
   const footEl = $('hf-qpick-foot');
+  listEl.dataset.pick = subset ? 'subset' : 'order';
   if (!items.length) {
-    listEl.innerHTML = '<p class="adm-hint" style="padding:12px">Chủ đề này chưa có câu nào cho Part đang chọn.</p>';
+    listEl.innerHTML = subset
+      ? '<p class="adm-hint" style="padding:12px">Bộ đề này chưa có câu hỏi nào.</p>'
+      : '<p class="adm-hint" style="padding:12px">Chủ đề này chưa có câu nào cho Part đang chọn.</p>';
     footEl.textContent = '';
     return;
   }
 
-  listEl.innerHTML = items.map((q) => {
+  listEl.innerHTML = items.map((q, idx) => {
     const at = picked.indexOf(q.id);
     const lvl = q.level
       ? `<span class="av-qpick__level" data-level="${esc(q.level)}">${esc(q.level)}</span>` : '';
@@ -971,13 +1054,25 @@ function renderQpick() {
     return `<div class="av-qpick__item">
       <button type="button" class="av-qpick__row" data-id="${esc(q.id)}"
               aria-pressed="${at !== -1}" ${q.giveable ? '' : 'disabled'}>
-        <span class="av-qpick__num" aria-hidden="true">${at !== -1 ? at + 1 : ''}</span>
+        <span class="av-qpick__num" aria-hidden="true">${subset ? idx + 1 : (at !== -1 ? at + 1 : '')}</span>
         <span class="av-qpick__text">${esc(q.question_text || '')}</span>
         <span class="av-qpick__meta">${lvl}${blocked}</span>
       </button>${play}
     </div>`;
   }).join('');
 
+  if (subset) {
+    // Không có mục tiêu "đủ N câu" ở đây — cả bộ vốn đã bật. Con số cần nói là
+    // GIAO BAO NHIÊU, và bỏ đi bao nhiêu so với bộ gốc.
+    const off = items.length - picked.length;
+    footEl.dataset.ready = String(picked.length > 0);
+    footEl.innerHTML = `<span>Giao <strong>${picked.length}/${items.length}</strong> câu</span>`
+      + (picked.length
+        ? (off ? `<span>Đã bỏ ${off} câu khỏi buổi này.</span>`
+               : '<span>Giao trọn bộ, theo đúng thứ tự người soạn đã sắp.</span>')
+        : '<span>Chọn ít nhất một câu.</span>');
+    return;
+  }
   const ready = picked.length === want;
   footEl.dataset.ready = String(ready);
   footEl.innerHTML = `<span>Đã chọn <strong>${picked.length}/${want}</strong></span>`
@@ -987,6 +1082,16 @@ function renderQpick() {
 
 function toggleQpick(id) {
   const at = _qpick.picked.indexOf(id);
+  if (_qpick.mode === 'subset') {
+    // Bật/tắt tự do: không có trần, vì mặc định là CẢ BỘ và giáo viên đang trừ
+    // đi. Giữ đúng thứ tự trong bộ để `picked` đọc được như một danh sách thật.
+    if (at !== -1) _qpick.picked.splice(at, 1);
+    else _qpick.picked.push(id);
+    const order = _qpick.items.map((q) => q.id);
+    _qpick.picked.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    renderQpick();
+    return;
+  }
   if (at !== -1) {
     _qpick.picked.splice(at, 1);           // bỏ chọn: các số sau tự dồn lên
   } else if (_qpick.picked.length < _qpick.want) {
@@ -1001,6 +1106,7 @@ function toggleQpick(id) {
 }
 
 async function loadQpick() {
+  _qpick.mode = 'order';
   const topicId = $('hf-topic').value;
   const part = $('hf-part').value;
   $('hf-qpick-field').hidden = !topicId;
@@ -1034,7 +1140,146 @@ async function loadQpick() {
   }
 }
 
+/* ── Bài sau buổi học ────────────────────────────────────────────────────── */
+
+let _lessonSets = [];
+
+/**
+ * Bộ đề theo buổi của khoá mà lớp này thuộc về.
+ *
+ * Ba trạng thái KHÔNG được gộp thành một chữ "không dùng được", vì admin làm ba
+ * việc khác nhau:
+ *   · lớp chưa gắn khoá  → gắn lớp vào khoá (backend trả 400 kèm đúng câu này)
+ *   · thiếu bản đọc      → chạy mẻ tạo audio
+ *   · lớp đã giao rồi    → xong việc, chọn buổi khác
+ */
+async function loadLessonSets() {
+  const sel = $('hf-set');
+  const note = $('hf-set-note');
+  const stillCurrent = () => hfKind() === 'lesson';
+
+  sel.innerHTML = '<option value="">Đang tải kho đề của khoá…</option>';
+  note.textContent = '';
+  note.dataset.tone = 'ok';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-lesson-sets');
+    if (!stillCurrent()) return;
+    _lessonSets = (r && r.items) || [];
+    const free = _lessonSets.filter((s) => !s.already_given && s.ready);
+    sel.innerHTML = free.length
+      ? '<option value="">— Chọn buổi —</option>' + free.map((s) =>
+        `<option value="${esc(s.id)}">Buổi ${esc(s.lesson_no)} · ${esc(s.title)}</option>`).join('')
+      : '<option value="">Chưa có buổi nào giao được</option>';
+
+    const given = _lessonSets.filter((s) => s.already_given).length;
+    const short = _lessonSets.filter((s) => !s.already_given && !s.ready);
+    const bits = [];
+    if (given) bits.push(`${given} buổi lớp này đã làm`);
+    if (short.length) {
+      const n = short.reduce((a, s) => a + (s.missing_audio || 0), 0);
+      bits.push(`${short.length} buổi còn thiếu ${n} bản đọc`);
+    }
+    note.textContent = bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '';
+    note.dataset.tone = short.length ? 'warn' : 'ok';
+    if (!_lessonSets.length) {
+      note.textContent = 'Khoá này chưa có bộ đề nào cho buổi học.';
+      note.dataset.tone = 'warn';
+    }
+  } catch (err) {
+    if (!stillCurrent()) return;
+    sel.innerHTML = '<option value="">Không đọc được kho đề của khoá</option>';
+    // Backend nói RÕ lý do khi lớp chưa gắn khoá; chép lại nguyên câu đó thay vì
+    // thay bằng một câu chung chung — nó là câu duy nhất chỉ ra việc phải làm.
+    note.textContent = err && err.message ? String(err.message) : 'Không đọc được kho đề.';
+    note.dataset.tone = 'error';
+  }
+}
+
+/** Câu trong bộ đã chọn. Mặc định BẬT HẾT — giáo viên trừ đi, không cộng vào. */
+async function loadSetQuestions() {
+  const setId = $('hf-set').value;
+  $('hf-qpick-field').hidden = !setId;
+  if (!setId) return;
+  $('hf-qpick').hidden = false;
+  $('hf-qmode-hint').textContent =
+    'Cả bộ được giao. Bấm một câu để BỎ câu đó khỏi buổi này.';
+
+  _qpick.mode = 'subset';
+  if (_qpick.topicId !== setId) _qpick.picked = [];
+  _qpick.topicId = setId;
+
+  $('hf-qpick-list').innerHTML = '<p class="adm-hint" style="padding:12px">Đang tải câu hỏi…</p>';
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-lesson-sets/' + encodeURIComponent(setId) + '/questions');
+    if ($('hf-set').value !== setId) return;
+    // Chuẩn hoá về ĐÚNG một tên: bộ hiển thị đọc `giveable`, và hai tên cho
+    // cùng một khái niệm sẽ khiến một trong hai chỗ quên mất tên kia.
+    _qpick.items = ((r && r.items) || []).map((q) => ({ ...q, giveable: !!q.ready }));
+    // Bật hết những câu giao được. Câu chưa có bản đọc KHÔNG tự bật — bật rồi bị
+    // backend từ chối lúc bấm Giao là bắt giáo viên đi tìm xem câu nào hỏng.
+    _qpick.picked = _qpick.items.filter((q) => q.ready).map((q) => q.id);
+    _qpick.want = _qpick.picked.length;
+    renderQpick();
+  } catch (err) {
+    $('hf-qpick-list').innerHTML =
+      '<p class="adm-banner" style="margin:12px">Không đọc được câu hỏi của bộ đề này.</p>';
+  }
+}
+
+/* ── Bộ quy hạn ───────────────────────────────────────────────────────────
+ *
+ * "7 ngày" tự nó không kiểm tra được: giáo viên gõ 7, bấm Giao, và chỉ biết
+ * mình đặt trúng hay trượt vào hôm học viên kêu. Nên số ngày được quy ngay ra
+ * MỐC TUYỆT ĐỐI sẽ được lưu thật.
+ *
+ * Ngày được đếm theo GIỜ VIỆT NAM, không theo múi giờ trình duyệt — cùng luật
+ * với `defaultDueDateVietnam` và với backend. Một admin đang ở nước ngoài mà
+ * tính bằng máy mình sẽ lệch một ngày ở ranh giới ngày.
+ */
+const _VN_WEEKDAY = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm',
+  'Thứ Sáu', 'Thứ Bảy'];
+
+function vietnamDatePlusDays(days, at = new Date()) {
+  const today = vietnamParts(at).date;                    // 'YYYY-MM-DD' giờ VN
+  const [y, m, d] = today.split('-').map(Number);
+  // UTC ở đây là cố ý: chỉ dùng để CỘNG NGÀY trên lịch, không phải để đổi múi
+  // giờ. Dùng `new Date(y, m-1, d)` sẽ dựng ngày theo múi giờ trình duyệt và
+  // qua DST có thể nhảy sai một ngày.
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + days);
+  return base;
+}
+
+function renderDueResolve() {
+  const box = $('hf-due-resolve');
+  if (!box || hfKind() !== 'lesson') return;
+  const atEl = $('hf-due-resolve-at');
+  const whyEl = $('hf-due-resolve-why');
+  const days = Number($('hf-due-days').value);
+  const time = $('hf-due-time').value || '19:00';
+
+  if (!days || days < 1 || days > 90) {
+    box.dataset.empty = 'true';
+    atEl.textContent = '—';
+    whyEl.textContent = 'Nhập số ngày từ 1 đến 90 để xem hạn cụ thể.';
+    return;
+  }
+  const d = vietnamDatePlusDays(days);
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  box.dataset.empty = 'false';
+  atEl.textContent = `${time} · ${_VN_WEEKDAY[d.getUTCDay()]} ${dd}/${mm}/${d.getUTCFullYear()}`;
+  whyEl.textContent = `Giờ Việt Nam — ${days} ngày kể từ hôm nay. Sau mốc này hệ thống không nhận bài nữa.`;
+}
+
 function openHomeworkModal() {
+  const daily = document.querySelector('input[name="hf-kind"][value="daily"]');
+  if (daily) daily.checked = true;
+  $('hf-set').value = '';
+  $('hf-due-days').value = '7';
+  _lessonSets = [];
   $('hf-skill').value = 'speaking';
   $('hf-title').value = '';
   $('hf-topic').value = '';
@@ -1061,7 +1306,7 @@ function openHomeworkModal() {
   $('hf-qpick').hidden = true;
   $('hf-error').hidden = true;
   $('hf-warning').hidden = true;
-  applyHomeworkSkill();
+  applyHomeworkKind();
   $('homework-modal').hidden = false;
   $('hf-title').focus();
 }
@@ -1069,7 +1314,8 @@ function openHomeworkModal() {
 function closeHomeworkModal() { $('homework-modal').hidden = true; }
 
 async function submitHomework() {
-  const skill = $('hf-skill').value;
+  const lesson = hfKind() === 'lesson';
+  const skill = lesson ? 'speaking' : $('hf-skill').value;
   const title = $('hf-title').value.trim();
   const topic = $('hf-topic').value.trim();
   const testId = $('hf-test').value;
@@ -1079,6 +1325,7 @@ async function submitHomework() {
     $('hf-error').hidden = false;
     return;
   }
+  if (lesson) return submitLessonHomework(title);
   if (skill === 'speaking' && !topic) {
     $('hf-error').textContent = 'Chọn một chủ đề để tiếp tục.';
     $('hf-error').hidden = false;
@@ -1129,6 +1376,74 @@ async function submitHomework() {
     closeHomeworkModal();
     // Students with no account receive nothing — silently. Say so on the way
     // out, or the teacher reads them as simply not having done the work.
+    if (r && r.unactivated_count) {
+      toast(
+        `Đã giao cho ${r.student_count} học viên. ${r.unactivated_count} bạn chưa kích hoạt tài khoản `
+        + 'nên sẽ không nhận được bài.',
+        'error',
+      );
+    } else {
+      toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
+    }
+    await loadHomework();
+  } catch (err) {
+    $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
+    $('hf-error').hidden = false;
+  } finally {
+    $('btn-hf-submit').disabled = false;
+  }
+}
+
+/**
+ * Giao bài sau buổi học.
+ *
+ * Tách khỏi `submitHomework` chứ không nhồi thêm nhánh vào cùng một payload:
+ * hai loại bài KHÔNG gửi cùng bộ trường (`due_date` với `due_days` loại trừ
+ * nhau, backend từ chối nếu có cả hai), và một hàm gửi cả hai hình dạng sẽ chỉ
+ * đúng cho tới lần thêm trường tiếp theo.
+ */
+async function submitLessonHomework(title) {
+  const setId = $('hf-set').value;
+  const days = Number($('hf-due-days').value);
+
+  if (!setId) {
+    $('hf-error').textContent = 'Chọn một buổi để tiếp tục.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (!_qpick.picked.length) {
+    $('hf-error').textContent = 'Chọn ít nhất một câu để giao.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if (!days || days < 1 || days > 90) {
+    $('hf-error').textContent = 'Số ngày được nộp phải từ 1 đến 90.';
+    $('hf-error').hidden = false;
+    return;
+  }
+
+  $('btn-hf-submit').disabled = true;
+  try {
+    const all = _qpick.items.length;
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId) + '/assignments',
+      {
+        skill: 'speaking',
+        kind: 'lesson',
+        title,
+        content_id: setId,
+        topic: ($('hf-set').selectedOptions[0] || {}).text || '',
+        // Giao TRỌN BỘ thì không gửi danh sách — để backend tự lấy cả bộ. Gửi
+        // đủ id cũng ra cùng kết quả, nhưng khi ấy bài giao ghim theo một bản
+        // chụp của trình duyệt thay vì theo bộ đề thật.
+        question_ids: _qpick.picked.length === all ? null : _qpick.picked,
+        mode: $('hf-mode').value,
+        due_days: days,
+        due_time: $('hf-due-time').value || null,
+        instructions: $('hf-instructions').value.trim() || null,
+      },
+    );
+    closeHomeworkModal();
     if (r && r.unactivated_count) {
       toast(
         `Đã giao cho ${r.student_count} học viên. ${r.unactivated_count} bạn chưa kích hoạt tài khoản `
@@ -1296,7 +1611,91 @@ function invalidateProgress() {
   if (!$('panel-progress').hidden) {
     _progressLoaded = true;
     loadProgress();
+    loadSpeakingPerf();
   }
+}
+
+/* ── Hiệu suất Speaking của lớp ─────────────────────────────────────────────
+ *
+ * DANH SÁCH VIỆC CẦN LÀM, không phải bảng xếp hạng. Backend đã xếp "ai cần để
+ * mắt" lên đầu; ở đây chỉ vẽ lại đúng thứ tự ấy.
+ *
+ * Không có cột thứ hạng, cố ý: một em band 5.0 đều đặn không có vấn đề gì, còn
+ * một em từ 7.0 tụt xuống 6.0 thì có — dù vẫn cao hơn. Bày thứ hạng ra sẽ trả
+ * lời một câu hỏi khác và chôn mất em thứ hai.
+ */
+async function loadSpeakingPerf() {
+  const box = $('speaking-perf');
+  if (!box) return;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-performance');
+    renderSpeakingPerf(r);
+  } catch (err) {
+    // Không đọc được thì ẨN hẳn, không hiện một khung rỗng: khung rỗng đọc như
+    // "lớp này chưa ai làm bài Speaking", mà sự thật là chưa đọc được.
+    box.hidden = true;
+  }
+}
+
+function perfSpark(bands) {
+  if (!bands || bands.length < 2) return '';
+  // Thang cố định 3–9: đó là dải band thật của bài thi. Co giãn theo từng em sẽ
+  // làm một em dao động 0.5 trông y hệt một em dao động 3 band.
+  const lo = 3, hi = 9;
+  return '<span class="av-perf__spark" aria-hidden="true">'
+    + bands.slice(-8).map((b) => {
+      const pct = Math.max(0.1, Math.min(1, (b - lo) / (hi - lo)));
+      return `<i style="height:${Math.round(pct * 24)}px"></i>`;
+    }).join('') + '</span>';
+}
+
+function renderSpeakingPerf(d) {
+  const box = $('speaking-perf');
+  const items = (d && d.items) || [];
+  if (!items.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  const kinds = (d.kinds || []).map((k) => k === 'lesson' ? 'sau buổi học' : 'hằng ngày');
+  $('perf-scope').textContent =
+    `${d.assignment_count} bài giao${kinds.length ? ' · ' + kinds.join(' + ') : ''}`;
+
+  $('perf-rows').innerHTML = items.map((r) => {
+    const flags = [...(r.student_flags || []), ...(r.work_flags || [])];
+    // Gộp trùng: cùng một loại cờ trên năm bài là MỘT việc cần làm, không phải
+    // năm việc. Nêu số lần để giáo viên biết mức độ.
+    const seen = new Map();
+    flags.forEach((f) => seen.set(f.code, (seen.get(f.code) || 0) + 1));
+    const why = flags.length
+      ? [...new Set(flags.map((f) => f.label))].map((lab) => {
+        const f = flags.find((x) => x.label === lab);
+        const n = seen.get(f.code);
+        return esc(lab) + (n > 1 ? ` ×${n}` : '');
+      }).join(' · ')
+      : `${r.submitted}/${r.assigned} bài`;
+    const band = (r.latest_band === null || r.latest_band === undefined)
+      ? '—' : Number(r.latest_band).toFixed(1);
+    return `<div class="av-perf__row" ${r.flag_level ? `data-level="${esc(r.flag_level)}"` : ''}>
+      <span class="av-perf__mark" aria-hidden="true"></span>
+      <span class="av-perf__who">
+        <span class="av-perf__name">${esc(r.name || r.student_code || '—')}</span>
+        <span class="av-perf__sub">${why}</span>
+      </span>
+      ${perfSpark(r.bands)}
+      <span class="av-perf__band" data-empty="${band === '—'}">${esc(band)}</span>
+    </div>`;
+  }).join('');
+
+  const need = items.filter((r) => r.flag_level).length;
+  const noAccount = items.filter((r) => !r.activated).length;
+  const bits = [];
+  bits.push(need ? `<strong>${need} em cần để mắt</strong>.` : 'Không em nào cần để mắt lúc này.');
+  if (noAccount) {
+    // Chưa kích hoạt thì CHƯA TỪNG thấy bài nào — nhắc các em ấy là nhắc nhầm người.
+    bits.push(`${noAccount} em chưa kích hoạt tài khoản nên chưa nhận được bài.`);
+  }
+  bits.push('Cột điểm là bài mới nhất; cột vạch là xu hướng, so với chính em ấy.');
+  $('perf-foot').innerHTML = bits.join(' ');
 }
 
 async function loadProgress() {
@@ -1345,6 +1744,10 @@ function showPanel(name) {
   if (name === 'progress' && !_progressLoaded) {
     _progressLoaded = true;
     loadProgress();
+    // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
+    // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
+    // biến mất theo.
+    loadSpeakingPerf();
   }
 }
 
@@ -1399,6 +1802,16 @@ function bindDetail() {
   $('hf-topic').addEventListener('change', loadQpick);
   $('hf-part').addEventListener('change', loadQpick);
   $('hf-qmode').addEventListener('change', loadQpick);
+
+  // Bài sau buổi học. Dải chọn loại là radio nên phải nghe trên VÙNG CHỨA:
+  // gắn vào từng input sẽ mất nếu sau này thêm một loại thứ ba.
+  document.querySelector('.av-kind')
+    .addEventListener('change', applyHomeworkKind);
+  $('hf-set').addEventListener('change', loadSetQuestions);
+  // Bộ quy hạn phải chạy theo CẢ hai ô: đổi giờ mà mốc hiện ra vẫn là giờ cũ
+  // thì nó đang nói dối về thứ sắp được lưu.
+  $('hf-due-days').addEventListener('input', renderDueResolve);
+  $('hf-due-time').addEventListener('input', renderDueResolve);
   // Uỷ quyền: danh sách được vẽ lại sau mỗi lần bấm, nên gắn tay từng nút sẽ
   // mất ngay ở lần vẽ kế tiếp.
   $('hf-qpick-list').addEventListener('click', (e) => {

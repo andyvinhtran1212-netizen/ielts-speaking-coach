@@ -172,3 +172,47 @@ def test_a_missing_kokoro_package_says_so_instead_of_switching_voice():
         builtins.__import__ = real_import
     assert "kokoro" in str(exc.value).lower()
     assert "pip install" in str(exc.value)
+
+
+# ── Bộ đề theo buổi: không có chủ đề chung để nêu ──────────────────────────────
+
+def test_a_question_with_no_topic_drops_the_lead_in_entirely():
+    """Bộ đề của một buổi rải khắp ăn sáng, sách, âm nhạc — không có một chủ đề
+    chung nào. Đọc tên bộ ("C3 · Buổi 1") vào chỗ ấy cho ra một câu vô nghĩa, nên
+    lời dẫn bị bỏ hẳn chứ không thay bằng thứ gì khác."""
+    s = mod.build_script(part=1, topic_title=None,
+                         question_text="When do you usually have breakfast")
+    assert s == "This is Part 1. Question: When do you usually have breakfast?"
+    assert "talk about" not in s
+
+
+def test_part_3_with_no_topic_also_drops_the_lead_in():
+    s = mod.build_script(part=3, topic_title=None, question_text="Why?")
+    assert s == "This is Part 3. Question: Why?"
+    assert "discuss" not in s
+
+
+def test_a_lesson_question_MAY_carry_its_own_topic():
+    """Giáo viên nêu chủ đề cho riêng câu đó thì lời dẫn quay lại đầy đủ — bỏ nó
+    là mất nhịp phòng thi, nên chỉ bỏ khi thật sự không có gì để nêu."""
+    s = mod.build_script(part=1, topic_title="Food",
+                         question_text="When do you usually have breakfast?")
+    assert s == "This is Part 1. Let's talk about food. Question: When do you usually have breakfast?"
+
+
+def test_none_and_empty_string_are_NOT_the_same_thing():
+    """Chuỗi rỗng vẫn cho ra "this topic" y như trước. Gộp nó vào None sẽ đổi băm
+    của những bản đọc ĐÃ render và làm mồ côi toàn bộ chúng trong Storage."""
+    assert mod.build_script(part=1, topic_title="", question_text="q?") == \
+        "This is Part 1. Let's talk about this topic. Question: q?"
+    assert mod.build_script(part=1, topic_title=None, question_text="q?") == \
+        "This is Part 1. Question: q?"
+
+
+def test_the_wording_of_ALREADY_RENDERED_scripts_is_frozen():
+    """Chốt chống trôi: 631 câu đã render, và đường lưu là BĂM của chính câu đọc.
+    Đổi một dấu cách ở đây là làm mồ côi cả 631 file, rồi render lại từ đầu."""
+    assert mod.build_script(part=1, topic_title="Hometown", question_text="Where do you live") == \
+        "This is Part 1. Let's talk about hometown. Question: Where do you live?"
+    assert mod.build_script(part=3, topic_title="Technology", question_text="Why") == \
+        "This is Part 3. Now let's discuss technology. Question: Why?"

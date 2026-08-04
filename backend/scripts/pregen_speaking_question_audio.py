@@ -47,6 +47,41 @@ def _all_rows(table: str, columns: str, apply_filters) -> list[dict]:
         start += _PAGE
 
 
+def _lesson_set_work(set_id: str | None, parts: list[int]) -> tuple[list[dict], int]:
+    """Câu cần render trong KHO THEO BUỔI, kèm số bộ đề đã quét.
+
+    Trả về cùng hình dạng với đường kho chung — mỗi câu mang sẵn `part` (vốn nằm
+    ở BỘ ĐỀ, không nằm ở câu) và `_title` là chủ đề để đọc.
+
+    `_title` có thể là None, và None ở đây KHÁC rỗng: nó bảo `build_script` bỏ
+    hẳn lời dẫn "Let's talk about …". Bộ đề một buổi rải khắp nhiều chủ đề nên
+    thường không có gì để nêu.
+    """
+    sets = {
+        s["id"]: s for s in _all_rows(
+            "speaking_lesson_sets", "id, title, part, is_active",
+            lambda q: q.eq("id", set_id) if set_id else q.eq("is_active", True),
+        )
+    }
+    sets = {k: v for k, v in sets.items() if v.get("part") in parts}
+    if not sets:
+        return [], 0
+
+    rows = _all_rows(
+        "speaking_lesson_set_questions",
+        "id, set_id, order_num, question_text, topic_label, audio_url, is_active",
+        lambda q: q.eq("is_active", True),
+    )
+    out = []
+    for r in rows:
+        s = sets.get(r["set_id"])
+        if not s:
+            continue
+        out.append({**r, "part": s["part"], "_title": r.get("topic_label") or None})
+    out.sort(key=lambda r: (r["set_id"], r.get("order_num") or 0))
+    return out, len(sets)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--commit", action="store_true",
@@ -56,12 +91,18 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="Chỉ xem, không ghi (đây cũng là mặc định).")
     ap.add_argument("--topic-id", help="Chỉ một chủ đề.")
+    ap.add_argument("--lesson-set", nargs="?", const="all", default=None,
+                    help="Render KHO THEO BUỔI thay vì kho chung. "
+                         "Nêu id để chỉ làm một bộ, bỏ trống để làm tất cả.")
     ap.add_argument("--part", type=int, choices=sqa.AUDIO_PARTS,
                     help="Chỉ một phần (mặc định: cả Part 1 và Part 3).")
     ap.add_argument("--limit", type=int, help="Dừng sau N câu — để thử giọng.")
     ap.add_argument("--regen", action="store_true",
                     help="Render lại cả câu ĐÃ có audio (đổi giọng/model).")
     args = ap.parse_args()
+
+    if args.lesson_set:
+        return _run_lesson_sets(args)
 
     topics = {
         t["id"]: t for t in _all_rows(
@@ -102,9 +143,21 @@ def main() -> int:
         logger.info("\nThêm --commit để render thật.")
         return 0
 
+    return _render_loop(questions, "topic_questions",
+                        lambda q: topics[q["topic_id"]]["title"])
+
+
+def _render_loop(questions: list[dict], table: str, title_of) -> int:
+    """Render rồi ghi con trỏ, cho MỘT bảng bất kỳ.
+
+    Hai kho dùng chung vòng lặp này vì phần khó của nó không phải là render mà là
+    cách chịu lỗi: một câu hỏng không được làm đổ cả mẻ, và audio phải nằm trong
+    bucket TRƯỚC khi bảng trỏ tới nó. Chép vòng lặp này ra bản thứ hai nghĩa là
+    sớm muộn một trong hai bản sẽ mất một trong hai tính chất đó.
+    """
     done = skipped = failed = 0
     for i, q in enumerate(questions, 1):
-        title = topics[q["topic_id"]]["title"]
+        title = title_of(q)
         try:
             res = sqa.render_question_audio(q, title)
         except Exception as exc:                       # noqa: BLE001
@@ -120,7 +173,7 @@ def main() -> int:
         else:
             skipped += 1
         try:
-            supabase_admin.table("topic_questions").update({
+            supabase_admin.table(table).update({
                 "audio_url":  res["audio_url"],
                 "audio_path": res["audio_path"],
             }).eq("id", q["id"]).execute()
@@ -136,6 +189,41 @@ def main() -> int:
     logger.info("\nXong: render mới %d | bỏ qua (đã có) %d | lỗi %d",
                 done, skipped, failed)
     return 1 if failed else 0
+
+
+def _run_lesson_sets(args) -> int:
+    """Đường chạy cho KHO THEO BUỔI. Cùng vòng lặp render, khác nguồn và khác
+    bảng ghi lại."""
+    parts = [args.part] if args.part else list(sqa.AUDIO_PARTS)
+    set_id = None if args.lesson_set == "all" else args.lesson_set
+    questions, n_sets = _lesson_set_work(set_id, parts)
+    if not n_sets:
+        logger.error("Không tìm thấy bộ đề nào (còn bật, đúng Part %s).",
+                     "/".join(map(str, parts)))
+        return 1
+
+    if not args.regen:
+        questions = [q for q in questions if not (q.get("audio_url") or "").strip()]
+    if args.limit:
+        questions = questions[: args.limit]
+
+    logger.info("Bộ đề: %d | câu cần render: %d | engine=%s giọng=%s",
+                n_sets, len(questions), sqa.ENGINE, sqa.VOICE)
+    if not questions:
+        logger.info("Không có gì để làm — cả kho đã có bản đọc.")
+        return 0
+
+    if args.dry_run or not args.commit:
+        logger.info("\n-- THỬ KHÔ, không ghi gì. Vài câu đọc mẫu: --")
+        for q in questions[:5]:
+            logger.info("  [P%s] %s", q["part"], sqa.build_script(
+                part=q["part"], topic_title=q["_title"],
+                question_text=q["question_text"]))
+        logger.info("\nThêm --commit để render thật.")
+        return 0
+
+    return _render_loop(questions, "speaking_lesson_set_questions",
+                        lambda q: q["_title"])
 
 
 if __name__ == "__main__":

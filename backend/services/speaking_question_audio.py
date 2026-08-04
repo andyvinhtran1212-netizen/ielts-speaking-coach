@@ -70,8 +70,21 @@ def _spoken_topic(title: str) -> str:
 _KEEP_CASE: set[str] = set()
 
 
-def build_script(*, part: int, topic_title: str, question_text: str) -> str:
+def build_script(*, part: int, topic_title: Optional[str] = None,
+                 question_text: str) -> str:
     """Câu đọc đầy đủ cho MỘT câu hỏi, theo khuôn phòng thi.
+
+    `topic_title=None` BỎ HẲN lời dẫn chủ đề:
+
+        This is Part 1. Question: When do you usually have breakfast?
+
+    Dùng cho bộ đề theo buổi, nơi 12 câu rải khắp ăn sáng, sách, âm nhạc — không
+    có một chủ đề chung nào để nêu. Bỏ lời dẫn là mất một chút nhịp phòng thi;
+    đọc một lời dẫn SAI thì học viên nghe "let's talk about buổi một" và không
+    hiểu nổi đang bị hỏi gì. Cái sau tệ hơn nhiều.
+
+    None và "" KHÁC nhau ở đây, và cố ý: "" vẫn cho ra "…about this topic" như
+    trước, vì đổi nó sẽ đổi băm của mọi bản đọc đã render.
 
     Raises ValueError for Part 2: that part is a cue card, and reading it aloud
     removes the reading-and-planning the part exists to test.
@@ -88,6 +101,8 @@ def build_script(*, part: int, topic_title: str, question_text: str) -> str:
     # the voice runs the last word flat into silence.
     if q[-1] not in ".?!":
         q += "?"
+    if topic_title is None:
+        return f"This is Part {part}. Question: {q}"
     lead_in = "Let's talk about" if part == 1 else "Now let's discuss"
     return (
         f"This is Part {part}. "
@@ -111,7 +126,7 @@ def script_fingerprint(script: str) -> str:
 
 def render_question_audio(
     question: Dict[str, Any],
-    topic_title: str,
+    topic_title: Optional[str] = None,
     *,
     engine: str = ENGINE,
     voice: str = VOICE,

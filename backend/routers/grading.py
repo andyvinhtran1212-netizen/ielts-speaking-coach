@@ -39,6 +39,7 @@ from services import azure_pronunciation
 from services import ai_usage_logger
 from services import kp_evidence
 from services.pronunciation_sampling import _part2_segment, extract_audio_segment
+from services import speaking_progress
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
 from services.grading_telemetry import log_fallback_events
@@ -1046,6 +1047,16 @@ async def grade_response_endpoint(
                                  "response_id": response_id,
                                  "rec_id": _rec.get("rec_id")})
 
+        # ── STEP 8b2: Dấu mốc tiến bộ BỀN ────────────────────────────────────
+        # Rút bản tóm nhỏ NGAY BÂY GIỜ, lúc bản chép và bản đánh giá phát âm còn
+        # tồn tại. jobs/retention_sweep.py dọn chúng ở mốc 60 ngày, và sau đó
+        # không có cách nào tính lại tốc độ nói hay âm vị yếu.
+        #
+        # Best-effort, nuốt mọi lỗi: một dấu mốc hỏng KHÔNG được làm hỏng việc
+        # chấm bài — học viên đã nói xong rồi, và bài chấm mới là thứ các em chờ.
+        if response_id:
+            _record_progress_mark(response_id, session_id, user_id)
+
         # ── STEP 8c: (removed) automatic vocab discovery ─────────────────────
         # The post-Speaking vocab auto-extraction fed the My Vocabulary + Needs
         # Review surfaces, which have been removed. Discovery is turned off — no
@@ -1290,6 +1301,43 @@ def _serialize_feedback(grading: dict, signals: dict) -> str:
     invariant (every grammar rec in the blob carries its rec_id) is
     unit-testable without a DB."""
     return json.dumps({**grading, **signals}, ensure_ascii=False)
+
+
+def _record_progress_mark(response_id: str, session_id: str, user_id: str) -> None:
+    """Ghi một dấu mốc tiến bộ cho câu vừa chấm. Không bao giờ ném ra ngoài.
+
+    Đọc lại từ DB chứ không dùng biến trong tay: `overall_band`, `final_band_p`
+    và `score_confidence` được ghi ở nhiều bước khác nhau của hàm chấm, nên dựng
+    dấu mốc từ những biến rời sẽ chụp lại một trạng thái NỬA CHỪNG. Một lượt đọc
+    thêm là cái giá rẻ cho việc con số trong sổ tiến bộ khớp với con số học viên
+    nhìn thấy.
+    """
+    try:
+        rows = (supabase_admin.table("responses").select(
+            "id, session_id, overall_band, final_band_p, duration_seconds, "
+            "transcript, pronunciation_payload, score_confidence, recorded_at")
+            .eq("id", response_id).limit(1).execute().data) or []
+        if not rows:
+            return
+        srows = (supabase_admin.table("sessions").select(
+            "id, user_id, part, started_at, class_assignment_item_id")
+            .eq("id", session_id).limit(1).execute().data) or []
+        recs = (supabase_admin.table("grammar_recommendations")
+                .select("response_id, recommended_slug")
+                .eq("response_id", response_id).execute().data) or []
+
+        mark = speaking_progress.build_mark(
+            response=rows[0], session=(srows[0] if srows else {"user_id": user_id}),
+            recommendations=recs)
+        if mark is None:
+            return
+        supabase_admin.table("speaking_progress_marks") \
+            .upsert(mark, on_conflict="response_id").execute()
+    except Exception as exc:                           # noqa: BLE001
+        # Chưa chạy mig 185 thì bảng chưa tồn tại — đó là trạng thái hợp lệ, và
+        # script chạy bù sẽ dựng lại toàn bộ về sau.
+        logger.warning("[grading] progress mark failed response=%s: %s",
+                       response_id, exc)
 
 
 def _save_grammar_recommendations(

@@ -20,17 +20,19 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
+from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
 from services.class_assignment_service import (
+    CLASS_TZ,
     EmptyRosterError,
     create_class_assignment,
     _ID_CHUNK,
@@ -70,6 +72,12 @@ _SPEAKING_MODES = ("practice", "test_part")
 _TEST_SKILLS = {"reading": "reading_tests", "listening": "listening_tests"}
 
 
+# Hạn của bài sau buổi học tính bằng NGÀY. Trần 90 ngày: quá đó thì "bài tập của
+# buổi" đã thành một thứ khác, và một số gõ nhầm (700 thay vì 7) sẽ tạo ra bài
+# giao không bao giờ trễ — tức là bảng tổng kết vĩnh viễn không có ai "chưa nộp".
+_MAX_DUE_DAYS = 90
+
+
 class AssignmentCreate(BaseModel):
     """Speaking (a topic + mode) or Reading/Listening (a published paper).
 
@@ -77,6 +85,11 @@ class AssignmentCreate(BaseModel):
     matter is decided by `skill`.
     """
     skill:        Literal["speaking", "reading", "listening"] = "speaking"
+    # 'daily'  — bài hằng ngày: đề từ kho chung, hạn là một mốc trong ngày.
+    # 'lesson' — bài sau buổi học: đề từ kho theo buổi, hạn tính bằng số ngày.
+    kind:         Literal["daily", "lesson"] = "daily"
+    # Chỉ dùng cho kind='lesson'. Hạn = ngày giao + N ngày, tại `due_time`.
+    due_days:     Optional[int] = Field(default=None, ge=1, le=_MAX_DUE_DAYS)
     title:        str = Field(min_length=1, max_length=300)
     # Speaking: `content_id` is now a TOPIC from the library (mig 002), not a
     # free-text subject. `topic` survives only as the display label the admin
@@ -101,7 +114,42 @@ class AssignmentCreate(BaseModel):
     lesson_id:    Optional[str] = None
 
     @model_validator(mode="after")
+    def _check_kind(self):
+        """Loại bài quyết định cách nhập HẠN, và hai cách không trộn được.
+
+        Bài hằng ngày có một MỐC (giao sáng, hạn 7h tối cùng ngày). Bài sau buổi
+        học có một KHOẢNG ("nộp trong 7 ngày"). Nhận cả hai cùng lúc thì phải
+        chọn hộ người dùng cái nào thắng — và dù chọn thế nào cũng có một nửa số
+        admin bị đặt sai hạn mà không biết.
+        """
+        if self.kind == "lesson":
+            if self.skill != "speaking":
+                raise ValueError(
+                    "Bài sau buổi học hiện chỉ có cho Speaking. "
+                    "Reading/Listening vẫn giao theo ngày.")
+            if not self.due_days:
+                raise ValueError("Bài sau buổi học cần số ngày được nộp.")
+            if self.due_date:
+                raise ValueError(
+                    "Bài sau buổi học đặt hạn bằng SỐ NGÀY, không phải một ngày "
+                    "cụ thể. Bỏ trống ngày hạn đi.")
+        elif self.due_days:
+            raise ValueError(
+                "Số ngày chỉ dùng cho bài sau buổi học. Bài hằng ngày đặt hạn "
+                "bằng ngày + giờ.")
+        return self
+
+    @model_validator(mode="after")
     def _check_shape(self):
+        if self.kind == "lesson":
+            # Đề của bài theo buổi là một BỘ ĐỀ, không phải chủ đề — và số câu do
+            # bộ quyết, nên `part` ở payload không có nghĩa gì. Kiểm ở
+            # `_resolve_speaking_lesson_set`.
+            if not (self.content_id or "").strip():
+                raise ValueError("Bài sau buổi học cần chọn một bộ đề của buổi.")
+            if self.mode not in _SPEAKING_MODES:
+                raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
+            return self
         if self.skill == "speaking":
             # SHAPE of the task first, then WHICH task. An admin who picked Full
             # Test needs to hear why that shape is refused — telling them to pick
@@ -374,6 +422,270 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
     }
 
 
+# ── Bài sau buổi học: kho đề theo buổi ───────────────────────────────────────
+
+_SET_COLS = "id, course_id, lesson_no, part, title, description, is_active"
+_SET_Q_COLS = ("id, set_id, order_num, question_text, question_type, level, "
+               "topic_label, audio_url, audio_path, cue_card_bullets, "
+               "cue_card_reflection")
+
+
+def _due_date_from_days(days: int) -> str:
+    """N ngày → NGÀY hạn (ISO), tính theo hôm nay GIỜ VIỆT NAM.
+
+    Ngày được chốt Ở ĐÂY rồi ghép với giờ hạn thành một MỐC TUYỆT ĐỐI — không
+    lưu "còn N ngày" rồi đếm lúc đọc. Đếm lúc đọc sẽ làm hạn trôi theo thời điểm
+    học viên mở bài, nên hai em cùng một bài giao có hai hạn khác nhau.
+
+    `date.today()` của máy chủ là ngày UTC. Với người dùng UTC+7, từ 0h tới 7h
+    sáng nó vẫn là hôm qua — nên "nộp trong 7 ngày" giao lúc 6h sáng sẽ ra hạn
+    sớm hơn một ngày. Lỗi này vô hình với CI chạy ở UTC.
+    """
+    today = datetime.now(CLASS_TZ).date()
+    return (today + timedelta(days=days)).isoformat()
+
+
+def _cohort_course_id(cohort_id: str) -> str:
+    """Khoá mà lớp này thuộc về.
+
+    Lớp chưa gắn khoá thì KHÔNG trả danh sách rỗng: rỗng đọc như "khoá này chưa
+    ai soạn đề", còn sự thật là "lớp này chưa được gắn vào khoá nào" — hai việc
+    khác hẳn, và chỉ một trong hai admin sửa được ngay. (Trên prod hiện vẫn còn
+    lớp có `course_id` NULL.)
+    """
+    rows = (supabase_admin.table("cohorts").select("id, name, course_id")
+            .eq("id", cohort_id).limit(1).execute().data) or []
+    course_id = (rows[0].get("course_id") if rows else None)
+    if not course_id:
+        raise HTTPException(
+            400,
+            "Lớp này chưa được gắn vào khoá nào, nên chưa có kho đề theo buổi. "
+            "Hãy gắn lớp vào một khoá trước.")
+    return course_id
+
+
+def _lesson_set_questions(set_id: str, part: int) -> list[dict]:
+    """Câu còn bật của một bộ, mỗi câu MANG SẴN `part`.
+
+    `part` nằm ở bộ đề chứ không ở câu, nhưng mọi thứ phía sau — dựng câu đọc,
+    đối chiếu băm audio, bản chụp đề — đều đọc `q["part"]`. Bơm vào ở ĐÂY, một
+    chỗ, thay vì bắt từng nơi dùng tự nhớ.
+    """
+    rows = (supabase_admin.table("speaking_lesson_set_questions")
+            .select(_SET_Q_COLS).eq("set_id", set_id).eq("is_active", True)
+            .order("order_num").execute().data) or []
+    return [{**r, "part": part} for r in rows]
+
+
+def _set_question_ready(q: dict) -> bool:
+    """Câu này giao được chưa — CÙNG LUẬT với kho chung.
+
+    Dùng lại `_audio_matches` chứ không viết bản thứ hai: luật ở đây không phải
+    "có audio chưa" mà "bản đọc có đúng là bản đọc của LỜI HIỆN TẠI không", và
+    hai bản chép của cùng một luật sẽ trôi khỏi nhau.
+
+    Chủ đề để dựng câu đọc là `topic_label` của RIÊNG câu đó, có thể là None.
+    """
+    if q.get("part") not in sqa.AUDIO_PARTS:
+        return True                    # Part 2 là cue card, không cần audio
+    return _audio_matches(q, q.get("topic_label") or None)
+
+
+def _resolve_speaking_lesson_set(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
+    """Chọn bộ đề của một buổi + chốt sẵn câu hỏi ngay lúc giao.
+
+    Cùng hình dạng trả về với `_resolve_speaking_topic`, nên mọi thứ phía sau —
+    sổ cái, bảng tổng kết, phiếu làm bài, chốt che chữ — không phải phân biệt hai
+    loại. Khác nhau chỉ ở NGUỒN đề và ở chỗ SỐ CÂU do bộ quyết chứ không cố định.
+    """
+    course_id = _cohort_course_id(cohort_id)
+
+    rows = (supabase_admin.table("speaking_lesson_sets").select(_SET_COLS)
+            .eq("id", body.content_id).limit(1).execute().data) or []
+    if not rows:
+        raise HTTPException(404, "Không tìm thấy bộ đề này.")
+    st = rows[0]
+    if not st.get("is_active"):
+        raise HTTPException(400, "Bộ đề này đã tắt — hãy bật lại trước khi giao.")
+    if st.get("course_id") != course_id:
+        # Bộ đề thuộc về KHOÁ. Giao bộ của khoá khác nghĩa là giao nội dung lớp
+        # này chưa học — và nó lọt được vào đây vì id đến từ trình duyệt.
+        raise HTTPException(
+            400, "Bộ đề này thuộc một khoá khác, không giao cho lớp này được.")
+
+    dup = (supabase_admin.table("class_assignments").select("id, title")
+           .eq("cohort_id", cohort_id).eq("skill", "speaking")
+           .eq("content_id", body.content_id).limit(1).execute().data) or []
+    if dup:
+        raise HTTPException(
+            409,
+            f"Lớp này đã được giao bộ đề \"{st['title']}\" rồi "
+            f"(bài giao \"{dup[0].get('title')}\"). Chọn buổi khác để học viên "
+            f"không phải trả lời lại đúng câu đã làm.")
+
+    part = st["part"]
+    qs = _lesson_set_questions(body.content_id, part)
+    if not qs:
+        raise HTTPException(400, "Bộ đề này chưa có câu hỏi nào.")
+
+    eligible = [q for q in qs if _set_question_ready(q)]
+    if body.question_ids:
+        chosen = _pick_set_questions(body, eligible, qs)
+    else:
+        # MẶC ĐỊNH LÀ CẢ BỘ. Bộ đề được soạn cho một buổi cụ thể, nên bốc ngẫu
+        # nhiên trong đó là bỏ đi chính việc người soạn đã làm.
+        if len(eligible) < len(qs):
+            missing = len(qs) - len(eligible)
+            raise HTTPException(
+                400,
+                f"Bộ đề có {len(qs)} câu nhưng {missing} câu chưa có bản đọc khớp "
+                f"lời hiện tại. Hãy chạy mẻ tạo audio rồi giao lại.")
+        chosen = eligible
+
+    return body.content_id, {
+        "topic":        st["title"],          # nhãn hiển thị
+        "mode":         body.mode,
+        "part":         part,
+        "lesson_no":    st["lesson_no"],
+        "question_ids": [q["id"] for q in chosen],
+        # CHỤP NỘI DUNG, KHÔNG CHỈ ID — cùng lý do với kho chung: sửa bộ đề sau
+        # khi giao sẽ khiến em mở TRƯỚC và em mở SAU nhận nội dung khác nhau dưới
+        # cùng một bài giao.
+        "questions": [{
+            "id":                  q["id"],
+            "part":                part,
+            "question_text":       q.get("question_text"),
+            "question_type":       q.get("question_type"),
+            "audio_url":           q.get("audio_url"),
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
+        } for q in chosen],
+    }
+
+
+def _pick_set_questions(body: "AssignmentCreate", eligible: list, qs: list) -> list:
+    """Giáo viên bớt câu khỏi bộ — kiểm rồi mới nhận.
+
+    Khác kho chung ở một chỗ: không có SỐ CÂU cố định để đối chiếu, vì bộ đề dài
+    ngắn tuỳ buổi. Nên chỉ đòi "ít nhất một câu, và mọi câu đều thuộc bộ này".
+    """
+    ids = list(dict.fromkeys(body.question_ids or []))
+    if len(ids) != len(body.question_ids or []):
+        raise HTTPException(400, "Có câu bị chọn hai lần.")
+    if not ids:
+        raise HTTPException(400, "Hãy chọn ít nhất một câu.")
+
+    in_set = {q["id"]: q for q in qs}
+    if [i for i in ids if i not in in_set]:
+        raise HTTPException(400, "Có câu không thuộc bộ đề này (hoặc đã bị tắt).")
+
+    ok = {q["id"] for q in eligible}
+    no_audio = [i for i in ids if i not in ok]
+    if no_audio:
+        raise HTTPException(
+            400,
+            f"{len(no_audio)} câu bạn chọn chưa có bản đọc đề khớp với lời hiện "
+            f"tại. Hãy chạy lại mẻ tạo audio rồi chọn lại.")
+
+    # Theo THỨ TỰ TRONG BỘ, không theo thứ tự bấm chuột: người soạn đã sắp mạch
+    # từ dễ tới khó, và một cú bấm lộn không nên đảo mạch ấy.
+    return [in_set[i] for i in sorted(ids, key=lambda i: in_set[i].get("order_num") or 0)]
+
+
+@router.get("/{cohort_id}/speaking-lesson-sets")
+async def list_speaking_lesson_sets(
+    cohort_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Bộ đề theo buổi của khoá mà lớp này thuộc về.
+
+    Trả CẢ bộ không giao được kèm lý do, đúng như danh sách chủ đề: `already_given`
+    là việc đã xong, `ready: false` là việc CHƯA làm (chạy mẻ render).
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    course_id = _cohort_course_id(cohort_id)
+
+    sets = (supabase_admin.table("speaking_lesson_sets").select(_SET_COLS)
+            .eq("course_id", course_id).eq("is_active", True)
+            .order("lesson_no").execute().data) or []
+    if not sets:
+        return {"items": []}
+
+    given = {
+        r["content_id"] for r in (
+            supabase_admin.table("class_assignments").select("content_id")
+            .eq("cohort_id", cohort_id).eq("skill", "speaking")
+            .execute().data or []
+        ) if r.get("content_id")
+    }
+
+    part_of = {s["id"]: s["part"] for s in sets}
+    by_set: dict[str, list] = {}
+    ids = [s["id"] for s in sets]
+    for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+        for q in (supabase_admin.table("speaking_lesson_set_questions")
+                  .select(_SET_Q_COLS).in_("set_id", chunk).eq("is_active", True)
+                  .order("order_num").execute().data or []):
+            by_set.setdefault(q["set_id"], []).append(
+                {**q, "part": part_of.get(q["set_id"])})
+
+    items = []
+    for s in sets:
+        rows = by_set.get(s["id"], [])
+        ready_n = sum(1 for q in rows if _set_question_ready(q))
+        items.append({
+            "id":             s["id"],
+            "lesson_no":      s["lesson_no"],
+            "part":           s["part"],
+            "title":          s["title"],
+            "description":    s.get("description"),
+            "question_count": len(rows),
+            "already_given":  s["id"] in given,
+            # CẢ BỘ phải sẵn sàng: mặc định là giao trọn bộ, nên thiếu một câu là
+            # chưa giao được. Nói ra số câu còn thiếu để admin biết việc còn bao xa.
+            "ready":          bool(rows) and ready_n == len(rows),
+            "missing_audio":  len(rows) - ready_n,
+        })
+    return {"items": items}
+
+
+@router.get("/{cohort_id}/speaking-lesson-sets/{set_id}/questions")
+async def list_lesson_set_questions(
+    cohort_id: str,
+    set_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Câu trong một bộ, để giáo viên xem và nghe thử trước khi giao."""
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    course_id = _cohort_course_id(cohort_id)
+
+    rows = (supabase_admin.table("speaking_lesson_sets").select(_SET_COLS)
+            .eq("id", set_id).limit(1).execute().data) or []
+    if not rows or rows[0].get("course_id") != course_id:
+        raise HTTPException(404, "Không tìm thấy bộ đề này trong khoá của lớp.")
+    st = rows[0]
+
+    qs = _lesson_set_questions(set_id, st["part"])
+    return {
+        "set": {"id": st["id"], "lesson_no": st["lesson_no"], "part": st["part"],
+                "title": st["title"], "description": st.get("description")},
+        "items": [{
+            "id":            q["id"],
+            "order_num":     q.get("order_num"),
+            "question_text": q.get("question_text"),
+            "question_type": q.get("question_type"),
+            "level":         q.get("level"),
+            "topic_label":   q.get("topic_label"),
+            # Đường nghe thử. Admin ĐƯỢC xem chữ — chốt che chữ áp cho học viên,
+            # còn người giao bài phải biết mình đang giao gì.
+            "audio_url":     q.get("audio_url"),
+            "ready":         _set_question_ready(q),
+        } for q in qs],
+    }
+
+
 @router.get("/{cohort_id}/speaking-topics")
 async def list_speaking_topics(
     cohort_id: str,
@@ -528,6 +840,41 @@ async def list_topic_questions(
     }
 
 
+def _response_flags_for(items: list[dict]) -> dict[str, list]:
+    """Cờ kỹ thuật cho từng phiên, gom về theo `artifact_id`.
+
+    MỘT lượt đọc cho cả lớp, không phải một lượt cho mỗi học viên: một lớp 40 em
+    sẽ thành 40 request và bảng tổng kết mở mất vài giây.
+
+    Chỉ đọc phiên của những mục ĐÃ NỘP. Mục chưa nộp không có gì để gắn cờ, và
+    `artifact_id` của chúng thường là None.
+    """
+    sids = list({
+        it["artifact_id"] for it in items
+        if it.get("artifact_id") and (it.get("artifact_kind") or "session") == "session"
+        and it.get("submitted_at")
+    })
+    if not sids:
+        return {}
+
+    rows: list[dict] = []
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        rows.extend(_paged(
+            supabase_admin, "responses",
+            "id, session_id, overall_band, duration_seconds, transcript, "
+            "grading_status, score_confidence",
+            lambda q, c=chunk: q.in_("session_id", c),
+        ))
+
+    out: dict[str, list] = {}
+    for r in rows:
+        # `submitted=True`: những phiên này thuộc mục ĐÃ NỘP, nên "chưa có điểm"
+        # ở đây là chấm hỏng chứ không phải bài đang làm dở.
+        for f in speaking_flags.flag_response({**r, "submitted": True}):
+            out.setdefault(r["session_id"], []).append(f)
+    return out
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -569,7 +916,7 @@ async def assignment_tally(
 
     items = _paged(
         supabase_admin, "class_assignment_items",
-        "id, student_id, submitted_at, score, state",
+        "id, student_id, submitted_at, score, state, artifact_kind, artifact_id",
         lambda q: q.eq("assignment_id", assignment_id),
     )
     # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
@@ -589,6 +936,8 @@ async def assignment_tally(
     now = datetime.now(timezone.utc)
     sealed = bool(due and now > due)
 
+    flags_by_session = _response_flags_for(items) if assignment.get("skill") == "speaking" else {}
+
     out = []
     for it in items:
         s = students.get(it["student_id"]) or {}
@@ -601,6 +950,7 @@ async def assignment_tally(
             status_ = "late" if (due and submitted_at > due) else "submitted"
         else:
             status_ = "missing" if sealed else "pending"
+        flags = flags_by_session.get(it.get("artifact_id")) or []
         out.append({
             "student_id":   it["student_id"],
             "name":         s.get("full_name") or "",
@@ -608,6 +958,11 @@ async def assignment_tally(
             "status":       status_,
             "submitted_at": it.get("submitted_at"),
             "score":        it.get("score"),
+            # Cờ đi KÈM DÒNG, không nằm ở một bảng thứ hai: giáo viên đang đọc
+            # danh sách này để biết ai cần mình, nên "bài của em này có vấn đề"
+            # phải nằm ngay cạnh tên em ấy.
+            "flags":        flags,
+            "flag_level":   speaking_flags.worst(flags),
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
@@ -626,11 +981,146 @@ async def assignment_tally(
             "late":      sum(1 for r in out if r["status"] == "late"),
             "missing":   sum(1 for r in out if r["status"] == "missing"),
             "no_account": sum(1 for r in out if r["status"] == "no-account"),
+            # Đếm riêng, KHÔNG cộng vào "đã nộp": một bài nộp rồi mà chấm hỏng
+            # vẫn là đã nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa
+            # làm bài, trong khi lỗi nằm ở phía hệ thống.
+            "flagged":   sum(1 for r in out if r["flags"]),
         },
     }
     if stale:
         result["homework_stale"] = True
     return result
+
+
+@router.get("/{cohort_id}/speaking-performance")
+async def speaking_performance(
+    cohort_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Học viên nào đang khá lên, ai đang đuối — trải CẢ hai loại bài Speaking.
+
+    Một bảng, không phải hai. Bài hằng ngày và bài sau buổi học khác nhau ở
+    nguồn đề và cách đặt hạn; còn "em này đang tiến bộ hay tụt" thì không có lý
+    do gì để trả lời riêng cho từng loại. Tách ra sẽ giấu mất đúng cái so sánh
+    quan trọng nhất.
+
+    SO VỚI CHÍNH EM ẤY, không so với lớp. Một em band 5.0 đều đặn không có vấn
+    đề gì; một em từ 7.0 tụt xuống 6.0 thì có — dù em thứ hai vẫn cao hơn. Xếp
+    hạng trong lớp trả lời một câu hỏi khác, và ở đây nó sẽ chôn mất em thứ hai.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    assignments = _paged(
+        supabase_admin, "class_assignments",
+        "id, title, kind, status, due_at, created_at",
+        lambda q: q.eq("cohort_id", cohort_id).eq("skill", "speaking"),
+    )
+    if not assignments:
+        return {"items": [], "assignment_count": 0}
+
+    # Cũ → mới. Nhịp học là một chuỗi thời gian, nên mọi thứ dưới đây phụ thuộc
+    # vào thứ tự này đúng.
+    assignments.sort(key=lambda a: (a.get("due_at") or a.get("created_at") or ""))
+    order = {a["id"]: i for i, a in enumerate(assignments)}
+    due_of = {a["id"]: _at(a.get("due_at")) for a in assignments}
+    # Bài đã LƯU TRỮ không đếm vào "trễ / bỏ bài".
+    #
+    # Lưu trữ là cách đóng một bài giao khi xoá đã bị chặn (đã có người nộp) —
+    # giao nhầm, đổi kế hoạch, lớp nghỉ. Đếm những em còn lại là "bỏ bài" ở đó là
+    # trách các em vì một quyết định của giáo viên, và đủ hai lần như vậy thì cờ
+    # "đang đuối" nổ oan.
+    #
+    # Nhưng bài ĐÃ NỘP trong một bài giao đã lưu trữ vẫn là việc thật các em đã
+    # làm, nên ĐIỂM vẫn được tính. Chỉ bỏ phần trạng thái trễ/thiếu.
+    archived = {a["id"] for a in assignments if (a.get("status") or "") == "archived"}
+
+    aids = [a["id"] for a in assignments]
+    items: list[dict] = []
+    for chunk in (aids[i:i + _ID_CHUNK] for i in range(0, len(aids), _ID_CHUNK)):
+        items.extend(_paged(
+            supabase_admin, "class_assignment_items",
+            "id, assignment_id, student_id, submitted_at, score, artifact_id, artifact_kind",
+            lambda q, c=chunk: q.in_("assignment_id", c),
+        ))
+    if not items:
+        return {"items": [], "assignment_count": len(assignments)}
+
+    sids = list({i["student_id"] for i in items if i.get("student_id")})
+    students: dict = {}
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        for s in _paged(supabase_admin, "students",
+                        "id, full_name, student_code, user_id",
+                        lambda q, c=chunk: q.in_("id", c)):
+            students[s["id"]] = s
+
+    flags_by_session = _response_flags_for(items)
+
+    now = datetime.now(timezone.utc)
+    by_student: dict = {}
+    for it in items:
+        by_student.setdefault(it["student_id"], []).append(it)
+
+    out = []
+    for sid, rows in by_student.items():
+        s = students.get(sid) or {}
+        rows.sort(key=lambda r: order.get(r["assignment_id"], 0))
+
+        bands, states, broken = [], [], []
+        for r in rows:
+            due = due_of.get(r["assignment_id"])
+            sub = _at(r.get("submitted_at"))
+            if sub:
+                late = bool(due and sub > due) and r["assignment_id"] not in archived
+                states.append("late" if late else "submitted")
+                if r.get("score") is not None:
+                    bands.append(float(r["score"]))
+            elif r["assignment_id"] in archived:
+                states.append("pending")     # xem ghi chú `archived` ở trên
+            elif due and now > due:
+                states.append("missing")
+            else:
+                # Chưa tới hạn thì CHƯA phải là bỏ bài. Đếm nó vào sẽ gắn cờ cho
+                # cả những em đang còn thời gian làm.
+                states.append("pending")
+            broken.extend(flags_by_session.get(r.get("artifact_id")) or [])
+
+        # Cờ sư phạm không áp cho em chưa kích hoạt tài khoản: em ấy CHƯA TỪNG
+        # thấy bài nào, nên "bỏ bài" là nói sai về em.
+        person = (speaking_flags.flag_student(
+            submitted_bands=bands,
+            recent_states=[st for st in states if st != "pending"])
+            if s.get("user_id") else [])
+
+        # Hai họ cờ GIỮ RIÊNG. Một bên là "sửa dữ liệu", một bên là "nhắn cho
+        # em ấy" — gộp lại thì đọc xong không biết làm gì.
+        all_flags = person + broken
+        out.append({
+            "student_id":   sid,
+            "name":         s.get("full_name") or "",
+            "student_code": s.get("student_code"),
+            "activated":    bool(s.get("user_id")),
+            "assigned":     len(rows),
+            "submitted":    sum(1 for st in states if st in ("submitted", "late")),
+            "late":         sum(1 for st in states if st == "late"),
+            "missing":      sum(1 for st in states if st == "missing"),
+            "bands":        bands,
+            "latest_band":  bands[-1] if bands else None,
+            "avg_band":     round(sum(bands) / len(bands), 2) if bands else None,
+            "student_flags": person,
+            "work_flags":    broken,
+            "flag_level":    speaking_flags.worst(all_flags),
+        })
+
+    # Ai cần chú ý lên đầu — đây là danh sách việc, không phải bảng xếp hạng.
+    _LEVEL = {"high": 0, "medium": 1, None: 2}
+    out.sort(key=lambda r: (_LEVEL.get(r["flag_level"], 2),
+                            -(r["missing"] + r["late"]), r["name"].lower()))
+    return {
+        "items": out,
+        "assignment_count": len(assignments),
+        "kinds": sorted({(a.get("kind") or "daily") for a in assignments}),
+    }
 
 
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
@@ -649,7 +1139,11 @@ async def create_assignment(
     _require_cohort(cohort_id)
 
     content_id = None
-    if body.skill == "speaking":
+    due_date = body.due_date
+    if body.kind == "lesson":
+        content_id, content_config = _resolve_speaking_lesson_set(cohort_id, body)
+        due_date = _due_date_from_days(body.due_days)
+    elif body.skill == "speaking":
         content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     else:
         # The paper must exist and be published before it is given: assigning an
@@ -700,9 +1194,10 @@ async def create_assignment(
             lesson_id=body.lesson_id,
             content_id=content_id,
             content_config=content_config,
-            due_date=body.due_date,
+            due_date=due_date,
             due_time=parse_due_time(body.due_time),
             instructions=body.instructions,
+            kind=body.kind,
         )
     except EmptyRosterError as exc:
         # Raised BEFORE anything is inserted, so no orphan give is left behind.

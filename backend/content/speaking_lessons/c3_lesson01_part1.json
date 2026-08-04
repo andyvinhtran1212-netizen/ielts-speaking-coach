@@ -1,0 +1,38 @@
+{
+  "_note": [
+    "Bộ đề Speaking Part 1 cho Buổi 1, Khóa C3 (Khóa kỹ năng nâng cao cho bài thi IELTS).",
+    "Nạp bằng: python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson01_part1.json --commit",
+    "",
+    "order_num đánh lại 1..12 theo đúng thứ tự đề gốc. Danh sách nguồn đánh số",
+    "1,2,5,6,7,9,10,11,12,13,14,15 (có khoảng trống) — giữ nguyên khoảng trống sẽ",
+    "hiện lên phiếu làm bài thành 'Câu 1, Câu 2, Câu 5' và học viên tưởng mình bị",
+    "thiếu bài.",
+    "",
+    "topic_label để trống CÓ CHỦ ĐÍCH ở bộ này. Trong phòng thi thật, giám khảo nêu",
+    "MỘT chủ đề rồi hỏi 3-4 câu quanh nó; xướng một chủ đề mới trước từng câu nghe",
+    "còn kém giống bài thi hơn là không xướng gì. Bộ này là bài luyện rải chủ đề,",
+    "nên câu đọc rút gọn: 'This is Part 1. Question: ...'.",
+    "",
+    "question_type dùng đúng bảng phân loại sẵn có, và `level` suy ra từ chính bảng",
+    "ánh xạ trong scripts/label_speaking_question_levels.py — không chấm cảm tính."
+  ],
+  "course_code": "C3",
+  "lesson_no": 1,
+  "part": 1,
+  "title": "Buổi 1 — Thói quen, con người và dự định",
+  "description": "12 câu Part 1 rải từ thói quen hằng ngày sang sở thích, con người và kế hoạch. Phần lớn là câu nhớ-lại (dễ); ba câu cuối đòi nêu lý do hoặc dự đoán xa.",
+  "questions": [
+    { "order_num": 1,  "question_text": "When do you usually have breakfast?",                  "question_type": "time" },
+    { "order_num": 2,  "question_text": "How often do you read books?",                          "question_type": "personal" },
+    { "order_num": 3,  "question_text": "Where do you usually go on weekends?",                  "question_type": "place" },
+    { "order_num": 4,  "question_text": "Who do you spend the most time with?",                  "question_type": "personal" },
+    { "order_num": 5,  "question_text": "What kind of people do you enjoy working with?",        "question_type": "opinion" },
+    { "order_num": 6,  "question_text": "Do you prefer tea or coffee?",                          "question_type": "personal" },
+    { "order_num": 7,  "question_text": "What's your favourite kind of music?",                  "question_type": "personal" },
+    { "order_num": 8,  "question_text": "Are you planning to take a holiday this year?",         "question_type": "personal" },
+    { "order_num": 9,  "question_text": "What are your plans for next weekend?",                 "question_type": "personal" },
+    { "order_num": 10, "question_text": "Do you think you will live in the same city in 10 years?", "question_type": "prediction" },
+    { "order_num": 11, "question_text": "What do you want to achieve in the next year?",         "question_type": "opinion" },
+    { "order_num": 12, "question_text": "What is your hobby and why did you choose that hobby?", "question_type": "opinion" }
+  ]
+}

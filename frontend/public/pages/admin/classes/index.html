@@ -391,6 +391,18 @@
         </div>
         <div class="adm-banner" id="progress-degraded" hidden></div>
 
+        <!-- Hiệu suất Speaking, trải CẢ hai loại bài (hằng ngày + sau buổi học).
+             Đứng TRƯỚC bảng bốn kỹ năng vì đây là danh sách VIỆC CẦN LÀM: ai cần
+             giáo viên để mắt. Bảng bốn kỹ năng bên dưới là bảng tra cứu. -->
+        <div class="av-perf" id="speaking-perf" hidden>
+          <div class="av-perf__head">
+            <h3>Speaking — ai cần để mắt</h3>
+            <span class="av-perf__scope" id="perf-scope"></span>
+          </div>
+          <div class="av-perf__rows" id="perf-rows"></div>
+          <p class="av-perf__foot" id="perf-foot"></p>
+        </div>
+
         <div class="adm-table-wrap" id="progress-table-wrap" hidden>
           <table class="adm-table">
             <thead>
@@ -640,7 +652,21 @@
     <div class="adm-modal-backdrop" id="homework-modal" hidden>
       <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="homework-modal-title">
         <h2 id="homework-modal-title">Giao bài</h2>
+
+        <!-- Loại bài đứng ĐẦU vì nó quyết định cả phần còn lại của ô này: nguồn
+             đề, số câu, và cách nhập hạn. Chọn sau khi đã điền hạn nghĩa là phải
+             điền lại. "Sau buổi học" đương nhiên là Speaking, nên ô Kỹ năng tự
+             ẩn — hỏi một câu mà chỉ có một đáp án là bắt người ta trả lời thừa. -->
         <div class="adm-field">
+          <label id="hf-kind-label">Loại bài</label>
+          <div class="av-kind" role="radiogroup" aria-labelledby="hf-kind-label">
+            <label><input type="radio" name="hf-kind" value="daily" checked /><span>Bài hằng ngày</span></label>
+            <label><input type="radio" name="hf-kind" value="lesson" /><span>Bài sau buổi học</span></label>
+          </div>
+          <p class="av-kind__note" id="hf-kind-note"></p>
+        </div>
+
+        <div class="adm-field" id="hf-skill-field">
           <label for="hf-skill">Kỹ năng</label>
           <select id="hf-skill">
             <option value="speaking">Speaking</option>
@@ -668,6 +694,15 @@
           <label for="hf-topic">Chủ đề <span class="adm-hint">(từ kho đề)</span></label>
           <select id="hf-topic"><option value="">— Chọn chủ đề —</option></select>
           <p class="adm-hint" id="hf-topic-note"></p>
+        </div>
+
+        <!-- Bài sau buổi học: chọn BỘ ĐỀ của buổi, từ kho của khoá mà lớp thuộc
+             về. Kho này ở tầng KHOÁ nên soạn một lần dùng cho mọi lớp. Part và
+             số câu do bộ quyết, nên hai ô đó biến mất ở chế độ này. -->
+        <div class="adm-field" id="hf-set-field" hidden>
+          <label for="hf-set">Bộ đề của buổi <span class="adm-hint">(kho của khoá)</span></label>
+          <select id="hf-set"><option value="">— Chọn buổi —</option></select>
+          <p class="av-setnote" id="hf-set-note" data-tone="ok"></p>
         </div>
 
         <!-- Chọn câu: web bốc, hay giáo viên tự chọn.
@@ -711,15 +746,26 @@
              backend nên không lớp nào đổi được — lớp học buổi tối cần hạn khác
              lớp học buổi sáng. -->
         <div class="cl-form-row">
-          <div class="adm-field">
+          <div class="adm-field" id="hf-due-date-field">
             <label for="hf-due">Hạn nộp — ngày</label>
             <input id="hf-due" type="date" />
+          </div>
+          <!-- Bài sau buổi học đếm bằng NGÀY. Số ngày được quy ngay ra mốc tuyệt
+               đối ở dòng dưới: "7 ngày" một mình thì giáo viên không có cách nào
+               kiểm mình đặt trúng hay trượt cho tới lúc học viên kêu. -->
+          <div class="adm-field" id="hf-due-days-field" hidden>
+            <label for="hf-due-days">Được nộp trong — số ngày</label>
+            <input id="hf-due-days" type="number" min="1" max="90" step="1" value="7" inputmode="numeric" />
           </div>
           <div class="adm-field">
             <label for="hf-due-time">Giờ (giờ VN)</label>
             <input id="hf-due-time" type="time" value="19:00" step="300" />
           </div>
         </div>
+        <p class="av-due-resolve" id="hf-due-resolve" hidden data-empty="true">
+          <strong id="hf-due-resolve-at">—</strong>
+          <span id="hf-due-resolve-why"></span>
+        </p>
         <p class="adm-hint" id="hf-due-note">
           Sau giờ này hệ thống <strong>không nhận bài nữa</strong> và danh sách
           nộp được chốt.

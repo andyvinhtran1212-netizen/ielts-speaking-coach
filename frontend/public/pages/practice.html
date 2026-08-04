@@ -218,6 +218,16 @@
            được, lưu từng ô, đủ mới nộp. Chỉ hiện khi phiên là bài tập lớp có
            nhiều hơn một câu; luyện tự do vẫn đi luồng cũ. -->
       <div id="state-sheet" class="state">
+        <!-- Thanh tiến độ, DÍNH ở đầu phiếu.
+             Bài sau buổi học có tới 12-15 câu, nên dòng đếm ở đáy nằm ngoài màn
+             hình: học viên cuộn giữa chừng không còn biết mình còn mấy câu.
+             Mỗi vạch là MỘT câu, đúng thứ tự — làm câu nào trước cũng được, nên
+             một con số không nói được "mình đã bỏ qua câu nào".
+             Ẩn ở phiếu ngắn: hai ô thì cả danh sách đã nằm trong một màn. -->
+        <div class="av-sheet__meter" id="sheet-meter" hidden>
+          <div class="av-sheet__ticks" id="sheet-ticks" aria-hidden="true"></div>
+          <p class="av-sheet__meter-count" id="sheet-meter-count" role="status"></p>
+        </div>
         <div class="av-sheet" id="sheet-slots"></div>
         <div class="av-sheet__submit" id="sheet-submit" data-ready="false">
           <span class="av-sheet__submit-note" id="sheet-submit-note"></span>
