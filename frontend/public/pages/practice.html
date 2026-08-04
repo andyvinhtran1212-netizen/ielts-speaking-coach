@@ -46,6 +46,10 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/ds.css" />
   <link rel="stylesheet" href="/css/practice.css" />
+  <!-- Phiếu làm bài của BÀI TẬP LỚP (.av-sheet / .av-slot) chỉ được định nghĩa ở
+       đây, và trang này là trang DUY NHẤT vẽ nó. Thiếu dòng này thì phiếu ra màn
+       hình không có một quy tắc nào — đúng lỗi "bấm Làm bài ra trang trống". -->
+  <link rel="stylesheet" href="/css/speaking-assignment.css" />
   <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
        Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
   <link rel="stylesheet" href="/css/tailwind.build.css" />
@@ -217,7 +221,10 @@
            Thay màn phễu một-câu-một-lúc: hai ô cùng hiện, làm ô nào trước cũng
            được, lưu từng ô, đủ mới nộp. Chỉ hiện khi phiên là bài tập lớp có
            nhiều hơn một câu; luyện tự do vẫn đi luồng cũ. -->
-      <div id="state-sheet" class="state">
+      <!-- Cùng bộ lớp bố cục với mọi khối state khác. Chỉ để `state` thì
+           `.state.active { display: flex }` biến nó thành một hàng NGANG
+           không giới hạn bề rộng, không lề — các ô bị ép vào một dải hẹp. -->
+      <div id="state-sheet" class="state block-state flex-1 av-w-read py-8">
         <!-- Thanh tiến độ, DÍNH ở đầu phiếu.
              Bài sau buổi học có tới 12-15 câu, nên dòng đếm ở đáy nằm ngoài màn
              hình: học viên cuộn giữa chừng không còn biết mình còn mấy câu.

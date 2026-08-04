@@ -262,3 +262,51 @@ describe('thanh tiến độ', () => {
     }
   });
 });
+
+/**
+ * Phiếu ra tới MÀN HÌNH, không chỉ ra tới chuỗi HTML.
+ *
+ * Mọi phép kiểm phía trên đọc `speaking-assignment.css` THẲNG TỪ ĐĨA, nên chúng
+ * xanh kể cả khi trang không hề nạp tệp ấy — và đó đúng là chuyện đã xảy ra:
+ * `practice.html` nạp 5 tệp CSS, không có tệp nào định nghĩa `.av-sheet` hay
+ * `.av-slot`. Học viên bấm "Làm bài" thì phiếu hiện ra không một quy tắc nào.
+ *
+ * Nên phần này kiểm ĐƯỜNG DÂY: lớp mà bộ vẽ phát ra phải tra được trong đúng
+ * những tệp CSS mà trang thật khai báo.
+ */
+describe('phiếu làm bài — CSS thật sự tới được trang', () => {
+  const linked = [...HTML.matchAll(/<link[^>]+href="(\/css\/[^"]+\.css)"/g)]
+    .map((m) => m[1]);
+  const loadedCss = linked
+    .map((href) => readFileSync(join(HERE, '..', 'public', href.replace(/^\//, '')), 'utf8'))
+    .join('\n');
+
+  // Lấy lớp từ HTML mà CHÍNH bộ vẽ sinh ra, không chép tay — chép tay thì sửa
+  // tên lớp trong practice.js xong phép kiểm vẫn ghim tên cũ.
+  const emitted = new Set();
+  for (const html of [
+    render([S('idle'), S('saved', { band: 6.5 })])['sheet-slots'].innerHTML,
+  ]) {
+    for (const m of html.matchAll(/class="([^"]+)"/g)) {
+      for (const c of m[1].split(/\s+/)) if (c.startsWith('av-')) emitted.add(c);
+    }
+  }
+
+  test('mọi lớp av-* của phiếu đều có quy tắc trong CSS trang nạp', () => {
+    assert.ok(emitted.size >= 6, `bộ vẽ phải phát ra lớp av-*, đang có ${emitted.size}`);
+    const missing = [...emitted].filter(
+      (c) => !new RegExp(`\\.${c.replace(/[-_]/g, '[-_]')}(?![\\w-])`).test(loadedCss));
+    assert.deepEqual(missing, [],
+      `practice.html không nạp tệp CSS định nghĩa: ${missing.join(', ')}`);
+  });
+
+  test('khối phiếu có cùng bộ lớp bố cục với các khối state anh em', () => {
+    const cls = (id) => (HTML.match(new RegExp(`id="${id}" class="([^"]*)"`)) || [])[1] || '';
+    const sheet = new Set(cls('state-sheet').split(/\s+/));
+    // `.state.active` là display:flex (HÀNG ngang). Chỉ `block-state` mới lật nó
+    // về display:block — thiếu nó thì các ô bị ép vào một dải hẹp.
+    for (const need of ['block-state', 'flex-1', 'av-w-read']) {
+      assert.ok(sheet.has(need), `#state-sheet thiếu lớp bố cục "${need}"`);
+    }
+  });
+});
