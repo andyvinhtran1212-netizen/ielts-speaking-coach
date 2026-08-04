@@ -204,3 +204,52 @@ def test_an_OLD_answer_whose_extras_are_gone_still_makes_a_mark():
     assert m["band"] == 6.5
     assert m["words_per_minute"] is None
     assert m["weak_phonemes"] == [] and m["mispronounced_words"] == []
+
+
+# ── Vòng review: `--redo` KHÔNG được phá dữ liệu ─────────────────────────────
+
+def test_redo_after_retention_must_NOT_wipe_what_it_cannot_rebuild():
+    """Kịch bản thật: dấu mốc giàu được ghi hôm nay; 60 ngày sau cơ chế dọn xoá
+    `transcript` và `pronunciation_payload`; rồi ai đó chạy `--redo` để "dựng
+    lại". `build_mark` khi ấy trả âm-vị-rỗng và tốc-độ-None, và một lệnh ghi đè
+    thẳng sẽ XOÁ VĨNH VIỄN đúng thứ bảng này sinh ra để giữ."""
+    old = {"response_id": "r1", "words_per_minute": 132.0,
+           "weak_phonemes": ["ey", "ax"], "mispronounced_words": ["take"],
+           "grammar_tags": ["articles"]}
+    poor = mod.build_mark(
+        response=_resp(transcript=None, pronunciation_payload=None),
+        session=_SESSION)
+    merged = mod.merge_mark(poor, old)
+    assert merged["words_per_minute"] == 132.0
+    assert merged["weak_phonemes"] == ["ey", "ax"]
+    assert merged["mispronounced_words"] == ["take"]
+    assert merged["grammar_tags"] == ["articles"]
+
+
+def test_a_richer_rebuild_DOES_overwrite_the_older_one():
+    """Ghi đè đi MỘT CHIỀU: rỗng → có. Chặn cả chiều ấy thì bản vá lỗi trong bộ
+    rút không bao giờ tới được dữ liệu đã ghi."""
+    old = {"response_id": "r1", "words_per_minute": None,
+           "weak_phonemes": [], "mispronounced_words": [], "grammar_tags": []}
+    rich = mod.build_mark(response=_resp(), session=_SESSION,
+                          recommendations=[{"recommended_slug": "articles"}])
+    merged = mod.merge_mark(rich, old)
+    assert merged["words_per_minute"] == 6.0
+    assert merged["weak_phonemes"][0] == "ey"
+    assert merged["grammar_tags"] == ["articles"]
+
+
+def test_the_band_always_takes_the_NEW_value():
+    """Cột điểm KHÔNG bị dọn, nên một giá trị khác nghĩa là bài đã được chấm lại
+    — và bản mới mới là bản đúng. Giữ điểm cũ sẽ làm sổ tiến bộ mâu thuẫn với
+    con số học viên nhìn thấy."""
+    old = {"response_id": "r1", "words_per_minute": 100.0, "weak_phonemes": ["s"],
+           "mispronounced_words": [], "grammar_tags": []}
+    new = mod.build_mark(response=_resp(overall_band=7.5), session=_SESSION)
+    assert mod.merge_mark(new, old)["band"] == 7.5
+
+
+def test_merging_against_nothing_is_the_new_mark():
+    new = mod.build_mark(response=_resp(), session=_SESSION)
+    assert mod.merge_mark(new, None) == new
+    assert mod.merge_mark(new, {}) == new

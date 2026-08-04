@@ -12,8 +12,11 @@ bây giờ giữ được nó; bật cơ chế dọn trước là vứt đi th�
 CHỈ ĐỌC, GHI SANG BẢNG MỚI. Không sửa một dòng nào của `responses` hay
 `sessions` — nếu lượt chạy này hỏng, thứ duy nhất phải làm là chạy lại.
 
-CHẠY LẠI ĐƯỢC. `speaking_progress_marks.response_id` là UNIQUE, và script bỏ qua
-những câu đã có dấu mốc (trừ khi `--redo`).
+CHẠY LẠI ĐƯỢC, VÀ `--redo` KHÔNG PHÁ DỮ LIỆU. `response_id` là UNIQUE nên chạy
+lại chỉ ghi đè đúng dòng cũ. Quan trọng hơn: `--redo` sau khi cơ chế dọn đã chạy
+sẽ dựng ra một dấu mốc NGHÈO (không còn bản chép, không còn đánh giá phát âm) —
+nên trước khi ghi, mọi trường không dựng lại được đều lấy lại giá trị cũ. Ghi đè
+chỉ đi một chiều: rỗng → có.
 
 MẶC ĐỊNH LÀ THỬ KHÔ.
 """
@@ -50,9 +53,18 @@ def _paged(table: str, columns: str, apply_filters) -> list[dict]:
         start += _PAGE
 
 
-def _existing_marks() -> set:
-    return {r["response_id"] for r in
-            _paged("speaking_progress_marks", "response_id", lambda q: q)}
+_M_COLS = ("response_id, words_per_minute, weak_phonemes, mispronounced_words, "
+           "grammar_tags")
+
+
+def _existing_marks() -> dict:
+    """Dấu mốc đã có, ĐẦY ĐỦ những trường không dựng lại được.
+
+    Chỉ lấy `response_id` là đủ để bỏ qua, nhưng KHÔNG đủ để `--redo` an toàn:
+    muốn không hạ cấp một dấu mốc giàu xuống nghèo thì phải biết nó đang giàu ở
+    đâu."""
+    return {r["response_id"]: r for r in
+            _paged("speaking_progress_marks", _M_COLS, lambda q: q)}
 
 
 def main() -> int:
@@ -62,7 +74,9 @@ def main() -> int:
                     help="Chỉ xem (đây cũng là mặc định).")
     ap.add_argument("--limit", type=int, help="Dừng sau N câu — để thử.")
     ap.add_argument("--redo", action="store_true",
-                    help="Dựng lại cả những câu ĐÃ có dấu mốc.")
+                    help="Dựng lại cả những câu ĐÃ có dấu mốc. An toàn: trường "
+                         "nào dựng lại được thì cập nhật, trường nào nguồn đã bị "
+                         "dọn thì GIỮ giá trị cũ.")
     args = ap.parse_args()
     commit = args.commit and not args.dry_run
 
@@ -71,11 +85,14 @@ def main() -> int:
                        lambda q: q.not_.is_("overall_band", "null"))
     logger.info("  %d câu đã có điểm", len(responses))
 
-    done = set() if args.redo else _existing_marks()
-    todo = [r for r in responses if r["id"] not in done]
+    # Luôn đọc dấu mốc đã có, kể cả khi `--redo`: chúng là thứ giữ cho lượt dựng
+    # lại không xoá mất dữ liệu đã bị dọn ở nguồn.
+    existing = _existing_marks()
+    todo = (responses if args.redo
+            else [r for r in responses if r["id"] not in existing])
     if args.limit:
         todo = todo[: args.limit]
-    logger.info("  %d câu cần dựng dấu mốc (%d đã có)", len(todo), len(done))
+    logger.info("  %d câu cần dựng dấu mốc (%d đã có)", len(todo), len(existing))
     if not todo:
         logger.info("Không có gì để làm.")
         return 0
@@ -100,22 +117,25 @@ def main() -> int:
         if m is None:
             skipped += 1
             continue
-        marks.append(m)
+        # KHÔNG BAO GIỜ hạ một trường đã có xuống rỗng. Sau khi cơ chế dọn chạy,
+        # `build_mark` trả âm-vị-rỗng và tốc-độ-None — ghi đè thẳng sẽ xoá vĩnh
+        # viễn đúng thứ bảng này sinh ra để giữ.
+        marks.append(sp.merge_mark(m, existing.get(r["id"])))
 
-    have = Counter()
+    filled = Counter()
     for m in marks:
         if m["words_per_minute"] is not None:
-            have["tốc độ nói"] += 1
+            filled["tốc độ nói"] += 1
         if m["weak_phonemes"]:
-            have["âm vị yếu"] += 1
+            filled["âm vị yếu"] += 1
         if m["mispronounced_words"]:
-            have["từ phát âm sai"] += 1
+            filled["từ phát âm sai"] += 1
         if m["grammar_tags"]:
-            have["nhãn ngữ pháp"] += 1
+            filled["nhãn ngữ pháp"] += 1
         if m["class_assignment_item_id"]:
-            have["thuộc bài tập lớp"] += 1
+            filled["thuộc bài tập lớp"] += 1
     logger.info("\nDựng được %d dấu mốc (bỏ qua %d chưa chấm xong).", len(marks), skipped)
-    for k, v in have.most_common():
+    for k, v in filled.most_common():
         logger.info("  có %-22s %d", k, v)
 
     if not commit:

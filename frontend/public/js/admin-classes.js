@@ -1611,7 +1611,91 @@ function invalidateProgress() {
   if (!$('panel-progress').hidden) {
     _progressLoaded = true;
     loadProgress();
+    loadSpeakingPerf();
   }
+}
+
+/* ── Hiệu suất Speaking của lớp ─────────────────────────────────────────────
+ *
+ * DANH SÁCH VIỆC CẦN LÀM, không phải bảng xếp hạng. Backend đã xếp "ai cần để
+ * mắt" lên đầu; ở đây chỉ vẽ lại đúng thứ tự ấy.
+ *
+ * Không có cột thứ hạng, cố ý: một em band 5.0 đều đặn không có vấn đề gì, còn
+ * một em từ 7.0 tụt xuống 6.0 thì có — dù vẫn cao hơn. Bày thứ hạng ra sẽ trả
+ * lời một câu hỏi khác và chôn mất em thứ hai.
+ */
+async function loadSpeakingPerf() {
+  const box = $('speaking-perf');
+  if (!box) return;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-performance');
+    renderSpeakingPerf(r);
+  } catch (err) {
+    // Không đọc được thì ẨN hẳn, không hiện một khung rỗng: khung rỗng đọc như
+    // "lớp này chưa ai làm bài Speaking", mà sự thật là chưa đọc được.
+    box.hidden = true;
+  }
+}
+
+function perfSpark(bands) {
+  if (!bands || bands.length < 2) return '';
+  // Thang cố định 3–9: đó là dải band thật của bài thi. Co giãn theo từng em sẽ
+  // làm một em dao động 0.5 trông y hệt một em dao động 3 band.
+  const lo = 3, hi = 9;
+  return '<span class="av-perf__spark" aria-hidden="true">'
+    + bands.slice(-8).map((b) => {
+      const pct = Math.max(0.1, Math.min(1, (b - lo) / (hi - lo)));
+      return `<i style="height:${Math.round(pct * 24)}px"></i>`;
+    }).join('') + '</span>';
+}
+
+function renderSpeakingPerf(d) {
+  const box = $('speaking-perf');
+  const items = (d && d.items) || [];
+  if (!items.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  const kinds = (d.kinds || []).map((k) => k === 'lesson' ? 'sau buổi học' : 'hằng ngày');
+  $('perf-scope').textContent =
+    `${d.assignment_count} bài giao${kinds.length ? ' · ' + kinds.join(' + ') : ''}`;
+
+  $('perf-rows').innerHTML = items.map((r) => {
+    const flags = [...(r.student_flags || []), ...(r.work_flags || [])];
+    // Gộp trùng: cùng một loại cờ trên năm bài là MỘT việc cần làm, không phải
+    // năm việc. Nêu số lần để giáo viên biết mức độ.
+    const seen = new Map();
+    flags.forEach((f) => seen.set(f.code, (seen.get(f.code) || 0) + 1));
+    const why = flags.length
+      ? [...new Set(flags.map((f) => f.label))].map((lab) => {
+        const f = flags.find((x) => x.label === lab);
+        const n = seen.get(f.code);
+        return esc(lab) + (n > 1 ? ` ×${n}` : '');
+      }).join(' · ')
+      : `${r.submitted}/${r.assigned} bài`;
+    const band = (r.latest_band === null || r.latest_band === undefined)
+      ? '—' : Number(r.latest_band).toFixed(1);
+    return `<div class="av-perf__row" ${r.flag_level ? `data-level="${esc(r.flag_level)}"` : ''}>
+      <span class="av-perf__mark" aria-hidden="true"></span>
+      <span class="av-perf__who">
+        <span class="av-perf__name">${esc(r.name || r.student_code || '—')}</span>
+        <span class="av-perf__sub">${why}</span>
+      </span>
+      ${perfSpark(r.bands)}
+      <span class="av-perf__band" data-empty="${band === '—'}">${esc(band)}</span>
+    </div>`;
+  }).join('');
+
+  const need = items.filter((r) => r.flag_level).length;
+  const noAccount = items.filter((r) => !r.activated).length;
+  const bits = [];
+  bits.push(need ? `<strong>${need} em cần để mắt</strong>.` : 'Không em nào cần để mắt lúc này.');
+  if (noAccount) {
+    // Chưa kích hoạt thì CHƯA TỪNG thấy bài nào — nhắc các em ấy là nhắc nhầm người.
+    bits.push(`${noAccount} em chưa kích hoạt tài khoản nên chưa nhận được bài.`);
+  }
+  bits.push('Cột điểm là bài mới nhất; cột vạch là xu hướng, so với chính em ấy.');
+  $('perf-foot').innerHTML = bits.join(' ');
 }
 
 async function loadProgress() {
@@ -1660,6 +1744,10 @@ function showPanel(name) {
   if (name === 'progress' && !_progressLoaded) {
     _progressLoaded = true;
     loadProgress();
+    // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
+    // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
+    // biến mất theo.
+    loadSpeakingPerf();
   }
 }
 

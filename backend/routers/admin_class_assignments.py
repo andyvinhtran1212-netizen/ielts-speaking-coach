@@ -1013,7 +1013,7 @@ async def speaking_performance(
 
     assignments = _paged(
         supabase_admin, "class_assignments",
-        "id, title, kind, due_at, created_at",
+        "id, title, kind, status, due_at, created_at",
         lambda q: q.eq("cohort_id", cohort_id).eq("skill", "speaking"),
     )
     if not assignments:
@@ -1024,6 +1024,16 @@ async def speaking_performance(
     assignments.sort(key=lambda a: (a.get("due_at") or a.get("created_at") or ""))
     order = {a["id"]: i for i, a in enumerate(assignments)}
     due_of = {a["id"]: _at(a.get("due_at")) for a in assignments}
+    # Bài đã LƯU TRỮ không đếm vào "trễ / bỏ bài".
+    #
+    # Lưu trữ là cách đóng một bài giao khi xoá đã bị chặn (đã có người nộp) —
+    # giao nhầm, đổi kế hoạch, lớp nghỉ. Đếm những em còn lại là "bỏ bài" ở đó là
+    # trách các em vì một quyết định của giáo viên, và đủ hai lần như vậy thì cờ
+    # "đang đuối" nổ oan.
+    #
+    # Nhưng bài ĐÃ NỘP trong một bài giao đã lưu trữ vẫn là việc thật các em đã
+    # làm, nên ĐIỂM vẫn được tính. Chỉ bỏ phần trạng thái trễ/thiếu.
+    archived = {a["id"] for a in assignments if (a.get("status") or "") == "archived"}
 
     aids = [a["id"] for a in assignments]
     items: list[dict] = []
@@ -1061,9 +1071,12 @@ async def speaking_performance(
             due = due_of.get(r["assignment_id"])
             sub = _at(r.get("submitted_at"))
             if sub:
-                states.append("late" if (due and sub > due) else "submitted")
+                late = bool(due and sub > due) and r["assignment_id"] not in archived
+                states.append("late" if late else "submitted")
                 if r.get("score") is not None:
                     bands.append(float(r["score"]))
+            elif r["assignment_id"] in archived:
+                states.append("pending")     # xem ghi chú `archived` ở trên
             elif due and now > due:
                 states.append("missing")
             else:

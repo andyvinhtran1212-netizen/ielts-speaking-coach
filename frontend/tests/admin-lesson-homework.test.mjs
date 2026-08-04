@@ -556,3 +556,97 @@ describe('cờ trong bảng tổng kết', () => {
     assert.match(CSS, /\.av-flag em::before \{[\s\S]{0,80}?content: '→ '/);
   });
 });
+
+
+// ── Bảng hiệu suất Speaking (tab Tiến độ) ────────────────────────────────────
+
+describe('bảng hiệu suất Speaking', () => {
+  function perf(d) {
+    const start = SRC.indexOf('function perfSpark(');
+    const end = SRC.indexOf('async function loadProgress(');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy vùng bảng hiệu suất');
+    const esc = (s2) => String(s2 == null ? '' : s2)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const nodes = {
+      'speaking-perf': { hidden: false }, 'perf-scope': { textContent: '' },
+      'perf-rows': { innerHTML: '' }, 'perf-foot': { innerHTML: '' },
+    };
+    const fn = new Function('esc', '$', `${SRC.slice(start, end)}
+      return { renderSpeakingPerf, perfSpark };`)(esc, (id) => nodes[id]);
+    fn.renderSpeakingPerf(d);
+    return nodes;
+  }
+
+  const P = (over = {}) => ({ student_id: 's1', name: 'Lan', activated: true,
+    assigned: 4, submitted: 4, late: 0, missing: 0, bands: [6, 6.5, 6.5, 6],
+    latest_band: 6, avg_band: 6.25, student_flags: [], work_flags: [],
+    flag_level: null, ...over });
+
+  test('lớp chưa có bài Speaking nào thì ẨN, không hiện khung rỗng', () => {
+    // Khung rỗng đọc như "lớp này chưa ai làm bài", mà sự thật có thể là chưa
+    // đọc được dữ liệu.
+    assert.equal(perf({ items: [], assignment_count: 0 })['speaking-perf'].hidden, true);
+  });
+
+  test('em cần để mắt mang mức cảnh báo trên chính dòng của mình', () => {
+    const n = perf({ items: [P({ flag_level: 'high', student_flags: [
+      { code: 'band_drop', severity: 'high', label: 'Điểm tụt so với chính em ấy',
+        why: 'x', action: 'y' }] })], assignment_count: 4, kinds: ['daily'] });
+    assert.match(n['perf-rows'].innerHTML, /data-level="high"/);
+    assert.match(n['perf-rows'].innerHTML, /Điểm tụt so với chính em ấy/);
+  });
+
+  test('em ổn thì KHÔNG có mức cảnh báo — im lặng là mặc định', () => {
+    const n = perf({ items: [P()], assignment_count: 4 });
+    assert.doesNotMatch(n['perf-rows'].innerHTML, /data-level=/);
+    assert.match(n['perf-rows'].innerHTML, /4\/4 bài/);
+  });
+
+  test('cùng một loại cờ trên nhiều bài gộp thành MỘT việc, kèm số lần', () => {
+    // Năm dòng "Điểm không đáng tin" là một việc cần làm, không phải năm việc.
+    const f = { code: 'low_confidence', severity: 'high',
+      label: 'Điểm không đáng tin', why: 'x', action: 'y' };
+    const n = perf({ items: [P({ flag_level: 'high', work_flags: [f, f, f] })],
+      assignment_count: 4 });
+    assert.match(n['perf-rows'].innerHTML, /Điểm không đáng tin ×3/);
+    assert.equal((n['perf-rows'].innerHTML.match(/Điểm không đáng tin/g) || []).length, 1);
+  });
+
+  test('đường band dùng thang CỐ ĐỊNH 3–9, không co giãn theo từng em', () => {
+    // Co giãn theo từng em sẽ làm một em dao động 0.5 band trông y hệt một em
+    // dao động 3 band — đúng thứ bảng này phải phân biệt.
+    // Ca phân biệt được: CÙNG band 6.0 ở hai em có dải khác nhau. Thang cố định
+    // cho ra cùng chiều cao; thang co giãn cho ra hai chiều cao khác nhau, và
+    // khi ấy hai em không so được với nhau nữa.
+    //
+    // (So "phẳng ra ba cột bằng nhau" thì KHÔNG phân biệt được — cả hai công
+    // thức đều cho ba cột bằng nhau. Một phép thử như vậy trông đúng mà chẳng
+    // chứng minh gì.)
+    const h = (html) => (html.match(/height:(\d+)px/g) || []).map((x) => +x.match(/\d+/)[0]);
+    // Dải phải LỆCH, không đối xứng: với [5.5, 6, 6.5] thì 6.0 nằm giữa dải ở
+    // CẢ hai công thức, nên hai bên cho cùng chiều cao và phép thử vô nghĩa.
+    // Ở đây 6.0 là ĐÁY dải của em thứ nhất và GIỮA dải của em thứ hai.
+    const lowEnd = h(perf({ items: [P({ bands: [6, 6.5, 7] })], assignment_count: 3 })['perf-rows'].innerHTML);
+    const broad = h(perf({ items: [P({ bands: [3, 6, 9] })], assignment_count: 3 })['perf-rows'].innerHTML);
+    assert.equal(lowEnd[0], broad[1],
+      'band 6.0 phải cao bằng nhau ở mọi học viên — nếu không thì hai em không so được');
+    assert.ok(broad[0] < broad[1] && broad[1] < broad[2], 'dao động rộng vẫn phải thấy rõ');
+  });
+
+  test('em chưa kích hoạt tài khoản được nói tách riêng ở chân bảng', () => {
+    const n = perf({ items: [P({ activated: false })], assignment_count: 4 });
+    assert.match(n['perf-foot'].innerHTML, /chưa kích hoạt tài khoản/);
+  });
+
+  test('tên học viên được thoát HTML', () => {
+    const n = perf({ items: [P({ name: '<script>x</script>' })], assignment_count: 1 });
+    assert.doesNotMatch(n['perf-rows'].innerHTML, /<script>/);
+  });
+
+  test('mở tab Tiến độ là gọi CẢ hai nguồn, và chúng không chờ nhau', () => {
+    // Một bên hỏng không được kéo bên kia biến mất theo.
+    const sw = SRC.slice(SRC.indexOf("if (name === 'progress' && !_progressLoaded)"));
+    assert.match(sw, /loadProgress\(\);[\s\S]{0,400}?loadSpeakingPerf\(\);/);
+    assert.doesNotMatch(sw.slice(0, 400), /await loadProgress/);
+  });
+});

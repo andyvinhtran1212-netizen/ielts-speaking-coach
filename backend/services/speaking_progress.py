@@ -161,6 +161,38 @@ def grammar_tags(recommendations: List[Dict[str, Any]], top_n: int = TOP_N) -> L
     return out
 
 
+# Những trường CHỈ dựng được khi dữ liệu gốc còn sống. Sau khi
+# `jobs/retention_sweep.py` dọn `transcript` và `pronunciation_payload`, không
+# có cách nào tính lại chúng.
+_PERISHABLE = ("words_per_minute", "weak_phonemes", "mispronounced_words")
+
+
+def merge_mark(new: Dict[str, Any], old: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Dấu mốc mới, nhưng KHÔNG bao giờ hạ cấp một trường đã có xuống rỗng.
+
+    Đây là chốt sống còn của cả bảng này. Kịch bản: một dấu mốc giàu dữ liệu được
+    ghi hôm nay; 60 ngày sau cơ chế dọn xoá `transcript` và
+    `pronunciation_payload`; rồi ai đó chạy lại script với `--redo` để "dựng
+    lại". `build_mark` khi ấy trả về âm-vị-rỗng và tốc-độ-nói-None — và một lệnh
+    ghi đè thẳng sẽ XOÁ VĨNH VIỄN đúng thứ bảng này sinh ra để giữ.
+
+    Ghi đè chỉ được phép theo một chiều: rỗng → có. Không bao giờ ngược lại.
+
+    Điểm số thì luôn lấy bản MỚI: cột điểm không bị dọn, nên một giá trị khác
+    nghĩa là bài đã được chấm lại, và bản mới mới là bản đúng.
+    """
+    if not old:
+        return new
+    out = dict(new)
+    for k in _PERISHABLE:
+        if not out.get(k) and old.get(k):
+            out[k] = old[k]
+    # Nhãn ngữ pháp cũng chỉ dựng được khi `grammar_recommendations` còn dòng.
+    if not out.get("grammar_tags") and old.get("grammar_tags"):
+        out["grammar_tags"] = old["grammar_tags"]
+    return out
+
+
 def build_mark(*, response: Dict[str, Any], session: Dict[str, Any],
                recommendations: Optional[List[Dict[str, Any]]] = None,
                part: Optional[int] = None) -> Optional[Dict[str, Any]]:
