@@ -719,7 +719,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
-               .select("id, passed_at, mastery, score")
+               .select("id, passed_at, mastery, score, updated_at")
                .eq("id", item["id"]).limit(1).execute().data) or []
 
         # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
@@ -765,6 +765,10 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     if len(kinds) > 1:
         raise HTTPException(422, "Không trộn phiên chặng với phiên kiểm tra lại")
     phase = kinds.pop()
+    if phase == "retake" and len(rows) != 1:
+        # Một bài kiểm tra lại là MỘT phiên. Cho ghép nhiều phiên dở dang thì
+        # hợp-các-mảnh vẫn đủ cỡ mẫu và vượt được rào "đủ N câu" (codex R3).
+        raise HTTPException(422, "Bài kiểm tra lại phải là đúng một phiên")
 
     # ── Server TỰ CHẤM LẠI, không tin sổ của client ──────────────────────────
     # `total_correct` trên phiên là con số client khai lúc kết phiên; một client
@@ -809,46 +813,70 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     pct = round(correct / graded * 100, 1)
     passed = pct >= cfg["pass_pct"]
 
-    mastery = cur.get("mastery") or {}
-    attempts = list(mastery.get("attempts") or [])
-
-    # Kiểm tra lại chỉ có nghĩa SAU một lượt chính dưới ngưỡng. Không có chốt
-    # này thì một client tự tạo phiên retake trả lời đúng cỡ-mẫu câu là mua được
-    # kết luận đạt mà chưa từng làm đủ bài (codex #928 vòng 2). Luồng thật luôn
-    # thoả: nút kiểm tra lại chỉ hiện sau khi verdict lượt chính đã ghi sổ.
-    if phase == "retake" and not any(
-            a.get("phase") == "run" and (a.get("pct") or 0) < cfg["pass_pct"]
-            for a in attempts):
-        raise HTTPException(
-            422, "Chưa có lượt làm chính dưới ngưỡng — làm đủ bài trước đã")
-
     sess_key = sorted(set(session_ids))
-    # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không được
-    # phình theo số lần bấm. So với TOÀN sổ chứ không chỉ dòng cuối: sau một
-    # lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt chính và nộp lại
-    # đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so mỗi dòng cuối thì lượt
-    # chính bị ghi trùng.
-    if not any(a.get("phase") == phase and a.get("sessions") == sess_key
-               for a in attempts):
-        attempts.append({
-            "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
-        })
-    patch: dict = {
-        "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
-        # Điểm của mục = điểm GỘP lượt gần nhất — thay bản ghi chặng-đầu-tiên
-        # mà mark_item_submitted để lại, vốn chỉ là 10 câu đầu.
-        "score": pct,
-    }
-    already = bool(cur.get("passed_at"))
-    if passed and not already:
-        patch["passed_at"] = _now()
-    try:
-        supabase_admin.table("class_assignment_items").update(patch) \
-            .eq("id", item["id"]).execute()
-    except Exception as exc:  # noqa: BLE001
-        # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ rời
-        # trang với niềm tin đã xong trong khi giáo viên không thấy gì.
-        raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+    # Ghi sổ bằng CAS trên updated_at: đọc-gộp-ghi không khoá thì hai tab cùng
+    # chốt (mỗi tab một retake) sẽ đè sổ của nhau — mất một kết quả thật khỏi
+    # mắt giáo viên (codex R3). Patch tự đặt updated_at mới; kẻ thua vòng ghi
+    # thấy 0 dòng khớp, đọc lại sổ mới rồi gộp lại. Ba vòng là quá đủ cho một
+    # người dùng thật; hết vòng vẫn thua → 500, không báo đạt miệng.
+    for _cas in range(3):
+        mastery = cur.get("mastery") or {}
+        attempts = list(mastery.get("attempts") or [])
+
+        # Kiểm tra lại chỉ có nghĩa SAU một lượt chính dưới ngưỡng. Không có
+        # chốt này thì client tự tạo phiên retake trả lời đúng cỡ-mẫu câu là
+        # mua được kết luận đạt mà chưa từng làm đủ bài (codex R2). Luồng thật
+        # luôn thoả: nút kiểm tra lại chỉ hiện sau khi verdict lượt chính đã
+        # ghi sổ.
+        if phase == "retake" and not any(
+                a.get("phase") == "run" and (a.get("pct") or 0) < cfg["pass_pct"]
+                for a in attempts):
+            raise HTTPException(
+                422, "Chưa có lượt làm chính dưới ngưỡng — làm đủ bài trước đã")
+
+        # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không
+        # được phình theo số lần bấm. So với TOÀN sổ chứ không chỉ dòng cuối:
+        # sau một lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt
+        # chính và nộp lại đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so
+        # mỗi dòng cuối thì lượt chính bị ghi trùng (codex R2).
+        if not any(a.get("phase") == phase and a.get("sessions") == sess_key
+                   for a in attempts):
+            attempts.append({
+                "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
+            })
+        patch: dict = {
+            "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
+            # Điểm của mục = điểm GỘP lượt gần nhất — thay bản ghi chặng-đầu-
+            # tiên mà mark_item_submitted để lại, vốn chỉ là 10 câu đầu.
+            "score": pct,
+            "updated_at": _now(),
+        }
+        already = bool(cur.get("passed_at"))
+        if passed and not already:
+            patch["passed_at"] = _now()
+        try:
+            q = (supabase_admin.table("class_assignment_items")
+                 .update(patch).eq("id", item["id"]))
+            if cur.get("updated_at") is not None:
+                q = q.eq("updated_at", cur["updated_at"])
+            res = q.execute()
+        except Exception as exc:  # noqa: BLE001
+            # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ
+            # rời trang với niềm tin đã xong trong khi giáo viên không thấy gì.
+            raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+        if res.data:
+            break
+        try:
+            fresh = (supabase_admin.table("class_assignment_items")
+                     .select("id, passed_at, mastery, score, updated_at")
+                     .eq("id", item["id"]).limit(1).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi đọc lại sổ sau tranh chấp ghi: {exc}")
+        if not fresh:
+            raise HTTPException(404, "Không tìm thấy mục bài giao")
+        cur = fresh[0]
+    else:
+        raise HTTPException(500, "Sổ bài giao đang bị ghi tranh chấp — thử lại")
 
     return {
         "passed": passed or already,

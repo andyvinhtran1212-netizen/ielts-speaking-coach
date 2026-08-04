@@ -522,3 +522,35 @@ describe('bank bị thay/ngắn lại sau khi đã làm xong (codex #928 R2)', (
     assert.ok(second.api.calls.patch.length >= 1, 'phải có PATCH chốt phiên thật');
   });
 });
+
+describe('chặng chốt hỏng phải SỬA LẠI được (codex #928 R3)', () => {
+  test('gửi lại trong trang: finishStage lần hai đẩy nốt và có tên trong lượt xét', async () => {
+    const { r, api } = await run({
+      questions: Array.from({ length: 5 }, (_, i) => mcq(i)), failPatch: true,
+    });
+    const first = await playStage(r);
+    assert.equal(first.persisted, false);
+    assert.equal(first.retryable, true, 'phiên còn đó thì phải nói được là gửi lại được');
+    // mạng quay lại — vá api.patch rồi GỌI LẠI finishStage (nút Gửi lại)
+    api.patch = async (path, body) => { api.calls.patch.push({ path, body }); return {}; };
+    const second = await r.finishStage();
+    assert.equal(second.persisted, true);
+    await r.verdict();
+    const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'sau khi gửi lại thành công, phiên phải có tên trong lượt xét');
+  });
+
+  test('chốt hỏng rồi ĐÓNG TAB: mở lại phải LÀM LẠI chặng ấy, không kẹt ở màn kết quả', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn, failPatch: true });
+    const out = await playStage(first.r);
+    assert.equal(out.persisted, false);        // done KHÔNG được đóng dấu
+    // mở lại: lượt làm cũ đã chết theo tab — đường sửa duy nhất là làm lại chặng
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.at, 0, 'phải đứng ở CÂU ĐẦU của chặng để làm lại');
+    assert.equal(second.r.isStageDone(), false,
+      'kẹt ở màn kết quả là verdict phủ-đủ-đề bác mãi, không lối ra');
+  });
+});

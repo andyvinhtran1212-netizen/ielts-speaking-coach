@@ -189,19 +189,25 @@ export function CourseBehavior() {
                 + `<span class="cx-axis__n">${a.n} câu</span></li>`).join('')
               + '</ul>'
             : '<h2>Không sai câu nào trong chặng này.</h2>')
-          // Nói THẲNG khi bài chưa tới máy chủ. Im lặng nghĩa là học viên tin
-          // mình đã nộp, còn giáo viên thì không thấy gì.
+          // Chặng chưa tới máy chủ thì KHÔNG cho đi tiếp: đi tiếp là mang theo
+          // một lỗ không vá được và verdict phủ-đủ-đề sẽ bác cả lượt ở phút
+          // chót. Bài làm còn nguyên trong bộ nhớ — gửi lại là một lần thật.
           + (res.persisted ? ''
-            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống. '
-              + 'Giữ tab mở và kiểm tra kết nối — bài làm vẫn đang chờ gửi.</p>')
-          + (res.hasMore
-            ? '<div class="cx-next" style="position:static">'
-              + `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button></div>`
-            : '<div id="cx-verdict"></div>');
+            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — '
+              + 'bài làm vẫn còn nguyên ở đây. Kiểm tra kết nối rồi gửi lại.</p>'
+              + '<div class="cx-next" style="position:static">'
+              + '<button class="av-button av-button-primary" id="cx-resend" type="button">'
+              + 'Gửi lại kết quả chặng</button></div>')
+          + (!res.persisted ? ''
+            : res.hasMore
+              ? '<div class="cx-next" style="position:static">'
+                + `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button></div>`
+              : '<div id="cx-verdict"></div>');
         renderStage();
         // Hết lượt (chặng cuối, hoặc xong bài kiểm tra lại) → xét đạt. Sau khi
-        // markup ở trên đã vào DOM, vì kết quả vẽ vào #cx-verdict.
-        if (!res.hasMore) renderVerdict();
+        // markup ở trên đã vào DOM, vì kết quả vẽ vào #cx-verdict. Chỉ xét khi
+        // chặng đã THẬT SỰ tới máy chủ.
+        if (res.persisted && !res.hasMore) renderVerdict();
       }
 
       let lastVerdict: any = null;
@@ -270,6 +276,9 @@ export function CourseBehavior() {
         if (t.id === 'cx-more') return runner.nextStage().then(renderQuestion);
         if (t.id === 'cx-retake') return void startRetakeFlow();
         if (t.id === 'cx-verdict-retry') return void renderVerdict();
+        // Gửi lại = chạy lại đúng finishStage: sessionId + hàng đợi còn nguyên,
+        // nên đây là một lần đẩy thật chứ không phải vẽ lại màn hình.
+        if (t.id === 'cx-resend') return void renderDone();
       };
       document.addEventListener('click', onClick);
 

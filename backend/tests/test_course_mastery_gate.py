@@ -331,6 +331,78 @@ def test_reload_after_failed_retake_does_not_duplicate_the_run():
     assert len(patch_["mastery"]["attempts"]) == 2   # KHÔNG thêm bản sao lượt chính
 
 
+def test_retake_must_be_exactly_one_session():
+    """Ghép nhiều phiên retake dở dang cho đủ cỡ mẫu → 422 (codex R3)."""
+    ss = _sessions(2, kind="retake")
+    prior = {"threshold": 80, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "t", "sessions": ["s-a"]},
+    ]}
+    given = {f"q{i}": i % 4 for i in range(5)}
+    with pytest.raises(HTTPException) as e:
+        _verdict(sessions=ss, attempts=_attempts(ss, given),
+                 config={"retake_size": 5},
+                 item_row={"id": "it-1", "passed_at": None,
+                           "mastery": prior, "score": 60.0})
+    assert e.value.status_code == 422
+    assert "đúng một phiên" in e.value.detail
+
+
+def test_cas_conflict_rereads_and_merges_before_writing():
+    """Hai tab cùng chốt: kẻ thua vòng ghi phải ĐỌC LẠI sổ mới rồi gộp, không
+    đè mất kết quả của tab kia (codex R3)."""
+    other = {"phase": "retake", "pct": 55.0, "at": "t2", "sessions": ["s-tab2"]}
+    fresh_row = {"id": "it-1", "passed_at": None, "updated_at": "T1",
+                 "mastery": {"threshold": 80, "attempts": [
+                     {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-0", "s-1"]},
+                     other,
+                 ]}, "score": 55.0}
+
+    class _CasTable(_Table):
+        updates = 0
+        def execute(self):
+            if self._patch is not None:
+                _CasTable.updates += 1
+                if _CasTable.updates == 1:      # tab kia vừa ghi trước — thua CAS
+                    self._log.append((self._name, "update-lost", self._patch))
+                    return _Resp([])
+                self._log.append((self._name, "update", self._patch,
+                                  [r.get("id") for r in self._rows] or ["it-1"]))
+                return _Resp([{"id": "it-1"}])
+            return super().execute()
+
+    _CasTable.updates = 0
+    log = []
+    ss = _sessions(2)
+    reads = {"n": 0}
+    stale_row = {"id": "it-1", "passed_at": None, "updated_at": "T0",
+                 "mastery": {"threshold": 80, "attempts": [
+                     {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-0", "s-1"]},
+                 ]}, "score": 70.0}
+    def table(n):
+        rows = {
+            "class_assignments": [{"id": "asg-1", "content_config": {}}],
+            "quiz_sessions": ss,
+            "quiz_questions": _questions(10),
+            "quiz_attempts": _attempts(ss, _given(10, wrong=3)),
+        }.get(n)
+        if n == "class_assignment_items":
+            reads["n"] += 1
+            # lần đọc đầu trả bản CŨ, các lần sau trả bản tab kia đã ghi
+            rows = [stale_row if reads["n"] == 1 else fresh_row]
+        return _CasTable(n, rows or [], log)
+    db = type("DB", (), {})()
+    db.table = table
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: _ITEM):
+        out = qs.course_verdict(user_id="u-1", bank_id="bank-1",
+                                session_ids=[x["id"] for x in ss])
+    assert out["passed"] is False
+    final = [e for e in log if e[1] == "update"][-1][2]
+    phases = [(a["phase"], a["pct"]) for a in final["mastery"]["attempts"]]
+    assert ("retake", 55.0) in phases, "kết quả của tab kia phải SỐNG SÓT"
+    assert phases.count(("run", 70.0)) == 1, "lượt chính không bị nhân đôi"
+
+
 # ── Từ chối lượt bẩn ─────────────────────────────────────────────────────────
 
 def test_rejects_unknown_session():

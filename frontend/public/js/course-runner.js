@@ -181,6 +181,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     } else {
       at = typeof v.at === 'number' ? v.at : 0;
       marks = Array.isArray(v.marks) ? v.marks : [];
+      // Đứng CUỐI chặng mà không có dấu done = chặng chốt HỎNG rồi đóng tab
+      // (luồng thường luôn save(done) khi chốt xong). Lượt làm của nó chỉ sống
+      // trong bộ nhớ nên đã mất theo tab — đường sửa duy nhất là làm lại chặng
+      // này với phiên mới. Đứng yên ở màn kết quả là kẹt vĩnh viễn: verdict
+      // phủ-đủ-đề sẽ bác mãi (codex #928 R3).
+      const len = Math.min(STAGE, Math.max(0, qs.length - stage * STAGE));
+      if (at >= len) { at = 0; marks = []; }
     }
     // Trạng thái lưu không còn khớp bộ đề (bank bị thay/ngắn lại): làm lại từ
     // đầu là một LƯỢT MỚI TRỌN VẸN — phải xoá cả dấu done-cuối lẫn danh sách
@@ -357,9 +364,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
           }
         } catch (err) { persisted = false; }
       }
-      save(true);
+      // Chặng chốt hỏng thì KHÔNG đóng dấu done: sessionId + hàng đợi còn
+      // nguyên trong bộ nhớ, nên gọi lại finishStage là một lần GỬI LẠI thật
+      // sự. Đóng dấu rồi mới hỏng là học viên đi tiếp với một lỗ không vá
+      // được, và verdict phủ-đủ-đề sẽ bác cả lượt ở phút chót (codex R3).
+      save(persisted);
       return {
         right, graded, persisted,
+        retryable: !persisted && !!sessionId,
         axes: Object.keys(axes).sort((a, b) => axes[b] - axes[a]).map((a) => ({ axis: a, n: axes[a] })),
         hasMore: mode === 'run' && stage + 1 < this.stageCount,
       };
