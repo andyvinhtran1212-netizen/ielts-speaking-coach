@@ -13,6 +13,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const HOME = read('public', 'pages', 'home.html');
+// Luật CSS của mock hub tách khỏi khối <style> inline sang tệp dùng chung
+// (review PR #929) để trang legacy và route Next có MỘT nguồn — chép đôi thì
+// hai bản trôi khỏi nhau, mà cổng parity G1 so DOM chứ không so CSS.
+const MOCK_CSS = read('css', 'mock-hub.css');
+const HOME_SHELL = read('app', '(authed-home)', 'home-preview', 'page-shell.tsx');
+const LAYOUT = read('app', '(authed-home)', 'layout.tsx');
 const JS = read('public', 'js', 'home-mock-tiles.js');
 
 describe('home — mock hub (start card + result-tile slot)', () => {
@@ -22,8 +28,20 @@ describe('home — mock hub (start card + result-tile slot)', () => {
     assert.match(HOME, /src="\.\.\/js\/home-mock-tiles\.js"/);
   });
   test('tile styles use design tokens (band + hover)', () => {
-    assert.match(HOME, /\.mock-result-tile\s*\{/);
-    assert.match(HOME, /\.mock-result-tile__band[\s\S]*?var\(--av-primary\)/);
+    assert.match(MOCK_CSS, /\.mock-result-tile\s*\{/);
+    assert.match(MOCK_CSS, /\.mock-result-tile__band[\s\S]*?var\(--av-primary\)/);
+  });
+
+  test('luật mock hub chỉ có MỘT nguồn, không chép đôi', () => {
+    // Bất biến của lần tách (review PR #929): chép luật trở lại trang legacy
+    // hoặc sang JSX thì hai bản trôi khỏi nhau — mà cổng parity G1 so DOM,
+    // KHÔNG so CSS, nên nó mù với đúng loại trôi đó.
+    assert.ok(!/\.mock-result-tile\s*\{/.test(HOME),
+      'luật không được quay lại khối <style> inline của home.html');
+    assert.ok(!/\.mock-result-tile\s*\{/.test(HOME_SHELL),
+      'không được chép luật sang JSX của route Next');
+    assert.match(HOME, /href="\/css\/mock-hub\.css"/, 'trang legacy phải nạp tệp chung');
+    assert.match(LAYOUT, /\/css\/mock-hub\.css/, 'route Next phải nạp cùng tệp đó');
   });
 });
 
