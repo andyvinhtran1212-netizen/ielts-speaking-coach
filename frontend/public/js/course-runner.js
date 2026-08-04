@@ -144,6 +144,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let inflight = Promise.resolve();
 
   const key = () => 'cx:' + (bank && bank.id);
+  // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
+  // thái lưu của bản đề cũ mà đem dùng tiếp thì phiên cũ lẫn vào lượt xét
+  // (verdict bác mãi) hoặc lượt làm cũ bị chấm bằng thước mới (codex #928 R4).
+  let rev = '';
+
+  function fingerprint(list) {
+    const s = list.map((q) => q.qid + ':' + q.answer).join('|');
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return String(h);
+  }
 
   function save(done) {
     if (!storage) return;
@@ -153,7 +164,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (mode === 'retake') return;
     try {
       storage.setItem(key(), JSON.stringify({
-        stage, at, marks, done: !!done, runSessions,
+        stage, at, marks, done: !!done, runSessions, rev,
       }));
     } catch (e) { /* trình duyệt chặn lưu — làm bài vẫn chạy */ }
   }
@@ -170,6 +181,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     let v = {};
     try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return; }
     if (typeof v.stage !== 'number') return;
+    // Bộ đề đã đổi (re-import: câu khác hay đáp án khác) → trạng thái lưu là
+    // của một bài KHÁC. Làm lại từ đầu sạch sẽ; giữ lại là phiên cũ lẫn vào
+    // lượt xét hoặc bài cũ bị chấm bằng thước mới.
+    if (v.rev !== rev) return;
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')
@@ -284,6 +299,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       this.mastery = r.mastery || null;   // {passed_at, threshold, retake_size, retakes}
       qs = r.questions || [];
       if (!qs.length) throw new Error('Bài tập này chưa có câu hỏi nào.');
+      rev = fingerprint(qs);
       restore();
       // Đứng ở màn kết quả cuối thì KHÔNG có gì để ghi — mở phiên ở đây là đẻ
       // ra một phiên "chặng cuối" rỗng, và finishStage của lần vẽ lại sẽ chốt

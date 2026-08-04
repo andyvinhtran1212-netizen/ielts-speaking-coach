@@ -839,11 +839,20 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         # sau một lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt
         # chính và nộp lại đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so
         # mỗi dòng cuối thì lượt chính bị ghi trùng (codex R2).
+        appended = False
         if not any(a.get("phase") == phase and a.get("sessions") == sess_key
                    for a in attempts):
             attempts.append({
                 "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
             })
+            appended = True
+        already = bool(cur.get("passed_at"))
+        if not appended and not (passed and not already):
+            # Lượt TRÙNG (F5 nộp lại đúng bộ phiên cũ) và không có gì mới để
+            # kết luận: đừng chạm sổ. Ghi đè score ở đây là lấy điểm lượt CŨ
+            # (vd 70% của run) đè lên điểm mới nhất (40% của retake vừa trượt)
+            # — bảng của giáo viên nói ngược dòng thời gian (codex R4).
+            break
         patch: dict = {
             "mastery": {"threshold": cfg["pass_pct"], "attempts": attempts},
             # Điểm của mục = điểm GỘP lượt gần nhất — thay bản ghi chặng-đầu-
@@ -851,7 +860,6 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
             "score": pct,
             "updated_at": _now(),
         }
-        already = bool(cur.get("passed_at"))
         if passed and not already:
             patch["passed_at"] = _now()
         try:

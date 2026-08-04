@@ -216,9 +216,10 @@ def test_reload_does_not_grow_the_ledger():
         sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)),
         item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 70.0},
     )
-    assert out["passed"] is False
-    patch_ = [e for e in log if e[1] == "update"][0][2]
-    assert len(patch_["mastery"]["attempts"]) == 1   # vẫn MỘT dòng
+    assert out["passed"] is False and out["pct"] == 70.0   # vẫn TRẢ LỜI đầy đủ
+    # KHÔNG một lần ghi nào: sổ không phình, và score không bị chạm (codex R4:
+    # ghi đè score ở lượt trùng là lấy điểm cũ đè lên điểm mới nhất).
+    assert [e for e in log if e[1] == "update"] == []
 
 
 # ── Phủ đủ đề: chặn cả gian lận lẫn dương tính giả ───────────────────────────
@@ -313,22 +314,22 @@ def test_retake_after_passing_run_threshold_change_still_needs_failed_run():
 
 
 def test_reload_after_failed_retake_does_not_duplicate_the_run():
-    """Trượt retake xong F5: trang khôi phục màn kết quả lượt CHÍNH và nộp lại
-    đúng bộ phiên cũ. Dòng cuối sổ lúc này là retake — so toàn sổ, không so
-    dòng cuối, để lượt chính không bị ghi trùng (codex R2)."""
+    """Trượt retake (40%) xong F5: trang nộp lại bộ phiên lượt CHÍNH (70%).
+    Lượt trùng → không ghi gì: sổ giữ nguyên VÀ score 40% của lần thử mới nhất
+    không bị 70% cũ đè lên (codex R4)."""
     ss = _sessions(2)
     run_key = sorted(s["id"] for s in ss)
     prior = {"threshold": 80, "attempts": [
         {"phase": "run", "pct": 70.0, "at": "t", "sessions": run_key},
-        {"phase": "retake", "pct": 60.0, "at": "t", "sessions": ["s-r"]},
+        {"phase": "retake", "pct": 40.0, "at": "t", "sessions": ["s-r"]},
     ]}
     out, log = _verdict(
         sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)),
-        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 70.0},
+        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 40.0},
     )
     assert out["passed"] is False
-    patch_ = [e for e in log if e[1] == "update"][0][2]
-    assert len(patch_["mastery"]["attempts"]) == 2   # KHÔNG thêm bản sao lượt chính
+    assert [e for e in log if e[1] == "update"] == [], \
+        "ghi ở đây là lấy 70% cũ đè lên 40% mới — bảng giáo viên nói ngược dòng thời gian"
 
 
 def test_retake_must_be_exactly_one_session():
@@ -348,14 +349,15 @@ def test_retake_must_be_exactly_one_session():
 
 
 def test_cas_conflict_rereads_and_merges_before_writing():
-    """Hai tab cùng chốt: kẻ thua vòng ghi phải ĐỌC LẠI sổ mới rồi gộp, không
-    đè mất kết quả của tab kia (codex R3)."""
+    """Hai tab, mỗi tab một retake KHÁC nhau, cùng chốt: kẻ thua vòng ghi phải
+    ĐỌC LẠI sổ mới rồi gộp — kết quả tab kia sống sót, không bị đè (codex R3)."""
     other = {"phase": "retake", "pct": 55.0, "at": "t2", "sessions": ["s-tab2"]}
+    base_run = {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-a", "s-b"]}
+    stale_row = {"id": "it-1", "passed_at": None, "updated_at": "T0",
+                 "mastery": {"threshold": 80, "attempts": [base_run]}, "score": 70.0}
     fresh_row = {"id": "it-1", "passed_at": None, "updated_at": "T1",
-                 "mastery": {"threshold": 80, "attempts": [
-                     {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-0", "s-1"]},
-                     other,
-                 ]}, "score": 55.0}
+                 "mastery": {"threshold": 80, "attempts": [base_run, other]},
+                 "score": 55.0}
 
     class _CasTable(_Table):
         updates = 0
@@ -372,22 +374,19 @@ def test_cas_conflict_rereads_and_merges_before_writing():
 
     _CasTable.updates = 0
     log = []
-    ss = _sessions(2)
+    ss = _sessions(1, kind="retake")            # retake của TAB NÀY: phiên s-0
+    given = {f"q{i}": (i % 4) if i > 1 else 99 for i in range(5)}   # 3/5 đúng = 60%
     reads = {"n": 0}
-    stale_row = {"id": "it-1", "passed_at": None, "updated_at": "T0",
-                 "mastery": {"threshold": 80, "attempts": [
-                     {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-0", "s-1"]},
-                 ]}, "score": 70.0}
     def table(n):
         rows = {
-            "class_assignments": [{"id": "asg-1", "content_config": {}}],
+            "class_assignments": [{"id": "asg-1",
+                                   "content_config": {"retake_size": 5}}],
             "quiz_sessions": ss,
             "quiz_questions": _questions(10),
-            "quiz_attempts": _attempts(ss, _given(10, wrong=3)),
+            "quiz_attempts": _attempts(ss, given),
         }.get(n)
         if n == "class_assignment_items":
             reads["n"] += 1
-            # lần đọc đầu trả bản CŨ, các lần sau trả bản tab kia đã ghi
             rows = [stale_row if reads["n"] == 1 else fresh_row]
         return _CasTable(n, rows or [], log)
     db = type("DB", (), {})()
@@ -396,12 +395,12 @@ def test_cas_conflict_rereads_and_merges_before_writing():
          patch.object(qs, "_assignment_item_for", lambda b, u: _ITEM):
         out = qs.course_verdict(user_id="u-1", bank_id="bank-1",
                                 session_ids=[x["id"] for x in ss])
-    assert out["passed"] is False
+    assert out["passed"] is False and out["pct"] == 60.0
     final = [e for e in log if e[1] == "update"][-1][2]
     phases = [(a["phase"], a["pct"]) for a in final["mastery"]["attempts"]]
     assert ("retake", 55.0) in phases, "kết quả của tab kia phải SỐNG SÓT"
+    assert ("retake", 60.0) in phases, "kết quả của tab này cũng phải vào sổ"
     assert phases.count(("run", 70.0)) == 1, "lượt chính không bị nhân đôi"
-
 
 # ── Từ chối lượt bẩn ─────────────────────────────────────────────────────────
 

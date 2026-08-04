@@ -554,3 +554,30 @@ describe('chặng chốt hỏng phải SỬA LẠI được (codex #928 R3)', ()
       'kẹt ở màn kết quả là verdict phủ-đủ-đề bác mãi, không lối ra');
   });
 });
+
+describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
+  test('đổi đáp án là đổi bài: trạng thái cũ bỏ, lượt mới sạch', async () => {
+    const store = memStore();
+    const v1 = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: v1 });
+    await playStage(first.r);                                   // done cuối, sess-1
+    // re-import: CÙNG qid, CÙNG số câu — chỉ đáp án đổi
+    const v2 = Array.from({ length: 5 }, (_, i) => mcq(i, { answer: 1 }));
+    const second = await run({ storage: store, questions: v2 });
+    assert.equal(second.r.at, 0, 'bài đã đổi thước — phải làm lại từ đầu');
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên chấm theo thước cũ không được lẫn vào lượt xét của thước mới');
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'lượt mới thì phiên là bắt buộc');
+  });
+
+  test('không đổi gì thì trạng thái cũ vẫn dùng tiếp (vân tay không reset oan)', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                   // xong chặng 1/2
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.stage, 1, 'cùng bộ đề thì tiếp tục, không bắt làm lại');
+    assert.equal(second.r.runSessionCount, 1);
+  });
+});
