@@ -95,21 +95,43 @@ export function HomeShell() {
         <div className="hero-stats" aria-label="Tổng quan">
           <HeroStat
             id="hero-streak" label="Streak" unit="ngày" className="streak"
-            // HYDRATION: `lucide.createIcons()` THAY thẻ <i> này bằng <svg> ngay khi
-            // DOM sẵn sàng (layout gọi ở cả DOMContentLoaded lẫn `load`), còn React
-            // hydrate sau đó lại đi tìm <i> → React #418. Cổng authed-G1 bắt được
-            // đúng lỗi này ở lần chạy đầu. Trang legacy không dính vì không hydrate;
-            // `/profile` không dính vì KHÔNG dùng lucide — nên khuôn chép từ profile
-            // chưa từng gặp ca này. `suppressHydrationWarning` là công cụ đúng: ta CỐ
-            // Ý cho một script bên ngoài thay nội dung nút đó sau khi render.
+            // ICON NHÚNG THẲNG, KHÔNG DÙNG `data-lucide` — CÓ CHỦ Ý.
             //
-            // Chú thích nằm NGOÀI `extra={( … )}`: dấu ngoặc đó chỉ chứa được MỘT
-            // biểu thức, nên `{/* … */}` bên trong là cú pháp hỏng — Turbopack báo
-            // "Expected '</', got 'ident'". Local build của tôi vẫn báo xanh nhờ
-            // cache; chỉ CI build sạch mới lộ ra.
+            // lucide@1.17.0 TỰ thay mọi `[data-lucide]` bằng `<svg>` ngay khi
+            // script nạp xong — KHÔNG qua `window.lucide.createIcons()` (bọc hàm
+            // đó lại và đếm: 0 lần gọi, mà thẻ <i> vẫn biến mất). Nên bỏ lời gọi
+            // trong layout là vô ích; chừng nào còn `data-lucide` trong cây React
+            // thì còn đua với hydrate: nếu lucide (defer, CDN) thắng, React quay
+            // lại thấy <svg> ở chỗ nó vừa dựng <i> → Minified React error #418,
+            // cả cây bị dựng lại phía client.
+            //
+            // `suppressHydrationWarning` KHÔNG cứu được: nó chỉ che khác biệt
+            // thuộc-tính/text trên CHÍNH phần tử đó, không che việc con bị đổi
+            // hẳn loại thẻ. Đã thử, vẫn #418.
+            //
+            // Đo bằng `tooling/repro-418.mjs` (cổng riêng — 3000 có thể đang bận):
+            //   đua tự nhiên → 0 lỗi  ← chạy vài lần xanh KHÔNG chứng minh gì
+            //   --slow-react → #418 tất định, TRƯỚC vá; 3/3 sạch SAU vá
+            // Bản dev (React không rút gọn) in ra đúng chỗ lệch: React dựng
+            // `<i data-lucide="flame">`, DOM thực tế là `<svg>`.
+            //
+            // `/profile` không dính vì dùng 0 icon lucide — nên khuôn chép từ
+            // profile chưa từng gặp ca này.
+            //
+            // SVG dưới đây chép NGUYÊN VĂN cái lucide@1.17.0 sinh ra, chỉ BỎ
+            // thuộc tính `data-lucide` để lucide không nhận diện nữa. Giữ
+            // `class="lucide lucide-flame"`; CSS bám vào `.flame svg`
+            // (home.css:150) nên vẫn khớp, và 0 selector nào dùng [data-lucide].
             extra={(
-              <span className="flame" aria-hidden="true" suppressHydrationWarning>
-                <i data-lucide="flame" />
+              <span className="flame" aria-hidden="true">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  aria-hidden="true" className="lucide lucide-flame"
+                >
+                  <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" />
+                </svg>
               </span>
             )}
           />
