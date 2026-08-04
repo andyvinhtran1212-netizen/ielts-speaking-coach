@@ -11,6 +11,7 @@ writes via service-role supabase_admin, so it must enforce user scoping in code)
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import traceback
@@ -172,6 +173,36 @@ def quiz_write_health() -> dict:
 # làm. Nó nằm trong kho của giáo viên, và chỉ tới tay một em khi em đó ĐƯỢC GIAO.
 COURSE_AREA = "course"
 
+# ── Cổng "thuộc bài" (mastery gate) ──────────────────────────────────────────
+# Dưới ngưỡng thì chưa kết luận được là thuộc: học viên làm bài KIỂM TRA LẠI —
+# mẫu nhỏ bốc ngẫu nhiên, trộn thứ tự câu VÀ trộn thứ tự đáp án — tới khi đạt.
+# Ngưỡng/cỡ mẫu chỉnh được theo TỪNG BÀI GIAO (content_config), đây là mặc định.
+PASS_PCT_DEFAULT = 80
+RETAKE_SIZE_DEFAULT = 20
+
+_SESSION_KINDS = {"run", "retake"}
+
+
+def mastery_config(assignment: dict | None) -> dict:
+    """Ngưỡng đạt + cỡ mẫu kiểm tra lại của một bài giao, đã kẹp về dải lành.
+
+    Kẹp chứ không tin: content_config là jsonb tự do, một lần nhập tay `800`
+    thay vì `80` sẽ biến bài tập thành không thể đạt — và không ai biết vì sao.
+    """
+    cfg = (assignment or {}).get("content_config") or {}
+
+    def _clamp(raw, lo, hi, default):
+        try:
+            v = int(raw)
+        except (TypeError, ValueError):
+            return default
+        return max(lo, min(hi, v))
+
+    return {
+        "pass_pct":    _clamp(cfg.get("pass_pct"), 50, 100, PASS_PCT_DEFAULT),
+        "retake_size": _clamp(cfg.get("retake_size"), 5, 100, RETAKE_SIZE_DEFAULT),
+    }
+
 
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
@@ -258,6 +289,7 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
+    mastery_state = None
     if bank.get("skill_area") == COURSE_AREA:
         # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
         # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
@@ -266,8 +298,34 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
-        if not user_id or not _has_assignment_for(bank_id, user_id):
+        item = _assignment_item_for(bank_id, user_id) if user_id else None
+        if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
+        # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
+        # vẫn chạy, chỉ thiếu tấm huy hiệu.
+        try:
+            row = (supabase_admin.table("class_assignment_items")
+                   .select("passed_at, mastery")
+                   .eq("id", item["id"]).limit(1).execute().data) or []
+            asg = (supabase_admin.table("class_assignments")
+                   .select("id, content_config")
+                   .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+            cfg = mastery_config(asg[0] if asg else None)
+            it = row[0] if row else {}
+            att = ((it.get("mastery") or {}).get("attempts")) or []
+            mastery_state = {
+                # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
+                # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
+                # mục khác, phiên cũ thuộc mục cũ và verdict sẽ bác chúng.
+                "item_id": item["id"],
+                "passed_at": it.get("passed_at"),
+                "threshold": cfg["pass_pct"],
+                "retake_size": cfg["retake_size"],
+                "retakes": sum(1 for a in att if a.get("phase") == "retake"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
     elif not bank.get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     try:
@@ -280,7 +338,10 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
-    return {"bank": bank, "questions": questions, "word_cards": word_cards}
+    out = {"bank": bank, "questions": questions, "word_cards": word_cards}
+    if mastery_state is not None:
+        out["mastery"] = mastery_state
+    return out
 
 
 def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:
@@ -401,7 +462,7 @@ def _owned_session(session_id: str, user_id: str) -> dict:
     return rows[0]
 
 
-def start_session(*, user_id: str, bank_id: str) -> dict:
+def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
     """Create a session and return {session_id, resume} — resume = prior word_stats
     so the engine continues carry-over.
 
@@ -410,17 +471,29 @@ def start_session(*, user_id: str, bank_id: str) -> dict:
     upsert would then overwrite a previously mastered/provisional word with lower
     counts. A read failure → 500, no session row, no destructive write."""
     bank = _bank_meta_or_404(bank_id, user_id)   # cổng (published HOẶC bài giao)
+    if kind not in _SESSION_KINDS:
+        raise HTTPException(422, "kind phải là 'run' hoặc 'retake'")
+    if kind == "retake" and bank.get("skill_area") != COURSE_AREA:
+        # Kiểm tra lại là khái niệm của cổng thuộc-bài; bank tự chọn không có
+        # ngưỡng đạt nên một phiên 'retake' ở đó chỉ làm nhiễu số liệu.
+        raise HTTPException(422, "Chỉ bài tập theo buổi mới có kiểm tra lại")
     resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
     # Ghi lại mục bài giao NGAY LÚC TẠO PHIÊN, không đoán về sau. Suy ra "lượt
     # này thuộc bài giao nào" từ thời điểm và người làm là một phép đoán, và phép
     # đoán ấy đã sai đủ nhiều lần (mig 181) để không đáng làm lại.
     item = (_assignment_item_for(bank_id, user_id)
             if bank.get("skill_area") == COURSE_AREA else None)
+    row = {
+        "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
+        "class_assignment_item_id": (item or {}).get("id"),
+    }
+    # Chỉ ghi cột `kind` khi khác mặc định: giữ cho MỌI luồng quiz đang chạy
+    # (vocab, grammar) không phụ thuộc migration 189 — chúng không bao giờ tạo
+    # phiên retake.
+    if kind != "run":
+        row["kind"] = kind
     try:
-        res = supabase_admin.table("quiz_sessions").insert({
-            "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
-            "class_assignment_item_id": (item or {}).get("id"),
-        }).execute()
+        res = supabase_admin.table("quiz_sessions").insert(row).execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi tạo session: {exc}")
     if not res.data:
@@ -620,6 +693,239 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mark submitted failed item=%s: %s", item_id, exc)
     return res.data[0] if res.data else {"id": session_id, **patch}
+
+
+def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:
+    """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
+
+    Client chỉ NÊU TÊN các phiên của lượt vừa làm (10 phiên chặng, hoặc 1 phiên
+    kiểm tra lại); điểm cộng từ những dòng server đã ghi, không nhận tổng do
+    client tự khai. Suy lượt từ khảo cổ toàn bộ phiên của em ấy thì học viên xoá
+    localStorage làm lại là mẫu số phình gấp đôi — nêu tên tường minh né hẳn.
+
+    Kết luận GHI THẲNG vào class_assignment_items (passed_at + sổ mastery):
+    giáo viên đọc một cột, không đoán từ bảng phiên.
+
+    RANH GIỚI TIN CẬY (ghi nhận từ codex #928, chưa xử trong tầng này): toàn bộ
+    hệ quiz phát ĐỀ KÈM ĐÁP ÁN xuống client — phản hồi tức thì từng câu là yêu
+    cầu sản phẩm, nên một client script có thể nộp answer_given chép từ chính
+    payload đề và qua cổng này. Cổng thuộc bài vì thế chặn được khai-man-tổng-số
+    và mọi đường gian lận "rẻ", KHÔNG chặn được client tự động hoá có chủ đích;
+    muốn chặn nốt phải đổi hợp đồng phát đề (giấu đáp án + chấm từng câu phía
+    server) cho cả engine quiz — một thay đổi sản phẩm, không phải một bản vá.
+    Giáo viên vẫn thấy tín hiệu bất thường qua duration_sec/response_time_ms.
+
+    Mỗi lần ghi sổ kèm `bank_rev` (vân tay qid:answer của đề TẠI THỜI ĐIỂM xét):
+    pass là sự kiện lịch sử — re-import đề không thu hồi pass cũ, nhưng vân tay
+    cho phép trả lời "em ấy đạt trên bản đề nào" khi cần kiểm toán. Đổi đề ở
+    mức thay ruột thì tạo bank mới, đừng ghi đè bank cũ.
+    """
+    if not session_ids or len(session_ids) > 40:
+        raise HTTPException(422, "session_ids phải có 1–40 phiên")
+
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+
+    try:
+        asg = (supabase_admin.table("class_assignments")
+               .select("id, content_config")
+               .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+        cfg = mastery_config(asg[0] if asg else None)
+
+        rows = (supabase_admin.table("quiz_sessions")
+                .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by")
+                .in_("id", session_ids).execute().data) or []
+
+        cur = (supabase_admin.table("class_assignment_items")
+               .select("id, passed_at, mastery, score, updated_at")
+               .eq("id", item["id"]).limit(1).execute().data) or []
+
+        # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
+        # đứng ngoài thước.
+        qrows = (supabase_admin.table("quiz_questions")
+                 .select("qid, answer, type")
+                 .eq("bank_id", bank_id).limit(2000).execute().data) or []
+
+        # Lượt làm ĐÃ LƯU của các phiên được nêu tên. Phân trang tường minh:
+        # PostgREST cắt 1000 dòng im lặng (lớp lỗi tái diễn — xem bộ nhớ dự án),
+        # và một lịch sử làm-lại dài hoàn toàn có thể vượt.
+        att, off = [], 0
+        while True:
+            page = (supabase_admin.table("quiz_attempts")
+                    .select("session_id, qid, answer_given")
+                    .in_("session_id", session_ids)
+                    .range(off, off + 999).execute()).data or []
+            att.extend(page)
+            if len(page) < 1000:
+                break
+            off += 1000
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc dữ liệu xét đạt: {exc}")
+    if not cur:
+        raise HTTPException(404, "Không tìm thấy mục bài giao")
+    cur = cur[0]
+
+    # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
+    # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
+    # phần còn lại: mẫu số thiếu làm điểm ẢO cao lên.
+    if len(rows) != len(set(session_ids)):
+        raise HTTPException(422, "Có phiên không tồn tại")
+    for s in rows:
+        if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
+                or s.get("class_assignment_item_id") != item["id"]):
+            raise HTTPException(422, "Có phiên không thuộc lượt làm này")
+        if s.get("ended_by") != "completed":
+            raise HTTPException(422, "Có phiên chưa hoàn thành")
+
+    kinds = {s.get("kind") or "run" for s in rows}
+    if len(kinds) > 1:
+        raise HTTPException(422, "Không trộn phiên chặng với phiên kiểm tra lại")
+    phase = kinds.pop()
+    if phase == "retake" and len(rows) != 1:
+        # Một bài kiểm tra lại là MỘT phiên. Cho ghép nhiều phiên dở dang thì
+        # hợp-các-mảnh vẫn đủ cỡ mẫu và vượt được rào "đủ N câu" (codex R3).
+        raise HTTPException(422, "Bài kiểm tra lại phải là đúng một phiên")
+
+    # ── Server TỰ CHẤM LẠI, không tin sổ của client ──────────────────────────
+    # `total_correct` trên phiên là con số client khai lúc kết phiên; một client
+    # sửa được payload sẽ khai 100% và mua một kết luận đạt vĩnh viễn. Thước
+    # thật là: đáp án ĐÃ LƯU (answer_given, ghi theo vị trí gốc) so với đáp án
+    # trong đề. is_correct trong attempts cũng là lời client — bỏ qua nốt.
+    key = {q["qid"]: q for q in qrows
+           if q.get("qid") and q.get("type") != "writing" and q.get("answer") is not None}
+    if not key:
+        raise HTTPException(422, "Bộ đề không có câu trắc nghiệm nào")
+    # Vân tay đề tại thời điểm xét — thứ tự độc lập (sort theo qid) vì nó phục
+    # vụ kiểm toán, không cần khớp vân tay phía runner.
+    bank_rev = hashlib.sha256("|".join(
+        f"{qid}:{q.get('answer')}" for qid, q in sorted(key.items())
+    ).encode()).hexdigest()[:12]
+
+    seen: dict = {}
+    for a in att:
+        qid = a.get("qid")
+        if qid not in key:
+            # Câu lạ (kể cả câu tự luận bị nhồi kèm is_correct) — bác cả lượt.
+            raise HTTPException(422, "Có lượt làm không thuộc bộ đề này")
+        if qid in seen:
+            # Một câu hai lượt trong cùng một lần xét là dấu nộp ghép/lặp.
+            raise HTTPException(422, "Có câu bị nộp trùng trong lượt xét")
+        seen[qid] = a
+
+    # ── Phủ ĐỦ đề — chặn cả gian lận lẫn dương tính giả ─────────────────────
+    # Lượt chính phải trả lời ĐỦ MỌI câu trắc nghiệm của bộ: client chỉ nêu tên
+    # các phiên điểm cao (bỏ chặng làm kém, hay chặng rớt mạng lúc chốt) thì mẫu
+    # số co lại và điểm ẢO cao lên. Kiểm tra lại thì phải đủ cỡ mẫu đã cấu hình
+    # (kẹp theo kho — kho 15 câu thì mẫu 15 là đủ).
+    if phase == "run":
+        missing = len(set(key) - set(seen))
+        if missing:
+            raise HTTPException(
+                422, f"Lượt làm thiếu {missing} câu chưa có kết quả trên hệ thống")
+    else:
+        need = min(cfg["retake_size"], len(key))
+        if len(seen) < need:
+            raise HTTPException(
+                422, f"Bài kiểm tra lại phải đủ {need} câu (mới có {len(seen)})")
+
+    graded = len(seen)
+    correct = sum(1 for qid, a in seen.items()
+                  if str(a.get("answer_given")).strip() == str(key[qid]["answer"]))
+    pct = round(correct / graded * 100, 1)
+    passed = pct >= cfg["pass_pct"]
+
+    sess_key = sorted(set(session_ids))
+    # Ghi sổ bằng CAS trên updated_at: đọc-gộp-ghi không khoá thì hai tab cùng
+    # chốt (mỗi tab một retake) sẽ đè sổ của nhau — mất một kết quả thật khỏi
+    # mắt giáo viên (codex R3). Patch tự đặt updated_at mới; kẻ thua vòng ghi
+    # thấy 0 dòng khớp, đọc lại sổ mới rồi gộp lại. Ba vòng là quá đủ cho một
+    # người dùng thật; hết vòng vẫn thua → 500, không báo đạt miệng.
+    for _cas in range(3):
+        mastery = cur.get("mastery") or {}
+        attempts = list(mastery.get("attempts") or [])
+
+        # Kiểm tra lại chỉ có nghĩa SAU một lượt chính dưới ngưỡng. Không có
+        # chốt này thì client tự tạo phiên retake trả lời đúng cỡ-mẫu câu là
+        # mua được kết luận đạt mà chưa từng làm đủ bài (codex R2). Luồng thật
+        # luôn thoả: nút kiểm tra lại chỉ hiện sau khi verdict lượt chính đã
+        # ghi sổ.
+        if phase == "retake" and not any(
+                a.get("phase") == "run" and (a.get("pct") or 0) < cfg["pass_pct"]
+                for a in attempts):
+            raise HTTPException(
+                422, "Chưa có lượt làm chính dưới ngưỡng — làm đủ bài trước đã")
+
+        # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không
+        # được phình theo số lần bấm. So với TOÀN sổ chứ không chỉ dòng cuối:
+        # sau một lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt
+        # chính và nộp lại đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so
+        # mỗi dòng cuối thì lượt chính bị ghi trùng (codex R2).
+        appended = False
+        if not any(a.get("phase") == phase and a.get("sessions") == sess_key
+                   for a in attempts):
+            attempts.append({
+                "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
+            })
+            appended = True
+        already = bool(cur.get("passed_at"))
+        if not appended and not (passed and not already):
+            # Lượt TRÙNG (F5 nộp lại đúng bộ phiên cũ) và không có gì mới để
+            # kết luận: đừng chạm sổ. Ghi đè score ở đây là lấy điểm lượt CŨ
+            # (vd 70% của run) đè lên điểm mới nhất (40% của retake vừa trượt)
+            # — bảng của giáo viên nói ngược dòng thời gian (codex R4).
+            break
+        patch: dict = {
+            "mastery": {"threshold": cfg["pass_pct"], "bank_rev": bank_rev,
+                        "attempts": attempts},
+            "updated_at": _now(),
+        }
+        # Điểm của mục = điểm lượt mới nhất — CHO TỚI KHI ĐẠT. Sau mốc đạt thì
+        # score đóng băng ở điểm đạt: một retake trượt về sau (làm lại cho vui,
+        # hay thua vòng CAS với chính lượt đạt) mà ghi 40% đè lên là bảng giáo
+        # viên hiện "40% ✓" tự mâu thuẫn (codex R5).
+        if not already:
+            patch["score"] = pct
+        if passed and not already:
+            patch["passed_at"] = _now()
+        try:
+            q = (supabase_admin.table("class_assignment_items")
+                 .update(patch).eq("id", item["id"]))
+            if cur.get("updated_at") is not None:
+                q = q.eq("updated_at", cur["updated_at"])
+            res = q.execute()
+        except Exception as exc:  # noqa: BLE001
+            # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ
+            # rời trang với niềm tin đã xong trong khi giáo viên không thấy gì.
+            raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+        if res.data:
+            break
+        try:
+            fresh = (supabase_admin.table("class_assignment_items")
+                     .select("id, passed_at, mastery, score, updated_at")
+                     .eq("id", item["id"]).limit(1).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi đọc lại sổ sau tranh chấp ghi: {exc}")
+        if not fresh:
+            raise HTTPException(404, "Không tìm thấy mục bài giao")
+        cur = fresh[0]
+    else:
+        raise HTTPException(500, "Sổ bài giao đang bị ghi tranh chấp — thử lại")
+
+    # Đã đạt từ trước thì pct trả về là ĐIỂM ĐẠT (score bị đóng băng ở đó),
+    # không phải điểm của lượt trượt vừa nộp — kẻo màn hình đọc thành
+    # "Đã ĐẠT · 40% · ngưỡng 80%" tự mâu thuẫn (codex R6).
+    return {
+        "passed": passed or already,
+        "pct": (float(cur.get("score")) if already and cur.get("score") is not None
+                else pct),
+        "threshold": cfg["pass_pct"],
+        "phase": phase,
+        "retake_size": cfg["retake_size"],
+        "retakes": sum(1 for a in attempts if a.get("phase") == "retake"),
+    }
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────

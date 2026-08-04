@@ -704,6 +704,23 @@
           <label for="hf-cbank">Bộ bài tập <span class="adm-hint">(kho giáo trình của khoá)</span></label>
           <select id="hf-cbank"><option value="">— Chọn buổi —</option></select>
           <p class="av-setnote" id="hf-cbank-note" data-tone="ok"></p>
+
+          <!-- Cổng thuộc bài: dưới ngưỡng thì học viên kiểm tra lại (mẫu nhỏ,
+               trộn câu + trộn đáp án) tới khi đạt. Để trống = mặc định. -->
+          <div class="cl-form-row">
+            <div class="adm-field">
+              <label for="hf-pass-pct">Ngưỡng đạt (%)
+                <span class="adm-hint">(trống = 80)</span></label>
+              <input id="hf-pass-pct" type="number" min="50" max="100" step="5"
+                     inputmode="numeric" placeholder="80" />
+            </div>
+            <div class="adm-field">
+              <label for="hf-retake-size">Số câu kiểm tra lại
+                <span class="adm-hint">(trống = 20)</span></label>
+              <input id="hf-retake-size" type="number" min="5" max="100" step="5"
+                     inputmode="numeric" placeholder="20" />
+            </div>
+          </div>
         </div>
 
         <!-- Bài sau buổi học: chọn BỘ ĐỀ của buổi, từ kho của khoá mà lớp thuộc

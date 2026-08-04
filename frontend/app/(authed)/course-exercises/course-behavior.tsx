@@ -81,8 +81,13 @@ export function CourseBehavior() {
         const qs = runner.stageQuestions();
         const marks = runner.marks;
         const el = $('cx-stage'); if (el) el.hidden = false;
-        $('cx-stage-label')!.innerHTML =
-          `${esc(runner.bank.title)} · chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`;
+        // Bài kiểm tra lại KHÔNG phải "chặng 11": gọi tên nó ra để học viên
+        // biết mình đang ở đâu và vì sao chỉ có một chặng.
+        $('cx-stage-label')!.innerHTML = runner.mode === 'retake'
+          ? `${esc(runner.bank.title)} · <strong>kiểm tra lại · lần ${runner.retakeNo}</strong>`
+          : `${esc(runner.bank.title)} · chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`
+            + (runner.mastery && runner.mastery.passed_at
+              ? ' <span class="cx-passbadge">✓ đã đạt</span>' : '');
         $('cx-stage-ticks')!.innerHTML = qs.map((_q: any, i: number) => {
           const s = marks[i] || (i === runner.at ? 'now' : '');
           return `<i${s ? ` data-s="${s}"` : ''}></i>`;
@@ -184,17 +189,69 @@ export function CourseBehavior() {
                 + `<span class="cx-axis__n">${a.n} câu</span></li>`).join('')
               + '</ul>'
             : '<h2>Không sai câu nào trong chặng này.</h2>')
-          // Nói THẲNG khi bài chưa tới máy chủ. Im lặng nghĩa là học viên tin
-          // mình đã nộp, còn giáo viên thì không thấy gì.
+          // Chặng chưa tới máy chủ thì KHÔNG cho đi tiếp: đi tiếp là mang theo
+          // một lỗ không vá được và verdict phủ-đủ-đề sẽ bác cả lượt ở phút
+          // chót. Bài làm còn nguyên trong bộ nhớ — gửi lại là một lần thật.
           + (res.persisted ? ''
-            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống. '
-              + 'Giữ tab mở và kiểm tra kết nối — bài làm vẫn đang chờ gửi.</p>')
-          + '<div class="cx-next" style="position:static">'
-          + (res.hasMore
-            ? `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button>`
-            : `<span class="cx-empty" style="flex:1">Xong cả ${runner.total} câu của buổi này.</span>`)
-          + '</div>';
+            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — '
+              + 'bài làm vẫn còn nguyên ở đây. Kiểm tra kết nối rồi gửi lại.</p>'
+              + '<div class="cx-next" style="position:static">'
+              + '<button class="av-button av-button-primary" id="cx-resend" type="button">'
+              + 'Gửi lại kết quả chặng</button></div>')
+          + (!res.persisted ? ''
+            : res.hasMore
+              ? '<div class="cx-next" style="position:static">'
+                + `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button></div>`
+              : '<div id="cx-verdict"></div>');
         renderStage();
+        // Hết lượt (chặng cuối, hoặc xong bài kiểm tra lại) → xét đạt. Sau khi
+        // markup ở trên đã vào DOM, vì kết quả vẽ vào #cx-verdict. Chỉ xét khi
+        // chặng đã THẬT SỰ tới máy chủ.
+        if (res.persisted && !res.hasMore) renderVerdict();
+      }
+
+      let lastVerdict: any = null;
+
+      /**
+       * Màn kết luận. Ba trạng thái, không trạng thái nào im lặng:
+       * đang xét → ĐẠT (chốt bài) → hoặc CHƯA ĐẠT kèm đúng một việc phải làm.
+       */
+      async function renderVerdict() {
+        const box = $('cx-verdict'); if (!box) return;
+        box.innerHTML = '<p class="cx-empty">Đang xét kết quả…</p>';
+        let v: any = null;
+        try {
+          v = await runner.verdict();
+        } catch (err: any) {
+          // Xét hỏng KHÔNG được đọc thành "chưa đạt" — đó là hai câu khác nhau.
+          box.innerHTML = '<div class="cx-verdict" data-v="wait">'
+            + `<p class="cx-verdict__sub">Chưa xét được kết quả: ${esc(err?.message || err)}</p>`
+            + '<button class="av-button" id="cx-verdict-retry" type="button">Xét lại</button></div>';
+          return;
+        }
+        lastVerdict = v;
+        if (v.passed) {
+          box.innerHTML = '<div class="cx-verdict" data-v="pass">'
+            + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
+            + `<p class="cx-verdict__sub">Điểm gộp <strong>${v.pct}%</strong> · ngưỡng ${v.threshold}%`
+            + (v.retakes ? ` · chốt ở lần kiểm tra lại thứ ${v.retakes}` : '')
+            + '</p></div>';
+        } else {
+          box.innerHTML = '<div class="cx-verdict" data-v="fail">'
+            + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}% — cần ${v.threshold}%</p>`
+            + `<p class="cx-verdict__sub">Làm bài kiểm tra lại để chốt buổi này: ${v.retake_size} câu `
+            + 'bốc ngẫu nhiên từ bộ đề, thứ tự câu và thứ tự đáp án được trộn lại — '
+            + 'thuộc vị trí không giúp gì đâu.</p>'
+            + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
+            + `Làm kiểm tra lại (${v.retake_size} câu)</button></div>`;
+        }
+      }
+
+      async function startRetakeFlow() {
+        const size = (lastVerdict && lastVerdict.retake_size)
+          || (runner.mastery && runner.mastery.retake_size) || 20;
+        await runner.startRetake(size);
+        renderQuestion();
       }
 
       const l = $('cx-loading'); if (l) l.hidden = true;
@@ -217,6 +274,11 @@ export function CourseBehavior() {
         if (t.id === 'cx-go') { runner.next(); return renderQuestion(); }
         if (t.id === 'cx-reveal') return onSelfCheck();
         if (t.id === 'cx-more') return runner.nextStage().then(renderQuestion);
+        if (t.id === 'cx-retake') return void startRetakeFlow();
+        if (t.id === 'cx-verdict-retry') return void renderVerdict();
+        // Gửi lại = chạy lại đúng finishStage: sessionId + hàng đợi còn nguyên,
+        // nên đây là một lần đẩy thật chứ không phải vẽ lại màn hình.
+        if (t.id === 'cx-resend') return void renderDone();
       };
       document.addEventListener('click', onClick);
 

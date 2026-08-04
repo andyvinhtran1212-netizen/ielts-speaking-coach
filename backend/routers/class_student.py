@@ -102,6 +102,9 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
         "state":        item["state"],
         "submitted_at": submitted_at,
         "score":        item.get("score"),
+        # Cổng thuộc bài (chỉ bài course có): trang lớp hiện "85% · đã đạt"
+        # thay vì "Band 85.0" — một con số không tồn tại trên thang IELTS.
+        "passed_at":    item.get("passed_at"),
         "is_late":      is_late,
         "is_missing":   is_missing,
         "assignment": {

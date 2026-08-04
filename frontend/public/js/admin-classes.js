@@ -692,13 +692,26 @@ const TALLY_WHEN = {
   pending: 'chưa nộp',
 };
 
-function tallyRow(r) {
+function tallyRow(r, skill) {
   const when = r.submitted_at
     ? hhmm(r.submitted_at) + (r.status === 'late' ? ' · trễ' : '')
     : (TALLY_WHEN[r.status] || '');
-  // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
-  const band = (r.score === null || r.score === undefined) ? '—' : Number(r.score).toFixed(1);
   const empty = (r.score === null || r.score === undefined);
+  // Chưa chấm là chưa chấm — hiện 0.0 là hiện một ĐIỂM SỐ mà không ai cho.
+  // Bài course: điểm là PHẦN TRĂM, không phải band — "85.0" đọc như band 8.5
+  // là nói dối. Kèm đạt/chưa từ cổng thuộc bài; số lần kiểm tra lại chỉ hiện
+  // khi >0 vì đó mới là tín hiệu cần kèm cặp.
+  let band;
+  if (empty) band = '—';
+  else if (skill === 'course') {
+    // "Chưa đạt" chỉ khi ĐÃ có lượt xét trượt. Mới xong chặng 1 thì submitted_at
+    // đã đóng dấu nhưng chưa ai xét gì — nói "chưa đạt" lúc ấy là kết tội một
+    // bài đang làm dở.
+    const state = r.passed_at ? ' ✓'
+      : (r.verdicts ? ' · chưa đạt' : ' · đang làm');
+    band = Math.round(Number(r.score)) + '%' + state
+      + (r.retakes ? ` · KTL×${r.retakes}` : '');
+  } else band = Number(r.score).toFixed(1);
   // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này
   // để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh tên em ấy.
   // Mỗi cờ nói đủ ba thứ — chuyện gì, vì sao, làm gì tiếp; một chấm đỏ không
@@ -732,7 +745,8 @@ function hhmm(iso) {
 function renderTally(d) {
   const c = (d && d.counts) || {};
   const sealed = !!(d && d.sealed);
-  const rows = ((d && d.students) || []).map(tallyRow).join('');
+  const rows = ((d && d.students) || [])
+    .map((r) => tallyRow(r, d && d.assignment && d.assignment.skill)).join('');
   const notes = [];
   if (sealed) {
     notes.push(`Chốt lúc <strong>${esc(dueText(d.assignment.due_at))}</strong>`
@@ -1330,6 +1344,8 @@ function openHomeworkModal() {
   if (daily) daily.checked = true;
   $('hf-set').value = '';
   $('hf-cbank').value = '';
+  $('hf-pass-pct').value = '';
+  $('hf-retake-size').value = '';
   $('hf-due-days').value = '7';
   _lessonSets = [];
   $('hf-skill').value = 'speaking';
@@ -1523,6 +1539,20 @@ async function submitCourseHomework(title) {
     $('hf-error').hidden = false;
     return;
   }
+  // Cổng thuộc bài: chỉ gửi khi admin ĐIỀN — trống nghĩa là "theo mặc định",
+  // và mặc định được phép tiến hoá mà không phải sửa từng bài giao cũ.
+  const passPct = parseInt($('hf-pass-pct').value, 10);
+  const retakeSize = parseInt($('hf-retake-size').value, 10);
+  if ($('hf-pass-pct').value !== '' && (isNaN(passPct) || passPct < 50 || passPct > 100)) {
+    $('hf-error').textContent = 'Ngưỡng đạt phải trong khoảng 50–100%.';
+    $('hf-error').hidden = false;
+    return;
+  }
+  if ($('hf-retake-size').value !== '' && (isNaN(retakeSize) || retakeSize < 5 || retakeSize > 100)) {
+    $('hf-error').textContent = 'Số câu kiểm tra lại phải trong khoảng 5–100.';
+    $('hf-error').hidden = false;
+    return;
+  }
   $('btn-hf-submit').disabled = true;
   try {
     const r = await api.post(
@@ -1534,6 +1564,10 @@ async function submitCourseHomework(title) {
         due_date: $('hf-due').value || null,
         due_time: $('hf-due-time').value || null,
         instructions: $('hf-instructions').value.trim() || null,
+        // Bỏ trống = VẮNG MẶT trong payload, không phải null: payload gọn là
+        // hợp đồng đã ghim, và vắng mặt mới đúng nghĩa "theo mặc định".
+        ...(isNaN(passPct) ? {} : { pass_pct: passPct }),
+        ...(isNaN(retakeSize) ? {} : { retake_size: retakeSize }),
       },
     );
     closeHomeworkModal();

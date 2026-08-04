@@ -533,3 +533,31 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
       /data-action="start"/);
   });
 });
+
+describe('điểm bài theo buổi trên trang lớp (codex #928 R7)', () => {
+  test('bài course hiện PHẦN TRĂM, không phải "Band 85.0"', () => {
+    const html = submittedLabel({
+      submitted_at: '2026-08-03T11:00:00Z', is_late: false, score: 85.0,
+      passed_at: '2026-08-04T00:00:00Z', assignment: { skill: 'course' },
+    });
+    assert.match(html, /85% · đã đạt/);
+    assert.doesNotMatch(html, /Band/);
+  });
+
+  test('course chưa đạt: chỉ %, không gắn nhãn đạt', () => {
+    const html = submittedLabel({
+      submitted_at: '2026-08-03T11:00:00Z', is_late: false, score: 72.0,
+      passed_at: null, assignment: { skill: 'course' },
+    });
+    assert.match(html, /72%/);
+    assert.doesNotMatch(html, /đã đạt|Band/);
+  });
+
+  test('bài Speaking vẫn là Band như cũ', () => {
+    const html = submittedLabel({
+      submitted_at: '2026-08-03T11:00:00Z', is_late: false, score: 6.5,
+      assignment: { skill: 'speaking' },
+    });
+    assert.match(html, /Band 6\.5/);
+  });
+});

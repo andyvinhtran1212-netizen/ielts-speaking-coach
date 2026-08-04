@@ -46,7 +46,7 @@ function load({ kind = 'daily', now = '2026-08-04T03:00:00Z', sets = [], setQues
   for (const id of ['hf-skill-field', 'hf-skill', 'hf-kind-note', 'hf-topic-field',
     'hf-topic', 'hf-topic-note', 'hf-set-field', 'hf-set', 'hf-set-note',
     // Kho bài tập theo buổi (giáo trình) — node mới, khuôn giả phải có đủ.
-    'hf-cbank-field', 'hf-cbank', 'hf-cbank-note',
+    'hf-cbank-field', 'hf-cbank', 'hf-cbank-note', 'hf-pass-pct', 'hf-retake-size',
     'hf-speaking-row', 'hf-part', 'hf-test-field', 'hf-test', 'hf-mode',
     'hf-due-date-field', 'hf-due-days-field', 'hf-due', 'hf-due-days', 'hf-due-time',
     'hf-due-resolve', 'hf-due-resolve-at', 'hf-due-resolve-why',
@@ -715,6 +715,32 @@ describe('giao bài tập theo buổi', () => {
     assert.equal(b.due_date, '2026-08-11');
     // Không có mode/part/question_ids: đòi chúng là đòi thông tin không tồn tại.
     assert.ok(!('mode' in b) && !('part' in b) && !('question_ids' in b));
+    // Ngưỡng bỏ trống thì VẮNG MẶT — không phải null. Vắng mặt mới đúng nghĩa
+    // "theo mặc định hiện hành", và mặc định được phép tiến hoá.
+    assert.ok(!('pass_pct' in b) && !('retake_size' in b));
+  });
+
+  test('điền ngưỡng đạt / cỡ mẫu kiểm tra lại thì đi theo payload', async () => {
+    const p = load({ kind: 'daily' });
+    p.nodes['hf-skill'].value = 'course';
+    p.nodes['hf-cbank'].value = 'b1';
+    p.nodes['hf-due'].value = '2026-08-11';
+    p.nodes['hf-pass-pct'].value = '90';
+    p.nodes['hf-retake-size'].value = '15';
+    await p.submitCourseHomework('Bài tập buổi 1');
+    assert.equal(p.posted.length, 1);
+    assert.equal(p.posted[0].body.pass_pct, 90);
+    assert.equal(p.posted[0].body.retake_size, 15);
+  });
+
+  test('ngưỡng ngoài dải bị chặn tại chỗ, không tốn vòng gọi mạng', async () => {
+    const p = load({ kind: 'daily' });
+    p.nodes['hf-skill'].value = 'course';
+    p.nodes['hf-cbank'].value = 'b1';
+    p.nodes['hf-pass-pct'].value = '45';      // dưới sàn 50
+    await p.submitCourseHomework('Bài');
+    assert.equal(p.posted.length, 0);
+    assert.match(p.nodes['hf-error'].textContent, /50–100/);
   });
 
   test('chưa chọn buổi thì chặn tại chỗ, không tốn một vòng gọi mạng', async () => {

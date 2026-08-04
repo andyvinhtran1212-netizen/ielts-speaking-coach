@@ -33,12 +33,15 @@ function essay(i) {
   };
 }
 
-function fakeApi({ questions, failSession = false, failProgress = false, failPatch = false } = {}) {
+function fakeApi({ questions, mastery = null, failSession = false, failProgress = false, failPatch = false } = {}) {
   const calls = { post: [], patch: [], postWith: [] };
   let n = 0;
   return {
     calls,
-    async get() { return { bank: { id: 'b1', title: 'Buổi 1' }, questions }; },
+    async get() {
+      return { bank: { id: 'b1', title: 'Buổi 1' }, questions,
+               ...(mastery ? { mastery } : {}) };
+    },
     async post(path, body) {
       calls.post.push({ path, body });
       if (path === '/api/quiz/sessions') {
@@ -253,13 +256,20 @@ describe('rời trang', () => {
 // ── Quay lại làm tiếp ─────────────────────────────────────────────────────
 
 describe('nhớ chỗ đang làm', () => {
-  test('bỏ dở giữa chặng thì quay lại ĐÚNG câu đang làm', async () => {
+  test('bỏ dở giữa chặng thì làm lại CHẶNG ấy — hợp đồng đổi có chủ đích', async () => {
+    // Bản đầu khôi phục đúng `at` — dễ chịu hơn, nhưng SAI: bốn lượt đã trả
+    // lời nằm trong một phiên mồ côi (không bao giờ completed, không có tên
+    // trong lượt xét đạt), nên "đi tiếp từ câu 5" nghĩa là bốn câu đầu vĩnh
+    // viễn không có kết quả và verdict phủ-đủ-đề bác cả lượt, không đường sửa
+    // ngoài xoá localStorage (codex #928 R7). Làm lại mười câu là giá của một
+    // lần đóng tab giữa chặng; VỊ TRÍ CHẶNG thì vẫn được nhớ.
     const store = memStore();
     const a = await run({ storage: store });
     for (let i = 0; i < 4; i++) { a.r.show(); a.r.answer(0); a.r.next(); }
     const b = await run({ storage: store });
-    assert.equal(b.r.at, 4, 'làm lại bốn câu vừa làm là thứ khiến người ta bỏ hẳn');
-    assert.deepEqual(b.r.marks.slice(0, 4), ['right', 'right', 'right', 'right']);
+    assert.equal(b.r.stage, 0, 'chặng đang làm vẫn được nhớ');
+    assert.equal(b.r.at, 0, 'trong chặng thì làm lại từ đầu — xem lý do ở trên');
+    assert.equal(b.r.marks.length, 0);
   });
 
   test('tải lại trang ở MÀN KẾT QUẢ thì sang chặng sau, không làm lại', async () => {
@@ -325,5 +335,309 @@ describe('hết chặng', () => {
   test('chặng cuối thì báo hết', async () => {
     const { r } = await run({ questions: Array.from({ length: 8 }, (_, i) => mcq(i)) });
     assert.equal((await playStage(r)).hasMore, false);
+  });
+});
+
+// ── Cổng thuộc bài: kiểm tra lại (mẫu nhỏ, trộn câu + trộn đáp án) ──────────
+
+import { retakeClone, shuffled } from '../js/course-runner.js';
+
+/** LCG — rng tái lập được cho test. */
+function lcg(seed) {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 2 ** 32; };
+}
+
+describe('retakeClone — trộn đáp án mà không đổi nghĩa', () => {
+  test('đáp án đúng vẫn là ĐÚNG PHƯƠNG ÁN ấy, chỉ đổi chỗ', () => {
+    const q = mcq(0, { answer: 2 });          // đáp án đúng là 'c'
+    for (let seed = 1; seed <= 20; seed++) {
+      const c = retakeClone(q, lcg(seed));
+      assert.equal(c.options[c.answer], 'c', 'chữ của đáp án đúng phải theo nó');
+      assert.equal(c.options.length, 4);
+      assert.deepEqual([...c.options].sort(), ['a', 'b', 'c', 'd']);
+    }
+  });
+
+  test('why_wrong đi theo phương án của nó', () => {
+    const q = mcq(0);                          // why_wrong cho gốc 1,2,3
+    const c = retakeClone(q, lcg(7));
+    for (let disp = 0; disp < 4; disp++) {
+      const orig = c._perm[disp];
+      const want = (q.why_wrong || {})[String(orig)] || null;
+      assert.equal(c.why_wrong[String(disp)] || null, want,
+        `bẫy ở vị trí hiển thị ${disp} phải là bẫy của phương án gốc ${orig}`);
+    }
+  });
+
+  test('có seed cho hoán vị KHÁC nguyên trạng (trộn thật, không phải danh nghĩa)', () => {
+    const moved = Array.from({ length: 20 }, (_, s) => retakeClone(mcq(0), lcg(s + 1)))
+      .some((c) => c._perm.some((v, i) => v !== i));
+    assert.ok(moved, 'cả 20 seed đều giữ nguyên thứ tự thì shuffle không tồn tại');
+  });
+});
+
+describe('bài kiểm tra lại', () => {
+  test('bốc đúng cỡ mẫu, loại câu tự luận, phiên mang kind=retake', async () => {
+    const questions = Array.from({ length: 12 }, (_, i) => mcq(i)).concat([essay(12), essay(13)]);
+    const { r, api } = await run({ questions });
+    const n = await r.startRetake(5, lcg(3));
+    assert.equal(n, 5);
+    assert.equal(r.mode, 'retake');
+    const list = r.stageQuestions();
+    assert.equal(list.length, 5);
+    assert.ok(list.every((q) => q.type !== 'writing'), 'tự luận không vào mẫu');
+    const open = api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.deepEqual(open[open.length - 1].body, { bank_id: 'b1', kind: 'retake' });
+  });
+
+  test('cỡ mẫu vượt kho thì lấy cả kho — không lặp câu', async () => {
+    const { r } = await run({ questions: Array.from({ length: 4 }, (_, i) => mcq(i)) });
+    const n = await r.startRetake(20, lcg(1));
+    assert.equal(n, 4);
+    const qids = r.stageQuestions().map((q) => q.qid);
+    assert.equal(new Set(qids).size, 4, 'mỗi câu một lần');
+  });
+
+  test('lượt làm gửi vị trí GỐC của phương án, không phải vị trí hiển thị', async () => {
+    const { r, api } = await run({ questions: Array.from({ length: 6 }, (_, i) => mcq(i)) });
+    await r.startRetake(6, lcg(9));
+    const list = r.stageQuestions();
+    // chọn phương án hiển thị số 1 ở mọi câu
+    for (let i = 0; i < list.length; i++) { r.show(); r.answer(1); r.next(); }
+    await r.finishStage();
+    const sent = api.calls.post
+      .filter((c) => c.path.includes('/progress'))
+      .flatMap((c) => c.body.attempts);
+    assert.equal(sent.length, 6);
+    sent.forEach((a, i) => {
+      assert.equal(a.answer_given, String(list[i]._perm[1]),
+        'answer_given phải là chỉ số GỐC sau khi giải hoán vị');
+    });
+  });
+
+  test('retake không có "chặng sau" và không đè trạng thái lượt chính', async () => {
+    const store = memStore();
+    const { r } = await run({ storage: store, questions: Array.from({ length: 8 }, (_, i) => mcq(i)) });
+    await playStage(r);                       // chặng 1 xong, đã save
+    const savedBefore = store.getItem('cx:b1');
+    await r.startRetake(3, lcg(2));
+    const list = r.stageQuestions();
+    for (let i = 0; i < list.length; i++) { r.show(); r.answer(list[i].answer); r.next(); }
+    const out = await r.finishStage();
+    assert.equal(out.hasMore, false, 'kiểm tra lại chỉ có MỘT chặng');
+    assert.equal(store.getItem('cx:b1'), savedBefore,
+      'trạng thái lượt chính không được đè trong lúc kiểm tra lại');
+  });
+});
+
+describe('xét đạt (verdict)', () => {
+  test('lượt chính: gửi đúng các phiên chặng ĐÃ CHỐT', async () => {
+    const { r, api } = await run({ questions: Array.from({ length: 15 }, (_, i) => mcq(i)) });
+    await playStage(r); await r.nextStage(); await playStage(r);
+    await r.verdict();
+    const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.equal(v.length, 1);
+    assert.deepEqual(v[0].body, { bank_id: 'b1', session_ids: ['sess-1', 'sess-2'] });
+  });
+
+  test('chặng không chốt được thì KHÔNG có tên trong lượt xét', async () => {
+    const { r, api } = await run({
+      questions: Array.from({ length: 5 }, (_, i) => mcq(i)), failPatch: true,
+    });
+    const out = await playStage(r);
+    assert.equal(out.persisted, false);
+    await r.verdict();
+    const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, [],
+      'phiên chưa completed mà nêu tên là server bác cả lượt');
+  });
+
+  test('kiểm tra lại: gửi đúng MỘT phiên của nó', async () => {
+    const { r, api } = await run({ questions: Array.from({ length: 6 }, (_, i) => mcq(i)) });
+    await playStage(r);                        // sess-1 (run)
+    await r.startRetake(3, lcg(4));            // sess-2 (retake)
+    const list = r.stageQuestions();
+    for (let i = 0; i < list.length; i++) { r.show(); r.answer(list[i].answer); r.next(); }
+    await r.finishStage();
+    await r.verdict();
+    const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-2']);
+  });
+
+  test('runSessions sống qua reload (localStorage)', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: Array.from({ length: 5 }, (_, i) => mcq(i)) });
+    await playStage(first.r);
+    // mở lại trang: runner mới, cùng storage
+    const second = await run({ storage: store, questions: Array.from({ length: 5 }, (_, i) => mcq(i)) });
+    await second.r.verdict();
+    const v = second.api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'đóng tab ở màn kết quả rồi mở lại vẫn xét được lượt đã làm');
+  });
+});
+
+describe('F5 ở màn kết quả cuối (codex #928)', () => {
+  test('không mở phiên mới, không chốt lại, lượt xét giữ nguyên', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));   // 1 chặng duy nhất
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                  // done cuối, sess-1
+    // mở lại trang: runner MỚI, cùng storage — đứng ngay màn kết quả
+    const second = await run({ storage: store, questions: qsn });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0, 'màn kết quả không có gì để ghi — mở phiên là đẻ rác');
+    // trang sẽ gọi finishStage lần nữa (isStageDone) — phải vô hại
+    const res = await second.r.finishStage();
+    assert.equal(res.persisted, true);
+    assert.equal(second.api.calls.patch.length, 0, 'không được chốt một phiên không tồn tại');
+    await second.r.verdict();
+    const v = second.api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'mỗi lần F5 mà lượt xét phình thêm phiên là điểm bị pha loãng');
+  });
+
+  test('khôi phục GIỮA bài (chưa xong) thì vẫn mở phiên như cũ', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));  // 2 chặng
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                  // xong chặng 1/2
+    const second = await run({ storage: store, questions: qsn });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'chặng 2 còn phải làm — phiên là bắt buộc');
+  });
+});
+
+describe('bank bị thay/ngắn lại sau khi đã làm xong (codex #928 R2)', () => {
+  test('trạng thái cũ lệch bộ đề → lượt mới trọn vẹn, CÓ phiên, sổ phiên sạch', async () => {
+    const store = memStore();
+    // làm xong bank 25 câu (3 chặng)
+    const big = Array.from({ length: 25 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: big });
+    await playStage(first.r); await first.r.nextStage();
+    await playStage(first.r); await first.r.nextStage();
+    await playStage(first.r);                                  // done cuối, stage 2
+    // bank bị thay bằng bản 5 câu (1 chặng) — stage 2 lưu trong storage đã lệch
+    const small = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const second = await run({ storage: store, questions: small });
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'lượt mới thì phiên là bắt buộc — thiếu nó mọi lượt làm rơi vào hư không');
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên của bank cũ không được lẫn vào lượt xét của bank mới');
+    // làm hết chặng và chốt phải THẬT SỰ ghi
+    const out = await playStage(second.r);
+    assert.equal(out.persisted, true);
+    assert.ok(second.api.calls.patch.length >= 1, 'phải có PATCH chốt phiên thật');
+  });
+});
+
+describe('chặng chốt hỏng phải SỬA LẠI được (codex #928 R3)', () => {
+  test('gửi lại trong trang: finishStage lần hai đẩy nốt và có tên trong lượt xét', async () => {
+    const { r, api } = await run({
+      questions: Array.from({ length: 5 }, (_, i) => mcq(i)), failPatch: true,
+    });
+    const first = await playStage(r);
+    assert.equal(first.persisted, false);
+    assert.equal(first.retryable, true, 'phiên còn đó thì phải nói được là gửi lại được');
+    // mạng quay lại — vá api.patch rồi GỌI LẠI finishStage (nút Gửi lại)
+    api.patch = async (path, body) => { api.calls.patch.push({ path, body }); return {}; };
+    const second = await r.finishStage();
+    assert.equal(second.persisted, true);
+    await r.verdict();
+    const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'sau khi gửi lại thành công, phiên phải có tên trong lượt xét');
+  });
+
+  test('chốt hỏng rồi ĐÓNG TAB: mở lại phải LÀM LẠI chặng ấy, không kẹt ở màn kết quả', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn, failPatch: true });
+    const out = await playStage(first.r);
+    assert.equal(out.persisted, false);        // done KHÔNG được đóng dấu
+    // mở lại: lượt làm cũ đã chết theo tab — đường sửa duy nhất là làm lại chặng
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.at, 0, 'phải đứng ở CÂU ĐẦU của chặng để làm lại');
+    assert.equal(second.r.isStageDone(), false,
+      'kẹt ở màn kết quả là verdict phủ-đủ-đề bác mãi, không lối ra');
+  });
+});
+
+describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
+  test('đổi đáp án là đổi bài: trạng thái cũ bỏ, lượt mới sạch', async () => {
+    const store = memStore();
+    const v1 = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: v1 });
+    await playStage(first.r);                                   // done cuối, sess-1
+    // re-import: CÙNG qid, CÙNG số câu — chỉ đáp án đổi
+    const v2 = Array.from({ length: 5 }, (_, i) => mcq(i, { answer: 1 }));
+    const second = await run({ storage: store, questions: v2 });
+    assert.equal(second.r.at, 0, 'bài đã đổi thước — phải làm lại từ đầu');
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên chấm theo thước cũ không được lẫn vào lượt xét của thước mới');
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'lượt mới thì phiên là bắt buộc');
+  });
+
+  test('không đổi gì thì trạng thái cũ vẫn dùng tiếp (vân tay không reset oan)', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    await playStage(first.r);                                   // xong chặng 1/2
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.stage, 1, 'cùng bộ đề thì tiếp tục, không bắt làm lại');
+    assert.equal(second.r.runSessionCount, 1);
+  });
+});
+
+describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
+  test('chuyển lớp → giao lại cùng bank: mục khác là lượt mới sạch', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn,
+                              mastery: { item_id: 'it-LOP-CU' } });
+    await playStage(first.r);                                   // done cuối ở lớp cũ
+    const second = await run({ storage: store, questions: qsn,
+                               mastery: { item_id: 'it-LOP-MOI' } });
+    assert.equal(second.r.at, 0, 'mục mới là bài giao mới — làm lại từ đầu');
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên thuộc mục cũ mà đem nộp thì verdict bác cả lượt');
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 1, 'không được kẹt ở màn kết quả không phiên');
+  });
+
+  test('cùng mục thì tiếp tục bình thường', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn,
+                              mastery: { item_id: 'it-1' } });
+    await playStage(first.r);
+    const second = await run({ storage: store, questions: qsn,
+                               mastery: { item_id: 'it-1' } });
+    assert.equal(second.r.stage, 1);
+    assert.equal(second.r.runSessionCount, 1);
+  });
+});
+
+describe('reload GIỮA chặng (codex #928 R7)', () => {
+  test('chặng dang dở làm lại từ câu đầu — không đi tiếp với câu đã rơi vào phiên mồ côi', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    // trả lời 4 câu rồi đóng tab — 4 lượt ấy nằm trong phiên sess-1 KHÔNG BAO
+    // GIỜ completed (mồ côi), verdict không nhìn thấy chúng
+    for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(0); first.r.next(); }
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.at, 0, 'đi tiếp từ câu 5 là 4 câu đầu vĩnh viễn không có kết quả — verdict bác mãi');
+    assert.equal(second.r.marks.length, 0);
+    // làm trọn chặng bằng phiên MỚI thì mọi câu đều có lượt làm trong phiên được nêu tên
+    await playStage(second.r);
+    const flushed = second.api.calls.post
+      .filter((c) => c.path.includes('/progress'))
+      .flatMap((c) => c.body.attempts).map((a) => a.qid).sort();
+    assert.deepEqual(flushed, qsn.map((q) => q.qid).sort(),
+      'đủ 10 câu trong phiên mới — không câu nào kẹt lại ở phiên mồ côi');
   });
 });
