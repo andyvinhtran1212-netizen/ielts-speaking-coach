@@ -2920,8 +2920,15 @@
     };
     _renderSheet();
     showState('sheet');
+    // Thanh ngữ cảnh cao lên khi chữ xuống dòng ở màn hẹp, nên số đo phải theo
+    // được. Gắn một lần cho cả vòng đời trang — trang này không unmount.
+    if (!_meterTopBound) {
+      _meterTopBound = true;
+      window.addEventListener('resize', _syncMeterTop, { passive: true });
+    }
     return true;
   }
+  var _meterTopBound = false;
 
   var _SHEET_LABEL = {
     idle:     'Chưa làm',
@@ -2993,11 +3000,26 @@
   // những gì đã nằm sẵn trong tầm mắt.
   var _SHEET_METER_FROM = 4;
 
+  // Thanh ngữ cảnh của trang cũng `sticky top-0`, và nó nằm ở z-30 — cao hơn
+  // thanh tiến độ. Hai thứ cùng dính ở đỉnh thì thanh tiến độ chui xuống dưới
+  // và biến mất đúng lúc cần nhất: khi học viên đã cuộn qua vài ô.
+  //
+  // Đo thay vì đoán: thanh ấy cao bao nhiêu là do `py-3` cộng nội dung bên
+  // trong, không có con số nào trong CSS. Ghim một hằng số ở đây là ghim một
+  // giá trị sẽ sai ngay lần đầu ai đó đổi cỡ chữ trong thanh.
+  function _syncMeterTop() {
+    var bar = document.querySelector('.practice-context-bar');
+    var sheet = $('state-sheet');
+    if (!bar || !sheet) return;
+    sheet.style.setProperty('--practice-meter-top', bar.offsetHeight + 'px');
+  }
+
   function _renderSheetMeter(done, total) {
     var box = $('sheet-meter');
     if (!box) return;
     if (total < _SHEET_METER_FROM) { box.hidden = true; return; }
     box.hidden = false;
+    _syncMeterTop();
     // Mỗi vạch là MỘT câu, đúng thứ tự. "3/12" không nói được các em đã bỏ qua
     // câu nào, mà làm câu nào trước cũng được — nên dãy vạch mới là thứ trả lời
     // câu hỏi thật: "còn câu nào chưa làm?".

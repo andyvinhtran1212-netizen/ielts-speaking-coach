@@ -39,10 +39,18 @@ function render(slots) {
     'sheet-ticks': { innerHTML: '' },
     'sheet-meter-count': { innerHTML: '' },
   };
+  // Thanh tiến độ phải dính DƯỚI thanh ngữ cảnh, nên bộ khung phải dựng được cả
+  // hai: một thanh có chiều cao thật, và khối #state-sheet để nhận số đo.
+  nodes['state-sheet'] = { style: { _p: {}, setProperty(k, v) { this._p[k] = v; } } };
+  const bar = { offsetHeight: 52 };
+  const document = { querySelector: (sel) => (sel === '.practice-context-bar' ? bar : null) };
+
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
   const _sheet = { slots, recIdx: slots.findIndex((s) => s.state === 'recording') };
-  new Function('$', '_esc', '_sheet', `${JS.slice(start, end)} _renderSheet();`)($, _esc, _sheet);
+  new Function('$', '_esc', '_sheet', 'document', 'window',
+    `${JS.slice(start, end)} _renderSheet();`)(
+    $, _esc, _sheet, document, { addEventListener() {} });
   return nodes;
 }
 
@@ -259,6 +267,105 @@ describe('thanh tiến độ', () => {
     for (const st of ['recording', 'grading', 'saved']) {
       assert.match(CSS, new RegExp(`\\.av-sheet__ticks i\\[data-state='${st}'\\]`));
       assert.match(CSS, new RegExp(`\\.av-slot\\[data-state='${st}'\\]\\s+\\.av-slot__spine`));
+    }
+  });
+});
+
+/**
+ * Phiếu ra tới MÀN HÌNH, không chỉ ra tới chuỗi HTML.
+ *
+ * Mọi phép kiểm phía trên đọc `speaking-assignment.css` THẲNG TỪ ĐĨA, nên chúng
+ * xanh kể cả khi trang không hề nạp tệp ấy — và đó đúng là chuyện đã xảy ra:
+ * `practice.html` nạp 5 tệp CSS, không có tệp nào định nghĩa `.av-sheet` hay
+ * `.av-slot`. Học viên bấm "Làm bài" thì phiếu hiện ra không một quy tắc nào.
+ *
+ * Nên phần này kiểm ĐƯỜNG DÂY: lớp mà bộ vẽ phát ra phải tra được trong đúng
+ * những tệp CSS mà trang thật khai báo.
+ */
+describe('phiếu làm bài — CSS thật sự tới được trang', () => {
+  const linked = [...HTML.matchAll(/<link[^>]+href="(\/css\/[^"]+\.css)"/g)]
+    .map((m) => m[1]);
+  const loadedCss = linked
+    .map((href) => readFileSync(join(HERE, '..', 'public', href.replace(/^\//, '')), 'utf8'))
+    .join('\n');
+
+  // Lấy lớp từ HTML mà CHÍNH bộ vẽ sinh ra, không chép tay — chép tay thì sửa
+  // tên lớp trong practice.js xong phép kiểm vẫn ghim tên cũ.
+  const emitted = new Set();
+  for (const html of [
+    render([S('idle'), S('saved', { band: 6.5 })])['sheet-slots'].innerHTML,
+  ]) {
+    for (const m of html.matchAll(/class="([^"]+)"/g)) {
+      for (const c of m[1].split(/\s+/)) if (c.startsWith('av-')) emitted.add(c);
+    }
+  }
+
+  // Thẻ nghe-đề nằm sẵn trong HTML tĩnh của trang, không do bộ vẽ sinh ra — nhưng
+  // `.prep-listen__*` cũng chỉ được định nghĩa ở speaking-assignment.css, nên một
+  // dòng <link> thiếu làm hỏng CẢ HAI. Gộp vào cùng một phép kiểm đường dây.
+  for (const m of HTML.matchAll(/class="([^"]+)"/g)) {
+    for (const c of m[1].split(/\s+/)) if (c.startsWith('prep-listen')) emitted.add(c);
+  }
+
+  const rule = (c) => new RegExp(`\\.${c.replace(/[^\w-]/g, '\\$&')}(?![\\w-])`);
+
+  test('mọi lớp riêng của trang đều có quy tắc trong CSS trang nạp', () => {
+    assert.ok(emitted.size >= 8, `phải gom được lớp riêng, đang có ${emitted.size}`);
+    const missing = [...emitted].filter((c) => !rule(c).test(loadedCss));
+    assert.deepEqual(missing, [],
+      `practice.html không nạp tệp CSS định nghĩa: ${missing.join(', ')}`);
+  });
+
+  // Thanh ngữ cảnh của trang cũng `sticky top-0`, ở z-30 — cao hơn thanh tiến
+  // độ (z-2). Cùng dính ở 0 thì thanh tiến độ chui xuống dưới và mất hút đúng
+  // lúc cần nhất: khi học viên đã cuộn qua vài ô của bài 12 câu.
+  describe('thanh tiến độ dính DƯỚI thanh ngữ cảnh', () => {
+    const SHEET_CSS = readFileSync(
+      join(HERE, '..', 'public', 'css', 'speaking-assignment.css'), 'utf8');
+    const meter = /\.av-sheet__meter\s*\{([^}]*)\}/.exec(SHEET_CSS)[1];
+    const VAR = /top:\s*var\(\s*(--[\w-]+)/.exec(meter);
+
+    test('meter lấy độ lệch từ biến, không dính cứng ở 0', () => {
+      assert.ok(VAR, `.av-sheet__meter vẫn đang \`top\` cứng: ${meter.trim()}`);
+      assert.match(meter, /top:\s*var\(--[\w-]+,\s*0px\)/,
+        'phải có giá trị lui về 0px cho trang không có thanh ngữ cảnh');
+    });
+
+    test('JS đặt ĐÚNG cái biến mà CSS đọc', () => {
+      assert.match(CODE, new RegExp(`setProperty\\(\\s*'${VAR[1]}'`),
+        `CSS đọc ${VAR[1]} — practice.js phải đặt đúng tên ấy`);
+    });
+
+    test('số đo là chiều cao THẬT của thanh, chỉ khi meter hiện', () => {
+      const p = (n) => render(Array.from({ length: n }, () => S('idle')))['state-sheet'].style._p;
+      // Bộ khung dựng thanh cao 52px; hằng số trong CSS/JS nào khác cũng sẽ lệch.
+      assert.equal(p(4)[VAR[1]], '52px', 'bài ≥4 câu: meter hiện, phải có số đo');
+      assert.equal(p(2)[VAR[1]], undefined, 'bài 2 câu: meter ẩn, không cần đo');
+    });
+  });
+
+  // Lỗi NẶNG NHẤT, và là lỗi duy nhất thật sự làm trang TRỐNG hoàn toàn.
+  // `showState()` gỡ `.active` khỏi mọi khối state không được chọn. Phiếu từng
+  // nằm trong #state-prep, nên `showState('sheet')` tự tay tắt tổ tiên của nó —
+  // CSS đúng bao nhiêu cũng vô nghĩa vì cả cây con đã `display:none`.
+  test('phiếu KHÔNG được lồng trong một khối state nào khác', () => {
+    const upto = HTML.slice(0, HTML.indexOf('<div id="state-sheet"'));
+    const open = [];
+    for (const m of upto.matchAll(/<(div|main)\b[^>]*?(\/?)>|<\/(div|main)>/g)) {
+      if (m[3]) open.pop();
+      else if (!m[2]) open.push((/id="([^"]+)"/.exec(m[0]) || [, m[1]])[1]);
+    }
+    assert.deepEqual(open.filter((t) => t.startsWith('state-')), [],
+      `#state-sheet đang lồng trong: ${open.join(' > ')}`);
+  });
+
+  test('khối phiếu có cùng bộ lớp bố cục với các khối state anh em', () => {
+    const cls = (id) => (HTML.match(new RegExp(`id="${id}" class="([^"]*)"`)) || [])[1] || '';
+    const sheet = new Set(cls('state-sheet').split(/\s+/));
+    // `.state.active` là display:flex (HÀNG ngang). Chỉ `block-state` mới lật nó
+    // về display:block — thiếu nó thì các ô bị ép vào một dải hẹp.
+    for (const need of ['block-state', 'flex-1', 'av-w-read']) {
+      assert.ok(sheet.has(need), `#state-sheet thiếu lớp bố cục "${need}"`);
     }
   });
 });
