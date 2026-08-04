@@ -194,14 +194,19 @@ Cờ phải **nói được lý do và việc cần làm**, không chỉ tô đ�
 Tất cả nằm ở PR #921 (8 commit). Ba vòng review: codex cục bộ ×3 + bot inline ×1
 → 12 lỗi thật đã vá, 1 phát hiện của bot bị bác có dẫn chứng.
 
-## Còn phải làm bằng tay (cần quyền prod)
+## Đã chạy trên prod — 04/08/2026
 
-1. Áp ba migration 183 → 184 → 185, theo đúng thứ tự.
-2. `python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson01_part1.json --commit`
-3. `python -m scripts.pregen_speaking_question_audio --lesson-set --commit`
-   (12 clip đã nằm sẵn trong Storage, nên lệnh này chỉ ghi con trỏ — không render lại.)
-4. `python -m scripts.backfill_speaking_progress --commit` — **chạy TRƯỚC khi bật
-   cơ chế dọn**, nếu không thì phần chẩn đoán của 6.219 bài mất vĩnh viễn.
+| bước | kết quả đo được |
+|---|---|
+| mig 183 · 184 · 185 | cả ba `COMMIT`; RLS bật ở cả ba bảng mới; RPC còn **đúng 1 bản** (không nạp chồng), `anon` không gọi được, `service_role` gọi được |
+| thử RPC thật rồi `ROLLBACK` | `p_kind='lesson'` → ghi `lesson`; lời gọi cũ không nêu → `daily`; không sót dòng nào |
+| nạp bộ đề C3·Buổi 1 | **12/12 câu**, có cả `audio_url` lẫn `audio_path` |
+| ghi con trỏ audio | `render mới 0 · bỏ qua (đã có) 12` — băm khớp, không tổng hợp lại clip nào |
+| audio câu 1 | `HTTP 200 · audio/mpeg · 19.149 bytes` |
+| chạy bù sổ tiến bộ | **6.219 dấu mốc · 0 hỏng**; tốc độ nói 6.111, từ phát âm sai 4.512, nhãn ngữ pháp 3.731, âm vị yếu 2.897 |
+
+Sổ tiến bộ chiếm **2,8 MB** — giữ được phần chẩn đoán của 23 MB
+`pronunciation_payload` + 16 MB `feedback` sẽ bị dọn ở mốc 60 ngày.
 
 ## Quyết định còn treo
 
