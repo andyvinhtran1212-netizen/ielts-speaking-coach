@@ -13,13 +13,19 @@
 // render vỏ tĩnh với các ô "…"; KHÔNG trang nào trỏ tới nó và `/pages/home.html`
 // vẫn là canonical.
 //
-// VÌ SAO TÁCH LÀM HAI BƯỚC: vỏ kiểm được bằng cổng parity G1 (so chữ, link,
-// khối) — làm xong bước này thì mọi sai lệch markup lộ ra TRƯỚC khi động vào
-// phần logic. Gộp cả hai vào một PR thì lỗi markup và lỗi logic lẫn vào nhau.
+// VÌ SAO TÁCH LÀM HAI BƯỚC: giữ diff đủ nhỏ để đọc được — markup và logic là
+// hai loại lỗi khác nhau, gộp một PR thì chúng lẫn vào nhau.
 //
-// GIỚI HẠN CỦA G1 Ở ĐÂY, nói trước: trang này cần đăng nhập, nên bản ẩn danh
-// chỉ render VỎ — G1 so được bố cục/chrome/link/nội dung tĩnh, KHÔNG so được số
-// liệu do API trả về. Từ `/home` trở đi mọi trang lưu lượng cao đều như vậy.
+// ĐÍNH CHÍNH (đo 2026-08-05): bản đầu của chú thích này nói "vỏ kiểm được bằng
+// cổng parity G1". SAI. `pages/home.html` có auth gate ở cuối trang —
+// `window.location.href = '../login.html'` khi không có phiên — nên trình duyệt
+// ẩn danh KHÔNG BAO GIỜ dừng lại ở trang đó. Đo thật: sau khi JS chạy, URL là
+// `/login.html` và `.mock-start` không tồn tại.
+//
+// ⇒ G1 hiện cho `/home` **con số không**, không phải "chỉ so được vỏ". Muốn có
+// bất kỳ phủ sóng parity nào cho trang này thì phải dựng **authed-G1** (tiêm
+// phiên Supabase vào context trình duyệt trước khi điều hướng). Từ `/home` trở
+// đi mọi trang lưu lượng cao đều cần đăng nhập, nên đây không phải ca cá biệt.
 import type { Metadata } from 'next';
 
 import { HomeShell } from './page-shell';

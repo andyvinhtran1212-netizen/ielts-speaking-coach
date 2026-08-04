@@ -90,6 +90,8 @@ export default function AuthedHomeLayout({ children }: { children: ReactNode }) 
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       <link rel="stylesheet" href="/css/ds.css" />
       <link rel="stylesheet" href="/css/home.css" />
+      {/* Mock hub: cùng MỘT nguồn với trang legacy (review #929). */}
+      <link rel="stylesheet" href="/css/mock-hub.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* Same CDN pins as legacy (lucide@1.17.0, supabase-js@2.107.0) */}
