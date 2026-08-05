@@ -107,6 +107,10 @@ async def test_reads_by_assignment_item_not_by_bank():
 
 # ── Bảng tổng kết KHÔNG được tự mâu thuẫn (codex cục bộ) ────────────────────
 
+class _BoomTable(_Table):
+    def execute(self): raise RuntimeError("db down")
+
+
 def _tally_db(items, subs):
     return _db(
         class_assignments=[{**_ASG, "kind": "lesson", "status": "published",
@@ -195,3 +199,31 @@ async def test_the_repair_uses_the_submissions_own_time_not_the_view_time():
     assert c["artifact"] == "sub-9"
     assert c["score"] == 80.0, "điểm suy từ chính bản nộp, không để trống"
     assert out["students"][0]["score"] == 80.0
+
+
+@pytest.mark.asyncio
+async def test_a_failed_writing_lookup_says_stale_not_nobody_submitted():
+    """Bảng vẫn trông đầy đủ, còn đường vào bài tự luận thì biến mất — im lặng
+    ở đây biến "chưa đọc được" thành "em ấy chưa nộp gì" (codex #940)."""
+    tables = {
+        "class_assignments": [{**_ASG, "kind": "lesson", "status": "published",
+                               "due_at": "2999-01-01T00:00:00+00:00",
+                               "content_config": {}}],
+        "class_assignment_items": [{"id": "it1", "assignment_id": "a1",
+                                    "student_id": "s1", "submitted_at": None,
+                                    "score": None, "state": "opened",
+                                    "artifact_kind": None, "artifact_id": None,
+                                    "passed_at": None, "mastery": None}],
+        "students": [{**_STUDENT, "user_id": "u1"}],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda n: (_BoomTable([]) if n == "course_writing_submissions"
+                          else _Table(tables.get(n, [])))
+    with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
+         patch.object(adm, "_require_cohort", lambda _c: None), \
+         patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "reconcile_ledger_from_sessions", lambda *a: None), \
+         patch.object(adm, "reconcile_test_attempts", lambda *a: None):
+        out = await adm.assignment_tally("co1", "a1", None)
+    assert out["homework_stale"] is True
+    assert out["students"][0]["has_writing"] is False, "không hiện nút khi không chắc"

@@ -1069,7 +1069,11 @@ async def assignment_tally(
                     if r.get("class_assignment_item_id"):
                         writing_by_item[r["class_assignment_item_id"]] = r
             except Exception as exc:  # noqa: BLE001
-                # Đọc hỏng thì KHÔNG hiện nút, chứ không làm đổ cả bảng.
+                # Đọc hỏng thì KHÔNG hiện nút — nhưng phải NÓI RA. Im lặng ở đây
+                # biến "chưa đọc được" thành "em ấy chưa nộp gì": bảng trông vẫn
+                # đầy đủ, còn đường vào bài tự luận thì biến mất mà không ai
+                # biết vì sao (codex #940).
+                stale = True
                 logger.warning("[class] đọc bài tự luận hỏng asg=%s: %s", assignment_id, exc)
 
         # VÁ SỔ, không vá hiển thị. Lượt chốt sổ lúc nộp là best-effort và có
