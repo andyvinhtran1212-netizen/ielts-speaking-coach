@@ -22,7 +22,7 @@
 // hình dạng về sau. Nó không phải tấm lưới kín.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -136,27 +136,80 @@ function executedFiles(src) {
 }
 
 /**
- * Mọi tệp repo mà `file` phụ thuộc: import cục bộ bắc cầu, cộng các chuỗi trỏ tới
- * đường dẫn có thật. Chuỗi chỉ được tính khi tệp TỒN TẠI — nên `'text/html'` hay
- * `'a/b'` bịa ra sẽ tự rụng, không cần danh sách loại trừ.
+ * Các thư mục dùng làm gốc khi ghép một chuỗi thành đường dẫn: thư mục của chính
+ * script, rồi lần lượt các thư mục cha lên tới gốc repo.
+ *
+ * Cần thiết vì script hay dựng đường dẫn từ hằng của chính nó chứ không viết
+ * nguyên đường dẫn: `route-ownership-check.mjs` đặt
+ * `FRONTEND = dirname(dirname(import.meta.url))` rồi đọc
+ * `path.join(FRONTEND, 'next.config.ts')` và đi cả cây `path.join(FRONTEND,
+ * 'public')`. Bản chỉ-ghép-với-gốc-repo không thấy hai phụ thuộc đó (Codex bắt
+ * ở #946), nên cổng route-manifest có thể không chạy khi thêm một route công
+ * khai mới trong `frontend/public/`.
+ */
+function baseDirs(file) {
+  const out = [];
+  let d = path.dirname(file);
+  while (d.startsWith(ROOT) && d !== ROOT) { out.push(d); d = path.dirname(d); }
+  out.push(ROOT);
+  return out;
+}
+
+/**
+ * Mọi tệp/thư mục repo mà `file` phụ thuộc: import cục bộ bắc cầu, cộng các
+ * chuỗi ghép được thành đường dẫn CÓ THẬT. Chuỗi chỉ được tính khi đích tồn tại
+ * — nên `'text/html'` hay `'a/b'` bịa ra tự rụng, không cần danh sách loại trừ.
+ *
+ * Kết quả đi qua `realpathSync`: `frontend/pages`, `frontend/js` và
+ * `frontend/grammar.html` là SYMLINK trỏ vào `frontend/public/`. GitHub liệt kê
+ * tệp-đã-đổi theo đường THẬT, nên đòi một glob cho đường symlink là dương tính
+ * giả — nó buộc người bảo trì thêm một glob không bao giờ khớp.
+ *
+ * NÓI RÕ: hiện KHÔNG script nào tham chiếu đường symlink ngoài chú thích, nên
+ * nhánh này là phòng thủ chứ chưa có ca sống — tắt `realpathSync` đi thì bộ test
+ * vẫn xanh. Tiền đề của nó (symlink có thật và quy về đâu) được ghim bằng một
+ * khẳng định riêng ở dưới, để nó không phải là mã không ai kiểm.
  */
 function dependencies(file, seen = new Set()) {
-  if (seen.has(file) || !existsSync(file)) return seen;
-  seen.add(file);
-  if (!/\.(mjs|js)$/.test(file)) return seen;
-  const src = readFileSync(file, 'utf8');
+  const real = existsSync(file) ? realpathSync(file) : file;
+  if (seen.has(real) || !existsSync(real)) return seen;
+  seen.add(real);
+  if (!/\.(mjs|js)$/.test(real)) return seen;
+  // Bỏ các dòng THUẦN chú thích trước khi dò đường dẫn. Chú thích trong repo này
+  // hay dẫn tên tệp khác để giải thích bối cảnh — `verify-speaking-flow.mjs:3`
+  // nhắc `tests/staging-e2e/speaking-start-flow.spec.js` mà không hề đọc nó — và
+  // tính chúng thành phụ thuộc sẽ bắt người bảo trì thêm glob vô nghĩa.
+  // Chỉ bỏ dòng-thuần-chú-thích, không cắt `//` giữa dòng, để không phá hỏng
+  // chuỗi kiểu `'http://…'`.
+  const src = readFileSync(real, 'utf8')
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\/\*|\*)/.test(l))
+    .join('\n');
 
   for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
-    dependencies(path.resolve(path.dirname(file), m[1]), seen);
+    dependencies(path.resolve(path.dirname(real), m[1]), seen);
   }
-  // Chấp nhận cả tệp ở gốc repo (`README.md`) chứ không chỉ đường dẫn có `/`:
-  // `site-overview-coverage.test.mjs` đọc README.md, và bản dò đầu tiên đòi phải
-  // có dấu `/` nên bỏ sót đúng nó.
-  for (const m of src.matchAll(/['"`]([\w][\w./-]*\.[\w]+)['"`]/g)) {
-    const p = m[1];
+  // Ứng viên đường dẫn đến từ HAI nguồn, đều có ràng buộc để khỏi ồn:
+  //   · chuỗi bên trong `path.join(...)` / `path.resolve(...)` — kể cả mảnh trần
+  //     không dấu chấm như `'public'`, vì ngữ cảnh đã nói rõ đó là đường dẫn;
+  //   · chuỗi ở bất kỳ đâu NHƯNG phải có `/` hoặc phần mở rộng.
+  // Chấp nhận mọi chuỗi trần ở mọi nơi thì quá lỏng: `'components'` ở
+  // parity-core.mjs:151 chỉ là tên TRƯỜNG trong một danh sách, còn `'commission'`
+  // và `'data'` trong test lại trùng tên hai thư mục gốc của repo — cả ba đều
+  // thành phụ thuộc giả và bắt người bảo trì thêm glob vô nghĩa.
+  const cands = new Set();
+  for (const call of src.matchAll(/\bpath\.(?:join|resolve)\(([^)]*)\)/g)) {
+    for (const lit of call[1].matchAll(/['"`]([\w][\w./-]*)['"`]/g)) cands.add(lit[1]);
+  }
+  for (const m of src.matchAll(/['"`]([\w][\w./-]*(?:\/[\w./-]+|\.[\w]+))['"`]/g)) {
+    cands.add(m[1]);
+  }
+  for (const p of cands) {
     if (p.startsWith('node:') || p.includes('node_modules')) continue;
-    const abs = path.join(ROOT, p);
-    if (existsSync(abs) && !abs.endsWith(path.sep)) seen.add(abs);
+    for (const base of baseDirs(real)) {
+      const abs = path.join(base, p);
+      if (existsSync(abs)) { seen.add(realpathSync(abs)); break; }
+    }
   }
   return seen;
 }
@@ -196,7 +249,14 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
       for (const f of files) {
         for (const dep of dependencies(f)) {
           const rel = path.relative(ROOT, dep);
-          if (!res.some((re) => re.test(rel))) missing.add(rel);
+          // Phụ thuộc là THƯ MỤC (script đi cả cây) thì thứ cần phủ là tệp BÊN
+          // TRONG nó, không phải chính đường dẫn thư mục: glob `frontend/public/**`
+          // không khớp chuỗi `frontend/public`, mà GitHub cũng chẳng bao giờ liệt
+          // kê một thư mục trong danh sách tệp-đã-đổi.
+          const probe = statSync(dep).isDirectory() ? `${rel}/x` : rel;
+          if (!res.some((re) => re.test(probe))) {
+            missing.add(statSync(dep).isDirectory() ? `${rel}/** (cả cây)` : rel);
+          }
         }
       }
 
@@ -226,6 +286,17 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
       assert.ok(res.some((re) => re.test(other)),
         `${runner.name} không chạy khi ${other} đổi — thêm '.github/workflows/**'`);
     }
+  });
+
+  test('đường symlink quy được về đường THẬT trong public/', () => {
+    // Ghim tiền đề mà `dependencies()` dựa vào để chuẩn hoá: `frontend/pages` là
+    // symlink trỏ vào `frontend/public/pages`. Nếu ai đó biến nó thành thư mục
+    // thật, phần chuẩn hoá kia thành thừa và test này nói rõ điều đó thay vì để
+    // mã phòng thủ nằm im không ai kiểm.
+    const link = path.join(ROOT, 'frontend/pages');
+    assert.ok(existsSync(link), 'frontend/pages biến mất — cập nhật lại ghi chú');
+    assert.equal(path.relative(ROOT, realpathSync(link)), 'frontend/public/pages',
+      'frontend/pages không còn trỏ vào public/pages');
   });
 
   test('glob → regex khớp đúng như GitHub Actions', () => {
