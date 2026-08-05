@@ -774,13 +774,62 @@ async def get_session(
         if mock_exam_service.is_sealed(session["sitting_id"]):
             responses = []
 
-    return {
+    out = {
         **session,
         "session_id": session["id"],   # alias so frontend can use either field
         "retention":  compute_expiry(session),
         "questions":  questions,
         "responses":  responses,
     }
+    task = _class_task_state(session)
+    if task:
+        out["class_task"] = task
+    return out
+
+
+def _class_task_state(session: dict) -> dict | None:
+    """Bài giao lớp còn nhận bài nữa không — cho phiếu làm bài biết mà nói thật.
+
+    Phiếu phải TỰ KHOÁ khi hết hạn, thay vì để học viên ghi âm cả mười câu rồi
+    mới ăn 409 ở lệnh nộp. Nhưng quyết định ấy phải là CÙNG MỘT câu trả lời với
+    cổng thật ở `_record_class_hand_in` — nên gọi lại đúng
+    `is_accepting_submissions`, không chép luật ra đây. Chép luật là tạo hai
+    nguồn sự thật để trôi khỏi nhau, và bên trôi sẽ là bên học viên nhìn thấy.
+
+    Đọc hỏng thì trả None: trang chạy như trước (khoá thật vẫn nằm ở lệnh nộp),
+    chứ không khoá oan một bài còn hạn.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return None
+    try:
+        items = (
+            supabase_admin.table("class_assignment_items")
+            .select("id, assignment_id, submitted_at")
+            .eq("id", item_id).limit(1).execute().data
+        ) or []
+        if not items:
+            return None
+        item = items[0]
+        rows = (
+            supabase_admin.table("class_assignments")
+            .select("id, title, due_at, status")
+            .eq("id", item["assignment_id"]).limit(1).execute().data
+        ) or []
+        if not rows:
+            return None
+        a = rows[0]
+        return {
+            "item_id":      item["id"],
+            "title":        a.get("title"),
+            "due_at":       a.get("due_at"),
+            "submitted_at": item.get("submitted_at"),
+            "accepting":    bool(is_accepting_submissions(a)),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[sessions] class task state failed session=%s: %s",
+                       session.get("id"), exc)
+        return None
 
 
 # ── GET /sessions/{session_id}/audio-urls ─────────────────────────────────────

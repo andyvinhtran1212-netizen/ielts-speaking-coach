@@ -25,7 +25,7 @@ const codeOnly = (s) => s
 const CODE = codeOnly(JS);
 
 /** Chạy THẬT _renderSheet với DOM giả. */
-function render(slots) {
+function render(slots, session) {
   const start = JS.indexOf('  var _SHEET_LABEL = {');
   const end = JS.indexOf('  function _sheetListen(');
   assert.ok(start !== -1 && end > start, 'render block not found');
@@ -48,9 +48,15 @@ function render(slots) {
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
   const _sheet = { slots, recIdx: slots.findIndex((s) => s.state === 'recording') };
-  new Function('$', '_esc', '_sheet', 'document', 'window',
+  // Phiếu hỏi trạng thái bài giao để biết còn nhận bài không. Mặc định là CÒN
+  // NHẬN — các phép kiểm dưới đây nói về phiếu đang làm dở; ca khoá có bộ kiểm
+  // riêng ở `phiếu chỉ-đọc`.
+  const _sessionData = session === undefined
+    ? { status: 'in_progress', class_task: { accepting: true } }
+    : session;
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window',
     `${JS.slice(start, end)} _renderSheet();`)(
-    $, _esc, _sheet, document, { addEventListener() {} });
+    $, _esc, _sheet, _sessionData, document, { addEventListener() {} });
   return nodes;
 }
 
@@ -161,7 +167,14 @@ describe('DÂY NỐI', () => {
   });
 
   test('sự kiện dùng uỷ quyền và có gọi _bindSheet', () => {
-    assert.match(CODE, /slots\.addEventListener\('click'[\s\S]{0,300}?_sheetToggleRec/);
+    // Phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay mất ngay ở
+    // lần vẽ kế tiếp. Cả BA nút của một ô đều phải đi qua uỷ quyền.
+    const i = CODE.indexOf("slots.addEventListener('click'");
+    assert.ok(i !== -1, 'phải uỷ quyền trên #sheet-slots');
+    const body = CODE.slice(i, i + 600);
+    for (const fn of ['_sheetListen', '_sheetReview', '_sheetToggleRec']) {
+      assert.ok(body.includes(fn), `${fn} phải nằm trong bộ uỷ quyền`);
+    }
     assert.match(CODE, /_bindSheet\(\);/);
   });
 
@@ -380,5 +393,233 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
     for (const need of ['block-state', 'flex-1', 'av-w-read']) {
       assert.ok(sheet.has(need), `#state-sheet thiếu lớp bố cục "${need}"`);
     }
+  });
+});
+
+/**
+ * Bài đã làm phải SỐNG QUA REFRESH, và xem lại được bất cứ lúc nào.
+ *
+ * Lỗi người dùng báo: làm xong, tải lại trang thì phiếu trắng trơn — trong khi
+ * `GET /sessions/{id}` vẫn trả đủ `responses`. Ô hiện "Chưa làm" ở câu vừa nộp
+ * khiến học viên ghi âm lại và mất luôn bản cũ (ghi âm lại GHI ĐÈ cùng câu).
+ */
+describe('dựng lại phiếu từ bài đã nộp', () => {
+  const initSheet = (questions, responses, session = {}) => {
+    const start = JS.indexOf('  function _initSheet() {');
+    const end = JS.indexOf('  var _SHEET_LABEL = {');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy _initSheet');
+    // Lấy kèm các hàm đọc dòng đã lưu (nằm ngay sau _SHEET_LABEL).
+    const h0 = JS.indexOf('  function _respFeedback(r) {');
+    const h1 = JS.indexOf('  function _renderSheet() {');
+    let sheet = null;
+    const env = {
+      _sessionData: { class_assignment_item_id: 'it-1', responses, ...session },
+      _questions: questions,
+      _renderSheet: () => {},
+      showState: () => {},
+      _syncMeterTop: () => {},
+      window: { addEventListener() {} },
+    };
+    const names = Object.keys(env);
+    sheet = new Function(...names, `
+      var _sheet = null, _meterTopBound = false;
+      ${JS.slice(h0, h1)}
+      ${JS.slice(start, end)}
+      _initSheet();
+      return _sheet;
+    `)(...names.map((n) => env[n]));
+    return sheet;
+  };
+
+  const Q = (id) => ({ id, question_text: 'Q' + id });
+  const R = (qid, over = {}) => ({
+    id: 'r-' + qid, question_id: qid, grading_status: 'completed',
+    overall_band: 6.5, feedback: JSON.stringify({ band_fc: 6, strengths: ['x'] }),
+    transcript: 'tôi nói gì đó', ...over,
+  });
+
+  test('câu đã chấm hiện ĐÃ LƯU kèm điểm, không phải "Chưa làm"', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a')]);
+    assert.equal(s.slots[0].state, 'saved');
+    assert.equal(s.slots[0].band, 6.5);
+    assert.equal(s.slots[1].state, 'idle', 'câu chưa làm vẫn là chưa làm');
+  });
+
+  test('band ĐÃ HIỆU CHỈNH phát âm thắng band thô', () => {
+    // Trang kết quả và bảng của giáo viên đều dùng con số này; hiện số thô ở
+    // phiếu sẽ mâu thuẫn với cả hai.
+    const s = initSheet([Q('a'), Q('b')], [R('a', { final_overall_band: 6.0 })]);
+    assert.equal(s.slots[0].band, 6.0);
+  });
+
+  test('có dòng nhưng CHƯA chấm xong thì là "đang chấm", không hứa nhận xét', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a', { grading_status: 'processing' })]);
+    assert.equal(s.slots[0].state, 'grading');
+  });
+
+  test('giữ nguyên dòng đã lưu để xem lại — không phải tải thêm gì', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a')]);
+    assert.equal(s.slots[0].resp.id, 'r-a');
+  });
+});
+
+describe('nút Xem nhận xét', () => {
+  test('chỉ hiện ở ô đã lưu VÀ có nhận xét để đọc', () => {
+    const withResp = render([S('saved', { band: 6, resp: { id: 'r1' } })])['sheet-slots'].innerHTML;
+    assert.match(withResp, /data-review="0"/);
+    // Đã lưu nhưng dòng chưa về (mạng chập lúc dựng lại) thì đừng hứa suông.
+    assert.doesNotMatch(render([S('saved', { band: 6 })])['sheet-slots'].innerHTML, /data-review/);
+    assert.doesNotMatch(render([S('idle')])['sheet-slots'].innerHTML, /data-review/);
+  });
+
+  test('xem lại DÙNG LẠI màn nhận xét của luồng luyện tập', () => {
+    // Một bộ vẽ rút gọn riêng là chỗ thứ hai để trôi khỏi bộ vẽ thật.
+    const i = CODE.indexOf('function _sheetReview');
+    assert.ok(i !== -1);
+    const body = CODE.slice(i, i + 900);
+    assert.ok(body.includes('_showFeedback'), 'phải gọi đúng _showFeedback');
+    assert.ok(body.includes("btn-back-sheet"), 'phải có đường quay lại phiếu');
+    assert.match(HTML, /id="btn-back-sheet"/);
+  });
+});
+
+describe('phiếu chỉ-đọc khi hết hạn / đã nộp', () => {
+  const locked = (session) => render(
+    [S('saved', { band: 6, resp: { id: 'r1' } }), S('saved', { band: 7, resp: { id: 'r2' } })],
+    session);
+
+  test('hết hạn: không còn nút ghi âm, nhưng VẪN xem lại được', () => {
+    const n = locked({ status: 'in_progress', class_task: { accepting: false } });
+    assert.doesNotMatch(n['sheet-slots'].innerHTML, /data-rec=/);
+    assert.match(n['sheet-slots'].innerHTML, /data-review="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, true);
+    assert.match(n['sheet-submit-note'].textContent, /hết hạn nộp/i);
+  });
+
+  test('đã nộp: khoá nộp lại, nói rõ vẫn xem lại được', () => {
+    const n = locked({ status: 'completed', class_task: { accepting: true } });
+    assert.equal(n['btn-sheet-submit'].disabled, true);
+    assert.match(n['sheet-submit-note'].textContent, /đã nộp/i);
+    assert.match(n['sheet-submit-note'].textContent, /xem lại/i);
+  });
+
+  test('còn hạn và chưa nộp thì KHÔNG khoá oan', () => {
+    const n = locked({ status: 'in_progress', class_task: { accepting: true } });
+    assert.match(n['sheet-slots'].innerHTML, /data-rec="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
+  });
+
+  test('backend cũ không trả class_task → không khoá', () => {
+    // Khoá oan một bài còn hạn tệ hơn để lệnh nộp từ chối một bài đã muộn.
+    const n = locked({ status: 'in_progress' });
+    assert.match(n['sheet-slots'].innerHTML, /data-rec="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
+  });
+});
+
+describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex #931)', () => {
+  test('KHÔNG rơi vào nhánh test-mode — bài giao lớp có thể là test_part', () => {
+    // `_showFeedback` mở đầu bằng nhánh test-mode gom kết quả rồi
+    // `_advanceTestMode()`. Admin chọn được "Luyện từng Part" khi giao, nên
+    // không tắt thì bấm "Xem nhận xét" đá học viên sang luồng tuần tự cũ.
+    const i = CODE.indexOf('function _sheetReview');
+    const body = CODE.slice(i, i + 900);
+    assert.ok(/_testMode = null;/.test(body), 'phải tắt test-mode trước khi vẽ');
+    assert.ok(/finally/.test(body) && /_testMode = savedMode;/.test(body),
+      'và PHẢI trả lại — vẽ hỏng mà mất test-mode thì cả phiên thi lệch');
+    const off = body.indexOf('_testMode = null;');
+    assert.ok(off !== -1 && off < body.indexOf('_showFeedback('),
+      'tắt phải đứng TRƯỚC lời gọi, không thì vô nghĩa');
+  });
+
+  test('điểm phát âm ánh xạ sang tên trường bộ vẽ ĐỌC, không phải tên cột DB', () => {
+    // `_renderPronBlock` đọc fluency_score/accuracy_score/completeness_score.
+    // Đưa tên cột xuống thì điểm tổng hiện còn ba ô con thành dấu gạch.
+    const i = CODE.indexOf('function _respToFeedbackData');
+    assert.ok(i !== -1, 'không tìm thấy _respToFeedbackData');
+    // Neo hai đầu bằng chính CÚ PHÁP của khối (từ `pronunciation:` tới nhánh
+    // `: null` của ternary) chứ không bằng một số ký tự đoán chừng — đoán ngắn
+    // thì phép kiểm xanh/đỏ theo độ dài chú thích, không theo hành vi.
+    const map = /pronunciation:[\s\S]*?:\s*null,/.exec(CODE.slice(i, i + 3000));
+    assert.ok(map, 'không tìm thấy khối ánh xạ phát âm');
+    for (const k of ['fluency_score', 'accuracy_score', 'completeness_score']) {
+      assert.ok(map[0].includes(k), `phải ánh xạ ${k}`);
+      assert.ok(!new RegExp(`pronunciation_${k.replace('_score', '')}:`).test(map[0]),
+        `đừng đưa tên cột DB (pronunciation_${k.replace('_score', '')}) xuống bộ vẽ`);
+    }
+    // Và bộ vẽ vẫn phải đang đọc đúng những tên ấy — hai bên khớp mới có nghĩa.
+    const c = CODE.indexOf("_pronChip('Tổng thể'");
+    assert.ok(c !== -1, 'không tìm thấy dãy ô điểm phát âm');
+    const chips = CODE.slice(c, c + 300);
+    for (const k of ['fluency_score', 'accuracy_score', 'completeness_score']) {
+      assert.ok(chips.includes(k), `bộ vẽ vẫn đọc ${k} — hai bên phải khớp`);
+    }
+  });
+
+  test('pronunciation_payload là CHUỖI JSON trong cột jsonb, phải gỡ ra', () => {
+    // 4696/4696 dòng trên prod lưu như vậy; đọc thẳng thì `.words` là undefined
+    // và mục "Từ cần chú ý" trống trơn.
+    const i = CODE.indexOf('function _pronPayload');
+    assert.ok(i !== -1, 'phải có bộ gỡ payload');
+    const body = CODE.slice(i, i + 400);
+    assert.ok(body.includes('JSON.parse'), 'phải gỡ chuỗi');
+    assert.ok(/catch/.test(body), 'payload hỏng không được làm nổ màn xem lại');
+  });
+});
+
+describe('xem lại phát ĐÚNG audio của câu ấy (codex #931 vòng 3)', () => {
+  test('không dùng _recordedBlob — biến ấy luôn là bản ghi GẦN NHẤT', () => {
+    // Ghi câu 1, ghi câu 2, xem lại câu 1 → nghe ra câu 2.
+    const i = CODE.indexOf('var audioSection = $(\'feedback-audio-section\');');
+    assert.ok(i !== -1);
+    const body = CODE.slice(i, i + 700);
+    const review = body.indexOf('_reviewAudioUrl');
+    const blob = body.indexOf('_recordedBlob');
+    assert.ok(review !== -1, 'phải có nhánh audio của lượt xem lại');
+    assert.ok(review < blob, 'nhánh xem lại phải xét TRƯỚC nhánh blob');
+    assert.ok(/_review\b/.test(body),
+      'xem lại mà KHÔNG có audio thì ẩn hẳn, không rơi xuống blob của câu khác');
+  });
+
+  test('URL đã ký không bị revokeObjectURL', () => {
+    // Nó không phải blob URL; thu hồi là sai nghĩa và là chỗ sau này chết khó hiểu.
+    const i = CODE.indexOf('if (_feedbackAudioUrl) {');
+    assert.match(CODE.slice(i, i + 260), /_feedbackAudioIsBlob\) URL\.revokeObjectURL/);
+  });
+
+  test('bảng URL dựng từ MẢNG mà endpoint thật trả về', () => {
+    // /sessions/{id}/audio-urls trả [{question_id, url}] — đoán là object thì
+    // bảng tra rỗng và không câu nào nghe được.
+    const i = CODE.indexOf('async function _loadSheetAudioUrls');
+    const body = CODE.slice(i, i + 700);
+    assert.ok(/\(rows \|\| \[\]\)\.forEach/.test(body), 'phải duyệt mảng');
+    assert.ok(/x\.question_id/.test(body) && /x\.url/.test(body));
+    assert.ok(/catch/.test(body), 'hỏng thì vẫn xem được nhận xét, chỉ thiếu nút nghe');
+  });
+
+  test('nạp URL MỘT lần, không mỗi lần bấm xem lại', () => {
+    const i = CODE.indexOf('async function _loadSheetAudioUrls');
+    assert.match(CODE.slice(i, i + 160), /if \(_sheetAudioUrls\) return _sheetAudioUrls;/);
+  });
+});
+
+describe('Tải audio ở lượt xem lại (codex #931 vòng 4)', () => {
+  test('KHÔNG đọc _recordedBlob.type khi URL là URL đã ký', () => {
+    // Tải lại trang xong thì bản ghi trong bộ nhớ không còn — đọc `.type` là nổ
+    // ngay lúc bấm Tải.
+    const i = CODE.indexOf('function _downloadAudio');
+    const body = CODE.slice(i, i + 900);
+    const guard = body.indexOf('if (_feedbackAudioIsBlob) {');
+    const deref = body.indexOf('_recordedBlob.type');
+    assert.ok(guard !== -1, 'phải rẽ nhánh theo loại URL');
+    assert.ok(deref === -1 || deref > guard,
+      'mọi lần đọc _recordedBlob phải nằm TRONG nhánh blob');
+    assert.ok(/return;/.test(body.slice(guard, guard + 120)),
+      'nhánh blob mà mất blob thì thoát, không đoán');
+  });
+
+  test('đuôi tệp suy từ chính URL khi không có blob', () => {
+    const i = CODE.indexOf('function _downloadAudio');
+    assert.match(CODE.slice(i, i + 900), /exec\(String\(_feedbackAudioUrl\)\)/);
   });
 });

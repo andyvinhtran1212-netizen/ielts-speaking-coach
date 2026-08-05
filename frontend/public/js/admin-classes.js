@@ -722,12 +722,20 @@ function tallyRow(r, skill) {
         <span>${esc(f.why)}</span>
         <em>${esc(f.action)}</em>
       </li>`).join('');
+  // Mở thẳng bài làm: nghe audio + đọc nhận xét. Chỉ hiện khi có bài THẬT để
+  // mở — một liên kết dẫn tới trang trống tệ hơn không có liên kết.
+  const open = (r.artifact_kind === 'session' && r.artifact_id)
+    ? `<a class="av-tally__open" target="_blank" rel="noopener"
+          href="/pages/admin/speaking/sessions.html?session=${esc(r.artifact_id)}"
+          title="Nghe bài làm và đọc nhận xét">Nghe &amp; xem</a>`
+    : '';
   return `<div class="av-tally__row" data-status="${esc(r.status)}"
        ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
     <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+    ${open}
   </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
 
@@ -1455,6 +1463,8 @@ async function submitHomework() {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1523,6 +1533,8 @@ async function submitLessonHomework(title) {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1581,6 +1593,8 @@ async function submitCourseHomework(title) {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1596,6 +1610,8 @@ async function setHomeworkStatus(assignmentId, status) {
       + '/assignments/' + encodeURIComponent(assignmentId), { status });
     toast(archiving ? 'Đã đóng bài giao. Học viên không còn thấy bài này.' : 'Đã mở lại bài giao.');
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     toast((archiving ? 'Không đóng được bài giao: ' : 'Không mở lại được bài giao: ')
       + (err.message || err), 'error');
@@ -1614,6 +1630,7 @@ function deleteHomework(assignmentId) {
           + '/assignments/' + encodeURIComponent(assignmentId));
         toast('Đã xoá bài giao.');
         await loadHomework();
+        invalidateProgress();
       } catch (err) {
         toast('Không xoá được bài giao: ' + (err.message || err), 'error');
       }
@@ -1700,8 +1717,8 @@ function renderProgress() {
   if (stale) {
     notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
   }
-  $('progress-degraded').hidden = notes.length === 0;
-  if (notes.length) $('progress-degraded').textContent = notes.join(' ');
+  _progressNotes = notes;
+  renderProgressBanner();
 
   $('progress-empty').hidden = rows.length > 0;
   $('progress-table-wrap').hidden = rows.length === 0;
@@ -1734,11 +1751,16 @@ function renderProgress() {
 function invalidateProgress() {
   _progressLoaded = false;
   _progress = { students: [], degraded: [] };
+  // Bảng ngày dựng TỪ danh sách bài giao, nên giao/lưu trữ/xoá một bài hằng
+  // ngày làm nó cũ ngay — kể cả khi thẻ Tiến độ đang đóng. Cờ này là thứ khiến
+  // lần mở sau nạp lại (codex #931).
+  _dailyBoardLoaded = false;
   // If the tab is currently open, refresh it now rather than on next open.
   if (!$('panel-progress').hidden) {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
+    loadDailyBoard();
   }
 }
 
@@ -1751,6 +1773,117 @@ function invalidateProgress() {
  * một em từ 7.0 tụt xuống 6.0 thì có — dù vẫn cao hơn. Bày thứ hạng ra sẽ trả
  * lời một câu hỏi khác và chôn mất em thứ hai.
  */
+/**
+ * Bảng bài Speaking HẰNG NGÀY: học viên × ngày.
+ *
+ * Đọc theo HÀNG là "em này có đều không", đọc theo CỘT là "hôm ấy cả lớp thế
+ * nào". Cả hai câu ấy đều không trả lời được bằng cách mở lần lượt hai chục
+ * bảng tổng kết của từng bài giao.
+ *
+ * Ô mang cả hình dạng lẫn màu (ký tự riêng cho mỗi trạng thái), không chỉ màu:
+ * một lưới phân biệt bằng xanh/đỏ là một lưới người mù màu không đọc được.
+ */
+let _dailyBoardLoaded = false;
+// MỘT băng cảnh báo, HAI nguồn ghi vào. Hai lượt gọi chạy song song và không
+// chờ nhau, nên bên nào vẽ sau cũng sẽ xoá lời của bên kia nếu mỗi bên tự ghi
+// thẳng vào DOM — bảng ngày hỏng rồi /progress xong sau là mất hẳn cảnh báo
+// (codex #931). Giữ trạng thái riêng, gộp lúc vẽ.
+let _progressNotes = [];
+let _boardNote = '';
+
+function renderProgressBanner() {
+  const el = $('progress-degraded');
+  if (!el) return;
+  const all = _progressNotes.concat(_boardNote ? [_boardNote] : []);
+  el.hidden = all.length === 0;
+  if (all.length) el.textContent = all.join(' ');
+}
+
+
+async function loadDailyBoard() {
+  const box = $('daily-board');
+  if (!box || _dailyBoardLoaded) return;
+  _dailyBoardLoaded = true;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-daily');
+    _boardNote = '';
+    renderProgressBanner();
+    renderDailyBoard(r);
+  } catch (err) {
+    // Ẩn lưới (lưới rỗng đọc như "lớp chưa có bài hằng ngày nào") NHƯNG nói ra
+    // — đây là mặt đọc dùng để tìm em bỏ bài, nên im lặng ở đây là giấu đúng
+    // thứ nó sinh ra để hiện (codex #931).
+    box.hidden = true;
+    _dailyBoardLoaded = false;   // cho lần mở sau thử lại
+    _boardNote = 'Không đọc được bảng bài hằng ngày: ' + (err.message || err)
+      + '. Mở lại thẻ này để thử lại.';
+    renderProgressBanner();
+  }
+}
+
+const BOARD_MARK = {
+  done:    { ch: '✓', label: 'đã nộp' },
+  late:    { ch: '◐', label: 'nộp trễ' },
+  missing: { ch: '✕', label: 'không nộp' },
+  pending: { ch: '·', label: 'chưa tới hạn' },
+  none:    { ch: '',  label: 'không được giao' },
+};
+
+/** '2026-08-05' → '05/08'. Cột hẹp, và năm thì cả bảng dùng chung. */
+function boardDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${m[3]}/${m[2]}` : esc(iso || '');
+}
+
+function renderDailyBoard(d) {
+  const box = $('daily-board');
+  const days = (d && d.days) || [];
+  const rows = (d && d.students) || [];
+  if (!days.length || !rows.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  $('board-scope').textContent =
+    `${d.assignment_count} bài · ${days.length} ngày gần nhất`;
+
+  $('board-head').innerHTML = '<th class="av-board__name-h">Học viên</th>'
+    + days.map((x) => `<th><span>${esc(boardDay(x))}</span></th>`).join('')
+    + '<th class="av-board__sum-h">Đã nộp</th>';
+
+  $('board-body').innerHTML = rows.map((r) => {
+    const cells = (r.cells || []).map((c, i) => {
+      const mk = BOARD_MARK[c.state] || BOARD_MARK.none;
+      const day = boardDay(days[i]);
+      const band = c.score != null ? ` · band ${c.score}` : '';
+      const title = `${r.name || ''} · ${day} · ${mk.label}${band}`;
+      // Bấm vào ô là nghe bài của ĐÚNG em ấy ĐÚNG ngày ấy — đường ngắn nhất
+      // từ "hôm ấy em này trễ" tới "em ấy đã nói gì".
+      const inner = c.session_id
+        ? `<a href="/pages/admin/speaking/sessions.html?session=${esc(c.session_id)}"
+              target="_blank" rel="noopener">${mk.ch}</a>`
+        : mk.ch;
+      return `<td class="av-board__cell" data-state="${esc(c.state)}"
+                  title="${esc(title)}">${inner}</td>`;
+    }).join('');
+    // Chưa kích hoạt tài khoản thì em ấy CHƯA TỪNG thấy bài nào — đánh dấu để
+    // khỏi bị đọc thành lười.
+    const name = esc(r.name || r.student_code || '—')
+      + (r.activated ? '' : ' <span class="av-board__na">chưa kích hoạt</span>');
+    return `<tr${r.missing ? ' data-alarm="true"' : ''}>
+      <th scope="row" class="av-board__name">${name}</th>
+      ${cells}
+      <td class="av-board__sum">${r.done}/${days.length}</td>
+    </tr>`;
+  }).join('');
+
+  // Nói RA khi sổ chưa đối chiếu được: im lặng ở đây là để giáo viên nhắc nhầm
+  // một em đã nộp.
+  $('board-foot').textContent =
+    (d.stale ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu. ' : '')
+    + 'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
+    + 'Bấm vào ô có bài để nghe và đọc nhận xét.';
+}
+
 async function loadSpeakingPerf() {
   const box = $('speaking-perf');
   if (!box) return;
@@ -1834,9 +1967,12 @@ async function loadProgress() {
     _progress = { students: [], degraded: [] };
     _progressLoaded = false;
     $('progress-loading').hidden = true;
-    $('progress-degraded').hidden = false;
-    $('progress-degraded').textContent =
-      'Không đọc được tiến độ lớp: ' + (err.message || err) + '. Mở lại thẻ này để thử lại.';
+    // Qua trạng thái chung, KHÔNG ghi thẳng DOM: hai lượt gọi chạy song song
+    // nên ghi thẳng ở đây sẽ xoá lời cảnh báo của bảng ngày (cùng họ lỗi
+    // codex #931 chỉ ra ở chiều ngược lại).
+    _progressNotes = ['Không đọc được tiến độ lớp: ' + (err.message || err)
+      + '. Mở lại thẻ này để thử lại.'];
+    renderProgressBanner();
     $('progress-table-wrap').hidden = true;
     $('progress-empty').hidden = true;
     return;
@@ -1868,13 +2004,20 @@ function showPanel(name) {
     _homeworkLoaded = true;
     loadHomework();
   }
-  if (name === 'progress' && !_progressLoaded) {
-    _progressLoaded = true;
-    loadProgress();
-    // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
-    // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
-    // biến mất theo.
-    loadSpeakingPerf();
+  if (name === 'progress') {
+    if (!_progressLoaded) {
+      _progressLoaded = true;
+      loadProgress();
+      // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
+      // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
+      // biến mất theo.
+      loadSpeakingPerf();
+    }
+    // Bảng ngày có CHỐT RIÊNG (`_dailyBoardLoaded`), nên gọi mỗi lần mở thẻ:
+    // lần hỏng đã tự mở chốt, và nếu để lời gọi nằm trong chốt `_progressLoaded`
+    // thì việc mở chốt ấy vô nghĩa — rời thẻ rồi quay lại vẫn treo cảnh báo cũ
+    // cho tới khi tải lại cả trang (codex #931). Đã nạp xong thì hàm tự thoát.
+    loadDailyBoard();
   }
 }
 

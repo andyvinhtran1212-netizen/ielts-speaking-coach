@@ -1089,6 +1089,12 @@ async def assignment_tally(
             # em ấy đang làm dở. Chỉ khi đã có ít nhất một lượt xét mới được
             # nói "chưa đạt" (codex R6).
             "verdicts":     len(((it.get("mastery") or {}).get("attempts")) or []),
+            # Đường mở thẳng bài làm: nghe audio + đọc nhận xét. Không có nó thì
+            # giáo viên phải tự mò trong danh sách phiên toàn hệ thống, nên trên
+            # thực tế không ai nghe bài của học viên mình cả. `artifact_kind` đi
+            # kèm vì mỗi kỹ năng mở ở một trang khác — đoán từ id là đoán sai.
+            "artifact_kind": it.get("artifact_kind"),
+            "artifact_id":   it.get("artifact_id"),
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
@@ -1116,6 +1122,150 @@ async def assignment_tally(
     if stale:
         result["homework_stale"] = True
     return result
+
+
+@router.get("/{cohort_id}/speaking-daily")
+async def speaking_daily_board(
+    cohort_id: str,
+    days: int = 21,
+    authorization: str | None = Header(default=None),
+):
+    """Bảng tổng kết bài Speaking HẰNG NGÀY: học viên × ngày, xong hay chưa.
+
+    Vì sao là một mặt đọc riêng chứ không phải bảng tổng kết của từng bài giao:
+    lớp có bài gần như MỖI NGÀY, nên câu hỏi thật của giáo viên không phải "bài
+    hôm nay ai nộp" mà là "ba tuần qua em nào đứt quãng". Trả lời được câu ấy
+    bằng cách mở hai chục bảng tổng kết là không trả lời được.
+
+    CHỈ `kind='daily'`. Bài sau buổi học có nhịp khác (hạn tính bằng ngày, một
+    buổi một bài) nên xếp chung vào lưới theo ngày sẽ tạo ra những cột trống
+    đọc như bỏ bài.
+
+    Ngày là NGÀY VIỆT NAM của hạn nộp (`CLASS_TZ`), không phải ngày UTC: một
+    bài hạn 19:00 giờ VN rơi vào 12:00Z — lấy ngày UTC vẫn đúng ở đây, nhưng
+    hạn 07:00 sáng thì thành ngày HÔM TRƯỚC, và cả cột lệch đi một ngày.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    days = max(1, min(int(days or 21), 120))
+
+    assignments = _paged(
+        supabase_admin, "class_assignments",
+        "id, title, kind, status, due_at, created_at",
+        lambda q: q.eq("cohort_id", cohort_id).eq("skill", "speaking").eq("kind", "daily"),
+    )
+    # Đã lưu trữ thì không đếm là bỏ bài — nó bị đóng vì một quyết định của
+    # giáo viên, không phải vì em ấy không làm.
+    assignments = [a for a in assignments if (a.get("status") or "") != "archived"]
+    if not assignments:
+        return {"days": [], "students": [], "assignment_count": 0, "stale": False}
+
+    def _day(a: dict) -> str | None:
+        at = _at(a.get("due_at")) or _at(a.get("created_at"))
+        return at.astimezone(CLASS_TZ).date().isoformat() if at else None
+
+    dated = [(d, a) for a in assignments if (d := _day(a))]
+    if not dated:
+        return {"days": [], "students": [], "assignment_count": len(assignments),
+                "stale": False}
+
+    # Mới nhất bên phải, và chỉ giữ `days` ngày gần nhất — một lưới 200 cột
+    # không đọc được, và câu hỏi là về nhịp gần đây.
+    day_list = sorted({d for d, _ in dated})[-days:]
+    keep = set(day_list)
+    by_day: dict = {}
+    for d, a in dated:
+        if d in keep:
+            by_day.setdefault(d, []).append(a["id"])
+
+    aids = [a["id"] for d, a in dated if d in keep]
+
+    # VÁ SỔ TRƯỚC KHI ĐẾM — y như bảng tổng kết từng bài đang làm.
+    #
+    # Móc chốt sổ lúc hoàn thành phiên là best-effort (hỏng thì chỉ log). Đọc
+    # thẳng sổ nghĩa là một phiên ĐÃ XONG vẫn hiện ✕ cho tới khi có ai đó mở
+    # bảng tổng kết của đúng bài ấy — bảng này thì lại là chỗ giáo viên nhìn
+    # trước, nên nó sẽ là chỗ đầu tiên nói sai (codex #931).
+    stale = False
+    try:
+        reconcile_ledger_from_sessions(supabase_admin, aids)
+    except Exception as exc:  # noqa: BLE001
+        stale = True
+        logger.warning("[class] daily board reconcile failed cohort=%s: %s", cohort_id, exc)
+
+    items: list[dict] = []
+    for chunk in (aids[i:i + _ID_CHUNK] for i in range(0, len(aids), _ID_CHUNK)):
+        items.extend(_paged(
+            supabase_admin, "class_assignment_items",
+            "id, assignment_id, student_id, submitted_at, score, artifact_kind, artifact_id",
+            lambda q, c=chunk: q.in_("assignment_id", c),
+        ))
+
+    sids = list({i["student_id"] for i in items if i.get("student_id")})
+    students: dict = {}
+    for chunk in (sids[i:i + _ID_CHUNK] for i in range(0, len(sids), _ID_CHUNK)):
+        for st in _paged(supabase_admin, "students",
+                         "id, full_name, student_code, user_id",
+                         lambda q, c=chunk: q.in_("id", c)):
+            students[st["id"]] = st
+
+    due_of = {a["id"]: _at(a.get("due_at")) for _d, a in dated}
+    now = datetime.now(timezone.utc)
+    # (student, day) → ô. Một ngày có thể có HAI bài giao (giao lại, giao bù);
+    # ô nói về NGÀY, nên gộp: nộp được một bài là ngày ấy có làm.
+    cells: dict = {}
+    for it in items:
+        day = next((d for d, ids in by_day.items() if it["assignment_id"] in ids), None)
+        if not day:
+            continue
+        sub = _at(it.get("submitted_at"))
+        due = due_of.get(it["assignment_id"])
+        if sub:
+            state = "late" if (due and sub > due) else "done"
+        elif due and now > due:
+            state = "missing"
+        else:
+            state = "pending"     # chưa tới hạn — chưa phải là bỏ bài
+        key = (it["student_id"], day)
+        old = cells.get(key)
+        # Ưu tiên trạng thái TỐT NHẤT trong ngày: đã làm thắng chưa làm.
+        _RANK = {"done": 0, "late": 1, "pending": 2, "missing": 3}
+        if not old or _RANK[state] < _RANK[old["state"]]:
+            cells[key] = {
+                "state": state,
+                "score": it.get("score"),
+                "session_id": (it.get("artifact_id")
+                               if it.get("artifact_kind") == "session" else None),
+            }
+
+    rows = []
+    for sid, st in students.items():
+        line = [cells.get((sid, d)) or {"state": "none", "score": None, "session_id": None}
+                for d in day_list]
+        graded = [c["score"] for c in line if c.get("score") is not None]
+        rows.append({
+            "student_id":   sid,
+            "name":         st.get("full_name") or "",
+            "student_code": st.get("student_code"),
+            "activated":    bool(st.get("user_id")),
+            "cells":        line,
+            "done":         sum(1 for c in line if c["state"] in ("done", "late")),
+            "missing":      sum(1 for c in line if c["state"] == "missing"),
+            "avg_band":     round(sum(graded) / len(graded), 2) if graded else None,
+        })
+
+    # Ai đứt quãng nhiều nhất lên đầu — đây là danh sách việc, không phải bảng
+    # xếp hạng.
+    rows.sort(key=lambda r: (-r["missing"], r["name"].lower()))
+    return {
+        "days":  day_list,
+        "students": rows,
+        "assignment_count": len(aids),
+        # Nói RA khi con số có thể còn thiếu. Im lặng ở đây là để giáo viên nhắc
+        # nhầm một em đã nộp.
+        "stale": stale,
+    }
 
 
 @router.get("/{cohort_id}/speaking-performance")

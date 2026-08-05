@@ -523,6 +523,16 @@
 
       <!-- Navigation buttons (JS controls display) -->
       <div class="flex flex-col gap-3">
+        <!-- Xem lại một câu của PHIẾU bài tập lớp. Ở đường ấy không có "câu
+             tiếp theo": học viên đang xem lại một ô cụ thể và cần về đúng chỗ
+             cũ. Hai nút kia bị ẩn, nút này hiện — xem `_sheetReview`. -->
+        <button id="btn-back-sheet"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
+                style="display:none;"
+                onclick="PracticeApp.backToSheet()">
+          <i data-lucide="arrow-left"></i>
+          Quay lại phiếu làm bài
+        </button>
         <button id="btn-next-q"
                 class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
                 style="display:none;"

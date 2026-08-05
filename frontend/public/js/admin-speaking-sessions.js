@@ -204,6 +204,53 @@ function renderTable(reset) {
 }
 
 
+/**
+ * Báo cáo nhận xét của MỘT câu, đọc từ `responses.feedback`.
+ *
+ * Modal trước đây chỉ có band + transcript + audio: giáo viên nghe được nhưng
+ * không đọc được máy đã nhận xét gì, nên không biết học viên đang nhận lời
+ * khuyên nào — thứ duy nhất em ấy thật sự đọc.
+ *
+ * Hai hình dạng cùng tồn tại trong bảng: chế độ THI (bốn tiêu chí FC/LR/GRA/P
+ * kèm nhận xét từng tiêu chí) và chế độ LUYỆN TẬP (một band tổng + danh sách
+ * lỗi ngữ pháp/từ vựng). Vẽ đúng cái đang có, không ép cái này thành cái kia.
+ */
+function feedbackReport(r) {
+  let fb = r && r.feedback;
+  if (typeof fb === 'string') { try { fb = JSON.parse(fb); } catch (e) { fb = null; } }
+  if (!fb || typeof fb !== 'object') return '';
+
+  const block = (label, text) => (text
+    ? `<div class="ses-fb-item"><span class="ses-fb-label">${escapeHtml(label)}</span>`
+      + `<p>${escapeHtml(text)}</p></div>` : '');
+  const list = (label, arr) => (Array.isArray(arr) && arr.length
+    ? `<div class="ses-fb-item"><span class="ses-fb-label">${escapeHtml(label)}</span><ul>`
+      + arr.slice(0, 6).map((x) => `<li>${escapeHtml(
+          typeof x === 'string' ? x : (x && (x.issue || x.text || x.note)) || JSON.stringify(x)
+        )}</li>`).join('')
+      + '</ul></div>' : '');
+
+  const body = [
+    block('Fluency & Coherence', fb.fc_feedback),
+    block('Lexical Resource', fb.lr_feedback),
+    block('Grammatical Range & Accuracy', fb.gra_feedback),
+    block('Pronunciation', fb.p_feedback),
+    list('Điểm mạnh', fb.strengths),
+    list('Cần cải thiện', fb.improvements),
+    list('Lỗi ngữ pháp', fb.grammar_issues),
+    list('Lỗi từ vựng', fb.vocabulary_issues),
+    block('Câu trả lời mẫu', fb.improved_response || fb.sample_answer),
+  ].join('');
+
+  // Có dòng nhận xét nhưng không rút được gì để đọc là một sự thật đáng nói —
+  // im lặng ở đây khiến giáo viên tưởng bài chưa chấm.
+  if (!body) {
+    return '<p class="ses-fb-empty">Đã chấm nhưng không có nội dung nhận xét để hiển thị.</p>';
+  }
+  return `<details class="ses-fb"><summary>Báo cáo nhận xét</summary>${body}</details>`;
+}
+
+
 // ── Detail modal ────────────────────────────────────────────────────
 
 
@@ -285,6 +332,7 @@ function renderDetail(s) {
         if (r.transcript) {
           html += `<div class="transcript">${escapeHtml(r.transcript)}</div>`;
         }
+        html += feedbackReport(r);
         if (r.audio_playback_url) {
           html += `<audio controls src="${escapeHtml(r.audio_playback_url)}"></audio>`;
         } else if (r.audio_storage_path || r.audio_url) {
@@ -417,6 +465,14 @@ function bind() {
 
 async function main() {
   bind();
+  // Deep-link `?session=<id>`: mở thẳng bài của MỘT học viên. Bảng lớp bấm vào
+  // đây — trước đó giáo viên phải tự mò trong danh sách phiên toàn hệ thống,
+  // nên trên thực tế không ai nghe bài của học viên mình cả.
+  //
+  // Mở modal TRƯỚC khi tải danh sách: danh sách có thể lâu, mà thứ giáo viên
+  // vừa bấm để xem là phiên này.
+  const wanted = new URLSearchParams(location.search).get('session');
+  if (wanted) loadDetail(wanted);
   await loadSessions(true);
 }
 

@@ -108,9 +108,18 @@ function itemRow(a, { action }) {
   //
   // Bài vẫn CÒN trên danh sách, ghi là quá hạn — biến mất sẽ đọc ra thành "em
   // chưa từng có bài đó" thay vì "em đã bỏ lỡ".
-  const btn = (action && !a.is_missing)
-    ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
-    : '';
+  //
+  // NHƯNG "không nhận bài nữa" khác "không được xem lại bài mình đã làm". Bài
+  // Speaking đã nộp (hoặc đã quá hạn mà có bài) mở lại được để đọc nhận xét
+  // từng câu — lệnh /start trả về chính phiên cũ, và phiếu tự khoá ở chế độ
+  // chỉ-đọc. Nhãn nói đúng việc nút làm, không hứa "làm bài".
+  const canReview = a.assignment.skill === 'speaking'
+    && (a.submitted_at || (a.is_missing && a.state !== 'assigned'));
+  const btn = canReview
+    ? `<button class="mc-btn mc-btn-quiet" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
+    : (action && !a.is_missing)
+      ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
+      : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
       <p class="mc-item-title">${esc(a.assignment.title)}</p>
@@ -347,6 +356,16 @@ async function startAssignment(itemId, btn) {
     // trang kia đọc được bank ấy.
     if (r && r.bank_id) {
       window.location.href = '/course-exercises?bank=' + encodeURIComponent(r.bank_id);
+      return;
+    }
+
+    // Bài Speaking ĐÃ CÓ phiên: mở lại CHÍNH nó, không dựng phiên mới. Dựng
+    // mới nghĩa là bài em ấy vừa nói nằm lại phiên cũ và màn hình mở ra trắng
+    // trơn — đúng lỗi "làm rồi mà refresh là mất". Phiên cũ cũng là đường xem
+    // lại nhận xét sau khi đã nộp hoặc đã hết hạn.
+    if (r && r.session_id) {
+      window.location.href = '/pages/practice.html?session_id='
+        + encodeURIComponent(r.session_id);
       return;
     }
 

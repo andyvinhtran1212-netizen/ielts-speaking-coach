@@ -62,6 +62,55 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
+def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
+    """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
+
+    Của CHÍNH em ấy (`user_id`) chứ không chỉ theo mục: mục là của một học viên,
+    nhưng lọc thêm cho khớp với mọi đường đọc phiên khác — và một dòng lạc do
+    dữ liệu cũ không được biến thành phiên của người khác.
+
+    PHIÊN CÓ BÀI THẮNG PHIÊN MỚI. Hành vi cũ (mỗi lần bấm "Làm bài" dựng một
+    phiên mới) đã để lại những phiên TRỐNG mới hơn phiên thật trên chính prod —
+    chọn theo `started_at` thôi thì mở lại vẫn ra phiếu trắng, đúng cái lỗi hàm
+    này sinh ra để chữa (codex #931). Thứ tự ưu tiên:
+
+      1. đã hoàn thành  (`completed_at`) — bài đã chốt
+      2. có câu trả lời đã lưu           — đang làm dở nhưng có thật
+      3. mới nhất                        — chưa có gì, mở cái nào cũng như nhau
+
+    Đọc hỏng → None: rơi về đường tạo phiên mới như trước, chứ không chặn em ấy
+    làm bài vì một truy vấn chập.
+    """
+    try:
+        rows = (
+            supabase_admin.table("sessions").select("id, started_at, completed_at, status")
+            .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
+            .order("started_at", desc=True).limit(20).execute().data
+        ) or []
+        if not rows:
+            return None
+
+        done = [r for r in rows
+                if r.get("completed_at") or r.get("status") == "completed"]
+        if done:
+            return done[0]["id"]
+
+        # Phiên nào ĐANG GIỮ bài. Một lượt đọc cho tất cả, không hỏi từng phiên.
+        ids = [r["id"] for r in rows]
+        with_work = {
+            x["session_id"] for x in
+            ((supabase_admin.table("responses").select("session_id")
+              .in_("session_id", ids).execute().data) or [])
+        }
+        for r in rows:                      # rows đã mới→cũ
+            if r["id"] in with_work:
+                return r["id"]
+        return rows[0]["id"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
+        return None
+
+
 def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
     rows = (
         supabase_admin.table("students")
@@ -266,15 +315,41 @@ async def start_assignment(
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
 
+    # ── Thứ tự ba cổng dưới đây LÀ MỘT QUYẾT ĐỊNH, không phải ngẫu nhiên ──
+    #
+    #   1. ĐÚNG LỚP HIỆN TẠI  — chặn TẤT CẢ, kể cả xem lại.
+    #   2. mở lại phiên cũ     — được phép cả khi đã quá hạn.
+    #   3. quá hạn             — chỉ chặn việc DỰNG PHIÊN MỚI.
+    #
+    # Cohort phải đứng ĐẦU: mục bài tập cố ý sống sót khi học viên chuyển lớp,
+    # nên đặt nó sau bước 2 thì một em đã chuyển đi vẫn mở (và nộp tiếp) bài
+    # của lớp cũ — đúng thứ `/my-assignments` cố tình giấu đi (codex #931).
+    if assignment.get("cohort_id") != student.get("cohort_id"):
+        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
+
+    # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
+    #
+    # Trước đây mỗi lần bấm "Làm bài" là dựng một phiên MỚI, nên bài vừa nói
+    # nằm lại phiên cũ và học viên mở ra thấy trắng trơn; và quá hạn thì 409
+    # chặn luôn cả việc XEM. Hai thứ ấy khác nhau: hết hạn là không nhận bài
+    # MỚI, không phải xoá quyền đọc bài mình đã làm. Cấm nộp vẫn nguyên vẹn —
+    # nó nằm ở `_record_class_hand_in` (mốc so là giờ phiên hoàn thành) và ở
+    # phiếu làm bài (đọc `class_task.accepting` từ chính hàm này).
+    existing = _existing_speaking_session(item_id, auth_user["id"]) \
+        if assignment.get("skill") == "speaking" else None
+    if existing:
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "speaking",
+            "session_id":    existing,
+            "accepting":     bool(is_accepting_submissions(assignment)),
+        }
+
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
-
-    # Same cohort check as the list: a transferred student must not be able to
-    # start their previous class's work just because the item row survived.
-    if assignment.get("cohort_id") != student.get("cohort_id"):
-        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
     skill = assignment.get("skill")
     if skill not in ("speaking", "reading", "listening", "course"):
