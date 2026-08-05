@@ -685,8 +685,10 @@ function renderHomework() {
       <td><button class="adm-btn-secondary" data-action="tally"
                   data-id="${esc(a.id)}">Xem ai nộp</button>
           <button class="adm-btn-secondary" data-action="backfill"
-                  data-id="${esc(a.id)}"
-                  title="Thêm học viên mới vào lớp vào bài này">Bù học viên</button>${effort} ${action}</td>
+                  data-id="${esc(a.id)}" data-scope="${esc(a.recipient_scope || 'class')}"
+                  title="${a.recipient_scope === 'subset'
+                    ? 'Bài giao theo nhóm — chọn đích danh học viên cần thêm'
+                    : 'Thêm học viên mới vào lớp vào bài này'}">Bù học viên</button>${effort} ${action}</td>
     </tr>`;
   }).join('');
 }
@@ -1890,11 +1892,29 @@ async function openEffort(bankId, assignmentId, title) {
  * hình với em — còn bảng của giáo viên vẫn đếm em vào mẫu số. Chỉ THÊM, không
  * bao giờ xoá, và bấm bao nhiêu lần cũng vô hại.
  */
-async function backfillHomework(assignmentId) {
+async function backfillHomework(assignmentId, scope) {
+  // Bài giao cho một NHÓM: "bù cả lớp" ở đây là thêm đúng những em cố ý không
+  // được chọn, và nó đổi phạm vi chính thức của bài giao. Hỏi đích danh
+  // (codex PR 945 vòng 5).
+  let ids = null;
+  if (scope === 'subset') {
+    const names = (_who.members || [])
+      .map((m, i) => `${i + 1}. ${m.name || m.student_code || '—'}`).join('\n');
+    const pick = window.prompt(
+      'Bài này giao cho một NHÓM, không phải cả lớp.\n\n'
+      + 'Nhập số thứ tự các học viên cần thêm, cách nhau bằng dấu phẩy:\n\n'
+      + names, '');
+    if (pick === null) return;
+    ids = pick.split(',')
+      .map((x) => (_who.members || [])[Number(x.trim()) - 1])
+      .filter(Boolean).map((m) => m.student_id);
+    if (!ids.length) { toast('Chưa chọn học viên nào.', 'error'); return; }
+  }
   try {
     const r = await api.post(
       '/admin/cohorts/' + encodeURIComponent(_cohortId)
-      + '/assignments/' + encodeURIComponent(assignmentId) + '/backfill', {});
+      + '/assignments/' + encodeURIComponent(assignmentId) + '/backfill',
+      ids ? { student_ids: ids } : {});
     // Nói rõ KHÔNG CÓ AI để bù, thay vì im lặng như thể vừa làm gì đó.
     toast(r && r.added
       ? `Đã thêm ${r.added} học viên vào bài này (tổng ${r.student_count}).`
@@ -2479,7 +2499,9 @@ function bindDetail() {
     if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
-    if (btn.dataset.action === 'backfill') backfillHomework(btn.dataset.id);
+    if (btn.dataset.action === 'backfill') {
+      backfillHomework(btn.dataset.id, btn.dataset.scope);
+    }
     if (btn.dataset.action === 'effort') {
       openEffort(btn.dataset.id, btn.dataset.asg, btn.dataset.title);
     }

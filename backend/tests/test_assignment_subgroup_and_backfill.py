@@ -126,3 +126,36 @@ def test_an_explicit_empty_list_is_nobody_not_everybody():
         assert "None if student_ids is None else list(student_ids)" in src, \
             f"{fn.__name__}: phải phân biệt [] với None, không dùng phép kiểm chân trị"
         assert "list(student_ids) if student_ids else None" not in src
+
+
+# ── Vòng 5 codex PR 945 ─────────────────────────────────────────────────────
+
+def test_an_assignment_records_who_it_was_given_to():
+    """Không có cột này thì lệnh bù không phân biệt được "thêm em mới vào lớp"
+    (đúng ý) với "thêm cả những em cố ý không được chọn" (sai hoàn toàn). Suy
+    từ "số người nhận ít hơn sĩ số" là đoán, và đoán ấy sai đúng vào lúc cần
+    nhất: khi lớp vừa có em mới."""
+    assert "recipient_scope" in CODE
+    assert "CHECK (recipient_scope IN ('class', 'subset'))" in CODE
+    assert "DEFAULT 'class'" in CODE, "bài giao CŨ phải đọc là giao cả lớp"
+
+
+def test_the_scope_is_written_inside_the_same_transaction():
+    """Một UPDATE sau sẽ để lại bài giao-theo-nhóm mang nhãn "cả lớp" nếu lệnh
+    thứ hai hỏng — và từ đó lệnh bù mở rộng nó ra cả lớp mà không ai biết."""
+    i = CODE.index("INSERT INTO class_assignments")
+    seg = CODE[i:CODE.index("RETURNING", i)]
+    assert "recipient_scope" in seg
+    assert "CASE WHEN p_student_ids IS NULL THEN 'class' ELSE 'subset' END" in seg
+
+
+def test_backfilling_a_subgroup_assignment_demands_explicit_students():
+    i = CODE.index("fn_backfill_assignment_items")
+    body = CODE[i:CODE.index("$$;", i)]
+    assert "v_scope = 'subset' AND p_student_ids IS NULL" in body
+    assert "subset_needs_explicit_students" in body
+
+
+def test_that_refusal_is_a_400_not_a_500():
+    src = inspect.getsource(svc.backfill_assignment_items)
+    assert "subset_needs_explicit_students" in src and "SubsetNeedsStudentsError" in src

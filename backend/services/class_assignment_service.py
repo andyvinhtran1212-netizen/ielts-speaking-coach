@@ -245,6 +245,9 @@ def backfill_assignment_items(
     except Exception as exc:
         if "assignment_not_found" in str(exc):
             raise AssignmentNotFoundError("Không tìm thấy bài giao này.")
+        if "subset_needs_explicit_students" in str(exc):
+            raise SubsetNeedsStudentsError(
+                "Bài này giao cho một nhóm — hãy chọn đích danh học viên cần thêm.")
         raise
     if not rows:
         raise RuntimeError("Không bù được người nhận")
@@ -397,6 +400,13 @@ def mark_item_submitted(
         logger.warning("[class] mark_item_submitted failed item=%s: %s", item_id, exc)
         raise LedgerWriteError(str(exc)) from exc
     return bool(r.data)
+
+
+class SubsetNeedsStudentsError(Exception):
+    """Bù người nhận cho một bài giao-theo-nhóm mà không nêu ai — 400, không 500.
+
+    "Bù cả lớp" ở đây là thêm đúng những em cố ý không được chọn.
+    """
 
 
 class AssignmentNotFoundError(Exception):

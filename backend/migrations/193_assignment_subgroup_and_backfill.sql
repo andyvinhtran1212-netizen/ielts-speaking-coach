@@ -25,6 +25,21 @@
 
 BEGIN;
 
+-- ── Bài giao NHỚ nó được giao cho ai ────────────────────────────────────────
+--
+-- Không có cột này thì lệnh "bù người nhận" không phân biệt được hai chuyện:
+-- bù cho một bài giao CẢ LỚP (thêm em mới vào lớp — đúng ý), và bù cho một bài
+-- giao theo NHÓM (thêm cả những em cố ý không được chọn — sai hoàn toàn, và nó
+-- lặng lẽ đổi phạm vi chính thức của bài giao). Suy từ "số người nhận ít hơn sĩ
+-- số" là đoán, và đoán ấy sai đúng vào lúc cần nhất: khi lớp vừa có em mới.
+ALTER TABLE class_assignments
+    ADD COLUMN IF NOT EXISTS recipient_scope text NOT NULL DEFAULT 'class'
+        CHECK (recipient_scope IN ('class', 'subset'));
+
+COMMENT ON COLUMN class_assignments.recipient_scope IS
+'class = giao cả lớp (bù người nhận thêm mọi em đang trong lớp);
+subset = giao cho một nhóm (bù phải nêu ĐÍCH DANH, mig 193).';
+
 -- Bỏ chữ ký CŨ (12 tham số, từ mig 184).
 DROP FUNCTION IF EXISTS fn_create_class_assignment(
     uuid, text, text, uuid, jsonb, uuid, text, timestamptz, timestamptz, text, uuid, text);
@@ -93,11 +108,16 @@ BEGIN
 
     INSERT INTO class_assignments (
         cohort_id, lesson_id, skill, content_id, content_config,
-        title, instructions, due_at, publish_at, status, assigned_by, kind
+        title, instructions, due_at, publish_at, status, assigned_by, kind,
+        recipient_scope
     ) VALUES (
         p_cohort_id, p_lesson_id, p_skill, p_content_id, COALESCE(p_content_config, '{}'::jsonb),
         p_title, p_instructions, p_due_at, p_publish_at, COALESCE(p_status, 'published'),
-        p_assigned_by, COALESCE(p_kind, 'daily')
+        p_assigned_by, COALESCE(p_kind, 'daily'),
+        -- Ghi phạm vi NGAY LÚC TẠO, trong cùng giao dịch. Một UPDATE sau sẽ để
+        -- lại một bài giao-theo-nhóm mang nhãn "cả lớp" nếu lệnh thứ hai hỏng,
+        -- và từ đó lệnh bù sẽ mở rộng nó ra cả lớp mà không ai biết.
+        CASE WHEN p_student_ids IS NULL THEN 'class' ELSE 'subset' END
     )
     RETURNING * INTO v_row;
 
@@ -138,16 +158,25 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_cohort uuid;
+    v_scope  text;
     v_added  integer;
     v_total  integer;
 BEGIN
-    SELECT cohort_id INTO v_cohort
+    SELECT cohort_id, recipient_scope INTO v_cohort, v_scope
       FROM class_assignments WHERE id = p_assignment_id
        FOR UPDATE;
 
     IF v_cohort IS NULL THEN
         RAISE EXCEPTION 'assignment_not_found'
             USING HINT = 'Không tìm thấy bài giao này.';
+    END IF;
+
+    -- Bài giao theo NHÓM phải nêu ĐÍCH DANH. "Bù cả lớp" ở đây là thêm đúng
+    -- những em cố ý không được chọn, và nó đổi phạm vi chính thức của bài giao
+    -- mà không có gì đỏ để báo (codex PR 945).
+    IF v_scope = 'subset' AND p_student_ids IS NULL THEN
+        RAISE EXCEPTION 'subset_needs_explicit_students'
+            USING HINT = 'Bài này giao cho một nhóm — hãy chọn đích danh học viên cần thêm.';
     END IF;
 
     -- `NOT EXISTS` chứ không `ON CONFLICT`: bảng không có ràng buộc duy nhất
@@ -201,6 +230,11 @@ GRANT  EXECUTE ON FUNCTION public.fn_backfill_assignment_items(uuid, uuid[])
 COMMIT;
 
 -- ── Kiểm sau khi chạy ────────────────────────────────────────────────────────
+-- SELECT column_name, column_default, is_nullable
+--   FROM information_schema.columns
+--  WHERE table_name = 'class_assignments' AND column_name = 'recipient_scope';
+-- Kỳ vọng: recipient_scope | 'class'::text | NO
+--
 -- SELECT proname, count(*) AS so_ban
 --   FROM pg_proc
 --  WHERE proname IN ('fn_create_class_assignment', 'fn_backfill_assignment_items')

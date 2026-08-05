@@ -35,6 +35,7 @@ from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
     AssignmentNotFoundError,
+    SubsetNeedsStudentsError,
     backfill_assignment_items,
     create_class_assignment,
     mark_item_submitted,
@@ -1686,6 +1687,8 @@ async def backfill_assignment(
         )
     except AssignmentNotFoundError as exc:
         raise HTTPException(404, str(exc))
+    except SubsetNeedsStudentsError as exc:
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi bù người nhận: {exc}")
 
