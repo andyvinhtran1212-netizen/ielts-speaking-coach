@@ -128,6 +128,33 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
     assert.match(r.findings[0].what, /submit/);
   });
 
+  test('SAI THỨ TỰ bị bắt — nộp trước khi lưu nháp = nộp bản cũ', () => {
+    // Codex bắt ở PR #944: bản đầu khớp mỗi bản khai với BẤT KỲ request chưa
+    // dùng nào, nên `submit` xảy ra TRƯỚC `draft` vẫn qua một bản khai ghi
+    // `draft` trước. Với luồng ghi đó đúng là hồi quy cần bắt.
+    const decl = [
+      { method: 'PATCH', path: '/api/writing/my-assignments/:id/draft', body: { draft_text: NON_EMPTY } },
+      { method: 'POST', path: '/api/writing/my-assignments/:id/submit', body: { essay_text: NON_EMPTY } },
+    ];
+    const đúng = judge([W('PATCH', DRAFT, { draft_text: 'a' }), W('POST', SUBMIT, { essay_text: 'a' })], decl);
+    assert.ok(đúng.pass, JSON.stringify(đúng.findings));
+
+    const sai = judge([W('POST', SUBMIT, { essay_text: 'a' }), W('PATCH', DRAFT, { draft_text: 'a' })], decl);
+    assert.equal(sai.pass, false, 'submit trước draft phải bị bắt');
+    assert.ok(sai.findings.some((f) => f.kind === 'write-order'),
+      `kỳ vọng write-order, nhận ${JSON.stringify(sai.findings.map((f) => f.kind))}`);
+  });
+
+  test('`unordered` phải KHAI RA mới được bỏ qua thứ tự', () => {
+    // Mặc định là CÓ thứ tự. Muốn miễn thì phải nói, không im lặng.
+    const decl = [
+      { method: 'POST', path: '/api/b' },
+      { method: 'POST', path: '/api/a', unordered: true },
+    ];
+    const r = judge([W('POST', '/api/a', {}), W('POST', '/api/b', {})], decl);
+    assert.ok(r.pass, JSON.stringify(r.findings));
+  });
+
   test('`times` cho phép khai số lần (paste-log bắn nhiều lần)', () => {
     const P = '/api/writing/my-assignments/8f14e45f-ceea-467a-9c6b-1a2b3c4d5e6f/paste-log';
     const r = judge(

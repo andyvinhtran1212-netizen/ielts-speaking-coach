@@ -87,6 +87,12 @@ on:
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
+      # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
+      # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
+      # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
+      # (Codex bắt ở PR #944).
+      - 'frontend/public/js/api.js'
+      - 'frontend/public/js/analytics-beacon.js'
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
       - '.github/workflows/parity-gate.yml'

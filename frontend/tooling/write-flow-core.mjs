@@ -94,28 +94,76 @@ export function judge(observed, declared, { ignore = [] } = {}) {
   const remaining = writes.filter((r) => !ignored.has(normalizePath(r.url)));
   const used = new Array(remaining.length).fill(false);
 
+  // THỨ TỰ CÓ NGHĨA. Bản đầu khớp mỗi bản khai với BẤT KỲ request chưa dùng nào
+  // trong cả lượt, nên `submit` xảy ra TRƯỚC `draft` vẫn qua một bản khai ghi
+  // `draft` trước `submit` (Codex bắt ở PR #944). Với luồng ghi thì đó đúng là
+  // hồi quy cần bắt: nộp bài trước khi lưu nháp nghĩa là nộp bản cũ.
+  //
+  // Nên khớp theo CON TRỎ TIẾN: mỗi bản khai chỉ nhận request từ vị trí con trỏ
+  // trở đi. Bản khai nào thật sự không phụ thuộc thứ tự thì khai `unordered:
+  // true` — phải nói ra, không mặc định.
+  let cursor = 0;
+
   for (const d of declared || []) {
     const wantPath = normalizePath(d.path);
     const wantMethod = String(d.method).toUpperCase();
     const times = d.times == null ? 1 : d.times;
+    const from = d.unordered ? 0 : cursor;
+
+    const matchAt = (i) => !used[i]
+      && String(remaining[i].method).toUpperCase() === wantMethod
+      && normalizePath(remaining[i].url) === wantPath;
+
     const hits = [];
-    remaining.forEach((r, i) => {
-      if (used[i]) return;
-      if (String(r.method).toUpperCase() !== wantMethod) return;
-      if (normalizePath(r.url) !== wantPath) return;
-      hits.push(i);
-    });
+    for (let i = from; i < remaining.length && hits.length < times; i += 1) {
+      if (matchAt(i)) hits.push(i);
+    }
 
     if (hits.length !== times) {
-      findings.push({
-        kind: hits.length === 0 ? 'write-missing' : 'write-count',
-        what: `${wantMethod} ${wantPath}`,
-        why: `khai ${times} lần, thấy ${hits.length}`
-          + (times === 1 && hits.length > 1 ? ' — nộp hai lần là hỏng dữ liệu thật' : ''),
-      });
+      // Phân biệt "không xảy ra" với "xảy ra SAI THỨ TỰ" — hai lỗi khác nhau,
+      // và gộp chúng lại thì người đọc báo cáo đi sai hướng.
+      const earlier = [];
+      for (let i = 0; i < from; i += 1) if (matchAt(i)) earlier.push(i);
+      if (earlier.length && !d.unordered) {
+        findings.push({
+          kind: 'write-order',
+          what: `${wantMethod} ${wantPath}`,
+          why: 'xảy ra TRƯỚC bản khai đứng trước nó — sai thứ tự là sai nghiệp vụ '
+            + '(ví dụ nộp bài trước khi lưu nháp = nộp bản cũ)',
+        });
+        earlier.forEach((i) => { used[i] = true; });
+      } else {
+        findings.push({
+          kind: hits.length === 0 ? 'write-missing' : 'write-count',
+          what: `${wantMethod} ${wantPath}`,
+          why: `khai ${times} lần, thấy ${hits.length}`
+            + (times === 1 && hits.length > 1 ? ' — nộp hai lần là hỏng dữ liệu thật' : ''),
+        });
+      }
     }
+
+    // THỪA so với bản khai cũng phải gọi ĐÚNG TÊN. Nếu chỉ để chúng rơi xuống
+    // "write-undeclared" thì báo cáo nói "có một đường ghi lạ", trong khi sự
+    // thật là "nộp hai lần" — người đọc sẽ đi sai hướng ngay từ đầu.
+    if (hits.length === times) {
+      const extra = [];
+      for (let i = 0; i < remaining.length; i += 1) {
+        if (!hits.includes(i) && matchAt(i)) extra.push(i);
+      }
+      if (extra.length) {
+        findings.push({
+          kind: 'write-count',
+          what: `${wantMethod} ${wantPath}`,
+          why: `khai ${times} lần, thấy ${times + extra.length}`
+            + (times === 1 ? ' — nộp hai lần là hỏng dữ liệu thật' : ''),
+        });
+        extra.forEach((i) => { used[i] = true; });
+      }
+    }
+
     for (const i of hits) {
       used[i] = true;
+      if (!d.unordered) cursor = Math.max(cursor, i + 1);
       const m = bodyMatches(remaining[i].body, d.body);
       if (!m.ok) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
