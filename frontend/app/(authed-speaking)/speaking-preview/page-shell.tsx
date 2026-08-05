@@ -90,7 +90,7 @@ export function SpeakingShell() {
             <div className="ds-empty-icon">🎙️</div>
             <p className="ds-empty-title">Bắt đầu buổi học đầu tiên</p>
             <p className="ds-empty-sub">Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.</p>
-            <button className="btn-start text-white text-sm font-semibold px-5 py-2.5 rounded-xl">Luyện tập ngay →</button>
+            <button id="dash-empty-start" className="btn-start text-white text-sm font-semibold px-5 py-2.5 rounded-xl">Luyện tập ngay →</button>
           </div>
 
           {/* ── PART 1.5: Charts ──────────────────────────────────── */}
@@ -281,7 +281,7 @@ export function SpeakingShell() {
                 <div className="ds-empty-icon">📭</div>
                 <p className="ds-empty-title">Bạn chưa có session nào.</p>
                 <p className="ds-empty-sub">Hoàn thành buổi luyện đầu tiên để theo dõi tiến độ.</p>
-                <button className="btn-start text-white text-sm font-semibold px-6 py-2.5 rounded-xl">
+                <button id="grammar-cta-start" className="btn-start text-white text-sm font-semibold px-6 py-2.5 rounded-xl">
                   Bắt đầu ngay →
                 </button>
               </div>
@@ -374,7 +374,7 @@ export function SpeakingShell() {
               </div>
 
               <p id="prac-custom-q-error" className="tab-error"></p>
-              <button className="btn-confirm mt-auto">✍️ Bắt đầu luyện tập</button>
+              <button id="prac-custom-q-start" className="btn-confirm mt-auto">✍️ Bắt đầu luyện tập</button>
             </div>
 
             {/* Option B: Topic from library */}
@@ -412,7 +412,7 @@ export function SpeakingShell() {
               </div>
 
               <p id="prac-topic-error" className="tab-error"></p>
-              <button className="btn-confirm mt-auto">🚀 Bắt đầu tạo câu hỏi</button>
+              <button id="prac-topic-start" className="btn-confirm mt-auto">🚀 Bắt đầu tạo câu hỏi</button>
             </div>
 
           </div>
@@ -505,7 +505,7 @@ export function SpeakingShell() {
               </div>
 
               <p id="pbp-error" className="tab-error"></p>
-              <button className="btn-confirm w-full mt-2">🚀 Bắt đầu luyện tập</button>
+              <button id="pbp-start" className="btn-confirm w-full mt-2">🚀 Bắt đầu luyện tập</button>
             </div>
           </div>
 
@@ -593,7 +593,7 @@ export function SpeakingShell() {
           </div>
 
           <p id="ft-error" className="tab-error mb-3"></p>
-          <button className="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide">
+          <button id="ft-start" className="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide">
             🏆 Bắt đầu Full Test
           </button>
 
@@ -610,7 +610,7 @@ export function SpeakingShell() {
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-base">Chọn chủ đề luyện tập</h2>
-              <button className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
+              <button id="modal-close" className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
             </div>
 
             {/* Subtitle */}
