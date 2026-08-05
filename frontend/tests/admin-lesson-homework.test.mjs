@@ -649,7 +649,10 @@ describe('bảng hiệu suất Speaking', () => {
 
   test('mở tab Tiến độ là gọi CẢ hai nguồn, và chúng không chờ nhau', () => {
     // Một bên hỏng không được kéo bên kia biến mất theo.
-    const sw = SRC.slice(SRC.indexOf("if (name === 'progress' && !_progressLoaded)"));
+    // Chốt `_progressLoaded` nay là một `if` LỒNG trong nhánh `progress` (bảng
+    // bài hằng ngày phải gọi được ngoài chốt để lần hỏng còn thử lại), nên neo
+    // theo nhánh chứ không theo chuỗi điều kiện cũ.
+    const sw = SRC.slice(SRC.indexOf("if (name === 'progress')"));
     assert.match(sw, /loadProgress\(\);[\s\S]{0,400}?loadSpeakingPerf\(\);/);
     assert.doesNotMatch(sw.slice(0, 400), /await loadProgress/);
   });

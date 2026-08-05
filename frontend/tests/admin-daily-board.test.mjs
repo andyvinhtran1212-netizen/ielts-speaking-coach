@@ -224,9 +224,21 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
       `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
   });
 
-  test('nạp một lần cho tới khi bị làm cũ — không gọi lại mỗi lần mở thẻ', () => {
+  test('chốt nằm TRONG hàm, không phải ở chỗ gọi', () => {
+    // Đặt lời gọi trong chốt `_progressLoaded` thì việc mở chốt riêng của bảng
+    // (lúc hỏng) trở thành vô nghĩa: rời thẻ rồi quay lại vẫn treo cảnh báo cũ
+    // tới khi tải lại cả trang (codex #931 vòng 5).
     const i = SRC.indexOf('async function loadDailyBoard');
     assert.match(SRC.slice(i, i + 220), /_dailyBoardLoaded\) return;/);
+
+    const sp = SRC.indexOf('function showPanel');
+    const body = SRC.slice(sp, SRC.indexOf('\n}', sp));
+    const call = body.indexOf('loadDailyBoard();');
+    const latch = body.indexOf('if (!_progressLoaded) {');
+    const latchEnd = body.indexOf('    }', latch);
+    assert.ok(call !== -1 && latch !== -1);
+    assert.ok(call > latchEnd,
+      'lời gọi phải nằm NGOÀI chốt _progressLoaded, không thì lần hỏng không bao giờ thử lại');
   });
 });
 

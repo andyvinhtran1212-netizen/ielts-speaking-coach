@@ -2004,13 +2004,19 @@ function showPanel(name) {
     _homeworkLoaded = true;
     loadHomework();
   }
-  if (name === 'progress' && !_progressLoaded) {
-    _progressLoaded = true;
-    loadProgress();
-    // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
-    // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
-    // biến mất theo.
-    loadSpeakingPerf();
+  if (name === 'progress') {
+    if (!_progressLoaded) {
+      _progressLoaded = true;
+      loadProgress();
+      // Hai lượt gọi RIÊNG, cố ý không chờ nhau: bảng bốn kỹ năng và hiệu suất
+      // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
+      // biến mất theo.
+      loadSpeakingPerf();
+    }
+    // Bảng ngày có CHỐT RIÊNG (`_dailyBoardLoaded`), nên gọi mỗi lần mở thẻ:
+    // lần hỏng đã tự mở chốt, và nếu để lời gọi nằm trong chốt `_progressLoaded`
+    // thì việc mở chốt ấy vô nghĩa — rời thẻ rồi quay lại vẫn treo cảnh báo cũ
+    // cho tới khi tải lại cả trang (codex #931). Đã nạp xong thì hàm tự thoát.
     loadDailyBoard();
   }
 }
