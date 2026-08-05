@@ -109,6 +109,13 @@ async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
 
 
+@router.get("/banks/{bank_id}/course-resume")
+async def course_resume(bank_id: UUID, authorization: str | None = Header(None)):
+    """Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.get_course_resume(user_id=user["id"], bank_id=str(bank_id))
+
+
 @router.post("/banks/{bank_id}/reset")
 async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)):
     """Wipe the caller's mastery cache for one bank so the adaptive test starts

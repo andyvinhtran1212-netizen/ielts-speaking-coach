@@ -46,6 +46,7 @@ export function CourseBehavior() {
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
+    let onHide: (() => void) | null = null;
 
     (async () => {
       const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, api] = await Promise.all([
@@ -388,14 +389,21 @@ export function CourseBehavior() {
       };
       document.addEventListener('input', onInput);
 
+      // Đẩy nốt lượt làm khi rời trang. `pagehide` KHÔNG đủ trên điện thoại —
+      // chuyển sang app khác hay khoá màn hình thường chỉ bắn `visibilitychange`,
+      // và học viên ở đây chủ yếu dùng điện thoại. Bỏ lỡ mốc ấy là bỏ lỡ đúng
+      // lúc cần đẩy: những câu chưa tới máy chủ thì mở lại KHÔNG khôi phục được.
       onLeave = () => { runner.leave(); };
+      onHide = () => { if (document.visibilityState === 'hidden') runner.leave(); };
       window.addEventListener('pagehide', onLeave);
+      document.addEventListener('visibilitychange', onHide);
     })();
 
     return () => {
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
+      if (onHide) document.removeEventListener('visibilitychange', onHide);
     };
   }, [status, user?.id]);
 

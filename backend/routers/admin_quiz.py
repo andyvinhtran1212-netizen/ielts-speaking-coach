@@ -75,6 +75,23 @@ async def bank_analytics(bank_id: UUID, authorization: str | None = Header(None)
     return quiz_service.bank_analytics(str(bank_id))
 
 
+@router.get("/banks/{bank_id}/attempt-report")
+async def bank_attempt_report(
+    bank_id: UUID,
+    assignment_id: UUID = Query(...),
+    authorization: str | None = Header(None),
+):
+    """Học viên làm bài tập theo buổi trong bao lâu, và vướng ở đâu.
+
+    Trả `{students, axes}`. `students[].state` phân biệt ba chuyện mà tới nay
+    bị gộp thành "chưa nộp": đang làm dở, bỏ dở quá 24 giờ, và chưa mở bài lần
+    nào — chỉ chuyện thứ ba mới thật sự là "chưa làm".
+    """
+    await require_admin(authorization)
+    from services import quiz_service
+    return quiz_service.course_attempt_report(bank_id=str(bank_id), assignment_id=str(assignment_id))
+
+
 @router.get("/students")
 async def quiz_students(
     skill_area: str = Query(default="vocab"),
