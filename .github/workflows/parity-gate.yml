@@ -322,6 +322,19 @@ jobs:
       - name: Cổng đường-ghi
         run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
 
+      # CÙNG bản khai, chạy trên vế LEGACY. Đây là thứ biến bản khai từ "test
+      # của bản Next" thành HỢP ĐỒNG: nếu chỉ chạy vế Next thì bản khai chỉ mô
+      # tả đúng thứ vừa được viết, và một đường ghi bị bỏ sót lúc port sẽ bỏ sót
+      # y hệt ở cả hai nơi. Bắt nó xanh trên trang legacy nghĩa là nó mô tả hành
+      # vi CÓ THẬT, đo được, trước khi bản Next tồn tại.
+      #
+      # Chỉ chạy các luồng CÓ khai `legacyRoute`; luồng của trang chỉ-có-Next sẽ
+      # rơi về `route` và bước này thành trùng lặp vô hại.
+      - name: Cổng đường-ghi (vế legacy — cùng bản khai)
+        env:
+          WF_LEGACY: '1'
+        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
+
       - name: Nộp báo cáo
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
