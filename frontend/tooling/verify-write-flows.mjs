@@ -42,6 +42,24 @@ async function step(page, s) {
   if (s.click) return page.locator(s.click).first().click();
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
+  // Dán là một HÀNH VI RIÊNG, không phải `fill`. Trang Bài viết phân loại theo
+  // độ dài đoạn dán (<50 im lặng · 50–200 ghi nhật ký · >200 chặn rồi ghi), và
+  // `fill` không hề phát sinh sự kiện `paste` nên sẽ không kiểm được nhánh nào
+  // trong ba nhánh đó. Dựng sự kiện thật kèm `clipboardData` để trang chạy đúng
+  // đường nó chạy với người dùng, kể cả `preventDefault()` khi bị chặn.
+  if (s.paste) {
+    const [sel, text] = s.paste;
+    return page.locator(sel).first().evaluate((el, t) => {
+      el.focus();
+      const dt = new DataTransfer();
+      dt.setData('text/plain', t);
+      const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      const allowed = el.dispatchEvent(ev);
+      // Trình duyệt chỉ chèn văn bản khi handler KHÔNG gọi preventDefault().
+      if (allowed) el.setRangeText(t, el.selectionStart, el.selectionEnd, 'end');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, text);
+  }
   if (s.expectVisible) {
     const v = await page.locator(s.expectVisible).first().isVisible();
     if (!v) throw new Error(`không thấy «${s.expectVisible}»`);
@@ -56,6 +74,18 @@ async function runFlow(browser, flow) {
     try { localStorage.setItem(k, v); } catch (_) {}
   }, [storageKey(SB), fakeSession]);
   const page = await ctx.newPage();
+
+  // ĐỒNG Ý mọi hộp thoại. Playwright mặc định tự bấm HUỶ, và mặc định đó âm
+  // thầm vô hiệu hoá cả cổng này: trang Bài viết đặt `confirm()` ngay trước khi
+  // nộp ("sau khi nộp không sửa được nữa"), nên bản chạy mặc định thấy 0 request
+  // `/submit` và báo write-missing — trong khi trang HOÀN TOÀN đúng. Người dùng
+  // thật bấm Đồng ý, nên đó mới là đường cần kiểm. Ghi lại nội dung hộp thoại để
+  // một hộp BẤT NGỜ không lặng lẽ được bấm qua.
+  const dialogs = [];
+  page.on('dialog', async (d) => {
+    dialogs.push(`${d.type()}: ${d.message().replace(/\s+/g, ' ').slice(0, 80)}`);
+    await d.accept();
+  });
 
   const observed = [];
   const pageErrors = [];
@@ -88,7 +118,15 @@ async function runFlow(browser, flow) {
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 
-  await page.goto(BASE + flow.route, { waitUntil: 'domcontentloaded' });
+  // `WF_LEGACY=1` chạy CÙNG bản khai này trên vế legacy. Đó là điều biến nó
+  // thành cổng PARITY chứ không chỉ là test của bản Next: một bản khai chỉ đáng
+  // tin khi nó đã xanh trên trang legacy — tức là nó mô tả hành vi CÓ THẬT, chứ
+  // không phải hành vi tôi tưởng tượng ra rồi viết bản Next cho khớp.
+  // KHÔNG rơi về `route` khi thiếu `legacyRoute`: làm thế thì bước CI dán nhãn
+  // "vế legacy" lại chạy đúng trang Next lần thứ hai và xanh mà chẳng kiểm gì —
+  // một cổng tự khen. Thiếu thì BỎ QUA và nói rõ (xử lý ở vòng lặp gọi).
+  const target = process.env.WF_LEGACY ? flow.legacyRoute : flow.route;
+  await page.goto(BASE + target, { waitUntil: 'domcontentloaded' });
   // Cố ý CHỜ NGẮN rồi mới bấm: bấm sớm + API chậm là kịch bản người dùng thật,
   // và là kịch bản duy nhất lộ ra lỗi "listener gắn sau khi API trả về" (đã
   // gặp thật ở `/speaking`).
@@ -104,7 +142,7 @@ async function runFlow(browser, flow) {
 
   const verdict = judge(observed, flow.writes || [], { ignore: flow.ignoreWrites || [] });
   await ctx.close();
-  return { verdict, stepError, pageErrors, observed };
+  return { verdict, stepError, pageErrors, observed, dialogs };
 }
 
 const files = readdirSync(FLOW_DIR).filter((f) => f.endsWith('.mjs'))
@@ -118,10 +156,32 @@ const browser = await chromium.launch();
 let failed = 0;
 for (const f of files) {
   const flow = (await import(path.join(FLOW_DIR, f))).default;
-  const { verdict, stepError, pageErrors } = await runFlow(browser, flow);
+
+  // Bản khai được viết TRƯỚC khi trang Next tồn tại (đó là cả điểm của cách làm
+  // này) sẽ làm vế Next đỏ vì route chưa có. `nextPending` hoãn ĐÚNG vế đó, và
+  // phải kèm LÝ DO — in ra mỗi lần chạy, không im lặng. Một chốt riêng
+  // (`write-flow-manifests.test.mjs`) bắt buộc luồng đã hoãn phải có
+  // `legacyRoute`, để nó vẫn được kiểm ở đâu đó chứ không thành lỗ trống.
+  if (process.env.WF_LEGACY && !flow.legacyRoute) {
+    console.log(`\n══ ${flow.name}`);
+    console.log('  ⏸ không khai `legacyRoute` — bỏ qua ở vế legacy');
+    continue;
+  }
+
+  if (flow.nextPending && !process.env.WF_LEGACY) {
+    console.log(`\n══ ${flow.name} (${flow.route})`);
+    console.log(`  ⏸ hoãn vế Next: ${flow.nextPending}`);
+    console.log('    (vẫn được kiểm trên vế legacy — bước "Cổng đường-ghi (vế legacy)")');
+    continue;
+  }
+
+  const { verdict, stepError, pageErrors, dialogs } = await runFlow(browser, flow);
   const bad = !verdict.pass || stepError || pageErrors.length;
   if (bad) failed += 1;
   console.log(`\n══ ${flow.name} (${flow.route}) · ${verdict.writeCount} request ghi`);
+  // In ra chứ không nuốt: cổng tự bấm Đồng ý, nên nếu trang mọc thêm một hộp xác
+  // nhận mới thì đây là chỗ duy nhất người đọc thấy được điều đó.
+  for (const d of dialogs) console.log(`  · [hộp thoại đã đồng ý] ${d}`);
   if (stepError) console.log(`  ✗ [bước] ${stepError.message}`);
   for (const e of pageErrors) console.log(`  ✗ [lỗi JS] ${e.slice(0, 140)}`);
   console.log(formatFindings(verdict.findings));
