@@ -35,6 +35,7 @@ from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
     create_class_assignment,
+    mark_item_submitted,
     _ID_CHUNK,
     _at,
     _paged,
@@ -1069,6 +1070,26 @@ async def assignment_tally(
             except Exception as exc:  # noqa: BLE001
                 # Đọc hỏng thì KHÔNG hiện nút, chứ không làm đổ cả bảng.
                 logger.warning("[class] đọc bài tự luận hỏng asg=%s: %s", assignment_id, exc)
+
+        # VÁ SỔ, không vá hiển thị. Lượt chốt sổ lúc nộp là best-effort và có
+        # nuốt lỗi, nên một bài tự luận ĐÃ CHẤM vẫn có thể thiếu `submitted_at`.
+        # Không vá thì dòng ấy hiện "chưa nộp" mà lại có nút "Xem tự luận" —
+        # hai thứ mâu thuẫn trên cùng một dòng — và số đếm ở dưới đếm thiếu.
+        # Bản thân bài tự luận đã chấm LÀ bằng chứng của một lượt nộp.
+        for it in items:
+            if it["id"] in writing_items and not it.get("submitted_at"):
+                try:
+                    if mark_item_submitted(
+                        supabase_admin, item_id=it["id"],
+                        artifact_kind="course_writing", artifact_id=it["id"],
+                    ):
+                        # Sửa luôn dòng đang cầm trên tay: đọc lại cả bảng chỉ
+                        # để lấy một cột là một vòng gọi mạng không cần thiết.
+                        it["submitted_at"] = datetime.now(timezone.utc).isoformat()
+                        it["state"] = "submitted"
+                except Exception as exc:  # noqa: BLE001
+                    stale = True
+                    logger.warning("[class] vá sổ tự luận hỏng item=%s: %s", it["id"], exc)
 
     out = []
     for it in items:

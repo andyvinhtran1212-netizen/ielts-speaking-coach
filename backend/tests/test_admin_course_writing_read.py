@@ -103,3 +103,72 @@ async def test_reads_by_assignment_item_not_by_bank():
     old = {**_SUB, "class_assignment_item_id": "it-CU", "clean": 99}
     out = await _read(subs=(old,))
     assert out["submission"] is None, "bài của mục khác không được lôi sang"
+
+
+# ── Bảng tổng kết KHÔNG được tự mâu thuẫn (codex cục bộ) ────────────────────
+
+def _tally_db(items, subs):
+    return _db(
+        class_assignments=[{**_ASG, "kind": "lesson", "status": "published",
+                            "due_at": "2999-01-01T00:00:00+00:00",
+                            "content_config": {}}],
+        class_assignment_items=list(items),
+        students=[{**_STUDENT, "user_id": "u1"}],
+        course_writing_submissions=list(subs),
+    )
+
+
+async def _tally(items, subs, *, mark=None):
+    calls = []
+    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
+        calls.append((item_id, artifact_kind))
+        if mark == "boom":
+            raise RuntimeError("db down")
+        return True
+    with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
+         patch.object(adm, "_require_cohort", lambda _c: None), \
+         patch.object(adm, "supabase_admin", _tally_db(items, subs)), \
+         patch.object(adm, "reconcile_ledger_from_sessions", lambda *a: None), \
+         patch.object(adm, "reconcile_test_attempts", lambda *a: None), \
+         patch.object(adm, "mark_item_submitted", fake_mark):
+        return await adm.assignment_tally("co1", "a1", None), calls
+
+
+@pytest.mark.asyncio
+async def test_a_graded_writing_without_a_ledger_stamp_is_repaired_not_displayed_as_missing():
+    """Chốt sổ lúc nộp là best-effort và có nuốt lỗi, nên một bài ĐÃ CHẤM vẫn có
+    thể thiếu `submitted_at`. Không vá thì dòng ấy hiện "chưa nộp" mà lại có nút
+    "Xem tự luận" — hai thứ mâu thuẫn trên cùng một dòng."""
+    out, calls = await _tally(
+        [{"id": "it1", "assignment_id": "a1", "student_id": "s1",
+          "submitted_at": None, "score": None, "state": "opened",
+          "artifact_kind": None, "artifact_id": None,
+          "passed_at": None, "mastery": None}],
+        [{"class_assignment_item_id": "it1"}])
+    row = out["students"][0]
+    assert row["has_writing"] is True
+    assert row["status"] in ("submitted", "late"), "bài đã chấm LÀ một lượt nộp"
+    assert out["counts"]["submitted"] == 1, "số đếm phải kể cả bài vừa vá"
+    assert calls and calls[0][1] == "course_writing", "phải vá SỔ, không phải vá hiển thị"
+
+
+@pytest.mark.asyncio
+async def test_an_item_without_writing_is_left_alone():
+    out, calls = await _tally(
+        [{"id": "it1", "assignment_id": "a1", "student_id": "s1",
+          "submitted_at": None, "score": None, "state": "opened",
+          "artifact_kind": None, "artifact_id": None,
+          "passed_at": None, "mastery": None}], [])
+    assert out["students"][0]["has_writing"] is False
+    assert calls == [], "không có bài thì đừng đóng dấu gì"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_repair_says_stale_instead_of_lying_quietly():
+    out, _ = await _tally(
+        [{"id": "it1", "assignment_id": "a1", "student_id": "s1",
+          "submitted_at": None, "score": None, "state": "opened",
+          "artifact_kind": None, "artifact_id": None,
+          "passed_at": None, "mastery": None}],
+        [{"class_assignment_item_id": "it1"}], mark="boom")
+    assert out["homework_stale"] is True
