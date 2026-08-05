@@ -33,6 +33,9 @@
 
 import { useEffect, useRef } from 'react';
 
+import { useAuth } from '@/lib/auth/auth-provider';
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
   assignmentId: string | null;
@@ -1271,11 +1274,27 @@ async function applyWritingPermissionGating(api: any) {
   }
 }
 
+// Khớp bản legacy (dòng 605 của writing-dashboard.html) và khớp /speaking.
+const LOGIN_URL = '/login.html';
+
 export function WritingBehavior() {
+  const { status } = useAuth();
   const ranRef = useRef(false);
 
+  // Cổng fail-closed (ADR-011) — dùng replace() để nút Back không dựng lại trang
+  // riêng tư từ lịch sử. Bản legacy tương ứng: kiểm `getSession()` rồi đá về
+  // trang đăng nhập.
   useEffect(() => {
-    if (ranRef.current) return;
+    if (status === 'signed-out') window.location.replace(LOGIN_URL);
+  }, [status]);
+
+  useEffect(() => {
+    // CHỜ ĐĂNG NHẬP XONG rồi mới gọi API. Chỉ chờ `window.api` là KHÔNG ĐỦ:
+    // `api.js` tạo `window.api` sớm hơn lúc `initSupabase()` của AuthedShell
+    // điền xong client dùng chung, nên có một khoảng mà request đi ra KHÔNG kèm
+    // bearer. `api.js` coi 401 là đã đăng xuất và đá về trang đăng nhập — tức
+    // học viên hợp lệ bị văng khỏi trang. (Codex bắt ở #950 vòng 2.)
+    if (status !== 'signed-in' || ranRef.current) return;
     ranRef.current = true;
 
     const ps = pageState;
@@ -1294,17 +1313,15 @@ export function WritingBehavior() {
     };
 
     (async () => {
-      // Chờ window.api sẵn sàng
-      let api: any = null;
-      for (let i = 0; i < 50; i++) {
-        if (typeof (window as any).api?.get === 'function') {
-          api = (window as any).api;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      if (ps.dead || !api) return;
+      // `whenGlobalReady` thay cho vòng thăm dò tự chế: nó có hạn giờ VÀ báo lỗi
+      // ra console khi hết hạn. Vòng thăm dò im lặng thì trang chỉ đơn giản
+      // không làm gì và không ai biết vì sao.
+      const ok = await whenGlobalReady(
+        () => typeof (window as any).api?.get === 'function',
+        'window.api (writing)',
+      );
+      if (ps.dead || !ok) return;
+      const api = (window as any).api;
 
       // GẮN LISTENER TRƯỚC ANY AWAIT
       const tabAssignments = $('tab-assignments');
@@ -1431,7 +1448,7 @@ export function WritingBehavior() {
       if (ms.countdownInterval) clearInterval(ms.countdownInterval);
       cleanups.forEach((fn) => fn());
     };
-  }, []);
+  }, [status]);
 
   return null;
 }
