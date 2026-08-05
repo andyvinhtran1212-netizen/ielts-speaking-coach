@@ -75,7 +75,12 @@ export function CourseBehavior() {
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
       // bài tập không mở được.
-      const writing = CW.createWriting({ api, storage: window.localStorage });
+      const writing = CW.createWriting({
+        api, storage: window.localStorage,
+        // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
+        // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
+        userId: user.id,
+      });
       let writingReady = false;
       // Giữ LỜI HỨA, không chỉ một cờ. Màn kết luận có thể vẽ TRƯỚC khi lượt
       // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một

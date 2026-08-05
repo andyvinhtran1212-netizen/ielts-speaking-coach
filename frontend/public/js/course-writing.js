@@ -53,9 +53,17 @@ export function inlineDiff(before, after) {
 const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
 
 /** Khoá bản nháp — theo BANK, để hai bài khác nhau không đè nhau. */
-export const draftKey = (bankId) => 'cw:' + bankId;
+/**
+ * Khoá bản nháp — theo BANK **và** NGƯỜI DÙNG.
+ *
+ * Chỉ theo bank thì hai học viên dùng chung một máy (phòng máy, máy nhà) sẽ mở
+ * ra bài viết dở của nhau, và tệ hơn — nộp nhầm dưới tài khoản mình. Ở đây
+ * localStorage là bộ nhớ CHUNG của trình duyệt, không phải của tài khoản
+ * (codex #935).
+ */
+export const draftKey = (bankId, userId) => 'cw:' + (userId || 'anon') + ':' + bankId;
 
-export function createWriting({ api, storage }) {
+export function createWriting({ api, storage, userId }) {
   let bankId = null;
   let questions = [];
   let submitted = false;
@@ -64,13 +72,13 @@ export function createWriting({ api, storage }) {
 
   function loadDraft() {
     if (!storage) return {};
-    try { return JSON.parse(storage.getItem(draftKey(bankId)) || '{}') || {}; }
+    try { return JSON.parse(storage.getItem(draftKey(bankId, userId)) || '{}') || {}; }
     catch (e) { return {}; }
   }
 
   function saveDraft() {
     if (!storage || submitted) return;   // đã nộp thì nháp không còn nghĩa
-    try { storage.setItem(draftKey(bankId), JSON.stringify(draft)); }
+    try { storage.setItem(draftKey(bankId, userId), JSON.stringify(draft)); }
     catch (e) { /* trình duyệt chặn lưu — vẫn viết và nộp được */ }
   }
 
@@ -94,7 +102,7 @@ export function createWriting({ api, storage }) {
       // hiện lên đè lên bài đã chấm.
       draft = submitted ? {} : loadDraft();
       if (submitted && storage) {
-        try { storage.removeItem(draftKey(bankId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId)); } catch (e) { /* kệ */ }
       }
       return { submitted, count: questions.length };
     },
@@ -121,7 +129,7 @@ export function createWriting({ api, storage }) {
       submitted = true;
       submission = r;
       if (storage) {
-        try { storage.removeItem(draftKey(bankId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId)); } catch (e) { /* kệ */ }
       }
       return { graded: r };
     },
@@ -168,20 +176,24 @@ export function createWriting({ api, storage }) {
 
     /** Màn ĐÃ CHẤM. */
     renderResult() {
+      // DỰNG TỪ BẢN CHỤP, không từ đề hiện hành. `submission.items` giữ nguyên
+      // văn đề + bài viết + bản chấm tại thời điểm nộp, đúng vì bộ đề CÓ THỂ
+      // được soạn lại (Buổi 1 vừa đổi 31/100 câu). Lấy đề hiện hành làm gốc thì
+      // câu bị xoá/đổi mã sẽ làm bản chấm biến mất, còn câu giữ mã mà đổi đề sẽ
+      // hiện bài cũ dưới một đề mới (codex #935).
+      const items0 = (submission && submission.items) || [];
       const byQid = {};
-      ((submission && submission.items) || []).forEach((x) => { byQid[x.qid] = x; });
+      questions.forEach((q) => { byQid[q.qid] = q; });
       const clean = (submission && submission.clean) || 0;
-      const total = (submission && submission.total) || questions.length;
+      const total = (submission && submission.total) || items0.length;
 
-      const items = questions.map((q, i) => {
-        const g = byQid[q.qid];
-        const ok = g ? g.ok : null;
-        const body = !g
-          ? '<p class="cw-unknown">Không tìm thấy bản chấm cho câu này.</p>'
-          : ok === null
-            ? `<p class="cw-diff">${esc(g.answer)}</p>`
-              + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
-            : ok
+      const items = items0.map((g, i) => {
+        const q = byQid[g.qid] || {};
+        const ok = g.ok;
+        const body = ok === null
+          ? `<p class="cw-diff">${esc(g.answer)}</p>`
+            + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
+          : ok
               ? `<p class="cw-diff">${esc(g.answer)}</p>`
                 + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
               : `<p class="cw-diff">${inlineDiff(g.answer, g.corrected)}</p>`
@@ -193,9 +205,11 @@ export function createWriting({ api, storage }) {
                     </li>`).join('')}</ul>`;
         const model = q.explain
           ? `<div class="cw-model">${md(q.explain)}</div>` : '';
+        // Đề lấy từ BẢN CHỤP trước, đề hiện hành chỉ là phương án dự phòng.
+        const ask = g.prompt || q.prompt || '';
         return `<article class="cw-item" data-ok="${String(ok)}">
-          <span class="cw-item__no">Câu ${i + 1} · ${esc(q.subtype || '')}</span>
-          <p class="cw-item__ask">${md(q.prompt)}</p>
+          <span class="cw-item__no">Câu ${i + 1}${q.subtype ? ' · ' + esc(q.subtype) : ''}</span>
+          <p class="cw-item__ask">${md(ask)}</p>
           ${body}
           ${model}
         </article>`;

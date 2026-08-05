@@ -39,7 +39,7 @@ function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
 async function load(opts = {}) {
   const api = fakeApi(opts);
   const storage = opts.storage || memStore();
-  const w = createWriting({ api, storage });
+  const w = createWriting({ api, storage, userId: opts.userId || 'u1' });
   await w.load('b1');
   return { w, api, storage };
 }
@@ -140,8 +140,21 @@ describe('bản nháp', () => {
     assert.deepEqual(b.w.missing, ['E2']);
   });
 
-  test('nháp khoá theo BANK — hai bài không đè nhau', async () => {
-    assert.notEqual(draftKey('b1'), draftKey('b2'));
+  test('nháp khoá theo BANK — hai bài không đè nhau', () => {
+    assert.notEqual(draftKey('b1', 'u1'), draftKey('b2', 'u1'));
+  });
+
+  test('nháp khoá theo NGƯỜI DÙNG — hai học viên chung máy không đọc bài nhau', () => {
+    // localStorage là bộ nhớ CHUNG của trình duyệt, không phải của tài khoản.
+    assert.notEqual(draftKey('b1', 'u1'), draftKey('b1', 'u2'));
+  });
+
+  test('học viên khác mở cùng bank thì KHÔNG thấy nháp của người trước', async () => {
+    const storage = memStore();
+    const a = await load({ storage, userId: 'u1' });
+    a.w.write('E1', 'bài của bạn A');
+    const b = await load({ storage, userId: 'u2' });
+    assert.equal(b.w.draft.E1, undefined, 'nộp nhầm bài người khác là mất mát không sửa được');
   });
 
   test('nộp xong thì XOÁ nháp', async () => {
@@ -149,16 +162,16 @@ describe('bản nháp', () => {
     const { w } = await load({ storage });
     w.write('E1', 'a'); w.write('E2', 'b');
     await w.submit();
-    assert.equal(storage.getItem(draftKey('b1')), null);
+    assert.equal(storage.getItem(draftKey('b1', 'u1')), null);
   });
 
   test('mở lại một bài ĐÃ NỘP thì nháp cũ bị dọn, không đè lên bài đã chấm', async () => {
     const storage = memStore();
-    storage.setItem(draftKey('b1'), JSON.stringify({ E1: 'rác cũ' }));
+    storage.setItem(draftKey('b1', 'u1'), JSON.stringify({ E1: 'rác cũ' }));
     const { w } = await load({ storage, submitted: true,
                               submission: { items: [], total: 2, clean: 0 } });
     assert.deepEqual(w.draft, {});
-    assert.equal(storage.getItem(draftKey('b1')), null);
+    assert.equal(storage.getItem(draftKey('b1', 'u1')), null);
   });
 
   test('bộ nhớ trình duyệt bị chặn thì vẫn viết và nộp được', async () => {
@@ -274,5 +287,35 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
 
   test('bank chỉ có tự luận vào THẲNG màn tự luận', () => {
     assert.match(PAGE, /if \(!runner\.total && runner\.hasWriting\)/);
+  });
+});
+
+describe('màn đã chấm dựng từ BẢN CHỤP, không từ đề hiện hành (codex #935)', () => {
+  test('câu bị XOÁ khỏi bộ đề vẫn còn trong bản chấm', async () => {
+    // Bộ đề CÓ THỂ được soạn lại — Buổi 1 vừa đổi 31/100 câu. Lấy đề hiện hành
+    // làm gốc thì bài học viên đã nộp biến mất khỏi màn hình.
+    const { w } = await load({
+      submitted: true,
+      questions: [],                                  // đề đã bị soạn lại, mất E1
+      submission: { total: 1, clean: 1, items: [{
+        qid: 'E1', prompt: 'Viết lại: E1 (đề lúc nộp)',
+        answer: 'I am fine.', corrected: 'I am fine.', ok: true, issues: [] }] },
+    });
+    const html = w.renderResult();
+    assert.match(html, /I am fine\./);
+    assert.match(html, /đề lúc nộp/, 'đề phải lấy từ bản chụp');
+  });
+
+  test('câu giữ mã nhưng ĐỔI ĐỀ thì hiện đề LÚC NỘP, không phải đề mới', async () => {
+    const { w } = await load({
+      submitted: true,
+      questions: [Q('E1', { prompt: 'ĐỀ MỚI hoàn toàn khác' })],
+      submission: { total: 1, clean: 0, items: [{
+        qid: 'E1', prompt: 'đề lúc nộp', answer: 'x', corrected: 'y',
+        ok: false, issues: [] }] },
+    });
+    const html = w.renderResult();
+    assert.match(html, /đề lúc nộp/);
+    assert.ok(!html.includes('ĐỀ MỚI'), 'hiện bài cũ dưới đề mới là nói dối cả hai phía');
   });
 });

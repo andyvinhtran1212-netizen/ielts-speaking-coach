@@ -673,3 +673,24 @@ describe('bank CHỈ có câu tự luận (codex #935)', () => {
     await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi nào/);
   });
 });
+
+describe('câu mẫu giữ nguyên xuống dòng (codex #935)', () => {
+  const CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)),
+    '..', 'public', 'css', 'course-exercises.css'), 'utf8');
+
+  test('.cx-spec không được gộp các dòng lại', () => {
+    // Dạng B3 cho HAI câu để so sánh — "(1) …\n(2) …" gộp thành một dòng là
+    // xoá mất chính thứ đang được hỏi. Tôi đánh rơi dòng này khi thay nguyên
+    // khối lúc thiết kế lại, và không phép kiểm nào bắt được.
+    const m = /\.cx-spec\s*\{([^}]*)\}/.exec(CSS);
+    assert.ok(m, 'không tìm thấy .cx-spec');
+    assert.match(m[1], /white-space:\s*pre-wrap/);
+    assert.match(m[1], /overflow-wrap:\s*anywhere/, 'câu dài không được tràn ra ngoài khung');
+  });
+
+  test('splitStem thật sự trả về mẫu vật nhiều dòng', () => {
+    // Ghim CẢ HAI đầu: bộ tách giữ xuống dòng, và CSS hiển thị nó.
+    const s = splitStem('Khác gì?\n(1) A made B uniforms.\n(2) A made B happier.');
+    assert.ok(s.spec.includes('\n'));
+  });
+});
