@@ -11,6 +11,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createRunner, splitStem, md, esc, STAGE } from '../js/course-runner.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SRC = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'js', 'course-runner.js'), 'utf8');
 
 // ── Bộ giả ────────────────────────────────────────────────────────────────
 
@@ -186,12 +192,22 @@ describe('vòng đời phiên', () => {
     assert.equal(api.calls.patch[0].body.total_questions, 8);
   });
 
-  test('câu tự luận không gửi lượt làm nào', async () => {
-    const { r, api } = await run({ questions: [essay(1)] });
-    r.show(); r.selfCheck(); r.next();
-    await r.finishStage();
-    const progress = api.calls.post.filter((c) => c.path.includes('/progress'));
-    assert.deepEqual(progress.flatMap((c) => c.body.attempts), []);
+  test('câu tự luận TÁCH HẲN khỏi vòng chặng, không gửi lượt làm nào', () => {
+    // Ở phần trắc nghiệm nhịp là hỏi–đáp–giải thích từng câu; phần tự luận là
+    // ngồi viết cả cụm rồi nộp MỘT lần. Trộn vào cùng dòng chảy khiến học viên
+    // tưởng viết xong một câu là được chấm ngay — mà lượt chấm chỉ có một.
+    const i = SRC.indexOf('writingQs = qs.filter');
+    assert.ok(i !== -1, 'load() phải lọc tự luận ra khỏi qs');
+    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter[\s\S]{0,80}?!== 'writing'/);
+  });
+
+  test('chặng chỉ đếm câu trắc nghiệm', async () => {
+    const qsn = Array.from({ length: 12 }, (_, i) => mcq(i)).concat([essay(1), essay(2)]);
+    const { r } = await run({ questions: qsn });
+    assert.equal(r.total, 12, 'tự luận không nằm trong tổng số câu chia chặng');
+    assert.equal(r.stageCount, 2);
+    assert.equal(r.writing.length, 2);
+    assert.equal(r.hasWriting, true);
   });
 });
 
@@ -639,5 +655,42 @@ describe('reload GIỮA chặng (codex #928 R7)', () => {
       .flatMap((c) => c.body.attempts).map((a) => a.qid).sort();
     assert.deepEqual(flushed, qsn.map((q) => q.qid).sort(),
       'đủ 10 câu trong phiên mới — không câu nào kẹt lại ở phiên mồ côi');
+  });
+});
+
+describe('bank CHỈ có câu tự luận (codex #935)', () => {
+  test('không mở phiên quiz rỗng', async () => {
+    // Phiên rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào —
+    // và học viên kẹt ở một màn không có gì để làm.
+    const { r, api } = await run({ questions: [essay(1), essay(2)] });
+    const opened = api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0);
+    assert.equal(r.total, 0);
+    assert.equal(r.hasWriting, true);
+  });
+
+  test('bank rỗng hoàn toàn vẫn bị từ chối', async () => {
+    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi nào/);
+  });
+});
+
+describe('câu mẫu giữ nguyên xuống dòng (codex #935)', () => {
+  const CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)),
+    '..', 'public', 'css', 'course-exercises.css'), 'utf8');
+
+  test('.cx-spec không được gộp các dòng lại', () => {
+    // Dạng B3 cho HAI câu để so sánh — "(1) …\n(2) …" gộp thành một dòng là
+    // xoá mất chính thứ đang được hỏi. Tôi đánh rơi dòng này khi thay nguyên
+    // khối lúc thiết kế lại, và không phép kiểm nào bắt được.
+    const m = /\.cx-spec\s*\{([^}]*)\}/.exec(CSS);
+    assert.ok(m, 'không tìm thấy .cx-spec');
+    assert.match(m[1], /white-space:\s*pre-wrap/);
+    assert.match(m[1], /overflow-wrap:\s*anywhere/, 'câu dài không được tràn ra ngoài khung');
+  });
+
+  test('splitStem thật sự trả về mẫu vật nhiều dòng', () => {
+    // Ghim CẢ HAI đầu: bộ tách giữ xuống dòng, và CSS hiển thị nó.
+    const s = splitStem('Khác gì?\n(1) A made B uniforms.\n(2) A made B happier.');
+    assert.ok(s.spec.includes('\n'));
   });
 });

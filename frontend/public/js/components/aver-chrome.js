@@ -317,6 +317,7 @@ const TEMPLATE = /* html */ `
     <div class="nav-links">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/pages/writing-dashboard.html" data-tab="writing">Writing</a>
+      <a href="/pages/my-class.html" data-tab="class">Lớp học</a>
       <a href="/pages/speaking.html" data-tab="speaking">Speaking</a>
       <a href="/pages/listening.html" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
@@ -447,6 +448,7 @@ export class AverChrome extends HTMLElement {
           where: {
             or: [
               { href_matches: '/home' },
+              { href_matches: '/pages/my-class.html' },
               { href_matches: '/pages/speaking.html' },
               { href_matches: '/pages/writing-dashboard.html' },
               { href_matches: '/pages/listening.html' },

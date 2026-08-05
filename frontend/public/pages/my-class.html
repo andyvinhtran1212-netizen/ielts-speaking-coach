@@ -60,11 +60,55 @@
       background: var(--av-surface-sunken); border: 1px solid var(--av-border-default); }
 
     /* ── Progress strip ──────────────────────────────────────────────── */
-    .mc-stats { display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: var(--av-space-3); }
+    /* ── Nhịp lớp ───────────────────────────────────────────────────────
+       Cùng ngôn ngữ với bảng của giáo viên (av-board): mỗi ngày một ô, phân
+       biệt bằng HÌNH DẠNG trước rồi mới tới màu. Một dải chỉ khác nhau
+       xanh/đỏ là một dải người mù màu không đọc được. */
+    .mc-rhythm {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: var(--av-space-2) var(--av-space-3);
+      margin-top: var(--av-space-4);
+    }
+    .mc-rhythm__label {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted);
+      text-transform: uppercase;
+    }
+    .mc-rhythm__row { display: flex; gap: 3px; }
+    .mc-rhythm__row i {
+      width: 14px; height: 20px; border-radius: 3px;
+      background: var(--av-border-subtle);
+      display: grid; place-items: center;
+      font-family: var(--av-font-mono); font-size: 10px; line-height: 1;
+      color: var(--av-text-muted); font-style: normal;
+    }
+    .mc-rhythm__row i[data-s='done']    { background: var(--av-success-soft); color: var(--av-success); }
+    .mc-rhythm__row i[data-s='late']    { background: var(--av-warning-soft); color: var(--av-warning); }
+    .mc-rhythm__row i[data-s='missing'] { background: var(--av-error-soft);   color: var(--av-error); }
+    /* HÔM NAY: vạch cao hơn và viền amber — mắt phải rơi vào đây trước. */
+    .mc-rhythm__row i[data-today] {
+      height: 26px; margin-top: -3px;
+      box-shadow: inset 0 0 0 2px var(--av-accent);
+    }
+    .mc-rhythm__note { font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+
+    .mc-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin: var(--av-space-6) 0;
+      padding: var(--av-space-4) 0;
+      border-top: 1px solid var(--av-border-subtle);
+      border-bottom: 1px solid var(--av-border-subtle);
+    }
     @media (min-width: 640px) { .mc-stats { grid-template-columns: repeat(4, 1fr); } }
-    .mc-stat { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-4); }
+    .mc-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0 var(--av-space-3);
+      border-inline-end: 1px solid var(--av-border-subtle);
+    }
+    .mc-stat:last-child { border-inline-end: 0; }
     .mc-stat-num { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold);
       font-variant-numeric: tabular-nums; line-height: 1.1; }
     .mc-stat-label { color: var(--av-text-muted); font-size: var(--av-fs-xs);
@@ -81,9 +125,15 @@
       align-items: center; justify-content: space-between; gap: var(--av-space-4); }
     .mc-due-now h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
       margin: 0 0 var(--av-space-1); }
-    .mc-countdown { font-family: var(--av-font-mono); font-size: var(--av-fs-2xl);
-      font-weight: var(--av-fw-semibold); font-variant-numeric: tabular-nums;
-      line-height: 1; }
+    .mc-countdown {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-4xl);            /* đây là con số của cả trang */
+      font-weight: var(--av-fw-bold);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: var(--av-accent);                /* amber = thứ quan trọng nhất */
+      letter-spacing: -0.02em;
+    }
     .mc-countdown.is-urgent { color: var(--av-warning); }
     .mc-countdown-label { color: var(--av-text-secondary); font-size: var(--av-fs-xs);
       margin-top: 4px; }
@@ -153,7 +203,7 @@
   </style>
 </head>
 <body class="av-page">
-  <aver-chrome active="home"></aver-chrome>
+  <aver-chrome active="class"></aver-chrome>
 
   <main class="mc-shell">
     <div class="mc-note" id="mc-loading">Đang tải lớp của bạn…</div>
@@ -188,6 +238,16 @@
           <div class="mc-countdown-label" id="mc-countdown-label"></div>
         </div>
         <button class="mc-btn" id="mc-due-start" type="button">Làm bài</button>
+      </section>
+
+      <!-- NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một vạch.
+           Lớp giao bài gần như mỗi ngày, nên câu hỏi thật của học viên không
+           phải "hạn hôm nay là mấy giờ" mà là "mình có đang đều không". Bốn ô
+           thống kê trả lời được câu đầu, không trả lời được câu sau. -->
+      <section class="mc-rhythm" id="mc-rhythm" hidden aria-label="Nhịp nộp bài 14 ngày gần nhất">
+        <span class="mc-rhythm__label">Nhịp 14 ngày</span>
+        <span class="mc-rhythm__row" id="mc-rhythm-row"></span>
+        <span class="mc-rhythm__note" id="mc-rhythm-note"></span>
       </section>
 
       <section class="mc-stats" id="mc-stats"></section>

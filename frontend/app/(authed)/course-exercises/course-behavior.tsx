@@ -45,10 +45,12 @@ export function CourseBehavior() {
     let runner: any = null;
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
+    let onInput: ((e: Event) => void) | null = null;
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
+        import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
         waitForApi(),
       ]);
 
@@ -69,6 +71,24 @@ export function CourseBehavior() {
       } catch (err: any) {
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
+
+      // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
+      // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
+      // bài tập không mở được.
+      const writing = CW.createWriting({
+        api, storage: window.localStorage,
+        // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
+        // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
+        userId: user.id,
+      });
+      let writingReady = false;
+      // Giữ LỜI HỨA, không chỉ một cờ. Màn kết luận có thể vẽ TRƯỚC khi lượt
+      // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một
+      // cờ `false` làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới khi
+      // học viên tự tải lại trang và thắng cuộc đua (codex #935).
+      const writingLoaded = writing.load(bankId)
+        .then(() => { writingReady = true; })
+        .catch(() => { writingReady = false; });
 
       // ── Vẽ ──────────────────────────────────────────────────────────────
       const dots = (n: number) => {
@@ -219,6 +239,9 @@ export function CourseBehavior() {
       async function renderVerdict() {
         const box = $('cx-verdict'); if (!box) return;
         box.innerHTML = '<p class="cx-empty">Đang xét kết quả…</p>';
+        // Chờ phần tự luận biết mình có gì trước khi vẽ — nút của nó nằm trong
+        // chính khối này. Hỏng thì `catch` ở trên đã nuốt, nên không treo.
+        await writingLoaded;
         let v: any = null;
         try {
           v = await runner.verdict();
@@ -230,12 +253,20 @@ export function CourseBehavior() {
           return;
         }
         lastVerdict = v;
+        // Còn phần tự luận thì nói ra — dù đạt hay chưa. Học viên đi hết mười
+        // chặng rồi dừng ở đây sẽ không bao giờ biết còn mười câu nữa.
+        const more = (writingReady && runner.hasWriting && !writing.submitted)
+          ? '<button class="av-button" id="cx-writing" type="button">'
+            + `Làm phần tự luận (${runner.writing.length} câu)</button>`
+          : (writingReady && writing.submitted
+              ? '<button class="av-button" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
+              : '');
         if (v.passed) {
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
             + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
             + `<p class="cx-verdict__sub">Điểm gộp <strong>${v.pct}%</strong> · ngưỡng ${v.threshold}%`
             + (v.retakes ? ` · chốt ở lần kiểm tra lại thứ ${v.retakes}` : '')
-            + '</p></div>';
+            + '</p>' + more + '</div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
             + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}% — cần ${v.threshold}%</p>`
@@ -243,8 +274,63 @@ export function CourseBehavior() {
             + 'bốc ngẫu nhiên từ bộ đề, thứ tự câu và thứ tự đáp án được trộn lại — '
             + 'thuộc vị trí không giúp gì đâu.</p>'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Làm kiểm tra lại (${v.retake_size} câu)</button></div>`;
+            + `Làm kiểm tra lại (${v.retake_size} câu)</button>` + more + '</div>';
         }
+      }
+
+      /** Màn TỰ LUẬN — cả cụm một lần, nộp một lần. */
+      function renderWriting() {
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        const done = $('cx-done')!;
+        done.hidden = false;
+        done.innerHTML = writing.submitted ? writing.renderResult() : writing.renderForm();
+        if (!writing.submitted) syncWritingNote();
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      function syncWritingNote() {
+        const note = $('cw-note');
+        if (note) note.innerHTML = writing.renderNote();
+        const btn = $('cw-submit') as HTMLButtonElement | null;
+        // Nút TẮT khi chưa đủ câu — kèm lời nói rõ còn thiếu câu nào, vì một nút
+        // mờ không lý do khiến người ta bấm mấy lần rồi tưởng trang hỏng.
+        if (btn) btn.disabled = writing.missing.length > 0;
+      }
+
+      async function onWritingSubmit() {
+        const btn = $('cw-submit') as HTMLButtonElement | null;
+        const miss = writing.missing;
+        if (miss.length) {
+          // Đánh dấu ĐÚNG những ô còn trống rồi nhảy tới ô đầu tiên.
+          miss.forEach((qid: string) => {
+            const el = document.getElementById('cw-' + qid);
+            if (el) el.dataset.missing = 'true';
+          });
+          document.getElementById('cw-' + miss[0])?.scrollIntoView({ block: 'center' });
+          syncWritingNote();
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
+        try {
+          await writing.submit();
+        } catch (err: any) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Nộp phần tự luận'; }
+          const note = $('cw-note');
+          if (note) {
+            // 422 của server mang `message` nói rõ chuyện gì (thiếu câu / câu
+            // quá dài). Hiện nguyên câu ấy, đừng đắp một câu chung chung lên
+            // trên — học viên cần biết PHẢI SỬA GÌ.
+            const d = err && err.detail;
+            const why = (d && typeof d === 'object' && d.message)
+              ? d.message : (err?.message || err);
+            note.textContent = 'Chưa nộp được: ' + why
+              + ' Bài viết của bạn vẫn còn ở đây.';
+          }
+          return;
+        }
+        renderWriting();
       }
 
       async function startRetakeFlow() {
@@ -263,7 +349,13 @@ export function CourseBehavior() {
             + 'quả sẽ KHÔNG tới giáo viên — tải lại trang để thử lại.';
         }
       }
-      if (runner.isStageDone()) renderDone(); else renderQuestion();
+      // Bank CHỈ có câu tự luận: không có chặng nào để chạy, và một phiên quiz
+      // rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào
+      // (codex #935). Vào thẳng màn tự luận.
+      if (!runner.total && runner.hasWriting) {
+        await writingLoaded;
+        renderWriting();
+      } else if (runner.isStageDone()) renderDone(); else renderQuestion();
 
       // Uỷ quyền: nội dung được vẽ lại sau mỗi câu, nên gắn tay từng nút sẽ mất
       // ngay ở lần vẽ kế tiếp.
@@ -279,8 +371,22 @@ export function CourseBehavior() {
         // Gửi lại = chạy lại đúng finishStage: sessionId + hàng đợi còn nguyên,
         // nên đây là một lần đẩy thật chứ không phải vẽ lại màn hình.
         if (t.id === 'cx-resend') return void renderDone();
+        if (t.id === 'cx-writing') return renderWriting();
+        if (t.id === 'cw-submit') return void onWritingSubmit();
       };
       document.addEventListener('click', onClick);
+
+      // Lưu nháp NGAY khi gõ: mười ô nhập là một buổi ngồi viết, và mất nó vì
+      // một lần lỡ tay đóng tab thì học viên sẽ không viết lại lần hai.
+      onInput = (e: Event) => {
+        const el = e.target as HTMLTextAreaElement;
+        if (!el || !el.classList || !el.classList.contains('cw-write')) return;
+        writing.write(el.dataset.qid, el.value);
+        const card = el.closest('.cw-item') as HTMLElement | null;
+        if (card && el.value.trim()) card.dataset.missing = 'false';
+        syncWritingNote();
+      };
+      document.addEventListener('input', onInput);
 
       onLeave = () => { runner.leave(); };
       window.addEventListener('pagehide', onLeave);
@@ -288,6 +394,7 @@ export function CourseBehavior() {
 
     return () => {
       if (onClick) document.removeEventListener('click', onClick);
+      if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
     };
   }, [status, user?.id]);

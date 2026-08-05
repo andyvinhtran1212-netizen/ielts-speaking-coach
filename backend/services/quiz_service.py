@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
+from services import course_writing_grader
 from services.class_assignment_service import (
     is_accepting_submissions,
     is_assignment_open,
@@ -335,6 +336,19 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+    # ĐÁP ÁN MẪU CỦA CÂU TỰ LUẬN KHÔNG ĐI QUA ĐƯỜNG NÀY.
+    #
+    # `select("*")` trả cả `explain` (đáp án mẫu) và `accept`. Lọc ở trình duyệt
+    # chỉ là trang trí: chuỗi ấy đã nằm trong phản hồi mạng, mở tab Network là
+    # đọc được — và lượt viết chỉ có MỘT, nên đọc trước là hỏng cả bài tập
+    # (codex #935). Đường duy nhất phát đáp án mẫu là `course_writing_state`,
+    # và nó chỉ phát SAU khi đã nộp.
+    for q in questions:
+        if q.get("type") == "writing":
+            q["explain"] = None
+            q["accept"] = None
+            q["answer"] = None
+
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
@@ -693,6 +707,172 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mark submitted failed item=%s: %s", item_id, exc)
     return res.data[0] if res.data else {"id": session_id, **patch}
+
+
+def course_writing_state(*, user_id: str, bank_id: str) -> dict:
+    """Phần tự luận của bank này: đề, và bản chấm nếu đã nộp.
+
+    Trả cả `submitted` để trang biết hiện KHUNG VIẾT hay hiện BẢN CHẤM — trạng
+    thái ấy do server giữ, không do localStorage: xoá bộ nhớ trình duyệt không
+    được biến một lượt đã dùng thành một lượt mới.
+    """
+    _bank_meta_or_404(bank_id, user_id)
+    # Đọc theo MỤC BÀI GIAO, không theo (bank, học viên): giao LẠI cùng bộ bài
+    # là một lượt MỚI, và đọc theo bank sẽ lôi bài của lần giao trước ra rồi báo
+    # "đã nộp" cho một bài chưa ai làm (codex #935).
+    item = _assignment_item_for(bank_id, user_id)
+    try:
+        qs = (supabase_admin.table("quiz_questions")
+              .select("qid, prompt, explain, points, item_key, subtype, order")
+              .eq("bank_id", bank_id).eq("type", "writing")
+              .order("order").execute().data) or []
+        rows = ((supabase_admin.table("course_writing_submissions")
+                 .select("*").eq("class_assignment_item_id", item["id"])
+                 .limit(1).execute().data) or []) if item else []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
+
+    sub = rows[0] if rows else None
+    return {
+        # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
+        # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
+        "item_id": (item or {}).get("id"),
+        # Đề luôn trả — kể cả sau khi nộp, để học viên đọc lại đề bên cạnh bản
+        # chấm. `explain` (đáp án mẫu) CHỈ trả sau khi đã nộp.
+        "questions": [{
+            "qid":      q["qid"],
+            "prompt":   q.get("prompt"),
+            "subtype":  q.get("subtype"),
+            "points":   q.get("points"),
+            "item_key": q.get("item_key"),
+            **({"explain": q.get("explain")} if sub else {}),
+        } for q in qs],
+        "submitted": bool(sub),
+        "submission": ({
+            "items":     sub.get("items"),
+            "total":     sub.get("total"),
+            "clean":     sub.get("clean"),
+            "graded_at": sub.get("graded_at"),
+        } if sub else None),
+    }
+
+
+async def submit_course_writing(*, user_id: str, bank_id: str,
+                                answers: dict) -> dict:
+    """Nộp CẢ CỤM tự luận, chấm một lượt, ghi một lần.
+
+    MỘT LƯỢT DUY NHẤT. Ràng buộc thật nằm ở `UNIQUE (bank_id, user_id)` của
+    migration 190 — kiểm ở đây chỉ để trả về một câu đọc được thay vì lỗi 500
+    của cơ sở dữ liệu; hai lượt bấm song song thì lượt thua va khoá và cũng
+    được kể lại đúng như vậy.
+
+    ĐỦ CÂU MỚI NHẬN. Thiếu một câu là 422 kèm danh sách còn thiếu — trang giữ
+    bản nháp và chờ, chứ không tiêu mất lượt chấm duy nhất cho một bài dở dang.
+    """
+    _bank_meta_or_404(bank_id, user_id)
+    try:
+        qs = (supabase_admin.table("quiz_questions")
+              .select("qid, prompt, explain, order")
+              .eq("bank_id", bank_id).eq("type", "writing")
+              .order("order").execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc đề tự luận: {exc}")
+    if not qs:
+        raise HTTPException(404, "Bài tập này không có phần tự luận")
+
+    answers = answers or {}
+    missing = [q["qid"] for q in qs if not str(answers.get(q["qid"]) or "").strip()]
+    if missing:
+        raise HTTPException(422, {
+            "message": f"Còn {len(missing)} câu chưa viết.",
+            "missing": missing,
+        })
+
+    # TỪ CHỐI câu quá dài thay vì cắt rồi chấm phần đầu. Bộ chấm chỉ gửi đi
+    # `_MAX_ANSWER_CHARS` ký tự, nhưng bản lưu và bản so sai→sửa lại dùng câu
+    # ĐẦY ĐỦ — nên phần đuôi model chưa từng đọc sẽ hiện ra như bị xoá
+    # (codex #935). Đây là bài viết LẠI MỘT CÂU, nên trần ấy rộng gấp nhiều lần
+    # nhu cầu thật; vượt nó là dán nhầm, và nói ra tốt hơn im lặng chấm một nửa.
+    _LIMIT = course_writing_grader.MAX_ANSWER_CHARS
+    too_long = [q["qid"] for q in qs
+                if len(str(answers.get(q["qid"]) or "").strip()) > _LIMIT]
+    if too_long:
+        raise HTTPException(422, {
+            "message": f"Có {len(too_long)} câu dài quá {_LIMIT} ký tự. "
+                       "Bài này viết lại MỘT câu — rút ngắn giúp nhé.",
+            "too_long": too_long,
+        })
+
+    # PHẢI có mục bài giao. Bank giáo trình chỉ mở được qua bài giao, nên đây
+    # luôn có ở luồng thật; đòi tường minh vì "một lượt" nay tính theo MỤC, và
+    # một mục NULL sẽ lọt qua UNIQUE của Postgres (NULL không va nhau).
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+
+    # Kiểm SỚM, trước khi tốn một lượt gọi model.
+    try:
+        already = (supabase_admin.table("course_writing_submissions")
+                   .select("id").eq("class_assignment_item_id", item["id"])
+                   .limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+    if already:
+        raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
+
+    # `explain` (đáp án mẫu) vào BẢN CHỤP luôn. Đọc nó từ đề hiện hành lúc hiện
+    # kết quả thì đề soạn lại sẽ ghép bài cũ với đáp án mẫu của một đề khác, còn
+    # đổi mã câu thì đáp án mẫu biến mất (codex #935).
+    items = [{"qid": q["qid"], "prompt": q.get("prompt") or "",
+              "explain": q.get("explain") or "",
+              "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
+    graded, model_name = await course_writing_grader.grade(items)
+
+    row = {
+        "bank_id": bank_id, "user_id": user_id,
+        "class_assignment_item_id": item["id"],
+        "items": graded,
+        "total": len(graded),
+        "clean": sum(1 for g in graded if g.get("ok") is True),
+        "model": model_name,
+    }
+    try:
+        res = supabase_admin.table("course_writing_submissions").insert(row).execute()
+    except Exception as exc:  # noqa: BLE001
+        # 23505 = va UNIQUE: hai tab cùng bấm Nộp. Đó là "đã nộp rồi", không
+        # phải lỗi máy chủ — và bản chấm vừa tốn tiền gọi model thì bỏ, vì bản
+        # ĐẦU TIÊN mới là bản thật.
+        if "23505" in str(exc) or "duplicate key" in str(exc).lower():
+            raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
+        raise HTTPException(500, f"Lỗi lưu bài tự luận: {exc}")
+
+    saved = (res.data or [{}])[0]
+
+    # CHỐT SỔ BÀI GIAO. Với bank có cả trắc nghiệm thì `end_session` đã đóng dấu
+    # từ chặng đầu và lệnh này luỹ đẳng nên không đổi gì. Với bank CHỈ có tự
+    # luận thì đây là đường DUY NHẤT — thiếu nó, bài đã nộp vẫn nằm ở "Cần nộp"
+    # rồi thành "Quá hạn", và bảng của giáo viên không thấy gì (codex #935).
+    #
+    # Best-effort: hỏng ở đây KHÔNG được làm đổ lượt nộp — bài đã chấm và đã ghi
+    # rồi, còn sổ thì vá lại được bằng lượt đối chiếu.
+    if item:
+        try:
+            mark_item_submitted(
+                supabase_admin, item_id=item["id"],
+                artifact_kind="course_writing", artifact_id=saved.get("id"),
+                score=(round(row["clean"] / row["total"] * 100, 1)
+                       if row["total"] else None),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] chốt sổ tự luận hỏng item=%s: %s",
+                           item.get("id"), exc)
+
+    return {
+        "items":     graded,
+        "total":     row["total"],
+        "clean":     row["clean"],
+        "graded_at": saved.get("graded_at"),
+    }
 
 
 def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:

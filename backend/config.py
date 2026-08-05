@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # cheap flash model is plenty for a per-question sanity check.
     LISTENING_AUDIT_MODEL: str = "gemini-3.5-flash"
 
+    # COURSE_WRITING_MODEL — soát ngữ pháp + chính tả cho phần tự luận của bài
+    # tập theo buổi. Việc hẹp (sửa lỗi, KHÔNG nâng cấp câu) nên chọn hạng rẻ
+    # nhất còn đủ: không cần suy luận sâu, cần nhất quán — bộ chấm chạy ở
+    # nhiệt độ 0.
+    COURSE_WRITING_MODEL: str = "gemini-2.5-flash-lite"
+
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
     # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
     # duration), which the transcript-reliability classifier and duration guards
