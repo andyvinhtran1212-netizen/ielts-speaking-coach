@@ -728,7 +728,12 @@ function tallyRow(r, skill) {
     ? `<a class="av-tally__open" target="_blank" rel="noopener"
           href="/pages/admin/speaking/sessions.html?session=${esc(r.artifact_id)}"
           title="Nghe bài làm và đọc nhận xét">Nghe &amp; xem</a>`
-    : '';
+    // Bài tập theo buổi: đọc phần TỰ LUẬN em ấy viết. Chỉ hiện khi thật sự có
+    // bài — một nút mở ra "chưa nộp gì" tệ hơn không có nút.
+    : (r.has_writing
+        ? `<button class="av-tally__open" type="button" data-writing="${esc(r.student_id)}"
+             title="Đọc bài tự luận và bản sửa">Xem tự luận</button>`
+        : '');
   return `<div class="av-tally__row" data-status="${esc(r.status)}"
        ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
@@ -787,6 +792,112 @@ function renderTally(d) {
   </div>`;
 }
 
+/**
+ * Bài TỰ LUẬN của một học viên — đọc ngay trong ô bảng tổng kết đang mở.
+ *
+ * Vẽ CÙNG một cách học viên đang thấy (sai gạch bỏ, sửa viết đè, lý do từng
+ * lỗi, đáp án mẫu): giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai
+ * bên nói về hai thứ khác nhau khi ngồi lại với nhau.
+ */
+const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
+
+/**
+ * `**đậm**` → <mark>, GIỐNG HỆT `md()` phía học viên.
+ *
+ * Nguồn đề cố ý mang nhãn markdown (`**Đáp án mẫu:**`, phần được hỏi in đậm) và
+ * học viên thấy chúng đã được dựng. Escape trơn ở đây làm giáo viên đọc ra
+ * `**...**` thô — hai bên nhìn hai thứ khác nhau về cùng một bản chấm, đúng thứ
+ * màn này sinh ra để tránh (codex #940).
+ *
+ * Thoát HTML TRƯỚC rồi mới dựng thẻ: nội dung này là bài do NGƯỜI KHÁC viết,
+ * đang vẽ trong trình duyệt của admin.
+ */
+function cwMd(x) {
+  return esc(x).replace(/\*\*([^*]+)\*\*/g, '<mark>$1</mark>');
+}
+
+/** Gạch chỗ sai, viết chỗ đúng liền sau — so theo TỪ, không theo ký tự. */
+function cwDiff(before, after) {
+  const A = String(before || '').split(/(\s+)/);
+  const B = String(after || '').split(/(\s+)/);
+  let h = 0;
+  while (h < A.length && h < B.length && A[h] === B[h]) h += 1;
+  let t = 0;
+  while (t < A.length - h && t < B.length - h
+         && A[A.length - 1 - t] === B[B.length - 1 - t]) t += 1;
+  const del = A.slice(h, A.length - t).join('');
+  const ins = B.slice(h, B.length - t).join('');
+  return esc(A.slice(0, h).join(''))
+    + (del ? `<del>${esc(del)}</del>` : '')
+    + (ins ? `<ins>${esc(ins)}</ins>` : '')
+    + esc(A.slice(A.length - t).join(''));
+}
+
+function renderStudentWriting(d) {
+  const sub = d && d.submission;
+  if (!sub) {
+    return '<p class="adm-hint">Học viên này chưa nộp phần tự luận.</p>';
+  }
+  const items = (sub.items || []).map((g, i) => {
+    const ok = g.ok;
+    const body = ok === null
+      ? `<p class="cw-diff">${esc(g.answer)}</p>`
+        + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
+      : ok
+        ? `<p class="cw-diff">${esc(g.answer)}</p>`
+          + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
+        : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
+          + `<ul class="cw-issues">${(g.issues || []).map((x) => `
+              <li class="cw-issue">
+                <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
+                <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
+                ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
+              </li>`).join('')}</ul>`;
+    return `<article class="cw-item" data-ok="${String(ok)}">
+      <span class="cw-item__no">Câu ${i + 1}</span>
+      <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
+      ${body}
+      ${g.explain ? `<div class="cw-model">${cwMd(g.explain)}</div>` : ''}
+    </article>`;
+  }).join('');
+
+  const when = sub.graded_at ? hhmm(sub.graded_at) : '';
+  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu không lỗi</small></div>
+    <p class="adm-hint">Chấm lúc ${esc(when)}${sub.model ? ' · ' + esc(sub.model) : ''}.
+       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.</p>
+    <div class="cw-list">${items}</div>`;
+}
+
+async function openStudentWriting(assignmentId, studentId) {
+  const body = $('tally-body');
+  const back = body.innerHTML;          // để quay lại đúng bảng đang mở
+  body.innerHTML = '<p class="adm-hint">Đang tải bài tự luận…</p>';
+  try {
+    const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId)
+      + '/writing/' + encodeURIComponent(studentId));
+    $('tally-modal-title').textContent =
+      'Tự luận — ' + (d.student.name || d.student.code || '');
+    body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
+      + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
+    const b = $('cw-back');
+    if (b) {
+      b.onclick = () => {
+        body.innerHTML = back;
+        $('tally-modal-title').textContent = _tallyTitle;
+      };
+    }
+  } catch (err) {
+    // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
+    // không chứng minh được.
+    body.innerHTML = '<p class="adm-banner">Không đọc được bài tự luận: '
+      + esc(err.message || String(err)) + '</p>';
+  }
+}
+
+let _tallyAsg = null;
+let _tallyTitle = '';
+
 async function openTally(assignmentId) {
   const body = $('tally-body');
   $('tally-modal').hidden = false;
@@ -794,7 +905,9 @@ async function openTally(assignmentId) {
   try {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
-    $('tally-modal-title').textContent = d.assignment.title || 'Bảng tổng kết';
+    _tallyAsg = assignmentId;
+    _tallyTitle = d.assignment.title || 'Bảng tổng kết';
+    $('tally-modal-title').textContent = _tallyTitle;
     body.innerHTML = renderTally(d);
   } catch (err) {
     // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
@@ -2091,6 +2204,12 @@ function bindDetail() {
     if (row && !row.disabled) toggleQpick(row.dataset.id);
   });
   bindModalBackdrop('homework-modal', closeHomeworkModal);
+  // Nút "Xem tự luận" nằm TRONG bảng tổng kết, vốn được vẽ lại mỗi lần mở —
+  // nên uỷ quyền trên khung modal thay vì gắn tay từng nút.
+  $('tally-body').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-writing]');
+    if (btn && _tallyAsg) openStudentWriting(_tallyAsg, btn.dataset.writing);
+  });
   $('homework-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;

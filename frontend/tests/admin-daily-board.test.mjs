@@ -264,3 +264,89 @@ describe('MỘT băng cảnh báo, hai nguồn ghi vào (codex #931 vòng 4)', (
     assert.ok(/_boardNote = '';/.test(body), 'không gỡ thì cảnh báo cũ dính mãi');
   });
 });
+
+describe('màn đọc bài tự luận của admin', () => {
+  const ADMIN_HTML = readFileSync(
+    join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
+  const CX = readFileSync(
+    join(HERE, '..', 'public', 'css', 'course-exercises.css'), 'utf8');
+
+  test('trang NẠP tệp CSS định nghĩa những lớp nó vẽ', () => {
+    // Bài học PR #925: trang không nạp tệp định nghĩa lớp mình vẽ thì ra màn
+    // hình trần trụi, và không phép kiểm nào bắt được vì test đọc CSS từ đĩa.
+    const linked = [...ADMIN_HTML.matchAll(/<link[^>]+href="(\/css\/[^"]+\.css)"/g)]
+      .map((m) => m[1]);
+    const css = linked
+      .map((h) => readFileSync(join(HERE, '..', 'public', h.replace(/^\//, '')), 'utf8'))
+      .join('\n');
+    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
+    const i = src.indexOf('function renderStudentWriting');
+    const emitted = new Set();
+    for (const m of src.slice(i, src.indexOf('async function openStudentWriting'))
+      .matchAll(/class="([^"$]+)"/g)) {
+      for (const c of m[1].split(/\s+/)) if (c.startsWith('cw-')) emitted.add(c);
+    }
+    assert.ok(emitted.size >= 5, `phải gom được lớp cw-*, đang có ${emitted.size}`);
+    const missing = [...emitted].filter(
+      (c) => !new RegExp(`\\.${c.replace(/[^\w-]/g, '\\$&')}(?![\\w-])`).test(css));
+    assert.deepEqual(missing, [],
+      `trang admin không nạp CSS định nghĩa: ${missing.join(', ')}`);
+  });
+
+  test('vẽ CÙNG một cách học viên đang thấy — không phải bộ vẽ rút gọn thứ hai', () => {
+    // Giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai bên nói về hai
+    // thứ khác nhau khi ngồi lại.
+    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
+    for (const cls of ['cw-diff', 'cw-issues', 'cw-issue__kind', 'cw-model', 'cw-done']) {
+      assert.ok(src.includes(cls), `thiếu ${cls}`);
+      assert.ok(CX.includes('.' + cls), `${cls} phải do course-exercises.css định nghĩa`);
+    }
+  });
+
+  test('chưa nộp thì NÓI RÕ, không hiện một khung rỗng', () => {
+    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
+    const i = src.indexOf('function renderStudentWriting');
+    assert.match(src.slice(i, i + 300), /chưa nộp phần tự luận/);
+  });
+
+  test('nút chỉ hiện khi THẬT SỰ có bài để đọc', () => {
+    const html = tallyRow({ name: 'An', status: 'submitted', score: 80,
+      submitted_at: '2026-08-05T11:00:00+00:00', student_id: 's1',
+      has_writing: true }, 'course');
+    assert.match(html, /data-writing="s1"/);
+    assert.doesNotMatch(
+      tallyRow({ name: 'An', status: 'submitted', score: 80,
+                 submitted_at: '2026-08-05T11:00:00+00:00', student_id: 's1' }, 'course'),
+      /data-writing/);
+  });
+});
+
+describe('admin và học viên nhìn CÙNG một bản chấm (codex #940)', () => {
+  const SRC2 = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
+  const STU = readFileSync(join(HERE, '..', 'public', 'js', 'course-writing.js'), 'utf8');
+
+  test('đề và đáp án mẫu được DỰNG markdown, không hiện ** thô', () => {
+    // Nguồn đề cố ý mang `**Đáp án mẫu:**`; escape trơn làm giáo viên đọc ra
+    // dấu sao còn học viên đọc ra chữ đậm.
+    const i = SRC2.indexOf('function renderStudentWriting');
+    const body = SRC2.slice(i, SRC2.indexOf('async function openStudentWriting'));
+    assert.match(body, /cwMd\(g\.prompt/);
+    assert.match(body, /cwMd\(g\.explain/);
+    // Bài HỌC VIÊN VIẾT thì không dựng markdown — nó là câu tiếng Anh thô.
+    assert.match(body, /esc\(g\.answer\)/);
+  });
+
+  test('cùng một phép dựng với phía học viên', () => {
+    const rule = /\*\*\(\[\^\*\]\+\)\*\*/;
+    const a = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(SRC2);
+    const b = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(STU);
+    assert.ok(a && b, 'cả hai bên phải có phép dựng');
+    assert.equal(a[1], b[1], 'hai bên phải dùng CÙNG một biểu thức');
+  });
+
+  test('thoát HTML TRƯỚC khi dựng thẻ', () => {
+    // Đây là bài do NGƯỜI KHÁC viết, đang vẽ trong trình duyệt của admin.
+    const i = SRC2.indexOf('function cwMd');
+    assert.match(SRC2.slice(i, i + 200), /esc\(x\)\.replace/);
+  });
+});
