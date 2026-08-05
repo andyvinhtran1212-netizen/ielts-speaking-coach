@@ -200,10 +200,13 @@ describe('onboarding.html / JS-coupled selectors preserved byte-identical', () =
     assert.match(html, /onboarding_completed:\s*true/);
   });
 
-  test('submit redirect to pages/home.html?first_topic=… preserved', () => {
+  test('submit redirect to /home?first_topic=… preserved', () => {
+    // [cutover /home 2026-08-05] đổi ĐƯỜNG, giữ nguyên tham số. `first_topic`
+    // hiện KHÔNG có ai đọc (grep 0 chỗ tiêu thụ) — bỏ nó là đổi hành vi ngoài
+    // phạm vi cutover, nên giữ y nguyên.
     assert.match(
       html,
-      /window\.location\.href\s*=\s*['"]pages\/home\.html\?first_topic=['"]\s*\+\s*encodeURIComponent\(\s*stepData\.topic\s*\)/,
+      /window\.location\.href\s*=\s*['"]\/home\?first_topic=['"]\s*\+\s*encodeURIComponent\(\s*stepData\.topic\s*\)/,
     );
   });
 
@@ -211,11 +214,12 @@ describe('onboarding.html / JS-coupled selectors preserved byte-identical', () =
     assert.match(html, /if\s*\(\s*!session\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]login\.html['"]/);
   });
 
-  test('init() preserves already-onboarded redirect to pages/home.html', () => {
+  test('init() preserves already-onboarded redirect to /home', () => {
+    // [cutover /home 2026-08-05] canonical là route Next `/home`.
     assert.match(html, /api\.get\(\s*['"]\/auth\/me['"]\s*\)/);
     assert.match(
       html,
-      /if\s*\(\s*user\s*&&\s*user\.onboarding_completed\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]pages\/home\.html['"]/,
+      /if\s*\(\s*user\s*&&\s*user\.onboarding_completed\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]\/home['"]/,
     );
   });
 

@@ -618,7 +618,9 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
 
   test('href targets match canonical chrome contract (7 skill landings + profile)', () => {
     // Sprint 11.1 — Listening href joined the canonical 5; Sprint 20.2 — Reading.
-    assert.match(component, /href="\/pages\/home\.html"\s+data-tab="home"/);
+    // [cutover /home 2026-08-05] như grammar bên dưới: chrome trỏ canonical,
+    // bản legacy `/pages/home.html` vẫn phục vụ nhưng không còn là đích.
+    assert.match(component, /href="\/home"\s+data-tab="home"/);
     assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);

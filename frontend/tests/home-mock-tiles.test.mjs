@@ -17,7 +17,7 @@ const HOME = read('public', 'pages', 'home.html');
 // (review PR #929) để trang legacy và route Next có MỘT nguồn — chép đôi thì
 // hai bản trôi khỏi nhau, mà cổng parity G1 so DOM chứ không so CSS.
 const MOCK_CSS = read('css', 'mock-hub.css');
-const HOME_SHELL = read('app', '(authed-home)', 'home-preview', 'page-shell.tsx');
+const HOME_SHELL = read('app', '(authed-home)', 'home', 'page-shell.tsx');
 const LAYOUT = read('app', '(authed-home)', 'layout.tsx');
 const JS = read('public', 'js', 'home-mock-tiles.js');
 

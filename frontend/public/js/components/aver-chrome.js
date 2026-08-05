@@ -312,10 +312,10 @@ const STYLE = /* css */ `
 const TEMPLATE = /* html */ `
 <div class="topnav-wrap">
   <nav class="topnav" aria-label="Primary">
-    <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
+    <a href="/home" class="brand">Aver<span class="dot">.</span>Learning</a>
 
     <div class="nav-links">
-      <a href="/pages/home.html" data-tab="home">Trang chủ</a>
+      <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/pages/writing-dashboard.html" data-tab="writing">Writing</a>
       <a href="/pages/speaking.html" data-tab="speaking">Speaking</a>
       <a href="/pages/listening.html" data-tab="listening">Listening</a>
@@ -446,7 +446,7 @@ export class AverChrome extends HTMLElement {
           source: 'document',
           where: {
             or: [
-              { href_matches: '/pages/home.html' },
+              { href_matches: '/home' },
               { href_matches: '/pages/speaking.html' },
               { href_matches: '/pages/writing-dashboard.html' },
               { href_matches: '/pages/listening.html' },

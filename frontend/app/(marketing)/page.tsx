@@ -1205,7 +1205,7 @@ export default function LandingPreviewPage() {
                   </a>
                 </li>
                 <li>
-                  <a href="/pages/home.html" className="ix-footer__link text-sm">
+                  <a href="/home" className="ix-footer__link text-sm">
                     Trang chủ
                   </a>
                 </li>

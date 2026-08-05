@@ -53,7 +53,13 @@ const nextConfig: NextConfig = {
         { source: '/admin/writing/cohorts', destination: '/pages/admin/writing/cohorts.html' },
         { source: '/admin/writing/regrade-requests', destination: '/pages/admin/writing/regrade-requests.html' },
         { source: '/admin/writing/assignments', destination: '/pages/admin/writing/assignments.html' },
-        { source: '/home', destination: '/pages/home.html' },
+        // CUTOVER 2026-08-05 — `/home` nay là ROUTE NEXT
+        // (`app/(authed-home)/home/`), không còn rewrite sang bản legacy.
+        // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
+        // trạng thái nửa vời ("app route /home is SHADOWED by config source
+        // /home") — đã thấy nó báo đúng khi tôi đổi route trước, gỡ rewrite sau.
+        // `/pages/home.html` VẪN phục vụ 200, CỐ Ý: cổng parity G1 chỉ so được
+        // khi cả hai vế còn sống. Gỡ bản legacy thuộc Phase 7.
         { source: '/speaking', destination: '/pages/speaking.html' },
       ],
       afterFiles: [],

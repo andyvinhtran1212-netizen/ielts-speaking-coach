@@ -19,7 +19,7 @@ async function boot() {
   try {
     rows = (await api.get('/admin/instructors')) || [];
   } catch (e) {
-    if (e.status === 403) { window.location.href = '/pages/home.html'; return; }
+    if (e.status === 403) { window.location.href = '/home'; return; }
     $('ai-banner').innerHTML = `<div class="ai-banner ai-banner--err">Lỗi tải: ${esc(e.message)}</div>`;
     body.innerHTML = '';
     return;

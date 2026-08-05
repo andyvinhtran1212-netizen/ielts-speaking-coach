@@ -741,7 +741,7 @@
         </div>
         <div class="summary-actions">
           <a href="flashcards.html" class="btn-secondary">Học stack khác</a>
-          <a href="home.html" class="btn-ghost">Về dashboard</a>
+          <a href="/home" class="btn-ghost">Về dashboard</a>
         </div>
       </div>
     `);

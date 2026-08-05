@@ -50,7 +50,7 @@ async function boot() {
   const role = me.role;
   if (role !== 'instructor' && role !== 'admin') {
     $('gate-msg').hidden = false;
-    setTimeout(() => { window.location.href = '/pages/home.html'; }, 1200);
+    setTimeout(() => { window.location.href = '/home'; }, 1200);
     return;
   }
   if (_AS) {
