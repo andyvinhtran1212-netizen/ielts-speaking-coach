@@ -722,12 +722,20 @@ function tallyRow(r, skill) {
         <span>${esc(f.why)}</span>
         <em>${esc(f.action)}</em>
       </li>`).join('');
+  // Mở thẳng bài làm: nghe audio + đọc nhận xét. Chỉ hiện khi có bài THẬT để
+  // mở — một liên kết dẫn tới trang trống tệ hơn không có liên kết.
+  const open = (r.artifact_kind === 'session' && r.artifact_id)
+    ? `<a class="av-tally__open" target="_blank" rel="noopener"
+          href="/pages/admin/speaking/sessions.html?session=${esc(r.artifact_id)}"
+          title="Nghe bài làm và đọc nhận xét">Nghe &amp; xem</a>`
+    : '';
   return `<div class="av-tally__row" data-status="${esc(r.status)}"
        ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
     <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+    ${open}
   </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
 
@@ -1739,6 +1747,7 @@ function invalidateProgress() {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
+    loadDailyBoard();
   }
 }
 
@@ -1751,6 +1760,89 @@ function invalidateProgress() {
  * một em từ 7.0 tụt xuống 6.0 thì có — dù vẫn cao hơn. Bày thứ hạng ra sẽ trả
  * lời một câu hỏi khác và chôn mất em thứ hai.
  */
+/**
+ * Bảng bài Speaking HẰNG NGÀY: học viên × ngày.
+ *
+ * Đọc theo HÀNG là "em này có đều không", đọc theo CỘT là "hôm ấy cả lớp thế
+ * nào". Cả hai câu ấy đều không trả lời được bằng cách mở lần lượt hai chục
+ * bảng tổng kết của từng bài giao.
+ *
+ * Ô mang cả hình dạng lẫn màu (ký tự riêng cho mỗi trạng thái), không chỉ màu:
+ * một lưới phân biệt bằng xanh/đỏ là một lưới người mù màu không đọc được.
+ */
+async function loadDailyBoard() {
+  const box = $('daily-board');
+  if (!box) return;
+  try {
+    const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/speaking-daily');
+    renderDailyBoard(r);
+  } catch (err) {
+    // Ẩn hẳn thay vì hiện lưới rỗng — lưới rỗng đọc như "lớp chưa có bài hằng
+    // ngày nào", mà sự thật là chưa đọc được.
+    box.hidden = true;
+  }
+}
+
+const BOARD_MARK = {
+  done:    { ch: '✓', label: 'đã nộp' },
+  late:    { ch: '◐', label: 'nộp trễ' },
+  missing: { ch: '✕', label: 'không nộp' },
+  pending: { ch: '·', label: 'chưa tới hạn' },
+  none:    { ch: '',  label: 'không được giao' },
+};
+
+/** '2026-08-05' → '05/08'. Cột hẹp, và năm thì cả bảng dùng chung. */
+function boardDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${m[3]}/${m[2]}` : esc(iso || '');
+}
+
+function renderDailyBoard(d) {
+  const box = $('daily-board');
+  const days = (d && d.days) || [];
+  const rows = (d && d.students) || [];
+  if (!days.length || !rows.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  $('board-scope').textContent =
+    `${d.assignment_count} bài · ${days.length} ngày gần nhất`;
+
+  $('board-head').innerHTML = '<th class="av-board__name-h">Học viên</th>'
+    + days.map((x) => `<th><span>${esc(boardDay(x))}</span></th>`).join('')
+    + '<th class="av-board__sum-h">Đã nộp</th>';
+
+  $('board-body').innerHTML = rows.map((r) => {
+    const cells = (r.cells || []).map((c, i) => {
+      const mk = BOARD_MARK[c.state] || BOARD_MARK.none;
+      const day = boardDay(days[i]);
+      const band = c.score != null ? ` · band ${c.score}` : '';
+      const title = `${r.name || ''} · ${day} · ${mk.label}${band}`;
+      // Bấm vào ô là nghe bài của ĐÚNG em ấy ĐÚNG ngày ấy — đường ngắn nhất
+      // từ "hôm ấy em này trễ" tới "em ấy đã nói gì".
+      const inner = c.session_id
+        ? `<a href="/pages/admin/speaking/sessions.html?session=${esc(c.session_id)}"
+              target="_blank" rel="noopener">${mk.ch}</a>`
+        : mk.ch;
+      return `<td class="av-board__cell" data-state="${esc(c.state)}"
+                  title="${esc(title)}">${inner}</td>`;
+    }).join('');
+    // Chưa kích hoạt tài khoản thì em ấy CHƯA TỪNG thấy bài nào — đánh dấu để
+    // khỏi bị đọc thành lười.
+    const name = esc(r.name || r.student_code || '—')
+      + (r.activated ? '' : ' <span class="av-board__na">chưa kích hoạt</span>');
+    return `<tr${r.missing ? ' data-alarm="true"' : ''}>
+      <th scope="row" class="av-board__name">${name}</th>
+      ${cells}
+      <td class="av-board__sum">${r.done}/${days.length}</td>
+    </tr>`;
+  }).join('');
+
+  $('board-foot').textContent =
+    'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
+    + 'Bấm vào ô có bài để nghe và đọc nhận xét.';
+}
+
 async function loadSpeakingPerf() {
   const box = $('speaking-perf');
   if (!box) return;
@@ -1875,6 +1967,7 @@ function showPanel(name) {
     // Speaking là hai nguồn khác nhau, và một bên hỏng không được kéo bên kia
     // biến mất theo.
     loadSpeakingPerf();
+    loadDailyBoard();
   }
 }
 

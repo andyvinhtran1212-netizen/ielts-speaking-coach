@@ -25,7 +25,7 @@ const codeOnly = (s) => s
 const CODE = codeOnly(JS);
 
 /** Chạy THẬT _renderSheet với DOM giả. */
-function render(slots) {
+function render(slots, session) {
   const start = JS.indexOf('  var _SHEET_LABEL = {');
   const end = JS.indexOf('  function _sheetListen(');
   assert.ok(start !== -1 && end > start, 'render block not found');
@@ -48,9 +48,15 @@ function render(slots) {
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
   const _sheet = { slots, recIdx: slots.findIndex((s) => s.state === 'recording') };
-  new Function('$', '_esc', '_sheet', 'document', 'window',
+  // Phiếu hỏi trạng thái bài giao để biết còn nhận bài không. Mặc định là CÒN
+  // NHẬN — các phép kiểm dưới đây nói về phiếu đang làm dở; ca khoá có bộ kiểm
+  // riêng ở `phiếu chỉ-đọc`.
+  const _sessionData = session === undefined
+    ? { status: 'in_progress', class_task: { accepting: true } }
+    : session;
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window',
     `${JS.slice(start, end)} _renderSheet();`)(
-    $, _esc, _sheet, document, { addEventListener() {} });
+    $, _esc, _sheet, _sessionData, document, { addEventListener() {} });
   return nodes;
 }
 
@@ -161,7 +167,14 @@ describe('DÂY NỐI', () => {
   });
 
   test('sự kiện dùng uỷ quyền và có gọi _bindSheet', () => {
-    assert.match(CODE, /slots\.addEventListener\('click'[\s\S]{0,300}?_sheetToggleRec/);
+    // Phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay mất ngay ở
+    // lần vẽ kế tiếp. Cả BA nút của một ô đều phải đi qua uỷ quyền.
+    const i = CODE.indexOf("slots.addEventListener('click'");
+    assert.ok(i !== -1, 'phải uỷ quyền trên #sheet-slots');
+    const body = CODE.slice(i, i + 600);
+    for (const fn of ['_sheetListen', '_sheetReview', '_sheetToggleRec']) {
+      assert.ok(body.includes(fn), `${fn} phải nằm trong bộ uỷ quyền`);
+    }
     assert.match(CODE, /_bindSheet\(\);/);
   });
 
@@ -380,5 +393,126 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
     for (const need of ['block-state', 'flex-1', 'av-w-read']) {
       assert.ok(sheet.has(need), `#state-sheet thiếu lớp bố cục "${need}"`);
     }
+  });
+});
+
+/**
+ * Bài đã làm phải SỐNG QUA REFRESH, và xem lại được bất cứ lúc nào.
+ *
+ * Lỗi người dùng báo: làm xong, tải lại trang thì phiếu trắng trơn — trong khi
+ * `GET /sessions/{id}` vẫn trả đủ `responses`. Ô hiện "Chưa làm" ở câu vừa nộp
+ * khiến học viên ghi âm lại và mất luôn bản cũ (ghi âm lại GHI ĐÈ cùng câu).
+ */
+describe('dựng lại phiếu từ bài đã nộp', () => {
+  const initSheet = (questions, responses, session = {}) => {
+    const start = JS.indexOf('  function _initSheet() {');
+    const end = JS.indexOf('  var _SHEET_LABEL = {');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy _initSheet');
+    // Lấy kèm các hàm đọc dòng đã lưu (nằm ngay sau _SHEET_LABEL).
+    const h0 = JS.indexOf('  function _respFeedback(r) {');
+    const h1 = JS.indexOf('  function _renderSheet() {');
+    let sheet = null;
+    const env = {
+      _sessionData: { class_assignment_item_id: 'it-1', responses, ...session },
+      _questions: questions,
+      _renderSheet: () => {},
+      showState: () => {},
+      _syncMeterTop: () => {},
+      window: { addEventListener() {} },
+    };
+    const names = Object.keys(env);
+    sheet = new Function(...names, `
+      var _sheet = null, _meterTopBound = false;
+      ${JS.slice(h0, h1)}
+      ${JS.slice(start, end)}
+      _initSheet();
+      return _sheet;
+    `)(...names.map((n) => env[n]));
+    return sheet;
+  };
+
+  const Q = (id) => ({ id, question_text: 'Q' + id });
+  const R = (qid, over = {}) => ({
+    id: 'r-' + qid, question_id: qid, grading_status: 'completed',
+    overall_band: 6.5, feedback: JSON.stringify({ band_fc: 6, strengths: ['x'] }),
+    transcript: 'tôi nói gì đó', ...over,
+  });
+
+  test('câu đã chấm hiện ĐÃ LƯU kèm điểm, không phải "Chưa làm"', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a')]);
+    assert.equal(s.slots[0].state, 'saved');
+    assert.equal(s.slots[0].band, 6.5);
+    assert.equal(s.slots[1].state, 'idle', 'câu chưa làm vẫn là chưa làm');
+  });
+
+  test('band ĐÃ HIỆU CHỈNH phát âm thắng band thô', () => {
+    // Trang kết quả và bảng của giáo viên đều dùng con số này; hiện số thô ở
+    // phiếu sẽ mâu thuẫn với cả hai.
+    const s = initSheet([Q('a'), Q('b')], [R('a', { final_overall_band: 6.0 })]);
+    assert.equal(s.slots[0].band, 6.0);
+  });
+
+  test('có dòng nhưng CHƯA chấm xong thì là "đang chấm", không hứa nhận xét', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a', { grading_status: 'processing' })]);
+    assert.equal(s.slots[0].state, 'grading');
+  });
+
+  test('giữ nguyên dòng đã lưu để xem lại — không phải tải thêm gì', () => {
+    const s = initSheet([Q('a'), Q('b')], [R('a')]);
+    assert.equal(s.slots[0].resp.id, 'r-a');
+  });
+});
+
+describe('nút Xem nhận xét', () => {
+  test('chỉ hiện ở ô đã lưu VÀ có nhận xét để đọc', () => {
+    const withResp = render([S('saved', { band: 6, resp: { id: 'r1' } })])['sheet-slots'].innerHTML;
+    assert.match(withResp, /data-review="0"/);
+    // Đã lưu nhưng dòng chưa về (mạng chập lúc dựng lại) thì đừng hứa suông.
+    assert.doesNotMatch(render([S('saved', { band: 6 })])['sheet-slots'].innerHTML, /data-review/);
+    assert.doesNotMatch(render([S('idle')])['sheet-slots'].innerHTML, /data-review/);
+  });
+
+  test('xem lại DÙNG LẠI màn nhận xét của luồng luyện tập', () => {
+    // Một bộ vẽ rút gọn riêng là chỗ thứ hai để trôi khỏi bộ vẽ thật.
+    const i = CODE.indexOf('function _sheetReview');
+    assert.ok(i !== -1);
+    const body = CODE.slice(i, i + 900);
+    assert.ok(body.includes('_showFeedback'), 'phải gọi đúng _showFeedback');
+    assert.ok(body.includes("btn-back-sheet"), 'phải có đường quay lại phiếu');
+    assert.match(HTML, /id="btn-back-sheet"/);
+  });
+});
+
+describe('phiếu chỉ-đọc khi hết hạn / đã nộp', () => {
+  const locked = (session) => render(
+    [S('saved', { band: 6, resp: { id: 'r1' } }), S('saved', { band: 7, resp: { id: 'r2' } })],
+    session);
+
+  test('hết hạn: không còn nút ghi âm, nhưng VẪN xem lại được', () => {
+    const n = locked({ status: 'in_progress', class_task: { accepting: false } });
+    assert.doesNotMatch(n['sheet-slots'].innerHTML, /data-rec=/);
+    assert.match(n['sheet-slots'].innerHTML, /data-review="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, true);
+    assert.match(n['sheet-submit-note'].textContent, /hết hạn nộp/i);
+  });
+
+  test('đã nộp: khoá nộp lại, nói rõ vẫn xem lại được', () => {
+    const n = locked({ status: 'completed', class_task: { accepting: true } });
+    assert.equal(n['btn-sheet-submit'].disabled, true);
+    assert.match(n['sheet-submit-note'].textContent, /đã nộp/i);
+    assert.match(n['sheet-submit-note'].textContent, /xem lại/i);
+  });
+
+  test('còn hạn và chưa nộp thì KHÔNG khoá oan', () => {
+    const n = locked({ status: 'in_progress', class_task: { accepting: true } });
+    assert.match(n['sheet-slots'].innerHTML, /data-rec="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
+  });
+
+  test('backend cũ không trả class_task → không khoá', () => {
+    // Khoá oan một bài còn hạn tệ hơn để lệnh nộp từ chối một bài đã muộn.
+    const n = locked({ status: 'in_progress' });
+    assert.match(n['sheet-slots'].innerHTML, /data-rec="0"/);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
   });
 });

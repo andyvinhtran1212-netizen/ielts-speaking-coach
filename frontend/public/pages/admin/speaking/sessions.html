@@ -191,6 +191,34 @@
     }
     .ses-qa audio { width: 100%; }
 
+    /* Báo cáo nhận xét — gập lại mặc định: giáo viên mở modal để NGHE trước,
+       và bốn tiêu chí trải hết ra sẽ đẩy trình phát audio của câu sau xuống
+       ngoài màn hình. */
+    .ses-fb {
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card);
+    }
+    .ses-fb > summary {
+      padding: var(--av-space-2) var(--av-space-3);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); cursor: pointer;
+    }
+    .ses-fb-item {
+      padding: 0 var(--av-space-3) var(--av-space-2);
+      font-size: var(--av-fs-sm); line-height: 1.5;
+    }
+    .ses-fb-item p, .ses-fb-item ul { margin: 0; }
+    .ses-fb-item ul { padding-left: var(--av-space-4); }
+    .ses-fb-label {
+      display: block; font-size: var(--av-fs-xs);
+      color: var(--av-text-muted); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); margin-bottom: 2px;
+    }
+    .ses-fb-empty {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); font-style: italic;
+    }
+
     .ses-status-banner {
       padding: var(--av-space-3) var(--av-space-4);
       border-radius: var(--av-radius-md);

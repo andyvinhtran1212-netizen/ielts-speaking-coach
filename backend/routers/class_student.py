@@ -62,6 +62,31 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
+def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
+    """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
+
+    Của CHÍNH em ấy (`user_id`) chứ không chỉ theo mục: mục là của một học viên,
+    nhưng lọc thêm cho khớp với mọi đường đọc phiên khác — và một dòng lạc do
+    dữ liệu cũ không được biến thành phiên của người khác.
+
+    Mới nhất thắng: nếu vì lý do nào đó có nhiều phiên cho một mục (lỗi cũ, thử
+    lại lúc mạng chập), phiên gần nhất là phiên học viên vừa làm.
+
+    Đọc hỏng → None: rơi về đường tạo phiên mới như trước, chứ không chặn em ấy
+    làm bài vì một truy vấn chập.
+    """
+    try:
+        rows = (
+            supabase_admin.table("sessions").select("id, started_at")
+            .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
+            .order("started_at", desc=True).limit(1).execute().data
+        ) or []
+        return rows[0]["id"] if rows else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
+        return None
+
+
 def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
     rows = (
         supabase_admin.table("students")
@@ -265,6 +290,25 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+
+    # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
+    #
+    # Trước đây mỗi lần bấm "Làm bài" là dựng một phiên MỚI, nên bài vừa nói
+    # nằm lại phiên cũ và học viên mở ra thấy trắng trơn; và quá hạn thì 409
+    # chặn luôn cả việc XEM. Hai thứ ấy khác nhau: hết hạn là không nhận bài
+    # MỚI, không phải xoá quyền đọc bài mình đã làm. Cấm nộp vẫn nguyên vẹn —
+    # nó nằm ở `_record_class_hand_in` (mốc so là giờ phiên hoàn thành) và ở
+    # phiếu làm bài (đọc `class_task.accepting` từ chính hàm này).
+    existing = _existing_speaking_session(item_id, auth_user["id"]) \
+        if assignment.get("skill") == "speaking" else None
+    if existing:
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "speaking",
+            "session_id":    existing,
+            "accepting":     bool(is_accepting_submissions(assignment)),
+        }
 
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.

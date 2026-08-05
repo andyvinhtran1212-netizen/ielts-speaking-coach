@@ -516,9 +516,20 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
     assert.match(itemRow(row({}), { action: true }), /data-action="start"/);
   });
 
-  test('bài quá hạn thì KHÔNG có nút', () => {
-    assert.doesNotMatch(itemRow(row({ is_missing: true }), { action: true }),
+  test('bài quá hạn CHƯA TỪNG mở thì không có nút', () => {
+    // Không có gì để xem, và bấm chỉ để nhận 409 sau một vòng gọi mạng.
+    assert.doesNotMatch(
+      itemRow(row({ is_missing: true, state: 'assigned' }), { action: true }),
       /data-action="start"/);
+  });
+
+  test('bài quá hạn ĐÃ LÀM DỞ vẫn mở xem lại được', () => {
+    // "Không nhận bài nữa" khác "không được xem lại bài mình đã làm". Nhãn nói
+    // đúng việc nút làm — không hứa "Làm bài" cho một bài đã khoá.
+    const html = itemRow(row({ is_missing: true, state: 'opened' }), { action: true });
+    assert.match(html, /data-action="start"/);
+    assert.match(html, /Xem lại bài/);
+    assert.doesNotMatch(html, />Làm bài</);
   });
 
   test('bài quá hạn VẪN nằm trên danh sách, ghi là quá hạn', () => {
@@ -528,9 +539,20 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
     assert.match(html, /quá hạn/);
   });
 
-  test('nhóm đã nộp vốn không có nút, không đổi', () => {
-    assert.doesNotMatch(itemRow(row({ submitted_at: 'x' }), { action: false }),
-      /data-action="start"/);
+  test('bài Speaking ĐÃ NỘP mở lại được để đọc nhận xét', () => {
+    // Đây là lỗi người dùng báo: làm xong rồi thì không còn đường nào quay lại
+    // xem mình đã nói gì và máy nhận xét ra sao.
+    const html = itemRow(row({ submitted_at: 'x' }), { action: false });
+    assert.match(html, /data-action="start"/);
+    assert.match(html, /Xem lại bài/);
+  });
+
+  test('kỹ năng khác chưa có màn xem lại thì KHÔNG hứa suông', () => {
+    const html = itemRow(
+      row({ submitted_at: 'x', assignment: { id: 'a1', title: 'Bài', skill: 'reading',
+                                             due_at: null, content_config: {} } }),
+      { action: false });
+    assert.doesNotMatch(html, /Xem lại bài/);
   });
 });
 

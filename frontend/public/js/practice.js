@@ -2923,9 +2923,28 @@
     // sang thứ không ai yêu cầu.
     var isClassTask = !!(_sessionData && _sessionData.class_assignment_item_id);
     if (!isClassTask || !_questions || _questions.length < 2) return false;
+    // DỰNG LẠI TỪ BÀI ĐÃ NỘP. `GET /sessions/{id}` vốn đã trả kèm `responses`,
+    // nhưng phiếu trước đây dựng mọi ô ở 'idle' — nên tải lại trang là học viên
+    // thấy bài mình vừa làm biến mất, dù server vẫn giữ đủ. Một em nhìn thấy
+    // "Chưa làm" ở câu vừa nộp sẽ ghi âm lại, và mất luôn bản cũ.
+    var byQid = {};
+    (_sessionData.responses || []).forEach(function (r) {
+      if (r && r.question_id) byQid[r.question_id] = r;
+    });
     _sheet = {
       slots: _questions.map(function (q) {
-        return { q: q, state: 'idle', band: null, error: null, replays: 0 };
+        var r = byQid[q.id];
+        if (!r) return { q: q, state: 'idle', band: null, error: null, replays: 0 };
+        return {
+          q: q,
+          // Có dòng nhưng chưa chấm xong là 'grading' — nói "đã lưu" lúc ấy là
+          // hứa một nhận xét chưa tồn tại.
+          state: _respGraded(r) ? 'saved' : 'grading',
+          band:  _respBand(r),
+          error: null,
+          replays: 0,
+          resp:  r,          // để xem lại nhận xét, không phải tải lại gì thêm
+        };
       }),
       recIdx: -1,
     };
@@ -2948,6 +2967,87 @@
     saved:    'Đã lưu',
   };
 
+  /**
+   * Phiếu còn nhận bài không.
+   *
+   * Câu trả lời do BACKEND đưa (`class_task.accepting`, tính bằng chính hàm mà
+   * lệnh nộp dùng) — không tự so `due_at` với đồng hồ máy học viên, vì đồng hồ
+   * ấy sai được và hạn nộp là giờ Việt Nam do máy chủ chốt.
+   *
+   * Thiếu khối `class_task` (backend cũ, hoặc đọc hỏng) → KHÔNG khoá: khoá oan
+   * một bài còn hạn tệ hơn để lệnh nộp từ chối một bài đã muộn.
+   */
+  function _sheetLocked() {
+    var t = _sessionData && _sessionData.class_task;
+    if (t && t.accepting === false) return true;
+    if (t && t.submitted_at) return true;
+    return !!(_sessionData && _sessionData.status === 'completed');
+  }
+
+  function _sheetLockNote(done, total) {
+    var t = (_sessionData && _sessionData.class_task) || {};
+    if (t.submitted_at || (_sessionData && _sessionData.status === 'completed')) {
+      return 'Bài này đã nộp. Bạn vẫn xem lại nhận xét từng câu bất cứ lúc nào.';
+    }
+    return 'Đã hết hạn nộp — không nhận thêm bài. '
+      + 'Đã lưu ' + done + '/' + total + ' câu, và bạn vẫn xem lại được.';
+  }
+
+  // ── Đọc một dòng `responses` đã lưu ────────────────────────────────────────
+  //
+  // `responses.feedback` giữ NGUYÊN hình dạng mà `_showFeedback` nhận lúc chấm
+  // xong (band_fc/lr/gra/p, các đoạn nhận xét, strengths, improvements…), nên
+  // xem lại KHÔNG cần một bộ vẽ thứ hai — dựng lại đúng object ấy là đủ. Hai
+  // bộ vẽ song song cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
+
+  function _respFeedback(r) {
+    var raw = r && r.feedback;
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function _respGraded(r) {
+    // 'completed' là trạng thái duy nhất có nhận xét để đọc. Thiếu cột (dữ liệu
+    // cũ) thì suy từ chỗ có nhận xét hay không, chứ không mặc định là xong.
+    if (!r) return false;
+    if (r.grading_status) return r.grading_status === 'completed';
+    return !!_respFeedback(r);
+  }
+
+  function _respBand(r) {
+    // Ưu tiên band ĐÃ HIỆU CHỈNH theo phát âm — đó là con số trang kết quả và
+    // bảng của giáo viên dùng; hiện số thô ở đây sẽ mâu thuẫn với cả hai.
+    if (!r) return null;
+    var b = (r.final_overall_band != null) ? r.final_overall_band : r.overall_band;
+    return (b == null || isNaN(parseFloat(b))) ? null : parseFloat(b);
+  }
+
+  /** Dòng đã lưu → đúng object `_showFeedback` nhận lúc vừa chấm xong. */
+  function _respToFeedbackData(r) {
+    var fb = _respFeedback(r) || {};
+    return Object.assign({}, fb, {
+      response_id:      r.id,
+      transcript:       r.transcript || fb.transcript || '',
+      duration_seconds: r.duration_seconds != null ? r.duration_seconds : fb.duration_seconds,
+      overall_band:     _respBand(r),
+      // Phát âm được đo lúc chấm và lưu thành cột riêng; `_showFeedback` đọc
+      // `data.pronunciation`, nên gói lại đúng hình dạng ấy. Chưa đo được thì
+      // để trống — hàm kia đã có nhánh nói thật về việc thiếu.
+      pronunciation: (r.pronunciation_status === 'completed'
+                      && r.pronunciation_score != null)
+        ? {
+            status:                     'completed',
+            pronunciation_score:        r.pronunciation_score,
+            pronunciation_fluency:      r.pronunciation_fluency,
+            pronunciation_accuracy:     r.pronunciation_accuracy,
+            pronunciation_completeness: r.pronunciation_completeness,
+            payload:                    r.pronunciation_payload,
+          }
+        : null,
+    });
+  }
+
   function _renderSheet() {
     if (!_sheet) return;
     var wrap = $('sheet-slots');
@@ -2961,6 +3061,10 @@
       // chung cho ba việc là bắt người ta đoán.
       var recLabel = recording ? 'Dừng ghi âm'
         : (s.state === 'saved' ? 'Ghi âm lại' : 'Ghi âm');
+      // Hết hạn / đã chốt: phiếu thành CHỈ ĐỌC. Bài cũ vẫn xem lại được, chỉ
+      // không nhận bài mới — để học viên khỏi nói xong mười câu rồi mới biết
+      // là muộn.
+      var locked = _sheetLocked();
       var band = (s.band === null || s.band === undefined) ? ''
         : '<span class="av-slot__band">' + Number(s.band).toFixed(1) + '</span>';
       var note = s.error
@@ -2970,6 +3074,13 @@
             : '');
       var replays = s.replays
         ? '<span class="av-slot__replays">đã nghe ' + s.replays + ' lần</span>' : '';
+      // XEM NHẬN XÉT — chỉ khi thật sự có gì để đọc. Một điểm số trần trụi
+      // không nói được vì sao; ở các chế độ luyện tập khác học viên luôn được
+      // đọc nhận xét đầy đủ sau mỗi câu, và bài tập lớp không có lý do gì
+      // nghèo hơn.
+      var review = (s.state === 'saved' && s.resp)
+        ? '<button type="button" class="btn btn-ghost" data-review="' + i + '">Xem nhận xét</button>'
+        : '';
 
       return '<section class="av-slot" data-state="' + s.state + '" data-idx="' + i + '">'
         + '<span class="av-slot__spine" aria-hidden="true"></span>'
@@ -2985,8 +3096,10 @@
         +     replays
         +   '</button>'
         +   '<div class="av-slot__actions">'
-        +     '<button type="button" class="btn ' + (recording ? 'btn-danger' : 'btn-secondary')
-        +       '" data-rec="' + i + '"' + (busy ? ' disabled' : '') + '>' + recLabel + '</button>'
+        +     (locked ? ''
+        :       '<button type="button" class="btn ' + (recording ? 'btn-danger' : 'btn-secondary')
+              +   '" data-rec="' + i + '"' + (busy ? ' disabled' : '') + '>' + recLabel + '</button>')
+        +     review
         +     band
         +   '</div>'
         +   note
@@ -2996,13 +3109,17 @@
     var done = _sheet.slots.filter(function (s) { return s.state === 'saved'; }).length;
     var total = _sheet.slots.length;
     var ready = done === total;
-    $('sheet-submit').dataset.ready = String(ready);
+    var lockedNow = _sheetLocked();
+    $('sheet-submit').dataset.ready = String(ready && !lockedNow);
     // NÓI RÕ còn thiếu gì. Một nút mờ không lý do khiến học viên bấm mấy lần
     // rồi tưởng trang hỏng.
-    $('sheet-submit-note').textContent = ready
-      ? 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.'
-      : 'Đã lưu ' + done + '/' + total + ' câu — lưu nốt rồi mới nộp được.';
-    $('btn-sheet-submit').disabled = !ready;
+    $('sheet-submit-note').textContent = lockedNow
+      ? _sheetLockNote(done, total)
+      : (ready
+          ? 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.'
+          : 'Đã lưu ' + done + '/' + total + ' câu — lưu nốt rồi mới nộp được.');
+    $('btn-sheet-submit').disabled = !ready || lockedNow;
+    $('btn-sheet-submit').textContent = lockedNow ? 'Đã chốt' : 'Nộp bài';
     _renderSheetMeter(done, total);
   }
 
@@ -3098,9 +3215,15 @@
 
     _submitGradingEager(_sessionId, s.q.id, blob, { rethrow: true })
       .then(function (res) {
+        var g = (res && res.grading) ? res.grading : res;
         s.state = 'saved';
-        s.band = (res && (res.overall_band || (res.grading && res.grading.overall_band))) || null;
+        s.band = (g && g.overall_band) || null;
         s.error = null;
+        // Giữ NGUYÊN phản hồi chấm để "Xem nhận xét" đọc được ngay, không bắt
+        // học viên tải lại trang mới thấy nhận xét của câu mình vừa nói.
+        // Hình dạng ở đây đã là hình dạng `_showFeedback` nhận, nên đánh dấu
+        // để `_sheetReview` khỏi cố dựng lại từ một dòng cơ sở dữ liệu.
+        s.resp = g ? Object.assign({}, g, { _live: true }) : null;
       })
       .catch(function (err) {
         // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
@@ -3110,6 +3233,37 @@
       })
       .then(function () { _renderSheet(); });
   }
+
+  /**
+   * Xem lại một câu của phiếu: DÙNG LẠI đúng màn nhận xét của luồng luyện tập.
+   *
+   * Không dựng một bộ vẽ rút gọn riêng — học viên đã quen màn kia, và hai bộ
+   * vẽ cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
+   */
+  function _sheetReview(i) {
+    var s = _sheet && _sheet.slots[i];
+    if (!s || !s.resp) return;
+    _sheetReviewIdx = i;
+    // `_live` = phản hồi vừa chấm xong (đã đúng hình dạng); còn lại là dòng
+    // đọc từ cơ sở dữ liệu, phải dựng lại.
+    _showFeedback(s.resp._live ? s.resp : _respToFeedbackData(s.resp));
+    // `_showFeedback` bật hai nút điều hướng của luồng phễu. Ở đây không có
+    // "câu tiếp theo" — học viên đang xem lại MỘT ô và cần về đúng chỗ cũ.
+    var n = $('btn-next-q'); if (n) n.style.display = 'none';
+    var f = $('btn-finish'); if (f) f.style.display = 'none';
+    var b = $('btn-back-sheet'); if (b) b.style.display = '';
+    if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function _backToSheet() {
+    var b = $('btn-back-sheet'); if (b) b.style.display = 'none';
+    _sheetReviewIdx = -1;
+    _renderSheet();
+    showState('sheet');
+  }
+
+  var _sheetReviewIdx = -1;
 
   async function _sheetSubmit() {
     var btn = $('btn-sheet-submit');
@@ -3230,6 +3384,8 @@
     slots.addEventListener('click', function (e) {
       var listen = e.target.closest('[data-listen]');
       if (listen) { _sheetListen(Number(listen.dataset.listen)); return; }
+      var rev = e.target.closest('[data-review]');
+      if (rev) { _sheetReview(Number(rev.dataset.review)); return; }
       var rec = e.target.closest('[data-rec]');
       if (rec && !rec.disabled) _sheetToggleRec(Number(rec.dataset.rec));
     });
@@ -3482,6 +3638,7 @@
     submitRecording:      submitRecording,
     nextQuestion:         nextQuestion,
     finishSession:        finishSession,
+    backToSheet:          _backToSheet,
     startP2Prep:          startP2Prep,
     startP2SpeakingEarly: startP2SpeakingEarly,
     stopP2SpeakingEarly:  stopP2SpeakingEarly,

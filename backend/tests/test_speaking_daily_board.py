@@ -1,0 +1,204 @@
+"""Bảng bài Speaking HẰNG NGÀY của một lớp: học viên × ngày.
+
+Lớp có bài gần như mỗi ngày, nên câu hỏi thật của giáo viên không phải "bài hôm
+nay ai nộp" mà là "ba tuần qua em nào đứt quãng" — trả lời câu ấy bằng cách mở
+hai chục bảng tổng kết của từng bài là không trả lời được.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from routers import admin_class_assignments as adm
+
+
+class _Resp:
+    def __init__(self, data): self.data = data
+
+
+class _Table:
+    def __init__(self, rows): self._rows = list(rows)
+    def select(self, *_a, **_k): return self
+    def eq(self, f, v):
+        self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+    def in_(self, f, vals):
+        self._rows = [r for r in self._rows if r.get(f) in vals]
+        return self
+    def order(self, *_a, **_k): return self
+    def limit(self, *_a): return self
+    def range(self, s, e): self._rows = self._rows[s:e + 1]; return self
+    def execute(self): return _Resp(self._rows)
+
+
+def _db(**tables):
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(tables.get(n, []))
+    return db
+
+
+def _asg(aid, day, *, kind="daily", status="published", hour="12:00"):
+    """`day` là ngày VN; 12:00Z = 19:00 giờ VN cùng ngày."""
+    return {"id": aid, "title": "Bài " + aid, "kind": kind, "status": status,
+            "cohort_id": "co1", "skill": "speaking",
+            "due_at": f"{day}T{hour}:00+00:00", "created_at": f"{day}T00:00:00+00:00"}
+
+
+def _item(aid, sid, *, submitted=None, score=None, artifact=None):
+    return {"id": f"it-{aid}-{sid}", "assignment_id": aid, "student_id": sid,
+            "submitted_at": submitted, "score": score,
+            "artifact_kind": "session" if artifact else None,
+            "artifact_id": artifact}
+
+
+_STUDENTS = [
+    {"id": "s1", "full_name": "An", "student_code": "A1", "user_id": "u1"},
+    {"id": "s2", "full_name": "Bình", "student_code": "B1", "user_id": "u2"},
+]
+
+
+async def _board(*, assignments, items, students=None, days=21):
+    db = _db(cohorts=[{"id": "co1"}],
+             class_assignments=assignments,
+             class_assignment_items=items,
+             students=students if students is not None else _STUDENTS)
+    with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
+         patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "_require_cohort", lambda _c: None):
+        return await adm.speaking_daily_board("co1", days, None)
+
+
+def _row(out, name):
+    return next(r for r in out["students"] if r["name"] == name)
+
+
+# ── Lưới cơ bản ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_one_column_per_day_newest_last():
+    out = await _board(
+        assignments=[_asg("a1", "2026-08-01"), _asg("a2", "2026-08-03")],
+        items=[_item("a1", "s1"), _item("a2", "s1")])
+    assert out["days"] == ["2026-08-01", "2026-08-03"]
+
+
+@pytest.mark.asyncio
+async def test_states_say_what_happened():
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01"), _asg("a2", "2999-01-01")],
+        items=[
+            _item("a1", "s1", submitted="2000-01-01T11:00:00+00:00"),   # trước hạn
+            _item("a1", "s2"),                                          # quá hạn, trống
+            _item("a2", "s1"),                                          # chưa tới hạn
+        ])
+    an = _row(out, "An")["cells"]
+    binh = _row(out, "Bình")["cells"]
+    assert [c["state"] for c in an] == ["done", "pending"]
+    assert binh[0]["state"] == "missing"
+    assert binh[1]["state"] == "none", "không được giao thì không phải bỏ bài"
+
+
+@pytest.mark.asyncio
+async def test_late_is_its_own_state_not_done():
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01")],
+        items=[_item("a1", "s1", submitted="2000-01-02T00:00:00+00:00")])
+    assert _row(out, "An")["cells"][0]["state"] == "late"
+
+
+@pytest.mark.asyncio
+async def test_only_daily_assignments():
+    # Bài sau buổi học có nhịp khác; xếp chung sẽ tạo cột trống đọc như bỏ bài.
+    out = await _board(
+        assignments=[_asg("a1", "2026-08-01"), _asg("a2", "2026-08-02", kind="lesson")],
+        items=[_item("a1", "s1"), _item("a2", "s1")])
+    assert out["days"] == ["2026-08-01"]
+
+
+@pytest.mark.asyncio
+async def test_archived_assignment_is_not_counted_as_missed():
+    # Lưu trữ là quyết định của giáo viên, không phải lỗi của học viên.
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01", status="archived")],
+        items=[_item("a1", "s1")])
+    assert out["days"] == []
+
+
+# ── Ngày là ngày VIỆT NAM ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_day_is_the_vietnam_calendar_day():
+    """Hạn 07:00 sáng giờ VN = 00:00Z CÙNG ngày; nhưng 23:00 giờ VN = 16:00Z.
+    Lấy ngày UTC cho ca sau vẫn đúng — ca sai là hạn sáng sớm: 06:00 VN ngày 02
+    là 23:00Z ngày 01, và cả cột sẽ lệch một ngày."""
+    out = await _board(
+        assignments=[{"id": "a1", "title": "x", "kind": "daily", "status": "published",
+                      "cohort_id": "co1", "skill": "speaking",
+                      "due_at": "2026-08-01T23:00:00+00:00",   # = 06:00 VN ngày 02
+                      "created_at": "2026-08-01T00:00:00+00:00"}],
+        items=[_item("a1", "s1")])
+    assert out["days"] == ["2026-08-02"], "ngày phải theo giờ Việt Nam"
+
+
+# ── Gộp và xếp ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_two_assignments_same_day_merge_best_first():
+    # Giao lại / giao bù: ô nói về NGÀY, nên nộp được một bài là ngày ấy có làm.
+    # Ô TỐT đứng TRƯỚC: "cuối thắng" sẽ cho ra `missing`, "tốt nhất thắng" cho
+    # `done`. Để ô tốt ở cuối thì hai luật cho cùng kết quả và phép kiểm này
+    # không chứng minh được gì.
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01"), _asg("a2", "2000-01-01", hour="13:00")],
+        items=[_item("a1", "s1", submitted="2000-01-01T11:00:00+00:00"),
+               _item("a2", "s1")])
+    assert len(out["days"]) == 1
+    assert _row(out, "An")["cells"][0]["state"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_most_gaps_first_it_is_a_todo_list():
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01"), _asg("a2", "2000-01-02")],
+        items=[_item("a1", "s1", submitted="2000-01-01T11:00:00+00:00"),
+               _item("a2", "s1", submitted="2000-01-02T11:00:00+00:00"),
+               _item("a1", "s2"), _item("a2", "s2")])
+    assert out["students"][0]["name"] == "Bình"
+    assert out["students"][0]["missing"] == 2
+
+
+@pytest.mark.asyncio
+async def test_window_keeps_the_most_recent_days():
+    out = await _board(
+        assignments=[_asg(f"a{i}", f"2026-08-{i:02d}") for i in range(1, 11)],
+        items=[_item(f"a{i}", "s1") for i in range(1, 11)],
+        days=3)
+    assert out["days"] == ["2026-08-08", "2026-08-09", "2026-08-10"]
+
+
+@pytest.mark.asyncio
+async def test_cell_carries_the_session_so_a_click_can_open_it():
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01")],
+        items=[_item("a1", "s1", submitted="2000-01-01T11:00:00+00:00",
+                     score=6.5, artifact="sess-9")])
+    cell = _row(out, "An")["cells"][0]
+    assert cell["session_id"] == "sess-9" and cell["score"] == 6.5
+    assert _row(out, "An")["avg_band"] == 6.5
+
+
+@pytest.mark.asyncio
+async def test_unactivated_learner_is_marked_not_silently_lazy():
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01")],
+        items=[_item("a1", "s3")],
+        students=[{"id": "s3", "full_name": "Chi", "student_code": "C1", "user_id": None}])
+    assert _row(out, "Chi")["activated"] is False
+
+
+@pytest.mark.asyncio
+async def test_no_daily_assignments_is_an_ordinary_empty_answer():
+    out = await _board(assignments=[], items=[])
+    assert out == {"days": [], "students": [], "assignment_count": 0}
