@@ -113,3 +113,20 @@ def test_a_failed_regrade_clears_every_band_the_success_path_writes():
     cleared = set(re.findall(r'db_row\["(\w+)"\]\s*=\s*None', fail_seg))
     assert written <= cleared, (
         f"nhánh chấm hỏng chưa xoá: {sorted(written - cleared)}")
+
+
+def test_the_core_row_fallback_still_clears_the_final_bands():
+    """Đường lùi core-row bỏ mọi cột ngoài `_CORE_COLUMNS`, kể cả hai lệnh xoá
+    `final_*`. `_compute_session_bands` ƯU TIÊN `final_*`, nên điểm cũ sót lại
+    vẫn là con số hiện trên màn hình cho một bài chưa ai chấm (codex PR 942).
+    """
+    src = _src()
+    i = src.index("response_id, partial = _persist_response_with_fallback")
+    seg = src[i:i + 1400]
+    assert "if partial and response_id and not grading:" in seg, \
+        "phải dọn riêng khi đường lùi đã nuốt mất lệnh xoá"
+    assert "final_overall_band" in seg and "final_band_p" in seg
+    # Và KHÔNG được kéo hai cột ấy vào core set — cả điểm của đường lùi là
+    # không hỏng thêm vì một cột có thể vắng mặt.
+    core = re.search(r"_CORE_COLUMNS = \{[^}]*\}", src).group(0)
+    assert "final_overall_band" not in core and "final_band_p" not in core

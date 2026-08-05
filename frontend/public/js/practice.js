@@ -3249,7 +3249,11 @@
     // Và ghi lên chính ô ấy: `onstop` chạy SAU khi ô đã sang 'recording', nên
     // đọc `s.state` ở đó luôn ra 'recording' và không bao giờ biết ô này vốn đã
     // có bài trên máy chủ (codex PR 942 — lỗi trong chính bản vá vòng trước).
-    s.hadWork = (prevState === 'saved' || prevState === 'ungraded');
+    //
+    // Giữ nguyên TÊN trạng thái chứ không rút thành true/false: một ô 'saved'
+    // ghi lại mà hỏng phải quay về 'saved' — hạ nó xuống 'ungraded' là giấu mất
+    // nút "Xem nhận xét" của một bài ĐÃ CHẤM XONG trên máy chủ.
+    s.hadWork = (prevState === 'saved' || prevState === 'ungraded') ? prevState : null;
     s.error = null;
     s.state = 'recording';
     _sheet.recIdx = i;
@@ -3281,7 +3285,7 @@
     var s = _sheet.slots[i];
     // Ô ĐÃ CÓ BÀI TRÊN MÁY CHỦ trước lần ghi này — cờ do `_sheetToggleRec` đặt
     // LÚC BẤM. Không đọc `s.state` ở đây: lúc này ô đã sang 'recording'.
-    var hadWork = !!(s && s.hadWork);
+    var hadWork = (s && s.hadWork) || null;   // 'saved' | 'ungraded' | null
     // Máy có thể dừng ghi khi phiếu đã nhả ô ra (hết giờ tối đa, hoặc một lỗi
     // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
@@ -3321,7 +3325,7 @@
         // Nhưng nếu ô ĐÃ CÓ bài từ trước thì bản cũ vẫn còn nguyên trên server:
         // hạ nó về 'chưa làm' là nói sai và khoá luôn nút Nộp. Chỉ lần ghi ĐẦU
         // TIÊN mới rơi về 'idle'.
-        s.state = hadWork ? 'ungraded' : 'idle';
+        s.state = hadWork || 'idle';
         s.error = hadWork
           ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước của bạn vẫn còn.'
           : 'Chưa lưu được câu này. Ghi âm lại giúp nhé.';

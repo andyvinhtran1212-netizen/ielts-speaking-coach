@@ -749,10 +749,13 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
   test('ghi âm LẠI mà hỏng thì GIỮ bản cũ, không hạ về "chưa làm"', async () => {
     // Bản cũ vẫn nằm nguyên trên server; hạ ô về 'idle' là nói sai và khoá lại
     // nút Nộp. Chỉ lần ghi ĐẦU TIÊN mới rơi về 'idle' (codex #942).
+    // Trả về ĐÚNG trạng thái cũ, không gộp tất cả về 'ungraded': một ô 'saved'
+    // là bài ĐÃ CHẤM XONG trên máy chủ, hạ nó xuống 'ungraded' là giấu mất nút
+    // "Xem nhận xét" cho tới khi tải lại trang (codex PR 942, vòng 5).
     for (const before of ['saved', 'ungraded']) {
       const slot = await recordThenFail(before);
-      assert.equal(slot.state, 'ungraded',
-        `ô '${before}' ghi lại mà hỏng phải giữ là đã-có-bài, không về idle`);
+      assert.equal(slot.state, before,
+        `ô '${before}' ghi lại mà hỏng phải quay về đúng '${before}'`);
       assert.match(slot.error, /bản ghi trước của bạn vẫn còn/);
     }
   });

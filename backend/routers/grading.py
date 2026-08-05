@@ -1022,6 +1022,25 @@ async def grade_response_endpoint(
             session_id=session_id, question_id=question_id,
         )
 
+        # Đường lùi core-row BỎ mọi cột ngoài `_CORE_COLUMNS`, kể cả hai lệnh
+        # xoá `final_*` vừa đặt ở nhánh chấm hỏng. Ghi âm lại một câu từng chấm
+        # được, lần này chấm hỏng, mà bản ghi đủ cột lại hỏng ⇒ điểm cũ ở lại
+        # nguyên — và `_compute_session_bands` ƯU TIÊN `final_*` hơn
+        # `overall_band`, nên nó vẫn là con số hiện trên màn hình (codex PR 942).
+        #
+        # Không nhét hai cột này vào `_CORE_COLUMNS`: chúng đến từ migration và
+        # có thể vắng mặt, mà cả điểm của đường lùi là KHÔNG được hỏng thêm.
+        # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
+        if partial and response_id and not grading:
+            try:
+                supabase_admin.table("responses").update(
+                    {"final_overall_band": None, "final_band_p": None}
+                ).eq("id", response_id).execute()
+            except Exception as exc:
+                logger.warning(
+                    "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
+                    response_id, exc)
+
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
         # fallback) so we can answer "how often does Haiku fail?" without
