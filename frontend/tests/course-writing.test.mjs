@@ -634,3 +634,58 @@ describe('hai chắn chống XOÁ NHẦM (codex PR 949 vòng 3)', () => {
     assert.deepEqual(seqs, [1, 2, 3]);
   });
 });
+
+describe('hai ca cuối (codex PR 949 vòng 5)', () => {
+  test('rời trang GỬI LẠI dù lượt lưu tự động đã "nhận" nội dung ấy', async () => {
+    // `lastPushed` đặt lúc BẮT ĐẦU gửi, nên một lượt lưu tự động chưa settle đã
+    // kịp nhận nội dung. Học viên rời trang mà không gõ thêm thì lượt keepalive
+    // thấy trùng rồi không gửi gì — và bản duy nhất mang chữ mới nhất là cái
+    // request thường mà trình duyệt sắp huỷ.
+    let release;
+    const api = fakeApi();
+    const raw = api.post.bind(api);
+    api.post = async (path, body) => {
+      if (!String(path).includes('/writing/draft')) return raw(path, body);
+      await new Promise((r) => { release = r; });
+      return raw(path, body);
+    };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'chữ cuối cùng');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    assert.ok(release, 'lượt lưu tự động phải đang treo');
+
+    w.flushDraft();                        // rời trang, KHÔNG gõ thêm gì
+    await new Promise((r) => setTimeout(r, 20));
+    const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
+    assert.equal(ka.length, 1, 'phải gửi lại bằng keepalive, không được bỏ qua');
+    assert.equal(ka[0].body.answers.E1, 'chữ cuối cùng');
+    release();
+  });
+
+  test('lượt kia đã XONG thì không gửi trùng nữa', async () => {
+    // Ranh giới: chỉ bỏ qua cờ chống-trùng khi còn lượt ĐANG BAY.
+    const { w, api } = await load();
+    w.write('E1', 'xong rồi');
+    await w.flushDraft();
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 1);
+  });
+
+  test('đọc hỏng thì gửi seq NULL, không bịa ra một con số', async () => {
+    // Gieo 0 khi không biết máy chủ ở số mấy sẽ khiến mọi lượt ghi sau đó nhỏ
+    // hơn bản đã lưu và bị bỏ qua im lặng — nháp đóng băng vĩnh viễn.
+    const { w, api } = await load({ draft: null, draftUnavailable: true });
+    w.write('E1', 'gõ sau khi đọc hỏng');
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 1);
+    assert.equal(api.drafts[0].body.seq, null, 'không biết thì nói là không biết');
+  });
+
+  test('đọc được thì vẫn gửi số thật', async () => {
+    const { w, api } = await load({ draft: { answers: { E1: 'cũ' }, seq: 4 } });
+    w.write('E1', 'mới');
+    await w.flushDraft();
+    assert.equal(api.drafts[0].body.seq, 5);
+  });
+});

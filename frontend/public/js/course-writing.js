@@ -88,10 +88,16 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // ĐÈ một bản nháp thật — chỉ cần mở trang trên mạng chậm rồi chuyển app là
   // mất sạch bài đã viết (codex PR 949).
   let ready = false;
+  // Có lượt gửi nào đang bay không. Cần biết để lượt rời-trang không bị chính
+  // cờ chống-trùng của lượt ấy chặn lại.
+  let inFlight = 0;
   // Số thứ tự do MÁY CHỦ giữ, gieo mầm lúc nạp rồi tăng dần: lượt ghi tới muộn
   // mang bản cũ sẽ bị máy chủ bỏ qua, nên lượt `keepalive` lúc rời trang được
   // phép bắn NGAY thay vì xếp hàng.
   let seq = 0;
+  // Có biết máy chủ đang ở số mấy không. Không biết ⇒ gửi `null` (không xét
+  // thứ tự) thay vì một con số bịa ra.
+  let seqKnown = false;
 
   function loadDraft() {
     if (!storage) return {};
@@ -124,18 +130,30 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       // Chụp nội dung Ở THỜI ĐIỂM GỬI, không phải lúc xếp hàng: gõ thêm trong
       // lúc chờ thì lượt này phải mang bản mới nhất.
       const body = JSON.stringify(draft);
-      if (body === lastPushed) return null;            // không có gì mới
+      // Lượt RỜI TRANG bỏ qua cờ chống-trùng khi lượt trước còn ĐANG BAY.
+      //
+      // `lastPushed` được đặt lúc BẮT ĐẦU gửi, nên một lượt lưu tự động chưa
+      // settle đã kịp "nhận" nội dung ấy. Học viên rời trang mà không gõ thêm
+      // thì lượt keepalive thấy trùng rồi không gửi gì — và bản duy nhất mang
+      // chữ mới nhất là cái request thường mà trình duyệt sắp huỷ (codex PR
+      // 949 vòng 5). Gửi lại là vô hại: máy chủ so `seq`, và `seq` bằng nhau
+      // vẫn ghi.
+      if (body === lastPushed && !(keepalive && inFlight)) return null;
       lastPushed = body;
       seq += 1;
       const path = '/api/quiz/course/writing/draft';
-      const payload = { bank_id: bankId, answers: { ...draft }, seq };
+      const payload = { bank_id: bankId, answers: { ...draft },
+                        seq: seqKnown ? seq : null };
       // `keepalive` THẬT của fetch, không phải một cờ tự đặt: rời trang thì
       // request thường bị huỷ giữa chừng — mà đó đúng là lúc đường này tồn tại
       // để phục vụ.
+      inFlight += 1;
       const sent = (keepalive && api.postWith)
         ? api.postWith(path, payload, null, { keepalive: true })
         : api.post(path, payload);
-      return sent.catch(() => { lastPushed = ''; });   // hỏng thì lần sau gửi lại
+      return sent
+        .catch(() => { lastPushed = ''; })             // hỏng thì lần sau gửi lại
+        .finally(() => { inFlight -= 1; });
     };
     if (keepalive) {
       // BẮN NGAY, không xếp hàng. Xếp sau một lượt lưu tự động còn đang bay thì
@@ -192,7 +210,13 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       draft = hasRemote ? { ...(r.draft.answers || {}) } : local;
       // Gieo mầm bộ đếm TỪ MÁY CHỦ: tải lại trang hay đổi máy đều không đặt nó
       // về 0, nên một lượt gửi mới không bao giờ bị nhận nhầm là bản cũ.
+      //
+      // KHÔNG ĐỌC ĐƯỢC thì cũng không biết máy chủ đang ở số mấy — gieo 0 lúc
+      // ấy là để mọi lượt ghi sau đó nhỏ hơn bản đã lưu và bị bỏ qua im lặng:
+      // nháp đóng băng vĩnh viễn sau một lỗi đọc tạm thời. Gửi `null` = không
+      // xét thứ tự, đúng nghĩa "không biết" (codex PR 949 vòng 5).
       seq = hasRemote ? (Number(r.draft.seq) || 0) : 0;
+      seqKnown = !unknown;
       ready = true;
       if (!submitted) {
         saveDraft();
