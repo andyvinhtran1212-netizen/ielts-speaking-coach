@@ -61,7 +61,8 @@ const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
  * localStorage là bộ nhớ CHUNG của trình duyệt, không phải của tài khoản
  * (codex #935).
  */
-export const draftKey = (bankId, userId) => 'cw:' + (userId || 'anon') + ':' + bankId;
+export const draftKey = (bankId, userId, itemId) =>
+  'cw:' + (userId || 'anon') + ':' + bankId + (itemId ? ':' + itemId : '');
 
 export function createWriting({ api, storage, userId }) {
   let bankId = null;
@@ -69,16 +70,17 @@ export function createWriting({ api, storage, userId }) {
   let submitted = false;
   let submission = null;
   let draft = {};
+  let itemId = null;
 
   function loadDraft() {
     if (!storage) return {};
-    try { return JSON.parse(storage.getItem(draftKey(bankId, userId)) || '{}') || {}; }
+    try { return JSON.parse(storage.getItem(draftKey(bankId, userId, itemId)) || '{}') || {}; }
     catch (e) { return {}; }
   }
 
   function saveDraft() {
     if (!storage || submitted) return;   // đã nộp thì nháp không còn nghĩa
-    try { storage.setItem(draftKey(bankId, userId), JSON.stringify(draft)); }
+    try { storage.setItem(draftKey(bankId, userId, itemId), JSON.stringify(draft)); }
     catch (e) { /* trình duyệt chặn lưu — vẫn viết và nộp được */ }
   }
 
@@ -95,6 +97,7 @@ export function createWriting({ api, storage, userId }) {
     async load(id) {
       bankId = id;
       const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(id));
+      itemId = (r && r.item_id) || null;
       questions = (r && r.questions) || [];
       submitted = !!(r && r.submitted);
       submission = (r && r.submission) || null;
@@ -102,7 +105,7 @@ export function createWriting({ api, storage, userId }) {
       // hiện lên đè lên bài đã chấm.
       draft = submitted ? {} : loadDraft();
       if (submitted && storage) {
-        try { storage.removeItem(draftKey(bankId, userId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }
       return { submitted, count: questions.length };
     },
@@ -129,7 +132,7 @@ export function createWriting({ api, storage, userId }) {
       submitted = true;
       submission = r;
       if (storage) {
-        try { storage.removeItem(draftKey(bankId, userId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }
       return { graded: r };
     },
@@ -203,8 +206,10 @@ export function createWriting({ api, storage, userId }) {
                       <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
                       ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
                     </li>`).join('')}</ul>`;
-        const model = q.explain
-          ? `<div class="cw-model">${md(q.explain)}</div>` : '';
+        // Đáp án mẫu cũng từ BẢN CHỤP: đề soạn lại mà lấy `q.explain` thì bài
+        // cũ đứng cạnh đáp án mẫu của một đề khác (codex #935).
+        const modelText = g.explain || q.explain || '';
+        const model = modelText ? `<div class="cw-model">${md(modelText)}</div>` : '';
         // Đề lấy từ BẢN CHỤP trước, đề hiện hành chỉ là phương án dự phòng.
         const ask = g.prompt || q.prompt || '';
         return `<article class="cw-item" data-ok="${String(ok)}">

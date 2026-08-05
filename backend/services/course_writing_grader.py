@@ -99,6 +99,7 @@ def _fallback(items: List[Dict[str, Any]], reason: str) -> List[Dict[str, Any]]:
     return [{
         "qid":       it.get("qid"),
         "prompt":    it.get("prompt", ""),
+        "explain":   it.get("explain", ""),
         "answer":    it.get("answer", ""),
         "corrected": None,
         "issues":    [],
@@ -154,6 +155,7 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         out.append({
             "qid":       it["qid"],
             "prompt":    it.get("prompt", ""),
+            "explain":   it.get("explain", ""),
             "answer":    it.get("answer", ""),
             "corrected": corrected,
             "issues":    issues[:6],

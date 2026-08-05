@@ -23,11 +23,14 @@ function memStore() {
 const Q = (qid, over = {}) => ({ qid, prompt: `Viết lại: ${qid}`, subtype: 'E1', ...over });
 
 function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
-                   submission = null, onPost } = {}) {
+                   submission = null, itemId = 'it1', onPost } = {}) {
   const calls = { get: [], post: [] };
   return {
     calls,
-    async get(path) { calls.get.push(path); return { questions, submitted, submission }; },
+    async get(path) {
+      calls.get.push(path);
+      return { questions, submitted, submission, item_id: itemId };
+    },
     async post(path, body) {
       calls.post.push({ path, body });
       if (onPost) return onPost(body);
@@ -141,12 +144,23 @@ describe('bản nháp', () => {
   });
 
   test('nháp khoá theo BANK — hai bài không đè nhau', () => {
-    assert.notEqual(draftKey('b1', 'u1'), draftKey('b2', 'u1'));
+    assert.notEqual(draftKey('b1', 'u1', 'it1'), draftKey('b2', 'u1', 'it1'));
+  });
+
+  test('nháp khoá theo MỤC BÀI GIAO — giao lại là lượt mới, không rót nháp cũ', async () => {
+    // Cùng học viên, cùng bộ bài, bài giao KHÁC: nháp của lần trước mà chảy
+    // sang lần này thì nộp nhầm bài cũ dưới mục mới.
+    assert.notEqual(draftKey('b1', 'u1', 'it-CU'), draftKey('b1', 'u1', 'it-MOI'));
+    const storage = memStore();
+    const a = await load({ storage, itemId: 'it-CU' });
+    a.w.write('E1', 'bài của lần giao trước');
+    const b = await load({ storage, itemId: 'it-MOI' });
+    assert.equal(b.w.draft.E1, undefined);
   });
 
   test('nháp khoá theo NGƯỜI DÙNG — hai học viên chung máy không đọc bài nhau', () => {
     // localStorage là bộ nhớ CHUNG của trình duyệt, không phải của tài khoản.
-    assert.notEqual(draftKey('b1', 'u1'), draftKey('b1', 'u2'));
+    assert.notEqual(draftKey('b1', 'u1', 'it1'), draftKey('b1', 'u2', 'it1'));
   });
 
   test('học viên khác mở cùng bank thì KHÔNG thấy nháp của người trước', async () => {
@@ -162,16 +176,16 @@ describe('bản nháp', () => {
     const { w } = await load({ storage });
     w.write('E1', 'a'); w.write('E2', 'b');
     await w.submit();
-    assert.equal(storage.getItem(draftKey('b1', 'u1')), null);
+    assert.equal(storage.getItem(draftKey('b1', 'u1', 'it1')), null);
   });
 
   test('mở lại một bài ĐÃ NỘP thì nháp cũ bị dọn, không đè lên bài đã chấm', async () => {
     const storage = memStore();
-    storage.setItem(draftKey('b1', 'u1'), JSON.stringify({ E1: 'rác cũ' }));
+    storage.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'rác cũ' }));
     const { w } = await load({ storage, submitted: true,
                               submission: { items: [], total: 2, clean: 0 } });
     assert.deepEqual(w.draft, {});
-    assert.equal(storage.getItem(draftKey('b1', 'u1')), null);
+    assert.equal(storage.getItem(draftKey('b1', 'u1', 'it1')), null);
   });
 
   test('bộ nhớ trình duyệt bị chặn thì vẫn viết và nộp được', async () => {
@@ -317,5 +331,18 @@ describe('màn đã chấm dựng từ BẢN CHỤP, không từ đề hiện h�
     const html = w.renderResult();
     assert.match(html, /đề lúc nộp/);
     assert.ok(!html.includes('ĐỀ MỚI'), 'hiện bài cũ dưới đề mới là nói dối cả hai phía');
+  });
+
+  test('đáp án mẫu lấy từ BẢN CHỤP, không từ đề hiện hành (codex #935)', async () => {
+    const { w } = await load({
+      submitted: true,
+      questions: [Q('E1', { explain: 'ĐÁP ÁN MẪU CỦA ĐỀ MỚI' })],
+      submission: { total: 1, clean: 1, items: [{
+        qid: 'E1', prompt: 'đề lúc nộp', explain: 'đáp án mẫu LÚC NỘP',
+        answer: 'x', corrected: 'x', ok: true, issues: [] }] },
+    });
+    const html = w.renderResult();
+    assert.match(html, /đáp án mẫu LÚC NỘP/);
+    assert.ok(!html.includes('ĐỀ MỚI'), 'ghép bài cũ với đáp án mẫu của đề khác là nói dối');
   });
 });

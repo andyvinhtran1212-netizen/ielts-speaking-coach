@@ -734,6 +734,9 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
 
     sub = rows[0] if rows else None
     return {
+        # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
+        # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
+        "item_id": (item or {}).get("id"),
         # Đề luôn trả — kể cả sau khi nộp, để học viên đọc lại đề bên cạnh bản
         # chấm. `explain` (đáp án mẫu) CHỈ trả sau khi đã nộp.
         "questions": [{
@@ -769,7 +772,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     _bank_meta_or_404(bank_id, user_id)
     try:
         qs = (supabase_admin.table("quiz_questions")
-              .select("qid, prompt, order")
+              .select("qid, prompt, explain, order")
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
     except Exception as exc:  # noqa: BLE001
@@ -817,7 +820,11 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     if already:
         raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
 
+    # `explain` (đáp án mẫu) vào BẢN CHỤP luôn. Đọc nó từ đề hiện hành lúc hiện
+    # kết quả thì đề soạn lại sẽ ghép bài cũ với đáp án mẫu của một đề khác, còn
+    # đổi mã câu thì đáp án mẫu biến mất (codex #935).
     items = [{"qid": q["qid"], "prompt": q.get("prompt") or "",
+              "explain": q.get("explain") or "",
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
     graded, model_name = await course_writing_grader.grade(items)
 
