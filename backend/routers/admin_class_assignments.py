@@ -1055,18 +1055,19 @@ async def assignment_tally(
     flags_by_session = _response_flags_for(items) if assignment.get("skill") == "speaking" else {}
 
     # Mục nào ĐÃ có bài tự luận. Một lượt đọc cho cả bảng, không hỏi từng dòng.
-    writing_items: set = set()
+    # mục → bản nộp tự luận (id, giờ chấm, số câu sạch/tổng). Lấy đủ NGAY từ
+    # đầu vì lượt vá sổ bên dưới cần chúng: đóng dấu bằng giờ MỞ BẢNG sẽ biến
+    # một bài nộp đúng hạn thành nộp trễ chỉ vì giáo viên mở muộn.
+    writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
         for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
             try:
-                writing_items.update(
-                    r["class_assignment_item_id"] for r in
-                    ((supabase_admin.table("course_writing_submissions")
-                      .select("class_assignment_item_id")
-                      .in_("class_assignment_item_id", chunk).execute().data) or [])
-                    if r.get("class_assignment_item_id")
-                )
+                for r in ((supabase_admin.table("course_writing_submissions")
+                           .select("id, class_assignment_item_id, graded_at, clean, total")
+                           .in_("class_assignment_item_id", chunk).execute().data) or []):
+                    if r.get("class_assignment_item_id"):
+                        writing_by_item[r["class_assignment_item_id"]] = r
             except Exception as exc:  # noqa: BLE001
                 # Đọc hỏng thì KHÔNG hiện nút, chứ không làm đổ cả bảng.
                 logger.warning("[class] đọc bài tự luận hỏng asg=%s: %s", assignment_id, exc)
@@ -1077,19 +1078,35 @@ async def assignment_tally(
         # hai thứ mâu thuẫn trên cùng một dòng — và số đếm ở dưới đếm thiếu.
         # Bản thân bài tự luận đã chấm LÀ bằng chứng của một lượt nộp.
         for it in items:
-            if it["id"] in writing_items and not it.get("submitted_at"):
-                try:
-                    if mark_item_submitted(
-                        supabase_admin, item_id=it["id"],
-                        artifact_kind="course_writing", artifact_id=it["id"],
-                    ):
-                        # Sửa luôn dòng đang cầm trên tay: đọc lại cả bảng chỉ
-                        # để lấy một cột là một vòng gọi mạng không cần thiết.
-                        it["submitted_at"] = datetime.now(timezone.utc).isoformat()
-                        it["state"] = "submitted"
-                except Exception as exc:  # noqa: BLE001
-                    stale = True
-                    logger.warning("[class] vá sổ tự luận hỏng item=%s: %s", it["id"], exc)
+            w = writing_by_item.get(it["id"])
+            if not w or it.get("submitted_at"):
+                continue
+            # Đóng dấu bằng GIỜ CHẤM của chính bản nộp, không phải giờ mở bảng:
+            # lượt vá này chạy bất kỳ lúc nào giáo viên mở bảng, nên lấy "bây
+            # giờ" sẽ ghi một bài nộp đúng hạn thành nộp TRỄ. Cùng lý do
+            # `_record_class_hand_in` so với giờ phiên hoàn thành.
+            when = _at(w.get("graded_at")) or datetime.now(timezone.utc)
+            pct = (round((w.get("clean") or 0) / w["total"] * 100, 1)
+                   if w.get("total") else None)
+            try:
+                # `artifact_id` trỏ vào BẢN NỘP, không phải vào chính dòng mục —
+                # nó là thứ nói cho mọi mặt đọc biết phải mở cái gì.
+                if mark_item_submitted(
+                    supabase_admin, item_id=it["id"],
+                    artifact_kind="course_writing", artifact_id=w["id"],
+                    score=pct, now=when,
+                ):
+                    # Sửa luôn dòng đang cầm trên tay: đọc lại cả bảng chỉ để
+                    # lấy vài cột là một vòng gọi mạng không cần thiết.
+                    it["submitted_at"] = when.isoformat()
+                    it["state"] = "graded" if pct is not None else "submitted"
+                    if pct is not None and it.get("score") is None:
+                        it["score"] = pct
+                    it["artifact_kind"] = "course_writing"
+                    it["artifact_id"] = w["id"]
+            except Exception as exc:  # noqa: BLE001
+                stale = True
+                logger.warning("[class] vá sổ tự luận hỏng item=%s: %s", it["id"], exc)
 
     out = []
     for it in items:
@@ -1135,7 +1152,7 @@ async def assignment_tally(
             "artifact_id":   it.get("artifact_id"),
             # Có bài tự luận để đọc không. Chỉ hiện nút khi THẬT SỰ có — một
             # liên kết mở ra "chưa nộp gì" tệ hơn không có liên kết.
-            "has_writing":   it["id"] in writing_items,
+            "has_writing":   it["id"] in writing_by_item,
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}

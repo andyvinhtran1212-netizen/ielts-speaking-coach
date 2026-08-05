@@ -121,7 +121,8 @@ def _tally_db(items, subs):
 async def _tally(items, subs, *, mark=None):
     calls = []
     def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
-        calls.append((item_id, artifact_kind))
+        calls.append({"item": item_id, "kind": artifact_kind, "artifact": artifact_id,
+                      "score": score, "now": now})
         if mark == "boom":
             raise RuntimeError("db down")
         return True
@@ -144,12 +145,13 @@ async def test_a_graded_writing_without_a_ledger_stamp_is_repaired_not_displayed
           "submitted_at": None, "score": None, "state": "opened",
           "artifact_kind": None, "artifact_id": None,
           "passed_at": None, "mastery": None}],
-        [{"class_assignment_item_id": "it1"}])
+        [{"id": "sub-9", "class_assignment_item_id": "it1",
+          "graded_at": "2026-08-01T10:00:00+00:00", "clean": 8, "total": 10}])
     row = out["students"][0]
     assert row["has_writing"] is True
     assert row["status"] in ("submitted", "late"), "bài đã chấm LÀ một lượt nộp"
     assert out["counts"]["submitted"] == 1, "số đếm phải kể cả bài vừa vá"
-    assert calls and calls[0][1] == "course_writing", "phải vá SỔ, không phải vá hiển thị"
+    assert calls and calls[0]["kind"] == "course_writing", "phải vá SỔ, không phải vá hiển thị"
 
 
 @pytest.mark.asyncio
@@ -170,5 +172,26 @@ async def test_a_failed_repair_says_stale_instead_of_lying_quietly():
           "submitted_at": None, "score": None, "state": "opened",
           "artifact_kind": None, "artifact_id": None,
           "passed_at": None, "mastery": None}],
-        [{"class_assignment_item_id": "it1"}], mark="boom")
+        [{"id": "sub-9", "class_assignment_item_id": "it1",
+          "graded_at": "2026-08-01T10:00:00+00:00", "clean": 8, "total": 10}], mark="boom")
     assert out["homework_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_the_repair_uses_the_submissions_own_time_not_the_view_time():
+    """Lượt vá chạy bất kỳ lúc nào giáo viên MỞ BẢNG. Lấy "bây giờ" sẽ ghi một
+    bài nộp đúng hạn thành nộp TRỄ chỉ vì giáo viên mở muộn — cùng lý do
+    `_record_class_hand_in` so với giờ phiên hoàn thành."""
+    out, calls = await _tally(
+        [{"id": "it1", "assignment_id": "a1", "student_id": "s1",
+          "submitted_at": None, "score": None, "state": "opened",
+          "artifact_kind": None, "artifact_id": None,
+          "passed_at": None, "mastery": None}],
+        [{"id": "sub-9", "class_assignment_item_id": "it1",
+          "graded_at": "2026-08-01T10:00:00+00:00", "clean": 8, "total": 10}])
+    c = calls[0]
+    assert c["now"] is not None and c["now"].isoformat().startswith("2026-08-01T10:00")
+    # `artifact_id` phải trỏ vào BẢN NỘP — nó nói cho mọi mặt đọc biết mở cái gì.
+    assert c["artifact"] == "sub-9"
+    assert c["score"] == 80.0, "điểm suy từ chính bản nộp, không để trống"
+    assert out["students"][0]["score"] == 80.0
