@@ -88,6 +88,36 @@
        stated on every class row rather than one click deep. */
     .cl-roster { display: flex; flex-direction: column; gap: 2px; }
     .cl-roster-count { font-variant-numeric: tabular-nums; }
+    /* Chọn người nhận. Danh sách cuộn trong chính nó: một lớp 40 em không
+       được đẩy nút Giao bài xuống dưới đáy hộp thoại. */
+    .cl-pick-head {
+      display: flex; align-items: center; gap: var(--av-space-3);
+      margin-bottom: var(--av-space-2); font-size: 13px;
+      color: var(--av-text-muted);
+    }
+    .cl-pick-head > span:first-child { margin-right: auto; }
+    .cl-pick-list {
+      max-height: 220px; overflow-y: auto;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      padding: var(--av-space-2);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .cl-pick-row {
+      display: flex; align-items: center; gap: var(--av-space-2);
+      padding: var(--av-space-2); border-radius: var(--av-radius-sm);
+      cursor: pointer; font-size: 14px;
+    }
+    .cl-pick-row:hover { background: var(--av-surface-sunken); }
+    .cl-pick-row input { margin: 0; flex: none; }
+    .cl-pick-row em {
+      margin-left: auto; font-style: normal; font-size: 12px;
+      color: var(--av-warning);
+    }
+    .adm-btn-link {
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font: inherit; font-size: 13px; color: var(--av-primary);
+      text-decoration: underline; text-underline-offset: 2px;
+    }
     .cl-roster-gap {
       font-size: var(--av-fs-xs); color: var(--av-warning);
       display: inline-flex; align-items: center; gap: 4px;
@@ -824,6 +854,27 @@
         <div class="adm-field">
           <label for="hf-instructions">Dặn dò (tuỳ chọn)</label>
           <textarea id="hf-instructions" rows="3"></textarea>
+        </div>
+        <!-- Giao cho ai. Mặc định là CẢ LỚP — mọi bài giao trước nay đều thế,
+             và đổi mặc định là đổi ý nghĩa của mọi thao tác quen tay. -->
+        <div class="adm-field">
+          <label for="hf-who">Giao cho</label>
+          <select id="hf-who">
+            <option value="all" selected>Cả lớp</option>
+            <option value="some">Chọn học viên…</option>
+          </select>
+        </div>
+        <div class="adm-field" id="hf-who-pick" hidden>
+          <div class="cl-pick-head">
+            <span id="hf-who-count">Chưa chọn ai</span>
+            <button class="adm-btn-link" id="btn-hf-who-all" type="button">Chọn tất cả</button>
+            <button class="adm-btn-link" id="btn-hf-who-none" type="button">Bỏ chọn</button>
+          </div>
+          <div class="cl-pick-list" id="hf-who-list"></div>
+          <p class="adm-hint">
+            Học viên <strong>chưa kích hoạt tài khoản</strong> vẫn nhận được dòng
+            bài giao nhưng không mở được — tên các bạn ấy có ghi chú riêng.
+          </p>
         </div>
         <div class="adm-banner" id="hf-warning" hidden></div>
         <div class="adm-banner" id="hf-error" hidden></div>

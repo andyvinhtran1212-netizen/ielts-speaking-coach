@@ -34,6 +34,8 @@ from routers.admin import require_admin
 from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
+    AssignmentNotFoundError,
+    backfill_assignment_items,
     create_class_assignment,
     mark_item_submitted,
     _ID_CHUNK,
@@ -118,6 +120,11 @@ class AssignmentCreate(BaseModel):
     # quiz_service (80% / 20 câu). Dải trùng với mastery_config để giá trị nhập
     # tay không bị kẹp lệch đi một cách im lặng.
     pass_pct:     Optional[int] = Field(default=None, ge=50, le=100)
+    # Giao cho MỘT NHÓM trong lớp. Bỏ trống = cả lớp (hành vi cũ, không đổi).
+    #
+    # Danh sách này được hàm SQL giao với `cohort_id` nên một id lớp khác lọt
+    # vào sẽ bị bỏ — chốt nằm trong giao dịch, không phải ở tầng này.
+    student_ids:  Optional[list[str]] = None
     retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
 
     @model_validator(mode="after")
@@ -1600,6 +1607,7 @@ async def create_assignment(
             due_time=parse_due_time(body.due_time),
             instructions=body.instructions,
             kind=body.kind,
+            student_ids=body.student_ids,
         )
     except EmptyRosterError as exc:
         # Raised BEFORE anything is inserted, so no orphan give is left behind.
@@ -1608,6 +1616,47 @@ async def create_assignment(
         raise HTTPException(500, f"Lỗi khi giao bài: {exc}")
 
     return result
+
+
+class BackfillBody(BaseModel):
+    """Bỏ trống = mọi em đang trong lớp mà chưa có dòng."""
+    student_ids: Optional[list[str]] = None
+
+
+@router.post("/{cohort_id}/assignments/{assignment_id}/backfill")
+async def backfill_assignment(
+    cohort_id: str,
+    assignment_id: str,
+    body: BackfillBody,
+    authorization: str | None = Header(default=None),
+):
+    """Thêm người nhận còn thiếu vào một bài ĐÃ GIAO.
+
+    Em vào lớp sau ngày giao vốn không có dòng nào trong `class_assignment_items`
+    nên bài ấy vô hình với em, còn bảng của giáo viên đếm em vào mẫu số mà không
+    bao giờ thấy bài nộp. Chỉ THÊM, không bao giờ xoá — bài đã nộp là chuyện đã
+    xảy ra. Gọi lại bao nhiêu lần cũng vô hại.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    # Bài giao phải THUỘC lớp trên đường dẫn: thiếu chốt này thì một admin của
+    # lớp A bù được người nhận cho bài của lớp B chỉ bằng cách đoán id.
+    owner = (
+        supabase_admin.table("class_assignments").select("id, cohort_id")
+        .eq("id", assignment_id).limit(1).execute().data
+    ) or []
+    if not owner or owner[0].get("cohort_id") != cohort_id:
+        raise HTTPException(404, "Không tìm thấy bài giao này trong lớp.")
+    try:
+        return backfill_assignment_items(
+            supabase_admin,
+            assignment_id=assignment_id,
+            student_ids=body.student_ids,
+        )
+    except AssignmentNotFoundError as exc:
+        raise HTTPException(404, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi bù người nhận: {exc}")
 
 
 class AssignmentPatch(BaseModel):

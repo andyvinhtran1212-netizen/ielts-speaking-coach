@@ -162,6 +162,7 @@ def create_class_assignment(
     status: str = "published",
     publish_at: Optional[str] = None,
     kind: str = "daily",
+    student_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Create one give and its per-student rows, atomically.
 
@@ -192,6 +193,11 @@ def create_class_assignment(
             # một bài ĐÃ PUBLISH mang sai loại — nhìn từ ngoài là một bài hằng
             # ngày hợp lệ, nên không có gì đỏ để báo.
             "p_kind":           kind,
+            # None = CẢ LỚP (giữ nguyên mọi lời gọi cũ). Danh sách gửi lên được
+            # hàm giao với `cohort_id`, nên một id lớp khác lọt vào sẽ bị bỏ chứ
+            # không tạo ra bài giao xuyên lớp — chốt ấy nằm trong SQL, không phải
+            # ở đây, để nó đúng cả khi có người gọi RPC bằng đường khác.
+            "p_student_ids":    list(student_ids) if student_ids else None,
         }).execute().data or []
     except Exception as exc:
         if "empty_roster" in str(exc):
@@ -206,6 +212,36 @@ def create_class_assignment(
         "student_count":     row.get("student_count") or 0,
         "unactivated_count": row.get("unactivated_count") or 0,
     }
+
+
+def backfill_assignment_items(
+    db,
+    *,
+    assignment_id: str,
+    student_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Thêm người nhận còn thiếu vào một bài ĐÃ GIAO.
+
+    Em vào lớp sau ngày giao không có dòng nào trong `class_assignment_items`,
+    nên bài ấy vô hình với em; còn bảng của giáo viên đếm em vào mẫu số mà không
+    bao giờ thấy bài nộp.
+
+    `student_ids=None` = mọi em đang trong lớp mà chưa có dòng. Chỉ THÊM, không
+    bao giờ xoá, và chạy lại bao nhiêu lần cũng vô hại (mig 193).
+    """
+    try:
+        rows = db.rpc("fn_backfill_assignment_items", {
+            "p_assignment_id": assignment_id,
+            "p_student_ids":   list(student_ids) if student_ids else None,
+        }).execute().data or []
+    except Exception as exc:
+        if "assignment_not_found" in str(exc):
+            raise AssignmentNotFoundError("Không tìm thấy bài giao này.")
+        raise
+    if not rows:
+        raise RuntimeError("Không bù được người nhận")
+    return {"added": rows[0].get("added") or 0,
+            "student_count": rows[0].get("student_count") or 0}
 
 
 def _items_for_assignments(db, assignment_ids: List[str]) -> List[Dict[str, Any]]:
@@ -353,6 +389,10 @@ def mark_item_submitted(
         logger.warning("[class] mark_item_submitted failed item=%s: %s", item_id, exc)
         raise LedgerWriteError(str(exc)) from exc
     return bool(r.data)
+
+
+class AssignmentNotFoundError(Exception):
+    """Bài giao không tồn tại — 404, không phải 500."""
 
 
 class EmptyRosterError(Exception):

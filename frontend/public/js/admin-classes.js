@@ -341,6 +341,9 @@ async function loadDetail(cohortId) {
     ? `${countLabel(members.length)} học viên · <span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt, sẽ không nhận được bài giao</span>`
     : `${countLabel(members.length)} học viên`;
 
+  // Giữ lại cho hộp thoại giao bài: mở hộp thoại mà phải chờ mạng là chờ đúng
+  // lúc người dùng đang vội nhất.
+  _who.members = members;
   $('roster-empty').hidden = members.length > 0;
   $('roster-table-wrap').hidden = members.length === 0;
   $('roster-tbody').innerHTML = members.map((m) => {
@@ -673,7 +676,10 @@ function renderHomework() {
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
       <td><button class="adm-btn-secondary" data-action="tally"
-                  data-id="${esc(a.id)}">Xem ai nộp</button> ${action}</td>
+                  data-id="${esc(a.id)}">Xem ai nộp</button>
+          <button class="adm-btn-secondary" data-action="backfill"
+                  data-id="${esc(a.id)}"
+                  title="Thêm học viên mới vào lớp vào bài này">Bù học viên</button> ${action}</td>
     </tr>`;
   }).join('');
 }
@@ -1463,6 +1469,11 @@ function renderDueResolve() {
 function openHomeworkModal() {
   const daily = document.querySelector('input[name="hf-kind"][value="daily"]');
   if (daily) daily.checked = true;
+  // Luôn quay về CẢ LỚP. Giữ lựa chọn của lần trước là để giáo viên giao nhầm
+  // cho ba em rồi tưởng cả lớp đã nhận.
+  if ($('hf-who')) $('hf-who').value = 'all';
+  _who.picked = new Set();
+  syncWho();
   $('hf-set').value = '';
   $('hf-cbank').value = '';
   $('hf-pass-pct').value = '';
@@ -1553,6 +1564,7 @@ async function submitHomework() {
           due_date: $('hf-due').value || null,
           due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
+          student_ids: whoRecipients(),
         }
         : {
           skill, title,
@@ -1560,6 +1572,7 @@ async function submitHomework() {
           due_date: $('hf-due').value || null,
           due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
+          student_ids: whoRecipients(),
         },
     );
 
@@ -1633,6 +1646,7 @@ async function submitLessonHomework(title) {
         due_days: days,
         due_time: $('hf-due-time').value || null,
         instructions: $('hf-instructions').value.trim() || null,
+        student_ids: whoRecipients(),
       },
     );
     closeHomeworkModal();
@@ -1657,6 +1671,55 @@ async function submitLessonHomework(title) {
 }
 
 /** Giao một bộ bài tập theo buổi. Payload gọn: bộ đề quyết định tất cả. */
+/* ── Chọn người nhận ────────────────────────────────────────────────────────
+ *
+ * Mặc định là CẢ LỚP. Đổi mặc định là đổi ý nghĩa của mọi thao tác quen tay,
+ * nên "chọn học viên" phải là một hành động có chủ đích.
+ *
+ * Sĩ số lấy từ `loadRoster()` đã nạp sẵn — không gọi lại: mở hộp thoại giao bài
+ * mà phải chờ mạng là chờ ở đúng lúc người dùng đang vội nhất.
+ */
+var _who = { members: [], picked: new Set() };
+
+function whoIsAll() { return !$('hf-who') || $('hf-who').value === 'all'; }
+
+/** Người nhận cho payload. `null` = cả lớp — KHÔNG phải mảng rỗng. */
+function whoRecipients() {
+  if (whoIsAll()) return null;
+  return _who.picked.size ? Array.from(_who.picked) : [];
+}
+
+function renderWho() {
+  var list = $('hf-who-list');
+  if (!list) return;
+  list.innerHTML = _who.members.map(function (m) {
+    var on = _who.picked.has(m.student_id) ? ' checked' : '';
+    return '<label class="cl-pick-row">'
+      + '<input type="checkbox" data-who="' + esc(m.student_id) + '"' + on + ' />'
+      + '<span>' + esc(m.name || m.student_code || 'Chưa có tên') + '</span>'
+      + (m.user_id ? '' : '<em>chưa kích hoạt</em>')
+      + '</label>';
+  }).join('');
+  var n = _who.picked.size;
+  $('hf-who-count').textContent = n ? ('Đã chọn ' + n + '/' + _who.members.length) : 'Chưa chọn ai';
+}
+
+function syncWho() {
+  var pick = $('hf-who-pick');
+  if (pick) pick.hidden = whoIsAll();
+  var btn = $('btn-hf-submit');
+  if (btn) {
+    btn.textContent = whoIsAll()
+      ? 'Giao cho cả lớp'
+      : ('Giao cho ' + _who.picked.size + ' học viên');
+    // Chọn "một nhóm" rồi không chọn ai là một bài giao không tới đâu. Chặn ở
+    // đây thay vì để backend trả empty_roster — lỗi ấy đúng nhưng tới muộn.
+    btn.disabled = !whoIsAll() && _who.picked.size === 0;
+  }
+  if (!whoIsAll()) renderWho();
+}
+
+
 async function submitCourseHomework(title) {
   const bankId = $('hf-cbank').value;
   if (!bankId) {
@@ -1693,6 +1756,7 @@ async function submitCourseHomework(title) {
         // hợp đồng đã ghim, và vắng mặt mới đúng nghĩa "theo mặc định".
         ...(isNaN(passPct) ? {} : { pass_pct: passPct }),
         ...(isNaN(retakeSize) ? {} : { retake_size: retakeSize }),
+        student_ids: whoRecipients(),
       },
     );
     closeHomeworkModal();
@@ -1713,6 +1777,29 @@ async function submitCourseHomework(title) {
     $('hf-error').hidden = false;
   } finally {
     $('btn-hf-submit').disabled = false;
+  }
+}
+
+/**
+ * Bù học viên mới vào một bài ĐÃ GIAO.
+ *
+ * Em vào lớp sau ngày giao không có dòng nào trong sổ bài giao, nên bài ấy vô
+ * hình với em — còn bảng của giáo viên vẫn đếm em vào mẫu số. Chỉ THÊM, không
+ * bao giờ xoá, và bấm bao nhiêu lần cũng vô hại.
+ */
+async function backfillHomework(assignmentId) {
+  try {
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId) + '/backfill', {});
+    // Nói rõ KHÔNG CÓ AI để bù, thay vì im lặng như thể vừa làm gì đó.
+    toast(r && r.added
+      ? `Đã thêm ${r.added} học viên vào bài này (tổng ${r.student_count}).`
+      : 'Mọi học viên trong lớp đều đã có bài này rồi.');
+    await loadHomework();
+    invalidateProgress();
+  } catch (err) {
+    toast('Không bù được: ' + (err.message || err), 'error');
   }
 }
 
@@ -2203,6 +2290,23 @@ function bindDetail() {
     const row = e.target.closest('.av-qpick__row');
     if (row && !row.disabled) toggleQpick(row.dataset.id);
   });
+  // Chọn người nhận. Uỷ quyền cho cả danh sách: nó được vẽ lại mỗi lần chọn.
+  $('hf-who').addEventListener('change', syncWho);
+  $('hf-who-list').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-who]');
+    if (!box) return;
+    if (box.checked) _who.picked.add(box.dataset.who);
+    else _who.picked.delete(box.dataset.who);
+    syncWho();
+  });
+  $('btn-hf-who-all').addEventListener('click', () => {
+    _who.picked = new Set(_who.members.map((m) => m.student_id));
+    syncWho();
+  });
+  $('btn-hf-who-none').addEventListener('click', () => {
+    _who.picked = new Set();
+    syncWho();
+  });
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   // Nút "Xem tự luận" nằm TRONG bảng tổng kết, vốn được vẽ lại mỗi lần mở —
   // nên uỷ quyền trên khung modal thay vì gắn tay từng nút.
@@ -2217,6 +2321,7 @@ function bindDetail() {
     if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
+    if (btn.dataset.action === 'backfill') backfillHomework(btn.dataset.id);
   });
 
   const closeTally = () => { $('tally-modal').hidden = true; };
