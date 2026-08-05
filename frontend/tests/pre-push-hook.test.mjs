@@ -31,6 +31,24 @@ const INSTALL = path.join(ROOT, 'scripts/hooks/install.sh');
 
 const run = (cwd) => execFileSync('bash', [RESOLVER], { cwd, encoding: 'utf8' }).trim();
 
+/**
+ * Máy đang chạy có Python + pytest thật không.
+ *
+ * Job "Frontend (node --test)" ở CI KHÔNG cài Python, nên hai test cần
+ * interpreter THẬT phải bỏ qua ở đó — nếu để chúng đỏ thì cả bộ frontend đỏ vì
+ * một thứ nó không chịu trách nhiệm, và người ta sẽ học cách phớt lờ.
+ *
+ * Bốn test còn lại HERMETIC (repo giả, symlink, cú pháp) nên chạy ở mọi nơi —
+ * và chúng mới là phần ghim ba bẫy lịch sử. Cái bỏ qua chỉ là "máy này có cài
+ * venv chưa", vốn là chuyện môi trường chứ không phải chuyện đúng/sai của hook.
+ */
+function hasRealPytest() {
+  try { run(ROOT); return true; } catch { return false; }
+}
+const REAL_PY = hasRealPytest();
+const SKIP_REASON = 'môi trường không có Python+pytest (job frontend ở CI) — '
+  + 'các test hermetic vẫn chạy và chúng mới là phần ghim bẫy';
+
 describe('hook pre-push của repo', () => {
   test('ba tệp tồn tại và có quyền chạy', () => {
     for (const f of [RESOLVER, HOOK, INSTALL]) {
@@ -45,7 +63,8 @@ describe('hook pre-push của repo', () => {
     }
   });
 
-  test('trả interpreter TUYỆT ĐỐI, chạy được, từ MỌI thư mục', () => {
+  test('trả interpreter TUYỆT ĐỐI, chạy được, từ MỌI thư mục', (t) => {
+    if (!REAL_PY) return t.skip(SKIP_REASON);
     // Bẫy #1 chỉ lộ ra khi chạy từ gốc repo (nơi `--git-common-dir` trả ".git").
     // Bẫy #2 chỉ lộ ra khi chạy từ worktree. Nên phải thử NHIỀU chỗ, và thử cả
     // thư mục con vì hook có `cd` trước khi dùng đường dẫn.
@@ -106,7 +125,8 @@ describe('hook pre-push của repo', () => {
       'phải trỏ đúng interpreter trong repo giả');
   });
 
-  test('interpreter trả về THỰC SỰ có pytest', () => {
+  test('interpreter trả về THỰC SỰ có pytest', (t) => {
+    if (!REAL_PY) return t.skip(SKIP_REASON);
     // Đúng cái mà bản hook đầu tiên đã sai: nó trả về một python KHÔNG có
     // pytest, rồi exit-code khác 0 bị đọc nhầm thành "test đỏ".
     const py = run(ROOT);
