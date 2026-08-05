@@ -212,7 +212,7 @@ jobs:
           BASE="origin/${{ github.base_ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
           echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
-          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/(backend|grammar-api)\.ts|frontend/public/pages/grammar-article\.html'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/|frontend/components/|frontend/public/pages/grammar-article\.html'; then
             echo "→ đụng bộ render BÀI VIẾT hoặc tầng dùng chung ⇒ phạm vi FULL"
             echo "scope=full" >> "$GITHUB_OUTPUT"
           else

@@ -20,6 +20,16 @@
 //
 // Nói cách khác: chốt này bắt được 1 trong 4 ca lịch sử, cộng với mọi ca cùng
 // hình dạng về sau. Nó không phải tấm lưới kín.
+//
+// VÀ NÓ SẼ KHÔNG BAO GIỜ KÍN. Quá trình review PR #946 chứng minh điều đó: ba
+// vòng liên tiếp phát hiện thêm một lớp đầu vào chưa mô hình hoá — đường dẫn
+// dựng từ hằng của script, rồi bước `npm run build`, rồi siêu dữ liệu bản dựng
+// (`package.json`/`tsconfig.json`). Mỗi lần vá xong lại lộ lớp kế tiếp. Một mô
+// hình TĨNH về "thứ một bước CI đọc" không thể đầy đủ, nên đừng đọc chốt này
+// như một chứng minh về tính đầy đủ: nó chỉ khẳng định các LỚP nó mô hình hoá
+// (lệnh gọi trực tiếp, import bắc cầu, chuỗi đường dẫn, gốc bí danh, siêu dữ
+// liệu bản dựng). Muốn tiến xa hơn thì phải đổi cách: để chính harness TỰ KHAI
+// danh sách tệp nó đã đọc/phục vụ, thay vì suy đoán từ ngoài.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
