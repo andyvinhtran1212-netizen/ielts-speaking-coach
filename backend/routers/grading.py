@@ -943,6 +943,23 @@ async def grade_response_endpoint(
             # signals add off_topic_verdict / length_warning / audio_duration_seconds
             # / length_soft_threshold / grammar_check (no key collisions).
             db_row["feedback"]     = _serialize_feedback(grading, signals)
+        else:
+            # CHẤM HỎNG: ghi lý do vào chính dòng ấy. `grading_error` trước đây
+            # được gán ở nhánh except rồi KHÔNG ai dùng nữa, nên 3,8% lượt hỏng
+            # trên prod không để lại dấu vết nào ngoài log máy chủ — mỗi lần
+            # điều tra là một lần đoán mò.
+            db_row["feedback"] = json.dumps(
+                {"_failed": True, "_reason": (grading_error or "")[:500],
+                 **{k: v for k, v in signals.items() if k != "grammar_check"}},
+                ensure_ascii=False)
+            # XOÁ band cũ. `_upsert_response` chỉ ghi những khoá CÓ MẶT, nên ghi
+            # âm lại một câu từng chấm được rồi lần này chấm hỏng sẽ GIỮ NGUYÊN
+            # điểm cũ dưới `grading_status='failed'` — điểm ấy vẫn được
+            # `_compute_session_bands` cộng vào và vẫn hiện trên màn hình, tức
+            # một con số cho một bài chưa ai chấm (codex PR 942).
+            db_row["overall_band"] = None
+            db_row["final_overall_band"] = None
+            db_row["final_band_p"] = None
 
         # Columns guaranteed to exist in the base schema (no migrations needed).
         # duration_seconds is intentionally excluded: the column may be INTEGER on
@@ -1004,6 +1021,25 @@ async def grade_response_endpoint(
             db_row, _CORE_COLUMNS, _upsert_response,
             session_id=session_id, question_id=question_id,
         )
+
+        # Đường lùi core-row BỎ mọi cột ngoài `_CORE_COLUMNS`, kể cả hai lệnh
+        # xoá `final_*` vừa đặt ở nhánh chấm hỏng. Ghi âm lại một câu từng chấm
+        # được, lần này chấm hỏng, mà bản ghi đủ cột lại hỏng ⇒ điểm cũ ở lại
+        # nguyên — và `_compute_session_bands` ƯU TIÊN `final_*` hơn
+        # `overall_band`, nên nó vẫn là con số hiện trên màn hình (codex PR 942).
+        #
+        # Không nhét hai cột này vào `_CORE_COLUMNS`: chúng đến từ migration và
+        # có thể vắng mặt, mà cả điểm của đường lùi là KHÔNG được hỏng thêm.
+        # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
+        if partial and response_id and not grading:
+            try:
+                supabase_admin.table("responses").update(
+                    {"final_overall_band": None, "final_band_p": None}
+                ).eq("id", response_id).execute()
+            except Exception as exc:
+                logger.warning(
+                    "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
+                    response_id, exc)
 
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
@@ -1077,6 +1113,9 @@ async def grade_response_endpoint(
             return {
                 "_stub":               True,
                 "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",
+                # Lý do THẬT đi kèm, để trang nói được câu cụ thể thay vì một
+                # câu chung chung — và để lượt điều tra sau không phải đoán.
+                "_reason":             grading_error,
                 "response_id":         response_id,
                 "partial":             partial,
                 "transcript":          transcript,

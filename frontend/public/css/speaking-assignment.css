@@ -867,6 +867,10 @@
 .av-sheet__ticks i[data-state='recording'] { background: var(--av-error); }
 .av-sheet__ticks i[data-state='grading']   { background: var(--av-accent); }
 .av-sheet__ticks i[data-state='saved']     { background: var(--av-success); }
+/* Đã lưu nhưng chưa chấm được. Thiếu dòng này thì vạch ấy xám y hệt câu CHƯA
+   LÀM, trong khi nó đã tính là xong — bảng tổng quan nói ngược lại chính phiếu
+   ngay bên dưới (codex PR 942). */
+.av-sheet__ticks i[data-state='ungraded']  { background: var(--av-warning); }
 
 .av-sheet__meter-count {
   margin: 0;
@@ -1147,3 +1151,9 @@
 .av-board__table tr[data-alarm='true'] .av-board__name {
   box-shadow: inset 3px 0 0 var(--av-error);
 }
+
+/* Đã lưu nhưng máy chấm HỎNG. Màu cảnh báo, không phải màu lỗi: bài của em ấy
+   không sai gì cả — hệ thống mới là bên hỏng, và tô đỏ sẽ đọc như một lời
+   trách. Cũng không dùng màu 'đã lưu': ô này KHÔNG có điểm. */
+.av-slot[data-state='ungraded'] .av-slot__spine { background: var(--av-warning); }
+.av-slot[data-state='ungraded'] .av-slot__status { color: var(--av-warning); }

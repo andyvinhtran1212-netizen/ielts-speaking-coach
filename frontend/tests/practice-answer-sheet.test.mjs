@@ -133,11 +133,52 @@ describe('nút nộp', () => {
   });
 });
 
+/**
+ * Chạy THẬT cặp `_sheetToggleRec` → `_sheetOnRecorded`, đúng thứ tự trình duyệt
+ * gọi: bấm nút (ô sang 'recording') rồi MediaRecorder.onstop mới bắn.
+ *
+ * Phải chạy thật mới thấy: phép kiểm cũ ghim nguyên văn dòng
+ * `var hadWork = s && (s.state === 'saved' || ...)` nên vẫn XANH trong khi dòng
+ * ấy đọc `s.state` ở thời điểm nó luôn bằng 'recording' — tức bản vá không chạy
+ * một lần nào (codex PR 942, vòng 4).
+ */
+async function recordThenFail(startState) {
+  const from = JS.indexOf('  async function _sheetToggleRec(');
+  const to = JS.indexOf('  /**\n   * Xem lại một câu của phiếu');
+  assert.ok(from !== -1 && to > from, 'không cắt được khối ghi âm');
+
+  const slot = { q: { id: 'q1' }, state: startState, band: startState === 'saved' ? 6 : null };
+  const _sheet = { slots: [slot], recIdx: -1 };
+  const body = JS.slice(from, to)
+    + ' return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded };';
+  const api = new Function(
+    '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
+    '_submitGradingEager', '_sessionId', 'console', 'window', '$', '_testMode',
+    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx', body)(
+      _sheet, () => {}, async () => true, () => {},
+      () => Promise.reject(new Error('mạng đứt')), 'sess', console,
+      { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
+      () => {}, (x) => x, 0);
+
+  await api.toggle(0);
+  assert.equal(slot.state, 'recording', 'bấm nút xong ô phải đang ghi âm');
+  api.onRecorded(new Blob !== undefined ? {} : {});
+  // để chuỗi .then/.catch/.then chạy hết
+  for (let k = 0; k < 8; k++) await Promise.resolve();
+  return slot;
+}
+
 describe('lưu hỏng thì nói ra', () => {
-  test('nộp hỏng đưa ô về CHƯA LÀM, không để xanh', () => {
+  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', async () => {
     // Để "đã lưu" nghĩa là học viên bấm Nộp rồi mất câu trả lời mà không biết.
-    assert.match(CODE, /\.catch\(function \(err\) \{[\s\S]{0,220}?s\.state = 'idle';/);
-    assert.match(CODE, /Chưa lưu được câu này/);
+    //
+    // Chốt này từng ghim NGUYÊN VĂN `s.state = 'idle';` — lại là ghim một dòng
+    // mã, không phải một hành vi. Nó đúng khi mọi lần ghi đều là lần đầu, và
+    // sai ngay khi có "ghi âm lại": bản cũ vẫn nằm trên server, hạ ô về 'chưa
+    // làm' là nói sai VÀ khoá lại nút Nộp. Nay ghim BẤT BIẾN đầy đủ.
+    const first = await recordThenFail('idle');
+    assert.equal(first.state, 'idle', 'lần ghi ĐẦU mà hỏng: chưa có gì trên server');
+    assert.match(first.error, /Chưa lưu được câu này/);
   });
 
   test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
@@ -232,10 +273,21 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
       '_renderTimer không có caller nào đọc giá trị trả về');
   });
 
-  test('micro hỏng KHÔNG làm ô đã lưu mất điểm', () => {
-    // Ghi âm lại một ô đã lưu mà micro hỏng thì ô phải quay về "đã lưu", không
-    // tụt về "chưa làm" — bài cũ vẫn còn trên server.
-    assert.match(CODE, /s\.state = s\.band === null \? 'idle' : 'saved';/);
+  test('micro hỏng KHÔNG làm mất bài đã lên máy chủ', () => {
+    // Ghi âm lại mà micro hỏng thì ô phải quay về ĐÚNG trạng thái cũ — bài cũ
+    // vẫn còn trên server.
+    //
+    // Chốt này từng ghim NGUYÊN VĂN `s.band === null ? 'idle' : 'saved'`, tức
+    // ghim một dòng mã chứ không phải một hành vi. Cách suy-từ-band ấy đúng khi
+    // chỉ có hai trạng thái, nhưng sai ngay khi có 'ungraded' (cố ý không band)
+    // — nó hạ một bài đã lưu xuống 'chưa làm'. Nay ghim BẤT BIẾN: nhớ trạng
+    // thái cũ rồi trả lại đúng nó.
+    const i = CODE.indexOf('function _sheetToggleRec');
+    const body = CODE.slice(i, i + 1200);
+    assert.match(body, /var prevState = s\.state;/, 'phải nhớ trạng thái cũ');
+    assert.match(body, /s\.state = prevState;/, 'và trả lại đúng nó');
+    assert.ok(!/s\.band === null/.test(body),
+      'đừng suy trạng thái từ band — ô chưa-chấm-được cố ý không có band');
   });
 });
 
@@ -621,5 +673,113 @@ describe('Tải audio ở lượt xem lại (codex #931 vòng 4)', () => {
   test('đuôi tệp suy từ chính URL khi không có blob', () => {
     const i = CODE.indexOf('function _downloadAudio');
     assert.match(CODE.slice(i, i + 900), /exec\(String\(_feedbackAudioUrl\)\)/);
+  });
+});
+
+/**
+ * CHẤM HỎNG là một trạng thái RIÊNG (báo cáo thật của học viên thyanh0809,
+ * bài 12 câu — 11 câu chấm xong, 1 câu `grading_status='failed'`).
+ *
+ * Trên prod 38/1000 lượt chấm gần nhất hỏng (3,8%), nên đây không phải ca lẻ.
+ * Gộp nó vào 'saved' là hiện "Đã lưu" không điểm không lời giải thích; gộp vào
+ * 'grading' là ô kẹt "Đang chấm…" vĩnh viễn và khoá luôn nút Nộp.
+ */
+describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu cả', () => {
+  test('năm trạng thái, năm nhãn khác nhau', () => {
+    const labels = new Set();
+    for (const st of ['idle', 'recording', 'grading', 'saved', 'ungraded']) {
+      const html = render([S(st)])['sheet-slots'].innerHTML;
+      const m = html.match(/av-slot__status">([^<]+)</);
+      assert.ok(m, st);
+      labels.add(m[1]);
+    }
+    assert.equal(labels.size, 5, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
+  });
+
+  test('ô chưa chấm được TÍNH LÀ XONG — không nhốt học viên', () => {
+    // Bài đã lên máy chủ; máy chấm hỏng là việc của hệ thống. Không tính thì
+    // nút Nộp khoá vĩnh viễn và em ấy không có lối ra.
+    const n = render([S('saved', { band: 6 }), S('ungraded')]);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
+    assert.match(n['sheet-submit-note'].textContent, /2\/2|cả 2/);
+  });
+
+  test('nhưng KHÔNG hiện điểm và KHÔNG mời xem nhận xét', () => {
+    const html = render([S('ungraded', { resp: { id: 'r1' } })])['sheet-slots'].innerHTML;
+    assert.doesNotMatch(html, /av-slot__band/, 'không có điểm thì đừng vẽ ô điểm');
+    assert.doesNotMatch(html, /data-review/, 'không có nhận xét để xem');
+    assert.match(html, /data-state="ungraded"/);
+  });
+
+  test('vẫn ghi âm lại được để thử chấm lần nữa', () => {
+    const label = render([S('ungraded')])['sheet-slots'].innerHTML
+      .match(/data-rec="0"[^>]*>([^<]+)</)[1].trim();
+    assert.equal(label, 'Ghi âm lại');
+  });
+
+  test('phản hồi _stub của máy chủ KHÔNG được đọc thành "đã lưu"', () => {
+    // Máy chủ trả 200 kèm `_stub` (đã lưu bài, bộ chấm hỏng) — nhánh `catch`
+    // không bao giờ chạy, nên không đọc cờ này là im lặng hoàn toàn.
+    const i = CODE.indexOf('function _sheetOnRecorded');
+    const body = CODE.slice(i, i + 1400);
+    assert.match(body, /_stub/);
+    assert.match(body, /'ungraded'/);
+    assert.ok(body.indexOf("s.state = stub ? 'ungraded' : 'saved'") !== -1,
+      'trạng thái phải rẽ theo cờ ấy');
+  });
+
+  test('tải lại trang: grading_status="failed" KHÔNG hiện "Đang chấm…"', () => {
+    const i = CODE.indexOf('function _respFailed');
+    assert.ok(i !== -1, 'phải phân biệt được chấm-hỏng với đang-chấm');
+    assert.match(CODE.slice(i, i + 200), /grading_status === 'failed'/);
+    const j = CODE.indexOf('state: _respGraded(r)');
+    assert.match(CODE.slice(j, j + 160), /_respFailed\(r\) \? 'ungraded' : 'grading'/);
+  });
+
+  test('trang KẾT QUẢ nhận ra dòng chấm hỏng qua grading_status', () => {
+    // Dòng hỏng nay CÓ `feedback` ({_failed, _reason} để điều tra), nên chỉ hỏi
+    // `!fb` là bỏ sót và bản ghi đã lưu bị đọc thành "Chưa có câu trả lời".
+    const RES = readFileSync(join(HERE, '..', 'public', 'pages', 'result.html'), 'utf8');
+    const m = /var gradingFailed = ([^;]+);/.exec(RES);
+    assert.ok(m, 'không tìm thấy phép phân loại');
+    assert.match(m[1], /grading_status === 'failed'/);
+    assert.match(m[1], /_failed/);
+  });
+
+  test('ghi âm LẠI mà hỏng thì GIỮ bản cũ, không hạ về "chưa làm"', async () => {
+    // Bản cũ vẫn nằm nguyên trên server; hạ ô về 'idle' là nói sai và khoá lại
+    // nút Nộp. Chỉ lần ghi ĐẦU TIÊN mới rơi về 'idle' (codex #942).
+    // Trả về ĐÚNG trạng thái cũ, không gộp tất cả về 'ungraded': một ô 'saved'
+    // là bài ĐÃ CHẤM XONG trên máy chủ, hạ nó xuống 'ungraded' là giấu mất nút
+    // "Xem nhận xét" cho tới khi tải lại trang (codex PR 942, vòng 5).
+    for (const before of ['saved', 'ungraded']) {
+      const slot = await recordThenFail(before);
+      assert.equal(slot.state, before,
+        `ô '${before}' ghi lại mà hỏng phải quay về đúng '${before}'`);
+      assert.match(slot.error, /bản ghi trước của bạn vẫn còn/);
+    }
+  });
+
+  test('vạch tiến độ có màu riêng cho ô chưa chấm được', () => {
+    // Thiếu nó thì vạch xám y hệt câu CHƯA LÀM, trong khi ô đã tính là xong —
+    // bảng tổng quan nói ngược lại chính phiếu ngay bên dưới.
+    const ticks = [...CSS.matchAll(/\.av-sheet__ticks i\[data-state='(\w+)'\]/g)]
+      .map((m) => m[1]);
+    for (const st of ['recording', 'grading', 'saved', 'ungraded']) {
+      assert.ok(ticks.includes(st), `vạch thiếu màu cho '${st}'`);
+    }
+  });
+
+  test('có câu chưa chấm được thì NÓI RA ở đáy phiếu', () => {
+    // "Đã lưu cả 12 câu" mà thiếu điểm sẽ khiến học viên tưởng mình bị chấm 0 —
+    // trong khi bài các em không sai gì.
+    const n = render([S('saved', { band: 6 }), S('ungraded')]);
+    assert.match(n['sheet-submit-note'].textContent, /1 câu máy chưa chấm được/);
+    assert.match(n['sheet-submit-note'].textContent, /vẫn nộp được/);
+  });
+
+  test('không có câu nào hỏng thì giữ nguyên câu cũ', () => {
+    const n = render([S('saved', { band: 6 }), S('saved', { band: 7 })]);
+    assert.match(n['sheet-submit-note'].textContent, /Đã lưu cả 2 câu\. Nộp để chốt bài\./);
   });
 });
