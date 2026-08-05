@@ -10,11 +10,5 @@
     "legacy": "/pages/speaking.html",
     "next": "/speaking",
     "allow": []
-  },
-  {
-    "name": "writing",
-    "legacy": "/pages/writing-dashboard.html",
-    "next": "/writing/dashboard",
-    "allow": []
   }
 ]
