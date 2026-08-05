@@ -125,6 +125,29 @@ async def start_session(body: StartSessionBody, authorization: str | None = Head
     )
 
 
+class CourseWritingBody(BaseModel):
+    bank_id: str
+    # {qid: câu học viên viết}
+    answers: dict[str, str] = {}
+
+
+@router.get("/course/writing")
+async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
+    """Đề tự luận của bank + bản chấm nếu đã nộp."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_writing_state(user_id=user["id"], bank_id=bank_id)
+
+
+@router.post("/course/writing")
+async def submit_course_writing(body: CourseWritingBody,
+                                authorization: str | None = Header(None)):
+    """Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank."""
+    user = await get_supabase_user(authorization)
+    return await quiz_service.submit_course_writing(
+        user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+    )
+
+
 @router.post("/course/verdict")
 async def course_verdict(body: CourseVerdictBody, authorization: str | None = Header(None)):
     """Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại)."""

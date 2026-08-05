@@ -11,6 +11,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createRunner, splitStem, md, esc, STAGE } from '../js/course-runner.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SRC = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'js', 'course-runner.js'), 'utf8');
 
 // ── Bộ giả ────────────────────────────────────────────────────────────────
 
@@ -186,12 +192,22 @@ describe('vòng đời phiên', () => {
     assert.equal(api.calls.patch[0].body.total_questions, 8);
   });
 
-  test('câu tự luận không gửi lượt làm nào', async () => {
-    const { r, api } = await run({ questions: [essay(1)] });
-    r.show(); r.selfCheck(); r.next();
-    await r.finishStage();
-    const progress = api.calls.post.filter((c) => c.path.includes('/progress'));
-    assert.deepEqual(progress.flatMap((c) => c.body.attempts), []);
+  test('câu tự luận TÁCH HẲN khỏi vòng chặng, không gửi lượt làm nào', () => {
+    // Ở phần trắc nghiệm nhịp là hỏi–đáp–giải thích từng câu; phần tự luận là
+    // ngồi viết cả cụm rồi nộp MỘT lần. Trộn vào cùng dòng chảy khiến học viên
+    // tưởng viết xong một câu là được chấm ngay — mà lượt chấm chỉ có một.
+    const i = SRC.indexOf('writingQs = qs.filter');
+    assert.ok(i !== -1, 'load() phải lọc tự luận ra khỏi qs');
+    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter[\s\S]{0,80}?!== 'writing'/);
+  });
+
+  test('chặng chỉ đếm câu trắc nghiệm', async () => {
+    const qsn = Array.from({ length: 12 }, (_, i) => mcq(i)).concat([essay(1), essay(2)]);
+    const { r } = await run({ questions: qsn });
+    assert.equal(r.total, 12, 'tự luận không nằm trong tổng số câu chia chặng');
+    assert.equal(r.stageCount, 2);
+    assert.equal(r.writing.length, 2);
+    assert.equal(r.hasWriting, true);
   });
 });
 

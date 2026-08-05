@@ -128,6 +128,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // (mẫu nhỏ, trộn câu + đáp án) khi lượt chính dưới ngưỡng.
   let mode = 'run';
   let retakeQs = [];
+  let writingQs = [];
   let retakeNo = 0;
   // Phiên của các chặng ĐÃ CHỐT THÀNH CÔNG — chính là danh sách gửi đi xét đạt.
   // Chặng không chốt được (mạng đứt) không có tên: server sẽ từ chối phiên chưa
@@ -288,6 +289,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get pendingCount() { return pending.length; },
     get stageCount() { return Math.ceil(qs.length / STAGE); },
     get total() { return qs.length; },
+    get writing() { return writingQs.slice(); },
+    get hasWriting() { return writingQs.length > 0; },
     get mode() { return mode; },
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
@@ -306,7 +309,15 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, retake_size, retakes}
       itemId = (r.mastery && r.mastery.item_id) || null;
       qs = r.questions || [];
-      if (!qs.length) throw new Error('Bài tập này chưa có câu hỏi nào.');
+      // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
+      // thích từng câu; phần tự luận là ngồi viết cả cụm rồi nộp một lần. Trộn
+      // chúng vào cùng một dòng chảy khiến học viên tưởng viết xong một câu là
+      // được chấm ngay — mà lượt chấm chỉ có MỘT.
+      writingQs = qs.filter(function (q) { return q.type === 'writing'; });
+      qs = qs.filter(function (q) { return q.type !== 'writing'; });
+      if (!qs.length && !writingQs.length) {
+        throw new Error('Bài tập này chưa có câu hỏi nào.');
+      }
       rev = fingerprint(qs);
       restore();
       // Đứng ở màn kết quả cuối thì KHÔNG có gì để ghi — mở phiên ở đây là đẻ

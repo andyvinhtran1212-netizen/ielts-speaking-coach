@@ -51,10 +51,11 @@
 
 .cx-stage__ticks i {
   flex: 1 1 0;
-  height: 5px;
-  min-width: 3px;
+  height: 8px;                     /* 5px trên điện thoại là một sợi chỉ */
+  min-width: 4px;
   border-radius: var(--av-radius-pill);
   background: var(--av-border-default);
+  transition: background .15s ease, transform .15s ease;
 }
 
 .cx-stage__ticks i[data-s='right'] { background: var(--av-success); }
@@ -70,7 +71,13 @@
   padding: 0 var(--av-space-4) var(--av-space-16);
 }
 
-.cx-q { padding-top: var(--av-space-6); }
+.cx-q {
+  margin-top: var(--av-space-6);
+  padding: var(--av-space-4);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+}
 
 .cx-q__head {
   display: flex;
@@ -119,29 +126,21 @@
 
 /* Mẫu vật: câu tiếng Anh đang bị mổ. Xem ghi chú đầu tệp. */
 .cx-spec {
-  margin: 0 0 var(--av-space-6);
-  padding: var(--av-space-4);
-  border-inline-start: 3px solid var(--av-border-strong);
+  margin: 0 0 var(--av-space-4);
+  padding: var(--av-space-4) var(--av-space-4) var(--av-space-4) var(--av-space-4);
+  border-inline-start: 3px solid var(--av-brand-teal-500);
   border-radius: 0 var(--av-radius-md) var(--av-radius-md) 0;
   background: var(--av-surface-sunken);
   font-family: var(--av-font-mono);
   font-size: var(--av-fs-sm);
   line-height: var(--av-lh-relaxed);
   color: var(--av-text-primary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 /* Phần in đậm trong nguồn = chỗ câu hỏi đang chỉ vào. Gạch chân dày phía dưới
    thay vì tô nền: tô nền một đoạn giữa câu làm vỡ nhịp đọc của cả câu, mà đọc
    được cả câu mới là việc đang được kiểm. */
-.cx-spec mark {
-  background: transparent;
-  color: inherit;
-  font-weight: var(--av-fw-bold);
-  box-shadow: inset 0 -0.35em 0 var(--av-accent-soft);
-}
+
 
 /* ══ 3 — Phương án ═══════════════════════════════════════════════════════ */
 
@@ -419,4 +418,250 @@
   font-size: var(--av-fs-xs);
   color: var(--av-success);
   white-space: nowrap;
+}
+
+/* Phần đang được hỏi. Gạch chân amber chứ không tô nền: câu mẫu là mono trên
+   nền chìm, một mảng nền thứ hai chồng lên sẽ thành hai lớp hộp. Amber ở web
+   này dành riêng cho "thứ quan trọng nhất trong khung hình" — ở đây đúng là nó. */
+.cx-spec mark,
+.cx-q__ask mark {
+  background: none;
+  color: inherit;
+  font-weight: var(--av-fw-bold);
+  box-shadow: inset 0 -0.42em 0 var(--av-accent-soft);
+  border-bottom: 2px solid var(--av-accent);
+  padding-bottom: 1px;
+}
+
+/* Ô đã chọn SAI: khoá số đặc lại, không chỉ đổi màu viền — phân biệt bằng
+   riêng màu là bỏ rơi người mù màu. */
+.cx-opt[data-r='miss'] .cx-opt__key {
+  background: var(--av-error);
+  border-color: var(--av-error);
+  color: var(--av-text-on-primary);
+}
+.cx-opt[data-r='hit'] .cx-opt__key,
+.cx-opt[data-r='key'] .cx-opt__key {
+  background: var(--av-success);
+  border-color: var(--av-success);
+  color: var(--av-text-on-primary);
+}
+.cx-opt[data-r='hit'] .cx-opt__key::after,
+.cx-opt[data-r='key'] .cx-opt__key::after { content: '✓'; }
+.cx-opt[data-r='hit'] .cx-opt__key,
+.cx-opt[data-r='key'] .cx-opt__key { font-size: 0; }
+.cx-opt[data-r='hit'] .cx-opt__key::after,
+.cx-opt[data-r='key'] .cx-opt__key::after { font-size: var(--av-fs-sm); }
+
+/* Ô không được chọn và cũng không phải đáp án: lùi hẳn ra sau. Bốn ô cùng độ
+   đậm sau khi đã trả lời làm mắt phải đọc lại cả bốn để tìm chỗ cần đọc. */
+.cx-opt[data-r='off'] { opacity: .55; }
+
+/* ═══ PHẦN TỰ LUẬN ══════════════════════════════════════════════════════════
+   Mười câu hiện CẢ CỤM, mỗi câu một ô nhập, nộp MỘT lần. Khác hẳn phần trắc
+   nghiệm ở nhịp: ở kia là hỏi–đáp–giải thích từng câu; ở đây là ngồi viết rồi
+   nộp. Nên nó phải TRÔNG khác — cùng bảng màu, khác cấu trúc — kẻo học viên
+   tưởng bấm một câu là xong như phần trên.
+
+   Điểm nhấn: sau khi chấm, chỗ sai và chỗ sửa nằm CÙNG MỘT DÒNG. Hai đoạn
+   "câu bạn viết" / "câu đã sửa" tách rời bắt người ta tự dò tìm khác chỗ nào —
+   mà đó chính là thứ duy nhất cần nhìn. */
+
+.cw-intro {
+  margin: var(--av-space-6) 0 var(--av-space-4);
+  padding-inline-start: var(--av-space-4);
+  border-inline-start: 3px solid var(--av-accent);
+}
+.cw-intro h2 {
+  margin: 0 0 var(--av-space-1);
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+}
+.cw-intro p {
+  margin: 0;
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  color: var(--av-text-secondary);
+}
+
+.cw-list { display: flex; flex-direction: column; gap: var(--av-space-4); }
+
+.cw-item {
+  padding: var(--av-space-4);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+}
+/* Câu chưa viết, khi học viên đã bấm Nộp: chỉ chỗ CHƯA XONG mới được đánh dấu,
+   và đánh bằng viền trái để không nhuộm đỏ cả thẻ. */
+.cw-item[data-missing='true'] { border-inline-start: 3px solid var(--av-warning); }
+
+.cw-item__no {
+  display: block;
+  margin-bottom: var(--av-space-2);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--av-text-muted);
+}
+.cw-item__ask {
+  margin: 0 0 var(--av-space-3);
+  font-size: var(--av-fs-base);
+  line-height: var(--av-lh-snug);
+  color: var(--av-text-primary);
+}
+
+.cw-write {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-page);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-mono);      /* viết tiếng Anh — cùng mặt chữ với câu mẫu */
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  resize: vertical;
+}
+.cw-write:focus-visible {
+  outline: 2px solid var(--av-border-focus);
+  outline-offset: 1px;
+}
+.cw-write[disabled] { opacity: 1; color: var(--av-text-secondary); }
+
+/* Thanh nộp DÍNH đáy: mười ô nhập dài hơn một màn, và nút nộp nằm tít cuối là
+   thứ học viên phải cuộn đi tìm mỗi lần muốn biết còn thiếu mấy câu. */
+.cw-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--av-space-4);
+  padding: var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-elevated);
+  box-shadow: var(--av-shadow-md);
+}
+.cw-bar__note {
+  flex: 1;
+  min-width: 12rem;
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+/* Còn thiếu câu nào thì NHẢY THẲNG tới đó — một con số "còn 3 câu" bắt học
+   viên tự cuộn dò trong mười ô. */
+.cw-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: var(--av-space-2);
+}
+.cw-jump a {
+  padding: 1px 7px;
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-pill);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-warning);
+  text-decoration: none;
+}
+.cw-jump a:hover { background: var(--av-warning-soft); }
+
+/* ── Sau khi chấm ────────────────────────────────────────────────────────── */
+
+.cw-item[data-ok='true']  { border-inline-start: 3px solid var(--av-success); }
+.cw-item[data-ok='false'] { border-inline-start: 3px solid var(--av-error); }
+.cw-item[data-ok='null']  { border-inline-start: 3px solid var(--av-border-strong); }
+
+/* SAI → SỬA trên cùng một dòng. Đây là điểm nhấn của cả phần này. */
+.cw-diff {
+  margin: 0 0 var(--av-space-3);
+  padding: var(--av-space-3);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  overflow-wrap: anywhere;
+}
+.cw-diff del {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: var(--av-error);
+}
+.cw-diff ins {
+  text-decoration: none;
+  font-weight: var(--av-fw-bold);
+  color: var(--av-success);
+}
+
+.cw-issues { margin: 0; padding: 0; list-style: none; display: flex;
+             flex-direction: column; gap: var(--av-space-2); }
+.cw-issue {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--av-space-1) var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-snug);
+}
+.cw-issue__kind {
+  padding: 1px 7px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-sunken);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-secondary);
+  white-space: nowrap;
+}
+.cw-issue__note { grid-column: 2; color: var(--av-text-secondary); }
+
+.cw-model {
+  margin-top: var(--av-space-3);
+  padding-top: var(--av-space-3);
+  border-top: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  color: var(--av-text-secondary);
+}
+.cw-model b { color: var(--av-text-primary); }
+.cw-model code {
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-primary);
+}
+
+/* Chưa chấm được — KHÁC HẲN "câu của em đúng". Nói ra, không im lặng. */
+.cw-unknown {
+  margin: 0;
+  font-size: var(--av-fs-sm);
+  font-style: italic;
+  color: var(--av-text-muted);
+}
+
+.cw-done {
+  display: flex;
+  align-items: baseline;
+  gap: var(--av-space-2);
+  margin: var(--av-space-6) 0 var(--av-space-4);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-3xl);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+}
+.cw-done small {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-base);
+  font-weight: var(--av-fw-regular);
+  color: var(--av-text-muted);
+}
+
+@media (max-width: 40rem) {
+  .cw-item { padding: var(--av-space-4); }
+  .cw-bar  { padding: var(--av-space-3); }
 }

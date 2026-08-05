@@ -583,3 +583,96 @@ describe('điểm bài theo buổi trên trang lớp (codex #928 R7)', () => {
     assert.match(html, /Band 6\.5/);
   });
 });
+
+// ── Nhịp lớp ────────────────────────────────────────────────────────────────
+//
+// Lớp giao bài gần như MỖI NGÀY, nên câu hỏi thật của học viên không phải "hạn
+// hôm nay mấy giờ" mà là "mình có đang đều không". Bốn ô thống kê trả lời được
+// câu đầu, không trả lời được câu sau.
+
+// `my-class.js` chạm `window` ở tầng module (const api = window.api) nên không
+// import thẳng được trong Node — cắt đúng vùng mã như các phép kiểm khác trong
+// tệp này vẫn làm, để vẫn chạy HÀM THẬT chứ không khớp chuỗi.
+function loadRhythm() {
+  const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'my-class.js'), 'utf8');
+  const start = SRC.indexOf('const RHYTHM_DAYS =');
+  const end = SRC.indexOf('function renderRhythm');
+  assert.ok(start !== -1 && end > start, 'không tìm thấy vùng nhịp lớp');
+  return new Function(`${SRC.slice(start, end).replace('export function', 'function')}
+    return rhythmDays;`)();
+}
+const rhythmDays = loadRhythm();
+
+describe('nhịp 14 ngày', () => {
+  const NOW = new Date('2026-08-05T10:00:00+07:00');
+  const A = (dueVN, over = {}) => ({
+    item_id: 'i', submitted_at: null, is_late: false, is_missing: false,
+    assignment: { id: 'a', title: 'Bài', skill: 'speaking',
+                  due_at: dueVN, content_config: {} },
+    ...over,
+  });
+
+  test('đúng 14 ô, hôm nay ở CUỐI', () => {
+    const d = rhythmDays([], NOW);
+    assert.equal(d.length, 14);
+    assert.equal(d[13].today, true);
+    assert.equal(d[12].today, false);
+  });
+
+  test('đã nộp / nộp trễ / bỏ lỡ là ba trạng thái khác nhau', () => {
+    const d = rhythmDays([
+      A('2026-08-03T19:00:00+07:00', { submitted_at: 'x' }),
+      A('2026-08-04T19:00:00+07:00', { submitted_at: 'x', is_late: true }),
+      A('2026-08-02T19:00:00+07:00'),                       // quá hạn, chưa nộp
+    ], NOW);
+    const by = Object.fromEntries(d.map((x) => [x.day, x.state]));
+    assert.equal(by['2026-08-03'], 'done');
+    assert.equal(by['2026-08-04'], 'late');
+    assert.equal(by['2026-08-02'], 'missing');
+  });
+
+  test('bài CHƯA TỚI HẠN không bị đếm là bỏ lỡ', () => {
+    const d = rhythmDays([A('2026-08-05T19:00:00+07:00')], NOW);   // 19:00 hôm nay
+    assert.equal(d[13].state, 'none', 'còn 9 tiếng nữa mới tới hạn');
+  });
+
+  test('ngày là ngày VIỆT NAM của hạn, không phải ngày UTC', () => {
+    // 06:00 VN ngày 04 = 23:00Z ngày 03. Lấy ngày UTC là lệch cả dải một ô.
+    const d = rhythmDays([A('2026-08-04T06:00:00+07:00', { submitted_at: 'x' })], NOW);
+    const by = Object.fromEntries(d.map((x) => [x.day, x.state]));
+    assert.equal(by['2026-08-04'], 'done');
+    assert.notEqual(by['2026-08-03'], 'done');
+  });
+
+  test('hai bài cùng ngày thì ĐÃ LÀM thắng chưa làm', () => {
+    // Ô nói về NGÀY: nộp được một bài là ngày ấy có làm.
+    const d = rhythmDays([
+      A('2026-08-03T19:00:00+07:00', { submitted_at: 'x' }),
+      A('2026-08-03T12:00:00+07:00'),
+    ], NOW);
+    assert.equal(d.find((x) => x.day === '2026-08-03').state, 'done');
+  });
+
+  test('ngày không có bài KHÁC ngày bỏ bài', () => {
+    const d = rhythmDays([], NOW);
+    assert.ok(d.every((x) => x.state === 'none'));
+  });
+});
+
+describe('trang Lớp học nằm trên thanh điều hướng', () => {
+  const CHROME = readFileSync(
+    join(HERE, '..', 'public', 'js', 'components', 'aver-chrome.js'), 'utf8');
+
+  test('có mục Lớp học, trỏ đúng trang', () => {
+    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class"/);
+  });
+
+  test('trang tự đánh dấu mình đang mở', () => {
+    const HTML = readFileSync(join(HERE, '..', 'public', 'pages', 'my-class.html'), 'utf8');
+    assert.match(HTML, /<aver-chrome active="class">/);
+  });
+
+  test('được nạp trước như các mục điều hướng khác', () => {
+    assert.match(CHROME, /href_matches: '\/pages\/my-class\.html'/);
+  });
+});

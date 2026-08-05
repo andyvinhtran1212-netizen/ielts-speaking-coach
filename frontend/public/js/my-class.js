@@ -136,6 +136,77 @@ function renderGroup(groupId, listId, rows, opts) {
   if (rows.length) $(listId).innerHTML = rows.map((a) => itemRow(a, opts)).join('');
 }
 
+/**
+ * NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một ô.
+ *
+ * Dựng từ chính danh sách bài tập đã có trên trang; không gọi thêm gì. Ngày là
+ * NGÀY VIỆT NAM của hạn nộp: hạn 19:00 giờ VN là 12:00Z, nhưng một bài hạn
+ * 06:00 sáng là 23:00Z HÔM TRƯỚC — lấy ngày UTC thì cả dải lệch một ô.
+ */
+const RHYTHM_DAYS = 14;
+const RHYTHM_MARK = { done: '✓', late: '◐', missing: '✕', none: '' };
+
+/** Date → 'YYYY-MM-DD' theo giờ Việt Nam. */
+function vnDay(d) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d);
+  } catch (e) { return d.toISOString().slice(0, 10); }
+}
+
+/** Trạng thái một ngày, gộp nhiều bài trong ngày — ĐÃ LÀM thắng CHƯA LÀM. */
+export function rhythmDays(assignments, now = new Date()) {
+  const RANK = { done: 0, late: 1, missing: 2 };
+  const by = {};
+  (assignments || []).forEach((a) => {
+    const raw = a.assignment && a.assignment.due_at;
+    if (!raw) return;
+    const due = new Date(raw);
+    if (Number.isNaN(due.getTime())) return;
+    const day = vnDay(due);
+    let st;
+    if (a.submitted_at) st = a.is_late ? 'late' : 'done';
+    else if (due < now) st = 'missing';
+    else return;                    // chưa tới hạn — chưa phải là bỏ bài
+    if (!by[day] || RANK[st] < RANK[by[day]]) by[day] = st;
+  });
+
+  const today = vnDay(now);
+  const out = [];
+  for (let i = RHYTHM_DAYS - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const day = vnDay(d);
+    out.push({ day, state: by[day] || 'none', today: day === today });
+  }
+  return out;
+}
+
+function renderRhythm(assignments) {
+  const box = $('mc-rhythm');
+  if (!box) return;
+  const days = rhythmDays(assignments || []);
+  const active = days.filter((d) => d.state !== 'none').length;
+  // Chưa có ngày nào có bài thì ẩn hẳn: một dải 14 ô trống đọc như "em bỏ 14
+  // ngày", mà sự thật là lớp chưa giao bài nào.
+  if (!active) { box.hidden = true; return; }
+  box.hidden = false;
+
+  $('mc-rhythm-row').innerHTML = days.map((d) => {
+    const label = d.state === 'none' ? 'không có bài'
+      : d.state === 'done' ? 'đã nộp'
+      : d.state === 'late' ? 'nộp trễ' : 'chưa nộp';
+    return `<i data-s="${esc(d.state)}"${d.today ? ' data-today' : ''}`
+      + ` title="${esc(d.day)} — ${label}">${RHYTHM_MARK[d.state]}</i>`;
+  }).join('');
+
+  const kept = days.filter((d) => d.state === 'done' || d.state === 'late').length;
+  const miss = days.filter((d) => d.state === 'missing').length;
+  $('mc-rhythm-note').textContent = miss
+    ? `${kept}/${active} buổi đã nộp · ${miss} buổi bỏ lỡ`
+    : `${kept}/${active} buổi đã nộp — đang đều`;
+}
+
 function renderStats(p) {
   if (!p) {
     // The assignments block failed. Showing zeros would claim the student owes
@@ -438,6 +509,7 @@ function render() {
 
   const assignments = d.assignments || [];
   renderStats(d.progress);
+  renderRhythm(assignments);
 
   renderGroup('mc-group-missing', 'mc-missing',
     assignments.filter((a) => a.is_missing), { action: true });   // itemRow tự bỏ nút
