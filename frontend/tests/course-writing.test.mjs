@@ -35,6 +35,16 @@ function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
       calls.get.push(path);
       return { questions, submitted, submission, item_id: itemId, draft };
     },
+    // `postWith` là đường có `keepalive` THẬT. Máy chủ giả phải phân biệt được
+    // hai đường, không thì chốt keepalive chẳng chứng minh gì.
+    async postWith(path, body, _h, opts) {
+      calls.post.push({ path, body, opts });
+      if (path.includes('/writing/draft')) {
+        if (failDraft) throw new Error('mạng hỏng');
+        return { saved: Object.keys(body.answers || {}).length };
+      }
+      return {};
+    },
     async post(path, body) {
       calls.post.push({ path, body });
       if (path.includes('/writing/draft')) {
@@ -436,5 +446,96 @@ describe('bản nháp sống trên MÁY CHỦ, không chỉ trong một trình d
     w.write('E1', 'câu một');            // y hệt — nhưng lần trước HỎNG
     await tick();
     assert.equal(api.drafts.length, 2, 'gửi hỏng thì lần sau phải gửi lại');
+  });
+});
+
+describe('ba ca lệch nhau giữa hai máy (codex PR 949)', () => {
+  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+
+  test('máy chủ có dòng RỖNG cũng thắng — xoá là xoá thật', async () => {
+    // Em ấy xoá sạch bài trên máy A. Máy chủ giữ một dòng `{}`. Máy B còn nháp
+    // cũ mà đọc dòng ấy thành "máy chủ chưa có gì" sẽ DỰNG LẠI đúng những câu
+    // em ấy vừa xoá — và đẩy chúng lên đè bản đã xoá.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'câu đã xoá' }));
+    const { w, api } = await load({ storage: store, draft: { answers: {} } });
+    assert.deepEqual(w.draft, {}, 'không được dựng lại thứ đã xoá');
+    await tick();
+    assert.equal(api.drafts.length, 0, 'và không được đẩy bản cũ lên đè');
+  });
+
+  test('hai lượt gửi NỐI ĐUÔI, không chồng lên nhau', async () => {
+    // Gửi song song có thể tới máy chủ ngược thứ tự, và bản upsert đến sau ghi
+    // đè bản mới hơn.
+    let live = 0;
+    let overlapped = false;
+    const order = [];
+    const api = fakeApi();
+    // Chặn CẢ HAI đường: `flushDraft` đi qua `postWith` (keepalive), lưu tự
+    // động đi qua `post`. Chỉ chặn một đường là đo một đường không chạy.
+    const slow = (raw) => async (path, body, h, opts) => {
+      if (!String(path).includes('/writing/draft')) return raw(path, body, h, opts);
+      live += 1;
+      if (live > 1) overlapped = true;
+      await new Promise((r) => setTimeout(r, 30));
+      order.push(body.answers.E1);
+      live -= 1;
+      return raw(path, body, h, opts);
+    };
+    api.post = slow(api.post.bind(api));
+    api.postWith = slow(api.postWith.bind(api));
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'một');
+    const p1 = w.flushDraft();                       // KHÔNG chờ — để nó đang bay
+    await new Promise((r) => setTimeout(r, 5));
+    w.write('E1', 'hai');
+    const p2 = w.flushDraft();                       // gọi lúc lượt trước còn bay
+    await Promise.all([p1, p2]);
+    assert.equal(overlapped, false, 'không được có hai lượt bay cùng lúc');
+    assert.deepEqual(order, ['một', 'hai'], 'phải tới máy chủ ĐÚNG thứ tự');
+  });
+
+  test('gõ thêm trong lúc chờ thì lượt gửi mang bản MỚI NHẤT', async () => {
+    // Chụp nội dung lúc xếp hàng thay vì lúc gửi là gửi đi một bản đã cũ.
+    const api = fakeApi();
+    const slow = (raw) => async (path, body, h, opts) => {
+      await new Promise((r) => setTimeout(r, 25));
+      return raw(path, body, h, opts);
+    };
+    api.post = slow(api.post.bind(api));
+    api.postWith = slow(api.postWith.bind(api));
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'một');
+    const p1 = w.flushDraft();                 // đang bay
+    await new Promise((r) => setTimeout(r, 5));
+    w.write('E1', 'hai');
+    const p2 = w.flushDraft();                 // XẾP HÀNG sau p1
+    w.write('E1', 'ba');                       // gõ thêm TRONG LÚC p2 còn xếp hàng
+    await Promise.all([p1, p2]);
+    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
+    assert.equal(sent[sent.length - 1].body.answers.E1, 'ba',
+      'chụp lúc XẾP HÀNG sẽ gửi đi "hai" — một bản đã cũ trước cả khi rời máy');
+  });
+
+  test('rời trang gửi bằng KEEPALIVE, không phải post thường', async () => {
+    // Không có keepalive thì trình duyệt huỷ request giữa lúc đóng trang —
+    // đúng ca đường này tồn tại để phục vụ.
+    const { w, api } = await load();
+    w.write('E1', 'đoạn cuối cùng');
+    await w.flushDraft();
+    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
+    assert.equal(sent.length, 1);
+    assert.deepEqual(sent[0].opts, { keepalive: true });
+  });
+
+  test('lưu tự động BÌNH THƯỜNG thì không cần keepalive', async () => {
+    const { w, api } = await load();
+    w.write('E1', 'gõ giữa chừng');
+    await tick();
+    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].opts, undefined);
   });
 });

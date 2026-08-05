@@ -107,14 +107,27 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
    * bản trong trình duyệt vẫn còn nguyên. Nhưng phải nhớ lời hứa: `flushDraft`
    * chờ nó trước khi trang đóng.
    */
-  function pushDraft() {
+  function pushDraft({ keepalive = false } = {}) {
     if (submitted || !bankId) return Promise.resolve();
-    const body = JSON.stringify(draft);
-    if (body === lastPushed) return Promise.resolve();   // không có gì mới
-    lastPushed = body;
-    pendingPush = api.post('/api/quiz/course/writing/draft',
-      { bank_id: bankId, answers: draft })
-      .catch(() => { lastPushed = ''; });   // hỏng thì lần sau gửi lại
+    // NỐI ĐUÔI, không bắn song song. Hai lượt gửi chồng nhau có thể tới máy chủ
+    // NGƯỢC thứ tự, và bản `upsert` đến sau ghi đè bản mới hơn — mở trên máy
+    // khác là mất đúng đoạn vừa gõ (codex PR 949).
+    pendingPush = pendingPush.then(() => {
+      // Chụp nội dung Ở THỜI ĐIỂM GỬI, không phải lúc xếp hàng: gõ thêm trong
+      // lúc chờ thì lượt này phải mang bản mới nhất.
+      const body = JSON.stringify(draft);
+      if (body === lastPushed) return null;            // không có gì mới
+      lastPushed = body;
+      const path = '/api/quiz/course/writing/draft';
+      const payload = { bank_id: bankId, answers: { ...draft } };
+      // `keepalive` THẬT của fetch, không phải một cờ tự đặt: rời trang thì
+      // request thường bị huỷ giữa chừng — mà đó đúng là lúc đường này tồn tại
+      // để phục vụ.
+      const sent = (keepalive && api.postWith)
+        ? api.postWith(path, payload, null, { keepalive: true })
+        : api.post(path, payload);
+      return sent.catch(() => { lastPushed = ''; });   // hỏng thì lần sau gửi lại
+    });
     return pendingPush;
   }
 
@@ -143,15 +156,20 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       submission = (r && r.submission) || null;
       // Nộp rồi thì bản nháp là rác — và giữ nó lại chỉ để một ngày nào đó
       // hiện lên đè lên bài đã chấm.
-      // MÁY CHỦ THẮNG khi nó có gì để nói: đó là bản duy nhất sống qua đổi máy.
-      // Máy chủ rỗng mà máy này có nháp thì đẩy lên ngay — nếu không, bản đang
-      // gõ dở trên máy quen sẽ biến mất ngay lần mở đầu tiên sau khi lên bản mới.
+      // MÁY CHỦ THẮNG khi nó CÓ MỘT DÒNG — kể cả dòng rỗng.
+      //
+      // Xét theo số câu là sai: em ấy xoá sạch bài trên máy này thì máy chủ giữ
+      // một dòng `{}`, và một máy khác còn nháp cũ sẽ đọc dòng ấy thành "máy
+      // chủ chưa có gì" rồi DỰNG LẠI đúng những câu em ấy vừa xoá (codex PR
+      // 949). Chỉ khi máy chủ không có dòng nào mới dùng bản trong máy.
       const local = submitted ? {} : loadDraft();
-      const remote = (!submitted && r && r.draft && r.draft.answers) || null;
-      draft = remote && Object.keys(remote).length ? { ...remote } : local;
+      const hasRemote = !submitted && !!(r && r.draft);
+      draft = hasRemote ? { ...(r.draft.answers || {}) } : local;
       if (!submitted) {
         saveDraft();
-        if (!(remote && Object.keys(remote).length) && Object.keys(local).length) {
+        if (!hasRemote && Object.keys(local).length) {
+          // Máy chủ CHƯA có gì mà máy này đang giữ bài viết dở: cứu nó lên ngay,
+          // không thì nó biến mất ở lần mở đầu tiên sau khi lên bản mới.
           lastPushed = '';
           pushDraft();
         } else {
@@ -172,7 +190,8 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
      */
     flushDraft() {
       if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
-      return pushDraft().catch(() => { /* hết cách — bản trong máy vẫn còn */ });
+      return pushDraft({ keepalive: true })
+        .catch(() => { /* hết cách — bản trong máy vẫn còn */ });
     },
 
     /** Ghi một câu vào nháp. Trả về số câu còn thiếu. */
