@@ -112,3 +112,54 @@ describe('bù học viên vào bài đã giao', () => {
     assert.match(body, /invalidateProgress\(\)/);
   });
 });
+
+describe('chi tiết làm bài', () => {
+  test('nút CHỈ hiện cho bài tập theo buổi', () => {
+    // Kỹ năng khác không có `quiz_attempts`, nút sẽ mở ra một bảng rỗng và
+    // giáo viên đọc thành "không ai làm".
+    const i = CODE.indexOf('const effort = ');
+    const body = CODE.slice(i, i + 320);
+    assert.match(body, /a\.skill === 'course' && a\.content_id/);
+  });
+
+  test('mở theo BANK, không phải theo id bài giao', () => {
+    // Báo cáo đọc `quiz_sessions.bank_id`; truyền nhầm id bài giao sẽ ra rỗng
+    // mà không có gì đỏ.
+    const i = CODE.indexOf('const effort = ');
+    assert.match(CODE.slice(i, i + 320), /data-id="\$\{esc\(a\.content_id\)\}"/);
+  });
+
+  test('gọi đúng đường báo cáo', () => {
+    const i = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(i, i + 600), /\/admin\/quiz\/banks\/'[\s\S]{0,60}\/attempt-report/);
+  });
+
+  test('bốn tình trạng đều có chữ tiếng Việt riêng', () => {
+    const i = CODE.indexOf('const EFFORT_STATE');
+    const body = CODE.slice(i, i + 260);
+    for (const s of ['stalled', 'doing', 'done', 'untouched']) {
+      assert.ok(body.includes(s + ':'), `thiếu nhãn cho '${s}'`);
+    }
+    assert.match(body, /Bỏ dở/);
+  });
+
+  test('modal có trong trang VÀ nút Đóng được nối', () => {
+    // Vẽ ra một hộp thoại không đóng được là bẫy người dùng trong đó.
+    for (const id of ['effort-modal', 'effort-body', 'btn-effort-close']) {
+      assert.ok(HTML.includes(`id="${id}"`), `trang thiếu #${id}`);
+    }
+    assert.match(CODE, /\$\('btn-effort-close'\)\.addEventListener\('click'/);
+    assert.match(CODE, /bindModalBackdrop\('effort-modal'/);
+  });
+
+  test('ghép tên từ sĩ số, không đòi backend biết về lớp', () => {
+    // Cùng một bank giao được cho nhiều lớp.
+    const i = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(i, i + 1400), /_who\.members[\s\S]{0,120}nameOf\[m\.user_id\]/);
+  });
+
+  test('nói rõ thời gian nghĩa là gì', () => {
+    const i = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(i, i + 3000), /cộng từ các chặng đã chốt/);
+  });
+});

@@ -671,6 +671,13 @@ function renderHomework() {
         ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
         : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
     const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
+    // Chỉ bài tập theo buổi có kho câu hỏi để đọc chi tiết; các kỹ năng khác
+    // không có `quiz_attempts` nên nút sẽ mở ra một bảng rỗng.
+    const effort = (a.skill === 'course' && a.content_id)
+      ? ` <button class="adm-btn-secondary" data-action="effort"
+                  data-id="${esc(a.content_id)}"
+                  data-title="${esc(a.title)}">Chi tiết làm bài</button>`
+      : '';
     return `<tr>
       <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
@@ -679,7 +686,7 @@ function renderHomework() {
                   data-id="${esc(a.id)}">Xem ai nộp</button>
           <button class="adm-btn-secondary" data-action="backfill"
                   data-id="${esc(a.id)}"
-                  title="Thêm học viên mới vào lớp vào bài này">Bù học viên</button> ${action}</td>
+                  title="Thêm học viên mới vào lớp vào bài này">Bù học viên</button>${effort} ${action}</td>
     </tr>`;
   }).join('');
 }
@@ -1780,6 +1787,80 @@ async function submitCourseHomework(title) {
   }
 }
 
+/* ── Chi tiết làm bài (bài tập theo buổi) ───────────────────────────────────
+ *
+ * Ba câu hỏi của giáo viên mà tới nay không mặt đọc nào trả lời được: em ấy
+ * ngồi bao lâu, đang đứng ở đâu, và cả lớp vướng chỗ nào.
+ *
+ * Điều quan trọng nhất bảng này làm được là TÁCH "bỏ dở" ra khỏi "chưa nộp".
+ * Gộp chung thì một em đã làm 8 chặng rồi tắc trông y hệt một em chưa mở bài —
+ * mà hai em ấy cần hai cách xử lý hoàn toàn khác nhau.
+ */
+
+const EFFORT_STATE = {
+  stalled:   'Bỏ dở',
+  doing:     'Đang làm',
+  done:      'Xong',
+  untouched: 'Chưa mở',
+};
+
+async function openEffort(bankId, title) {
+  $('effort-modal').hidden = false;
+  $('effort-modal-title').textContent = 'Chi tiết làm bài — ' + (title || '');
+  $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  let r;
+  try {
+    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(bankId) + '/attempt-report');
+  } catch (err) {
+    $('effort-body').innerHTML =
+      '<div class="adm-banner">Không tải được: ' + esc(err.message || String(err)) + '</div>';
+    return;
+  }
+  // Báo cáo chỉ biết `user_id`. Tên nằm ở sĩ số đã nạp — ghép ở đây thay vì bắt
+  // backend biết về lớp, vì cùng một bank giao được cho nhiều lớp.
+  const nameOf = {};
+  (_who.members || []).forEach((m) => { if (m.user_id) nameOf[m.user_id] = m.name; });
+
+  const rows = (r.students || []);
+  if (!rows.length) {
+    $('effort-body').innerHTML = '<p class="adm-hint">Chưa có ai mở bài này.</p>';
+    return;
+  }
+  const body = rows.map((x) => {
+    const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
+    return `<tr>
+      <td>${esc(nameOf[x.user_id] || 'Học viên khác lớp')}</td>
+      <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
+      <td class="cl-effort-num">${x.stages_done}</td>
+      <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
+      <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
+      <td class="cl-effort-num">${acc}</td>
+    </tr>`;
+  }).join('');
+
+  const axes = (r.axes || []);
+  const top = axes.length ? axes[0].wrong : 1;
+  const axesHtml = axes.length
+    ? '<h4>Cả lớp vướng ở đâu</h4><table class="adm-table"><thead><tr>'
+      + '<th>Trục</th><th>Sai</th><th>Trung vị thời gian</th><th></th></tr></thead><tbody>'
+      + axes.map((a) => `<tr>
+          <td>${esc(a.axis)}</td>
+          <td class="cl-effort-num">${a.wrong}</td>
+          <td class="cl-effort-num">${a.median_sec == null ? '—' : a.median_sec + 's'}</td>
+          <td><div class="cl-axis-bar" style="width:${Math.round(100 * a.wrong / top)}%"></div></td>
+        </tr>`).join('')
+      + '</tbody></table>'
+    : '';
+
+  $('effort-body').innerHTML =
+    '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
+    + '<th>Chặng</th><th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
+    + '<tbody>' + body + '</tbody></table>'
+    + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '
+    + 'từ lúc mở tới lúc đóng — đóng tab rồi mở lại hôm sau không thành “một ngày rưỡi”.</p>'
+    + axesHtml;
+}
+
 /**
  * Bù học viên mới vào một bài ĐÃ GIAO.
  *
@@ -2307,6 +2388,9 @@ function bindDetail() {
     _who.picked = new Set();
     syncWho();
   });
+  const closeEffort = () => { $('effort-modal').hidden = true; };
+  $('btn-effort-close').addEventListener('click', closeEffort);
+  bindModalBackdrop('effort-modal', closeEffort);
   bindModalBackdrop('homework-modal', closeHomeworkModal);
   // Nút "Xem tự luận" nằm TRONG bảng tổng kết, vốn được vẽ lại mỗi lần mở —
   // nên uỷ quyền trên khung modal thay vì gắn tay từng nút.
@@ -2322,6 +2406,7 @@ function bindDetail() {
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
     if (btn.dataset.action === 'backfill') backfillHomework(btn.dataset.id);
+    if (btn.dataset.action === 'effort') openEffort(btn.dataset.id, btn.dataset.title);
   });
 
   const closeTally = () => { $('tally-modal').hidden = true; };

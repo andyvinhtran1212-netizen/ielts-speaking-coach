@@ -90,6 +90,17 @@
     .cl-roster-count { font-variant-numeric: tabular-nums; }
     /* Chọn người nhận. Danh sách cuộn trong chính nó: một lớp 40 em không
        được đẩy nút Giao bài xuống dưới đáy hộp thoại. */
+    /* Chi tiết làm bài. Cột số dùng chữ đều để mắt so hàng dọc được. */
+    .cl-effort-num { font-family: var(--av-font-mono); font-variant-numeric: tabular-nums; }
+    .cl-effort-state { font-size: 12px; font-weight: 600; }
+    .cl-effort-state[data-s="stalled"]   { color: var(--av-error); }
+    .cl-effort-state[data-s="doing"]     { color: var(--av-warning); }
+    .cl-effort-state[data-s="done"]      { color: var(--av-text-muted); }
+    .cl-effort-state[data-s="untouched"] { color: var(--av-text-faint); }
+    .cl-axis-bar {
+      height: 4px; border-radius: 2px; background: var(--av-accent);
+      min-width: 4px;
+    }
     .cl-pick-head {
       display: flex; align-items: center; gap: var(--av-space-3);
       margin-bottom: var(--av-space-2); font-size: 13px;
@@ -897,6 +908,17 @@
         <div id="tally-body"></div>
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-tally-close" type="button">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chi tiết làm bài (bài tập theo buổi) ──────────────────────── -->
+    <div class="adm-modal-backdrop" id="effort-modal" hidden role="presentation">
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="effort-modal-title">
+        <h3 id="effort-modal-title">Chi tiết làm bài</h3>
+        <div id="effort-body"></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-effort-close" type="button">Đóng</button>
         </div>
       </div>
     </div>

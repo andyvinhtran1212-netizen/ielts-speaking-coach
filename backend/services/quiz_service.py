@@ -16,7 +16,7 @@ import logging
 import re
 import traceback
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
@@ -1202,6 +1202,147 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────
+
+# Hai giới hạn KHÁC NHAU và cần cả hai: `_REPORT_PAGE` chặn số dòng trả về
+# (PostgREST cắt ở 1000 và không báo gì), `_REPORT_IDS` chặn số id gửi đi trong
+# `in.(...)` — một lớp làm bài mỗi ngày tích đủ phiên để chuỗi truy vấn thành
+# hàng chục KB rồi mặt đọc 500 thay vì hiện được gì.
+_REPORT_PAGE = 1000
+_REPORT_IDS = 100
+
+
+def _report_pages(table: str, cols: str, shape):
+    """Đọc hết bảng theo trang. Trả về danh sách đầy đủ."""
+    out: list[dict] = []
+    start = 0
+    while True:
+        rows = (shape(supabase_admin.table(table).select(cols))
+                .range(start, start + _REPORT_PAGE - 1).execute().data) or []
+        out.extend(rows)
+        if len(rows) < _REPORT_PAGE:
+            return out
+        start += _REPORT_PAGE
+
+
+def course_attempt_report(*, bank_id: str, cohort_id: str | None = None) -> dict:
+    """Học viên làm bài tập theo buổi TRONG BAO LÂU, và vướng ở đâu.
+
+    Ba câu hỏi của giáo viên mà tới nay không mặt đọc nào trả lời được:
+
+      · em ấy ngồi bao lâu?            → `minutes` (cộng các chặng đã chốt)
+      · em ấy đang đứng ở đâu?         → `stages_done` + `state`
+      · cả lớp vướng chỗ nào?          → `axes` (trục sai nhiều nhất)
+
+    `state` phân biệt BA chuyện mà cho tới nay bị gộp thành "chưa nộp":
+      'done'      xong hết các chặng
+      'doing'     đang làm dở — có phiên chưa chốt CÓ BÀI
+      'stalled'   mở bài rồi bỏ, không đụng tới nữa quá 24 giờ
+      'untouched' chưa mở bài lần nào
+
+    Thời gian LẤY TỪ `duration_sec` của phiên đã chốt, không phải hiệu
+    `ended_at - started_at` của cả lượt: học viên đóng tab rồi mở lại hôm sau
+    thì hiệu ấy là "một ngày rưỡi", một con số đúng về đồng hồ và vô nghĩa về
+    việc học.
+    """
+    out: dict = {"students": [], "axes": [], "bank_id": bank_id}
+
+    try:
+        sessions = _report_pages(
+            "quiz_sessions",
+            "id, user_id, ended_at, started_at, duration_sec, total_questions, "
+            "total_correct, accuracy, kind, class_assignment_item_id",
+            lambda q: q.eq("bank_id", bank_id),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report sessions failed bank=%s: %s", bank_id, exc)
+        return out
+
+    sessions = [x for x in sessions if (x.get("kind") or "run") == "run"]
+    if not sessions:
+        return out
+
+    by_user: dict[str, list[dict]] = {}
+    for x in sessions:
+        if x.get("user_id"):
+            by_user.setdefault(x["user_id"], []).append(x)
+
+    # Phiên nào CÓ BÀI — phân biệt "đang làm dở" với "bấm vào rồi thoát ngay".
+    # Tải lại trang từng đẻ ra hàng loạt phiên rỗng; đếm chúng là đang-làm-dở
+    # sẽ báo cả lớp đang dở dang trong khi không ai đụng vào bài.
+    open_ids = [x["id"] for x in sessions if not x.get("ended_at")]
+    with_work: set[str] = set()
+    slow: dict[str, list[int]] = {}
+    wrong: dict[str, int] = {}
+    for i in range(0, len(sessions), _REPORT_IDS):
+        ids = [x["id"] for x in sessions[i:i + _REPORT_IDS]]
+        try:
+            rows = _report_pages(
+                "quiz_attempts",
+                "session_id, item_key, is_correct, response_time_ms",
+                lambda q, c=ids: q.in_("session_id", c),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] attempt-report attempts failed: %s", exc)
+            rows = []
+        for a in rows:
+            if a["session_id"] in open_ids:
+                with_work.add(a["session_id"])
+            key = a.get("item_key")
+            if not key:
+                continue
+            if not a.get("is_correct"):
+                wrong[key] = wrong.get(key, 0) + 1
+            ms = a.get("response_time_ms")
+            if isinstance(ms, (int, float)) and ms > 0:
+                slow.setdefault(key, []).append(int(ms))
+
+    now = datetime.now(timezone.utc)
+    for uid, rows in by_user.items():
+        done = [x for x in rows if x.get("ended_at")]
+        live = [x for x in rows if not x.get("ended_at") and x["id"] in with_work]
+        secs = sum(int(x.get("duration_sec") or 0) for x in done)
+        asked = sum(int(x.get("total_questions") or 0) for x in done)
+        right = sum(int(x.get("total_correct") or 0) for x in done)
+        last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows)
+        if live:
+            state = "doing"
+        elif done:
+            state = "done"
+        else:
+            state = "untouched"
+        # Bỏ dở = có động vào nhưng im lặng quá 24 giờ. Đây là dòng giáo viên
+        # cần nhìn thấy, và tới nay nó trốn trong đám "chưa nộp".
+        if state == "doing" and last:
+            try:
+                gap = now - datetime.fromisoformat(last.replace("Z", "+00:00"))
+                if gap > timedelta(hours=24):
+                    state = "stalled"
+            except ValueError:
+                pass
+        out["students"].append({
+            "user_id":     uid,
+            "state":       state,
+            "stages_done": len(done),
+            "minutes":     round(secs / 60, 1),
+            "questions":   asked,
+            "correct":     right,
+            "accuracy":    round(right / asked, 3) if asked else None,
+            "last_at":     last or None,
+        })
+
+    out["students"].sort(key=lambda r: (r["state"] != "stalled", -r["stages_done"]))
+
+    # Trục vướng nhất của CẢ LỚP: nhiều lỗi sai, và tốn thời gian.
+    axes = []
+    for key, n in wrong.items():
+        times = sorted(slow.get(key) or [])
+        med = times[len(times) // 2] if times else None
+        axes.append({"axis": key, "wrong": n,
+                     "median_sec": round(med / 1000, 1) if med else None})
+    axes.sort(key=lambda a: -a["wrong"])
+    out["axes"] = axes[:15]
+    return out
+
 
 def bank_analytics(bank_id: str) -> dict:
     """Class-wide "từ dễ sai" for a bank: per-item + per-skill error rates (via
