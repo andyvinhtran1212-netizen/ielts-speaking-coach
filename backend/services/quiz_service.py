@@ -1269,8 +1269,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     lẫn trục vướng — và bỏ sót đúng những em ĐƯỢC GIAO mà chưa mở bài lần nào,
     tức là bỏ sót đúng điều bảng này sinh ra để nói (codex PR 945).
     """
+    # `stale` = có ít nhất một lượt đọc hỏng, nên các con số dưới đây CÓ THỂ
+    # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
+    # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
     out: dict = {"students": [], "axes": [], "bank_id": bank_id,
-                 "stages_total": 0}
+                 "stages_total": 0, "stale": False}
 
     # Sổ người nhận của CHÍNH bài giao này = danh sách học viên của báo cáo.
     try:
@@ -1280,6 +1283,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report items failed asg=%s: %s", assignment_id, exc)
+        out["stale"] = True
         return out
     item_ids = {i["id"] for i in items}
     if not item_ids:
@@ -1297,6 +1301,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
                 roster[st["id"]] = st.get("user_id")
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] attempt-report roster failed: %s", exc)
+            out["stale"] = True
 
     out["stages_total"] = _course_stage_count(bank_id)
 
@@ -1309,6 +1314,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report sessions failed bank=%s: %s", bank_id, exc)
+        out["stale"] = True
         sessions = []
 
     sessions = [x for x in sessions if (x.get("kind") or "run") == "run"]
@@ -1337,7 +1343,10 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
                 lambda q, c=ids: q.in_("session_id", c),
             )
         except Exception as exc:  # noqa: BLE001
+            # Đọc hỏng ở đây làm phiên ĐANG LÀM đọc thành "chưa mở" và xoá
+            # sạch trục vướng — đúng hai thứ báo cáo này tồn tại để nói.
             logger.warning("[quiz] attempt-report attempts failed: %s", exc)
+            out["stale"] = True
             rows = []
         for a in rows:
             if a["session_id"] in open_ids:

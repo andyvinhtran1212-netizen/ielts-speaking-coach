@@ -101,11 +101,28 @@ def test_the_migration_runs_in_one_transaction():
 
 
 def test_the_service_passes_none_for_the_whole_class():
-    """Bỏ trống phải thành NULL, không phải `[]` — `[]` là "không ai"."""
+    """KHÔNG TRUYỀN GÌ phải thành NULL (cả lớp).
+
+    Chốt này trước đây ghim `list(student_ids) if student_ids else None` — tức
+    là ghim đúng biểu thức CÓ LỖI, vì nó gộp `[]` vào cùng nhánh với None. Ghim
+    một biểu thức thay vì một hành vi là thế: nó khoá cái sai lại (codex PR 945
+    vòng 2). Nay ghim bất biến: không truyền = NULL, và `[]` KHÔNG phải NULL.
+    """
     src = inspect.getsource(svc.create_class_assignment)
-    assert "list(student_ids) if student_ids else None" in src
+    assert "None if student_ids is None else list(student_ids)" in src
 
 
 def test_backfill_maps_a_missing_assignment_to_404_not_500():
     src = inspect.getsource(svc.backfill_assignment_items)
     assert "assignment_not_found" in src and "AssignmentNotFoundError" in src
+
+
+def test_an_explicit_empty_list_is_nobody_not_everybody():
+    """`[]` biến thành NULL nghĩa là một lời giao-cho-vài-em không chọn ai bỗng
+    thành giao CHO CẢ LỚP — 30 em nhận một bài không dành cho họ, và không có
+    gì đỏ để báo (codex PR 945 vòng 2)."""
+    for fn in (svc.create_class_assignment, svc.backfill_assignment_items):
+        src = inspect.getsource(fn)
+        assert "None if student_ids is None else list(student_ids)" in src, \
+            f"{fn.__name__}: phải phân biệt [] với None, không dùng phép kiểm chân trị"
+        assert "list(student_ids) if student_ids else None" not in src

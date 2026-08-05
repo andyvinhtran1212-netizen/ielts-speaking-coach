@@ -180,3 +180,14 @@ describe('chi tiết làm bài', () => {
     assert.match(CODE.slice(i, i + 3000), /cộng từ các chặng đã chốt/);
   });
 });
+
+describe('nói ra khi dữ liệu chưa đọc đủ', () => {
+  test('báo cáo thiếu thì hiện cảnh báo, không vẽ bảng như thật', () => {
+    // Bảng trông bình thường mà sai còn tệ hơn bảng không hiện: giáo viên sẽ
+    // nhắc nhầm một em đang làm dở (codex PR 945 vòng 2).
+    const i = CODE.indexOf('async function openEffort');
+    const body = CODE.slice(i, i + 3200);
+    assert.match(body, /r\.stale/);
+    assert.match(body, /Chưa đọc được đầy đủ dữ liệu/);
+  });
+});

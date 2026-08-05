@@ -132,3 +132,16 @@ def test_the_stage_count_excludes_writing_questions():
     một chặng không tồn tại và không ai 'xong' được nữa."""
     src = inspect.getsource(qs._course_stage_count)
     assert '"writing"' in src and "total - writing" in src
+
+
+def test_a_partial_read_is_flagged_not_silently_smoothed_over():
+    """Đọc hỏng mà trả bảng rỗng là vẽ ra một báo cáo trông bình thường mà sai:
+    lượt ĐANG LÀM đọc thành "chưa mở", và trục vướng biến mất sạch (codex PR
+    945 vòng 2)."""
+    src = _src()
+    assert '"stale": False' in src, "phải có cờ nói ra sự thiếu"
+    # MỌI nhánh đọc hỏng đều phải bật cờ — vá một nhánh rồi sót nhánh khác thì
+    # đúng nhánh ấy vẫn nói dối trong im lặng.
+    n_except = src.count("except Exception")
+    n_flag = src.count('out["stale"] = True')
+    assert n_flag >= n_except, f"{n_except} nhánh đọc hỏng nhưng chỉ {n_flag} chỗ bật cờ"

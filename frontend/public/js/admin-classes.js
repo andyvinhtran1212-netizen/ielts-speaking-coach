@@ -1855,8 +1855,15 @@ async function openEffort(bankId, assignmentId, title) {
       + '</tbody></table>'
     : '';
 
-  $('effort-body').innerHTML =
-    '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
+  // Đọc hỏng ở máy chủ thì NÓI RA. Im lặng là vẽ một bảng trông bình thường mà
+  // sai — và giáo viên sẽ nhắc nhầm một em đang làm dở.
+  const warn = r.stale
+    ? '<div class="adm-banner">Chưa đọc được đầy đủ dữ liệu — vài dòng có thể '
+      + 'thiếu bài đã làm. Mở lại để thử lại.</div>'
+    : '';
+
+  $('effort-body').innerHTML = warn
+    + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
     + '<th>Chặng</th><th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
     + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '

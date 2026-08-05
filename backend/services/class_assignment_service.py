@@ -193,11 +193,18 @@ def create_class_assignment(
             # một bài ĐÃ PUBLISH mang sai loại — nhìn từ ngoài là một bài hằng
             # ngày hợp lệ, nên không có gì đỏ để báo.
             "p_kind":           kind,
-            # None = CẢ LỚP (giữ nguyên mọi lời gọi cũ). Danh sách gửi lên được
-            # hàm giao với `cohort_id`, nên một id lớp khác lọt vào sẽ bị bỏ chứ
-            # không tạo ra bài giao xuyên lớp — chốt ấy nằm trong SQL, không phải
-            # ở đây, để nó đúng cả khi có người gọi RPC bằng đường khác.
-            "p_student_ids":    list(student_ids) if student_ids else None,
+            # None = CẢ LỚP; `[]` = KHÔNG AI (mig 193 raise empty_roster).
+            #
+            # Phân biệt hai thứ ấy, đừng dùng phép kiểm chân trị: `[]` biến
+            # thành NULL nghĩa là một lời giao-cho-vài-em không chọn ai bỗng
+            # thành giao CHO CẢ LỚP — 30 em nhận một bài không dành cho họ, và
+            # không có gì đỏ để báo (codex PR 945).
+            #
+            # Danh sách gửi lên được hàm giao với `cohort_id`, nên một id lớp
+            # khác lọt vào sẽ bị bỏ chứ không tạo ra bài giao xuyên lớp — chốt
+            # ấy nằm trong SQL để nó đúng cả khi có người gọi RPC bằng đường
+            # khác.
+            "p_student_ids":    None if student_ids is None else list(student_ids),
         }).execute().data or []
     except Exception as exc:
         if "empty_roster" in str(exc):
@@ -232,7 +239,8 @@ def backfill_assignment_items(
     try:
         rows = db.rpc("fn_backfill_assignment_items", {
             "p_assignment_id": assignment_id,
-            "p_student_ids":   list(student_ids) if student_ids else None,
+            # Cùng lý do: `[]` là "không ai", không phải "mọi người".
+            "p_student_ids":   None if student_ids is None else list(student_ids),
         }).execute().data or []
     except Exception as exc:
         if "assignment_not_found" in str(exc):
