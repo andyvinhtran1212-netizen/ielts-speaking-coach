@@ -552,7 +552,12 @@ async def grade_response(
         # lại cùng một xúc xắc: đo trên prod, 36/38 lượt hỏng đều gọi đúng hai
         # lần và cả hai lần đều "thành công" ở tầng mạng. Một mô hình khác là
         # một phép thử ĐỘC LẬP.
-        _retry_order = GRADING_PROVIDER_ORDER[1:] or GRADING_PROVIDER_ORDER
+        #
+        # Bỏ mô hình ĐÃ TRẢ LỜI, không phải bỏ mô hình đầu danh sách: khi
+        # `grading_primary` vắng mặt (không cấu hình, hoặc thiếu khoá) thì câu
+        # trả lời hỏng đến từ `claude_haiku`, mà cắt `[1:]` lại bắt đầu đúng ở
+        # `claude_haiku` — tức là hỏi lại chính nó (codex PR 945 vòng 4).
+        _retry_order = _order_after(fallback_events)
         raw2 = await _invoke_orchestrator(
             orchestrator, system_prompt, retry_message,
             user_id=user_id, session_id=session_id,
@@ -858,6 +863,29 @@ def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
         f"First error: {first_err}. "
         f"Snippet: {preview!r}"
     )
+
+
+def _order_after(events: list[FallbackEvent] | None) -> tuple[str, ...]:
+    """Thứ tự nhà cung cấp cho lần thử LẠI: bỏ đúng bên vừa trả lời.
+
+    Bên vừa trả lời = sự kiện `success` cuối cùng — chính nó đã đưa ra chuỗi
+    không đọc được, nên hỏi lại nó là lặp lại cùng một xúc xắc.
+
+    Không tìm được thì lùi về "bỏ bên đầu danh sách" (hành vi cũ), và không bao
+    giờ trả về rỗng: cắt hết danh sách nghĩa là không còn ai để hỏi, và lượt
+    chấm hỏng vì một phép cắt.
+    """
+    answered = None
+    for e in (events or []):
+        if getattr(e, "outcome", None) == "success":
+            answered = getattr(e, "provider", None)
+    if answered and answered in GRADING_PROVIDER_ORDER:
+        i = GRADING_PROVIDER_ORDER.index(answered)
+        rest = GRADING_PROVIDER_ORDER[i + 1:]
+        # Hết hàng phía sau thì quay lại từ đầu, BỎ chính bên vừa trả lời.
+        return rest or tuple(x for x in GRADING_PROVIDER_ORDER if x != answered) \
+            or GRADING_PROVIDER_ORDER
+    return GRADING_PROVIDER_ORDER[1:] or GRADING_PROVIDER_ORDER
 
 
 async def _invoke_orchestrator(

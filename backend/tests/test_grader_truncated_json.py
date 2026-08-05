@@ -92,14 +92,48 @@ def test_the_retry_asks_a_DIFFERENT_model():
     prod: 36/38 lượt hỏng gọi hai lần, cả hai lần đều 'thành công'."""
     src = inspect.getsource(cg.grade_response)
     assert "_retry_order" in src, "lần thử lại phải có thứ tự nhà cung cấp riêng"
-    assert "GRADING_PROVIDER_ORDER[1:]" in src, \
-        "phải BỎ QUA mô hình chính ở lần hai"
     i = src.index("_retry_order")
     assert "order=_retry_order" in src[i:], "khai ra rồi phải THỰC SỰ truyền đi"
+    # Và phải TÍNH thứ tự ấy từ bên đã trả lời, không cắt cứng danh sách. Ghim
+    # riêng hàm `_order_after` là ghim một hàm không ai gọi: bản phá-thử đổi
+    # đúng dòng này vẫn xanh cho tới khi thêm chốt này.
+    assert "_order_after(fallback_events)" in src, \
+        "thứ tự thử lại phải suy từ bên vừa trả lời"
+    assert "GRADING_PROVIDER_ORDER[1:]" not in src, \
+        "cắt cứng đầu danh sách là sai khi bên đầu không phải bên đã trả lời"
+
+
+def _ev(provider: str, outcome: str):
+    from services.grading_providers.errors import FallbackEvent
+    return FallbackEvent(provider=provider, attempt=0, outcome=outcome, latency_ms=1)
+
+
+def test_the_retry_skips_the_model_that_actually_answered():
+    """Bỏ mô hình ĐẦU DANH SÁCH là sai khi nó không phải bên đã trả lời: nếu
+    `grading_primary` vắng mặt (không cấu hình / thiếu khoá) thì chuỗi hỏng đến
+    từ `claude_haiku`, mà cắt `[1:]` lại bắt đầu đúng ở `claude_haiku` — hỏi lại
+    chính nó (codex PR 945 vòng 4)."""
+    from services.grading_orchestrator import GRADING_PROVIDER_ORDER as ORDER
+    got = cg._order_after([_ev("grading_primary", "non_retryable"),
+                           _ev("claude_haiku", "success")])
+    assert "claude_haiku" not in got, "không được hỏi lại đúng bên vừa trả lời"
+    assert got, "và vẫn phải còn ai đó để hỏi"
+
+    got2 = cg._order_after([_ev("grading_primary", "success")])
+    assert got2[0] != "grading_primary"
+    assert set(got2) <= set(ORDER)
+
+
+def test_the_last_provider_in_the_chain_wraps_around():
+    """Bên trả lời là bên CUỐI chuỗi thì phía sau không còn ai — quay lại từ
+    đầu, bỏ chính nó, thay vì trả về rỗng rồi hỏng cả lượt chấm."""
+    got = cg._order_after([_ev("claude_sonnet", "success")])
+    assert got and "claude_sonnet" not in got
 
 
 def test_the_retry_order_never_ends_up_empty():
-    """Một ngày nào đó chuỗi chỉ còn một nhà cung cấp — cắt đi là không còn ai
-    để hỏi, và lượt chấm hỏng vì một phép cắt danh sách."""
-    src = inspect.getsource(cg.grade_response)
-    assert "or GRADING_PROVIDER_ORDER" in src
+    """Cắt hết danh sách nghĩa là không còn ai để hỏi, và lượt chấm hỏng vì một
+    phép cắt."""
+    assert cg._order_after([]) 
+    assert cg._order_after([_ev("mô-hình-lạ", "success")])
+    assert cg._order_after(None)

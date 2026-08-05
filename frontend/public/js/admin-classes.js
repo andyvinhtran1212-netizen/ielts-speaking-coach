@@ -1829,9 +1829,15 @@ async function openEffort(bankId, assignmentId, title) {
     if (m.student_id) { nameOf[m.student_id] = m.name; noAcct[m.student_id] = !m.user_id; }
   });
 
+  // Đọc hỏng ở lượt ĐẦU TIÊN thì `students` rỗng — và "chưa có ai mở bài" là
+  // một câu khẳng định, không phải một chỗ trống. Nói ra sự thiếu TRƯỚC, đừng
+  // để nhánh rỗng nói hộ (codex PR 945 vòng 4).
   const rows = (r.students || []);
   if (!rows.length) {
-    $('effort-body').innerHTML = '<p class="adm-hint">Chưa có ai mở bài này.</p>';
+    $('effort-body').innerHTML = r.stale
+      ? '<div class="adm-banner">Chưa đọc được dữ liệu bài làm — chưa kết luận '
+        + 'được gì về lớp này. Mở lại để thử lại.</div>'
+      : '<p class="adm-hint">Chưa có ai mở bài này.</p>';
     return;
   }
   const body = rows.map((x) => {

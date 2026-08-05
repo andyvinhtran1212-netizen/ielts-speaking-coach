@@ -69,3 +69,21 @@ def test_the_session_with_the_most_work_wins():
     assert "with_work" in src, "phiên rỗng không phải chỗ đang làm dở"
     assert "max(with_work" in src and "len(by_session" in src, \
         "phải chọn phiên NHIỀU BÀI NHẤT, không phải phiên mới nhất"
+
+
+def test_it_returns_the_last_finished_stage_result():
+    """Máy mới (chưa có gì trong localStorage) khôi phục vào màn kết quả với
+    `marks` rỗng, mà trang tính điểm TỪ `marks` — nên không có con số này thì
+    học viên xong cả bài vẫn thấy "0/10 câu đúng" (codex PR 945 vòng 4)."""
+    src = _src()
+    assert '"last_stage"' in src
+    assert "total_correct" in src and "total_questions" in src
+
+
+def test_the_totals_are_actually_selected():
+    """Đọc một cột không có trong `select` là đọc ra None — và None ở đây thành
+    "0 câu đúng", đúng thứ đang phải sửa."""
+    src = _src()
+    i = src.index(".select(")
+    sel = src[i:src.index(")", i)]
+    assert "total_correct" in sel and "total_questions" in sel

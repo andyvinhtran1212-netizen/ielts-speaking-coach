@@ -208,3 +208,17 @@ describe('em chưa kích hoạt vẫn có tên', () => {
     assert.match(CODE.slice(i, i + 2200), /chưa kích hoạt/);
   });
 });
+
+describe('rỗng-vì-hỏng khác rỗng-thật', () => {
+  test('đọc hỏng ngay lượt đầu thì cảnh báo, không nói "chưa có ai mở bài"', () => {
+    // "Chưa có ai mở bài" là một câu KHẲNG ĐỊNH. Nói nó khi chưa đọc được gì là
+    // báo với giáo viên một điều không ai kiểm chứng (codex PR 945 vòng 4).
+    const i = CODE.indexOf('async function openEffort');
+    const body = CODE.slice(i, i + 2000);
+    const j = body.indexOf('if (!rows.length)');
+    assert.ok(j !== -1);
+    const branch = body.slice(j, j + 420);
+    assert.match(branch, /r\.stale/, 'nhánh rỗng phải hỏi cờ stale TRƯỚC');
+    assert.match(branch, /Chưa đọc được dữ liệu/);
+  });
+});

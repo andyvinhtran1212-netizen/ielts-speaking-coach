@@ -856,3 +856,36 @@ describe('câu mẫu giữ nguyên xuống dòng (codex #935)', () => {
     assert.ok(s.spec.includes('\n'));
   });
 });
+
+describe('mở lại khi ĐÃ XONG cả bài', () => {
+  test('không bịa 0 điểm cho chặng cuối trên máy chưa có gì lưu', () => {
+    // Máy mới (hoặc đã xoá bộ nhớ trình duyệt) không có `marks`, mà trang tính
+    // điểm TỪ `marks` — nên đếm ra 0 là bịa một điểm số cho chặng đã chấm xong.
+    // Trang gọi `finishStage()` ngay khi thấy chặng đã đủ câu (codex PR 945 R4).
+    const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
+    return run({
+      questions: qsn, storage: memStore(),
+      resume: { session_id: null, item_id: null, answered: [],
+                completed: ['sess-cu'], last_stage: { right: 7, graded: 10 } },
+    }).then(async ({ r, api }) => {
+      assert.equal(r.isStageDone(), true, 'phải đứng ở màn kết quả');
+      const out = await r.finishStage();
+      assert.equal(out.right, 7, 'điểm thật của chặng, không phải 0');
+      assert.equal(out.graded, 10);
+      assert.equal(api.calls.patch.length, 0,
+        'không có phiên nào để chốt lại — đây thuần là hiển thị');
+    });
+  });
+
+  test('máy chủ không nói được điểm cũ thì KHÔNG bịa ra', () => {
+    const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
+    return run({
+      questions: qsn, storage: memStore(),
+      resume: { session_id: null, item_id: null, answered: [],
+                completed: ['sess-cu'], last_stage: null },
+    }).then(async ({ r }) => {
+      const out = await r.finishStage();
+      assert.equal(out.right, 0, 'không có số thật thì để 0, đừng đoán');
+    });
+  });
+});

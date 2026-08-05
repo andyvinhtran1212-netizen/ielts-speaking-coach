@@ -561,7 +561,8 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     Chỉ dành cho bank theo buổi; các luồng quiz khác trả rỗng và không đổi hành
     vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
     """
-    empty = {"session_id": None, "answered": [], "completed": [], "item_id": None}
+    empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
+             "last_stage": None}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -572,7 +573,7 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
 
     try:
         q = (supabase_admin.table("quiz_sessions")
-             .select("id, ended_at, class_assignment_item_id, created_at, kind")
+             .select("id, ended_at, class_assignment_item_id, created_at, kind, total_correct, total_questions")
              .eq("user_id", user_id).eq("bank_id", bank_id)
              .order("created_at", desc=False))
         rows = (q.execute().data) or []
@@ -589,11 +590,22 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     rows = [r for r in rows if (r.get("kind") or "run") == "run"]
 
     completed = [r["id"] for r in rows if r.get("ended_at")]
+    # Kết quả CHẶNG CUỐI ĐÃ CHỐT. Máy mới (chưa có gì trong localStorage) khôi
+    # phục vào màn kết quả với `marks` rỗng, và trang tính điểm từ `marks` — nên
+    # không có con số này thì học viên xong cả bài vẫn thấy "0/10 câu đúng"
+    # (codex PR 945 vòng 4).
+    last = None
+    for r in rows:
+        if r.get("ended_at") and r.get("total_questions"):
+            last = r
+    result_last = ({"right": int(last.get("total_correct") or 0),
+                    "graded": int(last.get("total_questions") or 0)}
+                   if last else None)
     open_rows = [r for r in rows if not r.get("ended_at")]
     # Nhiều phiên rỗng do tải lại trang: lấy phiên CÓ BÀI gần nhất, không phải
     # phiên mới nhất — bản ghi của học viên nằm ở phiên có bài.
     result = {"session_id": None, "answered": [], "completed": completed,
-              "item_id": item_id}
+              "item_id": item_id, "last_stage": result_last}
     if not open_rows:
         return result
 

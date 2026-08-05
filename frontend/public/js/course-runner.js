@@ -138,6 +138,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // rồi trang gọi finishStage lần nữa → mỗi lần F5 đẻ thêm một phiên "chặng
   // cuối" rỗng nhưng mang tổng số sao chép, chen vào lượt xét đạt.
   let resumedFinal = false;
+  // Kết quả chặng cuối lấy từ máy chủ khi không còn `marks` cục bộ để tính.
+  let restored = null;
   // Lượt đẩy giữa chặng chạy nền. Phải GIỮ lời hứa của nó: chốt chặng trong lúc
   // nó còn bay nghĩa là hàng đợi đang rỗng TẠM THỜI, `flush()` thấy không có gì
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
@@ -259,6 +261,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Xong hết các chặng: đứng ở màn kết quả, KHÔNG mở phiên mới.
       stage = stages - 1; at = STAGE; resumedFinal = true;
       sessionId = null; sessionFailed = false;
+      // Máy mới (chưa có gì lưu cục bộ) không có `marks`, mà trang tính điểm
+      // từ `marks` — nên không giữ lại con số này thì học viên xong cả bài vẫn
+      // thấy "0/10 câu đúng" ngay khi mở lại (codex PR 945 vòng 4).
+      restored = (sv.last_stage && sv.last_stage.graded) ? sv.last_stage : null;
       return true;
     }
     stage = done.length;
@@ -434,7 +440,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       return { explain: this.current().explain || '' };
     },
 
-    next() { at += 1; save(false); },
+    next() { at += 1; restored = null; save(false); },
 
     /**
      * Hết chặng: đẩy nốt rồi mới chốt.
@@ -444,8 +450,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      */
     async finishStage() {
       const list = stageQuestions();
-      const graded = list.filter((q) => q.type !== 'writing').length;
-      const right = marks.filter((m) => m === 'right').length;
+      let graded = list.filter((q) => q.type !== 'writing').length;
+      let right = marks.filter((m) => m === 'right').length;
+      // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
+      // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
+      // máy chủ giữ. Không có phiên nào để chốt lại nên đây thuần là hiển thị.
+      if (restored && !marks.length) { right = restored.right; graded = restored.graded; }
 
       const axes = {};
       list.forEach((q, i) => {
@@ -487,7 +497,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
     /** Chặng sau mở PHIÊN MỚI — xem ghi chú đầu tệp. */
     async nextStage() {
-      stage += 1; at = 0; marks = [];
+      stage += 1; at = 0; marks = []; restored = null;
       save(false);
       await openSession();
       shownAt = now();
