@@ -81,6 +81,8 @@ on:
       - 'frontend/public/js/components/aver-chrome.js'
       - 'frontend/tooling/parity-core.mjs'
       - 'frontend/tooling/parity-diff.mjs'
+      # Sửa chính bộ kiểm luồng phải chạy lại nó.
+      - 'frontend/tooling/verify-speaking-flow.mjs'
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
       - '.github/workflows/parity-gate.yml'
@@ -271,6 +273,24 @@ jobs:
             done
           done
           exit $FAIL
+
+      # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
+      # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong
+      # đợt port `/speaking` đều thuộc loại đó (listener gắn vào id không tồn
+      # tại; thiếu `cue-card-detector.js`; biểu đồ không chờ Chart.js) — build
+      # xanh, test xanh, nút không làm gì.
+      #
+      # Bước này đi HẾT luồng tạo phiên trong trình duyệt thật, chặn mạng và trả
+      # dữ liệu sẵn: không cần secret, không ghi vào đâu cả. Nó KHÔNG thay thế
+      # `tests/staging-e2e/speaking-start-flow.spec.js` (bản đó chứng minh phiên
+      # được tạo THẬT ở backend) — nó chỉ chứng minh phía trình duyệt gửi đúng,
+      # nhưng đó lại là phần mà cổng parity mù hoàn toàn.
+      # KHÔNG gác sau `authed`: bước này dùng phiên GIẢ và chặn mạng, nó không
+      # cần secret nào. Bản đầu tôi gác nó và chính PR thêm nó đã KHÔNG chạy nó
+      # (`authed` false vì chỉ sửa workflow + tooling) — đúng lớp lỗi Codex bắt
+      # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
+      - name: Kiểm luồng tạo phiên (Speaking)
+        run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Nộp báo cáo
         if: ${{ always() }}
