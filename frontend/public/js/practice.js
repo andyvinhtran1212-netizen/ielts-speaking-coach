@@ -3023,6 +3023,19 @@
     return (b == null || isNaN(parseFloat(b))) ? null : parseFloat(b);
   }
 
+  /**
+   * `pronunciation_payload` là một CHUỖI JSON nằm trong cột jsonb (4696/4696
+   * dòng trên prod) — đọc thẳng ra sẽ là chuỗi, và `.words` thành undefined.
+   */
+  function _pronPayload(r) {
+    var raw = r && r.pronunciation_payload;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { return {}; }
+    }
+    return (raw && typeof raw === 'object') ? raw : {};
+  }
+
   /** Dòng đã lưu → đúng object `_showFeedback` nhận lúc vừa chấm xong. */
   function _respToFeedbackData(r) {
     var fb = _respFeedback(r) || {};
@@ -3036,14 +3049,17 @@
       // để trống — hàm kia đã có nhánh nói thật về việc thiếu.
       pronunciation: (r.pronunciation_status === 'completed'
                       && r.pronunciation_score != null)
-        ? {
-            status:                     'completed',
-            pronunciation_score:        r.pronunciation_score,
-            pronunciation_fluency:      r.pronunciation_fluency,
-            pronunciation_accuracy:     r.pronunciation_accuracy,
-            pronunciation_completeness: r.pronunciation_completeness,
-            payload:                    r.pronunciation_payload,
-          }
+        // Tên cột DB KHÁC tên bộ vẽ đọc (`_renderPronBlock` dùng
+        // fluency_score/accuracy_score/completeness_score). Đưa nguyên tên cột
+        // xuống thì điểm tổng hiện ra còn ba ô con thành dấu gạch — trong khi
+        // dữ liệu vẫn nằm đó. Ánh xạ y như trang kết quả đang làm.
+        ? Object.assign({
+            status:              'completed',
+            pronunciation_score: r.pronunciation_score,
+            fluency_score:       r.pronunciation_fluency,
+            accuracy_score:      r.pronunciation_accuracy,
+            completeness_score:  r.pronunciation_completeness,
+          }, _pronPayload(r))
         : null,
     });
   }
@@ -3244,9 +3260,20 @@
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.resp) return;
     _sheetReviewIdx = i;
-    // `_live` = phản hồi vừa chấm xong (đã đúng hình dạng); còn lại là dòng
-    // đọc từ cơ sở dữ liệu, phải dựng lại.
-    _showFeedback(s.resp._live ? s.resp : _respToFeedbackData(s.resp));
+    // TẮT test-mode trong lúc xem lại. `_showFeedback` mở đầu bằng một nhánh
+    // test-mode gom kết quả rồi `_advanceTestMode()` — bài giao lớp HOÀN TOÀN
+    // có thể mang mode `test_part` (admin chọn "Luyện từng Part"), nên bấm
+    // "Xem nhận xét" sẽ đá học viên sang luồng tuần tự cũ thay vì hiện nhận
+    // xét em ấy vừa xin xem.
+    var savedMode = _testMode;
+    _testMode = null;
+    try {
+      // `_live` = phản hồi vừa chấm xong (đã đúng hình dạng); còn lại là dòng
+      // đọc từ cơ sở dữ liệu, phải dựng lại.
+      _showFeedback(s.resp._live ? s.resp : _respToFeedbackData(s.resp));
+    } finally {
+      _testMode = savedMode;
+    }
     // `_showFeedback` bật hai nút điều hướng của luồng phễu. Ở đây không có
     // "câu tiếp theo" — học viên đang xem lại MỘT ô và cần về đúng chỗ cũ.
     var n = $('btn-next-q'); if (n) n.style.display = 'none';

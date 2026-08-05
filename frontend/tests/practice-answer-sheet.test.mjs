@@ -516,3 +516,53 @@ describe('phiếu chỉ-đọc khi hết hạn / đã nộp', () => {
     assert.equal(n['btn-sheet-submit'].disabled, false);
   });
 });
+
+describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex #931)', () => {
+  test('KHÔNG rơi vào nhánh test-mode — bài giao lớp có thể là test_part', () => {
+    // `_showFeedback` mở đầu bằng nhánh test-mode gom kết quả rồi
+    // `_advanceTestMode()`. Admin chọn được "Luyện từng Part" khi giao, nên
+    // không tắt thì bấm "Xem nhận xét" đá học viên sang luồng tuần tự cũ.
+    const i = CODE.indexOf('function _sheetReview');
+    const body = CODE.slice(i, i + 900);
+    assert.ok(/_testMode = null;/.test(body), 'phải tắt test-mode trước khi vẽ');
+    assert.ok(/finally/.test(body) && /_testMode = savedMode;/.test(body),
+      'và PHẢI trả lại — vẽ hỏng mà mất test-mode thì cả phiên thi lệch');
+    const off = body.indexOf('_testMode = null;');
+    assert.ok(off !== -1 && off < body.indexOf('_showFeedback('),
+      'tắt phải đứng TRƯỚC lời gọi, không thì vô nghĩa');
+  });
+
+  test('điểm phát âm ánh xạ sang tên trường bộ vẽ ĐỌC, không phải tên cột DB', () => {
+    // `_renderPronBlock` đọc fluency_score/accuracy_score/completeness_score.
+    // Đưa tên cột xuống thì điểm tổng hiện còn ba ô con thành dấu gạch.
+    const i = CODE.indexOf('function _respToFeedbackData');
+    assert.ok(i !== -1, 'không tìm thấy _respToFeedbackData');
+    // Neo hai đầu bằng chính CÚ PHÁP của khối (từ `pronunciation:` tới nhánh
+    // `: null` của ternary) chứ không bằng một số ký tự đoán chừng — đoán ngắn
+    // thì phép kiểm xanh/đỏ theo độ dài chú thích, không theo hành vi.
+    const map = /pronunciation:[\s\S]*?:\s*null,/.exec(CODE.slice(i, i + 3000));
+    assert.ok(map, 'không tìm thấy khối ánh xạ phát âm');
+    for (const k of ['fluency_score', 'accuracy_score', 'completeness_score']) {
+      assert.ok(map[0].includes(k), `phải ánh xạ ${k}`);
+      assert.ok(!new RegExp(`pronunciation_${k.replace('_score', '')}:`).test(map[0]),
+        `đừng đưa tên cột DB (pronunciation_${k.replace('_score', '')}) xuống bộ vẽ`);
+    }
+    // Và bộ vẽ vẫn phải đang đọc đúng những tên ấy — hai bên khớp mới có nghĩa.
+    const c = CODE.indexOf("_pronChip('Tổng thể'");
+    assert.ok(c !== -1, 'không tìm thấy dãy ô điểm phát âm');
+    const chips = CODE.slice(c, c + 300);
+    for (const k of ['fluency_score', 'accuracy_score', 'completeness_score']) {
+      assert.ok(chips.includes(k), `bộ vẽ vẫn đọc ${k} — hai bên phải khớp`);
+    }
+  });
+
+  test('pronunciation_payload là CHUỖI JSON trong cột jsonb, phải gỡ ra', () => {
+    // 4696/4696 dòng trên prod lưu như vậy; đọc thẳng thì `.words` là undefined
+    // và mục "Từ cần chú ý" trống trơn.
+    const i = CODE.indexOf('function _pronPayload');
+    assert.ok(i !== -1, 'phải có bộ gỡ payload');
+    const body = CODE.slice(i, i + 400);
+    assert.ok(body.includes('JSON.parse'), 'phải gỡ chuỗi');
+    assert.ok(/catch/.test(body), 'payload hỏng không được làm nổ màn xem lại');
+  });
+});
