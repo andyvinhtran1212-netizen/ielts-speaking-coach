@@ -122,7 +122,10 @@ async function runFlow(browser, flow) {
   // thành cổng PARITY chứ không chỉ là test của bản Next: một bản khai chỉ đáng
   // tin khi nó đã xanh trên trang legacy — tức là nó mô tả hành vi CÓ THẬT, chứ
   // không phải hành vi tôi tưởng tượng ra rồi viết bản Next cho khớp.
-  const target = process.env.WF_LEGACY ? (flow.legacyRoute || flow.route) : flow.route;
+  // KHÔNG rơi về `route` khi thiếu `legacyRoute`: làm thế thì bước CI dán nhãn
+  // "vế legacy" lại chạy đúng trang Next lần thứ hai và xanh mà chẳng kiểm gì —
+  // một cổng tự khen. Thiếu thì BỎ QUA và nói rõ (xử lý ở vòng lặp gọi).
+  const target = process.env.WF_LEGACY ? flow.legacyRoute : flow.route;
   await page.goto(BASE + target, { waitUntil: 'domcontentloaded' });
   // Cố ý CHỜ NGẮN rồi mới bấm: bấm sớm + API chậm là kịch bản người dùng thật,
   // và là kịch bản duy nhất lộ ra lỗi "listener gắn sau khi API trả về" (đã
@@ -159,6 +162,12 @@ for (const f of files) {
   // phải kèm LÝ DO — in ra mỗi lần chạy, không im lặng. Một chốt riêng
   // (`write-flow-manifests.test.mjs`) bắt buộc luồng đã hoãn phải có
   // `legacyRoute`, để nó vẫn được kiểm ở đâu đó chứ không thành lỗ trống.
+  if (process.env.WF_LEGACY && !flow.legacyRoute) {
+    console.log(`\n══ ${flow.name}`);
+    console.log('  ⏸ không khai `legacyRoute` — bỏ qua ở vế legacy');
+    continue;
+  }
+
   if (flow.nextPending && !process.env.WF_LEGACY) {
     console.log(`\n══ ${flow.name} (${flow.route})`);
     console.log(`  ⏸ hoãn vế Next: ${flow.nextPending}`);

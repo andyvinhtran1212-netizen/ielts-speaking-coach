@@ -23,7 +23,7 @@ const PASTED = 'Đoạn dán dài sáu mươi ký tự để rơi vào khoảng 
 
 export default {
   name: 'writing — mở bài giao, tự lưu, dán, nộp',
-  route: '/writing-dashboard',
+  route: '/writing/dashboard',
   // Trang legacy nằm ở đường khác; cùng bản khai chạy được cả hai vế.
   legacyRoute: '/pages/writing-dashboard.html',
   // GỠ DÒNG NÀY khi `/writing-dashboard` bản Next lên. Tới lúc đó, cùng bản khai
@@ -92,7 +92,24 @@ export default {
   writes: [
     { method: 'POST', path: `/api/writing/my-assignments/${ASSIGNMENT}/start` },
     { method: 'PATCH', path: `/api/writing/my-assignments/${ASSIGNMENT}/draft`, body: { draft_text: ESSAY } },
-    { method: 'POST', path: `/api/writing/my-assignments/${ASSIGNMENT}/paste-log`, body: { blocked: false } },
-    { method: 'POST', path: `/api/writing/my-assignments/${ASSIGNMENT}/submit` },
+    // `char_count` là trường BẮT BUỘC của backend (`PasteLog`, `Field(..., ge=0)`),
+    // nên bản port quên nó sẽ ăn 422 — nhưng cổng chỉ kiểm `blocked` thì vẫn
+    // xanh. Ghim cả hai: `blocked: false` khoá đúng NHÁNH GIỮA (ghi nhật ký mà
+    // không chặn), `char_count` khoá tín hiệu điều tra không bị rỗng hoá.
+    {
+      method: 'POST',
+      path: `/api/writing/my-assignments/${ASSIGNMENT}/paste-log`,
+      body: { blocked: false, char_count: PASTED.length },
+    },
+    // GHIM NGUYÊN VĂN BÀI NỘP. Backend để `essay_text` tuỳ chọn và khi thiếu thì
+    // LẤY BẢN NHÁP đã lưu. Ở luồng này bản nháp được lưu TRƯỚC lúc dán, nên một
+    // bản port quên gửi `essay_text` sẽ nộp bài THIẾU đoạn vừa dán — mà cổng chỉ
+    // kiểm method/path thì không thấy gì cả. Đây đúng là loại sai "cổng xanh,
+    // học viên mất chữ" mà cổng ghi sinh ra để chặn.
+    {
+      method: 'POST',
+      path: `/api/writing/my-assignments/${ASSIGNMENT}/submit`,
+      body: { essay_text: ESSAY + PASTED },
+    },
   ],
 };

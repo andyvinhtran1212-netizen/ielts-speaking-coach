@@ -92,6 +92,19 @@ on:
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
+      # Trang Bài viết: hợp đồng ghi của nó chạy trên VẾ LEGACY, nên chính tệp
+      # legacy phải kích hoạt cổng. Thiếu ba dòng này thì một PR đổi hành vi
+      # trang Bài viết sẽ merge mà hợp đồng vừa dựng không chạy lần nào.
+      #
+      # `workflow-path-coverage.test.mjs` (#946) KHÔNG bắt được thiếu sót này, và
+      # lý do đáng ghi lại: bộ chạy nạp bản khai ĐỘNG (`readdirSync` + `import()`),
+      # nên bộ dò tĩnh không đi vào tệp bản khai và không thấy `legacyRoute` trỏ
+      # đâu. Tôi đã thử nới bộ dò để lần được lớp này; phép phá cho thấy bản nới
+      # không bắt được gì nên đã trả lại. Đây là ví dụ cụ thể cho ghi chú ở đầu
+      # tệp chốt đó: một mô hình TĨNH về "thứ CI đọc" không thể đầy đủ.
+      - 'frontend/public/pages/writing-dashboard.html'
+      - 'frontend/public/css/writing-dashboard.css'
+      - 'frontend/app/(authed-writing)/**'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
