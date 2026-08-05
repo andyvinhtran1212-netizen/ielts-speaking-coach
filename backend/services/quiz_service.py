@@ -610,12 +610,18 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     by_session: dict[str, list[dict]] = {}
     for a in att:
         by_session.setdefault(a["session_id"], []).append(a)
-    # Phiên dở dang ĐÁNG khôi phục = phiên có bài, mới nhất. Phiên rỗng bỏ mặc:
-    # chúng vô hại (0 câu, không vào lượt xét) và dọn chúng là việc khác.
+    # Phiên dở dang ĐÁNG khôi phục = phiên NHIỀU BÀI NHẤT, hoà thì lấy mới nhất.
+    # Không lấy "mới nhất" đơn thuần: tải lại trang giữa chặng từng đẻ ra vài
+    # phiên cho CÙNG một chặng, và phiên mới nhất thường là phiên ít bài nhất.
+    # Dữ liệu thật của em Minh Ngoc Võ: hai lần thử ở chặng 3, một phiên 8 câu và
+    # một phiên 5 câu — lấy mới nhất là trả lại 5 rồi bắt em làm lại 3 câu đã làm.
+    # Các phiên ấy cùng chặng nên cùng thứ tự câu, lấy phiên dài hơn luôn là một
+    # tiền tố hợp lệ.
+    # Phiên rỗng bỏ mặc: chúng vô hại (0 câu, không vào lượt xét).
     with_work = [r for r in open_rows if by_session.get(r["id"])]
     if not with_work:
         return result
-    chosen = with_work[-1]
+    chosen = max(with_work, key=lambda r: (len(by_session[r["id"]]), r["created_at"]))
     result["session_id"] = chosen["id"]
     result["answered"] = [
         {"qid": a.get("qid"), "is_correct": bool(a.get("is_correct"))}

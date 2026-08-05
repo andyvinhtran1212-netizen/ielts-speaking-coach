@@ -61,9 +61,11 @@ def test_non_course_banks_are_untouched():
     assert "COURSE_AREA" in src, "chỉ bài tập theo buổi mới có khái niệm chặng"
 
 
-def test_the_session_with_work_wins_not_the_newest():
-    """Tải lại trang đẻ ra vài phiên rỗng. Lấy phiên mới nhất là trả về một
-    phiên 0 câu và học viên vẫn mất bài (dữ liệu thật của em ấy: 3 phiên tạo
-    trong 31 giây, chỉ một phiên có bài)."""
+def test_the_session_with_the_most_work_wins():
+    """Tải lại trang đẻ ra vài phiên cho CÙNG một chặng, và phiên mới nhất
+    thường là phiên ít bài nhất. Dữ liệu thật của em ấy: chặng 3 có một phiên 8
+    câu và một phiên 5 câu — lấy mới nhất là bắt em làm lại 3 câu đã làm."""
     src = _src()
-    assert "with_work" in src and "with_work[-1]" in src
+    assert "with_work" in src, "phiên rỗng không phải chỗ đang làm dở"
+    assert "max(with_work" in src and "len(by_session" in src, \
+        "phải chọn phiên NHIỀU BÀI NHẤT, không phải phiên mới nhất"
