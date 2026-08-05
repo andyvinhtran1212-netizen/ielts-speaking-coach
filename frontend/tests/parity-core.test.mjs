@@ -411,9 +411,22 @@ describe('cổng parity trong CI (review #914)', () => {
     // route đó vẫn kích hoạt job rồi BÁO XANH mà chưa mở route đã sửa.
     assert.ok(!/- 'frontend\/app\/\*\*'/.test(GATE_ACTIVE),
       'bộ lọc rộng = cổng tự cấp phép cho route nó không so');
+    // CẬP NHẬT 2026-08-05 — LÝ DO đổi, khẳng định thì KHÔNG.
+    // Trước: "route cần đăng nhập nằm ngoài tầm G1". Nay authed-G1 đã có (tiêm
+    // phiên Supabase vào trình duyệt) và `/home` ĐƯỢC so qua cặp trong
+    // `parity-pairs-authed.json`. Nhưng `(authed)` vẫn phải nằm ngoài bộ lọc vì
+    // nó chứa `/profile`, mà `/pages/profile.html` đã 307 sang `/profile` khi
+    // cutover pilot 3 — không còn vế legacy nào để so.
+    // Phân biệt cho đúng: "cần đăng nhập" KHÔNG còn là lý do loại trừ;
+    // "bản legacy đã bị gỡ" mới là. (Test này đã bắt tôi thêm nhầm `(authed)`.)
     assert.ok(!/\(authed\)/.test(GATE_ACTIVE),
-      'route cần đăng nhập nằm ngoài tầm G1 (do G2 + staging E2E che)');
+      '/profile không còn vế legacy để so (đã 307 khi cutover pilot 3)');
     assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(public-content\)\/\*\*'/);
+    // Chiều ngược lại: `/home` CÓ so được (legacy `/pages/home.html` vẫn trả
+    // 200), nên gỡ dòng này khỏi bộ lọc là bỏ phủ sóng — phải đỏ.
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(authed-home\)\/\*\*'/,
+      'mất glob (authed-home) = cổng authed không bao giờ tự chạy');
+    assert.match(GATE_ACTIVE, /- 'frontend\/public\/pages\/home\.html'/);
   });
 
   test('PR đụng bộ render BÀI VIẾT phải chạy phạm vi đầy đủ', () => {
@@ -441,5 +454,52 @@ describe('cổng parity trong CI (review #914)', () => {
   test('có chốt CORS chạy TRƯỚC khi so', () => {
     assert.match(GATE_ACTIVE, /Access-Control-Request-Method/,
       'trang trả 200 không chứng minh nó fetch được — phải kiểm preflight');
+  });
+});
+
+describe('so trang CẦN ĐĂNG NHẬP (authed-G1)', () => {
+  test('khoá localStorage suy đúng từ URL project', async () => {
+    const { projectRef, storageKey } = await import('../tooling/supabase-session.mjs');
+    assert.equal(projectRef('https://huwsmtubwulikhlmcirx.supabase.co'), 'huwsmtubwulikhlmcirx');
+    assert.equal(storageKey('https://huwsmtubwulikhlmcirx.supabase.co'),
+      'sb-huwsmtubwulikhlmcirx-auth-token');
+    assert.throws(() => projectRef('không-phải-url'), /project ref/);
+  });
+
+  test('bản ghi phiên có expires_at TUYỆT ĐỐI', async () => {
+    const { sessionEntry } = await import('../tooling/supabase-session.mjs');
+    // Thiếu `expires_at` thì supabase-js coi phiên là hỏng và IM LẶNG đăng
+    // xuất — trang lại rơi về /login.html và ta quay về đúng chỗ chưa sửa gì.
+    const now = 1_785_000_000_000;
+    const [, raw] = sessionEntry('https://x.supabase.co',
+      { access_token: 'A', refresh_token: 'R', expires_in: 3600 }, now);
+    const v = JSON.parse(raw);
+    assert.equal(v.expires_at, Math.floor(now / 1000) + 3600);
+    assert.equal(v.refresh_token, 'R');
+    assert.equal(v.token_type, 'bearer');
+  });
+
+  test('không có access_token ⇒ ném lỗi, không tiêm phiên rỗng', async () => {
+    const { sessionEntry } = await import('../tooling/supabase-session.mjs');
+    assert.throws(() => sessionEntry('https://x.supabase.co', {}, 0), /access_token/);
+  });
+
+  test('phiên tiêm TRƯỚC khi điều hướng, không phải sau', () => {
+    // Auth gate chạy ngay khi trang tải; đặt localStorage sau đó là đã muộn và
+    // trang vẫn nhảy sang /login.html.
+    assert.match(RUNNER, /addInitScript/);
+    assert.match(RUNNER, /const mk = async \(\)/, 'tạo context phải là async để tiêm được');
+  });
+
+  test('KHÔNG đăng nhập thì không tiêm gì — chế độ ẩn danh giữ nguyên', () => {
+    assert.match(RUNNER, /if \(AUTH_ENTRY\)/,
+      'chỉ tiêm khi đã bật --auth; mặc định vẫn là ẩn danh');
+  });
+
+  test('đăng nhập dùng CHUNG một module với G2', () => {
+    // Hai bản đăng nhập riêng là hai chỗ để trôi khỏi nhau.
+    const probe = readFileSync(path.join(ROOT, 'frontend', 'tooling', 'authed-probe.mjs'), 'utf8');
+    assert.match(probe, /from '\.\/supabase-session\.mjs'/);
+    assert.match(RUNNER, /from '\.\/supabase-session\.mjs'/);
   });
 });

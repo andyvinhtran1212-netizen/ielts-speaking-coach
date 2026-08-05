@@ -7,11 +7,12 @@
 // cùng một thay đổi thì đó là CUTOVER, không còn là dark-launch. Nên đi đúng
 // khuôn pilot 3: dựng ở đường riêng, cutover sau khi vỏ + hành vi đã xong.
 //
-// TRẠNG THÁI: DARK-LAUNCH, MỚI CÓ VỎ. Chưa có tầng hành vi (`home.js` bản legacy
-// gọi 3 API cần đăng nhập: `/api/student/home-summary`,
-// `/api/student/permissions`, `/api/class/me?summary=true`). Route này hiện
-// render vỏ tĩnh với các ô "…"; KHÔNG trang nào trỏ tới nó và `/pages/home.html`
-// vẫn là canonical.
+// TRẠNG THÁI: DARK-LAUNCH, ĐÃ CÓ VỎ + HÀNH VI. `home-behavior.tsx` port
+// `public/js/home.js` và gọi đúng 3 API cần đăng nhập của bản legacy:
+// `/api/student/home-summary`, `/api/student/permissions`,
+// `/api/class/me?summary=true`. KHÔNG trang nào trỏ tới route này và
+// `/pages/home.html` vẫn là canonical cho tới khi cutover (gỡ rewrite
+// `next.config.ts:56` trong cùng một thay đổi).
 //
 // VÌ SAO TÁCH LÀM HAI BƯỚC: giữ diff đủ nhỏ để đọc được — markup và logic là
 // hai loại lỗi khác nhau, gộp một PR thì chúng lẫn vào nhau.
@@ -28,6 +29,7 @@
 // đi mọi trang lưu lượng cao đều cần đăng nhập, nên đây không phải ca cá biệt.
 import type { Metadata } from 'next';
 
+import { HomeBehavior } from './home-behavior';
 import { HomeShell } from './page-shell';
 
 export const metadata: Metadata = {
@@ -43,6 +45,7 @@ export default function HomePage() {
       {/* @ts-ignore */}
       <aver-chrome active="home" />
       <HomeShell />
+      <HomeBehavior />
     </>
   );
 }

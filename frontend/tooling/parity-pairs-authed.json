@@ -1,0 +1,8 @@
+[
+  {
+    "name": "home",
+    "legacy": "/pages/home.html",
+    "next": "/home-preview",
+    "allow": []
+  }
+]

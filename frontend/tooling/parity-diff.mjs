@@ -18,6 +18,7 @@ import path from 'node:path';
 
 import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler }
   from './parity-core.mjs';
+import { signIn, sessionEntry } from './supabase-session.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (name, dflt = null) => {
@@ -42,6 +43,24 @@ const SETTLE_MS = Number(arg('--settle', '1200')) || 1200;
 // hiện dưới 640px, và G1 bắt được nó chỉ vì nó TÌNH CỜ cũng là khác biệt văn
 // bản; một khối `hidden sm:block` lệch giữa hai bản thì lượt 1280 mù hoàn toàn.
 const [VW, VH] = (arg('--viewport', '1280x900')).split('x').map(Number);
+
+// ── So trang CẦN ĐĂNG NHẬP ────────────────────────────────────────────────
+// Đo 2026-08-05: `pages/home.html` có auth gate cuối trang, trình duyệt ẩn
+// danh bị đẩy sang `/login.html` ⇒ G1 cho trang đó CON SỐ KHÔNG. Mọi trang
+// lưu lượng cao còn lại đều cần đăng nhập, nên không có `--auth` thì G1 hết
+// dùng được cho phần còn lại của việc di trú.
+//
+// GIỚI HẠN, nói trước: tài khoản probe KHÔNG có dữ liệu học tập, nên hai vế
+// đều render TRẠNG THÁI RỖNG. Phủ được: chrome, bố cục, chữ tĩnh, link, các
+// lời gọi API phát ra, và đường render empty-state. KHÔNG phủ được: hiển thị
+// số liệu thật. Muốn phủ vế đó phải seed dữ liệu cho tài khoản probe — tức
+// GHI vào dữ liệu production, nên không làm.
+const USE_AUTH = flag('--auth');
+const SUPABASE_URL = (arg('--supabase', 'https://huwsmtubwulikhlmcirx.supabase.co')).replace(/\/+$/, '');
+const SUPABASE_ANON = process.env.PROBE_SUPABASE_ANON
+  || 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+/** Đặt sau khi đăng nhập; mỗi context tiêm trước khi điều hướng. */
+let AUTH_ENTRY = null;
 
 /** Cặp mặc định — chỉ những route đã có CẢ hai bản chạy song song. */
 const DEFAULT_PAIRS = [
@@ -309,8 +328,17 @@ async function main() {
     console.error('parity: không có cặp nào để so');
     process.exit(2);
   }
+  if (USE_AUTH) {
+    const sess = await signIn({
+      supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON,
+      email: process.env.PROBE_EMAIL, password: process.env.PROBE_PASSWORD,
+    });
+    AUTH_ENTRY = sessionEntry(SUPABASE_URL, sess, Date.now());
+    console.log('parity: ĐÃ ĐĂNG NHẬP bằng tài khoản probe (chỉ so được trạng thái RỖNG)');
+  }
   console.log(
-    `parity: ${pairs.length} cặp · base ${BASE} · bề rộng ${VW}x${VH} · đồng thời ${CONCURRENCY}`);
+    `parity: ${pairs.length} cặp · base ${BASE} · bề rộng ${VW}x${VH}`
+    + ` · ${USE_AUTH ? 'CÓ ĐĂNG NHẬP' : 'ẩn danh'} · đồng thời ${CONCURRENCY}`);
 
   const browser = await chromium.launch();
   const results = [];
@@ -325,7 +353,17 @@ async function main() {
       // trạng thái giữa các cặp và giữa legacy↔Next (ví dụ `_aver_grammar_reads`
       // làm CTA khách hiện ở trang này mà không hiện ở trang kia), khiến kết
       // quả không lặp lại được (phát hiện #14 vòng 2).
-      const mk = () => browser.newContext({ viewport: { width: VW, height: VH } });
+      const mk = async () => {
+        const ctx = await browser.newContext({ viewport: { width: VW, height: VH } });
+        if (AUTH_ENTRY) {
+          // Tiêm TRƯỚC khi điều hướng: auth gate chạy ngay khi trang tải, nên
+          // đặt localStorage sau đó là đã muộn.
+          await ctx.addInitScript(([k, v]) => {
+            try { localStorage.setItem(k, v); } catch (_) { /* bỏ qua */ }
+          }, AUTH_ENTRY);
+        }
+        return ctx;
+      };
       const [legacy, next] = await Promise.all([
         extractStable(mk, BASE + p.legacy),
         extractStable(mk, BASE + p.next),
