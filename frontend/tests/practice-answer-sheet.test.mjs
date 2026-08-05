@@ -133,19 +133,52 @@ describe('nút nộp', () => {
   });
 });
 
+/**
+ * Chạy THẬT cặp `_sheetToggleRec` → `_sheetOnRecorded`, đúng thứ tự trình duyệt
+ * gọi: bấm nút (ô sang 'recording') rồi MediaRecorder.onstop mới bắn.
+ *
+ * Phải chạy thật mới thấy: phép kiểm cũ ghim nguyên văn dòng
+ * `var hadWork = s && (s.state === 'saved' || ...)` nên vẫn XANH trong khi dòng
+ * ấy đọc `s.state` ở thời điểm nó luôn bằng 'recording' — tức bản vá không chạy
+ * một lần nào (codex PR 942, vòng 4).
+ */
+async function recordThenFail(startState) {
+  const from = JS.indexOf('  async function _sheetToggleRec(');
+  const to = JS.indexOf('  /**\n   * Xem lại một câu của phiếu');
+  assert.ok(from !== -1 && to > from, 'không cắt được khối ghi âm');
+
+  const slot = { q: { id: 'q1' }, state: startState, band: startState === 'saved' ? 6 : null };
+  const _sheet = { slots: [slot], recIdx: -1 };
+  const body = JS.slice(from, to)
+    + ' return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded };';
+  const api = new Function(
+    '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
+    '_submitGradingEager', '_sessionId', 'console', 'window', '$', '_testMode',
+    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx', body)(
+      _sheet, () => {}, async () => true, () => {},
+      () => Promise.reject(new Error('mạng đứt')), 'sess', console,
+      { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
+      () => {}, (x) => x, 0);
+
+  await api.toggle(0);
+  assert.equal(slot.state, 'recording', 'bấm nút xong ô phải đang ghi âm');
+  api.onRecorded(new Blob !== undefined ? {} : {});
+  // để chuỗi .then/.catch/.then chạy hết
+  for (let k = 0; k < 8; k++) await Promise.resolve();
+  return slot;
+}
+
 describe('lưu hỏng thì nói ra', () => {
-  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', () => {
+  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', async () => {
     // Để "đã lưu" nghĩa là học viên bấm Nộp rồi mất câu trả lời mà không biết.
     //
     // Chốt này từng ghim NGUYÊN VĂN `s.state = 'idle';` — lại là ghim một dòng
     // mã, không phải một hành vi. Nó đúng khi mọi lần ghi đều là lần đầu, và
     // sai ngay khi có "ghi âm lại": bản cũ vẫn nằm trên server, hạ ô về 'chưa
     // làm' là nói sai VÀ khoá lại nút Nộp. Nay ghim BẤT BIẾN đầy đủ.
-    const i = CODE.indexOf('function _sheetOnRecorded');
-    const body = CODE.slice(i, i + 1800);
-    assert.match(body, /\.catch\(function \(err\) \{[\s\S]{0,400}?s\.state = hadWork \? 'ungraded' : 'idle';/);
-    assert.match(body, /Chưa lưu được câu này/, 'lần đầu: nói rõ chưa lưu được');
-    assert.match(body, /bản ghi trước của bạn vẫn còn/, 'ghi lại: trấn an bản cũ còn nguyên');
+    const first = await recordThenFail('idle');
+    assert.equal(first.state, 'idle', 'lần ghi ĐẦU mà hỏng: chưa có gì trên server');
+    assert.match(first.error, /Chưa lưu được câu này/);
   });
 
   test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
@@ -713,15 +746,15 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     assert.match(m[1], /_failed/);
   });
 
-  test('ghi âm LẠI mà hỏng thì GIỮ bản cũ, không hạ về "chưa làm"', () => {
+  test('ghi âm LẠI mà hỏng thì GIỮ bản cũ, không hạ về "chưa làm"', async () => {
     // Bản cũ vẫn nằm nguyên trên server; hạ ô về 'idle' là nói sai và khoá lại
     // nút Nộp. Chỉ lần ghi ĐẦU TIÊN mới rơi về 'idle' (codex #942).
-    const i = CODE.indexOf('function _sheetOnRecorded');
-    const body = CODE.slice(i, i + 1800);
-    assert.match(body, /var hadWork = s && \(s\.state === 'saved' \|\| s\.state === 'ungraded'\)/);
-    assert.match(body, /s\.state = hadWork \? 'ungraded' : 'idle';/);
-    assert.ok(!/^\s*s\.state = 'idle';\s*$/m.test(body),
-      'không còn nhánh nào hạ thẳng về idle');
+    for (const before of ['saved', 'ungraded']) {
+      const slot = await recordThenFail(before);
+      assert.equal(slot.state, 'ungraded',
+        `ô '${before}' ghi lại mà hỏng phải giữ là đã-có-bài, không về idle`);
+      assert.match(slot.error, /bản ghi trước của bạn vẫn còn/);
+    }
   });
 
   test('vạch tiến độ có màu riêng cho ô chưa chấm được', () => {

@@ -952,6 +952,14 @@ async def grade_response_endpoint(
                 {"_failed": True, "_reason": (grading_error or "")[:500],
                  **{k: v for k, v in signals.items() if k != "grammar_check"}},
                 ensure_ascii=False)
+            # XOÁ band cũ. `_upsert_response` chỉ ghi những khoá CÓ MẶT, nên ghi
+            # âm lại một câu từng chấm được rồi lần này chấm hỏng sẽ GIỮ NGUYÊN
+            # điểm cũ dưới `grading_status='failed'` — điểm ấy vẫn được
+            # `_compute_session_bands` cộng vào và vẫn hiện trên màn hình, tức
+            # một con số cho một bài chưa ai chấm (codex PR 942).
+            db_row["overall_band"] = None
+            db_row["final_overall_band"] = None
+            db_row["final_band_p"] = None
 
         # Columns guaranteed to exist in the base schema (no migrations needed).
         # duration_seconds is intentionally excluded: the column may be INTEGER on

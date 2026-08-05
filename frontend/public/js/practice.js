@@ -3246,6 +3246,10 @@
     if (_sheet.recIdx !== -1) return;      // một micro: ô khác đang ghi
     // Nhớ trạng thái CŨ để trả lại nguyên vẹn nếu micro không mở được.
     var prevState = s.state;
+    // Và ghi lên chính ô ấy: `onstop` chạy SAU khi ô đã sang 'recording', nên
+    // đọc `s.state` ở đó luôn ra 'recording' và không bao giờ biết ô này vốn đã
+    // có bài trên máy chủ (codex PR 942 — lỗi trong chính bản vá vòng trước).
+    s.hadWork = (prevState === 'saved' || prevState === 'ungraded');
     s.error = null;
     s.state = 'recording';
     _sheet.recIdx = i;
@@ -3275,10 +3279,9 @@
   function _sheetOnRecorded(blob) {
     var i = _sheet.recIdx;
     var s = _sheet.slots[i];
-    // Ô ĐÃ CÓ BÀI TRÊN MÁY CHỦ trước lần ghi này. Lần ghi lại mà hỏng KHÔNG
-    // được vứt bản cũ: nó vẫn nằm nguyên ở server, và hạ ô về 'chưa làm' sẽ
-    // đẩy nó khỏi số đếm rồi khoá lại nút Nộp (codex #942).
-    var hadWork = s && (s.state === 'saved' || s.state === 'ungraded');
+    // Ô ĐÃ CÓ BÀI TRÊN MÁY CHỦ trước lần ghi này — cờ do `_sheetToggleRec` đặt
+    // LÚC BẤM. Không đọc `s.state` ở đây: lúc này ô đã sang 'recording'.
+    var hadWork = !!(s && s.hadWork);
     // Máy có thể dừng ghi khi phiếu đã nhả ô ra (hết giờ tối đa, hoặc một lỗi
     // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.

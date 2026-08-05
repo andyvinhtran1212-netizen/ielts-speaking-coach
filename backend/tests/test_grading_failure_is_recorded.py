@@ -91,3 +91,25 @@ def test_null_band_completion_requires_every_question_answered():
     seg = src[i:i + 2200]
     assert 'table("questions")' in seg, "phải đếm SỐ CÂU của phiên"
     assert "saved < asked" in seg, "và đòi trả lời đủ"
+
+
+def test_a_failed_regrade_clears_every_band_the_success_path_writes():
+    """`_upsert_response` chỉ ghi những khoá CÓ MẶT trong `db_row`. Ghi âm lại
+    một câu từng chấm được rồi lần này chấm hỏng ⇒ điểm CŨ ở lại nguyên dưới
+    `grading_status='failed'`, vẫn được `_compute_session_bands` cộng vào và vẫn
+    hiện trên màn hình: một con số cho một bài chưa ai chấm (codex PR 942).
+
+    Ghim theo BẤT BIẾN, không theo ba cái tên: thêm cột điểm mới ở nhánh chấm
+    được mà quên xoá ở nhánh hỏng thì chốt này đỏ ngay.
+    """
+    src = _src()
+    # Mọi cột điểm được GHI MỘT GIÁ TRỊ ở đâu đó trong pipeline (không neo vào
+    # một nhánh cụ thể — cấu trúc if đổi thì chốt vẫn đúng).
+    written = {c for c in re.findall(r'db_row\["(\w*band\w*)"\]\s*=\s*(?!None)', src)}
+    assert written, "không tìm thấy cột điểm nào ở nhánh chấm được"
+
+    fail_from = src.index('"_failed": True, "_reason"')
+    fail_seg = src[fail_from:fail_from + 800]
+    cleared = set(re.findall(r'db_row\["(\w+)"\]\s*=\s*None', fail_seg))
+    assert written <= cleared, (
+        f"nhánh chấm hỏng chưa xoá: {sorted(written - cleared)}")
