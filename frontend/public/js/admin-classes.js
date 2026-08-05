@@ -801,6 +801,21 @@ function renderTally(d) {
  */
 const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
 
+/**
+ * `**đậm**` → <mark>, GIỐNG HỆT `md()` phía học viên.
+ *
+ * Nguồn đề cố ý mang nhãn markdown (`**Đáp án mẫu:**`, phần được hỏi in đậm) và
+ * học viên thấy chúng đã được dựng. Escape trơn ở đây làm giáo viên đọc ra
+ * `**...**` thô — hai bên nhìn hai thứ khác nhau về cùng một bản chấm, đúng thứ
+ * màn này sinh ra để tránh (codex #940).
+ *
+ * Thoát HTML TRƯỚC rồi mới dựng thẻ: nội dung này là bài do NGƯỜI KHÁC viết,
+ * đang vẽ trong trình duyệt của admin.
+ */
+function cwMd(x) {
+  return esc(x).replace(/\*\*([^*]+)\*\*/g, '<mark>$1</mark>');
+}
+
 /** Gạch chỗ sai, viết chỗ đúng liền sau — so theo TỪ, không theo ký tự. */
 function cwDiff(before, after) {
   const A = String(before || '').split(/(\s+)/);
@@ -840,9 +855,9 @@ function renderStudentWriting(d) {
               </li>`).join('')}</ul>`;
     return `<article class="cw-item" data-ok="${String(ok)}">
       <span class="cw-item__no">Câu ${i + 1}</span>
-      <p class="cw-item__ask">${esc(g.prompt || '')}</p>
+      <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
-      ${g.explain ? `<div class="cw-model">${esc(g.explain)}</div>` : ''}
+      ${g.explain ? `<div class="cw-model">${cwMd(g.explain)}</div>` : ''}
     </article>`;
   }).join('');
 
