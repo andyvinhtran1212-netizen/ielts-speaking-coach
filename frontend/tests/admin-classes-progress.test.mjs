@@ -93,7 +93,10 @@ describe('the tab reports failure instead of an empty class', () => {
                                 SRC.indexOf('// ── Sub-tabs')));
 
   test('a failed load shows an error and hides the table', () => {
-    assert.match(fn, /progress-degraded/);
+    // Qua trạng thái chung + renderProgressBanner, KHÔNG ghi thẳng DOM: ghi
+    // thẳng sẽ xoá lời cảnh báo của bảng bài hằng ngày (chạy song song).
+    assert.match(fn, /_progressNotes = \[/);
+    assert.match(fn, /renderProgressBanner\(\)/);
     assert.match(fn, /Không đọc được tiến độ lớp/);
     assert.match(fn, /\$\('progress-table-wrap'\)\.hidden = true/);
     assert.match(fn, /\$\('progress-empty'\)\.hidden = true/,
@@ -202,12 +205,22 @@ function loadBanner() {
   const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
   const start = SRC.indexOf('  const DEGRADED_LABEL = {');
   const end = SRC.indexOf("  $('progress-empty')");
-  assert.ok(start !== -1 && end > start, 'degraded banner block not found');
+  const rb0 = SRC.indexOf('function renderProgressBanner');
+  const rb1 = SRC.indexOf('async function loadDailyBoard');
+  assert.ok(start !== -1 && end > start && rb0 !== -1 && rb1 > rb0,
+    'degraded banner block not found');
 
-  return (degraded) => {
+  // Băng nay do renderProgressBanner vẽ, gộp ghi chú của CẢ HAI nguồn (tiến độ
+  // + bảng bài hằng ngày) — hai lượt gọi chạy song song, bên nào ghi thẳng DOM
+  // cũng sẽ xoá lời bên kia. Nên khung phải chạy qua đúng đường ấy.
+  return (degraded, boardNote = '') => {
     const node = { hidden: null, textContent: '' };
     const $ = () => node;
-    new Function('$', 'degraded', SRC.slice(start, end))($, degraded);
+    new Function('$', 'degraded', '_boardNote', `
+      let _progressNotes = [];
+      ${SRC.slice(rb0, rb1)}
+      ${SRC.slice(start, end)}
+    `)($, degraded, boardNote);
     return node;
   };
 }
@@ -240,5 +253,19 @@ describe('progress banner', () => {
     const n = banner(['writing', 'homework_stale']);
     assert.match(n.textContent, /Writing/);
     assert.match(n.textContent, /chưa cập nhật/);
+  });
+
+  test('ghi chú của bảng bài hằng ngày KHÔNG bị lời của tiến độ xoá mất', () => {
+    // /speaking-daily hỏng trước, /progress xong sau — trước đây lời cảnh báo
+    // của bảng biến mất, đúng thứ giáo viên cần thấy nhất (codex #931).
+    const n = banner([], 'Không đọc được bảng bài hằng ngày: mạng lỗi.');
+    assert.equal(n.hidden, false);
+    assert.match(n.textContent, /bảng bài hằng ngày/);
+  });
+
+  test('cả hai nguồn cùng có chuyện thì nói CẢ HAI', () => {
+    const n = banner(['listening'], 'Không đọc được bảng bài hằng ngày: mạng lỗi.');
+    assert.match(n.textContent, /Listening/);
+    assert.match(n.textContent, /bảng bài hằng ngày/);
   });
 });

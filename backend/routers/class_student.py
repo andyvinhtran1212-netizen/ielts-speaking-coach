@@ -69,19 +69,43 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
     nhưng lọc thêm cho khớp với mọi đường đọc phiên khác — và một dòng lạc do
     dữ liệu cũ không được biến thành phiên của người khác.
 
-    Mới nhất thắng: nếu vì lý do nào đó có nhiều phiên cho một mục (lỗi cũ, thử
-    lại lúc mạng chập), phiên gần nhất là phiên học viên vừa làm.
+    PHIÊN CÓ BÀI THẮNG PHIÊN MỚI. Hành vi cũ (mỗi lần bấm "Làm bài" dựng một
+    phiên mới) đã để lại những phiên TRỐNG mới hơn phiên thật trên chính prod —
+    chọn theo `started_at` thôi thì mở lại vẫn ra phiếu trắng, đúng cái lỗi hàm
+    này sinh ra để chữa (codex #931). Thứ tự ưu tiên:
+
+      1. đã hoàn thành  (`completed_at`) — bài đã chốt
+      2. có câu trả lời đã lưu           — đang làm dở nhưng có thật
+      3. mới nhất                        — chưa có gì, mở cái nào cũng như nhau
 
     Đọc hỏng → None: rơi về đường tạo phiên mới như trước, chứ không chặn em ấy
     làm bài vì một truy vấn chập.
     """
     try:
         rows = (
-            supabase_admin.table("sessions").select("id, started_at")
+            supabase_admin.table("sessions").select("id, started_at, completed_at, status")
             .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
-            .order("started_at", desc=True).limit(1).execute().data
+            .order("started_at", desc=True).limit(20).execute().data
         ) or []
-        return rows[0]["id"] if rows else None
+        if not rows:
+            return None
+
+        done = [r for r in rows
+                if r.get("completed_at") or r.get("status") == "completed"]
+        if done:
+            return done[0]["id"]
+
+        # Phiên nào ĐANG GIỮ bài. Một lượt đọc cho tất cả, không hỏi từng phiên.
+        ids = [r["id"] for r in rows]
+        with_work = {
+            x["session_id"] for x in
+            ((supabase_admin.table("responses").select("session_id")
+              .in_("session_id", ids).execute().data) or [])
+        }
+        for r in rows:                      # rows đã mới→cũ
+            if r["id"] in with_work:
+                return r["id"]
+        return rows[0]["id"]
     except Exception as exc:  # noqa: BLE001
         logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
         return None

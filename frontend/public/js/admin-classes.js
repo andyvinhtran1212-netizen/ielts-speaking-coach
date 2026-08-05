@@ -1717,8 +1717,8 @@ function renderProgress() {
   if (stale) {
     notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
   }
-  $('progress-degraded').hidden = notes.length === 0;
-  if (notes.length) $('progress-degraded').textContent = notes.join(' ');
+  _progressNotes = notes;
+  renderProgressBanner();
 
   $('progress-empty').hidden = rows.length > 0;
   $('progress-table-wrap').hidden = rows.length === 0;
@@ -1784,6 +1784,21 @@ function invalidateProgress() {
  * một lưới phân biệt bằng xanh/đỏ là một lưới người mù màu không đọc được.
  */
 let _dailyBoardLoaded = false;
+// MỘT băng cảnh báo, HAI nguồn ghi vào. Hai lượt gọi chạy song song và không
+// chờ nhau, nên bên nào vẽ sau cũng sẽ xoá lời của bên kia nếu mỗi bên tự ghi
+// thẳng vào DOM — bảng ngày hỏng rồi /progress xong sau là mất hẳn cảnh báo
+// (codex #931). Giữ trạng thái riêng, gộp lúc vẽ.
+let _progressNotes = [];
+let _boardNote = '';
+
+function renderProgressBanner() {
+  const el = $('progress-degraded');
+  if (!el) return;
+  const all = _progressNotes.concat(_boardNote ? [_boardNote] : []);
+  el.hidden = all.length === 0;
+  if (all.length) el.textContent = all.join(' ');
+}
+
 
 async function loadDailyBoard() {
   const box = $('daily-board');
@@ -1792,6 +1807,8 @@ async function loadDailyBoard() {
   try {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/speaking-daily');
+    _boardNote = '';
+    renderProgressBanner();
     renderDailyBoard(r);
   } catch (err) {
     // Ẩn lưới (lưới rỗng đọc như "lớp chưa có bài hằng ngày nào") NHƯNG nói ra
@@ -1799,12 +1816,9 @@ async function loadDailyBoard() {
     // thứ nó sinh ra để hiện (codex #931).
     box.hidden = true;
     _dailyBoardLoaded = false;   // cho lần mở sau thử lại
-    const b = $('progress-degraded');
-    if (b) {
-      b.hidden = false;
-      b.textContent = 'Không đọc được bảng bài hằng ngày: ' + (err.message || err)
-        + '. Mở lại thẻ này để thử lại.';
-    }
+    _boardNote = 'Không đọc được bảng bài hằng ngày: ' + (err.message || err)
+      + '. Mở lại thẻ này để thử lại.';
+    renderProgressBanner();
   }
 }
 
@@ -1953,9 +1967,12 @@ async function loadProgress() {
     _progress = { students: [], degraded: [] };
     _progressLoaded = false;
     $('progress-loading').hidden = true;
-    $('progress-degraded').hidden = false;
-    $('progress-degraded').textContent =
-      'Không đọc được tiến độ lớp: ' + (err.message || err) + '. Mở lại thẻ này để thử lại.';
+    // Qua trạng thái chung, KHÔNG ghi thẳng DOM: hai lượt gọi chạy song song
+    // nên ghi thẳng ở đây sẽ xoá lời cảnh báo của bảng ngày (cùng họ lỗi
+    // codex #931 chỉ ra ở chiều ngược lại).
+    _progressNotes = ['Không đọc được tiến độ lớp: ' + (err.message || err)
+      + '. Mở lại thẻ này để thử lại.'];
+    renderProgressBanner();
     $('progress-table-wrap').hidden = true;
     $('progress-empty').hidden = true;
     return;

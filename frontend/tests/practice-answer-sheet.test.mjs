@@ -602,3 +602,24 @@ describe('xem lại phát ĐÚNG audio của câu ấy (codex #931 vòng 3)', ()
     assert.match(CODE.slice(i, i + 160), /if \(_sheetAudioUrls\) return _sheetAudioUrls;/);
   });
 });
+
+describe('Tải audio ở lượt xem lại (codex #931 vòng 4)', () => {
+  test('KHÔNG đọc _recordedBlob.type khi URL là URL đã ký', () => {
+    // Tải lại trang xong thì bản ghi trong bộ nhớ không còn — đọc `.type` là nổ
+    // ngay lúc bấm Tải.
+    const i = CODE.indexOf('function _downloadAudio');
+    const body = CODE.slice(i, i + 900);
+    const guard = body.indexOf('if (_feedbackAudioIsBlob) {');
+    const deref = body.indexOf('_recordedBlob.type');
+    assert.ok(guard !== -1, 'phải rẽ nhánh theo loại URL');
+    assert.ok(deref === -1 || deref > guard,
+      'mọi lần đọc _recordedBlob phải nằm TRONG nhánh blob');
+    assert.ok(/return;/.test(body.slice(guard, guard + 120)),
+      'nhánh blob mà mất blob thì thoát, không đoán');
+  });
+
+  test('đuôi tệp suy từ chính URL khi không có blob', () => {
+    const i = CODE.indexOf('function _downloadAudio');
+    assert.match(CODE.slice(i, i + 900), /exec\(String\(_feedbackAudioUrl\)\)/);
+  });
+});

@@ -203,7 +203,11 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
     // sinh ra để hiện.
     const i = SRC.indexOf('async function loadDailyBoard');
     const body = SRC.slice(i, SRC.indexOf('const BOARD_MARK', i));
-    assert.ok(/progress-degraded/.test(body), 'phải ghi vào băng cảnh báo của thẻ');
+    // Ghi vào trạng thái chung rồi vẽ, chứ KHÔNG ghi thẳng DOM — xem phép kiểm
+    // "MỘT băng cảnh báo" bên dưới.
+    assert.ok(/_boardNote = 'Không đọc được bảng bài hằng ngày/.test(body),
+      'phải ghi lời cảnh báo vào trạng thái chung');
+    assert.ok(/renderProgressBanner\(\)/.test(body), 'và vẽ lại băng');
     assert.ok(/_dailyBoardLoaded = false/.test(body), 'và cho lần mở sau thử lại');
   });
 
@@ -223,5 +227,28 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
   test('nạp một lần cho tới khi bị làm cũ — không gọi lại mỗi lần mở thẻ', () => {
     const i = SRC.indexOf('async function loadDailyBoard');
     assert.match(SRC.slice(i, i + 220), /_dailyBoardLoaded\) return;/);
+  });
+});
+
+describe('MỘT băng cảnh báo, hai nguồn ghi vào (codex #931 vòng 4)', () => {
+  test('không bên nào ghi thẳng vào DOM — hai lượt gọi song song sẽ xoá lời nhau', () => {
+    // /speaking-daily hỏng trước, /progress xong sau → cảnh báo bị xoá sạch.
+    const writes = [...SRC.matchAll(/\$\('progress-degraded'\)/g)].length;
+    const inBanner = SRC.indexOf('function renderProgressBanner');
+    assert.ok(inBanner !== -1, 'phải có một chỗ vẽ chung');
+    const bannerBody = SRC.slice(inBanner, inBanner + 400);
+    assert.ok(/_progressNotes/.test(bannerBody) && /_boardNote/.test(bannerBody),
+      'chỗ vẽ chung phải gộp CẢ HAI nguồn');
+    // CHỈ chỗ vẽ chung được chạm DOM. Mọi đường khác phải đi qua trạng thái —
+    // kể cả đường lỗi cứng của loadProgress (tự soát bắt được, cùng họ lỗi ở
+    // chiều ngược lại: /progress hỏng thì xoá lời của bảng ngày).
+    assert.equal(writes, 1,
+      `còn ${writes} chỗ chạm DOM — mỗi chỗ ngoài renderProgressBanner là một lần xoá lời bên kia`);
+  });
+
+  test('bảng nạp lại THÀNH CÔNG thì gỡ cảnh báo cũ của chính nó', () => {
+    const i = SRC.indexOf('async function loadDailyBoard');
+    const body = SRC.slice(i, i + 700);
+    assert.ok(/_boardNote = '';/.test(body), 'không gỡ thì cảnh báo cũ dính mãi');
   });
 });

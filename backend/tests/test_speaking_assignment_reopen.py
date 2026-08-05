@@ -31,7 +31,12 @@ class _Table:
     def eq(self, f, v):
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
-    def order(self, *_a, **_k): return self
+    def order(self, field, **k):
+        # Mã thật DỰA VÀO cơ sở dữ liệu sắp xếp. Bộ giả không sắp thì phép kiểm
+        # "mới nhất thắng" đo thứ tự tôi gõ vào, không đo hành vi.
+        self._rows.sort(key=lambda r: str(r.get(field) or ""),
+                        reverse=bool(k.get("desc")))
+        return self
     def limit(self, *_a): return self
     def in_(self, *_a): return self
     def is_(self, *_a): return self
@@ -192,3 +197,56 @@ async def test_transferred_learner_is_blocked_even_before_the_deadline_matters()
         await _start(sessions=[],
                      student={**_STUDENT, "cohort_id": "co-LOP-MOI"})
     assert e.value.status_code == 404
+
+
+# ── Chọn phiên nào khi có nhiều (codex #931 vòng 4) ─────────────────────────
+
+async def _pick(sessions, responses=()):
+    log = []
+    db = _db(log,
+             class_assignment_items=[_ITEM],
+             class_assignments=[_assignment()],
+             sessions=sessions,
+             responses=list(responses))
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=_STUDENT), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.start_assignment("it1", None)
+    return out.get("session_id")
+
+
+def _s(sid, started, **over):
+    return {"id": sid, "user_id": "u1", "class_assignment_item_id": "it1",
+            "started_at": started, "completed_at": None, "status": "in_progress",
+            **over}
+
+
+@pytest.mark.asyncio
+async def test_completed_session_beats_a_newer_blank_one():
+    """Hành vi CŨ đã để lại những phiên TRỐNG mới hơn phiên thật trên prod.
+    Chọn theo `started_at` thôi thì mở lại vẫn ra phiếu trắng — đúng cái lỗi
+    hàm này sinh ra để chữa."""
+    got = await _pick([
+        _s("sess-TRONG", "2026-08-02T00:00:00+00:00"),          # mới hơn, rỗng
+        _s("sess-XONG",  "2026-08-01T00:00:00+00:00",
+           completed_at="2026-08-01T01:00:00+00:00", status="completed"),
+    ])
+    assert got == "sess-XONG"
+
+
+@pytest.mark.asyncio
+async def test_a_session_holding_work_beats_a_newer_blank_one():
+    got = await _pick(
+        [_s("sess-TRONG", "2026-08-02T00:00:00+00:00"),
+         _s("sess-CO-BAI", "2026-08-01T00:00:00+00:00")],
+        responses=[{"session_id": "sess-CO-BAI"}])
+    assert got == "sess-CO-BAI"
+
+
+@pytest.mark.asyncio
+async def test_all_blank_falls_back_to_the_newest():
+    got = await _pick([
+        _s("sess-CU",  "2026-08-01T00:00:00+00:00"),
+        _s("sess-MOI", "2026-08-02T00:00:00+00:00"),
+    ])
+    assert got == "sess-MOI", "chưa có gì thì mở cái nào cũng như nhau — lấy mới nhất"

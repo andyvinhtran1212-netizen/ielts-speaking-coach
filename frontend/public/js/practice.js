@@ -1287,9 +1287,18 @@
 
   function _downloadAudio() {
     if (!_feedbackAudioUrl) return;
-    if (_feedbackAudioIsBlob && !_recordedBlob) return;
-    var mime = _recordedBlob.type || 'audio/webm';
-    var ext  = mime.split('/')[1].split(';')[0] || 'webm';
+    // Ở lượt XEM LẠI, `_feedbackAudioUrl` là URL đã ký và `_recordedBlob` là
+    // null (tải lại trang xong thì bản ghi trong bộ nhớ không còn) — đọc
+    // `_recordedBlob.type` ở đây là nổ ngay khi bấm Tải (codex #931). Đuôi tệp
+    // suy từ chính URL, không cần bản ghi cục bộ.
+    var ext = 'webm';
+    if (_feedbackAudioIsBlob) {
+      if (!_recordedBlob) return;
+      ext = (_recordedBlob.type || 'audio/webm').split('/')[1].split(';')[0] || 'webm';
+    } else {
+      var m = /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec(String(_feedbackAudioUrl));
+      if (m) ext = m[1].toLowerCase();
+    }
     var ts   = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     var a    = document.createElement('a');
     a.href   = _feedbackAudioUrl;
