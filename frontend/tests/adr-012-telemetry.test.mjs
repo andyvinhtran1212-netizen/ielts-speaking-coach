@@ -100,9 +100,15 @@ test('rum-vitals: apiBase prefers runtime-config before the production fallback 
 });
 
 test('rum-vitals: loaded by all three Next route-group layouts (AUDIT F2)', () => {
-  for (const group of ['(marketing)', '(public-content)', '(authed)']) {
-    const layout = read('app', group, 'layout.tsx');
-    assert.match(layout, /\/js\/rum-vitals\.js/, `${group} layout must load the collector`);
+    // Các route-group cần đăng nhập ỦY QUYỀN `<head>` cho
+    // `components/authed-shell.tsx` thay vì tự khai — bất biến KHÔNG đổi (mọi
+    // route-group vẫn phải nạp collector), chỉ chỗ khai là đổi. Nối thêm khung
+    // để test kiểm đúng thứ trình duyệt nhận, thay vì kiểm một tệp.
+    const SHELL_SRC = read('components', 'authed-shell.tsx');
+    for (const group of ['(marketing)', '(public-content)', '(authed)']) {
+      const layout = read('app', group, 'layout.tsx');
+      const effective = /AuthedShell/.test(layout) ? layout + SHELL_SRC : layout;
+      assert.match(effective, /\/js\/rum-vitals\.js/, `${group} layout must load the collector`);
   }
 });
 
