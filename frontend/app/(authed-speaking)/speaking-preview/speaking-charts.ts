@@ -8,6 +8,7 @@
 // MÀU LẤY TỪ TOKEN LÚC VẼ, không hardcode: Chart.js nhận màu là chuỗi đã tính,
 // nó không hiểu `var(--av-*)`. Vì vậy đổi theme phải VẼ LẠI — xem
 // `observeThemeFlip` ở cuối tệp.
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
   CRITERIA_KEYS, LINE_MIN_POINTS, RADAR_LABELS,
   avgCriterion, chartLabels, chartSessions, hasCriteria, radarSessions,
@@ -44,14 +45,25 @@ function showEmpty(wrapId: string, emptyId: string, which: keyof Charts) {
   destroy(which);
 }
 
-export function renderCharts(sessions: any[]) {
-  const Chart = (window as any).Chart;
-  // Chart.js nạp `defer` từ CDN. Chưa có thì KHÔNG dựng khối rỗng — khối rỗng
-  // nói "bạn chưa có dữ liệu", một câu sai. Cứ để nguyên khung xương và thoát;
-  // `observeThemeFlip`/lần gọi sau sẽ vẽ khi thư viện tới.
-  if (typeof Chart !== 'function') return;
-
+export async function renderCharts(sessions: any[]) {
+  // NHỚ dữ liệu TRƯỚC mọi lối thoát. Bản đầu `return` ngay khi chưa có Chart.js
+  // và chưa kịp gán `lastSessions`, nên KHÔNG đường nào cứu được: người dùng có
+  // dữ liệu hợp lệ mà biểu đồ không bao giờ hiện, cho tới lần fetch sau hoặc
+  // một cú lật theme. Đúng lớp lỗi mất-tính-năng-chập-chờn của pilot 2 — chỉ
+  // xảy ra khi CDN chậm hơn `/api/dashboard/init`, nên chạy thử thường không
+  // thấy. (Codex bắt ở PR #938.)
   lastSessions = sessions;
+
+  // Chart.js nạp `defer` từ CDN ⇒ CHỜ có hạn giờ thay vì kiểm một lần rồi bỏ.
+  // Quá hạn thì `whenGlobalReady` tự báo lên telemetry và ta thoát IM LẶNG —
+  // KHÔNG dựng khối rỗng, vì khối rỗng nói "bạn chưa có dữ liệu", một câu SAI
+  // khi thật ra chỉ là thư viện chưa tới.
+  const ready = await whenGlobalReady(
+    () => typeof (window as any).Chart === 'function', 'Chart.js (speaking)',
+  );
+  if (!ready) return;
+  const Chart = (window as any).Chart;
+
   const completed = chartSessions(sessions);
 
   const C = {

@@ -88,16 +88,32 @@ describe('biểu đồ Speaking — chọn dữ liệu', () => {
     assert.deepEqual(CRITERIA_KEYS, ['band_fc', 'band_lr', 'band_gra', 'band_p']);
   });
 
+  test('NHỚ dữ liệu TRƯỚC mọi lối thoát, và CHỜ Chart.js', () => {
+    // Codex bắt ở PR #938: bản đầu `return` khi chưa có Chart.js và chưa kịp
+    // gán `lastSessions` ⇒ không đường nào cứu được. Người dùng có dữ liệu hợp
+    // lệ mà biểu đồ không bao giờ hiện, cho tới lần fetch sau hoặc một cú lật
+    // theme. Chỉ xảy ra khi CDN chậm hơn `/api/dashboard/init` — chạy thử
+    // thường KHÔNG thấy, nên phải chốt ở tầng mã nguồn.
+    const src = readFileSync(
+      path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-charts.ts'), 'utf8');
+    const body = src.slice(src.indexOf('export async function renderCharts'));
+    const remember = body.indexOf('lastSessions = sessions');
+    const firstReturn = body.indexOf('return;');
+    assert.ok(remember >= 0, 'phải nhớ sessions');
+    assert.ok(remember < firstReturn, 'phải nhớ TRƯỚC lối thoát đầu tiên');
+    assert.match(body, /await whenGlobalReady\(/,
+      'phải CHỜ Chart.js có hạn giờ, không kiểm một lần rồi bỏ');
+  });
+
   test('thiếu Chart.js thì KHÔNG dựng khối rỗng', () => {
     // Khối rỗng nói "bạn chưa có dữ liệu" — một câu SAI khi thật ra chỉ là thư
     // viện chưa nạp xong (nó `defer` từ CDN).
     const src = readFileSync(
       path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-charts.ts'), 'utf8');
-    assert.match(src, /if \(typeof Chart !== 'function'\) return;/);
     // So TRONG PHẠM VI `renderCharts`: `indexOf('showEmpty(')` trên cả tệp sẽ
     // bắt ĐỊNH NGHĨA hàm ở đầu tệp chứ không phải lời gọi (đã dính một lần).
-    const body = src.slice(src.indexOf('export function renderCharts'));
-    const guard = body.indexOf("typeof Chart !== 'function'");
+    const body = src.slice(src.indexOf('export async function renderCharts'));
+    const guard = body.indexOf('if (!ready) return;');
     const firstCall = body.indexOf('showEmpty(');
     assert.ok(guard >= 0 && firstCall > guard,
       'phải thoát TRƯỚC lời gọi showEmpty đầu tiên trong renderCharts');
