@@ -26,6 +26,11 @@ on:
       # (client component, được layout (authed) import) vẫn đổi chunk mà trước
       # đây không kích hoạt job nào có build ⇒ cú pháp/API vượt sàn lọt thẳng.
       - 'frontend/lib/**'
+      # Cùng lý do với `lib/**`, cho cây còn lại của mã dùng chung:
+      # `app/(authed)/layout.tsx` import `@/components/authed-shell`, nên đổi
+      # component đó là đổi chunk đã dựng và đổi kết quả quét — mà glob cũ không
+      # kích hoạt job (Codex bắt ở #946 vòng 3).
+      - 'frontend/components/**'
       # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
       # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
       # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong

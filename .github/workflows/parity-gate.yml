@@ -62,9 +62,14 @@ on:
       - 'frontend/public/pages/speaking.html'
       - 'frontend/public/css/speaking.css'
       - 'frontend/public/js/cue-card-detector.js'
-      - 'frontend/lib/speaking-copy.mjs'
-      - 'frontend/lib/speaking-stats.mjs'
-      - 'frontend/components/authed-shell.tsx'
+      # CẢ hai cây mã dùng chung, không ghim từng tệp. Job này chạy `npm run
+      # build`, nên BẤT KỲ component/lib nào cũng có thể lọt vào chunk của trang
+      # đang so — thêm một shared component mới mà quên bổ sung glob thì cổng
+      # không chạy cho đúng PR ấy (Codex bắt ở #946 vòng 3).
+      # Việc khoanh theo NHÓM ROUTE ở dưới vẫn giữ nguyên: đổi một route không
+      # đổi DOM route khác, còn mã dùng chung thì đổi được bất kỳ trang nào.
+      - 'frontend/lib/**'
+      - 'frontend/components/**'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
       # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
@@ -214,7 +219,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/speaking-(copy|stats)\.mjs|frontend/components/authed-shell\.tsx|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

@@ -132,7 +132,47 @@ function executedFiles(src) {
     const abs = resolveInRepo(m[1]);
     if (abs) out.add(abs);
   }
+  // Bước DỰNG cũng là một thứ "được chạy", và đầu vào của nó là mã nguồn app.
+  // `route-manifest.yml:72` chạy `npm run build` rồi mới soi kết quả, nhưng
+  // `paths` của nó thiếu `frontend/components/**` — trong khi
+  // `app/(authed)/layout.tsx` import `@/components/authed-shell`. Đổi component
+  // đó là đổi chunk đã dựng và đổi kết quả quét, mà PR ấy không chạy cổng nào.
+  // (Codex bắt ở #946 vòng 3.)
+  if (/npm run build|next build/.test(src)) {
+    nextBuildInputs().forEach((d) => out.add(d));
+  }
   return [...out];
+}
+
+/**
+ * Mã DÙNG CHUNG mà một lần `next build` kéo vào, SUY RA chứ không liệt kê tay:
+ * quét `frontend/app` tìm bí danh `@/<gốc>` rồi ánh xạ qua `tsconfig`
+ * (`@/*` → `./*`, tức thư mục `frontend/`). Hiện ra `components` và `lib`. Liệt
+ * kê tay sẽ mục ngay lần thêm thư mục mới — đúng họ lỗi chốt này sinh ra để diệt.
+ *
+ * CỐ Ý KHÔNG đòi cả `frontend/app/**`. Việc khoanh `paths` theo từng nhóm route
+ * (`app/(authed-speaking)/**`, …) là thu hẹp CÓ CHỦ ĐÍCH và hợp lệ: đổi một
+ * route không đổi DOM của route khác. Nhưng mã dùng chung thì đổi được BẤT KỲ
+ * trang nào, nên một workflow có bước dựng phải phản ứng với nó — kể cả khi
+ * hôm nay nó mới chỉ ghim vài tệp lẻ trong `components/` và `lib/`.
+ */
+function nextBuildInputs() {
+  const app = path.join(ROOT, 'frontend', 'app');
+  if (!existsSync(app)) return [];
+  const roots = new Set();
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!/\.(tsx?|mjs|js)$/.test(e.name)) continue;
+      for (const m of readFileSync(full, 'utf8').matchAll(/['"]@\/([\w-]+)/g)) {
+        const target = path.join(ROOT, 'frontend', m[1]);
+        if (existsSync(target)) roots.add(realpathSync(target));
+      }
+    }
+  };
+  walk(app);
+  return [...roots];
 }
 
 /**
