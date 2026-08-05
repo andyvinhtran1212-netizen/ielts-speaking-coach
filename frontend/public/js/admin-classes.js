@@ -1463,6 +1463,8 @@ async function submitHomework() {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1531,6 +1533,8 @@ async function submitLessonHomework(title) {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1589,6 +1593,8 @@ async function submitCourseHomework(title) {
       toast(`Đã giao bài cho ${(r && r.student_count) || 0} học viên.`);
     }
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     $('hf-error').textContent = 'Không giao được bài: ' + (err.message || err);
     $('hf-error').hidden = false;
@@ -1604,6 +1610,8 @@ async function setHomeworkStatus(assignmentId, status) {
       + '/assignments/' + encodeURIComponent(assignmentId), { status });
     toast(archiving ? 'Đã đóng bài giao. Học viên không còn thấy bài này.' : 'Đã mở lại bài giao.');
     await loadHomework();
+    // Bảng ngày dựng TỪ danh sách bài giao — giao/lưu trữ/xoá làm nó cũ ngay.
+    invalidateProgress();
   } catch (err) {
     toast((archiving ? 'Không đóng được bài giao: ' : 'Không mở lại được bài giao: ')
       + (err.message || err), 'error');
@@ -1622,6 +1630,7 @@ function deleteHomework(assignmentId) {
           + '/assignments/' + encodeURIComponent(assignmentId));
         toast('Đã xoá bài giao.');
         await loadHomework();
+        invalidateProgress();
       } catch (err) {
         toast('Không xoá được bài giao: ' + (err.message || err), 'error');
       }
@@ -1742,6 +1751,10 @@ function renderProgress() {
 function invalidateProgress() {
   _progressLoaded = false;
   _progress = { students: [], degraded: [] };
+  // Bảng ngày dựng TỪ danh sách bài giao, nên giao/lưu trữ/xoá một bài hằng
+  // ngày làm nó cũ ngay — kể cả khi thẻ Tiến độ đang đóng. Cờ này là thứ khiến
+  // lần mở sau nạp lại (codex #931).
+  _dailyBoardLoaded = false;
   // If the tab is currently open, refresh it now rather than on next open.
   if (!$('panel-progress').hidden) {
     _progressLoaded = true;
@@ -1770,17 +1783,28 @@ function invalidateProgress() {
  * Ô mang cả hình dạng lẫn màu (ký tự riêng cho mỗi trạng thái), không chỉ màu:
  * một lưới phân biệt bằng xanh/đỏ là một lưới người mù màu không đọc được.
  */
+let _dailyBoardLoaded = false;
+
 async function loadDailyBoard() {
   const box = $('daily-board');
-  if (!box) return;
+  if (!box || _dailyBoardLoaded) return;
+  _dailyBoardLoaded = true;
   try {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/speaking-daily');
     renderDailyBoard(r);
   } catch (err) {
-    // Ẩn hẳn thay vì hiện lưới rỗng — lưới rỗng đọc như "lớp chưa có bài hằng
-    // ngày nào", mà sự thật là chưa đọc được.
+    // Ẩn lưới (lưới rỗng đọc như "lớp chưa có bài hằng ngày nào") NHƯNG nói ra
+    // — đây là mặt đọc dùng để tìm em bỏ bài, nên im lặng ở đây là giấu đúng
+    // thứ nó sinh ra để hiện (codex #931).
     box.hidden = true;
+    _dailyBoardLoaded = false;   // cho lần mở sau thử lại
+    const b = $('progress-degraded');
+    if (b) {
+      b.hidden = false;
+      b.textContent = 'Không đọc được bảng bài hằng ngày: ' + (err.message || err)
+        + '. Mở lại thẻ này để thử lại.';
+    }
   }
 }
 

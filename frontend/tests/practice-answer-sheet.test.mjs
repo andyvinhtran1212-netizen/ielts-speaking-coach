@@ -566,3 +566,39 @@ describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex 
     assert.ok(/catch/.test(body), 'payload hỏng không được làm nổ màn xem lại');
   });
 });
+
+describe('xem lại phát ĐÚNG audio của câu ấy (codex #931 vòng 3)', () => {
+  test('không dùng _recordedBlob — biến ấy luôn là bản ghi GẦN NHẤT', () => {
+    // Ghi câu 1, ghi câu 2, xem lại câu 1 → nghe ra câu 2.
+    const i = CODE.indexOf('var audioSection = $(\'feedback-audio-section\');');
+    assert.ok(i !== -1);
+    const body = CODE.slice(i, i + 700);
+    const review = body.indexOf('_reviewAudioUrl');
+    const blob = body.indexOf('_recordedBlob');
+    assert.ok(review !== -1, 'phải có nhánh audio của lượt xem lại');
+    assert.ok(review < blob, 'nhánh xem lại phải xét TRƯỚC nhánh blob');
+    assert.ok(/_review\b/.test(body),
+      'xem lại mà KHÔNG có audio thì ẩn hẳn, không rơi xuống blob của câu khác');
+  });
+
+  test('URL đã ký không bị revokeObjectURL', () => {
+    // Nó không phải blob URL; thu hồi là sai nghĩa và là chỗ sau này chết khó hiểu.
+    const i = CODE.indexOf('if (_feedbackAudioUrl) {');
+    assert.match(CODE.slice(i, i + 260), /_feedbackAudioIsBlob\) URL\.revokeObjectURL/);
+  });
+
+  test('bảng URL dựng từ MẢNG mà endpoint thật trả về', () => {
+    // /sessions/{id}/audio-urls trả [{question_id, url}] — đoán là object thì
+    // bảng tra rỗng và không câu nào nghe được.
+    const i = CODE.indexOf('async function _loadSheetAudioUrls');
+    const body = CODE.slice(i, i + 700);
+    assert.ok(/\(rows \|\| \[\]\)\.forEach/.test(body), 'phải duyệt mảng');
+    assert.ok(/x\.question_id/.test(body) && /x\.url/.test(body));
+    assert.ok(/catch/.test(body), 'hỏng thì vẫn xem được nhận xét, chỉ thiếu nút nghe');
+  });
+
+  test('nạp URL MỘT lần, không mỗi lần bấm xem lại', () => {
+    const i = CODE.indexOf('async function _loadSheetAudioUrls');
+    assert.match(CODE.slice(i, i + 160), /if \(_sheetAudioUrls\) return _sheetAudioUrls;/);
+  });
+});

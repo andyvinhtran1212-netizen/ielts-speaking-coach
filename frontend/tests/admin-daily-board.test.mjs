@@ -196,3 +196,32 @@ describe('DÂY NỐI', () => {
     }
   });
 });
+
+describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 vòng 3)', () => {
+  test('đọc hỏng thì HIỆN cảnh báo, không nuốt im lặng', () => {
+    // Đây là mặt đọc dùng để tìm em bỏ bài — im lặng ở đây là giấu đúng thứ nó
+    // sinh ra để hiện.
+    const i = SRC.indexOf('async function loadDailyBoard');
+    const body = SRC.slice(i, SRC.indexOf('const BOARD_MARK', i));
+    assert.ok(/progress-degraded/.test(body), 'phải ghi vào băng cảnh báo của thẻ');
+    assert.ok(/_dailyBoardLoaded = false/.test(body), 'và cho lần mở sau thử lại');
+  });
+
+  test('đổi bài tập làm bảng ngày CŨ — mọi đường mutate đều báo', () => {
+    // Bảng dựng TỪ danh sách bài giao; giao/lưu trữ/xoá mà không báo thì admin
+    // quay lại thẻ Tiến độ vẫn thấy bảng của trước đó.
+    const inv = SRC.indexOf('function invalidateProgress');
+    assert.ok(/_dailyBoardLoaded = false/.test(SRC.slice(inv, inv + 700)),
+      'invalidateProgress phải làm cũ cả bảng ngày');
+    // Mỗi lần nạp lại bảng bài tập là một lần dữ liệu bài giao vừa đổi.
+    const loads = (SRC.match(/await loadHomework\(\);/g) || []).length;
+    const paired = (SRC.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
+    assert.equal(paired, loads,
+      `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
+  });
+
+  test('nạp một lần cho tới khi bị làm cũ — không gọi lại mỗi lần mở thẻ', () => {
+    const i = SRC.indexOf('async function loadDailyBoard');
+    assert.match(SRC.slice(i, i + 220), /_dailyBoardLoaded\) return;/);
+  });
+});

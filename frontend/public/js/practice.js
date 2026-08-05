@@ -89,6 +89,7 @@
 
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
   var _feedbackAudioUrl = null;
+  var _feedbackAudioIsBlob = false;
 
   // response_id of the most recently graded response (practice mode — used for pron assessment)
   var _currentResponseId = null;
@@ -946,13 +947,27 @@
     // ── Audio replay / download ──────────────────────────────────────────────
     // Revoke any URL from the previous question before creating a new one
     if (_feedbackAudioUrl) {
-      URL.revokeObjectURL(_feedbackAudioUrl);
+      // CHỈ thu hồi URL do mình tạo. Gọi revokeObjectURL lên một URL đã ký của
+      // máy chủ là vô hại nhưng sai nghĩa; và nếu sau này URL ấy được dùng lại
+      // thì đây là chỗ nó chết một cách khó hiểu.
+      if (_feedbackAudioIsBlob) URL.revokeObjectURL(_feedbackAudioUrl);
       _feedbackAudioUrl = null;
     }
     var audioSection = $('feedback-audio-section');
     if (audioSection) {
-      if (_recordedBlob) {
+      // Xem lại một ô của PHIẾU thì phát audio CỦA CHÍNH Ô ẤY, không phải
+      // `_recordedBlob` — biến ấy luôn giữ bản ghi GẦN NHẤT, nên ghi câu 1, ghi
+      // câu 2, rồi xem lại câu 1 sẽ nghe ra câu 2 (codex #931). Có bản ghi thật
+      // thì phát nó; không có thì ẩn hẳn chứ không phát nhầm.
+      if (data && data._reviewAudioUrl) {
+        _feedbackAudioUrl = data._reviewAudioUrl;   // URL đã ký, KHÔNG revoke
+        _feedbackAudioIsBlob = false;
+        audioSection.style.display = '';
+      } else if (data && data._review) {
+        audioSection.style.display = 'none';
+      } else if (_recordedBlob) {
         _feedbackAudioUrl = URL.createObjectURL(_recordedBlob);
+        _feedbackAudioIsBlob = true;
         audioSection.style.display = '';
       } else {
         audioSection.style.display = 'none';
@@ -1271,7 +1286,8 @@
   }
 
   function _downloadAudio() {
-    if (!_feedbackAudioUrl || !_recordedBlob) return;
+    if (!_feedbackAudioUrl) return;
+    if (_feedbackAudioIsBlob && !_recordedBlob) return;
     var mime = _recordedBlob.type || 'audio/webm';
     var ext  = mime.split('/')[1].split(';')[0] || 'webm';
     var ts   = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
@@ -3256,10 +3272,35 @@
    * Không dựng một bộ vẽ rút gọn riêng — học viên đã quen màn kia, và hai bộ
    * vẽ cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
    */
-  function _sheetReview(i) {
+  var _sheetAudioUrls = null;      // question_id → URL đã ký
+
+  /**
+   * URL phát lại của các câu trong phiên. Nạp MỘT lần, lúc cần đầu tiên: bài
+   * tập lớp có tới 12 câu và phần lớn lượt mở phiếu không xem lại câu nào.
+   * Hỏng thì trả `{}` — màn xem lại vẫn có nhận xét, chỉ thiếu nút nghe.
+   */
+  async function _loadSheetAudioUrls() {
+    if (_sheetAudioUrls) return _sheetAudioUrls;
+    try {
+      // Endpoint trả một MẢNG [{question_id, url}], không phải object — dựng
+      // bảng tra ở đây thay vì đoán hình dạng.
+      var rows = await window.api.get('/sessions/' + _sessionId + '/audio-urls');
+      var map = {};
+      (rows || []).forEach(function (x) {
+        if (x && x.question_id && x.url) map[x.question_id] = x.url;
+      });
+      _sheetAudioUrls = map;
+    } catch (e) {
+      _sheetAudioUrls = {};
+    }
+    return _sheetAudioUrls;
+  }
+
+  async function _sheetReview(i) {
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.resp) return;
     _sheetReviewIdx = i;
+    var urls = await _loadSheetAudioUrls();
     // TẮT test-mode trong lúc xem lại. `_showFeedback` mở đầu bằng một nhánh
     // test-mode gom kết quả rồi `_advanceTestMode()` — bài giao lớp HOÀN TOÀN
     // có thể mang mode `test_part` (admin chọn "Luyện từng Part"), nên bấm
@@ -3270,7 +3311,11 @@
     try {
       // `_live` = phản hồi vừa chấm xong (đã đúng hình dạng); còn lại là dòng
       // đọc từ cơ sở dữ liệu, phải dựng lại.
-      _showFeedback(s.resp._live ? s.resp : _respToFeedbackData(s.resp));
+      var data = s.resp._live ? Object.assign({}, s.resp) : _respToFeedbackData(s.resp);
+      data._review = true;
+      data._reviewAudioUrl = urls[s.q.id]
+        || (s.resp.audio_url && !s.resp._live ? s.resp.audio_url : null);
+      _showFeedback(data);
     } finally {
       _testMode = savedMode;
     }
