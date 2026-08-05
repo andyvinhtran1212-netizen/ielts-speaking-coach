@@ -83,6 +83,10 @@ on:
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
+      # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
+      - 'frontend/tooling/verify-write-flows.mjs'
+      - 'frontend/tooling/write-flow-core.mjs'
+      - 'frontend/tooling/write-flows/**'
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
       - '.github/workflows/parity-gate.yml'
@@ -291,6 +295,16 @@ jobs:
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
+      # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
+      # MỌI request ghi mà trang phát ra và đòi chúng đã được KHAI BÁO TRƯỚC.
+      # Một request ghi không nằm trong bản khai là lỗi — đó đúng là hình dạng
+      # của "nút làm SAI việc", thứ mà cổng parity tĩnh không thể thấy.
+      #
+      # Không cần secret, không ghi vào đâu (mạng bị chặn, dữ liệu trả sẵn).
+      - name: Cổng đường-ghi
+        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
 
       - name: Nộp báo cáo
         if: ${{ always() }}
