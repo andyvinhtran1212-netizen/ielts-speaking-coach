@@ -503,3 +503,37 @@ describe('so trang CẦN ĐĂNG NHẬP (authed-G1)', () => {
     assert.match(RUNNER, /from '\.\/supabase-session\.mjs'/);
   });
 });
+
+test('`href="#"` TRỐNG không được phân giải theo URL trang', () => {
+  // Link vô-tác-dụng: không có đích, chỉ để phần tử nhận focus/con trỏ, hành vi
+  // do JS lo. Phân giải nó thành "link tới chính trang này" khiến nó KHÔNG BAO
+  // GIỜ khớp — hai vế của một cặp parity luôn ở hai URL khác nhau.
+  //
+  // Đo được: cặp `/pages/speaking.html` ↔ `/speaking-preview` báo 3
+  // `link-missing` + 3 `link-extra` chỉ vì ba thẻ `.mode-card` dùng `href="#"`.
+  // Hai vế có ĐÚNG cùng ba thẻ đó — không phải lỗi port.
+  const a = canonicalHref('#', { base: 'http://x/pages/speaking.html' });
+  const b = canonicalHref('#', { base: 'http://x/speaking-preview' });
+  assert.equal(a, '#');
+  assert.equal(a, b, 'href="#" phải cho cùng một giá trị ở mọi trang');
+});
+
+test('neo THẬT vẫn phân giải — và khớp nhờ hợp đồng URL', () => {
+  // Neo trỏ sai id là lỗi thật, phải bắt được (phát hiện #3 vòng 2). Nó khớp
+  // được giữa hai vế là nhờ bảng ánh xạ legacy → canonical, không phải nhờ bỏ qua.
+  assert.equal(
+    canonicalHref('#groups-section', { base: 'http://x/grammar.html' }),
+    canonicalHref('#groups-section', { base: 'http://x/grammar' }));
+  assert.equal(
+    canonicalHref('#s', { base: 'http://x/pages/home.html' }),
+    canonicalHref('#s', { base: 'http://x/home' }));
+  assert.notEqual(
+    canonicalHref('#a', { base: 'http://x/grammar' }),
+    canonicalHref('#b', { base: 'http://x/grammar' }),
+    'hai neo KHÁC id vẫn phải khác nhau');
+});
+
+test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () => {
+  assert.equal(canonicalHref('/pages/home.html', { base: 'http://x/a' }), '/home');
+  assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
+});
