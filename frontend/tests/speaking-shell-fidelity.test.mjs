@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEGACY_FILE = path.join(FRONTEND, 'public/pages/speaking.html');
-const SHELL_FILE = path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/page-shell.tsx');
+const SHELL_FILE = path.join(FRONTEND, 'app/(authed-speaking)/speaking/page-shell.tsx');
 
 /** Phần `<body>` của bản legacy, đã bỏ script/style/chú thích. */
 function legacyBody() {

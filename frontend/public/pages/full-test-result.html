@@ -61,7 +61,7 @@
   <header class="ftr-header ftr-context-bar px-6 py-4 sticky top-0 z-20">
     <div class="av-w-page flex items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <a href="/pages/speaking.html" class="ftr-back-link">
+        <a href="/speaking" class="ftr-back-link">
           <i data-lucide="chevron-left"></i>
           Quay lại
         </a>
@@ -86,7 +86,7 @@
     </div>
     <p class="ftr-error-title text-lg font-semibold mb-2">Không thể tải kết quả</p>
     <p id="error-msg" class="ftr-error-msg text-sm mb-6"></p>
-    <a href="speaking.html" class="btn-primary">Quay lại</a>
+    <a href="/speaking" class="btn-primary">Quay lại</a>
   </div>
 
   <!-- ── Content ── -->
@@ -509,7 +509,7 @@
 
     // ── Actions ───────────────────────────────────────────────
     function retake() {
-      window.location.href = 'speaking.html';
+      window.location.href = '/speaking';
     }
 
     async function downloadPDFs(btn) {

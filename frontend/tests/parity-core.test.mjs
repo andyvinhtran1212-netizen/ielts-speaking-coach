@@ -509,7 +509,7 @@ test('`href="#"` TRỐNG không được phân giải theo URL trang', () => {
   // do JS lo. Phân giải nó thành "link tới chính trang này" khiến nó KHÔNG BAO
   // GIỜ khớp — hai vế của một cặp parity luôn ở hai URL khác nhau.
   //
-  // Đo được: cặp `/pages/speaking.html` ↔ `/speaking-preview` báo 3
+  // Đo được (khi Speaking còn dark-launch ở `/speaking-preview`): cặp đó báo 3
   // `link-missing` + 3 `link-extra` chỉ vì ba thẻ `.mode-card` dùng `href="#"`.
   // Hai vế có ĐÚNG cùng ba thẻ đó — không phải lỗi port.
   const a = canonicalHref('#', { base: 'http://x/pages/speaking.html' });

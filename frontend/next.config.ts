@@ -60,7 +60,11 @@ const nextConfig: NextConfig = {
         // /home") — đã thấy nó báo đúng khi tôi đổi route trước, gỡ rewrite sau.
         // `/pages/home.html` VẪN phục vụ 200, CỐ Ý: cổng parity G1 chỉ so được
         // khi cả hai vế còn sống. Gỡ bản legacy thuộc Phase 7.
-        { source: '/speaking', destination: '/pages/speaking.html' },
+        // CUTOVER 2026-08-05 — `/speaking` nay là ROUTE NEXT
+        // (`app/(authed-speaking)/speaking/`), không còn rewrite sang legacy.
+        // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
+        // trạng thái nửa vời. `/pages/speaking.html` VẪN phục vụ 200, CỐ Ý —
+        // cổng parity G1 chỉ so được khi cả hai vế còn sống.
       ],
       afterFiles: [],
       fallback: [],

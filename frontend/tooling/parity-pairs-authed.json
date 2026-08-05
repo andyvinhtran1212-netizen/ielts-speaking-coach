@@ -8,7 +8,7 @@
   {
     "name": "speaking",
     "legacy": "/pages/speaking.html",
-    "next": "/speaking-preview",
+    "next": "/speaking",
     "allow": []
   }
 ]

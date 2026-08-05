@@ -18,7 +18,9 @@
 // mà nó đang đo). Test này PHẢI ghi, nên nó thuộc về staging: backend + Supabase
 // riêng, danh tính seed sẵn, `GRADING_PROVIDER_MODE=fixture`.
 //
-// ĐIỀU KIỆN CHẠY: nhánh `staging` phải có mã Next của trang này. Cập nhật bằng
+// ĐIỀU KIỆN CHẠY: nhánh `staging` phải có mã Next của trang này. Sau cutover,
+// `/speaking` do route Next phục vụ; `/pages/speaking.html` VẪN trả 200 (cố ý —
+// cổng parity cần cả hai vế). Cập nhật bằng
 // `git push origin origin/main:refs/heads/staging --force` (người dùng chạy).
 // Nếu route chưa có, test SKIP kèm lý do rõ ràng thay vì đỏ nhập nhằng — một
 // test đỏ vì môi trường chưa đồng bộ sẽ bị học cách phớt lờ.
@@ -28,7 +30,7 @@ const {
 } = require('./helpers');
 
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
-const ROUTE = '/speaking-preview';
+const ROUTE = '/speaking';   // canonical từ cutover 2026-08-05
 
 async function signInSession(request, role) {
   const password = process.env.E2E_PASSWORD || '';

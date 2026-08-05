@@ -81,7 +81,7 @@
           '<p style="color:var(--av-text-muted);font-size:var(--av-fs-sm);margin-bottom:var(--av-space-6);">' +
             'Làm bài luyện tập để hệ thống phát hiện điểm ngữ pháp cần củng cố — lộ trình sẽ tự dựng theo điểm yếu của bạn.' +
           '</p>' +
-          '<a href="/pages/speaking.html" class="btn-primary">Bắt đầu luyện tập</a>' +
+          '<a href="/speaking" class="btn-primary">Bắt đầu luyện tập</a>' +
         '</div>';
     }
     var cta = _el('roadmap-cat-link');

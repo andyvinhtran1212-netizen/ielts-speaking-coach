@@ -95,7 +95,7 @@ describe('biểu đồ Speaking — chọn dữ liệu', () => {
     // theme. Chỉ xảy ra khi CDN chậm hơn `/api/dashboard/init` — chạy thử
     // thường KHÔNG thấy, nên phải chốt ở tầng mã nguồn.
     const src = readFileSync(
-      path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-charts.ts'), 'utf8');
+      path.join(FRONTEND, 'app/(authed-speaking)/speaking/speaking-charts.ts'), 'utf8');
     const body = src.slice(src.indexOf('export async function renderCharts'));
     const remember = body.indexOf('lastSessions = sessions');
     const firstReturn = body.indexOf('return;');
@@ -109,7 +109,7 @@ describe('biểu đồ Speaking — chọn dữ liệu', () => {
     // Khối rỗng nói "bạn chưa có dữ liệu" — một câu SAI khi thật ra chỉ là thư
     // viện chưa nạp xong (nó `defer` từ CDN).
     const src = readFileSync(
-      path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-charts.ts'), 'utf8');
+      path.join(FRONTEND, 'app/(authed-speaking)/speaking/speaking-charts.ts'), 'utf8');
     // So TRONG PHẠM VI `renderCharts`: `indexOf('showEmpty(')` trên cả tệp sẽ
     // bắt ĐỊNH NGHĨA hàm ở đầu tệp chứ không phải lời gọi (đã dính một lần).
     const body = src.slice(src.indexOf('export async function renderCharts'));

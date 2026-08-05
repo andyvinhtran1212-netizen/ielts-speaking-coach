@@ -64,7 +64,7 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // parity LUÔN ở hai URL khác nhau, nên nó KHÔNG BAO GIỜ khớp được, ở bất kỳ
   // cặp nào, mãi mãi.
   //
-  // Đo được: cặp `/pages/speaking.html` ↔ `/speaking-preview` báo 3
+  // Đo được (khi Speaking còn dark-launch ở `/speaking-preview`): cặp đó báo 3
   // `link-missing` + 3 `link-extra` chỉ vì ba thẻ `.mode-card` dùng `href="#"`.
   // Không phải lỗi port — hai vế có ĐÚNG cùng ba thẻ đó.
   //
@@ -96,6 +96,10 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/pages/home.html#x` và `/home#x` không bao giờ khớp. Đó đúng là lý do khu
   // Grammar khớp được (`/grammar.html` → `/grammar`) còn nơi khác thì không.
   else if (path === '/pages/home.html') path = '/home';
+  // `/speaking` cutover 2026-08-05 — cùng lý do: NEO TRONG TRANG.
+  // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
+  // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.
+  else if (path === '/pages/speaking.html') path = '/speaking';
   else if (path === '/pages/grammar-article.html') {
     const c = params.get('category');
     const s = params.get('slug');

@@ -18,7 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DIR = path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview');
+const DIR = path.join(FRONTEND, 'app/(authed-speaking)/speaking');
 
 const stripComments = (src) => src
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')

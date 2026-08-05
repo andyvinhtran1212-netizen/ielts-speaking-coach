@@ -176,7 +176,11 @@ def _build_speaking(sb, user_id: str) -> Dict[str, Any]:
         "last_band": float(last_band) if last_band is not None else None,
         "sessions_count": int(total),
         "primary_cta": "Continue practice" if total else "Start practice",
-        "primary_cta_url": "/pages/speaking.html",
+        # cutover /speaking 2026-08-05 — canonical là route Next. Backend CŨNG
+        # sinh điều hướng: `home.js`/`home-behavior.tsx` đưa người dùng đi bằng
+        # ĐÚNG giá trị này khi họ bấm thẻ Speaking ở trang chủ (bài học review
+        # #916 ở cutover /grammar). Quét mỗi frontend là bỏ lọt một luồng chính.
+        "primary_cta_url": "/speaking",
     }
 
 
