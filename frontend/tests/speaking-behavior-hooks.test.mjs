@@ -135,6 +135,39 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       'đừng dựng móc cho một hàm không có đường gọi');
   });
 
+  test('mọi GLOBAL mà hành vi dùng đều được layout nạp', () => {
+    // Lớp lỗi song sinh với "id không tồn tại", nhưng chốt id KHÔNG bắt được:
+    // `window.CueCardDetector` là global, không phải phần tử DOM. Codex bắt
+    // được ở PR #936 — thiếu `/js/cue-card-detector.js` thì mọi đường "câu hỏi
+    // tự nhập" ném TypeError lúc người dùng bấm, còn build thì vẫn xanh.
+    //
+    // Nguồn sự thật là trang legacy: global nào nó nạp script cho, bản Next
+    // phải nạp đúng script đó.
+    const layout = stripComments(
+      readFileSync(path.join(FRONTEND, 'app/(authed-speaking)/layout.tsx'), 'utf8'));
+    const shell = stripComments(
+      readFileSync(path.join(FRONTEND, 'components/authed-shell.tsx'), 'utf8'));
+    const loaded = layout + shell;
+
+    // global → tệp cung cấp nó (đọc từ chính trang legacy để không chép tay)
+    const PROVIDERS = new Map([
+      ['CueCardDetector', '/js/cue-card-detector.js'],
+      ['api', '/js/api.js'],
+    ]);
+    const used = new Set([...BEHAVIOR.matchAll(/\(window as any\)\.(\w+)/g)].map((m) => m[1]));
+    assert.ok(used.size >= 2, `phải thấy vài global, chỉ thấy ${used.size} — regex hỏng?`);
+    for (const g of used) {
+      const src = PROVIDERS.get(g);
+      assert.ok(src, `global «${g}» chưa khai nguồn — thêm vào PROVIDERS kèm tệp cung cấp`);
+      assert.ok(loaded.includes(src),
+        `hành vi dùng window.${g} nhưng layout/khung không nạp ${src}`);
+      assert.ok(LEGACY_BODY.includes(src.replace('/js/', 'js/'))
+        || readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8')
+             .includes(src.replace('/js/', 'js/')),
+        `trang legacy không nạp ${src} — kiểm lại giả định`);
+    }
+  });
+
   test('mọi listener đều có đường gỡ (StrictMode chạy effect hai lần)', () => {
     // Gắn trực tiếp bằng addEventListener mà không qua helper `on()` là chỗ rò:
     // effect chạy lại sẽ chồng listener, và một cú bấm gửi hai request tạo phiên.
