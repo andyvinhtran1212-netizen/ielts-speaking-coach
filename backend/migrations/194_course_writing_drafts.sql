@@ -36,6 +36,19 @@ CREATE TABLE IF NOT EXISTS course_writing_drafts (
     created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+-- Số thứ tự do MÁY CHỦ giữ, để lượt ghi đến MUỘN mà mang bản CŨ không đè lên
+-- bản mới. Lúc rời trang, lượt gửi `keepalive` phải bắn NGAY chứ không xếp hàng
+-- sau một lượt lưu tự động còn đang bay (nếu không, trang đóng trước khi nó kịp
+-- được tạo) — mà bắn ngay thì hai lượt có thể tới ngược thứ tự. Trang xin số
+-- này từ máy chủ rồi tăng dần, nên tải lại trang hay đổi máy đều không đặt lại
+-- về 0, và không phụ thuộc đồng hồ của máy nào cả (codex PR 949).
+ALTER TABLE course_writing_drafts
+    ADD COLUMN IF NOT EXISTS seq bigint NOT NULL DEFAULT 0;
+
+COMMENT ON COLUMN course_writing_drafts.seq IS
+'Số thứ tự tăng dần của bản nháp. Lượt ghi có seq NHỎ HƠN bản đang lưu bị bỏ
+qua: nó là một bản cũ tới muộn (mig 194).';
+
 -- MỘT bản nháp cho mỗi mục bài giao. Không có ràng buộc này thì mỗi lần lưu
 -- đẻ thêm một dòng, và lần đọc sau không biết dòng nào là mới nhất.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_course_writing_draft_per_item
@@ -59,6 +72,10 @@ REVOKE ALL ON TABLE course_writing_drafts FROM PUBLIC, anon, authenticated;
 GRANT  ALL ON TABLE course_writing_drafts TO service_role;
 
 -- ── Kiểm sau khi chạy ────────────────────────────────────────────────────────
+-- SELECT column_name FROM information_schema.columns
+--  WHERE table_name = 'course_writing_drafts' AND column_name = 'seq';
+-- Kỳ vọng: seq
+--
 -- SELECT relrowsecurity FROM pg_class WHERE relname = 'course_writing_drafts';
 -- Kỳ vọng: t
 --

@@ -84,6 +84,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   let pushTimer = null;
   let pendingPush = Promise.resolve();
   let lastPushed = '';
+  // CHƯA nạp xong thì chưa biết máy chủ đang giữ gì. Đẩy lúc ấy là gửi `{}` lên
+  // ĐÈ một bản nháp thật — chỉ cần mở trang trên mạng chậm rồi chuyển app là
+  // mất sạch bài đã viết (codex PR 949).
+  let ready = false;
+  // Số thứ tự do MÁY CHỦ giữ, gieo mầm lúc nạp rồi tăng dần: lượt ghi tới muộn
+  // mang bản cũ sẽ bị máy chủ bỏ qua, nên lượt `keepalive` lúc rời trang được
+  // phép bắn NGAY thay vì xếp hàng.
+  let seq = 0;
 
   function loadDraft() {
     if (!storage) return {};
@@ -108,18 +116,19 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
    * chờ nó trước khi trang đóng.
    */
   function pushDraft({ keepalive = false } = {}) {
-    if (submitted || !bankId) return Promise.resolve();
+    if (submitted || !bankId || !ready) return Promise.resolve();
     // NỐI ĐUÔI, không bắn song song. Hai lượt gửi chồng nhau có thể tới máy chủ
     // NGƯỢC thứ tự, và bản `upsert` đến sau ghi đè bản mới hơn — mở trên máy
     // khác là mất đúng đoạn vừa gõ (codex PR 949).
-    pendingPush = pendingPush.then(() => {
+    const send = () => {
       // Chụp nội dung Ở THỜI ĐIỂM GỬI, không phải lúc xếp hàng: gõ thêm trong
       // lúc chờ thì lượt này phải mang bản mới nhất.
       const body = JSON.stringify(draft);
       if (body === lastPushed) return null;            // không có gì mới
       lastPushed = body;
+      seq += 1;
       const path = '/api/quiz/course/writing/draft';
-      const payload = { bank_id: bankId, answers: { ...draft } };
+      const payload = { bank_id: bankId, answers: { ...draft }, seq };
       // `keepalive` THẬT của fetch, không phải một cờ tự đặt: rời trang thì
       // request thường bị huỷ giữa chừng — mà đó đúng là lúc đường này tồn tại
       // để phục vụ.
@@ -127,7 +136,19 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         ? api.postWith(path, payload, null, { keepalive: true })
         : api.post(path, payload);
       return sent.catch(() => { lastPushed = ''; });   // hỏng thì lần sau gửi lại
-    });
+    };
+    if (keepalive) {
+      // BẮN NGAY, không xếp hàng. Xếp sau một lượt lưu tự động còn đang bay thì
+      // trang có thể đóng TRƯỚC khi request kịp được tạo ra — và `keepalive`
+      // không cứu được một request chưa tồn tại. Thứ tự tới nơi không còn quan
+      // trọng: máy chủ bỏ qua bản có `seq` nhỏ hơn.
+      const p = Promise.resolve(send());
+      pendingPush = pendingPush.then(() => p, () => p);
+      return p;
+    }
+    // NỐI ĐUÔI cho lưu tự động: giữ số lượt gửi ở mức thấp và không tự đua với
+    // chính mình.
+    pendingPush = pendingPush.then(send, send);
     return pendingPush;
   }
 
@@ -169,6 +190,10 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       // thành mất dữ liệu vĩnh viễn (codex PR 949).
       const unknown = !submitted && !!(r && r.draft_unavailable);
       draft = hasRemote ? { ...(r.draft.answers || {}) } : local;
+      // Gieo mầm bộ đếm TỪ MÁY CHỦ: tải lại trang hay đổi máy đều không đặt nó
+      // về 0, nên một lượt gửi mới không bao giờ bị nhận nhầm là bản cũ.
+      seq = hasRemote ? (Number(r.draft.seq) || 0) : 0;
+      ready = true;
       if (!submitted) {
         saveDraft();
         if (!hasRemote && !unknown && Object.keys(local).length) {

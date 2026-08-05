@@ -94,7 +94,7 @@ def test_saving_a_draft_never_grades_or_finalises():
     i = src.index("row = {")
     written = set(re.findall(r'"(\w+)":', src[i:src.index("}", i)]))
     assert written == {"class_assignment_item_id", "user_id", "bank_id",
-                       "answers", "updated_at"}, f"ghi cả cột lạ: {written}"
+                       "answers", "updated_at", "seq"}, f"ghi cả cột lạ: {written}"
     # Và chỉ chạm ĐÚNG hai bảng: bảng nháp để ghi, bảng đã-chấm để hỏi.
     tables = set(re.findall(r'table\("(\w+)"\)', src))
     assert tables == {"course_writing_drafts", "course_writing_submissions"}
@@ -125,3 +125,29 @@ def test_a_failed_draft_read_says_so_instead_of_looking_empty():
     src = inspect.getsource(qs.course_writing_state)
     assert '"draft_unavailable"' in src
     assert "draft_unavailable = True" in _draft_block(), "nhánh đọc hỏng phải bật cờ"
+
+
+# ── Thứ tự ghi (codex PR 949 vòng 3) ────────────────────────────────────────
+
+def test_a_late_arriving_older_draft_is_ignored():
+    """Lúc rời trang, lượt `keepalive` bắn NGAY chứ không xếp hàng sau lượt lưu
+    tự động còn đang bay — nếu không, trang đóng trước khi request kịp được tạo
+    ra, và `keepalive` không cứu được một request chưa tồn tại. Bắn ngay thì hai
+    lượt có thể tới ngược thứ tự, nên máy chủ phải bỏ lượt CŨ."""
+    src = inspect.getsource(qs.save_course_writing_draft)
+    assert "seq" in inspect.signature(qs.save_course_writing_draft).parameters
+    assert '"stale": True' in src
+    i = src.index("if seq is not None:")
+    assert 'int(cur[0].get("seq") or 0) > int(seq)' in src[i:i + 700]
+
+
+def test_the_sequence_column_exists_and_defaults_to_zero():
+    assert "ADD COLUMN IF NOT EXISTS seq bigint NOT NULL DEFAULT 0" in CODE
+
+
+def test_the_state_hands_the_sequence_back_so_a_reload_does_not_restart_at_zero():
+    """Đếm lại từ 0 sau khi tải lại trang thì mọi lượt gửi mới đều bị coi là bản
+    cũ và bỏ qua — nháp đóng băng vĩnh viễn."""
+    src = inspect.getsource(qs.course_writing_state)
+    assert '"seq": int(draft.get("seq") or 0)' in src
+    assert "answers, updated_at, seq" in src, "quên CHỌN cột thì đọc ra None"

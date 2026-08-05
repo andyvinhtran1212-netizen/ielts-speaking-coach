@@ -845,7 +845,7 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
     if item and not sub:
         try:
             d = (supabase_admin.table("course_writing_drafts")
-                 .select("answers, updated_at")
+                 .select("answers, updated_at, seq")
                  .eq("class_assignment_item_id", item["id"])
                  .limit(1).execute().data) or []
             draft = d[0] if d else None
@@ -879,7 +879,11 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
         # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
         "draft": ({"answers": draft.get("answers") or {},
-                   "updated_at": draft.get("updated_at")} if draft else None),
+                   "updated_at": draft.get("updated_at"),
+                   # Trang GIEO MẦM bộ đếm từ con số này, nên tải lại trang hay
+                   # đổi máy đều không đặt lại về 0 — và không phụ thuộc đồng hồ
+                   # của máy nào cả.
+                   "seq": int(draft.get("seq") or 0)} if draft else None),
         # `true` = KHÔNG BIẾT máy chủ có gì. Khác hẳn `draft: null` (biết chắc
         # là chưa có), và trang phải xử lý hai chuyện ấy bằng hai cách.
         "draft_unavailable": draft_unavailable,
@@ -893,7 +897,7 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
 
 
 def save_course_writing_draft(*, user_id: str, bank_id: str,
-                              answers: dict) -> dict:
+                              answers: dict, seq: int | None = None) -> dict:
     """Ghi bản nháp phần tự luận. Ghi đè bản cũ của CÙNG mục bài giao.
 
     Không phải một lần nộp: không chấm gì, không chốt gì, và gọi bao nhiêu lần
@@ -919,6 +923,19 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     if done:
         raise HTTPException(409, "Phần tự luận đã nộp rồi — không sửa được nữa.")
 
+    # BẢN CŨ TỚI MUỘN thì bỏ qua. Lúc rời trang, lượt `keepalive` bắn ngay chứ
+    # không xếp hàng sau lượt lưu tự động còn đang bay, nên hai lượt có thể tới
+    # ngược thứ tự — và lượt cũ ghi đè lượt mới là mất đúng đoạn vừa gõ.
+    if seq is not None:
+        try:
+            cur = (supabase_admin.table("course_writing_drafts").select("seq")
+                   .eq("class_assignment_item_id", item["id"])
+                   .limit(1).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi đọc nháp: {exc}")
+        if cur and int(cur[0].get("seq") or 0) > int(seq):
+            return {"saved": 0, "item_id": item["id"], "stale": True}
+
     # Chỉ giữ câu có nội dung, và cắt theo đúng trần của lượt nộp: một bản nháp
     # dài hơn thứ nộp được là một lời hứa suông.
     #
@@ -933,13 +950,14 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
         "bank_id": bank_id,
         "answers": kept,
         "updated_at": datetime.now(timezone.utc).isoformat(),
+        "seq": int(seq) if seq is not None else 0,
     }
     try:
         supabase_admin.table("course_writing_drafts").upsert(
             row, on_conflict="class_assignment_item_id").execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
-    return {"saved": len(kept), "item_id": item["id"]}
+    return {"saved": len(kept), "item_id": item["id"], "stale": False}
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,
