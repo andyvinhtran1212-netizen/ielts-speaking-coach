@@ -39,12 +39,53 @@ function essay(i) {
   };
 }
 
-function fakeApi({ questions, mastery = null, failSession = false, failProgress = false, failPatch = false } = {}) {
-  const calls = { post: [], patch: [], postWith: [] };
+/** Sổ của máy chủ giả — sống lâu hơn một lần tải trang. */
+function newLedger() { return { ended: [], answered: new Map(), item: new Map() }; }
+
+const LEDGERS = new WeakMap();
+function ledgerFor(store) {
+  if (!LEDGERS.has(store)) LEDGERS.set(store, newLedger());
+  return LEDGERS.get(store);
+}
+
+function fakeApi({ questions, mastery = null, failSession = false, failProgress = false,
+                  failPatch = false, resume = null, failResume = false,
+                  ledger = newLedger() } = {}) {
+  const calls = { post: [], patch: [], postWith: [], get: [] };
   let n = 0;
+  // Máy chủ giả GIỮ SỔ như máy chủ thật: phiên nào đã chốt, phiên nào còn dở và
+  // đã nhận những câu nào. Một máy chủ giả luôn nói "chưa có gì" sẽ để lọt đúng
+  // thứ cần kiểm — chỗ đang làm dở có thật sự về được tay học viên không.
+  //
+  // Sổ đi theo `ledger` chứ không theo instance: hai lần `run()` dùng chung
+  // `storage` là MỘT học viên mở lại tab, nên cũng phải là một máy chủ.
+  const ended = ledger.ended;       // id phiên đã chốt, theo thứ tự
+  const answered = ledger.answered; // session_id → [{qid, is_correct}]
+  const itemOf = ledger.item;       // session_id → mục bài giao lúc TẠO phiên
+  const myItem = () => (mastery && mastery.item_id) || null;
+  const noteAttempts = (path, body) => {
+    const m = /\/sessions\/([^/]+)\/progress$/.exec(String(path));
+    if (!m || !body || !Array.isArray(body.attempts)) return;
+    const list = answered.get(m[1]) || [];
+    body.attempts.forEach((a) => list.push({ qid: a.qid, is_correct: !!a.is_correct }));
+    answered.set(m[1], list);
+  };
   return {
     calls,
-    async get() {
+    async get(path) {
+      calls.get.push(path);
+      if (String(path).includes('/course-resume')) {
+        if (failResume) throw new Error('resume hỏng');
+        if (resume) return resume;
+        // Máy chủ thật lọc theo `class_assignment_item_id` — phiên của mục cũ
+        // không thuộc về lượt của mục mới.
+        const mine = (id) => (itemOf.get(id) || null) === myItem();
+        const open = [...answered.keys()].filter((id) => ended.indexOf(id) === -1 && mine(id));
+        const sid = open.length ? open[open.length - 1] : null;
+        return { session_id: sid, answered: sid ? answered.get(sid) : [],
+                 completed: ended.filter(mine),
+                 item_id: myItem() };
+      }
       return { bank: { id: 'b1', title: 'Buổi 1' }, questions,
                ...(mastery ? { mastery } : {}) };
     },
@@ -53,19 +94,26 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
       if (path === '/api/quiz/sessions') {
         if (failSession) throw new Error('mạng hỏng');
         n += 1;
+        itemOf.set('sess-' + n, myItem());
         return { id: 'sess-' + n };
       }
       if (failProgress) throw new Error('progress hỏng');
+      noteAttempts(path, body);
       return {};
     },
     async postWith(path, body, _h, opts) {
       calls.postWith.push({ path, body, opts });
       if (failProgress) throw new Error('progress hỏng');
+      noteAttempts(path, body);
       return {};
     },
     async patch(path, body) {
       calls.patch.push({ path, body });
       if (failPatch) throw new Error('patch hỏng');
+      // Chốt phiên = `ended_at` được ghi ⇒ phiên vào danh sách đã-chốt, đúng
+      // như `get_course_resume` đọc trên máy chủ.
+      const m = /\/sessions\/([^/]+)$/.exec(String(path));
+      if (m && body && body.ended_by && ended.indexOf(m[1]) === -1) ended.push(m[1]);
       return {};
     },
   };
@@ -78,8 +126,10 @@ function memStore() {
 
 async function run(opts = {}) {
   const questions = opts.questions || Array.from({ length: 25 }, (_, i) => mcq(i));
-  const api = fakeApi({ ...opts, questions });
+  // `api` dùng lại = MỘT máy chủ, tab mới. Dựng máy chủ mới cho mỗi lần tải lại
+  // là mô phỏng cả việc máy chủ mất sạch dữ liệu — không phải chuyện đang kiểm.
   const storage = opts.storage || memStore();
+  const api = opts.api || fakeApi({ ...opts, questions, ledger: ledgerFor(storage) });
   const r = createRunner({ api, storage, now: () => 1000 });
   await r.load('b1');
   return { r, api, storage };
@@ -567,17 +617,29 @@ describe('chặng chốt hỏng phải SỬA LẠI được (codex #928 R3)', ()
       'sau khi gửi lại thành công, phiên phải có tên trong lượt xét');
   });
 
-  test('chốt hỏng rồi ĐÓNG TAB: mở lại phải LÀM LẠI chặng ấy, không kẹt ở màn kết quả', async () => {
+  test('chốt hỏng rồi ĐÓNG TAB: mở lại GỬI LẠI được, không bắt làm lại mười câu', async () => {
+    // Trước đây lượt làm chết theo tab, nên đường sửa duy nhất là làm lại cả
+    // chặng. Nay phiên được nhận lại TỪ MÁY CHỦ cùng đủ năm câu đã trả lời, nên
+    // mở lại là một lần gửi lại thật — không ai phải làm lại thứ mình đã làm.
     const store = memStore();
     const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
     const first = await run({ storage: store, questions: qsn, failPatch: true });
     const out = await playStage(first.r);
     assert.equal(out.persisted, false);        // done KHÔNG được đóng dấu
-    // mở lại: lượt làm cũ đã chết theo tab — đường sửa duy nhất là làm lại chặng
+
     const second = await run({ storage: store, questions: qsn });
-    assert.equal(second.r.at, 0, 'phải đứng ở CÂU ĐẦU của chặng để làm lại');
-    assert.equal(second.r.isStageDone(), false,
-      'kẹt ở màn kết quả là verdict phủ-đủ-đề bác mãi, không lối ra');
+    assert.equal(second.r.at, 5, 'năm câu đã làm phải còn nguyên');
+    assert.deepEqual(second.r.marks, ['right', 'right', 'right', 'right', 'right']);
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0, 'phải DÙNG TIẾP phiên cũ, không đẻ phiên mồ côi');
+
+    // `renderDone()` của trang gọi đúng lệnh này khi chặng đã đủ câu.
+    const again = await second.r.finishStage();
+    assert.equal(again.persisted, true, 'mạng đã lại: lần này phải chốt được');
+    await second.r.verdict();
+    const v = second.api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(v[0].body.session_ids, ['sess-1'],
+      'đúng phiên cũ đi xét đạt — không phải một phiên mới rỗng');
   });
 });
 
@@ -637,13 +699,113 @@ describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
   });
 });
 
+describe('bỏ dở GIỮA chặng rồi quay lại — báo cáo thật của học viên', () => {
+  // "Đang làm quiz mà thoát trình duyệt thì bài tự nộp." Không phải tự nộp:
+  // chỗ đang làm bị VỨT. Em Minh Ngoc Võ (bank C1-B01) mất 8/10 câu chặng 3 —
+  // chúng nằm trong phiên dfecc87b không bao giờ được chốt.
+
+  test('quay lại đúng câu tiếp theo, cùng phiên cũ, không mất câu nào', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    const list = first.r.stageQuestions();
+    for (let i = 0; i < 6; i++) {                 // làm 6/10 rồi đóng tab
+      first.r.show();
+      first.r.answer(i === 2 ? 1 : list[i].answer);   // câu 3 sai
+      first.r.next();
+    }
+    await first.r.leave();                        // đẩy nốt bằng keepalive
+
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.at, 6, 'phải mở đúng CÂU 7, không quay về câu 1');
+    assert.deepEqual(second.r.marks,
+      ['right', 'right', 'wrong', 'right', 'right', 'right'],
+      'kết quả 6 câu cũ phải còn nguyên, kể cả câu sai');
+    const opened = second.api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0, 'dùng tiếp phiên cũ — không đẻ phiên mồ côi');
+  });
+
+  test('KHÔNG tự nộp: mở lại giữa chặng thì chưa chốt phiên nào', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    const list = first.r.stageQuestions();
+    for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(list[i].answer); first.r.next(); }
+    await first.r.leave();
+
+    const second = await run({ storage: store, questions: qsn });
+    assert.equal(second.r.isStageDone(), false, 'chặng còn dở thì không được coi là xong');
+    assert.equal(second.api.calls.patch.length, 0,
+      'chốt phiên chỉ xảy ra khi học viên làm hết chặng — không phải khi mở lại trang');
+  });
+
+  test('làm nốt sau khi quay lại thì chặng chốt ĐỦ mười câu', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const first = await run({ storage: store, questions: qsn });
+    const l1 = first.r.stageQuestions();
+    for (let i = 0; i < 6; i++) { first.r.show(); first.r.answer(l1[i].answer); first.r.next(); }
+    await first.r.leave();
+
+    const second = await run({ storage: store, questions: qsn });
+    const l2 = second.r.stageQuestions();
+    for (let i = 6; i < 10; i++) { second.r.show(); second.r.answer(l2[i].answer); second.r.next(); }
+    const out = await second.r.finishStage();
+    assert.equal(out.graded, 10);
+    assert.equal(out.right, 10, 'sáu câu trước + bốn câu sau = một chặng trọn vẹn');
+    assert.equal(second.api.calls.patch[0].path, '/api/quiz/sessions/sess-1',
+      'chốt đúng phiên đã mở từ trước khi đóng tab');
+  });
+
+  test('máy chủ trả về câu KHÔNG khớp bộ đề thì không nhận bừa', async () => {
+    // Máy mới (chưa có gì trong localStorage) nên không có vân tay để so, mà bộ
+    // đề đã được soạn lại kể từ lúc phiên kia mở. Nhận bừa là đếm sai chỗ đang
+    // đứng: học viên bị nhảy cóc qua những câu mình chưa hề làm.
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const { r, api } = await run({
+      questions: qsn,
+      resume: { session_id: 'sess-cu', item_id: null,
+                answered: [{ qid: 'DA-XOA-1', is_correct: true },
+                           { qid: 'DA-XOA-2', is_correct: true }],
+                completed: [] },
+    });
+    assert.equal(r.at, 0, 'không khớp thì bắt đầu lại chặng, không nhảy cóc');
+    assert.deepEqual(r.marks, []);
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1,
+      'phải mở phiên MỚI — dùng tiếp phiên của bản đề cũ là trộn hai bài vào nhau');
+  });
+
+  test('nhận đúng khi khớp: một câu lệch ở giữa cũng bị từ chối', async () => {
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const { r } = await run({
+      questions: qsn,
+      resume: { session_id: 'sess-cu', item_id: null, completed: [],
+                answered: [{ qid: qsn[0].qid, is_correct: true },
+                           { qid: 'LECH', is_correct: true },
+                           { qid: qsn[2].qid, is_correct: true }] },
+    });
+    assert.equal(r.at, 0, 'khớp một phần KHÔNG phải là khớp');
+  });
+
+  test('mất mạng lúc hỏi máy chủ thì vẫn mở được bài (đường lùi cũ)', async () => {
+    const store = memStore();
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const { r, api } = await run({ storage: store, questions: qsn, failResume: true });
+    assert.equal(r.at, 0);
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1,
+      'không hỏi được thì mở phiên mới — chặn học viên khỏi bài tập mới là tệ hơn');
+  });
+});
+
 describe('reload GIỮA chặng (codex #928 R7)', () => {
   test('chặng dang dở làm lại từ câu đầu — không đi tiếp với câu đã rơi vào phiên mồ côi', async () => {
     const store = memStore();
     const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
     const first = await run({ storage: store, questions: qsn });
-    // trả lời 4 câu rồi đóng tab — 4 lượt ấy nằm trong phiên sess-1 KHÔNG BAO
-    // GIỜ completed (mồ côi), verdict không nhìn thấy chúng
+    // Trả lời 4 câu rồi đóng tab mà lượt làm CHƯA KỊP TỚI MÁY CHỦ (chưa đủ lô,
+    // và `leave()` cũng không chạy). Máy chủ không có gì để trả lại, nên chỉ
+    // trong ca này mới làm lại chặng từ đầu — khác hẳn ca đã đẩy được, xem
+    // `bỏ dở GIỮA chặng rồi quay lại`.
     for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(0); first.r.next(); }
     const second = await run({ storage: store, questions: qsn });
     assert.equal(second.r.at, 0, 'đi tiếp từ câu 5 là 4 câu đầu vĩnh viễn không có kết quả — verdict bác mãi');

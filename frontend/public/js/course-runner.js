@@ -181,17 +181,27 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
    * rồi coi trạng thái ấy là hỏng và đặt lại về đầu chặng — nên tải lại trang ở
    * màn kết quả là phải làm lại cả mười câu.
    */
+  /**
+   * Đọc trạng thái lưu cục bộ.
+   *
+   * Trả về: 'fresh' chưa có gì lưu · 'stale' có lưu nhưng của BÀI KHÁC (bộ đề
+   * đã soạn lại, hoặc mục bài giao khác) · 'ok' dùng được.
+   *
+   * Phân biệt 'fresh' với 'stale' là điều kiện để biết có nên tin máy chủ hay
+   * không: máy chủ không biết vân tay bộ đề, nên chính chỗ này là nơi duy nhất
+   * nhận ra "bài đã bị soạn lại dưới chân học viên".
+   */
   function restore() {
-    if (!storage) return;
+    if (!storage) return 'fresh';
     let v = {};
-    try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return; }
-    if (typeof v.stage !== 'number') return;
+    try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return 'fresh'; }
+    if (typeof v.stage !== 'number') return 'fresh';
     // Bộ đề đã đổi (re-import: câu khác hay đáp án khác) → trạng thái lưu là
     // của một bài KHÁC. Làm lại từ đầu sạch sẽ; giữ lại là phiên cũ lẫn vào
     // lượt xét hoặc bài cũ bị chấm bằng thước mới.
-    if (v.rev !== rev) return;
+    if (v.rev !== rev) return 'stale';
     // Khác mục bài giao (chuyển lớp, giao lại) = lượt của một BÀI GIAO khác.
-    if ((v.item || null) !== itemId) return;
+    if ((v.item || null) !== itemId) return 'stale';
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')
@@ -201,15 +211,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if ((stage + 1) * STAGE < qs.length) { stage += 1; at = 0; marks = []; }
       else { at = STAGE; marks = Array.isArray(v.marks) ? v.marks : []; resumedFinal = true; }
     } else {
-      // Chặng DANG DỞ không sống qua reload — làm lại chặng từ câu đầu.
+      // Đường LÙI khi không hỏi được máy chủ: làm lại chặng từ câu đầu.
       //
-      // Vì phiên và hàng đợi lượt làm chỉ sống trong bộ nhớ tab: các câu đã
-      // trả lời trước khi đóng tab nằm trong một phiên MỒ CÔI (không bao giờ
-      // completed, không có tên trong lượt xét). Khôi phục `at` giữa chừng là
-      // để học viên đi tiếp với những câu đã rơi vào hư không — verdict
-      // phủ-đủ-đề sẽ bác cả lượt ở phút chót và không có đường sửa nào ngoài
-      // xoá localStorage (codex #928 R3+R7). Mười câu là giá của một lần đóng
-      // tab giữa chặng; một lượt 100 câu bị kẹt vĩnh viễn mới là đắt.
+      // `adoptServerState()` mới là đường chính — nó nhận lại đúng phiên đang
+      // dở nên không còn phiên mồ côi, và chỗ đang làm sống qua cả đóng tab lẫn
+      // đổi máy. Chỉ khi lệnh ấy hỏng (mạng đứt) mới rơi xuống đây, và khi ấy
+      // vẫn phải làm lại chặng: đi tiếp với một phiên không biết id là để lượt
+      // làm rơi vào hư không (codex #928 R3+R7).
       at = 0; marks = [];
     }
     // Trạng thái lưu không còn khớp bộ đề (bank bị thay/ngắn lại): làm lại từ
@@ -220,6 +228,59 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       stage = 0; at = 0; marks = []; resumedFinal = false; runSessions = [];
     }
     if (at > STAGE) { at = 0; marks = []; resumedFinal = false; }
+    return 'ok';
+  }
+
+  /**
+   * Nhận chỗ đang làm TỪ MÁY CHỦ. Máy chủ thắng bộ nhớ trình duyệt.
+   *
+   * Chặng dang dở từng bị vứt bỏ khi tải lại trang (xem `restore`), vì những
+   * câu đã trả lời nằm trong một phiên MỒ CÔI không bao giờ được chốt. Nay
+   * phiên ấy được NHẬN LẠI nguyên vẹn, nên không còn ai mồ côi và cũng không
+   * còn lý do gì để vứt mười câu của học viên.
+   *
+   * Đây cũng là thứ duy nhất sống qua đổi máy và xoá bộ nhớ trình duyệt.
+   * Hỏng thì im lặng lùi về đường cũ — bài tập vẫn mở được.
+   */
+  async function adoptServerState() {
+    if (!qs.length) return false;
+    let sv = null;
+    try {
+      sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume');
+    } catch (e) { return false; }
+    if (!sv) return false;
+    // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
+    if ((sv.item_id || null) !== itemId) return false;
+
+    const done = Array.isArray(sv.completed) ? sv.completed.slice() : [];
+    runSessions = done;
+    const stages = Math.ceil(qs.length / STAGE);
+    if (done.length >= stages) {
+      // Xong hết các chặng: đứng ở màn kết quả, KHÔNG mở phiên mới.
+      stage = stages - 1; at = STAGE; resumedFinal = true;
+      sessionId = null; sessionFailed = false;
+      return true;
+    }
+    stage = done.length;
+    resumedFinal = false;
+    at = 0; marks = [];
+
+    const ans = Array.isArray(sv.answered) ? sv.answered : [];
+    const list = qs.slice(stage * STAGE, stage * STAGE + STAGE);
+    // Phải khớp ĐÚNG TIỀN TỐ của chặng: lệch một câu là đếm sai chỗ đang đứng,
+    // và học viên hoặc mất câu hoặc làm lại câu đã làm.
+    const aligned = ans.length > 0 && ans.length <= list.length
+      && ans.every(function (a, i) { return a && list[i] && a.qid === list[i].qid; });
+    if (sv.session_id && aligned) {
+      sessionId = sv.session_id;
+      sessionFailed = false;
+      at = ans.length;
+      marks = ans.map(function (a) { return a.is_correct ? 'right' : 'wrong'; });
+      stageStartedAt = now();
+      return true;
+    }
+    // Có phiên nhưng bộ đề đã đổi (re-import) — không nhận, mở phiên mới.
+    return false;
   }
 
   function stageQuestions() {
@@ -319,7 +380,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         throw new Error('Bài tập này chưa có câu hỏi nào.');
       }
       rev = fingerprint(qs);
-      restore();
+      const local = restore();
+      // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
+      // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên
+      // hỏi nó lúc ấy là nhận về những phiên thuộc bản đề CŨ rồi đem chúng đi
+      // xét đạt cho bản đề MỚI.
+      const adopted = local === 'stale' ? false : await adoptServerState();
       // Đứng ở màn kết quả cuối thì KHÔNG có gì để ghi — mở phiên ở đây là đẻ
       // ra một phiên "chặng cuối" rỗng, và finishStage của lần vẽ lại sẽ chốt
       // nó với tổng số sao chép rồi chen nó vào lượt xét đạt (codex #928).
@@ -327,6 +393,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // là đẻ ra một phiên rỗng rồi chốt nó bằng 0 câu — và cổng xét đạt sẽ bác
       // cả lượt vì bộ đề không có câu trắc nghiệm nào (codex #935).
       if (!qs.length) { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      // Đã nhận một phiên dở từ máy chủ: mở phiên mới ở đây là bỏ rơi chính
+      // phiên vừa nhận, tức là tái lập đúng lỗi mồ côi vừa sửa.
+      else if (adopted && sessionId) { /* dùng tiếp phiên đang dở */ }
       else if (!resumedFinal) await openSession();
       else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
       shownAt = now();

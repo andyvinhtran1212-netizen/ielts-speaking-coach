@@ -537,6 +537,93 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
+def get_course_resume(*, user_id: str, bank_id: str) -> dict:
+    """Chỗ đang làm dở của MỘT lượt bài tập theo buổi — đọc từ máy chủ.
+
+    Trước đây chỗ này chỉ sống trong `localStorage` của đúng một trình duyệt,
+    nên đóng tab giữa chặng là mất: `restore()` vứt chặng dở, `load()` mở một
+    phiên MỚI, và những câu đã trả lời nằm lại trong một phiên mồ côi không bao
+    giờ được chốt. Học viên đọc chuyện ấy thành "thoát trình duyệt là bài tự
+    nộp" (báo cáo thật: em Minh Ngoc Võ, bank C1-B01 — 8/10 câu chặng 3 nằm
+    trong phiên dfecc87b, không lối về).
+
+    Máy chủ đã giữ đủ mọi thứ để trả lại: phiên chưa chốt, và các lượt làm của
+    nó. Trả lại từ đây thì chỗ đang làm sống qua cả đóng tab, đổi máy, lẫn xoá
+    bộ nhớ trình duyệt.
+
+    Trả về:
+      · `session_id`  phiên 'run' CHƯA chốt gần nhất (None nếu không có)
+      · `answered`    [{qid, is_correct}] theo THỨ TỰ làm, của đúng phiên ấy
+      · `completed`   id các phiên 'run' ĐÃ chốt — chính là danh sách gửi đi xét
+                      đạt, nay không còn phụ thuộc bộ nhớ trình duyệt
+      · `item_id`     mục bài giao đang gắn, để trang bỏ trạng thái của mục khác
+
+    Chỉ dành cho bank theo buổi; các luồng quiz khác trả rỗng và không đổi hành
+    vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
+    """
+    empty = {"session_id": None, "answered": [], "completed": [], "item_id": None}
+    bank = _bank_meta_or_404(bank_id, user_id)
+    if bank.get("skill_area") != COURSE_AREA:
+        return empty
+
+    item = _assignment_item_for(bank_id, user_id)
+    item_id = (item or {}).get("id")
+    empty["item_id"] = item_id
+
+    try:
+        q = (supabase_admin.table("quiz_sessions")
+             .select("id, ended_at, class_assignment_item_id, created_at, kind")
+             .eq("user_id", user_id).eq("bank_id", bank_id)
+             .order("created_at", desc=False))
+        rows = (q.execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        # Đọc hỏng thì trả RỖNG, không ném: trang vẫn mở bài mới được. Ném ở đây
+        # là chặn học viên khỏi bài tập vì một lỗi đọc phụ trợ.
+        logger.warning("[quiz] course-resume read failed bank=%s: %s", bank_id, exc)
+        return empty
+
+    # Phiên của MỤC BÀI GIAO khác (chuyển lớp, giao lại cùng bank) là lượt khác.
+    # So sánh cả hai chiều: mục None chỉ khớp mục None.
+    rows = [r for r in rows if (r.get("class_assignment_item_id") or None) == item_id]
+    # `kind` vắng mặt trên phiên cũ (trước mig 189) — coi như 'run'.
+    rows = [r for r in rows if (r.get("kind") or "run") == "run"]
+
+    completed = [r["id"] for r in rows if r.get("ended_at")]
+    open_rows = [r for r in rows if not r.get("ended_at")]
+    # Nhiều phiên rỗng do tải lại trang: lấy phiên CÓ BÀI gần nhất, không phải
+    # phiên mới nhất — bản ghi của học viên nằm ở phiên có bài.
+    result = {"session_id": None, "answered": [], "completed": completed,
+              "item_id": item_id}
+    if not open_rows:
+        return result
+
+    ids = [r["id"] for r in open_rows]
+    try:
+        att = (supabase_admin.table("quiz_attempts")
+               .select("session_id, qid, is_correct, created_at")
+               .in_("session_id", ids).order("created_at", desc=False)
+               .execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] course-resume attempts failed bank=%s: %s", bank_id, exc)
+        return result
+
+    by_session: dict[str, list[dict]] = {}
+    for a in att:
+        by_session.setdefault(a["session_id"], []).append(a)
+    # Phiên dở dang ĐÁNG khôi phục = phiên có bài, mới nhất. Phiên rỗng bỏ mặc:
+    # chúng vô hại (0 câu, không vào lượt xét) và dọn chúng là việc khác.
+    with_work = [r for r in open_rows if by_session.get(r["id"])]
+    if not with_work:
+        return result
+    chosen = with_work[-1]
+    result["session_id"] = chosen["id"]
+    result["answered"] = [
+        {"qid": a.get("qid"), "is_correct": bool(a.get("is_correct"))}
+        for a in by_session[chosen["id"]] if a.get("qid")
+    ]
+    return result
+
+
 def reset_progress(*, user_id: str, bank_id: str) -> dict:
     """Wipe the caller's word_stats for one bank — a full restart of the adaptive
     test (used by the "Làm lại từ đầu" action once every word is already mastered).
