@@ -838,6 +838,21 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
         raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
 
     sub = rows[0] if rows else None
+    # Bản nháp CHỈ đọc khi chưa nộp: nộp rồi thì nháp là rác, và rót nó ra màn
+    # hình chỉ để một ngày nào đó nó đè lên bài đã chấm.
+    draft = None
+    if item and not sub:
+        try:
+            d = (supabase_admin.table("course_writing_drafts")
+                 .select("answers, updated_at")
+                 .eq("class_assignment_item_id", item["id"])
+                 .limit(1).execute().data) or []
+            draft = d[0] if d else None
+        except Exception as exc:  # noqa: BLE001
+            # Nháp hỏng KHÔNG được chặn học viên khỏi phần viết — em ấy vẫn gõ
+            # được, chỉ là mất phần đã gõ trên máy khác.
+            logger.warning("[quiz] đọc nháp tự luận hỏng item=%s: %s", item["id"], exc)
+            draft = None
     return {
         # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
         # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
@@ -853,6 +868,10 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
             **({"explain": q.get("explain")} if sub else {}),
         } for q in qs],
         "submitted": bool(sub),
+        # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
+        # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
+        "draft": ({"answers": draft.get("answers") or {},
+                   "updated_at": draft.get("updated_at")} if draft else None),
         "submission": ({
             "items":     sub.get("items"),
             "total":     sub.get("total"),
@@ -860,6 +879,56 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
             "graded_at": sub.get("graded_at"),
         } if sub else None),
     }
+
+
+def save_course_writing_draft(*, user_id: str, bank_id: str,
+                              answers: dict) -> dict:
+    """Ghi bản nháp phần tự luận. Ghi đè bản cũ của CÙNG mục bài giao.
+
+    Không phải một lần nộp: không chấm gì, không chốt gì, và gọi bao nhiêu lần
+    cũng vô hại. Đây thuần là chỗ để bản nháp sống qua đổi máy và xoá bộ nhớ
+    trình duyệt.
+
+    ĐÃ NỘP thì từ chối: một lượt chấm duy nhất nghĩa là sau khi chấm, không còn
+    gì để nháp — và ghi tiếp chỉ tạo ra một bản nháp mãi mãi không ai đọc, nằm
+    cạnh bài đã chấm như thể còn sửa được.
+    """
+    _bank_meta_or_404(bank_id, user_id)
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        # Không có bài giao còn hiệu lực = không có chỗ để gắn bản nháp. Nói ra
+        # thay vì ghi vào hư không.
+        raise HTTPException(403, "Bài này không còn nhận bài nữa.")
+    try:
+        done = (supabase_admin.table("course_writing_submissions")
+                .select("id").eq("class_assignment_item_id", item["id"])
+                .limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+    if done:
+        raise HTTPException(409, "Phần tự luận đã nộp rồi — không sửa được nữa.")
+
+    # Chỉ giữ câu có nội dung, và cắt theo đúng trần của lượt nộp: một bản nháp
+    # dài hơn thứ nộp được là một lời hứa suông.
+    #
+    # Tên biến KHÔNG dùng `clean`: đó là tên một CỘT của bảng bài-đã-chấm (số
+    # câu không lỗi), và một cái tên mượn từ nơi khác là chỗ để hai khái niệm
+    # trộn vào nhau lúc đọc lại.
+    kept = {str(k): str(v)[:course_writing_grader.MAX_ANSWER_CHARS]
+            for k, v in (answers or {}).items() if str(v or "").strip()}
+    row = {
+        "class_assignment_item_id": item["id"],
+        "user_id": user_id,
+        "bank_id": bank_id,
+        "answers": kept,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        supabase_admin.table("course_writing_drafts").upsert(
+            row, on_conflict="class_assignment_item_id").execute()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
+    return {"saved": len(kept), "item_id": item["id"]}
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,

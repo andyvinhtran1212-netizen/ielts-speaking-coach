@@ -8,7 +8,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createWriting, inlineDiff, md, draftKey } from '../public/js/course-writing.js';
+import { createWriting, inlineDiff, md, draftKey, PUSH_DELAY_MS }
+  from '../public/js/course-writing.js';
 
 function memStore() {
   const m = new Map();
@@ -23,16 +24,23 @@ function memStore() {
 const Q = (qid, over = {}) => ({ qid, prompt: `Viết lại: ${qid}`, subtype: 'E1', ...over });
 
 function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
-                   submission = null, itemId = 'it1', onPost } = {}) {
+                   submission = null, itemId = 'it1', onPost, draft = null,
+                   failDraft = false } = {}) {
   const calls = { get: [], post: [] };
   return {
     calls,
+    // Bản nháp máy chủ giữ — mặc định "chưa có gì", đúng với một em mở lần đầu.
+    get drafts() { return calls.post.filter((c) => c.path.includes('/writing/draft')); },
     async get(path) {
       calls.get.push(path);
-      return { questions, submitted, submission, item_id: itemId };
+      return { questions, submitted, submission, item_id: itemId, draft };
     },
     async post(path, body) {
       calls.post.push({ path, body });
+      if (path.includes('/writing/draft')) {
+        if (failDraft) throw new Error('mạng hỏng');
+        return { saved: Object.keys(body.answers || {}).length };
+      }
       if (onPost) return onPost(body);
       return { items: [], total: questions.length, clean: questions.length };
     },
@@ -344,5 +352,89 @@ describe('màn đã chấm dựng từ BẢN CHỤP, không từ đề hiện h�
     const html = w.renderResult();
     assert.match(html, /đáp án mẫu LÚC NỘP/);
     assert.ok(!html.includes('ĐỀ MỚI'), 'ghép bài cũ với đáp án mẫu của đề khác là nói dối');
+  });
+});
+
+describe('bản nháp sống trên MÁY CHỦ, không chỉ trong một trình duyệt', () => {
+  // Tới nay nháp chỉ nằm trong `localStorage`: đổi máy, xoá bộ nhớ trình duyệt,
+  // hay dùng máy phòng lab là mất trắng — và phần tự luận chỉ có MỘT lượt nộp
+  // nên học viên thường viết dần trong nhiều buổi.
+
+  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+
+  test('gõ xong thì đẩy lên máy chủ, KHÔNG phải mỗi phím', async () => {
+    const { w, api } = await load();
+    w.write('E1', 'M');
+    w.write('E1', 'Một');
+    w.write('E1', 'Một câu');
+    assert.equal(api.drafts.length, 0, 'chưa ngừng gõ thì chưa gửi');
+    await tick();
+    assert.equal(api.drafts.length, 1, 'ba phím → MỘT request');
+    assert.deepEqual(api.drafts[0].body.answers, { E1: 'Một câu' });
+  });
+
+  test('rời trang thì đẩy NGAY, không chờ hết đếm ngược', async () => {
+    // Đóng tab đúng lúc đang đếm ngược là mất đoạn vừa gõ — mà đoạn vừa gõ mới
+    // là đoạn em ấy nhớ nhất.
+    const { w, api } = await load();
+    w.write('E1', 'vừa gõ xong thì đóng tab');
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 1);
+    assert.deepEqual(api.drafts[0].body.answers, { E1: 'vừa gõ xong thì đóng tab' });
+  });
+
+  test('máy chủ CÓ nháp thì máy chủ thắng — đây là bản sống qua đổi máy', async () => {
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản cũ trên máy này' }));
+    const { w } = await load({ storage: store, draft: { answers: { E1: 'bản trên máy chủ' } } });
+    assert.equal(w.draft.E1, 'bản trên máy chủ');
+  });
+
+  test('máy chủ RỖNG mà máy này có nháp thì đẩy lên ngay', async () => {
+    // Không làm thế thì bản đang gõ dở trên máy quen biến mất ngay lần mở đầu
+    // tiên sau khi lên bản mới.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'đang viết dở' }));
+    const { w, api } = await load({ storage: store, draft: null });
+    assert.equal(w.draft.E1, 'đang viết dở');
+    assert.equal(api.drafts.length, 1, 'phải cứu bản cũ lên máy chủ');
+    assert.deepEqual(api.drafts[0].body.answers, { E1: 'đang viết dở' });
+  });
+
+  test('không có gì để đẩy thì KHÔNG gọi mạng', async () => {
+    const { api } = await load();
+    await tick();
+    assert.equal(api.drafts.length, 0);
+  });
+
+  test('nội dung không đổi thì không gửi lại', async () => {
+    const { w, api } = await load();
+    w.write('E1', 'x');
+    await tick();
+    w.write('E1', 'x');
+    await tick();
+    assert.equal(api.drafts.length, 1, 'gõ rồi xoá rồi gõ lại y hệt = một lần gửi');
+  });
+
+  test('đã NỘP thì không đẩy nháp nữa', async () => {
+    // Một lượt chấm duy nhất: sau khi chấm, ghi tiếp chỉ tạo một bản nháp mãi
+    // mãi không ai đọc, nằm cạnh bài đã chấm như thể còn sửa được.
+    const { w, api } = await load({ submitted: true,
+                                    submission: { items: [], total: 2, clean: 2 } });
+    w.write('E1', 'cố gõ thêm');
+    await tick();
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 0);
+  });
+
+  test('máy chủ hỏng thì vẫn viết được, và lần sau gửi LẠI', async () => {
+    const { w, api } = await load({ failDraft: true });
+    w.write('E1', 'câu một');
+    await tick();
+    assert.equal(api.drafts.length, 1, 'đã thử');
+    assert.equal(w.draft.E1, 'câu một', 'hỏng mạng không được nuốt bài của em ấy');
+    w.write('E1', 'câu một');            // y hệt — nhưng lần trước HỎNG
+    await tick();
+    assert.equal(api.drafts.length, 2, 'gửi hỏng thì lần sau phải gửi lại');
   });
 });

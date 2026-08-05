@@ -52,6 +52,14 @@ export function inlineDiff(before, after) {
 
 const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
 
+/**
+ * Chờ bao lâu sau phím cuối mới đẩy nháp lên máy chủ.
+ *
+ * Đủ dài để một câu 600 ký tự không thành 600 request, đủ ngắn để đóng tab
+ * ngay sau khi gõ vẫn kịp — và `flushDraft()` bắt nốt phần còn lại.
+ */
+export const PUSH_DELAY_MS = 1500;
+
 /** Khoá bản nháp — theo BANK, để hai bài khác nhau không đè nhau. */
 /**
  * Khoá bản nháp — theo BANK **và** NGƯỜI DÙNG.
@@ -64,13 +72,18 @@ const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
 export const draftKey = (bankId, userId, itemId) =>
   'cw:' + (userId || 'anon') + ':' + bankId + (itemId ? ':' + itemId : '');
 
-export function createWriting({ api, storage, userId }) {
+export function createWriting({ api, storage, userId, now = () => Date.now() }) {
   let bankId = null;
   let questions = [];
   let submitted = false;
   let submission = null;
   let draft = {};
   let itemId = null;
+  // Đẩy nháp lên máy chủ SAU khi ngừng gõ, không phải mỗi phím: một câu 600 ký
+  // tự là 600 request. `pendingPush` giữ lời hứa để `flushDraft()` chờ được.
+  let pushTimer = null;
+  let pendingPush = Promise.resolve();
+  let lastPushed = '';
 
   function loadDraft() {
     if (!storage) return {};
@@ -82,6 +95,33 @@ export function createWriting({ api, storage, userId }) {
     if (!storage || submitted) return;   // đã nộp thì nháp không còn nghĩa
     try { storage.setItem(draftKey(bankId, userId, itemId), JSON.stringify(draft)); }
     catch (e) { /* trình duyệt chặn lưu — vẫn viết và nộp được */ }
+  }
+
+  /**
+   * Đẩy nháp lên MÁY CHỦ.
+   *
+   * Trình duyệt chỉ còn là bộ đệm: bản thật nằm ở máy chủ, nên nháp sống qua
+   * đổi máy, xoá bộ nhớ trình duyệt, và cả máy phòng lab.
+   *
+   * Nuốt lỗi là ĐÚNG ở đây — học viên đang gõ, không có gì để nói với em ấy, và
+   * bản trong trình duyệt vẫn còn nguyên. Nhưng phải nhớ lời hứa: `flushDraft`
+   * chờ nó trước khi trang đóng.
+   */
+  function pushDraft() {
+    if (submitted || !bankId) return Promise.resolve();
+    const body = JSON.stringify(draft);
+    if (body === lastPushed) return Promise.resolve();   // không có gì mới
+    lastPushed = body;
+    pendingPush = api.post('/api/quiz/course/writing/draft',
+      { bank_id: bankId, answers: draft })
+      .catch(() => { lastPushed = ''; });   // hỏng thì lần sau gửi lại
+    return pendingPush;
+  }
+
+  function schedulePush() {
+    if (submitted) return;
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => { pushTimer = null; pushDraft(); }, PUSH_DELAY_MS);
   }
 
   const missing = () => questions
@@ -103,11 +143,36 @@ export function createWriting({ api, storage, userId }) {
       submission = (r && r.submission) || null;
       // Nộp rồi thì bản nháp là rác — và giữ nó lại chỉ để một ngày nào đó
       // hiện lên đè lên bài đã chấm.
-      draft = submitted ? {} : loadDraft();
+      // MÁY CHỦ THẮNG khi nó có gì để nói: đó là bản duy nhất sống qua đổi máy.
+      // Máy chủ rỗng mà máy này có nháp thì đẩy lên ngay — nếu không, bản đang
+      // gõ dở trên máy quen sẽ biến mất ngay lần mở đầu tiên sau khi lên bản mới.
+      const local = submitted ? {} : loadDraft();
+      const remote = (!submitted && r && r.draft && r.draft.answers) || null;
+      draft = remote && Object.keys(remote).length ? { ...remote } : local;
+      if (!submitted) {
+        saveDraft();
+        if (!(remote && Object.keys(remote).length) && Object.keys(local).length) {
+          lastPushed = '';
+          pushDraft();
+        } else {
+          lastPushed = JSON.stringify(draft);
+        }
+      }
       if (submitted && storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }
       return { submitted, count: questions.length };
+    },
+
+    /**
+     * Đẩy nốt nháp NGAY. Gọi khi rời trang.
+     *
+     * Không chờ hết `PUSH_DELAY_MS`: đóng tab đúng lúc đang đếm ngược là mất
+     * đoạn vừa gõ — mà đoạn vừa gõ mới là đoạn em ấy nhớ nhất.
+     */
+    flushDraft() {
+      if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
+      return pushDraft().catch(() => { /* hết cách — bản trong máy vẫn còn */ });
     },
 
     /** Ghi một câu vào nháp. Trả về số câu còn thiếu. */
@@ -115,6 +180,7 @@ export function createWriting({ api, storage, userId }) {
       if (submitted) return missing().length;
       draft[qid] = text;
       saveDraft();
+      schedulePush();
       return missing().length;
     },
 

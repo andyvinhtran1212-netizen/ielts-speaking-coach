@@ -155,6 +155,21 @@ async def submit_course_writing(body: CourseWritingBody,
     )
 
 
+@router.post("/course/writing/draft")
+async def save_course_writing_draft(
+    body: CourseWritingBody, authorization: str | None = Header(None),
+):
+    """Lưu bản NHÁP phần tự luận. Không chấm, không chốt, gọi lại vô hại.
+
+    Có đường này thì bản nháp sống qua đổi máy và xoá bộ nhớ trình duyệt —
+    trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.save_course_writing_draft(
+        user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+    )
+
+
 @router.post("/course/verdict")
 async def course_verdict(body: CourseVerdictBody, authorization: str | None = Header(None)):
     """Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại)."""
