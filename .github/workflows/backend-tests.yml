@@ -47,6 +47,13 @@ on:
       # không chạy đúng cái chốt đang canh `paths` — tức là chốt chống-"chốt-
       # không-tự-nổ" lại tự dính chính lỗi đó. Nó không tự phát hiện được vì nó
       # nạp workflow bằng `readdirSync`, không nêu tên tệp nào.
+      # Hook pre-push nằm ở `scripts/hooks/`, nhưng bộ chốt của nó là
+      # `frontend/tests/pre-push-hook.test.mjs` — chạy bởi job frontend dưới
+      # đây. Thiếu dòng này thì một PR CHỈ sửa hook sẽ không chạy chốt của
+      # chính nó (Codex bắt ở PR #943; cùng họ với phát hiện ở #930 và #937:
+      # chốt tồn tại mà không bao giờ nổ).
+      - 'scripts/hooks/**'
+      # Bao cả `backend-tests.yml`, nên không cần dòng ghim riêng tệp này nữa.
       - '.github/workflows/**'
 
 jobs:
