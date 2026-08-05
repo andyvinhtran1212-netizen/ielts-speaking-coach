@@ -62,10 +62,12 @@ def test_complete_separates_no_recording_from_no_grading():
     from routers import sessions as se
     src = inspect.getsource(se.complete_session)
     i = src.index("all_band_vals = [overall_band]")
-    seg = src[i:i + 1600]
+    seg = src[i:i + 2600]
     # Phải ĐẾM bài đã lưu trước khi từ chối.
     assert 'table("responses")' in seg and 'count="exact"' in seg
-    assert "if not saved:" in seg, "chỉ từ chối khi KHÔNG có bài nào"
+    # Chốt nay rộng hơn: từ chối khi KHÔNG có bài nào, HOẶC chưa trả lời đủ câu
+    # (xem test_null_band_completion_requires_every_question_answered).
+    assert "if not saved or" in seg, "chỉ từ chối khi thiếu bài, không phải khi thiếu ĐIỂM"
     # Và phải để lại dấu vết cho lượt hoàn thành không-band.
     assert "chấm hỏng hết" in seg
 
@@ -74,6 +76,18 @@ def test_a_failed_count_query_keeps_the_stricter_old_behaviour():
     from routers import sessions as se
     src = inspect.getsource(se.complete_session)
     i = src.index("all_band_vals = [overall_band]")
-    seg = src[i:i + 1600]
+    seg = src[i:i + 2600]
     j = seg.index("except Exception")
     assert "saved = 0" in seg[j:j + 400], "đọc hỏng thì chặt hơn là an toàn hơn"
+
+
+def test_null_band_completion_requires_every_question_answered():
+    """Chỉ hỏi "có bài nào không" thì một client cũ gọi /complete sớm sẽ chốt cả
+    bài 12 câu bằng đúng MỘT dòng hỏng — sổ giáo viên ghi "đã nộp" cho một bài
+    làm dở (codex #942)."""
+    from routers import sessions as se
+    src = inspect.getsource(se.complete_session)
+    i = src.index("all_band_vals = [overall_band]")
+    seg = src[i:i + 2200]
+    assert 'table("questions")' in seg, "phải đếm SỐ CÂU của phiên"
+    assert "saved < asked" in seg, "và đòi trả lời đủ"

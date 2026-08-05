@@ -867,6 +867,10 @@
 .av-sheet__ticks i[data-state='recording'] { background: var(--av-error); }
 .av-sheet__ticks i[data-state='grading']   { background: var(--av-accent); }
 .av-sheet__ticks i[data-state='saved']     { background: var(--av-success); }
+/* Đã lưu nhưng chưa chấm được. Thiếu dòng này thì vạch ấy xám y hệt câu CHƯA
+   LÀM, trong khi nó đã tính là xong — bảng tổng quan nói ngược lại chính phiếu
+   ngay bên dưới (codex PR 942). */
+.av-sheet__ticks i[data-state='ungraded']  { background: var(--av-warning); }
 
 .av-sheet__meter-count {
   margin: 0;

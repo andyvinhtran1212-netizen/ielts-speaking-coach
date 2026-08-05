@@ -134,10 +134,18 @@ describe('nút nộp', () => {
 });
 
 describe('lưu hỏng thì nói ra', () => {
-  test('nộp hỏng đưa ô về CHƯA LÀM, không để xanh', () => {
+  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', () => {
     // Để "đã lưu" nghĩa là học viên bấm Nộp rồi mất câu trả lời mà không biết.
-    assert.match(CODE, /\.catch\(function \(err\) \{[\s\S]{0,220}?s\.state = 'idle';/);
-    assert.match(CODE, /Chưa lưu được câu này/);
+    //
+    // Chốt này từng ghim NGUYÊN VĂN `s.state = 'idle';` — lại là ghim một dòng
+    // mã, không phải một hành vi. Nó đúng khi mọi lần ghi đều là lần đầu, và
+    // sai ngay khi có "ghi âm lại": bản cũ vẫn nằm trên server, hạ ô về 'chưa
+    // làm' là nói sai VÀ khoá lại nút Nộp. Nay ghim BẤT BIẾN đầy đủ.
+    const i = CODE.indexOf('function _sheetOnRecorded');
+    const body = CODE.slice(i, i + 1800);
+    assert.match(body, /\.catch\(function \(err\) \{[\s\S]{0,400}?s\.state = hadWork \? 'ungraded' : 'idle';/);
+    assert.match(body, /Chưa lưu được câu này/, 'lần đầu: nói rõ chưa lưu được');
+    assert.match(body, /bản ghi trước của bạn vẫn còn/, 'ghi lại: trấn an bản cũ còn nguyên');
   });
 
   test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
@@ -703,6 +711,27 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     assert.ok(m, 'không tìm thấy phép phân loại');
     assert.match(m[1], /grading_status === 'failed'/);
     assert.match(m[1], /_failed/);
+  });
+
+  test('ghi âm LẠI mà hỏng thì GIỮ bản cũ, không hạ về "chưa làm"', () => {
+    // Bản cũ vẫn nằm nguyên trên server; hạ ô về 'idle' là nói sai và khoá lại
+    // nút Nộp. Chỉ lần ghi ĐẦU TIÊN mới rơi về 'idle' (codex #942).
+    const i = CODE.indexOf('function _sheetOnRecorded');
+    const body = CODE.slice(i, i + 1800);
+    assert.match(body, /var hadWork = s && \(s\.state === 'saved' \|\| s\.state === 'ungraded'\)/);
+    assert.match(body, /s\.state = hadWork \? 'ungraded' : 'idle';/);
+    assert.ok(!/^\s*s\.state = 'idle';\s*$/m.test(body),
+      'không còn nhánh nào hạ thẳng về idle');
+  });
+
+  test('vạch tiến độ có màu riêng cho ô chưa chấm được', () => {
+    // Thiếu nó thì vạch xám y hệt câu CHƯA LÀM, trong khi ô đã tính là xong —
+    // bảng tổng quan nói ngược lại chính phiếu ngay bên dưới.
+    const ticks = [...CSS.matchAll(/\.av-sheet__ticks i\[data-state='(\w+)'\]/g)]
+      .map((m) => m[1]);
+    for (const st of ['recording', 'grading', 'saved', 'ungraded']) {
+      assert.ok(ticks.includes(st), `vạch thiếu màu cho '${st}'`);
+    }
   });
 
   test('có câu chưa chấm được thì NÓI RA ở đáy phiếu', () => {

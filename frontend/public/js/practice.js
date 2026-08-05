@@ -3275,6 +3275,10 @@
   function _sheetOnRecorded(blob) {
     var i = _sheet.recIdx;
     var s = _sheet.slots[i];
+    // Ô ĐÃ CÓ BÀI TRÊN MÁY CHỦ trước lần ghi này. Lần ghi lại mà hỏng KHÔNG
+    // được vứt bản cũ: nó vẫn nằm nguyên ở server, và hạ ô về 'chưa làm' sẽ
+    // đẩy nó khỏi số đếm rồi khoá lại nút Nộp (codex #942).
+    var hadWork = s && (s.state === 'saved' || s.state === 'ungraded');
     // Máy có thể dừng ghi khi phiếu đã nhả ô ra (hết giờ tối đa, hoặc một lỗi
     // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
@@ -3310,8 +3314,14 @@
       .catch(function (err) {
         // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
         // là học viên bấm Nộp rồi mất câu trả lời mà không biết.
-        s.state = 'idle';
-        s.error = 'Chưa lưu được câu này. Ghi âm lại giúp nhé.';
+        //
+        // Nhưng nếu ô ĐÃ CÓ bài từ trước thì bản cũ vẫn còn nguyên trên server:
+        // hạ nó về 'chưa làm' là nói sai và khoá luôn nút Nộp. Chỉ lần ghi ĐẦU
+        // TIÊN mới rơi về 'idle'.
+        s.state = hadWork ? 'ungraded' : 'idle';
+        s.error = hadWork
+          ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước của bạn vẫn còn.'
+          : 'Chưa lưu được câu này. Ghi âm lại giúp nhé.';
       })
       .then(function () { _renderSheet(); });
   }

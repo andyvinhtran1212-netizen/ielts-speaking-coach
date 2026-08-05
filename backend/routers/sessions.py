@@ -1507,7 +1507,20 @@ async def complete_session(
             logger.warning("[complete_session] đếm responses hỏng session=%s: %s",
                            session_id, exc)
             saved = 0
-        if not saved:
+        # ĐỦ CÂU mới cho qua. Chỉ hỏi "có bài nào không" thì một client cũ hoặc
+        # một lần thử lại tay gọi /complete sớm sẽ chốt cả bài 12 câu bằng đúng
+        # MỘT dòng hỏng — và sổ của giáo viên ghi "đã nộp" cho một bài làm dở
+        # (codex #942).
+        try:
+            asked = (
+                supabase_admin.table("questions").select("id", count="exact")
+                .eq("session_id", session_id).limit(1).execute()
+            ).count or 0
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[complete_session] đếm questions hỏng session=%s: %s",
+                           session_id, exc)
+            asked = 0
+        if not saved or (asked and saved < asked):
             raise HTTPException(
                 status_code=422,
                 detail="Cannot complete session — no usable band scores found in responses. "

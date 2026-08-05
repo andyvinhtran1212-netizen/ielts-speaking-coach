@@ -137,7 +137,7 @@
   color: var(--av-text-primary);
   /* GIỮ XUỐNG DÒNG. Dạng B3 cho hai câu để so sánh — "(1) …\n(2) …" gộp thành
      một dòng là xoá mất chính thứ đang được hỏi. (Tôi đánh rơi hai dòng này khi
-     thay nguyên khối lúc thiết kế lại — codex #935.) */
+     thay nguyên khối lúc thiết kế lại — codex PR 935.) */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-x: auto;
