@@ -16,7 +16,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
-  MODE_BADGE, escHtml, historyHasActiveFilters, roundHalf,
+  MODE_BADGE, escHtml, fmtRelTime, historyHasActiveFilters, roundHalf,
 } from '@/lib/speaking-stats.mjs';
 
 const $ = (id: string) => document.getElementById(id);
@@ -217,6 +217,43 @@ const grammarUrl = (slug?: string, category?: string) =>
   (!category || !slug) ? null
     : '/grammar/' + encodeURIComponent(category) + '/' + encodeURIComponent(slug);
 
+/**
+ * Khu dashboard ngữ pháp — BỐN mục, không phải một.
+ *
+ * Codex bắt ở PR #937: bản đầu của tôi chỉ vẽ `grammar_focus_this_week` nhưng
+ * `hasAny` bật khi CÓ BẤT KỲ mục nào trong bốn. Người có "điểm yếu"/"đã lưu"/
+ * "xem gần đây" mà không có pill sẽ thấy các TIÊU ĐỀ RỖNG — tức lộ khung mà
+ * không có nội dung.
+ *
+ * Khuôn mỗi mục giống hệt nhau ở bản legacy nên gom thành `fillSection`:
+ * đổ vào danh sách, rồi ẩn khung nếu không đổ được gì. Lưu ý ẩn khung là
+ * THÊM `hidden`, không bao giờ gỡ — khung mặc định đã hiện trong vỏ (bản đầu
+ * của tôi gỡ `hidden` khỏi `grammar-focus-wrap`, sai chiều).
+ */
+function fillSection(listId: string, wrapId: string, items: any[] | undefined,
+                     make: (item: any) => HTMLElement | null) {
+  const list = $(listId);
+  const wrap = $(wrapId);
+  if (!list || !wrap) return;
+  if (items?.length) {
+    items.forEach((it) => {
+      const el = make(it);
+      if (el) list.appendChild(el);
+    });
+    if (!list.children.length) wrap.classList.add('hidden');
+  } else {
+    wrap.classList.add('hidden');
+  }
+}
+
+const anchor = (cls: string, href: string, html: string) => {
+  const a = document.createElement('a');
+  a.className = cls;
+  a.href = href;
+  a.innerHTML = html;
+  return a;
+};
+
 async function loadGrammarDashboard(api: any, dead: () => boolean) {
   const loading = $('grammar-loading');
   const content = $('grammar-content');
@@ -224,10 +261,12 @@ async function loadGrammarDashboard(api: any, dead: () => boolean) {
   let data: any;
   try {
     data = await api.get('/api/grammar/dashboard-data');
-  } catch {
-    // Bản legacy để khối này im lặng — khu ngữ pháp là phụ, hỏng nó không được
-    // kéo theo phần còn lại của dashboard.
+  } catch (err: any) {
+    // Khu ngữ pháp là PHỤ — hỏng thì ẩn cả khu, đúng như legacy. Ẩn mỗi spinner
+    // sẽ để lại một khung rỗng không bao giờ có nội dung.
     loading?.classList.add('hidden');
+    $('grammar-dashboard-section')?.classList.add('hidden');
+    console.warn('Grammar dashboard unavailable:', err?.message);
     return;
   }
   if (dead()) return;
@@ -243,32 +282,50 @@ async function loadGrammarDashboard(api: any, dead: () => boolean) {
   }
   content?.classList.remove('hidden');
 
-  const pills = $('grammar-focus-pills');
-  if (pills && data.grammar_focus_this_week?.length > 0) {
-    $('grammar-focus-wrap')?.classList.remove('hidden');
-    data.grammar_focus_this_week.forEach((item: any) => {
-      const arts = item.articles || [];
-      if (arts.length) {
-        arts.forEach((art: any) => {
-          const url = grammarUrl(art.slug, art.category);
-          if (!url) return;
-          const a = document.createElement('a');
-          a.className = 'grammar-pill';
-          a.href = url;
-          a.innerHTML = `<span>📖</span><span>${escHtml(art.title)}</span>`;
-          pills.appendChild(a);
-        });
-      } else {
-        const url = grammarUrl(item.tag, item.category);
-        if (!url) return;
-        const a = document.createElement('a');
-        a.className = 'grammar-pill';
-        a.href = url;
-        a.innerHTML = `<span>📖</span><span>${escHtml(item.tag)}</span>`;
-        pills.appendChild(a);
-      }
-    });
-  }
+  // Mục "tập trung tuần này" phẳng hoá trước: mỗi item có thể mang nhiều bài,
+  // và khi không có bài nào thì chính cái tag trở thành một pill.
+  const focusItems = (data.grammar_focus_this_week || []).flatMap((item: any) => {
+    const arts = item.articles || [];
+    return arts.length
+      ? arts.map((a: any) => ({ slug: a.slug, category: a.category, title: a.title }))
+      : [{ slug: item.tag, category: item.category, title: item.tag }];
+  });
+  fillSection('grammar-focus-pills', 'grammar-focus-wrap', focusItems, (it) => {
+    const url = grammarUrl(it.slug, it.category);
+    return url ? anchor('grammar-pill', url,
+      `<span>📖</span><span>${escHtml(it.title)}</span>`) : null;
+  });
+
+  // Điểm yếu: legacy giới hạn 5 mục.
+  fillSection('grammar-weak-list', 'grammar-weak-wrap', (data.weak_areas || []).slice(0, 5), (it) => {
+    const url = grammarUrl(it.tag, it.category);
+    return url ? anchor('grammar-weak-item', url, `
+                <span class="grammar-weak-dot"></span>
+                <span class="text-sm font-medium flex-1" style="color:var(--av-text-primary);">${escHtml(it.label_vi || it.tag)}</span>
+                <span class="text-xs" style="color:var(--av-text-muted);">${it.occurrence_count}× lỗi</span>`) : null;
+  });
+
+  fillSection('grammar-recent-list', 'grammar-recent-wrap', data.recently_viewed, (it) => {
+    const url = grammarUrl(it.slug, it.category);
+    return url ? anchor('grammar-recent-item', url, `
+                <span class="text-sm" style="color:var(--av-text-secondary);">↗</span>
+                <span class="text-sm flex-1" style="color:var(--av-text-secondary);">${escHtml(it.title || it.slug)}</span>
+                <span class="text-xs" style="color:var(--av-text-faint);">${fmtRelTime(it.last_viewed_at)}</span>`) : null;
+  });
+
+  // "Đã lưu" là <div> bọc <a>, không phải <a> — giữ nguyên hình dạng legacy.
+  fillSection('grammar-saved-list', 'grammar-saved-wrap', data.saved_articles, (it) => {
+    const url = grammarUrl(it.slug, it.category);
+    if (!url) return null;
+    const div = document.createElement('div');
+    div.className = 'grammar-saved-item';
+    div.innerHTML = `
+                <a href="${url}" class="text-sm flex-1" style="color:var(--av-text-primary);text-decoration:none;">
+                  🔖 ${escHtml(it.title || it.slug)}
+                </a>
+                <span class="text-xs" style="color:var(--av-text-faint);">${fmtRelTime(it.saved_at)}</span>`;
+    return div;
+  });
 }
 
 // ── Cache SWR (CHỈ dữ liệu hiển thị) ────────────────────────────────────────

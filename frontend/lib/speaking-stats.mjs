@@ -41,3 +41,21 @@ export function historyHasActiveFilters(st) {
   return !!(st && (st.search || st.date_from || st.date_to
     || (st.sort && st.sort !== 'newest')));
 }
+
+/**
+ * Thời gian tương đối — chép nguyên `fmtRelTime` của trang legacy.
+ *
+ * Mốc dưới 1 phút và đúng 1 phút đều trả 'vừa xong' (`mins <= 1`) — trông như
+ * lệch nhưng đó đúng là bản gốc; đổi là làm lệch chữ trên màn hình.
+ */
+export function fmtRelTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? 'vừa xong' : `${mins} phút trước`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} giờ trước`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days} ngày trước`;
+  return `${Math.floor(days / 30)} tháng trước`;
+}

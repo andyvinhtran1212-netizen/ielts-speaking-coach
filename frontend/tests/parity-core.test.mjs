@@ -537,3 +537,33 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
   assert.equal(canonicalHref('/pages/home.html', { base: 'http://x/a' }), '/home');
   assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
 });
+
+test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
+  // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
+  // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng
+  // `AUTHED` là false nên nó chạy mỗi lượt `categories` và **không bao giờ mở
+  // cặp authed**. Cổng chạy mà không so đúng thứ vừa đổi còn tệ hơn cổng đỏ.
+  //
+  // Đây là cùng một họ với phát hiện trên PR #930 (thiếu glob) — nên chốt luôn
+  // cả hai chiều bằng máy thay vì đọc bằng mắt.
+  const yml = GATE;
+  const rxs = [...yml.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+  const authedRe = new RegExp(rxs[1]);
+
+  const block = yml.slice(
+    yml.indexOf("      - 'frontend/app/(authed-home)/**'"),
+    yml.indexOf("      - 'frontend/lib/backend.ts'"));
+  const globs = [...block.matchAll(/- '([^']+)'/g)].map((m) => m[1]);
+  assert.ok(globs.length >= 10, `kỳ vọng nhiều glob authed, thấy ${globs.length}`);
+
+  const missed = globs.filter((g) => !authedRe.test(g.replace('/**', '/x.tsx')));
+  assert.deepEqual(missed, [],
+    'glob nằm trong paths mà regex không bắt ⇒ job chạy nhưng KHÔNG mở cặp authed');
+
+  // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
+  for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
+                     'frontend/public/js/grammar.js']) {
+    assert.ok(!authedRe.test(neg), `«${neg}» không được kích hoạt lượt authed`);
+  }
+});
