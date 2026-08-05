@@ -253,10 +253,10 @@ export function SpeakingShell() {
                   Đến:
                   <input type="date" id="hf-date-to" className="text-xs rounded-lg px-2 py-1.5" />
                 </label>
-                <button className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--av-primary-soft)", border: "1px solid var(--av-primary-border)", color: "var(--av-primary)" }}>
+                <button id="hf-apply" className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "var(--av-primary-soft)", border: "1px solid var(--av-primary-border)", color: "var(--av-primary)" }}>
                   Lọc
                 </button>
-                <button className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "transparent", border: "1px solid var(--av-border-default)", color: "var(--av-text-secondary)" }}>
+                <button id="hf-clear" className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "transparent", border: "1px solid var(--av-border-default)", color: "var(--av-text-secondary)" }}>
                   Xóa lọc
                 </button>
                 <span id="history-filter-info" className="hidden text-xs ml-auto" style={{ color: "var(--av-text-secondary)" }}></span>

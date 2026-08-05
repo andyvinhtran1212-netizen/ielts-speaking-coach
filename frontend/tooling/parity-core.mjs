@@ -58,6 +58,19 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // (phát hiện #3 vòng 2). Neo được phân giải theo URL trang nên so được.
   if (!raw) return null;
   if (/^(mailto:|tel:|javascript:|data:|blob:)/i.test(raw)) return null;
+  // `href="#"` TRỐNG là link vô-tác-dụng: nó không có đích, chỉ tồn tại để phần
+  // tử nhận được focus/con trỏ bàn tay còn hành vi do JS lo. Phân giải nó theo
+  // URL trang biến nó thành "link tới chính trang này" — và hai vế của một cặp
+  // parity LUÔN ở hai URL khác nhau, nên nó KHÔNG BAO GIỜ khớp được, ở bất kỳ
+  // cặp nào, mãi mãi.
+  //
+  // Đo được: cặp `/pages/speaking.html` ↔ `/speaking-preview` báo 3
+  // `link-missing` + 3 `link-extra` chỉ vì ba thẻ `.mode-card` dùng `href="#"`.
+  // Không phải lỗi port — hai vế có ĐÚNG cùng ba thẻ đó.
+  //
+  // Neo THẬT (`#groups-section`) vẫn phân giải như cũ: một neo trỏ sai id là lỗi
+  // thật và phải bắt được (phát hiện #3 vòng 2).
+  if (raw === '#') return '#';
 
   let u;
   let baseUrl;
@@ -77,6 +90,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
   else if (path === '/pages/profile.html') path = '/profile';
+  // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
+  // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
+  // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
+  // `/pages/home.html#x` và `/home#x` không bao giờ khớp. Đó đúng là lý do khu
+  // Grammar khớp được (`/grammar.html` → `/grammar`) còn nơi khác thì không.
+  else if (path === '/pages/home.html') path = '/home';
   else if (path === '/pages/grammar-article.html') {
     const c = params.get('category');
     const s = params.get('slug');

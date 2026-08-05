@@ -503,3 +503,67 @@ describe('so trang CẦN ĐĂNG NHẬP (authed-G1)', () => {
     assert.match(RUNNER, /from '\.\/supabase-session\.mjs'/);
   });
 });
+
+test('`href="#"` TRỐNG không được phân giải theo URL trang', () => {
+  // Link vô-tác-dụng: không có đích, chỉ để phần tử nhận focus/con trỏ, hành vi
+  // do JS lo. Phân giải nó thành "link tới chính trang này" khiến nó KHÔNG BAO
+  // GIỜ khớp — hai vế của một cặp parity luôn ở hai URL khác nhau.
+  //
+  // Đo được: cặp `/pages/speaking.html` ↔ `/speaking-preview` báo 3
+  // `link-missing` + 3 `link-extra` chỉ vì ba thẻ `.mode-card` dùng `href="#"`.
+  // Hai vế có ĐÚNG cùng ba thẻ đó — không phải lỗi port.
+  const a = canonicalHref('#', { base: 'http://x/pages/speaking.html' });
+  const b = canonicalHref('#', { base: 'http://x/speaking-preview' });
+  assert.equal(a, '#');
+  assert.equal(a, b, 'href="#" phải cho cùng một giá trị ở mọi trang');
+});
+
+test('neo THẬT vẫn phân giải — và khớp nhờ hợp đồng URL', () => {
+  // Neo trỏ sai id là lỗi thật, phải bắt được (phát hiện #3 vòng 2). Nó khớp
+  // được giữa hai vế là nhờ bảng ánh xạ legacy → canonical, không phải nhờ bỏ qua.
+  assert.equal(
+    canonicalHref('#groups-section', { base: 'http://x/grammar.html' }),
+    canonicalHref('#groups-section', { base: 'http://x/grammar' }));
+  assert.equal(
+    canonicalHref('#s', { base: 'http://x/pages/home.html' }),
+    canonicalHref('#s', { base: 'http://x/home' }));
+  assert.notEqual(
+    canonicalHref('#a', { base: 'http://x/grammar' }),
+    canonicalHref('#b', { base: 'http://x/grammar' }),
+    'hai neo KHÁC id vẫn phải khác nhau');
+});
+
+test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () => {
+  assert.equal(canonicalHref('/pages/home.html', { base: 'http://x/a' }), '/home');
+  assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
+});
+
+test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
+  // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
+  // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng
+  // `AUTHED` là false nên nó chạy mỗi lượt `categories` và **không bao giờ mở
+  // cặp authed**. Cổng chạy mà không so đúng thứ vừa đổi còn tệ hơn cổng đỏ.
+  //
+  // Đây là cùng một họ với phát hiện trên PR #930 (thiếu glob) — nên chốt luôn
+  // cả hai chiều bằng máy thay vì đọc bằng mắt.
+  const yml = GATE;
+  const rxs = [...yml.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+  const authedRe = new RegExp(rxs[1]);
+
+  const block = yml.slice(
+    yml.indexOf("      - 'frontend/app/(authed-home)/**'"),
+    yml.indexOf("      - 'frontend/lib/backend.ts'"));
+  const globs = [...block.matchAll(/- '([^']+)'/g)].map((m) => m[1]);
+  assert.ok(globs.length >= 10, `kỳ vọng nhiều glob authed, thấy ${globs.length}`);
+
+  const missed = globs.filter((g) => !authedRe.test(g.replace('/**', '/x.tsx')));
+  assert.deepEqual(missed, [],
+    'glob nằm trong paths mà regex không bắt ⇒ job chạy nhưng KHÔNG mở cặp authed');
+
+  // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
+  for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
+                     'frontend/public/js/grammar.js']) {
+    assert.ok(!authedRe.test(neg), `«${neg}» không được kích hoạt lượt authed`);
+  }
+});
