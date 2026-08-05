@@ -1053,6 +1053,23 @@ async def assignment_tally(
 
     flags_by_session = _response_flags_for(items) if assignment.get("skill") == "speaking" else {}
 
+    # Mục nào ĐÃ có bài tự luận. Một lượt đọc cho cả bảng, không hỏi từng dòng.
+    writing_items: set = set()
+    if assignment.get("skill") == "course":
+        ids = [i["id"] for i in items]
+        for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+            try:
+                writing_items.update(
+                    r["class_assignment_item_id"] for r in
+                    ((supabase_admin.table("course_writing_submissions")
+                      .select("class_assignment_item_id")
+                      .in_("class_assignment_item_id", chunk).execute().data) or [])
+                    if r.get("class_assignment_item_id")
+                )
+            except Exception as exc:  # noqa: BLE001
+                # Đọc hỏng thì KHÔNG hiện nút, chứ không làm đổ cả bảng.
+                logger.warning("[class] đọc bài tự luận hỏng asg=%s: %s", assignment_id, exc)
+
     out = []
     for it in items:
         s = students.get(it["student_id"]) or {}
@@ -1095,6 +1112,9 @@ async def assignment_tally(
             # kèm vì mỗi kỹ năng mở ở một trang khác — đoán từ id là đoán sai.
             "artifact_kind": it.get("artifact_kind"),
             "artifact_id":   it.get("artifact_id"),
+            # Có bài tự luận để đọc không. Chỉ hiện nút khi THẬT SỰ có — một
+            # liên kết mở ra "chưa nộp gì" tệ hơn không có liên kết.
+            "has_writing":   it["id"] in writing_items,
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
@@ -1122,6 +1142,64 @@ async def assignment_tally(
     if stale:
         result["homework_stale"] = True
     return result
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/writing/{student_id}")
+async def student_course_writing(
+    cohort_id: str,
+    assignment_id: str,
+    student_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Bài TỰ LUẬN của MỘT học viên trong một bài giao theo buổi.
+
+    Dữ liệu vốn đã được ghi đủ từ lúc chấm (`course_writing_submissions.items`
+    giữ nguyên văn đề, bài học viên viết, bản sửa, danh sách lỗi, đáp án mẫu) —
+    thứ thiếu là một mặt ĐỌC. Trước đó giáo viên chỉ thấy MỘT con số phần trăm
+    trên bảng tổng kết và không có cách nào biết em ấy viết gì, sai gì.
+
+    Đọc theo MỤC BÀI GIAO chứ không theo (bank, học viên): giao lại cùng bộ bài
+    là một lượt khác, và trộn hai lượt vào nhau sẽ cho giáo viên đọc bài của
+    lần giao trước (cùng lý do mig 192).
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    rows = (supabase_admin.table("class_assignments")
+            .select("id, cohort_id, title, skill")
+            .eq("id", assignment_id).limit(1).execute().data) or []
+    # Bài giao phải thuộc CHÍNH lớp trên đường dẫn — thiếu chốt này thì id của
+    # một lớp khác vẫn đọc được qua đường của lớp mình.
+    if not rows or rows[0].get("cohort_id") != cohort_id:
+        raise HTTPException(404, "Không tìm thấy bài giao của lớp này")
+
+    items = (supabase_admin.table("class_assignment_items")
+             .select("id, student_id")
+             .eq("assignment_id", assignment_id).eq("student_id", student_id)
+             .limit(1).execute().data) or []
+    if not items:
+        raise HTTPException(404, "Học viên này không có mục trong bài giao")
+
+    st = (supabase_admin.table("students")
+          .select("id, full_name, student_code")
+          .eq("id", student_id).limit(1).execute().data) or []
+
+    subs = (supabase_admin.table("course_writing_submissions")
+            .select("items, total, clean, model, graded_at")
+            .eq("class_assignment_item_id", items[0]["id"])
+            .limit(1).execute().data) or []
+
+    return {
+        "student": {
+            "id":   student_id,
+            "name": (st[0].get("full_name") if st else "") or "",
+            "code": (st[0].get("student_code") if st else None),
+        },
+        "assignment": {"id": assignment_id, "title": rows[0].get("title")},
+        # None = CHƯA NỘP. Khác hẳn "đã nộp mà rỗng" — trang phải nói được hai
+        # chuyện ấy bằng hai câu khác nhau.
+        "submission": (subs[0] if subs else None),
+    }
 
 
 @router.get("/{cohort_id}/speaking-daily")
