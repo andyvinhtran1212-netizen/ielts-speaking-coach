@@ -27,7 +27,10 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 const SCAN_DIRS = ['frontend', 'backend', 'scripts', '.github'];
 const SKIP_DIRS = new Set(['node_modules', '.next', 'venv', '__pycache__', '.git', 'dist', 'build']);
-const EXT = /\.(mjs|cjs|js|jsx|ts|tsx|py|sh|yml|yaml|json|css|html|md)$/;
+// `.sql` nằm trong danh sách vì `backend/migrations/*.sql` LÀ mã nguồn lược đồ:
+// bộ quét đi vào `backend/` rồi bỏ qua sạch chúng, nên một migration nhúng NUL
+// vẫn mất khả năng review mà chốt này vẫn xanh (Codex bắt ở #946 vòng 4).
+const EXT = /\.(mjs|cjs|js|jsx|ts|tsx|py|sh|sql|yml|yaml|json|css|html|md)$/;
 
 function walk(dir, out = []) {
   let entries;

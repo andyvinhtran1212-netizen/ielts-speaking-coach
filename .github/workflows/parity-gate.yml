@@ -90,6 +90,11 @@ on:
       - 'frontend/tooling/verify-speaking-flow.mjs'
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
+      # `package.json` quyết định script nào chạy và dải phiên bản nào được cài;
+      # `tsconfig.json` định nghĩa bí danh `@/*` — đổi ánh xạ đó là đổi mã được
+      # gộp vào bundle. Ghim mỗi lock-file là chưa đủ (Codex bắt ở #946 vòng 4).
+      - 'frontend/package.json'
+      - 'frontend/tsconfig.json'
       - '.github/workflows/parity-gate.yml'
   # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
   # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị

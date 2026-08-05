@@ -160,6 +160,16 @@ function nextBuildInputs() {
   const app = path.join(ROOT, 'frontend', 'app');
   if (!existsSync(app)) return [];
   const roots = new Set();
+  // Siêu dữ liệu của bản dựng cũng là đầu vào thật, không chỉ mã nguồn:
+  // `package.json` quyết định script nào chạy và phiên bản gói nào được cài,
+  // còn `tsconfig.json` định nghĩa CHÍNH bí danh `@/*` mà hàm này dựa vào để
+  // suy ra gốc mã dùng chung. `parity-gate.yml` ghim `package-lock.json` nhưng
+  // bỏ cả hai tệp kia, nên một PR chỉ đổi script hoặc đổi ánh xạ bí danh sẽ đổi
+  // thứ được dựng mà không kích hoạt cổng (Codex bắt ở #946 vòng 4).
+  for (const meta of ['package.json', 'tsconfig.json', 'next.config.ts']) {
+    const abs = path.join(ROOT, 'frontend', meta);
+    if (existsSync(abs)) roots.add(abs);
+  }
   const walk = (dir) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, e.name);
