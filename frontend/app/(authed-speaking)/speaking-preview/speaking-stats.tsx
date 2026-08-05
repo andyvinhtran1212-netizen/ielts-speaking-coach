@@ -7,13 +7,14 @@
 // cụm hỏng theo hai kiểu khác nhau: cụm kia làm người dùng KHÔNG BẮT ĐẦU LUYỆN
 // ĐƯỢC, cụm này làm người dùng ĐỌC SỐ SAI — và số sai thì im lặng hơn nhiều.
 //
-// CÒN LẠI (3b): hai biểu đồ Chart.js. Chúng vẽ vào `<canvas>` nên cổng parity
-// G1 mù với chúng, và với tài khoản probe (0 session) `#charts-section` bị ẩn
-// hẳn — nên chưa port chúng KHÔNG làm cổng đỏ. Đây là lý do cặp parity bật được
-// ngay ở PR này thay vì phải chờ.
+// HAI BIỂU ĐỒ nằm ở `./speaking-charts` (PR 3b). Chúng vẽ vào `<canvas>` nên
+// cổng parity G1 MÙ với chúng vĩnh viễn — lớp che của chúng là
+// `lib/speaking-charts.mjs` + test, không phải cổng. Đừng đọc "cổng xanh" thành
+// "biểu đồ đúng".
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { destroyCharts, observeThemeFlip, renderCharts } from './speaking-charts';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
   MODE_BADGE, escHtml, fmtRelTime, historyHasActiveFilters, roundHalf,
@@ -389,7 +390,15 @@ export function SpeakingStats() {
 
       // Vẽ NGAY bản cache (nếu còn hạn), rồi làm mới nền.
       const cached = readDashCache(uid);
-      if (cached?.summary) renderStats(cached.summary);
+      if (cached?.summary) {
+        renderStats(cached.summary);
+        renderCharts(cached.sessions || []);
+      }
+      // Đổi theme phải VẼ LẠI: màu đã tính thành chuỗi lúc vẽ, không lật theo
+      // token được — nếu không, trục/lưới giữ màu cũ và có thể thành chữ đen
+      // trên nền đen.
+      cleanups.push(observeThemeFlip());
+      cleanups.push(destroyCharts);
 
       // Khu ngữ pháp fetch riêng — hỏng nó không được kéo sập số liệu.
       loadGrammarDashboard(api, isDead);
@@ -399,6 +408,7 @@ export function SpeakingStats() {
         if (dead) return;
         if (agg?.summary) {
           renderStats(agg.summary);
+          renderCharts(agg.sessions || []);
           writeDashCache(uid, agg);
         }
       } catch {

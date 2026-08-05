@@ -29,7 +29,8 @@ const SHELL = stripComments(readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8
 // Gộp CẢ HAI tệp hành vi: chốt chỉ đọc một tệp thì nửa trang kia không được
 // gác — và cụm thống kê cũng với tay vào DOM theo đúng kiểu đó.
 const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'))
-  + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'));
+  + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'))
+  + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-charts.ts'), 'utf8'));
 
 const shellIds = new Set([...SHELL.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
@@ -157,6 +158,7 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       ['CueCardDetector', '/js/cue-card-detector.js'],
       ['api', '/js/api.js'],
       ['RetentionWarning', '/js/retention-warning.js'],
+      ['Chart', 'chart.js@4.5.1'],
     ]);
     const used = new Set([...BEHAVIOR.matchAll(/\(window as any\)\.(\w+)/g)].map((m) => m[1]));
     assert.ok(used.size >= 2, `phải thấy vài global, chỉ thấy ${used.size} — regex hỏng?`);
@@ -165,9 +167,8 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       assert.ok(src, `global «${g}» chưa khai nguồn — thêm vào PROVIDERS kèm tệp cung cấp`);
       assert.ok(loaded.includes(src),
         `hành vi dùng window.${g} nhưng layout/khung không nạp ${src}`);
-      assert.ok(LEGACY_BODY.includes(src.replace('/js/', 'js/'))
-        || readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8')
-             .includes(src.replace('/js/', 'js/')),
+      assert.ok(readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8')
+        .includes(src.replace('/js/', 'js/')),
         `trang legacy không nạp ${src} — kiểm lại giả định`);
     }
   });

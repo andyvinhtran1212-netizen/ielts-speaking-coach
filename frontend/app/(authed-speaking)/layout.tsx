@@ -32,6 +32,10 @@ export default function AuthedSpeakingLayout({ children }: { children: ReactNode
               `cue-card-detector.js` tự ném lỗi nếu `window.api.post` chưa có
               ("ensure api.js is loaded before cue-card-detector.js"). Khung đã
               nạp api.js trước điểm chèn này. */}
+          {/* Chart.js — cùng pin CDN với bản legacy (chart.js@4.5.1). Chỉ trang
+              này dùng, nên KHÔNG đưa vào khung dùng chung. Thư viện thuần, không
+              tự gọi API lúc nạp. */}
+          <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" defer />
           <script src="/js/format.js" defer />
           <script src="/js/cue-card-detector.js" defer />
           <script src="/js/retention-warning.js" defer />
