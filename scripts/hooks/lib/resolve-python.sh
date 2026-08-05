@@ -18,7 +18,11 @@ COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd) || {
   echo "resolve-python: không xác định được thư mục .git" >&2; exit 1; }
 VENV="$COMMON/../backend/venv/bin/python"
 
-if [ -x "$VENV" ]; then
+# CHẠY ĐƯỢC chưa đủ — phải CÓ PYTEST. Một venv tồn tại nhưng chưa cài phụ
+# thuộc sẽ được trả về, rồi hook chạy `python -m pytest` và nhận "No module
+# named pytest", exit khác 0, và báo "BLOCKED: backend tests red" — ĐÚNG sự
+# nhầm lẫn mà tệp này sinh ra để ngăn. (Codex bắt ở PR #943.)
+if [ -x "$VENV" ] && "$VENV" -c 'import pytest' 2>/dev/null; then
   # `cd … && pwd -P` để bỏ phần `/../` cho dễ đọc trong log.
   ( cd "$(dirname "$VENV")" && printf '%s/%s\n' "$(pwd -P)" "$(basename "$VENV")" )
   exit 0

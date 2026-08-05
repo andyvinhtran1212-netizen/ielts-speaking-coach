@@ -125,6 +125,44 @@ describe('hook pre-push của repo', () => {
       'phải trỏ đúng interpreter trong repo giả');
   });
 
+  test('venv CÓ nhưng THIẾU pytest ⇒ KHÔNG nhận (hermetic)', () => {
+    // Codex bắt ở PR #943: `[ -x "$VENV" ]` nhận một venv chỉ vì nó chạy được.
+    // Nếu venv đó chưa cài phụ thuộc thì hook chạy `python -m pytest`, nhận
+    // "No module named pytest", exit khác 0, và báo "BLOCKED: backend tests
+    // red" — ĐÚNG sự nhầm lẫn mà bộ giải này sinh ra để ngăn.
+    //
+    // Hermetic: dựng repo giả có interpreter luôn thất bại ở `import pytest`.
+    const T = mkdtempSync(path.join(tmpdir(), 'nopytest-'));
+    mkdirSync(path.join(T, '.git'), { recursive: true });
+    const pyDir = path.join(T, 'backend/venv/bin');
+    mkdirSync(pyDir, { recursive: true });
+    const stub = path.join(pyDir, 'python');
+    writeFileSync(stub, '#!/usr/bin/env bash\nexit 1\n');   // mọi lệnh đều hỏng
+    chmodSync(stub, 0o755);
+
+    const bin = mkdtempSync(path.join(tmpdir(), 'fakegit2-'));
+    const fake = path.join(bin, 'git');
+    writeFileSync(fake, [
+      '#!/usr/bin/env bash',
+      'for a in "$@"; do case "$a" in --git-common-dir) echo ".git"; exit 0 ;; esac; done',
+      'exit 1',
+    ].join('\n'));
+    chmodSync(fake, 0o755);
+
+    let failed = false;
+    let out = '';
+    try {
+      out = execFileSync('bash', [RESOLVER], {
+        cwd: T, encoding: 'utf8',
+        // PATH tối giản để `python3` dự phòng cũng không có pytest.
+        env: { PATH: `${bin}:/usr/bin:/bin` },
+      }).trim();
+    } catch { failed = true; }
+
+    assert.ok(failed,
+      `venv thiếu pytest mà vẫn được nhận: "${out}" — hook sẽ báo nhầm "tests red"`);
+  });
+
   test('interpreter trả về THỰC SỰ có pytest', (t) => {
     if (!REAL_PY) return t.skip(SKIP_REASON);
     // Đúng cái mà bản hook đầu tiên đã sai: nó trả về một python KHÔNG có

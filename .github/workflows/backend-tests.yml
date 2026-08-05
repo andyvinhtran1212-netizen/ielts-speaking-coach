@@ -29,6 +29,12 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      # Hook pre-push nằm ở `scripts/hooks/`, nhưng bộ chốt của nó là
+      # `frontend/tests/pre-push-hook.test.mjs` — chạy bởi job frontend dưới
+      # đây. Thiếu dòng này thì một PR CHỈ sửa hook sẽ không chạy chốt của
+      # chính nó (Codex bắt ở PR #943; cùng họ với phát hiện ở #930 và #937:
+      # chốt tồn tại mà không bao giờ nổ).
+      - 'scripts/hooks/**'
       - '.github/workflows/backend-tests.yml'
 
 jobs:
