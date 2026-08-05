@@ -153,6 +153,19 @@ const browser = await chromium.launch();
 let failed = 0;
 for (const f of files) {
   const flow = (await import(path.join(FLOW_DIR, f))).default;
+
+  // Bản khai được viết TRƯỚC khi trang Next tồn tại (đó là cả điểm của cách làm
+  // này) sẽ làm vế Next đỏ vì route chưa có. `nextPending` hoãn ĐÚNG vế đó, và
+  // phải kèm LÝ DO — in ra mỗi lần chạy, không im lặng. Một chốt riêng
+  // (`write-flow-manifests.test.mjs`) bắt buộc luồng đã hoãn phải có
+  // `legacyRoute`, để nó vẫn được kiểm ở đâu đó chứ không thành lỗ trống.
+  if (flow.nextPending && !process.env.WF_LEGACY) {
+    console.log(`\n══ ${flow.name} (${flow.route})`);
+    console.log(`  ⏸ hoãn vế Next: ${flow.nextPending}`);
+    console.log('    (vẫn được kiểm trên vế legacy — bước "Cổng đường-ghi (vế legacy)")');
+    continue;
+  }
+
   const { verdict, stepError, pageErrors, dialogs } = await runFlow(browser, flow);
   const bad = !verdict.pass || stepError || pageErrors.length;
   if (bad) failed += 1;
