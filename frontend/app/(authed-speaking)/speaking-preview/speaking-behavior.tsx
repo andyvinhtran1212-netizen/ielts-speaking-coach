@@ -456,17 +456,6 @@ export function SpeakingBehavior() {
       if (!ok) return;
       const api = (window as any).api;
 
-      // ── Quyền + lời chào ────────────────────────────────────────────────
-      // Lỗi mạng ⇒ vẫn vẽ lời chào từ metadata phiên, đúng như legacy: mất
-      // `/auth/me` không được biến trang thành trắng.
-      try {
-        const user = await api.get('/auth/me');
-        if (st.dead) return;
-        renderUser(user || {}, api, st);
-      } catch {
-        if (!st.dead) renderUser({}, api, st);
-      }
-
       // ── Thẻ mode + nút quay lại dashboard ───────────────────────────────
       document.querySelectorAll<HTMLElement>('.mode-card[data-mode]').forEach((card) => {
         on(card, 'click', (e: Event) => {
@@ -627,6 +616,26 @@ export function SpeakingBehavior() {
         switchMainTab('practice', st, api, cleanups);
       });
       on($('grammar-cta-start'), 'click', () => openTopicModal(1, 'practice', st, api));
+      // ── Quyền + lời chào — SAU KHI đã gắn listener ──────────────────────
+      // THỨ TỰ QUAN TRỌNG. Bản đầu `await api.get('/auth/me')` TRƯỚC khi gắn
+      // listener, nên trong suốt vòng đi-về đó mọi cú bấm rơi vào hư không —
+      // bản legacy gắn ở `DOMContentLoaded`, độc lập với auth, nên nó không có
+      // cửa sổ chết này. Bộ e2e staging bắt đúng chỗ: `#tab-practice` không bao
+      // giờ `active` sau khi bấm thẻ mode.
+      //
+      // Kiểm cục bộ của tôi LỌT vì nó chờ 2.5s rồi mới bấm — đã siết lại để
+      // bấm ngay, đúng như người dùng thật.
+      //
+      // An toàn khi gắn trước: quyền chỉ ẨN/KHOÁ giao diện, còn backend vẫn gác
+      // thật. Người không có quyền bấm được nút trong vài trăm ms đầu thì cũng
+      // chỉ nhận 403 — khác hẳn với việc người CÓ quyền bấm mà không có gì xảy ra.
+      try {
+        const user = await api.get('/auth/me');
+        if (st.dead) return;
+        renderUser(user || {}, api, st);
+      } catch {
+        if (!st.dead) renderUser({}, api, st);
+      }
     })();
 
     return () => {

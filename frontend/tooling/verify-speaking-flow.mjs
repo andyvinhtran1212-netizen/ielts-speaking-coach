@@ -69,6 +69,9 @@ await page.route('**/*', async (route) => {
   }
   for (const [re, body] of CANNED) {
     if (re.test(url)) {
+      // `/auth/me` cố ý CHẬM: nó là thứ mà bản đầu `await` trước khi gắn
+      // listener. Không làm chậm thì kiểm này không thể phát hiện lỗi đó.
+      if (/\/auth\/me$/.test(url)) await new Promise((r) => setTimeout(r, 2500));
       return route.fulfill({
         status: 200, contentType: 'application/json', body: JSON.stringify(body),
       });
@@ -84,8 +87,12 @@ await page.route('**/*', async (route) => {
 const errs = [];
 page.on('pageerror', (e) => errs.push(String(e)));
 
+// LÀM CHẬM lời gọi API để mô phỏng mạng thật. Bản đầu trả ngay lập tức và
+// chờ 2.5s trước khi bấm — nên nó BỎ LỌT lỗi "listener gắn sau khi /auth/me
+// trả về" mà bộ e2e staging bắt được. Bấm sớm + API chậm là kịch bản người
+// dùng thật, và là kịch bản duy nhất lộ ra cửa sổ chết đó.
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(2500);
+await page.waitForTimeout(400);   // đủ để React hydrate, KHÔNG đủ để /auth/me xong
 
 check('trang ở nguyên route (không bị đẩy về login)',
   page.url().includes(ROUTE), page.url());
@@ -128,7 +135,7 @@ check('điều hướng sang trang luyện tập kèm session_id',
 
 // ── 5. Modal chủ đề ─────────────────────────────────────────────────────────
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(2000);
+await page.waitForTimeout(400);
 await page.locator('#grammar-cta-start').click();
 await page.waitForTimeout(800);
 check('modal mở được', await page.locator('#topic-modal').evaluate((el) => el.classList.contains('open')));
