@@ -1243,8 +1243,8 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
         start += _REPORT_PAGE
 
 
-def _course_stage_count(bank_id: str) -> tuple[int, int]:
-    """(số CHẶNG, số câu TỰ LUẬN) của một bộ đề theo buổi.
+def _course_stage_count(bank_id: str) -> tuple[int, int, bool]:
+    """(số CHẶNG, số câu TỰ LUẬN, đọc-được-hay-không) của một bộ đề theo buổi.
 
     Chặng = số câu trắc nghiệm chia 10, làm tròn lên. Cần con số này mới nói
     được "xong": không có nó thì một em làm 1/10 chặng rồi dừng vẫn đọc thành
@@ -1263,10 +1263,13 @@ def _course_stage_count(bank_id: str) -> tuple[int, int]:
     except Exception as exc:  # noqa: BLE001
         # Không đếm được thì trả 0, và `0` được đọc là "chưa biết": nhánh gọi
         # KHÔNG bao giờ kết luận "xong" khi chưa biết cần bao nhiêu chặng.
+        #
+        # Nhưng phải NÓI RA — trả 0 im lặng thì báo cáo hiện `stale: false` rồi
+        # diễn giải tiến độ bằng dữ liệu thiếu (codex cục bộ, 05/08).
         logger.warning("[quiz] stage count failed bank=%s: %s", bank_id, exc)
-        return 0, 0
+        return 0, 0, False
     graded = max(0, total - writing)
-    return -(-graded // 10), writing     # làm tròn lên, không cần import math
+    return -(-graded // 10), writing, True    # làm tròn lên, không cần import math
 
 
 def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
@@ -1331,7 +1334,9 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             logger.warning("[quiz] attempt-report roster failed: %s", exc)
             out["stale"] = True
 
-    out["stages_total"], out["writing_total"] = _course_stage_count(bank_id)
+    out["stages_total"], out["writing_total"], _count_ok = _course_stage_count(bank_id)
+    if not _count_ok:
+        out["stale"] = True
 
     # Ai ĐÃ NỘP phần tự luận. Đọc theo MỤC BÀI GIAO, không theo (bank, học
     # viên): giao lại cùng bộ bài là một lượt khác (mig 192).

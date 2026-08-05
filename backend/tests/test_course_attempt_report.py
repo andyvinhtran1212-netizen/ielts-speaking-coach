@@ -222,3 +222,22 @@ def test_work_to_do_sorts_above_finished_work():
     src = _src()
     assert '_ORDER = {"stalled": 0, "awaiting_writing": 1' in src
     assert '"done": 4' in src
+
+
+def test_every_helper_that_swallows_a_read_error_also_reports_it():
+    """Tôi bắt "mọi lượt đọc hỏng phải bật cờ stale" rồi để sót đúng hai HÀM PHỤ
+    — chúng nuốt lỗi thành `0` và trả về như một con số thật (codex cục bộ
+    05/08). Đọc hỏng khi đếm câu hỏi ⇒ báo cáo hiện `stale: false` rồi diễn giải
+    tiến độ bằng dữ liệu thiếu, và cột tự luận biến mất như thể bộ đề không có
+    phần viết.
+
+    Ghim theo HÌNH DẠNG TRẢ VỀ: hàm phụ nào nuốt lỗi cũng phải trả kèm cờ
+    đọc-được, chứ không phải chỉ con số.
+    """
+    src = inspect.getsource(qs._course_stage_count)
+    assert "-> tuple[int, int, bool]" in src, "phải trả kèm cờ đọc-được"
+    j = src.index("except Exception")
+    assert "return 0, 0, False" in src[j:], "nhánh hỏng phải nói ra"
+    caller = _src()
+    assert "_count_ok" in caller and 'out["stale"] = True' in caller[
+        caller.index("_count_ok"):caller.index("_count_ok") + 200]

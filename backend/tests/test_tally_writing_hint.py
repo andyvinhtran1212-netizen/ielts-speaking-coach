@@ -35,7 +35,7 @@ def test_the_flag_travels_with_the_row_not_in_page_state():
 def test_the_count_is_read_before_the_row_loop():
     """Tính sau vòng lặp thì mọi dòng mang giá trị của lần vẽ TRƯỚC."""
     src = _src()
-    assert src.index("writing_total = _course_writing_count") < src.index('"writing_expected"')
+    assert src.index("writing_total, writing_ok = _course_writing_count") < src.index('"writing_expected"')
 
 
 def test_a_bank_without_writing_shows_nothing_extra():
@@ -50,3 +50,16 @@ def test_a_failed_count_never_invents_a_writing_section():
     src = inspect.getsource(adm._course_writing_count)
     j = src.index("except Exception")
     assert "return 0" in src[j:j + 220]
+
+
+def test_a_failed_writing_count_marks_the_tally_stale():
+    """Đọc hỏng mà trả `0` thì mọi dòng mang `writing_expected: false` và lời
+    nhắc "chưa nộp tự luận" biến mất y như thể bộ đề không có phần viết — hỏng
+    đúng mục tiêu của chính bản vá này (codex cục bộ 05/08)."""
+    src = inspect.getsource(adm._course_writing_count)
+    assert "-> tuple[int, bool]" in src, "phải trả kèm cờ đọc-được"
+    j = src.index("except Exception")
+    assert "return 0, False" in src[j:]
+    caller = _src()
+    i = caller.index("writing_total, writing_ok = _course_writing_count")
+    assert "if not writing_ok:" in caller[i:i + 200] and "stale = True" in caller[i:i + 260]
