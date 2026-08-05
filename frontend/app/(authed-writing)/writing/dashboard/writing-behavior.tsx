@@ -56,6 +56,41 @@ type PageState = {
   dead: boolean;
 };
 
+// MỘT thực thể duy nhất cho mỗi loại trạng thái, đặt ở phạm vi module — y như
+// bản legacy (`modalState` là biến toàn cục của trang).
+//
+// VÌ SAO KHÔNG TẠO TRONG effect: bản đầu của bản port này tạo `ms` lúc mount
+// (listener đóng gói nó) NHƯNG `openSubmitModal()` lại tự tạo một `ms` MỚI mang
+// `assignmentId`. Hai object khác nhau ⇒ nút Lưu/Nộp, tự lưu và nhật ký dán đều
+// dừng ngay ở `if (!ms.assignmentId) return` — học viên không lưu và không nộp
+// được gì. `loadEssays()` dính y hệt với `ps`: nó ghi danh sách bài vào một `ps`
+// vứt đi, nên bấm bộ lọc là màn hình nhảy về trạng thái rỗng.
+//
+// Codex bắt cả hai ở #950. Cổng ghi cũng bắt được — nhưng CHỈ SAU KHI tôi phát
+// hiện phép đo trước đó chạy nhầm vào một `next-server` cũ còn sót trên cổng
+// 3011, tức nó đang đo chính trang legacy và báo xanh.
+const modalState: ModalState = {
+  assignmentId: null,
+  autoSaveTimer: null,
+  countdownInterval: null,
+  allowSoftCheck: false,
+  dead: false,
+};
+
+const pageState: PageState = {
+  allEssays: [],
+  currentFilter: 'all',
+  allTips: [],
+  tipsLoaded: false,
+  tipFilter: 'all',
+  tipTypeFilter: 'all',
+  allPrompts: [],
+  pbRendered: false,
+  pbFilter: 'all',
+  writingPermitted: true,
+  dead: false,
+};
+
 /** Status mapping (Sprint 19.1A): 6 backend states → 4 UI states. */
 const STATUS_CONFIG: Record<string, { text: string; pill: string; clickable: boolean }> = {
   pending:   { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
@@ -1110,13 +1145,12 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
 }
 
 async function openSubmitModal(assignmentId: string, win: any, api: any) {
-  const ms: ModalState = {
-    assignmentId,
-    autoSaveTimer: null,
-    countdownInterval: null,
-    allowSoftCheck: false,
-    dead: false,
-  };
+  // GHI VÀO thực thể dùng chung, không tạo cái mới: mọi listener (Lưu, Nộp, tự
+  // lưu, dán) đã đóng gói đúng object này từ lúc mount.
+  const ms = modalState;
+  ms.assignmentId = assignmentId;
+  ms.allowSoftCheck = false;
+  ms.dead = false;
 
   const modal = $('submit-modal');
   if (modal) modal.classList.remove('hidden');
@@ -1172,19 +1206,7 @@ async function loadEssays(api: any) {
     const data = await api.get('/api/writing/my-essays');
     if (!data) return;
     if (data.student) renderStudent(data.student);
-    const ps: PageState = {
-      allEssays: [],
-      currentFilter: 'all',
-      allTips: [],
-      tipsLoaded: false,
-      tipFilter: 'all',
-      tipTypeFilter: 'all',
-      allPrompts: [],
-      pbRendered: false,
-      pbFilter: 'all',
-      writingPermitted: true,
-      dead: false,
-    };
+    const ps = pageState;
     renderEssays(data.essays || [], ps);
     const countEl = $('essays-count');
     const n = (data.essays || []).length;
@@ -1256,28 +1278,13 @@ export function WritingBehavior() {
     if (ranRef.current) return;
     ranRef.current = true;
 
-    const ps: PageState = {
-      allEssays: [],
-      currentFilter: 'all',
-      allTips: [],
-      tipsLoaded: false,
-      tipFilter: 'all',
-      tipTypeFilter: 'all',
-      allPrompts: [],
-      pbRendered: false,
-      pbFilter: 'all',
-      writingPermitted: true,
-      dead: false,
-    };
+    const ps = pageState;
+    ps.dead = false;
 
-    // Modal state — đơn lẻ, tồn tại lâu dài, chia sẻ cho mọi handler
-    const ms: ModalState = {
-      assignmentId: null,
-      autoSaveTimer: null,
-      countdownInterval: null,
-      allowSoftCheck: false,
-      dead: false,
-    };
+    // Modal state dùng chung (khai ở phạm vi module). `dead` phải đặt lại ở
+    // mỗi lần mount vì object sống lâu hơn component.
+    const ms = modalState;
+    ms.dead = false;
 
     const cleanups: Array<() => void> = [];
     const on = (el: Element | Document | null, ev: string, fn: any) => {

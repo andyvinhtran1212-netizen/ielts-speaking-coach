@@ -20,10 +20,15 @@
 export function WritingShell() {
   return (
     <>
-      {/* Canonical chrome (Sprint 7.12 — <aver-chrome> Web Component;
-           Writing active). Component owns chrome markup + theme toggle +
-           user pill + logout via Shadow DOM. */}
-      <aver-chrome active="writing"></aver-chrome>
+      {/* `<aver-chrome>` KHÔNG dựng ở đây — `page.tsx` dựng nó, y như
+          `(authed-speaking)`. Bản đầu của tệp này chép thẳng thẻ từ trang legacy
+          nên trang ra HAI thanh điều hướng: hai user pill, hai lần đăng ký luật
+          prefetch, hai lượt hỏi người dùng. Codex bắt ở #950.
+
+          Phép so markup của tôi KHÔNG thấy được: `<aver-chrome>` dựng nội dung
+          trong Shadow DOM, nên nó không thêm id nào và không thêm dòng văn bản
+          nào vào HTML — hai lượt đếm "80/80 id, 981/981 dòng" đều mù với nó.
+          Muốn thấy thì phải đếm chính thẻ đó. */}
 
       <main className="shell">
 
