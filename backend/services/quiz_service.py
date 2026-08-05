@@ -841,6 +841,7 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
     # Bản nháp CHỈ đọc khi chưa nộp: nộp rồi thì nháp là rác, và rót nó ra màn
     # hình chỉ để một ngày nào đó nó đè lên bài đã chấm.
     draft = None
+    draft_unavailable = False
     if item and not sub:
         try:
             d = (supabase_admin.table("course_writing_drafts")
@@ -851,8 +852,15 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
         except Exception as exc:  # noqa: BLE001
             # Nháp hỏng KHÔNG được chặn học viên khỏi phần viết — em ấy vẫn gõ
             # được, chỉ là mất phần đã gõ trên máy khác.
+            #
+            # Nhưng phải NÓI RA là không đọc được, đừng trả `null` như thể máy
+            # chủ chưa có gì: trang đọc `null` thành "máy chủ trống" rồi đẩy bản
+            # cục bộ lên ĐÈ dòng thật. Một lỗi đọc tạm thời khi ấy thành mất dữ
+            # liệu vĩnh viễn (codex PR 949). Cùng khuôn với
+            # `association_lookup_failed` của mặt đọc mã kích hoạt.
             logger.warning("[quiz] đọc nháp tự luận hỏng item=%s: %s", item["id"], exc)
             draft = None
+            draft_unavailable = True
     return {
         # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
         # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
@@ -872,6 +880,9 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
         "draft": ({"answers": draft.get("answers") or {},
                    "updated_at": draft.get("updated_at")} if draft else None),
+        # `true` = KHÔNG BIẾT máy chủ có gì. Khác hẳn `draft: null` (biết chắc
+        # là chưa có), và trang phải xử lý hai chuyện ấy bằng hai cách.
+        "draft_unavailable": draft_unavailable,
         "submission": ({
             "items":     sub.get("items"),
             "total":     sub.get("total"),

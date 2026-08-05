@@ -164,10 +164,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       // 949). Chỉ khi máy chủ không có dòng nào mới dùng bản trong máy.
       const local = submitted ? {} : loadDraft();
       const hasRemote = !submitted && !!(r && r.draft);
+      // KHÔNG ĐỌC ĐƯỢC khác hẳn CHƯA CÓ GÌ. Không đọc được mà đẩy bản cục bộ
+      // lên là để một lỗi đọc tạm thời ghi đè dòng thật trên máy chủ — biến nó
+      // thành mất dữ liệu vĩnh viễn (codex PR 949).
+      const unknown = !submitted && !!(r && r.draft_unavailable);
       draft = hasRemote ? { ...(r.draft.answers || {}) } : local;
       if (!submitted) {
         saveDraft();
-        if (!hasRemote && Object.keys(local).length) {
+        if (!hasRemote && !unknown && Object.keys(local).length) {
           // Máy chủ CHƯA có gì mà máy này đang giữ bài viết dở: cứu nó lên ngay,
           // không thì nó biến mất ở lần mở đầu tiên sau khi lên bản mới.
           lastPushed = '';

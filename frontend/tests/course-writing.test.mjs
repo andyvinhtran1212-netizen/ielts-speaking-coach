@@ -25,7 +25,7 @@ const Q = (qid, over = {}) => ({ qid, prompt: `Viết lại: ${qid}`, subtype: '
 
 function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
                    submission = null, itemId = 'it1', onPost, draft = null,
-                   failDraft = false } = {}) {
+                   failDraft = false, draftUnavailable = false } = {}) {
   const calls = { get: [], post: [] };
   return {
     calls,
@@ -33,7 +33,8 @@ function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
     get drafts() { return calls.post.filter((c) => c.path.includes('/writing/draft')); },
     async get(path) {
       calls.get.push(path);
-      return { questions, submitted, submission, item_id: itemId, draft };
+      return { questions, submitted, submission, item_id: itemId, draft,
+               draft_unavailable: draftUnavailable };
     },
     // `postWith` là đường có `keepalive` THẬT. Máy chủ giả phải phân biệt được
     // hai đường, không thì chốt keepalive chẳng chứng minh gì.
@@ -537,5 +538,37 @@ describe('ba ca lệch nhau giữa hai máy (codex PR 949)', () => {
     const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
     assert.equal(sent.length, 1);
     assert.equal(sent[0].opts, undefined);
+  });
+});
+
+describe('KHÔNG ĐỌC ĐƯỢC khác CHƯA CÓ GÌ (codex PR 949 vòng 2)', () => {
+  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+
+  test('máy chủ đọc hỏng thì KHÔNG đẩy bản cục bộ lên đè', async () => {
+    // Một lỗi đọc tạm thời không được biến thành mất dữ liệu vĩnh viễn: dòng
+    // thật trên máy chủ có thể mới hơn nhiều so với bản trong máy này.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản cũ máy này' }));
+    const { w, api } = await load({ storage: store, draft: null, draftUnavailable: true });
+    assert.equal(w.draft.E1, 'bản cũ máy này', 'vẫn phải viết tiếp được');
+    await tick();
+    assert.equal(api.drafts.length, 0, 'nhưng KHÔNG được đẩy lên đè');
+  });
+
+  test('gõ TIẾP sau đó thì vẫn lưu — đó là bài mới của em ấy', async () => {
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'cũ' }));
+    const { w, api } = await load({ storage: store, draft: null, draftUnavailable: true });
+    w.write('E1', 'cũ và phần vừa gõ thêm');
+    await tick();
+    assert.equal(api.drafts.length, 1, 'bài vừa gõ là bài thật, phải lưu');
+  });
+
+  test('máy chủ nói rõ CHƯA CÓ GÌ thì vẫn cứu bản cục bộ lên', async () => {
+    // Ranh giới giữa hai ca: `draft: null` + không báo hỏng = biết chắc trống.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'đang viết dở' }));
+    const { api } = await load({ storage: store, draft: null, draftUnavailable: false });
+    assert.equal(api.drafts.length, 1);
   });
 });

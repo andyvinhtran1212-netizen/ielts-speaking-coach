@@ -22,6 +22,18 @@ MIG = (pathlib.Path(__file__).parent.parent / "migrations"
 CODE = re.sub(r"--[^\n]*", "", MIG)      # bộ quét đọc MÃ, không đọc lời chú
 
 
+def _draft_block() -> str:
+    """Khối đọc nháp trong `course_writing_state`.
+
+    Cắt theo MỐC KẾT THÚC THẬT (`return {`), không đếm ký tự: thêm vài dòng chú
+    thích là khối trôi ra ngoài cửa sổ và chốt đỏ vì một lý do không liên quan
+    tới hành vi. Đã xảy ra ba lần trong đúng phiên làm việc này.
+    """
+    src = inspect.getsource(qs.course_writing_state)
+    i = src.index("course_writing_drafts")
+    return src[i:src.index("return {", i)]
+
+
 def test_the_draft_table_is_keyed_to_the_assignment_item():
     """Giao lại cùng bộ bài là một lượt MỚI — nháp của lần trước không được rót
     vào lần này (cùng lý do mig 192)."""
@@ -99,7 +111,17 @@ def test_the_draft_is_only_read_when_nothing_was_submitted():
 
 def test_a_broken_draft_read_never_blocks_the_writing_section():
     """Em ấy vẫn phải gõ được — chỉ là mất phần đã gõ trên máy khác."""
-    src = inspect.getsource(qs.course_writing_state)
-    i = src.index("course_writing_drafts")
-    seg = src[i:i + 700]
+    seg = _draft_block()
     assert "except Exception" in seg and "draft = None" in seg
+
+
+def test_a_failed_draft_read_says_so_instead_of_looking_empty():
+    """Trả `draft: null` khi ĐỌC HỎNG là nói dối: trang đọc `null` thành "máy
+    chủ chưa có gì" rồi đẩy bản cục bộ lên ĐÈ dòng thật — một lỗi đọc tạm thời
+    thành mất dữ liệu vĩnh viễn (codex PR 949 vòng 2).
+
+    Cùng khuôn với `association_lookup_failed` của mặt đọc mã kích hoạt.
+    """
+    src = inspect.getsource(qs.course_writing_state)
+    assert '"draft_unavailable"' in src
+    assert "draft_unavailable = True" in _draft_block(), "nhánh đọc hỏng phải bật cờ"
