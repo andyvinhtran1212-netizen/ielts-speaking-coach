@@ -232,10 +232,21 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
       '_renderTimer không có caller nào đọc giá trị trả về');
   });
 
-  test('micro hỏng KHÔNG làm ô đã lưu mất điểm', () => {
-    // Ghi âm lại một ô đã lưu mà micro hỏng thì ô phải quay về "đã lưu", không
-    // tụt về "chưa làm" — bài cũ vẫn còn trên server.
-    assert.match(CODE, /s\.state = s\.band === null \? 'idle' : 'saved';/);
+  test('micro hỏng KHÔNG làm mất bài đã lên máy chủ', () => {
+    // Ghi âm lại mà micro hỏng thì ô phải quay về ĐÚNG trạng thái cũ — bài cũ
+    // vẫn còn trên server.
+    //
+    // Chốt này từng ghim NGUYÊN VĂN `s.band === null ? 'idle' : 'saved'`, tức
+    // ghim một dòng mã chứ không phải một hành vi. Cách suy-từ-band ấy đúng khi
+    // chỉ có hai trạng thái, nhưng sai ngay khi có 'ungraded' (cố ý không band)
+    // — nó hạ một bài đã lưu xuống 'chưa làm'. Nay ghim BẤT BIẾN: nhớ trạng
+    // thái cũ rồi trả lại đúng nó.
+    const i = CODE.indexOf('function _sheetToggleRec');
+    const body = CODE.slice(i, i + 1200);
+    assert.match(body, /var prevState = s\.state;/, 'phải nhớ trạng thái cũ');
+    assert.match(body, /s\.state = prevState;/, 'và trả lại đúng nó');
+    assert.ok(!/s\.band === null/.test(body),
+      'đừng suy trạng thái từ band — ô chưa-chấm-được cố ý không có band');
   });
 });
 
@@ -682,6 +693,16 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     assert.match(CODE.slice(i, i + 200), /grading_status === 'failed'/);
     const j = CODE.indexOf('state: _respGraded(r)');
     assert.match(CODE.slice(j, j + 160), /_respFailed\(r\) \? 'ungraded' : 'grading'/);
+  });
+
+  test('trang KẾT QUẢ nhận ra dòng chấm hỏng qua grading_status', () => {
+    // Dòng hỏng nay CÓ `feedback` ({_failed, _reason} để điều tra), nên chỉ hỏi
+    // `!fb` là bỏ sót và bản ghi đã lưu bị đọc thành "Chưa có câu trả lời".
+    const RES = readFileSync(join(HERE, '..', 'public', 'pages', 'result.html'), 'utf8');
+    const m = /var gradingFailed = ([^;]+);/.exec(RES);
+    assert.ok(m, 'không tìm thấy phép phân loại');
+    assert.match(m[1], /grading_status === 'failed'/);
+    assert.match(m[1], /_failed/);
   });
 
   test('có câu chưa chấm được thì NÓI RA ở đáy phiếu', () => {

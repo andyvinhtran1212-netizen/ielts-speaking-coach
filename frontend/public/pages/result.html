@@ -572,7 +572,12 @@
         var fb = r ? parseFeedback(r.feedback) : null;
 
         // Distinguish: no response at all vs response saved but grading failed
-        var gradingFailed = r && !fb;
+        // Chấm hỏng nhận ra bằng CỘT `grading_status` trước, rồi mới tới
+        // "không có nhận xét". Dòng hỏng nay CÓ `feedback` (một object
+        // `{_failed:true, _reason}` để điều tra), nên chỉ hỏi `!fb` là bỏ sót
+        // và bản ghi đã lưu bị đọc thành "Chưa có câu trả lời" (codex #942).
+        var gradingFailed = !!r && (r.grading_status === 'failed'
+                                    || !fb || fb._failed === true);
         var isPractice = fb && fb.grammar_issues;
 
         // ── Header band pills ─────────────────────────────────────────────────

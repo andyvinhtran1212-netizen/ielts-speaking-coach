@@ -3244,6 +3244,8 @@
     if (!s) return;
     if (_sheet.recIdx === i) { stopRecording(); return; }
     if (_sheet.recIdx !== -1) return;      // một micro: ô khác đang ghi
+    // Nhớ trạng thái CŨ để trả lại nguyên vẹn nếu micro không mở được.
+    var prevState = s.state;
     s.error = null;
     s.state = 'recording';
     _sheet.recIdx = i;
@@ -3259,7 +3261,11 @@
       ok = false;
     }
     if (!ok) {
-      s.state = s.band === null ? 'idle' : 'saved';
+      // Trả về ĐÚNG trạng thái trước đó, đừng suy từ `band`. Ô 'ungraded' cố ý
+      // không có band, nên suy-từ-band sẽ hạ nó xuống 'idle' — tức là vứt một
+      // bài ĐÃ LÊN MÁY CHỦ khỏi số đếm và khoá lại nút Nộp, chỉ vì micro không
+      // mở được ở lần thử lại (codex #942).
+      s.state = prevState;
       s.error = 'Không ghi âm được. Kiểm tra quyền dùng micro rồi thử lại.';
       _sheet.recIdx = -1;
       _renderSheet();
