@@ -411,9 +411,22 @@ describe('cổng parity trong CI (review #914)', () => {
     // route đó vẫn kích hoạt job rồi BÁO XANH mà chưa mở route đã sửa.
     assert.ok(!/- 'frontend\/app\/\*\*'/.test(GATE_ACTIVE),
       'bộ lọc rộng = cổng tự cấp phép cho route nó không so');
+    // CẬP NHẬT 2026-08-05 — LÝ DO đổi, khẳng định thì KHÔNG.
+    // Trước: "route cần đăng nhập nằm ngoài tầm G1". Nay authed-G1 đã có (tiêm
+    // phiên Supabase vào trình duyệt) và `/home` ĐƯỢC so qua cặp trong
+    // `parity-pairs-authed.json`. Nhưng `(authed)` vẫn phải nằm ngoài bộ lọc vì
+    // nó chứa `/profile`, mà `/pages/profile.html` đã 307 sang `/profile` khi
+    // cutover pilot 3 — không còn vế legacy nào để so.
+    // Phân biệt cho đúng: "cần đăng nhập" KHÔNG còn là lý do loại trừ;
+    // "bản legacy đã bị gỡ" mới là. (Test này đã bắt tôi thêm nhầm `(authed)`.)
     assert.ok(!/\(authed\)/.test(GATE_ACTIVE),
-      'route cần đăng nhập nằm ngoài tầm G1 (do G2 + staging E2E che)');
+      '/profile không còn vế legacy để so (đã 307 khi cutover pilot 3)');
     assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(public-content\)\/\*\*'/);
+    // Chiều ngược lại: `/home` CÓ so được (legacy `/pages/home.html` vẫn trả
+    // 200), nên gỡ dòng này khỏi bộ lọc là bỏ phủ sóng — phải đỏ.
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(authed-home\)\/\*\*'/,
+      'mất glob (authed-home) = cổng authed không bao giờ tự chạy');
+    assert.match(GATE_ACTIVE, /- 'frontend\/public\/pages\/home\.html'/);
   });
 
   test('PR đụng bộ render BÀI VIẾT phải chạy phạm vi đầy đủ', () => {

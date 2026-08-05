@@ -48,7 +48,12 @@ on:
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
       # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở
       # PR #930; kiểm lại đúng: lần chạy authed trước đó là do dispatch tay.)
-      - 'frontend/app/(authed)/**'
+      # CHỈ `(authed-home)`. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
+      # `/pages/profile.html` đã 307 sang `/profile` khi cutover pilot 3 ⇒
+      # không còn vế legacy để so. Bắt nó vào đây là để job chạy rồi BÁO XANH
+      # mà chưa từng mở route đã sửa. Có test chặn đúng chuyện đó
+      # (`parity-core.test.mjs` → "bộ lọc KHÔNG bắt route mà G1 không so được"),
+      # và nó đã bắt tôi khi tôi thêm nhầm.
       - 'frontend/app/(authed-home)/**'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
@@ -197,7 +202,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed|authed-home)\)/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\(authed-home\)/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

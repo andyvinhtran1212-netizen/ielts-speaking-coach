@@ -3,13 +3,6 @@
     "name": "home",
     "legacy": "/pages/home.html",
     "next": "/home-preview",
-    "allow": [
-      { "kind": "api-missing", "value": "GET /api/student/home-summary",
-        "reason": "bản Next chưa port tầng hành vi (bước 2) — mục này PHẢI gỡ khi behavior xong" },
-      { "kind": "api-missing", "value": "GET /api/student/permissions",
-        "reason": "như trên" },
-      { "kind": "api-missing", "value": "GET /api/class/me?summary=true",
-        "reason": "như trên" }
-    ]
+    "allow": []
   }
 ]
