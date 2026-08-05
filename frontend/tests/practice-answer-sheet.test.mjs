@@ -683,4 +683,17 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     const j = CODE.indexOf('state: _respGraded(r)');
     assert.match(CODE.slice(j, j + 160), /_respFailed\(r\) \? 'ungraded' : 'grading'/);
   });
+
+  test('có câu chưa chấm được thì NÓI RA ở đáy phiếu', () => {
+    // "Đã lưu cả 12 câu" mà thiếu điểm sẽ khiến học viên tưởng mình bị chấm 0 —
+    // trong khi bài các em không sai gì.
+    const n = render([S('saved', { band: 6 }), S('ungraded')]);
+    assert.match(n['sheet-submit-note'].textContent, /1 câu máy chưa chấm được/);
+    assert.match(n['sheet-submit-note'].textContent, /vẫn nộp được/);
+  });
+
+  test('không có câu nào hỏng thì giữ nguyên câu cũ', () => {
+    const n = render([S('saved', { band: 6 }), S('saved', { band: 7 })]);
+    assert.match(n['sheet-submit-note'].textContent, /Đã lưu cả 2 câu\. Nộp để chốt bài\./);
+  });
 });

@@ -51,3 +51,29 @@ def test_the_stub_branch_still_reports_the_saved_recording():
 def test_grading_status_failed_is_still_written():
     # Cột này là thứ lượt tải lại trang đọc để phân biệt chấm-hỏng với đang-chấm.
     assert '"grading_status":              "completed" if grading else "failed"' in _src()
+
+
+# ── Nộp được khi bài ĐÃ LƯU mà chấm hỏng hết (codex #942) ───────────────────
+
+def test_complete_separates_no_recording_from_no_grading():
+    """Chốt cũ gộp hai chuyện: "chưa ghi âm gì" (từ chối là đúng) và "đã ghi đủ
+    nhưng bộ chấm hỏng hết" (từ chối là NHỐT học viên). Với 3,8% lượt chấm hỏng
+    trên prod, "hỏng cả lượt" không phải giả định xa vời."""
+    from routers import sessions as se
+    src = inspect.getsource(se.complete_session)
+    i = src.index("all_band_vals = [overall_band]")
+    seg = src[i:i + 1600]
+    # Phải ĐẾM bài đã lưu trước khi từ chối.
+    assert 'table("responses")' in seg and 'count="exact"' in seg
+    assert "if not saved:" in seg, "chỉ từ chối khi KHÔNG có bài nào"
+    # Và phải để lại dấu vết cho lượt hoàn thành không-band.
+    assert "chấm hỏng hết" in seg
+
+
+def test_a_failed_count_query_keeps_the_stricter_old_behaviour():
+    from routers import sessions as se
+    src = inspect.getsource(se.complete_session)
+    i = src.index("all_band_vals = [overall_band]")
+    seg = src[i:i + 1600]
+    j = seg.index("except Exception")
+    assert "saved = 0" in seg[j:j + 400], "đọc hỏng thì chặt hơn là an toàn hơn"

@@ -3169,10 +3169,18 @@
     $('sheet-submit').dataset.ready = String(ready && !lockedNow);
     // NÓI RÕ còn thiếu gì. Một nút mờ không lý do khiến học viên bấm mấy lần
     // rồi tưởng trang hỏng.
+    // Nói RÕ khi có câu chưa chấm được. "Đã lưu cả 12 câu" mà thiếu điểm sẽ
+    // khiến học viên tưởng mình bị chấm 0 — trong khi bài các em không sai gì.
+    var ungraded = _sheet.slots.filter(function (s) {
+      return s.state === 'ungraded';
+    }).length;
     $('sheet-submit-note').textContent = lockedNow
       ? _sheetLockNote(done, total)
       : (ready
-          ? 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.'
+          ? (ungraded
+              ? 'Đã lưu cả ' + total + ' câu, nhưng ' + ungraded + ' câu máy chưa '
+                + 'chấm được. Bạn vẫn nộp được — điểm những câu ấy sẽ để trống.'
+              : 'Đã lưu cả ' + total + ' câu. Nộp để chốt bài.')
           : 'Đã lưu ' + done + '/' + total + ' câu — lưu nốt rồi mới nộp được.');
     $('btn-sheet-submit').disabled = !ready || lockedNow;
     $('btn-sheet-submit').textContent = lockedNow ? 'Đã chốt' : 'Nộp bài';

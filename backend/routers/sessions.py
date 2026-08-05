@@ -1485,13 +1485,37 @@ async def complete_session(
     criteria_bands = {k: v for k, v in bands.items() if k != "overall_band"}
 
     # Gate: do not mark completed if no usable canonical bands exist.
+    #
+    # NHƯNG chốt này từng gộp HAI chuyện khác hẳn nhau, và chuyện thứ hai là một
+    # cái bẫy: (a) chưa ghi âm gì — từ chối là đúng; (b) đã ghi đủ và bài đã lên
+    # máy chủ, nhưng BỘ CHẤM hỏng hết. Ở (b), học viên đã làm xong phần việc của
+    # mình mà lệnh nộp vẫn 422 mãi — em ấy bị nhốt trong một bài không có lối
+    # ra, vì lỗi nằm ở phía hệ thống (codex #942; 3,8% lượt chấm hỏng trên
+    # prod, nên "hỏng cả lượt" không phải giả định xa vời).
+    #
+    # Có bài mà chưa chấm được thì CHO nộp, với band để trống. Band trống là
+    # một sự thật đọc được; một lệnh nộp không bao giờ thành công thì không.
     all_band_vals = [overall_band] + list(criteria_bands.values())
     if all(v is None for v in all_band_vals):
-        raise HTTPException(
-            status_code=422,
-            detail="Cannot complete session — no usable band scores found in responses. "
-                   "Ensure all responses have been graded before calling this endpoint.",
-        )
+        try:
+            saved = (
+                supabase_admin.table("responses").select("id", count="exact")
+                .eq("session_id", session_id).limit(1).execute()
+            ).count or 0
+        except Exception as exc:  # noqa: BLE001
+            # Đọc hỏng thì giữ nguyên hành vi cũ — chặt hơn là an toàn hơn.
+            logger.warning("[complete_session] đếm responses hỏng session=%s: %s",
+                           session_id, exc)
+            saved = 0
+        if not saved:
+            raise HTTPException(
+                status_code=422,
+                detail="Cannot complete session — no usable band scores found in responses. "
+                       "Ensure all responses have been graded before calling this endpoint.",
+            )
+        logger.warning(
+            "[complete_session] hoàn thành KHÔNG có band — %s bài đã lưu nhưng "
+            "chấm hỏng hết session=%s", saved, session_id)
 
     update_payload: dict = {
         "status":       "completed",
