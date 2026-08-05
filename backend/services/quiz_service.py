@@ -336,6 +336,19 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+    # ĐÁP ÁN MẪU CỦA CÂU TỰ LUẬN KHÔNG ĐI QUA ĐƯỜNG NÀY.
+    #
+    # `select("*")` trả cả `explain` (đáp án mẫu) và `accept`. Lọc ở trình duyệt
+    # chỉ là trang trí: chuỗi ấy đã nằm trong phản hồi mạng, mở tab Network là
+    # đọc được — và lượt viết chỉ có MỘT, nên đọc trước là hỏng cả bài tập
+    # (codex #935). Đường duy nhất phát đáp án mẫu là `course_writing_state`,
+    # và nó chỉ phát SAU khi đã nộp.
+    for q in questions:
+        if q.get("type") == "writing":
+            q["explain"] = None
+            q["accept"] = None
+            q["answer"] = None
+
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
@@ -802,6 +815,26 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
         raise HTTPException(500, f"Lỗi lưu bài tự luận: {exc}")
 
     saved = (res.data or [{}])[0]
+
+    # CHỐT SỔ BÀI GIAO. Với bank có cả trắc nghiệm thì `end_session` đã đóng dấu
+    # từ chặng đầu và lệnh này luỹ đẳng nên không đổi gì. Với bank CHỈ có tự
+    # luận thì đây là đường DUY NHẤT — thiếu nó, bài đã nộp vẫn nằm ở "Cần nộp"
+    # rồi thành "Quá hạn", và bảng của giáo viên không thấy gì (codex #935).
+    #
+    # Best-effort: hỏng ở đây KHÔNG được làm đổ lượt nộp — bài đã chấm và đã ghi
+    # rồi, còn sổ thì vá lại được bằng lượt đối chiếu.
+    if item:
+        try:
+            mark_item_submitted(
+                supabase_admin, item_id=item["id"],
+                artifact_kind="course_writing", artifact_id=saved.get("id"),
+                score=(round(row["clean"] / row["total"] * 100, 1)
+                       if row["total"] else None),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] chốt sổ tự luận hỏng item=%s: %s",
+                           item.get("id"), exc)
+
     return {
         "items":     graded,
         "total":     row["total"],

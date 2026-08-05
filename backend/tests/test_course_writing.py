@@ -222,3 +222,59 @@ async def test_a_question_the_model_skipped_is_reported_alone():
                                  {"qid": "E2", "prompt": "p", "answer": "y"}])
     assert out[0]["ok"] is True
     assert out[1]["ok"] is None, "thiếu MỘT câu không được kéo cả cụm xuống"
+
+
+# ── Đáp án mẫu KHÔNG lọt qua đường phát đề (codex #935) ─────────────────────
+
+def test_the_play_endpoint_never_ships_writing_answers():
+    """`get_bank_for_play` dùng select("*"), nên `explain` (đáp án mẫu) nằm sẵn
+    trong phản hồi mạng. Lọc ở trình duyệt chỉ là trang trí — mở tab Network là
+    đọc được, mà lượt viết chỉ có MỘT."""
+    rows = [
+        {"qid": "M1", "type": "mcq", "explain": "giải thích trắc nghiệm",
+         "answer": 0, "accept": None, "bank_id": "b1", "order": 1},
+        {"qid": "E1", "type": "writing", "explain": "ĐÁP ÁN MẪU",
+         "answer": None, "accept": ["x"], "bank_id": "b1", "order": 90},
+    ]
+    db = _db([], quiz_banks=[{"id": "b1", "code": "C1-B01", "skill_area": "course"}],
+             quiz_questions=rows)
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1", "assignment_id": "a1"}), \
+         patch.object(qs, "_word_cards_for", lambda b: {}), \
+         patch.object(qs, "_attach_article_urls", lambda q: None), \
+         patch.object(qs, "_resolve_question_audio", lambda q, w: None), \
+         patch.object(qs, "mastery_config", lambda a: {"pass_pct": 80, "retake_size": 20}):
+        out = qs.get_bank_for_play("b1", user_id="u1")
+
+    by = {q["qid"]: q for q in out["questions"]}
+    assert by["E1"]["explain"] is None, "đáp án mẫu của câu tự luận không được đi qua đây"
+    assert by["E1"]["accept"] is None
+    # Trắc nghiệm thì VẪN phải có — client chấm tại chỗ và hiện giải thích ngay.
+    assert by["M1"]["explain"] == "giải thích trắc nghiệm"
+    assert by["M1"]["answer"] == 0
+
+
+# ── Chốt sổ bài giao khi nộp tự luận (codex #935) ───────────────────────────
+
+@pytest.mark.asyncio
+async def test_submitting_writing_stamps_the_assignment_ledger():
+    """Bank CHỈ có tự luận không sinh phiên quiz nào, nên đây là đường chốt sổ
+    DUY NHẤT. Thiếu nó, bài đã nộp vẫn nằm ở "Cần nộp" rồi thành "Quá hạn"."""
+    seen = {}
+    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
+        seen.update(item_id=item_id, kind=artifact_kind, score=score)
+        return True
+    with patch.object(qs, "mark_item_submitted", fake_mark):
+        await _submit({"E1": "a", "E2": "b"})
+    assert seen["item_id"] == "it1"
+    assert seen["kind"] == "course_writing", "mượn 'quiz_session' là trỏ vào bảng không có dòng ấy"
+    assert seen["score"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_a_failed_ledger_write_does_not_lose_the_graded_writing():
+    """Bài đã chấm và đã ghi rồi; sổ thì vá lại được bằng lượt đối chiếu."""
+    def boom(*a, **k): raise RuntimeError("db down")
+    with patch.object(qs, "mark_item_submitted", boom):
+        out, _ = await _submit({"E1": "a", "E2": "b"})
+    assert out["total"] == 2, "lượt nộp phải thành công dù chốt sổ hỏng"
