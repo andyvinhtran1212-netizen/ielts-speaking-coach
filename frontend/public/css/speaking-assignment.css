@@ -1054,6 +1054,11 @@
    một lưới người mù màu không đọc được. */
 
 .av-board {
+  /* Bề ngang cột tên. Cột TỔNG dính ngay sau nó nên phải biết con số này —
+     để nó tự do thì hai cột dính chồng lên nhau ở một sĩ số có tên dài.
+     KHÔNG mang tiền tố --av-: đó là không gian tên của design token, còn đây
+     chỉ là một hằng bố cục của riêng bảng này. */
+  --board-name-w: 148px;
   margin-bottom: var(--av-space-6);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-lg);
@@ -1108,17 +1113,80 @@
   color: var(--av-text-muted);
 }
 
+/* Dải NGÀY trên đầu các cột bài. Một ngày giao hai bài là chuyện thường (giao
+   lại, giao bù) — cột là BÀI, còn dải này giữ lại nhịp lịch để mắt vẫn đọc
+   được "tuần vừa rồi" mà không phải cộng ngày trong đầu. */
+.av-board__daygrp {
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-secondary);
+  padding-bottom: var(--av-space-1);
+}
+
+/* Ranh giới NGÀY kẻ đậm hơn ranh giới giữa hai bài cùng ngày. Đường kẻ ở đây
+   mang thông tin: nó nói cho biết chỗ nào là sang ngày mới. */
+.av-board__table th.av-board__daybreak,
+.av-board__table td.av-board__daybreak { border-left: 1px solid var(--av-border-default); }
+
+/* Đầu cột một bài: ngày hạn là dòng chính (giáo viên gọi bài theo ngày), tên
+   bài là dòng xác nhận — cắt một dòng, đầy đủ trong tooltip. */
+.av-board__task { min-width: 58px; max-width: 58px; vertical-align: bottom; }
+.av-board__task b {
+  display: block;
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary);
+}
+.av-board__task span {
+  display: block;
+  overflow: hidden;
+  font-family: var(--av-font-sans);
+  font-size: 10px;
+  font-weight: var(--av-fw-regular);
+  line-height: 1.2;
+  color: var(--av-text-faint);
+  text-overflow: ellipsis;
+}
+
 /* Cột tên DÍNH khi cuộn ngang: mất tên thì cả hàng vô nghĩa. */
 .av-board__name,
 .av-board__name-h {
+  width: var(--board-name-w);
+  min-width: var(--board-name-w);
+  max-width: var(--board-name-w);
+  overflow: hidden;
+  text-overflow: ellipsis;
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: 2;
   text-align: left;
   background: var(--av-surface-card);
   font-weight: var(--av-fw-medium);
   color: var(--av-text-primary);
 }
+
+/* Cột tổng cũng dính: nó là câu trả lời, đọc nó mà phải cuộn ngược về là
+   hỏng mất việc. */
+.av-board__sum,
+.av-board__sum-h {
+  position: sticky;
+  left: var(--board-name-w, 148px);
+  z-index: 2;
+  background: var(--av-surface-card);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-secondary);
+  border-right: 1px solid var(--av-border-default);
+}
+
+/* Số bài KHÔNG NỘP là con số giáo viên đang săn — đây là chỗ duy nhất trong
+   bảng dùng màu nhấn. Bằng 0 thì KHÔNG tô: một số 0 màu cảnh báo là báo động
+   giả, và sau vài lần thì màu ấy hết nghĩa. */
+.av-board__miss { color: var(--av-text-faint); }
+.av-board__miss[data-any='true'] {
+  color: var(--av-accent);
+  font-weight: var(--av-fw-bold);
+}
+.av-board__did { color: var(--av-text-muted); }
 
 .av-board__na {
   font-size: var(--av-fs-xs);
@@ -1126,30 +1194,95 @@
   color: var(--av-text-muted);
 }
 
+/* ── Ô ────────────────────────────────────────────────────────────────────
+   Việc của bảng là ĐỌC RA SỰ VẮNG MẶT, nên ô đã nộp gần như không có mực còn
+   ô bỏ bài thì tô kín. Ô bỏ bài KHÔNG có đệm ngang và không bo góc, nên hai ô
+   cạnh nhau tự nối thành MỘT VỆT: độ dài vệt chính là độ dài quãng đứt, thứ
+   câu hỏi "em nào đứt quãng" hỏi tới. */
 .av-board__cell {
+  padding: 0;
   font-family: var(--av-font-mono);
-  line-height: 1;
+  font-size: var(--av-fs-xs);
+  line-height: 22px;
   color: var(--av-text-muted);
 }
 
-.av-board__cell a { color: inherit; text-decoration: none; }
+.av-board__cell a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
 .av-board__cell a:hover { text-decoration: underline; }
-
-.av-board__cell[data-state='done']    { color: var(--av-success); }
-.av-board__cell[data-state='late']    { color: var(--av-warning); }
-.av-board__cell[data-state='missing'] { color: var(--av-error); }
-
-.av-board__sum,
-.av-board__sum-h {
-  font-family: var(--av-font-mono);
-  font-size: var(--av-fs-xs);
-  color: var(--av-text-secondary);
+.av-board__cell a:focus-visible {
+  outline: 2px solid var(--av-border-focus);
+  outline-offset: -2px;
 }
 
-/* Hàng có buổi bỏ bài: một vệt mảnh bên trái, không tô cả hàng — tô cả hàng
-   thì mắt không còn đọc được từng ô nữa. */
+.av-board__cell[data-state='done'] { color: var(--av-text-muted); }
+/* Nộp trễ phải khác "đã nộp" bằng HÌNH DẠNG, không chỉ bằng màu — lưới phân
+   biệt bằng xanh/vàng là lưới người mù màu không đọc được. Gạch chân chấm:
+   thấy được ở cỡ 11px và không tốn thêm bề ngang. */
+.av-board__cell[data-state='late'] {
+  color: var(--av-warning);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* Mực. Nền tràn hết ô nên các ô liên tiếp nối liền nhau. */
+.av-board__cell[data-state='missing'] {
+  background: var(--av-error-soft);
+  color: var(--av-error);
+}
+
+/* Chưa tới hạn: chưa phải lỗi của ai, nên chỉ một chấm mảnh. */
+.av-board__cell[data-state='pending'] { color: var(--av-text-faint); }
+
+/* KHÔNG ĐƯỢC GIAO — phải khác hẳn "không nộp". Từ khi giao được theo nhóm thì
+   ca này là chuyện thường ngày, và nhầm nó thành bỏ bài là trách oan. Gạch
+   chéo rất nhạt: đọc ra "không áp dụng", không đọc ra "thiếu". */
+.av-board__cell[data-state='none'] {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    var(--av-border-subtle) 3px 4px);
+  opacity: 0.55;
+}
+
+/* Hàng có quãng đứt: một vệt mảnh bên trái, không tô cả hàng — tô cả hàng thì
+   mắt không còn đọc được từng ô nữa. */
 .av-board__table tr[data-alarm='true'] .av-board__name {
   box-shadow: inset 3px 0 0 var(--av-error);
+}
+
+/* Chú giải: bảng dùng hình dạng để nói, nên phải có chỗ nói hình dạng nghĩa
+   là gì — không thì mỗi giáo viên tự đoán một kiểu. */
+.av-board__key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av-space-2) var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
+  border-top: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+}
+.av-board__key span { display: inline-flex; align-items: center; gap: var(--av-space-2); }
+.av-board__key i {
+  width: 18px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--av-surface-sunken);
+  font-family: var(--av-font-mono);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 14px;
+  text-align: center;
+}
+.av-board__key i[data-k='missing'] { background: var(--av-error-soft); }
+.av-board__key i[data-k='none'] {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    var(--av-border-subtle) 3px 4px);
 }
 
 /* Đã lưu nhưng máy chấm HỎNG. Màu cảnh báo, không phải màu lỗi: bài của em ấy

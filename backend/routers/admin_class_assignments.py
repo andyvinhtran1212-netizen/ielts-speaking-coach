@@ -1251,6 +1251,29 @@ async def student_course_writing(
     }
 
 
+def _longest_missing_run(cells: list[dict]) -> int:
+    """Quãng BỎ BÀI liên tiếp dài nhất.
+
+    Tổng số bài bỏ không phân biệt được hai em rất khác nhau: bỏ 3 bài rải rác
+    là quên, bỏ 3 bài liên tiếp là đã rời đi. Câu hỏi của giáo viên ("ba tuần
+    qua em nào ĐỨT QUÃNG") hỏi đúng con số này.
+
+    Ô "không được giao" KHÔNG cắt quãng: em không có bài để bỏ thì đó không
+    phải một lần quay lại. Nhưng cũng không kéo dài quãng.
+    """
+    best = run = 0
+    for c in cells:
+        st = c.get("state")
+        if st == "missing":
+            run += 1
+            best = max(best, run)
+        elif st == "none":
+            continue
+        else:
+            run = 0
+    return best
+
+
 @router.get("/{cohort_id}/speaking-daily")
 async def speaking_daily_board(
     cohort_id: str,
@@ -1286,7 +1309,7 @@ async def speaking_daily_board(
     # giáo viên, không phải vì em ấy không làm.
     assignments = [a for a in assignments if (a.get("status") or "") != "archived"]
     if not assignments:
-        return {"days": [], "students": [], "assignment_count": 0, "stale": False}
+        return {"tasks": [], "students": [], "assignment_count": 0, "stale": False}
 
     def _day(a: dict) -> str | None:
         at = _at(a.get("due_at")) or _at(a.get("created_at"))
@@ -1294,7 +1317,7 @@ async def speaking_daily_board(
 
     dated = [(d, a) for a in assignments if (d := _day(a))]
     if not dated:
-        return {"days": [], "students": [], "assignment_count": len(assignments),
+        return {"tasks": [], "students": [], "assignment_count": len(assignments),
                 "stale": False}
 
     # Mới nhất bên phải, và chỉ giữ `days` ngày gần nhất — một lưới 200 cột
@@ -1306,7 +1329,14 @@ async def speaking_daily_board(
         if d in keep:
             by_day.setdefault(d, []).append(a["id"])
 
-    aids = [a["id"] for d, a in dated if d in keep]
+    # Cột là BÀI GIAO, xếp theo hạn rồi theo tên để thứ tự ổn định giữa hai lần
+    # tải (hai bài cùng hạn mà đảo chỗ thì giáo viên đọc nhầm cột).
+    picked = sorted(((d, a) for d, a in dated if d in keep),
+                    key=lambda x: (x[0], x[1].get("due_at") or "", x[1].get("title") or ""))
+    tasks = [{"id": a["id"], "title": a.get("title") or "", "day": d,
+              "due_at": a.get("due_at")} for d, a in picked]
+    aids = [t["id"] for t in tasks]
+    keep_ids = set(aids)
 
     # VÁ SỔ TRƯỚC KHI ĐẾM — y như bảng tổng kết từng bài đang làm.
     #
@@ -1339,37 +1369,35 @@ async def speaking_daily_board(
 
     due_of = {a["id"]: _at(a.get("due_at")) for _d, a in dated}
     now = datetime.now(timezone.utc)
-    # (student, day) → ô. Một ngày có thể có HAI bài giao (giao lại, giao bù);
-    # ô nói về NGÀY, nên gộp: nộp được một bài là ngày ấy có làm.
+    # (student, BÀI GIAO) → ô. Trước đây khoá theo NGÀY rồi gộp nhiều bài trong
+    # cùng ngày thành một ô — nên một ngày giao hai bài chỉ hiện được một, và
+    # một em nộp bài A mà bỏ bài B đọc thành "ngày ấy có làm". Cột nay là BÀI,
+    # nên không còn phép gộp nào che mất bài thứ hai.
     cells: dict = {}
     for it in items:
-        day = next((d for d, ids in by_day.items() if it["assignment_id"] in ids), None)
-        if not day:
+        aid = it["assignment_id"]
+        if aid not in keep_ids:
             continue
         sub = _at(it.get("submitted_at"))
-        due = due_of.get(it["assignment_id"])
+        due = due_of.get(aid)
         if sub:
             state = "late" if (due and sub > due) else "done"
         elif due and now > due:
             state = "missing"
         else:
             state = "pending"     # chưa tới hạn — chưa phải là bỏ bài
-        key = (it["student_id"], day)
-        old = cells.get(key)
-        # Ưu tiên trạng thái TỐT NHẤT trong ngày: đã làm thắng chưa làm.
-        _RANK = {"done": 0, "late": 1, "pending": 2, "missing": 3}
-        if not old or _RANK[state] < _RANK[old["state"]]:
-            cells[key] = {
-                "state": state,
-                "score": it.get("score"),
-                "session_id": (it.get("artifact_id")
-                               if it.get("artifact_kind") == "session" else None),
-            }
+        cells[(it["student_id"], aid)] = {
+            "state": state,
+            "score": it.get("score"),
+            "session_id": (it.get("artifact_id")
+                           if it.get("artifact_kind") == "session" else None),
+        }
 
     rows = []
     for sid, st in students.items():
-        line = [cells.get((sid, d)) or {"state": "none", "score": None, "session_id": None}
-                for d in day_list]
+        line = [cells.get((sid, t["id"]))
+                or {"state": "none", "score": None, "session_id": None}
+                for t in tasks]
         graded = [c["score"] for c in line if c.get("score") is not None]
         rows.append({
             "student_id":   sid,
@@ -1379,16 +1407,19 @@ async def speaking_daily_board(
             "cells":        line,
             "done":         sum(1 for c in line if c["state"] in ("done", "late")),
             "missing":      sum(1 for c in line if c["state"] == "missing"),
+            # Quãng đứt DÀI NHẤT — khác hẳn tổng số bài bỏ. Bỏ 3 bài rải rác là
+            # một chuyện, bỏ 3 bài liên tiếp là em ấy đã rời đi.
+            "streak":       _longest_missing_run(line),
             "avg_band":     round(sum(graded) / len(graded), 2) if graded else None,
         })
 
-    # Ai đứt quãng nhiều nhất lên đầu — đây là danh sách việc, không phải bảng
-    # xếp hạng.
-    rows.sort(key=lambda r: (-r["missing"], r["name"].lower()))
+    # Quãng đứt dài nhất lên đầu, rồi mới tới tổng số bài bỏ — đây là danh sách
+    # việc, không phải bảng xếp hạng.
+    rows.sort(key=lambda r: (-r["streak"], -r["missing"], r["name"].lower()))
     return {
-        "days":  day_list,
+        "tasks": tasks,
         "students": rows,
-        "assignment_count": len(aids),
+        "assignment_count": len(tasks),
         # Nói RA khi con số có thể còn thiếu. Im lặng ở đây là để giáo viên nhắc
         # nhầm một em đã nộp.
         "stale": stale,

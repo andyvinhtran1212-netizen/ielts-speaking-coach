@@ -2103,12 +2103,19 @@ async function loadDailyBoard() {
   }
 }
 
+/* Ô nói bằng HÌNH DẠNG, không bằng ký tự.
+ *
+ * Bản trước dùng ✓ ◐ ✕ · — bốn ký tự có khối lượng thị giác gần bằng nhau, nên
+ * một cột trộn lẫn chỉ ra nhiễu. Ở đây ô đã nộp gần như không có mực (hiện luôn
+ * band, vừa nhẹ vừa có ích) còn ô bỏ bài tô kín và NỐI LIỀN khi liên tiếp:
+ * độ dài vệt chính là độ dài quãng đứt.
+ */
 const BOARD_MARK = {
-  done:    { ch: '✓', label: 'đã nộp' },
-  late:    { ch: '◐', label: 'nộp trễ' },
-  missing: { ch: '✕', label: 'không nộp' },
-  pending: { ch: '·', label: 'chưa tới hạn' },
-  none:    { ch: '',  label: 'không được giao' },
+  done:    'đã nộp',
+  late:    'nộp trễ',
+  missing: 'không nộp',
+  pending: 'chưa tới hạn',
+  none:    'không được giao cho em này',
 };
 
 /** '2026-08-05' → '05/08'. Cột hẹp, và năm thì cả bảng dùng chung. */
@@ -2117,53 +2124,98 @@ function boardDay(iso) {
   return m ? `${m[3]}/${m[2]}` : esc(iso || '');
 }
 
+/** Nội dung ô. Đã chấm thì hiện band — im lặng mà vẫn nói được điều gì đó. */
+function boardCellText(c) {
+  if (c.state === 'missing') return '';
+  if (c.state === 'none') return '';
+  if (c.state === 'pending') return '·';
+  return c.score != null ? String(c.score) : '○';
+}
+
 function renderDailyBoard(d) {
   const box = $('daily-board');
-  const days = (d && d.days) || [];
+  const tasks = (d && d.tasks) || [];
   const rows = (d && d.students) || [];
-  if (!days.length || !rows.length) { box.hidden = true; return; }
+  if (!tasks.length || !rows.length) { box.hidden = true; return; }
   box.hidden = false;
 
-  $('board-scope').textContent =
-    `${d.assignment_count} bài · ${days.length} ngày gần nhất`;
+  const dayCount = new Set(tasks.map((t) => t.day)).size;
+  $('board-scope').textContent = `${tasks.length} bài · ${dayCount} ngày gần nhất`;
 
-  $('board-head').innerHTML = '<th class="av-board__name-h">Học viên</th>'
-    + days.map((x) => `<th><span>${esc(boardDay(x))}</span></th>`).join('')
-    + '<th class="av-board__sum-h">Đã nộp</th>';
+  // Ranh giới NGÀY: cột đầu tiên của mỗi ngày kẻ đậm hơn. Đường kẻ mang thông
+  // tin, không trang trí.
+  const isBreak = tasks.map((t, i) => i > 0 && t.day !== tasks[i - 1].day);
+
+  // Dải ngày: gộp các bài cùng ngày dưới một ô. `colSpan` chứ không lặp ngày ở
+  // mỗi cột — lặp thì mắt phải tự nhóm lại.
+  const groups = [];
+  tasks.forEach((t, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.day === t.day) last.n += 1;
+    else groups.push({ day: t.day, n: 1, at: i });
+  });
+
+  $('board-head').innerHTML =
+    '<tr>'
+    + '<th class="av-board__name-h" rowspan="2">Học viên</th>'
+    + '<th class="av-board__sum-h" rowspan="2" title="Số bài đã thực hiện và số bài không nộp">'
+    + 'làm / thiếu</th>'
+    + groups.map((g) => `<th class="av-board__daygrp${g.at ? ' av-board__daybreak' : ''}"
+          colspan="${g.n}">${esc(boardDay(g.day))}</th>`).join('')
+    + '</tr><tr>'
+    + tasks.map((t, i) => `<th class="av-board__task${isBreak[i] ? ' av-board__daybreak' : ''}"
+          title="${esc(t.title || '')}"><b>${esc(boardDay(t.day))}</b>
+          <span>${esc(t.title || '')}</span></th>`).join('')
+    + '</tr>';
 
   $('board-body').innerHTML = rows.map((r) => {
     const cells = (r.cells || []).map((c, i) => {
-      const mk = BOARD_MARK[c.state] || BOARD_MARK.none;
-      const day = boardDay(days[i]);
       const band = c.score != null ? ` · band ${c.score}` : '';
-      const title = `${r.name || ''} · ${day} · ${mk.label}${band}`;
-      // Bấm vào ô là nghe bài của ĐÚNG em ấy ĐÚNG ngày ấy — đường ngắn nhất
-      // từ "hôm ấy em này trễ" tới "em ấy đã nói gì".
+      const task = tasks[i] || {};
+      const label = BOARD_MARK[c.state] || c.state;
+      const title = `${r.name || ''} · ${boardDay(task.day)} · ${task.title || ''} — ${label}${band}`;
+      const text = boardCellText(c);
+      // Bấm vào ô là nghe bài của ĐÚNG em ấy ở ĐÚNG bài ấy — đường ngắn nhất từ
+      // "chỗ này trống" tới "em ấy đã nói gì".
       const inner = c.session_id
         ? `<a href="/pages/admin/speaking/sessions.html?session=${esc(c.session_id)}"
-              target="_blank" rel="noopener">${mk.ch}</a>`
-        : mk.ch;
-      return `<td class="av-board__cell" data-state="${esc(c.state)}"
-                  title="${esc(title)}">${inner}</td>`;
+              target="_blank" rel="noopener">${text || '·'}</a>`
+        : text;
+      return `<td class="av-board__cell${isBreak[i] ? ' av-board__daybreak' : ''}"
+                  data-state="${esc(c.state)}" title="${esc(title)}">${inner}</td>`;
     }).join('');
     // Chưa kích hoạt tài khoản thì em ấy CHƯA TỪNG thấy bài nào — đánh dấu để
     // khỏi bị đọc thành lười.
     const name = esc(r.name || r.student_code || '—')
       + (r.activated ? '' : ' <span class="av-board__na">chưa kích hoạt</span>');
-    return `<tr${r.missing ? ' data-alarm="true"' : ''}>
+    // Báo động theo QUÃNG ĐỨT, không theo tổng số bài bỏ: bỏ 3 bài rải rác là
+    // quên, bỏ 3 bài liên tiếp là em ấy đã rời đi.
+    const alarm = (r.streak || 0) >= 2;
+    return `<tr${alarm ? ' data-alarm="true"' : ''}>
       <th scope="row" class="av-board__name">${name}</th>
+      <td class="av-board__sum"><span class="av-board__did">${r.done}</span>
+        <span class="av-board__miss" data-any="${r.missing ? 'true' : 'false'}"
+              title="Số bài không nộp">${r.missing}</span></td>
       ${cells}
-      <td class="av-board__sum">${r.done}/${days.length}</td>
     </tr>`;
   }).join('');
 
+  $('board-key').innerHTML = [
+    ['<i>6.5</i>', 'đã nộp (số là band)'],
+    ['<i>○</i>', 'đã nộp, chưa chấm'],
+    ['<i style="text-decoration:underline dotted">6.0</i>', 'nộp trễ'],
+    ['<i data-k="missing"></i>', 'không nộp — ô liền nhau là quãng đứt'],
+    ['<i>·</i>', 'chưa tới hạn'],
+    ['<i data-k="none"></i>', 'không được giao cho em này'],
+  ].map(([i, t]) => `<span>${i}${esc(t)}</span>`).join('');
+
   // Nói RA khi sổ chưa đối chiếu được: im lặng ở đây là để giáo viên nhắc nhầm
   // một em đã nộp.
-  $('board-foot').textContent =
-    (d.stale ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu. ' : '')
-    + 'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
-    + 'Bấm vào ô có bài để nghe và đọc nhận xét.';
+  $('board-foot').textContent = d.stale
+    ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu.'
+    : 'Bấm vào ô có bài để nghe và đọc nhận xét.';
 }
+
 
 async function loadSpeakingPerf() {
   const box = $('speaking-perf');
