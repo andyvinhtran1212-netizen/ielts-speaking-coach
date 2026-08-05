@@ -272,6 +272,21 @@ jobs:
           done
           exit $FAIL
 
+      # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
+      # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong
+      # đợt port `/speaking` đều thuộc loại đó (listener gắn vào id không tồn
+      # tại; thiếu `cue-card-detector.js`; biểu đồ không chờ Chart.js) — build
+      # xanh, test xanh, nút không làm gì.
+      #
+      # Bước này đi HẾT luồng tạo phiên trong trình duyệt thật, chặn mạng và trả
+      # dữ liệu sẵn: không cần secret, không ghi vào đâu cả. Nó KHÔNG thay thế
+      # `tests/staging-e2e/speaking-start-flow.spec.js` (bản đó chứng minh phiên
+      # được tạo THẬT ở backend) — nó chỉ chứng minh phía trình duyệt gửi đúng,
+      # nhưng đó lại là phần mà cổng parity mù hoàn toàn.
+      - name: Kiểm luồng tạo phiên (Speaking)
+        if: ${{ steps.scope.outputs.authed == 'true' }}
+        run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
       - name: Nộp báo cáo
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
