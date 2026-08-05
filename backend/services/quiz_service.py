@@ -1243,11 +1243,17 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
         start += _REPORT_PAGE
 
 
-def _course_stage_count(bank_id: str) -> int:
-    """Số CHẶNG của một bộ đề theo buổi = số câu trắc nghiệm chia 10, làm tròn lên.
+def _course_stage_count(bank_id: str) -> tuple[int, int]:
+    """(số CHẶNG, số câu TỰ LUẬN) của một bộ đề theo buổi.
 
-    Cần con số này mới nói được "xong": không có nó thì một em làm 1/10 chặng
-    rồi dừng vẫn đọc thành đã hoàn thành.
+    Chặng = số câu trắc nghiệm chia 10, làm tròn lên. Cần con số này mới nói
+    được "xong": không có nó thì một em làm 1/10 chặng rồi dừng vẫn đọc thành
+    đã hoàn thành.
+
+    Số câu tự luận cần cho một chuyện khác: chúng nằm NGOÀI vòng chặng, nên xong
+    hết chặng vẫn CHƯA phải xong bài. Không tách ra thì một em xong 9 chặng rồi
+    dừng trước phần viết trông y hệt một em đã hoàn thành — và đó đúng là điều
+    đã xảy ra với em Phương Anh Nguyễn.
     """
     try:
         total = (supabase_admin.table("quiz_questions").select("id", count="exact")
@@ -1258,9 +1264,9 @@ def _course_stage_count(bank_id: str) -> int:
         # Không đếm được thì trả 0, và `0` được đọc là "chưa biết": nhánh gọi
         # KHÔNG bao giờ kết luận "xong" khi chưa biết cần bao nhiêu chặng.
         logger.warning("[quiz] stage count failed bank=%s: %s", bank_id, exc)
-        return 0
+        return 0, 0
     graded = max(0, total - writing)
-    return -(-graded // 10)     # làm tròn lên, không cần import math
+    return -(-graded // 10), writing     # làm tròn lên, không cần import math
 
 
 def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
@@ -1292,7 +1298,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
     # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
     out: dict = {"students": [], "axes": [], "bank_id": bank_id,
-                 "stages_total": 0, "stale": False}
+                 "stages_total": 0, "writing_total": 0, "stale": False}
 
     # Sổ người nhận của CHÍNH bài giao này = danh sách học viên của báo cáo.
     try:
@@ -1305,6 +1311,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         out["stale"] = True
         return out
     item_ids = {i["id"] for i in items}
+    item_of_student = {i["student_id"]: i["id"] for i in items if i.get("student_id")}
     if not item_ids:
         return out
 
@@ -1324,7 +1331,22 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             logger.warning("[quiz] attempt-report roster failed: %s", exc)
             out["stale"] = True
 
-    out["stages_total"] = _course_stage_count(bank_id)
+    out["stages_total"], out["writing_total"] = _course_stage_count(bank_id)
+
+    # Ai ĐÃ NỘP phần tự luận. Đọc theo MỤC BÀI GIAO, không theo (bank, học
+    # viên): giao lại cùng bộ bài là một lượt khác (mig 192).
+    submitted_writing: set[str] = set()
+    if out["writing_total"]:
+        try:
+            for w in _report_pages(
+                "course_writing_submissions", "id, class_assignment_item_id",
+                lambda q: q.eq("bank_id", bank_id),
+            ):
+                if w.get("class_assignment_item_id") in item_ids:
+                    submitted_writing.add(w["class_assignment_item_id"])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] attempt-report writing failed: %s", exc)
+            out["stale"] = True
 
     try:
         sessions = _report_pages(
@@ -1400,8 +1422,12 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         right = sum(int(x.get("total_correct") or 0) for x in done)
         last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows) if rows else ""
         total_stages = out["stages_total"]
+        wrote = (item_of_student.get(sid) in submitted_writing) if sid else False
         if total_stages and len(done) >= total_stages:
-            state = "done"
+            # XONG CHẶNG CHƯA PHẢI XONG BÀI. Phần tự luận nằm ngoài vòng chặng,
+            # nên gộp hai chuyện lại là báo với giáo viên rằng một em đã hoàn
+            # thành trong khi em ấy còn mười câu chưa động tới.
+            state = "done" if (not out["writing_total"] or wrote) else "awaiting_writing"
         elif live or done:
             # Làm xong 1/10 chặng rồi dừng KHÔNG phải là xong. Nhánh cũ gọi nó
             # là 'done' và giấu đi đúng những lượt dở dang mà bảng này sinh ra
@@ -1422,6 +1448,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             "student_id":  sid,
             "user_id":     uid,
             "state":       state,
+            "wrote":       wrote,
             "stages_done": len(done),
             "minutes":     round(secs / 60, 1),
             "questions":   asked,
@@ -1430,7 +1457,9 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             "last_at":     last or None,
         })
 
-    out["students"].sort(key=lambda r: (r["state"] != "stalled", -r["stages_done"]))
+    # Việc cần làm lên đầu: bỏ dở trước, rồi tới xong-chặng-chưa-nộp-viết.
+    _ORDER = {"stalled": 0, "awaiting_writing": 1, "doing": 2, "untouched": 3, "done": 4}
+    out["students"].sort(key=lambda r: (_ORDER.get(r["state"], 9), -r["stages_done"]))
 
     # Trục vướng nhất của CẢ LỚP: nhiều lỗi sai, và tốn thời gian.
     axes = []

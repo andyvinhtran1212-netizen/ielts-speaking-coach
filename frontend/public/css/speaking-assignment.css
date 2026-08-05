@@ -1256,6 +1256,15 @@
 
 /* Chú giải: bảng dùng hình dạng để nói, nên phải có chỗ nói hình dạng nghĩa
    là gì — không thì mỗi giáo viên tự đoán một kiểu. */
+/* "Chưa nộp tự luận" — một lời nhắc, không phải một nút. Nhạt hơn nút thật để
+   mắt không đi tìm chỗ bấm, nhưng vẫn đọc được: chỗ này từng là ô TRỐNG, và ô
+   trống đọc ra "tính năng hỏng" chứ không đọc ra "em ấy chưa làm". */
+.av-tally__none {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-faint);
+  white-space: nowrap;
+}
+
 .av-board__key {
   display: flex;
   flex-wrap: wrap;
