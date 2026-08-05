@@ -657,3 +657,19 @@ describe('reload GIỮA chặng (codex #928 R7)', () => {
       'đủ 10 câu trong phiên mới — không câu nào kẹt lại ở phiên mồ côi');
   });
 });
+
+describe('bank CHỈ có câu tự luận (codex #935)', () => {
+  test('không mở phiên quiz rỗng', async () => {
+    // Phiên rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào —
+    // và học viên kẹt ở một màn không có gì để làm.
+    const { r, api } = await run({ questions: [essay(1), essay(2)] });
+    const opened = api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.equal(opened.length, 0);
+    assert.equal(r.total, 0);
+    assert.equal(r.hasWriting, true);
+  });
+
+  test('bank rỗng hoàn toàn vẫn bị từ chối', async () => {
+    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi nào/);
+  });
+});

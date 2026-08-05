@@ -243,3 +243,36 @@ describe('màn hình', () => {
     assert.ok(!/Không có lỗi/.test(html), 'không được đọc thành lời khen');
   });
 });
+
+// ── Dây nối ở trang (codex #935) ────────────────────────────────────────────
+
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const PAGE = readFileSync(join(
+  dirname(fileURLToPath(import.meta.url)), '..', 'app', '(authed)',
+  'course-exercises', 'course-behavior.tsx'), 'utf8');
+
+describe('màn kết luận không được vẽ TRƯỚC khi biết có phần tự luận không', () => {
+  test('giữ LỜI HỨA của lượt nạp, không chỉ một cờ', () => {
+    // Cờ `false` lúc vẽ làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới
+    // khi học viên tự tải lại trang và thắng cuộc đua.
+    assert.match(PAGE, /const writingLoaded = writing\.load\(bankId\)/);
+    const i = PAGE.indexOf('async function renderVerdict');
+    const body = PAGE.slice(i, i + 700);
+    assert.ok(/await writingLoaded;/.test(body), 'renderVerdict phải chờ lượt nạp ấy');
+    assert.ok(body.indexOf('await writingLoaded;') < body.indexOf('runner.verdict()'),
+      'chờ phải đứng TRƯỚC lúc dựng nội dung');
+  });
+
+  test('lượt nạp hỏng KHÔNG treo màn kết luận', () => {
+    // `catch` phải nuốt, nếu không `await` sẽ ném và học viên không thấy điểm.
+    const i = PAGE.indexOf('const writingLoaded');
+    assert.match(PAGE.slice(i, i + 300), /\.catch\(/);
+  });
+
+  test('bank chỉ có tự luận vào THẲNG màn tự luận', () => {
+    assert.match(PAGE, /if \(!runner\.total && runner\.hasWriting\)/);
+  });
+});

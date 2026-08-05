@@ -77,7 +77,13 @@ export function CourseBehavior() {
       // bài tập không mở được.
       const writing = CW.createWriting({ api, storage: window.localStorage });
       let writingReady = false;
-      writing.load(bankId).then(() => { writingReady = true; }).catch(() => {});
+      // Giữ LỜI HỨA, không chỉ một cờ. Màn kết luận có thể vẽ TRƯỚC khi lượt
+      // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một
+      // cờ `false` làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới khi
+      // học viên tự tải lại trang và thắng cuộc đua (codex #935).
+      const writingLoaded = writing.load(bankId)
+        .then(() => { writingReady = true; })
+        .catch(() => { writingReady = false; });
 
       // ── Vẽ ──────────────────────────────────────────────────────────────
       const dots = (n: number) => {
@@ -228,6 +234,9 @@ export function CourseBehavior() {
       async function renderVerdict() {
         const box = $('cx-verdict'); if (!box) return;
         box.innerHTML = '<p class="cx-empty">Đang xét kết quả…</p>';
+        // Chờ phần tự luận biết mình có gì trước khi vẽ — nút của nó nằm trong
+        // chính khối này. Hỏng thì `catch` ở trên đã nuốt, nên không treo.
+        await writingLoaded;
         let v: any = null;
         try {
           v = await runner.verdict();
@@ -329,7 +338,13 @@ export function CourseBehavior() {
             + 'quả sẽ KHÔNG tới giáo viên — tải lại trang để thử lại.';
         }
       }
-      if (runner.isStageDone()) renderDone(); else renderQuestion();
+      // Bank CHỈ có câu tự luận: không có chặng nào để chạy, và một phiên quiz
+      // rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào
+      // (codex #935). Vào thẳng màn tự luận.
+      if (!runner.total && runner.hasWriting) {
+        await writingLoaded;
+        renderWriting();
+      } else if (runner.isStageDone()) renderDone(); else renderQuestion();
 
       // Uỷ quyền: nội dung được vẽ lại sau mỗi câu, nên gắn tay từng nút sẽ mất
       // ngay ở lần vẽ kế tiếp.

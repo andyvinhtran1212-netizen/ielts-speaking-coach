@@ -323,7 +323,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Đứng ở màn kết quả cuối thì KHÔNG có gì để ghi — mở phiên ở đây là đẻ
       // ra một phiên "chặng cuối" rỗng, và finishStage của lần vẽ lại sẽ chốt
       // nó với tổng số sao chép rồi chen nó vào lượt xét đạt (codex #928).
-      if (!resumedFinal) await openSession();
+      // Bank CHỈ có tự luận: không có chặng nào để ghi, nên mở phiên quiz ở đây
+      // là đẻ ra một phiên rỗng rồi chốt nó bằng 0 câu — và cổng xét đạt sẽ bác
+      // cả lượt vì bộ đề không có câu trắc nghiệm nào (codex #935).
+      if (!qs.length) { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      else if (!resumedFinal) await openSession();
       else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
       shownAt = now();
       return bank;
