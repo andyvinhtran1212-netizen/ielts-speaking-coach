@@ -89,10 +89,35 @@ function groupLayouts() {
     .filter(existsSync);
 }
 
+/**
+ * Mã của khung `<head>` mà một layout ủy quyền tới, nếu có.
+ *
+ * Trước đây mỗi route-group tự khai đủ font/CDN/telemetry, nên đọc tệp layout
+ * là đủ. Từ khi `(authed)` và `(authed-home)` gộp về `components/authed-shell.tsx`
+ * thì không còn đủ — mà bất biến thì không đổi: mọi route-group vẫn phải có
+ * page_view + error-reporter + rum-vitals. Hàm này lần theo import để test kiểm
+ * đúng thứ trình duyệt nhận, thay vì kiểm một tệp.
+ */
+function shellSourceFor(layoutFile) {
+  const src = readFileSync(layoutFile, 'utf8');
+  let out = '';
+  for (const m of src.matchAll(/from\s+'@\/(components\/[\w./-]+)'/g)) {
+    for (const ext of ['', '.tsx', '.ts']) {
+      const f = path.join(APP, '..', m[1] + ext);
+      if (existsSync(f) && !existsSync(path.join(f, 'index.tsx'))) { out += readFileSync(f, 'utf8'); break; }
+    }
+  }
+  return out;
+}
+
 describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
   for (const layout of groupLayouts()) {
     const name = path.basename(path.dirname(layout));
-    const src = readFileSync(layout, 'utf8');
+    // Layout có thể ỦY QUYỀN `<head>` cho một khung dùng chung
+    // (`components/authed-shell.tsx`) thay vì tự khai. Đọc mỗi tệp layout thì
+    // bất biến telemetry vẫn ĐÚNG nhưng test lại báo đỏ — chốt kiểm sai tầng.
+    // Nên: nối thêm mã của khung mà layout thật sự dùng.
+    const src = readFileSync(layout, 'utf8') + shellSourceFor(layout);
 
     test(`${name}: có nguồn page_view (mẫu số của error-rate)`, () => {
       // Hoặc nạp beacon dùng chung, hoặc tự gửi page_view (landing làm vậy vì
@@ -143,7 +168,11 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
   for (const layout of groupLayouts()) {
     const name = path.basename(path.dirname(layout));
     test(`${name}: error-reporter đứng trước api.js`, () => {
-      reporterFirst(readFileSync(layout, 'utf8'), name);
+      // Layout + khung nó ủy quyền tới. Thứ tự thẻ script nay do
+      // `components/authed-shell.tsx` quyết định với các route-group authed, nên
+      // đọc mỗi tệp layout là kiểm sai tầng. (Vòng lặp này TÁCH BIỆT với vòng ở
+      // trên — `src` ở đó không nhìn thấy được từ đây.)
+      reporterFirst(readFileSync(layout, 'utf8') + shellSourceFor(layout), name);
     });
   }
 

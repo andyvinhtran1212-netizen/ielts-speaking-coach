@@ -10,6 +10,7 @@ const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile');
 const PROVIDER = readFileSync(path.join(FRONTEND, 'lib', 'auth', 'auth-provider.tsx'), 'utf8');
 const LAYOUT = readFileSync(path.join(FRONTEND, 'app', '(authed)', 'layout.tsx'), 'utf8');
+const SHELL_COMPONENT = readFileSync(path.join(FRONTEND, 'components', 'authed-shell.tsx'), 'utf8');
 const PAGE = readFileSync(path.join(DIR, 'page.tsx'), 'utf8');
 const SHELL = readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8');
 const BEHAVIOR = readFileSync(path.join(DIR, 'profile-behavior.tsx'), 'utf8');
@@ -40,12 +41,21 @@ test('provider: ADR-011 state machine — fail-closed + legacy sign-out compat +
 });
 
 test('layout: legacy head parity + body classes pre-paint, không render <body>', () => {
-  assert.ok(!stripComments(LAYOUT).includes('<body'), 'nested layout must not render <body> (root layout owns it)');
-  assert.match(LAYOUT, /av-page font-sans min-h-screen/, 'exact legacy profile.html body classes');
-  for (const asset of ['/css/profile.css', '/js/api.js', '/js/runtime-config.js', 'aver-chrome.js']) {
-    assert.ok(LAYOUT.includes(asset), `missing legacy asset: ${asset}`);
-  }
-  assert.match(LAYOUT, /<AuthProvider>/, 'authed route group must mount the AuthProvider');
+    // `(authed)/layout.tsx` nay ủy quyền `<head>` cho
+    // `components/authed-shell.tsx` (dùng chung với `(authed-home)` và các route
+    // cần đăng nhập sau này). Bất biến GIỮ NGUYÊN — chỉ là phải đọc cả khung,
+    // nếu không test kiểm sai tầng rồi báo đỏ một thay đổi vô hại.
+    const EFFECTIVE = LAYOUT + SHELL_COMPONENT;
+    assert.ok(!stripComments(EFFECTIVE).includes('<body'), 'nested layout must not render <body> (root layout owns it)');
+    assert.match(EFFECTIVE, /av-page font-sans min-h-screen/, 'exact legacy profile.html body classes');
+    // `/css/profile.css` PHẢI ở layout, không nhét vào khung dùng chung: nó là
+    // CSS riêng của trang, và đó đúng là điểm khác biệt duy nhất giữa các
+    // route-group cần đăng nhập.
+    assert.ok(LAYOUT.includes('/css/profile.css'), 'CSS của trang phải khai ở layout');
+    for (const asset of ['/js/api.js', '/js/runtime-config.js', 'aver-chrome.js']) {
+      assert.ok(EFFECTIVE.includes(asset), `missing legacy asset: ${asset}`);
+    }
+    assert.match(EFFECTIVE, /<AuthProvider>/, 'authed route group must mount the AuthProvider');
 });
 
 test('shell: skeleton legacy nguyên bản — các id mà profile.css/behavior nhắm tới', () => {
