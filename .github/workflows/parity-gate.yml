@@ -48,7 +48,7 @@ on:
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
       # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở
       # PR #930; kiểm lại đúng: lần chạy authed trước đó là do dispatch tay.)
-      # CHỈ `(authed-home)`. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
+      # CHỈ `(authed-home|authed-speaking|authed-writing)`. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
       # `/pages/profile.html` đã 307 sang `/profile` khi cutover pilot 3 ⇒
       # không còn vế legacy để so. Bắt nó vào đây là để job chạy rồi BÁO XANH
       # mà chưa từng mở route đã sửa. Có test chặn đúng chuyện đó
@@ -76,6 +76,15 @@ on:
       # khác biệt thật mà chỉ lượt 375 bắt được.
       - 'frontend/public/css/home.css'
       - 'frontend/public/css/mock-hub.css'
+      # Vế Bài viết (cặp `/pages/writing-dashboard.html` ↔ `/writing/dashboard`).
+      # Ba dòng này CỐ Ý nằm trong khối authed: `parity-core.test.mjs` cắt đúng
+      # khối này và đòi MỌI glob trong đó phải được regex chọn-phạm-vi authed
+      # bắt. Đặt ra ngoài thì glob vẫn kích hoạt job nhưng job chạy lượt
+      # `categories` và KHÔNG BAO GIỜ mở cặp writing — đúng lỗi Codex bắt ở #937,
+      # và không chốt nào nổ. Trong khối thì máy canh thay cho trí nhớ.
+      - 'frontend/app/(authed-writing)/**'
+      - 'frontend/public/pages/writing-dashboard.html'
+      - 'frontend/public/css/writing-dashboard.css'
       - 'frontend/tooling/supabase-session.mjs'
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
@@ -92,19 +101,6 @@ on:
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
-      # Trang Bài viết: hợp đồng ghi của nó chạy trên VẾ LEGACY, nên chính tệp
-      # legacy phải kích hoạt cổng. Thiếu ba dòng này thì một PR đổi hành vi
-      # trang Bài viết sẽ merge mà hợp đồng vừa dựng không chạy lần nào.
-      #
-      # `workflow-path-coverage.test.mjs` (#946) KHÔNG bắt được thiếu sót này, và
-      # lý do đáng ghi lại: bộ chạy nạp bản khai ĐỘNG (`readdirSync` + `import()`),
-      # nên bộ dò tĩnh không đi vào tệp bản khai và không thấy `legacyRoute` trỏ
-      # đâu. Tôi đã thử nới bộ dò để lần được lớp này; phép phá cho thấy bản nới
-      # không bắt được gì nên đã trả lại. Đây là ví dụ cụ thể cho ghi chú ở đầu
-      # tệp chốt đó: một mô hình TĨNH về "thứ CI đọc" không thể đầy đủ.
-      - 'frontend/public/pages/writing-dashboard.html'
-      - 'frontend/public/css/writing-dashboard.css'
-      - 'frontend/app/(authed-writing)/**'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
@@ -247,7 +243,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/writing-dashboard\.html|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

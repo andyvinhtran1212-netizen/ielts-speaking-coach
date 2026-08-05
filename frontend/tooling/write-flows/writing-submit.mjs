@@ -26,9 +26,6 @@ export default {
   route: '/writing/dashboard',
   // Trang legacy nằm ở đường khác; cùng bản khai chạy được cả hai vế.
   legacyRoute: '/pages/writing-dashboard.html',
-  // GỠ DÒNG NÀY khi `/writing-dashboard` bản Next lên. Tới lúc đó, cùng bản khai
-  // này phải xanh trên CẢ HAI vế — đó là định nghĩa "port xong" cho trang này.
-  nextPending: 'trang Next chưa tồn tại — bản khai được dựng TRƯỚC khi port',
 
   canned: [
     [/\/api\/student\/permissions$/, { writing: true }],
