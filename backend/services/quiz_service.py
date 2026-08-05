@@ -923,19 +923,6 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     if done:
         raise HTTPException(409, "Phần tự luận đã nộp rồi — không sửa được nữa.")
 
-    # BẢN CŨ TỚI MUỘN thì bỏ qua. Lúc rời trang, lượt `keepalive` bắn ngay chứ
-    # không xếp hàng sau lượt lưu tự động còn đang bay, nên hai lượt có thể tới
-    # ngược thứ tự — và lượt cũ ghi đè lượt mới là mất đúng đoạn vừa gõ.
-    if seq is not None:
-        try:
-            cur = (supabase_admin.table("course_writing_drafts").select("seq")
-                   .eq("class_assignment_item_id", item["id"])
-                   .limit(1).execute().data) or []
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi đọc nháp: {exc}")
-        if cur and int(cur[0].get("seq") or 0) > int(seq):
-            return {"saved": 0, "item_id": item["id"], "stale": True}
-
     # Chỉ giữ câu có nội dung, và cắt theo đúng trần của lượt nộp: một bản nháp
     # dài hơn thứ nộp được là một lời hứa suông.
     #
@@ -944,20 +931,25 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     # trộn vào nhau lúc đọc lại.
     kept = {str(k): str(v)[:course_writing_grader.MAX_ANSWER_CHARS]
             for k, v in (answers or {}).items() if str(v or "").strip()}
-    row = {
-        "class_assignment_item_id": item["id"],
-        "user_id": user_id,
-        "bank_id": bank_id,
-        "answers": kept,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "seq": int(seq) if seq is not None else 0,
-    }
+
+    # MỘT câu lệnh: phép so `seq` nằm TRONG lệnh ghi. Kiểm bằng một SELECT riêng
+    # rồi mới ghi là hai giao dịch — một lượt mang bản CŨ đọc được `seq` cũ, qua
+    # cửa kiểm, rồi ghi SAU lượt mang bản mới và đè lên nó (codex PR 949 vòng 4).
     try:
-        supabase_admin.table("course_writing_drafts").upsert(
-            row, on_conflict="class_assignment_item_id").execute()
+        rows = supabase_admin.rpc("fn_save_course_writing_draft", {
+            "p_item": item["id"],
+            "p_user": user_id,
+            "p_bank": bank_id,
+            "p_answers": kept,
+            # Không truyền `seq` = KHÔNG XÉT thứ tự. Gửi 0 thay cho NULL là sai:
+            # 0 nhỏ hơn mọi bản đã lưu nên lượt ghi bị chặn IM LẶNG.
+            "p_seq": int(seq) if seq is not None else None,
+        }).execute().data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
-    return {"saved": len(kept), "item_id": item["id"], "stale": False}
+    row = rows[0] if rows else {}
+    return {"saved": int(row.get("saved") or 0), "item_id": item["id"],
+            "stale": bool(row.get("stale"))}
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,

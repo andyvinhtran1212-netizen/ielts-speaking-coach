@@ -87,20 +87,23 @@ def test_a_draft_answer_is_bounded_by_the_same_limit_as_a_submission():
 
 
 def test_saving_a_draft_never_grades_or_finalises():
-    """Ghim thứ ĐƯỢC GHI, không quét chữ: quét chữ khớp cả tên mô-đun
+    """Ghim thứ ĐƯỢC GỬI ĐI, không quét chữ: quét chữ khớp cả tên mô-đun
     `course_writing_grader` lẫn chính lời chú giải thích vì sao không dùng nó.
     """
     src = inspect.getsource(qs.save_course_writing_draft)
-    i = src.index("row = {")
-    written = set(re.findall(r'"(\w+)":', src[i:src.index("}", i)]))
-    assert written == {"class_assignment_item_id", "user_id", "bank_id",
-                       "answers", "updated_at", "seq"}, f"ghi cả cột lạ: {written}"
-    # Và chỉ chạm ĐÚNG hai bảng: bảng nháp để ghi, bảng đã-chấm để hỏi.
+    i = src.index('rpc("fn_save_course_writing_draft"')
+    sent = set(re.findall(r'"(p_\w+)":', src[i:src.index("}).execute()", i)]))
+    assert sent == {"p_item", "p_user", "p_bank", "p_answers", "p_seq"}, \
+        f"gửi cả tham số lạ: {sent}"
+    # Và hàm SQL chỉ chạm bảng nháp — không đụng bảng bài-đã-chấm.
+    k = CODE.index("fn_save_course_writing_draft")
+    body = CODE[k:CODE.index("$$;", k)]
+    assert "course_writing_submissions" not in body
+    # Đường Python chỉ ĐỌC bảng đã-chấm (để biết đã nộp chưa), không ghi.
     tables = set(re.findall(r'table\("(\w+)"\)', src))
-    assert tables == {"course_writing_drafts", "course_writing_submissions"}
+    assert tables == {"course_writing_submissions"}
     i2 = src.index('table("course_writing_submissions")')
     assert ".select(" in src[i2:i2 + 90], "bảng đã-chấm chỉ được ĐỌC"
-
 
 def test_the_draft_is_only_read_when_nothing_was_submitted():
     """Nộp rồi thì nháp là rác, và rót nó ra màn hình chỉ để một ngày nào đó nó
@@ -134,11 +137,34 @@ def test_a_late_arriving_older_draft_is_ignored():
     tự động còn đang bay — nếu không, trang đóng trước khi request kịp được tạo
     ra, và `keepalive` không cứu được một request chưa tồn tại. Bắn ngay thì hai
     lượt có thể tới ngược thứ tự, nên máy chủ phải bỏ lượt CŨ."""
-    src = inspect.getsource(qs.save_course_writing_draft)
     assert "seq" in inspect.signature(qs.save_course_writing_draft).parameters
-    assert '"stale": True' in src
-    i = src.index("if seq is not None:")
-    assert 'int(cur[0].get("seq") or 0) > int(seq)' in src[i:i + 700]
+    i = CODE.index("ON CONFLICT (class_assignment_item_id) DO UPDATE")
+    seg = CODE[i:CODE.index("RETURNING id INTO v_id", i)]
+    assert "course_writing_drafts.seq <= EXCLUDED.seq" in seg
+    assert "p_seq IS NULL OR" in seg, "lời gọi không gửi seq vẫn phải ghi được"
+
+
+def test_the_sequence_check_is_inside_the_write_not_a_separate_select():
+    """Kiểm bằng một SELECT riêng rồi mới ghi là HAI giao dịch: một lượt mang
+    bản CŨ đọc được `seq` cũ, qua cửa kiểm, rồi ghi SAU lượt mang bản mới và đè
+    lên nó — đúng ca `seq` sinh ra để chặn (codex PR 949 vòng 4)."""
+    src = inspect.getsource(qs.save_course_writing_draft)
+    assert "fn_save_course_writing_draft" in src, "phải ghi bằng MỘT câu lệnh"
+    # Và KHÔNG được đọc `seq` ra rồi tự so trong Python.
+    assert '.select("seq")' not in src
+    assert "fn_save_course_writing_draft" in CODE
+
+
+def test_a_seq_less_write_never_lowers_the_stored_counter():
+    """Hạ số đã lưu xuống thì lượt sau của trang lại bị coi là bản cũ."""
+    i = CODE.index("ON CONFLICT (class_assignment_item_id) DO UPDATE")
+    seg = CODE[i:CODE.index("RETURNING id INTO v_id", i)]
+    assert "GREATEST(course_writing_drafts.seq, EXCLUDED.seq)" in seg
+
+
+def test_the_draft_write_function_is_backend_only():
+    assert "REVOKE EXECUTE ON FUNCTION public.fn_save_course_writing_draft" in CODE
+    assert "GRANT  EXECUTE ON FUNCTION public.fn_save_course_writing_draft" in CODE
 
 
 def test_the_sequence_column_exists_and_defaults_to_zero():
