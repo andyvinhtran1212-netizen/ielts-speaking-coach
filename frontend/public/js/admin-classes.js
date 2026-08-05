@@ -675,7 +675,7 @@ function renderHomework() {
     // không có `quiz_attempts` nên nút sẽ mở ra một bảng rỗng.
     const effort = (a.skill === 'course' && a.content_id)
       ? ` <button class="adm-btn-secondary" data-action="effort"
-                  data-id="${esc(a.content_id)}"
+                  data-id="${esc(a.content_id)}" data-asg="${esc(a.id)}"
                   data-title="${esc(a.title)}">Chi tiết làm bài</button>`
       : '';
     return `<tr>
@@ -1804,13 +1804,16 @@ const EFFORT_STATE = {
   untouched: 'Chưa mở',
 };
 
-async function openEffort(bankId, title) {
+async function openEffort(bankId, assignmentId, title) {
   $('effort-modal').hidden = false;
   $('effort-modal-title').textContent = 'Chi tiết làm bài — ' + (title || '');
   $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
   let r;
   try {
-    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(bankId) + '/attempt-report');
+    // Neo vào BÀI GIAO: cùng một bộ đề giao được cho nhiều lớp, nên hỏi theo
+    // bank sẽ trộn lượt làm của lớp khác vào bảng.
+    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(bankId)
+      + '/attempt-report?assignment_id=' + encodeURIComponent(assignmentId));
   } catch (err) {
     $('effort-body').innerHTML =
       '<div class="adm-banner">Không tải được: ' + esc(err.message || String(err)) + '</div>';
@@ -1829,9 +1832,9 @@ async function openEffort(bankId, title) {
   const body = rows.map((x) => {
     const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
     return `<tr>
-      <td>${esc(nameOf[x.user_id] || 'Học viên khác lớp')}</td>
+      <td>${esc(nameOf[x.user_id] || 'Học viên đã rời lớp')}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
-      <td class="cl-effort-num">${x.stages_done}</td>
+      <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
       <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
       <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
       <td class="cl-effort-num">${acc}</td>
@@ -2458,7 +2461,9 @@ function bindDetail() {
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
     if (btn.dataset.action === 'backfill') backfillHomework(btn.dataset.id);
-    if (btn.dataset.action === 'effort') openEffort(btn.dataset.id, btn.dataset.title);
+    if (btn.dataset.action === 'effort') {
+      openEffort(btn.dataset.id, btn.dataset.asg, btn.dataset.title);
+    }
   });
 
   const closeTally = () => { $('tally-modal').hidden = true; };

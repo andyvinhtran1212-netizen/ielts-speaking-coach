@@ -1224,7 +1224,27 @@ def _report_pages(table: str, cols: str, shape):
         start += _REPORT_PAGE
 
 
-def course_attempt_report(*, bank_id: str, cohort_id: str | None = None) -> dict:
+def _course_stage_count(bank_id: str) -> int:
+    """Số CHẶNG của một bộ đề theo buổi = số câu trắc nghiệm chia 10, làm tròn lên.
+
+    Cần con số này mới nói được "xong": không có nó thì một em làm 1/10 chặng
+    rồi dừng vẫn đọc thành đã hoàn thành.
+    """
+    try:
+        total = (supabase_admin.table("quiz_questions").select("id", count="exact")
+                 .eq("bank_id", bank_id).limit(1).execute()).count or 0
+        writing = (supabase_admin.table("quiz_questions").select("id", count="exact")
+                   .eq("bank_id", bank_id).eq("type", "writing").limit(1).execute()).count or 0
+    except Exception as exc:  # noqa: BLE001
+        # Không đếm được thì trả 0, và `0` được đọc là "chưa biết": nhánh gọi
+        # KHÔNG bao giờ kết luận "xong" khi chưa biết cần bao nhiêu chặng.
+        logger.warning("[quiz] stage count failed bank=%s: %s", bank_id, exc)
+        return 0
+    graded = max(0, total - writing)
+    return -(-graded // 10)     # làm tròn lên, không cần import math
+
+
+def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     """Học viên làm bài tập theo buổi TRONG BAO LÂU, và vướng ở đâu.
 
     Ba câu hỏi của giáo viên mà tới nay không mặt đọc nào trả lời được:
@@ -1243,8 +1263,42 @@ def course_attempt_report(*, bank_id: str, cohort_id: str | None = None) -> dict
     `ended_at - started_at` của cả lượt: học viên đóng tab rồi mở lại hôm sau
     thì hiệu ấy là "một ngày rưỡi", một con số đúng về đồng hồ và vô nghĩa về
     việc học.
+
+    Báo cáo neo vào MỘT BÀI GIAO, không phải vào bank: cùng một bộ đề giao được
+    cho nhiều lớp, nên đọc theo bank sẽ trộn lượt làm của lớp khác vào cả bảng
+    lẫn trục vướng — và bỏ sót đúng những em ĐƯỢC GIAO mà chưa mở bài lần nào,
+    tức là bỏ sót đúng điều bảng này sinh ra để nói (codex PR 945).
     """
-    out: dict = {"students": [], "axes": [], "bank_id": bank_id}
+    out: dict = {"students": [], "axes": [], "bank_id": bank_id,
+                 "stages_total": 0}
+
+    # Sổ người nhận của CHÍNH bài giao này = danh sách học viên của báo cáo.
+    try:
+        items = _report_pages(
+            "class_assignment_items", "id, student_id",
+            lambda q: q.eq("assignment_id", assignment_id),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report items failed asg=%s: %s", assignment_id, exc)
+        return out
+    item_ids = {i["id"] for i in items}
+    if not item_ids:
+        return out
+
+    # student_id → user_id, để nối phiên (ghi theo user) với sổ (ghi theo học viên).
+    sids = [i["student_id"] for i in items if i.get("student_id")]
+    roster: dict[str, str | None] = {}
+    for i in range(0, len(sids), _REPORT_IDS):
+        try:
+            for st in _report_pages(
+                "students", "id, user_id",
+                lambda q, c=sids[i:i + _REPORT_IDS]: q.in_("id", c),
+            ):
+                roster[st["id"]] = st.get("user_id")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] attempt-report roster failed: %s", exc)
+
+    out["stages_total"] = _course_stage_count(bank_id)
 
     try:
         sessions = _report_pages(
@@ -1255,11 +1309,12 @@ def course_attempt_report(*, bank_id: str, cohort_id: str | None = None) -> dict
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report sessions failed bank=%s: %s", bank_id, exc)
-        return out
+        sessions = []
 
     sessions = [x for x in sessions if (x.get("kind") or "run") == "run"]
-    if not sessions:
-        return out
+    # Chỉ phiên thuộc ĐÚNG bài giao này. Phiên không gắn mục nào là phiên tự
+    # luyện, cũng không thuộc về bảng này.
+    sessions = [x for x in sessions if x.get("class_assignment_item_id") in item_ids]
 
     by_user: dict[str, list[dict]] = {}
     for x in sessions:
@@ -1297,17 +1352,26 @@ def course_attempt_report(*, bank_id: str, cohort_id: str | None = None) -> dict
                 slow.setdefault(key, []).append(int(ms))
 
     now = datetime.now(timezone.utc)
+    # Em ĐƯỢC GIAO mà chưa mở bài lần nào vẫn phải có một dòng — đó chính là
+    # dòng "chưa mở", và bỏ nó đi là bỏ đúng thứ giáo viên đi tìm.
+    for sid, uid in roster.items():
+        if uid and uid not in by_user:
+            by_user[uid] = []
     for uid, rows in by_user.items():
         done = [x for x in rows if x.get("ended_at")]
         live = [x for x in rows if not x.get("ended_at") and x["id"] in with_work]
         secs = sum(int(x.get("duration_sec") or 0) for x in done)
         asked = sum(int(x.get("total_questions") or 0) for x in done)
         right = sum(int(x.get("total_correct") or 0) for x in done)
-        last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows)
-        if live:
-            state = "doing"
-        elif done:
+        last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows) if rows else ""
+        total_stages = out["stages_total"]
+        if total_stages and len(done) >= total_stages:
             state = "done"
+        elif live or done:
+            # Làm xong 1/10 chặng rồi dừng KHÔNG phải là xong. Nhánh cũ gọi nó
+            # là 'done' và giấu đi đúng những lượt dở dang mà bảng này sinh ra
+            # để tìm (codex PR 945).
+            state = "doing"
         else:
             state = "untouched"
         # Bỏ dở = có động vào nhưng im lặng quá 24 giờ. Đây là dòng giáo viên

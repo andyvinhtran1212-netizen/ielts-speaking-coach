@@ -129,9 +129,26 @@ describe('chi tiết làm bài', () => {
     assert.match(CODE.slice(i, i + 320), /data-id="\$\{esc\(a\.content_id\)\}"/);
   });
 
-  test('gọi đúng đường báo cáo', () => {
+  test('gọi đúng đường báo cáo, KÈM bài giao', () => {
+    // Cùng một bộ đề giao được cho nhiều lớp — hỏi theo bank thôi thì bảng
+    // trộn lượt làm của lớp khác vào (codex PR 945).
     const i = CODE.indexOf('async function openEffort');
-    assert.match(CODE.slice(i, i + 600), /\/admin\/quiz\/banks\/'[\s\S]{0,60}\/attempt-report/);
+    const body = CODE.slice(i, i + 900);
+    assert.match(body, /\/admin\/quiz\/banks\/'[\s\S]{0,140}\/attempt-report\?assignment_id=/);
+    assert.match(body, /encodeURIComponent\(assignmentId\)/);
+  });
+
+  test('nút mang CẢ bank lẫn id bài giao', () => {
+    const i = CODE.indexOf('const effort = ');
+    const body = CODE.slice(i, i + 400);
+    assert.match(body, /data-id="\$\{esc\(a\.content_id\)\}"/, 'bank');
+    assert.match(body, /data-asg="\$\{esc\(a\.id\)\}"/, 'bài giao');
+  });
+
+  test('số chặng hiện cả MẪU SỐ, không chỉ số đã xong', () => {
+    // "2 chặng" một mình không nói được là 2/9 hay 2/2.
+    const i = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(i, i + 2000), /x\.stages_done\}\$\{r\.stages_total/);
   });
 
   test('bốn tình trạng đều có chữ tiếng Việt riêng', () => {

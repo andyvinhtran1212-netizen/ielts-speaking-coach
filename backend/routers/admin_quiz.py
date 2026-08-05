@@ -76,7 +76,11 @@ async def bank_analytics(bank_id: UUID, authorization: str | None = Header(None)
 
 
 @router.get("/banks/{bank_id}/attempt-report")
-async def bank_attempt_report(bank_id: UUID, authorization: str | None = Header(None)):
+async def bank_attempt_report(
+    bank_id: UUID,
+    assignment_id: UUID = Query(...),
+    authorization: str | None = Header(None),
+):
     """Học viên làm bài tập theo buổi trong bao lâu, và vướng ở đâu.
 
     Trả `{students, axes}`. `students[].state` phân biệt ba chuyện mà tới nay
@@ -85,7 +89,7 @@ async def bank_attempt_report(bank_id: UUID, authorization: str | None = Header(
     """
     await require_admin(authorization)
     from services import quiz_service
-    return quiz_service.course_attempt_report(bank_id=str(bank_id))
+    return quiz_service.course_attempt_report(bank_id=str(bank_id), assignment_id=str(assignment_id))
 
 
 @router.get("/students")

@@ -86,3 +86,49 @@ def test_stalled_students_sort_to_the_top():
     """Dòng giáo viên cần nhìn thấy trước là dòng đã bỏ cuộc."""
     src = _src()
     assert 'r["state"] != "stalled"' in src
+
+
+# ── Vòng 1 codex PR 945 ─────────────────────────────────────────────────────
+
+def test_the_report_is_anchored_to_one_assignment_not_the_bank():
+    """Cùng một bộ đề giao được cho NHIỀU LỚP. Đọc theo bank thì lượt làm của
+    lớp khác trộn vào cả bảng lẫn trục vướng."""
+    src = _src()
+    assert "assignment_id" in inspect.signature(qs.course_attempt_report).parameters
+    assert 'table("class_assignment_items"' in src or "class_assignment_items" in src
+    assert 'x.get("class_assignment_item_id") in item_ids' in src, \
+        "phiên phải thuộc ĐÚNG bài giao này"
+
+
+def test_students_who_never_opened_the_task_still_get_a_row():
+    """Bỏ họ đi là bỏ đúng thứ giáo viên đi tìm."""
+    src = _src()
+    assert "roster.items()" in src
+    i = src.index("roster.items()")
+    assert "untouched" in src or "by_user[uid] = []" in src[i:i + 200]
+
+
+def test_done_means_every_stage_not_just_one():
+    """Làm xong 1/10 chặng rồi dừng không phải là xong — và nhánh cũ gọi nó là
+    'done', giấu đi đúng những lượt dở dang bảng này sinh ra để tìm."""
+    src = _src()
+    assert "stages_total" in src
+    assert "len(done) >= total_stages" in src
+
+
+def test_an_unknown_stage_count_never_reports_done():
+    """Không đếm được số chặng thì KHÔNG được kết luận "xong": đoán ở đây là
+    báo với giáo viên rằng một em đã hoàn thành trong khi không ai biết."""
+    src = _src()
+    i = src.index("total_stages")
+    seg = src[i:i + 260]
+    assert "if total_stages and" in seg, "0 = chưa biết, và chưa biết thì không xong"
+    stage_src = inspect.getsource(qs._course_stage_count)
+    assert "return 0" in stage_src, "đọc hỏng phải trả 0, không phải đoán"
+
+
+def test_the_stage_count_excludes_writing_questions():
+    """Câu tự luận nằm ngoài vòng chặng (không chấm máy), tính vào là đòi thêm
+    một chặng không tồn tại và không ai 'xong' được nữa."""
+    src = inspect.getsource(qs._course_stage_count)
+    assert '"writing"' in src and "total - writing" in src
