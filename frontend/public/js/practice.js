@@ -2962,9 +2962,10 @@
         if (!r) return { q: q, state: 'idle', band: null, error: null, replays: 0 };
         return {
           q: q,
-          // Có dòng nhưng chưa chấm xong là 'grading' — nói "đã lưu" lúc ấy là
-          // hứa một nhận xét chưa tồn tại.
-          state: _respGraded(r) ? 'saved' : 'grading',
+          // Ba trạng thái khác nhau, đừng gộp: chấm xong = 'saved'; máy chấm
+          // HỎNG = 'ungraded' (map nó vào 'grading' thì ô kẹt ở "Đang chấm…"
+          // vĩnh viễn và khoá luôn nút Nộp); còn lại là đang chạy thật.
+          state: _respGraded(r) ? 'saved' : (_respFailed(r) ? 'ungraded' : 'grading'),
           band:  _respBand(r),
           error: null,
           replays: 0,
@@ -2986,10 +2987,14 @@
   var _meterTopBound = false;
 
   var _SHEET_LABEL = {
-    idle:     'Chưa làm',
+    idle:      'Chưa làm',
     recording: 'Đang ghi âm',
-    grading:  'Đang chấm…',
-    saved:    'Đã lưu',
+    grading:   'Đang chấm…',
+    saved:     'Đã lưu',
+    // Bài ĐÃ LÊN SERVER nhưng máy chấm hỏng. Khác 'saved' (có điểm) và khác
+    // 'grading' (còn đang chạy) — 3,8% lượt chấm trên prod rơi vào đây, và gộp
+    // nó vào một trong hai kia đều là nói sai với học viên.
+    ungraded:  'Đã lưu · chưa chấm được',
   };
 
   /**
@@ -3038,6 +3043,11 @@
     if (!r) return false;
     if (r.grading_status) return r.grading_status === 'completed';
     return !!_respFeedback(r);
+  }
+
+  /** Đã ghi âm và đã lưu, nhưng bộ chấm hỏng — KHÁC hẳn "đang chấm". */
+  function _respFailed(r) {
+    return !!(r && r.grading_status === 'failed');
   }
 
   function _respBand(r) {
@@ -3101,7 +3111,7 @@
       // chưa làm, "Dừng" khi đang ghi, "Ghi âm lại" khi đã lưu. Một nhãn dùng
       // chung cho ba việc là bắt người ta đoán.
       var recLabel = recording ? 'Dừng ghi âm'
-        : (s.state === 'saved' ? 'Ghi âm lại' : 'Ghi âm');
+        : ((s.state === 'saved' || s.state === 'ungraded') ? 'Ghi âm lại' : 'Ghi âm');
       // Hết hạn / đã chốt: phiếu thành CHỈ ĐỌC. Bài cũ vẫn xem lại được, chỉ
       // không nhận bài mới — để học viên khỏi nói xong mười câu rồi mới biết
       // là muộn.
@@ -3147,7 +3157,12 @@
         + '</div></section>';
     }).join('');
 
-    var done = _sheet.slots.filter(function (s) { return s.state === 'saved'; }).length;
+    // 'ungraded' TÍNH LÀ XONG. Bài đã lên máy chủ rồi; máy chấm hỏng là việc
+    // của hệ thống, không phải việc học viên phải sửa. Không tính thì nút Nộp
+    // khoá vĩnh viễn và em ấy bị nhốt trong một bài không có lối ra.
+    var done = _sheet.slots.filter(function (s) {
+      return s.state === 'saved' || s.state === 'ungraded';
+    }).length;
     var total = _sheet.slots.length;
     var ready = done === total;
     var lockedNow = _sheetLocked();
@@ -3257,9 +3272,21 @@
     _submitGradingEager(_sessionId, s.q.id, blob, { rethrow: true })
       .then(function (res) {
         var g = (res && res.grading) ? res.grading : res;
-        s.state = 'saved';
+        // `_stub` = máy chủ đã LƯU bài nhưng bộ chấm hỏng (200, không phải lỗi
+        // mạng — nên `catch` bên dưới không bao giờ chạy). Không đọc cờ này thì
+        // ô hiện "Đã lưu" mà không có điểm, không một lời giải thích nào.
+        var stub = !!(g && g._stub);
+        s.state = stub ? 'ungraded' : 'saved';
         s.band = (g && g.overall_band) || null;
-        s.error = null;
+        s.error = stub
+          ? 'Bài của bạn đã lưu, nhưng máy chưa chấm được câu này. Bạn vẫn nộp '
+            + 'được — hoặc ghi âm lại để thử chấm lần nữa.'
+          : null;
+        // Giữ lý do máy chủ đưa để lượt điều tra sau đọc được từ console, mà
+        // KHÔNG bày ra màn hình: học viên không cần đọc lỗi kỹ thuật.
+        if (stub && g._reason) {
+          try { console.warn('[sheet] chấm hỏng câu', s.q.id, '—', g._reason); } catch (e) {}
+        }
         // Giữ NGUYÊN phản hồi chấm để "Xem nhận xét" đọc được ngay, không bắt
         // học viên tải lại trang mới thấy nhận xét của câu mình vừa nói.
         // Hình dạng ở đây đã là hình dạng `_showFeedback` nhận, nên đánh dấu

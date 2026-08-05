@@ -623,3 +623,64 @@ describe('Tải audio ở lượt xem lại (codex #931 vòng 4)', () => {
     assert.match(CODE.slice(i, i + 900), /exec\(String\(_feedbackAudioUrl\)\)/);
   });
 });
+
+/**
+ * CHẤM HỎNG là một trạng thái RIÊNG (báo cáo thật của học viên thyanh0809,
+ * bài 12 câu — 11 câu chấm xong, 1 câu `grading_status='failed'`).
+ *
+ * Trên prod 38/1000 lượt chấm gần nhất hỏng (3,8%), nên đây không phải ca lẻ.
+ * Gộp nó vào 'saved' là hiện "Đã lưu" không điểm không lời giải thích; gộp vào
+ * 'grading' là ô kẹt "Đang chấm…" vĩnh viễn và khoá luôn nút Nộp.
+ */
+describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu cả', () => {
+  test('năm trạng thái, năm nhãn khác nhau', () => {
+    const labels = new Set();
+    for (const st of ['idle', 'recording', 'grading', 'saved', 'ungraded']) {
+      const html = render([S(st)])['sheet-slots'].innerHTML;
+      const m = html.match(/av-slot__status">([^<]+)</);
+      assert.ok(m, st);
+      labels.add(m[1]);
+    }
+    assert.equal(labels.size, 5, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
+  });
+
+  test('ô chưa chấm được TÍNH LÀ XONG — không nhốt học viên', () => {
+    // Bài đã lên máy chủ; máy chấm hỏng là việc của hệ thống. Không tính thì
+    // nút Nộp khoá vĩnh viễn và em ấy không có lối ra.
+    const n = render([S('saved', { band: 6 }), S('ungraded')]);
+    assert.equal(n['btn-sheet-submit'].disabled, false);
+    assert.match(n['sheet-submit-note'].textContent, /2\/2|cả 2/);
+  });
+
+  test('nhưng KHÔNG hiện điểm và KHÔNG mời xem nhận xét', () => {
+    const html = render([S('ungraded', { resp: { id: 'r1' } })])['sheet-slots'].innerHTML;
+    assert.doesNotMatch(html, /av-slot__band/, 'không có điểm thì đừng vẽ ô điểm');
+    assert.doesNotMatch(html, /data-review/, 'không có nhận xét để xem');
+    assert.match(html, /data-state="ungraded"/);
+  });
+
+  test('vẫn ghi âm lại được để thử chấm lần nữa', () => {
+    const label = render([S('ungraded')])['sheet-slots'].innerHTML
+      .match(/data-rec="0"[^>]*>([^<]+)</)[1].trim();
+    assert.equal(label, 'Ghi âm lại');
+  });
+
+  test('phản hồi _stub của máy chủ KHÔNG được đọc thành "đã lưu"', () => {
+    // Máy chủ trả 200 kèm `_stub` (đã lưu bài, bộ chấm hỏng) — nhánh `catch`
+    // không bao giờ chạy, nên không đọc cờ này là im lặng hoàn toàn.
+    const i = CODE.indexOf('function _sheetOnRecorded');
+    const body = CODE.slice(i, i + 1400);
+    assert.match(body, /_stub/);
+    assert.match(body, /'ungraded'/);
+    assert.ok(body.indexOf("s.state = stub ? 'ungraded' : 'saved'") !== -1,
+      'trạng thái phải rẽ theo cờ ấy');
+  });
+
+  test('tải lại trang: grading_status="failed" KHÔNG hiện "Đang chấm…"', () => {
+    const i = CODE.indexOf('function _respFailed');
+    assert.ok(i !== -1, 'phải phân biệt được chấm-hỏng với đang-chấm');
+    assert.match(CODE.slice(i, i + 200), /grading_status === 'failed'/);
+    const j = CODE.indexOf('state: _respGraded(r)');
+    assert.match(CODE.slice(j, j + 160), /_respFailed\(r\) \? 'ungraded' : 'grading'/);
+  });
+});

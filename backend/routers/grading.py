@@ -943,6 +943,15 @@ async def grade_response_endpoint(
             # signals add off_topic_verdict / length_warning / audio_duration_seconds
             # / length_soft_threshold / grammar_check (no key collisions).
             db_row["feedback"]     = _serialize_feedback(grading, signals)
+        else:
+            # CHẤM HỎNG: ghi lý do vào chính dòng ấy. `grading_error` trước đây
+            # được gán ở nhánh except rồi KHÔNG ai dùng nữa, nên 3,8% lượt hỏng
+            # trên prod không để lại dấu vết nào ngoài log máy chủ — mỗi lần
+            # điều tra là một lần đoán mò.
+            db_row["feedback"] = json.dumps(
+                {"_failed": True, "_reason": (grading_error or "")[:500],
+                 **{k: v for k, v in signals.items() if k != "grammar_check"}},
+                ensure_ascii=False)
 
         # Columns guaranteed to exist in the base schema (no migrations needed).
         # duration_seconds is intentionally excluded: the column may be INTEGER on
@@ -1077,6 +1086,9 @@ async def grade_response_endpoint(
             return {
                 "_stub":               True,
                 "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",
+                # Lý do THẬT đi kèm, để trang nói được câu cụ thể thay vì một
+                # câu chung chung — và để lượt điều tra sau không phải đoán.
+                "_reason":             grading_error,
                 "response_id":         response_id,
                 "partial":             partial,
                 "transcript":          transcript,
