@@ -26,7 +26,10 @@ const stripComments = (src) => src
   .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 const SHELL = stripComments(readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8'));
-const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'));
+// Gộp CẢ HAI tệp hành vi: chốt chỉ đọc một tệp thì nửa trang kia không được
+// gác — và cụm thống kê cũng với tay vào DOM theo đúng kiểu đó.
+const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'))
+  + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'));
 
 const shellIds = new Set([...SHELL.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
@@ -153,6 +156,7 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     const PROVIDERS = new Map([
       ['CueCardDetector', '/js/cue-card-detector.js'],
       ['api', '/js/api.js'],
+      ['RetentionWarning', '/js/retention-warning.js'],
     ]);
     const used = new Set([...BEHAVIOR.matchAll(/\(window as any\)\.(\w+)/g)].map((m) => m[1]));
     assert.ok(used.size >= 2, `phải thấy vài global, chỉ thấy ${used.size} — regex hỏng?`);

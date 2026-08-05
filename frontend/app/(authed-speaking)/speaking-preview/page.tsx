@@ -6,7 +6,7 @@
 // Gỡ rewrite trong cùng một thay đổi thì đó là CUTOVER, không còn là dark-launch.
 // Đi đúng khuôn `/home`: dựng ở đường riêng, cutover sau khi vỏ + hành vi xong.
 //
-// TRẠNG THÁI: VỎ + HÀNH VI PHẦN LÕI (PR 2/3). `speaking-behavior.tsx` port
+// TRẠNG THÁI: VỎ + HÀNH VI LÕI + THỐNG KÊ (PR 3/3). `speaking-behavior.tsx` port
 // phần cho phép học viên BẮT ĐẦU LUYỆN: quyền, lời chào, modal chủ đề, ba
 // đường tạo phiên và Full Test. CÒN LẠI ở PR 3: thống kê, lịch sử + phân trang
 // + lọc, hai biểu đồ Chart.js, cache dashboard, cập nhật từ vựng, dashboard
@@ -19,6 +19,7 @@
 import type { Metadata } from 'next';
 
 import { SpeakingBehavior } from './speaking-behavior';
+import { SpeakingStats } from './speaking-stats';
 import { SpeakingShell } from './page-shell';
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function SpeakingPage() {
       <aver-chrome active="speaking" role-source="page" />
       <SpeakingShell />
       <SpeakingBehavior />
+      <SpeakingStats />
     </>
   );
 }

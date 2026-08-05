@@ -55,6 +55,16 @@ on:
       # (`parity-core.test.mjs` → "bộ lọc KHÔNG bắt route mà G1 không so được"),
       # và nó đã bắt tôi khi tôi thêm nhầm.
       - 'frontend/app/(authed-home)/**'
+      # Vế Speaking (cặp `/pages/speaking.html` ↔ `/speaking-preview`). Thêm
+      # CÙNG LÚC với cặp parity — thêm cặp mà quên glob là dựng đúng một cổng
+      # không bao giờ tự kích hoạt, y hệt phát hiện của Codex trên PR #930.
+      - 'frontend/app/(authed-speaking)/**'
+      - 'frontend/public/pages/speaking.html'
+      - 'frontend/public/css/speaking.css'
+      - 'frontend/public/js/cue-card-detector.js'
+      - 'frontend/lib/speaking-copy.mjs'
+      - 'frontend/lib/speaking-stats.mjs'
+      - 'frontend/components/authed-shell.tsx'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
       # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
@@ -202,7 +212,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\(authed-home\)/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/lib/speaking-(copy|stats)\.mjs|frontend/components/authed-shell\.tsx|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

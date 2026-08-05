@@ -1,0 +1,389 @@
+'use client';
+
+// SpeakingStats — cụm THỐNG KÊ của trang Speaking (PR 3/3).
+//
+// PHẠM VI: ô số liệu, bảng lịch sử (lọc + phân trang), cache SWR của dashboard,
+// dashboard ngữ pháp, cập nhật từ vựng. Tách khỏi `speaking-behavior.tsx` vì hai
+// cụm hỏng theo hai kiểu khác nhau: cụm kia làm người dùng KHÔNG BẮT ĐẦU LUYỆN
+// ĐƯỢC, cụm này làm người dùng ĐỌC SỐ SAI — và số sai thì im lặng hơn nhiều.
+//
+// CÒN LẠI (3b): hai biểu đồ Chart.js. Chúng vẽ vào `<canvas>` nên cổng parity
+// G1 mù với chúng, và với tài khoản probe (0 session) `#charts-section` bị ẩn
+// hẳn — nên chưa port chúng KHÔNG làm cổng đỏ. Đây là lý do cặp parity bật được
+// ngay ở PR này thay vì phải chờ.
+import { useEffect, useRef } from 'react';
+
+import { useAuth } from '@/lib/auth/auth-provider';
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import {
+  MODE_BADGE, escHtml, historyHasActiveFilters, roundHalf,
+} from '@/lib/speaking-stats.mjs';
+
+const $ = (id: string) => document.getElementById(id);
+
+const DASH_SWR_TTL_MS = 30 * 60 * 1000;
+const dashKey = (uid: string) => 'swr:dash:' + uid;
+
+type HistoryState = {
+  search: string; sort: string; date_from: string; date_to: string;
+  page: number; page_size: number;
+};
+
+// ── Ô số liệu ───────────────────────────────────────────────────────────────
+
+/**
+ * LUÔN giải quyết khung xương (P2.2), kể cả trên đường "không có dữ liệu" —
+ * nếu không nó nhấp nháy mãi mãi với người dùng chưa có số liệu 30 ngày.
+ */
+function renderStats(summary: any) {
+  const set = (id: string, v: string | number) => {
+    const el = $(id);
+    if (el) el.textContent = String(v);
+  };
+  set('stat-total', summary?.total_sessions ?? 0);
+
+  if (summary?.avg_band_30d != null) {
+    set('stat-band', roundHalf(summary.avg_band_30d).toFixed(1));
+    set('stat-band-sub', '30 ngày gần nhất');
+  } else {
+    set('stat-band', '—');
+  }
+
+  if (summary?.last_session_at) {
+    const d = new Date(summary.last_session_at);
+    set('stat-last-date', d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+    set('stat-last-topic', summary.last_topic || '—');
+  } else {
+    set('stat-last-date', '—');
+  }
+
+  set('stat-streak', summary?.current_streak ?? 0);
+
+  const none = (summary?.total_sessions ?? 0) === 0;
+  $('dashboard-empty')?.classList.toggle('hidden', !none);
+  $('charts-section')?.classList.toggle('hidden', none);
+}
+
+// ── Lịch sử ─────────────────────────────────────────────────────────────────
+
+function renderHistory(sessions: any[], total: number | undefined, st: HistoryState) {
+  // `sessions` gồm completed / submitted / analysis_failed — lọc bỏ in_progress trần.
+  const visible = (sessions || []).filter((s) => s.status !== 'in_progress');
+  // Lượt tải đã PHÂN TRANG, nên `visible` chỉ là trang hiện tại. Hiện `total`
+  // của cả bộ, không phải độ dài trang này — nếu không, người có >20 session
+  // sẽ thấy mãi con số "20 sessions".
+  const count = typeof total === 'number' ? total : visible.length;
+  const cnt = $('history-count');
+  if (cnt) cnt.textContent = `${count} sessions`;
+  $('history-skeleton')?.classList.add('hidden');
+
+  const RW = (window as any).RetentionWarning;
+  const banner = $('history-retention-banner');
+  if (banner) banner.innerHTML = RW ? RW.bannerHtml(RW.countSoonHidden(visible)) : '';
+
+  const emptyEl = $('history-empty');
+  const tableEl = $('history-table-wrap');
+  if (visible.length === 0) {
+    tableEl?.classList.add('hidden');
+    // Lọc ra 0 kết quả KHÁC với chưa có session nào: khối "chưa có gì" chỉ
+    // đúng ở ca thứ hai.
+    if (historyHasActiveFilters(st)) emptyEl?.classList.add('hidden');
+    else emptyEl?.classList.remove('hidden');
+    return;
+  }
+  emptyEl?.classList.add('hidden');
+  tableEl?.classList.remove('hidden');
+
+  const tbody = $('history-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = visible
+    .slice()
+    .sort((a, b) => +new Date(b.started_at) - +new Date(a.started_at))
+    .map((s) => {
+      const date = new Date(s.started_at)
+        .toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const retentionChip = RW ? RW.chipHtml(s.retention) : '';
+      const isPending = s.status === 'submitted'
+        || (s.status === 'completed' && s.overall_band == null && s.mode === 'test_full');
+      const isFailed = s.status === 'analysis_failed';
+      const band = s.overall_band != null
+        ? `<span style="color:var(--av-primary);font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
+        : isPending
+          ? '<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--av-warning-soft);color:var(--av-warning);font-weight:600;white-space:nowrap;">Đang phân tích</span>'
+          : isFailed
+            ? '<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:var(--av-error-soft);color:var(--av-error);font-weight:600;white-space:nowrap;">Lỗi phân tích</span>'
+            : '<span style="color:var(--av-text-faint);">—</span>';
+      // Bản legacy gắn `onmouseover`/`onmouseout` nội tuyến ở nút "Xem lại".
+      // Bỏ: hiệu ứng hover thuộc về CSS, và vỏ Next không mang handler nội tuyến.
+      const viewBtn = s.id
+        ? (isPending || isFailed)
+          ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-muted);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
+          : `<a href="/pages/result.html?id=${encodeURIComponent(s.id)}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);">Xem lại</a>`
+        : '—';
+      const mode = s.mode || 'practice';
+      const badge = (MODE_BADGE as any)[mode] || (MODE_BADGE as any).practice;
+      const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${badge.bg};color:${badge.fg};font-weight:600;">${badge.label || mode}</span>`;
+      return `
+            <tr class="session-row" style="border-bottom:1px solid var(--av-border-subtle);">
+              <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}${retentionChip ? '<br>' + retentionChip : ''}</td>
+              <td class="px-5 py-3.5 text-xs font-semibold" style="color:var(--av-primary);">Part ${s.part || '?'}</td>
+              <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
+              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${escHtml(s.topic || '—')}</td>
+              <td class="px-5 py-3.5 text-center">${band}</td>
+              <td class="px-5 py-3.5 text-center">${viewBtn}</td>
+            </tr>`;
+    })
+    .join('');
+}
+
+/**
+ * Phân trang.
+ *
+ * Bản legacy nhúng `onclick="window._dashboard.goToHistoryPage(N)"` vào HTML.
+ * Ở đây nút mang `data-page` và một listener uỷ quyền trên container xử lý —
+ * cùng lý do vỏ không mang handler nội tuyến, và tránh phải phơi hàm ra window.
+ */
+function renderHistoryPagination(page: number, totalPages: number) {
+  const el = $('history-pagination') as HTMLElement | null;
+  if (!el) return;
+  if (!totalPages || totalPages <= 1) {
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  const btn = 'background:var(--av-surface-card); border:1px solid var(--av-border-default); color:var(--av-text-primary); padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;';
+  const dis = 'background:var(--av-surface-sunken); border:1px solid var(--av-border-subtle); color:var(--av-text-faint); padding:5px 12px; border-radius:8px; font-size:12px; cursor:not-allowed;';
+  const prev = page > 1
+    ? `<button data-page="${page - 1}" style="${btn}">← Trước</button>`
+    : `<button disabled style="${dis}">← Trước</button>`;
+  const next = page < totalPages
+    ? `<button data-page="${page + 1}" style="${btn}">Sau →</button>`
+    : `<button disabled style="${dis}">Sau →</button>`;
+  el.innerHTML = prev
+    + `<span style="margin:0 12px; color:var(--av-primary); font-weight:600;">Trang ${page} / ${totalPages}</span>`
+    + next;
+  el.style.display = 'flex';
+}
+
+function renderHistoryFilterInfo(total: number, filtered: boolean) {
+  const el = $('history-filter-info');
+  if (!el) return;
+  if (filtered) {
+    el.textContent = 'Tìm thấy ' + total + ' session';
+    el.classList.remove('hidden');
+  } else {
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
+}
+
+async function loadHistory(api: any, st: HistoryState, dead: () => boolean) {
+  const params = new URLSearchParams();
+  const filtered = historyHasActiveFilters(st);
+  if (filtered) {
+    if (st.search) params.set('search', st.search);
+    if (st.sort) params.set('sort', st.sort);
+    if (st.date_from) params.set('date_from', st.date_from);
+    if (st.date_to) params.set('date_to', st.date_to);
+  }
+  params.set('page', String(st.page));
+  params.set('page_size', String(st.page_size));
+
+  let data: any;
+  try {
+    data = await api.get('/sessions?' + params.toString());
+  } catch (err: any) {
+    console.warn('Could not load sessions:', err && err.message);
+    // Lỗi ⇒ vẽ bảng RỖNG, KHÔNG để nguyên khung xương: một bảng nhấp nháy mãi
+    // trông giống "đang tải" và người dùng chờ vô hạn.
+    renderHistory([], 0, st);
+    renderHistoryPagination(0, 0);
+    renderHistoryFilterInfo(0, filtered);
+    return;
+  }
+  if (dead()) return;
+  const sessions = Array.isArray(data) ? data : (data.sessions || []);
+  const total = Array.isArray(data) ? sessions.length : (data.total || 0);
+  const totalPages = Array.isArray(data) ? 0 : (data.total_pages || 0);
+  const currentPage = Array.isArray(data) ? 1 : (data.page || 1);
+  renderHistory(sessions, total, st);
+  renderHistoryPagination(currentPage, totalPages);
+  renderHistoryFilterInfo(total, filtered);
+}
+
+// ── Dashboard ngữ pháp ──────────────────────────────────────────────────────
+
+const grammarUrl = (slug?: string, category?: string) =>
+  (!category || !slug) ? null
+    : '/grammar/' + encodeURIComponent(category) + '/' + encodeURIComponent(slug);
+
+async function loadGrammarDashboard(api: any, dead: () => boolean) {
+  const loading = $('grammar-loading');
+  const content = $('grammar-content');
+  const empty = $('grammar-empty');
+  let data: any;
+  try {
+    data = await api.get('/api/grammar/dashboard-data');
+  } catch {
+    // Bản legacy để khối này im lặng — khu ngữ pháp là phụ, hỏng nó không được
+    // kéo theo phần còn lại của dashboard.
+    loading?.classList.add('hidden');
+    return;
+  }
+  if (dead()) return;
+  loading?.classList.add('hidden');
+
+  const hasAny = (data?.grammar_focus_this_week?.length > 0)
+    || (data?.weak_areas?.length > 0)
+    || (data?.recently_viewed?.length > 0)
+    || (data?.saved_articles?.length > 0);
+  if (!hasAny) {
+    empty?.classList.remove('hidden');
+    return;
+  }
+  content?.classList.remove('hidden');
+
+  const pills = $('grammar-focus-pills');
+  if (pills && data.grammar_focus_this_week?.length > 0) {
+    $('grammar-focus-wrap')?.classList.remove('hidden');
+    data.grammar_focus_this_week.forEach((item: any) => {
+      const arts = item.articles || [];
+      if (arts.length) {
+        arts.forEach((art: any) => {
+          const url = grammarUrl(art.slug, art.category);
+          if (!url) return;
+          const a = document.createElement('a');
+          a.className = 'grammar-pill';
+          a.href = url;
+          a.innerHTML = `<span>📖</span><span>${escHtml(art.title)}</span>`;
+          pills.appendChild(a);
+        });
+      } else {
+        const url = grammarUrl(item.tag, item.category);
+        if (!url) return;
+        const a = document.createElement('a');
+        a.className = 'grammar-pill';
+        a.href = url;
+        a.innerHTML = `<span>📖</span><span>${escHtml(item.tag)}</span>`;
+        pills.appendChild(a);
+      }
+    });
+  }
+}
+
+// ── Cache SWR (CHỈ dữ liệu hiển thị) ────────────────────────────────────────
+//
+// `/api/dashboard/init` trả `{ summary, sessions, … }` — thuần dữ liệu hiển
+// thị, KHÔNG có quyền/vai trò/is_active. Vì vậy được phép cache và vẽ ngay bản
+// thấy-lần-trước rồi làm mới nền. Cố ý giới hạn ở dữ liệu hiển thị: quyền từ
+// `/auth/me` KHÔNG BAO GIỜ được cache (quy tắc canonical-truth) — một người
+// vừa bị thu quyền không được gác bằng trạng thái cũ trên máy họ.
+
+function readDashCache(uid?: string) {
+  if (!uid) return null;
+  try {
+    const raw = sessionStorage.getItem(dashKey(uid));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj.at !== 'number') return null;
+    if (Date.now() - obj.at > DASH_SWR_TTL_MS) return null;
+    return obj.data || null;
+  } catch { return null; }
+}
+
+function writeDashCache(uid: string | undefined, data: any) {
+  if (!uid || !data) return;
+  try {
+    sessionStorage.setItem(dashKey(uid), JSON.stringify({ at: Date.now(), data }));
+  } catch { /* riêng tư / đầy — bỏ qua, cache là tuỳ chọn */ }
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
+
+export function SpeakingStats() {
+  const { status, user } = useAuth();
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    if (status !== 'signed-in' || ranRef.current) return;
+    ranRef.current = true;
+
+    let dead = false;
+    const isDead = () => dead;
+    const cleanups: Array<() => void> = [];
+    const on = (el: Element | Document | null, ev: string, fn: any) => {
+      if (!el) return;
+      el.addEventListener(ev, fn);
+      cleanups.push(() => el.removeEventListener(ev, fn));
+    };
+
+    const st: HistoryState = {
+      search: '', sort: 'newest', date_from: '', date_to: '', page: 1, page_size: 20,
+    };
+
+    (async () => {
+      const ok = await whenGlobalReady(
+        () => typeof (window as any).api?.get === 'function',
+        'window.api (speaking stats)',
+      );
+      if (dead || !ok) return;
+      const api = (window as any).api;
+      const uid = (user as any)?.id;
+
+      // Vẽ NGAY bản cache (nếu còn hạn), rồi làm mới nền.
+      const cached = readDashCache(uid);
+      if (cached?.summary) renderStats(cached.summary);
+
+      // Khu ngữ pháp fetch riêng — hỏng nó không được kéo sập số liệu.
+      loadGrammarDashboard(api, isDead);
+
+      try {
+        const agg = await api.get('/api/dashboard/init');
+        if (dead) return;
+        if (agg?.summary) {
+          renderStats(agg.summary);
+          writeDashCache(uid, agg);
+        }
+      } catch {
+        // Không có số liệu ⇒ vẫn phải giải quyết khung xương, nếu không nó
+        // nhấp nháy mãi. `{}` cho mọi ô về '—'/0 và mở khối "chưa có gì".
+        if (!dead) renderStats({});
+      }
+
+      await loadHistory(api, st, isDead);
+
+      // ── Lọc + phân trang ────────────────────────────────────────────────
+      on($('hf-apply'), 'click', () => {
+        st.search = (($('hf-search') as HTMLInputElement | null)?.value || '').trim();
+        st.sort = ($('hf-sort') as HTMLSelectElement | null)?.value || 'newest';
+        st.date_from = ($('hf-date-from') as HTMLInputElement | null)?.value || '';
+        st.date_to = ($('hf-date-to') as HTMLInputElement | null)?.value || '';
+        st.page = 1;
+        loadHistory(api, st, isDead);
+      });
+      on($('hf-clear'), 'click', () => {
+        for (const id of ['hf-search', 'hf-date-from', 'hf-date-to']) {
+          const el = $(id) as HTMLInputElement | null;
+          if (el) el.value = '';
+        }
+        const sort = $('hf-sort') as HTMLSelectElement | null;
+        if (sort) sort.value = 'newest';
+        Object.assign(st, { search: '', sort: 'newest', date_from: '', date_to: '', page: 1 });
+        loadHistory(api, st, isDead);
+      });
+      on($('history-pagination'), 'click', (e: any) => {
+        const btn = e.target?.closest?.('button[data-page]');
+        if (!btn) return;
+        st.page = Number(btn.dataset.page) || 1;
+        loadHistory(api, st, isDead);
+      });
+    })();
+
+    return () => {
+      dead = true;
+      cleanups.forEach((fn) => fn());
+    };
+  }, [status, user]);
+
+  return null;
+}

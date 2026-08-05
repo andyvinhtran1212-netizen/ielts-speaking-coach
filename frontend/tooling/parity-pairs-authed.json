@@ -4,5 +4,11 @@
     "legacy": "/pages/home.html",
     "next": "/home",
     "allow": []
+  },
+  {
+    "name": "speaking",
+    "legacy": "/pages/speaking.html",
+    "next": "/speaking-preview",
+    "allow": []
   }
 ]
