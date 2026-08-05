@@ -1159,7 +1159,7 @@ async def speaking_daily_board(
     # giáo viên, không phải vì em ấy không làm.
     assignments = [a for a in assignments if (a.get("status") or "") != "archived"]
     if not assignments:
-        return {"days": [], "students": [], "assignment_count": 0}
+        return {"days": [], "students": [], "assignment_count": 0, "stale": False}
 
     def _day(a: dict) -> str | None:
         at = _at(a.get("due_at")) or _at(a.get("created_at"))
@@ -1167,7 +1167,8 @@ async def speaking_daily_board(
 
     dated = [(d, a) for a in assignments if (d := _day(a))]
     if not dated:
-        return {"days": [], "students": [], "assignment_count": len(assignments)}
+        return {"days": [], "students": [], "assignment_count": len(assignments),
+                "stale": False}
 
     # Mới nhất bên phải, và chỉ giữ `days` ngày gần nhất — một lưới 200 cột
     # không đọc được, và câu hỏi là về nhịp gần đây.
@@ -1179,6 +1180,20 @@ async def speaking_daily_board(
             by_day.setdefault(d, []).append(a["id"])
 
     aids = [a["id"] for d, a in dated if d in keep]
+
+    # VÁ SỔ TRƯỚC KHI ĐẾM — y như bảng tổng kết từng bài đang làm.
+    #
+    # Móc chốt sổ lúc hoàn thành phiên là best-effort (hỏng thì chỉ log). Đọc
+    # thẳng sổ nghĩa là một phiên ĐÃ XONG vẫn hiện ✕ cho tới khi có ai đó mở
+    # bảng tổng kết của đúng bài ấy — bảng này thì lại là chỗ giáo viên nhìn
+    # trước, nên nó sẽ là chỗ đầu tiên nói sai (codex #931).
+    stale = False
+    try:
+        reconcile_ledger_from_sessions(supabase_admin, aids)
+    except Exception as exc:  # noqa: BLE001
+        stale = True
+        logger.warning("[class] daily board reconcile failed cohort=%s: %s", cohort_id, exc)
+
     items: list[dict] = []
     for chunk in (aids[i:i + _ID_CHUNK] for i in range(0, len(aids), _ID_CHUNK)):
         items.extend(_paged(
@@ -1247,6 +1262,9 @@ async def speaking_daily_board(
         "days":  day_list,
         "students": rows,
         "assignment_count": len(aids),
+        # Nói RA khi con số có thể còn thiếu. Im lặng ở đây là để giáo viên nhắc
+        # nhầm một em đã nộp.
+        "stale": stale,
     }
 
 

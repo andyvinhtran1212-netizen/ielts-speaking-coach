@@ -1838,8 +1838,11 @@ function renderDailyBoard(d) {
     </tr>`;
   }).join('');
 
+  // Nói RA khi sổ chưa đối chiếu được: im lặng ở đây là để giáo viên nhắc nhầm
+  // một em đã nộp.
   $('board-foot').textContent =
-    'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
+    (d.stale ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu. ' : '')
+    + 'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
     + 'Bấm vào ô có bài để nghe và đọc nhận xét.';
 }
 

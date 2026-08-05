@@ -58,14 +58,14 @@ def _assignment(**over):
     return a
 
 
-async def _start(*, sessions, assignment=None, item=None):
+async def _start(*, sessions, assignment=None, item=None, student=None):
     log = []
     db = _db(log,
              class_assignment_items=[item or _ITEM],
              class_assignments=[assignment or _assignment()],
              sessions=sessions)
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
-         patch.object(mod, "_student_for_user", return_value=_STUDENT), \
+         patch.object(mod, "_student_for_user", return_value=student or _STUDENT), \
          patch.object(mod, "supabase_admin", db):
         return await mod.start_assignment("it1", None), log
 
@@ -170,3 +170,25 @@ def test_a_broken_lookup_does_not_lock_the_sheet():
     with patch.object(sess_mod, "supabase_admin", _Boom()):
         assert sess_mod._class_task_state({"id": "s",
                                            "class_assignment_item_id": "it1"}) is None
+
+
+# ── Chuyển lớp: cohort là cổng ĐẦU TIÊN (codex #931) ────────────────────────
+
+@pytest.mark.asyncio
+async def test_transferred_learner_cannot_reopen_the_old_class_work():
+    """Mục bài tập CỐ Ý sống sót khi học viên chuyển lớp. Nếu cổng cohort đứng
+    sau đường mở-lại thì em ấy vẫn mở (và nộp tiếp) bài của lớp cũ — đúng thứ
+    `/my-assignments` cố tình giấu đi."""
+    with pytest.raises(HTTPException) as e:
+        await _start(sessions=_sess(),
+                     student={**_STUDENT, "cohort_id": "co-LOP-MOI"})
+    assert e.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_transferred_learner_is_blocked_even_before_the_deadline_matters():
+    # Cả khi bài còn hạn: sai lớp là chặn hết, kể cả xem lại.
+    with pytest.raises(HTTPException) as e:
+        await _start(sessions=[],
+                     student={**_STUDENT, "cohort_id": "co-LOP-MOI"})
+    assert e.value.status_code == 404

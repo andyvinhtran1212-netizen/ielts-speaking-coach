@@ -291,6 +291,18 @@ async def start_assignment(
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
 
+    # ── Thứ tự ba cổng dưới đây LÀ MỘT QUYẾT ĐỊNH, không phải ngẫu nhiên ──
+    #
+    #   1. ĐÚNG LỚP HIỆN TẠI  — chặn TẤT CẢ, kể cả xem lại.
+    #   2. mở lại phiên cũ     — được phép cả khi đã quá hạn.
+    #   3. quá hạn             — chỉ chặn việc DỰNG PHIÊN MỚI.
+    #
+    # Cohort phải đứng ĐẦU: mục bài tập cố ý sống sót khi học viên chuyển lớp,
+    # nên đặt nó sau bước 2 thì một em đã chuyển đi vẫn mở (và nộp tiếp) bài
+    # của lớp cũ — đúng thứ `/my-assignments` cố tình giấu đi (codex #931).
+    if assignment.get("cohort_id") != student.get("cohort_id"):
+        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
+
     # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
     #
     # Trước đây mỗi lần bấm "Làm bài" là dựng một phiên MỚI, nên bài vừa nói
@@ -314,11 +326,6 @@ async def start_assignment(
     # found" would read as a bug to a student looking straight at it on the list.
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
-
-    # Same cohort check as the list: a transferred student must not be able to
-    # start their previous class's work just because the item row survived.
-    if assignment.get("cohort_id") != student.get("cohort_id"):
-        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
 
     skill = assignment.get("skill")
     if skill not in ("speaking", "reading", "listening", "course"):

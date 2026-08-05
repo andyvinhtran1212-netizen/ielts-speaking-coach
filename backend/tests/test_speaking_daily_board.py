@@ -59,13 +59,14 @@ _STUDENTS = [
 ]
 
 
-async def _board(*, assignments, items, students=None, days=21):
+async def _board(*, assignments, items, students=None, days=21, reconcile=None):
     db = _db(cohorts=[{"id": "co1"}],
              class_assignments=assignments,
              class_assignment_items=items,
              students=students if students is not None else _STUDENTS)
     with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
          patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "reconcile_ledger_from_sessions", reconcile or (lambda *a: None)), \
          patch.object(adm, "_require_cohort", lambda _c: None):
         return await adm.speaking_daily_board("co1", days, None)
 
@@ -201,4 +202,30 @@ async def test_unactivated_learner_is_marked_not_silently_lazy():
 @pytest.mark.asyncio
 async def test_no_daily_assignments_is_an_ordinary_empty_answer():
     out = await _board(assignments=[], items=[])
-    assert out == {"days": [], "students": [], "assignment_count": 0}
+    assert out == {"days": [], "students": [], "assignment_count": 0, "stale": False}
+
+
+# ── Vá sổ trước khi đếm (codex #931) ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_ledger_is_reconciled_before_counting():
+    """Móc chốt sổ lúc hoàn thành phiên là best-effort. Đọc thẳng sổ nghĩa là
+    một phiên ĐÃ XONG vẫn hiện ✕ cho tới khi ai đó mở bảng tổng kết của đúng
+    bài ấy — mà bảng này mới là chỗ giáo viên nhìn TRƯỚC."""
+    seen = {}
+    def _rec(db, aids):
+        seen["aids"] = list(aids)
+    out = await _board(assignments=[_asg("a1", "2000-01-01")],
+                       items=[_item("a1", "s1")], reconcile=_rec)
+    assert seen.get("aids") == ["a1"], "phải vá sổ cho đúng những bài đang vẽ"
+    assert out["stale"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_failed_reconcile_says_so_instead_of_lying_quietly():
+    def _boom(db, aids):
+        raise RuntimeError("db down")
+    out = await _board(assignments=[_asg("a1", "2000-01-01")],
+                       items=[_item("a1", "s1")], reconcile=_boom)
+    assert out["stale"] is True, "im lặng là để giáo viên nhắc nhầm một em đã nộp"
+    assert out["days"] == ["2000-01-01"], "vẫn phải vẽ được bảng"
