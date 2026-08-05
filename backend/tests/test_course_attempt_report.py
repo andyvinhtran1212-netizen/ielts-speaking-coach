@@ -145,3 +145,29 @@ def test_a_partial_read_is_flagged_not_silently_smoothed_over():
     n_except = src.count("except Exception")
     n_flag = src.count('out["stale"] = True')
     assert n_flag >= n_except, f"{n_except} nhánh đọc hỏng nhưng chỉ {n_flag} chỗ bật cờ"
+
+
+def test_paged_reads_are_ordered_so_pages_line_up():
+    """`range()` không đi một mình được: không có ORDER BY thì Postgres không
+    hứa gì về thứ tự giữa hai truy vấn, nên trang thứ hai không neo vào trang
+    thứ nhất — dòng bị lặp hoặc bị bỏ mà báo cáo vẫn trông đầy đủ (codex PR 945
+    vòng 3). Một lớp 30 em × 100 câu vượt 1000 dòng dễ dàng."""
+    src = inspect.getsource(qs._report_pages)
+    i = src.index(".range(")
+    assert ".order(" in src[:i], "phải ORDER trước khi cắt trang"
+
+
+def test_recipients_without_an_account_still_get_a_row():
+    """Lọc theo `user_id` vứt các em chưa kích hoạt đi: bảng đếm thiếu sĩ số,
+    hoặc báo "chưa ai mở" cho một lớp toàn em chưa kích hoạt (codex PR 945)."""
+    src = _src()
+    assert "list(roster.items())" in src, "một dòng cho mỗi HỌC VIÊN được giao"
+    assert '"student_id":  sid' in src, "dòng phải mang danh tính học viên"
+    # Và KHÔNG được lọc bỏ theo user_id nữa.
+    assert "if uid and uid not in by_user" not in src
+
+
+def test_a_student_removed_after_submitting_is_still_shown():
+    """Bài ấy đã xảy ra thật — giấu đi là làm sổ nói dối."""
+    src = _src()
+    assert "seen_uids" in src and "uid not in seen_uids" in src

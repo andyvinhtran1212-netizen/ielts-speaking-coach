@@ -1821,8 +1821,13 @@ async function openEffort(bankId, assignmentId, title) {
   }
   // Báo cáo chỉ biết `user_id`. Tên nằm ở sĩ số đã nạp — ghép ở đây thay vì bắt
   // backend biết về lớp, vì cùng một bank giao được cho nhiều lớp.
+  // Ghép theo HỌC VIÊN, không theo tài khoản: em chưa kích hoạt có `user_id`
+  // NULL nhưng vẫn được giao bài và vẫn phải đọc được tên (codex PR 945 vòng 3).
   const nameOf = {};
-  (_who.members || []).forEach((m) => { if (m.user_id) nameOf[m.user_id] = m.name; });
+  const noAcct = {};
+  (_who.members || []).forEach((m) => {
+    if (m.student_id) { nameOf[m.student_id] = m.name; noAcct[m.student_id] = !m.user_id; }
+  });
 
   const rows = (r.students || []);
   if (!rows.length) {
@@ -1832,7 +1837,8 @@ async function openEffort(bankId, assignmentId, title) {
   const body = rows.map((x) => {
     const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
     return `<tr>
-      <td>${esc(nameOf[x.user_id] || 'Học viên đã rời lớp')}</td>
+      <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
+        noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
       <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
       <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>

@@ -1211,12 +1211,19 @@ _REPORT_PAGE = 1000
 _REPORT_IDS = 100
 
 
-def _report_pages(table: str, cols: str, shape):
-    """Đọc hết bảng theo trang. Trả về danh sách đầy đủ."""
+def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
+    """Đọc hết bảng theo trang. Trả về danh sách đầy đủ.
+
+    `range()` KHÔNG ĐI MỘT MÌNH được: không có `ORDER BY` thì Postgres không hứa
+    hẹn gì về thứ tự giữa hai truy vấn, nên trang thứ hai không neo vào trang
+    thứ nhất — dòng bị lặp hoặc bị bỏ, và báo cáo vẫn trông đầy đủ. Một lớp 30
+    em × 100 câu vượt 1000 dòng dễ dàng (codex PR 945).
+    """
     out: list[dict] = []
     start = 0
     while True:
         rows = (shape(supabase_admin.table(table).select(cols))
+                .order(order)
                 .range(start, start + _REPORT_PAGE - 1).execute().data) or []
         out.extend(rows)
         if len(rows) < _REPORT_PAGE:
@@ -1289,9 +1296,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     if not item_ids:
         return out
 
-    # student_id → user_id, để nối phiên (ghi theo user) với sổ (ghi theo học viên).
+    # student_id → user_id. Phiên ghi theo TÀI KHOẢN, sổ ghi theo HỌC VIÊN, nên
+    # phải có cầu nối — nhưng danh tính của một DÒNG là học viên, không phải tài
+    # khoản: em chưa kích hoạt có `user_id` NULL và vẫn phải có một dòng.
     sids = [i["student_id"] for i in items if i.get("student_id")]
-    roster: dict[str, str | None] = {}
+    roster: dict[str, str | None] = {sid: None for sid in sids}
     for i in range(0, len(sids), _REPORT_IDS):
         try:
             for st in _report_pages(
@@ -1361,12 +1370,17 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
                 slow.setdefault(key, []).append(int(ms))
 
     now = datetime.now(timezone.utc)
-    # Em ĐƯỢC GIAO mà chưa mở bài lần nào vẫn phải có một dòng — đó chính là
-    # dòng "chưa mở", và bỏ nó đi là bỏ đúng thứ giáo viên đi tìm.
-    for sid, uid in roster.items():
-        if uid and uid not in by_user:
-            by_user[uid] = []
-    for uid, rows in by_user.items():
+    # MỘT DÒNG CHO MỖI HỌC VIÊN ĐƯỢC GIAO — kể cả em chưa kích hoạt tài khoản
+    # (`user_id` NULL). Lọc theo `user_id` sẽ vứt các em ấy đi và bảng đếm thiếu
+    # sĩ số, hoặc báo "chưa ai mở" cho một lớp toàn em chưa kích hoạt.
+    lines: list[tuple[str, str | None]] = list(roster.items())
+    # Phiên của một tài khoản KHÔNG còn trong sổ (em đã bị gỡ khỏi lớp sau khi
+    # làm bài): vẫn hiện, vì bài ấy đã xảy ra thật.
+    seen_uids = {u for u in roster.values() if u}
+    lines += [(None, uid) for uid in by_user if uid not in seen_uids]
+
+    for sid, uid in lines:
+        rows = by_user.get(uid) or [] if uid else []
         done = [x for x in rows if x.get("ended_at")]
         live = [x for x in rows if not x.get("ended_at") and x["id"] in with_work]
         secs = sum(int(x.get("duration_sec") or 0) for x in done)
@@ -1393,6 +1407,7 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             except ValueError:
                 pass
         out["students"].append({
+            "student_id":  sid,
             "user_id":     uid,
             "state":       state,
             "stages_done": len(done),

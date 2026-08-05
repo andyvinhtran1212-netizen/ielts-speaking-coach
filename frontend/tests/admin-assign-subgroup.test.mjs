@@ -170,9 +170,9 @@ describe('chi tiết làm bài', () => {
   });
 
   test('ghép tên từ sĩ số, không đòi backend biết về lớp', () => {
-    // Cùng một bank giao được cho nhiều lớp.
+    // Cùng một bank giao được cho nhiều lớp, nên tên phải ghép ở trang.
     const i = CODE.indexOf('async function openEffort');
-    assert.match(CODE.slice(i, i + 1400), /_who\.members[\s\S]{0,120}nameOf\[m\.user_id\]/);
+    assert.match(CODE.slice(i, i + 1600), /_who\.members[\s\S]{0,200}nameOf\[m\.student_id\]/);
   });
 
   test('nói rõ thời gian nghĩa là gì', () => {
@@ -189,5 +189,22 @@ describe('nói ra khi dữ liệu chưa đọc đủ', () => {
     const body = CODE.slice(i, i + 3200);
     assert.match(body, /r\.stale/);
     assert.match(body, /Chưa đọc được đầy đủ dữ liệu/);
+  });
+});
+
+describe('em chưa kích hoạt vẫn có tên', () => {
+  test('ghép tên theo HỌC VIÊN, không theo tài khoản', () => {
+    // Em chưa kích hoạt có `user_id` NULL nhưng vẫn được giao bài; ghép theo
+    // tài khoản thì cả bảng toàn "Học viên đã rời lớp" (codex PR 945 vòng 3).
+    const i = CODE.indexOf('async function openEffort');
+    const body = CODE.slice(i, i + 1600);
+    assert.match(body, /nameOf\[m\.student_id\] = m\.name/);
+    assert.match(body, /nameOf\[x\.student_id\]/);
+    assert.ok(!/nameOf\[x\.user_id\]/.test(body), 'không được ghép theo tài khoản');
+  });
+
+  test('và được đánh dấu là chưa kích hoạt', () => {
+    const i = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(i, i + 2200), /chưa kích hoạt/);
   });
 });
