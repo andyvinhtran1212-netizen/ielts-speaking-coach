@@ -6,9 +6,11 @@
 // Gỡ rewrite trong cùng một thay đổi thì đó là CUTOVER, không còn là dark-launch.
 // Đi đúng khuôn `/home`: dựng ở đường riêng, cutover sau khi vỏ + hành vi xong.
 //
-// TRẠNG THÁI: MỚI CÓ VỎ (PR 1/3). Hành vi legacy là 1736 dòng JS nội tuyến —
-// chia làm hai PR sau: phần lõi (chọn part, sinh câu hỏi, điều hướng sang
-// practice) rồi phần thống kê (2 biểu đồ Chart.js + lịch sử).
+// TRẠNG THÁI: VỎ + HÀNH VI PHẦN LÕI (PR 2/3). `speaking-behavior.tsx` port
+// phần cho phép học viên BẮT ĐẦU LUYỆN: quyền, lời chào, modal chủ đề, ba
+// đường tạo phiên và Full Test. CÒN LẠI ở PR 3: thống kê, lịch sử + phân trang
+// + lọc, hai biểu đồ Chart.js, cache dashboard, cập nhật từ vựng, dashboard
+// ngữ pháp — cộng cặp parity và mở rộng bộ lọc `paths` của cổng.
 //
 // LƯU Ý PHỦ SÓNG: cổng parity G1 so CHỮ, LINK, KHỐI — nó KHÔNG thấy nội dung
 // bên trong `<canvas>`. Hai biểu đồ Chart.js của trang này vì vậy nằm NGOÀI tầm
@@ -16,6 +18,7 @@
 // xanh nghĩa là mọi thứ khớp".
 import type { Metadata } from 'next';
 
+import { SpeakingBehavior } from './speaking-behavior';
 import { SpeakingShell } from './page-shell';
 
 export const metadata: Metadata = {
@@ -32,6 +35,7 @@ export default function SpeakingPage() {
       {/* @ts-ignore */}
       <aver-chrome active="speaking" role-source="page" />
       <SpeakingShell />
+      <SpeakingBehavior />
     </>
   );
 }

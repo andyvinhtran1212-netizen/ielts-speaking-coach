@@ -14,6 +14,31 @@ import { AuthedShell } from '@/components/authed-shell';
 
 export default function AuthedSpeakingLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthedShell pageStylesheets={['/css/speaking.css']}>{children}</AuthedShell>
+    <AuthedShell
+      pageStylesheets={['/css/speaking.css']}
+      extraScripts={
+        <>
+          {/* Ba script bản legacy nạp mà khung dùng chung không có. Codex bắt
+              được thiếu `cue-card-detector.js` ở PR #936: không có nó thì
+              `window.CueCardDetector` là undefined, và mọi đường "câu hỏi tự
+              nhập" ném TypeError thay vì tạo phiên — build vẫn xanh vì lỗi chỉ
+              xảy ra lúc người dùng bấm.
+
+              Đã kiểm cả ba trước khi nạp (bài học `home-mock-tiles.js` ở PR
+              #930): không cái nào TỰ CHẠY hay gọi API lúc nạp, chúng chỉ định
+              nghĩa global. Nạp bằng thẻ script là an toàn.
+
+              THỨ TỰ QUAN TRỌNG: script `defer` chạy theo thứ tự tài liệu, và
+              `cue-card-detector.js` tự ném lỗi nếu `window.api.post` chưa có
+              ("ensure api.js is loaded before cue-card-detector.js"). Khung đã
+              nạp api.js trước điểm chèn này. */}
+          <script src="/js/format.js" defer />
+          <script src="/js/cue-card-detector.js" defer />
+          <script src="/js/retention-warning.js" defer />
+        </>
+      }
+    >
+      {children}
+    </AuthedShell>
   );
 }
