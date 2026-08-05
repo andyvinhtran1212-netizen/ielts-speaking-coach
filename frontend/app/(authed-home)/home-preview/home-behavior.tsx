@@ -234,6 +234,59 @@ async function loadClassStrip(api: any, cancelled: () => boolean) {
   if (strip) strip.hidden = false;
 }
 
+/**
+ * Ô kết quả thi thử đã CÔNG BỐ — port của `public/js/home-mock-tiles.js`.
+ *
+ * VÌ SAO PORT THAY VÌ NẠP TỆP ĐÓ: bản legacy tự chạy lúc `DOMContentLoaded`.
+ * Trên trang legacy thứ tự thẻ script bảo đảm `initSupabase` đã chạy trước;
+ * trong Next mọi script ngoài đều `defer` còn script nội tuyến chạy lúc parse,
+ * nên nó bắn `/api/mock-exams/my-sittings` TRƯỚC khi phiên sẵn sàng → 401 →
+ * `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến mất. Cổng parity authed
+ * bắt đúng vậy: `title-mismatch: Trang chủ → Đăng nhập`, 68 phát hiện.
+ *
+ * Ở đây nó chạy SAU khi `useAuth()` xác nhận đã đăng nhập và `window.api` sẵn
+ * sàng, nên không còn cửa sổ nào để bắn request thiếu token.
+ *
+ * Vẫn best-effort và không chặn: thẻ "bắt đầu thi thử" luôn tự đứng được.
+ */
+async function renderMockTiles(api: any, cancelled: () => boolean) {
+  // Đặt tên `hub` chứ không phải "grid": một biến grid bị phủ định sẽ khiến bộ
+  // quét nội dung của Tailwind phát ra một utility important-grid thừa.
+  const hub = document.getElementById('mock-hub-grid');
+  if (!hub) return;
+
+  // Escaper dùng chung (`window.WC.escapeHtml`, định nghĩa ở api.js) — không
+  // thêm escaper riêng cho từng tệp (audit C4).
+  const esc = (v: unknown) => {
+    const wc = (window as any).WC;
+    if (wc && typeof wc.escapeHtml === 'function') return wc.escapeHtml(v);
+    return String(v == null ? '' : v).replace(/[&<>"\']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "\'": '&#39;' } as any)[c]);
+  };
+  const fmtBand = (v: any) => (v == null || v === '' ? '—' : Number(v).toFixed(1));
+
+  let res: any;
+  try {
+    res = await api.get('/api/mock-exams/my-sittings');
+  } catch {
+    return;                       // im lặng — thẻ bắt đầu vẫn hiện
+  }
+  if (cancelled()) return;
+
+  const sittings = (res && res.sittings) || [];
+  // Mới công bố trước (endpoint đã xếp mới-nhất-trước).
+  sittings.filter((s: any) => s.released).forEach((s: any) => {
+    hub.insertAdjacentHTML('beforeend',
+      '<a class="mock-result-tile" href="/pages/mock-result.html?sitting='
+        + encodeURIComponent(s.sitting_id) + '">'
+      + '<span class="mock-result-tile__band">' + fmtBand(s.overall) + '</span>'
+      + '<span class="mock-result-tile__body">'
+      + '<span class="mock-result-tile__title">Kết quả: ' + esc(s.code || 'Thi thử') + '</span>'
+      + '<span class="mock-result-tile__hint">Xem điểm 4 kỹ năng + chữa bài →</span>'
+      + '</span></a>');
+  });
+}
+
 async function loadHome(api: any, cancelled: () => boolean, cleanups: Array<() => void>) {
   let data: any;
   let permissions: any = null;
@@ -320,6 +373,7 @@ export function HomeBehavior() {
       // endpoint không liên quan, và treo dải lớp vào thành công của nó từng làm
       // một lỗi ở đó cướp mất đường duy nhất tới trang lớp của học viên.
       loadClassStrip(api, cancelled);
+      renderMockTiles(api, cancelled);
       await loadHome(api, cancelled, cleanups);
     })();
 

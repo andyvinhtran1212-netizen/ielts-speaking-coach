@@ -114,20 +114,22 @@ export default function AuthedHomeLayout({ children }: { children: ReactNode }) 
       {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
           reads them for the frozen LCP trigger). */}
       <script src="/js/rum-vitals.js" defer />
-      {/* Hai script chỉ trang chủ cần — `(authed)` (profile) KHÔNG nạp.
-          · speaking-debt.js: định nghĩa `window.SpeakingDebt`, mà
-            `home-behavior.tsx` gọi `retryAll()` sau khi home-summary trả về.
-            practice.js chỉ nạp ở trang luyện tập, nên học viên đóng tab hoàn
-            thành rồi quay lại ĐÂY — đường về bình thường sau kỳ thi — sẽ để
-            lượt thi kẹt ở `speaking_pending` mãi mãi (Codex review, PR #847).
-          · home-mock-tiles.js: tự khởi động, chèn ô kết quả đã công bố vào
-            `#mock-hub-grid`. KHÔNG port sang React: nó chỉ chèn thêm node vào
-            cuối một container mà React không render lại, và giữ nguyên tệp là
-            giữ nguyên một nguồn sự thật cho cả hai bản.
-          Cả hai đặt SAU api.js vì `defer` chạy theo thứ tự tài liệu và
-          home-mock-tiles đọc `window.api` ngay lúc boot. */}
+      {/* `speaking-debt.js` chỉ ĐỊNH NGHĨA `window.SpeakingDebt` — không tự gọi
+          API nào lúc nạp — nên nạp bằng thẻ script là an toàn.
+          `home-behavior.tsx` gọi `retryAll()` sau khi home-summary trả về:
+          practice.js chỉ nạp ở trang luyện tập, nên học viên đóng tab hoàn thành
+          rồi quay lại ĐÂY — đường về bình thường sau kỳ thi — sẽ để lượt thi kẹt
+          ở `speaking_pending` mãi mãi (Codex review, PR #847).
+
+          KHÔNG nạp `home-mock-tiles.js` ở đây, dù bản legacy có. Nó TỰ CHẠY lúc
+          `DOMContentLoaded` và gọi ngay `/api/mock-exams/my-sittings`. Trên trang
+          legacy thứ tự script bảo đảm `initSupabase` đã chạy trước; trong Next
+          mọi script ngoài đều `defer` còn script nội tuyến chạy lúc parse, nên
+          nó bắn request TRƯỚC khi phiên sẵn sàng → 401 → `api.js:130` đẩy sang
+          `/login.html` và CẢ TRANG biến mất. Cổng parity authed bắt đúng vậy:
+          `title-mismatch: Trang chủ → Đăng nhập`, 68 phát hiện. Logic của tệp đó
+          đã port vào `home-behavior.tsx`, chạy sau khi xác nhận đăng nhập. */}
       <script src="/js/speaking-debt.js" defer />
-      <script src="/js/home-mock-tiles.js" defer />
       <script dangerouslySetInnerHTML={{ __html: SUPABASE_INIT }} />
       <script dangerouslySetInnerHTML={{ __html: LUCIDE_HYDRATE }} />
 
