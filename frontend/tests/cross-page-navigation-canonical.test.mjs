@@ -178,8 +178,11 @@ describe('Destination URLs preserved byte-identical', () => {
     { page: 'frontend/pages/result.html',                   href: '/pages/speaking.html' },
     { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
-    { page: 'frontend/pages/admin/writing/index.html',            href: '/pages/home.html' },
-    { page: 'frontend/admin.html',                          href: 'pages/home.html' },
+    // [cutover /home 2026-08-05] hai back-link này trỏ canonical `/home`.
+    // Bản legacy `/pages/home.html` VẪN phục vụ 200 (cổng parity G1 cần cả hai
+    // vế còn sống), nó chỉ không còn là đích điều hướng nữa.
+    { page: 'frontend/pages/admin/writing/index.html',            href: '/home' },
+    { page: 'frontend/admin.html',                          href: '/home' },
   ];
 
   HREF_PINS.forEach(({ page, href }) => {

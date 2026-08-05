@@ -152,8 +152,11 @@ describe('index.html / conversion flow preserved byte-identical', () => {
     assert.match(html, /href=["']\/pricing\.html["']/);
   });
 
-  test('href="/pages/home.html" footer dashboard link preserved', () => {
-    assert.match(html, /href=["']\/pages\/home\.html["']/);
+  test('href="/home" footer dashboard link preserved', () => {
+    // CUTOVER 2026-08-05: canonical của trang chủ học viên là `/home` (route
+    // Next), không còn `/pages/home.html`. Bản legacy VẪN phục vụ 200 — cố ý,
+    // để cổng parity G1 còn hai vế mà so — nhưng điều hướng thì trỏ canonical.
+    assert.match(html, /href=["']\/home["']/);
   });
 
   test('two in-page anchors preserved (#features + #how-it-works)', () => {

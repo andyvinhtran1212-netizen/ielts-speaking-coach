@@ -1,4 +1,4 @@
-// Repro CỤC BỘ cho hydration mismatch trên /home-preview — để khỏi phải chờ CI.
+// Repro CỤC BỘ cho hydration mismatch — để khỏi phải chờ CI mỗi vòng.
 // KHÔNG dùng tài khoản thật: nhét một phiên GIẢ vào localStorage chỉ để chặn
 // guard client-side chuyển hướng đi, đủ lâu cho React hydrate. Token vô giá trị,
 // mọi lệnh gọi API sẽ 401 — không sao, ta chỉ đo hydration.
@@ -10,7 +10,7 @@ const ARGV = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const SLOW = process.argv.includes('--slow-react');
 const BASE = ARGV[0] || 'http://localhost:3000';
 const PATHS = ARGV.slice(1);
-if (!PATHS.length) PATHS.push('/home-preview');
+if (!PATHS.length) PATHS.push('/home');
 
 const fake = JSON.stringify({
   access_token: 'repro-not-a-real-token',

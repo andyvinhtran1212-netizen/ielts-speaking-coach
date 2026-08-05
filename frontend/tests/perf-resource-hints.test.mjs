@@ -100,7 +100,9 @@ describe('Perf P2.3 — aver-chrome injects prefetch speculation rules', () => {
 
   it('allowlists ONLY read-only dashboards — never stateful/admin pages', () => {
     for (const href of [
-      '/pages/home.html', '/pages/speaking.html', '/pages/writing-dashboard.html',
+      // [cutover /home 2026-08-05] prefetch phải khớp đường người dùng THẬT SỰ
+      // bấm — giữ `/pages/home.html` ở đây là luật prefetch lặng lẽ mất tác dụng.
+      '/home', '/pages/speaking.html', '/pages/writing-dashboard.html',
       '/pages/listening.html', '/pages/reading-vocab.html',
       // [cutover /grammar 2026-08-03] prerender route CANONICAL, không phải bản legacy.
       '/grammar', '/vocabulary.html',

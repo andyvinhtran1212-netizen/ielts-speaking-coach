@@ -2,7 +2,7 @@
   {
     "name": "home",
     "legacy": "/pages/home.html",
-    "next": "/home-preview",
+    "next": "/home",
     "allow": []
   }
 ]

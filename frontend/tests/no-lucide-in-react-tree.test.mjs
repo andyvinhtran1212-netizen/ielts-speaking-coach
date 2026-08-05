@@ -18,7 +18,7 @@
 //
 // CÁCH ĐÚNG khi port trang legacy có icon lucide: nhúng thẳng SVG mà lucide
 // sinh ra, BỎ thuộc tính `data-lucide`, giữ class `lucide lucide-*` để CSS còn
-// khớp. Mẫu: `(authed-home)/home-preview/page-shell.tsx`.
+// khớp. Mẫu: `(authed-home)/home/page-shell.tsx`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -32,7 +32,7 @@ const EXCEPTIONS = new Map([
   ['(marketing)/page.tsx',
    'Trang chủ — pilot 1, ĐÃ cutover và đang chạy production. Đo 3/3 sạch dưới ' +
    '`repro-418.mjs --slow-react` nên KHÔNG phải lỗi đang xảy ra; chưa rõ vì sao ' +
-   'nó thoát trong khi /home-preview thì dính. Cố ý không đụng vào một route ' +
+   'nó thoát trong khi /home thì dính. Cố ý không đụng vào một route ' +
    'đang sống chỉ để dọn dẹp — chuyển sang SVG nhúng khi nào sửa trang này vì ' +
    'việc khác.'],
 ]);

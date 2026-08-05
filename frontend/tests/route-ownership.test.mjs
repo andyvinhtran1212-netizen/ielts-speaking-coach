@@ -34,7 +34,10 @@ test('pilot-2 cutover: grammar is now an app route, its legacy rewrite is GONE',
 
 test('not-yet-piloted clean URLs stay legacy-owned', () => {
   const { sources } = findCollisions();
-  assert.ok(sources.includes('/home'));
+  // [cutover /home 2026-08-05] `/home` KHÔNG còn là config source — nó là route
+  // Next. Giống dòng khẳng định của grammar ở trên: rewrite legacy phải biến
+  // mất trong CÙNG commit đổi route, nếu không route Next bị che.
+  assert.ok(!sources.includes('/home'), 'rewrite /home phải được gỡ khi cutover');
   assert.ok(sources.includes('/speaking'));
 });
 

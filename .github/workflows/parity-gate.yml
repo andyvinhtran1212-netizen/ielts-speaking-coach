@@ -43,7 +43,7 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
-      # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home-preview`).
+      # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
       # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
       # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở

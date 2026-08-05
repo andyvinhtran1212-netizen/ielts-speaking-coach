@@ -56,7 +56,7 @@ async function boot() {
   try { me = await api.get('/auth/me'); } catch (e) { me = null; }
   if (!me) return;
   if (me.role !== 'instructor' && me.role !== 'admin') {
-    window.location.href = '/pages/home.html';
+    window.location.href = '/home';
     return;
   }
   if (!ESSAY_ID) { banner('Thiếu essay_id.', 'err'); $('cm-loading').hidden = true; return; }

@@ -70,8 +70,11 @@ describe('Sprint 12.8 — admin.html cluster closure (pure redirect)', () => {
     assert.match(html, /<script\s+src=["']\/js\/error-reporter\.js["']/);
   });
 
-  test('back-link to pages/home.html preserved (mid-redirect fallback)', () => {
-    assert.match(html, /href=["']pages\/home\.html["']/);
+  test('back-link to /home preserved (mid-redirect fallback)', () => {
+    // [cutover /home 2026-08-05] canonical là route Next `/home`; bản legacy
+    // `/pages/home.html` VẪN phục vụ 200 (cổng parity G1 cần hai vế), chỉ
+    // không còn là đích điều hướng.
+    assert.match(html, /href=["']\/home["']/);
   });
 
   test('visible CTA links to the new admin landing', () => {
