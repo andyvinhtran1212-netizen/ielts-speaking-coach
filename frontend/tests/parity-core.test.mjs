@@ -538,6 +538,34 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
   assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
 });
 
+test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
+  // Codex bắt ở PR #946 vòng 5, và đó là hệ quả của chính việc nới glob ở PR
+  // đó: `paths` có `frontend/lib/**` nên job KHỞI ĐỘNG khi đổi
+  // `lib/when-global-ready.mjs`, nhưng bộ chọn phạm vi lúc ấy chỉ leo lên
+  // `full` cho hai tệp lib cụ thể ⇒ job chạy `--categories-only`, mà chế độ đó
+  // bỏ hẳn các cặp trang BÀI VIẾT. Cổng xanh trong khi thứ vừa đổi không hề
+  // được so.
+  //
+  // Cùng họ với #937 (glob có, regex không bắt) và #930 (thiếu glob). Ba lần
+  // cùng một hình dạng nên chốt bằng máy, đừng chốt bằng trí nhớ.
+  const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+  const fullRe = new RegExp(rxs[0]);
+
+  // Mã dùng chung có thể nuôi BẤT KỲ trang nào đang so, kể cả trang bài viết.
+  for (const shared of ['frontend/lib/when-global-ready.mjs',
+                        'frontend/lib/backend.ts',
+                        'frontend/components/authed-shell.tsx']) {
+    assert.ok(fullRe.test(shared),
+      `«${shared}» là mã dùng chung mà không leo lên full ⇒ cặp bài viết bị bỏ qua`);
+  }
+
+  // Chiều ngược: đổi một trang riêng lẻ KHÔNG được kéo cả bộ full lên vô cớ —
+  // nếu không thì việc khoanh phạm vi mất hết ý nghĩa và mọi PR đều chạy full.
+  assert.ok(!fullRe.test('frontend/app/(authed-speaking)/speaking/page.tsx'),
+    'trang riêng lẻ không được tự leo lên full');
+});
+
 test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
   // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
   // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng

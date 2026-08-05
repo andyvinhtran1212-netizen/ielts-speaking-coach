@@ -29,13 +29,32 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      # Các tệp NGOÀI `frontend/` mà job frontend dưới đây thực sự đọc bằng
+      # `readFileSync`. Thiếu chúng thì một PR CHỈ sửa tài liệu sẽ merge mà không
+      # chạy đúng cái test đang ghim tài liệu đó — ví dụ `brand-favicon.test.mjs`
+      # khẳng định `frontend/public/favicon.svg` PHẢI trùng bản trong `docs/brand/`,
+      # nên sửa một mình bản docs sẽ làm hai bên lệch nhau trong im lặng.
+      # `workflow-path-coverage.test.mjs` giữ danh sách này khỏi mục nát.
+      # Hệ quả chấp nhận được: job backend dùng chung bộ lọc nên cũng chạy theo.
+      - 'README.md'
+      - 'PHASE_CLOSURE_LEDGER.md'
+      - 'docs/SITE_OVERVIEW.md'
+      - 'docs/brand/assets/**'
+      - 'docs/clusters/20_x/**'
+      # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
+      # test.mjs` chạy trong job frontend dưới đây và đọc MỌI workflow. Nếu chỉ
+      # ghim `backend-tests.yml` thì một PR sửa `paths` của `parity-gate.yml` sẽ
+      # không chạy đúng cái chốt đang canh `paths` — tức là chốt chống-"chốt-
+      # không-tự-nổ" lại tự dính chính lỗi đó. Nó không tự phát hiện được vì nó
+      # nạp workflow bằng `readdirSync`, không nêu tên tệp nào.
       # Hook pre-push nằm ở `scripts/hooks/`, nhưng bộ chốt của nó là
       # `frontend/tests/pre-push-hook.test.mjs` — chạy bởi job frontend dưới
       # đây. Thiếu dòng này thì một PR CHỈ sửa hook sẽ không chạy chốt của
       # chính nó (Codex bắt ở PR #943; cùng họ với phát hiện ở #930 và #937:
       # chốt tồn tại mà không bao giờ nổ).
       - 'scripts/hooks/**'
-      - '.github/workflows/backend-tests.yml'
+      # Bao cả `backend-tests.yml`, nên không cần dòng ghim riêng tệp này nữa.
+      - '.github/workflows/**'
 
 jobs:
   backend:

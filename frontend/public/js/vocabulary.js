@@ -207,7 +207,7 @@
     // Card identity is (category, slug) — the same slug can now live in several
     // categories (mig 122), so selection/deeplink key on the pair, not slug alone,
     // else duplicate-slug rows highlight together and the wrong card opens.
-    const selKey = (c, s) => (c || '') + ' ' + (s || '');
+    const selKey = (c, s) => (c || '') + '\u0000' + (s || '');
 
     function visible() {
       const q = state.q.trim().toLowerCase();

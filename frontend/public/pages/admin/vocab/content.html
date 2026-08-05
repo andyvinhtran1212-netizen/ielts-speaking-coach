@@ -288,7 +288,7 @@
         (data.blocks || []).forEach(function (b) {
           if (b.slug && !(b.validation_errors && b.validation_errors.length)) {
             var cat = (b.parsed_data && b.parsed_data.category) || '';
-            var key = cat + ' ' + b.slug;
+            var key = cat + '\u0000' + b.slug;
             if (!seen[key]) seen[key] = { files: [], label: cat ? cat + '/' + b.slug : b.slug };
             seen[key].files.push(i);
           }
