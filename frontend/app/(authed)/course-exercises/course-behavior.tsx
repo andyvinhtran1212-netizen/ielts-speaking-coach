@@ -319,8 +319,14 @@ export function CourseBehavior() {
           if (btn) { btn.disabled = false; btn.textContent = 'Nộp phần tự luận'; }
           const note = $('cw-note');
           if (note) {
-            note.textContent = 'Chưa nộp được: ' + (err?.message || err)
-              + '. Bài viết của bạn vẫn còn ở đây — thử lại giúp nhé.';
+            // 422 của server mang `message` nói rõ chuyện gì (thiếu câu / câu
+            // quá dài). Hiện nguyên câu ấy, đừng đắp một câu chung chung lên
+            // trên — học viên cần biết PHẢI SỬA GÌ.
+            const d = err && err.detail;
+            const why = (d && typeof d === 'object' && d.message)
+              ? d.message : (err?.message || err);
+            note.textContent = 'Chưa nộp được: ' + why
+              + ' Bài viết của bạn vẫn còn ở đây.';
           }
           return;
         }

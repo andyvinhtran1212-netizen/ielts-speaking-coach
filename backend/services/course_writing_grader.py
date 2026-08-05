@@ -34,9 +34,10 @@ _TIMEOUT_SECONDS = 45.0
 # mười lượt độc lập. Trần này chặn một bank soạn sai (200 câu tự luận) làm nổ
 # ngữ cảnh — vượt trần thì chia mẻ.
 _MAX_ITEMS_PER_CALL = 12
-# Câu dài quá mức không phải bài tập viết câu — cắt để một lần dán cả bài luận
-# không đốt hết ngữ cảnh của những câu còn lại.
-_MAX_ANSWER_CHARS = 600
+# Trần độ dài một câu. `quiz_service` TỪ CHỐI câu vượt trần trước khi tới đây —
+# cắt rồi chấm phần đầu nghĩa là phần đuôi model chưa từng đọc sẽ hiện ra như bị
+# xoá ở bản so sai→sửa. Lát cắt dưới đây chỉ còn là lưới an toàn cuối.
+MAX_ANSWER_CHARS = 600   # công khai: tầng gọi TỪ CHỐI trước, không cắt âm thầm
 
 _PROMPT = """Bạn là bộ soát lỗi cho học viên tiếng Anh MỚI BẮT ĐẦU.
 
@@ -118,7 +119,7 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
 
     payload = [{"qid": it["qid"],
                 "de": (it.get("prompt") or "")[:400],
-                "cau_hoc_vien_viet": (it.get("answer") or "")[:_MAX_ANSWER_CHARS]}
+                "cau_hoc_vien_viet": (it.get("answer") or "")[:MAX_ANSWER_CHARS]}
                for it in batch]
     prompt = _PROMPT + json.dumps(payload, ensure_ascii=False, indent=1)
 

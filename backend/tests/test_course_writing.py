@@ -90,9 +90,11 @@ async def test_second_submission_is_refused_before_spending_a_model_call():
         called["n"] += 1
         return [], None
     db = _db([], quiz_questions=_QS,
-             course_writing_submissions=[{"id": "sub1", "bank_id": "b1", "user_id": "u1"}])
+             course_writing_submissions=[{"id": "sub1", "bank_id": "b1", "user_id": "u1",
+                                          "class_assignment_item_id": "it1"}])
     with patch.object(qs, "supabase_admin", db), \
          patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", counting):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(user_id="u1", bank_id="b1",
@@ -116,7 +118,7 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     async def g(items): return [], "m"
     with patch.object(qs, "supabase_admin", db), \
          patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: None), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", g):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(user_id="u1", bank_id="b1",
@@ -151,9 +153,10 @@ async def test_an_incomplete_attempt_does_not_burn_the_single_grading_run():
 
 # ── Trạng thái đọc ───────────────────────────────────────────────────────────
 
-def _state(existing=()):
+def _state(existing=(), item={"id": "it1", "assignment_id": "a1"}):
     db = _db([], quiz_questions=_QS, course_writing_submissions=list(existing))
     with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: item), \
          patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}):
         return qs.course_writing_state(user_id="u1", bank_id="b1")
 
@@ -166,7 +169,8 @@ def test_before_submitting_the_model_answer_is_withheld():
 
 
 def test_after_submitting_the_model_answer_comes_with_the_marking():
-    st = _state([{"id": "s1", "bank_id": "b1", "user_id": "u1", "items": [],
+    st = _state([{"id": "s1", "bank_id": "b1", "user_id": "u1",
+                  "class_assignment_item_id": "it1", "items": [],
                   "total": 2, "clean": 1, "graded_at": "t"}])
     assert st["submitted"] is True
     assert all("explain" in q for q in st["questions"])
@@ -278,3 +282,63 @@ async def test_a_failed_ledger_write_does_not_lose_the_graded_writing():
     with patch.object(qs, "mark_item_submitted", boom):
         out, _ = await _submit({"E1": "a", "E2": "b"})
     assert out["total"] == 2, "lượt nộp phải thành công dù chốt sổ hỏng"
+
+
+# ── Giao LẠI cùng bộ bài = lượt MỚI (codex #935) ────────────────────────────
+
+def test_a_re_give_is_a_fresh_attempt_not_the_old_one():
+    """Khoá theo (bank, học viên) khiến lượt nộp của lần giao TRƯỚC làm lần giao
+    SAU vĩnh viễn không nộp được — bài mới đứng mãi ở "Cần nộp"."""
+    old_row = {"id": "s1", "bank_id": "b1", "user_id": "u1",
+               "class_assignment_item_id": "it-CU", "items": [],
+               "total": 2, "clean": 2, "graded_at": "t"}
+    st = _state([old_row], item={"id": "it-MOI", "assignment_id": "a2"})
+    assert st["submitted"] is False, "bài giao mới phải là một lượt chưa nộp"
+
+
+@pytest.mark.asyncio
+async def test_submitting_without_an_assignment_item_is_refused():
+    """Một mục NULL lọt qua UNIQUE của Postgres (NULL không va nhau) — tức là
+    nộp không giới hạn. Đòi có mục tường minh."""
+    db = _db([], quiz_questions=_QS, course_writing_submissions=[])
+    async def g(items): return [], "m"
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: None), \
+         patch.object(qs.course_writing_grader, "grade", g):
+        with pytest.raises(HTTPException) as e:
+            await qs.submit_course_writing(user_id="u1", bank_id="b1",
+                                           answers={"E1": "a", "E2": "b"})
+    assert e.value.status_code == 404
+
+
+# ── Câu quá dài: TỪ CHỐI, không chấm một nửa (codex #935) ───────────────────
+
+@pytest.mark.asyncio
+async def test_an_over_long_answer_is_refused_before_any_model_call():
+    """Bộ chấm chỉ gửi đi MAX_ANSWER_CHARS ký tự, còn bản lưu và bản so sai→sửa
+    dùng câu ĐẦY ĐỦ — phần đuôi model chưa từng đọc sẽ hiện ra như bị xoá."""
+    called = {"n": 0}
+    async def counting(items):
+        called["n"] += 1
+        return [], None
+    db = _db([], quiz_questions=_QS, course_writing_submissions=[])
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs.course_writing_grader, "grade", counting):
+        with pytest.raises(HTTPException) as e:
+            await qs.submit_course_writing(
+                user_id="u1", bank_id="b1",
+                answers={"E1": "x" * (cw.MAX_ANSWER_CHARS + 1), "E2": "ngắn"})
+    assert e.value.status_code == 422
+    assert e.value.detail["too_long"] == ["E1"]
+    assert called["n"] == 0, "đừng gọi model rồi mới phát hiện"
+
+
+@pytest.mark.asyncio
+async def test_an_answer_exactly_at_the_limit_is_accepted():
+    # Trần là ĐƯỢC PHÉP bằng, không phải nhỏ hơn — lệch một ký tự ở biên là
+    # kiểu lỗi không ai đọc ra được từ thông báo.
+    out, _ = await _submit({"E1": "x" * cw.MAX_ANSWER_CHARS, "E2": "b"})
+    assert out["total"] == 2

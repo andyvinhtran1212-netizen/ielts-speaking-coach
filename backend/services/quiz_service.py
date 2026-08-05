@@ -717,14 +717,18 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
     được biến một lượt đã dùng thành một lượt mới.
     """
     _bank_meta_or_404(bank_id, user_id)
+    # Đọc theo MỤC BÀI GIAO, không theo (bank, học viên): giao LẠI cùng bộ bài
+    # là một lượt MỚI, và đọc theo bank sẽ lôi bài của lần giao trước ra rồi báo
+    # "đã nộp" cho một bài chưa ai làm (codex #935).
+    item = _assignment_item_for(bank_id, user_id)
     try:
         qs = (supabase_admin.table("quiz_questions")
               .select("qid, prompt, explain, points, item_key, subtype, order")
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
-        rows = (supabase_admin.table("course_writing_submissions")
-                .select("*").eq("bank_id", bank_id).eq("user_id", user_id)
-                .limit(1).execute().data) or []
+        rows = ((supabase_admin.table("course_writing_submissions")
+                 .select("*").eq("class_assignment_item_id", item["id"])
+                 .limit(1).execute().data) or []) if item else []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
 
@@ -781,10 +785,32 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
             "missing": missing,
         })
 
+    # TỪ CHỐI câu quá dài thay vì cắt rồi chấm phần đầu. Bộ chấm chỉ gửi đi
+    # `_MAX_ANSWER_CHARS` ký tự, nhưng bản lưu và bản so sai→sửa lại dùng câu
+    # ĐẦY ĐỦ — nên phần đuôi model chưa từng đọc sẽ hiện ra như bị xoá
+    # (codex #935). Đây là bài viết LẠI MỘT CÂU, nên trần ấy rộng gấp nhiều lần
+    # nhu cầu thật; vượt nó là dán nhầm, và nói ra tốt hơn im lặng chấm một nửa.
+    _LIMIT = course_writing_grader.MAX_ANSWER_CHARS
+    too_long = [q["qid"] for q in qs
+                if len(str(answers.get(q["qid"]) or "").strip()) > _LIMIT]
+    if too_long:
+        raise HTTPException(422, {
+            "message": f"Có {len(too_long)} câu dài quá {_LIMIT} ký tự. "
+                       "Bài này viết lại MỘT câu — rút ngắn giúp nhé.",
+            "too_long": too_long,
+        })
+
+    # PHẢI có mục bài giao. Bank giáo trình chỉ mở được qua bài giao, nên đây
+    # luôn có ở luồng thật; đòi tường minh vì "một lượt" nay tính theo MỤC, và
+    # một mục NULL sẽ lọt qua UNIQUE của Postgres (NULL không va nhau).
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+
     # Kiểm SỚM, trước khi tốn một lượt gọi model.
     try:
         already = (supabase_admin.table("course_writing_submissions")
-                   .select("id").eq("bank_id", bank_id).eq("user_id", user_id)
+                   .select("id").eq("class_assignment_item_id", item["id"])
                    .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
@@ -795,10 +821,9 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
     graded, model_name = await course_writing_grader.grade(items)
 
-    item = _assignment_item_for(bank_id, user_id)
     row = {
         "bank_id": bank_id, "user_id": user_id,
-        "class_assignment_item_id": (item or {}).get("id"),
+        "class_assignment_item_id": item["id"],
         "items": graded,
         "total": len(graded),
         "clean": sum(1 for g in graded if g.get("ok") is True),
