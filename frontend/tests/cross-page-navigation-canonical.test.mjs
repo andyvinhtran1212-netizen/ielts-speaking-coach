@@ -173,10 +173,12 @@ describe('Destination URLs preserved byte-identical', () => {
   // canonical chrome's /pages/home.html link lives in the component
   // shadow root. Pages below carry page-content back-links OUTSIDE the
   // chrome (context bars, secondary navs), which we still pin per-page.
+  // [cutover /speaking 2026-08-05] ba back-link này trỏ canonical `/speaking`.
+  // Bản legacy `/pages/speaking.html` VẪN phục vụ 200 (cổng parity cần hai vế).
   const HREF_PINS = [
-    { page: 'frontend/pages/practice.html',                 href: '/pages/speaking.html' },
-    { page: 'frontend/pages/result.html',                   href: '/pages/speaking.html' },
-    { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
+    { page: 'frontend/pages/practice.html',                 href: '/speaking' },
+    { page: 'frontend/pages/result.html',                   href: '/speaking' },
+    { page: 'frontend/pages/full-test-result.html',         href: '/speaking' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
     // [cutover /home 2026-08-05] hai back-link này trỏ canonical `/home`.
     // Bản legacy `/pages/home.html` VẪN phục vụ 200 (cổng parity G1 cần cả hai

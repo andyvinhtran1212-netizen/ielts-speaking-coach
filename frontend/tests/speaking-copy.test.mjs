@@ -19,7 +19,7 @@ import * as copy from '../lib/speaking-copy.mjs';
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEGACY = readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8');
 const BEHAVIOR = readFileSync(
-  path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-behavior.tsx'), 'utf8');
+  path.join(FRONTEND, 'app/(authed-speaking)/speaking/speaking-behavior.tsx'), 'utf8');
 
 /** Chuỗi phải có mặt ở CẢ legacy lẫn bản Next (module hằng số hoặc tầng hành vi). */
 const SHARED_STRINGS = [

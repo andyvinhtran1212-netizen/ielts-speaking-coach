@@ -1,4 +1,4 @@
-// Kiểm LUỒNG của `/speaking-preview` mà KHÔNG cần backend, KHÔNG cần secret.
+// Kiểm LUỒNG của `/speaking` mà KHÔNG cần backend, KHÔNG cần secret.
 //
 // VÌ SAO TỒN TẠI: `tests/staging-e2e/speaking-start-flow.spec.js` là bản chạy ở
 // CI, nhưng nó cần `E2E_PASSWORD` và cần nhánh `staging` đã có mã — tức KHÔNG
@@ -16,7 +16,7 @@ import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
-const ROUTE = '/speaking-preview';
+const ROUTE = '/speaking';
 
 const fakeSession = JSON.stringify({
   access_token: 'verify-flow-not-a-real-token',

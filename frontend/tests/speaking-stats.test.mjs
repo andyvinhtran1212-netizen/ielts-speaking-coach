@@ -58,7 +58,7 @@ describe('thống kê Speaking — phần thuần khớp legacy', () => {
     // Quy tắc canonical-truth: một người vừa bị thu quyền không được gác bằng
     // trạng thái cũ trên máy họ.
     const src = readFileSync(
-      path.join(FRONTEND, 'app/(authed-speaking)/speaking-preview/speaking-stats.tsx'), 'utf8')
+      path.join(FRONTEND, 'app/(authed-speaking)/speaking/speaking-stats.tsx'), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
     assert.ok(src.includes("writeDashCache"), 'phải có đường ghi cache');
     assert.ok(!/auth\/me/.test(src), 'KHÔNG được đụng /auth/me trong cụm thống kê');

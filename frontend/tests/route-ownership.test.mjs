@@ -38,7 +38,10 @@ test('not-yet-piloted clean URLs stay legacy-owned', () => {
   // Next. Giống dòng khẳng định của grammar ở trên: rewrite legacy phải biến
   // mất trong CÙNG commit đổi route, nếu không route Next bị che.
   assert.ok(!sources.includes('/home'), 'rewrite /home phải được gỡ khi cutover');
-  assert.ok(sources.includes('/speaking'));
+  // [cutover /speaking 2026-08-05] `/speaking` cũng KHÔNG còn là config source.
+  // Test này nay không còn route "chưa pilot" nào để khẳng định — giữ lại vì
+  // findCollisions() phải chạy sạch, và đổi tên cho khỏi nói dối.
+  assert.ok(!sources.includes('/speaking'), 'rewrite /speaking phải được gỡ khi cutover');
 });
 
 // ── AUDIT F7 (2026-07-14) ───────────────────────────────────────────────

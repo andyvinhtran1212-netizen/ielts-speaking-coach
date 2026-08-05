@@ -622,7 +622,9 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // bản legacy `/pages/home.html` vẫn phục vụ nhưng không còn là đích.
     assert.match(component, /href="\/home"\s+data-tab="home"/);
     assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
-    assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
+    // [cutover /speaking 2026-08-05] như /home và /grammar: chrome trỏ
+    // canonical; `/pages/speaking.html` vẫn phục vụ nhưng không còn là đích.
+    assert.match(component, /href="\/speaking"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
     // [cutover /grammar 2026-08-03] chrome trỏ route canonical; bản legacy
     // `/grammar.html` VẪN phục vụ, chỉ không còn là đích điều hướng.
