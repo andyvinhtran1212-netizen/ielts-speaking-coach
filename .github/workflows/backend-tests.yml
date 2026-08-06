@@ -62,6 +62,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # Postgres THẬT cho các chốt nạp một tệp migration rồi GỌI hàm trong đó.
+    # Không có nó thì `test_delete_rpc_course_evidence.py` tự bỏ qua, và một PR
+    # làm hỏng cú pháp hàm hay bẻ mọi nhánh hành vi vẫn xanh ở cổng merge — một
+    # chốt tồn tại mà không bao giờ nổ (cùng họ với các phát hiện ở #930/#937/#943).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+    env:
+      # Trỏ chốt vào service ở trên. `REQUIRE_PG=1` biến "không nối được" thành
+      # ĐỎ thay vì "bỏ qua": ở CI thì thiếu Postgres là hỏng hạ tầng, không phải
+      # một lời miễn trừ.
+      TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+      REQUIRE_PG: '1'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
