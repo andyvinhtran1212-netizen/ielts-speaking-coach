@@ -264,10 +264,24 @@ export function CourseBehavior() {
           : (writingReady && writing.submitted
               ? '<button class="av-button" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
-        // Báo cáo mở được ở CẢ hai kết luận: đạt rồi vẫn cần biết mình yếu trục
-        // nào, và chưa đạt thì càng cần.
-        const seeReport = '<button class="av-button" id="cx-see-report" type="button">'
-          + 'Xem mình yếu trục nào</button>';
+        // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
+        //
+        // Màn này phát ra đáp án đúng của từng câu kèm lời giải, mà kỳ kiểm tra
+        // lại bốc mẫu từ chính bộ câu ấy. Mở trước khi đạt là đưa trọn bộ đáp án
+        // cho một em sắp phải làm lại — và "đạt" sau đó không còn nghĩa gì.
+        //
+        // Đây là ĐỔI so với trước: bản cũ mở báo cáo ở cả hai kết luận, kể cả
+        // khi chưa đạt. Máy chủ cũng chặn (`locked`), nên nút này chỉ là lớp
+        // ngoài — bỏ nút đi vẫn không đọc được.
+        // Chưa đạt: KHÔNG có nút, nhưng phải NÓI điều kiện mở.
+        //
+        // Bỏ nút mà không nói gì thì màn xem lại biến mất trong im lặng — em ấy
+        // không biết nó tồn tại, cũng không biết phải làm gì để mở (codex #964).
+        const seeReport = v.passed
+          ? '<button class="av-button" id="cx-see-report" type="button">'
+            + 'Xem lại toàn bộ bài làm</button>'
+          : `<p class="cx-verdict__sub">Xem lại toàn bộ bài làm kèm lời giải sẽ `
+            + `mở khi em đạt ${v.threshold}%.</p>`;
         if (v.passed) {
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
             + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
@@ -300,6 +314,14 @@ export function CourseBehavior() {
         try {
           const d = await api.get('/api/quiz/course/report?bank_id='
             + encodeURIComponent(bankId!));
+          if (d && d.locked) {
+            // Nói ĐIỀU KIỆN, không chỉ nói "không được xem": em ấy cần biết
+            // phải làm gì tiếp.
+            box.innerHTML = '<p class="cx-empty">Xem lại bài làm mở sau khi em ĐẠT'
+              + (d.threshold ? ` ${d.threshold}%` : '')
+              + '. Hãy làm bài kiểm tra lại để chốt buổi này.</p>';
+            return;
+          }
           box.innerHTML = CR.renderReport(d);
           CR.bindReport(box);
         } catch (err: any) {
