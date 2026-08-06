@@ -273,10 +273,15 @@ export function CourseBehavior() {
         // Đây là ĐỔI so với trước: bản cũ mở báo cáo ở cả hai kết luận, kể cả
         // khi chưa đạt. Máy chủ cũng chặn (`locked`), nên nút này chỉ là lớp
         // ngoài — bỏ nút đi vẫn không đọc được.
+        // Chưa đạt: KHÔNG có nút, nhưng phải NÓI điều kiện mở.
+        //
+        // Bỏ nút mà không nói gì thì màn xem lại biến mất trong im lặng — em ấy
+        // không biết nó tồn tại, cũng không biết phải làm gì để mở (codex #964).
         const seeReport = v.passed
           ? '<button class="av-button" id="cx-see-report" type="button">'
             + 'Xem lại toàn bộ bài làm</button>'
-          : '';
+          : `<p class="cx-verdict__sub">Xem lại toàn bộ bài làm kèm lời giải sẽ `
+            + `mở khi em đạt ${v.threshold}%.</p>`;
         if (v.passed) {
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
             + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
