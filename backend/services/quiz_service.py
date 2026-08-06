@@ -666,7 +666,8 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
     out: list[dict] = []
     try:
         rows = _report_pages("course_writing_submissions",
-                             "id, user_id, bank_id, items, total, clean, graded_at",
+                             "id, user_id, bank_id, class_assignment_item_id, "
+                             "items, total, clean, graded_at",
                              lambda q: q, db=db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[course-writing] regrade: không đọc được lượt nộp: %s", exc)
@@ -696,6 +697,25 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
             except Exception as exc:  # noqa: BLE001
                 logger.warning("[course-writing] regrade: ghi hỏng %s: %s", r["id"], exc)
                 plan["fixed"] = False
+                continue
+            # ĐỒNG BỘ ĐIỂM SANG SỔ LỚP.
+            #
+            # Lượt nộp hỏng đã ghi 0 vào `class_assignment_items.score`, và cả
+            # trang của học viên lẫn bảng của giáo viên đọc CỘT ẤY. Sửa mỗi bản
+            # chấm thì chi tiết nói 9/10 còn sổ vẫn nói 0 — hai màn hình cãi
+            # nhau về cùng một em (codex #970).
+            #
+            # `mark_item_submitted` không dùng được: nó luỹ đẳng, chỉ ghi khi
+            # `submitted_at` còn trống, mà ở đây nó đã có. Ghi thẳng cột điểm.
+            item_id = r.get("class_assignment_item_id")
+            if item_id and len(graded):
+                try:
+                    (db.table("class_assignment_items")
+                     .update({"score": round(clean / len(graded) * 100, 1)})
+                     .eq("id", item_id).execute())
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("[course-writing] regrade: đồng bộ điểm hỏng "
+                                   "item=%s: %s", item_id, exc)
     return out
 
 

@@ -968,9 +968,24 @@ describe('sang chặng sau', () => {
     const sv = { session_id: null, item_id: null, completed: [], stage: 2, answered: [] };
     const { r } = await run({ questions: qsn, resume: sv });
     assert.equal(r.stage, 2);
-    sv.stage = 9;
+    sv.stage = 6;
     await r.nextStage();
-    assert.equal(r.stage, 9, 'cộng một sẽ đưa về chặng 3 — chặng em ấy đã xong');
+    assert.equal(r.stage, 6, 'cộng một sẽ đưa về chặng 3 — chặng em ấy đã xong');
+  });
+
+  test('máy chủ nói XONG HẾT thì không mở phiên nào nữa', async () => {
+    // Lấp nốt lỗ cuối của một bài gần xong: mở thêm phiên là mở một chặng
+    // KHÔNG TỒN TẠI — trang không có câu nào để vẽ, phiên rỗng bị chốt 0/0 rồi
+    // đi vào lượt xét, và học viên thấy thoáng qua "chặng 10/9" (codex #970).
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));   // 9 chặng
+    const sv = { session_id: null, item_id: null, completed: [], stage: 2, answered: [] };
+    const { r, api } = await run({ questions: qsn, resume: sv });
+    const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    sv.stage = 9;                                                // ngoài dải chặng
+    await r.nextStage();
+    assert.equal(r.stage, 8, 'kẹp về chặng cuối, không đứng ngoài mảng');
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length,
+      before, 'không được mở phiên cho một chặng không tồn tại');
   });
 
   test('máy chủ nói chặng CŨ hơn thì vẫn tiến, không lùi', async () => {

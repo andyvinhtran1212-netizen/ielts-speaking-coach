@@ -103,3 +103,49 @@ def test_an_empty_items_list_is_skipped():
     plan, _ = _run([{"id": "s1", "user_id": "u1", "items": [], "total": 0, "clean": 0}],
                    grade_result=True)
     assert plan == []
+
+
+def test_the_class_ledger_score_is_synced_too():
+    """Lượt nộp hỏng đã ghi 0 vào `class_assignment_items.score`, và cả trang
+    học viên lẫn bảng giáo viên đọc CỘT ẤY. Sửa mỗi bản chấm thì chi tiết nói
+    9/10 còn sổ vẫn nói 0 — hai màn hình cãi nhau về cùng một em (codex #970).
+    """
+    row = _sub("s1", [None] * 10)
+    row["class_assignment_item_id"] = "it-1"
+    _, db = _run([row], grade_result=True, commit=True)
+    scores = [w for w in db.writes if "score" in w]
+    assert scores and scores[0] == {"id": "it-1", "score": 100.0}, db.writes
+
+
+def test_a_submission_with_no_class_item_skips_the_ledger_write():
+    """Bài tự luyện không gắn mục bài giao — không có sổ nào để đồng bộ."""
+    row = _sub("s1", [None] * 10)
+    row["class_assignment_item_id"] = None
+    _, db = _run([row], grade_result=True, commit=True)
+    assert [w for w in db.writes if "score" in w] == []
+
+
+def test_a_failed_submission_write_does_NOT_sync_the_score():
+    """Ghi bản chấm hỏng thì điểm cũ phải ở nguyên: đồng bộ một con số cho một
+    bản chấm không tồn tại còn tệ hơn để nguyên."""
+    class _Boom(_DB):
+        def table(self, n):
+            t = super().table(n)
+            if n == "course_writing_submissions":
+                orig = t.update
+                def update(patch):
+                    class _U:
+                        def eq(self, *_a): return self
+                        def execute(self): raise RuntimeError("ghi hỏng")
+                    return _U()
+                t.update = update
+            return t
+    row = _sub("s1", [None] * 10)
+    row["class_assignment_item_id"] = "it-1"
+    db = _Boom([row])
+    async def fake_grade(batch):
+        return ([{**b, "ok": True} for b in batch], "m")
+    with patch.object(qs.course_writing_grader, "grade", fake_grade):
+        plan = asyncio.run(qs.regrade_failed_course_writing(db, commit=True))
+    assert plan[0]["fixed"] is False
+    assert [w for w in db.writes if "score" in w] == []
