@@ -137,7 +137,8 @@ def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {k: src[k] for k in _DISPLAY_CONFIG_FIELDS if k in src}
 
 
-def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
+              writing_memo: Dict[str, bool] | None = None) -> Dict[str, Any]:
     """Attach the two derived states the UI needs. Both come from timestamps, so
     they stay correct without any job keeping them so."""
     due_raw = assignment.get("due_at")
@@ -160,7 +161,7 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
         # đề KHÔNG có tự luận cũng cho ra đúng hình dạng ấy, và học viên đọc
         # thành "còn phần tự luận" cho một phần không tồn tại (codex cục bộ).
         "writing_expected": (
-            bank_has_writing(assignment.get("content_id"))
+            bank_has_writing(assignment.get("content_id"), memo=writing_memo)
             if assignment.get("skill") == "course" else False),
         "is_late":      is_late,
         "is_missing":   is_missing,
@@ -249,7 +250,10 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
         stale = True
         logger.warning("[class] test reconcile skipped: %s", exc)
 
-    out = [_decorate(i, by_id[i["assignment_id"]], now)
+    # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
+    # và một lượt đọc là đủ cho cả trang.
+    writing_memo: Dict[str, bool] = {}
+    out = [_decorate(i, by_id[i["assignment_id"]], now, writing_memo)
            for i in items if i["assignment_id"] in by_id]
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
     # be at the top. A give with no deadline is never urgent, so it sorts last

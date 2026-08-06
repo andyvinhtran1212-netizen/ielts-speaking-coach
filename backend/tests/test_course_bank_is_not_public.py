@@ -19,7 +19,12 @@ from services import quiz_service as mod
 
 
 class _Resp:
-    def __init__(self, data): self.data = data
+    # `count` cần cho mọi truy vấn `select(..., count="exact")`. Thiếu nó thì
+    # lượt đếm NÉM, rơi vào nhánh cho-qua, và chốt xanh vì lý do không liên quan
+    # tới thứ nó định kiểm.
+    def __init__(self, data):
+        self.data = data
+        self.count = len(data)
 
 
 class _Table:
@@ -31,6 +36,24 @@ class _Table:
 
     def eq(self, f, v):
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
+        return self
+
+    @property
+    def not_(self):
+        # `not_.is_(col, "null")` = cột KHÁC NULL. Thiếu nó thì lượt đếm chặng
+        # NÉM, rơi vào nhánh cho-qua, và chốt xanh vì một lý do không liên quan.
+        outer = self
+
+        class _Not:
+            def is_(self, f, _v):
+                outer._rows = [r for r in outer._rows if r.get(f) is not None]
+                return outer
+        return _Not()
+
+    def range(self, a, b):
+        # `_report_pages` đọc theo TRANG. Thiếu `range` thì lượt đọc NÉM, rơi
+        # vào nhánh cho-qua, và chốt xanh vì một lý do không liên quan.
+        self._rows = self._rows[a:b + 1]
         return self
 
     def neq(self, f, v):
@@ -356,14 +379,39 @@ def test_a_free_practice_session_has_NO_class_link():
 
 # ── Chốt sổ bài giao khi kết phiên ───────────────────────────────────────────
 
-def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8,
-         has_writing=False):
+def _stage_db(*, stages_done, n_mcq=20, has_writing=False, **extra):
+    """Bộ giả ĐỦ để luật "xong hết chặng" thật sự chạy.
+
+    Không có `quiz_questions` thì `_course_stage_count` trả "không đếm được" và
+    lệnh chốt sổ rơi vào nhánh cho-qua — chốt khi ấy xanh vì lý do SAI, và luật
+    đang muốn kiểm thì không hề được chạy.
+    """
+    # Mỗi "chặng" là 10 câu, và luật là PHỦ ĐỦ CÂU — nên phiên phải kèm lượt
+    # làm thật, không chỉ một dòng phiên.
+    return _db(
+        quiz_questions=[{"bank_id": "bank-course", "qid": f"q{i}", "type": "mcq",
+                         "answer": 0} for i in range(n_mcq)]
+        # Phần tự luận đặt bằng DỮ LIỆU, không bằng cách vá hàm: chắn nay đọc
+        # nó từ chính bộ đề, nên vá một hàm không còn được gọi thì phép kiểm
+        # đo một thứ không tồn tại.
+        + ([{"bank_id": "bank-course", "qid": "w1", "type": "writing"}]
+           if has_writing else []),
+        quiz_sessions=[{"id": f"s{i}", "kind": "run", "ended_by": "completed",
+                        "class_assignment_item_id": "it-1",
+                        "ended_at": "2026-08-01T00:00:00Z"}
+                       for i in range(stages_done)],
+        quiz_attempts=[{"session_id": f"s{k}", "qid": f"q{k * 10 + n}"}
+                       for k in range(stages_done) for n in range(10)],
+        **extra,
+    )
+
+
+def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
     marked = []
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": item_id}
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
-         patch.object(mod, "bank_has_writing", lambda _b: has_writing), \
          patch.object(mod, "mark_item_submitted",
                       lambda _db, **kw: marked.append(kw) or True):
         mod.end_session(user_id="u1", session_id="sess-1", data={
@@ -378,7 +426,8 @@ def test_finishing_marks_the_class_item_SUBMITTED():
 
     Chỉ đúng với bộ đề KHÔNG có phần tự luận; xem chốt ngay dưới.
     """
-    marked = _end(_db(quiz_sessions=[]))
+    # 20 câu = 2 chặng, và cả hai đã chốt ⇒ XONG BÀI.
+    marked = _end(_stage_db(stages_done=2))
     assert len(marked) == 1
     assert marked[0]["item_id"] == "it-1"
     assert marked[0]["artifact_kind"] == "quiz_session"
@@ -418,4 +467,10 @@ def test_a_bank_WITH_writing_is_not_closed_by_finishing_a_stage():
 
     Đường chốt sổ khi ấy là lượt NỘP TỰ LUẬN, không phải lượt kết chặng.
     """
-    assert _end(_db(quiz_sessions=[]), has_writing=True) == []
+    assert _end(_stage_db(stages_done=2, has_writing=True)) == []
+
+
+def test_finishing_ONE_of_TWO_stages_does_not_close_it():
+    """Ca em Minh Ngoc Võ: 3/9 chặng mà sổ đã ghi "đã nộp" điểm 60. Vá lần một
+    chỉ chắn bộ đề CÓ tự luận nên ca này vẫn lọt."""
+    assert _end(_stage_db(stages_done=1)) == []

@@ -802,15 +802,8 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     # Best-effort: hỏng ở đây KHÔNG được làm đổ lệnh kết phiên — điểm đã ghi rồi,
     # và chốt sổ có thể vá lại bằng lượt đối chiếu.
     item_id = (session or {}).get("class_assignment_item_id")
-    # BỘ ĐỀ CÓ PHẦN TỰ LUẬN thì xong chặng CHƯA PHẢI xong bài — đường chốt sổ là
-    # lượt nộp tự luận, không phải lượt kết chặng.
-    #
-    # Không có chắn này thì chặng ĐẦU TIÊN đã đóng dấu "đã nộp", và một em làm
-    # hết 9 chặng rồi dừng trước phần viết vẫn hiện là đã hoàn thành — đúng ca
-    # đã xảy ra với em Phương Anh Nguyễn (9/9 chặng, 0 câu viết, sổ ghi `graded`
-    # 80 điểm). Giáo viên không có cách nào biết cần nhắc em ấy.
-    if item_id and ended_by == "completed" and not bank_has_writing(
-            (session or {}).get("bank_id")):
+    if item_id and ended_by == "completed" and _course_work_is_done(
+            session or {}, item_id):
         try:
             mark_item_submitted(
                 supabase_admin, item_id=item_id,
@@ -820,6 +813,86 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mark submitted failed item=%s: %s", item_id, exc)
     return res.data[0] if res.data else {"id": session_id, **patch}
+
+
+def _course_bank_shape(bank_id: str | None) -> tuple[set[str], int, bool]:
+    """(qid của câu TRẮC NGHIỆM, số câu TỰ LUẬN, đọc-được-hay-không).
+
+    Một lượt đọc duy nhất trả cả ba thứ. Trước đây hai câu hỏi ("có tự luận
+    không" và "bao nhiêu chặng") đi hai đường — một đường có cache dài hạn —
+    nên sau khi re-import bộ đề, hai đường trả lời khác nhau và bài giao hoặc
+    kẹt vĩnh viễn hoặc bị chốt sớm (codex cục bộ 06/08).
+    """
+    if not bank_id:
+        return set(), 0, True
+    try:
+        rows = _report_pages("quiz_questions", "qid, type",
+                             lambda q: q.eq("bank_id", bank_id))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] không đọc được bộ đề bank=%s: %s", bank_id, exc)
+        return set(), 0, False
+    mcq = {r["qid"] for r in rows if r.get("type") != "writing" and r.get("qid")}
+    writing = sum(1 for r in rows if r.get("type") == "writing")
+    return mcq, writing, True
+
+
+def _course_work_is_done(session: dict, item_id: str) -> bool:
+    """Kết chặng này đã là XONG BÀI chưa.
+
+    ── Vì sao cần hỏi ──────────────────────────────────────────────────────
+    `end_session` từng đóng dấu "đã nộp" ngay ở chặng ĐẦU TIÊN. Bốn học viên
+    thật đã dính, trong đó em Minh Ngoc Võ mới 3/9 chặng mà sổ ghi `graded` 60.
+
+    ── Vì sao PHỦ CÂU chứ không ĐẾM PHIÊN ──────────────────────────────────
+    Một chặng có thể sinh NHIỀU phiên: tải lại trang, mở hai tab, làm lại chặng.
+    Em Minh Ngoc Võ có 7 phiên cho 3 chặng. Đếm dòng phiên thì hai phiên cùng
+    phủ câu 1–10 đã đủ "2 chặng" và bài bị chốt trong khi câu 11–20 chưa ai
+    làm. `course_verdict` đã dùng luật phủ-đủ-câu từ lâu vì đúng lý do này —
+    đây là mượn lại luật ấy, không phát minh luật mới.
+
+    ── Hỏng thì trả True ───────────────────────────────────────────────────
+    Không đọc được thì coi như XONG. Nghe ngược, nhưng trả `False` nhầm để lại
+    bài giao KẸT VĨNH VIỄN: `end_session` là đường chốt sổ duy nhất cho bài
+    theo buổi. Trả `True` nhầm thì chỉ đóng dấu sớm một lần, và bảng của giáo
+    viên vẫn nói đúng vì nó đọc thẳng số chặng đã chốt.
+    """
+    bank_id = session.get("bank_id")
+    mcq_qids, writing, ok = _course_bank_shape(bank_id)
+    if not ok:
+        return True
+    # Còn phần tự luận thì đường chốt sổ là lượt NỘP TỰ LUẬN. Đọc từ CÙNG lượt
+    # đọc ở trên, không qua một cache có thể đã cũ sau re-import.
+    if writing:
+        return False
+    if not mcq_qids:
+        return True
+
+    try:
+        sess = (supabase_admin.table("quiz_sessions")
+                .select("id, kind, ended_by")
+                .eq("class_assignment_item_id", item_id)
+                .eq("ended_by", "completed")
+                .execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] không đọc được phiên đã chốt item=%s: %s", item_id, exc)
+        return True
+    # Chỉ lượt CHÍNH. Phiên kiểm tra lại là mẫu nhỏ ngẫu nhiên, không phải chặng.
+    ids = [x["id"] for x in sess if (x.get("kind") or "run") == "run"]
+    if not ids:
+        return False
+
+    answered: set[str] = set()
+    for i in range(0, len(ids), _REPORT_IDS):
+        try:
+            for a in _report_pages("quiz_attempts", "qid",
+                                   lambda q, c=ids[i:i + _REPORT_IDS]: q.in_("session_id", c)):
+                if a.get("qid"):
+                    answered.add(a["qid"])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] không đọc được lượt làm item=%s: %s", item_id, exc)
+            return True
+
+    return mcq_qids <= answered
 
 
 def course_writing_state(*, user_id: str, bank_id: str) -> dict:
@@ -1064,34 +1137,22 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     }
 
 
-# Bộ đề nào có phần tự luận — nhớ lại sau lần đọc ĐẦU THÀNH CÔNG.
-#
-# Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng (đổi ruột thì tạo
-# bank mới), nên nhớ là an toàn. Nhớ để làm gì: thu hẹp cửa sổ "đọc hỏng" xuống
-# đúng lần gọi ĐẦU TIÊN của tiến trình cho bank ấy.
-_WRITING_CACHE: dict[str, bool] = {}
-
-
-def bank_has_writing(bank_id: str | None) -> bool:
+def bank_has_writing(bank_id: str | None, *, memo: dict | None = None) -> bool:
     """Bộ đề này có câu TỰ LUẬN không.
 
-    ── Vì sao đọc hỏng thì trả `False` ─────────────────────────────────────
-    Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
-    nhịp thôi". Lý lẽ ấy SAI, vì với bộ đề KHÔNG có tự luận thì không có nhịp
-    nào sau cả: `end_session` là đường chốt sổ duy nhất, và
-    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking) chứ
-    không đọc `quiz_sessions`. Một lần đọc hỏng khi ấy để lại một bài giao KẸT
-    VĨNH VIỄN ở "Cần nộp", không ai sửa được (codex PR 952).
+    KHÔNG có cache dài hạn. Bộ nhập bài tập theo buổi cập nhật lại ĐÚNG
+    `bank_id` rồi thay bộ câu hỏi, nên một giá trị nhớ từ trước re-import sẽ sai
+    — và sai theo hai chiều đều tệ: nhớ "có" thì bài kẹt vĩnh viễn khi phần tự
+    luận bị bỏ; nhớ "không" thì chốt sổ trước phần viết vừa thêm (codex cục bộ
+    06/08). Bộ nhập chạy ở tiến trình khác nên không xoá cache hộ được.
 
-    Hỏng theo chiều ngược lại thì thiệt hại có giới hạn: một bài giao có phần
-    viết bị đóng dấu sớm MỘT lần, và mặt đọc của giáo viên vẫn nói đúng — bảng
-    "Chi tiết làm bài" đọc thẳng `course_writing_submissions`, không đọc
-    `submitted_at`.
+    `memo` là chỗ nhớ trong MỘT lượt gọi — trang lớp hỏi cùng một bank cho nhiều
+    mục, và một lượt đọc là đủ cho cả trang.
     """
     if not bank_id:
         return False
-    if bank_id in _WRITING_CACHE:
-        return _WRITING_CACHE[bank_id]
+    if memo is not None and bank_id in memo:
+        return memo[bank_id]
     try:
         has = bool((supabase_admin.table("quiz_questions").select("id", count="exact")
                     .eq("bank_id", bank_id).eq("type", "writing")
@@ -1100,7 +1161,8 @@ def bank_has_writing(bank_id: str | None) -> bool:
         logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — coi như "
                        "KHÔNG có, để bài giao không kẹt vĩnh viễn", bank_id, exc)
         return False
-    _WRITING_CACHE[bank_id] = has
+    if memo is not None:
+        memo[bank_id] = has
     return has
 
 
