@@ -13,6 +13,7 @@
 // Trang này gắn widget với `contentId`, KHÔNG có attempt. Gửi nhầm `attempt_id`
 // là gắn báo lỗi vào một lượt làm bài không liên quan, nên nó được ghim là PHẢI
 // VẮNG — bộ so chỉ khớp tập con nên không ghim thì gửi thừa vẫn xanh.
+import { ABSENT } from '../write-flow-core.mjs';
 import base from './listening-mcq-submit.mjs';
 
 const NOTE = 'Câu 2 nghe không rõ.';
@@ -37,7 +38,9 @@ export default {
       content_id: base.writes[0].body.content_id,
       note: NOTE,
       // Bài lẻ KHÔNG có lượt làm bài để neo vào.
-      attempt_id: (v) => v == null,
+      // `feedback-widgets.js:42` chỉ thêm khoá này khi có giá trị, nên ở luồng cờ
+      // theo NỘI DUNG nó thật sự vắng — ghim ABSENT thay vì nhận cả `null`.
+      attempt_id: ABSENT,
     },
   }],
 };

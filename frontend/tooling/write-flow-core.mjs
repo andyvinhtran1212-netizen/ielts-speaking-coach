@@ -54,14 +54,39 @@ export function normalizePath(url) {
  *   · một hàm  → gọi với giá trị thật, phải trả true
  *   · `NON_EMPTY` → phải là chuỗi/mảng khác rỗng (dùng cho `draft_text`,
  *     `essay_text`: ghi đè bài bằng chuỗi rỗng là mất bài, phải chặn được)
+ *   · `ABSENT` → khoá phải KHÔNG CÓ MẶT trong thân request
  */
 export const NON_EMPTY = Symbol('non-empty');
+
+/**
+ * "Trường này phải VẮNG MẶT."
+ *
+ * VÌ SAO LÀ KÝ HIỆU RIÊNG chứ không phải `(v) => v == null`: cách viết kia nhận
+ * CẢ hai trạng thái — khoá không có, và khoá có nhưng bằng `null`. Với các
+ * trường ở đây thì hai trạng thái đó khác nhau thật: ba trang Listening dùng
+ * chung một đích ghi nhưng khác tên trường bài làm, nên một bản port chép nhầm
+ * khuôn có thể gửi `answers: null` kèm `user_transcript` thật — backend từ chối
+ * `null` cho các trường danh sách (`routers/listening.py:327-329`), còn bản khai
+ * lại xanh. (codex review cục bộ bắt ở #966)
+ *
+ * `(v) => v === undefined` cũng đúng, nhưng nó là cách viết phải nhớ đúng ở MỌI
+ * chỗ dùng — mà chỗ dùng thì tăng theo từng trang port. Ký hiệu thì không nhớ
+ * sai được.
+ */
+export const ABSENT = Symbol('absent');
 
 export function bodyMatches(actual, expected) {
   if (expected == null) return { ok: true };
   if (actual == null) return { ok: false, why: 'không có thân request' };
   for (const [k, want] of Object.entries(expected)) {
     const got = actual[k];
+    if (want === ABSENT) {
+      // Hỏi KHOÁ CÓ MẶT KHÔNG, không hỏi giá trị: `answers: null` là có mặt.
+      if (Object.prototype.hasOwnProperty.call(actual, k)) {
+        return { ok: false, why: `«${k}» phải VẮNG nhưng có mặt (= ${JSON.stringify(got)})` };
+      }
+      continue;
+    }
     if (want === NON_EMPTY) {
       const empty = got == null || (typeof got === 'string' && got.trim() === '')
         || (Array.isArray(got) && got.length === 0);

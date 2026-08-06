@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  ABSENT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -162,5 +162,33 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
       [{ method: 'POST', path: '/api/writing/my-assignments/:id/paste-log', times: 2 }],
     );
     assert.ok(r.pass, JSON.stringify(r.findings));
+  });
+});
+
+describe('ABSENT — khoá phải VẮNG MẶT', () => {
+  // codex review cục bộ bắt ở #966: các bản khai ghim "trường này phải vắng"
+  // bằng `(v) => v == null`, mà cách viết đó nhận CẢ hai trạng thái — khoá không
+  // có, và khoá có nhưng bằng `null`. Ba trang Listening dùng chung một đích ghi
+  // và khác nhau đúng ở tên trường bài làm, nên một bản port chép nhầm khuôn có
+  // thể gửi `answers: null` kèm `user_transcript` thật: backend từ chối `null`
+  // cho trường danh sách (`routers/listening.py:327-329`), còn bản khai xanh.
+  test('khoá vắng ⇒ đạt', () => {
+    assert.equal(bodyMatches({ a: 1 }, { answers: ABSENT }).ok, true);
+  });
+
+  test('khoá có mặt nhưng null ⇒ ĐỎ (đây là điểm khác so với cách viết cũ)', () => {
+    const r = bodyMatches({ a: 1, answers: null }, { answers: ABSENT });
+    assert.equal(r.ok, false);
+    assert.match(r.why, /phải VẮNG nhưng có mặt/);
+  });
+
+  test('khoá có mặt với giá trị thật ⇒ ĐỎ', () => {
+    assert.equal(bodyMatches({ answers: ['T'] }, { answers: ABSENT }).ok, false);
+  });
+
+  test('cách viết CŨ nhận null — chứng minh khác biệt là có thật', () => {
+    // Không phải test hành vi sản phẩm; nó ghim LÝ DO thay đổi, để ai đó quay về
+    // `(v) => v == null` sẽ thấy ngay hai cách viết KHÔNG tương đương.
+    assert.equal(bodyMatches({ answers: null }, { answers: (v) => v == null }).ok, true);
   });
 });

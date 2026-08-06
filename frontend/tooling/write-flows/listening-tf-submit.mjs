@@ -19,6 +19,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ABSENT } from '../write-flow-core.mjs';
+
 // Dữ liệu giả đọc từ tệp JSON dùng chung, và `backend/tests/test_write_flow_fixtures.py`
 // cho nó chạy qua CHÍNH `_validate_true_false_payload` của production. Xem lịch
 // sử #962: ba vòng review liên tiếp bắt lỗi "dữ liệu giả mô tả trạng thái backend
@@ -89,10 +91,16 @@ export default {
         listen_count: 1,
         // PHẢI VẮNG — bài lẻ không thuộc phiên nào. Bộ so chỉ khớp TẬP CON nên
         // không ghim thì bản port gửi thừa trường này vẫn xanh.
-        listening_session_id: (v) => v == null,
-        // PHẢI VẮNG — đây là trường của chế độ MCQ. Ghim để một bản port chép
-        // từ khuôn MCQ sang mà quên đổi sẽ ĐỎ chứ không âm thầm gửi cả hai.
-        mcq_answers: (v) => v == null,
+        listening_session_id: ABSENT,
+        // Trường bài làm của HAI chế độ kia. Ghim để một bản port chép từ khuôn
+        // khác sang mà quên đổi sẽ ĐỎ chứ không âm thầm gửi cả hai.
+        //
+        // `ABSENT` chứ không phải `(v) => v == null`: cách viết kia nhận cả
+        // `mcq_answers: null`, mà backend từ chối `null` cho trường danh sách
+        // (`routers/listening.py:327-329`) — bản khai xanh trong khi production
+        // 422 (codex review cục bộ bắt ở #966).
+        mcq_answers: ABSENT,
+        user_transcript: ABSENT,
       },
     },
   ],
