@@ -118,6 +118,21 @@ on:
       - 'frontend/public/css/tailwind.build.css'
       - 'frontend/public/css/aver-design/tokens.css'
       - 'frontend/public/css/aver-design/components.css'
+      # Hai trang vocab dùng khuôn `mount()`; mỗi trang một route-group riêng
+      # vì hai tệp CSS định nghĩa lại cùng selector với giá trị khác nhau.
+      - 'frontend/app/(authed-exercises)/**'
+      - 'frontend/app/(authed-flashcards)/**'
+      - 'frontend/public/pages/exercises.html'
+      - 'frontend/public/pages/flashcards.html'
+      - 'frontend/public/css/exercises.css'
+      - 'frontend/public/css/flashcards.css'
+      - 'frontend/public/css/ds.css'
+      - 'frontend/public/js/vocab-modules/**'
+      # Phụ thuộc CHUNG của mọi cặp, review cục bộ #958 chỉ ra còn sót:
+      # `app/layout.tsx` là root layout của TẤT CẢ route Next; bộ sinh
+      # runtime-config quyết định mọi vế trỏ backend nào.
+      - 'frontend/app/layout.tsx'
+      - 'frontend/tooling/generate-runtime-config.mjs'
       - 'frontend/public/pages/listening.html'
       - 'frontend/public/pages/listening-browse.html'
       - 'frontend/public/pages/listening-analytics.html'
@@ -302,7 +317,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|aver-design/tokens|aver-design/components)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

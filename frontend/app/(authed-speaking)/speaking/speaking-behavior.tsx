@@ -105,7 +105,7 @@ function applyExercisesFlag(d1: unknown, d3: unknown) {
   const c = $('exercises-link-container');
   if (!c) return;
   c.innerHTML = (d1 === true || d3 === true)
-    ? '<a href="/pages/exercises.html" class="main-tab-btn" style="text-decoration:none;">'
+    ? '<a href="/exercises" class="main-tab-btn" style="text-decoration:none;">'
       + '<span class="main-tab-label">🎯 Exercises</span>'
       + '<span class="main-tab-sub">Bài tập từ vựng ngắn</span>'
       + '</a>'
@@ -118,7 +118,7 @@ function applyFlashcardsFlag(enabled: unknown, api: any, st: State) {
   if (!c) return;
   if (enabled !== true) { c.innerHTML = ''; return; }
   c.innerHTML =
-    '<a href="/pages/flashcards.html" class="main-tab-btn" style="text-decoration:none;">'
+    '<a href="/flashcards" class="main-tab-btn" style="text-decoration:none;">'
     + '<span class="main-tab-label">📚 Flashcards</span>'
     + '<span class="main-tab-sub" id="flashcards-tab-sub">Ôn từ vựng theo lịch tự động</span>'
     + '</a>';

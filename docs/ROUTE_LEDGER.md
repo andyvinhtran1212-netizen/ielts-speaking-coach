@@ -127,7 +127,7 @@
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/grammar` | `/grammar.html` | `grammar.html` | Public | none | localStorage (theme) | M | Grammar hub; category browser |
+| `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
 | `/grammar/:category/:slug` | `/:category/:slug` (clean URL alias via vercel rewrite) | `pages/grammar-article.html` | Public | `anchor` (scroll to section) | localStorage (theme), fetch (public API) | M | Article view; ~150 articles served by single page; server-side SEO metadata |
 | `/grammar/compare` | — | `pages/grammar-compare.html` | Public | `a`, `b` (article slugs to compare) | localStorage (theme), fetch API | M | Side-by-side article comparison |
 | `/grammar/roadmap` | — | `pages/grammar-roadmap.html` | Public | none | localStorage (theme) | S | Learning path graph; static layout |
@@ -157,29 +157,41 @@
 |---|---|---|---|---|---|---|---|
 | `/reading` | — | `pages/reading.html` | Public (can practice without login; auth optional for progress save) | none | localStorage (theme) | S | Reading hub; passage browser |
 | `/reading/exam` | — | `pages/reading-exam.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (exam state, answers, timing), fetch API | XL | Full 3-passage IELTS reading; 2613 LOC reading-exam.js; local/session storage for persistence |
-| `/reading/skill` | — | `pages/reading-skill.html` | Student | `skill_id` (comprehension, vocab, skim, scan) | localStorage (theme), sessionStorage (answers) | L | Skill-specific passage drills |
+| `/reading/skill` | `/pages/reading-skill.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/skill/page.tsx` — CUTOVER 2026-08-06 | Student | `skill_id` (comprehension, vocab, skim, scan) | localStorage (theme), sessionStorage (answers) | L | Skill-specific passage drills |
 | `/reading/skill/:exercise_id` | — | `pages/reading-skill-exercise.html` | Student | `exercise_id`, `passage_id` | localStorage (theme), sessionStorage (state) | M | Single exercise within skill drill |
 | `/reading/vocab` | `/pages/reading-vocab.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/vocab/page.tsx` — CUTOVER 2026-08-05 | Student (dùng AuthedShell; endpoint nhận `authorization` tuỳ chọn) | none | localStorage (theme), fetch (vocab list) | M | Vocabulary extraction from reading content |
 | `/reading/vocab/:passage_id` | — | `pages/reading-vocab-passage.html` | Public | `passage_id` | localStorage (theme) | M | Words from single passage |
 | `/reading/review` | — | `pages/reading-review.html` | Student | `attempt_id` | localStorage (theme), fetch (answer review) | M | Post-exam review + analytics |
-| `/reading/mini-test` | — | `pages/reading-mini-test.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill |
-| `/reading/test` | — | `pages/reading-test.html` | Student | (not commonly used; prefer exam or mini-test) | localStorage (theme) | S | Generic reading test page (low traffic) |
+| `/reading/mini-test` | `/pages/reading-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/mini-test/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill |
+| `/reading/test` | `/pages/reading-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/test/page.tsx` — CUTOVER 2026-08-06 | Student | (not commonly used; prefer exam or mini-test) | localStorage (theme) | S | Generic reading test page (low traffic) |
 
 ### Listening
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/listening` | — | `pages/listening.html` | Public | none | localStorage (theme) | S | Listening hub; content browser |
+| `/listening` | `/pages/listening.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme) | S | Listening hub; content browser |
+| `/listening/tests` | `/pages/listening-tests.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/tests/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme) | S | Cambridge full tests shelf |
+| `/listening/practice` | `/pages/listening-practice.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/practice/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme) | S | Luyện nhanh shelf |
 | `/listening/mcq` | — | `pages/listening-mcq.html` | Student | `test_id`, `attempt_id`, `section` (optional) | localStorage (theme), sessionStorage (mcq state, answers), audio playback, free-scrub timing | L | Multiple-choice questions with linked audio |
 | `/listening/gist` | — | `pages/listening-gist.html` | Student | `test_id`, `attempt_id`, `section` | localStorage (theme), sessionStorage (gist state), audio playback | M | Main idea comprehension task |
 | `/listening/tf` | — | `pages/listening-tf.html` | Student | `test_id`, `attempt_id`, `section` | localStorage (theme), sessionStorage (tf state, answers), audio playback | M | True/False/Not Given task |
 | `/listening/dictation` | — | `pages/listening-dictation.html` | Student | `test_id`, `attempt_id`, `section` (if linked to test) | localStorage (theme), sessionStorage (transcribed text), audio playback (free-scrub), clipboard (paste submit) | L | Free-text transcription from audio |
 | `/listening/test-dictation` | — | `pages/listening-test-dictation.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (dictation state), audio playback | M | Linked dictation from test sections |
-| `/listening/skills` | — | `pages/listening-skills.html` | Student | `skill_id` (drill type: mcq, gist, tf, dictation) | localStorage (theme), sessionStorage (skill drill state) | M | Skill-specific drill selector + launcher |
-| `/listening/browse` | — | `pages/listening-browse.html` | Public | `level` (elementary, intermediate, advanced) | localStorage (theme), fetch (content list) | S | Listening content catalog |
+| `/listening/skills` | `/pages/listening-skills.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/skills/page.tsx` — CUTOVER 2026-08-06 | Student | `skill_id` (drill type: mcq, gist, tf, dictation) | localStorage (theme), sessionStorage (skill drill state) | M | Skill-specific drill selector + launcher |
+| `/listening/browse` | `/pages/listening-browse.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/browse/page.tsx` — CUTOVER 2026-08-06 | Student | `level` (elementary, intermediate, advanced) | localStorage (theme), fetch (content list) | S | Listening content catalog |
 | `/listening/review` | — | `pages/listening-review.html` | Student | `attempt_id` | localStorage (theme), fetch (review data), audio playback | M | Post-test review + section breakdown |
-| `/listening/analytics` | — | `pages/listening-analytics.html` | Student | `test_id`, `user_id` (optional, for admin) | localStorage (theme), fetch (analytics API) | M | Performance summary + trend |
-| `/listening/mini-test` | — | `pages/listening-mini-test.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state), audio playback | M | 1-section listening drill |
+| `/listening/analytics` | `/pages/listening-analytics.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/analytics/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `user_id` (optional, for admin) | localStorage (theme), fetch (analytics API) | M | Performance summary + trend |
+| `/listening/mini-test` | `/pages/listening-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/mini-test/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state), audio playback | M | 1-section listening drill |
+
+### Tài khoản học viên
+
+Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi theo MIỀN:
+để `/profile` nằm trong "Exercises & Quizzes" chỉ vì nó được chèn cạnh
+`/exercises` là làm lệch đúng lượt rà đó (bot bắt ở #958).
+
+| Route | Alias / redirect | Tệp sở hữu | Ai xem được | Tham số | Trạng thái phía client | Kích thước | Ghi chú |
+|---|---|---|---|---|---|---|---|
+| `/profile` | `/pages/profile.html` → 307 sang `/profile` (bản legacy ĐÃ gỡ khi cutover pilot 3) | `app/(authed)/profile/page.tsx` — CUTOVER (pilot 3) | Student | none | localStorage (theme), Supabase session | M | Hồ sơ học viên |
 
 ### Vocabulary
 
@@ -196,10 +208,11 @@
 |---|---|---|---|---|---|---|---|
 | `/grammar/exercises` | — | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
 | `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
-| `/exercises` | — | `pages/exercises.html` | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
+| `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
+| `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
 | `/quiz` | — | `pages/quiz.html` | Public | `bank_id` (grammar bank slug), `lesson_id` (optional) | localStorage (theme), sessionStorage (quiz answers), fetch API | L | Quiz player; MCQ/gap-fill/true-false |
 | `/quiz/progress` | — | `pages/quiz-progress.html` | Student | `bank_id` (optional, filter by bank) | localStorage (theme), fetch (progress API) | M | Quiz attempt history + stats |
-| `/flashcards` | — | `pages/flashcards.html` | Student | none | localStorage (theme), sessionStorage (deck order) | M | Flashcard deck browser |
+| `/flashcards` | `/pages/flashcards.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-flashcards)/flashcards/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), sessionStorage (deck order) | M | Flashcard deck browser |
 | `/flashcard-study` | — | `pages/flashcard-study.html` | Student | `deck_id`, `card_index` (optional, resume) | localStorage (theme), sessionStorage (card state, review marks), fetch API | L | Flashcard study player; locked IIFE (not reusable) |
 | `/exam` | — | `pages/exam.html` | Public | `exam_id` (MCQ exam type) | localStorage (theme), sessionStorage (exam state, answers) | L | Exam player (generic MCQ/true-false) |
 
@@ -535,7 +548,7 @@ Some routes are served by the same HTML file but accessible via multiple URL pat
 | `/vocabulary` | `/vocabulary.html` | `pages/vocabulary.html` | Root-level file needs audit; likely legacy |
 | `/writing` | `/writing/dashboard` | `pages/writing-dashboard.html` | Clean URL alias via vercel rewrite |
 | `/writing/result` | (direct path only) | `pages/writing-result.html` | No root-level alias |
-| `/grammar` | `/grammar.html` | `grammar.html` | Root-level file |
+| `/grammar` | `/grammar.html` | `app/(public-content)/grammar/page.tsx` | CUTOVER (pilot 2); legacy giữ làm mốc rollback + vế parity |
 | `/grammar/:category/:slug` | `/pages/grammar-article.html` | `pages/grammar-article.html` | Dynamic pattern via rewrite |
 | `/speaking` | `/pages/speaking.html` | `app/(authed-speaking)/speaking/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
 | `/home` | `/pages/home.html` | `app/(authed-home)/home/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
