@@ -177,7 +177,7 @@ describe('chi tiết làm bài', () => {
 
   test('nói rõ thời gian nghĩa là gì', () => {
     const i = CODE.indexOf('async function openEffort');
-    assert.match(CODE.slice(i, i + 3000), /cộng từ các chặng đã chốt/);
+    assert.match(CODE.slice(i, i + 4200), /cộng từ các chặng đã chốt/);
   });
 });
 
@@ -186,7 +186,7 @@ describe('nói ra khi dữ liệu chưa đọc đủ', () => {
     // Bảng trông bình thường mà sai còn tệ hơn bảng không hiện: giáo viên sẽ
     // nhắc nhầm một em đang làm dở (codex PR 945 vòng 2).
     const i = CODE.indexOf('async function openEffort');
-    const body = CODE.slice(i, i + 3200);
+    const body = CODE.slice(i, i + 4200);
     assert.match(body, /r\.stale/);
     assert.match(body, /Chưa đọc được đầy đủ dữ liệu/);
   });
@@ -243,5 +243,35 @@ describe('bù người nhận không được mở rộng phạm vi bài giao', 
     // Bấm Huỷ mà vẫn gửi là đúng thứ tính năng này sinh ra để tránh.
     const i = CODE.indexOf('async function backfillHomework');
     assert.match(CODE.slice(i, i + 1400), /if \(pick === null\) return;/);
+  });
+});
+
+describe('xong chặng chưa phải xong bài', () => {
+  test('có nhãn riêng cho "chưa nộp tự luận"', () => {
+    // Ca thật: em Phương Anh Nguyễn — 9/9 chặng, 0 câu viết, nhưng mọi mặt đọc
+    // đều nói "Xong", nên không ai biết cần nhắc em ấy.
+    const i = CODE.indexOf('const EFFORT_STATE');
+    const body = CODE.slice(i, i + 420);
+    assert.match(body, /awaiting_writing:\s*'Chưa nộp tự luận'/);
+  });
+
+  test('modal có cột Tự luận khi bộ đề có phần viết', () => {
+    const i = CODE.indexOf('async function openEffort');
+    const body = CODE.slice(i, i + 3400);
+    assert.match(body, /r\.writing_total \? `<th>Tự luận/);
+    assert.match(body, /x\.wrote \? 'đã nộp' : '—'/);
+  });
+
+  test('bảng "Xem ai nộp" NÓI RA khi chưa nộp tự luận', () => {
+    // Ô trống ở đây đọc như "tính năng hỏng", không đọc ra "em ấy chưa làm" —
+    // đúng thứ đã xảy ra khi đi tìm bài của em Phương Anh Nguyễn.
+    assert.match(CODE, /r\.writing_expected[\s\S]{0,160}chưa nộp tự luận/);
+  });
+
+  test('dòng TỰ ĐỦ để vẽ chính nó, không đọc biến toàn cục', () => {
+    // Bộ vẽ một dòng đọc một biến khai ở ngoài là một quả bom hẹn giờ: nó chạy
+    // trên trang thật mà nổ ở mọi chỗ khác — kể cả bộ kiểm đang chạy chính nó.
+    assert.ok(!/_tallyWritingTotal/.test(CODE),
+      'thông tin phải đi theo dòng, không theo biến của trang');
   });
 });

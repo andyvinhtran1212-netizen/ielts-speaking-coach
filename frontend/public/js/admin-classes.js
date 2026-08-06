@@ -748,7 +748,12 @@ function tallyRow(r, skill) {
     : (r.has_writing
         ? `<button class="av-tally__open" type="button" data-writing="${esc(r.student_id)}"
              title="Đọc bài tự luận và bản sửa">Xem tự luận</button>`
-        : '');
+        // Bộ đề CÓ phần tự luận mà em ấy chưa nộp: nói ra. Một ô trống ở đây
+        // đọc như "tính năng hỏng" chứ không đọc ra "em ấy chưa làm" — và đó
+        // đúng là chuyện đã xảy ra khi tìm bài của em Phương Anh Nguyễn.
+        : (r.writing_expected
+            ? '<span class="av-tally__none">chưa nộp tự luận</span>'
+            : ''));
   return `<div class="av-tally__row" data-status="${esc(r.status)}"
        ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
@@ -1800,10 +1805,14 @@ async function submitCourseHomework(title) {
  */
 
 const EFFORT_STATE = {
-  stalled:   'Bỏ dở',
-  doing:     'Đang làm',
-  done:      'Xong',
-  untouched: 'Chưa mở',
+  stalled:          'Bỏ dở',
+  // Xong CHẶNG chưa phải xong BÀI: phần tự luận nằm ngoài vòng chặng, nên gộp
+  // hai chuyện lại là báo rằng em ấy đã hoàn thành trong khi còn mười câu chưa
+  // động tới (ca thật: em Phương Anh Nguyễn, 9/9 chặng, 0 câu viết).
+  awaiting_writing: 'Chưa nộp tự luận',
+  doing:            'Đang làm',
+  done:             'Xong',
+  untouched:        'Chưa mở',
 };
 
 async function openEffort(bankId, assignmentId, title) {
@@ -1849,6 +1858,8 @@ async function openEffort(bankId, assignmentId, title) {
         noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
       <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
+      <td class="cl-effort-num">${r.writing_total
+        ? (x.wrote ? 'đã nộp' : '—') : ''}</td>
       <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
       <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
       <td class="cl-effort-num">${acc}</td>
@@ -1878,7 +1889,9 @@ async function openEffort(bankId, assignmentId, title) {
 
   $('effort-body').innerHTML = warn
     + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
-    + '<th>Chặng</th><th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
+    + '<th>Chặng</th>'
+    + (r.writing_total ? `<th>Tự luận (${r.writing_total} câu)</th>` : '<th></th>')
+    + '<th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
     + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '
     + 'từ lúc mở tới lúc đóng — đóng tab rồi mở lại hôm sau không thành “một ngày rưỡi”.</p>'

@@ -998,6 +998,29 @@ def _response_flags_for(items: list[dict]) -> dict[str, list]:
     return out
 
 
+def _course_writing_count(bank_id: str | None) -> tuple[int, bool]:
+    """(số câu TỰ LUẬN, đọc-được-hay-không) của một bộ đề theo buổi.
+
+    Bảng tổng kết cần con số này để nói được câu "em ấy CHƯA nộp tự luận". Không
+    có nó thì chỗ đáng lẽ là một lời nhắc lại là một ô trống — đúng thứ khiến
+    giáo viên tưởng tính năng hỏng chứ không phải học viên chưa làm.
+
+    Trả kèm cờ ĐỌC ĐƯỢC chứ không nuốt lỗi thành `0`: đọc hỏng mà trả 0 thì mọi
+    dòng mang `writing_expected: false` và lời nhắc biến mất y như thể bộ đề
+    không có phần viết — tức là hỏng đúng mục tiêu của chính bản vá này (codex
+    cục bộ, 05/08).
+    """
+    if not bank_id:
+        return 0, True
+    try:
+        n = (supabase_admin.table("quiz_questions").select("id", count="exact")
+             .eq("bank_id", bank_id).eq("type", "writing").limit(1).execute()).count or 0
+        return n, True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] writing count failed bank=%s: %s", bank_id, exc)
+        return 0, False
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -1066,6 +1089,9 @@ async def assignment_tally(
     # mục → bản nộp tự luận (id, giờ chấm, số câu sạch/tổng). Lấy đủ NGAY từ
     # đầu vì lượt vá sổ bên dưới cần chúng: đóng dấu bằng giờ MỞ BẢNG sẽ biến
     # một bài nộp đúng hạn thành nộp trễ chỉ vì giáo viên mở muộn.
+    writing_total, writing_ok = _course_writing_count(assignment.get("content_id"))
+    if not writing_ok:
+        stale = True
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1165,12 +1191,19 @@ async def assignment_tally(
             # Có bài tự luận để đọc không. Chỉ hiện nút khi THẬT SỰ có — một
             # liên kết mở ra "chưa nộp gì" tệ hơn không có liên kết.
             "has_writing":   it["id"] in writing_by_item,
+            # Bộ đề này CÓ phần tự luận hay không — đi theo TỪNG DÒNG chứ không
+            # nằm ở một biến toàn cục của trang: bộ vẽ một dòng phải tự đủ để
+            # vẽ dòng ấy. Thiếu nó thì trang không phân biệt được "bài này không
+            # có phần viết" với "em ấy chưa nộp phần viết", và cả hai hiện ra
+            # như nhau: một ô trống không giải thích gì.
+            "writing_expected": writing_total > 0,
         })
     # Chưa nộp lên đầu: đó là danh sách việc cần làm của giáo viên.
     _ORDER = {"missing": 0, "pending": 1, "no-account": 2, "late": 3, "submitted": 4}
     out.sort(key=lambda r: (_ORDER.get(r["status"], 9), r["name"].lower()))
 
     result = {
+        "writing_total": writing_total,
         "assignment": {
             "id": assignment_id, "title": assignment.get("title"),
             "skill": assignment.get("skill"), "due_at": assignment.get("due_at"),

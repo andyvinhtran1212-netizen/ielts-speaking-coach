@@ -83,9 +83,13 @@ def test_the_axes_carry_both_how_wrong_and_how_slow():
 
 
 def test_stalled_students_sort_to_the_top():
-    """Dòng giáo viên cần nhìn thấy trước là dòng đã bỏ cuộc."""
+    """Dòng giáo viên cần nhìn thấy trước là dòng đã bỏ cuộc, rồi tới dòng
+    xong-chặng-mà-chưa-nộp-viết. Bảng này là danh sách VIỆC."""
     src = _src()
-    assert 'r["state"] != "stalled"' in src
+    i = src.index("_ORDER = {")
+    order = eval(src[i + len("_ORDER = "):src.index("}", i) + 1])  # noqa: S307
+    assert order["stalled"] < order["awaiting_writing"] < order["done"]
+    assert order["doing"] < order["done"]
 
 
 # ── Vòng 1 codex PR 945 ─────────────────────────────────────────────────────
@@ -171,3 +175,69 @@ def test_a_student_removed_after_submitting_is_still_shown():
     """Bài ấy đã xảy ra thật — giấu đi là làm sổ nói dối."""
     src = _src()
     assert "seen_uids" in src and "uid not in seen_uids" in src
+
+
+# ── Xong CHẶNG chưa phải xong BÀI ───────────────────────────────────────────
+
+def test_finishing_every_stage_is_not_finishing_the_task():
+    """Phần tự luận nằm NGOÀI vòng chặng. Gộp hai chuyện lại là báo với giáo
+    viên rằng một em đã hoàn thành trong khi em ấy còn mười câu chưa động tới.
+
+    Ca thật: em Phương Anh Nguyễn — 9/9 chặng, 0 câu tự luận, mục bài giao đã
+    `graded` 80 điểm. Nhìn từ phía giáo viên em ấy trông như đã xong, và không
+    có mặt đọc nào nói khác đi.
+    """
+    src = _src()
+    assert '"awaiting_writing"' in src
+    i = src.index("total_stages and len(done) >= total_stages")
+    seg = src[i:i + 420]
+    assert 'out["writing_total"]' in seg and "wrote" in seg, \
+        "'xong' phải hỏi CẢ phần tự luận"
+
+
+def test_a_bank_without_writing_still_reaches_done():
+    """Bộ đề không có câu tự luận thì xong chặng LÀ xong — đừng bắt cả lớp kẹt
+    ở một trạng thái không lối ra."""
+    src = _src()
+    assert 'not out["writing_total"] or wrote' in src
+
+
+def test_the_writing_lookup_is_scoped_to_the_assignment_item():
+    """Giao lại cùng bộ bài là một lượt khác (mig 192) — đọc theo (bank, học
+    viên) sẽ tính lượt nộp của lần giao TRƯỚC là đã xong lần này."""
+    src = _src()
+    i = src.index("course_writing_submissions")
+    seg = src[i:i + 420]
+    assert 'class_assignment_item_id' in seg and "item_ids" in seg
+
+
+def test_a_failed_writing_read_is_flagged_too():
+    src = _src()
+    i = src.index("course_writing_submissions")
+    assert 'out["stale"] = True' in src[i:i + 700]
+
+
+def test_work_to_do_sorts_above_finished_work():
+    """Bảng này là danh sách VIỆC. Em đã xong nằm cuối, em cần nhắc nằm đầu."""
+    src = _src()
+    assert '_ORDER = {"stalled": 0, "awaiting_writing": 1' in src
+    assert '"done": 4' in src
+
+
+def test_every_helper_that_swallows_a_read_error_also_reports_it():
+    """Tôi bắt "mọi lượt đọc hỏng phải bật cờ stale" rồi để sót đúng hai HÀM PHỤ
+    — chúng nuốt lỗi thành `0` và trả về như một con số thật (codex cục bộ
+    05/08). Đọc hỏng khi đếm câu hỏi ⇒ báo cáo hiện `stale: false` rồi diễn giải
+    tiến độ bằng dữ liệu thiếu, và cột tự luận biến mất như thể bộ đề không có
+    phần viết.
+
+    Ghim theo HÌNH DẠNG TRẢ VỀ: hàm phụ nào nuốt lỗi cũng phải trả kèm cờ
+    đọc-được, chứ không phải chỉ con số.
+    """
+    src = inspect.getsource(qs._course_stage_count)
+    assert "-> tuple[int, int, bool]" in src, "phải trả kèm cờ đọc-được"
+    j = src.index("except Exception")
+    assert "return 0, 0, False" in src[j:], "nhánh hỏng phải nói ra"
+    caller = _src()
+    assert "_count_ok" in caller and 'out["stale"] = True' in caller[
+        caller.index("_count_ok"):caller.index("_count_ok") + 200]
