@@ -282,3 +282,36 @@ describe('progress banner', () => {
     assert.match(n.textContent, /bảng bài hằng ngày/);
   });
 });
+
+// ── Bốn cột kỹ năng phải phân biệt được bằng MÀU, không chỉ bằng vị trí ─────
+
+describe('nhãn màu kỹ năng', () => {
+  test('mỗi ô mang tên kỹ năng của nó', () => {
+    // Không có `data-skill` thì CSS không có gì để bám, và bốn cột lại chỉ
+    // phân biệt bằng thứ tự — đọc chéo một hàng phải đếm cột.
+    const src = readFileSync(
+      new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
+    for (const s of ['speaking', 'writing', 'reading', 'listening']) {
+      assert.ok(src.includes(`skillCell(r.skills.${s}, '${s}')`),
+        `cột ${s} chưa truyền tên kỹ năng`);
+    }
+    assert.ok(src.includes('data-skill="'), 'skillCell phải phát ra data-skill');
+  });
+
+  test('Speaking dùng token RIÊNG, không dùng chung amber', () => {
+    // Amber (--av-accent) có đúng một vai: con số quan trọng nhất màn hình.
+    // Dùng lại nó cho một cột bảng là làm nó hết nghĩa "nhìn đây".
+    const css = readFileSync(
+      new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+    const rule = css.match(/\.cl-skill\[data-skill="speaking"\][^}]*}/);
+    assert.ok(rule, 'chưa có quy tắc màu cho cột Speaking');
+    assert.match(rule[0], /var\(--av-skill-speaking\)/);
+    assert.doesNotMatch(rule[0], /--av-accent/);
+  });
+
+  test('token ấy có thật trong hệ, không phải tên bịa', () => {
+    const tok = readFileSync(
+      new URL('../public/css/aver-design/tokens.css', import.meta.url), 'utf8');
+    assert.match(tok, /--av-skill-speaking:\s*#[0-9a-fA-F]{6}/);
+  });
+});

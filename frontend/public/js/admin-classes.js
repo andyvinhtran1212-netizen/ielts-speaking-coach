@@ -2115,14 +2115,21 @@ let _progressLoaded = false;
  *   attempts === 0  → genuinely nothing yet.
  *   otherwise       → the count, with the most recent band under it.
  */
-function skillCell(cell) {
+/**
+ * Một ô kỹ năng. `skill` đi kèm để ô mang MÀU CỦA KỸ NĂNG ấy.
+ *
+ * Bốn cột trước đây chỉ phân biệt bằng VỊ TRÍ, nên đọc chéo một hàng phải đếm
+ * cột. Nhãn màu mảnh ở mép trái cho mắt bám cột mà không cần đếm.
+ */
+function skillCell(cell, skill) {
   if (cell === null || cell === undefined) {
     return '<span class="cl-skill-unknown">không đọc được</span>';
   }
   if (!cell.attempts) return '<span class="cl-skill-none">—</span>';
   const band = cell.last_band != null
     ? `<span class="cl-skill-band">band ${esc(cell.last_band)}</span>` : '';
-  return `<div class="cl-skill"><span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
+  return `<div class="cl-skill" data-skill="${esc(skill || '')}">`
+    + `<span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
 }
 
 /**
@@ -2202,10 +2209,10 @@ function renderProgress() {
     const last = lastAcrossSkills(r.skills);
     return `<tr>
       <td><div>${esc(r.name) || '—'}</div>${sub}</td>
-      <td>${skillCell(r.skills.speaking)}</td>
-      <td>${skillCell(r.skills.writing)}</td>
-      <td>${skillCell(r.skills.reading)}</td>
-      <td>${skillCell(r.skills.listening)}</td>
+      <td>${skillCell(r.skills.speaking, 'speaking')}</td>
+      <td>${skillCell(r.skills.writing, 'writing')}</td>
+      <td>${skillCell(r.skills.reading, 'reading')}</td>
+      <td>${skillCell(r.skills.listening, 'listening')}</td>
       <td>${punctualityCell(r.homework)}</td>
       <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
     </tr>`;
