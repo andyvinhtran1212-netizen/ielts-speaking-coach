@@ -242,7 +242,16 @@
 
     /* Skill cell: a count, and the last band under it. Tabular figures so the
        columns line up down the class. */
-    .cl-skill { display: flex; flex-direction: column; gap: 1px; }
+    /* Nhãn màu kỹ năng ở mép trái. Bốn cột trước đây chỉ phân biệt bằng VỊ
+       TRÍ, nên đọc chéo một hàng phải đếm cột.
+       Speaking có màu RIÊNG từ 06/08 — nó từng dùng chung --av-accent, mà amber
+       có đúng một vai: con số quan trọng nhất màn hình. */
+    .cl-skill { display: flex; flex-direction: column; gap: 1px;
+      border-left: 2px solid transparent; padding-left: var(--av-space-2); }
+    .cl-skill[data-skill="speaking"]  { border-left-color: var(--av-skill-speaking); }
+    .cl-skill[data-skill="writing"]   { border-left-color: var(--av-primary); }
+    .cl-skill[data-skill="reading"]   { border-left-color: var(--av-skill-reading); }
+    .cl-skill[data-skill="listening"] { border-left-color: var(--av-skill-listening); }
     .cl-skill-count { font-variant-numeric: tabular-nums; }
     .cl-skill-band { font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); }

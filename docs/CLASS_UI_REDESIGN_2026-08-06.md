@@ -73,8 +73,21 @@ Bảng dùng, không thêm gì khác:
 `--av-font-serif` (Lora) **không dùng ở đây**.
 
 **Sửa A4+A5:** Speaking lấy token riêng; `awaiting_writing` chuyển sang
-`--av-warning`. Sau đó amber chỉ còn đúng một chỗ mỗi màn: con số "chưa nộp hôm
-nay" ở đầu sổ, và "bài cần nộp hôm nay" ở trang học viên.
+**`--av-info`** — *không phải* `--av-warning`, vì `--av-warning` đã là màu của
+"Đang làm", và gộp hai trạng thái vào một màu còn tệ hơn chỗ cũ.
+
+Năm trạng thái, năm màu — cột này đọc bằng màu trước rồi mới đọc chữ:
+
+| Trạng thái | Token |
+|---|---|
+| Bỏ dở | `--av-error` |
+| Đang làm | `--av-warning` |
+| Chưa nộp tự luận | `--av-info` |
+| Xong | `--av-text-muted` |
+| Chưa mở | `--av-text-faint` |
+
+Sau đó amber chỉ còn đúng một chỗ mỗi màn: con số "chưa nộp hôm nay" ở đầu sổ,
+và "bài cần nộp hôm nay" ở trang học viên.
 
 ---
 
