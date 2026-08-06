@@ -97,11 +97,27 @@ function taskSub(a) {
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
+/**
+ * Xong phần trắc nghiệm nhưng CHƯA nộp tự luận.
+ *
+ * `passed_at` do cổng thuộc-bài ghi khi em ấy qua phần trắc nghiệm; `submitted_at`
+ * nay CHỈ được ghi khi nộp phần tự luận (bộ đề nào có phần ấy). Hai cờ lệch nhau
+ * đúng bằng khoảng "còn mười câu chưa động tới".
+ *
+ * Không nói ra thì bài nằm im ở "Cần nộp" y như một bài chưa mở — mà em ấy đã
+ * làm chín chặng rồi, và chỉ còn một bước.
+ */
+const awaitingWriting = (a) => a.assignment.skill === 'course'
+  && !!a.passed_at && !a.submitted_at;
+
 function itemRow(a, { action }) {
   const sub = taskSub(a);
   const meta = a.submitted_at
     ? submittedLabel(a)
-    : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
+    : awaitingWriting(a)
+      ? `<span class="mc-partial">Chưa hoàn tất — còn phần tự luận</span>`
+        + ` · ${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`
+      : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
   // Quá hạn thì KHÔNG có nút. Hạn nộp nay là tuyệt đối — bấm vào chỉ để nhận
   // 409 sau một vòng gọi mạng, và một nút chỉ-để-thất-bại tệ hơn không có nút:
   // học viên bấm mấy lần rồi tưởng lỗi ở máy mình.

@@ -154,6 +154,17 @@
     .mc-item-sub.is-alarm { color: var(--av-warning); }
     .mc-band { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
 
+    /* "Chưa hoàn tất" — em ấy đã làm chín chặng và chỉ còn một bước, nên nó
+       phải đọc ra khác hẳn một bài chưa mở. Mang mực, nhưng không phải màu lỗi:
+       em ấy không làm sai gì cả. */
+    .mc-partial {
+      font-weight: var(--av-fw-semibold);
+      /* KHÔNG dùng --av-accent: màu nhấn để dành cho ĐÚNG MỘT con số quan
+         trọng nhất trên mỗi màn. Đây là một nhãn trạng thái, không phải con
+         số — và tô nhấn hai chỗ là không tô nhấn chỗ nào. */
+      color: var(--av-warning);
+    }
+
     .mc-btn { display: inline-flex; align-items: center; justify-content: center;
       padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
       background: var(--av-brand-teal-700); color: var(--av-text-on-primary);

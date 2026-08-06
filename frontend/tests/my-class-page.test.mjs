@@ -491,8 +491,12 @@ describe('class-page banner tells the two failures apart', () => {
 // lỗi ở máy mình.
 
 function loadItemRow() {
-  const start = SRC.indexOf('function itemRow(');
+  const start = SRC.indexOf('const awaitingWriting =');
   const end = SRC.indexOf('function renderGroup(');
+  // Cắt từ HÀM PHỤ chứ không từ `function itemRow`: `itemRow` gọi
+  // `awaitingWriting` khai ngay trên nó, và một lát cắt bỏ sót hàm phụ sẽ dựng
+  // ra một `itemRow` thiếu chân — bộ kiểm khi ấy đo một thứ không tồn tại trên
+  // trang thật.
   assert.ok(start !== -1 && end > start, 'itemRow not found');
   const esc = (s) => String(s == null ? '' : s);
   const dueLabel = () => '19:00 · 03/08';

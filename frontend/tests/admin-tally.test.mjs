@@ -149,38 +149,63 @@ describe('style và markup', () => {
     assert.match(CSS, /\.av-tally\[data-state='live'\] \.av-tally__rows\s*\{[^}]*dashed/);
   });
 
-  test('trang admin có modal và nạp CSS đúng một lần', () => {
-    assert.match(HTML, /id="tally-modal"/);
+  test('bảng nộp bài nằm trong KHU NHẬN BÀI, và CSS nạp đúng một lần', () => {
+    // Trước đây là một popup. Bảng 14 học viên × 7 cột không sống nổi trong một
+    // hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
+    assert.match(HTML, /id="panel-marking"/);
+    assert.match(HTML, /id="tally-body"/);
+    assert.ok(!/id="tally-modal"/.test(HTML), 'popup cũ phải được gỡ, không để hai đường');
     assert.equal((HTML.match(/speaking-assignment\.css/g) || []).length, 1);
   });
 });
 
 
-// ── modal phải là LỚP PHỦ, không phải thẻ chèn vào giữa trang ────────────
+// ── khu NHẬN BÀI: ba tab, chiếm trọn trang ──────────────────────────────
 
-describe('cấu trúc modal khớp hệ thống', () => {
-  test('backdrop bọc card, đúng thứ tự admin-components.css mong đợi', () => {
-    // CSS đặt position:fixed + lớp phủ lên .adm-modal-backdrop, còn .adm-modal
-    // chỉ là tấm thẻ. Dùng ngược lại thì thẻ chèn thẳng vào vị trí DOM của nó —
-    // nằm dưới màn hình, nên bấm "Xem ai nộp" trông như không có gì xảy ra.
-    const m = HTML.match(/<div class="adm-modal-backdrop" id="tally-modal"[\s\S]{0,400}?<\/div>/);
-    assert.ok(m, 'tally-modal phải là .adm-modal-backdrop');
-    assert.match(m[0], /<div class="adm-modal"/, 'và bọc một .adm-modal bên trong');
-    assert.doesNotMatch(HTML, /adm-modal-box/, '.adm-modal-box không tồn tại trong CSS');
+describe('nhận bài là một KHU, không phải popup', () => {
+  test('ba tab, mỗi tab một khung', () => {
+    for (const id of ['mtab-tally', 'mtab-effort', 'mtab-one',
+                      'mpanel-tally', 'mpanel-effort', 'mpanel-one']) {
+      assert.ok(HTML.includes(`id="${id}"`), `trang thiếu #${id}`);
+    }
+    assert.match(SRC, /function showMarkTab\(name\)/);
   });
 
-  test('dùng cùng cấu trúc với các modal khác trong trang', () => {
-    const backdrops = (HTML.match(/class="adm-modal-backdrop"/g) || []).length;
-    assert.ok(backdrops >= 3, `chỉ thấy ${backdrops} backdrop — tally chưa theo lối chung`);
+  test('mỗi tab nạp ở lần mở ĐẦU TIÊN, không nạp cả ba lúc vào', () => {
+    // Nạp cả ba là ba lượt gọi mạng cho hai tab giáo viên có thể không nhìn.
+    const i = SRC.indexOf('function showMarkTab');
+    const body = SRC.slice(i, i + 900);
+    assert.match(body, /dataset\.loaded/);
   });
 
-  test('bấm nền thì đóng, bấm trong thẻ thì không', () => {
-    // Bấm bên trong thẻ cũng nổi bọt lên nền; không so target thì modal đóng
-    // giữa lúc đang đọc.
-    assert.match(SRC, /tally-modal'\)\.addEventListener\('click'[\s\S]{0,120}?e\.target === \$\('tally-modal'\)/);
+  test('tab "Nhận bài" chỉ hiện khi đang mở một bài giao', () => {
+    // Nó là chỗ đứng tạm của một bài giao, không phải một mục thường trực của
+    // lớp — một tab trống thì mời bấm vào chỗ không có gì.
+    assert.match(HTML, /id="tab-marking"[^>]*hidden/);
+    assert.match(SRC, /\$\('tab-marking'\)\.hidden = false/);
+    assert.match(SRC, /\$\('tab-marking'\)\.hidden = true/);
+  });
+
+  test('bài KHÔNG phải theo buổi thì giấu hai tab không có nội dung', () => {
+    const i = SRC.indexOf('function openMarking');
+    const body = SRC.slice(i, i + 900);
+    assert.match(body, /\$\('mtab-one'\)\.hidden = !bankId/);
+    assert.match(body, /\$\('mtab-effort'\)\.hidden = !bankId/);
+  });
+
+  test('"Bài từng em" dùng LẠI bộ vẽ báo cáo của học viên', () => {
+    // Hai bộ vẽ cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
+    assert.match(SRC, /import\('\/js\/course-report\.js'\)/);
+    assert.match(SRC, /_CR\.renderReport\(d\)/);
+    assert.match(SRC, /_CR\.bindReport\(box\)/);
+  });
+
+  test('trang admin NẠP tệp kiểu của bộ vẽ ấy', () => {
+    // Vẽ lớp `.cr-*` mà không nạp tệp định nghĩa chúng thì ra màn hình trần
+    // trụi và không có gì đỏ để báo — bài học PR #925.
+    assert.match(HTML, /course-report\.css/);
   });
 });
-
 
 // ── hạn nộp trong ghi chú phải là CHỮ, không phải thẻ HTML ───────────────
 
@@ -242,5 +267,23 @@ describe('bài course: đạt/chưa đạt/đang làm (cổng thuộc bài)', ()
     const html = tallyRow({ name: 'An', status: 'submitted',
       submitted_at: '2026-08-03T11:00:00+00:00', score: 6.5 }, 'speaking');
     assert.match(html, />6\.5</);
+  });
+});
+
+describe('hai lỗi lặng của khu nhận bài (codex cục bộ 06/08)', () => {
+  test('tab "Nhận bài" BẤM ĐƯỢC', () => {
+    // Thiếu dây thì tab hiện ra nhưng bấm không có gì xảy ra: giáo viên rời
+    // sang Bài tập rồi muốn quay lại khu đang mở là kẹt.
+    assert.match(SRC, /\$\('tab-marking'\)\.addEventListener\('click', \(\) => showPanel\('marking'\)\)/);
+  });
+
+  test('mạng chậm không làm giáo viên đọc bài của SAI em', () => {
+    // Bấm An rồi Bình: request của An về sau và ghi đè bài của Bình, trong khi
+    // tên Bình vẫn sáng.
+    const i = SRC.indexOf('async function openOneReport');
+    const body = SRC.slice(i, i + 1400);
+    assert.match(body, /_oneWant = userId;/);
+    assert.equal((body.match(/if \(_oneWant !== userId\) return;/g) || []).length, 2,
+      'phải chắn ở CẢ nhánh thành công lẫn nhánh hỏng');
   });
 });

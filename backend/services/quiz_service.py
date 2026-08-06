@@ -1368,10 +1368,27 @@ def course_answer_report(*, user_id: str, bank_id: str,
     thứ hai — và cái giáo viên muốn đọc là lần em ấy thật sự nghĩ.
     """
     out: dict = {"questions": [], "totals": {}, "stale": False}
-    bank = _bank_meta_or_404(bank_id, user_id)
 
     # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
     # chính em ấy — đường của học viên tự xem lại bài mình.
+    #
+    # NÊU bài giao = đường của GIÁO VIÊN, và đường ấy KHÔNG đi qua cổng học
+    # viên: cổng ấy đòi bài còn mở và còn hạn, nên mở "Bài từng em" cho một bài
+    # đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc giáo viên cần đọc nhất
+    # (codex cục bộ 06/08). Quyền đã kiểm ở tầng tuyến (require_admin).
+    bank = ({} if assignment_id else _bank_meta_or_404(bank_id, user_id))
+    if assignment_id:
+        try:
+            rows = (supabase_admin.table("quiz_banks").select("id, title")
+                    .eq("id", bank_id).limit(1).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            # Chỉ mất TÊN bộ đề, không mất bài làm — nhưng vẫn phải nói ra:
+            # mọi lượt đọc hỏng đều bật cờ, không có ngoại lệ "lỗi nhẹ".
+            logger.warning("[quiz] answer-report bank failed: %s", exc)
+            out["stale"] = True
+            rows = []
+        bank = rows[0] if rows else {}
+
     item_ids: set[str] = set()
     try:
         if assignment_id:
@@ -1638,45 +1655,47 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     # thường" mà không phải mở từng báo cáo một.
     per_user_secs: dict[str, list[float]] = {}
     seen_q: set = set()
+    first_by_user: dict[str, list[dict]] = {}
     sess_user = {x["id"]: x.get("user_id") for x in sessions}
+    # THU hết trước, XỬ LÝ sau. Sắp trong từng lô là sai: `seen_q` dùng chung
+    # cho mọi lô, nên một lượt MỚI hơn ở lô đầu chặn mất lượt CŨ hơn ở lô sau —
+    # và bảng lớp cho ra con số khác báo cáo từng em (codex cục bộ 06/08).
+    all_rows: list[dict] = []
     for i in range(0, len(sessions), _REPORT_IDS):
         ids = [x["id"] for x in sessions[i:i + _REPORT_IDS]]
         try:
-            rows = _report_pages(
+            all_rows += _report_pages(
                 "quiz_attempts",
                 "session_id, item_key, qid, is_correct, response_time_ms, created_at",
                 lambda q, c=ids: q.in_("session_id", c),
             )
-            # Sắp theo THỜI GIAN: "lượt đầu của mỗi câu" chỉ đúng nếu duyệt
-            # đúng thứ tự xảy ra, còn `_report_pages` sắp theo `id`.
-            rows.sort(key=lambda x: x.get("created_at") or "")
         except Exception as exc:  # noqa: BLE001
-            # Đọc hỏng ở đây làm phiên ĐANG LÀM đọc thành "chưa mở" và xoá
-            # sạch trục vướng — đúng hai thứ báo cáo này tồn tại để nói.
             logger.warning("[quiz] attempt-report attempts failed: %s", exc)
             out["stale"] = True
-            rows = []
-        for a in rows:
-            if a["session_id"] in open_ids:
-                with_work.add(a["session_id"])
-            # LƯỢT ĐẦU của mỗi câu, giống hệt `course_answer_report`. Đếm mọi
-            # lượt thì một chặng làm lại tính hai lần, và hai mặt đọc cho ra hai
-            # con số khác nhau cho CÙNG một em — giáo viên không biết tin cái nào.
-            ms = a.get("response_time_ms")
-            uid = sess_user.get(a["session_id"])
-            key2 = (uid, a.get("qid"))
-            if (uid and a.get("qid") and key2 not in seen_q
-                    and isinstance(ms, (int, float)) and ms > 0):
-                seen_q.add(key2)
-                per_user_secs.setdefault(uid, []).append(ms / 1000)
-            key = a.get("item_key")
-            if not key:
-                continue
-            if not a.get("is_correct"):
-                wrong[key] = wrong.get(key, 0) + 1
-            ms = a.get("response_time_ms")
-            if isinstance(ms, (int, float)) and ms > 0:
+
+    all_rows.sort(key=lambda x: x.get("created_at") or "")
+    for a in all_rows:
+        if a["session_id"] in open_ids:
+            with_work.add(a["session_id"])
+        uid = sess_user.get(a["session_id"])
+        key2 = (uid, a.get("qid"))
+        # LƯỢT ĐẦU của mỗi câu, giống hệt `course_answer_report`. Áp cho CẢ trục
+        # sai lẫn số đúng/tổng, không chỉ cho thời gian: em làm Q1 đúng, đóng
+        # tab, làm lại và trả lời Q1 sai thì hai mặt đọc phải nói cùng một điều.
+        # LƯỢT ĐẦU của mỗi câu (`key2 not in seen_q`) — giống hệt
+        # `course_answer_report`.
+        if not uid or not a.get("qid") or key2 in seen_q:
+            continue
+        seen_q.add(key2)
+        first_by_user.setdefault(uid, []).append(a)
+        key = a.get("item_key")
+        if key and not a.get("is_correct"):
+            wrong[key] = wrong.get(key, 0) + 1
+        ms = a.get("response_time_ms")
+        if isinstance(ms, (int, float)) and ms > 0:
+            if key:
                 slow.setdefault(key, []).append(int(ms))
+            per_user_secs.setdefault(uid, []).append(ms / 1000)
 
     now = datetime.now(timezone.utc)
     # MỘT DÒNG CHO MỖI HỌC VIÊN ĐƯỢC GIAO — kể cả em chưa kích hoạt tài khoản
@@ -1693,8 +1712,12 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         done = [x for x in rows if x.get("ended_at")]
         live = [x for x in rows if not x.get("ended_at") and x["id"] in with_work]
         secs = sum(int(x.get("duration_sec") or 0) for x in done)
-        asked = sum(int(x.get("total_questions") or 0) for x in done)
-        right = sum(int(x.get("total_correct") or 0) for x in done)
+        # Từ LƯỢT ĐẦU của mỗi câu, không cộng tổng của các phiên: làm lại một
+        # chặng khiến tổng phiên đếm câu ấy hai lần, và con số lệch khỏi báo cáo
+        # từng em.
+        firsts = first_by_user.get(uid) or []
+        asked = len(firsts)
+        right = sum(1 for a in firsts if a.get("is_correct"))
         last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows) if rows else ""
         total_stages = out["stages_total"]
         wrote = (item_of_student.get(sid) in submitted_writing) if sid else False

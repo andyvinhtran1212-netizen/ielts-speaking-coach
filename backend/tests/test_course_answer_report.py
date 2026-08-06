@@ -76,8 +76,8 @@ def test_the_class_table_and_the_single_report_count_time_the_same_way():
     """Hai con số khác nhau cho CÙNG một em thì giáo viên không biết tin cái
     nào. Cả hai phải lấy lượt ĐẦU của mỗi câu."""
     table = inspect.getsource(qs.course_attempt_report)
-    assert "seen_q" in table and "key2 not in seen_q" in table
-    assert 'rows.sort(key=lambda x: x.get("created_at")' in table, \
+    assert "seen_q" in table and "key2 in seen_q" in table
+    assert 'all_rows.sort(key=lambda x: x.get("created_at")' in table, \
         "lượt đầu chỉ đúng nếu sắp theo thời gian"
     assert "IDLE_CUTOFF_SEC" in table
 
@@ -122,3 +122,36 @@ def test_a_bank_without_writing_still_closes_on_the_stage():
     """Đừng bắt lớp không có phần viết kẹt lại ở "chưa nộp" mãi mãi."""
     src = inspect.getsource(qs._bank_has_writing)
     assert "if not bank_id:" in src and "return False" in src
+
+
+# ── Vòng soát cục bộ 06/08 ──────────────────────────────────────────────────
+
+def test_the_teacher_path_does_not_go_through_the_learner_gate():
+    """Cổng học viên đòi bài giao CÒN MỞ và CÒN HẠN. Đi qua nó thì giáo viên mở
+    "Bài từng em" cho một bài đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc cần
+    đọc nhất. Quyền đã kiểm ở tầng tuyến (require_admin)."""
+    src = _src()
+    assert '({} if assignment_id else _bank_meta_or_404(' in src
+
+
+def test_one_rule_for_axes_scores_and_time():
+    """Em làm Q1 đúng, đóng tab, làm lại và trả lời Q1 sai: "Bài từng em" nói
+    Q1 đúng, còn "Chi tiết làm bài" lại tăng lỗi trục và lệch số đúng/tổng nếu
+    mỗi bên đếm một kiểu."""
+    src = inspect.getsource(qs.course_attempt_report)
+    i = src.index("if not uid or not a.get(\"qid\") or key2 in seen_q:")
+    seg = src[i:i + 700]
+    assert "wrong[key] = wrong.get(key, 0) + 1" in seg, "trục cũng phải lấy lượt đầu"
+    assert "slow.setdefault" in seg, "thời gian mỗi trục cũng vậy"
+    assert "asked = len(firsts)" in src, "số câu lấy từ lượt đầu, không cộng tổng phiên"
+    assert 'sum(int(x.get("total_questions")' not in src
+
+
+def test_attempts_are_sorted_ACROSS_batches_not_inside_each():
+    """`seen_q` dùng chung cho mọi lô, nên sắp trong từng lô sẽ để một lượt MỚI
+    hơn ở lô đầu chặn mất lượt CŨ hơn ở lô sau — lớp trên 100 phiên là gặp."""
+    src = inspect.getsource(qs.course_attempt_report)
+    i = src.index("all_rows.sort")
+    assert "for i in range(0, len(sessions), _REPORT_IDS)" in src[:i], \
+        "phải THU hết rồi mới sắp"
+    assert "rows.sort" not in src.split("all_rows.sort")[0], "không sắp trong từng lô"

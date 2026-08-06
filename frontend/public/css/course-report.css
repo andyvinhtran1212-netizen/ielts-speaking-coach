@@ -1,0 +1,221 @@
+/* Báo cáo bài làm bài tập theo buổi — dùng chung cho học viên và giáo viên.
+ *
+ * Quy ước hình ảnh dùng lại từ bảng Speaking hằng ngày: MỰC = CHỖ CẦN CHÚ Ý.
+ * Ô sai tô kín, ô đúng chỉ một nét mảnh — một trục yếu hiện thành vệt đậm mà
+ * không cần đọc chữ. Một quy ước cho cả sản phẩm nghĩa là học viên chỉ phải
+ * học nó một lần.
+ */
+
+.cr { display: flex; flex-direction: column; gap: var(--av-space-4); }
+
+/* ── Mở đầu bằng TRỤC YẾU NHẤT, không phải điểm số ────────────────────────
+   Điểm số nói em ấy đứng đâu; trục yếu nói em ấy phải làm gì tiếp. */
+.cr-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  padding: var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+}
+.cr-hero__label {
+  margin: 0;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--av-text-faint);
+}
+.cr-hero__axis {
+  margin: var(--av-space-1) 0 0;
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-bold);
+  line-height: 1.25;
+  color: var(--av-text-primary);
+}
+.cr-hero__sub {
+  margin: var(--av-space-1) 0 0;
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-muted);
+}
+
+/* Con số DUY NHẤT được tô nhấn trong cả màn: số trục cần ôn. Đó là con số nói
+   học viên phải LÀM GÌ — mọi con số khác chỉ mô tả. */
+.cr-hero__count {
+  margin: 0;
+  flex: none;
+  text-align: center;
+  line-height: 1;
+}
+.cr-hero__count b {
+  display: block;
+  font-family: var(--av-font-mono);
+  font-size: 40px;
+  font-weight: var(--av-fw-bold);
+  color: var(--av-accent);
+}
+.cr-hero__count span {
+  display: block;
+  margin-top: var(--av-space-1);
+  max-width: 6ch;
+  font-size: var(--av-fs-xs);
+  line-height: 1.2;
+  color: var(--av-text-muted);
+}
+
+/* ── Số liệu: một dải im lặng, không phải bốn thẻ to ─────────────────────── */
+.cr-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av-space-2) var(--av-space-6);
+  margin: 0;
+  padding: 0 var(--av-space-1);
+  list-style: none;
+}
+.cr-stats li { display: flex; align-items: baseline; gap: var(--av-space-2); }
+.cr-stats span { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+.cr-stats b {
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary);
+}
+
+/* ── Trục ────────────────────────────────────────────────────────────────── */
+.cr-axes { margin: 0; padding: 0; list-style: none; }
+
+.cr-axis { border-top: 1px solid var(--av-border-subtle); }
+.cr-axis:last-child { border-bottom: 1px solid var(--av-border-subtle); }
+
+.cr-axis__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'name n' 'strip strip';
+  align-items: center;
+  gap: var(--av-space-1) var(--av-space-3);
+  width: 100%;
+  padding: var(--av-space-3) var(--av-space-1);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.cr-axis__head:hover { background: var(--av-surface-sunken); }
+.cr-axis__head:focus-visible {
+  outline: 2px solid var(--av-border-focus);
+  outline-offset: -2px;
+}
+.cr-axis__name {
+  grid-area: name;
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-primary);
+}
+.cr-axis[data-weak='1'] .cr-axis__name { font-weight: var(--av-fw-semibold); }
+.cr-axis__n {
+  grid-area: n;
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+}
+.cr-axis[data-weak='1'] .cr-axis__n { color: var(--av-error); }
+
+/* Dải ô: một ô một câu. Không có khe giữa các ô, nên chuỗi câu sai liền nhau
+   nối thành một vệt — cùng cách đọc với bảng Speaking hằng ngày. */
+.cr-strip { grid-area: strip; display: flex; gap: 2px; }
+.cr-strip i {
+  flex: 1 1 auto;
+  min-width: 6px;
+  max-width: 22px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--av-border-subtle);
+}
+.cr-strip i[data-ok='0'] { background: var(--av-error); }
+
+/* ── Từng câu ────────────────────────────────────────────────────────────── */
+.cr-qs {
+  margin: 0 0 var(--av-space-3);
+  padding: 0 0 0 var(--av-space-3);
+  list-style: none;
+  border-left: 2px solid var(--av-border-subtle);
+}
+.cr-q { padding: var(--av-space-3) 0; border-top: 1px solid var(--av-border-subtle); }
+.cr-q:first-child { border-top: 0; }
+.cr-q[data-ok='0'] { border-left: 2px solid var(--av-error); margin-left: -13px; padding-left: 11px; }
+
+.cr-q__prompt {
+  margin: 0 0 var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  line-height: 1.5;
+  color: var(--av-text-primary);
+  white-space: pre-line;
+}
+.cr-q__prompt strong { font-weight: var(--av-fw-bold); }
+
+.cr-q__pick { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--av-space-3); margin: 0; }
+.cr-q__pick dt {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-faint);
+  white-space: nowrap;
+}
+.cr-q__pick dd {
+  margin: 0;
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+.cr-q__pick dd b {
+  font-family: var(--av-font-mono);
+  font-weight: var(--av-fw-bold);
+  margin-right: var(--av-space-1);
+}
+.cr-q[data-ok='0'] .cr-q__pick dd:first-of-type b { color: var(--av-error); }
+.cr-q__pick dd:last-of-type b { color: var(--av-success); }
+
+/* Vì sao PHƯƠNG ÁN EM CHỌN sai — có ích hơn hẳn lời giải chung, nên đứng
+   trước và mang mực. */
+.cr-q__why {
+  margin: var(--av-space-2) 0 0;
+  padding-left: var(--av-space-3);
+  border-left: 2px solid var(--av-warning);
+  font-size: var(--av-fs-sm);
+  line-height: 1.5;
+  color: var(--av-text-primary);
+}
+.cr-q__explain {
+  margin: var(--av-space-2) 0 0;
+  font-size: var(--av-fs-sm);
+  line-height: 1.5;
+  color: var(--av-text-muted);
+}
+.cr-q__time {
+  margin: var(--av-space-2) 0 0;
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-faint);
+}
+
+.cr-stale {
+  margin: 0;
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-primary);
+}
+
+.cr-empty {
+  padding: var(--av-space-6) var(--av-space-4);
+  text-align: center;
+  color: var(--av-text-muted);
+}
+
+@media (min-width: 700px) {
+  .cr-axis__head {
+    grid-template-columns: minmax(0, 22ch) auto minmax(0, 1fr);
+    grid-template-areas: 'name n strip';
+  }
+}
