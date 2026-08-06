@@ -439,10 +439,13 @@ _STUDENT_FORBIDDEN_PAYLOAD_KEYS = ("answers", "solutions", "audio_windows",
 # `listening-mcq.js:81`) — tức ý định đã đúng từ đầu, chỉ là dữ liệu vẫn đi tới
 # trình duyệt và ai mở tab Network cũng đọc được.
 #
-# KHÔNG có `segments[].transcript` (chép chính tả) trong danh sách này: màn xem
-# lại của `listening-dictation.js:341-362` dựng từ chính mảng đó, nạp lúc mở
-# trang. Gỡ nó là đổi thiết kế chứ không phải vá rò rỉ — cần một lượt nạp lại sau
-# khi nộp. Ghi ra đây để lần sau không ai tưởng là bỏ sót.
+# Chép chính tả KHÔNG bị ảnh hưởng, và lý do KHÔNG phải "tôi cố ý chừa ra":
+# `segments` là CỘT MỨC ĐỈNH của `listening_exercises` (mig 057), nằm ngoài
+# `payload`, nên bộ lọc này chưa từng với tới nó. Trang tìm bài bằng
+# `Array.isArray(e.segments)` (`listening-dictation.js:101`). Tôi từng ghi ở đây
+# rằng transcript nằm trong payload và "cố ý chừa" — sai mô hình, và một test
+# viết theo mô hình sai đó đã xanh trên một hình dạng response mà trang thật sẽ
+# từ chối (codex cục bộ #967 vòng 2).
 _STUDENT_FORBIDDEN_NESTED = (
     ("questions", "answer_idx"),
     ("statements", "answer"),

@@ -451,8 +451,9 @@ def _fetch_published_exercises_for_student(
     `dictation_short_answer` vào `exercise_type="dictation"` rồi cất đáp án
     chuẩn ở `payload.answers` (`services/listening_convert.py:1471,1510`). Tôi đã
     xem route này một lượt và kết luận "chép chính tả cần transcript nên không
-    lọc được" — chỉ nghĩ tới `segments[].transcript` mà bỏ sót `payload.answers`,
-    vốn là khoá MỨC ĐỈNH mà bộ lọc đã xoá sẵn từ Sprint 13.5 (codex cục bộ #967).
+    lọc được" — sai hai lần trong một câu: đáp án nằm ở `payload.answers` (khoá
+    MỨC ĐỈNH bộ lọc đã xoá sẵn từ Sprint 13.5), còn transcript thì nằm ở CỘT
+    `segments` riêng (mig 057), ngoài tầm với của bộ lọc (codex cục bộ #967).
 
     ĐƯỜNG CHẤM BÀI KHÔNG ĐƯỢC DÙNG HÀM NÀY — nó cần payload thô, và nó vốn đã tự
     truy vấn bảng (`listening.py:620`, `:5469`).
