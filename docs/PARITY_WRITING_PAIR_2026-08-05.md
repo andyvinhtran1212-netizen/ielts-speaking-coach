@@ -48,3 +48,41 @@ này — không cần đụng thêm.
 
 Cần nói rõ giới hạn: **không lớp nào ở trên so được BỐ CỤC theo bề rộng** —
 đó chính là thứ G1 làm và hiện đang thiếu cho riêng trang này.
+
+---
+
+# Cặp `exercises` cũng phải để ngoài (2026-08-06)
+
+G1 đỏ ở cặp `/pages/exercises.html` ↔ `/exercises`:
+
+```
+✗ [baseline-suspect] legacy chỉ render 4 dòng — vế tham chiếu nhiều khả năng hỏng
+```
+
+Cùng một cơ chế như cặp `writing`: **vế THAM CHIẾU** không render đủ nội dung
+với tài khoản probe, nên bản Next chỉ toàn "thừa" ở mức thấp và bảng kết quả sẽ
+XANH trong khi chẳng so được gì.
+
+Khác cặp `writing` ở một điểm đáng chú ý: cặp `flashcards` — cùng khuôn
+`mount()`, cùng route-group kiểu, cùng tài khoản probe — thì **ĐẠT**. Nên đây
+không phải giới hạn của khuôn, mà là chuyện riêng của `exercises.html` với tài
+khoản đó.
+
+**Đáng điều tra riêng:** trang `exercises` legacy chỉ render 4 dòng cho một tài
+khoản không có dữ liệu bài tập. Có thể là trạng thái rỗng hợp lệ, cũng có thể là
+lỗi thật của trang legacy. Chưa kiểm được vì cần tài khoản probe.
+
+Bật lại: cấp cho tài khoản probe dữ liệu bài tập (hoặc xác nhận trạng thái rỗng
+là đúng rồi nới `minBaselineLines` cho riêng cặp này), sau đó thêm lại:
+
+```json
+{ "name": "exercises", "legacy": "/pages/exercises.html",
+  "next": "/exercises", "allow": [] }
+```
+
+Glob và regex authed trong `parity-gate.yml` ĐÃ sẵn sàng — không cần đụng thêm.
+
+Trong lúc chưa có, `/exercises` được che bằng: đo `getComputedStyle` theo đường
+DOM hai vế (41 nút, lệch 0), chốt `mount-waits-for-supabase.test.mjs`, và chốt
+`legacy-module-routes-need-hard-nav.test.mjs`. Không lớp nào so bố cục theo bề
+rộng — đúng thứ G1 làm và đang thiếu cho riêng trang này.
