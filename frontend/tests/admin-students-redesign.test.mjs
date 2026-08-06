@@ -99,14 +99,24 @@ describe('admin-students.html / table contract preserved', () => {
     assert.match(html, /<table\s+id=["']students-table["']\s+class=["']adm-table["']/);
   });
 
-  test('6-column thead preserved: Code / Name / Target / Current / Date / Actions', () => {
+  test('thead giữ đủ 7 cột, ĐÚNG thứ tự, và bằng TIẾNG VIỆT', () => {
     // GĐ 1b: the merged page has more than one table, and the class list comes
     // first — scope to the students table or this asserts the wrong thead.
+    //
+    // Ghim THỨ TỰ, không ghim từng chữ rời: cột đọc theo vị trí, nên đảo chỗ
+    // "Mục tiêu" với "Hiện tại" là đổi nghĩa cả bảng mà phép kiểm từng-chữ
+    // không thấy.
+    //
+    // Nhãn nay là tiếng Việt. Người dùng màn này là giáo viên người Việt, và
+    // bảng cũ trộn hai thứ tiếng ngay trên một hàng: `Code, Name, Lớp, Target`
+    // (audit giao diện 06/08).
     const thead = html.match(/<table id="students-table"[\s\S]*?<\/thead>/);
     assert.ok(thead, 'students table not found on the merged page');
-    for (const col of ['Code', 'Name', 'Target', 'Current', 'Date', 'Actions']) {
-      assert.match(thead[0], new RegExp(`>\\s*${col}\\s*<`), `Missing column: ${col}`);
-    }
+    const cols = [...thead[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)]
+      .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    assert.deepEqual(cols,
+      ['Mã HV', 'Họ tên', 'Lớp', 'Mục tiêu', 'Hiện tại', 'Hạn đích', 'Thao tác']);
   });
 
   test('table renders Actions column with 4 button data-act values', () => {
