@@ -137,7 +137,7 @@
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/speaking` | `/pages/speaking.html` (file), `/pages/dashboard.html` → `/pages/speaking.html` (legacy redirect via vercel.json line 34) | `pages/speaking.html` | Student | none | localStorage (theme), sessionStorage (session state), Supabase session | M | Speaking hub; session list & full-test launch |
+| `/speaking` | `/pages/speaking.html` (file, bản legacy vẫn phục vụ làm mốc rollback + vế parity), `/pages/dashboard.html` → `/pages/speaking.html` (legacy redirect via vercel.json line 34) | `app/(authed-speaking)/speaking/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (session state), Supabase session | M | Speaking hub; session list & full-test launch |
 | `/practice` | `?session_id=<uuid>` (mandatory; error if missing) | `pages/practice.html` | Student | `session_id` | localStorage (theme), sessionStorage (recording state), MediaRecorder, Whisper API (audio upload), Claude grading API, Supabase session | XL | Core speaking practice; 3167 LOC practice.js; recording + grading + feedback + full-test chaining |
 | `/result` | `?session_id=<uuid>` (from practice complete) | `pages/result.html` | Student | `session_id`, `part` (optional, scroll anchor) | localStorage (theme), sessionStorage (cached result), audio playback | L | Result display; grammar feedback, pronunciation pills, next-question nav |
 | `/full-test` | — | `pages/full-test.html` | Student | `test_id`, `attempt_id`, `session_ids` (array from chaining) | localStorage (theme), sessionStorage (test state, part progress) | L | Full mock test 3-part orchestration; session chaining |
@@ -148,7 +148,7 @@
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/writing` | — | `pages/writing-dashboard.html` | Student | none | localStorage (theme), sessionStorage (state), Supabase session | M | Writing hub; assignment list + status + cohort view |
-| `/writing/dashboard` | Clean URL alias via vercel.json line 23 | `pages/writing-dashboard.html` | Student | none | localStorage (theme), sessionStorage (state) | M | Rewrite target; assignment overview |
+| `/writing/dashboard` | rewrite ĐÃ GỠ ở #950; `/pages/writing-dashboard.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-writing)/writing/dashboard/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (state) | M | Rewrite target; assignment overview |
 | `/writing/result` | Clean URL alias via vercel.json line 24 | `pages/writing-result.html` | Student | `submission_id` | localStorage (theme), sessionStorage (cached result), fetch (Rails images from legacy Supabase project) | L | Task 1/Task 2 result + instructor feedback |
 
 ### Reading
@@ -159,7 +159,7 @@
 | `/reading/exam` | — | `pages/reading-exam.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (exam state, answers, timing), fetch API | XL | Full 3-passage IELTS reading; 2613 LOC reading-exam.js; local/session storage for persistence |
 | `/reading/skill` | — | `pages/reading-skill.html` | Student | `skill_id` (comprehension, vocab, skim, scan) | localStorage (theme), sessionStorage (answers) | L | Skill-specific passage drills |
 | `/reading/skill/:exercise_id` | — | `pages/reading-skill-exercise.html` | Student | `exercise_id`, `passage_id` | localStorage (theme), sessionStorage (state) | M | Single exercise within skill drill |
-| `/reading/vocab` | — | `pages/reading-vocab.html` | Public | none | localStorage (theme), fetch (vocab list) | M | Vocabulary extraction from reading content |
+| `/reading/vocab` | `/pages/reading-vocab.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/vocab/page.tsx` — CUTOVER 2026-08-05 | Student (dùng AuthedShell; endpoint nhận `authorization` tuỳ chọn) | none | localStorage (theme), fetch (vocab list) | M | Vocabulary extraction from reading content |
 | `/reading/vocab/:passage_id` | — | `pages/reading-vocab-passage.html` | Public | `passage_id` | localStorage (theme) | M | Words from single passage |
 | `/reading/review` | — | `pages/reading-review.html` | Student | `attempt_id` | localStorage (theme), fetch (answer review) | M | Post-exam review + analytics |
 | `/reading/mini-test` | — | `pages/reading-mini-test.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill |
@@ -537,8 +537,8 @@ Some routes are served by the same HTML file but accessible via multiple URL pat
 | `/writing/result` | (direct path only) | `pages/writing-result.html` | No root-level alias |
 | `/grammar` | `/grammar.html` | `grammar.html` | Root-level file |
 | `/grammar/:category/:slug` | `/pages/grammar-article.html` | `pages/grammar-article.html` | Dynamic pattern via rewrite |
-| `/speaking` | `/pages/speaking.html` | `pages/speaking.html` | Clean URL alias via verwrite; legacy dashboard redirect also here |
-| `/home` | `/pages/home.html` | `pages/home.html` | Clean URL alias via verwrite |
+| `/speaking` | `/pages/speaking.html` | `app/(authed-speaking)/speaking/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
+| `/home` | `/pages/home.html` | `app/(authed-home)/home/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
 
 ---
 
