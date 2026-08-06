@@ -356,12 +356,14 @@ def test_a_free_practice_session_has_NO_class_link():
 
 # ── Chốt sổ bài giao khi kết phiên ───────────────────────────────────────────
 
-def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
+def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8,
+         has_writing=False):
     marked = []
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": item_id}
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
+         patch.object(mod, "bank_has_writing", lambda _b: has_writing), \
          patch.object(mod, "mark_item_submitted",
                       lambda _db, **kw: marked.append(kw) or True):
         mod.end_session(user_id="u1", session_id="sess-1", data={
@@ -372,7 +374,10 @@ def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
 
 def test_finishing_marks_the_class_item_SUBMITTED():
     """Không có bước này thì mục ở lại "opened" vĩnh viễn và bảng của giáo viên
-    báo em ấy chưa nộp — trong khi em ấy vừa làm xong."""
+    báo em ấy chưa nộp — trong khi em ấy vừa làm xong.
+
+    Chỉ đúng với bộ đề KHÔNG có phần tự luận; xem chốt ngay dưới.
+    """
     marked = _end(_db(quiz_sessions=[]))
     assert len(marked) == 1
     assert marked[0]["item_id"] == "it-1"
@@ -403,3 +408,14 @@ def test_a_failure_while_marking_does_NOT_break_ending_the_session():
                               data={"ended_by": "completed", "total_questions": 10,
                                     "total_correct": 8, "total_wrong": 2})
     assert out
+
+
+def test_a_bank_WITH_writing_is_not_closed_by_finishing_a_stage():
+    """Xong chặng CHƯA PHẢI xong bài. `end_session` đóng dấu "đã nộp" ngay từ
+    chặng ĐẦU TIÊN, nên một em làm hết 9 chặng rồi dừng trước phần viết vẫn hiện
+    là đã hoàn thành — ca thật: em Phương Anh Nguyễn (9/9 chặng, 0 câu viết, sổ
+    ghi `graded` 80 điểm), và giáo viên không có cách nào biết cần nhắc em ấy.
+
+    Đường chốt sổ khi ấy là lượt NỘP TỰ LUẬN, không phải lượt kết chặng.
+    """
+    assert _end(_db(quiz_sessions=[]), has_writing=True) == []

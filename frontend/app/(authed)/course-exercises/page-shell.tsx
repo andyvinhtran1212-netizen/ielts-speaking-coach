@@ -13,6 +13,10 @@ export function CourseShell() {
   return (
     <>
       <link rel="stylesheet" href="/css/course-exercises.css" />
+      {/* Báo cáo sau khi làm bài dùng CHUNG bộ vẽ với mặt đọc của giáo viên,
+          nên cũng dùng chung tệp kiểu của nó. Không nạp tệp này thì báo cáo ra
+          màn hình trần trụi — bài học PR #925. */}
+      <link rel="stylesheet" href="/css/course-report.css" />
 
       <aver-chrome active="courses"></aver-chrome>
 
@@ -34,6 +38,11 @@ export function CourseShell() {
 
         {/* Hết chặng */}
         <section id="cx-done" className="cx-done" hidden></section>
+
+        {/* Báo cáo: yếu trục nào, sai câu nào, chọn nhầm gì. Một khối RIÊNG chứ
+            không nhét vào `cx-done` — màn kết chặng bị vẽ lại sau mỗi chặng, và
+            báo cáo thì phải ở lại khi học viên đang đọc nó. */}
+        <section id="cx-report" className="cx-report" hidden></section>
       </main>
     </>
   );

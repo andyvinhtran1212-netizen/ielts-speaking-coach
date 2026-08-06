@@ -673,17 +673,15 @@ function renderHomework() {
     const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
     // Chỉ bài tập theo buổi có kho câu hỏi để đọc chi tiết; các kỹ năng khác
     // không có `quiz_attempts` nên nút sẽ mở ra một bảng rỗng.
-    const effort = (a.skill === 'course' && a.content_id)
-      ? ` <button class="adm-btn-secondary" data-action="effort"
-                  data-id="${esc(a.content_id)}" data-asg="${esc(a.id)}"
-                  data-title="${esc(a.title)}">Chi tiết làm bài</button>`
-      : '';
+    const effort = '';
     return `<tr>
       <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
       <td><button class="adm-btn-secondary" data-action="tally"
-                  data-id="${esc(a.id)}">Xem ai nộp</button>
+                  data-id="${esc(a.id)}" data-title="${esc(a.title)}"
+                  data-bank="${a.skill === 'course' && a.content_id ? esc(a.content_id) : ''}"
+                  >Nhận bài</button>
           <button class="adm-btn-secondary" data-action="backfill"
                   data-id="${esc(a.id)}" data-scope="${esc(a.recipient_scope || 'class')}"
                   title="${a.recipient_scope === 'subset'
@@ -896,16 +894,11 @@ async function openStudentWriting(assignmentId, studentId) {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId)
       + '/writing/' + encodeURIComponent(studentId));
-    $('tally-modal-title').textContent =
-      'Tự luận — ' + (d.student.name || d.student.code || '');
     body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
       + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
     const b = $('cw-back');
     if (b) {
-      b.onclick = () => {
-        body.innerHTML = back;
-        $('tally-modal-title').textContent = _tallyTitle;
-      };
+      b.onclick = () => { body.innerHTML = back; };
     }
   } catch (err) {
     // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
@@ -918,16 +911,122 @@ async function openStudentWriting(assignmentId, studentId) {
 let _tallyAsg = null;
 let _tallyTitle = '';
 
+/* ── NHẬN BÀI: ba tab, chiếm trọn trang ─────────────────────────────────────
+ *
+ * Trước đây là hai popup chật. Bảng 14 học viên × 7 cột không sống nổi trong
+ * một hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
+ */
+let _mk = { asg: null, bank: null, title: '', scope: 'class' };
+// Mỗi lần mở một bài giao khác (hoặc rời khu) là một THẾ HỆ mới. Mọi lượt gọi
+// mạng của khu này chụp thế hệ lúc bắt đầu và chỉ vẽ nếu nó còn khớp — nếu
+// không, mở bài A (mạng chậm) rồi mở bài B sẽ để bảng của A ghi đè lên B, với
+// tiêu đề vẫn là B (codex cục bộ 06/08).
+let _mkGen = 0;
+let _CR = null;      // bộ vẽ báo cáo, nạp lúc cần
+
+function showMarkTab(name) {
+  for (const t of ['tally', 'effort', 'one']) {
+    const on = t === name;
+    $('mtab-' + t).classList.toggle('is-active', on);
+    $('mtab-' + t).setAttribute('aria-current', on ? 'page' : 'false');
+    $('mpanel-' + t).hidden = !on;
+  }
+  // Mỗi tab nạp ở lần mở ĐẦU TIÊN. Nạp cả ba lúc vào là ba lượt gọi mạng cho
+  // hai tab giáo viên có thể không bao giờ nhìn.
+  if (name === 'effort' && _mk.bank && !$('effort-body').dataset.loaded) {
+    $('effort-body').dataset.loaded = '1';
+    openEffort(_mk.bank, _mk.asg, _mk.title);
+  }
+  if (name === 'one' && !$('one-list').dataset.loaded) {
+    $('one-list').dataset.loaded = '1';
+    renderOneList();
+  }
+}
+
+function openMarking(assignmentId, title, bankId) {
+  _mkGen += 1;
+  _mk = { asg: assignmentId, bank: bankId || null, title: title || '' };
+  $('marking-title').textContent = title || 'Nhận bài';
+  $('marking-sub').textContent = bankId ? 'Bài tập theo buổi' : '';
+  // Tab "Bài từng em" chỉ có nghĩa với bài theo buổi — kỹ năng khác không có
+  // lượt làm từng câu để đọc.
+  $('mtab-one').hidden = !bankId;
+  $('mtab-effort').hidden = !bankId;
+  delete $('effort-body').dataset.loaded;
+  delete $('one-list').dataset.loaded;
+  $('one-body').innerHTML = '<p class="adm-hint">Chọn một học viên ở danh sách bên trái.</p>';
+  $('tab-marking').hidden = false;
+  showPanel('marking');
+  showMarkTab('tally');
+  openTally(assignmentId);
+}
+
+/** Danh sách em để chọn — lấy từ chính bảng "Chi tiết làm bài". */
+async function renderOneList() {
+  const gen = _mkGen;
+  const list = $('one-list');
+  list.innerHTML = '<li class="adm-hint">Đang tải…</li>';
+  let r;
+  try {
+    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
+      + '/attempt-report?assignment_id=' + encodeURIComponent(_mk.asg));
+  } catch (err) {
+    list.innerHTML = '<li class="adm-banner">Không tải được danh sách: '
+      + esc(err.message || String(err)) + '</li>';
+    return;
+  }
+  if (gen !== _mkGen) return;
+  const nameOf = {};
+  (_who.members || []).forEach((m) => { if (m.student_id) nameOf[m.student_id] = m.name; });
+  list.innerHTML = (r.students || []).map((x) => `<li>
+    <button type="button" data-one="${esc(x.user_id || '')}"
+            ${x.user_id ? '' : 'disabled'}>
+      <span>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}</span>
+      <em class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</em>
+    </button></li>`).join('');
+}
+
+/** Báo cáo của MỘT em — dùng lại đúng bộ vẽ học viên đang thấy. */
+let _oneSeq = 0;
+
+async function openOneReport(userId, name) {
+  const box = $('one-body');
+  // Chỉ vẽ nếu lượt này VẪN là lượt mới nhất. Bấm An rồi Bình lúc mạng chậm:
+  // bài của An về sau và ghi đè bài của Bình, trong khi tên Bình vẫn sáng —
+  // giáo viên đọc bài của một em dưới tên một em khác (codex cục bộ).
+  //
+  // Đếm SỐ LƯỢT chứ không nhớ `userId`: mở bài giao A, sang bài giao B rồi chọn
+  // ĐÚNG em ấy thì hai lượt mang cùng một userId, và lượt của A vẫn ghi đè
+  // được lên bảng của B (codex PR 952).
+  const seq = ++_oneSeq;
+  const gen = _mkGen;
+  box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
+  try {
+    if (!_CR) _CR = await import('/js/course-report.js');
+    const d = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
+      + '/students/' + encodeURIComponent(userId)
+      + '/report?assignment_id=' + encodeURIComponent(_mk.asg));
+    if (seq !== _oneSeq || gen !== _mkGen) return;
+    box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
+      + _CR.renderReport(d);
+    _CR.bindReport(box);
+  } catch (err) {
+    if (seq !== _oneSeq || gen !== _mkGen) return;
+    box.innerHTML = '<p class="adm-banner">Không đọc được bài của em này: '
+      + esc(err.message || String(err)) + '</p>';
+  }
+}
+
 async function openTally(assignmentId) {
+  const gen = _mkGen;
   const body = $('tally-body');
-  $('tally-modal').hidden = false;
   body.innerHTML = '<p class="adm-hint">Đang tải…</p>';
   try {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
+    if (gen !== _mkGen) return;
     _tallyAsg = assignmentId;
     _tallyTitle = d.assignment.title || 'Bảng tổng kết';
-    $('tally-modal-title').textContent = _tallyTitle;
     body.innerHTML = renderTally(d);
   } catch (err) {
     // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
@@ -1816,8 +1915,7 @@ const EFFORT_STATE = {
 };
 
 async function openEffort(bankId, assignmentId, title) {
-  $('effort-modal').hidden = false;
-  $('effort-modal-title').textContent = 'Chi tiết làm bài — ' + (title || '');
+  const gen = _mkGen;
   $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
   let r;
   try {
@@ -1905,24 +2003,55 @@ async function openEffort(bankId, assignmentId, title) {
  * hình với em — còn bảng của giáo viên vẫn đếm em vào mẫu số. Chỉ THÊM, không
  * bao giờ xoá, và bấm bao nhiêu lần cũng vô hại.
  */
+/* Bảng tick cho lệnh bù người nhận.
+ *
+ * Trước đây là `window.prompt` bắt gõ số thứ tự — gõ nhầm một số là thêm nhầm
+ * một em vào bài không dành cho em ấy, mà lệnh bù thì KHÔNG gỡ lại được (nó chỉ
+ * thêm, không bao giờ xoá).
+ */
+let _bfPick = new Set();
+let _bfAsg = null;
+
+function renderBackfillPick() {
+  const list = $('backfill-list');
+  if (!list) return;
+  list.innerHTML = (_who.members || []).map((m) => {
+    const on = _bfPick.has(m.student_id) ? ' checked' : '';
+    return '<label class="cl-pick-row">'
+      + '<input type="checkbox" data-bf="' + esc(m.student_id) + '"' + on + ' />'
+      + '<span>' + esc(m.name || m.student_code || 'Chưa có tên') + '</span>'
+      + (m.user_id ? '' : '<em>chưa kích hoạt</em>')
+      + '</label>';
+  }).join('');
+  const n = _bfPick.size;
+  $('backfill-count').textContent = n
+    ? ('Đã chọn ' + n + '/' + (_who.members || []).length) : 'Chưa chọn ai';
+  $('btn-backfill-ok').disabled = n === 0;
+  $('btn-backfill-ok').textContent = n ? ('Thêm ' + n + ' học viên') : 'Thêm';
+}
+
+function openBackfillPick(assignmentId) {
+  _bfAsg = assignmentId;
+  _bfPick = new Set();
+  $('backfill-modal').hidden = false;
+  renderBackfillPick();
+}
+
 async function backfillHomework(assignmentId, scope) {
   // Bài giao cho một NHÓM: "bù cả lớp" ở đây là thêm đúng những em cố ý không
-  // được chọn, và nó đổi phạm vi chính thức của bài giao. Hỏi đích danh
-  // (codex PR 945 vòng 5).
-  let ids = null;
-  if (scope === 'subset') {
-    const names = (_who.members || [])
-      .map((m, i) => `${i + 1}. ${m.name || m.student_code || '—'}`).join('\n');
-    const pick = window.prompt(
-      'Bài này giao cho một NHÓM, không phải cả lớp.\n\n'
-      + 'Nhập số thứ tự các học viên cần thêm, cách nhau bằng dấu phẩy:\n\n'
-      + names, '');
-    if (pick === null) return;
-    ids = pick.split(',')
-      .map((x) => (_who.members || [])[Number(x.trim()) - 1])
-      .filter(Boolean).map((m) => m.student_id);
-    if (!ids.length) { toast('Chưa chọn học viên nào.', 'error'); return; }
-  }
+  // được chọn, và nó đổi phạm vi chính thức của bài giao (codex PR 945 vòng 5).
+  // Nên hỏi đích danh — bằng BẢNG TICK, không phải một ô gõ số thứ tự.
+  if (scope === 'subset' && assignmentId) { openBackfillPick(assignmentId); return; }
+  return doBackfill(assignmentId, null);
+}
+
+/**
+ * Gửi lệnh bù. `ids = null` nghĩa là CẢ LỚP — chỉ dùng cho bài giao cả lớp.
+ *
+ * Tách khỏi `backfillHomework` vì hai đường tới đây khác nhau: bài cả lớp đi
+ * thẳng, bài theo nhóm phải qua bảng chọn trước.
+ */
+async function doBackfill(assignmentId, ids) {
   try {
     const r = await api.post(
       '/admin/cohorts/' + encodeURIComponent(_cohortId)
@@ -2373,13 +2502,15 @@ async function loadProgress() {
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  const PANELS = ['roster', 'lessons', 'homework', 'progress'];
+  const PANELS = ['roster', 'lessons', 'homework', 'progress', 'marking'];
   for (const p of PANELS) {
     const on = p === name;
-    $('tab-' + p).classList.toggle('is-active', on);
+    const tab = $('tab-' + p);
+    if (!tab) continue;
+    tab.classList.toggle('is-active', on);
     // aria-current marks the active tab for assistive tech; the class alone is
     // only a colour change.
-    $('tab-' + p).setAttribute('aria-current', on ? 'page' : 'false');
+    tab.setAttribute('aria-current', on ? 'page' : 'false');
     $('panel-' + p).hidden = !on;
   }
   // Each panel fetches on first open only — opening the class must not fire
@@ -2443,6 +2574,9 @@ function bindDetail() {
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
   $('tab-homework').addEventListener('click', () => showPanel('homework'));
   $('tab-progress').addEventListener('click', () => showPanel('progress'));
+  // Thiếu dòng này thì tab hiện ra nhưng bấm KHÔNG có gì xảy ra: giáo viên rời
+  // sang Bài tập rồi muốn quay lại khu đang mở là kẹt (codex cục bộ 06/08).
+  $('tab-marking').addEventListener('click', () => showPanel('marking'));
 
   $('btn-add-homework').addEventListener('click', openHomeworkModal);
   $('homework-empty').addEventListener('click', (e) => {
@@ -2495,10 +2629,48 @@ function bindDetail() {
     _who.picked = new Set();
     syncWho();
   });
-  const closeEffort = () => { $('effort-modal').hidden = true; };
-  $('btn-effort-close').addEventListener('click', closeEffort);
-  bindModalBackdrop('effort-modal', closeEffort);
+  const closeBf = () => { $('backfill-modal').hidden = true; };
+  $('btn-backfill-cancel').addEventListener('click', closeBf);
+  bindModalBackdrop('backfill-modal', closeBf);
+  $('backfill-list').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-bf]');
+    if (!box) return;
+    if (box.checked) _bfPick.add(box.dataset.bf); else _bfPick.delete(box.dataset.bf);
+    renderBackfillPick();
+  });
+  $('btn-backfill-all').addEventListener('click', () => {
+    _bfPick = new Set((_who.members || []).map((m) => m.student_id));
+    renderBackfillPick();
+  });
+  $('btn-backfill-none').addEventListener('click', () => { _bfPick = new Set(); renderBackfillPick(); });
+  $('btn-backfill-ok').addEventListener('click', () => {
+    if (!_bfPick.size || !_bfAsg) return;
+    const ids = Array.from(_bfPick);
+    closeBf();
+    // Gửi thẳng danh sách: `backfillHomework` chỉ mở bảng chọn khi CHƯA có ids,
+    // nên truyền scope 'class' ở đây là nói "danh sách đã chốt rồi".
+    doBackfill(_bfAsg, ids);
+  });
   bindModalBackdrop('homework-modal', closeHomeworkModal);
+
+  // ── Nhận bài: ba tab ──────────────────────────────────────────────────
+  $('mtab-tally').addEventListener('click', () => showMarkTab('tally'));
+  $('mtab-effort').addEventListener('click', () => showMarkTab('effort'));
+  $('mtab-one').addEventListener('click', () => showMarkTab('one'));
+  $('btn-marking-back').addEventListener('click', () => {
+    _mkGen += 1;                       // rời khu: mọi lượt đang bay hết hiệu lực
+    // Rời khu nhận bài thì GIẤU cả tab của nó: nó là chỗ đứng tạm của một bài
+    // giao, không phải một mục thường trực của lớp.
+    $('tab-marking').hidden = true;
+    showPanel('homework');
+  });
+  $('one-list').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-one]');
+    if (!b || b.disabled) return;
+    [...$('one-list').querySelectorAll('button')].forEach((x) =>
+      x.classList.toggle('is-active', x === b));
+    openOneReport(b.dataset.one, (b.querySelector('span') || {}).textContent);
+  });
   // Nút "Xem tự luận" nằm TRONG bảng tổng kết, vốn được vẽ lại mỗi lần mở —
   // nên uỷ quyền trên khung modal thay vì gắn tay từng nút.
   $('tally-body').addEventListener('click', (e) => {
@@ -2509,24 +2681,16 @@ function bindDetail() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
-    if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
+    if (btn.dataset.action === 'tally') {
+      openMarking(btn.dataset.id, btn.dataset.title, btn.dataset.bank);
+    }
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
     if (btn.dataset.action === 'backfill') {
       backfillHomework(btn.dataset.id, btn.dataset.scope);
     }
-    if (btn.dataset.action === 'effort') {
-      openEffort(btn.dataset.id, btn.dataset.asg, btn.dataset.title);
-    }
   });
 
-  const closeTally = () => { $('tally-modal').hidden = true; };
-  $('btn-tally-close').addEventListener('click', closeTally);
-  // Bấm ra nền để đóng, như mọi modal khác. Chỉ khi bấm ĐÚNG lớp nền — bấm bên
-  // trong thẻ cũng nổi bọt lên đây và sẽ đóng modal giữa lúc đang đọc.
-  $('tally-modal').addEventListener('click', (e) => {
-    if (e.target === $('tally-modal')) closeTally();
-  });
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
   $('btn-lf-submit').addEventListener('click', submitLesson);

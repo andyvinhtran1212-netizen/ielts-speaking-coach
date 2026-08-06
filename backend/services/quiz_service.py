@@ -802,7 +802,15 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     # Best-effort: hỏng ở đây KHÔNG được làm đổ lệnh kết phiên — điểm đã ghi rồi,
     # và chốt sổ có thể vá lại bằng lượt đối chiếu.
     item_id = (session or {}).get("class_assignment_item_id")
-    if item_id and ended_by == "completed":
+    # BỘ ĐỀ CÓ PHẦN TỰ LUẬN thì xong chặng CHƯA PHẢI xong bài — đường chốt sổ là
+    # lượt nộp tự luận, không phải lượt kết chặng.
+    #
+    # Không có chắn này thì chặng ĐẦU TIÊN đã đóng dấu "đã nộp", và một em làm
+    # hết 9 chặng rồi dừng trước phần viết vẫn hiện là đã hoàn thành — đúng ca
+    # đã xảy ra với em Phương Anh Nguyễn (9/9 chặng, 0 câu viết, sổ ghi `graded`
+    # 80 điểm). Giáo viên không có cách nào biết cần nhắc em ấy.
+    if item_id and ended_by == "completed" and not bank_has_writing(
+            (session or {}).get("bank_id")):
         try:
             mark_item_submitted(
                 supabase_admin, item_id=item_id,
@@ -1056,6 +1064,46 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     }
 
 
+# Bộ đề nào có phần tự luận — nhớ lại sau lần đọc ĐẦU THÀNH CÔNG.
+#
+# Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng (đổi ruột thì tạo
+# bank mới), nên nhớ là an toàn. Nhớ để làm gì: thu hẹp cửa sổ "đọc hỏng" xuống
+# đúng lần gọi ĐẦU TIÊN của tiến trình cho bank ấy.
+_WRITING_CACHE: dict[str, bool] = {}
+
+
+def bank_has_writing(bank_id: str | None) -> bool:
+    """Bộ đề này có câu TỰ LUẬN không.
+
+    ── Vì sao đọc hỏng thì trả `False` ─────────────────────────────────────
+    Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
+    nhịp thôi". Lý lẽ ấy SAI, vì với bộ đề KHÔNG có tự luận thì không có nhịp
+    nào sau cả: `end_session` là đường chốt sổ duy nhất, và
+    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking) chứ
+    không đọc `quiz_sessions`. Một lần đọc hỏng khi ấy để lại một bài giao KẸT
+    VĨNH VIỄN ở "Cần nộp", không ai sửa được (codex PR 952).
+
+    Hỏng theo chiều ngược lại thì thiệt hại có giới hạn: một bài giao có phần
+    viết bị đóng dấu sớm MỘT lần, và mặt đọc của giáo viên vẫn nói đúng — bảng
+    "Chi tiết làm bài" đọc thẳng `course_writing_submissions`, không đọc
+    `submitted_at`.
+    """
+    if not bank_id:
+        return False
+    if bank_id in _WRITING_CACHE:
+        return _WRITING_CACHE[bank_id]
+    try:
+        has = bool((supabase_admin.table("quiz_questions").select("id", count="exact")
+                    .eq("bank_id", bank_id).eq("type", "writing")
+                    .limit(1).execute()).count or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — coi như "
+                       "KHÔNG có, để bài giao không kẹt vĩnh viễn", bank_id, exc)
+        return False
+    _WRITING_CACHE[bank_id] = has
+    return has
+
+
 def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
@@ -1295,6 +1343,10 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
 # (PostgREST cắt ở 1000 và không báo gì), `_REPORT_IDS` chặn số id gửi đi trong
 # `in.(...)` — một lớp làm bài mỗi ngày tích đủ phiên để chuỗi truy vấn thành
 # hàng chục KB rồi mặt đọc 500 thay vì hiện được gì.
+# Quá ngưỡng này trên MỘT câu trắc nghiệm thì gần như chắc chắn học viên đã rời
+# máy, không phải đang nghĩ. Xem ghi chú ở `course_answer_report.totals`.
+IDLE_CUTOFF_SEC = 180
+
 _REPORT_PAGE = 1000
 _REPORT_IDS = 100
 
@@ -1317,6 +1369,180 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
         if len(rows) < _REPORT_PAGE:
             return out
         start += _REPORT_PAGE
+
+
+def course_answer_report(*, user_id: str, bank_id: str,
+                         assignment_id: str | None = None) -> dict:
+    """Bài làm CHI TIẾT của một học viên: câu nào đúng, câu nào sai, em chọn gì,
+    đáp án là gì, và vì sao phương án em chọn sai.
+
+    Dùng chung cho HAI mặt đọc — của học viên (xem lại bài mình) và của giáo
+    viên (xem bài một em). Một bộ dựng cho hai nơi, vì hai bộ dựng cho cùng một
+    nội dung là hai chỗ để trôi khỏi nhau.
+
+    Chỉ lấy lượt làm của lượt CHÍNH (`kind='run'`) thuộc đúng bài giao: phiên
+    kiểm tra lại bốc mẫu ngẫu nhiên và trộn đáp án, trộn nó vào đây thì cùng một
+    câu hiện hai lần với hai chỉ số phương án khác nhau.
+
+    Với mỗi câu chỉ giữ lượt làm ĐẦU TIÊN. Học viên chỉ trả lời được một lần mỗi
+    câu trong một chặng, nhưng làm lại chặng (đóng tab giữa chừng) sinh ra lượt
+    thứ hai — và cái giáo viên muốn đọc là lần em ấy thật sự nghĩ.
+    """
+    out: dict = {"questions": [], "totals": {}, "stale": False}
+
+    # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
+    # chính em ấy — đường của học viên tự xem lại bài mình.
+    #
+    # NÊU bài giao = đường của GIÁO VIÊN, và đường ấy KHÔNG đi qua cổng học
+    # viên: cổng ấy đòi bài còn mở và còn hạn, nên mở "Bài từng em" cho một bài
+    # đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc giáo viên cần đọc nhất
+    # (codex cục bộ 06/08). Quyền đã kiểm ở tầng tuyến (require_admin).
+    bank = ({} if assignment_id else _bank_meta_or_404(bank_id, user_id))
+    if assignment_id:
+        try:
+            rows = (supabase_admin.table("quiz_banks").select("id, title")
+                    .eq("id", bank_id).limit(1).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            # Chỉ mất TÊN bộ đề, không mất bài làm — nhưng vẫn phải nói ra:
+            # mọi lượt đọc hỏng đều bật cờ, không có ngoại lệ "lỗi nhẹ".
+            logger.warning("[quiz] answer-report bank failed: %s", exc)
+            out["stale"] = True
+            rows = []
+        bank = rows[0] if rows else {}
+
+    item_ids: set[str] = set()
+    try:
+        if assignment_id:
+            item_ids = {i["id"] for i in _report_pages(
+                "class_assignment_items", "id, student_id",
+                lambda q: q.eq("assignment_id", assignment_id))}
+        else:
+            it = _assignment_item_for(bank_id, user_id)
+            item_ids = {it["id"]} if it else set()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] answer-report items failed: %s", exc)
+        out["stale"] = True
+        return out
+    if not item_ids:
+        return out
+
+    try:
+        sessions = _report_pages(
+            "quiz_sessions",
+            "id, user_id, kind, class_assignment_item_id, duration_sec, ended_at",
+            lambda q: q.eq("bank_id", bank_id).eq("user_id", user_id))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] answer-report sessions failed: %s", exc)
+        out["stale"] = True
+        return out
+    sessions = [x for x in sessions
+                if (x.get("kind") or "run") == "run"
+                and x.get("class_assignment_item_id") in item_ids]
+    if not sessions:
+        return out
+    sids = [x["id"] for x in sessions]
+
+    attempts: list[dict] = []
+    for i in range(0, len(sids), _REPORT_IDS):
+        try:
+            attempts += _report_pages(
+                "quiz_attempts",
+                "session_id, qid, is_correct, answer_given, response_time_ms, created_at",
+                lambda q, c=sids[i:i + _REPORT_IDS]: q.in_("session_id", c))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] answer-report attempts failed: %s", exc)
+            out["stale"] = True
+
+    first: dict[str, dict] = {}
+    for a in sorted(attempts, key=lambda x: x.get("created_at") or ""):
+        if a.get("qid") and a["qid"] not in first:
+            first[a["qid"]] = a
+    if not first:
+        return out
+
+    try:
+        qs_rows = _report_pages(
+            "quiz_questions",
+            "qid, type, subtype, prompt, options, answer, explain, why_wrong, item_key, order",
+            lambda q: q.eq("bank_id", bank_id), order="order")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] answer-report questions failed: %s", exc)
+        out["stale"] = True
+        return out
+
+    rows = []
+    for q in qs_rows:
+        a = first.get(q.get("qid"))
+        if not a or q.get("type") == "writing":
+            continue
+        opts = q.get("options") or []
+        # `answer_given` là CHỈ SỐ phương án, lưu dạng chuỗi. Đổi về số để tra
+        # nhãn; không đổi được thì giữ nguyên chuỗi cho người đọc tự xoay xở.
+        try:
+            picked = int(a.get("answer_given"))
+        except (TypeError, ValueError):
+            picked = None
+        correct = q.get("answer") if isinstance(q.get("answer"), int) else None
+        # CHẤM LẠI từ `answer_given` so với đáp án của đề, không tin cờ
+        # `is_correct` do CLIENT gửi lên (`log_progress` nhận nguyên cờ ấy).
+        # `course_verdict` đã tự chấm lại từ lâu vì đúng lý do này; báo cáo tin
+        # cờ client thì một payload sửa tay biến câu sai thành câu đúng, giấu
+        # luôn đáp án thật, và làm hỏng cả bảng của giáo viên (codex PR 952).
+        #
+        # Không so được (đề không phải trắc nghiệm, hoặc thiếu đáp án) thì mới
+        # dùng cờ đã lưu — thà giữ nguyên còn hơn kết luận bừa.
+        ok = (picked == correct) if (picked is not None and correct is not None) \
+            else bool(a.get("is_correct"))
+        rows.append({
+            "qid":       q.get("qid"),
+            "item_key":  q.get("item_key"),
+            "subtype":   q.get("subtype"),
+            "prompt":    q.get("prompt"),
+            "options":   opts,
+            "picked":    picked,
+            "picked_text": opts[picked] if (picked is not None and 0 <= picked < len(opts)) else None,
+            "answer":    correct,
+            "answer_text": opts[correct] if (correct is not None and 0 <= correct < len(opts)) else None,
+            "is_correct": ok,
+            # Vì sao phương án EM CHỌN sai — thứ có ích hơn hẳn lời giải chung.
+            "why_wrong": ((q.get("why_wrong") or {}).get(str(picked))
+                          if picked is not None and not ok else None),
+            "explain":   q.get("explain"),
+            "seconds":   (round(a["response_time_ms"] / 1000, 1)
+                          if isinstance(a.get("response_time_ms"), (int, float))
+                          and a["response_time_ms"] > 0 else None),
+        })
+
+    times = [r["seconds"] for r in rows if r["seconds"] is not None]
+    times.sort()
+    # Từ LƯỢT ĐẦU của mỗi câu — cùng tập với `rows` và với bảng lớp. Đếm mọi
+    # lượt thì một chặng làm lại được tính hai lần, và `active_sec`/`idle_sec`
+    # lệch khỏi chính trung vị ngay bên cạnh nó (codex PR 952).
+    secs = [(a.get("response_time_ms") or 0) / 1000 for a in first.values()]
+    out["questions"] = rows
+    out["totals"] = {
+        "answered": len(rows),
+        "correct":  sum(1 for r in rows if r["is_correct"]),
+        # Trung vị, không phải trung bình: một câu bỏ dở 20 phút kéo trung bình
+        # đi xa khỏi mọi câu thật.
+        "median_sec": times[len(times) // 2] if times else None,
+        "active_sec": round(sum(min(x, IDLE_CUTOFF_SEC) for x in secs)),
+        # RỜI MÁY (ƯỚC LƯỢNG), không phải một con số đo được.
+        #
+        # `response_time_ms` là khoảng từ lúc câu hiện ra tới lúc bấm trả lời —
+        # nó GỘP cả suy nghĩ lẫn đi pha trà, và dữ liệu không tách được hai thứ.
+        # Hiệu "đồng hồ treo tường trừ thời gian trả lời" cũng không dùng được:
+        # nó luôn ÂM vì thời gian trả lời đã bao trùm.
+        #
+        # Nên ước lượng bằng phần VƯỢT NGƯỠNG. Đo trên bank C1-B01 (277 lượt):
+        # trung vị 17s, p95 98s, p99 213s, dài nhất 29 phút. Ngưỡng 180s cắt
+        # đúng 1,4% số lượt nhưng chúng chiếm 18% tổng thời gian — tức là đúng
+        # cái đuôi cần tách, không phải một lát cắt tuỳ tiện.
+        "idle_sec":   round(sum(max(0.0, x - IDLE_CUTOFF_SEC) for x in secs)),
+        "idle_cutoff_sec": IDLE_CUTOFF_SEC,
+        "bank_title": bank.get("title"),
+    }
+    return out
 
 
 def _course_stage_count(bank_id: str) -> tuple[int, int, bool]:
@@ -1377,7 +1603,8 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
     # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
     out: dict = {"students": [], "axes": [], "bank_id": bank_id,
-                 "stages_total": 0, "writing_total": 0, "stale": False}
+                 "stages_total": 0, "writing_total": 0, "stale": False,
+                 "idle_cutoff_sec": IDLE_CUTOFF_SEC}
 
     # Sổ người nhận của CHÍNH bài giao này = danh sách học viên của báo cáo.
     try:
@@ -1458,31 +1685,86 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     with_work: set[str] = set()
     slow: dict[str, list[int]] = {}
     wrong: dict[str, int] = {}
+    # Thời gian theo TỪNG HỌC VIÊN, để bảng lớp nói được "em nào chậm bất
+    # thường" mà không phải mở từng báo cáo một.
+    per_user_secs: dict[str, list[float]] = {}
+    seen_q: set = set()
+    first_by_user: dict[str, list[dict]] = {}
+    sess_user = {x["id"]: x.get("user_id") for x in sessions}
+    # THU hết trước, XỬ LÝ sau. Sắp trong từng lô là sai: `seen_q` dùng chung
+    # cho mọi lô, nên một lượt MỚI hơn ở lô đầu chặn mất lượt CŨ hơn ở lô sau —
+    # và bảng lớp cho ra con số khác báo cáo từng em (codex cục bộ 06/08).
+    all_rows: list[dict] = []
     for i in range(0, len(sessions), _REPORT_IDS):
         ids = [x["id"] for x in sessions[i:i + _REPORT_IDS]]
         try:
-            rows = _report_pages(
+            all_rows += _report_pages(
                 "quiz_attempts",
-                "session_id, item_key, is_correct, response_time_ms",
+                # `answer_given` PHẢI có mặt: `_ok()` đọc nó để tự chấm lại, và
+                # thiếu nó thì mọi lượt rơi về cờ client — bản vá thành vô hiệu
+                # mà không có gì đỏ (codex cục bộ 06/08).
+                "session_id, item_key, qid, is_correct, answer_given, "
+                "response_time_ms, created_at",
                 lambda q, c=ids: q.in_("session_id", c),
             )
         except Exception as exc:  # noqa: BLE001
-            # Đọc hỏng ở đây làm phiên ĐANG LÀM đọc thành "chưa mở" và xoá
-            # sạch trục vướng — đúng hai thứ báo cáo này tồn tại để nói.
             logger.warning("[quiz] attempt-report attempts failed: %s", exc)
             out["stale"] = True
-            rows = []
-        for a in rows:
-            if a["session_id"] in open_ids:
-                with_work.add(a["session_id"])
-            key = a.get("item_key")
-            if not key:
+
+    # Đáp án GỐC của đề, để tự chấm lại — cùng lý do như `course_answer_report`.
+    key_of: dict[str, int] = {}
+    axis_of: dict[str, str] = {}
+    try:
+        for q in _report_pages("quiz_questions", "qid, answer, type, item_key",
+                               lambda q2: q2.eq("bank_id", bank_id)):
+            if q.get("type") == "writing":
                 continue
-            if not a.get("is_correct"):
-                wrong[key] = wrong.get(key, 0) + 1
-            ms = a.get("response_time_ms")
-            if isinstance(ms, (int, float)) and ms > 0:
+            if isinstance(q.get("answer"), int):
+                key_of[q["qid"]] = q["answer"]
+            if q.get("item_key"):
+                axis_of[q["qid"]] = q["item_key"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report answers failed: %s", exc)
+        out["stale"] = True
+
+    def _ok(a: dict) -> bool:
+        """Đúng/sai TÍNH LẠI từ `answer_given`, không tin cờ client gửi."""
+        want = key_of.get(a.get("qid"))
+        if want is None:
+            return bool(a.get("is_correct"))
+        try:
+            return int(a.get("answer_given")) == want
+        except (TypeError, ValueError):
+            return bool(a.get("is_correct"))
+
+    all_rows.sort(key=lambda x: x.get("created_at") or "")
+    for a in all_rows:
+        if a["session_id"] in open_ids:
+            with_work.add(a["session_id"])
+        uid = sess_user.get(a["session_id"])
+        key2 = (uid, a.get("qid"))
+        # LƯỢT ĐẦU của mỗi câu, giống hệt `course_answer_report`. Áp cho CẢ trục
+        # sai lẫn số đúng/tổng, không chỉ cho thời gian: em làm Q1 đúng, đóng
+        # tab, làm lại và trả lời Q1 sai thì hai mặt đọc phải nói cùng một điều.
+        # LƯỢT ĐẦU của mỗi câu (`key2 not in seen_q`) — giống hệt
+        # `course_answer_report`.
+        if not uid or not a.get("qid") or key2 in seen_q:
+            continue
+        seen_q.add(key2)
+        first_by_user.setdefault(uid, []).append(a)
+        # TRỤC lấy từ ĐỀ, không lấy từ cờ client gửi lên: `log_progress` lưu
+        # nguyên `item_key` client khai, nên một payload sửa tay đổi được cả
+        # bảng "cả lớp vướng ở đâu" của giáo viên. Báo cáo từng em vốn đã đọc
+        # từ đề — hai mặt đọc phải cùng một nguồn (codex cục bộ 06/08).
+        key = axis_of.get(a.get("qid")) or a.get("item_key")
+        a["is_correct"] = _ok(a)
+        if key and not a["is_correct"]:
+            wrong[key] = wrong.get(key, 0) + 1
+        ms = a.get("response_time_ms")
+        if isinstance(ms, (int, float)) and ms > 0:
+            if key:
                 slow.setdefault(key, []).append(int(ms))
+            per_user_secs.setdefault(uid, []).append(ms / 1000)
 
     now = datetime.now(timezone.utc)
     # MỘT DÒNG CHO MỖI HỌC VIÊN ĐƯỢC GIAO — kể cả em chưa kích hoạt tài khoản
@@ -1499,8 +1781,12 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         done = [x for x in rows if x.get("ended_at")]
         live = [x for x in rows if not x.get("ended_at") and x["id"] in with_work]
         secs = sum(int(x.get("duration_sec") or 0) for x in done)
-        asked = sum(int(x.get("total_questions") or 0) for x in done)
-        right = sum(int(x.get("total_correct") or 0) for x in done)
+        # Từ LƯỢT ĐẦU của mỗi câu, không cộng tổng của các phiên: làm lại một
+        # chặng khiến tổng phiên đếm câu ấy hai lần, và con số lệch khỏi báo cáo
+        # từng em.
+        firsts = first_by_user.get(uid) or []
+        asked = len(firsts)
+        right = sum(1 for a in firsts if a.get("is_correct"))
         last = max((x.get("ended_at") or x.get("started_at") or "") for x in rows) if rows else ""
         total_stages = out["stages_total"]
         wrote = (item_of_student.get(sid) in submitted_writing) if sid else False
@@ -1525,9 +1811,14 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
                     state = "stalled"
             except ValueError:
                 pass
+        mine = sorted(per_user_secs.get(uid) or []) if uid else []
         out["students"].append({
             "student_id":  sid,
             "user_id":     uid,
+            # Trung vị giây/câu và ước lượng thời gian rời máy — xem ghi chú ở
+            # `course_answer_report.totals` về vì sao là ƯỚC LƯỢNG.
+            "median_sec":  round(mine[len(mine) // 2], 1) if mine else None,
+            "idle_sec":    round(sum(max(0.0, x - IDLE_CUTOFF_SEC) for x in mine)) if mine else 0,
             "state":       state,
             "wrote":       wrote,
             "stages_done": len(done),

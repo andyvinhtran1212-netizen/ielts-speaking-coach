@@ -93,13 +93,13 @@ describe('bù học viên vào bài đã giao', () => {
     assert.match(CODE, /data-action="backfill"/);
     assert.match(CODE, /btn\.dataset\.action === 'backfill'\)[\s\S]{0,60}backfillHomework/);
     const i = CODE.indexOf('async function backfillHomework');
-    const body = CODE.slice(i, i + 2000);
-    assert.match(body, /\/assignments\/'[\s\S]{0,60}\+ '\/backfill'/);
+    const j = CODE.indexOf('async function doBackfill');
+    assert.match(CODE.slice(j, j + 700), /\/assignments\/'[\s\S]{0,60}\+ '\/backfill'/);
   });
 
   test('không có ai để bù thì NÓI RA, không im lặng', () => {
     const i = CODE.indexOf('async function backfillHomework');
-    const body = CODE.slice(i, i + 2200);
+    const body = CODE.slice(CODE.indexOf('async function doBackfill'), CODE.length).slice(0, 900);
     assert.match(body, /đều đã có bài này rồi/);
     assert.match(body, /Đã thêm \$\{r\.added\}/);
   });
@@ -107,70 +107,36 @@ describe('bù học viên vào bài đã giao', () => {
   test('bù xong nạp lại danh sách và bỏ cache tiến độ', () => {
     // Bảng ngày dựng TỪ danh sách bài giao — thêm người nhận làm nó cũ ngay.
     const i = CODE.indexOf('async function backfillHomework');
-    const body = CODE.slice(i, i + 2200);
+    const body = CODE.slice(CODE.indexOf('async function doBackfill'), CODE.length).slice(0, 900);
     assert.match(body, /await loadHomework\(\)/);
     assert.match(body, /invalidateProgress\(\)/);
   });
 });
 
 describe('chi tiết làm bài', () => {
-  test('nút CHỈ hiện cho bài tập theo buổi', () => {
-    // Kỹ năng khác không có `quiz_attempts`, nút sẽ mở ra một bảng rỗng và
-    // giáo viên đọc thành "không ai làm".
-    const i = CODE.indexOf('const effort = ');
-    const body = CODE.slice(i, i + 320);
-    assert.match(body, /a\.skill === 'course' && a\.content_id/);
-  });
-
   test('mở theo BANK, không phải theo id bài giao', () => {
-    // Báo cáo đọc `quiz_sessions.bank_id`; truyền nhầm id bài giao sẽ ra rỗng
-    // mà không có gì đỏ.
-    const i = CODE.indexOf('const effort = ');
-    assert.match(CODE.slice(i, i + 320), /data-id="\$\{esc\(a\.content_id\)\}"/);
+    // Báo cáo đọc `quiz_sessions.bank_id`; truyền nhầm id bài giao ra rỗng mà
+    // không có gì đỏ.
+    const i = CODE.indexOf('function openMarking');
+    assert.match(CODE.slice(i, i + 500), /_mk = \{ asg: assignmentId, bank: bankId/);
+    const j = CODE.indexOf('async function openEffort');
+    assert.match(CODE.slice(j, j + 700), /\/admin\/quiz\/banks\/'[\s\S]{0,140}\/attempt-report\?assignment_id=/);
   });
 
-  test('gọi đúng đường báo cáo, KÈM bài giao', () => {
-    // Cùng một bộ đề giao được cho nhiều lớp — hỏi theo bank thôi thì bảng
-    // trộn lượt làm của lớp khác vào (codex PR 945).
-    const i = CODE.indexOf('async function openEffort');
-    const body = CODE.slice(i, i + 900);
-    assert.match(body, /\/admin\/quiz\/banks\/'[\s\S]{0,140}\/attempt-report\?assignment_id=/);
-    assert.match(body, /encodeURIComponent\(assignmentId\)/);
-  });
-
-  test('nút mang CẢ bank lẫn id bài giao', () => {
-    const i = CODE.indexOf('const effort = ');
-    const body = CODE.slice(i, i + 400);
-    assert.match(body, /data-id="\$\{esc\(a\.content_id\)\}"/, 'bank');
-    assert.match(body, /data-asg="\$\{esc\(a\.id\)\}"/, 'bài giao');
-  });
-
-  test('số chặng hiện cả MẪU SỐ, không chỉ số đã xong', () => {
-    // "2 chặng" một mình không nói được là 2/9 hay 2/2.
-    const i = CODE.indexOf('async function openEffort');
-    assert.match(CODE.slice(i, i + 2000), /x\.stages_done\}\$\{r\.stages_total/);
+  test('nút trên dòng bài giao mang CẢ bank lẫn id bài giao', () => {
+    assert.match(CODE, /data-bank="\$\{a\.skill === 'course' && a\.content_id \? esc\(a\.content_id\) : ''\}"/);
+    assert.match(CODE, /openMarking\(btn\.dataset\.id, btn\.dataset\.title, btn\.dataset\.bank\)/);
   });
 
   test('bốn tình trạng đều có chữ tiếng Việt riêng', () => {
     const i = CODE.indexOf('const EFFORT_STATE');
-    const body = CODE.slice(i, i + 260);
-    for (const s of ['stalled', 'doing', 'done', 'untouched']) {
-      assert.ok(body.includes(s + ':'), `thiếu nhãn cho '${s}'`);
+    const body = CODE.slice(i, i + 420);
+    for (const s2 of ['stalled', 'doing', 'done', 'untouched', 'awaiting_writing']) {
+      assert.ok(body.includes(s2 + ':'), `thiếu nhãn cho '${s2}'`);
     }
-    assert.match(body, /Bỏ dở/);
-  });
-
-  test('modal có trong trang VÀ nút Đóng được nối', () => {
-    // Vẽ ra một hộp thoại không đóng được là bẫy người dùng trong đó.
-    for (const id of ['effort-modal', 'effort-body', 'btn-effort-close']) {
-      assert.ok(HTML.includes(`id="${id}"`), `trang thiếu #${id}`);
-    }
-    assert.match(CODE, /\$\('btn-effort-close'\)\.addEventListener\('click'/);
-    assert.match(CODE, /bindModalBackdrop\('effort-modal'/);
   });
 
   test('ghép tên từ sĩ số, không đòi backend biết về lớp', () => {
-    // Cùng một bank giao được cho nhiều lớp, nên tên phải ghép ở trang.
     const i = CODE.indexOf('async function openEffort');
     assert.match(CODE.slice(i, i + 1600), /_who\.members[\s\S]{0,200}nameOf\[m\.student_id\]/);
   });
@@ -224,14 +190,38 @@ describe('rỗng-vì-hỏng khác rỗng-thật', () => {
 });
 
 describe('bù người nhận không được mở rộng phạm vi bài giao', () => {
-  test('bài giao theo NHÓM thì hỏi đích danh, không bù cả lớp', () => {
+  test('bài giao theo NHÓM thì mở BẢNG TICK, không bù cả lớp', () => {
     // "Bù cả lớp" ở một bài giao cho 3 em là thêm đúng những em cố ý không
     // được chọn — và nó đổi phạm vi chính thức của bài giao (codex PR 945 R5).
     const i = CODE.indexOf('async function backfillHomework');
-    const body = CODE.slice(i, i + 1400);
-    assert.match(body, /scope === 'subset'/);
-    assert.match(body, /ids \? \{ student_ids: ids \} : \{\}/,
+    const body = CODE.slice(i, i + 700);
+    assert.match(body, /scope === 'subset'[\s\S]{0,60}openBackfillPick/);
+    const j = CODE.indexOf('async function doBackfill');
+    assert.match(CODE.slice(j, j + 700), /ids \? \{ student_ids: ids \} : \{\}/,
       'cả lớp gửi body rỗng, nhóm gửi danh sách');
+  });
+
+  test('chọn bằng TICK, không bắt gõ số thứ tự', () => {
+    // Gõ nhầm một số là thêm nhầm một em vào bài không dành cho em ấy — mà lệnh
+    // bù chỉ THÊM, không bao giờ gỡ lại được.
+    assert.ok(!/window\.prompt/.test(CODE), 'không được còn ô gõ số');
+    assert.match(CODE, /input type="checkbox" data-bf=/);
+    for (const id of ['backfill-modal', 'backfill-list', 'backfill-count',
+                      'btn-backfill-all', 'btn-backfill-none',
+                      'btn-backfill-ok', 'btn-backfill-cancel']) {
+      assert.ok(HTML.includes(`id="${id}"`), `trang thiếu #${id}`);
+    }
+  });
+
+  test('chưa chọn ai thì không bấm Thêm được', () => {
+    const i = CODE.indexOf('function renderBackfillPick');
+    assert.match(CODE.slice(i, i + 900), /\$\('btn-backfill-ok'\)\.disabled = n === 0/);
+  });
+
+  test('Huỷ thì không gửi gì', () => {
+    assert.match(CODE, /btn-backfill-cancel'\)\.addEventListener\('click', closeBf\)/);
+    const i = CODE.indexOf("btn-backfill-ok').addEventListener");
+    assert.match(CODE.slice(i, i + 400), /if \(!_bfPick\.size \|\| !_bfAsg\) return;/);
   });
 
   test('nút mang theo phạm vi của chính bài giao', () => {
@@ -239,11 +229,7 @@ describe('bù người nhận không được mở rộng phạm vi bài giao', 
     assert.match(CODE, /backfillHomework\(btn\.dataset\.id, btn\.dataset\.scope\)/);
   });
 
-  test('huỷ hộp thoại thì KHÔNG gửi gì', () => {
-    // Bấm Huỷ mà vẫn gửi là đúng thứ tính năng này sinh ra để tránh.
-    const i = CODE.indexOf('async function backfillHomework');
-    assert.match(CODE.slice(i, i + 1400), /if \(pick === null\) return;/);
-  });
+
 });
 
 describe('xong chặng chưa phải xong bài', () => {

@@ -33,6 +33,11 @@
        tệp định nghĩa lớp mình vẽ thì ra màn hình trần trụi.) -->
   <link rel="stylesheet" href="/css/course-exercises.css" />
 
+  <!-- Tab "Bài từng em" vẽ CHÍNH bộ vẽ báo cáo học viên đang thấy (.cr-*), và
+       những lớp ấy chỉ được định nghĩa ở đây. Không nạp thì báo cáo ra màn hình
+       trần trụi — bài học PR #925. -->
+  <link rel="stylesheet" href="/css/course-report.css" />
+
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
@@ -88,6 +93,52 @@
        stated on every class row rather than one click deep. */
     .cl-roster { display: flex; flex-direction: column; gap: 2px; }
     .cl-roster-count { font-variant-numeric: tabular-nums; }
+    /* ── Nhận bài: ba tab, chiếm trọn trang ────────────────────────────
+       Bảng 14 học viên × 7 cột không sống nổi trong một hộp thoại, và giáo viên
+       phải đóng cái này mới mở được cái kia. */
+    .cl-marking__head {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: var(--av-space-2) var(--av-space-3);
+      margin-bottom: var(--av-space-3);
+    }
+    .cl-marking__head h3 { margin: 0; font-size: var(--av-fs-lg); }
+    .cl-marking__head #btn-marking-back { flex: 0 0 100%; text-align: left; }
+    .cl-marking__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    /* Hai khung: trái chọn em, phải là báo cáo. Trên màn hẹp thì xếp dọc —
+       danh sách trước, báo cáo sau, đúng thứ tự thao tác. */
+    .cl-one { display: grid; gap: var(--av-space-4); }
+    @media (min-width: 900px) {
+      .cl-one { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: start; }
+      .cl-one__list { position: sticky; top: var(--av-space-4); max-height: 70vh; overflow-y: auto; }
+    }
+    .cl-one__list { margin: 0; padding: 0; list-style: none; }
+    .cl-one__list button {
+      display: flex;
+      align-items: center;
+      gap: var(--av-space-2);
+      width: 100%;
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 0;
+      border-bottom: 1px solid var(--av-border-subtle);
+      background: none;
+      cursor: pointer;
+      font: inherit;
+      font-size: var(--av-fs-sm);
+      text-align: left;
+      color: var(--av-text-primary);
+    }
+    .cl-one__list button > span { flex: 1 1 auto; }
+    .cl-one__list button:hover { background: var(--av-surface-sunken); }
+    .cl-one__list button.is-active {
+      background: var(--av-primary-soft);
+      font-weight: var(--av-fw-semibold);
+    }
+    .cl-one__list button[disabled] { opacity: 0.5; cursor: default; }
+    .cl-one__name { margin: 0 0 var(--av-space-3); font-size: var(--av-fs-base); }
+
     /* Chọn người nhận. Danh sách cuộn trong chính nó: một lớp 40 em không
        được đẩy nút Giao bài xuống dưới đáy hộp thoại. */
     /* Chi tiết làm bài. Cột số dùng chữ đều để mắt so hàng dọc được. */
@@ -382,6 +433,10 @@
         <button class="adm-subtab" id="tab-lessons" type="button">Buổi học</button>
         <button class="adm-subtab" id="tab-homework" type="button">Bài tập</button>
         <button class="adm-subtab" id="tab-progress" type="button">Tiến độ</button>
+        <!-- Chỉ hiện khi đang mở một bài giao — nó KHÔNG phải một mục của
+             lớp mà là một chỗ đứng tạm, và một tab trống thì mời bấm vào
+             chỗ không có gì. -->
+        <button class="adm-subtab" id="tab-marking" type="button" hidden>Nhận bài</button>
       </nav>
 
       <!-- Sĩ số -->
@@ -904,26 +959,60 @@
          lên .adm-modal-backdrop, còn .adm-modal chỉ là tấm thẻ. Dùng ngược lại
          thì thẻ này chèn thẳng vào vị trí DOM ở đây — nằm dưới màn hình, nên
          bấm "Xem ai nộp" trông như không có gì xảy ra. -->
-    <div class="adm-modal-backdrop" id="tally-modal" hidden role="presentation">
-      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="tally-modal-title">
-        <h3 id="tally-modal-title">Bảng tổng kết</h3>
-        <div id="tally-body"></div>
+
+    <!-- ── Bù người nhận cho bài giao theo NHÓM ───────────────────────── -->
+    <div class="adm-modal-backdrop" id="backfill-modal" hidden role="presentation">
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="backfill-title">
+        <h3 id="backfill-title">Thêm học viên vào bài giao</h3>
+        <p class="adm-hint">
+          Bài này giao cho <strong>một nhóm</strong>, không phải cả lớp. Chọn đích
+          danh những em cần thêm — các em còn lại giữ nguyên là không được giao.
+        </p>
+        <div class="cl-pick-head">
+          <span id="backfill-count">Chưa chọn ai</span>
+          <button class="adm-btn-link" id="btn-backfill-all" type="button">Chọn tất cả</button>
+          <button class="adm-btn-link" id="btn-backfill-none" type="button">Bỏ chọn</button>
+        </div>
+        <div class="cl-pick-list" id="backfill-list"></div>
         <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-tally-close" type="button">Đóng</button>
+          <button class="adm-btn-secondary" id="btn-backfill-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-backfill-ok" type="button" disabled>Thêm</button>
         </div>
       </div>
     </div>
 
     <!-- ── Chi tiết làm bài (bài tập theo buổi) ──────────────────────── -->
-    <div class="adm-modal-backdrop" id="effort-modal" hidden role="presentation">
-      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="effort-modal-title">
-        <h3 id="effort-modal-title">Chi tiết làm bài</h3>
-        <div id="effort-body"></div>
-        <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-effort-close" type="button">Đóng</button>
+
+    <!-- ── NHẬN BÀI ───────────────────────────────────────────────────
+         Trước đây là hai popup chật. Bảng 14 học viên × 7 cột không sống nổi
+         trong một hộp thoại, và giáo viên phải đóng cái này mới mở được cái
+         kia. Nay là một khu chiếm trọn trang, ba tab, giữ nguyên chỗ đứng khi
+         chuyển qua lại. -->
+    <section class="cl-marking" id="panel-marking" hidden>
+      <div class="cl-marking__head">
+        <button class="adm-btn-link" id="btn-marking-back" type="button">← Danh sách bài giao</button>
+        <h3 id="marking-title">Nhận bài</h3>
+        <span class="cl-marking__sub" id="marking-sub"></span>
+      </div>
+
+      <nav class="adm-subtabs" aria-label="Cách xem bài nộp">
+        <button class="adm-subtab is-active" id="mtab-tally" type="button" aria-current="page">Ai nộp</button>
+        <button class="adm-subtab" id="mtab-effort" type="button">Chi tiết làm bài</button>
+        <button class="adm-subtab" id="mtab-one" type="button">Bài từng em</button>
+      </nav>
+
+      <div id="mpanel-tally"><div id="tally-body"></div></div>
+      <div id="mpanel-effort" hidden><div id="effort-body"></div></div>
+
+      <!-- Hai khung: trái chọn em, phải là chính bộ vẽ báo cáo học viên đang
+           thấy. Một bộ vẽ cho hai người đọc. -->
+      <div id="mpanel-one" class="cl-one" hidden>
+        <ul class="cl-one__list" id="one-list"></ul>
+        <div class="cl-one__body" id="one-body">
+          <p class="adm-hint">Chọn một học viên ở danh sách bên trái.</p>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ── Tạo / sửa buổi học ────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="lesson-modal" hidden>

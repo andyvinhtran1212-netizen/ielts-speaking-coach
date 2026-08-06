@@ -29,6 +29,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.quiz_service import bank_has_writing
 from services.class_assignment_service import (
     _ID_CHUNK,
     is_accepting_submissions,
@@ -154,6 +155,13 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
         # Cổng thuộc bài (chỉ bài course có): trang lớp hiện "85% · đã đạt"
         # thay vì "Band 85.0" — một con số không tồn tại trên thang IELTS.
         "passed_at":    item.get("passed_at"),
+        # Bộ đề này CÓ phần tự luận không — trang không được SUY từ
+        # `passed_at && !submitted_at`: một lượt ghi sổ hỏng (best-effort) ở bộ
+        # đề KHÔNG có tự luận cũng cho ra đúng hình dạng ấy, và học viên đọc
+        # thành "còn phần tự luận" cho một phần không tồn tại (codex cục bộ).
+        "writing_expected": (
+            bank_has_writing(assignment.get("content_id"))
+            if assignment.get("skill") == "course" else False),
         "is_late":      is_late,
         "is_missing":   is_missing,
         "assignment": {

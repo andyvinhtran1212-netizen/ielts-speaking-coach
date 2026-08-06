@@ -49,9 +49,11 @@ export function CourseBehavior() {
     let onHide: (() => void) | null = null;
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, CR, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
+        // Bộ vẽ báo cáo — CHUNG với mặt đọc của giáo viên.
+        import(/* webpackIgnore: true */ '/js/course-report.js' as any),
         waitForApi(),
       ]);
 
@@ -262,12 +264,16 @@ export function CourseBehavior() {
           : (writingReady && writing.submitted
               ? '<button class="av-button" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
+        // Báo cáo mở được ở CẢ hai kết luận: đạt rồi vẫn cần biết mình yếu trục
+        // nào, và chưa đạt thì càng cần.
+        const seeReport = '<button class="av-button" id="cx-see-report" type="button">'
+          + 'Xem mình yếu trục nào</button>';
         if (v.passed) {
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
             + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
             + `<p class="cx-verdict__sub">Điểm gộp <strong>${v.pct}%</strong> · ngưỡng ${v.threshold}%`
             + (v.retakes ? ` · chốt ở lần kiểm tra lại thứ ${v.retakes}` : '')
-            + '</p>' + more + '</div>';
+            + '</p>' + seeReport + more + '</div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
             + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}% — cần ${v.threshold}%</p>`
@@ -275,7 +281,32 @@ export function CourseBehavior() {
             + 'bốc ngẫu nhiên từ bộ đề, thứ tự câu và thứ tự đáp án được trộn lại — '
             + 'thuộc vị trí không giúp gì đâu.</p>'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Làm kiểm tra lại (${v.retake_size} câu)</button>` + more + '</div>';
+            + `Làm kiểm tra lại (${v.retake_size} câu)</button>` + seeReport + more + '</div>';
+        }
+      }
+
+      /**
+       * Báo cáo: yếu trục nào, sai câu nào, chọn nhầm phương án nào.
+       *
+       * Nạp LÚC CẦN, không nạp sẵn: phần lớn lượt mở bài tập là để LÀM bài, và
+       * một lượt gọi mạng lúc mở trang làm chậm đúng thứ học viên đang chờ.
+       */
+      async function showReport() {
+        const box = $('cx-report');
+        if (!box) return;
+        box.hidden = false;
+        box.innerHTML = '<p class="cx-empty">Đang dựng báo cáo…</p>';
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+          const d = await api.get('/api/quiz/course/report?bank_id='
+            + encodeURIComponent(bankId!));
+          box.innerHTML = CR.renderReport(d);
+          CR.bindReport(box);
+        } catch (err: any) {
+          // Rỗng đọc ra là "em chưa làm câu nào" — một khẳng định mà lượt đọc
+          // hỏng không chứng minh được.
+          box.innerHTML = '<p class="cx-empty">Chưa đọc được báo cáo: '
+            + esc(err?.message || String(err)) + '. Tải lại trang để thử lại.</p>';
         }
       }
 
@@ -372,6 +403,7 @@ export function CourseBehavior() {
         // Gửi lại = chạy lại đúng finishStage: sessionId + hàng đợi còn nguyên,
         // nên đây là một lần đẩy thật chứ không phải vẽ lại màn hình.
         if (t.id === 'cx-resend') return void renderDone();
+        if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
         if (t.id === 'cw-submit') return void onWritingSubmit();
       };
