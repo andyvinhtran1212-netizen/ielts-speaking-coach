@@ -92,6 +92,25 @@ async def bank_attempt_report(
     return quiz_service.course_attempt_report(bank_id=str(bank_id), assignment_id=str(assignment_id))
 
 
+@router.get("/banks/{bank_id}/students/{user_id}/report")
+async def student_answer_report(
+    bank_id: UUID,
+    user_id: UUID,
+    assignment_id: UUID = Query(...),
+    authorization: str | None = Header(None),
+):
+    """Bài làm chi tiết của MỘT học viên trong MỘT bài giao.
+
+    Trước đó giáo viên chỉ thấy một con số phần trăm và không có cách nào biết
+    em ấy sai ở đâu, chọn nhầm phương án nào, hay mất bao lâu cho mỗi câu.
+    """
+    await require_admin(authorization)
+    from services import quiz_service
+    return quiz_service.course_answer_report(
+        user_id=str(user_id), bank_id=str(bank_id), assignment_id=str(assignment_id),
+    )
+
+
 @router.get("/students")
 async def quiz_students(
     skill_area: str = Query(default="vocab"),

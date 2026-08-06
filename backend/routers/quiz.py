@@ -170,6 +170,17 @@ async def save_course_writing_draft(
     )
 
 
+@router.get("/course/report")
+async def course_answer_report(bank_id: str, authorization: str | None = Header(None)):
+    """Bài làm chi tiết của CHÍNH học viên: câu nào sai, em chọn gì, đáp án gì.
+
+    Cùng một bộ dựng với mặt đọc của giáo viên — hai bộ dựng cho cùng một nội
+    dung là hai chỗ để trôi khỏi nhau.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_answer_report(user_id=user["id"], bank_id=bank_id)
+
+
 @router.post("/course/verdict")
 async def course_verdict(body: CourseVerdictBody, authorization: str | None = Header(None)):
     """Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại)."""
