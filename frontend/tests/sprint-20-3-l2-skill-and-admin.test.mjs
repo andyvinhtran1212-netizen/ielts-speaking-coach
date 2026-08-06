@@ -29,7 +29,7 @@ describe('Sprint 20.3 — L2 library page (reading-skill.html)', () => {
   });
   test('ships the library switcher pointing back to L1 Vocab', () => {
     assert.match(html, /class="rv-libnav"/);
-    assert.match(html, /href="\/pages\/reading-vocab\.html"/);
+    assert.match(html, /href="\/reading\/vocab"/);
     assert.match(html, /is-active[^>]*aria-current="page"/);
   });
   test('skill filter covers the D2 enum', () => {
@@ -188,7 +188,7 @@ describe('Sprint 20.3 — aver-admin chrome ships a Reading section', () => {
 describe('Sprint 20.3 — Reading tab still unlocked in student chrome', () => {
   const js = read('frontend/js/components/aver-chrome.js');
   test('Reading remains an active nav link (Sprint 20.2 unlock preserved)', () => {
-    assert.match(js, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading">Reading<\/a>/);
+    assert.match(js, /href="\/reading\/vocab"\s+data-tab="reading">Reading<\/a>/);
     assert.ok(!/<span class="locked"[^>]*>Reading<\/span>/.test(js));
   });
 });

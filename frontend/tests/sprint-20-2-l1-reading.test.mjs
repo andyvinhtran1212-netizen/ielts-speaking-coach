@@ -112,7 +112,7 @@ describe('Sprint 20.2 — glossary popover component', () => {
 describe('Sprint 20.2 — Reading tab unlocked in aver-chrome.js', () => {
   const js = read('frontend/js/components/aver-chrome.js');
   test('Reading is an active nav link, not a locked span', () => {
-    assert.match(js, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading">Reading<\/a>/);
+    assert.match(js, /href="\/reading\/vocab"\s+data-tab="reading">Reading<\/a>/);
     assert.ok(
       !/<span class="locked"[^>]*>Reading<\/span>/.test(js),
       'Reading must no longer be a locked span (Sprint 20.2 unlock)',

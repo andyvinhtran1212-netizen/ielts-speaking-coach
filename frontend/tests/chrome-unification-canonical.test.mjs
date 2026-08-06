@@ -556,7 +556,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // Reading is now an active nav link, not a locked span.
     assert.match(
       component,
-      /href="\/pages\/reading-vocab\.html"\s+data-tab="reading">Reading<\/a>/,
+      /href="\/reading\/vocab"\s+data-tab="reading">Reading<\/a>/,
       'Reading must be an active nav link (Sprint 20.2 unlock).',
     );
     assert.ok(
@@ -636,7 +636,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // swaps it to the login-gated hub (/pages/vocabulary.html) once a session is
     // detected (session-adaptive _applyVocabNav).
     assert.match(component, /href="\/vocabulary\.html"\s+data-tab="vocabulary"/);
-    assert.match(component, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading"/);
+    assert.match(component, /href="\/reading\/vocab"\s+data-tab="reading"/);
   });
 });
 

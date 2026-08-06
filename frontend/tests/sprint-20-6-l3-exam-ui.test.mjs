@@ -24,7 +24,9 @@ describe('Sprint 20.6 — L3 test list page (reading-test.html)', () => {
   });
   test('library switcher shows L1/L2/L3 with L3 active', () => {
     assert.match(html, /class="rv-libnav"/);
-    assert.match(html, /href="\/pages\/reading-vocab\.html"/);
+    // [cutover /reading/vocab 2026-08-05] các trang Reading anh em trỏ về
+    // thư viện L1 bằng đường canonical; bản legacy vẫn phục vụ cho parity.
+    assert.match(html, /href="\/reading\/vocab"/);
     assert.match(html, /href="\/pages\/reading-skill\.html"/);
     assert.match(html, /is-active[^>]*aria-current="page"[^>]*>Full Tests/);
   });
