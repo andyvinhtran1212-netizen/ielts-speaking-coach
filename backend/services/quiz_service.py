@@ -809,7 +809,7 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     # hết 9 chặng rồi dừng trước phần viết vẫn hiện là đã hoàn thành — đúng ca
     # đã xảy ra với em Phương Anh Nguyễn (9/9 chặng, 0 câu viết, sổ ghi `graded`
     # 80 điểm). Giáo viên không có cách nào biết cần nhắc em ấy.
-    if item_id and ended_by == "completed" and not _bank_has_writing(
+    if item_id and ended_by == "completed" and not bank_has_writing(
             (session or {}).get("bank_id")):
         try:
             mark_item_submitted(
@@ -1072,7 +1072,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
 _WRITING_CACHE: dict[str, bool] = {}
 
 
-def _bank_has_writing(bank_id: str | None) -> bool:
+def bank_has_writing(bank_id: str | None) -> bool:
     """Bộ đề này có câu TỰ LUẬN không.
 
     ── Vì sao đọc hỏng thì trả `False` ─────────────────────────────────────
@@ -1700,7 +1700,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         try:
             all_rows += _report_pages(
                 "quiz_attempts",
-                "session_id, item_key, qid, is_correct, response_time_ms, created_at",
+                # `answer_given` PHẢI có mặt: `_ok()` đọc nó để tự chấm lại, và
+                # thiếu nó thì mọi lượt rơi về cờ client — bản vá thành vô hiệu
+                # mà không có gì đỏ (codex cục bộ 06/08).
+                "session_id, item_key, qid, is_correct, answer_given, "
+                "response_time_ms, created_at",
                 lambda q, c=ids: q.in_("session_id", c),
             )
         except Exception as exc:  # noqa: BLE001
@@ -1709,11 +1713,16 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
 
     # Đáp án GỐC của đề, để tự chấm lại — cùng lý do như `course_answer_report`.
     key_of: dict[str, int] = {}
+    axis_of: dict[str, str] = {}
     try:
-        for q in _report_pages("quiz_questions", "qid, answer, type",
+        for q in _report_pages("quiz_questions", "qid, answer, type, item_key",
                                lambda q2: q2.eq("bank_id", bank_id)):
-            if q.get("type") != "writing" and isinstance(q.get("answer"), int):
+            if q.get("type") == "writing":
+                continue
+            if isinstance(q.get("answer"), int):
                 key_of[q["qid"]] = q["answer"]
+            if q.get("item_key"):
+                axis_of[q["qid"]] = q["item_key"]
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report answers failed: %s", exc)
         out["stale"] = True
@@ -1743,7 +1752,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             continue
         seen_q.add(key2)
         first_by_user.setdefault(uid, []).append(a)
-        key = a.get("item_key")
+        # TRỤC lấy từ ĐỀ, không lấy từ cờ client gửi lên: `log_progress` lưu
+        # nguyên `item_key` client khai, nên một payload sửa tay đổi được cả
+        # bảng "cả lớp vướng ở đâu" của giáo viên. Báo cáo từng em vốn đã đọc
+        # từ đề — hai mặt đọc phải cùng một nguồn (codex cục bộ 06/08).
+        key = axis_of.get(a.get("qid")) or a.get("item_key")
         a["is_correct"] = _ok(a)
         if key and not a["is_correct"]:
             wrong[key] = wrong.get(key, 0) + 1

@@ -198,3 +198,17 @@ describe('đọc thiếu thì NÓI RA (codex cục bộ 06/08)', () => {
     assert.match(html, /Chưa có câu nào được chấm/);
   });
 });
+
+describe('nhãn tự luận không được ĐOÁN (codex cục bộ 06/08)', () => {
+  const MC2 = readFileSync(join(HERE, '..', 'public', 'js', 'my-class.js'), 'utf8');
+
+  test('đòi cờ từ máy chủ, không suy từ hai mốc thời gian', () => {
+    // Bộ đề KHÔNG có tự luận + một lượt ghi sổ hỏng (best-effort) cũng cho ra
+    // đúng hình dạng `passed_at && !submitted_at` — học viên khi ấy đọc thành
+    // "còn phần tự luận" cho một phần không tồn tại.
+    const i = MC2.indexOf('const awaitingWriting');
+    const body = MC2.slice(i, i + 700);
+    assert.match(body, /!!a\.writing_expected/);
+    assert.match(body, /!!a\.passed_at && !a\.submitted_at/);
+  });
+});

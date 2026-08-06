@@ -363,7 +363,7 @@ def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8,
             "class_assignment_item_id": item_id}
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
-         patch.object(mod, "_bank_has_writing", lambda _b: has_writing), \
+         patch.object(mod, "bank_has_writing", lambda _b: has_writing), \
          patch.object(mod, "mark_item_submitted",
                       lambda _db, **kw: marked.append(kw) or True):
         mod.end_session(user_id="u1", session_id="sess-1", data={

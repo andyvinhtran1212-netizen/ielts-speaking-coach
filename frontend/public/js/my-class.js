@@ -108,6 +108,11 @@ function taskSub(a) {
  * làm chín chặng rồi, và chỉ còn một bước.
  */
 const awaitingWriting = (a) => a.assignment.skill === 'course'
+  // Máy chủ nói bộ đề này CÓ phần tự luận hay không — không suy từ hai cờ kia.
+  // Một lượt ghi sổ hỏng (best-effort) ở bộ đề KHÔNG có tự luận cũng cho ra
+  // đúng hình dạng `passed_at && !submitted_at`, và học viên đọc thành "còn
+  // phần tự luận" cho một phần không tồn tại (codex cục bộ 06/08).
+  && !!a.writing_expected
   && !!a.passed_at && !a.submitted_at;
 
 function itemRow(a, { action }) {

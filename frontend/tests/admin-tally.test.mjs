@@ -287,8 +287,32 @@ describe('hai lỗi lặng của khu nhận bài (codex cục bộ 06/08)', () =
     const i = SRC.indexOf('async function openOneReport');
     const body = SRC.slice(i, i + 1600);
     assert.match(body, /const seq = \+\+_oneSeq;/);
-    assert.equal((body.match(/if \(seq !== _oneSeq\) return;/g) || []).length, 2,
+    assert.equal((body.match(/if \(seq !== _oneSeq \|\| gen !== _mkGen\) return;/g) || []).length, 2,
       'phải chắn ở CẢ nhánh thành công lẫn nhánh hỏng');
     assert.ok(!/_oneWant/.test(SRC), 'chắn theo userId không đủ');
+  });
+});
+
+describe('đổi bài giao không kéo theo bảng của bài cũ (codex cục bộ 06/08)', () => {
+  test('mỗi lần mở một bài giao là một THẾ HỆ mới', () => {
+    // Mở bài A (mạng chậm) rồi mở bài B: bảng của A ghi đè lên B, tiêu đề vẫn
+    // là B. Chắn theo `userId` không đỡ được vì đây là đổi BÀI GIAO.
+    assert.match(SRC, /let _mkGen = 0;/);
+    const i = SRC.indexOf('function openMarking');
+    assert.match(SRC.slice(i, i + 200), /_mkGen \+= 1;/);
+    assert.match(SRC, /btn-marking-back'\)\.addEventListener\('click', \(\) => \{\s*\n\s*_mkGen \+= 1;/);
+  });
+
+  test('CẢ BỐN lượt gọi của khu đều chụp thế hệ và kiểm lại', () => {
+    // Vá ba chỗ rồi sót chỗ thứ tư thì đúng chỗ ấy vẫn ghi đè, và không có gì
+    // đỏ để báo.
+    for (const fn of ['async function openTally', 'async function openEffort',
+                      'async function renderOneList', 'async function openOneReport']) {
+      const i = SRC.indexOf(fn);
+      assert.ok(i !== -1, `không thấy ${fn}`);
+      assert.match(SRC.slice(i, i + 1200), /const gen = _mkGen;/, `${fn} chưa chụp thế hệ`);
+    }
+    assert.ok((SRC.match(/gen !== _mkGen/g) || []).length >= 4,
+      'phải kiểm lại ở mọi chỗ vẽ');
   });
 });

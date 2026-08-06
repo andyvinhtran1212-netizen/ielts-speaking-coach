@@ -102,11 +102,11 @@ def test_finishing_a_stage_does_not_close_an_assignment_that_has_writing():
     80 điểm), và giáo viên không có cách nào biết cần nhắc em ấy.
     """
     src = inspect.getsource(qs.end_session)
-    assert "_bank_has_writing" in src
+    assert "bank_has_writing" in src
     # Neo vào LỆNH GỌI, không phải chữ `mark_item_submitted` — chữ ấy còn nằm
     # trong một lời chú đứng TRƯỚC cả khối, nên tìm chữ sẽ trúng lời chú.
     i = src.index("            mark_item_submitted(")
-    assert "not _bank_has_writing" in src[:i], "chắn phải đứng TRƯỚC lệnh chốt sổ"
+    assert "not bank_has_writing" in src[:i], "chắn phải đứng TRƯỚC lệnh chốt sổ"
 
 
 def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
@@ -120,7 +120,7 @@ def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
     bảng "Chi tiết làm bài" vẫn nói đúng vì nó đọc thẳng
     `course_writing_submissions` (codex PR 952).
     """
-    src = inspect.getsource(qs._bank_has_writing)
+    src = inspect.getsource(qs.bank_has_writing)
     j = src.index("except Exception")
     assert "return False" in src[j:]
     assert "return True" not in src[j:]
@@ -129,7 +129,7 @@ def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
 def test_the_writing_flag_is_remembered_after_one_successful_read():
     """Nhớ lại thu hẹp cửa sổ "đọc hỏng" xuống đúng lần gọi ĐẦU của tiến trình.
     Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng."""
-    src = inspect.getsource(qs._bank_has_writing)
+    src = inspect.getsource(qs.bank_has_writing)
     assert "_WRITING_CACHE" in src
     assert "if bank_id in _WRITING_CACHE:" in src
     # Chỉ nhớ khi đọc ĐƯỢC — nhớ một lần hỏng là đóng băng câu trả lời sai.
@@ -139,7 +139,7 @@ def test_the_writing_flag_is_remembered_after_one_successful_read():
 
 def test_a_bank_without_writing_still_closes_on_the_stage():
     """Đừng bắt lớp không có phần viết kẹt lại ở "chưa nộp" mãi mãi."""
-    src = inspect.getsource(qs._bank_has_writing)
+    src = inspect.getsource(qs.bank_has_writing)
     assert "if not bank_id:" in src and "return False" in src
 
 
@@ -159,7 +159,9 @@ def test_one_rule_for_axes_scores_and_time():
     mỗi bên đếm một kiểu."""
     src = inspect.getsource(qs.course_attempt_report)
     i = src.index("if not uid or not a.get(\"qid\") or key2 in seen_q:")
-    seg = src[i:i + 700]
+    # Cắt tới HẾT vòng lặp, không đếm ký tự: thêm vài dòng chú thích là mốc
+    # cần soi trôi ra ngoài cửa sổ (bẫy đã lặp nhiều lần trong phiên này).
+    seg = src[i:src.index("now = datetime.now", i)]
     assert "wrong[key] = wrong.get(key, 0) + 1" in seg, "trục cũng phải lấy lượt đầu"
     assert "slow.setdefault" in seg, "thời gian mỗi trục cũng vậy"
     assert "asked = len(firsts)" in src, "số câu lấy từ lượt đầu, không cộng tổng phiên"

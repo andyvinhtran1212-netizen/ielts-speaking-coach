@@ -917,6 +917,11 @@ let _tallyTitle = '';
  * một hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
  */
 let _mk = { asg: null, bank: null, title: '', scope: 'class' };
+// Mỗi lần mở một bài giao khác (hoặc rời khu) là một THẾ HỆ mới. Mọi lượt gọi
+// mạng của khu này chụp thế hệ lúc bắt đầu và chỉ vẽ nếu nó còn khớp — nếu
+// không, mở bài A (mạng chậm) rồi mở bài B sẽ để bảng của A ghi đè lên B, với
+// tiêu đề vẫn là B (codex cục bộ 06/08).
+let _mkGen = 0;
 let _CR = null;      // bộ vẽ báo cáo, nạp lúc cần
 
 function showMarkTab(name) {
@@ -939,6 +944,7 @@ function showMarkTab(name) {
 }
 
 function openMarking(assignmentId, title, bankId) {
+  _mkGen += 1;
   _mk = { asg: assignmentId, bank: bankId || null, title: title || '' };
   $('marking-title').textContent = title || 'Nhận bài';
   $('marking-sub').textContent = bankId ? 'Bài tập theo buổi' : '';
@@ -957,6 +963,7 @@ function openMarking(assignmentId, title, bankId) {
 
 /** Danh sách em để chọn — lấy từ chính bảng "Chi tiết làm bài". */
 async function renderOneList() {
+  const gen = _mkGen;
   const list = $('one-list');
   list.innerHTML = '<li class="adm-hint">Đang tải…</li>';
   let r;
@@ -968,6 +975,7 @@ async function renderOneList() {
       + esc(err.message || String(err)) + '</li>';
     return;
   }
+  if (gen !== _mkGen) return;
   const nameOf = {};
   (_who.members || []).forEach((m) => { if (m.student_id) nameOf[m.student_id] = m.name; });
   list.innerHTML = (r.students || []).map((x) => `<li>
@@ -991,29 +999,32 @@ async function openOneReport(userId, name) {
   // ĐÚNG em ấy thì hai lượt mang cùng một userId, và lượt của A vẫn ghi đè
   // được lên bảng của B (codex PR 952).
   const seq = ++_oneSeq;
+  const gen = _mkGen;
   box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
   try {
     if (!_CR) _CR = await import('/js/course-report.js');
     const d = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
       + '/students/' + encodeURIComponent(userId)
       + '/report?assignment_id=' + encodeURIComponent(_mk.asg));
-    if (seq !== _oneSeq) return;
+    if (seq !== _oneSeq || gen !== _mkGen) return;
     box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
       + _CR.renderReport(d);
     _CR.bindReport(box);
   } catch (err) {
-    if (seq !== _oneSeq) return;
+    if (seq !== _oneSeq || gen !== _mkGen) return;
     box.innerHTML = '<p class="adm-banner">Không đọc được bài của em này: '
       + esc(err.message || String(err)) + '</p>';
   }
 }
 
 async function openTally(assignmentId) {
+  const gen = _mkGen;
   const body = $('tally-body');
   body.innerHTML = '<p class="adm-hint">Đang tải…</p>';
   try {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
+    if (gen !== _mkGen) return;
     _tallyAsg = assignmentId;
     _tallyTitle = d.assignment.title || 'Bảng tổng kết';
     body.innerHTML = renderTally(d);
@@ -1904,6 +1915,7 @@ const EFFORT_STATE = {
 };
 
 async function openEffort(bankId, assignmentId, title) {
+  const gen = _mkGen;
   $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
   let r;
   try {
@@ -2646,6 +2658,7 @@ function bindDetail() {
   $('mtab-effort').addEventListener('click', () => showMarkTab('effort'));
   $('mtab-one').addEventListener('click', () => showMarkTab('one'));
   $('btn-marking-back').addEventListener('click', () => {
+    _mkGen += 1;                       // rời khu: mọi lượt đang bay hết hiệu lực
     // Rời khu nhận bài thì GIẤU cả tab của nó: nó là chỗ đứng tạm của một bài
     // giao, không phải một mục thường trực của lớp.
     $('tab-marking').hidden = true;
