@@ -15,7 +15,15 @@ import { AuthedShell } from '@/components/authed-shell';
 
 export default function AuthedReadingLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthedShell pageStylesheets={['/css/reading-vocab.css']}>
+    <AuthedShell
+      pageStylesheets={['/css/reading-vocab.css']}
+      // Trang legacy KHÔNG nạp ds.css/tailwind.build.css, và lớp reset của
+      // Tailwind đổi giao diện thật (đo được: h1 700→400, link mất gạch chân,
+      // 2 chỗ lề). Nhóm trang chỉ-đọc này không dùng utility nào nên tắt hẳn.
+      utilityLayer={false}
+      // Đúng như bản legacy: `<body class="av-page">`.
+      bodyClass="av-page"
+    >
       {children}
     </AuthedShell>
   );
