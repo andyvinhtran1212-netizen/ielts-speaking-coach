@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -162,5 +162,52 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
       [{ method: 'POST', path: '/api/writing/my-assignments/:id/paste-log', times: 2 }],
     );
     assert.ok(r.pass, JSON.stringify(r.findings));
+  });
+});
+
+describe('NO_LIST / NO_TEXT — trường chéo-chế-độ không được mang dữ liệu', () => {
+  // codex cục bộ (#966): ghim "phải vắng" bằng `(v) => v == null` nhận CẢ
+  // `answers: null` — thân request mà production trả 422 (`answers: list[str]`,
+  // `routers/listening.py:327`).
+  // Bot #966 vòng 2: ghim "phải vắng hẳn" lại quá chặt với
+  // `listening_session_id: str | None` (331), vốn CHO PHÉP null.
+  // Bot #966 vòng 3: một ký hiệu nhận cả `''` lẫn `[]` thì MÙ KIỂU — `answers: ''`
+  // với trường `list[str]` vẫn xanh. Nên tách hai, chặt đúng bằng kiểu khai.
+  test('vắng ⇒ đạt', () => {
+    assert.equal(bodyMatches({ a: 1 }, { answers: NO_LIST }).ok, true);
+    assert.equal(bodyMatches({ a: 1 }, { user_transcript: NO_TEXT }).ok, true);
+  });
+
+  test('rỗng ĐÚNG KIỂU ⇒ đạt (vô hại)', () => {
+    assert.equal(bodyMatches({ answers: [] }, { answers: NO_LIST }).ok, true);
+    assert.equal(bodyMatches({ user_transcript: '' }, { user_transcript: NO_TEXT }).ok, true);
+  });
+
+  test('rỗng SAI KIỂU ⇒ ĐỎ — đây là điểm ký hiệu gộp bỏ lọt', () => {
+    const a = bodyMatches({ answers: '' }, { answers: NO_LIST });
+    assert.equal(a.ok, false);
+    assert.match(a.why, /phải là danh sách/);
+    const b = bodyMatches({ user_transcript: [] }, { user_transcript: NO_TEXT });
+    assert.equal(b.ok, false);
+    assert.match(b.why, /phải là chuỗi/);
+  });
+
+  test('mang dữ liệu ⇒ ĐỎ', () => {
+    assert.match(bodyMatches({ answers: ['T'] }, { answers: NO_LIST }).why,
+      /mang dữ liệu của chế độ khác/);
+    assert.match(bodyMatches({ user_transcript: 'x' }, { user_transcript: NO_TEXT }).why,
+      /mang dữ liệu của chế độ khác/);
+  });
+
+  test('null ⇒ ĐỎ, vì kiểu khai ở backend không nhận null', () => {
+    assert.match(bodyMatches({ answers: null }, { answers: NO_LIST }).why, /không nhận null/);
+    assert.match(bodyMatches({ user_transcript: null }, { user_transcript: NO_TEXT }).why,
+      /không nhận null/);
+  });
+
+  test('cách viết CŨ nhận null — chứng minh khác biệt là có thật', () => {
+    // Ghim LÝ DO thay đổi: ai quay lại `(v) => v == null` cho trường bài làm sẽ
+    // thấy ngay hai cách KHÔNG tương đương.
+    assert.equal(bodyMatches({ answers: null }, { answers: (v) => v == null }).ok, true);
   });
 });

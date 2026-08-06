@@ -184,7 +184,8 @@ on:
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
       # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
-      # Năm tệp dưới đây thuộc `listening-mcq`, trang chỉ được che bằng CỔNG
+      # Các tệp dưới đây thuộc ba trang `listening-mcq` / `-tf` / `-gist`, đều chỉ
+      # được che bằng CỔNG
       # ĐƯỜNG-GHI (chưa port sang Next nên chưa có cặp trong
       # `parity-pairs-authed.json`). Chúng CỐ Ý nằm NGOÀI khối glob authed ở
       # trên: có mặt trong `paths` để job + cổng ghi chạy, nhưng KHÔNG được
@@ -193,6 +194,10 @@ on:
       # Khi trang lên Next và có cặp, chuyển chúng NGƯỢC lên khối authed.
       - 'frontend/public/pages/listening-mcq.html'
       - 'frontend/public/js/listening-mcq.js'
+      - 'frontend/public/pages/listening-tf.html'
+      - 'frontend/public/js/listening-tf.js'
+      - 'frontend/public/pages/listening-gist.html'
+      - 'frontend/public/js/listening-gist.js'
       # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
       # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
       # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt

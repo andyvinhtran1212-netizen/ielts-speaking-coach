@@ -24,7 +24,11 @@ from pathlib import Path
 
 import pytest
 
-from routers.listening import _validate_mcq_payload
+from routers.listening import (
+    _validate_gist_payload,
+    _validate_mcq_payload,
+    _validate_true_false_payload,
+)
 
 FIXTURES = Path(__file__).resolve().parents[2] / "frontend/tooling/write-flows/fixtures"
 
@@ -48,7 +52,11 @@ def test_thu_muc_fixture_ton_tai():
 # Mỗi loại fixture nối tới ĐÚNG bộ kiểm production của nó. Quét thư mục rồi chạy
 # tất cả qua bộ kiểm MCQ sẽ sai ngay khi có fixture của trang khác; còn "loại lạ
 # thì bỏ qua" thì fixture mới lặng lẽ không được kiểm — đúng lỗ đang vá.
-VALIDATORS = {"listening-mcq": _validate_mcq_payload}
+VALIDATORS = {
+    "listening-mcq": _validate_mcq_payload,
+    "listening-tf": _validate_true_false_payload,
+    "listening-gist": _validate_gist_payload,
+}
 
 
 @pytest.mark.parametrize("name", ALL)
