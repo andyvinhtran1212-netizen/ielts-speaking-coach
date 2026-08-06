@@ -54,36 +54,47 @@ export function normalizePath(url) {
  *   · một hàm  → gọi với giá trị thật, phải trả true
  *   · `NON_EMPTY` → phải là chuỗi/mảng khác rỗng (dùng cho `draft_text`,
  *     `essay_text`: ghi đè bài bằng chuỗi rỗng là mất bài, phải chặn được)
- *   · `ABSENT` → khoá phải KHÔNG CÓ MẶT trong thân request
+ *   · `NO_DATA` → khoá không được MANG DỮ LIỆU: vắng, hoặc `''`, hoặc `[]`.
+ *     `null` KHÔNG được nhận (xem chú thích tại chỗ khai báo).
  */
 export const NON_EMPTY = Symbol('non-empty');
 
+
 /**
- * "Trường này phải VẮNG MẶT."
+ * "Trường này không được MANG DỮ LIỆU."
  *
- * VÌ SAO LÀ KÝ HIỆU RIÊNG chứ không phải `(v) => v == null`: cách viết kia nhận
- * CẢ hai trạng thái — khoá không có, và khoá có nhưng bằng `null`. Với các
- * trường ở đây thì hai trạng thái đó khác nhau thật: ba trang Listening dùng
- * chung một đích ghi nhưng khác tên trường bài làm, nên một bản port chép nhầm
- * khuôn có thể gửi `answers: null` kèm `user_transcript` thật — backend từ chối
- * `null` cho các trường danh sách (`routers/listening.py:327-329`), còn bản khai
- * lại xanh. (codex review cục bộ bắt ở #966)
+ * Dành cho các trường CHÉO-CHẾ-ĐỘ: ba trang Listening dùng chung một đích ghi
+ * `POST /api/listening/attempts` và khác nhau đúng ở tên trường bài làm
+ * (`mcq_answers` · `answers` · `user_transcript`). Điều cần chặn là DỮ LIỆU rơi
+ * vào ô của chế độ khác, chứ không phải sự có mặt của khoá: một bản port gửi
+ * `answers: []` ở chế độ MCQ thì vô hại, còn gửi `answers: ['T']` là hỏng.
  *
- * `(v) => v === undefined` cũng đúng, nhưng nó là cách viết phải nhớ đúng ở MỌI
- * chỗ dùng — mà chỗ dùng thì tăng theo từng trang port. Ký hiệu thì không nhớ
- * sai được.
+ * VÌ SAO `null` VẪN ĐỎ: ba trường đó khai kiểu KHÔNG cho null
+ * (`user_transcript: str`, `answers: list[str]`, `mcq_answers: list[int]` —
+ * `routers/listening.py:326-329`), nên `answers: null` là thân request mà
+ * production trả 422. Nhận nó ở đây tức bản khai xanh cho một trạng thái không
+ * tồn tại được — đúng loại lỗi ba vòng review ở #962 đã bắt.
+ *
+ * Ngược lại, `listening_session_id: str | None` (dòng 331) CHO PHÉP null, nên
+ * trường đó KHÔNG dùng ký hiệu này; nó chỉ cần "vắng hoặc null" (bot bắt ở #966
+ * bằng "phải vắng hẳn" là đỏ oan với bản port tuần tự hoá đúng luật (bot #966).
  */
-export const ABSENT = Symbol('absent');
+export const NO_DATA = Symbol('no-data');
 
 export function bodyMatches(actual, expected) {
   if (expected == null) return { ok: true };
   if (actual == null) return { ok: false, why: 'không có thân request' };
   for (const [k, want] of Object.entries(expected)) {
     const got = actual[k];
-    if (want === ABSENT) {
-      // Hỏi KHOÁ CÓ MẶT KHÔNG, không hỏi giá trị: `answers: null` là có mặt.
-      if (Object.prototype.hasOwnProperty.call(actual, k)) {
-        return { ok: false, why: `«${k}» phải VẮNG nhưng có mặt (= ${JSON.stringify(got)})` };
+    if (want === NO_DATA) {
+      if (got === null) {
+        return { ok: false, why: `«${k}» = null — kiểu khai ở backend không nhận null (422)` };
+      }
+      const carries = got !== undefined
+        && !(typeof got === 'string' && got === '')
+        && !(Array.isArray(got) && got.length === 0);
+      if (carries) {
+        return { ok: false, why: `«${k}» mang dữ liệu của chế độ khác (= ${JSON.stringify(got)})` };
       }
       continue;
     }

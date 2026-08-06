@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ABSENT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_DATA, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -165,30 +165,38 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
   });
 });
 
-describe('ABSENT — khoá phải VẮNG MẶT', () => {
-  // codex review cục bộ bắt ở #966: các bản khai ghim "trường này phải vắng"
-  // bằng `(v) => v == null`, mà cách viết đó nhận CẢ hai trạng thái — khoá không
-  // có, và khoá có nhưng bằng `null`. Ba trang Listening dùng chung một đích ghi
-  // và khác nhau đúng ở tên trường bài làm, nên một bản port chép nhầm khuôn có
-  // thể gửi `answers: null` kèm `user_transcript` thật: backend từ chối `null`
-  // cho trường danh sách (`routers/listening.py:327-329`), còn bản khai xanh.
-  test('khoá vắng ⇒ đạt', () => {
-    assert.equal(bodyMatches({ a: 1 }, { answers: ABSENT }).ok, true);
+describe('NO_DATA — trường chéo-chế-độ không được mang dữ liệu', () => {
+  // codex cục bộ bắt ở #966: các bản khai ghim "trường này phải vắng" bằng
+  // `(v) => v == null`, mà cách viết đó nhận CẢ `answers: null` — thân request
+  // mà production trả 422 (`answers: list[str]`, `routers/listening.py:327`).
+  //
+  // Bot #966 bắt tiếp chiều ngược: ghim "phải vắng hẳn" thì quá chặt với
+  // `listening_session_id: str | None` (dòng 331), vốn CHO PHÉP null. Hai loại
+  // trường khác nhau, và ký hiệu này chỉ dành cho loại KHÔNG cho null.
+  test('vắng ⇒ đạt', () => {
+    assert.equal(bodyMatches({ a: 1 }, { answers: NO_DATA }).ok, true);
   });
 
-  test('khoá có mặt nhưng null ⇒ ĐỎ (đây là điểm khác so với cách viết cũ)', () => {
-    const r = bodyMatches({ a: 1, answers: null }, { answers: ABSENT });
+  test('rỗng ⇒ đạt (vô hại, không phải dữ liệu của chế độ khác)', () => {
+    assert.equal(bodyMatches({ answers: [] }, { answers: NO_DATA }).ok, true);
+    assert.equal(bodyMatches({ user_transcript: '' }, { user_transcript: NO_DATA }).ok, true);
+  });
+
+  test('mang dữ liệu ⇒ ĐỎ', () => {
+    const r = bodyMatches({ answers: ['T'] }, { answers: NO_DATA });
     assert.equal(r.ok, false);
-    assert.match(r.why, /phải VẮNG nhưng có mặt/);
+    assert.match(r.why, /mang dữ liệu của chế độ khác/);
   });
 
-  test('khoá có mặt với giá trị thật ⇒ ĐỎ', () => {
-    assert.equal(bodyMatches({ answers: ['T'] }, { answers: ABSENT }).ok, false);
+  test('null ⇒ ĐỎ, vì kiểu khai ở backend không nhận null', () => {
+    const r = bodyMatches({ answers: null }, { answers: NO_DATA });
+    assert.equal(r.ok, false);
+    assert.match(r.why, /không nhận null/);
   });
 
   test('cách viết CŨ nhận null — chứng minh khác biệt là có thật', () => {
-    // Không phải test hành vi sản phẩm; nó ghim LÝ DO thay đổi, để ai đó quay về
-    // `(v) => v == null` sẽ thấy ngay hai cách viết KHÔNG tương đương.
+    // Ghim LÝ DO thay đổi: ai quay lại `(v) => v == null` cho trường bài làm sẽ
+    // thấy ngay hai cách KHÔNG tương đương.
     assert.equal(bodyMatches({ answers: null }, { answers: (v) => v == null }).ok, true);
   });
 });

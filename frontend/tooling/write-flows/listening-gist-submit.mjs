@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ABSENT } from '../write-flow-core.mjs';
+import { NO_DATA } from '../write-flow-core.mjs';
 
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/listening-gist.json'), 'utf8'));
@@ -73,15 +73,16 @@ export default {
         mode: 'gist',
         user_transcript: ANSWER,
         listen_count: 1,
-        listening_session_id: ABSENT,
+        // PHẢI VẮNG hoặc null. `listening_session_id: str | None`
+        // (`routers/listening.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
+        // quá chặt, sẽ đỏ oan với một bản port tuần tự hoá đúng luật (bot bắt ở
+        // #966). Thứ cần chặn là một session id THẬT: gửi kèm thì backend gắn
+        // bài lẻ vào phiên và làm nhiễu thống kê (`listening.py:712-713`).
+        listening_session_id: (v) => v == null,
         // Trường bài làm của HAI chế độ kia. Ghim để một bản port chép từ khuôn
         // MCQ/TF sang mà quên đổi sẽ ĐỎ.
-        //
-        // `ABSENT` chứ không phải `(v) => v == null`: cách viết kia nhận cả
-        // `answers: null`, mà backend từ chối `null` cho trường danh sách
-        // (`routers/listening.py:327-329`) (codex review cục bộ bắt ở #966).
-        mcq_answers: ABSENT,
-        answers: ABSENT,
+        mcq_answers: NO_DATA,
+        answers: NO_DATA,
       },
     },
   ],

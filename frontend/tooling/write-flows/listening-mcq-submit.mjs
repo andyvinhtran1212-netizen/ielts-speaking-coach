@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ABSENT } from '../write-flow-core.mjs';
+import { NO_DATA } from '../write-flow-core.mjs';
 
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/listening-mcq.json'), 'utf8'));
@@ -100,14 +100,17 @@ export default {
         // (`routers/listening.py:712-713`). Bộ so chỉ khớp TẬP CON nên không
         // ghim thì một bản port gửi thừa trường này vẫn xanh.
         //
-        // `ABSENT` chứ không phải `(v) => v == null`: cách viết kia nhận cả
-        // `answers: null`, tức một bản port chép nhầm khuôn vẫn xanh dù backend
-        // từ chối (codex review cục bộ bắt ở #966).
-        listening_session_id: ABSENT,
+        // PHẢI VẮNG hoặc null. `listening_session_id: str | None`
+        // (`routers/listening.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
+        // quá chặt, sẽ đỏ oan với một bản port tuần tự hoá đúng luật (bot bắt ở
+        // #966). Thứ cần chặn là một session id THẬT: gửi kèm thì backend gắn
+        // bài lẻ vào phiên và làm nhiễu thống kê (`listening.py:712-713`).
+        listening_session_id: (v) => v == null,
         // Trường bài làm của HAI chế độ kia — ba trang Listening dùng chung một
-        // đích ghi nên đây là chỗ chép nhầm khuôn dễ xảy ra nhất.
-        answers: ABSENT,
-        user_transcript: ABSENT,
+        // đích ghi nên đây là chỗ chép nhầm khuôn dễ xảy ra nhất. `NO_DATA`:
+        // rỗng thì vô hại, mang dữ liệu hoặc null thì đỏ.
+        answers: NO_DATA,
+        user_transcript: NO_DATA,
       },
     },
   ],
