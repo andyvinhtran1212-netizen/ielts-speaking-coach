@@ -601,6 +601,39 @@ test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
     'trang riêng lẻ không được tự leo lên full');
 });
 
+test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () => {
+  // CHIỀU NGƯỢC của chốt ngay dưới. Chốt kia hỏi "glob có trong paths mà regex
+  // bỏ sót không"; chốt này hỏi "regex có bắt trang mà KHÔNG cặp nào so không".
+  //
+  // Bot bắt ở #962: tôi đưa `listening-mcq` (và 4 tệp nó nạp) vào regex authed,
+  // trong khi `parity-pairs-authed.json` không có cặp MCQ nào. Hệ quả: một PR
+  // chỉ sửa MCQ vẫn mở lượt authed — lượt cần secret PROBE_*, đăng nhập thật,
+  // rồi so đúng con số KHÔNG cặp. Không đỏ, chỉ tốn và gây ảo giác đã phủ.
+  //
+  // Trang bị loại có chủ ý (`writing-dashboard`, `exercises`) phải được nêu
+  // TRONG tài liệu loại trừ, nếu không thì "chưa có cặp" và "quên mất cặp"
+  // trông giống hệt nhau.
+  const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+
+  // Rút danh sách tên trang từ nhánh `pages/(a|b|c)\.html` của regex authed.
+  const group = /public\/pages\/\(([^)]+)\)\\\.html/.exec(rxs[1]);
+  assert.ok(group, 'không đọc được nhánh pages/(…).html trong regex authed');
+  const names = group[1].split('|');
+  assert.ok(names.length >= 5, `chỉ thấy ${names.length} trang — bộ dò hỏng?`);
+
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const paired = new Set(pairs.map((x) => path.basename(x.legacy, '.html')));
+  const documented = readFileSync(
+    path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
+
+  const orphan = names.filter((n) => !paired.has(n) && !documented.includes(`${n}.html`));
+  assert.deepEqual(orphan, [],
+    'regex authed mở lượt cần secret cho trang KHÔNG có cặp nào để so — hoặc thêm cặp, '
+    + 'hoặc bỏ trang khỏi regex, hoặc ghi lý do loại trừ vào tài liệu');
+});
+
 test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
   // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
   // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng
