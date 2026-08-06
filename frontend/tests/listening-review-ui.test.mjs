@@ -185,7 +185,7 @@ describe('Item 9 — "Kĩ năng cần luyện" panel (skills to practise)', () =
   test('renders the panel above the cards with a single generic practice CTA (option i)', () => {
     assert.match(js, /renderSkillsPanel\(items\)/);
     assert.match(js, /host\.appendChild\(panel\)[\s\S]{0,80}renderCard/);   // panel before cards
-    assert.match(js, /lr-skills-panel__cta" href="\/pages\/listening\.html"/);  // generic CTA, no per-skill recommender
+    assert.match(js, /lr-skills-panel__cta" href="\/listening"/);  // generic CTA, no per-skill recommender
   });
   test('panel CSS is token-clean (no hex)', () => {
     const block = css.slice(css.indexOf('.lr-skills-panel'), css.indexOf('/* solution accordion */'));

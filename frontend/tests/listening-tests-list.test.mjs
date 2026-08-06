@@ -63,7 +63,7 @@ describe('Sprint 13.5 — tests-list page contract', () => {
   });
 
   it('back-link points at /pages/listening.html', () => {
-    assert.match(HTML, /href=["']\/pages\/listening\.html["']/);
+    assert.match(HTML, /href=["']\/listening["']/);
   });
 });
 

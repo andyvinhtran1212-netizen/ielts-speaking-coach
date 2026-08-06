@@ -17,7 +17,7 @@ export function ListeningPracticeShell() {
         <main className="lp-shell">
           <header className="lp-header">
             <p className="eyebrow">
-              <a href="/pages/listening.html" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a>
+              <a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a>
             </p>
             <h1>Luyện <span className="accent">nhanh</span></h1>
             <p className="subtitle">

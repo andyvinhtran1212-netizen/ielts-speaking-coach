@@ -41,7 +41,7 @@ describe('Skills Practice — page contract', () => {
   });
 
   it('back-link points at /pages/listening.html', () => {
-    assert.match(HTML, /href=["']\/pages\/listening\.html["']/);
+    assert.match(HTML, /href=["']\/listening["']/);
   });
 
   it('uses canonical design tokens (no raw hex literals)', () => {

@@ -108,6 +108,22 @@ on:
       - 'frontend/public/css/listening-mini-test.css'
       - 'frontend/public/css/listening-skills.css'
       - 'frontend/public/css/listening-practice.css'
+      - 'frontend/public/css/listening-browse.css'
+      - 'frontend/public/css/listening-analytics.css'
+      # CSS NỀN mà `AuthedShell` nạp cho MỌI trang được so — và trang legacy
+      # cũng nạp đúng ba tệp này. Đổi chúng là đổi cả 13 cặp cùng lúc, nên
+      # thiếu ở đây thì một PR sửa design-system chạy được mà không so gì.
+      # `tailwind.build.css` còn là phụ thuộc riêng của 3 trang Listening mới
+      # (review cục bộ bắt ở #957); hai tệp kia là điểm mù có sẵn từ trước.
+      - 'frontend/public/css/tailwind.build.css'
+      - 'frontend/public/css/aver-design/tokens.css'
+      - 'frontend/public/css/aver-design/components.css'
+      - 'frontend/public/pages/listening.html'
+      - 'frontend/public/pages/listening-browse.html'
+      - 'frontend/public/pages/listening-analytics.html'
+      - 'frontend/public/js/listening-landing.js'
+      - 'frontend/public/js/listening-browse.js'
+      - 'frontend/public/js/listening-analytics.js'
       - 'frontend/public/js/reading-vocab.js'
       - 'frontend/public/js/reading-skill.js'
       - 'frontend/public/js/reading-test.js'
@@ -286,7 +302,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests|listening-mini-test|listening-skills|listening-practice)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|aver-design/tokens|aver-design/components)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

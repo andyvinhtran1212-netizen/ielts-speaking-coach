@@ -40,6 +40,9 @@ const LEGACY_MODULE_ROUTES = [
   '/listening/mini-test',
   '/listening/skills',
   '/listening/practice',
+  '/listening',
+  '/listening/browse',
+  '/listening/analytics',
 ];
 
 function walk(dir, out = []) {

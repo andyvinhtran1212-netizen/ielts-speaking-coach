@@ -7,7 +7,7 @@ export function ListeningTestsShell() {
     <div className="shell">
       <main className="lt-shell">
         <header className="lt-header">
-          <p className="eyebrow"><a href="/pages/listening.html" style={{ color: 'var(--av-text-secondary)' }}>← Quay lại Listening</a></p>
+          <p className="eyebrow"><a href="/listening" style={{ color: 'var(--av-text-secondary)' }}>← Quay lại Listening</a></p>
           <h1>Cambridge IELTS <span className="accent">Full Tests</span></h1>
           <p className="subtitle">
             Bài thi đầy đủ 40 câu trên 4 sections — sát đề thật. Mỗi test kéo dài
