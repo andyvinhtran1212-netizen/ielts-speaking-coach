@@ -10,5 +10,11 @@
     "legacy": "/pages/speaking.html",
     "next": "/speaking",
     "allow": []
+  },
+  {
+    "name": "reading-vocab",
+    "legacy": "/pages/reading-vocab.html",
+    "next": "/reading/vocab",
+    "allow": []
   }
 ]

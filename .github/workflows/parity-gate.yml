@@ -85,6 +85,13 @@ on:
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
+      # Vế Reading (cặp `/pages/reading-vocab.html` ↔ `/reading/vocab`). Nhóm
+      # trang chỉ-đọc KHÔNG có tệp hành vi riêng — cả hai vế nạp CHÍNH
+      # `public/js/reading-vocab.js`, nên tệp đó cũng phải kích hoạt cổng.
+      - 'frontend/app/(authed-reading)/**'
+      - 'frontend/public/pages/reading-vocab.html'
+      - 'frontend/public/css/reading-vocab.css'
+      - 'frontend/public/js/reading-vocab.js'
       - 'frontend/tooling/supabase-session.mjs'
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
@@ -243,7 +250,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/writing-dashboard\.html|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab)\.html|frontend/public/js/reading-vocab\.js|frontend/public/css/reading-vocab\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

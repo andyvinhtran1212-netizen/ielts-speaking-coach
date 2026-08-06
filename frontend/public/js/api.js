@@ -41,6 +41,20 @@
   var _RC = (typeof window !== 'undefined' && /** @type {any} */ (window).__AVER_RUNTIME_CONFIG__) || {};
 
   function initSupabase(url, anonKey) {
+    // MỘT client cho mỗi trang. Trước bản này, mỗi lời gọi lại `createClient`
+    // một lần nữa và ghi đè `_sb` — nghĩa là trang nào gọi hai lần sẽ có HAI
+    // GoTrue client dùng CHUNG một khoá lưu trữ, tranh nhau làm mới token và
+    // tranh nhau sự kiện đăng nhập giữa các tab. Client bị bỏ rơi vẫn sống.
+    //
+    // Trang legacy chỉ gọi một lần nên không lộ. Lỗi lộ ra khi đưa các module
+    // `public/js/*` sang route Next: module tự gọi `initSupabase` ở đầu tệp,
+    // còn `AuthedShell` cũng gọi ở `DOMContentLoaded` (Codex bắt ở #951).
+    //
+    // Vá ở ĐÂY chứ không ở từng trang: 108 chỗ gọi trong repo đều trỏ cùng một
+    // dự án Supabase (đếm được), nên "lần đầu thắng" không đổi hành vi của ai.
+    // Nếu lần đầu NÉM (ví dụ gọi không đối số khi `_RC` chưa cấu hình) thì `_sb`
+    // vẫn rỗng và lần gọi sau có đối số thật vẫn dựng được client.
+    if (_sb) return _sb;
     _sb = window.supabase.createClient(
       _RC.supabaseUrl || url,
       _RC.supabaseAnonKey || anonKey
