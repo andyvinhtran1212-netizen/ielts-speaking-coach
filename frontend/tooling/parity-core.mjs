@@ -90,6 +90,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
   else if (path === '/pages/profile.html') path = '/profile';
+  // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
+  // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)
+  // nên lượt sweep đầu của tôi — khớp `"/pages/exercises.html"` — trượt sạch.
+  // Bot bắt ở #958. Giữ ánh xạ để neo trong trang và mọi link còn sót vẫn khớp.
+  else if (path === '/pages/exercises.html') path = '/exercises';
+  else if (path === '/pages/flashcards.html') path = '/flashcards';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì

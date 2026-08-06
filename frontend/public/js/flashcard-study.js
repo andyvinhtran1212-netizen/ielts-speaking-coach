@@ -740,7 +740,7 @@
           <div class="cell"><div class="num" style="color:#93c5fd">${b.easy}</div><div class="label">Dễ</div></div>
         </div>
         <div class="summary-actions">
-          <a href="flashcards.html" class="btn-secondary">Học stack khác</a>
+          <a href="/flashcards" class="btn-secondary">Học stack khác</a>
           <a href="/home" class="btn-ghost">Về dashboard</a>
         </div>
       </div>
