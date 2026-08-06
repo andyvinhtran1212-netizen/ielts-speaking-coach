@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NO_DATA } from '../write-flow-core.mjs';
+import { NO_LIST, NO_TEXT } from '../write-flow-core.mjs';
 
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/listening-mcq.json'), 'utf8'));
@@ -109,8 +109,8 @@ export default {
         // Trường bài làm của HAI chế độ kia — ba trang Listening dùng chung một
         // đích ghi nên đây là chỗ chép nhầm khuôn dễ xảy ra nhất. `NO_DATA`:
         // rỗng thì vô hại, mang dữ liệu hoặc null thì đỏ.
-        answers: NO_DATA,
-        user_transcript: NO_DATA,
+        answers: NO_LIST,
+        user_transcript: NO_TEXT,
       },
     },
   ],

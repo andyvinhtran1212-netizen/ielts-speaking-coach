@@ -54,47 +54,63 @@ export function normalizePath(url) {
  *   · một hàm  → gọi với giá trị thật, phải trả true
  *   · `NON_EMPTY` → phải là chuỗi/mảng khác rỗng (dùng cho `draft_text`,
  *     `essay_text`: ghi đè bài bằng chuỗi rỗng là mất bài, phải chặn được)
- *   · `NO_DATA` → khoá không được MANG DỮ LIỆU: vắng, hoặc `''`, hoặc `[]`.
- *     `null` KHÔNG được nhận (xem chú thích tại chỗ khai báo).
+ *   · `NO_LIST` / `NO_TEXT` → khoá không được MANG DỮ LIỆU, theo ĐÚNG kiểu
+ *     khai ở backend (xem chú thích tại chỗ khai báo).
  */
 export const NON_EMPTY = Symbol('non-empty');
 
 
 /**
- * "Trường này không được MANG DỮ LIỆU."
+ * "Trường này không được MANG DỮ LIỆU" — hai biến thể theo KIỂU khai ở backend.
+ *
+ *   `NO_LIST` → trường kiểu danh sách: chỉ nhận VẮNG hoặc `[]`
+ *   `NO_TEXT` → trường kiểu chuỗi:     chỉ nhận VẮNG hoặc `''`
  *
  * Dành cho các trường CHÉO-CHẾ-ĐỘ: ba trang Listening dùng chung một đích ghi
  * `POST /api/listening/attempts` và khác nhau đúng ở tên trường bài làm
  * (`mcq_answers` · `answers` · `user_transcript`). Điều cần chặn là DỮ LIỆU rơi
- * vào ô của chế độ khác, chứ không phải sự có mặt của khoá: một bản port gửi
- * `answers: []` ở chế độ MCQ thì vô hại, còn gửi `answers: ['T']` là hỏng.
+ * vào ô của chế độ khác: `answers: []` ở chế độ MCQ thì vô hại, `answers: ['T']`
+ * là hỏng.
  *
- * VÌ SAO `null` VẪN ĐỎ: ba trường đó khai kiểu KHÔNG cho null
+ * VÌ SAO TÁCH LÀM HAI thay vì một ký hiệu nhận cả `''` lẫn `[]`: cách gộp mù
+ * kiểu, nên một bản port gửi `answers: ''` (trường khai `list[str]`) hay
+ * `user_transcript: []` (khai `str`) vẫn xanh — trong khi production trả 422.
+ * Ký hiệu phải chặt đúng bằng kiểu nó mô tả, không hơn không kém (bot bắt ở
+ * #966 vòng 3).
+ *
+ * VÌ SAO `null` LUÔN ĐỎ: cả ba trường đều khai kiểu KHÔNG cho null
  * (`user_transcript: str`, `answers: list[str]`, `mcq_answers: list[int]` —
- * `routers/listening.py:326-329`), nên `answers: null` là thân request mà
- * production trả 422. Nhận nó ở đây tức bản khai xanh cho một trạng thái không
- * tồn tại được — đúng loại lỗi ba vòng review ở #962 đã bắt.
+ * `routers/listening.py:326-329`). Nhận null tức bản khai xanh cho một thân
+ * request không tồn tại được — đúng loại lỗi ba vòng review ở #962 đã bắt.
  *
  * Ngược lại, `listening_session_id: str | None` (dòng 331) CHO PHÉP null, nên
- * trường đó KHÔNG dùng ký hiệu này; nó chỉ cần "vắng hoặc null" (bot bắt ở #966
+ * trường đó KHÔNG dùng hai ký hiệu này; nó chỉ cần "vắng hoặc null". Ghim nó
  * bằng "phải vắng hẳn" là đỏ oan với bản port tuần tự hoá đúng luật (bot #966).
  */
-export const NO_DATA = Symbol('no-data');
+export const NO_LIST = Symbol('no-list-data');
+export const NO_TEXT = Symbol('no-text-data');
 
 export function bodyMatches(actual, expected) {
   if (expected == null) return { ok: true };
   if (actual == null) return { ok: false, why: 'không có thân request' };
   for (const [k, want] of Object.entries(expected)) {
     const got = actual[k];
-    if (want === NO_DATA) {
+    if (want === NO_LIST || want === NO_TEXT) {
+      const isList = want === NO_LIST;
+      const kind = isList ? 'danh sách' : 'chuỗi';
       if (got === null) {
         return { ok: false, why: `«${k}» = null — kiểu khai ở backend không nhận null (422)` };
       }
-      const carries = got !== undefined
-        && !(typeof got === 'string' && got === '')
-        && !(Array.isArray(got) && got.length === 0);
-      if (carries) {
-        return { ok: false, why: `«${k}» mang dữ liệu của chế độ khác (= ${JSON.stringify(got)})` };
+      if (got !== undefined) {
+        // Sai KIỂU cũng đỏ: `answers: ''` với trường `list[str]` là 422, dù nó
+        // "rỗng". Ký hiệu chặt đúng bằng kiểu nó mô tả.
+        const rightType = isList ? Array.isArray(got) : typeof got === 'string';
+        if (!rightType) {
+          return { ok: false, why: `«${k}» phải là ${kind} (nhận ${JSON.stringify(got)})` };
+        }
+        if (got.length !== 0) {
+          return { ok: false, why: `«${k}» mang dữ liệu của chế độ khác (= ${JSON.stringify(got)})` };
+        }
       }
       continue;
     }

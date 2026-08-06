@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NO_DATA } from '../write-flow-core.mjs';
+import { NO_LIST, NO_TEXT } from '../write-flow-core.mjs';
 
 // Dữ liệu giả đọc từ tệp JSON dùng chung, và `backend/tests/test_write_flow_fixtures.py`
 // cho nó chạy qua CHÍNH `_validate_true_false_payload` của production. Xem lịch
@@ -99,8 +99,8 @@ export default {
         listening_session_id: (v) => v == null,
         // Trường bài làm của HAI chế độ kia. Ghim để một bản port chép từ khuôn
         // khác sang mà quên đổi sẽ ĐỎ chứ không âm thầm gửi cả hai.
-        mcq_answers: NO_DATA,
-        user_transcript: NO_DATA,
+        mcq_answers: NO_LIST,
+        user_transcript: NO_TEXT,
       },
     },
   ],

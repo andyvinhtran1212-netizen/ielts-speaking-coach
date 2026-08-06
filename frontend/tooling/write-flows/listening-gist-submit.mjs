@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NO_DATA } from '../write-flow-core.mjs';
+import { NO_LIST } from '../write-flow-core.mjs';
 
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/listening-gist.json'), 'utf8'));
@@ -81,8 +81,8 @@ export default {
         listening_session_id: (v) => v == null,
         // Trường bài làm của HAI chế độ kia. Ghim để một bản port chép từ khuôn
         // MCQ/TF sang mà quên đổi sẽ ĐỎ.
-        mcq_answers: NO_DATA,
-        answers: NO_DATA,
+        mcq_answers: NO_LIST,
+        answers: NO_LIST,
       },
     },
   ],

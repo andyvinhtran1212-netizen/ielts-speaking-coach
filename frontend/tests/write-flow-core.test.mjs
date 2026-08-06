@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_DATA, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -165,33 +165,44 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
   });
 });
 
-describe('NO_DATA — trường chéo-chế-độ không được mang dữ liệu', () => {
-  // codex cục bộ bắt ở #966: các bản khai ghim "trường này phải vắng" bằng
-  // `(v) => v == null`, mà cách viết đó nhận CẢ `answers: null` — thân request
-  // mà production trả 422 (`answers: list[str]`, `routers/listening.py:327`).
-  //
-  // Bot #966 bắt tiếp chiều ngược: ghim "phải vắng hẳn" thì quá chặt với
-  // `listening_session_id: str | None` (dòng 331), vốn CHO PHÉP null. Hai loại
-  // trường khác nhau, và ký hiệu này chỉ dành cho loại KHÔNG cho null.
+describe('NO_LIST / NO_TEXT — trường chéo-chế-độ không được mang dữ liệu', () => {
+  // codex cục bộ (#966): ghim "phải vắng" bằng `(v) => v == null` nhận CẢ
+  // `answers: null` — thân request mà production trả 422 (`answers: list[str]`,
+  // `routers/listening.py:327`).
+  // Bot #966 vòng 2: ghim "phải vắng hẳn" lại quá chặt với
+  // `listening_session_id: str | None` (331), vốn CHO PHÉP null.
+  // Bot #966 vòng 3: một ký hiệu nhận cả `''` lẫn `[]` thì MÙ KIỂU — `answers: ''`
+  // với trường `list[str]` vẫn xanh. Nên tách hai, chặt đúng bằng kiểu khai.
   test('vắng ⇒ đạt', () => {
-    assert.equal(bodyMatches({ a: 1 }, { answers: NO_DATA }).ok, true);
+    assert.equal(bodyMatches({ a: 1 }, { answers: NO_LIST }).ok, true);
+    assert.equal(bodyMatches({ a: 1 }, { user_transcript: NO_TEXT }).ok, true);
   });
 
-  test('rỗng ⇒ đạt (vô hại, không phải dữ liệu của chế độ khác)', () => {
-    assert.equal(bodyMatches({ answers: [] }, { answers: NO_DATA }).ok, true);
-    assert.equal(bodyMatches({ user_transcript: '' }, { user_transcript: NO_DATA }).ok, true);
+  test('rỗng ĐÚNG KIỂU ⇒ đạt (vô hại)', () => {
+    assert.equal(bodyMatches({ answers: [] }, { answers: NO_LIST }).ok, true);
+    assert.equal(bodyMatches({ user_transcript: '' }, { user_transcript: NO_TEXT }).ok, true);
+  });
+
+  test('rỗng SAI KIỂU ⇒ ĐỎ — đây là điểm ký hiệu gộp bỏ lọt', () => {
+    const a = bodyMatches({ answers: '' }, { answers: NO_LIST });
+    assert.equal(a.ok, false);
+    assert.match(a.why, /phải là danh sách/);
+    const b = bodyMatches({ user_transcript: [] }, { user_transcript: NO_TEXT });
+    assert.equal(b.ok, false);
+    assert.match(b.why, /phải là chuỗi/);
   });
 
   test('mang dữ liệu ⇒ ĐỎ', () => {
-    const r = bodyMatches({ answers: ['T'] }, { answers: NO_DATA });
-    assert.equal(r.ok, false);
-    assert.match(r.why, /mang dữ liệu của chế độ khác/);
+    assert.match(bodyMatches({ answers: ['T'] }, { answers: NO_LIST }).why,
+      /mang dữ liệu của chế độ khác/);
+    assert.match(bodyMatches({ user_transcript: 'x' }, { user_transcript: NO_TEXT }).why,
+      /mang dữ liệu của chế độ khác/);
   });
 
   test('null ⇒ ĐỎ, vì kiểu khai ở backend không nhận null', () => {
-    const r = bodyMatches({ answers: null }, { answers: NO_DATA });
-    assert.equal(r.ok, false);
-    assert.match(r.why, /không nhận null/);
+    assert.match(bodyMatches({ answers: null }, { answers: NO_LIST }).why, /không nhận null/);
+    assert.match(bodyMatches({ user_transcript: null }, { user_transcript: NO_TEXT }).why,
+      /không nhận null/);
   });
 
   test('cách viết CŨ nhận null — chứng minh khác biệt là có thật', () => {
