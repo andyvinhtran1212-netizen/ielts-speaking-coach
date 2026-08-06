@@ -543,8 +543,14 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
-def _course_answered_qids(session_ids: list[str]) -> set[str]:
-    """qid đã trả lời trong các phiên ĐÃ CHỐT. Hỏng thì trả rỗng."""
+def _course_answered_qids(session_ids: list[str]) -> set[str] | None:
+    """qid đã trả lời trong các phiên ĐÃ CHỐT. Hỏng thì trả None.
+
+    None, KHÔNG phải tập rỗng. Rỗng đọc ra là "em ấy chưa làm câu nào" — một
+    khẳng định mà một lượt đọc hỏng không chứng minh được, và tin nó là đẩy một
+    em đã xong 8 chặng về chặng 0 rồi mở phiên mới: tái tạo đúng cảnh bỏ rơi bài
+    mà cả thay đổi này sinh ra để chấm dứt (codex PR 963).
+    """
     out: set[str] = set()
     if not session_ids:
         return out
@@ -556,6 +562,7 @@ def _course_answered_qids(session_ids: list[str]) -> set[str]:
                     out.add(a["qid"])
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume answered read failed: %s", exc)
+        return None
     return out
 
 
@@ -706,11 +713,15 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume order read failed bank=%s: %s", bank_id, exc)
         order = []
-    answered_all = _course_answered_qids(completed) if order else set()
+    answered_all = _course_answered_qids(completed) if order else None
+    # Không đọc được thứ tự đề HAY không đọc được câu đã làm ⇒ lùi về cách cũ
+    # (đếm phiên). Cách cũ sai ở các ca lẻ, nhưng nó KHÔNG bao giờ trả 0 cho một
+    # em đã xong 8 chặng.
+    usable = bool(order) and answered_all is not None
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
-                        if order else len(completed))}
+                        if usable else len(completed))}
     if not open_rows:
         return result
 
@@ -760,7 +771,7 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
         result["answered"].append(
             {"qid": a["qid"], "is_correct": bool(a.get("is_correct"))})
     # Có câu đang dở thì chính vị trí của nó nói chỗ đứng.
-    if order and result["answered"]:
+    if usable and result["answered"]:
         result["stage"] = _course_stage_reached(
             order, answered_all, in_progress_qid=result["answered"][0]["qid"])
     return result

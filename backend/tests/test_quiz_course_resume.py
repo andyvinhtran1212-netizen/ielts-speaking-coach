@@ -280,3 +280,28 @@ def test_the_stage_comes_from_the_work_in_progress():
         + [{"session_id": "s3", "qid": f"q{i:02d}"} for i in range(30, 38)])
     assert sv["stage"] == 3
     assert sv["session_id"] == "s3" and len(sv["answered"]) == 8
+
+
+def test_an_unreadable_attempt_table_does_NOT_send_a_finished_student_to_stage_0():
+    """Tập rỗng đọc ra là "em ấy chưa làm câu nào" — một khẳng định mà lượt đọc
+    hỏng không chứng minh được.
+
+    Tin nó là đẩy một em đã xong 8 chặng về chặng 0 rồi mở phiên mới: tái tạo
+    ĐÚNG cảnh bỏ rơi bài mà cả thay đổi này sinh ra để chấm dứt (codex PR 963).
+    """
+    class _Boom(_DB):
+        def table(self, name):
+            if name == "quiz_attempts":
+                raise RuntimeError("đọc hỏng")
+            return super().table(name)
+
+    db = _Boom({"quiz_sessions": [_sess(f"s{k}", ended_by="completed") for k in range(8)],
+                "quiz_attempts": [],
+                "quiz_questions": [{"bank_id": BANK, "qid": f"q{i:02d}",
+                                    "type": "mcq", "order": i} for i in range(90)]})
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404",
+                         lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: {"id": ITEM}):
+        sv = qs.get_course_resume(user_id=USER, bank_id=BANK)
+    assert sv["stage"] == 8, "lùi về đếm phiên, KHÔNG về 0"
