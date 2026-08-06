@@ -91,17 +91,12 @@ def test_saving_a_draft_never_grades_or_finalises():
     `course_writing_grader` lẫn chính lời chú giải thích vì sao không dùng nó.
     """
     src = inspect.getsource(qs.save_course_writing_draft)
-    i = src.index('rpc("fn_save_course_writing_draft"')
-    sent = set(re.findall(r'"(p_\w+)":', src[i:src.index("}).execute()", i)]))
-    assert sent == {"p_item", "p_user", "p_bank", "p_answers", "p_seq"}, \
-        f"gửi cả tham số lạ: {sent}"
-    # Và hàm SQL chỉ chạm bảng nháp — không đụng bảng bài-đã-chấm.
-    k = CODE.index("fn_save_course_writing_draft")
-    body = CODE[k:CODE.index("$$;", k)]
-    assert "course_writing_submissions" not in body
-    # Đường Python chỉ ĐỌC bảng đã-chấm (để biết đã nộp chưa), không ghi.
+    i = src.index("row = {")
+    written = set(re.findall(r'"(\w+)":', src[i:src.index("}", i)]))
+    assert written == {"class_assignment_item_id", "user_id", "bank_id",
+                       "answers", "updated_at"}, f"ghi cả cột lạ: {written}"
     tables = set(re.findall(r'table\("(\w+)"\)', src))
-    assert tables == {"course_writing_submissions"}
+    assert tables == {"course_writing_drafts", "course_writing_submissions"}
     i2 = src.index('table("course_writing_submissions")')
     assert ".select(" in src[i2:i2 + 90], "bảng đã-chấm chỉ được ĐỌC"
 
@@ -118,62 +113,39 @@ def test_a_broken_draft_read_never_blocks_the_writing_section():
     assert "except Exception" in seg and "draft = None" in seg
 
 
-def test_a_failed_draft_read_says_so_instead_of_looking_empty():
-    """Trả `draft: null` khi ĐỌC HỎNG là nói dối: trang đọc `null` thành "máy
-    chủ chưa có gì" rồi đẩy bản cục bộ lên ĐÈ dòng thật — một lỗi đọc tạm thời
-    thành mất dữ liệu vĩnh viễn (codex PR 949 vòng 2).
+# ── Thiết kế đã ĐẢO: máy đang gõ là nguồn thật ──────────────────────────────
 
-    Cùng khuôn với `association_lookup_failed` của mặt đọc mã kích hoạt.
+def test_the_server_copy_is_a_backup_not_the_source_of_truth():
+    """Bản đầu cho máy chủ làm nguồn thật, và đẻ ra ba đường mất bài (codex cục
+    bộ 05/08). Đảo lại thì không cần số thứ tự, không cần ghi nguyên tử, và
+    không cần cờ "không đọc được" — lượt ghi sau cùng thắng là đủ, vì nguồn thật
+    nằm ở máy đang gõ.
     """
-    src = inspect.getsource(qs.course_writing_state)
-    assert '"draft_unavailable"' in src
-    assert "draft_unavailable = True" in _draft_block(), "nhánh đọc hỏng phải bật cờ"
-
-
-# ── Thứ tự ghi (codex PR 949 vòng 3) ────────────────────────────────────────
-
-def test_a_late_arriving_older_draft_is_ignored():
-    """Lúc rời trang, lượt `keepalive` bắn NGAY chứ không xếp hàng sau lượt lưu
-    tự động còn đang bay — nếu không, trang đóng trước khi request kịp được tạo
-    ra, và `keepalive` không cứu được một request chưa tồn tại. Bắn ngay thì hai
-    lượt có thể tới ngược thứ tự, nên máy chủ phải bỏ lượt CŨ."""
-    assert "seq" in inspect.signature(qs.save_course_writing_draft).parameters
-    i = CODE.index("ON CONFLICT (class_assignment_item_id) DO UPDATE")
-    seg = CODE[i:CODE.index("RETURNING id INTO v_id", i)]
-    assert "course_writing_drafts.seq <= EXCLUDED.seq" in seg
-    assert "p_seq IS NULL OR" in seg, "lời gọi không gửi seq vẫn phải ghi được"
-
-
-def test_the_sequence_check_is_inside_the_write_not_a_separate_select():
-    """Kiểm bằng một SELECT riêng rồi mới ghi là HAI giao dịch: một lượt mang
-    bản CŨ đọc được `seq` cũ, qua cửa kiểm, rồi ghi SAU lượt mang bản mới và đè
-    lên nó — đúng ca `seq` sinh ra để chặn (codex PR 949 vòng 4)."""
     src = inspect.getsource(qs.save_course_writing_draft)
-    assert "fn_save_course_writing_draft" in src, "phải ghi bằng MỘT câu lệnh"
-    # Và KHÔNG được đọc `seq` ra rồi tự so trong Python.
-    assert '.select("seq")' not in src
-    assert "fn_save_course_writing_draft" in CODE
+    assert "seq" not in inspect.signature(qs.save_course_writing_draft).parameters
+    assert "seq" not in src, "bộ máy thứ tự phải được xoá hẳn, không để lại nửa vời"
+    assert "course_writing_drafts" in CODE
+    assert "fn_save_course_writing_draft" not in src
 
 
-def test_a_seq_less_write_never_lowers_the_stored_counter():
-    """Hạ số đã lưu xuống thì lượt sau của trang lại bị coi là bản cũ."""
-    i = CODE.index("ON CONFLICT (class_assignment_item_id) DO UPDATE")
-    seg = CODE[i:CODE.index("RETURNING id INTO v_id", i)]
-    assert "GREATEST(course_writing_drafts.seq, EXCLUDED.seq)" in seg
-
-
-def test_the_draft_write_function_is_backend_only():
-    assert "REVOKE EXECUTE ON FUNCTION public.fn_save_course_writing_draft" in CODE
-    assert "GRANT  EXECUTE ON FUNCTION public.fn_save_course_writing_draft" in CODE
-
-
-def test_the_sequence_column_exists_and_defaults_to_zero():
-    assert "ADD COLUMN IF NOT EXISTS seq bigint NOT NULL DEFAULT 0" in CODE
-
-
-def test_the_state_hands_the_sequence_back_so_a_reload_does_not_restart_at_zero():
-    """Đếm lại từ 0 sau khi tải lại trang thì mọi lượt gửi mới đều bị coi là bản
-    cũ và bỏ qua — nháp đóng băng vĩnh viễn."""
+def test_a_failed_draft_read_is_simply_no_backup():
+    """Không đọc được bản dự phòng và chưa có bản dự phòng dẫn tới CÙNG một hành
+    động (dùng bản trong máy), nên không tách chúng bằng một cờ riêng nữa."""
     src = inspect.getsource(qs.course_writing_state)
-    assert '"seq": int(draft.get("seq") or 0)' in src
-    assert "answers, updated_at, seq" in src, "quên CHỌN cột thì đọc ra None"
+    assert "draft_unavailable" not in src
+    seg = _draft_block()
+    assert "except Exception" in seg and "draft = None" in seg
+
+
+def test_the_cleanup_is_its_own_migration_not_an_edit_to_194():
+    """`apply_migrations.sh` bỏ qua mọi tệp đã có tên trong sổ
+    `_schema_migrations`. Sửa thẳng vào 194 thì môi trường nào đã chạy bản 194
+    cũ sẽ giữ `seq` và hàm cũ VĨNH VIỄN, trong khi mã mới không dùng chúng
+    (codex cục bộ 05/08)."""
+    m195 = (pathlib.Path(__file__).parent.parent / "migrations"
+            / "195_drop_course_writing_draft_seq.sql").read_text(encoding="utf-8")
+    assert "DROP COLUMN IF EXISTS seq" in m195
+    assert "DROP FUNCTION IF EXISTS fn_save_course_writing_draft" in m195
+    # 194 chỉ TẠO — không được mang lệnh dọn, và không được nhắc tới seq.
+    assert "seq" not in CODE
+    assert "DROP" not in CODE

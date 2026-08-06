@@ -36,19 +36,6 @@ CREATE TABLE IF NOT EXISTS course_writing_drafts (
     created_at   timestamptz NOT NULL DEFAULT now()
 );
 
--- Số thứ tự do MÁY CHỦ giữ, để lượt ghi đến MUỘN mà mang bản CŨ không đè lên
--- bản mới. Lúc rời trang, lượt gửi `keepalive` phải bắn NGAY chứ không xếp hàng
--- sau một lượt lưu tự động còn đang bay (nếu không, trang đóng trước khi nó kịp
--- được tạo) — mà bắn ngay thì hai lượt có thể tới ngược thứ tự. Trang xin số
--- này từ máy chủ rồi tăng dần, nên tải lại trang hay đổi máy đều không đặt lại
--- về 0, và không phụ thuộc đồng hồ của máy nào cả (codex PR 949).
-ALTER TABLE course_writing_drafts
-    ADD COLUMN IF NOT EXISTS seq bigint NOT NULL DEFAULT 0;
-
-COMMENT ON COLUMN course_writing_drafts.seq IS
-'Số thứ tự tăng dần của bản nháp. Lượt ghi có seq NHỎ HƠN bản đang lưu bị bỏ
-qua: nó là một bản cũ tới muộn (mig 194).';
-
 -- MỘT bản nháp cho mỗi mục bài giao. Không có ràng buộc này thì mỗi lần lưu
 -- đẻ thêm một dòng, và lần đọc sau không biết dòng nào là mới nhất.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_course_writing_draft_per_item
@@ -64,57 +51,6 @@ COMMENT ON TABLE course_writing_drafts IS
 nháp sống qua đổi máy và xoá bộ nhớ trình duyệt; bảng bài ĐÃ CHẤM vẫn là
 course_writing_submissions và không đổi.';
 
--- ── Ghi nháp: MỘT câu lệnh, không phải kiểm-rồi-ghi ─────────────────────────
---
--- Kiểm `seq` bằng một lệnh SELECT riêng rồi mới ghi là hai giao dịch: một lượt
--- mang bản CŨ có thể đọc `seq` cũ (qua cửa kiểm), rồi ghi SAU lượt mang bản mới
--- và đè lên nó. Đúng ca mà `seq` sinh ra để chặn, nên phép so phải nằm TRONG
--- chính lệnh ghi (codex PR 949).
-CREATE OR REPLACE FUNCTION fn_save_course_writing_draft(
-    p_item    uuid,
-    p_user    uuid,
-    p_bank    uuid,
-    p_answers jsonb,
-    -- NULL = KHÔNG XÉT thứ tự (lời gọi cũ chưa gửi số này). Truyền 0 thay cho
-    -- NULL là sai: 0 nhỏ hơn mọi bản đã lưu nên lượt ghi bị chặn IM LẶNG.
-    p_seq     bigint DEFAULT NULL
-)
-RETURNS TABLE (saved integer, stale boolean)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-    v_id uuid;
-BEGIN
-    INSERT INTO course_writing_drafts (
-        class_assignment_item_id, user_id, bank_id, answers, seq, updated_at
-    ) VALUES (p_item, p_user, p_bank, COALESCE(p_answers, '{}'::jsonb),
-              COALESCE(p_seq, 0), now())
-    ON CONFLICT (class_assignment_item_id) DO UPDATE
-        SET answers    = EXCLUDED.answers,
-            -- GREATEST: một lời gọi không-xét-thứ-tự không được HẠ số đã lưu
-            -- xuống, nếu không thì lượt sau của trang lại bị coi là bản cũ.
-            seq        = GREATEST(course_writing_drafts.seq, EXCLUDED.seq),
-            updated_at = now()
-        -- `<=` chứ không `<`: seq BẰNG NHAU là lần gửi lại sau lỗi mạng, không
-        -- phải một bản cũ tới muộn.
-        WHERE p_seq IS NULL OR course_writing_drafts.seq <= EXCLUDED.seq
-    RETURNING id INTO v_id;
-
-    -- Không có dòng nào ⇒ điều kiện trên chặn lại ⇒ đây là bản cũ.
-    saved := CASE WHEN v_id IS NULL THEN 0
-                  ELSE (SELECT count(*)::integer FROM jsonb_object_keys(COALESCE(p_answers, '{}'::jsonb))) END;
-    stale := v_id IS NULL;
-    RETURN NEXT;
-END;
-$$;
-
-COMMENT ON FUNCTION fn_save_course_writing_draft IS
-'Ghi bản nháp tự luận trong MỘT câu lệnh. Phép so `seq` nằm trong chính lệnh
-ghi, nên một lượt mang bản cũ không thể qua cửa kiểm rồi ghi sau lượt mới
-(mig 194).';
-
 -- ── Quyền: BACKEND-ONLY ─────────────────────────────────────────────────────
 -- Supabase phơi mọi bảng trong `public` ra PostgREST. Không thu hồi ở đây thì
 -- một học viên đăng nhập đọc được bản nháp của cả lớp — và ghi đè được chúng.
@@ -122,16 +58,8 @@ ALTER TABLE course_writing_drafts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE course_writing_drafts FROM PUBLIC, anon, authenticated;
 GRANT  ALL ON TABLE course_writing_drafts TO service_role;
 
-REVOKE EXECUTE ON FUNCTION public.fn_save_course_writing_draft(uuid, uuid, uuid, jsonb, bigint)
-    FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION public.fn_save_course_writing_draft(uuid, uuid, uuid, jsonb, bigint)
-    TO service_role;
 
 -- ── Kiểm sau khi chạy ────────────────────────────────────────────────────────
--- SELECT column_name FROM information_schema.columns
---  WHERE table_name = 'course_writing_drafts' AND column_name = 'seq';
--- Kỳ vọng: seq
---
 -- SELECT relrowsecurity FROM pg_class WHERE relname = 'course_writing_drafts';
 -- Kỳ vọng: t
 --

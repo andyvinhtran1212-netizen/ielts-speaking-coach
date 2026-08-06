@@ -63,14 +63,31 @@
   // pages/*.html are one level deep; index.html and admin.html are at root level.
   var _appRoot = /\/pages\/[^/]+$/.test(window.location.pathname) ? '../' : './';
 
+  // Token của lần lấy gần nhất. Giữ lại CHỈ để phục vụ đường `keepalive` —
+  // xem ghi chú ở `_apiRequest`.
+  var _lastToken = null;
+
   async function _getAuthToken() {
     if (!_sb) return null;
     var result = await _sb.auth.getSession();
-    return result.data.session ? result.data.session.access_token : null;
+    _lastToken = result.data.session ? result.data.session.access_token : null;
+    return _lastToken;
   }
 
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
-    var token = await _getAuthToken();
+    // Đường `keepalive` KHÔNG ĐƯỢC `await` trước khi gọi `fetch`.
+    //
+    // `keepalive` chỉ cứu được một request ĐÃ TỒN TẠI. Chờ lấy token trước là
+    // nhường quyền cho trình duyệt: nó có thể dừng JS ngay sau `pagehide`, và
+    // khi ấy `fetch` chưa bao giờ được tạo ra — lượt lưu lúc rời trang thành
+    // trang trí. Sáu chỗ đang dùng `keepalive` đều dính, kể cả báo cáo tính
+    // toàn vẹn của bài thi thử (codex cục bộ 05/08).
+    //
+    // Dùng token của lần lấy gần nhất. Token hết hạn thì request 401 và mất
+    // đúng lượt ấy — vẫn hơn một request không bao giờ được tạo.
+    var token = (opts && opts.keepalive && _lastToken !== null)
+      ? _lastToken
+      : await _getAuthToken();
     var headers = /** @type {Record<string, string>} */ ({});
 
     // ADR-012 §2 — correlation id browser → FastAPI (middleware echoes it;

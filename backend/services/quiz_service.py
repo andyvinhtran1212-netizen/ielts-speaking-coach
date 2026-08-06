@@ -841,26 +841,19 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
     # Bản nháp CHỈ đọc khi chưa nộp: nộp rồi thì nháp là rác, và rót nó ra màn
     # hình chỉ để một ngày nào đó nó đè lên bài đã chấm.
     draft = None
-    draft_unavailable = False
     if item and not sub:
         try:
             d = (supabase_admin.table("course_writing_drafts")
-                 .select("answers, updated_at, seq")
+                 .select("answers, updated_at")
                  .eq("class_assignment_item_id", item["id"])
                  .limit(1).execute().data) or []
             draft = d[0] if d else None
         except Exception as exc:  # noqa: BLE001
-            # Nháp hỏng KHÔNG được chặn học viên khỏi phần viết — em ấy vẫn gõ
-            # được, chỉ là mất phần đã gõ trên máy khác.
-            #
-            # Nhưng phải NÓI RA là không đọc được, đừng trả `null` như thể máy
-            # chủ chưa có gì: trang đọc `null` thành "máy chủ trống" rồi đẩy bản
-            # cục bộ lên ĐÈ dòng thật. Một lỗi đọc tạm thời khi ấy thành mất dữ
-            # liệu vĩnh viễn (codex PR 949). Cùng khuôn với
-            # `association_lookup_failed` của mặt đọc mã kích hoạt.
+            # Nháp hỏng KHÔNG chặn học viên khỏi phần viết. Trang lấy bản trong
+            # máy làm nguồn thật, nên "không đọc được bản dự phòng" và "chưa có
+            # bản dự phòng" dẫn tới cùng một hành động — không cần cờ riêng.
             logger.warning("[quiz] đọc nháp tự luận hỏng item=%s: %s", item["id"], exc)
             draft = None
-            draft_unavailable = True
     return {
         # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
         # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
@@ -878,15 +871,10 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
         "submitted": bool(sub),
         # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
+        # Bản DỰ PHÒNG. `None` = chưa có, hoặc không đọc được — trang xử lý hai
+        # ca ấy giống nhau (dùng bản trong máy), nên không tách chúng ra.
         "draft": ({"answers": draft.get("answers") or {},
-                   "updated_at": draft.get("updated_at"),
-                   # Trang GIEO MẦM bộ đếm từ con số này, nên tải lại trang hay
-                   # đổi máy đều không đặt lại về 0 — và không phụ thuộc đồng hồ
-                   # của máy nào cả.
-                   "seq": int(draft.get("seq") or 0)} if draft else None),
-        # `true` = KHÔNG BIẾT máy chủ có gì. Khác hẳn `draft: null` (biết chắc
-        # là chưa có), và trang phải xử lý hai chuyện ấy bằng hai cách.
-        "draft_unavailable": draft_unavailable,
+                   "updated_at": draft.get("updated_at")} if draft else None),
         "submission": ({
             "items":     sub.get("items"),
             "total":     sub.get("total"),
@@ -897,7 +885,7 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
 
 
 def save_course_writing_draft(*, user_id: str, bank_id: str,
-                              answers: dict, seq: int | None = None) -> dict:
+                              answers: dict) -> dict:
     """Ghi bản nháp phần tự luận. Ghi đè bản cũ của CÙNG mục bài giao.
 
     Không phải một lần nộp: không chấm gì, không chốt gì, và gọi bao nhiêu lần
@@ -932,24 +920,22 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     kept = {str(k): str(v)[:course_writing_grader.MAX_ANSWER_CHARS]
             for k, v in (answers or {}).items() if str(v or "").strip()}
 
-    # MỘT câu lệnh: phép so `seq` nằm TRONG lệnh ghi. Kiểm bằng một SELECT riêng
-    # rồi mới ghi là hai giao dịch — một lượt mang bản CŨ đọc được `seq` cũ, qua
-    # cửa kiểm, rồi ghi SAU lượt mang bản mới và đè lên nó (codex PR 949 vòng 4).
+    # Lượt ghi SAU CÙNG thắng. Không còn số thứ tự: bản trên máy chủ là DỰ
+    # PHÒNG, còn nguồn thật nằm ở máy đang gõ — nên "bản cũ tới muộn" chỉ làm
+    # bản dự phòng lùi lại một nhịp, không làm mất bài của ai.
+    row = {
+        "class_assignment_item_id": item["id"],
+        "user_id": user_id,
+        "bank_id": bank_id,
+        "answers": kept,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
     try:
-        rows = supabase_admin.rpc("fn_save_course_writing_draft", {
-            "p_item": item["id"],
-            "p_user": user_id,
-            "p_bank": bank_id,
-            "p_answers": kept,
-            # Không truyền `seq` = KHÔNG XÉT thứ tự. Gửi 0 thay cho NULL là sai:
-            # 0 nhỏ hơn mọi bản đã lưu nên lượt ghi bị chặn IM LẶNG.
-            "p_seq": int(seq) if seq is not None else None,
-        }).execute().data or []
+        supabase_admin.table("course_writing_drafts").upsert(
+            row, on_conflict="class_assignment_item_id").execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
-    row = rows[0] if rows else {}
-    return {"saved": int(row.get("saved") or 0), "item_id": item["id"],
-            "stale": bool(row.get("stale"))}
+    return {"saved": len(kept), "item_id": item["id"]}
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,

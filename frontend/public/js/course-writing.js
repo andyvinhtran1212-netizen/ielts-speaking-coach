@@ -80,24 +80,18 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   let draft = {};
   let itemId = null;
   // Đẩy nháp lên máy chủ SAU khi ngừng gõ, không phải mỗi phím: một câu 600 ký
-  // tự là 600 request. `pendingPush` giữ lời hứa để `flushDraft()` chờ được.
+  // tự là 600 request.
   let pushTimer = null;
-  let pendingPush = Promise.resolve();
   let lastPushed = '';
-  // CHƯA nạp xong thì chưa biết máy chủ đang giữ gì. Đẩy lúc ấy là gửi `{}` lên
-  // ĐÈ một bản nháp thật — chỉ cần mở trang trên mạng chậm rồi chuyển app là
-  // mất sạch bài đã viết (codex PR 949).
+  // Các lượt lưu tự động NỐI ĐUÔI nhau. Bắn song song thì hai request có thể
+  // tới máy chủ ngược thứ tự, và bản `upsert` đến sau kéo bản dự phòng LÙI về
+  // nội dung cũ — `lastPushed` khi ấy vẫn là bản mới nên không có lần gửi lại,
+  // và một máy khác sẽ khôi phục đúng bản cũ ấy (codex cục bộ 05/08).
+  let pending = Promise.resolve();
+  // CHƯA nạp xong thì chưa biết bài này có nháp cũ không. Đẩy lúc ấy là gửi
+  // `{}` lên đè bản dự phòng đang có — chỉ cần mở trang trên mạng chậm rồi
+  // chuyển app.
   let ready = false;
-  // Có lượt gửi nào đang bay không. Cần biết để lượt rời-trang không bị chính
-  // cờ chống-trùng của lượt ấy chặn lại.
-  let inFlight = 0;
-  // Số thứ tự do MÁY CHỦ giữ, gieo mầm lúc nạp rồi tăng dần: lượt ghi tới muộn
-  // mang bản cũ sẽ bị máy chủ bỏ qua, nên lượt `keepalive` lúc rời trang được
-  // phép bắn NGAY thay vì xếp hàng.
-  let seq = 0;
-  // Có biết máy chủ đang ở số mấy không. Không biết ⇒ gửi `null` (không xét
-  // thứ tự) thay vì một con số bịa ra.
-  let seqKnown = false;
 
   function loadDraft() {
     if (!storage) return {};
@@ -112,62 +106,57 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   }
 
   /**
-   * Đẩy nháp lên MÁY CHỦ.
+   * Đẩy nháp lên máy chủ — MỘT BẢN DỰ PHÒNG, không phải nguồn thật.
    *
-   * Trình duyệt chỉ còn là bộ đệm: bản thật nằm ở máy chủ, nên nháp sống qua
-   * đổi máy, xoá bộ nhớ trình duyệt, và cả máy phòng lab.
+   * ── Vì sao đảo lại so với bản đầu ──────────────────────────────────────
+   * Bản đầu cho máy chủ làm nguồn thật. Từ đó phải sinh ra số thứ tự, phép ghi
+   * nguyên tử, cờ "không đọc được"… và mỗi mảnh lại hở một đường mất bài: tải
+   * lại trang đè mất bản chưa gửi được, lượt ghi không-biết-thứ-tự đè lên bản
+   * thật, và nếu lượt gửi cuối không kịp tạo thì bản duy nhất cũng mất.
    *
-   * Nuốt lỗi là ĐÚNG ở đây — học viên đang gõ, không có gì để nói với em ấy, và
-   * bản trong trình duyệt vẫn còn nguyên. Nhưng phải nhớ lời hứa: `flushDraft`
-   * chờ nó trước khi trang đóng.
+   * Nhưng đây là tài liệu MỖI LÚC CHỈ MỘT MÁY ĐANG GÕ. Nguồn thật đúng ra phải
+   * là máy đang gõ, còn máy chủ chỉ giữ một bản để cứu ca "máy mới / vừa xoá bộ
+   * nhớ trình duyệt" — chính là ca mà tính năng sinh ra để phục vụ.
+   *
+   * Đổi lại: đồng bộ giữa hai máy là "cố gắng hết sức". Gõ ở máy A rồi sang máy
+   * B ngay khi A chưa kịp gửi thì B thấy bản cũ hơn. Chấp nhận được, và giải
+   * thích được — khác hẳn việc MẤT bài.
+   *
+   * Nuốt lỗi là ĐÚNG ở đây: học viên đang gõ, không có gì để nói với em ấy, và
+   * bản trong máy vẫn còn nguyên.
    */
   function pushDraft({ keepalive = false } = {}) {
     if (submitted || !bankId || !ready) return Promise.resolve();
-    // NỐI ĐUÔI, không bắn song song. Hai lượt gửi chồng nhau có thể tới máy chủ
-    // NGƯỢC thứ tự, và bản `upsert` đến sau ghi đè bản mới hơn — mở trên máy
-    // khác là mất đúng đoạn vừa gõ (codex PR 949).
     const send = () => {
-      // Chụp nội dung Ở THỜI ĐIỂM GỬI, không phải lúc xếp hàng: gõ thêm trong
-      // lúc chờ thì lượt này phải mang bản mới nhất.
+      // Chụp nội dung Ở THỜI ĐIỂM GỬI: gõ thêm trong lúc xếp hàng thì lượt này
+      // phải mang bản mới nhất, không phải bản lúc nó được xếp vào hàng.
       const body = JSON.stringify(draft);
-      // Lượt RỜI TRANG bỏ qua cờ chống-trùng khi lượt trước còn ĐANG BAY.
-      //
-      // `lastPushed` được đặt lúc BẮT ĐẦU gửi, nên một lượt lưu tự động chưa
-      // settle đã kịp "nhận" nội dung ấy. Học viên rời trang mà không gõ thêm
-      // thì lượt keepalive thấy trùng rồi không gửi gì — và bản duy nhất mang
-      // chữ mới nhất là cái request thường mà trình duyệt sắp huỷ (codex PR
-      // 949 vòng 5). Gửi lại là vô hại: máy chủ so `seq`, và `seq` bằng nhau
-      // vẫn ghi.
-      if (body === lastPushed && !(keepalive && inFlight)) return null;
+      if (body === lastPushed) return null;             // không có gì mới
       lastPushed = body;
-      seq += 1;
       const path = '/api/quiz/course/writing/draft';
-      const payload = { bank_id: bankId, answers: { ...draft },
-                        seq: seqKnown ? seq : null };
-      // `keepalive` THẬT của fetch, không phải một cờ tự đặt: rời trang thì
-      // request thường bị huỷ giữa chừng — mà đó đúng là lúc đường này tồn tại
-      // để phục vụ.
-      inFlight += 1;
+      const payload = { bank_id: bankId, answers: { ...draft } };
+      // `keepalive` THẬT của fetch: rời trang thì request thường bị huỷ giữa
+      // chừng. Không cứu được thì cũng chỉ mất BẢN DỰ PHÒNG — bài vẫn nằm trong
+      // máy này.
       const sent = (keepalive && api.postWith)
         ? api.postWith(path, payload, null, { keepalive: true })
         : api.post(path, payload);
-      return sent
-        .catch(() => { lastPushed = ''; })             // hỏng thì lần sau gửi lại
-        .finally(() => { inFlight -= 1; });
+      return sent.catch(() => { lastPushed = ''; });    // hỏng thì lần sau gửi lại
     };
     if (keepalive) {
-      // BẮN NGAY, không xếp hàng. Xếp sau một lượt lưu tự động còn đang bay thì
-      // trang có thể đóng TRƯỚC khi request kịp được tạo ra — và `keepalive`
-      // không cứu được một request chưa tồn tại. Thứ tự tới nơi không còn quan
-      // trọng: máy chủ bỏ qua bản có `seq` nhỏ hơn.
+      // Rời trang thì BẮN NGAY. Xếp sau một lượt còn đang bay thì trang có thể
+      // đóng trước khi request kịp được tạo ra — và `keepalive` không cứu được
+      // một request chưa tồn tại.
+      //
+      // RANH GIỚI ĐÃ BIẾT: nếu đúng lúc ấy có một lượt lưu tự động còn đang bay
+      // và nó tới máy chủ SAU, bản dự phòng lùi lại một nhịp. Không mất bài —
+      // bản đầy đủ vẫn nằm trong máy này, và lần mở sau sẽ đẩy lại.
       const p = Promise.resolve(send());
-      pendingPush = pendingPush.then(() => p, () => p);
+      pending = pending.then(() => p, () => p);
       return p;
     }
-    // NỐI ĐUÔI cho lưu tự động: giữ số lượt gửi ở mức thấp và không tự đua với
-    // chính mình.
-    pendingPush = pendingPush.then(send, send);
-    return pendingPush;
+    pending = pending.then(send, send);
+    return pending;
   }
 
   function schedulePush() {
@@ -195,39 +184,25 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       submission = (r && r.submission) || null;
       // Nộp rồi thì bản nháp là rác — và giữ nó lại chỉ để một ngày nào đó
       // hiện lên đè lên bài đã chấm.
-      // MÁY CHỦ THẮNG khi nó CÓ MỘT DÒNG — kể cả dòng rỗng.
+      // MÁY NÀY THẮNG khi nó có nội dung.
       //
-      // Xét theo số câu là sai: em ấy xoá sạch bài trên máy này thì máy chủ giữ
-      // một dòng `{}`, và một máy khác còn nháp cũ sẽ đọc dòng ấy thành "máy
-      // chủ chưa có gì" rồi DỰNG LẠI đúng những câu em ấy vừa xoá (codex PR
-      // 949). Chỉ khi máy chủ không có dòng nào mới dùng bản trong máy.
+      // Bản trên máy chủ chỉ là DỰ PHÒNG, và chỉ được đọc ra khi máy này trống
+      // — đúng ca tính năng sinh ra để phục vụ (máy mới, vừa xoá bộ nhớ trình
+      // duyệt). Ưu tiên máy chủ thì một bản gõ dở chưa kịp gửi sẽ bị xoá ngay
+      // lần tải lại trang kế tiếp, và đó là mất bài thật.
+      //
+      // Đọc hỏng cũng rơi vào cùng nhánh này: không có bản dự phòng để lấy thì
+      // dùng bản trong máy. Không cần một cờ riêng cho ca ấy nữa.
       const local = submitted ? {} : loadDraft();
-      const hasRemote = !submitted && !!(r && r.draft);
-      // KHÔNG ĐỌC ĐƯỢC khác hẳn CHƯA CÓ GÌ. Không đọc được mà đẩy bản cục bộ
-      // lên là để một lỗi đọc tạm thời ghi đè dòng thật trên máy chủ — biến nó
-      // thành mất dữ liệu vĩnh viễn (codex PR 949).
-      const unknown = !submitted && !!(r && r.draft_unavailable);
-      draft = hasRemote ? { ...(r.draft.answers || {}) } : local;
-      // Gieo mầm bộ đếm TỪ MÁY CHỦ: tải lại trang hay đổi máy đều không đặt nó
-      // về 0, nên một lượt gửi mới không bao giờ bị nhận nhầm là bản cũ.
-      //
-      // KHÔNG ĐỌC ĐƯỢC thì cũng không biết máy chủ đang ở số mấy — gieo 0 lúc
-      // ấy là để mọi lượt ghi sau đó nhỏ hơn bản đã lưu và bị bỏ qua im lặng:
-      // nháp đóng băng vĩnh viễn sau một lỗi đọc tạm thời. Gửi `null` = không
-      // xét thứ tự, đúng nghĩa "không biết" (codex PR 949 vòng 5).
-      seq = hasRemote ? (Number(r.draft.seq) || 0) : 0;
-      seqKnown = !unknown;
+      const remote = (!submitted && r && r.draft && r.draft.answers) || null;
+      draft = Object.keys(local).length ? local : { ...(remote || {}) };
       ready = true;
       if (!submitted) {
         saveDraft();
-        if (!hasRemote && !unknown && Object.keys(local).length) {
-          // Máy chủ CHƯA có gì mà máy này đang giữ bài viết dở: cứu nó lên ngay,
-          // không thì nó biến mất ở lần mở đầu tiên sau khi lên bản mới.
-          lastPushed = '';
-          pushDraft();
-        } else {
-          lastPushed = JSON.stringify(draft);
-        }
+        // Máy này có bài mà bản dự phòng khác đi (hoặc chưa có) thì gửi lên
+        // ngay: chờ tới lần gõ kế tiếp là để trống một khoảng không ai đỡ.
+        lastPushed = JSON.stringify(remote || {});
+        if (Object.keys(local).length) pushDraft();
       }
       if (submitted && storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }

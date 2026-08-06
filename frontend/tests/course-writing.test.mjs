@@ -366,108 +366,112 @@ describe('màn đã chấm dựng từ BẢN CHỤP, không từ đề hiện h�
   });
 });
 
-describe('bản nháp sống trên MÁY CHỦ, không chỉ trong một trình duyệt', () => {
-  // Tới nay nháp chỉ nằm trong `localStorage`: đổi máy, xoá bộ nhớ trình duyệt,
-  // hay dùng máy phòng lab là mất trắng — và phần tự luận chỉ có MỘT lượt nộp
-  // nên học viên thường viết dần trong nhiều buổi.
+describe('bản nháp: máy đang gõ là nguồn thật, máy chủ là DỰ PHÒNG', () => {
+  // Bản đầu cho máy chủ làm nguồn thật, và đẻ ra ba đường mất bài: tải lại
+  // trang đè mất bản chưa gửi được, lượt ghi không-biết-thứ-tự đè lên bản thật,
+  // và nếu lượt gửi cuối không kịp tạo thì bản duy nhất cũng mất.
+  //
+  // Đảo lại: máy này thắng khi nó có nội dung; máy chủ chỉ được đọc ra khi máy
+  // này trống — đúng ca tính năng sinh ra để phục vụ.
 
   const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
 
-  test('gõ xong thì đẩy lên máy chủ, KHÔNG phải mỗi phím', async () => {
+  test('máy này CÓ bài thì máy chủ không đè lên được', async () => {
+    // Ca mất bài số 1 của bản cũ: gửi hỏng rồi tải lại trang là mất đoạn vừa gõ.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản chưa gửi được' }));
+    const { w } = await load({ storage: store,
+                              draft: { answers: { E1: 'bản cũ trên máy chủ' } } });
+    assert.equal(w.draft.E1, 'bản chưa gửi được');
+  });
+
+  test('máy này TRỐNG thì lấy bản dự phòng — đây là lý do tính năng tồn tại', async () => {
+    const { w } = await load({ storage: memStore(),
+                              draft: { answers: { E1: 'viết ở máy cũ' } } });
+    assert.equal(w.draft.E1, 'viết ở máy cũ');
+  });
+
+  test('đọc hỏng cũng chỉ là "không có bản dự phòng"', async () => {
+    // Không cần một cờ riêng: hai ca dẫn tới cùng một hành động.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bài trong máy' }));
+    const { w } = await load({ storage: store, draft: null });
+    assert.equal(w.draft.E1, 'bài trong máy');
+  });
+
+  test('gõ xong thì sao lưu, KHÔNG phải mỗi phím', async () => {
     const { w, api } = await load();
-    w.write('E1', 'M');
-    w.write('E1', 'Một');
-    w.write('E1', 'Một câu');
+    w.write('E1', 'M'); w.write('E1', 'Một'); w.write('E1', 'Một câu');
     assert.equal(api.drafts.length, 0, 'chưa ngừng gõ thì chưa gửi');
     await tick();
     assert.equal(api.drafts.length, 1, 'ba phím → MỘT request');
     assert.deepEqual(api.drafts[0].body.answers, { E1: 'Một câu' });
   });
 
-  test('rời trang thì đẩy NGAY, không chờ hết đếm ngược', async () => {
-    // Đóng tab đúng lúc đang đếm ngược là mất đoạn vừa gõ — mà đoạn vừa gõ mới
-    // là đoạn em ấy nhớ nhất.
+  test('rời trang đẩy nốt bằng keepalive', async () => {
     const { w, api } = await load();
-    w.write('E1', 'vừa gõ xong thì đóng tab');
+    w.write('E1', 'đoạn cuối');
     await w.flushDraft();
-    assert.equal(api.drafts.length, 1);
-    assert.deepEqual(api.drafts[0].body.answers, { E1: 'vừa gõ xong thì đóng tab' });
+    const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
+    assert.equal(ka.length, 1);
+    assert.equal(ka[0].body.answers.E1, 'đoạn cuối');
   });
 
-  test('máy chủ CÓ nháp thì máy chủ thắng — đây là bản sống qua đổi máy', async () => {
-    const store = memStore();
-    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản cũ trên máy này' }));
-    const { w } = await load({ storage: store, draft: { answers: { E1: 'bản trên máy chủ' } } });
-    assert.equal(w.draft.E1, 'bản trên máy chủ');
+  test('mở trang trên mạng chậm rồi chuyển app: KHÔNG gửi gì', async () => {
+    // `bankId` đã đặt nhưng chưa nạp xong, `draft` còn rỗng — gửi lúc ấy là đẩy
+    // `{}` lên đè bản dự phòng.
+    let release;
+    const api = fakeApi({ draft: { answers: { E1: 'bản dự phòng thật' } } });
+    const rawGet = api.get.bind(api);
+    api.get = async (path) => { await new Promise((r) => { release = r; }); return rawGet(path); };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    const loading = w.load('b1');
+    await new Promise((r) => setTimeout(r, 10));
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 0);
+    release(); await loading;
   });
 
-  test('máy chủ RỖNG mà máy này có nháp thì đẩy lên ngay', async () => {
-    // Không làm thế thì bản đang gõ dở trên máy quen biến mất ngay lần mở đầu
-    // tiên sau khi lên bản mới.
+  test('máy này có bài mà bản dự phòng khác đi thì sao lưu NGAY', async () => {
     const store = memStore();
     store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'đang viết dở' }));
-    const { w, api } = await load({ storage: store, draft: null });
-    assert.equal(w.draft.E1, 'đang viết dở');
-    assert.equal(api.drafts.length, 1, 'phải cứu bản cũ lên máy chủ');
+    const { api } = await load({ storage: store, draft: null });
+    assert.equal(api.drafts.length, 1);
     assert.deepEqual(api.drafts[0].body.answers, { E1: 'đang viết dở' });
   });
 
-  test('không có gì để đẩy thì KHÔNG gọi mạng', async () => {
-    const { api } = await load();
-    await tick();
+  test('bản dự phòng đã trùng thì không gửi lại', async () => {
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'y hệt' }));
+    const { api } = await load({ storage: store, draft: { answers: { E1: 'y hệt' } } });
     assert.equal(api.drafts.length, 0);
   });
 
-  test('nội dung không đổi thì không gửi lại', async () => {
-    const { w, api } = await load();
-    w.write('E1', 'x');
-    await tick();
-    w.write('E1', 'x');
-    await tick();
-    assert.equal(api.drafts.length, 1, 'gõ rồi xoá rồi gõ lại y hệt = một lần gửi');
-  });
-
-  test('đã NỘP thì không đẩy nháp nữa', async () => {
-    // Một lượt chấm duy nhất: sau khi chấm, ghi tiếp chỉ tạo một bản nháp mãi
-    // mãi không ai đọc, nằm cạnh bài đã chấm như thể còn sửa được.
+  test('đã NỘP thì không sao lưu nữa', async () => {
     const { w, api } = await load({ submitted: true,
                                     submission: { items: [], total: 2, clean: 2 } });
     w.write('E1', 'cố gõ thêm');
-    await tick();
-    await w.flushDraft();
+    await tick(); await w.flushDraft();
     assert.equal(api.drafts.length, 0);
   });
 
-  test('máy chủ hỏng thì vẫn viết được, và lần sau gửi LẠI', async () => {
+  test('gửi hỏng thì bài vẫn còn, và lần sau gửi lại', async () => {
     const { w, api } = await load({ failDraft: true });
     w.write('E1', 'câu một');
     await tick();
-    assert.equal(api.drafts.length, 1, 'đã thử');
+    assert.equal(api.drafts.length, 1);
     assert.equal(w.draft.E1, 'câu một', 'hỏng mạng không được nuốt bài của em ấy');
-    w.write('E1', 'câu một');            // y hệt — nhưng lần trước HỎNG
+    w.write('E1', 'câu một');
     await tick();
     assert.equal(api.drafts.length, 2, 'gửi hỏng thì lần sau phải gửi lại');
   });
 });
 
-describe('ba ca lệch nhau giữa hai máy (codex PR 949)', () => {
-  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
-
-  test('máy chủ có dòng RỖNG cũng thắng — xoá là xoá thật', async () => {
-    // Em ấy xoá sạch bài trên máy A. Máy chủ giữ một dòng `{}`. Máy B còn nháp
-    // cũ mà đọc dòng ấy thành "máy chủ chưa có gì" sẽ DỰNG LẠI đúng những câu
-    // em ấy vừa xoá — và đẩy chúng lên đè bản đã xoá.
-    const store = memStore();
-    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'câu đã xoá' }));
-    const { w, api } = await load({ storage: store, draft: { answers: {} } });
-    assert.deepEqual(w.draft, {}, 'không được dựng lại thứ đã xoá');
-    await tick();
-    assert.equal(api.drafts.length, 0, 'và không được đẩy bản cũ lên đè');
-  });
-
-  test('LƯU TỰ ĐỘNG nối đuôi, không chồng lên nhau', () => {
-    // Hai lượt lưu tự động bắn song song có thể tới máy chủ ngược thứ tự. Lượt
-    // rời trang thì KHÁC: nó bắn ngay (xem chốt dưới), và `seq` lo phần thứ tự.
+describe('lưu tự động NỐI ĐUÔI (codex cục bộ 05/08)', () => {
+  test('hai lượt không bay cùng lúc, và tới ĐÚNG thứ tự', async () => {
+    // Bắn song song thì bản `upsert` đến sau kéo bản dự phòng LÙI về nội dung
+    // cũ — `lastPushed` khi ấy vẫn là bản mới nên không có lần gửi lại, và một
+    // máy khác sẽ khôi phục đúng bản cũ ấy.
     let live = 0;
     let overlapped = false;
     const order = [];
@@ -483,44 +487,17 @@ describe('ba ca lệch nhau giữa hai máy (codex PR 949)', () => {
       return raw(path, body);
     };
     const w = createWriting({ api, storage: memStore(), userId: 'u1' });
-    return w.load('b1').then(async () => {
-      w.write('E1', 'một');
-      await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));   // lượt 1 bay
-      w.write('E1', 'hai');
-      await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));   // lượt 2 xếp hàng
-      await new Promise((r) => setTimeout(r, 2600));
-      assert.equal(overlapped, false, 'hai lượt lưu tự động không được bay cùng lúc');
-      assert.deepEqual(order, ['một', 'hai'], 'và phải tới ĐÚNG thứ tự');
-    });
-  });
-
-  test('rời trang BẮN NGAY, không xếp sau lượt lưu tự động đang bay', async () => {
-    // Xếp hàng thì trang có thể đóng TRƯỚC khi request kịp được tạo ra — và
-    // `keepalive` không cứu được một request chưa tồn tại (codex PR 949 vòng 3).
-    let release;
-    const api = fakeApi();
-    const raw = api.post.bind(api);
-    api.post = async (path, body) => {
-      if (!String(path).includes('/writing/draft')) return raw(path, body);
-      await new Promise((r) => { release = r; });     // treo cho tới khi nhả
-      return raw(path, body);
-    };
-    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
     await w.load('b1');
-    w.write('E1', 'đang lưu tự động');
+    w.write('E1', 'một');
     await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
-    assert.ok(release, 'lượt lưu tự động phải đang treo');
-
-    w.write('E1', 'đoạn cuối cùng');
-    w.flushDraft();
-    await new Promise((r) => setTimeout(r, 20));
-    const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
-    assert.equal(ka.length, 1, 'phải bắn NGAY dù lượt kia còn treo');
-    assert.equal(ka[0].body.answers.E1, 'đoạn cuối cùng');
-    release();
+    w.write('E1', 'hai');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    await new Promise((r) => setTimeout(r, 2600));
+    assert.equal(overlapped, false, 'hai lượt lưu tự động không được bay cùng lúc');
+    assert.deepEqual(order, ['một', 'hai'], 'và phải tới ĐÚNG thứ tự');
   });
 
-  test('gõ thêm trong lúc chờ thì lượt gửi mang bản MỚI NHẤT', async () => {
+  test('gõ thêm trong lúc xếp hàng thì lượt gửi mang bản MỚI NHẤT', async () => {
     const api = fakeApi();
     const raw = api.post.bind(api);
     api.post = async (path, body) => {
@@ -533,114 +510,14 @@ describe('ba ca lệch nhau giữa hai máy (codex PR 949)', () => {
     await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
     w.write('E1', 'hai');
     const p = new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
-    w.write('E1', 'ba');                       // gõ thêm TRƯỚC khi lượt 2 rời máy
+    w.write('E1', 'ba');
     await p;
     await new Promise((r) => setTimeout(r, 60));
     const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
-    assert.equal(sent[sent.length - 1].body.answers.E1, 'ba',
-      'chụp lúc XẾP HÀNG sẽ gửi đi "hai" — một bản đã cũ trước cả khi rời máy');
+    assert.equal(sent[sent.length - 1].body.answers.E1, 'ba');
   });
 
-  test('rời trang gửi bằng KEEPALIVE, không phải post thường', async () => {
-    // Không có keepalive thì trình duyệt huỷ request giữa lúc đóng trang —
-    // đúng ca đường này tồn tại để phục vụ.
-    const { w, api } = await load();
-    w.write('E1', 'đoạn cuối cùng');
-    await w.flushDraft();
-    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
-    assert.equal(sent.length, 1);
-    assert.deepEqual(sent[0].opts, { keepalive: true });
-  });
-
-  test('lưu tự động BÌNH THƯỜNG thì không cần keepalive', async () => {
-    const { w, api } = await load();
-    w.write('E1', 'gõ giữa chừng');
-    await tick();
-    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].opts, undefined);
-  });
-});
-
-describe('KHÔNG ĐỌC ĐƯỢC khác CHƯA CÓ GÌ (codex PR 949 vòng 2)', () => {
-  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
-
-  test('máy chủ đọc hỏng thì KHÔNG đẩy bản cục bộ lên đè', async () => {
-    // Một lỗi đọc tạm thời không được biến thành mất dữ liệu vĩnh viễn: dòng
-    // thật trên máy chủ có thể mới hơn nhiều so với bản trong máy này.
-    const store = memStore();
-    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản cũ máy này' }));
-    const { w, api } = await load({ storage: store, draft: null, draftUnavailable: true });
-    assert.equal(w.draft.E1, 'bản cũ máy này', 'vẫn phải viết tiếp được');
-    await tick();
-    assert.equal(api.drafts.length, 0, 'nhưng KHÔNG được đẩy lên đè');
-  });
-
-  test('gõ TIẾP sau đó thì vẫn lưu — đó là bài mới của em ấy', async () => {
-    const store = memStore();
-    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'cũ' }));
-    const { w, api } = await load({ storage: store, draft: null, draftUnavailable: true });
-    w.write('E1', 'cũ và phần vừa gõ thêm');
-    await tick();
-    assert.equal(api.drafts.length, 1, 'bài vừa gõ là bài thật, phải lưu');
-  });
-
-  test('máy chủ nói rõ CHƯA CÓ GÌ thì vẫn cứu bản cục bộ lên', async () => {
-    // Ranh giới giữa hai ca: `draft: null` + không báo hỏng = biết chắc trống.
-    const store = memStore();
-    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'đang viết dở' }));
-    const { api } = await load({ storage: store, draft: null, draftUnavailable: false });
-    assert.equal(api.drafts.length, 1);
-  });
-});
-
-describe('hai chắn chống XOÁ NHẦM (codex PR 949 vòng 3)', () => {
-  test('rời trang GIỮA LÚC ĐANG NẠP thì không gửi gì', async () => {
-    // `bankId` đã đặt nhưng chưa biết máy chủ giữ gì, và `draft` còn rỗng: gửi
-    // lúc ấy là đẩy `{}` lên ĐÈ một bản nháp thật. Chỉ cần mở trang trên mạng
-    // chậm rồi chuyển app là mất sạch bài đã viết.
-    let release;
-    const api = fakeApi({ draft: { answers: { E1: 'bài thật trên máy chủ' }, seq: 7 } });
-    const rawGet = api.get.bind(api);
-    api.get = async (path) => {
-      await new Promise((r) => { release = r; });
-      return rawGet(path);
-    };
-    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
-    const loading = w.load('b1');
-    await new Promise((r) => setTimeout(r, 10));
-    await w.flushDraft();                       // rời trang khi GET còn bay
-    assert.equal(api.drafts.length, 0, 'chưa nạp xong thì không được gửi gì');
-    release();
-    await loading;
-  });
-
-  test('số thứ tự GIEO MẦM từ máy chủ, không đặt lại về 0', async () => {
-    // Tải lại trang mà đếm lại từ 0 thì mọi lượt gửi mới đều bị máy chủ coi là
-    // bản cũ và bỏ qua — nháp đóng băng vĩnh viễn.
-    const { w, api } = await load({ draft: { answers: { E1: 'cũ' }, seq: 12 } });
-    w.write('E1', 'mới');
-    await w.flushDraft();
-    assert.equal(api.drafts.length, 1);
-    assert.equal(api.drafts[0].body.seq, 13, 'phải tiếp tục từ con số máy chủ giữ');
-  });
-
-  test('mỗi lượt gửi mang số LỚN HƠN lượt trước', async () => {
-    const { w, api } = await load();
-    w.write('E1', 'a'); await w.flushDraft();
-    w.write('E1', 'b'); await w.flushDraft();
-    w.write('E1', 'c'); await w.flushDraft();
-    const seqs = api.drafts.map((c) => c.body.seq);
-    assert.deepEqual(seqs, [1, 2, 3]);
-  });
-});
-
-describe('hai ca cuối (codex PR 949 vòng 5)', () => {
-  test('rời trang GỬI LẠI dù lượt lưu tự động đã "nhận" nội dung ấy', async () => {
-    // `lastPushed` đặt lúc BẮT ĐẦU gửi, nên một lượt lưu tự động chưa settle đã
-    // kịp nhận nội dung. Học viên rời trang mà không gõ thêm thì lượt keepalive
-    // thấy trùng rồi không gửi gì — và bản duy nhất mang chữ mới nhất là cái
-    // request thường mà trình duyệt sắp huỷ.
+  test('rời trang vẫn bắn NGAY dù lượt kia còn treo', async () => {
     let release;
     const api = fakeApi();
     const raw = api.post.bind(api);
@@ -651,41 +528,15 @@ describe('hai ca cuối (codex PR 949 vòng 5)', () => {
     };
     const w = createWriting({ api, storage: memStore(), userId: 'u1' });
     await w.load('b1');
-    w.write('E1', 'chữ cuối cùng');
+    w.write('E1', 'đang lưu tự động');
     await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
-    assert.ok(release, 'lượt lưu tự động phải đang treo');
-
-    w.flushDraft();                        // rời trang, KHÔNG gõ thêm gì
+    assert.ok(release, 'lượt kia phải đang treo');
+    w.write('E1', 'đoạn cuối cùng');
+    w.flushDraft();
     await new Promise((r) => setTimeout(r, 20));
     const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
-    assert.equal(ka.length, 1, 'phải gửi lại bằng keepalive, không được bỏ qua');
-    assert.equal(ka[0].body.answers.E1, 'chữ cuối cùng');
+    assert.equal(ka.length, 1, 'phải tạo request NGAY, không xếp hàng');
+    assert.equal(ka[0].body.answers.E1, 'đoạn cuối cùng');
     release();
-  });
-
-  test('lượt kia đã XONG thì không gửi trùng nữa', async () => {
-    // Ranh giới: chỉ bỏ qua cờ chống-trùng khi còn lượt ĐANG BAY.
-    const { w, api } = await load();
-    w.write('E1', 'xong rồi');
-    await w.flushDraft();
-    await w.flushDraft();
-    assert.equal(api.drafts.length, 1);
-  });
-
-  test('đọc hỏng thì gửi seq NULL, không bịa ra một con số', async () => {
-    // Gieo 0 khi không biết máy chủ ở số mấy sẽ khiến mọi lượt ghi sau đó nhỏ
-    // hơn bản đã lưu và bị bỏ qua im lặng — nháp đóng băng vĩnh viễn.
-    const { w, api } = await load({ draft: null, draftUnavailable: true });
-    w.write('E1', 'gõ sau khi đọc hỏng');
-    await w.flushDraft();
-    assert.equal(api.drafts.length, 1);
-    assert.equal(api.drafts[0].body.seq, null, 'không biết thì nói là không biết');
-  });
-
-  test('đọc được thì vẫn gửi số thật', async () => {
-    const { w, api } = await load({ draft: { answers: { E1: 'cũ' }, seq: 4 } });
-    w.write('E1', 'mới');
-    await w.flushDraft();
-    assert.equal(api.drafts[0].body.seq, 5);
   });
 });

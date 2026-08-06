@@ -136,9 +136,6 @@ class CourseWritingBody(BaseModel):
     bank_id: str
     # {qid: câu học viên viết}
     answers: dict[str, str] = {}
-    # Số thứ tự bản nháp, trang gieo mầm từ máy chủ rồi tăng dần. Bỏ trống =
-    # không xét thứ tự (đường nộp bài không cần nó).
-    seq: int | None = None
 
 
 @router.get("/course/writing")
@@ -170,7 +167,6 @@ async def save_course_writing_draft(
     user = await get_supabase_user(authorization)
     return quiz_service.save_course_writing_draft(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
-        seq=body.seq,
     )
 
 
