@@ -1976,26 +1976,31 @@ def course_answer_report(*, user_id: str, bank_id: str,
     """
     out: dict = {"questions": [], "totals": {}, "stale": False}
 
-    # ── CỔNG: HỌC VIÊN CHỈ ĐỌC LẠI BÀI SAU KHI ĐÃ ĐẠT ───────────────────────
+    # ── CỔNG HAI MỨC ────────────────────────────────────────────────────────
     #
-    # Màn này phát ra đáp án đúng của TỪNG câu kèm lời giải. Mở nó trước khi em
-    # ấy đạt là đưa trọn bộ đáp án cho một em sắp phải kiểm tra lại — và kỳ kiểm
-    # tra lại bốc mẫu từ chính bộ câu ấy, nên "đạt" sau đó không còn nghĩa gì.
+    # Màn này trả về HAI thứ khác hẳn nhau về mức nhạy cảm:
+    #
+    #   · TRỤC YẾU  — "em sai 6/8 câu ở trục chia động từ". Không lộ đáp án nào,
+    #     và đây đúng là thứ giúp em ấy ôn cho kỳ kiểm tra lại.
+    #   · TỪNG CÂU  — đề bài, em chọn gì, ĐÁP ÁN ĐÚNG là gì, lời giải, dọn sẵn
+    #     thành một bảng đọc trong ba giây.
+    #
+    # ĐỪNG NHẦM ĐÂY LÀ MỘT CỔNG BẢO MẬT. Đường phát đề (`/api/quiz/banks/{id}`)
+    # gửi `select("*")`, nên `answer` + `explain` + `why_wrong` của MỌI câu trắc
+    # nghiệm đã nằm trong tab Network TỪ LÚC em ấy mở bài — đó là cái giá của
+    # việc chấm ngay tại trang để phản hồi từng câu. Chỗ này chỉ bỏ đi con đường
+    # TIỆN, không bỏ được con đường CÓ. Muốn chặn thật thì phải chấm phía máy
+    # chủ và chỉ phát đáp án của đúng câu vừa trả lời (việc riêng, lớn hơn).
+    #
+    # Nên chưa đạt thì mở mức một, khoá mức hai. Bản trước khoá cả hai, và đánh
+    # đổi ấy sai chiều: em CHƯA đạt mới là em cần biết mình yếu chỗ nào nhất.
+    #
+    # Cắt ở ĐÂY, không phải ở trang: giấu bằng CSS thì mở tab Network là đọc
+    # được, và lượt viết chỉ có MỘT.
     #
     # Ngưỡng do giáo viên đặt (`mastery_config`), không phải hằng số ở đây.
-    #
-    # Chỉ áp cho đường của HỌC VIÊN. Giáo viên (`assignment_id`) đọc được mọi
-    # lúc: họ chấm bài, không làm bài.
-    if not assignment_id:
-        gate = _course_review_gate(bank_id, user_id)
-        if gate is not None:
-            # Gán từng khoá, không gộp từ điển: chốt "màn này không ghi gì" quét
-            # tên các lệnh ghi trong MÃ NGUỒN, và nó không phân biệt được phép
-            # gộp từ điển với một lệnh ghi cơ sở dữ liệu — kể cả khi tên ấy chỉ
-            # nằm trong một dòng chú thích. Giữ chốt chặt, viết rõ ra.
-            out["locked"] = True
-            out["threshold"] = gate["threshold"]
-            return out
+    # Chỉ áp cho đường của HỌC VIÊN — giáo viên chấm bài, không làm bài.
+    locked = _course_review_gate(bank_id, user_id) if not assignment_id else None
 
     # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
     # chính em ấy — đường của học viên tự xem lại bài mình.
@@ -2126,6 +2131,18 @@ def course_answer_report(*, user_id: str, bank_id: str,
     # lượt thì một chặng làm lại được tính hai lần, và `active_sec`/`idle_sec`
     # lệch khỏi chính trung vị ngay bên cạnh nó (codex PR 952).
     secs = [(a.get("response_time_ms") or 0) / 1000 for a in first.values()]
+    if locked:
+        # Giữ ĐÚNG những gì cần để gom trục, bỏ hết phần lộ đáp án. Danh sách
+        # trường được viết THẲNG ra, không phải xoá bớt khoá: thêm một trường
+        # mới ở trên mà quên xoá ở đây thì nó tự động lọt ra ngoài.
+        # ĐÚNG BA trường, đủ để gom trục và không hơn. `subtype` từng nằm đây
+        # nhưng hợp đồng chỉ hứa trục + đúng/sai + thời gian, và một trường thừa
+        # trong danh sách giữ-lại là một trường không ai xét.
+        rows = [{"item_key": r["item_key"], "is_correct": r["is_correct"],
+                 "seconds": r["seconds"]}
+                for r in rows]
+        out["locked"] = True
+        out["threshold"] = locked["threshold"]
     out["questions"] = rows
     out["totals"] = {
         "answered": len(rows),

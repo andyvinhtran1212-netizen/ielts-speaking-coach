@@ -92,6 +92,9 @@ function mdBold(text) {
  */
 export function renderReport(data, opts = {}) {
   const qs = (data && data.questions) || [];
+  // HAI MỨC. Chưa đạt thì máy chủ đã cắt hết phần lộ đáp án và chỉ để lại trục
+  // — nên ở đây chỉ cần đừng vẽ thẻ câu rỗng, và nói ra điều kiện mở mức hai.
+  const locked = !!(data && data.locked);
   const t = (data && data.totals) || {};
   // Máy chủ nói nó ĐỌC THIẾU. Vẽ như thường là đưa ra một bản tổng kết trông
   // đầy đủ mà sai — và khi thiếu SẠCH thì "chưa có câu nào được chấm" là một
@@ -138,15 +141,18 @@ export function renderReport(data, opts = {}) {
       ${stats.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}
     </ul>
 
+    ${locked ? `<p class="cr-locked">Xem chi tiết từng câu kèm lời giải sẽ mở khi
+      em đạt ${esc(data.threshold != null ? data.threshold + '%' : 'ngưỡng của lớp')}.
+      Giờ hãy dùng bảng dưới để biết ôn trục nào trước.</p>` : ''}
     <ol class="cr-axes">
       ${groups.map((g, i) => `<li class="cr-axis" data-weak="${needsWork(g) ? '1' : '0'}">
         <button class="cr-axis__head" type="button" data-axis="${i}"
-                aria-expanded="false">
+                aria-expanded="false"${locked ? ' disabled' : ''}>
           <span class="cr-axis__name">${esc(g.axis)}</span>
           <span class="cr-axis__n">${g.wrong}/${g.total}</span>
           ${cellStrip(g.items)}
         </button>
-        <ul class="cr-qs" hidden>${g.items.map(questionCard).join('')}</ul>
+        ${locked ? '' : `<ul class="cr-qs" hidden>${g.items.map(questionCard).join('')}</ul>`}
       </li>`).join('')}
     </ol>
   </div>`;

@@ -212,3 +212,63 @@ describe('nhãn tự luận không được ĐOÁN (codex cục bộ 06/08)', ()
     assert.match(body, /!!a\.passed_at && !a\.submitted_at/);
   });
 });
+
+// ── Hai mức: trục yếu mở luôn, từng câu chờ đạt ───────────────────────────
+//
+// Em CHƯA đạt mới là em cần biết mình yếu chỗ nào nhất. Nhưng chi tiết từng
+// câu phải chờ: kỳ kiểm tra lại bốc mẫu từ chính bộ câu ấy.
+
+describe('bản rút gọn khi chưa đạt', () => {
+  const lockedData = {
+    locked: true,
+    threshold: 75,
+    totals: { answered: 4, correct: 1 },
+    questions: [
+      { item_key: 'chia động từ', is_correct: false },
+      { item_key: 'chia động từ', is_correct: false },
+      { item_key: 'mạo từ', is_correct: true },
+      { item_key: 'mạo từ', is_correct: false },
+    ],
+  };
+
+  test('vẫn vẽ được trục yếu', () => {
+    const html = renderReport(lockedData);
+    assert.match(html, /chia động từ/);
+    assert.match(html, /Yếu nhất/);
+  });
+
+  test('KHÔNG vẽ thẻ câu nào', () => {
+    const html = renderReport(lockedData);
+    assert.doesNotMatch(html, /class="cr-qs"/,
+      'danh sách câu là chỗ đáp án hiện ra');
+    assert.doesNotMatch(html, /cr-q__prompt/);
+  });
+
+  test('nói ra ĐIỀU KIỆN mở mức hai', () => {
+    // Không nói thì bảng trục trông như đã đầy đủ, và em ấy không biết còn gì.
+    const html = renderReport(lockedData);
+    assert.match(html, /cr-locked/);
+    assert.match(html, /75%/);
+  });
+
+  test('đầu trục không bấm được — đừng mời một cú bấm không mở gì', () => {
+    assert.match(renderReport(lockedData), /cr-axis__head[^>]*disabled/);
+  });
+
+  test('đã đạt thì mọi thứ trở lại như cũ', () => {
+    const open = {
+      totals: { answered: 2, correct: 1 },
+      questions: [
+        { item_key: 'mạo từ', is_correct: false, prompt: '___ apple',
+          picked: 0, picked_text: 'a', answer: 1, answer_text: 'an',
+          why_wrong: 'a đi với phụ âm', explain: 'trước nguyên âm' },
+        { item_key: 'mạo từ', is_correct: true, prompt: 'x', picked: 1, answer: 1 },
+      ],
+    };
+    const html = renderReport(open);
+    assert.match(html, /class="cr-qs"/);
+    assert.match(html, /trước nguyên âm/);
+    assert.doesNotMatch(html, /cr-locked/);
+    assert.doesNotMatch(html, /cr-axis__head[^>]*disabled/);
+  });
+});
