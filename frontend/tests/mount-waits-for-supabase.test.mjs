@@ -17,6 +17,16 @@
 //
 // Không cổng nào khác bắt được: build xanh, tsc xanh, test xanh, và parity thì
 // so DOM TĨNH nên không thấy trang đã nhảy đi đâu.
+//
+// RANH GIỚI, đo được ở #960: `/vocabulary/exam` chạy ĐÚNG mà KHÔNG cần vòng chờ
+// nào (hai vế 15 nút, lệch 0, không bên nào chuyển hướng). Lý do KHÔNG phải
+// "module tự chống readyState" — đó là mô hình sai tôi viết lúc đầu và review
+// cục bộ bác bỏ. Lý do thật: module đó KHÔNG đụng Supabase và endpoint của nó
+// là PUBLIC, nên nó chẳng cần token để làm gì.
+//
+// Nên chốt này CHỈ áp cho khuôn `mount()` (gọi thẳng lúc module-eval), không
+// phải mọi trang nạp module legacy. Đó là lý do bộ dò tìm theo
+// `mount(document.getElementById` chứ không theo "có nạp /js/".
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
