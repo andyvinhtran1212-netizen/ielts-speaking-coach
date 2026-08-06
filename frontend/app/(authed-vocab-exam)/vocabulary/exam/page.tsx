@@ -24,7 +24,7 @@ import { VocabExamShell } from './page-shell';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
-  title: 'Từ vựng luyện thi — Aver Learning',
+  title: 'Từ vựng luyện thi',
   robots: { index: false, follow: false },
 };
 
