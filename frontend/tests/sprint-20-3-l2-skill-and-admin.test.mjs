@@ -133,7 +133,7 @@ describe('Sprint 20.3 — L1 page reuses the shared renderer', () => {
   const libHtml = read('frontend/pages/reading-vocab.html');
   test('the L1 library page also ships the library switcher', () => {
     assert.match(libHtml, /class="rv-libnav"/);
-    assert.match(libHtml, /href="\/pages\/reading-skill\.html"/);
+    assert.match(libHtml, /href="\/reading\/skill"/);
   });
 });
 

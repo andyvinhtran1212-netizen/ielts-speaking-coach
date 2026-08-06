@@ -386,14 +386,14 @@
   // buttons used to hardcode the FULL library, so a mini-test taker was sent to
   // the wrong shelf. Map through an ALLOWLIST — never navigate to a raw URL from
   // the query string. Unknown/absent → full, the historical default.
-  var BACK_TARGETS = { full: '/pages/reading-test.html', mini: '/pages/reading-mini-test.html' };
+  var BACK_TARGETS = { full: '/reading/test', mini: '/reading/mini-test' };
   function originFromUrl() {
     var v = (new URLSearchParams(window.location.search).get('from') || '').trim();
     return BACK_TARGETS[v] ? v : 'full';
   }
   function wireBack() {
     var href = BACK_TARGETS[originFromUrl()];
-    document.querySelectorAll('a.exam-btn[href="/pages/reading-test.html"]')
+    document.querySelectorAll('a.exam-btn[href="/reading/test"]')
       .forEach(function (a) { a.href = href; });
   }
 

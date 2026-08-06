@@ -64,10 +64,10 @@ function examBack(search) {
 
 describe('reading-review — back follows the entry point', () => {
   test('mini-test taker goes back to the MINI library, not the full one', () => {
-    assert.equal(reviewBack('?attempt_id=A&from=mini').href, '/pages/reading-mini-test.html');
+    assert.equal(reviewBack('?attempt_id=A&from=mini').href, '/reading/mini-test');
   });
   test('full-test taker goes back to the full library', () => {
-    assert.equal(reviewBack('?attempt_id=A&from=full').href, '/pages/reading-test.html');
+    assert.equal(reviewBack('?attempt_id=A&from=full').href, '/reading/test');
   });
   test('mock taker goes back to THEIR sitting, not a test shelf', () => {
     assert.equal(reviewBack('?attempt_id=A&from=mock&sitting=S9').href,
@@ -76,34 +76,39 @@ describe('reading-review — back follows the entry point', () => {
   test('a legacy link with no origin still lands on a page that EXISTS', () => {
     // The bug: this used to be /pages/reading.html, which is a 404.
     const el = reviewBack('?attempt_id=A');
-    assert.equal(el.href, '/pages/reading-test.html');
+    assert.equal(el.href, '/reading/test');
+    // [cutover /reading/test 2026-08-05] chốt này sinh ra để chặn trỏ vào 404,
+    // nên nó phải kiểm ĐÍCH THẬT — nay là route Next, không phải tệp legacy.
+    assert.ok(existsSync(join(root, 'app', '(authed-reading)', 'reading', 'test', 'page.tsx')),
+      'đích của nút quay lại phải tồn tại');
+    // Bản legacy vẫn giữ (mốc rollback + vế parity) — mất nó là mất vế so.
     assert.ok(existsSync(join(root, 'public', 'pages', 'reading-test.html')));
     assert.ok(!existsSync(join(root, 'public', 'pages', 'reading.html')),
       'reading.html must stay non-existent — nothing may point at it again');
   });
   test('mock without a sitting id degrades to a real page, not a broken one', () => {
-    assert.equal(reviewBack('?attempt_id=A&from=mock').href, '/pages/reading-test.html');
+    assert.equal(reviewBack('?attempt_id=A&from=mock').href, '/reading/test');
   });
   test('?from= is allowlisted — never navigated to raw (open redirect)', () => {
     for (const evil of ['//evil.com', 'javascript:alert(1)', 'https://evil.com', '../../etc']) {
       assert.equal(reviewBack(`?attempt_id=A&from=${encodeURIComponent(evil)}`).href,
-        '/pages/reading-test.html', `raw ?from=${evil} must not survive`);
+        '/reading/test', `raw ?from=${evil} must not survive`);
     }
   });
 });
 
 describe('reading-exam — back follows the library you came from', () => {
   test('mini library entry backs to the mini library', () => {
-    assert.deepEqual(examBack('?test_id=T&from=mini'), ['/pages/reading-mini-test.html']);
+    assert.deepEqual(examBack('?test_id=T&from=mini'), ['/reading/mini-test']);
   });
   test('full library entry backs to the full library', () => {
-    assert.deepEqual(examBack('?test_id=T&from=full'), ['/pages/reading-test.html']);
+    assert.deepEqual(examBack('?test_id=T&from=full'), ['/reading/test']);
   });
   test('no origin → full library (the historical default)', () => {
-    assert.deepEqual(examBack('?test_id=T'), ['/pages/reading-test.html']);
+    assert.deepEqual(examBack('?test_id=T'), ['/reading/test']);
   });
   test('?from= is allowlisted here too', () => {
-    assert.deepEqual(examBack('?test_id=T&from=//evil.com'), ['/pages/reading-test.html']);
+    assert.deepEqual(examBack('?test_id=T&from=//evil.com'), ['/reading/test']);
   });
 });
 
@@ -148,12 +153,12 @@ describe('listening-review — back follows the entry point', () => {
       '/pages/mock-result.html?sitting=S9');
   });
   test('legacy link with no origin → the full library (unchanged behaviour)', () => {
-    assert.equal(lReviewBack('?attempt_id=A').href, '/pages/listening-tests.html');
+    assert.equal(lReviewBack('?attempt_id=A').href, '/listening/tests');
   });
   test('?from= is allowlisted — never navigated to raw', () => {
     for (const evil of ['//evil.com', 'javascript:alert(1)', 'https://evil.com']) {
       assert.equal(lReviewBack(`?attempt_id=A&from=${encodeURIComponent(evil)}`).href,
-        '/pages/listening-tests.html', `raw ?from=${evil} must not survive`);
+        '/listening/tests', `raw ?from=${evil} must not survive`);
     }
   });
 });
@@ -171,13 +176,13 @@ describe('listening player — back follows the library you came from', () => {
     assert.deepEqual(lPlayerBack('?id=T&from=drill'), ['/pages/listening-skills.html']);
   });
   test('full library entry backs to the full library', () => {
-    assert.deepEqual(lPlayerBack('?id=T&from=full'), ['/pages/listening-tests.html']);
+    assert.deepEqual(lPlayerBack('?id=T&from=full'), ['/listening/tests']);
   });
   test('the mock embed (no ?from=) is unaffected — defaults to full', () => {
-    assert.deepEqual(lPlayerBack('?id=T&sitting_id=S&mock_embed=1'), ['/pages/listening-tests.html']);
+    assert.deepEqual(lPlayerBack('?id=T&sitting_id=S&mock_embed=1'), ['/listening/tests']);
   });
   test('?from= is allowlisted here too', () => {
-    assert.deepEqual(lPlayerBack('?id=T&from=//evil.com'), ['/pages/listening-tests.html']);
+    assert.deepEqual(lPlayerBack('?id=T&from=//evil.com'), ['/listening/tests']);
   });
 });
 

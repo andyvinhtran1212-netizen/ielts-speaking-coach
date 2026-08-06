@@ -27,7 +27,7 @@ describe('Sprint 20.6 — L3 test list page (reading-test.html)', () => {
     // [cutover /reading/vocab 2026-08-05] các trang Reading anh em trỏ về
     // thư viện L1 bằng đường canonical; bản legacy vẫn phục vụ cho parity.
     assert.match(html, /href="\/reading\/vocab"/);
-    assert.match(html, /href="\/pages\/reading-skill\.html"/);
+    assert.match(html, /href="\/reading\/skill"/);
     assert.match(html, /is-active[^>]*aria-current="page"[^>]*>Full Tests/);
   });
   test('module filter ships Academic + GT-disabled (Phase B)', () => {
@@ -61,11 +61,11 @@ describe('Sprint 20.6 — L3 list page JS (reading-test.js)', () => {
 describe('Sprint 20.6 — library switcher: L1/L2 pages add the Full Tests entry', () => {
   test('L1 page (reading-vocab.html) links L3', () => {
     const html = read('frontend/pages/reading-vocab.html');
-    assert.match(html, /href="\/pages\/reading-test\.html"[^>]*>Full Tests/);
+    assert.match(html, /href="\/reading\/test"[^>]*>Full Tests/);
   });
   test('L2 page (reading-skill.html) links L3', () => {
     const html = read('frontend/pages/reading-skill.html');
-    assert.match(html, /href="\/pages\/reading-test\.html"[^>]*>Full Tests/);
+    assert.match(html, /href="\/reading\/test"[^>]*>Full Tests/);
   });
 });
 

@@ -419,9 +419,14 @@ describe('shared player knows the practice library', () => {
 
   it('back link returns to the library the learner came from', () => {
     const block = PLAYER.split('const BACK_TARGETS = {')[1].split('};')[0];
-    for (const [k, page] of [['full', 'listening-tests'], ['mini', 'listening-mini-test'],
-                             ['drill', 'listening-skills'], ['practice', 'listening-practice']]) {
-      assert.match(block, new RegExp(`${k}:\\s*'/pages/${page}\\.html'`),
+    // [cutover /listening/tests 2026-08-05] KHÔNG dựng URL từ khuôn chung nữa:
+    // chỉ `full` đã sang route Next, ba shelf kia vẫn là trang legacy. Khuôn
+    // chung sẽ ép cả bốn giống nhau và che mất đúng cái vừa đổi.
+    for (const [k, href] of [['full', '/listening/tests'],
+                             ['mini', '/pages/listening-mini-test.html'],
+                             ['drill', '/pages/listening-skills.html'],
+                             ['practice', '/pages/listening-practice.html']]) {
+      assert.match(block, new RegExp(`${k}:\\s*'${href.replace(/[/.]/g, '\\$&')}'`),
         `back target for ${k} missing — the learner lands on the wrong shelf`);
     }
   });

@@ -23,6 +23,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const HTML_PATH = join(__dirname, '..', 'pages', 'listening-tests.html');
 const JS_PATH   = join(__dirname, '..', 'js', 'listening-tests-list.js');
 const HTML = readFileSync(HTML_PATH, 'utf8');
+// CSS của trang đã TÁCH khỏi khối <style> nội tuyến sang `css/listening-tests.css`
+// (2026-08-05) để route Next `/listening/tests` và bản legacy dùng CHUNG một
+// nguồn thay vì mỗi bên một bản. Chốt token dưới đây phải đọc từ chỗ CSS đang ở,
+// nếu không nó chỉ chứng minh "HTML không còn CSS" — đúng nhưng vô nghĩa.
+const PAGE_CSS = readFileSync(
+  join(__dirname, '..', 'public', 'css', 'listening-tests.css'), 'utf8');
 const JS   = readFileSync(JS_PATH, 'utf8');
 
 
@@ -43,8 +49,8 @@ describe('Sprint 13.5 — tests-list page contract', () => {
   });
 
   it('uses canonical design tokens (no unexpected hex literals)', () => {
-    assert.match(HTML, /var\(--av-brand-teal-700\)/);
-    const hex = HTML.match(/#[0-9a-fA-F]{3,6}/g) || [];
+    assert.match(PAGE_CSS, /var\(--av-brand-teal-700\)/);
+    const hex = (HTML + PAGE_CSS).match(/#[0-9a-fA-F]{3,6}/g) || [];
     const allowed = new Set(['#FEF2F2', '#991B1B', '#FECACA']);
     for (const h of hex) {
       assert.ok(allowed.has(h),
