@@ -16,7 +16,7 @@ export function ListeningSkillsShell() {
       <div className="shell">
         <main className="ls-shell">
           <header className="ls-header">
-            <p className="eyebrow"><a href="/pages/listening.html" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a></p>
+            <p className="eyebrow"><a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a></p>
             <h1>Luyện <span className="accent">kĩ năng</span></h1>
             <p className="subtitle">
               Chọn dạng câu hỏi bạn muốn luyện riêng (điền form, bản đồ, nối, trắc nghiệm…).

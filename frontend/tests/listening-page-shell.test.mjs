@@ -109,8 +109,8 @@ describe('listening.html — landing shell contract', () => {
   });
 
   it('utility surfaces — Kho bài nghe (browse) + Thống kê (analytics)', () => {
-    assert.match(HTML, /href=["']\/pages\/listening-browse\.html["']/);
-    assert.match(HTML, /href=["']\/pages\/listening-analytics\.html["']/);
+    assert.match(HTML, /href=["']\/listening\/browse["']/);
+    assert.match(HTML, /href=["']\/listening\/analytics["']/);
   });
 
   it('loads the canonical tokens + its own decoupled stylesheet (A6)', () => {

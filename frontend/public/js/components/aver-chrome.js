@@ -319,7 +319,7 @@ const TEMPLATE = /* html */ `
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
       <a href="/pages/my-class.html" data-tab="class">Lớp học</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
-      <a href="/pages/listening.html" data-tab="listening">Listening</a>
+      <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
       <a href="/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
       <a href="/reading/vocab" data-tab="reading">Reading</a>
@@ -451,7 +451,7 @@ export class AverChrome extends HTMLElement {
               { href_matches: '/pages/my-class.html' },
               { href_matches: '/speaking' },
               { href_matches: '/writing/dashboard' },
-              { href_matches: '/pages/listening.html' },
+              { href_matches: '/listening' },
               { href_matches: '/reading/vocab' },
               { href_matches: '/grammar' },
               { href_matches: '/vocabulary.html' },

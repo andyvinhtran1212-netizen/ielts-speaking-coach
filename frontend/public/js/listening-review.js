@@ -413,7 +413,7 @@
       '<h3 class="lr-skills-panel__title">🎯 Kĩ năng cần luyện</h3>' +
       '<p class="lr-skills-panel__sub">Tổng hợp từ các câu sai — ưu tiên luyện kĩ năng xuất hiện nhiều nhất.</p>' +
       '<div class="lr-skills-panel__chips">' + chips + '</div>' +
-      '<a class="lr-skills-panel__cta" href="/pages/listening.html">Luyện nghe thêm →</a>';
+      '<a class="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a>';
     return panel;
   }
 

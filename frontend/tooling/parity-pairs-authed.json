@@ -58,5 +58,23 @@
     "legacy": "/pages/listening-practice.html",
     "next": "/listening/practice",
     "allow": []
+  },
+  {
+    "name": "listening-landing",
+    "legacy": "/pages/listening.html",
+    "next": "/listening",
+    "allow": []
+  },
+  {
+    "name": "listening-browse",
+    "legacy": "/pages/listening-browse.html",
+    "next": "/listening/browse",
+    "allow": []
+  },
+  {
+    "name": "listening-analytics",
+    "legacy": "/pages/listening-analytics.html",
+    "next": "/listening/analytics",
+    "allow": []
   }
 ]

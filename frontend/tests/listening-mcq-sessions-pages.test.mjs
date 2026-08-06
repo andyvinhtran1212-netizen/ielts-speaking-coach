@@ -35,9 +35,15 @@ const USER_MCQ_HTML        = read('pages', 'listening-mcq.html');
 const USER_MCQ_JS          = read('js',    'listening-mcq.js');
 const ADMIN_MCQ_HTML       = read('pages', 'admin/listening/mcq.html');
 const ADMIN_MCQ_JS         = read('js',    'admin-listening-mcq.js');
-const BROWSE_HTML          = read('pages', 'listening-browse.html');
+// [2026-08-06] CSS của hai trang này đã TÁCH khỏi khối <style> nội tuyến sang
+// `public/css/<trang>.css` để route Next và bản legacy dùng CHUNG một nguồn.
+// Chốt token phải đọc từ chỗ CSS đang ở; để nguyên đọc HTML thì nó chỉ còn
+// chứng minh "HTML không còn CSS" — đúng nhưng vô nghĩa.
+const BROWSE_HTML          = read('pages', 'listening-browse.html')
+                           + read('public', 'css', 'listening-browse.css');
 const BROWSE_JS            = read('js',    'listening-browse.js');
-const ANALYTICS_HTML       = read('pages', 'listening-analytics.html');
+const ANALYTICS_HTML       = read('pages', 'listening-analytics.html')
+                           + read('public', 'css', 'listening-analytics.css');
 const ANALYTICS_JS         = read('js',    'listening-analytics.js');
 
 

@@ -533,7 +533,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
         "primary_cta": "Continue listening" if total else "Start listening",
-        "primary_cta_url": "/pages/listening.html",
+        "primary_cta_url": "/listening",
     }
 
 

@@ -108,7 +108,7 @@ describe('Perf P2.3 — aver-chrome injects prefetch speculation rules', () => {
       '/home', '/speaking', '/writing/dashboard',
       // [cutover /reading/vocab 2026-08-05] prefetch phải khớp đường người
       // dùng THẬT SỰ bấm, nếu không luật này lặng lẽ mất tác dụng.
-      '/pages/listening.html', '/reading/vocab',
+      '/listening', '/reading/vocab',
       // [cutover /grammar 2026-08-03] prerender route CANONICAL, không phải bản legacy.
       '/grammar', '/vocabulary.html',
     ]) {
