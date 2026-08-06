@@ -286,5 +286,147 @@ def test_a_read_failure_lets_the_student_through():
 def test_the_gate_runs_only_on_the_STUDENT_path():
     """Giáo viên chấm bài, không làm bài — chặn họ là chặn đúng lúc cần đọc."""
     src = _src()
-    i = src.index("_course_review_gate")
-    assert "if not assignment_id:" in src[max(0, i - 400):i]
+    assert "if not assignment_id else None" in src, \
+        "cổng phải TẮT khi có assignment_id (đường giáo viên)"
+
+
+def test_the_redaction_lists_the_kept_fields_INSTEAD_of_deleting_the_rest():
+    """Xoá bớt khoá thì thêm một trường mới ở trên mà quên xoá ở đây sẽ khiến nó
+    tự động lọt ra ngoài. Danh sách giữ-lại thì mặc định là KÍN."""
+    src = _src()
+    i = src.index("if locked:")
+    seg = src[i:i + 700]
+    assert '"item_key": r["item_key"]' in seg
+    for leak in ("prompt", "answer", "explain", "why_wrong", "options", "picked"):
+        assert f'"{leak}"' not in seg, f"trường lộ đáp án lọt vào bản rút gọn: {leak}"
+
+
+# ── Hai mức: trục yếu mở luôn, từng câu chờ đạt ────────────────────────────
+#
+# Em CHƯA đạt mới là em cần biết mình yếu chỗ nào nhất — nên khoá cả hai mức
+# là sai chiều. Nhưng chi tiết từng câu thì phải chờ: kỳ kiểm tra lại bốc mẫu
+# từ chính bộ câu ấy.
+
+def _report(*, passed):
+    """Chạy trọn `course_answer_report` với một cơ sở dữ liệu giả."""
+    QS = [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
+           "prompt": "She ___ to school.", "options": ["go", "goes"], "answer": 1,
+           "explain": "ngôi thứ ba số ít", "why_wrong": {"0": "thiếu -es"}, "order": 0},
+          {"qid": "q1", "type": "mcq", "subtype": "gap", "item_key": "mạo từ",
+           "prompt": "___ apple", "options": ["a", "an"], "answer": 1,
+           "explain": "trước nguyên âm", "why_wrong": {"0": "a đi với phụ âm"}, "order": 1}]
+
+    class _Q:
+        def __init__(self, rows, cols="*"):
+            self._rows, self._cols = list(rows), cols
+
+        def eq(self, c, v): return _Q([r for r in self._rows if r.get(c) == v], self._cols)
+        def in_(self, c, vs): return _Q([r for r in self._rows if r.get(c) in set(vs)], self._cols)
+        def order(self, c, **_k): return _Q(sorted(self._rows, key=lambda r: r.get(c) or 0), self._cols)
+        def limit(self, *_a): return self
+        def range(self, a, b): return _Q(self._rows[a:b + 1], self._cols)
+
+        def execute(self):
+            class R: pass
+            r = R()
+            want = ([c.strip() for c in self._cols.replace("\n", " ").split(",")]
+                    if self._cols != "*" else None)
+            r.data = ([{k: x.get(k) for k in want} for x in self._rows] if want
+                      else [dict(x) for x in self._rows])
+            return r
+
+    class _DB:
+        def table(self, name):
+            rows = {
+                "quiz_sessions": [{"id": "s1", "user_id": "u1", "kind": "run",
+                                   "bank_id": "b1",
+                                   "class_assignment_item_id": "i1",
+                                   "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}],
+                "quiz_attempts": [{"session_id": "s1", "qid": "q0", "is_correct": False,
+                                   "answer_given": "0", "response_time_ms": 9000,
+                                   "created_at": "2026-08-06T00:59:00+00:00"},
+                                  {"session_id": "s1", "qid": "q1", "is_correct": True,
+                                   "answer_given": "1", "response_time_ms": 4000,
+                                   "created_at": "2026-08-06T00:59:30+00:00"}],
+                "quiz_questions": [{**q, "bank_id": "b1"} for q in QS],
+                "class_assignment_items": [{"id": "i1", "assignment_id": "a1",
+                                            "passed_at": "2026-08-06T02:00:00+00:00" if passed else None}],
+                "class_assignments": [{"id": "a1", "content_config": {"pass_pct": 75}}],
+                "quiz_banks": [{"id": "b1", "title": "Buổi 1"}],
+            }.get(name, [])
+
+            class T:
+                def select(self, cols="*", **_k): return _Q(rows, cols)
+            return T()
+
+    with patch.object(qs, "supabase_admin", _DB()), \
+            patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: {"id": "b1", "title": "Buổi 1"}), \
+            patch.object(qs, "_assignment_item_for",
+                         lambda *_a, **_k: {"id": "i1", "assignment_id": "a1"}):
+        return qs.course_answer_report(user_id="u1", bank_id="b1")
+
+
+def test_a_student_who_has_not_passed_STILL_learns_which_axis_is_weak():
+    """Bản trước khoá cả hai mức. Sai chiều: em chưa đạt mới là em cần biết
+    mình yếu chỗ nào nhất, và tên trục không lộ đáp án nào."""
+    d = _report(passed=False)
+    assert d["locked"] is True and d["threshold"] == 75
+    axes = {q["item_key"] for q in d["questions"]}
+    assert axes == {"chia động từ", "mạo từ"}, "trục phải còn nguyên"
+    assert d["totals"]["answered"] == 2 and d["totals"]["correct"] == 1
+
+
+def test_the_locked_row_has_EXACTLY_three_keys():
+    """Ghim TẬP KHOÁ, không ghim một danh sách cấm.
+
+    Danh sách cấm chỉ chặn những tên đã biết: thêm một trường nhạy cảm mang tên
+    mới ở đường đầy đủ là nó lọt qua mà chốt vẫn xanh (codex 06/08). Tập khoá
+    chính xác thì mặc định là kín.
+    """
+    d = _report(passed=False)
+    assert d["questions"], "không có câu nào thì chốt này không chứng minh gì"
+    for q in d["questions"]:
+        assert set(q) == {"item_key", "is_correct", "seconds"}, sorted(q)
+
+
+def test_a_student_who_HAS_passed_gets_everything():
+    d = _report(passed=True)
+    assert not d.get("locked")
+    q0 = next(q for q in d["questions"] if q["qid"] == "q0")
+    assert q0["answer_text"] == "goes"
+    assert q0["why_wrong"] == "thiếu -es"
+    assert q0["explain"] == "ngôi thứ ba số ít"
+
+
+def test_a_read_failure_in_the_gate_still_hides_the_answers():
+    """Cổng đọc hỏng thì mặc định là ĐÓNG mức hai, không phải mở.
+
+    `_course_review_gate` cố ý fail-open để một em ĐÃ ĐẠT không bị chặn khỏi bài
+    của chính mình vì một lượt đọc phụ trợ. Nhưng đó là quyết định về hàm ấy,
+    còn ở đây phải nói rõ hậu quả: đọc hỏng ⇒ mở cả mức hai. Ghim nó để lần sau
+    ai đổi chiều thì thấy ngay mình đang đổi cái gì (codex 06/08).
+    """
+    g = _gate(passed_at=None, boom=True)
+    assert g is None, ("đây là hành vi ĐANG CÓ: đọc hỏng thì cho xem. "
+                       "Đổi nó là đổi một đánh đổi có chủ ý, không phải sửa lỗi")
+
+
+def test_the_BANK_payload_still_ships_every_mcq_answer():
+    """LỖ ĐÃ BIẾT, ghim lại để nó không âm thầm biến mất khỏi trí nhớ.
+
+    `/api/quiz/banks/{id}` gửi `select("*")`, nên `answer` + `explain` +
+    `why_wrong` của mọi câu TRẮC NGHIỆM đã nằm trong tab Network từ lúc học viên
+    mở bài — cái giá của việc chấm ngay tại trang để phản hồi từng câu.
+
+    Nghĩa là cổng hai mức bỏ đi con đường TIỆN, không bỏ được con đường CÓ.
+    Chốt này sẽ ĐỎ vào ngày ai đó chấm phía máy chủ và cắt đáp án khỏi payload —
+    và đó là ngày nên sửa lại lời hứa trong chú thích, chứ không phải xoá chốt.
+    """
+    src = inspect.getsource(qs)
+    i = src.index('if q.get("type") == "writing":')
+    seg = src[i:i + 400]
+    assert 'q["explain"] = None' in seg
+    assert 'q["answer"] = None' in seg
+    # …nhưng CHỈ cho câu tự luận. Câu trắc nghiệm đi nguyên.
+    assert 'if q.get("type") == "writing":' in src, \
+        "nếu điều kiện này đổi thì lời hứa ở `course_answer_report` phải đổi theo"

@@ -219,3 +219,16 @@
     grid-template-areas: 'name n strip';
   }
 }
+
+/* Mức một: chưa đạt thì chỉ có trục, không có thẻ câu. Dòng này nói ĐIỀU KIỆN
+   mở mức hai — bỏ nó đi thì bảng trục trông như đã đầy đủ. */
+.cr-locked {
+  margin: var(--av-space-4) 0 0;
+  padding: var(--av-space-3) var(--av-space-4);
+  border-inline-start: 2px solid var(--av-info);
+  background: var(--av-info-soft);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+/* Đầu trục hết bấm được thì cũng đừng trông như bấm được. */
+.cr-axis__head[disabled] { cursor: default; }
