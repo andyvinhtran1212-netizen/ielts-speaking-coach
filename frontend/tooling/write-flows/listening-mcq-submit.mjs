@@ -15,25 +15,32 @@
 //   · `listen_count` — `Math.max(1, …)`, tức nộp mà CHƯA BẤM NGHE vẫn phải là 1,
 //     không phải 0. Đây là chi tiết một bản port rất dễ "đơn giản hoá" thành 0,
 //     và không phép so DOM nào thấy được.
-// UUID THẬT chứ không phải chuỗi tự nghĩ. Backend đòi `content_id` là UUID và
-// trả 422 nếu không (`routers/feedback.py:119-125`), nên `ct-1` là một giá trị
-// production KHÔNG BAO GIỜ chấp nhận. Harness có chặn mạng và trả dữ liệu sẵn
-// nên nó vẫn xanh — tức bản khai đang mô tả một trạng thái không tồn tại được.
-// Cùng họ với lỗi `prompt`/`stem` ở vòng trước. (bot bắt ở #962 vòng 3)
-const CONTENT = '11111111-1111-4111-8111-111111111111';
-const EXERCISE = '22222222-2222-4222-8222-222222222222';
+// DỮ LIỆU GIẢ NẰM Ở TỆP JSON DÙNG CHUNG, không viết thẳng vào đây.
+//
+// Cổng này chặn mạng và trả dữ liệu sẵn, nên bản khai vẫn XANH kể cả khi dữ liệu
+// giả mô tả một trạng thái production KHÔNG THỂ tồn tại. Trong PR này chuyện đó
+// xảy ra BA lần: `prompt` thay cho `stem` + 3 lựa chọn (#961), `content_id` là
+// `ct-1` trong khi backend đòi UUID (vòng 3), thiếu `answer_idx` (vòng 4). Mỗi
+// lần đều do người review bắt, không lần nào máy bắt được.
+//
+// Ba lần cùng MỘT LOẠI sai là hỏng thiết kế chứ không phải ba việc phải vá. Gốc:
+// dữ liệu giả ở JS, định nghĩa "hợp lệ" ở Python, không gì nối hai đầu. Nay tệp
+// JSON là nguồn duy nhất và `backend/tests/test_write_flow_fixtures.py` cho nó
+// chạy qua CHÍNH `_validate_mcq_payload` của production — không viết lại bộ kiểm,
+// vì bản sao thứ hai rồi cũng trôi.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Hình dạng câu hỏi phải khớp thứ UI ĐỌC và thứ backend BẢO ĐẢM, nếu không bản
-// khai chạy trên một trạng thái production không thể sinh ra:
-//   · UI đọc `stem` và `idx` (`listening-mcq.js:82-83`) — bản đầu tôi viết
-//     `prompt`, tức câu hỏi render ra KHÔNG có chữ mà bản khai vẫn xanh;
-//   · backend bảo đảm ĐÚNG 4 lựa chọn (`routers/listening.py:163-171`) — bản đầu
-//     tôi để 3.
-// (review cục bộ bắt cả hai ở #961)
-const QUESTIONS = [
-  { idx: 0, stem: 'Câu 1?', options: ['A', 'B', 'C', 'D'] },
-  { idx: 1, stem: 'Câu 2?', options: ['A', 'B', 'C', 'D'] },
-];
+const FX = JSON.parse(readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/listening-mcq.json'), 'utf8'));
+
+const CONTENT = FX.content_id;
+const EXERCISE = FX.exercise_id;
+// UI đọc `stem` và `idx` (`listening-mcq.js:82-83`); backend bảo đảm ĐÚNG 4 lựa
+// chọn và bắt buộc `answer_idx` (`routers/listening.py:163-171`). Cả bốn ràng
+// buộc nay do chốt backend giữ, không còn do tôi nhớ.
+const QUESTIONS = FX.payload.questions;
 
 export default {
   name: 'listening-mcq — chọn đáp án rồi nộp',
@@ -50,7 +57,7 @@ export default {
       audio_signed_url: 'data:audio/mpeg;base64,SUQzAwAAAAAAAA==',
     }],
     [/\/api\/listening\/exercises\?/, {
-      exercises: [{ id: EXERCISE, exercise_type: 'mcq', payload: { questions: QUESTIONS } }],
+      exercises: [{ id: EXERCISE, exercise_type: 'mcq', payload: FX.payload }],
     }],
     // Hình dạng phản hồi khớp bộ chấm thật: `score` là tỉ lệ [0,1] và `correct`
     // là SỐ câu đúng (`services/listening_grader.py:604-610`) — không phải mảng
