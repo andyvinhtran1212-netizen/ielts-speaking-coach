@@ -183,6 +183,16 @@
 | `/listening/analytics` | `/pages/listening-analytics.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/analytics/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `user_id` (optional, for admin) | localStorage (theme), fetch (analytics API) | M | Performance summary + trend |
 | `/listening/mini-test` | `/pages/listening-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/mini-test/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state), audio playback | M | 1-section listening drill |
 
+### Tài khoản học viên
+
+Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi theo MIỀN:
+để `/profile` nằm trong "Exercises & Quizzes" chỉ vì nó được chèn cạnh
+`/exercises` là làm lệch đúng lượt rà đó (bot bắt ở #958).
+
+| Route | Alias / redirect | Tệp sở hữu | Ai xem được | Tham số | Trạng thái phía client | Kích thước | Ghi chú |
+|---|---|---|---|---|---|---|---|
+| `/profile` | `/pages/profile.html` → 307 sang `/profile` (bản legacy ĐÃ gỡ khi cutover pilot 3) | `app/(authed)/profile/page.tsx` — CUTOVER (pilot 3) | Student | none | localStorage (theme), Supabase session | M | Hồ sơ học viên |
+
 ### Vocabulary
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
@@ -198,7 +208,6 @@
 |---|---|---|---|---|---|---|---|
 | `/grammar/exercises` | — | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
 | `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
-| `/profile` | `/pages/profile.html` → 307 sang `/profile` (bản legacy ĐÃ gỡ khi cutover pilot 3) | `app/(authed)/profile/page.tsx` — CUTOVER (pilot 3) | Student | none | localStorage (theme), Supabase session | M | Hồ sơ học viên |
 | `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
 | `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
 | `/quiz` | — | `pages/quiz.html` | Public | `bank_id` (grammar bank slug), `lesson_id` (optional) | localStorage (theme), sessionStorage (quiz answers), fetch API | L | Quiz player; MCQ/gap-fill/true-false |
