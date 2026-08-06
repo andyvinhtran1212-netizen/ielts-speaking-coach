@@ -418,8 +418,20 @@ def test_a_failed_ledger_read_is_null_not_zeros():
     assert out["students"][0]["homework"] is None
 
 
-def test_punctuality_stays_batched():
-    """Two reads for the whole class, however many students."""
+def test_punctuality_stays_batched(monkeypatch):
+    """Đọc theo LÔ: hàm này tự nó chỉ đọc MỘT lượt mỗi bảng.
+
+    Ba đường vá bị thay bằng no-op để đo đúng phần việc CỦA HÀM NÀY. Không tách
+    ra thì con số bị trộn với lượt đọc của chúng, và tôi đã suýt "sửa" bằng cách
+    nới trần lên `<= 2` — tức là nới chốt cho vừa mã, thay vì đo cho đúng.
+    """
+    from services import cohort_progress_aggregator as agg
+    from services import quiz_service as qs
+    for mod, name in ((agg, "reconcile_ledger_from_sessions"),
+                      (agg, "reconcile_test_attempts"),
+                      (qs, "reconcile_course_items")):
+        monkeypatch.setattr(mod, name, lambda *_a, **_k: None)
+
     students = [_student(f"s{i}", f"u{i}") for i in range(30)]
     db = _DB(_hw_tables(
         students,
@@ -430,6 +442,25 @@ def test_punctuality_stays_batched():
     cohort_progress(db, COHORT)
     assert db.queries.count("class_assignments") == 1
     assert db.queries.count("class_assignment_items") == 1
+
+
+def test_no_read_is_ever_issued_PER_STUDENT():
+    """Với ba đường vá CHẠY THẬT và bài đang treo thật.
+
+    Chốt trên đo phần việc của hàm; chốt này đo cả lượt gọi, và ghim đúng lời
+    hứa "bao nhiêu học viên cũng vậy" thay vì một con số cố định — con số ấy
+    đúng lúc chỉ có MỘT đường vá chạy ở đây."""
+    def _reads(n):
+        db = _DB(_hw_tables(
+            [_student(f"s{i}", f"u{i}") for i in range(n)],
+            [{"id": "a1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+              "skill": "course", "content_id": "bank-1"}],
+            [{"id": f"i{i}", "assignment_id": "a1", "student_id": f"s{i}",
+              "submitted_at": None} for i in range(n)],
+        ))
+        cohort_progress(db, COHORT)
+        return len(db.queries)
+    assert _reads(3) == _reads(30), "có lượt đọc theo TỪNG học viên"
 
 
 # ── bài Reading/Listening đã nộp phải hiện ở CẢ tab Tiến độ ──────────────
@@ -513,3 +544,140 @@ def test_a_clean_read_names_nothing():
           "submitted_at": None, "state": "assigned"}],
     )
     assert "homework_stale" not in cohort_progress(_DB(tables), COHORT)["degraded"]
+
+
+# ── Tab Tiến độ phải chạy ĐỦ BA đường vá sổ ─────────────────────────────────
+#
+# Ba kỹ năng ghi sổ ba kiểu, và cả ba đều có thể ghi hỏng:
+#   · Speaking — `PATCH /complete` ghi, hỏng thì không ai thử lại.
+#   · Reading/Listening — trang làm đề nộp mà không biết sổ lớp tồn tại.
+#   · Bài theo buổi — `end_session` ghi best-effort; hỏng ở chặng CUỐI thì
+#     không còn lượt nào sau để gọi lại.
+#
+# Mặt đọc nào giáo viên MỞ TRƯỚC cũng phải vá đủ cả ba. Chỗ này trước đây chỉ
+# chạy đường Reading/Listening, nên mở tab Tiến độ trước sẽ thấy "chưa nộp" cho
+# bài đã làm xong, tới khi một endpoint khác tình cờ vá hộ.
+
+def _hw_db(assignments=None, items=None):
+    students = [_student("s1", "u1")]
+    return _DB(_hw_tables(
+        students,
+        assignments or [{"id": "a1", "due_at": DUE, "status": "published",
+                         "cohort_id": COHORT, "skill": "course"}],
+        items or [{"id": "i1", "assignment_id": "a1", "student_id": "s1",
+                   "submitted_at": None}]))
+
+
+def _spy_reconcilers(monkeypatch, *, boom=()):
+    """Thay ba đường vá bằng bộ ghi (tên, danh sách mã), trả về danh sách đã gọi.
+
+    Ghi cả MÃ chứ không riêng tên: chỉ ghi tên thì một đường nhận nhầm danh sách
+    — hay nhận danh sách RỖNG — vẫn xanh, và chốt chỉ chứng minh rằng có ai đó
+    được gọi (codex 06/08).
+    """
+    from services import cohort_progress_aggregator as agg
+    from services import quiz_service as qs
+    seen = []
+
+    def _mk(name):
+        def _fn(_db, arg=None, *_a, **_k):
+            ids = ([x["id"] if isinstance(x, dict) else x for x in arg]
+                   if arg is not None else [])
+            seen.append((name, sorted(ids)))
+            if name in boom:
+                raise RuntimeError(f"{name} đang lỗi")
+        return _fn
+    monkeypatch.setattr(agg, "reconcile_ledger_from_sessions", _mk("speaking"))
+    monkeypatch.setattr(agg, "reconcile_test_attempts", _mk("test-attempts"))
+    monkeypatch.setattr(qs, "reconcile_course_items", _mk("course"))
+    return seen
+
+
+def test_the_progress_tab_runs_all_three_repairs(monkeypatch):
+    seen = _spy_reconcilers(monkeypatch)
+    cohort_progress(_hw_db(), COHORT)
+    # Bài giao trong ô thử là bài THEO BUỔI, nên đường course phải nhận đúng mã
+    # của nó — không phải một danh sách rỗng đi qua cho có.
+    assert sorted(seen) == [("course", ["a1"]), ("speaking", []),
+                            ("test-attempts", ["a1"])]
+
+
+def test_one_broken_repair_does_not_stop_the_other_two(monkeypatch):
+    """Ba đường đọc ba nguồn bằng chứng rời nhau. Gộp chung một khối `try` thì
+    đường đầu hỏng là hai đường sau không được thử, dù mọi bảng chúng cần vẫn
+    khoẻ."""
+    seen = _spy_reconcilers(monkeypatch, boom={"speaking"})
+    out = cohort_progress(_hw_db(), COHORT)
+    assert sorted(n for n, _ in seen) == ["course", "speaking", "test-attempts"]
+    assert "homework_stale" in out["degraded"], "và trang phải nói là sổ chưa vá xong"
+
+
+def test_three_broken_repairs_are_ONE_warning(monkeypatch):
+    """Danh sách `degraded` đi thẳng ra câu trả lời; lặp ba lần cùng một chữ là
+    ba lời cảnh báo cho một chuyện."""
+    _spy_reconcilers(monkeypatch, boom={"speaking", "test-attempts", "course"})
+    out = cohort_progress(_hw_db(), COHORT)
+    assert out["degraded"].count("homework_stale") == 1
+
+
+def test_a_class_with_no_course_homework_pays_nothing_for_it(monkeypatch):
+    """Cột `skill` đã có sẵn trong lượt đọc trên, nên đừng bắt lớp không có bài
+    theo buổi trả một lượt đọc cho câu hỏi đã có đáp án."""
+    seen = _spy_reconcilers(monkeypatch)
+    cohort_progress(_hw_db(
+        assignments=[{"id": "a1", "due_at": DUE, "status": "published",
+                      "cohort_id": COHORT, "skill": "speaking"}]), COHORT)
+    got = dict(seen)
+    assert got["course"] == [], "không có bài theo buổi thì không truyền mã nào"
+    assert got["speaking"] == ["a1"], "và ngược lại, bài Speaking phải tới đúng đường của nó"
+
+
+def test_a_speaking_hand_in_shows_up_even_if_progress_is_opened_first():
+    """Đi HẾT đường vá thật, không thay bằng bộ ghi tên.
+
+    Bằng chứng DUY NHẤT của lượt nộp này là phiên đã hoàn thành: `PATCH
+    /complete` ghi sổ, nhưng ghi hỏng thì không lượt nào sau gọi lại. Đọc sổ mà
+    không vá thì em ấy bị báo là chưa nộp."""
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "speaking", "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    tables["sessions"] = [{
+        "id": "sess-1", "user_id": "u1", "status": "completed",
+        "completed_at": ON_TIME, "overall_band": 6.0,
+        "class_assignment_item_id": "item-1",
+    }]
+    hw = cohort_progress(_DB(tables), COHORT)["students"][0]["homework"]
+    assert hw["submitted"] == 1, "phiên đã hoàn thành là bằng chứng — phải vá trước khi đọc"
+    assert hw["missing"] == 0
+
+
+def test_a_course_hand_in_shows_up_even_if_progress_is_opened_first():
+    """Cùng đường ấy cho bài tập theo buổi.
+
+    `end_session` ghi sổ best-effort; hỏng ở chặng CUỐI thì không còn lượt nào
+    sau để gọi lại. Bằng chứng duy nhất là phiên đã kết cộng các câu đã trả lời
+    phủ đủ bộ đề."""
+    tables = _hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "asg-1", "due_at": DUE, "status": "published", "cohort_id": COHORT,
+          "skill": "course", "content_id": "bank-1",
+          "created_at": "2020-01-01T00:00:00+00:00"}],
+        [{"id": "item-1", "assignment_id": "asg-1", "student_id": "s1",
+          "submitted_at": None, "state": "assigned"}],
+    )
+    tables["quiz_questions"] = [{"bank_id": "bank-1", "qid": "q0", "type": "mcq"},
+                                {"bank_id": "bank-1", "qid": "q1", "type": "mcq"}]
+    tables["quiz_sessions"] = [{
+        "id": "qs-1", "kind": "run", "ended_by": "completed", "ended_at": ON_TIME,
+        "class_assignment_item_id": "item-1",
+        "total_questions": 2, "total_correct": 2,
+    }]
+    tables["quiz_attempts"] = [{"session_id": "qs-1", "qid": "q0"},
+                               {"session_id": "qs-1", "qid": "q1"}]
+    hw = cohort_progress(_DB(tables), COHORT)["students"][0]["homework"]
+    assert hw["submitted"] == 1, "phiên đã kết phủ đủ câu là bằng chứng — phải vá trước khi đọc"
+    assert hw["missing"] == 0

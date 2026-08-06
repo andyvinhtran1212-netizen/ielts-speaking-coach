@@ -2180,7 +2180,11 @@ function renderProgress() {
       + unread.map((d) => DEGRADED_LABEL[d] || d).join(', ') + '. Tải lại để thử lại.');
   }
   if (stale) {
-    notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
+    // KHÔNG nêu tên kỹ năng. Cờ này nay bật cho cả ba đường vá sổ — Speaking,
+    // Reading/Listening, và bài tập theo buổi — nên câu chữ chỉ nhắc hai kỹ
+    // năng là một lời cảnh báo SAI: giáo viên đọc xong vẫn yên tâm tin con số
+    // của Speaking và bài theo buổi, đúng hai chỗ có thể đang cũ.
+    notes.push('Cột bài tập có thể chưa cập nhật một số bài nộp mới nhất.');
   }
   _progressNotes = notes;
   renderProgressBanner();

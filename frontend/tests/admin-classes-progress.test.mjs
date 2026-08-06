@@ -255,6 +255,19 @@ describe('progress banner', () => {
     assert.match(n.textContent, /chưa cập nhật/);
   });
 
+  test('lời cảnh báo KHÔNG nêu tên kỹ năng nào', () => {
+    // Cờ này bật cho CẢ BA đường vá sổ — Speaking, Reading/Listening, và bài
+    // tập theo buổi. Câu chữ cũ chỉ nhắc "Reading/Listening", nên khi đường
+    // Speaking hay bài-theo-buổi hỏng thì giáo viên đọc xong vẫn yên tâm tin
+    // con số của đúng hai chỗ đang cũ — một lời cảnh báo dẫn sai còn tệ hơn
+    // không cảnh báo (codex 06/08).
+    const n = banner(['homework_stale']);
+    for (const skill of [/Reading/, /Listening/, /Speaking/, /theo buổi/]) {
+      assert.doesNotMatch(n.textContent, skill,
+        'nêu một kỹ năng là ngầm nói những kỹ năng kia vẫn đúng');
+    }
+  });
+
   test('ghi chú của bảng bài hằng ngày KHÔNG bị lời của tiến độ xoá mất', () => {
     // /speaking-daily hỏng trước, /progress xong sau — trước đây lời cảnh báo
     // của bảng biến mất, đúng thứ giáo viên cần thấy nhất (codex #931).
