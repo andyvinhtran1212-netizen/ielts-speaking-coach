@@ -1695,6 +1695,31 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id", db=None):
         start += _REPORT_PAGE
 
 
+def _course_review_gate(bank_id: str, user_id: str) -> dict | None:
+    """None = cho xem. Ngược lại trả phần thân nói VÌ SAO chưa cho.
+
+    Đọc hỏng thì CHO XEM: đây là màn ôn tập, và chặn một em đã đạt khỏi bài của
+    chính em ấy vì một lượt đọc phụ trợ là cái giá đắt hơn. Rủi ro ngược lại chỉ
+    xảy ra khi cơ sở dữ liệu đang lỗi, và lúc ấy em ấy cũng không làm bài được.
+    """
+    item = _assignment_item_for(bank_id, user_id)
+    if not item:
+        return None          # không phải bài giao theo lớp: giữ nguyên như cũ
+    try:
+        row = (supabase_admin.table("class_assignment_items")
+               .select("passed_at").eq("id", item["id"]).limit(1).execute().data) or []
+        if row and row[0].get("passed_at"):
+            return None
+        asg = (supabase_admin.table("class_assignments")
+               .select("id, content_config")
+               .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+        threshold = mastery_config(asg[0] if asg else None)["pass_pct"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] review gate read failed bank=%s: %s", bank_id, exc)
+        return None
+    return {"locked": True, "threshold": threshold}
+
+
 def course_answer_report(*, user_id: str, bank_id: str,
                          assignment_id: str | None = None) -> dict:
     """Bài làm CHI TIẾT của một học viên: câu nào đúng, câu nào sai, em chọn gì,
@@ -1713,6 +1738,27 @@ def course_answer_report(*, user_id: str, bank_id: str,
     thứ hai — và cái giáo viên muốn đọc là lần em ấy thật sự nghĩ.
     """
     out: dict = {"questions": [], "totals": {}, "stale": False}
+
+    # ── CỔNG: HỌC VIÊN CHỈ ĐỌC LẠI BÀI SAU KHI ĐÃ ĐẠT ───────────────────────
+    #
+    # Màn này phát ra đáp án đúng của TỪNG câu kèm lời giải. Mở nó trước khi em
+    # ấy đạt là đưa trọn bộ đáp án cho một em sắp phải kiểm tra lại — và kỳ kiểm
+    # tra lại bốc mẫu từ chính bộ câu ấy, nên "đạt" sau đó không còn nghĩa gì.
+    #
+    # Ngưỡng do giáo viên đặt (`mastery_config`), không phải hằng số ở đây.
+    #
+    # Chỉ áp cho đường của HỌC VIÊN. Giáo viên (`assignment_id`) đọc được mọi
+    # lúc: họ chấm bài, không làm bài.
+    if not assignment_id:
+        gate = _course_review_gate(bank_id, user_id)
+        if gate is not None:
+            # Gán từng khoá, không gộp từ điển: chốt "màn này không ghi gì" quét
+            # tên các lệnh ghi trong MÃ NGUỒN, và nó không phân biệt được phép
+            # gộp từ điển với một lệnh ghi cơ sở dữ liệu — kể cả khi tên ấy chỉ
+            # nằm trong một dòng chú thích. Giữ chốt chặt, viết rõ ra.
+            out["locked"] = True
+            out["threshold"] = gate["threshold"]
+            return out
 
     # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
     # chính em ấy — đường của học viên tự xem lại bài mình.

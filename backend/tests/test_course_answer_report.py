@@ -209,3 +209,82 @@ def test_time_totals_come_from_the_SAME_set_as_the_median():
     src = _src()
     assert "for a in first.values()" in src
     assert "for a in attempts]" not in src
+
+
+# ── Xem lại bài CHỈ mở sau khi ĐÃ ĐẠT ───────────────────────────────────────
+#
+# Màn này phát ra đáp án đúng của TỪNG câu kèm lời giải, mà kỳ kiểm tra lại bốc
+# mẫu từ chính bộ câu ấy. Mở trước khi đạt là đưa trọn bộ đáp án cho một em sắp
+# phải làm lại — và "đạt" sau đó không còn nghĩa gì.
+
+from unittest.mock import patch
+
+
+def _gate(*, passed_at, threshold=75, item=True, boom=False):
+    class _Q:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def select(self, *_a, **_k):
+            return self
+
+        def eq(self, *_a):
+            return self
+
+        def limit(self, *_a):
+            return self
+
+        def execute(self):
+            class R:
+                pass
+            r = R()
+            r.data = self._rows
+            return r
+
+    class _DB:
+        def table(self, name):
+            if boom:
+                raise RuntimeError("đọc hỏng")
+            if name == "class_assignment_items":
+                return _Q([{"passed_at": passed_at}])
+            return _Q([{"id": "a1", "content_config": {"pass_pct": threshold}}])
+
+    with patch.object(qs, "supabase_admin", _DB()), \
+            patch.object(qs, "_assignment_item_for",
+                         lambda *_a, **_k: {"id": "i1", "assignment_id": "a1"} if item else None):
+        return qs._course_review_gate("bank-1", "u1")
+
+
+def test_a_student_who_has_NOT_passed_cannot_read_the_answers():
+    g = _gate(passed_at=None)
+    assert g and g["locked"] is True and g["threshold"] == 75, \
+        "chưa đạt mà đọc được đáp án thì kỳ kiểm tra lại vô nghĩa"
+
+
+def test_a_student_who_HAS_passed_can():
+    assert _gate(passed_at="2026-08-06T01:00:00+00:00") is None
+
+
+def test_the_threshold_comes_from_the_assignment_not_a_constant():
+    """Ngưỡng do giáo viên đặt. Chép một con số vào đây là hai nơi nói hai luật."""
+    g = _gate(passed_at=None, threshold=60)
+    assert g["threshold"] == 60
+
+
+def test_a_bank_outside_any_class_assignment_is_untouched():
+    """Bài tập tự luyện không có khái niệm 'đạt' — chặn nó là chặn nhầm người."""
+    assert _gate(passed_at=None, item=False) is None
+
+
+def test_a_read_failure_lets_the_student_through():
+    """Đây là màn ÔN TẬP. Chặn một em đã đạt khỏi bài của chính em ấy vì một
+    lượt đọc phụ trợ là cái giá đắt hơn — và rủi ro ngược lại chỉ xảy ra khi cơ
+    sở dữ liệu đang lỗi, lúc ấy em ấy cũng không làm bài được."""
+    assert _gate(passed_at=None, boom=True) is None
+
+
+def test_the_gate_runs_only_on_the_STUDENT_path():
+    """Giáo viên chấm bài, không làm bài — chặn họ là chặn đúng lúc cần đọc."""
+    src = _src()
+    i = src.index("_course_review_gate")
+    assert "if not assignment_id:" in src[max(0, i - 400):i]
