@@ -393,8 +393,12 @@ export function CourseBehavior() {
       // chuyển sang app khác hay khoá màn hình thường chỉ bắn `visibilitychange`,
       // và học viên ở đây chủ yếu dùng điện thoại. Bỏ lỡ mốc ấy là bỏ lỡ đúng
       // lúc cần đẩy: những câu chưa tới máy chủ thì mở lại KHÔNG khôi phục được.
-      onLeave = () => { runner.leave(); };
-      onHide = () => { if (document.visibilityState === 'hidden') runner.leave(); };
+      // Rời trang: đẩy nốt CẢ lượt làm trắc nghiệm LẪN nháp tự luận. Bỏ sót vế
+      // thứ hai thì đoạn học viên vừa gõ chỉ còn trong trình duyệt này.
+      onLeave = () => { runner.leave(); writing.flushDraft(); };
+      onHide = () => {
+        if (document.visibilityState === 'hidden') { runner.leave(); writing.flushDraft(); }
+      };
       window.addEventListener('pagehide', onLeave);
       document.addEventListener('visibilitychange', onHide);
     })();

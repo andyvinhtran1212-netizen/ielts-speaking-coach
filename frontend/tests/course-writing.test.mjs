@@ -8,7 +8,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createWriting, inlineDiff, md, draftKey } from '../public/js/course-writing.js';
+import { createWriting, inlineDiff, md, draftKey, PUSH_DELAY_MS }
+  from '../public/js/course-writing.js';
 
 function memStore() {
   const m = new Map();
@@ -23,16 +24,34 @@ function memStore() {
 const Q = (qid, over = {}) => ({ qid, prompt: `Viết lại: ${qid}`, subtype: 'E1', ...over });
 
 function fakeApi({ questions = [Q('E1'), Q('E2')], submitted = false,
-                   submission = null, itemId = 'it1', onPost } = {}) {
+                   submission = null, itemId = 'it1', onPost, draft = null,
+                   failDraft = false, draftUnavailable = false } = {}) {
   const calls = { get: [], post: [] };
   return {
     calls,
+    // Bản nháp máy chủ giữ — mặc định "chưa có gì", đúng với một em mở lần đầu.
+    get drafts() { return calls.post.filter((c) => c.path.includes('/writing/draft')); },
     async get(path) {
       calls.get.push(path);
-      return { questions, submitted, submission, item_id: itemId };
+      return { questions, submitted, submission, item_id: itemId, draft,
+               draft_unavailable: draftUnavailable };
+    },
+    // `postWith` là đường có `keepalive` THẬT. Máy chủ giả phải phân biệt được
+    // hai đường, không thì chốt keepalive chẳng chứng minh gì.
+    async postWith(path, body, _h, opts) {
+      calls.post.push({ path, body, opts });
+      if (path.includes('/writing/draft')) {
+        if (failDraft) throw new Error('mạng hỏng');
+        return { saved: Object.keys(body.answers || {}).length };
+      }
+      return {};
     },
     async post(path, body) {
       calls.post.push({ path, body });
+      if (path.includes('/writing/draft')) {
+        if (failDraft) throw new Error('mạng hỏng');
+        return { saved: Object.keys(body.answers || {}).length };
+      }
       if (onPost) return onPost(body);
       return { items: [], total: questions.length, clean: questions.length };
     },
@@ -344,5 +363,180 @@ describe('màn đã chấm dựng từ BẢN CHỤP, không từ đề hiện h�
     const html = w.renderResult();
     assert.match(html, /đáp án mẫu LÚC NỘP/);
     assert.ok(!html.includes('ĐỀ MỚI'), 'ghép bài cũ với đáp án mẫu của đề khác là nói dối');
+  });
+});
+
+describe('bản nháp: máy đang gõ là nguồn thật, máy chủ là DỰ PHÒNG', () => {
+  // Bản đầu cho máy chủ làm nguồn thật, và đẻ ra ba đường mất bài: tải lại
+  // trang đè mất bản chưa gửi được, lượt ghi không-biết-thứ-tự đè lên bản thật,
+  // và nếu lượt gửi cuối không kịp tạo thì bản duy nhất cũng mất.
+  //
+  // Đảo lại: máy này thắng khi nó có nội dung; máy chủ chỉ được đọc ra khi máy
+  // này trống — đúng ca tính năng sinh ra để phục vụ.
+
+  const tick = () => new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+
+  test('máy này CÓ bài thì máy chủ không đè lên được', async () => {
+    // Ca mất bài số 1 của bản cũ: gửi hỏng rồi tải lại trang là mất đoạn vừa gõ.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bản chưa gửi được' }));
+    const { w } = await load({ storage: store,
+                              draft: { answers: { E1: 'bản cũ trên máy chủ' } } });
+    assert.equal(w.draft.E1, 'bản chưa gửi được');
+  });
+
+  test('máy này TRỐNG thì lấy bản dự phòng — đây là lý do tính năng tồn tại', async () => {
+    const { w } = await load({ storage: memStore(),
+                              draft: { answers: { E1: 'viết ở máy cũ' } } });
+    assert.equal(w.draft.E1, 'viết ở máy cũ');
+  });
+
+  test('đọc hỏng cũng chỉ là "không có bản dự phòng"', async () => {
+    // Không cần một cờ riêng: hai ca dẫn tới cùng một hành động.
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'bài trong máy' }));
+    const { w } = await load({ storage: store, draft: null });
+    assert.equal(w.draft.E1, 'bài trong máy');
+  });
+
+  test('gõ xong thì sao lưu, KHÔNG phải mỗi phím', async () => {
+    const { w, api } = await load();
+    w.write('E1', 'M'); w.write('E1', 'Một'); w.write('E1', 'Một câu');
+    assert.equal(api.drafts.length, 0, 'chưa ngừng gõ thì chưa gửi');
+    await tick();
+    assert.equal(api.drafts.length, 1, 'ba phím → MỘT request');
+    assert.deepEqual(api.drafts[0].body.answers, { E1: 'Một câu' });
+  });
+
+  test('rời trang đẩy nốt bằng keepalive', async () => {
+    const { w, api } = await load();
+    w.write('E1', 'đoạn cuối');
+    await w.flushDraft();
+    const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
+    assert.equal(ka.length, 1);
+    assert.equal(ka[0].body.answers.E1, 'đoạn cuối');
+  });
+
+  test('mở trang trên mạng chậm rồi chuyển app: KHÔNG gửi gì', async () => {
+    // `bankId` đã đặt nhưng chưa nạp xong, `draft` còn rỗng — gửi lúc ấy là đẩy
+    // `{}` lên đè bản dự phòng.
+    let release;
+    const api = fakeApi({ draft: { answers: { E1: 'bản dự phòng thật' } } });
+    const rawGet = api.get.bind(api);
+    api.get = async (path) => { await new Promise((r) => { release = r; }); return rawGet(path); };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    const loading = w.load('b1');
+    await new Promise((r) => setTimeout(r, 10));
+    await w.flushDraft();
+    assert.equal(api.drafts.length, 0);
+    release(); await loading;
+  });
+
+  test('máy này có bài mà bản dự phòng khác đi thì sao lưu NGAY', async () => {
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'đang viết dở' }));
+    const { api } = await load({ storage: store, draft: null });
+    assert.equal(api.drafts.length, 1);
+    assert.deepEqual(api.drafts[0].body.answers, { E1: 'đang viết dở' });
+  });
+
+  test('bản dự phòng đã trùng thì không gửi lại', async () => {
+    const store = memStore();
+    store.setItem(draftKey('b1', 'u1', 'it1'), JSON.stringify({ E1: 'y hệt' }));
+    const { api } = await load({ storage: store, draft: { answers: { E1: 'y hệt' } } });
+    assert.equal(api.drafts.length, 0);
+  });
+
+  test('đã NỘP thì không sao lưu nữa', async () => {
+    const { w, api } = await load({ submitted: true,
+                                    submission: { items: [], total: 2, clean: 2 } });
+    w.write('E1', 'cố gõ thêm');
+    await tick(); await w.flushDraft();
+    assert.equal(api.drafts.length, 0);
+  });
+
+  test('gửi hỏng thì bài vẫn còn, và lần sau gửi lại', async () => {
+    const { w, api } = await load({ failDraft: true });
+    w.write('E1', 'câu một');
+    await tick();
+    assert.equal(api.drafts.length, 1);
+    assert.equal(w.draft.E1, 'câu một', 'hỏng mạng không được nuốt bài của em ấy');
+    w.write('E1', 'câu một');
+    await tick();
+    assert.equal(api.drafts.length, 2, 'gửi hỏng thì lần sau phải gửi lại');
+  });
+});
+
+describe('lưu tự động NỐI ĐUÔI (codex cục bộ 05/08)', () => {
+  test('hai lượt không bay cùng lúc, và tới ĐÚNG thứ tự', async () => {
+    // Bắn song song thì bản `upsert` đến sau kéo bản dự phòng LÙI về nội dung
+    // cũ — `lastPushed` khi ấy vẫn là bản mới nên không có lần gửi lại, và một
+    // máy khác sẽ khôi phục đúng bản cũ ấy.
+    let live = 0;
+    let overlapped = false;
+    const order = [];
+    const api = fakeApi();
+    const raw = api.post.bind(api);
+    api.post = async (path, body) => {
+      if (!String(path).includes('/writing/draft')) return raw(path, body);
+      live += 1;
+      if (live > 1) overlapped = true;
+      await new Promise((r) => setTimeout(r, 2000));
+      order.push(body.answers.E1);
+      live -= 1;
+      return raw(path, body);
+    };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'một');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    w.write('E1', 'hai');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    await new Promise((r) => setTimeout(r, 2600));
+    assert.equal(overlapped, false, 'hai lượt lưu tự động không được bay cùng lúc');
+    assert.deepEqual(order, ['một', 'hai'], 'và phải tới ĐÚNG thứ tự');
+  });
+
+  test('gõ thêm trong lúc xếp hàng thì lượt gửi mang bản MỚI NHẤT', async () => {
+    const api = fakeApi();
+    const raw = api.post.bind(api);
+    api.post = async (path, body) => {
+      await new Promise((r) => setTimeout(r, 25));
+      return raw(path, body);
+    };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'một');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    w.write('E1', 'hai');
+    const p = new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    w.write('E1', 'ba');
+    await p;
+    await new Promise((r) => setTimeout(r, 60));
+    const sent = api.calls.post.filter((c) => c.path.includes('/writing/draft'));
+    assert.equal(sent[sent.length - 1].body.answers.E1, 'ba');
+  });
+
+  test('rời trang vẫn bắn NGAY dù lượt kia còn treo', async () => {
+    let release;
+    const api = fakeApi();
+    const raw = api.post.bind(api);
+    api.post = async (path, body) => {
+      if (!String(path).includes('/writing/draft')) return raw(path, body);
+      await new Promise((r) => { release = r; });
+      return raw(path, body);
+    };
+    const w = createWriting({ api, storage: memStore(), userId: 'u1' });
+    await w.load('b1');
+    w.write('E1', 'đang lưu tự động');
+    await new Promise((r) => setTimeout(r, PUSH_DELAY_MS + 40));
+    assert.ok(release, 'lượt kia phải đang treo');
+    w.write('E1', 'đoạn cuối cùng');
+    w.flushDraft();
+    await new Promise((r) => setTimeout(r, 20));
+    const ka = api.calls.post.filter((c) => c.opts && c.opts.keepalive);
+    assert.equal(ka.length, 1, 'phải tạo request NGAY, không xếp hàng');
+    assert.equal(ka[0].body.answers.E1, 'đoạn cuối cùng');
+    release();
   });
 });
