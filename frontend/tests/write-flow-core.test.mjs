@@ -241,3 +241,36 @@ describe('NO_BODY và thân request dạng hàm', () => {
     assert.equal(bodyMatches({ q_num: 1, user_answer: 'b' }, perField).ok, true);
   });
 });
+
+describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
+  // bot #969: với `times: 2`, `body` được gọi RIÊNG từng request, nên vị từ
+  // "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN cùng một câu —
+  // câu còn lại không được lưu, đúng thứ bản khai tưởng mình đang chặn.
+  const W = (m, u, b) => ({ method: m, url: u, body: b });
+  const decl = (extra) => [{
+    method: 'PATCH', path: '/a/answers', times: 2,
+    body: (b) => (b.q_num === 1 && b.v === 'x') || (b.q_num === 2 && b.v === 'y'),
+    ...extra,
+  }];
+
+  test('KHÔNG có bodyAll: hai lần cùng một câu vẫn qua — lý do cần nó', () => {
+    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
+      W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' })], decl({}));
+    assert.equal(r.pass, true);
+  });
+
+  test('CÓ bodyAll: hai lần cùng một câu ⇒ ĐỎ', () => {
+    const all = { bodyAll: (bs) => new Set(bs.map((b) => b.q_num)).size === 2 };
+    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
+      W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' })], decl(all));
+    assert.equal(r.pass, false);
+    assert.match(r.findings[0].why, /cả tập/);
+  });
+
+  test('CÓ bodyAll: đủ hai câu ⇒ đạt', () => {
+    const all = { bodyAll: (bs) => new Set(bs.map((b) => b.q_num)).size === 2 };
+    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
+      W('PATCH', 'https://h/a/answers', { q_num: 2, v: 'y' })], decl(all));
+    assert.equal(r.pass, true);
+  });
+});

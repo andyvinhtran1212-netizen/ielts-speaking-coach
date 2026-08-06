@@ -92,6 +92,11 @@ export default {
       // án của học viên vào nhầm câu mà cổng không thấy (codex cục bộ #969).
       body: (b) => (b.q_num === 1 && b.user_answer === A1)
         || (b.q_num === 2 && b.user_answer === A2),
+      // `body` được gọi RIÊNG cho từng request, nên vị từ trên vẫn qua khi trang
+      // gửi HAI LẦN CÙNG một câu — câu còn lại không được lưu, đúng thứ bản khai
+      // tưởng mình đang chặn. Chỉ nhìn cả tập mới thấy thiếu (bot bắt ở #969).
+      bodyAll: (bodies) => bodies.length === 2
+        && new Set(bodies.map((b) => b.q_num)).size === 2,
     },
     {
       method: 'POST',

@@ -242,6 +242,24 @@ export function judge(observed, declared, { ignore = [] } = {}) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
       }
     }
+
+    // `bodyAll` soi CẢ TẬP thân request đã khớp, không phải từng cái một.
+    //
+    // VÌ SAO CẦN: với `times: 2`, `body` được gọi riêng cho từng request, nên một
+    // vị từ dạng "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN
+    // CÙNG một câu — tức câu còn lại không được lưu, đúng thứ bản khai tưởng
+    // mình đang chặn (bot bắt ở #969). Chỉ nhìn cả tập mới thấy "thiếu một câu".
+    if (typeof d.bodyAll === 'function' && hits.length === times) {
+      const bodies = hits.map((i) => remaining[i].body);
+      if (!d.bodyAll(bodies)) {
+        findings.push({
+          kind: 'write-body',
+          what: `${wantMethod} ${wantPath}`,
+          why: `cả tập ${times} thân request không thoả điều kiện: `
+            + JSON.stringify(bodies).slice(0, 160),
+        });
+      }
+    }
   }
 
   // Bất biến cốt lõi: ghi KHÔNG KHAI là lỗi. Đây mới là thứ bắt được

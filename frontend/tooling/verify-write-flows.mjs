@@ -158,9 +158,23 @@ async function runFlow(browser, flow) {
   }
   await page.waitForTimeout(flow.drainMs ?? 1200);
 
+  // `expectFinalUrl` — ghim ĐƯỜNG QUAY VỀ sau khi luồng chạy xong.
+  //
+  // Có luồng mà "ghi đúng" chưa đủ: nhánh kỳ thi thử nộp xong phải bàn giao lại
+  // cho trang điều phối. Trả sẵn `{received:true}` chỉ kiểm được ĐẦU VÀO của
+  // nhánh đó; không có chốt này thì trang có thể nhận response niêm phong rồi
+  // đứng im, và bản khai vẫn xanh (bot bắt ở #969).
+  let urlError = null;
+  if (flow.expectFinalUrl) {
+    const got = page.url();
+    const want = flow.expectFinalUrl;
+    const ok = want instanceof RegExp ? want.test(got) : got.includes(want);
+    if (!ok) urlError = `đường dẫn cuối là «${got}», khai «${want}»`;
+  }
+
   const verdict = judge(observed, flow.writes || [], { ignore: flow.ignoreWrites || [] });
   await ctx.close();
-  return { verdict, stepError, pageErrors, observed, dialogs };
+  return { verdict, stepError, pageErrors, observed, dialogs, urlError };
 }
 
 const files = readdirSync(FLOW_DIR).filter((f) => f.endsWith('.mjs'))
@@ -193,14 +207,15 @@ for (const f of files) {
     continue;
   }
 
-  const { verdict, stepError, pageErrors, dialogs } = await runFlow(browser, flow);
-  const bad = !verdict.pass || stepError || pageErrors.length;
+  const { verdict, stepError, pageErrors, dialogs, urlError } = await runFlow(browser, flow);
+  const bad = !verdict.pass || stepError || pageErrors.length || urlError;
   if (bad) failed += 1;
   console.log(`\n══ ${flow.name} (${flow.route}) · ${verdict.writeCount} request ghi`);
   // In ra chứ không nuốt: cổng tự bấm Đồng ý, nên nếu trang mọc thêm một hộp xác
   // nhận mới thì đây là chỗ duy nhất người đọc thấy được điều đó.
   for (const d of dialogs) console.log(`  · [hộp thoại đã đồng ý] ${d}`);
   if (stepError) console.log(`  ✗ [bước] ${stepError.message}`);
+  if (urlError) console.log(`  ✗ [đường dẫn cuối] ${urlError}`);
   for (const e of pageErrors) console.log(`  ✗ [lỗi JS] ${e.slice(0, 140)}`);
   console.log(formatFindings(verdict.findings));
 }

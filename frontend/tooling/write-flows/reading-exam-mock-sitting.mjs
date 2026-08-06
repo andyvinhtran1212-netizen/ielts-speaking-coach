@@ -16,8 +16,14 @@
 // Nên bản khai ghim cả THỨ TỰ: attach phải xảy ra NGAY SAU khi mở lượt và TRƯỚC
 // mọi lần tự lưu. `judge` khớp theo con trỏ tiến nên thứ tự khai chính là thứ tự
 // bắt buộc.
-import { NO_BODY } from '../write-flow-core.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import base from './reading-exam-submit.mjs';
+
+const FX = JSON.parse(readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/reading-exam.json'), 'utf8'));
 
 const SITTING = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const A1 = 'con mèo';
@@ -38,12 +44,19 @@ export default {
     [/\/submit$/, { received: true }],
   ],
 
+  // Nộp xong PHẢI bàn giao lại cho trang điều phối kỳ thi. Trả sẵn
+  // `{received:true}` chỉ kiểm ĐẦU VÀO của nhánh niêm phong; không có dòng này
+  // thì trang có thể nhận response rồi đứng im mà bản khai vẫn xanh.
+  expectFinalUrl: new RegExp(`/pages/mock-exam\\.html\\?sitting=${SITTING}&done=reading$`),
+
   writes: [
     base.writes[0],
     {
       method: 'POST',
       path: `/api/mock-exams/sittings/${SITTING}/attach`,
-      body: { section: 'reading', attempt_id: (v) => typeof v === 'string' && v.length > 0 },
+      // Ghim ĐÚNG lượt vừa mở, không chỉ "là một chuỗi": gắn nhầm lượt là niêm
+      // phong nhầm bài, mà bài thật thì vẫn nộp ra điểm (bot bắt ở #969).
+      body: { section: 'reading', attempt_id: FX.attempt_id },
     },
     base.writes[1],
     base.writes[2],
