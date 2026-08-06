@@ -65,10 +65,18 @@ async function step(page, s) {
   // chỉ kiểm được nhánh "chưa nghe lần nào" — tức nó vẫn xanh kể cả khi bộ đếm
   // lượt nghe hỏng hoàn toàn (review cục bộ chỉ ra ở #961).
   if (s.dispatch) {
-    const [sel, ev] = s.dispatch;
-    return page.locator(sel).first().evaluate((el, name) => {
-      el.dispatchEvent(new CustomEvent(name, { bubbles: true }));
-    }, ev);
+    const [sel, ev, prop] = s.dispatch;
+    return page.locator(sel).first().evaluate((el, [name, onProp]) => {
+      // `onProp` cho phép nhắm vào một đối tượng BÊN TRONG component thay vì
+      // chính phần tử. Cần thiết để đi qua ĐÚNG đường sinh sự kiện: trình phát
+      // audio giữ một `new Audio()` ở `_audio` và chuyển tiếp `play` của nó
+      // thành `av-audio-play`. Phát thẳng `av-audio-play` lên host là VÒNG QUA
+      // khâu chuyển tiếp đó — luồng vẫn xanh kể cả khi component hỏng (bot bắt
+      // ở #962).
+      const target = onProp ? el[onProp] : el;
+      if (!target) throw new Error(`không thấy «${onProp}» trên ${sel}`);
+      target.dispatchEvent(onProp ? new Event(name) : new CustomEvent(name, { bubbles: true }));
+    }, [ev, prop]);
   }
   if (s.expectVisible) {
     const v = await page.locator(s.expectVisible).first().isVisible();

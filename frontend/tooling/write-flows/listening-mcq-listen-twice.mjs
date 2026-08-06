@@ -8,8 +8,9 @@
 // VÌ SAO CẦN LUỒNG NÀY: luồng 1 cố ý không bấm nghe, nên nó chỉ kiểm nhánh clamp
 // `Math.max(1, 0)` → 1. Nghĩa là nó VẪN XANH kể cả khi bộ đếm lượt nghe hỏng
 // hoàn toàn — không có trình phát, hoặc listener `av-audio-play` không gắn
-// (`listening-mcq.js:235`). Ở đây phát sự kiện đó hai lần và đòi `listen_count`
-// bằng 2, tức bộ đếm phải thật sự chạy. (review cục bộ chỉ ra ở #961)
+// (`listening-mcq.js:235`). Ở đây kích hoạt hai lượt phát qua ĐÚNG đường sinh
+// sự kiện và đòi `listen_count` bằng 2, tức cả bộ đếm LẪN khâu chuyển tiếp của
+// component phải thật sự chạy. (review cục bộ #961, bot #962)
 import base from './listening-mcq-submit.mjs';
 
 export default {
@@ -17,8 +18,12 @@ export default {
   name: 'listening-mcq — nghe hai lần rồi nộp',
   steps: [
     { wait: 600 },
-    { dispatch: ['#player', 'av-audio-play'] },
-    { dispatch: ['#player', 'av-audio-play'] },
+    // Phát `play` lên ĐÚNG đối tượng Audio bên trong component, để sự kiện đi
+    // qua khâu chuyển tiếp thật (`audio-player.js:504`). Bản đầu tôi phát thẳng
+    // `av-audio-play` lên host — vòng qua chính thành phần sinh ra nó, nên luồng
+    // vẫn xanh kể cả khi component ngừng chuyển tiếp (bot bắt ở #962).
+    { dispatch: ['#player', 'play', '_audio'] },
+    { dispatch: ['#player', 'play', '_audio'] },
     { click: 'input[name="mcq-0"][value="1"]' },
     { click: 'input[name="mcq-1"][value="2"]' },
     { wait: 200 },
