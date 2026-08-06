@@ -508,8 +508,8 @@ function render() {
   //
   // Two different problems, two different sentences. A block that did not load
   // shows nothing and reloading is the fix. `homework_stale` is the opposite:
-  // the list IS here and looks complete, but a Reading/Listening hand-in may
-  // not be folded in yet — so a task the student has already done can still be
+  // the list IS here and looks complete, but a hand-in of ANY skill may not be
+  // folded in yet — so a task the student has already done can still be
   // sitting under "Cần nộp", and telling them to reload would send them to
   // retake work they finished.
   const degraded = d.degraded || [];
@@ -522,7 +522,9 @@ function render() {
       + '. Tải lại trang để thử lại.');
   }
   if (stale) {
-    notes.push('Bài Reading/Listening bạn vừa nộp có thể chưa hiện ở đây. '
+    // Không nêu tên kỹ năng: cờ này bật cho mọi đường vá sổ, nên nhắc riêng
+    // hai kỹ năng sẽ khiến em ấy yên tâm về đúng những kỹ năng đang cũ.
+    notes.push('Bài bạn vừa nộp có thể chưa hiện ở đây. '
       + 'Nếu đã làm xong, không cần làm lại.');
   }
   $('mc-degraded').hidden = notes.length === 0;

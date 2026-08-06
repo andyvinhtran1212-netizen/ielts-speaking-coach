@@ -436,7 +436,7 @@ describe('one intended attempt starts exactly one session (Codex round 4)', () =
 //
 // A block that failed to load shows nothing and reloading is the fix.
 // `homework_stale` is the opposite: the list IS here and looks complete, but a
-// Reading/Listening hand-in may not be folded in yet — so a task the student
+// hand-in of ANY skill may not be folded in yet — so a task the student
 // already finished can still sit under "Cần nộp". Telling them to reload sends
 // them to retake work they have done.
 
@@ -480,6 +480,16 @@ describe('class-page banner tells the two failures apart', () => {
     const n = banner(['lessons', 'homework_stale']);
     assert.match(n.textContent, /buổi học/);
     assert.match(n.textContent, /không cần làm lại/i);
+  });
+
+  test('lời nhắn KHÔNG nêu tên kỹ năng nào', () => {
+    // Cờ bật cho mọi đường vá sổ. Nhắc riêng "Reading/Listening" khiến em ấy
+    // yên tâm về đúng những kỹ năng có thể đang cũ, rồi đi làm lại bài Speaking
+    // hoặc bài theo buổi mình đã nộp (codex 06/08).
+    const n = banner(['homework_stale']);
+    for (const skill of [/Reading/, /Listening/, /Speaking/, /theo buổi/]) {
+      assert.doesNotMatch(n.textContent, skill);
+    }
   });
 });
 
