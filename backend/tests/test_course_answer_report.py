@@ -109,13 +109,32 @@ def test_finishing_a_stage_does_not_close_an_assignment_that_has_writing():
     assert "not _bank_has_writing" in src[:i], "chắn phải đứng TRƯỚC lệnh chốt sổ"
 
 
-def test_an_unreadable_bank_is_treated_as_having_writing():
-    """Chặt hơn là an toàn hơn: coi nhầm "có phần viết" chỉ làm lượt chốt sổ
-    chậm một nhịp; coi nhầm "không có" thì đóng dấu đã-nộp cho một bài còn mười
-    câu chưa động tới."""
+def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
+    """Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
+    nhịp thôi". Lý lẽ ấy SAI — với bộ đề KHÔNG có tự luận thì không có nhịp nào
+    sau cả: `end_session` là đường chốt sổ duy nhất, và
+    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking), không
+    đọc `quiz_sessions`. Một lần đọc hỏng để lại bài giao KẸT VĨNH VIỄN.
+
+    Hỏng chiều ngược lại thì có giới hạn: một bài bị đóng dấu sớm MỘT lần, và
+    bảng "Chi tiết làm bài" vẫn nói đúng vì nó đọc thẳng
+    `course_writing_submissions` (codex PR 952).
+    """
     src = inspect.getsource(qs._bank_has_writing)
     j = src.index("except Exception")
-    assert "return True" in src[j:]
+    assert "return False" in src[j:]
+    assert "return True" not in src[j:]
+
+
+def test_the_writing_flag_is_remembered_after_one_successful_read():
+    """Nhớ lại thu hẹp cửa sổ "đọc hỏng" xuống đúng lần gọi ĐẦU của tiến trình.
+    Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng."""
+    src = inspect.getsource(qs._bank_has_writing)
+    assert "_WRITING_CACHE" in src
+    assert "if bank_id in _WRITING_CACHE:" in src
+    # Chỉ nhớ khi đọc ĐƯỢC — nhớ một lần hỏng là đóng băng câu trả lời sai.
+    j = src.index("except Exception")
+    assert "_WRITING_CACHE[bank_id] = has" in src[j:]
 
 
 def test_a_bank_without_writing_still_closes_on_the_stage():
@@ -155,3 +174,32 @@ def test_attempts_are_sorted_ACROSS_batches_not_inside_each():
     assert "for i in range(0, len(sessions), _REPORT_IDS)" in src[:i], \
         "phải THU hết rồi mới sắp"
     assert "rows.sort" not in src.split("all_rows.sort")[0], "không sắp trong từng lô"
+
+
+# ── Vòng bot PR 952 ─────────────────────────────────────────────────────────
+
+def test_the_report_recomputes_correctness_from_the_stored_answer():
+    """`log_progress` nhận nguyên cờ `is_correct` do CLIENT gửi. `course_verdict`
+    đã tự chấm lại từ lâu vì đúng lý do này; báo cáo tin cờ client thì một
+    payload sửa tay biến câu sai thành câu đúng và giấu luôn đáp án thật."""
+    src = _src()
+    assert "ok = (picked == correct) if (picked is not None and correct is not None)" in src
+    assert '"is_correct": ok,' in src
+    # Không so được thì mới dùng cờ đã lưu — thà giữ nguyên còn hơn kết luận bừa.
+    assert 'else bool(a.get("is_correct"))' in src
+
+
+def test_the_class_table_recomputes_it_too():
+    """Hai mặt đọc phải chấm bằng CÙNG một thước."""
+    table = inspect.getsource(qs.course_attempt_report)
+    assert "def _ok(a: dict) -> bool:" in table
+    assert 'int(a.get("answer_given")) == want' in table
+    assert 'a["is_correct"] = _ok(a)' in table
+
+
+def test_time_totals_come_from_the_SAME_set_as_the_median():
+    """`active_sec`/`idle_sec` đếm mọi lượt trong khi trung vị chỉ đếm lượt đầu
+    ⇒ một chặng làm lại được tính hai lần, và hai con số cạnh nhau tự mâu thuẫn."""
+    src = _src()
+    assert "for a in first.values()" in src
+    assert "for a in attempts]" not in src

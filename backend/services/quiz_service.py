@@ -1064,23 +1064,44 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     }
 
 
+# Bộ đề nào có phần tự luận — nhớ lại sau lần đọc ĐẦU THÀNH CÔNG.
+#
+# Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng (đổi ruột thì tạo
+# bank mới), nên nhớ là an toàn. Nhớ để làm gì: thu hẹp cửa sổ "đọc hỏng" xuống
+# đúng lần gọi ĐẦU TIÊN của tiến trình cho bank ấy.
+_WRITING_CACHE: dict[str, bool] = {}
+
+
 def _bank_has_writing(bank_id: str | None) -> bool:
     """Bộ đề này có câu TỰ LUẬN không.
 
-    Đọc hỏng thì trả `True` — CHẶT hơn là an toàn hơn ở đây: coi nhầm là "có
-    phần viết" chỉ làm lượt chốt sổ chậm lại một nhịp (lượt nộp tự luận sẽ chốt,
-    hoặc lượt đối chiếu vá lại), còn coi nhầm là "không có" thì đóng dấu đã-nộp
-    cho một bài còn mười câu chưa động tới.
+    ── Vì sao đọc hỏng thì trả `False` ─────────────────────────────────────
+    Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
+    nhịp thôi". Lý lẽ ấy SAI, vì với bộ đề KHÔNG có tự luận thì không có nhịp
+    nào sau cả: `end_session` là đường chốt sổ duy nhất, và
+    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking) chứ
+    không đọc `quiz_sessions`. Một lần đọc hỏng khi ấy để lại một bài giao KẸT
+    VĨNH VIỄN ở "Cần nộp", không ai sửa được (codex PR 952).
+
+    Hỏng theo chiều ngược lại thì thiệt hại có giới hạn: một bài giao có phần
+    viết bị đóng dấu sớm MỘT lần, và mặt đọc của giáo viên vẫn nói đúng — bảng
+    "Chi tiết làm bài" đọc thẳng `course_writing_submissions`, không đọc
+    `submitted_at`.
     """
     if not bank_id:
         return False
+    if bank_id in _WRITING_CACHE:
+        return _WRITING_CACHE[bank_id]
     try:
-        return bool((supabase_admin.table("quiz_questions").select("id", count="exact")
-                     .eq("bank_id", bank_id).eq("type", "writing")
-                     .limit(1).execute()).count or 0)
+        has = bool((supabase_admin.table("quiz_questions").select("id", count="exact")
+                    .eq("bank_id", bank_id).eq("type", "writing")
+                    .limit(1).execute()).count or 0)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s", bank_id, exc)
-        return True
+        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — coi như "
+                       "KHÔNG có, để bài giao không kẹt vĩnh viễn", bank_id, exc)
+        return False
+    _WRITING_CACHE[bank_id] = has
+    return has
 
 
 def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:
@@ -1462,6 +1483,16 @@ def course_answer_report(*, user_id: str, bank_id: str,
         except (TypeError, ValueError):
             picked = None
         correct = q.get("answer") if isinstance(q.get("answer"), int) else None
+        # CHẤM LẠI từ `answer_given` so với đáp án của đề, không tin cờ
+        # `is_correct` do CLIENT gửi lên (`log_progress` nhận nguyên cờ ấy).
+        # `course_verdict` đã tự chấm lại từ lâu vì đúng lý do này; báo cáo tin
+        # cờ client thì một payload sửa tay biến câu sai thành câu đúng, giấu
+        # luôn đáp án thật, và làm hỏng cả bảng của giáo viên (codex PR 952).
+        #
+        # Không so được (đề không phải trắc nghiệm, hoặc thiếu đáp án) thì mới
+        # dùng cờ đã lưu — thà giữ nguyên còn hơn kết luận bừa.
+        ok = (picked == correct) if (picked is not None and correct is not None) \
+            else bool(a.get("is_correct"))
         rows.append({
             "qid":       q.get("qid"),
             "item_key":  q.get("item_key"),
@@ -1472,10 +1503,10 @@ def course_answer_report(*, user_id: str, bank_id: str,
             "picked_text": opts[picked] if (picked is not None and 0 <= picked < len(opts)) else None,
             "answer":    correct,
             "answer_text": opts[correct] if (correct is not None and 0 <= correct < len(opts)) else None,
-            "is_correct": bool(a.get("is_correct")),
+            "is_correct": ok,
             # Vì sao phương án EM CHỌN sai — thứ có ích hơn hẳn lời giải chung.
             "why_wrong": ((q.get("why_wrong") or {}).get(str(picked))
-                          if picked is not None and not a.get("is_correct") else None),
+                          if picked is not None and not ok else None),
             "explain":   q.get("explain"),
             "seconds":   (round(a["response_time_ms"] / 1000, 1)
                           if isinstance(a.get("response_time_ms"), (int, float))
@@ -1484,7 +1515,10 @@ def course_answer_report(*, user_id: str, bank_id: str,
 
     times = [r["seconds"] for r in rows if r["seconds"] is not None]
     times.sort()
-    secs = [(a.get("response_time_ms") or 0) / 1000 for a in attempts]
+    # Từ LƯỢT ĐẦU của mỗi câu — cùng tập với `rows` và với bảng lớp. Đếm mọi
+    # lượt thì một chặng làm lại được tính hai lần, và `active_sec`/`idle_sec`
+    # lệch khỏi chính trung vị ngay bên cạnh nó (codex PR 952).
+    secs = [(a.get("response_time_ms") or 0) / 1000 for a in first.values()]
     out["questions"] = rows
     out["totals"] = {
         "answered": len(rows),
@@ -1673,6 +1707,27 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             logger.warning("[quiz] attempt-report attempts failed: %s", exc)
             out["stale"] = True
 
+    # Đáp án GỐC của đề, để tự chấm lại — cùng lý do như `course_answer_report`.
+    key_of: dict[str, int] = {}
+    try:
+        for q in _report_pages("quiz_questions", "qid, answer, type",
+                               lambda q2: q2.eq("bank_id", bank_id)):
+            if q.get("type") != "writing" and isinstance(q.get("answer"), int):
+                key_of[q["qid"]] = q["answer"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report answers failed: %s", exc)
+        out["stale"] = True
+
+    def _ok(a: dict) -> bool:
+        """Đúng/sai TÍNH LẠI từ `answer_given`, không tin cờ client gửi."""
+        want = key_of.get(a.get("qid"))
+        if want is None:
+            return bool(a.get("is_correct"))
+        try:
+            return int(a.get("answer_given")) == want
+        except (TypeError, ValueError):
+            return bool(a.get("is_correct"))
+
     all_rows.sort(key=lambda x: x.get("created_at") or "")
     for a in all_rows:
         if a["session_id"] in open_ids:
@@ -1689,7 +1744,8 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         seen_q.add(key2)
         first_by_user.setdefault(uid, []).append(a)
         key = a.get("item_key")
-        if key and not a.get("is_correct"):
+        a["is_correct"] = _ok(a)
+        if key and not a["is_correct"]:
             wrong[key] = wrong.get(key, 0) + 1
         ms = a.get("response_time_ms")
         if isinstance(ms, (int, float)) and ms > 0:

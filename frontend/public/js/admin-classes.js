@@ -979,26 +979,30 @@ async function renderOneList() {
 }
 
 /** Báo cáo của MỘT em — dùng lại đúng bộ vẽ học viên đang thấy. */
-let _oneWant = null;
+let _oneSeq = 0;
 
 async function openOneReport(userId, name) {
   const box = $('one-body');
-  // Chỉ vẽ nếu lượt này VẪN là em đang được chọn. Bấm An rồi Bình lúc mạng
-  // chậm: request của An về sau và ghi đè bài của Bình, trong khi tên Bình vẫn
-  // sáng — giáo viên đọc bài của một em dưới tên một em khác (codex cục bộ).
-  _oneWant = userId;
+  // Chỉ vẽ nếu lượt này VẪN là lượt mới nhất. Bấm An rồi Bình lúc mạng chậm:
+  // bài của An về sau và ghi đè bài của Bình, trong khi tên Bình vẫn sáng —
+  // giáo viên đọc bài của một em dưới tên một em khác (codex cục bộ).
+  //
+  // Đếm SỐ LƯỢT chứ không nhớ `userId`: mở bài giao A, sang bài giao B rồi chọn
+  // ĐÚNG em ấy thì hai lượt mang cùng một userId, và lượt của A vẫn ghi đè
+  // được lên bảng của B (codex PR 952).
+  const seq = ++_oneSeq;
   box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
   try {
     if (!_CR) _CR = await import('/js/course-report.js');
     const d = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
       + '/students/' + encodeURIComponent(userId)
       + '/report?assignment_id=' + encodeURIComponent(_mk.asg));
-    if (_oneWant !== userId) return;
+    if (seq !== _oneSeq) return;
     box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
       + _CR.renderReport(d);
     _CR.bindReport(box);
   } catch (err) {
-    if (_oneWant !== userId) return;
+    if (seq !== _oneSeq) return;
     box.innerHTML = '<p class="adm-banner">Không đọc được bài của em này: '
       + esc(err.message || String(err)) + '</p>';
   }

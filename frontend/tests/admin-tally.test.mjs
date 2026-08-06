@@ -280,10 +280,15 @@ describe('hai lỗi lặng của khu nhận bài (codex cục bộ 06/08)', () =
   test('mạng chậm không làm giáo viên đọc bài của SAI em', () => {
     // Bấm An rồi Bình: request của An về sau và ghi đè bài của Bình, trong khi
     // tên Bình vẫn sáng.
+    //
+    // Chắn phải đếm SỐ LƯỢT, không nhớ `userId`: mở bài giao A, sang bài giao B
+    // rồi chọn ĐÚNG em ấy thì hai lượt mang cùng một userId và lượt của A vẫn
+    // ghi đè được lên bảng của B (codex PR 952).
     const i = SRC.indexOf('async function openOneReport');
-    const body = SRC.slice(i, i + 1400);
-    assert.match(body, /_oneWant = userId;/);
-    assert.equal((body.match(/if \(_oneWant !== userId\) return;/g) || []).length, 2,
+    const body = SRC.slice(i, i + 1600);
+    assert.match(body, /const seq = \+\+_oneSeq;/);
+    assert.equal((body.match(/if \(seq !== _oneSeq\) return;/g) || []).length, 2,
       'phải chắn ở CẢ nhánh thành công lẫn nhánh hỏng');
+    assert.ok(!/_oneWant/.test(SRC), 'chắn theo userId không đủ');
   });
 });
