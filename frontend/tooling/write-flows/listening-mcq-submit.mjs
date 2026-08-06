@@ -15,8 +15,13 @@
 //   · `listen_count` — `Math.max(1, …)`, tức nộp mà CHƯA BẤM NGHE vẫn phải là 1,
 //     không phải 0. Đây là chi tiết một bản port rất dễ "đơn giản hoá" thành 0,
 //     và không phép so DOM nào thấy được.
-const CONTENT = 'ct-1';
-const EXERCISE = 'ex-1';
+// UUID THẬT chứ không phải chuỗi tự nghĩ. Backend đòi `content_id` là UUID và
+// trả 422 nếu không (`routers/feedback.py:119-125`), nên `ct-1` là một giá trị
+// production KHÔNG BAO GIỜ chấp nhận. Harness có chặn mạng và trả dữ liệu sẵn
+// nên nó vẫn xanh — tức bản khai đang mô tả một trạng thái không tồn tại được.
+// Cùng họ với lỗi `prompt`/`stem` ở vòng trước. (bot bắt ở #962 vòng 3)
+const CONTENT = '11111111-1111-4111-8111-111111111111';
+const EXERCISE = '22222222-2222-4222-8222-222222222222';
 
 // Hình dạng câu hỏi phải khớp thứ UI ĐỌC và thứ backend BẢO ĐẢM, nếu không bản
 // khai chạy trên một trạng thái production không thể sinh ra:
