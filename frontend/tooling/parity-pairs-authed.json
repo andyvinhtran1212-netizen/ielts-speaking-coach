@@ -76,5 +76,17 @@
     "legacy": "/pages/listening-analytics.html",
     "next": "/listening/analytics",
     "allow": []
+  },
+  {
+    "name": "exercises",
+    "legacy": "/pages/exercises.html",
+    "next": "/exercises",
+    "allow": []
+  },
+  {
+    "name": "flashcards",
+    "legacy": "/pages/flashcards.html",
+    "next": "/flashcards",
+    "allow": []
   }
 ]
