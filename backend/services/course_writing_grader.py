@@ -69,7 +69,10 @@ Các câu cần soát:
 
 
 def _model():
-    name = getattr(settings, "COURSE_WRITING_MODEL", None) or "gemini-2.5-flash-lite"
+    # Mặc định THẬT nằm ở `config.py`; chuỗi dưới đây chỉ là lưới đỡ cho lúc
+    # trường ấy vắng mặt. Giữ hai nơi cùng một giá trị — bản trước để lệch nhau
+    # và bản vá vào chỗ này không bao giờ tới lượt (06/08).
+    name = getattr(settings, "COURSE_WRITING_MODEL", None) or "gemini-3.1-flash-lite"
     return name, genai.GenerativeModel(
         model_name=name,
         generation_config=genai.types.GenerationConfig(
@@ -108,6 +111,29 @@ def _fallback(items: List[Dict[str, Any]], reason: str) -> List[Dict[str, Any]]:
     } for it in items]
 
 
+# Mã trạng thái KHÔNG tự khỏi. Phân loại theo STATUS, không theo chuỗi:
+#   · 400 tên model sai · 401/403 khoá hoặc quyền sai · 404 model ngừng cấp
+# Bản trước dò chuỗi "404" + "not found", nên gọi mọi 404 là model chết và gọi
+# 401/403 là "tạm thời" — hai lỗi vĩnh viễn nằm chờ tự khỏi (codex 06/08).
+_CONFIG_STATUS = {400, 401, 403, 404}
+
+
+def _is_config_error(exc: Exception) -> bool:
+    """Lỗi này sẽ lặp lại y hệt ở lần gọi sau chứ không tự khỏi.
+
+    Ưu tiên `code` có cấu trúc của SDK Google; chỉ dò chuỗi khi không có, vì một
+    câu lỗi đổi chữ là phép dò chuỗi im lặng ngừng hoạt động.
+    """
+    code = getattr(exc, "code", None)
+    if isinstance(code, int):
+        return code in _CONFIG_STATUS
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if isinstance(status, int):
+        return status in _CONFIG_STATUS
+    head = str(exc)[:80]
+    return any(str(c) in head for c in _CONFIG_STATUS)
+
+
 async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
@@ -132,6 +158,16 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         return _fallback(batch, "Bộ chấm không phản hồi kịp."), name
     except Exception as exc:  # noqa: BLE001
         # Lỗi thô của SDK ở lại log; học viên nhận một câu đọc được.
+        #
+        # PHÂN BIỆT HỎNG TẠM VỚI HỎNG HẲN. Model bị ngừng cấp trả 404 và sẽ trả
+        # 404 mãi mãi — gọi nó là "tạm thời" khiến ai đọc log cũng đợi nó tự
+        # khỏi, và bộ chấm nằm chết nhiều ngày. Đây đúng là chuyện đã xảy ra:
+        # `gemini-2.5-flash-lite` ngừng cấp, em Lê Chinh mất lượt nộp duy nhất.
+        if _is_config_error(exc):
+            logger.error("[course-writing] HỎNG CẤU HÌNH (%s): %s — sửa "
+                         "COURSE_WRITING_MODEL / khoá API, nó sẽ KHÔNG tự khỏi", name, exc)
+            return _fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
+                                    "Bài của em vẫn được lưu."), name
         logger.error("[course-writing] gọi model hỏng: %s", exc)
         return _fallback(batch, "Bộ chấm tạm thời không dùng được."), name
 
