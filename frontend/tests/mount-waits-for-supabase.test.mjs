@@ -91,6 +91,16 @@ describe('khuôn mount() — phải chờ Supabase', () => {
           'hết giờ phải hiện thông báo lỗi trong #mount');
       }
 
+      // NGÂN SÁCH CHỜ phải >= khung (10s). Chặt hơn là tự tạo lỗi giả: trên mạng
+      // chậm, khung vẫn đang chờ trong khi trang này đã bỏ cuộc và thay nội dung
+      // bằng thông báo lỗi vĩnh viễn (bot bắt ở #958).
+      const tick = /}, (\d+)\);/.exec(body);
+      const cap = /\+\+n > (\d+)/.exec(body);
+      assert.ok(tick && cap, 'không đọc được nhịp/trần của vòng chờ');
+      const budgetMs = Number(tick[1]) * Number(cap[1]);
+      assert.ok(budgetMs >= 10000,
+        `ngân sách chờ ${budgetMs}ms < 10000ms của khung (auth-provider.tsx:51)`);
+
       // Vòng chờ phải có ĐƯỜNG THOÁT: chờ vô hạn thì trang treo im lặng ở
       // spinner và không ai biết vì sao.
       if (/setInterval/.test(body)) {

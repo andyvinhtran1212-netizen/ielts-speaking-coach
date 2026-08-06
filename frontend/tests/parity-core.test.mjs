@@ -538,6 +538,41 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
   assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
 });
 
+test('route đã cutover mà KHÔNG có cặp parity phải được khai báo', () => {
+  // Bot bắt ở #958: bộ lọc + regex mở lượt authed cho `/exercises`, nhưng
+  // `parity-pairs-authed.json` CỐ Ý không có cặp đó (vế legacy đang hỏng với
+  // tài khoản probe). Hệ quả: một PR chỉ sửa trang đó nhận G1 XANH mà không cặp
+  // nào được mở — đúng kiểu "cổng tự cấp phép" mà đầu `parity-gate.yml` bác bỏ.
+  //
+  // Không sửa được bằng cách gỡ glob (thì PR đó lại không chạy cổng nào cả).
+  // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
+  // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
+  // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
+  const KNOWN_NO_PAIR = ['/writing/dashboard', '/exercises'];
+
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const paired = new Set(pairs.map((p) => p.next));
+
+  // Route Next "đã cutover" = có hàng CUTOVER trong sổ route.
+  const ledger = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
+  const cutover = [...ledger.matchAll(/^\| `(\/[^`]*)` \|.*CUTOVER/gm)]
+    .map((m) => m[1])
+    // `/` và `/grammar` thuộc khu công khai, không nằm trong bộ authed.
+    .filter((r) => r !== '/' && r !== '/grammar' && r !== '/profile');
+
+  const missing = cutover.filter((r) => !paired.has(r)).sort();
+  assert.deepEqual(missing, [...KNOWN_NO_PAIR].sort(),
+    'route đã cutover mà thiếu cặp parity phải nằm trong KNOWN_NO_PAIR và có lý do '
+    + 'ghi ở docs/PARITY_WRITING_PAIR_2026-08-05.md — nếu không, G1 xanh mà không so gì');
+
+  const doc = readFileSync(path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
+  for (const r of KNOWN_NO_PAIR) {
+    assert.ok(doc.includes(r.split('/').pop()),
+      `${r} nằm ngoài parity mà tài liệu không giải thích vì sao`);
+  }
+});
+
 test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
   // Codex bắt ở PR #946 vòng 5, và đó là hệ quả của chính việc nới glob ở PR
   // đó: `paths` có `frontend/lib/**` nên job KHỞI ĐỘNG khi đổi

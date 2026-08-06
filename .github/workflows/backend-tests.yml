@@ -42,6 +42,9 @@ on:
       # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
       # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
       - 'docs/ROUTE_LEDGER.md'
+      # `parity-core.test.mjs` đọc tài liệu này để xác nhận mỗi route nằm ngoài
+      # parity đều có lý do ghi lại.
+      - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
       - 'docs/brand/assets/**'
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
