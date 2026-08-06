@@ -381,6 +381,15 @@ export function CourseBehavior() {
       }
 
       async function startRetakeFlow() {
+        // DỌN báo cáo cũ trước khi làm lại.
+        //
+        // Nó nói "chi tiết từng câu còn khoá". Làm kiểm tra lại rồi ĐẠT thì
+        // dòng ấy sai, nhưng nó nằm ở một khung khác nên không ai vẽ lại — màn
+        // hình vừa nói "Đã ĐẠT" vừa nói "còn khoá" (codex #968). Dọn ở ĐÂY chứ
+        // không đợi lúc đạt: lượt làm lại có thể lại chưa đạt, và giữ một bảng
+        // trục của lượt TRƯỚC cũng là nói sai.
+        const rep = $('cx-report');
+        if (rep) { rep.hidden = true; rep.innerHTML = ''; }
         const size = (lastVerdict && lastVerdict.retake_size)
           || (runner.mastery && runner.mastery.retake_size) || 20;
         await runner.startRetake(size);
