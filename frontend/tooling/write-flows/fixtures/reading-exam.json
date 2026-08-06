@@ -1,0 +1,32 @@
+{
+  "kind": "reading-exam",
+  "test_id": "RD-WF-001",
+  "attempt_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "test": {
+    "test_id": "RD-WF-001",
+    "title": "Bài đọc kiểm cổng ghi",
+    "updated_at": "2026-08-06T00:00:00+00:00",
+    "time_limit_minutes": 60,
+    "passages": [
+      {
+        "passage_order": 1,
+        "title": "Đoạn 1",
+        "body": "Nội dung đoạn đọc."
+      }
+    ],
+    "questions": [
+      {
+        "q_num": 1,
+        "passage_order": 1,
+        "question_type": "short_answer",
+        "prompt": "Câu hỏi 1?"
+      },
+      {
+        "q_num": 2,
+        "passage_order": 1,
+        "question_type": "short_answer",
+        "prompt": "Câu hỏi 2?"
+      }
+    ]
+  }
+}

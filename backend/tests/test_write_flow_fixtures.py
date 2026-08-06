@@ -19,6 +19,7 @@ Chốt này nối lại bằng cách gọi CHÍNH bộ kiểm production, không
 lại là tạo ra bản sao thứ hai để trôi tiếp.
 """
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -30,7 +31,8 @@ from routers.listening import (
     _validate_true_false_payload,
 )
 
-FIXTURES = Path(__file__).resolve().parents[2] / "frontend/tooling/write-flows/fixtures"
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = ROOT / "frontend/tooling/write-flows/fixtures"
 
 
 # QUÉT THƯ MỤC, không liệt kê tay. Trang này là THÍ ĐIỂM cho 27 trang có-ghi còn
@@ -52,10 +54,45 @@ def test_thu_muc_fixture_ton_tai():
 # Mỗi loại fixture nối tới ĐÚNG bộ kiểm production của nó. Quét thư mục rồi chạy
 # tất cả qua bộ kiểm MCQ sẽ sai ngay khi có fixture của trang khác; còn "loại lạ
 # thì bỏ qua" thì fixture mới lặng lẽ không được kiểm — đúng lỗ đang vá.
+def _reading_question_types_from_migration() -> set[str]:
+    """Danh sách loại câu hỏi Đọc, ĐỌC TỪ ràng buộc CHECK thật của bảng.
+
+    Không chép danh sách vào đây: bản sao thứ hai rồi sẽ trôi khỏi bản gốc, mà
+    trôi im lặng thì chốt này thành trang trí.
+    """
+    sql = (ROOT / "backend/migrations/086_reading_module_foundation.sql").read_text(
+        encoding="utf-8")
+    m = re.search(r"question_type\s+TEXT NOT NULL CHECK \(question_type IN \((.*?)\)\)",
+                  sql, re.S)
+    assert m, "không đọc được ràng buộc CHECK question_type — migration đã đổi?"
+    types = set(re.findall(r"'([a-z_]+)'", m.group(1)))
+    assert len(types) >= 10, f"chỉ đọc được {len(types)} loại — biểu thức hỏng?"
+    return types
+
+
+def _check_reading_exam(fx: dict) -> None:
+    """Fixture Đọc mô tả thứ MÁY CHỦ TRẢ VỀ TRÌNH DUYỆT, không phải hình dạng
+    tác giả — nên KHÔNG dùng `validate_reading_questions` (bộ đó đòi `answer`,
+    thứ tuyệt đối không được có trong response học viên; xem #967).
+
+    Ràng buộc đúng tầng: `question_type` phải nằm trong CHECK của bảng, và câu
+    hỏi KHÔNG được mang đáp án.
+    """
+    allowed = _reading_question_types_from_migration()
+    questions = fx["test"]["questions"]
+    assert questions, "fixture không có câu hỏi nào"
+    for q in questions:
+        assert q["question_type"] in allowed, (
+            f"question_type={q['question_type']!r} không có trong CHECK của bảng")
+        assert "answer" not in q and "answers" not in q, (
+            f"fixture mang đáp án — response học viên không bao giờ có (câu {q['q_num']})")
+
+
 VALIDATORS = {
-    "listening-mcq": _validate_mcq_payload,
-    "listening-tf": _validate_true_false_payload,
-    "listening-gist": _validate_gist_payload,
+    "listening-mcq": lambda fx: _validate_mcq_payload(fx["payload"]),
+    "listening-tf": lambda fx: _validate_true_false_payload(fx["payload"]),
+    "listening-gist": lambda fx: _validate_gist_payload(fx["payload"]),
+    "reading-exam": _check_reading_exam,
 }
 
 
@@ -69,7 +106,21 @@ def test_payload_qua_duoc_bo_kiem_that(name):
     )
     # Không bắt HTTPException: bộ kiểm ném ra là chốt này ĐỎ, kèm nguyên văn lý
     # do của production — đúng thứ cần đọc.
-    VALIDATORS[kind](fx["payload"])
+    VALIDATORS[kind](fx)
+
+
+# Khoá nào phải là UUID — theo ĐÚNG kiểu cột, không theo cảm giác "id thì là UUID".
+#   listening_content.id / listening_exercises.id  → UUID  (mig 056)
+#   reading_test_attempts.id                        → UUID  (mig 086)
+#   reading_tests.test_id                           → TEXT  (mig 086:50) — mã dạng
+#     `ILR-LIS-001`, KHÔNG phải UUID. Ghim nó thành UUID là bắt fixture mô tả một
+#     giá trị production không bao giờ có.
+UUID_KEYS = {
+    "listening-mcq": ("content_id", "exercise_id"),
+    "listening-tf": ("content_id", "exercise_id"),
+    "listening-gist": ("content_id", "exercise_id"),
+    "reading-exam": ("attempt_id",),
+}
 
 
 @pytest.mark.parametrize("name", ALL)
@@ -77,5 +128,7 @@ def test_id_la_uuid(name):
     """`feedback.py:119-125` trả 422 nếu `content_id` không phải UUID, nên một
     fixture dùng chuỗi tự nghĩ đang mô tả trạng thái backend luôn từ chối."""
     fx = _load(name)
-    for key in ("content_id", "exercise_id"):
+    keys = UUID_KEYS.get(fx.get("kind"))
+    assert keys, f"kind={fx.get('kind')!r} chưa khai khoá UUID nào — thêm vào UUID_KEYS"
+    for key in keys:
         uuid.UUID(fx[key])
