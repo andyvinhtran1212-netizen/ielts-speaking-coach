@@ -418,7 +418,35 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
 # review endpoint, the Luyện nhanh runner from /check, and the admin audit from
 # its own endpoint. Removing them costs no feature.
 _STUDENT_FORBIDDEN_PAYLOAD_KEYS = ("answers", "solutions", "audio_windows",
-                                   "transcript_anchors")
+                                   "transcript_anchors",
+                                   # Gist: `model_answer` LÀ đáp án, `rubric_keywords`
+                                   # là bộ từ khoá chấm điểm — biết trước là biết phải
+                                   # viết gì. Không mặt học viên nào đọc hai trường này
+                                   # (`listening-gist.js` chỉ đọc `prompt_text`, còn
+                                   # `keyword_matches` đến từ phản hồi chấm bài).
+                                   "model_answer", "rubric_keywords")
+
+# Đáp án LỒNG BÊN TRONG từng câu hỏi, không nằm ở mức đỉnh.
+#
+# Đây đúng là cái bẫy mà chú thích ngay trên đã kể một lần: bộ lọc cũ chỉ xoá
+# khoá mức đỉnh, nên khoá vẫn được phục vụ đầy đủ ở một tầng sâu hơn, TRÊN CHÍNH
+# response mà bộ lọc sinh ra để làm sạch. Ba chế độ dưới đây rơi vào đúng vết đó:
+#
+#   mcq        payload.questions[].answer_idx
+#   true_false payload.statements[].answer
+#
+# Cả hai trang đều đã tự xoá ở client ("user must NOT see it in DOM",
+# `listening-mcq.js:81`) — tức ý định đã đúng từ đầu, chỉ là dữ liệu vẫn đi tới
+# trình duyệt và ai mở tab Network cũng đọc được.
+#
+# KHÔNG có `segments[].transcript` (chép chính tả) trong danh sách này: màn xem
+# lại của `listening-dictation.js:341-362` dựng từ chính mảng đó, nạp lúc mở
+# trang. Gỡ nó là đổi thiết kế chứ không phải vá rò rỉ — cần một lượt nạp lại sau
+# khi nộp. Ghi ra đây để lần sau không ai tưởng là bỏ sót.
+_STUDENT_FORBIDDEN_NESTED = (
+    ("questions", "answer_idx"),
+    ("statements", "answer"),
+)
 
 
 def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -434,6 +462,14 @@ def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any
         payload = dict(copy.get("payload") or {})
         for key in _STUDENT_FORBIDDEN_PAYLOAD_KEYS:
             payload.pop(key, None)
+        for list_key, item_key in _STUDENT_FORBIDDEN_NESTED:
+            items = payload.get(list_key)
+            if isinstance(items, list):
+                payload[list_key] = [
+                    {k: v for k, v in item.items() if k != item_key}
+                    if isinstance(item, dict) else item
+                    for item in items
+                ]
         copy["payload"] = payload
         safe.append(copy)
     return safe

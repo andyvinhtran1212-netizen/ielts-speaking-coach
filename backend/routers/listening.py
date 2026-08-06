@@ -1022,7 +1022,14 @@ async def get_listening_exercises(
         .order("order_num", desc=False)
         .execute()
     )
-    return {"exercises": res.data or []}
+    # Sprint 13.5 đã dựng chốt này cho `/tests/{id}`, nhưng route bài LẺ vẫn trả
+    # `select("*")` nguyên vẹn — tức `payload.questions[].answer_idx` (mcq),
+    # `payload.statements[].answer` (T/F) và `payload.model_answer` +
+    # `rubric_keywords` (gist) đều đi thẳng tới trình duyệt. Ba trang đó tự xoá ở
+    # client ("user must NOT see it in DOM", `listening-mcq.js:81`) nên trên màn
+    # hình không thấy gì, nhưng tab Network thì thấy đủ.
+    from services import listening_test_grader as grader
+    return {"exercises": grader.strip_answer_keys(res.data or [])}
 
 
 # ── Admin routes — content preview + list ─────────────────────────────────────
