@@ -76,6 +76,21 @@ const LUCIDE_HYDRATE = `
     hydrateIcons();
   }
   window.addEventListener('load', hydrateIcons);
+  // Ve lai icon khi DOI THEME. Bo doi theme thay icon theo [data-theme], va
+  // module cua trang co the chen [data-lucide] moi sau do — khong co dong nay
+  // thi icon dung nguyen o theme cu.
+  //
+  // 6/9 trang legacy co lucide deu co doan nay; khung dung chung thi KHONG, nen
+  // /speaking MAT hanh vi do tu luc port ma khong cong nao bat (parity so DOM
+  // TINH — chuyen nay chi xay ra luc nguoi dung bam nut doi theme).
+  //
+  // KHONG dung dau backtick trong khoi nay: no nam TRONG template literal, mot
+  // dau backtick se dong chuoi som va lam vo ca tep (da xay ra).
+  //
+  // An toan cho trang khac: createIcons() chi quet [data-lucide], ma cay React
+  // cua ta nhung thang SVG nen khong con the nao — no thanh no-op.
+  new MutationObserver(hydrateIcons)
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 })();
 `.trim();
 
