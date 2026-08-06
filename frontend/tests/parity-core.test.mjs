@@ -589,6 +589,22 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
   assert.deepEqual(missed, [],
     'glob nằm trong paths mà regex không bắt ⇒ job chạy nhưng KHÔNG mở cặp authed');
 
+  // Phép cắt ở trên CHỈ phủ khối glob theo-trang. Mã DÙNG CHUNG (api.js, chrome
+  // và các tệp chrome import) nằm ngoài khối đó, nên `missed` không bao giờ thấy
+  // chúng — và đúng chỗ mù ấy đã để lọt: cả hai có trong `paths` nhưng regex
+  // authed KHÔNG bắt, tức PR sửa chúng chạy job mà không mở CẶP NÀO (review cục
+  // bộ bắt ở #955). Chúng có mặt trên MỌI trang được so nên phải mở lượt authed.
+  for (const shared of ['frontend/public/js/api.js',
+                        'frontend/public/js/components/aver-chrome.js',
+                        'frontend/public/js/theme-toggle.js',
+                        'frontend/public/js/user-pill.js',
+                        'frontend/public/js/components/perf-hints.js']) {
+    assert.ok(authedRe.test(shared),
+      `«${shared}» là mã dùng chung của mọi trang authed — phải mở lượt authed`);
+    assert.ok(yml.includes(`- '${shared}'`),
+      `«${shared}» phải có trong \`paths\`, nếu không job không khởi động`);
+  }
+
   // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
   for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
                      'frontend/public/js/grammar.js']) {

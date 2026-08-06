@@ -105,6 +105,9 @@ on:
       # trình duyệt nạp lúc chạy, không script nào nêu tên (đúng giới hạn đã
       # ghi ở #946). Codex bắt ở #953.
       - 'frontend/public/css/listening-tests.css'
+      - 'frontend/public/css/listening-mini-test.css'
+      - 'frontend/public/css/listening-skills.css'
+      - 'frontend/public/css/listening-practice.css'
       - 'frontend/public/js/reading-vocab.js'
       - 'frontend/public/js/reading-skill.js'
       - 'frontend/public/js/reading-test.js'
@@ -113,6 +116,12 @@ on:
       # `listening-tests-list.js` IMPORT helper này (dòng 21). Bỏ sót thì một PR
       # chỉ sửa helper sẽ không chạy parity, dù nó đổi hành vi cả hai vế.
       - 'frontend/public/js/listening-list-paging.js'
+      - 'frontend/public/js/listening-mini-test.js'
+      - 'frontend/public/js/listening-skills.js'
+      - 'frontend/public/js/listening-practice.js'
+      - 'frontend/public/pages/listening-mini-test.html'
+      - 'frontend/public/pages/listening-skills.html'
+      - 'frontend/public/pages/listening-practice.html'
       - 'frontend/tooling/supabase-session.mjs'
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
@@ -121,6 +130,12 @@ on:
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
       - 'frontend/public/js/components/aver-chrome.js'
+      # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
+      # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
+      # sửa chúng không chạy cổng lần nào (review CỤC BỘ bắt ở #955).
+      - 'frontend/public/js/theme-toggle.js'
+      - 'frontend/public/js/user-pill.js'
+      - 'frontend/public/js/components/perf-hints.js'
       - 'frontend/tooling/parity-core.mjs'
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
@@ -271,7 +286,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging)\.js|frontend/public/css/(reading-vocab|listening|listening-tests)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests|listening-mini-test|listening-skills|listening-practice)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

@@ -14,9 +14,12 @@ import { AuthedShell } from '@/components/authed-shell';
 export default function AuthedListeningLayout({ children }: { children: ReactNode }) {
   return (
     <AuthedShell
-      // `listening-tests.css` tách từ khối <style> nội tuyến của trang legacy;
-      // CẢ HAI vế cùng link nó. Thứ tự SAU `listening.css` đúng như vị trí cũ.
-      pageStylesheets={['/css/listening.css', '/css/listening-tests.css']}
+      // CHỈ CSS chung của domain ở đây. CSS RIÊNG của từng trang do chính
+      // `page.tsx` nhả ra, vì bốn trang trong nhóm ĐỊNH NGHĨA LẠI cùng những
+      // selector (`.lt-card`, `.empty-state`, `[hidden]` — đo được: cả 6 cặp
+      // đều chồng nhau). Nạp hết ở layout thì tệp cuối thắng và đổi giao diện
+      // các trang anh em. Trang legacy cũng chỉ nạp đúng CSS của nó.
+      pageStylesheets={['/css/listening.css']}
       utilityLayer={false}
       bodyClass="av-page"
     >

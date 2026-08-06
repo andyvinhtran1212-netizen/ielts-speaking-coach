@@ -210,7 +210,7 @@ describe('page shell', () => {
   });
 
   it('back link returns to the practice library', () => {
-    assert.match(HTML, /href="\/pages\/listening-practice\.html"/);
+    assert.match(HTML, /href="\/listening\/practice"/);
   });
 
   it('uses only design tokens that exist', () => {

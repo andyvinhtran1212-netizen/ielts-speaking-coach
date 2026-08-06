@@ -85,7 +85,7 @@ describe('Skills Practice — controller contract', () => {
 
 describe('Skills Practice — nav card on listening.html', () => {
   it('adds a mode-card linking to listening-skills.html', () => {
-    assert.match(LISTENING_HTML, /href=["']\/pages\/listening-skills\.html["']/);
+    assert.match(LISTENING_HTML, /href=["']\/listening\/skills["']/);
     assert.match(LISTENING_HTML, /Luyện kĩ năng/);
   });
 });
