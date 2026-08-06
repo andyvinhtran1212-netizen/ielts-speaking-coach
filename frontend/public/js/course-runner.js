@@ -257,7 +257,18 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     const done = Array.isArray(sv.completed) ? sv.completed.slice() : [];
     runSessions = done;
     const stages = Math.ceil(qs.length / STAGE);
-    if (done.length >= stages) {
+    // CHẶNG do MÁY CHỦ nói, không đếm phiên ở đây.
+    //
+    // `done.length` là số PHIÊN đã chốt. Một lượt kết phiên hỏng (mất mạng, đóng
+    // tab) làm chặng ấy không được đếm, nên chỉ số tụt xuống, đoạn dưới cắt nhầm
+    // 10 câu, phép khớp hỏng, và trang mở phiên MỚI — bỏ rơi luôn những câu vừa
+    // làm. Lần sau lại lệch thêm: hỏng một lần là hỏng mãi.
+    //
+    // Máy chủ suy chặng từ chính câu đang dở (và từ số câu đã phủ khi không có
+    // câu nào dở), nên nó không dính vòng ấy. Dữ liệu thật 06/08: 29 phiên mồ
+    // côi mang 90 câu đã trả lời, đúng bằng số câu được tính.
+    const svStage = Number.isInteger(sv.stage) ? sv.stage : done.length;
+    if (svStage >= stages) {
       // Xong hết các chặng: đứng ở màn kết quả, KHÔNG mở phiên mới.
       stage = stages - 1; at = STAGE; resumedFinal = true;
       sessionId = null; sessionFailed = false;
@@ -267,7 +278,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       restored = (sv.last_stage && sv.last_stage.graded) ? sv.last_stage : null;
       return true;
     }
-    stage = done.length;
+    stage = svStage;
     resumedFinal = false;
     at = 0; marks = [];
 
@@ -294,7 +305,19 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     return qs.slice(stage * STAGE, stage * STAGE + STAGE);
   }
 
-  async function openSession() {
+  // Một lượt mở phiên ĐANG BAY thì lượt gọi sau dùng chung nó.
+  //
+  // Không có chốt này thì hai lời gọi gần nhau tạo HAI phiên, một cái bị bỏ
+  // ngay lập tức. Dữ liệu thật 06/08: em Lê Ngọc Hà Linh có hai phiên mở đúng
+  // cùng một giây (16:14:49), một cái 0 câu và một cái 8 câu không lối về.
+  let opening = null;
+
+  function openSession() {
+    if (!opening) opening = _openSession().finally(function () { opening = null; });
+    return opening;
+  }
+
+  async function _openSession() {
     sessionId = null;
     sessionFailed = false;
     try {

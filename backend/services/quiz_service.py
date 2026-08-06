@@ -184,6 +184,11 @@ RETAKE_SIZE_DEFAULT = 20
 
 _SESSION_KINDS = {"run", "retake"}
 
+# Một chặng của bài tập theo buổi = 10 câu trắc nghiệm. Con số này đã nằm rải
+# rác ở cả hai phía (`STAGE` trong course-runner.js, phép `chia 10` trong
+# `_course_stage_count`); nêu tên nó ở đây để chỗ mới khỏi thành bản sao thứ ba.
+COURSE_STAGE_SIZE = 10
+
 
 def mastery_config(assignment: dict | None) -> dict:
     """Ngưỡng đạt + cỡ mẫu kiểm tra lại của một bài giao, đã kẹp về dải lành.
@@ -538,6 +543,75 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
+def _course_answered_qids(session_ids: list[str]) -> set[str]:
+    """qid đã trả lời trong các phiên ĐÃ CHỐT. Hỏng thì trả rỗng."""
+    out: set[str] = set()
+    if not session_ids:
+        return out
+    try:
+        for c in _chunks(session_ids):
+            for a in _report_pages("quiz_attempts", "qid",
+                                   lambda q, c=c: q.in_("session_id", c)):
+                if a.get("qid"):
+                    out.add(a["qid"])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] course-resume answered read failed: %s", exc)
+    return out
+
+
+def _course_mcq_order(bank_id: str) -> list[str]:
+    """qid các câu TRẮC NGHIỆM, ĐÚNG thứ tự trang nạp. Hỏng thì NÉM.
+
+    Trang cắt chặng bằng `qs.slice(stage * 10, …)` trên chính danh sách này, nên
+    thứ tự ở đây LÀ định nghĩa của "chặng". Đọc bằng cột `order` — cùng cột mà
+    đường phát đề dùng; xếp theo cột khác là hai bên nói về hai bài khác nhau.
+
+    Câu tự luận bị loại: chúng nằm ngoài vòng chặng, để chúng chiếm chỗ trong hệ
+    đếm thì mọi chặng sau đó lệch đi.
+
+    Ném chứ không trả rỗng: nơi gọi có đường lùi riêng, còn trả rỗng lặng lẽ thì
+    nó tưởng bộ đề không có câu nào và tính ra chặng 0 — đẩy học viên về đầu bài
+    (codex 06/08).
+    """
+    rows = (supabase_admin.table("quiz_questions").select("qid, type")
+            .eq("bank_id", bank_id).order("order").execute().data) or []
+    return [r["qid"] for r in rows
+            if r.get("qid") and r.get("type") != "writing"]
+
+
+def _course_stage_reached(order: list[str], answered_all: set[str],
+                          in_progress_qid: str | None = None) -> int:
+    """Chặng học viên đang đứng, tính TRÊN THỨ TỰ CHUẨN của bộ đề.
+
+    ── Vì sao không đếm ─────────────────────────────────────────────────────
+    Trang từng tự tính `stage = completed.length` (đếm PHIÊN). Một lượt kết
+    phiên hỏng làm chặng ấy không được đếm, chỉ số tụt, trang cắt nhầm 10 câu,
+    phép khớp mã câu hỏng, và nó mở một phiên MỚI — bỏ rơi luôn những câu vừa
+    làm. Lần sau lại lệch thêm. Đo được trên prod 06/08: 29 phiên mồ côi mang
+    90 câu đã trả lời, đúng bằng số câu được tính.
+
+    Đếm SỐ CÂU rồi chia 10 cũng không đúng: 9 câu của chặng 0 cộng 1 câu ở tận
+    chặng 5 vẫn ra "10 câu ⇒ chặng 1", trong khi chặng 0 còn lỗ. Và một bộ đề
+    25 câu trả lời trọn vẹn ra "2 chặng" trong khi nó có 3 — bài không bao giờ
+    được coi là xong (codex 06/08).
+
+    Nên: chặng đầu tiên CHƯA PHỦ ĐỦ. Phủ hết thì trả số chặng.
+    """
+    total = -(-len(order) // COURSE_STAGE_SIZE)
+    for k in range(total):
+        chunk = order[k * COURSE_STAGE_SIZE:(k + 1) * COURSE_STAGE_SIZE]
+        if not set(chunk) <= answered_all:
+            # Còn lỗ ở chặng k. Nhưng nếu học viên ĐANG làm dở một chặng SAU nó
+            # thì chính câu đang dở mới nói đúng chỗ đứng: trang có thể đã tiến
+            # chặng theo bộ nhớ cục bộ trong khi một lượt kết phiên hỏng để lại
+            # lỗ phía sau. Kéo em ấy về lấp lỗ là bắt làm lại từ giữa bài.
+            if in_progress_qid and in_progress_qid in order:
+                at = order.index(in_progress_qid) // COURSE_STAGE_SIZE
+                return max(at, k)
+            return k
+    return total
+
+
 def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     """Chỗ đang làm dở của MỘT lượt bài tập theo buổi — đọc từ máy chủ.
 
@@ -557,13 +631,14 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
       · `answered`    [{qid, is_correct}] theo THỨ TỰ làm, của đúng phiên ấy
       · `completed`   id các phiên 'run' ĐÃ chốt — chính là danh sách gửi đi xét
                       đạt, nay không còn phụ thuộc bộ nhớ trình duyệt
+      · `stage`       CHẶNG đang đứng, suy từ SỐ CÂU ĐÃ PHỦ (xem dưới)
       · `item_id`     mục bài giao đang gắn, để trang bỏ trạng thái của mục khác
 
     Chỉ dành cho bank theo buổi; các luồng quiz khác trả rỗng và không đổi hành
     vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
     """
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
-             "last_stage": None}
+             "last_stage": None, "stage": 0}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -574,7 +649,8 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
 
     try:
         q = (supabase_admin.table("quiz_sessions")
-             .select("id, ended_at, class_assignment_item_id, created_at, kind, total_correct, total_questions")
+             .select("id, ended_at, ended_by, class_assignment_item_id, created_at, "
+                     "kind, total_correct, total_questions")
              .eq("user_id", user_id).eq("bank_id", bank_id)
              .order("created_at", desc=False))
         rows = (q.execute().data) or []
@@ -590,14 +666,17 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     # `kind` vắng mặt trên phiên cũ (trước mig 189) — coi như 'run'.
     rows = [r for r in rows if (r.get("kind") or "run") == "run"]
 
-    completed = [r["id"] for r in rows if r.get("ended_at")]
+    # ĐÃ CHỐT phải là `ended_by='completed'`. `ended_at` được đặt cả khi TẠM
+    # DỪNG, nên đếm theo nó là gọi một chặng bỏ giữa chừng là chặng đã xong —
+    # rồi gửi luôn id phiên tạm dừng đi xét đạt, và verdict bác cả lượt.
+    completed = [r["id"] for r in rows if r.get("ended_by") == "completed"]
     # Kết quả CHẶNG CUỐI ĐÃ CHỐT. Máy mới (chưa có gì trong localStorage) khôi
     # phục vào màn kết quả với `marks` rỗng, và trang tính điểm từ `marks` — nên
     # không có con số này thì học viên xong cả bài vẫn thấy "0/10 câu đúng"
     # (codex PR 945 vòng 4).
     last = None
     for r in rows:
-        if r.get("ended_at") and r.get("total_questions"):
+        if r.get("ended_by") == "completed" and r.get("total_questions"):
             last = r
     result_last = ({"right": int(last.get("total_correct") or 0),
                     "graded": int(last.get("total_questions") or 0)}
@@ -605,8 +684,33 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     open_rows = [r for r in rows if not r.get("ended_at")]
     # Nhiều phiên rỗng do tải lại trang: lấy phiên CÓ BÀI gần nhất, không phải
     # phiên mới nhất — bản ghi của học viên nằm ở phiên có bài.
+    # ── CHẶNG SUY TỪ SỐ CÂU ĐÃ PHỦ, KHÔNG TỪ SỐ PHIÊN ────────────────────────
+    #
+    # Trang từng tự tính `stage = completed.length`. Một phiên bị bỏ giữa chừng
+    # (tải lại trang, mất mạng) làm chặng ấy KHÔNG được đếm, nên chỉ số chặng
+    # lệch xuống, trang cắt nhầm 10 câu, phép khớp tiền tố hỏng, và nó mở một
+    # phiên MỚI — bỏ rơi luôn những câu học viên vừa làm. Lần sau lại lệch thêm:
+    # một vòng tự nuôi, hỏng một lần là hỏng mãi.
+    #
+    # Dữ liệu thật 06/08: em Lê Ngọc Hà Linh đang dở chặng 3 (`B01-B2-*`) mà sổ
+    # đếm được 2 phiên, nên trang chờ chặng 2 và vứt 8 câu của em ấy. Toàn lớp
+    # có 29 phiên mồ côi mang 90 câu đã trả lời — đúng bằng số câu được tính.
+    #
+    # Đây là luật `course_verdict` và `_course_work_is_done` vẫn dùng: ĐẾM CÂU,
+    # đừng đếm phiên. Một chặng làm hai lần vẫn là một chặng.
+    # MỘT lượt đọc thứ tự chuẩn cho cả hai việc: tính chặng, và xếp lại câu đang
+    # dở. Hỏng thì lùi về cách cũ (đếm phiên) — sai ở các ca lẻ nhưng đúng ở ca
+    # thường, còn chặn học viên khỏi bài tập vì một lượt đọc phụ trợ thì tệ hơn.
+    try:
+        order = _course_mcq_order(bank_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] course-resume order read failed bank=%s: %s", bank_id, exc)
+        order = []
+    answered_all = _course_answered_qids(completed) if order else set()
     result = {"session_id": None, "answered": [], "completed": completed,
-              "item_id": item_id, "last_stage": result_last}
+              "item_id": item_id, "last_stage": result_last,
+              "stage": (_course_stage_reached(order, answered_all)
+                        if order else len(completed))}
     if not open_rows:
         return result
 
@@ -636,10 +740,29 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
         return result
     chosen = max(with_work, key=lambda r: (len(by_session[r["id"]]), r["created_at"]))
     result["session_id"] = chosen["id"]
-    result["answered"] = [
-        {"qid": a.get("qid"), "is_correct": bool(a.get("is_correct"))}
-        for a in by_session[chosen["id"]] if a.get("qid")
-    ]
+    # XẾP THEO THỨ TỰ CHUẨN CỦA BỘ ĐỀ, không theo `created_at`.
+    #
+    # Một lô lượt làm được ghi cùng lúc thì mang CÙNG dấu thời gian, và Postgres
+    # không hứa gì về thứ tự giữa các dòng bằng nhau. Trang lại đòi mảng khớp
+    # ĐÚNG tiền tố, nên chỉ cần hai câu đảo chỗ là nó coi như lệch đề, mở phiên
+    # mới, và bỏ rơi cả phiên có bài. Dữ liệu thật của em Minh Ngoc Võ đúng hình
+    # dạng ấy: `B1-07, B1-05, B1-04, B1-03, B1-06` (codex 06/08).
+    pos = {q: i for i, q in enumerate(order)}
+    picked = [a for a in by_session[chosen["id"]] if a.get("qid")]
+    if order:
+        picked.sort(key=lambda a: pos.get(a["qid"], len(order)))
+    seen_q: set[str] = set()
+    result["answered"] = []
+    for a in picked:
+        if a["qid"] in seen_q:
+            continue          # trả lời lại cùng một câu: giữ lượt ĐẦU
+        seen_q.add(a["qid"])
+        result["answered"].append(
+            {"qid": a["qid"], "is_correct": bool(a.get("is_correct"))})
+    # Có câu đang dở thì chính vị trí của nó nói chỗ đứng.
+    if order and result["answered"]:
+        result["stage"] = _course_stage_reached(
+            order, answered_all, in_progress_qid=result["answered"][0]["qid"])
     return result
 
 

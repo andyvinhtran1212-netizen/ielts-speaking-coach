@@ -889,3 +889,67 @@ describe('mở lại khi ĐÃ XONG cả bài', () => {
     });
   });
 });
+
+// ── Chặng do MÁY CHỦ nói, không đếm phiên ở trang ─────────────────────────
+//
+// Cảnh hỏng thật (06/08, dữ liệu prod): trang tự tính `stage = completed.length`.
+// Một lượt kết phiên hỏng (mất mạng, đóng tab) làm chặng ấy không được đếm, nên
+// chỉ số tụt xuống, trang cắt nhầm 10 câu, phép khớp tiền tố hỏng, và nó mở một
+// phiên MỚI — bỏ rơi luôn những câu vừa làm. Lần sau lại lệch thêm.
+//
+// Đo được: 29 phiên mồ côi mang 90 câu đã trả lời, đúng bằng số câu được tính.
+// Em Lê Ngọc Hà Linh đang làm câu của chặng 3 trong khi sổ đếm được 2 phiên.
+
+describe('chặng lấy từ máy chủ', () => {
+  test('nhận lại bài dở khi số phiên KHÔNG khớp chặng thật', async () => {
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
+    const { r, api } = await run({
+      questions: qsn,
+      resume: {
+        session_id: 'sess-cu', item_id: null,
+        completed: ['x', 'y'],          // chỉ 2 phiên chốt được…
+        stage: 3,                       // …nhưng em ấy đang ở chặng 3
+        answered: qsn.slice(30, 38).map((q) => ({ qid: q.qid, is_correct: true })),
+      },
+    });
+    assert.equal(r.stage, 3, 'nghe máy chủ, đừng đếm phiên');
+    assert.equal(r.at, 8, 'và nhận lại đúng 8 câu em ấy đã làm');
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 0,
+      'mở phiên mới ở đây là bỏ rơi bài của em ấy');
+  });
+
+  test('máy chủ cũ không trả `stage` thì vẫn chạy như trước', async () => {
+    const qsn = Array.from({ length: 40 }, (_, i) => mcq(i));
+    const { r } = await run({
+      questions: qsn,
+      resume: { session_id: null, item_id: null, completed: ['x'], answered: [] },
+    });
+    assert.equal(r.stage, 1, 'thiếu trường mới thì lùi về cách cũ, không nổ');
+  });
+
+  test('`stage` vượt số chặng ⇒ màn kết quả, không mở phiên', async () => {
+    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
+    const { r, api } = await run({
+      questions: qsn,
+      resume: { session_id: null, item_id: null, completed: ['x'], stage: 2,
+                answered: [], last_stage: { right: 9, graded: 10 } },
+    });
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 0);
+  });
+});
+
+describe('không mở hai phiên cùng lúc', () => {
+  test('hai lần sang chặng gần nhau chỉ tạo MỘT phiên', async () => {
+    // Dữ liệu thật: em Lê Ngọc Hà Linh có hai phiên mở đúng cùng một giây
+    // (16:14:49) — một cái 0 câu, một cái 8 câu không lối về. Bấm hai lần, hay
+    // một lần bấm đi kèm một lượt tự động, là đủ để sinh ra cảnh ấy.
+    //
+    // Đi qua ĐƯỜNG CÔNG KHAI (`nextStage`), không gọi hàm riêng: ghim hàm mà
+    // quên ghim chỗ gọi thì chốt xanh trong khi trang vẫn mở hai phiên.
+    const { r, api } = await run({ questions: Array.from({ length: 40 }, (_, i) => mcq(i)) });
+    const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    await Promise.all([r.nextStage(), r.nextStage()]);
+    const after = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    assert.equal(after - before, 1, 'mỗi phiên thừa là một chỗ bài học viên rơi vào');
+  });
+});
