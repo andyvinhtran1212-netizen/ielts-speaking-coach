@@ -543,6 +543,109 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
     return rows
 
 
+def close_dead_course_sessions(db, *, idle_minutes: int = 120,
+                              commit: bool = False) -> list[dict]:
+    """Đóng sổ những phiên bài-theo-buổi CHẮC CHẮN đã chết. Trả về việc đã/sẽ làm.
+
+    ── Vì sao cần ──────────────────────────────────────────────────────────
+    Học viên báo "em có làm lại vài chặng" mà web không ghi lại. Đúng: một
+    phiên bỏ giữa chừng nằm LƠ LỬNG — `ended_at` NULL nên nó không phải bản
+    ghi, mà cũng chẳng ai đang làm nó. Nó không hiện ở đâu cả.
+
+    Đo prod 06/08: 29 phiên như vậy mang 90 câu đã trả lời. Các CÂU thì không
+    mất (`course_answer_report` đọc mọi phiên 'run', không lọc `ended_at`) —
+    thứ mất là CÔNG SỨC: không chỗ nào nói em ấy đã làm chặng này ba lần.
+
+    Đóng sổ chúng biến một khoảng lơ lửng thành một bản ghi đọc được.
+
+    ── VÌ SAO KHÔNG ĐÓNG BỪA ───────────────────────────────────────────────
+    Một phiên vừa mở hai phút trước cũng có `ended_at` NULL — vì em ấy ĐANG
+    LÀM. Đóng nó là cướp bài khỏi tay người đang viết. Nên đòi ĐỦ CẢ HAI:
+
+      · lặng ít nhất `idle_minutes` (tính từ lượt làm CUỐI, không phải từ lúc
+        mở — một phiên mở lâu mà vẫn đang gõ thì vẫn sống), VÀ
+      · đã có một phiên KHÁC của cùng mục bắt đầu SAU nó — bằng chứng chính em
+        ấy đã bỏ nó mà đi tiếp.
+
+    `ended_by='abandoned'`, KHÔNG phải `'completed'`: nó chưa bao giờ xong, và
+    mọi phép đếm chặng/xét đạt đều lọc đúng `'completed'`.
+
+    `commit=False` là mặc định: chạy thử trước, đọc xem nó định làm gì, rồi mới
+    cho ghi. Một lượt quét ghi vào bảng của học viên không được là lượt chạy
+    đầu tiên ai đó nhìn thấy.
+    """
+    plan: list[dict] = []
+    try:
+        rows = _report_pages(
+            "quiz_sessions",
+            "id, user_id, bank_id, kind, ended_at, started_at, created_at, "
+            "class_assignment_item_id",
+            lambda q: q.not_.is_("class_assignment_item_id", "null"), db=db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] close-dead: không đọc được phiên: %s", exc)
+        return plan
+    runs = [r for r in rows if (r.get("kind") or "run") == "run"]
+    dead_ids = [r["id"] for r in runs if not r.get("ended_at")]
+    if not dead_ids:
+        return plan
+
+    att: dict[str, list[dict]] = {}
+    try:
+        for c in _chunks(dead_ids):
+            for a in _report_pages("quiz_attempts", "session_id, qid, is_correct, created_at",
+                                   lambda q, c=c: q.in_("session_id", c), db=db):
+                att.setdefault(a["session_id"], []).append(a)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] close-dead: không đọc được lượt làm: %s", exc)
+        return plan
+
+    # Phiên bắt đầu SAU nó, cùng mục — bằng chứng em ấy đã bỏ nó mà đi tiếp.
+    by_item: dict[str, list[dict]] = {}
+    for r in runs:
+        by_item.setdefault(r["class_assignment_item_id"], []).append(r)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=idle_minutes)
+    for r in runs:
+        if r.get("ended_at"):
+            continue
+        rows_a = att.get(r["id"]) or []
+        if not rows_a:
+            continue           # phiên rỗng: vô hại, không có gì để ghi lại
+        last = max((a.get("created_at") or "") for a in rows_a)
+        last_at = _at(last)
+        if not last_at or last_at > cutoff:
+            continue           # em ấy có thể vẫn đang làm
+        mine = r.get("started_at") or r.get("created_at") or ""
+        if not any((o.get("started_at") or o.get("created_at") or "") > mine
+                   for o in by_item.get(r["class_assignment_item_id"], [])
+                   # Tự nó không thể muộn hơn chính nó vì phép so là NGẶT; điều
+                   # kiện này là phòng thủ cho lần ai đó đổi `>` thành `>=`.
+                   if o["id"] != r["id"]):
+            continue           # chưa có phiên sau: chưa chắc đã bỏ
+        seen: set[str] = set()
+        right = 0
+        for a in sorted(rows_a, key=lambda x: x.get("created_at") or ""):
+            if a.get("qid") and a["qid"] not in seen:
+                seen.add(a["qid"])
+                right += 1 if a.get("is_correct") else 0
+        plan.append({"session_id": r["id"], "user_id": r.get("user_id"),
+                     "item_id": r["class_assignment_item_id"],
+                     "ended_at": last, "total_questions": len(seen),
+                     "total_correct": right})
+
+    if commit:
+        for row in plan:
+            try:
+                (db.table("quiz_sessions").update({
+                    "ended_by": "abandoned", "ended_at": row["ended_at"],
+                    "total_questions": row["total_questions"],
+                    "total_correct": row["total_correct"],
+                }).eq("id", row["session_id"]).is_("ended_at", "null").execute())
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[quiz] close-dead: ghi hỏng %s: %s", row["session_id"], exc)
+    return plan
+
+
 def _course_answered_qids(session_ids: list[str]) -> set[str] | None:
     """qid đã trả lời trong các phiên ĐÃ CHỐT. Hỏng thì trả None.
 
