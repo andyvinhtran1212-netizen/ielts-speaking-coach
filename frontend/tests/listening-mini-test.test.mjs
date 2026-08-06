@@ -35,7 +35,7 @@ describe('Mini test — list page reuses the full-test player', () => {
     assert.match(MINI_JS, /\/api\/listening\/tests\?test_type=mini/);
   });
   it('hub Mini Test card points to the mini list page', () => {
-    assert.match(HUB_HTML, /href="\/pages\/listening-mini-test\.html"/);
+    assert.match(HUB_HTML, /href="\/listening\/mini-test"/);
   });
 });
 

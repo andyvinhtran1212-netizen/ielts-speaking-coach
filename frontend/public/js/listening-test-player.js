@@ -203,9 +203,9 @@ function getClassItemFromUrl() {
 // default, and what the mock embed gets — its back links are not shown anyway).
 const BACK_TARGETS = {
   full:     '/listening/tests',
-  mini:     '/pages/listening-mini-test.html',
-  drill:    '/pages/listening-skills.html',
-  practice: '/pages/listening-practice.html',
+  mini:     '/listening/mini-test',
+  drill:    '/listening/skills',
+  practice: '/listening/practice',
 };
 function originFromUrl() {
   const v = (new URLSearchParams(window.location.search).get('from') || '').trim();

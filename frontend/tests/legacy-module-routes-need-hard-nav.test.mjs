@@ -37,6 +37,9 @@ const LEGACY_MODULE_ROUTES = [
   '/reading/test',
   '/reading/mini-test',
   '/listening/tests',
+  '/listening/mini-test',
+  '/listening/skills',
+  '/listening/practice',
 ];
 
 function walk(dir, out = []) {

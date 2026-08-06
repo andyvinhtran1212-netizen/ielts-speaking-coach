@@ -40,5 +40,23 @@
     "legacy": "/pages/listening-tests.html",
     "next": "/listening/tests",
     "allow": []
+  },
+  {
+    "name": "listening-mini-test",
+    "legacy": "/pages/listening-mini-test.html",
+    "next": "/listening/mini-test",
+    "allow": []
+  },
+  {
+    "name": "listening-skills",
+    "legacy": "/pages/listening-skills.html",
+    "next": "/listening/skills",
+    "allow": []
+  },
+  {
+    "name": "listening-practice",
+    "legacy": "/pages/listening-practice.html",
+    "next": "/listening/practice",
+    "allow": []
   }
 ]

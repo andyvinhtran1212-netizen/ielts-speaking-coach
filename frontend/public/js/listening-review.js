@@ -176,9 +176,9 @@
   // Full Test library instead of where they started.
   var BACK_TARGETS = {
     full:     { href: '/listening/tests',     label: '← Listening tests' },
-    mini:     { href: '/pages/listening-mini-test.html', label: '← Mini tests' },
-    drill:    { href: '/pages/listening-skills.html',    label: '← Luyện kĩ năng' },
-    practice: { href: '/pages/listening-practice.html',  label: '← Luyện nhanh' },
+    mini:     { href: '/listening/mini-test', label: '← Mini tests' },
+    drill:    { href: '/listening/skills',    label: '← Luyện kĩ năng' },
+    practice: { href: '/listening/practice',  label: '← Luyện nhanh' },
     mock:     { href: '/pages/mock-result.html',         label: '← Kết quả thi thử' },
   };
   function wireBack() {

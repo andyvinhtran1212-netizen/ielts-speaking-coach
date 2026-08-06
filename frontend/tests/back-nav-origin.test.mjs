@@ -146,7 +146,7 @@ function lPlayerBack(search) {
 
 describe('listening-review — back follows the entry point', () => {
   test('mini-test taker goes back to the MINI library', () => {
-    assert.equal(lReviewBack('?attempt_id=A&from=mini').href, '/pages/listening-mini-test.html');
+    assert.equal(lReviewBack('?attempt_id=A&from=mini').href, '/listening/mini-test');
   });
   test('mock taker goes back to THEIR sitting, not a test shelf', () => {
     assert.equal(lReviewBack('?attempt_id=A&from=mock&sitting=S9').href,
@@ -165,15 +165,15 @@ describe('listening-review — back follows the entry point', () => {
 
 describe('listening player — back follows the library you came from', () => {
   test('mini library entry backs to the mini library', () => {
-    assert.deepEqual(lPlayerBack('?id=T&from=mini'), ['/pages/listening-mini-test.html']);
+    assert.deepEqual(lPlayerBack('?id=T&from=mini'), ['/listening/mini-test']);
   });
   test('practice library entry backs to Luyện nhanh', () => {
     // Before `practice` was in the allowlist this fell through to Full Tests,
     // dumping a trap-drill learner onto the Cambridge shelf.
-    assert.deepEqual(lPlayerBack('?id=T&from=practice'), ['/pages/listening-practice.html']);
+    assert.deepEqual(lPlayerBack('?id=T&from=practice'), ['/listening/practice']);
   });
   test('skill-drill entry backs to Luyện kĩ năng', () => {
-    assert.deepEqual(lPlayerBack('?id=T&from=drill'), ['/pages/listening-skills.html']);
+    assert.deepEqual(lPlayerBack('?id=T&from=drill'), ['/listening/skills']);
   });
   test('full library entry backs to the full library', () => {
     assert.deepEqual(lPlayerBack('?id=T&from=full'), ['/listening/tests']);
