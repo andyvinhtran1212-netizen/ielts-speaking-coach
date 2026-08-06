@@ -202,7 +202,7 @@ function getClassItemFromUrl() {
 // to a raw URL from the query string. Unknown/absent → full (the historical
 // default, and what the mock embed gets — its back links are not shown anyway).
 const BACK_TARGETS = {
-  full:     '/pages/listening-tests.html',
+  full:     '/listening/tests',
   mini:     '/pages/listening-mini-test.html',
   drill:    '/pages/listening-skills.html',
   practice: '/pages/listening-practice.html',
@@ -213,7 +213,7 @@ function originFromUrl() {
 }
 function wireBack() {
   const href = BACK_TARGETS[originFromUrl()];
-  document.querySelectorAll('a[href="/pages/listening-tests.html"]')
+  document.querySelectorAll('a[href="/listening/tests"]')
     .forEach((a) => { a.href = href; });
 }
 

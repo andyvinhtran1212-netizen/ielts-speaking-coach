@@ -28,9 +28,9 @@ export function ReadingVocabShell() {
         {/* Library switcher: L1 ↔ L2 ↔ L3 (Sprint 20.6 adds the Full Test entry). */}
         <nav className="rv-libnav" aria-label="Reading libraries">
           <a className="rv-libnav__link is-active" aria-current="page">Vocab Reading</a>
-          <a className="rv-libnav__link" href="/pages/reading-skill.html">Skill Practice</a>
-          <a className="rv-libnav__link" href="/pages/reading-test.html">Full Tests</a>
-          <a className="rv-libnav__link" href="/pages/reading-mini-test.html">Mini Tests</a>
+          <a className="rv-libnav__link" href="/reading/skill">Skill Practice</a>
+          <a className="rv-libnav__link" href="/reading/test">Full Tests</a>
+          <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
         <div className="rv-filters">

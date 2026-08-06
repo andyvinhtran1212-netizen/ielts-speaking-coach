@@ -90,8 +90,8 @@
   // an open redirect). Unknown/absent → the full-test library, the historical
   // default. The old href was /pages/reading.html, a page that never existed.
   var BACK_TARGETS = {
-    full: { href: '/pages/reading-test.html', label: '← Thư viện' },
-    mini: { href: '/pages/reading-mini-test.html', label: '← Mini tests' },
+    full: { href: '/reading/test', label: '← Thư viện' },
+    mini: { href: '/reading/mini-test', label: '← Mini tests' },
     mock: { href: '/pages/mock-result.html', label: '← Kết quả thi thử' },
   };
   function wireBack() {

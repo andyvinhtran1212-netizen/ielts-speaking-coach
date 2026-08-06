@@ -138,7 +138,10 @@ describe('header-notefill A — clean header, inline skills, sticky toggle', () 
     // the SHAPE of the header (plain .rr-back link, not a boxed .exam-tool), so
     // assert that and leave the destination to back-nav-origin.test.mjs, which
     // now drives it per entry point (?from=full|mini|mock).
-    assert.match(html, /class="rr-back" id="rr-back" href="\/pages\/[a-z-]+\.html"/);
+    // [cutover cụm Reading 2026-08-05] đích có thể là route Next canonical
+    // (`/reading/test`) HOẶC trang legacy chưa migrate — chốt này canh "link
+    // sạch, không phải hộp công cụ", nên nó phải nhận cả hai dạng.
+    assert.match(html, /class="rr-back" id="rr-back" href="\/(pages\/[a-z-]+\.html|reading\/[a-z-]+)"/);
     assert.ok(!/exam-tool[^>]*Thư viện/.test(html), 'back link must not use the boxed .exam-tool');
     assert.match(html, /class="rr-test-label" id="rr-test-label"/);
   });

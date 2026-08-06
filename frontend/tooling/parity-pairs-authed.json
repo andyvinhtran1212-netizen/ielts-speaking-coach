@@ -16,5 +16,29 @@
     "legacy": "/pages/reading-vocab.html",
     "next": "/reading/vocab",
     "allow": []
+  },
+  {
+    "name": "reading-skill",
+    "legacy": "/pages/reading-skill.html",
+    "next": "/reading/skill",
+    "allow": []
+  },
+  {
+    "name": "reading-test",
+    "legacy": "/pages/reading-test.html",
+    "next": "/reading/test",
+    "allow": []
+  },
+  {
+    "name": "reading-mini-test",
+    "legacy": "/pages/reading-mini-test.html",
+    "next": "/reading/mini-test",
+    "allow": []
+  },
+  {
+    "name": "listening-tests",
+    "legacy": "/pages/listening-tests.html",
+    "next": "/listening/tests",
+    "allow": []
   }
 ]
