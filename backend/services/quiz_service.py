@@ -24,6 +24,7 @@ from services import course_writing_grader
 from services.class_assignment_service import (
     is_accepting_submissions,
     is_assignment_open,
+    _at,
     mark_item_submitted,
 )
 
@@ -895,6 +896,262 @@ def _course_work_is_done(session: dict, item_id: str) -> bool:
     return mcq_qids <= answered
 
 
+def _chunks(seq, n=None):
+    """Chia lô cho `in.(...)`: URL của PostgREST có giới hạn độ dài.
+
+    Cắt bớt thay vì chia lô là một trần ÂM THẦM — trang chạy xanh, con số
+    trông đủ, và những mục sau mốc 100 không bao giờ được vá.
+    """
+    n = n or _REPORT_IDS
+    for i in range(0, len(seq), n):
+        yield seq[i:i + n]
+
+
+def _bank_shapes(bank_ids: list[str], db=None) -> dict[str, tuple[set[str], int]]:
+    """{bank: (qid trắc nghiệm, số câu tự luận)} — đọc THEO LÔ, hỏng thì NÉM.
+
+    Khác `_course_bank_shape` ở hai điểm, cả hai đều có lý do:
+
+    · Theo lô. Hỏi từng bộ đề trong vòng lặp thì một trang có 60 bài giao khác
+      bộ đề tốn 60 lượt đọc, và cái memo theo bank chỉ đỡ khi các mục dùng
+      CHUNG bộ đề — tức là đỡ đúng lúc không cần đỡ.
+    · Ném. `_course_bank_shape` nuốt lỗi vì nó phục vụ đường chốt sổ duy nhất,
+      ở đó đoán sai làm bài kẹt vĩnh viễn. Ở đường vá, nuốt lỗi nghĩa là bỏ vá
+      trong im lặng: trang vẫn vẽ "chưa nộp" như thể đó là sự thật, không một
+      lời cảnh báo (codex cục bộ 06/08 vòng 2).
+    """
+    out: dict[str, tuple[set[str], int]] = {b: (set(), 0) for b in bank_ids}
+    for c in _chunks(list(bank_ids)):
+        for r in _report_pages("quiz_questions", "bank_id, qid, type",
+                               lambda q, c=c: q.in_("bank_id", c), db=db):
+            mcq, writing = out.get(r.get("bank_id"), (set(), 0))
+            if r.get("type") == "writing":
+                out[r["bank_id"]] = (mcq, writing + 1)
+            elif r.get("qid"):
+                out[r["bank_id"]] = (mcq | {r["qid"]}, writing)
+    return out
+
+
+def _completing_session(runs: list[dict], answered: dict[str, set[str]],
+                        mcq_qids: set[str]) -> dict | None:
+    """Phiên mà TẠI ĐÓ bài vừa đủ câu — không phải phiên muộn nhất.
+
+    Học viên làm lại một chặng sau khi đã xong là chuyện thường. Lấy phiên muộn
+    nhất thì mục được đóng dấu bằng giờ của lượt làm lại: sai giờ nộp, sai điểm
+    (điểm của lượt làm lại chứ không phải lượt hoàn thành), và một bài xong
+    đúng hạn rồi ôn lại sau hạn sẽ bị đọc thành nộp trễ.
+
+    Đường ghi thường đóng dấu ở đúng phiên khép lại bài; đường vá phải dựng lại
+    CHÍNH kết quả ấy, chứ không phải một kết quả khác cũng hợp lý (codex cục bộ
+    06/08).
+    """
+    ordered = sorted(runs, key=lambda r: r["ended_at"])
+    if not mcq_qids:
+        # Bộ đề không có câu trắc nghiệm nào: phiên chốt đầu tiên là bằng chứng.
+        return ordered[0] if ordered else None
+    seen: set[str] = set()
+    for r in ordered:
+        seen |= answered.get(r["id"], set())
+        if mcq_qids <= seen:
+            return r
+    return None
+
+
+class ReconcileIncomplete(Exception):
+    """Lượt đối chiếu KHÔNG làm trọn — khác hẳn "không có gì để vá".
+
+    Hai mặt đọc đều bọc lời gọi trong try/except để bật cờ "chưa đối chiếu
+    được". Nuốt lỗi rồi trả một con số trông như thành công khiến trang vẽ
+    "chưa nộp" như thể đó là sự thật.
+    """
+
+
+def reconcile_course_items(db, assignment_ids: list[str]) -> int:
+    """Vá sổ cho bài tập THEO BUỔI. Trả về số mục đã vá.
+
+    ── Vì sao cần ──────────────────────────────────────────────────────────
+    `end_session` và `submit_course_writing` đều ghi sổ BEST-EFFORT: hỏng thì
+    chỉ log, còn client nhận HTTP 200 nên không có gì kích hoạt thử lại. Với
+    chặng CUỐI (hoặc lượt nộp tự luận) thì không còn lượt nào sau để gọi lại, và
+    bài nằm ở "Cần nộp" vĩnh viễn.
+
+    `reconcile_ledger_from_sessions` không đỡ được: nó đọc bảng `sessions` của
+    Speaking, không đọc `quiz_sessions` (codex PR 954).
+
+    ── MỘT luật cho mọi trục trặc: làm hết phần làm được, rồi NÉM ───────────
+    Ba vòng soi liên tiếp đều vấp cùng một câu hỏi — lượt đọc bộ đề hỏng thì
+    sao, lượt ghi một mục hỏng thì sao, lượt đọc phiên hỏng thì sao — vì mỗi
+    chỗ tôi lại quyết một kiểu. Nay chỉ còn một luật: hỏng ở đâu cũng cố làm
+    nốt phần còn lại, rồi ném `ReconcileIncomplete`. Đơn vị "phần còn lại" là
+    MỘT LÔ 100 mục: trong lô thì được ăn cả ngã về không (đọc nửa vời sẽ đóng
+    dấu sai giờ), còn lô này hỏng không kéo theo lô khác. Hai mặt đọc của giáo viên
+    và một mặt đọc của học viên đều đã bọc sẵn try/except để bật cờ, nên "ném"
+    đúng nghĩa là "nói thật với người đang đọc trang".
+
+    ── HAI loại bằng chứng, đọc RỜI nhau ───────────────────────────────────
+    Một dòng tự luận đã chấm tự nó đủ để chốt sổ: nó không cần biết bộ đề có
+    bao nhiêu câu hay em ấy đã làm những phiên nào. Bắt nó đi chung đường đọc
+    với nhóm trắc nghiệm nghĩa là một lượt đọc `quiz_questions` hỏng cũng chặn
+    luôn những bài viết đã chấm — chặn vì một dữ liệu không ai dùng tới.
+
+    ── Vì sao đọc THEO LÔ ──────────────────────────────────────────────────
+    Đa số mục "chưa nộp" là chưa nộp THẬT — em ấy chưa làm. Hỏi từng mục thì
+    một lớp 14 em × 5 bài giao tốn hàng trăm lượt đọc mỗi lần mở trang, để vá
+    một sự cố hiếm: cả lớp trả giá cho một trường hợp lẻ.
+
+    ── Vì sao KHÔNG chặn theo hạn nộp ──────────────────────────────────────
+    Speaking chặn sau hạn ở chính đường ghi (`sessions.py`), nên đường vá của
+    nó chặn theo là ĐÚNG NHỊP. Bài theo buổi thì `end_session` và
+    `submit_course_writing` KHÔNG chặn — bài muộn vẫn được ghi, và bảng của
+    giáo viên gọi nó là trễ bằng cách so `submitted_at` với hạn. Nếu đường vá
+    lại chặt hơn đường ghi thì em nào làm muộn mà gặp lượt ghi sổ hỏng sẽ kẹt
+    VĨNH VIỄN — đúng cái lỗi hàm này sinh ra để sửa.
+
+    Luỹ đẳng: `mark_item_submitted` chỉ ghi khi `submitted_at IS NULL`.
+    """
+    if not assignment_ids:
+        return 0
+
+    hurt: list[str] = []
+
+    def _try(what, fn):
+        """Chạy một mảnh việc; hỏng thì ghi sổ nợ và đi tiếp.
+
+        MỘT LÔ LÀ MỘT ĐƠN VỊ CÔNG VIỆC. Trong một lô thì được ăn cả ngã về
+        không — lượt đọc chết giữa chừng để lại dữ liệu về một nửa mà TRÔNG như
+        đã đủ, và một mục mất đúng phiên muộn nhất sẽ bị đóng dấu bằng giờ của
+        lượt trước. Nhưng lô này hỏng không được kéo theo lô khác: chúng chia
+        theo mã mục, nên công việc của lô đã đọc trọn là an toàn.
+        """
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] reconcile: %s hỏng: %s", what, exc)
+            hurt.append(what)
+            return None
+
+    course: dict[str, dict] = {}
+    for c in _chunks(list(assignment_ids)):
+        _try(f"đọc bài giao ({len(c)} mã)", lambda c=c: course.update(
+            {a["id"]: a for a in _report_pages(
+                "class_assignments", "id, content_id, skill",
+                lambda q, c=c: q.in_("id", c), db=db) if a.get("skill") == "course"}))
+    if not course:
+        if hurt:
+            raise ReconcileIncomplete("; ".join(hurt))
+        return 0
+
+    items: list[dict] = []
+    for c in _chunks(list(course)):
+        _try(f"đọc mục bài giao ({len(c)} bài)", lambda c=c: items.extend(
+            _report_pages("class_assignment_items",
+                          "id, assignment_id, submitted_at",
+                          lambda q, c=c: q.in_("assignment_id", c), db=db)))
+    pending = {i["id"]: i for i in items if not i.get("submitted_at")}
+    if not pending:
+        if hurt:
+            raise ReconcileIncomplete("; ".join(hurt))
+        return 0
+
+    def _bank_of(item_id):
+        return (course.get(pending[item_id]["assignment_id"]) or {}).get("content_id")
+
+    fixed = 0
+
+    def _stamp(item_id, kind, art, done_at, score):
+        """Đóng dấu thời điểm LÀM XONG, không phải thời điểm vá: bài xong lúc
+        18:00 mà vá lúc 20:00 sẽ bị đọc thành nộp trễ — đường vá tự tạo ra đúng
+        cái kết luận sai mà nó sinh ra để sửa."""
+        nonlocal fixed
+        try:
+            if mark_item_submitted(db, item_id=item_id, artifact_kind=kind,
+                                   artifact_id=art, score=score, now=done_at):
+                fixed += 1
+        except Exception as exc:  # noqa: BLE001
+            # Thử tiếp những mục còn lại: một mục hỏng không được cản cả lớp.
+            logger.warning("[quiz] reconcile: ghi sổ hỏng item=%s: %s", item_id, exc)
+            hurt.append(f"ghi item={item_id}")
+
+    # ── Bằng chứng 1: bài tự luận ĐÃ CHẤM ───────────────────────────────────
+    # Tự nó đủ, kể cả khi bộ đề vừa bị nạp lại và phần viết đã biến mất: lấy
+    # hình dạng bộ đề HÔM NAY để phán một việc đã xảy ra HÔM QUA sẽ bỏ rơi đúng
+    # những lượt nộp cần cứu.
+    wrote: dict[str, dict] = {}
+    for c in _chunks(list(pending)):
+        _try(f"đọc bài tự luận ({len(c)} mục)", lambda c=c: wrote.update(
+            {w["class_assignment_item_id"]: w for w in _report_pages(
+                "course_writing_submissions",
+                "id, class_assignment_item_id, graded_at, total, clean",
+                lambda q, c=c: q.in_("class_assignment_item_id", c), db=db)
+             if w.get("class_assignment_item_id")}))
+    for item_id, w in wrote.items():
+        _stamp(item_id, "course_writing", w["id"], _at(w.get("graded_at")),
+               round(int(w["clean"]) / int(w["total"]) * 100, 1)
+               if w.get("total") else None)
+
+    # ── Bằng chứng 2: các phiên trắc nghiệm đã chốt ─────────────────────────
+    rest = [i for i in pending if i not in wrote]
+    for c in _chunks(rest):
+        _try(f"đọc bằng chứng trắc nghiệm ({len(c)} mục)",
+             lambda c=c: _reconcile_chunk(c, _bank_of, _stamp, db))
+
+    if fixed:
+        logger.info("[quiz] đã vá %s mục bài tập theo buổi", fixed)
+    if hurt:
+        raise ReconcileIncomplete("; ".join(hurt))
+    return fixed
+
+
+def _reconcile_chunk(item_ids: list[str], bank_of, stamp, db=None) -> None:
+    """Vá MỘT LÔ mục mà bằng chứng nằm ở các phiên trắc nghiệm đã chốt.
+
+    Ném thì cả lô này không vá gì — xem `_try`. Không trả về số đếm: `stamp`
+    mới biết lượt ghi nào THỰC SỰ vào sổ (lệnh ghi luỹ đẳng có thể không đổi
+    dòng nào), nên để nó đếm một mình.
+    """
+    runs: dict[str, list[dict]] = {}
+    for r in _report_pages(
+            "quiz_sessions",
+            "id, kind, ended_at, class_assignment_item_id, "
+            "total_questions, total_correct",
+            lambda q: q.in_("class_assignment_item_id", item_ids)
+                       .eq("ended_by", "completed"), db=db):
+        # Chỉ lượt CHÍNH: phiên kiểm tra lại là mẫu nhỏ ngẫu nhiên, không phải
+        # một chặng.
+        if (r.get("kind") or "run") == "run" and r.get("ended_at"):
+            runs.setdefault(r["class_assignment_item_id"], []).append(r)
+
+    # Đây là chỗ N mục co xuống còn vài mục: không phiên nào chốt thì không có
+    # gì để vá, và mọi lượt đọc tốn kém phía dưới đều khỏi phải chạy.
+    cand = [i for i in item_ids if i in runs]
+    if not cand:
+        return
+
+    # Câu đã trả lời, giữ THEO TỪNG PHIÊN — gộp thẳng thành một tập cho mỗi mục
+    # thì mất thông tin cần để biết PHIÊN NÀO làm xong bài.
+    sids = {r["id"] for i in cand for r in runs[i]}
+    answered: dict[str, set[str]] = {}
+    for c in _chunks(list(sids)):
+        for a in _report_pages("quiz_attempts", "session_id, qid",
+                               lambda q, c=c: q.in_("session_id", c), db=db):
+            if a.get("qid") and a.get("session_id") in sids:
+                answered.setdefault(a["session_id"], set()).add(a["qid"])
+
+    shapes = _bank_shapes([b for b in {bank_of(i) for i in cand} if b], db)
+    for item_id in cand:
+        mcq_qids, writing = shapes.get(bank_of(item_id), (set(), 0))
+        # Bộ đề còn phần viết mà không có dòng tự luận nào (mục này đã bị loại
+        # khỏi nhóm kia) thì bài chưa xong, dù đã làm hết trắc nghiệm.
+        if writing:
+            continue
+        done = _completing_session(runs[item_id], answered, mcq_qids)
+        if not done:
+            continue
+        stamp(item_id, "quiz_session", done["id"], _at(done.get("ended_at")),
+              round(int(done["total_correct"]) / int(done["total_questions"]) * 100, 1)
+              if done.get("total_questions") else None)
+
+
 def course_writing_state(*, user_id: str, bank_id: str) -> dict:
     """Phần tự luận của bank này: đề, và bản chấm nếu đã nộp.
 
@@ -1413,8 +1670,13 @@ _REPORT_PAGE = 1000
 _REPORT_IDS = 100
 
 
-def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
+def _report_pages(table: str, cols: str, shape, *, order: str = "id", db=None):
     """Đọc hết bảng theo trang. Trả về danh sách đầy đủ.
+
+    `db` để nơi gọi chỉ ra ĐÚNG client nó đang dùng. Mặc định lấy client toàn
+    cục của module này — nhưng một hàm nhận `db` để GHI mà lại ĐỌC bằng client
+    toàn cục thì hai nửa của cùng một việc chạy trên hai kết nối, và một chốt
+    thử patch client của router sẽ lặng lẽ gọi ra Supabase thật (codex vòng 5).
 
     `range()` KHÔNG ĐI MỘT MÌNH được: không có `ORDER BY` thì Postgres không hứa
     hẹn gì về thứ tự giữa hai truy vấn, nên trang thứ hai không neo vào trang
@@ -1424,7 +1686,7 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id"):
     out: list[dict] = []
     start = 0
     while True:
-        rows = (shape(supabase_admin.table(table).select(cols))
+        rows = (shape((db or supabase_admin).table(table).select(cols))
                 .order(order)
                 .range(start, start + _REPORT_PAGE - 1).execute().data) or []
         out.extend(rows)

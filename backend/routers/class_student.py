@@ -30,6 +30,7 @@ from fastapi import APIRouter, Header, HTTPException
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.quiz_service import bank_has_writing
+from services.quiz_service import reconcile_course_items
 from services.class_assignment_service import (
     _ID_CHUNK,
     is_accepting_submissions,
@@ -242,13 +243,31 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     # must not blank the page. Showing it WITHOUT SAYING SO is not: the one
     # thing that can go wrong here is a finished task still listed as owed, and
     # a student who trusts that list retakes work they have already handed in.
+    #
+    # Một khối riêng cho mỗi bộ đối chiếu: chúng đọc hai nguồn bằng chứng rời
+    # nhau, nên gộp chung nghĩa là bộ này hỏng thì bộ kia không được thử.
     stale = False
+    for what, fn in (
+        ("test-attempts", lambda: reconcile_test_attempts(
+            supabase_admin, list(by_id.values()))),
+        # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
+        # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
+        # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
+        # làm xong vẫn đang nợ.
+        ("course", lambda: reconcile_course_items(supabase_admin, list(by_id))),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            stale = True
+            logger.warning("[class] reconcile skipped (%s): %s", what, exc)
+    # Đọc lại SAU cả hai bộ, và ngoài khối bắt lỗi của chúng: một bộ hỏng vẫn
+    # phải lấy được kết quả của bộ kia.
     try:
-        reconcile_test_attempts(supabase_admin, list(by_id.values()))
         items = _reread_items(student["id"], [i["id"] for i in items]) or items
     except Exception as exc:
         stale = True
-        logger.warning("[class] test reconcile skipped: %s", exc)
+        logger.warning("[class] reread items failed: %s", exc)
 
     # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
     # và một lượt đọc là đủ cho cả trang.
