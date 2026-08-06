@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -209,5 +209,35 @@ describe('NO_LIST / NO_TEXT — trường chéo-chế-độ không được mang
     // Ghim LÝ DO thay đổi: ai quay lại `(v) => v == null` cho trường bài làm sẽ
     // thấy ngay hai cách KHÔNG tương đương.
     assert.equal(bodyMatches({ answers: null }, { answers: (v) => v == null }).ok, true);
+  });
+});
+
+describe('NO_BODY và thân request dạng hàm', () => {
+  // Cả hai đều từ codex cục bộ #969, và cái thứ hai là một bẫy ÂM THẦM: viết
+  // `body: (b) => ...` trước đây KHÔNG kiểm gì cả, vì `Object.entries(fn)` trả
+  // mảng rỗng nên vòng lặp không chạy lần nào. Bản khai đọc như đang kiểm chặt.
+  test('NO_BODY: không thân ⇒ đạt', () => {
+    assert.equal(bodyMatches(null, NO_BODY).ok, true);
+    assert.equal(bodyMatches('', NO_BODY).ok, true);
+  });
+
+  test('NO_BODY: có thân ⇒ ĐỎ (khác hẳn với bỏ trống `body` = không soi)', () => {
+    const r = bodyMatches({ rac: 1 }, NO_BODY);
+    assert.equal(r.ok, false);
+    assert.match(r.why, /phải KHÔNG có thân/);
+    // Đối chiếu: bỏ trống thì cùng thân đó lại qua.
+    assert.equal(bodyMatches({ rac: 1 }, null).ok, true);
+  });
+
+  test('hàm ở mức đỉnh soi CẢ thân — cặp hoán đổi phải ĐỎ', () => {
+    const pair = (b) => (b.q_num === 1 && b.user_answer === 'a')
+      || (b.q_num === 2 && b.user_answer === 'b');
+    assert.equal(bodyMatches({ q_num: 1, user_answer: 'a' }, pair).ok, true);
+    assert.equal(bodyMatches({ q_num: 1, user_answer: 'b' }, pair).ok, false);
+  });
+
+  test('cách khai TỪNG TRƯỜNG cho cặp hoán đổi đi qua — lý do phải dùng hàm', () => {
+    const perField = { q_num: (v) => v === 1 || v === 2, user_answer: (v) => v === 'a' || v === 'b' };
+    assert.equal(bodyMatches({ q_num: 1, user_answer: 'b' }, perField).ok, true);
   });
 });

@@ -59,11 +59,22 @@ def _reading_question_types_from_migration() -> set[str]:
 
     Không chép danh sách vào đây: bản sao thứ hai rồi sẽ trôi khỏi bản gốc, mà
     trôi im lặng thì chốt này thành trang trí.
+
+    BỎ CHÚ THÍCH TRƯỚC KHI ĐỌC, và khoanh vào đúng khối `CREATE TABLE
+    reading_questions`. Bản đầu quét thẳng SQL thô, nên một ràng buộc đã bị chú
+    thích ra vẫn khớp, và một loại chỉ nằm trong chú thích vẫn được nhận — chốt
+    FAIL-OPEN mà `len >= 10` không phát hiện được (codex cục bộ #969).
     """
     sql = (ROOT / "backend/migrations/086_reading_module_foundation.sql").read_text(
         encoding="utf-8")
+    sql = re.sub(r"--[^\n]*", "", sql)          # chú thích dòng
+    sql = re.sub(r"/\*.*?\*/", "", sql, flags=re.S)  # chú thích khối
+
+    block = re.search(r"CREATE TABLE[^;]*?reading_questions\b(.*?);", sql, re.S)
+    assert block, "không thấy khối CREATE TABLE reading_questions — migration đã đổi?"
+
     m = re.search(r"question_type\s+TEXT NOT NULL CHECK \(question_type IN \((.*?)\)\)",
-                  sql, re.S)
+                  block.group(1), re.S)
     assert m, "không đọc được ràng buộc CHECK question_type — migration đã đổi?"
     types = set(re.findall(r"'([a-z_]+)'", m.group(1)))
     assert len(types) >= 10, f"chỉ đọc được {len(types)} loại — biểu thức hỏng?"

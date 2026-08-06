@@ -12,6 +12,7 @@
 //   3. POST .../submit            — nộp cả bài
 // Bản khai ghim CẢ BA theo đúng thứ tự, vì mất bất kỳ khâu nào cũng là mất bài
 // của học viên mà màn hình vẫn xanh.
+import { NO_BODY } from '../write-flow-core.mjs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,12 +79,19 @@ export default {
   ignoreWrites: ['/api/analytics/events'],
 
   writes: [
-    { method: 'POST', path: `/api/reading/test/${TEST}/attempts` },
+    // Mở lượt làm bài KHÔNG mang thân (`reading-exam.js:2890` truyền `null`).
+    // Bỏ trống `body` nghĩa là "không soi", nên một bản port gửi kèm thân tuỳ ý
+    // vẫn qua — `NO_BODY` mới là điều muốn nói (codex cục bộ #969).
+    { method: 'POST', path: `/api/reading/test/${TEST}/attempts`, body: NO_BODY },
     {
       method: 'PATCH',
       path: `/api/reading/test/attempts/${ATTEMPT}/answers`,
       times: 2,
-      body: { q_num: (v) => v === 1 || v === 2, user_answer: (v) => v === A1 || v === A2 },
+      // TƯƠNG QUAN, không phải hai điều kiện rời. Khai từng trường riêng thì một
+      // cặp bị hoán đổi — `{q_num:1, user_answer:'hai giờ'}` — vẫn qua, tức đáp
+      // án của học viên vào nhầm câu mà cổng không thấy (codex cục bộ #969).
+      body: (b) => (b.q_num === 1 && b.user_answer === A1)
+        || (b.q_num === 2 && b.user_answer === A2),
     },
     {
       method: 'POST',
