@@ -110,6 +110,9 @@ on:
       - 'frontend/public/js/reading-test.js'
       - 'frontend/public/js/reading-mini-test.js'
       - 'frontend/public/js/listening-tests-list.js'
+      # `listening-tests-list.js` IMPORT helper này (dòng 21). Bỏ sót thì một PR
+      # chỉ sửa helper sẽ không chạy parity, dù nó đổi hành vi cả hai vế.
+      - 'frontend/public/js/listening-list-paging.js'
       - 'frontend/tooling/supabase-session.mjs'
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
@@ -268,7 +271,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list)\.js|frontend/public/css/(reading-vocab|listening|listening-tests)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging)\.js|frontend/public/css/(reading-vocab|listening|listening-tests)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else
