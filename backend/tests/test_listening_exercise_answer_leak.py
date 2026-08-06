@@ -126,3 +126,60 @@ def test_chep_chinh_ta_van_giu_transcript(monkeypatch):
     res = _run(listening_router.get_listening_exercises(
         content_id=cid, exercise_type="dictation", authorization=authz))
     assert res["exercises"][0]["payload"]["segments"][0]["transcript"] == "giữ nguyên"
+
+
+def _seed_dictation_with_key(fake):
+    """Chép chính tả dạng điền-chỗ-trống: `segments` để chạy bài, `answers` là ĐÁP ÁN.
+
+    Bộ chuyển đổi xếp `dictation_gap_fill` / `dictation_short_answer` vào
+    `exercise_type="dictation"` rồi cất đáp án chuẩn ở `payload.answers`
+    (`services/listening_convert.py:1471,1510`) — nên đây là hình dạng CÓ THẬT
+    trên production, không phải ca tôi bịa ra cho dễ đỏ.
+    """
+    return _seed(fake, "dictation", {
+        "variant": "dictation_gap_fill",
+        "questions": [{"q_num": 1, "prompt": "___ họp"}],
+        "answers": ["ĐÁP ÁN CHUẨN"],
+        "segments": [{"idx": 0, "transcript": "giữ nguyên"}],
+    })
+
+
+def test_route_boot_chep_chinh_ta_khong_gui_dap_an(monkeypatch):
+    """Lỗ tôi BỎ SÓT ở lượt vá đầu: tôi xem route boot rồi kết luận "chép chính
+    tả cần transcript nên không lọc được" — chỉ nghĩ tới `segments[].transcript`
+    mà quên `payload.answers`, vốn là khoá mức đỉnh bộ lọc đã xoá sẵn từ Sprint
+    13.5. Một lượt rà nửa vời trông y hệt một lượt rà đủ (codex cục bộ #967)."""
+    fake, authz = _patch(monkeypatch)
+    cid = _seed_dictation_with_key(fake)
+
+    res = _run(listening_router.boot_listening_dictation(
+        content_id=cid, authorization=authz))
+
+    assert len(res["exercises"]) == 1, res
+    leaked = sorted(_keys_deep(res["exercises"]) & set(FORBIDDEN))
+    assert leaked == [], f"route boot gửi đáp án xuống trình duyệt: {leaked}"
+
+
+def test_route_boot_van_giu_segments(monkeypatch):
+    """Chiều ngược: lọc quá tay là màn xem lại của `listening-dictation.js:341-362`
+    trắng, vì nó dựng từ chính mảng `segments` nạp lúc mở trang."""
+    fake, authz = _patch(monkeypatch)
+    cid = _seed_dictation_with_key(fake)
+    res = _run(listening_router.boot_listening_dictation(
+        content_id=cid, authorization=authz))
+    segs = res["exercises"][0]["payload"]["segments"]
+    assert segs[0]["transcript"] == "giữ nguyên"
+
+
+@pytest.mark.parametrize("bad", [None, "chuỗi json hợp lệ", 42, ["mảng"], True])
+def test_payload_di_dang_khong_lam_sap_endpoint(monkeypatch, bad):
+    """Cột khai `JSONB NOT NULL` nhưng KHÔNG ràng buộc phải là object
+    (`migrations/056_listening_module_foundation.sql:133`), nên một chuỗi/số/mảng
+    JSON hợp lệ từng làm `dict(...)` ném lỗi. Trước đây vô hại vì chỉ route
+    full-test gọi tới; nay route bài lẻ cũng gọi nên nó sẽ thành 500."""
+    fake, authz = _patch(monkeypatch)
+    cid = _seed(fake, "mcq", bad)
+    res = _run(listening_router.get_listening_exercises(
+        content_id=cid, exercise_type="mcq", authorization=authz))
+    # Đóng an toàn: dòng hỏng trả payload rỗng, không ném lỗi, không lộ gì.
+    assert res["exercises"][0]["payload"] == {}

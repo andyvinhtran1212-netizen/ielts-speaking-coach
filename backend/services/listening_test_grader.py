@@ -459,7 +459,15 @@ def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any
     safe: list[dict[str, Any]] = []
     for row in exercise_rows:
         copy = dict(row)
-        payload = dict(copy.get("payload") or {})
+        # `payload` là JSONB NOT NULL nhưng cột KHÔNG ràng buộc phải là object
+        # (`migrations/056_listening_module_foundation.sql:133`), nên một chuỗi,
+        # số, hay mảng JSON hợp lệ sẽ làm `dict(...)` ném lỗi. Trước đây điều đó
+        # vô hại vì chỉ route full-test gọi tới; nay route bài lẻ cũng gọi, nên
+        # một dòng dị dạng sẽ thành 500 thay vì được trả về. ĐÓNG AN TOÀN: coi
+        # như payload rỗng — thà mất nội dung một dòng hỏng còn hơn lộ đáp án
+        # hoặc sập cả endpoint (codex cục bộ #967).
+        raw_payload = copy.get("payload")
+        payload = dict(raw_payload) if isinstance(raw_payload, dict) else {}
         for key in _STUDENT_FORBIDDEN_PAYLOAD_KEYS:
             payload.pop(key, None)
         for list_key, item_key in _STUDENT_FORBIDDEN_NESTED:

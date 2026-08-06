@@ -436,12 +436,27 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
     return row
 
 
-def _fetch_published_listening_exercises(
+def _fetch_published_exercises_for_student(
     *,
     content_id: str,
     exercise_type: str,
 ) -> list[dict]:
-    """Return published exercises for an already published content row."""
+    """Trả exercise đã publish, ĐÃ LỌC ĐÁP ÁN — chỉ dùng cho response học viên.
+
+    Tên hàm GHI THẲNG bảo đảm đó thay vì để người gọi sau tự đoán: bản cũ tên là
+    `_fetch_published_listening_exercises`, trả `select("*")` nguyên vẹn, nên
+    route boot chép chính tả gửi luôn `payload.answers` xuống trình duyệt.
+
+    Không phải giả định: bộ chuyển đổi xếp `dictation_gap_fill` và
+    `dictation_short_answer` vào `exercise_type="dictation"` rồi cất đáp án
+    chuẩn ở `payload.answers` (`services/listening_convert.py:1471,1510`). Tôi đã
+    xem route này một lượt và kết luận "chép chính tả cần transcript nên không
+    lọc được" — chỉ nghĩ tới `segments[].transcript` mà bỏ sót `payload.answers`,
+    vốn là khoá MỨC ĐỈNH mà bộ lọc đã xoá sẵn từ Sprint 13.5 (codex cục bộ #967).
+
+    ĐƯỜNG CHẤM BÀI KHÔNG ĐƯỢC DÙNG HÀM NÀY — nó cần payload thô, và nó vốn đã tự
+    truy vấn bảng (`listening.py:620`, `:5469`).
+    """
     if exercise_type not in _EXERCISE_TYPES:
         raise HTTPException(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
@@ -456,7 +471,8 @@ def _fetch_published_listening_exercises(
         .order("order_num", desc=False)
         .execute()
     )
-    return res.data or []
+    from services import listening_test_grader as grader
+    return grader.strip_answer_keys(res.data or [])
 
 
 @user_router.get("/content/{content_id}")
@@ -496,7 +512,7 @@ async def boot_listening_dictation(
     user = await _require_auth(authorization)
     _ = user
     content = _fetch_published_listening_content_with_signed_url(content_id)
-    exercises = _fetch_published_listening_exercises(
+    exercises = _fetch_published_exercises_for_student(
         content_id=content_id,
         exercise_type="dictation",
     )
