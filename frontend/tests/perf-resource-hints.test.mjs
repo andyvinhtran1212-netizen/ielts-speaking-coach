@@ -104,7 +104,8 @@ describe('Perf P2.3 — aver-chrome injects prefetch speculation rules', () => {
       // bấm — giữ `/pages/home.html` ở đây là luật prefetch lặng lẽ mất tác dụng.
       // [cutover /speaking 2026-08-05] prefetch phải khớp đường người dùng
       // THẬT SỰ bấm, nếu không luật này lặng lẽ mất tác dụng.
-      '/home', '/speaking', '/pages/writing-dashboard.html',
+      // [cutover /writing/dashboard 2026-08-05] cùng lý do hai dòng trên.
+      '/home', '/speaking', '/writing/dashboard',
       '/pages/listening.html', '/pages/reading-vocab.html',
       // [cutover /grammar 2026-08-03] prerender route CANONICAL, không phải bản legacy.
       '/grammar', '/vocabulary.html',

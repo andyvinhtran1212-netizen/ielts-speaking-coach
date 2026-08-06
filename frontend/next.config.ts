@@ -46,7 +46,11 @@ const nextConfig: NextConfig = {
         // (?category=&slug=) so it CANNOT be redirected to the clean path;
         // the whole site links via the clean /grammar/:cat/:slug URL
         // (grammar.js buildUrl), so direct .html hits are effectively unused.
-        { source: '/writing/dashboard', destination: '/pages/writing-dashboard.html' },
+        // `/writing/dashboard` KHÔNG còn ở đây: nay là route Next
+        // (`app/(authed-writing)/writing/dashboard/`). Gỡ dòng rewrite và thêm
+        // route PHẢI cùng một commit — cổng route-ownership chặn trạng thái nửa
+        // vời, vì một URL không thể vừa là route vừa là rewrite sang legacy.
+        // `/pages/writing-dashboard.html` vẫn trả 200 (cổng parity cần cả hai vế).
         { source: '/writing/result', destination: '/pages/writing-result.html' },
         { source: '/admin/writing/prompts', destination: '/pages/admin/writing/prompts.html' },
         { source: '/admin/writing/tips', destination: '/pages/admin/writing/tips.html' },

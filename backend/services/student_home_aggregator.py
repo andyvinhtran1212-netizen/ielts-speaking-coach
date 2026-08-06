@@ -205,7 +205,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
             "essays_count": 0,
             "essays_in_progress": 0,
             "primary_cta": "Submit new essay",
-            "primary_cta_url": "/pages/writing-dashboard.html",
+            "primary_cta_url": "/writing/dashboard",
         }
 
     student_id = student_rows[0]["id"]
@@ -276,7 +276,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
         "essays_in_progress": in_progress,
         "new_feedback_count": new_feedback,
         "primary_cta": "Submit new essay",
-        "primary_cta_url": "/pages/writing-dashboard.html",
+        "primary_cta_url": "/writing/dashboard",
     }
 
 
