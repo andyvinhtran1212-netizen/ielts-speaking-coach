@@ -1,0 +1,19 @@
+/* Tách khỏi khối <style> nội tuyến của `pages/vocab-exam.html` (2026-08-06).
+ *
+ * CẢ HAI vế cùng link tệp này — một nguồn duy nhất, giống cách đã làm với JS.
+ *
+ * THỨ TỰ: nạp SAU `tailwind.build.css`, đúng vị trí cũ của khối <style>.
+ * Đảo lại là lớp reset của Tailwind đè lên luật của trang.
+ */
+  .vx-hub-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+    letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary);
+    margin: var(--av-space-2) 0 var(--av-space-1); }
+  .vx-hub-sub { font-size: var(--av-fs-sm); color: var(--av-text-muted);
+    line-height: var(--av-lh-relaxed); margin: 0 0 var(--av-space-6); max-width: 60ch; }
+  .vx-status { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-8) 0; }
+  .vx-status.is-error { color: var(--av-error); }
+  .vx-family { margin: 0 0 var(--av-space-8); }
+  .vx-family-title { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold);
+    color: var(--av-text-primary); margin: 0 0 var(--av-space-4); }
+  .vx-meta { display: flex; align-items: center; gap: var(--av-space-2); flex-wrap: wrap; }
+  .vx-count { font-weight: var(--av-fw-semibold); color: var(--av-primary); letter-spacing: .03em; }

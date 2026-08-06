@@ -61,7 +61,7 @@ describe('vocab-exam.js renderFamilies', () => {
 describe('wiring across pages', () => {
   test('hub exposes a Luyện thi entry to the exam page', () => {
     const html = read('pages/vocabulary.html');
-    assert.match(html, /href="\/pages\/vocab-exam\.html"/);
+    assert.match(html, /href="\/vocabulary\/exam"/);
     assert.match(html, /Luyện thi/);
   });
 

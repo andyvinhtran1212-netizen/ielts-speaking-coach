@@ -82,5 +82,11 @@
     "legacy": "/pages/flashcards.html",
     "next": "/flashcards",
     "allow": []
+  },
+  {
+    "name": "vocab-exam",
+    "legacy": "/pages/vocab-exam.html",
+    "next": "/vocabulary/exam",
+    "allow": []
   }
 ]
