@@ -102,11 +102,16 @@ def test_finishing_a_stage_does_not_close_an_assignment_that_has_writing():
     80 điểm), và giáo viên không có cách nào biết cần nhắc em ấy.
     """
     src = inspect.getsource(qs.end_session)
-    assert "bank_has_writing" in src
+    # Chắn nay là `_course_work_is_done`, hỏi CẢ hai điều: bộ đề có phần viết
+    # không, VÀ đã đủ số chặng chưa. Chốt chi tiết của luật ấy nằm ở
+    # `test_end_session_marks_only_when_done.py`.
+    #
     # Neo vào LỆNH GỌI, không phải chữ `mark_item_submitted` — chữ ấy còn nằm
     # trong một lời chú đứng TRƯỚC cả khối, nên tìm chữ sẽ trúng lời chú.
     i = src.index("            mark_item_submitted(")
-    assert "not bank_has_writing" in src[:i], "chắn phải đứng TRƯỚC lệnh chốt sổ"
+    assert "_course_work_is_done(" in src[:i], "chắn phải đứng TRƯỚC lệnh chốt sổ"
+    gate = inspect.getsource(qs._course_work_is_done)
+    assert "if writing:" in gate, "phải hỏi phần tự luận TỪ CÙNG lượt đọc bộ đề"
 
 
 def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
@@ -126,16 +131,15 @@ def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
     assert "return True" not in src[j:]
 
 
-def test_the_writing_flag_is_remembered_after_one_successful_read():
-    """Nhớ lại thu hẹp cửa sổ "đọc hỏng" xuống đúng lần gọi ĐẦU của tiến trình.
-    Một bộ đề không tự đổi từ có-tự-luận sang không giữa chừng."""
+def test_the_writing_flag_is_NOT_cached_across_calls():
+    """Bộ nhập bài tập theo buổi cập nhật lại ĐÚNG `bank_id` rồi thay bộ câu
+    hỏi, và nó chạy ở tiến trình KHÁC nên không xoá cache hộ được. Một giá trị
+    nhớ từ trước re-import sai theo cả hai chiều: nhớ "có" thì bài kẹt vĩnh viễn
+    khi phần viết bị bỏ; nhớ "không" thì chốt sổ trước phần viết vừa thêm
+    (codex cục bộ 06/08)."""
     src = inspect.getsource(qs.bank_has_writing)
-    assert "_WRITING_CACHE" in src
-    assert "if bank_id in _WRITING_CACHE:" in src
-    # Chỉ nhớ khi đọc ĐƯỢC — nhớ một lần hỏng là đóng băng câu trả lời sai.
-    j = src.index("except Exception")
-    assert "_WRITING_CACHE[bank_id] = has" in src[j:]
-
+    assert "memo" in src, "chỉ được nhớ trong MỘT lượt gọi"
+    assert not hasattr(qs, "_WRITING_CACHE"), "không được có cache dài hạn"
 
 def test_a_bank_without_writing_still_closes_on_the_stage():
     """Đừng bắt lớp không có phần viết kẹt lại ở "chưa nộp" mãi mãi."""

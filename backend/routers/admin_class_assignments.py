@@ -31,6 +31,7 @@ from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
+from services.quiz_service import reconcile_course_items
 from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
@@ -240,16 +241,28 @@ async def list_assignments(
     # computing progress from an unrepaired ledger returns "0 đã nộp" / "chưa
     # nộp" that look canonical while completed sessions exist, which is exactly
     # the false-but-plausible number this endpoint is supposed to prevent.
+    # MỖI BỘ ĐỐI CHIẾU MỘT KHỐI RIÊNG. Ba bộ này đọc ba nguồn bằng chứng rời
+    # nhau, nên gộp chung một `try` nghĩa là bộ Speaking hỏng thì bài theo buổi
+    # KHÔNG ĐƯỢC THỬ VÁ dù mọi bảng nó cần vẫn khoẻ — trang bật cờ cảnh báo rồi
+    # đứng yên, trong khi việc hoàn toàn làm được (codex cục bộ 06/08 vòng 4).
     reconcile_failed = False
-    try:
-        reconcile_ledger_from_sessions(supabase_admin, [a["id"] for a in rows])
+    ids = [a["id"] for a in rows]
+    for what, fn in (
+        ("speaking", lambda: reconcile_ledger_from_sessions(supabase_admin, ids)),
         # Reading/Listening have no completion hook of their own — the test page
         # submits without knowing the class ledger exists — so their hand-ins are
         # detected from the attempt rows here.
-        reconcile_test_attempts(supabase_admin, rows)
-    except Exception as exc:
-        reconcile_failed = True
-        logger.warning("[class] ledger reconcile failed: %s", exc)
+        ("test-attempts", lambda: reconcile_test_attempts(supabase_admin, rows)),
+        # Bài tập theo buổi có bảng riêng (`quiz_sessions`), mà đường vá của
+        # Speaking chỉ đọc bảng `sessions` — một lượt ghi sổ hỏng ở chặng CUỐI
+        # khi ấy không có gì cứu (codex PR 954).
+        ("course", lambda: reconcile_course_items(supabase_admin, ids)),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            reconcile_failed = True
+            logger.warning("[class] ledger reconcile failed (%s): %s", what, exc)
 
     try:
         progress = progress_for_assignments(supabase_admin, rows)
@@ -1053,12 +1066,18 @@ async def assignment_tally(
     # Vá sổ trước khi đếm: Reading/Listening không có móc hoàn thành, nên bài đã
     # nộp chỉ vào sổ khi có ai đó đọc. Đây chính là lúc con số sai sẽ bị nhìn.
     stale = False
-    try:
-        reconcile_ledger_from_sessions(supabase_admin, [assignment_id])
-        reconcile_test_attempts(supabase_admin, [assignment])
-    except Exception as exc:
-        stale = True
-        logger.warning("[class] tally reconcile failed asg=%s: %s", assignment_id, exc)
+    # Một khối cho mỗi bộ: xem chú thích ở `list_assignments`.
+    for what, fn in (
+        ("speaking", lambda: reconcile_ledger_from_sessions(supabase_admin, [assignment_id])),
+        ("test-attempts", lambda: reconcile_test_attempts(supabase_admin, [assignment])),
+        ("course", lambda: reconcile_course_items(supabase_admin, [assignment_id])),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            stale = True
+            logger.warning("[class] tally reconcile failed (%s) asg=%s: %s",
+                           what, assignment_id, exc)
 
     items = _paged(
         supabase_admin, "class_assignment_items",
