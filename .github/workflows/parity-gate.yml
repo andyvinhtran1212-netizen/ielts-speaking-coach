@@ -132,6 +132,18 @@ on:
       - 'frontend/public/pages/vocab-exam.html'
       - 'frontend/public/css/vocab-exam.css'
       - 'frontend/public/js/vocab-exam.js'
+      # Thí điểm nhóm CÓ-GHI: bản khai hợp đồng ghi của bài nghe trắc nghiệm
+      # chạy trên VẾ LEGACY (chưa có route Next). Sửa trang hay module của nó
+      # phải chạy lại cổng ghi.
+      - 'frontend/public/pages/listening-mcq.html'
+      - 'frontend/public/js/listening-mcq.js'
+      # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
+      # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
+      # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt
+      # cổng ghi chứ không chỉ cổng parity.
+      - 'frontend/public/js/components/audio-player.js'
+      - 'frontend/public/js/feedback-widgets.js'
+      - 'frontend/public/js/error-reporter.js'
       # Phụ thuộc CHUNG của mọi cặp, review cục bộ #958 chỉ ra còn sót:
       # `app/layout.tsx` là root layout của TẤT CẢ route Next; bộ sinh
       # runtime-config quyết định mọi vế trỏ backend nào.
@@ -321,7 +333,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/vocab-exam\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|listening-mcq|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|listening-mcq|feedback-widgets|error-reporter)\.js|frontend/public/js/components/audio-player\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

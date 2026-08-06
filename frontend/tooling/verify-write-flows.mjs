@@ -60,6 +60,16 @@ async function step(page, s) {
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }, text);
   }
+  // Phát một sự kiện DOM lên phần tử. Cần cho hành vi KHÔNG bấm được: trình phát
+  // audio báo lượt nghe bằng `av-audio-play`, và không có bước này thì bản khai
+  // chỉ kiểm được nhánh "chưa nghe lần nào" — tức nó vẫn xanh kể cả khi bộ đếm
+  // lượt nghe hỏng hoàn toàn (review cục bộ chỉ ra ở #961).
+  if (s.dispatch) {
+    const [sel, ev] = s.dispatch;
+    return page.locator(sel).first().evaluate((el, name) => {
+      el.dispatchEvent(new CustomEvent(name, { bubbles: true }));
+    }, ev);
+  }
   if (s.expectVisible) {
     const v = await page.locator(s.expectVisible).first().isVisible();
     if (!v) throw new Error(`không thấy «${s.expectVisible}»`);
