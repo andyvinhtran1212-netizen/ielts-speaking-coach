@@ -479,7 +479,7 @@
     `);
 
     document.getElementById('d1-restart-btn').onclick = startNewSession;
-    document.getElementById('d1-back-btn').onclick    = () => { window.location.href = 'exercises.html'; };
+    document.getElementById('d1-back-btn').onclick    = () => { window.location.href = '/exercises'; };
     if (wrong.length > 0) {
       const wrongIds = wrong.map(w => w.exercise_id);
       document.getElementById('d1-review-btn').onclick = () => reviewWrong(wrongIds);
