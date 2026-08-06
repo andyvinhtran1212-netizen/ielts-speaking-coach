@@ -690,3 +690,44 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
     assert.match(CHROME, /href_matches: '\/pages\/my-class\.html'/);
   });
 });
+
+// ── 360px: trang này chủ yếu mở trên điện thoại ────────────────────────────
+//
+// Audit 06/08: cả trang có ĐÚNG MỘT `@media`, và nó đặt lại đúng giá trị cũ
+// (`repeat(4, 1fr)` ở cả hai nơi) nên không làm gì cả. Bốn ô số bị nhồi vào
+// 360px: mỗi ô còn ~80px sau khi trừ đệm.
+
+describe('trang học viên trên điện thoại', () => {
+  const css = readFileSync(new URL('../public/pages/my-class.html', import.meta.url), 'utf8');
+
+  test('ô số xếp HAI cột trên điện thoại, BỐN từ 640px', () => {
+    const base = css.match(/\.mc-stats\s*\{[^}]*\}/);
+    assert.ok(base, 'không thấy .mc-stats');
+    assert.match(base[0], /grid-template-columns:\s*repeat\(2, 1fr\)/,
+      'mặc định (điện thoại) phải là 2 cột');
+    const wide = css.match(/@media \(min-width: 640px\)\s*\{\s*\.mc-stats\s*\{[^}]*\}/);
+    assert.ok(wide, 'thiếu điểm ngắt cho màn rộng');
+    assert.match(wide[0], /repeat\(4, 1fr\)/);
+  });
+
+  test('câu lệnh @media phải ĐỔI thứ gì đó', () => {
+    // Bản trước khai cùng một giá trị ở cả hai nơi — một điểm ngắt không đổi gì
+    // đọc như đã đáp ứng, mà thực ra không.
+    const base = css.match(/\.mc-stats\s*\{[^}]*grid-template-columns:\s*([^;]+);/);
+    const wide = css.match(/@media \(min-width: 640px\)[^}]*\.mc-stats\s*\{[^}]*grid-template-columns:\s*([^;]+);/);
+    assert.notEqual(base[1].trim(), wide[1].trim(),
+      'điểm ngắt đặt lại đúng giá trị cũ thì nó không tồn tại');
+  });
+
+  test('kẻ dọc không để lại vạch cụt ở mép lưới 2 cột', () => {
+    // `:last-child` không đủ: ô số 2 của MỖI hàng cũng là ô cuối hàng.
+    assert.match(css, /\.mc-stat:nth-child\(2n\)\s*\{\s*border-inline-end:\s*0/);
+  });
+
+  test('nút bấm cao tối thiểu 44px', () => {
+    const btn = css.match(/\.mc-btn\s*\{[^}]*\}/);
+    assert.ok(btn, 'không thấy .mc-btn');
+    assert.match(btn[0], /min-height:\s*44px/,
+      'đệm space-2 cho ra ~32px — đủ cho chuột, hụt cho ngón tay');
+  });
+});

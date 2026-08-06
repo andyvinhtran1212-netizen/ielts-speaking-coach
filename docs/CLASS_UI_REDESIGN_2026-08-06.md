@@ -86,8 +86,12 @@ Năm trạng thái, năm màu — cột này đọc bằng màu trước rồi m
 | Xong | `--av-text-muted` |
 | Chưa mở | `--av-text-faint` |
 
-Sau đó amber chỉ còn đúng một chỗ mỗi màn: con số "chưa nộp hôm nay" ở đầu sổ,
-và "bài cần nộp hôm nay" ở trang học viên.
+Sau đó amber chỉ còn đúng một chỗ mỗi màn: con số "chưa nộp hôm nay" ở đầu sổ
+giáo viên, và **đồng hồ đếm ngược tới 19:00** ở trang học viên.
+
+> Ban đầu tôi định cho amber vào con số "bài cần nộp hôm nay". Nhưng mã đang chạy
+> đã chọn đồng hồ đếm ngược, kèm lý do đúng hơn: *"một em mở trang lúc 18:20 cần
+> 'còn 40 phút', không cần một ngày tháng."* Giữ quyết định của mã.
 
 ---
 
@@ -167,8 +171,8 @@ Bảng Học viên: dịch hết sang tiếng Việt (`Mã · Họ tên · Lớp
 ┌──────────────────────────┐  360px
 │  Lớp IELTS 6.5           │
 │                          │
-│      2                   │  ← amber, con số duy nhất
-│      bài cần nộp hôm nay │
+│      40:12               │  ← amber, con số duy nhất
+│      còn lại tới 19:00   │
 │  ──────────────────────  │
 │                          │
 │  HÔM NAY · hạn 19:00     │
@@ -222,7 +226,7 @@ tự luận · Bỏ dở · Xong**.
 | 1 | Token màu riêng cho Speaking (A4) | Không — chỉ thêm |
 | 2 | Trả amber về đúng vai: gỡ khỏi Speaking và `awaiting_writing` (A4+A5) | Thấp — đổi màu hiển thị |
 | 3 | Việt hoá + bỏ cột thao tác ở bảng Học viên (A2) | Thấp |
-| 4 | Trang học viên 360px (A3) | Thấp, tách riêng khỏi phần admin |
+| 4 | Trang học viên 360px (A3) — **XONG**: ô số 2 cột, kẻ dọc không cụt, nút ≥44px | Thấp, tách riêng khỏi phần admin |
 | 5 | Cột tên dính + dải ô (A2) | Trung bình |
 | 6 | Sổ điểm danh + ống kính + ngăn kéo, gỡ 5 tab và modal (A1) | **Cao** — đụng `admin-classes.js` 2806 dòng |
 
