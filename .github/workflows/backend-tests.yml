@@ -39,6 +39,9 @@ on:
       - 'README.md'
       - 'PHASE_CLOSURE_LEDGER.md'
       - 'docs/SITE_OVERVIEW.md'
+      # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
+      # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
+      - 'docs/ROUTE_LEDGER.md'
       - 'docs/brand/assets/**'
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
