@@ -1034,6 +1034,25 @@ def _course_writing_count(bank_id: str | None) -> tuple[int, bool]:
         return 0, False
 
 
+def _hand_in_status(item: dict, student: dict, due, sealed: bool) -> str:
+    """Một lượt nộp đang ở trạng thái nào — MỘT luật cho mọi mặt đọc.
+
+    Bảng tổng kết và ngăn kéo học viên trả lời cùng một câu hỏi về cùng một
+    dòng, nên chúng phải trả lời giống nhau. Để mỗi bên tự tính là dựng sẵn hai
+    chỗ trôi khỏi nhau, và cái trôi ở đây không kêu: hai màn cùng nói về em ấy,
+    một màn bảo "chưa nộp", màn kia bảo "nộp trễ".
+
+    `no-account` đứng trước mọi thứ: em ấy CHƯA TỪNG thấy bài. Lẫn nó vào
+    "chưa nộp" là nhắc nhầm người.
+    """
+    if not student.get("user_id"):
+        return "no-account"
+    submitted_at = _at(item.get("submitted_at"))
+    if submitted_at:
+        return "late" if (due and submitted_at > due) else "submitted"
+    return "missing" if sealed else "pending"
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -1168,15 +1187,7 @@ async def assignment_tally(
     out = []
     for it in items:
         s = students.get(it["student_id"]) or {}
-        submitted_at = _at(it.get("submitted_at"))
-        if not s.get("user_id"):
-            # Chưa kích hoạt tài khoản: em ấy CHƯA TỪNG thấy bài. Khác hẳn "lười"
-            # — lẫn hai thứ này là nhắc nhầm người.
-            status_ = "no-account"
-        elif submitted_at:
-            status_ = "late" if (due and submitted_at > due) else "submitted"
-        else:
-            status_ = "missing" if sealed else "pending"
+        status_ = _hand_in_status(it, s, due, sealed)
         flags = flags_by_session.get(it.get("artifact_id")) or []
         out.append({
             "student_id":   it["student_id"],
@@ -1325,6 +1336,152 @@ def _longest_missing_run(cells: list[dict]) -> int:
         else:
             run = 0
     return best
+
+
+@router.get("/{cohort_id}/students/{student_id}/work")
+async def student_work(
+    cohort_id: str,
+    student_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Mọi bài giao của lớp mà MỘT em có phần — kèm đường mở thẳng bài đã làm.
+
+    Vì sao cần một đường riêng thay vì gọi `tally` từng bài: giáo viên bấm vào
+    tên một em để hỏi "em này đã làm gì", chứ không phải "bài này ai làm". Hỏi
+    ngược bằng cách quét N bảng tổng kết là N lượt gọi mạng cho một câu hỏi,
+    mỗi lượt kéo cả lớp về để lấy đúng một dòng.
+
+    Trả về THEO BÀI GIAO, kể cả bài em ấy chưa đụng tới: "chưa làm" cũng là câu
+    trả lời, và một danh sách chỉ có bài đã nộp thì không nói được em ấy đang
+    thiếu gì.
+
+    Trạng thái tính bằng `_hand_in_status` — CÙNG hàm bảng tổng kết dùng. Hai
+    màn cùng nói về một em mà một màn bảo "chưa nộp", màn kia bảo "nộp trễ", là
+    lỗi không kêu thành tiếng.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    # Lọc theo CẢ `cohort_id`. Chỉ lọc theo id thì bất kỳ admin nào đoán được
+    # một id học viên đều đọc được bài của em ấy qua đường của lớp mình — và
+    # mục bài tập CỐ Ý sống sót khi học viên chuyển lớp, nên một em đã rời đi
+    # vẫn còn dòng ở lớp này để lộ ra. Sổ điểm danh là `students.cohort_id`
+    # (WF-1), đúng thứ `_roster_student_ids` dùng để phát bài (codex cục bộ).
+    students = (
+        supabase_admin.table("students")
+        .select("id, full_name, student_code, user_id")
+        .eq("id", student_id).eq("cohort_id", cohort_id)
+        .limit(1).execute().data
+    ) or []
+    if not students:
+        raise HTTPException(404, "Không tìm thấy học viên trong lớp này")
+    student = students[0]
+
+    assignments = _paged(
+        supabase_admin, "class_assignments",
+        "id, title, skill, due_at, status, content_id, content_config",
+        lambda q: q.eq("cohort_id", cohort_id),
+    )
+    if not assignments:
+        return {"student": _student_brief(student), "items": []}
+
+    # Vá sổ trước khi đọc, ĐÚNG bộ ba và đúng phạm vi `list_assignments` dùng.
+    # Không vá thì một lượt ghi sổ hỏng biến thành "em ấy chưa làm bài", và đây
+    # là màn giáo viên mở ra để kết luận đúng điều đó.
+    stale = False
+    asg_ids = [a["id"] for a in assignments]
+    for what, fn in (
+        ("speaking", lambda: reconcile_ledger_from_sessions(supabase_admin, asg_ids)),
+        ("test-attempts", lambda: reconcile_test_attempts(supabase_admin, assignments)),
+        ("course", lambda: reconcile_course_items(supabase_admin, asg_ids)),
+    ):
+        try:
+            fn()
+        except Exception as exc:  # noqa: BLE001
+            stale = True
+            logger.warning("[class] student-work reconcile failed (%s) sid=%s: %s",
+                           what, student_id, exc)
+
+    # Khoá theo bài giao là AN TOÀN, không phải phép đoán: mig 177 khai
+    # `UNIQUE (assignment_id, student_id)` — mỗi em đúng một mục mỗi bài, để
+    # chạy lại lượt phát bài là việc không-làm-gì chứ không phải bản sao thứ hai.
+    items_by_asg: dict[str, dict] = {}
+    for chunk in (asg_ids[i:i + _ID_CHUNK] for i in range(0, len(asg_ids), _ID_CHUNK)):
+        for it in _paged(
+            supabase_admin, "class_assignment_items",
+            "id, assignment_id, student_id, submitted_at, score, state, "
+            "artifact_kind, artifact_id, passed_at, mastery",
+            lambda q, c=chunk: q.eq("student_id", student_id).in_("assignment_id", c),
+        ):
+            items_by_asg[it["assignment_id"]] = it
+
+    # Mục nào có bài TỰ LUẬN đã chấm — một lượt đọc cho cả danh sách.
+    item_ids = [it["id"] for it in items_by_asg.values()]
+    writing_items: set = set()
+    for chunk in (item_ids[i:i + _ID_CHUNK] for i in range(0, len(item_ids), _ID_CHUNK)):
+        try:
+            for r in ((supabase_admin.table("course_writing_submissions")
+                       .select("class_assignment_item_id")
+                       .in_("class_assignment_item_id", chunk).execute().data) or []):
+                if r.get("class_assignment_item_id"):
+                    writing_items.add(r["class_assignment_item_id"])
+        except Exception as exc:  # noqa: BLE001
+            # Nói ra. Im lặng ở đây biến "chưa đọc được" thành "em ấy chưa nộp
+            # tự luận", và đường vào bài viết biến mất mà không ai biết vì sao.
+            stale = True
+            logger.warning("[class] student-work đọc tự luận hỏng sid=%s: %s",
+                           student_id, exc)
+
+    now = datetime.now(timezone.utc)
+    out = []
+    for a in assignments:
+        it = items_by_asg.get(a["id"])
+        if it is None:
+            # Bài giao KHÔNG có phần của em ấy: bỏ hẳn, không vẽ dòng trống.
+            # Bài giao chỉ THÊM người nhận, nên thiếu mục nghĩa là em ấy vào lớp
+            # sau khi bài được giao — nói "chưa nộp" ở đây là buộc tội oan.
+            continue
+        due = _at(a.get("due_at"))
+        out.append({
+            "assignment_id": a["id"],
+            "title":         a.get("title"),
+            "skill":         a.get("skill"),
+            "due_at":        a.get("due_at"),
+            "archived":      a.get("status") == "archived",
+            "status":        _hand_in_status(it, student, due, bool(due and now > due)),
+            "submitted_at":  it.get("submitted_at"),
+            "score":         it.get("score"),
+            # `artifact_kind` đi kèm vì mỗi kỹ năng mở ở một trang khác — đoán
+            # từ hình dạng id là đoán sai.
+            "artifact_kind": it.get("artifact_kind"),
+            "artifact_id":   it.get("artifact_id"),
+            "has_writing":   it["id"] in writing_items,
+            "bank_id":       a.get("content_id") if a.get("skill") == "course" else None,
+        })
+    # Mới nhất lên đầu: giáo viên hỏi "gần đây em ấy làm gì". Bài KHÔNG HẠN
+    # xuống cuối chứ không lẫn lên đầu.
+    #
+    # Tách hai nhóm rồi nối, không dùng một khoá ghép cộng `reverse=True`: khoá
+    # ghép `(due_at is None, due_at)` đảo ngược sẽ đẩy nhóm không-hạn lên TRƯỚC,
+    # vì `True > False` — đúng ngược ý, và là loại lỗi đọc mã không thấy.
+    dated = [r for r in out if r["due_at"]]
+    undated = [r for r in out if not r["due_at"]]
+    dated.sort(key=lambda r: r["due_at"], reverse=True)
+    out = dated + undated
+
+    result = {"student": _student_brief(student), "items": out}
+    if stale:
+        result["homework_stale"] = True
+    return result
+
+
+def _student_brief(s: dict) -> dict:
+    return {
+        "id": s.get("id"),
+        "name": s.get("full_name") or "",
+        "student_code": s.get("student_code"),
+        "activated": bool(s.get("user_id")),
+    }
 
 
 @router.get("/{cohort_id}/speaking-daily")

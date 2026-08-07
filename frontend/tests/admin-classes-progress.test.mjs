@@ -237,6 +237,170 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       'không có tabindex thì `.focus()` là lệnh rỗng');
   });
 
+  // ── Ngăn kéo phải DẪN TỚI BÀI, không chỉ mô tả em ấy ─────────────────────
+  //
+  // Đo trên prod: bấm vào một cái tên ra ba dòng dữ kiện và ĐÚNG 0 nút. Nhưng
+  // việc giáo viên mở màn này để làm là "em ấy đã làm gì, cho tôi xem".
+  test('ngăn kéo có danh sách bài, nạp LÚC MỞ chứ không nạp sẵn cả lớp', () => {
+    // Khối này do `renderDrawer` sinh ra, không nằm sẵn trong trang — ngăn kéo
+    // được vẽ lại mỗi lần đổi em.
+    assert.match(SRC, /id="drawer-work"/);
+    const click = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                     SRC.indexOf('const lensBar')));
+    assert.match(click, /loadStudentWork\(_picked\)/,
+      'nạp sẵn cho 14 em là 14 lượt gọi mạng cho ngăn kéo có thể không ai mở');
+  });
+
+  test('nó KHÔNG tự vẽ lại bài làm — chỉ dẫn tới chỗ đã có', () => {
+    // Mỗi loại bài đã có một mặt đọc chạy được (trang phiên Speaking, tab "Bài
+    // từng em", màn bài tự luận). Dựng bản vẽ thứ hai ở đây là dựng chỗ để trôi
+    // khỏi bản gốc — đúng họ lỗi cả chương trình này lặp lại.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function workOpen'),
+                                  SRC.indexOf('async function loadStudentWork')));
+    assert.match(fn, /pages\/admin\/speaking\/sessions\.html\?session=/);
+    assert.doesNotMatch(fn, /renderReport|questionCard|<audio/,
+      'ngăn kéo tự vẽ bài làm là bản vẽ thứ hai');
+  });
+
+  test('chỉ hiện đường mở khi có BÀI THẬT để mở', () => {
+    // Luật đã dùng ở bảng tổng kết: một liên kết dẫn tới trang trống tệ hơn
+    // không có liên kết. Nên hỏi `artifact_id`/`has_writing`, KHÔNG hỏi "đã nộp
+    // chưa" — sổ có thể ghi đã nộp trong khi khoá nối chưa có.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function workOpen'),
+                                  SRC.indexOf('async function loadStudentWork')));
+    assert.match(fn, /it\.artifact_kind === 'session' && it\.artifact_id/);
+    assert.match(fn, /it\.has_writing/);
+    assert.match(fn, /it\.bank_id && it\.artifact_id/);
+    assert.doesNotMatch(fn, /it\.submitted_at/, 'đã nộp ≠ có bài mở được');
+  });
+
+  test('chống đua bằng EM ĐANG CHỌN, không bằng một số lượt toàn cục', () => {
+    // Kho lưu theo TỪNG EM nên không có chuyện bài em này ghi đè ngăn kéo em
+    // kia — một số lượt toàn cục ở đây vừa thừa vừa GÂY KẸT: An → Bình → An
+    // thì lượt của An mang số cũ hơn nên không vẽ được, trong khi chốt
+    // `loading` đã chặn lượt thứ hai; ngăn kéo của An mắc "Đang tải…" vĩnh
+    // viễn (codex cục bộ 07/08).
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function loadStudentWork'),
+                                  SRC.indexOf('async function openWorkItem')));
+    assert.match(fn, /_picked === sid/);
+    assert.doesNotMatch(fn, /_workSeq/, 'số lượt toàn cục làm kẹt ca An→Bình→An');
+    // Và KHÔNG được dùng lại kết quả cũ: bộ nhớ đệm không có tuổi thì nó sai vô
+    // thời hạn — em ấy nộp ở tab khác, hạn trôi qua, giáo viên chấm ở trang mở
+    // bằng tab mới; không lần nào chạm tới trang này.
+    assert.doesNotMatch(fn, /if \(!sid \|\| _work\.by\[sid\]/,
+      'dùng lại kho cũ là để nó sai vô thời hạn');
+    assert.match(fn, /_work\.loading\[sid\]/, 'vẫn phải gộp lượt ĐANG BAY');
+  });
+
+  test('màn bài tự luận chặn ĐUA ở chính chỗ ghi, không chỉ ở nơi gọi', () => {
+    // Mở bài giao A (mạng chậm) rồi mở B: bài của A về sau và ghi đè
+    // `#tally-body` của B. Bẫy này có SẴN ở đường cũ từ bảng tổng kết, nên chốt
+    // phải nằm trong `openStudentWriting` — vá ở nơi gọi chỉ che đường mới.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function openStudentWriting'),
+                                  SRC.indexOf('let _tallyAsg')));
+    assert.match(fn, /const gen = _mkGen/);
+    assert.equal((fn.match(/gen !== _mkGen/g) || []).length, 2,
+      'phải chặn CẢ nhánh thành công lẫn nhánh lỗi — nhánh lỗi ghi đè cũng hỏng');
+    // Nơi gọi vẫn phải kiểm RIÊNG: `openStudentWriting` chụp thế hệ ở ĐẦU nó,
+    // tức là sau khi `openWorkItem` đã chờ xong — nó sẽ chụp thế hệ MỚI và ghi
+    // bài của bài giao cũ vào khung của bài giao mới.
+    const caller = codeOnly(SRC.slice(SRC.indexOf('async function openWorkItem'),
+                                      SRC.indexOf('async function populateStudentPicker')));
+    assert.match(caller, /const gen = _mkGen[\s\S]*await done[\s\S]*gen !== _mkGen/);
+  });
+
+  test('đọc hỏng thì NÓI RA và mời thử lại, không hiện danh sách rỗng', () => {
+    // Rỗng đọc ra "em ấy chưa được giao bài nào" — một khẳng định mà truy vấn
+    // hỏng không chứng minh được.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderWork'),
+                                  SRC.indexOf('function workOpen')));
+    assert.match(fn, /_work\.error\[sid\]/);
+    assert.match(fn, /data-work-retry/);
+    assert.match(fn, /homework_stale/, 'cờ chưa-đối-chiếu-được phải hiện ra');
+  });
+
+  test('mở bài tự luận phải ĐỢI bảng tổng kết vẽ xong', () => {
+    // Cả hai ghi vào `#tally-body`, và màn tự luận chụp lại nội dung đang có để
+    // làm đường "quay lại" — không đợi thì nó chụp nhầm dòng "Đang tải…".
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function openWorkItem'),
+                                  SRC.indexOf('async function populateStudentPicker')));
+    assert.match(fn, /await done/);
+    assert.match(fn, /const done = openMarking\(/);
+    // Và `openMarking` phải THẬT SỰ trả promise ra, nếu không `await` là vô ích.
+    const om = codeOnly(SRC.slice(SRC.indexOf('function openMarking'),
+                                  SRC.indexOf('async function renderOneList')));
+    assert.match(om, /return openTally\(/);
+  });
+
+  test('tên bài và kho câu hỏi đi THEO DÒNG, không tra ngược từ _homework', () => {
+    // `_homework` chỉ nạp khi mở tab Bài tập; ngăn kéo mở được từ Sổ điểm danh.
+    // Tra ngược sẽ cho một khu Nhận bài không tiêu đề và tab "Bài từng em" bị ẩn.
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderWork'),
+                                  SRC.indexOf('async function loadStudentWork')));
+    assert.match(fn, /data-title=/);
+    assert.match(fn, /data-bank=/);
+  });
+
+  // CHẠY bộ vẽ, không soi chữ nó. Cái sai ở đây là một Ô ĐỌC RA GÌ: một dòng
+  // không có đường mở và một dòng lẽ ra phải có mà mất, trông giống hệt nhau
+  // trong mã nguồn.
+  test('mỗi loại bài ra ĐÚNG một đường mở, và bài chưa có gì thì không có nút', () => {
+    const start = SRC.indexOf('const WORK_STATUS = {');
+    const end = SRC.indexOf('async function loadStudentWork');
+    assert.ok(start !== -1 && end > start, 'không cắt được bộ vẽ');
+    const esc = (s) => String(s == null ? '' : s).replace(/</g, '&lt;');
+    const SKILL_LABEL = { speaking: 'Speaking', course: 'bài tập theo buổi',
+                          reading: 'Reading', listening: 'Listening' };
+    const { renderWork, workOpen } = new Function('esc', 'SKILL_LABEL', '_work', '$',
+      `${SRC.slice(start, end)} return { renderWork, workOpen };`)(
+      esc, SKILL_LABEL, { by: {}, loading: {}, error: {} }, () => null);
+
+    // Speaking đã nộp → nghe thẳng ở trang phiên.
+    const speak = workOpen({ artifact_kind: 'session', artifact_id: 's-1' });
+    assert.match(speak, /sessions\.html\?session=s-1/);
+    assert.match(speak, /Nghe bài/);
+
+    // Bài theo buổi có tự luận → đọc bài viết. Ưu tiên hơn "xem từng câu" vì đó
+    // là thứ giáo viên phải CHẤM, còn phần trắc nghiệm máy đã chấm rồi.
+    assert.match(workOpen({ has_writing: true, assignment_id: 'a1',
+                            bank_id: 'b1', artifact_id: 'q1' }), /data-open-writing="a1"/);
+
+    // Bài theo buổi chưa có tự luận nhưng đã làm → xem từng câu.
+    const one = workOpen({ bank_id: 'b1', artifact_id: 'q1', assignment_id: 'a1' });
+    assert.match(one, /data-open-one="a1"/);
+    assert.match(one, /data-bank="b1"/);
+
+    // ĐÃ NỘP theo sổ nhưng CHƯA có khoá nối → không nút. Một liên kết dẫn tới
+    // trang trống tệ hơn không có liên kết.
+    assert.equal(workOpen({ bank_id: 'b1', artifact_id: null,
+                            submitted_at: '2026-08-01T00:00:00Z' }), '');
+    // Chưa làm gì → không nút.
+    assert.equal(workOpen({ skill: 'reading' }), '');
+  });
+
+  test('danh sách rỗng KHÁC danh sách chưa đọc được', () => {
+    const start = SRC.indexOf('const WORK_STATUS = {');
+    const end = SRC.indexOf('async function loadStudentWork');
+    const esc = (s) => String(s == null ? '' : s);
+    const store = { by: {}, loading: {}, error: {} };
+    const mk = () => new Function('esc', 'SKILL_LABEL', '_work', '$',
+      `${SRC.slice(start, end)} return { renderWork };`)(
+      esc, { course: 'bài tập theo buổi' }, store, () => null);
+
+    // Chưa nạp xong: KHÔNG được nói "chưa được giao bài nào".
+    assert.match(mk().renderWork({ student_id: 'x' }), /Đang tải/);
+
+    store.by.x = { items: [], homework_stale: false };
+    assert.match(mk().renderWork({ student_id: 'x' }), /chưa được giao bài nào/);
+
+    delete store.by.x;
+    store.error.x = 'mạng hỏng';
+    const bad = mk().renderWork({ student_id: 'x' });
+    assert.match(bad, /Không đọc được/);
+    assert.doesNotMatch(bad, /chưa được giao bài nào/,
+      'đọc hỏng mà nói "chưa được giao" là một khẳng định không có bằng chứng');
+  });
+
   // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────
   //
   // Đo được trên trang: CHÍN phần tử cùng mang `.adm-subtab`, ở ba tầng lồng
