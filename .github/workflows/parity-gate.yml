@@ -234,6 +234,16 @@ on:
       # bản nộp mock speaking — sửa riêng nó mà không chạy cổng ghi là bỏ trống
       # đúng đường cứu bài (codex cục bộ #980).
       - 'frontend/public/js/speaking-debt.js'
+      # ── Trang chữa bài Đọc ───────────────────────────────────────────────
+      # Cũng chưa có cặp parity. Đường ghi của nó nuôi BẢN ĐỒ THÀNH THẠO, tức
+      # kiểu hỏng duy nhất mà học viên không bao giờ nhìn thấy hậu quả.
+      # `glossary-popover.js` nạp lúc chạy mà `reading-review.js` không import,
+      # nên bộ dò tĩnh mù với nó.
+      - 'frontend/public/pages/reading-review.html'
+      - 'frontend/public/js/reading-review.js'
+      - 'frontend/public/js/components/glossary-popover.js'
+      - 'frontend/public/css/reading-review.css'
+      - 'frontend/public/css/markdown.css'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
