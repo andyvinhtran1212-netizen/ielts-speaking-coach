@@ -513,14 +513,19 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     assert.ok(start !== -1 && end > start, 'không cắt được khối bài-của-một-em');
     const box = { innerHTML: '' };
     const esc = (s) => String(s == null ? '' : s);
-    const h = new Function('esc', 'SKILL_LABEL', 'api', '$', '_cohortId', '_who', `
+    // Đồng hồ GIẢ: hạn dùng đo bằng `Date.now()`, và một chốt phải nhảy qua nó
+    // được mà không thật sự chờ 30 giây.
+    const clock = { t: 1_000_000 };
+    const FakeDate = { now: () => clock.t };
+    const h = new Function('esc', 'SKILL_LABEL', 'api', '$', '_cohortId', '_who', 'Date', `
       let _picked = null;
       ${SRC.slice(start, end)}
-      return { loadStudentWork, _work, renderWork,
+      return { loadStudentWork, _work, renderWork, WORK_TTL_MS,
                pick: (v) => { _picked = v; } };
     `)(esc, { course: 'bài' }, { get: fetchImpl }, () => box, 'co-1',
-       { members: [{ student_id: 'st-1', name: 'An' }] });
+       { members: [{ student_id: 'st-1', name: 'An' }] }, FakeDate);
     h.box = box;
+    h.clock = clock;
     return h;
   }
 
@@ -567,6 +572,34 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     release();
     await first;
     assert.ok(h._work.by['st-1'], 'An không bao giờ nhận được dữ liệu');
+  });
+
+  test('kho có HẠN DÙNG: qua lại thì rẻ, nhưng cái sai có trần thời gian', async () => {
+    // Hai vòng review nói ngược nhau ở đây và cả hai đúng một nửa. Dùng lại vô
+    // hạn thì sai vô thời hạn (em ấy nộp ở tab khác, hạn trôi qua, giáo viên
+    // chấm ở tab mới — `epoch` không thấy gì trong số đó). Đọc lại mọi lần thì
+    // An → Bình → An là ba lượt quét CẢ LỚP, vì máy chủ chạy ba bộ đối chiếu
+    // trên toàn bộ bài giao của lớp mỗi lượt gọi (codex #989 vòng 5).
+    let calls = 0;
+    const h = workHarness(async () => {
+      calls += 1;
+      return { items: [{ assignment_id: 'a1', title: 'B' }] };
+    });
+    h.pick('st-1');
+
+    await h.loadStudentWork('st-1');
+    await h.loadStudentWork('st-1');
+    assert.equal(calls, 1, 'mở lại cùng một em trong hạn không được gọi lại');
+
+    // Hết hạn → đọc lại.
+    h.clock.t += h.WORK_TTL_MS + 1;
+    await h.loadStudentWork('st-1');
+    assert.equal(calls, 2, 'hết hạn mà không đọc lại là để nó sai vô thời hạn');
+
+    // Dữ liệu đổi → đọc lại NGAY, không đợi hết hạn.
+    h._work.epoch += 1;
+    await h.loadStudentWork('st-1');
+    assert.equal(calls, 3, 'giao/đóng một bài phải thấy ngay, không đợi 30 giây');
   });
 
   // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────

@@ -540,6 +540,11 @@ function renderDrawer() {
 //   · trong cùng một epoch thì vẫn gộp, không gọi mạng hai lần
 const _work = { by: {}, inflight: {}, error: {}, epoch: 0 };
 
+// 30 giây. Đủ ngắn để một bài vừa nộp ở tab khác hiện ra gần như ngay, đủ dài
+// để bấm qua lại vài em không kéo theo vài lượt quét cả lớp — máy chủ chạy ba
+// bộ đối chiếu trên toàn bộ bài giao của lớp cho MỖI lượt gọi.
+const WORK_TTL_MS = 30_000;
+
 /** Trạng thái một lượt nộp — CÙNG bộ chữ với bảng tổng kết. */
 const WORK_STATUS = {
   submitted: 'đã nộp', late: 'nộp trễ', missing: 'không nộp',
@@ -632,6 +637,19 @@ async function loadStudentWork(sid) {
   // Gộp trong CÙNG epoch, không gộp xuyên epoch: một lượt bắt đầu trước khi dữ
   // liệu đổi không được phép chặn lượt đọc lại sau khi đổi.
   if (_work.inflight[sid] === epoch) return;
+  // HẠN DÙNG, không phải "dùng mãi" cũng không phải "đọc lại mọi lần".
+  //
+  // Hai vòng review nói ngược nhau ở đây, và cả hai đều đúng một nửa. Dùng lại
+  // kho vô hạn thì nó sai vô thời hạn: em ấy nộp bài ở tab khác, hạn trôi qua
+  // biến "chưa nộp" thành "không nộp", giáo viên chấm ở trang mở bằng tab
+  // mới — không lần nào trong số đó chạm tới trang này, nên `epoch` không thấy.
+  // Đọc lại MỌI lần thì bấm An → Bình → An là ba lượt quét CẢ LỚP, vì máy chủ
+  // chạy ba bộ đối chiếu trên toàn bộ bài giao của lớp mỗi lần gọi.
+  //
+  // Hạn dùng giải cả hai: điều hướng qua lại không tốn gì, còn cái sai thì có
+  // trần thời gian thay vì kéo dài tới khi đóng tab.
+  const hit = _work.by[sid];
+  if (hit && hit.epoch === epoch && Date.now() - hit.at < WORK_TTL_MS) return;
   _work.inflight[sid] = epoch;
   delete _work.error[sid];
   try {
@@ -640,7 +658,8 @@ async function loadStudentWork(sid) {
     // Dữ liệu đã đổi trong lúc đọc ⇒ bản này là ảnh chụp TRƯỚC khi đổi. Rụng
     // nó đi; lượt của epoch mới đang bay hoặc sắp bay.
     if (epoch !== _work.epoch) return;
-    _work.by[sid] = { items: d.items || [], homework_stale: !!d.homework_stale };
+    _work.by[sid] = { items: d.items || [], homework_stale: !!d.homework_stale,
+                      at: Date.now(), epoch };
     delete _work.error[sid];
   } catch (err) {
     if (epoch !== _work.epoch) return;
