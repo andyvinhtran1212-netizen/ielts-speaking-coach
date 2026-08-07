@@ -20,6 +20,7 @@ truy vấn đều `select("*")` nên vô hại — sẽ mù với đúng thứ t
 đổi `select` thành `"*"` mà test vẫn xanh.
 """
 import asyncio
+import json
 
 import pytest
 
@@ -28,6 +29,21 @@ from routers import reading_student as R
 # Tên trường KHÔNG được xuất hiện ở BẤT KỲ độ sâu nào trong response học viên.
 FORBIDDEN = ("answer", "answers", "alternatives", "explanation", "solution",
              "answer_key", "correct", "is_correct")
+
+# CHIM BÁO ĐỘNG — soi GIÁ TRỊ, không chỉ tên khoá.
+#
+# Chốt chỉ nhìn tên khoá thì một bản đổi vô hại về hình thức vẫn qua: đổi tên
+# `answer` thành `expected`, gói lại thành `{feedback: {key: "TRUE"}}`, hay ghép
+# đáp án vào một chuỗi — tên khoá sạch mà đáp án vẫn tới trình duyệt. Nên gieo
+# những chuỗi KHÔNG THỂ trùng ngẫu nhiên rồi soi cả response đã tuần tự hoá.
+# (codex cục bộ #977)
+CANARY = {
+    "answer": "CANARY-DAP-AN-CHINH",
+    "alt": "CANARY-DAP-AN-THAY-THE",
+    "explanation": "CANARY-GIAI-THICH",
+    "excerpt": "CANARY-TRICH-NGUON",
+    "microcheck": "CANARY-DAP-AN-LONG-SAU",
+}
 
 PASSAGE_ID = "11111111-1111-4111-8111-111111111111"
 TEST_ROW_ID = "22222222-2222-4222-8222-222222222222"
@@ -92,12 +108,14 @@ def _question_row(q_num=1):
             "options": [{"label": "A", "text": "Đúng"}],
             "solution": {
                 "steps": ["bước 1"],
-                "source_excerpt": "ĐÂY LÀ CHỖ CÓ ĐÁP ÁN",
-                "solution_steps": [{"microcheck": {"answer": "TRUE", "prompt": "?"}}],
+                "source_excerpt": CANARY["excerpt"],
+                "solution_steps": [
+                    {"microcheck": {"answer": CANARY["microcheck"], "prompt": "?"}},
+                ],
             },
         },
-        "answer": {"answer": "TRUE", "alternatives": ["T"]},
-        "explanation": "Vì đoạn 2 nói …",
+        "answer": {"answer": CANARY["answer"], "alternatives": [CANARY["alt"]]},
+        "explanation": CANARY["explanation"],
         "skill_tag": "tfng",
         "sub_skill": "x",
         "order_num": q_num,
@@ -114,6 +132,17 @@ def _patch(monkeypatch, tables):
     monkeypatch.setattr(R, "_fetch_published_passage",
                         lambda slug, lib: {"id": PASSAGE_ID, "slug": slug, "title": "T",
                                            "body_markdown": "nội dung"})
+
+
+def _assert_no_canary(payload, what: str) -> None:
+    """Không một chuỗi chim-báo-động nào được xuất hiện trong response, ở BẤT KỲ
+    hình dạng nào — kể cả khi đã đổi tên khoá hay ghép vào một chuỗi."""
+    blob = json.dumps(payload, ensure_ascii=False)
+    found = sorted(name for name, val in CANARY.items() if val in blob)
+    assert found == [], (
+        f"{what} để lọt GIÁ TRỊ đáp án ({', '.join(found)}) — tên khoá có thể đã "
+        f"đổi nhưng nội dung vẫn tới trình duyệt."
+    )
 
 
 def _run(c): return asyncio.run(c)
@@ -134,6 +163,7 @@ def test_mat_luyen_tap_khong_gui_dap_an(monkeypatch, fn_name):
         f"{fn_name} gửi đáp án xuống trình duyệt: {leaked}. Cột `answer`/"
         f"`explanation` phải nằm ngoài `select`, và `payload.solution` phải bị lọc."
     )
+    _assert_no_canary(res, fn_name)
 
 
 def test_de_l3_khong_gui_dap_an(monkeypatch):
@@ -152,6 +182,7 @@ def test_de_l3_khong_gui_dap_an(monkeypatch):
 
     leaked = sorted(_keys_deep(detail) & set(FORBIDDEN))
     assert leaked == [], f"đề L3 gửi đáp án xuống trình duyệt: {leaked}"
+    _assert_no_canary(detail, "đề L3")
 
 
 def test_van_giu_thu_trang_can_de_ve(monkeypatch):
