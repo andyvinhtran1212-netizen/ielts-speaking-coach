@@ -10,14 +10,27 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// PHẢI CHỜ REACT HYDRATE XONG rồi mới cho mã legacy đụng DOM. Script kiểu module
+// chạy TRƯỚC `DOMContentLoaded`; nếu lúc đó điều kiện đã sẵn sàng thì hàm mount
+// chạy ngay và ĐỔI DOM trước khi React hydrate → React #418 → nó vứt HTML máy
+// chủ và dựng lại từ đầu, xoá sạch thay đổi của script, trang quay về trạng thái
+// ban đầu. Đã xảy ra THẬT (G1 bắt ở `/mock/result` rồi `/speaking/result`); các
+// trang khác chỉ thoát vì điều kiện chưa sẵn sàng ở nhịp đầu — tức MAY.
 const MOUNT = `
 import { mount } from '/js/quiz-progress.js';
+const afterHydration = (fn) => {
+  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
+  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
+  // template literal, va mot dau nguoc se ket thuc chuoi som.
+  if (document.readyState === 'complete') setTimeout(fn, 0);
+  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+};
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
-if (ready()) mount();
+if (ready()) afterHydration(mount);
 else {
   let n = 0;
   const iv = setInterval(() => {
-    if (ready()) { clearInterval(iv); mount(); }
+    if (ready()) { clearInterval(iv); afterHydration(mount); }
     else if (++n > 500) {  // 500 x 20ms = 10s
       clearInterval(iv);
       console.error('[quiz-progress] Supabase khong san sang sau 10s');
