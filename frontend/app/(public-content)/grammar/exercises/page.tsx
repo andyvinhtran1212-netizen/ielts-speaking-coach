@@ -44,9 +44,13 @@ export default function GrammarExercisesPage() {
 
       <main className="av-w-page py-8">
         <header className="mb-8">
+          {/* `{' '}` là BẮT BUỘC, không phải thẩm mỹ: JSX XOÁ HẲN khoảng trắng
+              có xuống dòng giữa các phần tử, nên nếu không chèn thì dòng này ra
+              "Grammar Wiki/Bài tập" trong khi legacy là "Grammar Wiki / Bài tập"
+              — G1 bắt được đúng chỗ đó (`line-missing`). */}
           <nav className="text-sm text-white/40 mb-3">
-            <a href="/grammar" className="hover:text-white/70">Grammar Wiki</a>
-            <span className="mx-1">/</span>
+            <a href="/grammar" className="hover:text-white/70">Grammar Wiki</a>{' '}
+            <span className="mx-1">/</span>{' '}
             <span className="text-white/60">Bài tập</span>
           </nav>
           <h1 className="text-3xl font-extrabold text-white mb-2">Bài tập Grammar</h1>
