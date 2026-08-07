@@ -575,8 +575,14 @@ function workOpen(it) {
       >Nghe bài</a>`;
   }
   if (it.has_writing) {
+    // Mang theo tên bài VÀ kho câu hỏi, y như nút "Xem từng câu". Ngăn kéo mở
+    // được từ Sổ điểm danh, nơi `_homework` CHƯA nạp — thiếu hai thứ này thì
+    // bài tự luận mở ra dưới tiêu đề trống "Nhận bài", và `openMarking` ẩn luôn
+    // hai tab chỉ-bài-theo-buổi vì tưởng đây không phải bài theo buổi
+    // (codex #989).
     return `<button class="cl-work__open" type="button"
-      data-open-writing="${esc(it.assignment_id)}">Xem tự luận</button>`;
+      data-open-writing="${esc(it.assignment_id)}" data-bank="${esc(it.bank_id || '')}"
+      data-title="${esc(it.title || '')}">Xem tự luận</button>`;
   }
   if (it.bank_id && it.artifact_id) {
     return `<button class="cl-work__open" type="button"
@@ -3020,7 +3026,11 @@ function bindDetail() {
         return;
       }
       const w = e.target.closest('button[data-open-writing]');
-      if (w) { openWorkItem(w.dataset.openWriting, { writing: true }); return; }
+      if (w) {
+        openWorkItem(w.dataset.openWriting,
+          { writing: true, bank: w.dataset.bank, title: w.dataset.title });
+        return;
+      }
       // Bấm vào chính dòng: mở khu Nhận bài của bài ấy. Đây là đường lùi cho
       // Reading/Listening và cho bài chưa nộp — không có mặt đọc riêng, nhưng
       // bảng tổng kết của bài ấy là câu trả lời gần nhất.

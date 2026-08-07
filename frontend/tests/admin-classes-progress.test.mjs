@@ -332,13 +332,51 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     assert.match(om, /return openTally\(/);
   });
 
-  test('tên bài và kho câu hỏi đi THEO DÒNG, không tra ngược từ _homework', () => {
-    // `_homework` chỉ nạp khi mở tab Bài tập; ngăn kéo mở được từ Sổ điểm danh.
-    // Tra ngược sẽ cho một khu Nhận bài không tiêu đề và tab "Bài từng em" bị ẩn.
-    const fn = codeOnly(SRC.slice(SRC.indexOf('function renderWork'),
-                                  SRC.indexOf('async function loadStudentWork')));
-    assert.match(fn, /data-title=/);
-    assert.match(fn, /data-bank=/);
+  test('MỖI nút mang theo tên bài và kho câu hỏi, không tra ngược từ _homework', () => {
+    // `_homework` chỉ nạp khi mở tab Bài tập; ngăn kéo mở được từ Sổ điểm danh,
+    // tức đường CHÍNH là đường `_homework` còn rỗng. Thiếu hai thứ này thì khu
+    // Nhận bài mở ra không tiêu đề và `openMarking` ẩn luôn hai tab
+    // chỉ-bài-theo-buổi vì tưởng đây không phải bài theo buổi.
+    //
+    // Soi TỪNG NÚT, không soi cả khối: bản trước chỉ hỏi "có `data-title=` ở
+    // đâu đó không" và nút "Xem tự luận" thiếu cả hai vẫn xanh (codex #989).
+    const start = SRC.indexOf('const WORK_STATUS = {');
+    const end = SRC.indexOf('async function loadStudentWork');
+    const esc = (s) => String(s == null ? '' : s);
+    const { workOpen, renderWork } = new Function('esc', 'SKILL_LABEL', '_work', '$',
+      `${SRC.slice(start, end)} return { workOpen, renderWork };`)(
+      esc, { course: 'bài tập theo buổi' },
+      { by: { x: { items: [{ assignment_id: 'a1', title: 'Buổi 3', skill: 'course',
+                             status: 'submitted', score: null }] } },
+        loading: {}, error: {} }, () => null);
+
+    const item = { assignment_id: 'a1', title: 'Buổi 3', bank_id: 'b1', artifact_id: 'q1' };
+    for (const [what, html] of [
+      ['Xem tự luận', workOpen({ ...item, has_writing: true })],
+      ['Xem từng câu', workOpen(item)],
+      ['dòng', renderWork({ student_id: 'x' })],
+    ]) {
+      assert.match(html, /data-title="Buổi 3"/, `${what}: thiếu tên bài`);
+    }
+    // Kho câu hỏi: hai nút dẫn vào khu bài-theo-buổi đều cần.
+    assert.match(workOpen({ ...item, has_writing: true }), /data-bank="b1"/);
+    assert.match(workOpen(item), /data-bank="b1"/);
+
+    // VÀ chỗ nghe phải CHUYỂN TIẾP chúng. Ghim cái nút mà quên chỗ gọi là để
+    // lọt đúng một nửa lỗi: thuộc tính có mặt, không ai đọc — bẫy "test đường,
+    // đừng test hàm" đã lặp trong dự án này.
+    // Chỗ nghe nằm ở khu nối sự kiện, SAU `openWorkItem` trong tệp — cắt theo
+    // chiều ngược lại thì lát rỗng và mọi khẳng định bên dưới thành vô nghĩa.
+    const hStart = SRC.indexOf("const drawer = $('roster-drawer')");
+    assert.ok(hStart !== -1, 'không thấy chỗ nối sự kiện của ngăn kéo');
+    const handler = codeOnly(SRC.slice(hStart, hStart + 1600));
+    assert.match(handler, /data-open-writing/, 'lát cắt không chứa chỗ nghe');
+    for (const [key, re] of [
+      ['data-open-writing', /writing: true,[^}]*bank: w\.dataset\.bank[^}]*title: w\.dataset\.title/],
+      ['data-open-one', /one: true,[^}]*bank: one\.dataset\.bank[^}]*title: one\.dataset\.title/],
+    ]) {
+      assert.match(handler, re, `${key}: nút mang dữ liệu mà chỗ nghe không đọc`);
+    }
   });
 
   // CHẠY bộ vẽ, không soi chữ nó. Cái sai ở đây là một Ô ĐỌC RA GÌ: một dòng
