@@ -1,4 +1,9 @@
 # Sprint 15.2 (F4) — Playwright e2e tooling. Bounded to frontend/tests/e2e/.
+# KHÔNG có gạch chéo cuối: `node_modules/` chỉ khớp THƯ MỤC, không khớp một
+# LIÊN KẾT TƯỢNG TRƯNG cùng tên. Worktree tạm hay dùng liên kết để mượn gói đã
+# cài, và liên kết đó lọt vào commit — cục bộ vẫn phân giải nên mọi thứ xanh,
+# còn CI thì `statSync` ném ENOENT và cả tệp test sập (#969).
+node_modules
 node_modules/
 playwright-report/
 test-results/

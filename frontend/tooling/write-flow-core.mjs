@@ -56,6 +56,11 @@ export function normalizePath(url) {
  *     `essay_text`: ghi đè bài bằng chuỗi rỗng là mất bài, phải chặn được)
  *   · `NO_LIST` / `NO_TEXT` → khoá không được MANG DỮ LIỆU, theo ĐÚNG kiểu
  *     khai ở backend (xem chú thích tại chỗ khai báo).
+ *   · `NO_BODY` (dùng cho cả `body`) → request KHÔNG được có thân.
+ *
+ * `body` cũng có thể là MỘT HÀM nhận cả thân request — dùng khi các trường phải
+ * TƯƠNG QUAN với nhau (ví dụ `q_num` phải khớp đúng `user_answer` của nó); khai
+ * từng trường riêng thì một cặp bị hoán đổi vẫn qua (codex cục bộ #969).
  */
 export const NON_EMPTY = Symbol('non-empty');
 
@@ -87,12 +92,28 @@ export const NON_EMPTY = Symbol('non-empty');
  * trường đó KHÔNG dùng hai ký hiệu này; nó chỉ cần "vắng hoặc null". Ghim nó
  * bằng "phải vắng hẳn" là đỏ oan với bản port tuần tự hoá đúng luật (bot #966).
  */
+/** Request KHÔNG được có thân. Bỏ trống `body` nghĩa là "không soi", nên một
+ *  bản port gửi kèm thân tuỳ ý vẫn qua — khác hẳn với "phải rỗng". */
+export const NO_BODY = Symbol('no-body');
+
 export const NO_LIST = Symbol('no-list-data');
 export const NO_TEXT = Symbol('no-text-data');
 
 export function bodyMatches(actual, expected) {
+  if (expected === NO_BODY) {
+    const empty = actual == null || actual === '';
+    return empty ? { ok: true }
+      : { ok: false, why: `phải KHÔNG có thân request, nhận ${JSON.stringify(actual).slice(0, 80)}` };
+  }
   if (expected == null) return { ok: true };
   if (actual == null) return { ok: false, why: 'không có thân request' };
+  // Hàm ở MỨC ĐỈNH: soi cả thân một lượt. Không có nhánh này thì
+  // `Object.entries(fn)` trả mảng RỖNG và bản khai qua âm thầm — một bản khai
+  // viết đúng ý định vẫn không kiểm gì cả.
+  if (typeof expected === 'function') {
+    return expected(actual) ? { ok: true }
+      : { ok: false, why: `thân request không thoả điều kiện: ${JSON.stringify(actual).slice(0, 120)}` };
+  }
   for (const [k, want] of Object.entries(expected)) {
     const got = actual[k];
     if (want === NO_LIST || want === NO_TEXT) {
@@ -219,6 +240,34 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       const m = bodyMatches(remaining[i].body, d.body);
       if (!m.ok) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
+      }
+    }
+
+    // `bodyAll` soi CẢ TẬP thân request đã khớp, không phải từng cái một.
+    //
+    // VÌ SAO CẦN: với `times: 2`, `body` được gọi riêng cho từng request, nên một
+    // vị từ dạng "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN
+    // CÙNG một câu — tức câu còn lại không được lưu, đúng thứ bản khai tưởng
+    // mình đang chặn (bot bắt ở #969). Chỉ nhìn cả tập mới thấy "thiếu một câu".
+    // Khai `bodyAll` mà không phải hàm là LỖI, không phải "bỏ qua". Bỏ qua
+    // nghĩa là `bodyAll: true` — một cách viết rất dễ gõ nhầm — làm bản khai
+    // đọc như đang chặn trùng lặp trong khi nó không chặn gì (codex cục bộ #969).
+    if (d.bodyAll != null && typeof d.bodyAll !== 'function') {
+      findings.push({
+        kind: 'write-body',
+        what: `${wantMethod} ${wantPath}`,
+        why: `\`bodyAll\` phải là HÀM, nhận ${typeof d.bodyAll}`,
+      });
+    }
+    if (typeof d.bodyAll === 'function' && hits.length === times) {
+      const bodies = hits.map((i) => remaining[i].body);
+      if (!d.bodyAll(bodies)) {
+        findings.push({
+          kind: 'write-body',
+          what: `${wantMethod} ${wantPath}`,
+          why: `cả tập ${times} thân request không thoả điều kiện: `
+            + JSON.stringify(bodies).slice(0, 160),
+        });
       }
     }
   }

@@ -2175,6 +2175,15 @@
       // Embedded (3-tab mock) → the parent finalises, stay quiet. Standalone
       // sealed mock → hand back to the orchestrator.
       if (window.MockHook && MockHook.isSealedResponse(result)) {
+        // Dọn đồng hồ TRƯỚC khi bàn giao. `showSealedAndReturn` thay sạch
+        // `document.body.innerHTML`, nên một `tick` còn hẹn giờ sẽ chạm phải
+        // `#exam-timer` đã biến mất và ném TypeError mỗi giây cho tới lúc trang
+        // điều hướng đi. Nhánh này `return` sớm nên nó bỏ qua chỗ dọn ở dưới —
+        // nhánh không-niêm-phong thì dọn đúng. Cổng đường-ghi bắt ở #969.
+        if (SESSION.timer_interval) {
+          clearInterval(SESSION.timer_interval);
+          SESSION.timer_interval = null;
+        }
         if (!(MockHook.embedded && MockHook.embedded())) MockHook.showSealedAndReturn('reading');
         return;
       }

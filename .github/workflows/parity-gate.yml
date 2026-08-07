@@ -208,6 +208,19 @@ on:
       # `feedback.css` tạo hình. Thiếu tệp này thì PR chỉ sửa CSS đó không chạy
       # cổng ghi, dù nó đủ sức làm nút không bấm được (bot bắt ở #962 vòng 3).
       - 'frontend/public/css/feedback.css'
+      # ── Bài thi Đọc ──────────────────────────────────────────────────────
+      # `reading-exam` cũng chưa có cặp parity, nên nằm cùng khối này. Trang nạp
+      # 5 tệp dưới lúc chạy mà `reading-exam.js` KHÔNG import chúng, nên bộ dò
+      # tĩnh mù: `markdown.js` dựng thân đoạn đọc, `mock-exam-hook.js` quyết định
+      # nhánh nộp khi bài nằm trong đề thi thử, `runtime-config.js` quyết định
+      # gọi máy chủ nào — sửa bất kỳ tệp nào cũng đủ làm hỏng đường ghi.
+      - 'frontend/public/pages/reading-exam.html'
+      - 'frontend/public/js/reading-exam.js'
+      - 'frontend/public/js/markdown.js'
+      - 'frontend/public/js/mock-exam-hook.js'
+      - 'frontend/public/js/runtime-config.js'
+      - 'frontend/public/css/reading-exam.css'
+      - 'frontend/public/css/reading-exam-mockup.css'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
