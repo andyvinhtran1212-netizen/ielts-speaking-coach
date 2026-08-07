@@ -10,14 +10,34 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// PHẢI CHỜ REACT HYDRATE XONG rồi mới cho mã legacy đụng DOM.
+//
+// G1 bắt được: React #418 kèm `line-missing: Thiếu mã sitting.` — bản Next kẹt ở
+// "Đang tải kết quả…" trong khi legacy đã hiện thông báo lỗi. Chuỗi nhân quả:
+// script kiểu module chạy TRƯỚC `DOMContentLoaded`; nếu lúc đó `getSupabase()`
+// đã sẵn sàng thì `mount()` chạy ngay và ĐỔI DOM trước khi React hydrate. React
+// thấy DOM khác thứ máy chủ trả → #418 → nó VỨT HTML máy chủ và dựng lại từ
+// đầu, xoá sạch thay đổi của script. Trang quay về trạng thái ban đầu.
+//
+// Sáu trang port trước dùng cùng khuôn và đang xanh, nhưng đó là MAY: chúng chỉ
+// thoát vì `getSupabase()` chưa sẵn sàng ở nhịp đầu nên `mount()` rơi vào nhánh
+// `setInterval` — tức đã lùi sang macrotask. Ở đây phải lùi TƯỜNG MINH, không
+// dựa vào may.
 const MOUNT = `
 import { mount } from '/js/mock-result.js';
+const afterHydration = (fn) => {
+  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
+  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
+  // template literal, va mot dau nguoc se ket thuc chuoi som.
+  if (document.readyState === 'complete') setTimeout(fn, 0);
+  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+};
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
-if (ready()) mount();
+if (ready()) afterHydration(mount);
 else {
   let n = 0;
   const iv = setInterval(() => {
-    if (ready()) { clearInterval(iv); mount(); }
+    if (ready()) { clearInterval(iv); afterHydration(mount); }
     else if (++n > 500) {  // 500 x 20ms = 10s
       clearInterval(iv);
       console.error('[mock-result] Supabase khong san sang sau 10s');
