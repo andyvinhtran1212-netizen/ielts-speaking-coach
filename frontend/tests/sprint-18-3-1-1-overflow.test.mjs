@@ -24,7 +24,9 @@ const ACCESS = front('pages', 'admin', 'access-codes', 'index.html');
 
 describe('Sprint 18.3.1.1 — action buttons stay whole', () => {
   test('shared button classes never wrap/clip their label', () => {
-    assert.match(CSS, /\.adm-btn-primary,\s*\.adm-btn-secondary,\s*\.adm-btn-danger\s*\{\s*white-space:\s*nowrap/);
+    const buttonBlock = CSS.match(/\.adm-btn-primary,\s*\.adm-btn-secondary,\s*\.adm-btn-danger\s*\{([\s\S]*?)\}/)?.[1] || '';
+    assert.match(buttonBlock, /display:\s*inline-flex/);
+    assert.match(buttonBlock, /white-space:\s*nowrap/);
   });
 });
 
