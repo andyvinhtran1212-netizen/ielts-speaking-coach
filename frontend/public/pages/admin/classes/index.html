@@ -265,30 +265,35 @@
        hỏi — "đổi cách nhìn, không đổi chỗ đứng" — nên chúng dùng CHUNG một hình
        dạng. Nếu chia theo độ sâu thì hai thứ cùng nghĩa lại trông khác nhau.
 
-       Tất cả bó trong `.cl-shell`: `.adm-subtabs` dùng chung với queue.html và
-       users/index.html, sửa luật gốc là sửa cả ba trang. */
+       Bó bằng THUỘC TÍNH `[data-level]`, không bằng `.cl-shell`. `.adm-subtabs`
+       dùng chung với queue.html và users/index.html nên sửa luật gốc là sửa cả
+       ba trang — nhưng `.cl-shell` là cái bó SAI: `#panel-marking` (tầng 3) nằm
+       NGOÀI shell, shell đóng ở giữa tài liệu, nên tiền tố ấy làm bộ chọn không
+       bao giờ khớp và tầng 3 giữ nguyên hình viên-có-viền của tầng 1 — đúng lỗi
+       cần chữa (codex #986). `data-level` chỉ trang này đặt, nên nó vừa bó đủ
+       chặt vừa không phụ thuộc chỗ đứng của khối trong tài liệu. */
 
     /* Tầng 2 — gạch chân. */
-    .cl-shell .adm-subtabs[data-level="section"] { gap: var(--av-space-4); }
-    .cl-shell .adm-subtabs[data-level="section"] .adm-subtab {
+    .adm-subtabs[data-level="section"] { gap: var(--av-space-4); }
+    .adm-subtabs[data-level="section"] .adm-subtab {
       background: transparent; border: 0; border-radius: 0;
       border-bottom: 2px solid transparent;
       padding: var(--av-space-2) var(--av-space-1);
     }
-    .cl-shell .adm-subtabs[data-level="section"] .adm-subtab.is-active {
+    .adm-subtabs[data-level="section"] .adm-subtab.is-active {
       background: transparent; border-bottom-color: var(--av-primary);
       color: var(--av-text-primary);
     }
 
     /* Tầng 3 + ống kính — hộp ghép trên nền chìm. */
-    .cl-shell .adm-subtabs[data-level="view"], .cl-lens {
+    .adm-subtabs[data-level="view"], .cl-lens {
       display: inline-flex; gap: 2px; padding: 2px;
       background: var(--av-surface-sunken);
       border: 1px solid var(--av-border-subtle);
       border-radius: var(--av-radius-md);
     }
     .cl-lens { margin-bottom: var(--av-space-4); }
-    .cl-shell .adm-subtabs[data-level="view"] .adm-subtab, .cl-lens button {
+    .adm-subtabs[data-level="view"] .adm-subtab, .cl-lens button {
       font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
       padding: var(--av-space-1) var(--av-space-3);
       background: transparent; border: 0;
@@ -298,7 +303,7 @@
     /* Hai bộ dùng hai cách đánh dấu khác nhau — `.is-active` và
        `aria-current="true"` — nên phải bắt CẢ HAI. Chỉ bắt một là một trong hai
        bộ mất hẳn dấu "đang mở". */
-    .cl-shell .adm-subtabs[data-level="view"] .adm-subtab.is-active,
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active,
     .cl-lens button[aria-current="true"] {
       background: var(--av-surface-card);
       color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
