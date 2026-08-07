@@ -21,7 +21,9 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatFindings, isWrite, judge, parseMultipart, validateFlow } from './write-flow-core.mjs';
+import {
+  formatFindings, isWrite, judge, normalizePath, parseMultipart, validateFlow,
+} from './write-flow-core.mjs';
 import { FAKE_USER_ID, storageKey } from './supabase-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +40,29 @@ const fakeSession = JSON.stringify({
 });
 
 /** Thực thi một bước khai báo. Giữ tập lệnh NHỎ — bản khai phải đọc được. */
-async function step(page, s) {
+async function step(page, s, observed) {
+  // ĐỒNG BỘ THEO SỐ REQUEST, không theo đồng hồ tường.
+  //
+  // Có nhánh chỉ hoàn tất sau một chuỗi thử-lại giãn dần (`RETRY_DELAYS` của
+  // `speaking-debt.js`: 1s + 3s + 8s). Chờ bằng một con số giây cố định là ghim
+  // vào tốc độ máy: máy CI kẹt nặng chỉ kịp 3 lần trong cửa sổ đủ cho 4, và
+  // luồng đỏ vì CHẬM chứ không phải vì SAI. Chờ tới khi ĐỦ SỐ REQUEST thì cùng
+  // một bản khai đúng trên máy nhanh lẫn máy chậm, mà vẫn có hạn giờ nên "không
+  // bao giờ đủ" vẫn đỏ. (codex cục bộ #982)
+  if (s.waitForWrites) {
+    const [wantPath, n, timeoutMs] = s.waitForWrites;
+    const want = normalizePath(wantPath);
+    const limit = timeoutMs || 30000;
+    const t0 = Date.now();
+    const count = () => observed.filter((r) => normalizePath(r.url) === want).length;
+    while (count() < n) {
+      if (Date.now() - t0 > limit) {
+        throw new Error(`chờ ${n} request tới «${wantPath}» quá ${limit}ms, mới thấy ${count()}`);
+      }
+      await page.waitForTimeout(120);
+    }
+    return undefined;
+  }
   if (s.click) return page.locator(s.click).first().click();
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
@@ -264,7 +288,7 @@ async function runFlow(browser, flow) {
 
   let stepError = null;
   try {
-    for (const s of flow.steps) await step(page, s);
+    for (const s of flow.steps) await step(page, s, observed);
   } catch (e) {
     stepError = e;
   }

@@ -399,6 +399,7 @@ const STEP_SHAPES = {
   fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
   dispatch: 'dispatch',
   wait: 'ms', advance: 'ms',
+  waitForWrites: 'waitForWrites',
 };
 
 function isPlainObject(v) {
@@ -514,6 +515,15 @@ export function validateFlow(flow) {
       }
       if (shape === 'ms' && !(Number.isFinite(v) && v > 0)) {
         bad(`bước ${i}: \`${k}\` phải là số dương`);
+      }
+      if (shape === 'waitForWrites') {
+        const ok = Array.isArray(v) && (v.length === 2 || v.length === 3)
+          && isStr(v[0]) && Number.isInteger(v[1]) && v[1] > 0
+          && (v.length === 2 || (Number.isFinite(v[2]) && v[2] > 0));
+        if (!ok) {
+          bad(`bước ${i}: \`waitForWrites\` phải là [đường dẫn, số nguyên dương]`
+            + ' hoặc [đường dẫn, số nguyên dương, hạn giờ]');
+        }
       }
       if (shape === 'dispatch') {
         const ok = Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(isStr);
