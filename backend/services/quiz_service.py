@@ -1516,7 +1516,10 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
             "item_key": q.get("item_key"),
             **({"explain": q.get("explain")} if sub else {}),
         } for q in qs],
-        "submitted": bool(sub),
+        # Dòng hỏng hoàn toàn KHÔNG phải "đã nộp": trang phải hiện lại KHUNG
+        # VIẾT để em ấy bấm Nộp lần nữa.
+        "submitted": bool(sub) and not _writing_row_is_broken(sub),
+        "grader_failed": _writing_row_is_broken(sub),
         # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
         # Bản DỰ PHÒNG. `None` = chưa có, hoặc không đọc được — trang xử lý hai
@@ -1528,7 +1531,7 @@ def course_writing_state(*, user_id: str, bank_id: str) -> dict:
             "total":     sub.get("total"),
             "clean":     sub.get("clean"),
             "graded_at": sub.get("graded_at"),
-        } if sub else None),
+        } if (sub and not _writing_row_is_broken(sub)) else None),
     }
 
 
@@ -1552,11 +1555,13 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
         raise HTTPException(403, "Bài này không còn nhận bài nữa.")
     try:
         done = (supabase_admin.table("course_writing_submissions")
-                .select("id").eq("class_assignment_item_id", item["id"])
+                .select("id, items").eq("class_assignment_item_id", item["id"])
                 .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
-    if done:
+    # Dòng hỏng hoàn toàn KHÔNG chặn lưu nháp: em ấy còn phải nộp lại, và chặn
+    # ở đây là bắt gõ lại mọi thứ trong một tab duy nhất (codex #971).
+    if done and not _writing_row_is_broken(done[0]):
         raise HTTPException(409, "Phần tự luận đã nộp rồi — không sửa được nữa.")
 
     # Chỉ giữ câu có nội dung, và cắt theo đúng trần của lượt nộp: một bản nháp
@@ -1584,6 +1589,22 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
     return {"saved": len(kept), "item_id": item["id"]}
+
+
+def _writing_row_is_broken(sub) -> bool:
+    """Dòng nộp này có phải một lượt bị MÁY CHỦ làm hỏng không?
+
+    Mọi câu `ok=None` nghĩa là bộ chấm hỏng hoàn toàn — bài còn nguyên nhưng
+    chưa ai chấm. Đó KHÔNG phải một lượt đã dùng.
+
+    Ba nơi phải nói cùng một câu, nếu không đường chấm lại có mà không tới
+    được: `course_writing_state` (trang khoá khung viết), `save_course_writing_
+    draft` (chặn lưu nháp), và `submit_course_writing` (nhận chấm lại). Bản
+    trước chỉ sửa nơi thứ ba, nên sau khi tải lại trang em ấy vẫn bị khoá
+    (codex #971).
+    """
+    items = (sub or {}).get("items") or []
+    return bool(items) and all(i.get("ok") is None for i in items)
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,
@@ -1642,12 +1663,24 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     # Kiểm SỚM, trước khi tốn một lượt gọi model.
     try:
         already = (supabase_admin.table("course_writing_submissions")
-                   .select("id").eq("class_assignment_item_id", item["id"])
+                   .select("id, items, graded_at")
+                   .eq("class_assignment_item_id", item["id"])
                    .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+    # Dòng cũ mà bộ chấm hỏng HOÀN TOÀN thì KHÔNG phải một lượt đã dùng — đó là
+    # một lượt bị máy chủ làm hỏng. Cho chấm lại TẠI CHỖ, dùng lại đúng dòng ấy.
+    retry_of = retry_stamp = None
     if already:
-        raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
+        if _writing_row_is_broken(already[0]):
+            retry_of = already[0]["id"]
+            # Mốc dùng để SO-VÀ-ĐỔI. Hai tab cùng bấm Nộp lại thì cả hai đều
+            # qua được phép kiểm ở trên; không có mốc này thì cả hai cùng ghi và
+            # bản chấm nào xong SAU sẽ đè lên bản trước, kèm một điểm khác trong
+            # sổ lớp (codex #971).
+            retry_stamp = already[0].get("graded_at")
+        else:
+            raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
 
     # `explain` (đáp án mẫu) vào BẢN CHỤP luôn. Đọc nó từ đề hiện hành lúc hiện
     # kết quả thì đề soạn lại sẽ ghép bài cũ với đáp án mẫu của một đề khác, còn
@@ -1656,6 +1689,27 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
               "explain": q.get("explain") or "",
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
     graded, model_name = await course_writing_grader.grade(items)
+
+    # ── CHẤM HỎNG HẾT THÌ KHÔNG TIÊU LƯỢT NỘP ───────────────────────────────
+    #
+    # Lượt nộp tự luận chỉ có MỘT. Bản trước ghi dòng dù mọi câu `ok=None`, nên
+    # một lượt gọi model hỏng ăn mất lượt duy nhất của học viên và không đường
+    # nào chấm lại. Ngày 06/08 model `gemini-2.5-flash-lite` bị ngừng cấp và TÁM
+    # em mất lượt — phải chạy một kịch bản riêng mới trả lại được.
+    #
+    # Nay: không ghi gì, nói thẳng, và giữ nguyên bản nháp trên máy chủ để em ấy
+    # bấm Nộp lại mà không phải gõ lại chữ nào.
+    #
+    # Chấm được dù CHỈ MỘT câu thì vẫn ghi: đó là một bản chấm thật, và bắt em
+    # ấy nộp lại sẽ vứt luôn phần đã chấm được.
+    if graded and all(g.get("ok") is None for g in graded):
+        logger.error("[quiz] tự luận: bộ chấm hỏng hoàn toàn, KHÔNG ghi lượt nộp "
+                     "item=%s model=%s", item["id"], model_name)
+        raise HTTPException(503, {
+            "message": "Bộ chấm đang không dùng được nên chưa chấm được bài của "
+                       "em. Bài vẫn còn nguyên — bấm Nộp lại sau ít phút.",
+            "grader_down": True,
+        })
 
     row = {
         "bank_id": bank_id, "user_id": user_id,
@@ -1666,7 +1720,22 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
         "model": model_name,
     }
     try:
-        res = supabase_admin.table("course_writing_submissions").insert(row).execute()
+        if retry_of:
+            # Chấm lại một lượt máy chủ đã làm hỏng — dùng lại đúng dòng cũ, nên
+            # ràng buộc "một lượt mỗi mục" (mig 192) không bị đụng tới.
+            #
+            # SO-VÀ-ĐỔI trên `graded_at`: chỉ ghi khi dòng vẫn đúng như lúc đọc.
+            # Người ĐẦU thắng; người sau nhận 409 thay vì lặng lẽ đè lên.
+            q = (supabase_admin.table("course_writing_submissions")
+                 .update({**row, "graded_at": _now()})
+                 .eq("id", retry_of))
+            res = (q.eq("graded_at", retry_stamp) if retry_stamp
+                   else q.is_("graded_at", "null")).execute()
+            if not (res.data or []):
+                raise HTTPException(409, "Bài đang được chấm lại ở nơi khác. "
+                                         "Tải lại trang để xem kết quả.")
+        else:
+            res = supabase_admin.table("course_writing_submissions").insert(row).execute()
     except Exception as exc:  # noqa: BLE001
         # 23505 = va UNIQUE: hai tab cùng bấm Nộp. Đó là "đã nộp rồi", không
         # phải lỗi máy chủ — và bản chấm vừa tốn tiền gọi model thì bỏ, vì bản
