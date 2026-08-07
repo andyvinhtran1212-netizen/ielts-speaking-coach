@@ -56,6 +56,11 @@ _SCHEMA = {
     "class_assignment_items": {
         "id", "assignment_id", "student_id", "state", "submitted_at", "score",
         "artifact_kind", "artifact_id", "created_at", "updated_at",
+        # Có từ mig 177 cùng cả bảng, và prod xác nhận 07/08/2026 (13 cột).
+        # Bản ghim bỏ sót nó vì tới nay chưa mã nào `.select()` nó — tức là cái
+        # sót này lặng cho tới đúng lúc có người cần cột, và khi ấy nó chặn một
+        # thay đổi ĐÚNG. Ghi lại đây để lần sau khỏi đi tra prod.
+        "opened_at",
         "passed_at", "mastery",       # mig 189 — cổng thuộc bài
     },
     "topic_questions": {
