@@ -237,6 +237,90 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       'không có tabindex thì `.focus()` là lệnh rỗng');
   });
 
+  // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────
+  //
+  // Đo được trên trang: CHÍN phần tử cùng mang `.adm-subtab`, ở ba tầng lồng
+  // nhau — `Lớp/Học viên`, `Sổ điểm danh/…`, `Ai nộp/…`. Trông giống hệt nhau
+  // nên không đọc được mình đang đứng ở tầng nào, và bấm nhầm tầng là mất chỗ
+  // đang xem.
+  test('mỗi tầng một hình dạng, và hình dạng theo NGHĨA chứ không theo độ sâu', () => {
+    // Tầng 1 giữ nguyên viên-có-viền (mặc định dùng chung); hai tầng trong
+    // được đánh dấu để nhận luật riêng.
+    assert.match(PAGE, /<nav class="adm-subtabs" data-level="section"/);
+    assert.match(PAGE, /<nav class="adm-subtabs" data-level="view"/);
+
+    // Tầng 2 — gạch chân, KHÔNG viền hộp.
+    const sec = PAGE.match(
+      /\.adm-subtabs\[data-level="section"\] \.adm-subtab \{[^}]*\}/);
+    assert.ok(sec, 'tầng 2 chưa có hình dạng riêng');
+    assert.match(sec[0], /border-bottom:\s*2px/);
+    assert.match(sec[0], /border:\s*0/);
+
+    // BỘ CHỌN PHẢI VỚI TỚI ĐƯỢC KHỐI NÓ NHẮM.
+    //
+    // Bản trước bó mọi luật bằng `.cl-shell` — nghe hợp lý, nhưng
+    // `#panel-marking` (nơi chứa tầng 3) nằm NGOÀI shell: shell đóng ở giữa
+    // tài liệu. Bộ chọn không bao giờ khớp, và tầng 3 giữ nguyên hình
+    // viên-có-viền của tầng 1, tức lỗi cần chữa vẫn còn nguyên trong khi mọi
+    // chốt hình-dạng đều xanh (codex #986).
+    //
+    // Nên kiểm ĐIỀU KIỆN THẬT: mỗi khối mang `data-level` phải nằm dưới một tổ
+    // tiên mà bộ chọn của nó đi qua được. Repo không có jsdom, nên chứng minh
+    // bằng cách rẻ nhất và chắc nhất: KHÔNG luật nào của `[data-level]` được
+    // mang tiền tố tổ tiên nào cả.
+    for (const m of PAGE.matchAll(/^\s*([^\n{]*\[data-level="(section|view)"\][^\n{]*)\{/gm)) {
+      assert.doesNotMatch(m[1], /\.cl-shell|#view-detail|\.cl-marking/,
+        `luật bó vào một tổ tiên: "${m[1].trim()}" — kiểm nó có với tới cả hai `
+        + 'khối không, #panel-marking nằm NGOÀI .cl-shell');
+    }
+    // Và tầng 3 phải THẬT SỰ ở ngoài shell — nếu ai đó dời nó vào trong thì
+    // lời giải thích trên hết đúng và chốt này phải được viết lại.
+    // Tìm THẺ NAV, không tìm chuỗi `data-level="view"` trần: chuỗi ấy xuất hiện
+    // trong khối CSS ở đầu tài liệu, tức trước shell, nên `indexOf` bắt nhầm
+    // và chốt báo ngược.
+    const shellEnd = PAGE.indexOf('</main>', PAGE.indexOf('id="view-detail"'));
+    const navL3 = PAGE.indexOf('<nav class="adm-subtabs" data-level="view"');
+    assert.ok(navL3 !== -1, 'không thấy thẻ nav tầng 3');
+    assert.ok(navL3 > shellEnd,
+      'tầng 3 nay nằm trong .cl-shell — xem lại lý do bó bằng thuộc tính');
+
+    // Tầng 3 và ỐNG KÍNH cùng trả lời "đổi cách nhìn, không đổi chỗ đứng", nên
+    // dùng CHUNG một hình dạng. Chia theo độ sâu thì hai thứ cùng nghĩa lại
+    // trông khác nhau — ghim chúng ở CÙNG một quy tắc để không trôi khỏi nhau.
+    const view = PAGE.match(
+      /\.adm-subtabs\[data-level="view"\], \.cl-lens \{[^}]*\}/);
+    assert.ok(view, 'tầng 3 và ống kính phải dùng chung một quy tắc');
+    assert.match(view[0], /background:\s*var\(--av-surface-sunken\)/);
+
+    // Hai bộ đánh dấu "đang mở" bằng hai cách khác nhau. Chỉ bắt một là một
+    // trong hai bộ mất hẳn dấu ấy.
+    const on = PAGE.match(
+      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active,\s*\n\s*\.cl-lens button\[aria-current="true"\] \{[^}]*\}/);
+    assert.ok(on, 'thiếu một trong hai cách đánh dấu đang-mở');
+
+    // Và ô ĐANG MỞ vẫn phải thấy được vầng tiêu điểm. Vầng sáng chung là
+    // `body.av-page :focus-visible` — độ đặc hiệu (0,2,1) — còn luật "đang mở"
+    // là (0,4,0), nên nó thắng ở `box-shadow` trong khi `outline: none` của
+    // luật kia vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành VÔ HÌNH
+    // hoàn toàn (codex #986). Phải giành lại bằng chính hai bộ chọn ấy.
+    const halo = PAGE.match(
+      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active:focus-visible,\s*\n\s*\.cl-lens button\[aria-current="true"\]:focus-visible \{[^}]*\}/);
+    assert.ok(halo, 'ô đang mở mất vầng tiêu điểm');
+    assert.match(halo[0], /box-shadow:\s*var\(--av-shadow-focus\)/);
+    // Và nó phải đứng SAU luật "đang mở" — cùng độ đặc hiệu thì thứ tự quyết.
+    assert.ok(PAGE.indexOf(halo[0]) > PAGE.indexOf(on[0]),
+      'đặt trước thì luật đang-mở ghi đè lại và vầng lại mất');
+
+    // Luật gốc `.adm-subtabs` dùng chung với queue.html và users/index.html, nên
+    // luật mới vẫn phải bó — chỉ là bó bằng `[data-level]` (thuộc tính chỉ
+    // trang này đặt) chứ không bằng một tổ tiên.
+    for (const m of PAGE.matchAll(/^\s*(\.adm-subtabs?[^\n{]*)\{/gm)) {
+      assert.ok(/\[data-level=/.test(m[1]) || /\.cl-shell/.test(m[1])
+                || /button\.adm-subtab/.test(m[1]),
+        `luật không bó, sẽ đổi cả queue.html và users/index.html: ${m[1].trim()}`);
+    }
+  });
+
   test('the four skill columns are all present', () => {
     for (const s of ['Speaking', 'Writing', 'Reading', 'Listening']) {
       assert.match(PAGE, new RegExp(`<th>${s}</th>`));
