@@ -390,7 +390,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'expectNoWrites']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -528,27 +528,12 @@ export function validateFlow(flow) {
   }
 
   // ── writes ───────────────────────────────────────────────────────────────
-  // `expectNoWrites: true` — luồng mà cả ĐIỂM của nó là KHÔNG có đường ghi nào.
-  //
-  // Luật "phải ghim ít nhất một đường ghi" đúng cho mọi luồng thường: không ghim
-  // gì thì bản khai chỉ đang chứng minh trang không sập. Nhưng có thứ cần ghim là
-  // một điều-KHÔNG-được-xảy-ra — ví dụ nợ báo điểm của NGƯỜI KHÁC trên máy dùng
-  // chung thì tuyệt đối không được gửi đi. Bộ chạy vốn coi mọi request ghi không
-  // khai là lỗi, nên `writes: []` cộng cờ này là cách ghim điều đó.
-  //
-  // Bắt phải KHAI RA thay vì nới luật: `writes: []` lặng lẽ được chấp nhận thì
-  // một bản khai quên viết `writes` cũng qua, và nó trông y hệt.
-  if ('expectNoWrites' in flow) {
-    if (flow.expectNoWrites !== true) bad('`expectNoWrites` chỉ nhận `true`');
-    if (!Array.isArray(flow.writes) || flow.writes.length) {
-      bad('`expectNoWrites: true` thì `writes` phải là mảng RỖNG');
-    }
-    return errs;
-  }
   if (!Array.isArray(flow.writes) || !flow.writes.length) {
     bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
-      + 'nó chỉ đang chứng minh trang không sập (luồng cố ý không ghi thì khai '
-      + '`expectNoWrites: true`)');
+      + 'nó chỉ đang chứng minh trang không sập.\n'
+      + 'Luồng muốn ghim "KHÔNG được ghi gì" vẫn phải có một ĐỐI CHỨNG DƯƠNG — '
+      + 'một đường ghi HỢP LỆ phải xảy ra — nếu không nó cũng xanh khi mã chưa '
+      + 'từng chạy tới nơi (codex cục bộ #982).');
     return errs;
   }
   flow.writes.forEach((w, i) => {

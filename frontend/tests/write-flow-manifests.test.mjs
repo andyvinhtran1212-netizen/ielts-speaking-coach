@@ -67,11 +67,6 @@ describe('lược đồ bản khai', () => {
     assert.deepEqual(validateFlow(flow), []);
   });
 
-  test('luồng cố ý KHÔNG ghi là HỢP LỆ khi có khai `expectNoWrites`', () => {
-    assert.deepEqual(validateFlow({ name: 'x', route: '/r',
-      steps: [{ expectStorageAbsent: 'k' }], writes: [], expectNoWrites: true }), []);
-  });
-
   test('bộ kiểm KHÔNG BAO GIỜ ném — vật vào gì cũng trả về mảng lỗi', () => {
     // Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại không ai thấy, và người
     // đọc nhận một stack trace thay vì danh sách việc (codex cục bộ #973 vòng 3).
@@ -112,11 +107,10 @@ describe('lược đồ bản khai', () => {
       [{ ...base, canned: '' }, /canned/],
       [{ ...base, ignoreWrites: '' }, /ignoreWrites/],
       [{ ...base, settleMs: -5 }, /settleMs/],
-      // `expectNoWrites` — luồng cố ý KHÔNG ghi. Phải khai ra, để "cố ý" và
-      // "quên viết `writes`" không trông giống hệt nhau.
-      [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /expectNoWrites/],
-      [{ ...base, expectNoWrites: true }, /RỖNG/],
-      [{ ...base, writes: [], expectNoWrites: 'có' }, /chỉ nhận `true`/],
+      // Luồng không ghim đường ghi nào vẫn là LỖI — kể cả khi ý định là "không
+      // được ghi gì". Ca đó cần một ĐỐI CHỨNG DƯƠNG chứ không phải một cờ miễn
+      // trừ: không có đối chứng thì bản khai cũng xanh khi mã chưa chạy tới nơi.
+      [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /mảng khác rỗng/],
       [{ ...base, initStorage: {} }, /initStorage/],
       [{ ...base, initStorage: { k: 1 } }, /initStorage/],
       // Vòng 4 codex — ba ca có rủi ro THẬT (khác với các ca chỉ xảy ra khi cố

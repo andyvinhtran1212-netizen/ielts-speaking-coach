@@ -17,7 +17,7 @@ export default {
   // Chuỗi thử lại giãn 1s + 3s + 8s (`RETRY_DELAYS`), nên phải chờ hết 12 giây
   // mới thấy đủ. Để cửa sổ ngắn hơn thì chỉ đếm được 3 lần — và ghim con số 3 là
   // ghim một sản phẩm phụ của cấu hình test chứ không phải hợp đồng của trang.
-  drainMs: 14000,
+  drainMs: 3000,
 
   canned: [
     ...base.canned.filter(([re]) => !/speaking\$/.test(String(re))),
@@ -26,7 +26,10 @@ export default {
   ],
 
   steps: [
-    { wait: 2500 },
+    // CHỜ HẾT chuỗi thử lại (1s + 3s + 8s) TRƯỚC khi soi kho. Bước chạy trước
+    // `drainMs`, nên soi ở giây thứ 2 là soi lúc lần gửi cuối còn chưa xảy ra —
+    // một bản mã xoá nợ SAU lần hỏng cuối cùng vẫn qua (codex cục bộ #982).
+    { wait: 15000 },
     // Nợ phải còn NGUYÊN. Bản khai chị em ghim chiều ngược (trả xong thì xoá),
     // nên hai cái cộng lại ghim đúng một câu: xoá KHI VÀ CHỈ KHI máy chủ nhận.
     { expectStorage: [KEY, base.initStorage[KEY]] },
