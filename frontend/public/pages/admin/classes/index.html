@@ -277,6 +277,15 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
     .cl-drawer dd { margin: 2px 0 var(--av-space-3); }
     #roster-tbody tr { cursor: pointer; }
+    /* Nút tên trông như chữ thường, nhưng LÀ nút: bàn phím tab tới được và
+       Enter/Space mở ngăn kéo. */
+    .cl-rowbtn {
+      font: inherit; color: inherit; background: none; border: 0; padding: 0;
+      cursor: pointer; text-align: left;
+    }
+    .cl-rowbtn:focus-visible {
+      outline: 2px solid var(--av-border-focus); outline-offset: 2px;
+    }
     #roster-tbody tr[aria-selected="true"] { background: var(--av-primary-soft); }
 
     /* ── Cột tên DÍNH ────────────────────────────────────────────────────

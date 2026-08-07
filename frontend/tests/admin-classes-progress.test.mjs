@@ -171,10 +171,21 @@ describe('a roster change invalidates the cached progress (Codex review)', () =>
       'leaving the old rows would flash the previous class on reopen');
   });
 
-  test('an open tab refreshes immediately rather than on next open', () => {
+  test('ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau', () => {
+    // Câu hỏi đúng nay là "ống kính nào đang bật", không phải "panel-progress
+    // có hiện không" — sau khi Tiến độ thành ống kính, khối ấy chỉ hiện khi
+    // ống kính bật, nên điều kiện cũ trở thành vòng lặp tự nói về mình.
     const fn = between('function invalidateProgress', 'async function loadProgress');
-    assert.match(fn, /panel-progress'\)\.hidden/);
+    assert.match(fn, /_lens === 'progress'/);
     assert.match(fn, /loadProgress\(\)/);
+  });
+
+  test('bộ nhớ THỨ HAI của ống kính cũng bị xoá', () => {
+    // Quên nó thì thêm một em vào lớp sẽ để những em cũ hiện số cũ trông y như
+    // thật, còn em mới thì "chưa đọc được" — một bảng nửa cũ nửa mới, tệ hơn
+    // một bảng nói thẳng là chưa đọc (codex #975).
+    const fn = between('function invalidateProgress', 'async function loadProgress');
+    assert.match(fn, /_progressBy = null/);
   });
 });
 
@@ -444,5 +455,50 @@ describe('trang đọc ĐÚNG TÊN trường máy chủ gửi', () => {
     const src = readFileSync(
       new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
     assert.ok(src.includes('strip(cell.recent_bands, target)'));
+  });
+});
+
+// ── Ống kính Tiến độ KHÔNG được chôn mất các bảng khác ─────────────────────
+//
+// `panel-progress` không chỉ chứa bảng 4 kỹ năng: bảng liên tục hằng ngày,
+// danh sách can thiệp Speaking và cờ "chưa đối chiếu được" đều sống trong đó.
+// Giấu cả khối là làm chúng biến mất khỏi sản phẩm (codex #975).
+
+describe('ống kính Tiến độ mở đủ mặt của nó', () => {
+  const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
+                                SRC.indexOf('function renderDrawer')));
+
+  test('mở khối panel-progress, chỉ giấu đúng cái bảng đã bị thay', () => {
+    assert.match(fn, /panel-progress/);
+    assert.match(fn, /progress-table-wrap/);
+    assert.match(fn, /hidden = name !== 'progress'/);
+  });
+
+  test('và nạp cả bảng liên tục hằng ngày', () => {
+    assert.match(fn, /loadDailyBoard\(\)/);
+    assert.match(fn, /_dailyBoardLoaded/);
+  });
+});
+
+describe('mở ngăn kéo bằng BÀN PHÍM', () => {
+  test('tên học viên là một nút thật, không phải hàng bấm được', () => {
+    // Một `<tr>` nghe click thì người dùng bàn phím không bao giờ mở được ngăn
+    // kéo nào — họ chỉ tab tới được nút "Gỡ khỏi lớp" chẳng liên quan.
+    assert.match(SRC, /class="cl-rowbtn"/);
+    assert.match(SRC, /data-action="open-student"/);
+    assert.match(SRC, /aria-expanded=/);
+  });
+
+  test('vẽ lại bảng xong phải trả TIÊU ĐIỂM về đúng nút vừa bấm', () => {
+    // Không trả thì mỗi lần mở ngăn kéo là một lần bị ném về đầu trang.
+    const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                  SRC.indexOf('const lensBar')));
+    assert.match(fn, /\.focus\(\)/);
+  });
+
+  test('nút ấy có vòng tiêu điểm nhìn thấy được', () => {
+    const css = readFileSync(
+      new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+    assert.match(css, /\.cl-rowbtn:focus-visible[^}]*outline/);
   });
 });

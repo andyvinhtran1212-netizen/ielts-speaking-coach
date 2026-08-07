@@ -399,9 +399,16 @@ function renderRoster(members) {
     const account = m.user_id
       ? '<div class="cl-lesson-sub">Đã kích hoạt</div>'
       : '<div class="cl-roster-gap">Chưa kích hoạt</div>';
+    // TÊN là một NÚT THẬT, không phải một hàng bấm được.
+    //
+    // Cả hàng vẫn mở được bằng chuột (mục tiêu bấm rộng), nhưng người dùng bàn
+    // phím cần một thứ tab tới được và Enter/Space chạy — một `<tr>` nghe click
+    // thì họ không bao giờ mở được ngăn kéo nào (codex #975).
     return `<tr data-student="${esc(m.student_id)}"
         aria-selected="${_picked === m.student_id}">
-      <td><div>${esc(m.name) || '—'}</div>${account}</td>
+      <td><button type="button" class="cl-rowbtn" data-action="open-student"
+            aria-expanded="${_picked === m.student_id}"
+            data-student="${esc(m.student_id)}">${esc(m.name) || '—'}</button>${account}</td>
       ${L.cells(m)}
     </tr>`;
   }).join('');
@@ -413,12 +420,27 @@ function setLens(name) {
   _lens = name;
   document.querySelectorAll('.cl-lens button').forEach((b) =>
     b.setAttribute('aria-current', String(b.dataset.lens === name)));
-  // Ống kính Tiến độ cần dữ liệu của nó — nạp LÚC CẦN, không nạp sẵn: phần lớn
-  // lượt mở lớp là để xem sĩ số.
+
+  // `panel-progress` KHÔNG chỉ chứa bảng 4 kỹ năng: bảng liên tục hằng ngày,
+  // danh sách can thiệp Speaking và cờ "chưa đối chiếu được" đều sống trong
+  // đó. Giấu cả khối là làm chúng biến mất khỏi sản phẩm (codex #975).
+  //
+  // Nên ống kính Tiến độ MỞ khối ấy, chỉ giấu đúng cái bảng đã bị sổ điểm danh
+  // thay thế — hai bảng cùng nội dung cạnh nhau mới là thứ thừa.
+  const panel = $('panel-progress');
+  if (panel) panel.hidden = name !== 'progress';
+  const dupTable = $('progress-table-wrap');
+  if (dupTable) dupTable.hidden = true;
+
+  // Nạp LÚC CẦN, không nạp sẵn: phần lớn lượt mở lớp là để xem sĩ số.
   if (name === 'progress' && !_progressLoaded) {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
+  }
+  if (name === 'progress' && !_dailyBoardLoaded) {
+    _dailyBoardLoaded = true;
+    loadDailyBoard();
   }
   renderRoster(_who.members || []);
 }
@@ -2344,8 +2366,14 @@ function invalidateProgress() {
   // ngày làm nó cũ ngay — kể cả khi thẻ Tiến độ đang đóng. Cờ này là thứ khiến
   // lần mở sau nạp lại (codex #931).
   _dailyBoardLoaded = false;
-  // If the tab is currently open, refresh it now rather than on next open.
-  if (!$('panel-progress').hidden) {
+  // Bộ nhớ THỨ HAI của ống kính. Quên nó thì thêm một em vào lớp sẽ để những
+  // em cũ hiện số cũ trông y như thật, còn em mới thì "chưa đọc được" — một
+  // bảng nửa cũ nửa mới, tệ hơn một bảng nói thẳng là chưa đọc (codex #975).
+  _progressBy = null;
+  // Ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau. Điều kiện cũ hỏi
+  // `panel-progress` có hiện không — sau khi Tiến độ thành ống kính thì câu hỏi
+  // đúng là ống kính nào đang bật.
+  if (_lens === 'progress') {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
@@ -2695,12 +2723,17 @@ function bindDetail() {
   $('roster-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action="remove-member"]');
     if (btn) { removeMember(btn.dataset.student); return; }
-    // Bấm CẢ HÀNG mở ngăn kéo. Một cột riêng chứa toàn nút giống hệt nhau
-    // không mang thông tin gì; cả hàng là nút thì mục tiêu bấm rộng gấp bội.
+    // Bấm CẢ HÀNG mở ngăn kéo (mục tiêu bấm rộng), và tên là một nút thật nên
+    // bàn phím cũng tới được — Enter/Space trên nút phát ra chính sự kiện này.
     const tr = e.target.closest('tr[data-student]');
     if (!tr) return;
     _picked = _picked === tr.dataset.student ? null : tr.dataset.student;
     renderRoster(_who.members || []);
+    // Trả tiêu điểm về đúng nút vừa bấm: vẽ lại bảng làm mất tiêu điểm, và một
+    // người dùng bàn phím sẽ bị ném về đầu trang sau mỗi lần mở ngăn kéo.
+    const back = $('roster-tbody')
+      .querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
+    if (back) back.focus();
   });
 
   // Đổi ống kính: nghe trên VÙNG CHỨA, không gắn vào từng nút — thêm ống kính
