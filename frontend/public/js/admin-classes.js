@@ -421,28 +421,40 @@ function setLens(name) {
   document.querySelectorAll('.cl-lens button').forEach((b) =>
     b.setAttribute('aria-current', String(b.dataset.lens === name)));
 
-  // `panel-progress` KHÔNG chỉ chứa bảng 4 kỹ năng: bảng liên tục hằng ngày,
-  // danh sách can thiệp Speaking và cờ "chưa đối chiếu được" đều sống trong
-  // đó. Giấu cả khối là làm chúng biến mất khỏi sản phẩm (codex #975).
-  //
-  // Nên ống kính Tiến độ MỞ khối ấy, chỉ giấu đúng cái bảng đã bị sổ điểm danh
-  // thay thế — hai bảng cùng nội dung cạnh nhau mới là thứ thừa.
-  const panel = $('panel-progress');
-  if (panel) panel.hidden = name !== 'progress';
-  const dupTable = $('progress-table-wrap');
-  if (dupTable) dupTable.hidden = true;
-
+  syncProgressPanel();
   // Nạp LÚC CẦN, không nạp sẵn: phần lớn lượt mở lớp là để xem sĩ số.
   if (name === 'progress' && !_progressLoaded) {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
   }
-  if (name === 'progress' && !_dailyBoardLoaded) {
-    _dailyBoardLoaded = true;
-    loadDailyBoard();
-  }
+  // KHÔNG tự đặt `_dailyBoardLoaded`: `loadDailyBoard` có chốt riêng và sẽ
+  // thoát ngay nếu thấy chốt đã bật — đặt hộ nó là làm nó không bao giờ chạy
+  // (codex #976).
+  if (name === 'progress') loadDailyBoard();
   renderRoster(_who.members || []);
+}
+
+/**
+ * MỘT nơi làm chủ việc ẩn/hiện khối phụ trợ của Tiến độ.
+ *
+ * `panel-progress` chứa bảng liên tục hằng ngày, danh sách can thiệp Speaking
+ * và cờ "chưa đối chiếu được" — nên nó phải hiện khi ống kính Tiến độ bật, và
+ * BIẾN MẤT ở mọi lúc khác. Ba lỗi liên tiếp sinh ra vì việc ấy nằm rải rác:
+ * `setLens` bật nó, `showPanel` không tắt (khối trôi xuống dưới tab Bài tập),
+ * và `renderProgress` lại mở cái bảng đã bị thay ra (hai bảng cùng nội dung).
+ *
+ * Nay chỉ một hàm quyết, và cả ba nơi gọi nó.
+ */
+function syncProgressPanel() {
+  const panel = $('panel-progress');
+  if (!panel) return;
+  const onRoster = !$('panel-roster').hidden;
+  panel.hidden = !(onRoster && _lens === 'progress');
+  // Bảng 7 cột cũ đã bị sổ điểm danh thay: giấu VĨNH VIỄN, kể cả sau khi
+  // `renderProgress` chạy xong và tự mở nó ra.
+  const dup = $('progress-table-wrap');
+  if (dup) dup.hidden = true;
 }
 
 /** Ngăn kéo: mở TRONG trang, hàng vẫn sáng. */
@@ -2328,7 +2340,9 @@ function renderProgress() {
   renderProgressBanner();
 
   $('progress-empty').hidden = rows.length > 0;
-  $('progress-table-wrap').hidden = rows.length === 0;
+  // KHÔNG tự mở bảng này: sổ điểm danh đã thay nó, và mở ra là hai bảng cùng
+  // nội dung nằm cạnh nhau. `syncProgressPanel` là nơi duy nhất quyết.
+  syncProgressPanel();
   if (!rows.length) return;
 
   // Giữ theo MÃ HỌC VIÊN để ống kính Tiến độ tra được mà không gọi lại mạng.
@@ -2668,6 +2682,9 @@ function showPanel(name) {
     tab.setAttribute('aria-current', on ? 'page' : 'false');
     $('panel-' + p).hidden = !on;
   }
+  // Rời sổ điểm danh thì khối phụ trợ của Tiến độ phải đi theo — nó không nằm
+  // trong `PANELS` nên không ai tắt hộ.
+  syncProgressPanel();
   // Each panel fetches on first open only — opening the class must not fire
   // three requests for two tabs the admin may never look at.
   if (name === 'lessons' && !_lessonsLoaded) {

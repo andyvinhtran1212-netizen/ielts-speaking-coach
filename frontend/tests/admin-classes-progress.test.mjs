@@ -468,15 +468,28 @@ describe('ống kính Tiến độ mở đủ mặt của nó', () => {
   const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
                                 SRC.indexOf('function renderDrawer')));
 
-  test('mở khối panel-progress, chỉ giấu đúng cái bảng đã bị thay', () => {
-    assert.match(fn, /panel-progress/);
-    assert.match(fn, /progress-table-wrap/);
-    assert.match(fn, /hidden = name !== 'progress'/);
+  test('MỘT nơi quyết việc ẩn/hiện khối phụ trợ', () => {
+    // Ba lỗi liên tiếp sinh ra vì việc ấy nằm rải rác: `setLens` bật nó,
+    // `showPanel` không tắt (khối trôi xuống dưới tab Bài tập), và
+    // `renderProgress` lại mở cái bảng đã bị thay ra (codex #976).
+    for (const caller of ['function setLens', 'function showPanel',
+                          'function renderProgress']) {
+      const body = codeOnly(SRC.slice(SRC.indexOf(caller),
+                                      SRC.indexOf(caller) + 1800));
+      assert.match(body, /syncProgressPanel\(\)/, caller);
+    }
+    const owner = codeOnly(SRC.slice(SRC.indexOf('function syncProgressPanel'),
+                                     SRC.indexOf('function renderDrawer')));
+    assert.match(owner, /_lens === 'progress'/);
+    assert.match(owner, /panel-roster/, 'rời sổ thì khối phụ trợ phải đi theo');
+    assert.match(owner, /progress-table-wrap/);
   });
 
-  test('và nạp cả bảng liên tục hằng ngày', () => {
+  test('KHÔNG tự đặt chốt của loadDailyBoard', () => {
+    // `loadDailyBoard` có chốt riêng và thoát ngay nếu thấy chốt đã bật — đặt
+    // hộ nó là làm nó KHÔNG BAO GIỜ chạy (codex #976).
     assert.match(fn, /loadDailyBoard\(\)/);
-    assert.match(fn, /_dailyBoardLoaded/);
+    assert.doesNotMatch(fn, /_dailyBoardLoaded = true/);
   });
 });
 
