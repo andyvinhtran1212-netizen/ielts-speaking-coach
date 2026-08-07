@@ -227,7 +227,7 @@ tự luận · Bỏ dở · Xong**.
 | 2 | Trả amber về đúng vai: gỡ khỏi Speaking và `awaiting_writing` (A4+A5) | Thấp — đổi màu hiển thị |
 | 3 | Việt hoá + bỏ cột thao tác ở bảng Học viên (A2) | Thấp |
 | 4 | Trang học viên 360px (A3) — **XONG**: ô số 2 cột, kẻ dọc không cụt, nút ≥44px | Thấp, tách riêng khỏi phần admin |
-| 5 | Cột tên dính + dải ô (A2) | Trung bình |
+| 5 | Cột tên dính + dải ô (A2) — **XONG**: dính từ 900px, dải 8 lượt gần nhất, "yếu" so với mục tiêu của CHÍNH em ấy | Trung bình |
 | 6 | Sổ điểm danh + ống kính + ngăn kéo, gỡ 5 tab và modal (A1) | **Cao** — đụng `admin-classes.js` 2806 dòng |
 
 Bước 1–4 làm được ngay và độc lập. Bước 6 nên đi riêng một PR, có ảnh trước/sau.

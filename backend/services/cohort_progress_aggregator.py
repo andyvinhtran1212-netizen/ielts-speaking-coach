@@ -106,12 +106,24 @@ def _fold(rows: List[Dict[str, Any]], key: str, when: str,
         # last real one.
         with_band = [r for r in rs if band and r.get(band) is not None]
         newest_banded = _latest(with_band, when) if with_band else None
+        # TÁM LƯỢT GẦN NHẤT có band — đủ để bảng vẽ một dải ô đọc-trong-ba-giây.
+        #
+        # Dựng từ chính `rs` đã đọc, KHÔNG thêm lượt gọi nào. Chỉ giữ con số:
+        # "yếu hay không" là câu hỏi của người ĐỌC (so với mục tiêu của em ấy),
+        # nên quyết ở đây là chôn một ngưỡng vào tầng gom dữ liệu.
+        recent = [r.get(band) for r in _newest_first(with_band, when)[:8]][::-1]
         out[owner] = {
             "attempts":      len(rs),
             "last_activity": newest.get(when) if newest else None,
             "last_band":     newest_banded.get(band) if newest_banded else None,
+            "recent_bands":  recent,
         }
     return out
+
+
+def _newest_first(rows: List[Dict[str, Any]], when: str) -> List[Dict[str, Any]]:
+    """Mới nhất trước. Dòng thiếu dấu thời gian xuống cuối, không ném."""
+    return sorted(rows, key=lambda r: (r.get(when) or ""), reverse=True)
 
 
 def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
@@ -131,7 +143,8 @@ def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
 
 
 def _empty() -> Dict[str, Any]:
-    return {"attempts": 0, "last_activity": None, "last_band": None}
+    return {"attempts": 0, "last_activity": None, "last_band": None,
+            "recent_bands": []}
 
 
 def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
@@ -270,7 +283,9 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
     show "không đọc được" instead of inventing a fact.
     """
     students = _paged(
-        db, "students", "id, student_code, full_name, user_id",
+        # `target_band` đi kèm để bảng biết thế nào là "yếu" CHO EM ẤY. Một
+        # ngưỡng chung cho cả lớp là gọi một em mục tiêu 5.5 đạt 6.0 là yếu.
+        db, "students", "id, student_code, full_name, user_id, target_band",
         lambda q: q.eq("cohort_id", cohort_id),
     )
     if not students:
@@ -366,6 +381,7 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
             # No account = the three user-keyed skills are genuinely empty, not
             # zero-by-error. The page says which.
             "activated":    bool(uid),
+            "target_band":  s.get("target_band"),
             "skills":       {},
         }
         for skill in SKILLS:

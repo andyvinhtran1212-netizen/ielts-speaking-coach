@@ -20,16 +20,18 @@ const PAGE = readFileSync(join(HERE, '..', 'public', 'pages', 'admin', 'classes'
 const codeOnly = (s) => s.replace(/\/\/[^\n]*/g, '');
 
 function loadHelpers() {
-  const start = SRC.indexOf('function skillCell');
+  // Cắt từ `strip` chứ không từ `skillCell`: `skillCell` GỌI `strip`, nên lát
+  // cắt bỏ nó lại thì hàm chạy trong ô thử ném ReferenceError.
+  const start = SRC.indexOf('function strip');
   const end = SRC.indexOf('function renderProgress');
   assert.ok(start !== -1 && end > start, 'progress helpers not found');
   const esc = (s) => String(s == null ? '' : s);
   const countLabel = (n) => String(n);
   return new Function('esc', 'countLabel', `${SRC.slice(start, end)}
-    return { skillCell, punctualityCell, lastAcrossSkills };`)(esc, countLabel);
+    return { skillCell, punctualityCell, lastAcrossSkills, strip };`)(esc, countLabel);
 }
 
-const { skillCell, punctualityCell, lastAcrossSkills } = loadHelpers();
+const { skillCell, punctualityCell, lastAcrossSkills, strip } = loadHelpers();
 
 
 describe('a skill cell keeps "unknown" apart from "nothing yet"', () => {
@@ -292,8 +294,8 @@ describe('nhãn màu kỹ năng', () => {
     const src = readFileSync(
       new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
     for (const s of ['speaking', 'writing', 'reading', 'listening']) {
-      assert.ok(src.includes(`skillCell(r.skills.${s}, '${s}')`),
-        `cột ${s} chưa truyền tên kỹ năng`);
+      assert.ok(src.includes(`skillCell(r.skills.${s}, '${s}', r.target_band)`),
+        `cột ${s} chưa truyền tên kỹ năng + mục tiêu`);
     }
     assert.ok(src.includes('data-skill="'), 'skillCell phải phát ra data-skill');
   });
@@ -313,5 +315,102 @@ describe('nhãn màu kỹ năng', () => {
     const tok = readFileSync(
       new URL('../public/css/aver-design/tokens.css', import.meta.url), 'utf8');
     assert.match(tok, /--av-skill-speaking:\s*#[0-9a-fA-F]{6}/);
+  });
+});
+
+
+// ── Dải ô: bốn cột số thành bốn vệt đọc-trong-ba-giây ──────────────────────
+//
+// Bốn cột band số bắt mắt đọc bốn con số rồi tự so. Một vệt đậm thì thấy ngay.
+// Quy ước MỰC = CHỖ CẦN CHÚ Ý, dùng lại đúng của `course-report.js` — học viên
+// và giáo viên chỉ phải học nó một lần.
+
+describe('dải ô', () => {
+  test('không có dữ liệu thì KHÔNG vẽ gì', () => {
+    // Một dải rỗng trông như "toàn đạt" — một khẳng định không có bằng chứng.
+    assert.equal(strip(null, 6.0), '');
+    assert.equal(strip([], 6.0), '');
+    assert.equal(strip(undefined, 6.0), '');
+  });
+
+  test('ô tô kín là lượt DƯỚI MỤC TIÊU CỦA CHÍNH EM ẤY', () => {
+    // Một ngưỡng chung cho cả lớp sẽ gọi một em mục tiêu 5.5 đạt 6.0 là yếu.
+    const html = strip([5.5, 6.5, 5.0], 6.0);
+    assert.equal((html.match(/data-w="1"/g) || []).length, 2);
+    assert.equal((html.match(/data-w="0"/g) || []).length, 1);
+  });
+
+  test('cùng một dãy band, mục tiêu khác thì kết luận khác', () => {
+    assert.equal((strip([6.0, 6.0], 6.5).match(/data-w="1"/g) || []).length, 2);
+    assert.equal((strip([6.0, 6.0], 5.5).match(/data-w="1"/g) || []).length, 0);
+  });
+
+  test('chưa đặt mục tiêu thì KHÔNG tô ô nào', () => {
+    // Đoán một ngưỡng rồi vẽ ra như sự thật còn tệ hơn vẽ một dải phẳng.
+    const html = strip([4.0, 4.5, 5.0], null);
+    assert.equal((html.match(/data-w="1"/g) || []).length, 0);
+    assert.equal((html.match(/<i /g) || []).length, 3, 'vẫn vẽ dải, chỉ không kết luận');
+  });
+
+  test('chỉ giữ 8 lượt gần nhất — và giữ đúng CUỐI dãy', () => {
+    const many = Array.from({ length: 12 }, (_, i) => (i >= 10 ? 4.0 : 7.0));
+    const html = strip(many, 6.0);
+    assert.equal((html.match(/<i /g) || []).length, 8);
+    assert.equal((html.match(/data-w="1"/g) || []).length, 2,
+      'lấy 8 lượt ĐẦU sẽ mất đúng hai lượt gần đây nhất');
+  });
+
+  test('band thiếu không bị đọc thành yếu', () => {
+    // Lượt chưa chấm là chưa biết, không phải kém.
+    assert.equal((strip([null, undefined, 7.0], 6.0).match(/data-w="1"/g) || []).length, 0);
+  });
+
+  test('dải ô là trang trí với trình đọc màn hình', () => {
+    // Con số ngay bên cạnh đã nói đủ; đọc thêm tám ô rỗng là nhiễu.
+    assert.match(strip([5.0], 6.0), /aria-hidden="true"/);
+  });
+
+  test('ô kín lấy màu của CỘT, không phải một màu riêng', () => {
+    // `currentColor` để dải ô thừa hưởng màu kỹ năng của ô chứa nó — thêm một
+    // màu nữa là thêm một thứ người đọc phải học.
+    const css = readFileSync(
+      new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+    const rule = css.match(/\.cl-strip i\[data-w="1"\][^}]*}/);
+    assert.ok(rule, 'chưa có quy tắc cho ô tô kín');
+    assert.match(rule[0], /currentColor/);
+  });
+});
+
+describe('cột tên dính', () => {
+  const css = readFileSync(
+    new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+
+  test('cột đầu dính khi màn đủ rộng để CÓ cuộn', () => {
+    const block = css.match(/@media \(min-width: 900px\)[\s\S]*?#progress-table-wrap[\s\S]*?\}/);
+    assert.ok(block, 'chưa ghim cột tên');
+    assert.match(block[0], /position: sticky/);
+    assert.match(block[0], /left: 0/);
+  });
+
+  test('nền ĐẶC, không trong suốt', () => {
+    // Nội dung cuộn qua bên dưới sẽ hiện xuyên lên và hai lớp chữ chồng nhau.
+    const i = css.indexOf('#progress-table-wrap th:first-child');
+    const seg = css.slice(i, i + 500);
+    assert.match(seg, /background: var\(--av-surface-card\)/);
+    assert.doesNotMatch(seg, /rgba|transparent/);
+  });
+});
+
+
+describe('trang đọc ĐÚNG TÊN trường máy chủ gửi', () => {
+  test('`recent_bands` và `target_band`, không phải tên tôi tự đặt', () => {
+    // Bẫy đã vấp: vẽ một thứ dựa vào trường máy chủ KHÔNG gửi thì nó không bao
+    // giờ hiện, mà chốt phía trang vẫn xanh vì nó tự đưa dữ liệu vào.
+    //
+    // Phía MÁY CHỦ có chốt chạy thật trong `test_cohort_progress_aggregator.py`;
+    // chốt này chỉ canh phía trang gọi đúng tên.
+    const src = readFileSync(
+      new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
+    assert.ok(src.includes('strip(cell.recent_bands, target)'));
   });
 });
