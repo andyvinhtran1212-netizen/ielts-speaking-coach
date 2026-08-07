@@ -223,6 +223,13 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // tiêu đề là đã thấy, và hở một pixel là thoát sớm không cuộn gì.
     assert.match(body, /--admin-header-h/);
     assert.match(body, /r\.bottom <= window\.innerHeight/);
+    // Mốc kiểm đúng vẫn CHƯA đủ: `scrollIntoView` không biết gì về thanh tiêu
+    // đề đè lên, nên ở `0 < top < 56` nó tính "đã gần nhất" và không cuộn gì —
+    // lệnh cuộn thành lệnh rỗng, khối vẫn khuất một nửa (codex #983).
+    // `scroll-margin-top` phải ở quy tắc GỐC: màn hẹp cũng có tiêu đề ấy.
+    const base = PAGE.match(/\n    \.cl-drawer \{[^}]*\}/);
+    assert.ok(base, 'không thấy quy tắc gốc .cl-drawer');
+    assert.match(base[0], /scroll-margin-top:\s*calc\(var\(--admin-header-h/);
     assert.doesNotMatch(body, /r\.bottom > 0/, 'đó là kiểm giao nhau, không phải thấy đủ');
     // Cuộn đi cả nghìn pixel mà để tiêu điểm ở lại là bỏ rơi người dùng bàn phím.
     assert.match(body, /\.focus\(/);

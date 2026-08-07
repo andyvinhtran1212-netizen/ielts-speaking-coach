@@ -314,6 +314,16 @@
 
     .cl-drawer {
       margin-top: var(--av-space-4);
+      /* `scrollIntoView` KHÔNG biết gì về thanh tiêu đề đè lên trên. Khi ngăn
+         kéo nằm ở `0 < top < 56` thì trình duyệt tính rằng nó đã "gần nhất" rồi
+         và KHÔNG cuộn gì — mốc kiểm ở `revealDrawer` báo chưa đủ, nhưng lệnh
+         cuộn lại thành lệnh rỗng và khối vẫn khuất một nửa (codex #983).
+
+         `scroll-margin-top` là chỗ duy nhất trình duyệt chịu nghe: nó nới hộp
+         cuộn của phần tử lên trên đúng bằng chiều cao tiêu đề, nên "gần nhất"
+         được tính trên cái hộp đã nới. Đặt ở quy tắc GỐC, không trong khối
+         `@media`: màn hẹp cũng có đúng thanh tiêu đề ấy. */
+      scroll-margin-top: calc(var(--admin-header-h, 56px) + var(--av-space-4));
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-card);
