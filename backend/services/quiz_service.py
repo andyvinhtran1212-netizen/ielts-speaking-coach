@@ -646,6 +646,79 @@ def close_dead_course_sessions(db, *, idle_minutes: int = 120,
     return plan
 
 
+async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dict]:
+    """Chấm LẠI những lượt nộp tự luận mà bộ chấm đã hỏng hoàn toàn.
+
+    Lượt nộp tự luận chỉ có MỘT. Khi bộ chấm hỏng, dòng vẫn được ghi với mọi câu
+    `ok=None` — bài của em ấy còn nguyên, nhưng lượt thì đã tiêu, và không đường
+    nào chấm lại. Ngày 06/08 model `gemini-2.5-flash-lite` bị ngừng cấp và NĂM
+    học viên mất lượt duy nhất của mình.
+
+    Chấm lại từ chính CÂU ĐÃ LƯU, không nhận nội dung mới: đây là sửa một lượt
+    chấm hỏng, không phải mở lại một lượt nộp.
+
+    Chỉ đụng những dòng hỏng HOÀN TOÀN (mọi câu `ok is None`). Một dòng chấm
+    được dù chỉ một câu là một bản chấm thật — chấm lại nó là ghi đè kết quả của
+    học viên bằng một lượt gọi model khác.
+
+    `commit=False` là mặc định: đọc xem nó định làm gì trước đã.
+    """
+    out: list[dict] = []
+    try:
+        rows = _report_pages("course_writing_submissions",
+                             "id, user_id, bank_id, class_assignment_item_id, "
+                             "items, total, clean, graded_at",
+                             lambda q: q, db=db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-writing] regrade: không đọc được lượt nộp: %s", exc)
+        return out
+
+    for r in rows:
+        items = r.get("items") or []
+        if not items or any(i.get("ok") is not None for i in items):
+            continue
+        batch = [{"qid": i.get("qid"), "prompt": i.get("prompt") or "",
+                  "explain": i.get("explain") or "", "answer": i.get("answer") or ""}
+                 for i in items]
+        graded, model_name = await course_writing_grader.grade(batch)
+        clean = sum(1 for g in graded if g.get("ok") is True)
+        still_broken = all(g.get("ok") is None for g in graded)
+        plan = {"id": r["id"], "user_id": r.get("user_id"), "total": len(graded),
+                "clean": clean, "model": model_name, "fixed": not still_broken}
+        out.append(plan)
+        if commit and not still_broken:
+            # Vẫn hỏng thì KHÔNG ghi: ghi đè một bản hỏng bằng một bản hỏng khác
+            # chỉ làm mất dấu vết lần đầu.
+            try:
+                (db.table("course_writing_submissions")
+                 .update({"items": graded, "clean": clean, "model": model_name,
+                          "graded_at": _now()})
+                 .eq("id", r["id"]).execute())
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[course-writing] regrade: ghi hỏng %s: %s", r["id"], exc)
+                plan["fixed"] = False
+                continue
+            # ĐỒNG BỘ ĐIỂM SANG SỔ LỚP.
+            #
+            # Lượt nộp hỏng đã ghi 0 vào `class_assignment_items.score`, và cả
+            # trang của học viên lẫn bảng của giáo viên đọc CỘT ẤY. Sửa mỗi bản
+            # chấm thì chi tiết nói 9/10 còn sổ vẫn nói 0 — hai màn hình cãi
+            # nhau về cùng một em (codex #970).
+            #
+            # `mark_item_submitted` không dùng được: nó luỹ đẳng, chỉ ghi khi
+            # `submitted_at` còn trống, mà ở đây nó đã có. Ghi thẳng cột điểm.
+            item_id = r.get("class_assignment_item_id")
+            if item_id and len(graded):
+                try:
+                    (db.table("class_assignment_items")
+                     .update({"score": round(clean / len(graded) * 100, 1)})
+                     .eq("id", item_id).execute())
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("[course-writing] regrade: đồng bộ điểm hỏng "
+                                   "item=%s: %s", item_id, exc)
+    return out
+
+
 def _course_answered_qids(session_ids: list[str]) -> set[str] | None:
     """qid đã trả lời trong các phiên ĐÃ CHỐT. Hỏng thì trả None.
 
@@ -1718,7 +1791,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         att, off = [], 0
         while True:
             page = (supabase_admin.table("quiz_attempts")
-                    .select("session_id, qid, answer_given")
+                    .select("session_id, qid, answer_given, created_at")
                     .in_("session_id", session_ids)
                     .range(off, off + 999).execute()).data or []
             att.extend(page)
@@ -1769,15 +1842,23 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         f"{qid}:{q.get('answer')}" for qid, q in sorted(key.items())
     ).encode()).hexdigest()[:12]
 
+    # Một câu có thể xuất hiện HAI LẦN khi em ấy làm lại một chặng — chuyện
+    # thường, không phải dấu gian lận. Bản trước bác cả lượt, và một học viên
+    # làm đủ 9 chặng bị chặn khỏi kết quả của chính mình: em Lê Ngọc Hà Linh có
+    # 10 phiên chốt cho 9 chặng vì chặng 3 làm hai lần.
+    #
+    # Nay giữ LƯỢT ĐẦU của mỗi câu, đúng luật `course_answer_report` đã dùng
+    # ("lần em ấy thật sự nghĩ"). Client KHÔNG chọn được lượt nào thắng: thứ tự
+    # do dấu thời gian trên máy chủ quyết, nên nộp thêm phiên chỉ có thể kéo về
+    # lượt SỚM HƠN, không bao giờ về lượt điểm cao hơn.
     seen: dict = {}
-    for a in att:
+    for a in sorted(att, key=lambda x: x.get("created_at") or ""):
         qid = a.get("qid")
         if qid not in key:
             # Câu lạ (kể cả câu tự luận bị nhồi kèm is_correct) — bác cả lượt.
             raise HTTPException(422, "Có lượt làm không thuộc bộ đề này")
         if qid in seen:
-            # Một câu hai lượt trong cùng một lần xét là dấu nộp ghép/lặp.
-            raise HTTPException(422, "Có câu bị nộp trùng trong lượt xét")
+            continue
         seen[qid] = a
 
     # ── Phủ ĐỦ đề — chặn cả gian lận lẫn dương tính giả ─────────────────────

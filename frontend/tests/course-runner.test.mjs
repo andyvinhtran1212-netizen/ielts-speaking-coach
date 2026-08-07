@@ -953,3 +953,57 @@ describe('không mở hai phiên cùng lúc', () => {
     assert.equal(after - before, 1, 'mỗi phiên thừa là một chỗ bài học viên rơi vào');
   });
 });
+
+// ── Sang chặng sau: HỎI máy chủ, đừng cộng một ─────────────────────────────
+//
+// Chuyện thật (em Lê Ngọc Hà Linh, 06/08): làm chặng 3→8, quay lại lấp chặng 2
+// còn thiếu, rồi bị đẩy sang chặng 3 — làm lại nguyên một chặng đã xong. Cộng
+// một là quay lại đúng bệnh "đếm thay vì suy từ độ phủ".
+
+describe('sang chặng sau', () => {
+  test('nhảy tới chặng máy chủ nói, không phải chặng liền sau', async () => {
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
+    // Bộ giả trả lại CHÍNH đối tượng này, nên đổi trên nó là đổi câu trả lời
+    // của lượt hỏi sau — đúng như máy chủ đổi ý khi em ấy vừa lấp một lỗ.
+    const sv = { session_id: null, item_id: null, completed: [], stage: 2, answered: [] };
+    const { r } = await run({ questions: qsn, resume: sv });
+    assert.equal(r.stage, 2);
+    sv.stage = 6;
+    await r.nextStage();
+    assert.equal(r.stage, 6, 'cộng một sẽ đưa về chặng 3 — chặng em ấy đã xong');
+  });
+
+  test('máy chủ nói XONG HẾT thì không mở phiên nào nữa', async () => {
+    // Lấp nốt lỗ cuối của một bài gần xong: mở thêm phiên là mở một chặng
+    // KHÔNG TỒN TẠI — trang không có câu nào để vẽ, phiên rỗng bị chốt 0/0 rồi
+    // đi vào lượt xét, và học viên thấy thoáng qua "chặng 10/9" (codex #970).
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));   // 9 chặng
+    const sv = { session_id: null, item_id: null, completed: [], stage: 2, answered: [] };
+    const { r, api } = await run({ questions: qsn, resume: sv });
+    const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    sv.stage = 9;                                                // ngoài dải chặng
+    await r.nextStage();
+    assert.equal(r.stage, 8, 'kẹp về chặng cuối, không đứng ngoài mảng');
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length,
+      before, 'không được mở phiên cho một chặng không tồn tại');
+  });
+
+  test('máy chủ nói chặng CŨ hơn thì vẫn tiến, không lùi', async () => {
+    // Một lượt đọc chậm/cũ không được kéo em ấy quay lại chặng vừa làm xong.
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
+    const sv = { session_id: null, item_id: null, completed: [], stage: 5, answered: [] };
+    const { r } = await run({ questions: qsn, resume: sv });
+    sv.stage = 1;
+    await r.nextStage();
+    assert.equal(r.stage, 6, 'chỉ nhận khi máy chủ nói chặng XA HƠN');
+  });
+
+  test('hỏi hỏng thì cộng một như cũ', async () => {
+    // Một lượt gọi mạng hỏng không được chặn em ấy học tiếp.
+    const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
+    const { r } = await run({ questions: qsn, failResume: true });
+    const before = r.stage;
+    await r.nextStage();
+    assert.equal(r.stage, before + 1);
+  });
+});

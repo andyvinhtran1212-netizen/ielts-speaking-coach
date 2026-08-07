@@ -54,7 +54,11 @@ class Settings(BaseSettings):
     # tập theo buổi. Việc hẹp (sửa lỗi, KHÔNG nâng cấp câu) nên chọn hạng rẻ
     # nhất còn đủ: không cần suy luận sâu, cần nhất quán — bộ chấm chạy ở
     # nhiệt độ 0.
-    COURSE_WRITING_MODEL: str = "gemini-2.5-flash-lite"
+    # gemini-2.5-flash-lite BỊ NGỪNG CẤP 06/08: gọi nó trả 404 "no longer
+    # available to new users", trong khi `list_models()` VẪN liệt kê nó — nhìn
+    # danh sách không thấy gì bất thường. Học viên nhận "Bộ chấm tạm thời không
+    # dùng được" và mất lượt nộp DUY NHẤT (em Lê Chinh).
+    COURSE_WRITING_MODEL: str = "gemini-3.1-flash-lite"
 
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
     # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +

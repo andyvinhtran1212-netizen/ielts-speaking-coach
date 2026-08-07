@@ -260,13 +260,22 @@ def test_retake_sample_clamped_to_pool():
     assert out["passed"] is True and out["pct"] == 100.0
 
 
-def test_duplicate_question_is_rejected():
+def test_a_duplicate_question_is_TOLERATED_first_answer_wins():
+    """Bản trước bác cả lượt, với lý do "một câu hai lượt là dấu nộp ghép".
+
+    Lý do ấy không đứng vững, và cái giá thì có thật: em Lê Ngọc Hà Linh làm đủ
+    9 chặng nhưng có 10 phiên chốt (chặng 3 làm hai lần) và không bao giờ thấy
+    được kết quả của chính mình (06/08).
+
+    Client KHÔNG mua được điểm bằng cách gộp phiên: thứ tự do `created_at` trên
+    máy chủ quyết, nên nộp thêm chỉ có thể kéo về lượt SỚM HƠN. Xem hai chốt
+    `test_the_FIRST_answer_wins_even_when_the_redo_is_better` ở cuối tệp.
+    """
     ss = _sessions(2)
     att = _attempts(ss, _given(10))
     att.append({"session_id": ss[0]["id"], "qid": "q0", "answer_given": "0"})
-    with pytest.raises(HTTPException) as e:
-        _verdict(sessions=ss, attempts=att)
-    assert e.value.status_code == 422
+    out, _ = _verdict(sessions=ss, attempts=att)
+    assert "pct" in out, "lượt xét phải chạy được, không bác"
 
 
 def test_foreign_question_is_rejected():
@@ -570,3 +579,57 @@ async def test_router_wires_verdict_through():
             authorization="Bearer x")
     assert out == {"passed": True}
     assert seen == {"user_id": "u-1", "bank_id": "bank-1", "session_ids": ["s-1"]}
+
+
+# ── Làm lại một chặng KHÔNG được chặn học viên khỏi kết quả ─────────────────
+#
+# Chuyện thật 06/08: em Lê Ngọc Hà Linh làm đủ 9 chặng nhưng có 10 phiên chốt —
+# chặng 3 làm hai lần. Lượt xét bác cả lượt với "Có câu bị nộp trùng", và em ấy
+# không bao giờ thấy được kết quả của chính mình.
+#
+# Nay giữ LƯỢT ĐẦU của mỗi câu, đúng luật `course_answer_report` đã dùng. Client
+# KHÔNG chọn được lượt nào thắng: thứ tự do dấu thời gian trên máy chủ quyết.
+
+def _dup_attempts(*, first_wrong: bool):
+    """10 câu ở phiên s-0; câu q0 làm LẠI ở phiên s-1 với đáp án khác."""
+    given = {f"q{i}": i % 4 for i in range(10)}
+    rows = [{"session_id": "s-0", "qid": q, "answer_given": str(v),
+             "created_at": f"2026-08-06T10:00:{i:02d}+00:00"}
+            for i, (q, v) in enumerate(given.items())]
+    if first_wrong:
+        rows[0]["answer_given"] = str((0 % 4 + 1) % 4)      # lượt ĐẦU sai
+        redo = "0"                                           # lượt sau đúng
+    else:
+        redo = str((0 % 4 + 1) % 4)                          # lượt sau sai
+    # ĐẶT lượt làm lại lên ĐẦU danh sách nhưng gắn dấu thời gian MUỘN HƠN.
+    # Thứ tự PostgREST trả về không phải thứ tự thời gian, nên nếu mã duyệt
+    # theo thứ tự danh sách thì lượt "đầu tiên" nó thấy lại là lượt làm SAU —
+    # và ai thắng thành chuyện may rủi.
+    rows.insert(0, {"session_id": "s-1", "qid": "q0", "answer_given": redo,
+                    "created_at": "2026-08-06T11:00:00+00:00"})
+    return rows
+
+
+def test_redoing_a_stage_no_longer_blocks_the_verdict():
+    v, _ = _verdict(sessions=_sessions(2), attempts=_dup_attempts(first_wrong=False))
+    assert v["pct"] == 100.0, "lượt ĐẦU của q0 đúng nên phải tính đúng"
+
+
+def test_the_FIRST_answer_wins_even_when_the_redo_is_better():
+    """Nộp thêm phiên chỉ có thể kéo về lượt SỚM HƠN, không bao giờ về lượt
+    điểm cao hơn — nên client không mua được điểm bằng cách gộp phiên."""
+    v, _ = _verdict(sessions=_sessions(2), attempts=_dup_attempts(first_wrong=True))
+    assert v["pct"] == 90.0, "lượt đầu SAI thì vẫn tính sai, dù làm lại đúng"
+
+
+def test_a_question_outside_the_bank_still_rejects_the_whole_run():
+    """Nới chỗ trùng lặp KHÔNG được nới luôn chỗ này: câu lạ là dấu nộp ghép
+    từ một bộ đề khác."""
+    import pytest
+    att = [{"session_id": "s-0", "qid": f"q{i}", "answer_given": str(i % 4),
+            "created_at": f"2026-08-06T10:00:{i:02d}+00:00"} for i in range(10)]
+    att.append({"session_id": "s-0", "qid": "LA-MAT", "answer_given": "0",
+                "created_at": "2026-08-06T10:00:59+00:00"})
+    with pytest.raises(Exception) as e:
+        _verdict(sessions=_sessions(1), attempts=att)
+    assert "không thuộc bộ đề" in str(getattr(e.value, "detail", e.value))
