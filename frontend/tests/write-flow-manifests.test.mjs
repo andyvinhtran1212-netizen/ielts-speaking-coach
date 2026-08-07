@@ -107,6 +107,12 @@ describe('lược đồ bản khai', () => {
       [{ ...base, canned: '' }, /canned/],
       [{ ...base, ignoreWrites: '' }, /ignoreWrites/],
       [{ ...base, settleMs: -5 }, /settleMs/],
+      // Luồng không ghim đường ghi nào vẫn là LỖI — kể cả khi ý định là "không
+      // được ghi gì". Ca đó cần một ĐỐI CHỨNG DƯƠNG chứ không phải một cờ miễn
+      // trừ: không có đối chứng thì bản khai cũng xanh khi mã chưa chạy tới nơi.
+      [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /mảng khác rỗng/],
+      [{ ...base, initStorage: {} }, /initStorage/],
+      [{ ...base, initStorage: { k: 1 } }, /initStorage/],
       // Vòng 4 codex — ba ca có rủi ro THẬT (khác với các ca chỉ xảy ra khi cố
       // tình viết bản khai quái dị):
       // · `async` trả Promise, mà Promise LUÔN truthy ⇒ mọi thân request đều qua;

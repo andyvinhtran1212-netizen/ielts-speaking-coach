@@ -390,12 +390,12 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
 const STEP_SHAPES = {
-  click: 'str', expectVisible: 'str',
+  click: 'str', expectVisible: 'str', expectStorageAbsent: 'str',
   fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
   dispatch: 'dispatch',
   wait: 'ms', advance: 'ms',
@@ -468,6 +468,12 @@ export function validateFlow(flow) {
     const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
     if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
   }
+  if ('initStorage' in flow) {
+    const v = flow.initStorage;
+    const ok = isPlainObject(v) && Object.keys(v).length
+      && Object.entries(v).every(([k, x]) => isStr(k) && typeof x === 'string');
+    if (!ok) bad('`initStorage` phải là object thường KHÁC RỖNG, giá trị là chuỗi');
+  }
   if ('ignoreWrites' in flow
       && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {
     bad('`ignoreWrites` phải là mảng chuỗi khác rỗng');
@@ -524,7 +530,10 @@ export function validateFlow(flow) {
   // ── writes ───────────────────────────────────────────────────────────────
   if (!Array.isArray(flow.writes) || !flow.writes.length) {
     bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
-      + 'nó chỉ đang chứng minh trang không sập');
+      + 'nó chỉ đang chứng minh trang không sập.\n'
+      + 'Luồng muốn ghim "KHÔNG được ghi gì" vẫn phải có một ĐỐI CHỨNG DƯƠNG — '
+      + 'một đường ghi HỢP LỆ phải xảy ra — nếu không nó cũng xanh khi mã chưa '
+      + 'từng chạy tới nơi (codex cục bộ #982).');
     return errs;
   }
   flow.writes.forEach((w, i) => {

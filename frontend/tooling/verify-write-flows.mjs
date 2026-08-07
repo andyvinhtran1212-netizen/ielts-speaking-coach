@@ -22,7 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatFindings, isWrite, judge, parseMultipart, validateFlow } from './write-flow-core.mjs';
-import { storageKey } from './supabase-session.mjs';
+import { FAKE_USER_ID, storageKey } from './supabase-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FLOW_DIR = path.join(HERE, 'write-flows');
@@ -34,7 +34,7 @@ const fakeSession = JSON.stringify({
   access_token: 'write-flow-not-a-real-token',
   refresh_token: 'x', token_type: 'bearer', expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600,
-  user: { id: '00000000-0000-0000-0000-000000000000', email: 'flow@local' },
+  user: { id: FAKE_USER_ID, email: 'flow@local' },
 });
 
 /** Thực thi một bước khai báo. Giữ tập lệnh NHỎ — bản khai phải đọc được. */
@@ -97,6 +97,22 @@ async function step(page, s) {
     }
     return undefined;
   }
+  // Khoá phải KHÔNG CÒN. Tách riêng khỏi `expectStorage` có chủ ý: ở kia
+  // `null` bị cấm vì `getItem` trả `null` cả khi khoá vắng lẫn khi localStorage
+  // hỏng, nên `expectStorage: [k, null]` là phép so luôn đúng. Ở đây "vắng"
+  // CHÍNH LÀ điều cần khẳng định — nợ đã trả xong thì phải được xoá, để lần mở
+  // trang sau không gửi lại lần nữa.
+  if (s.expectStorageAbsent) {
+    const key = s.expectStorageAbsent;
+    const got = await page.evaluate((k) => {
+      try { return localStorage.getItem(k); } catch (e) { return '__LOI_LOCALSTORAGE__'; }
+    }, key);
+    if (got === '__LOI_LOCALSTORAGE__') throw new Error('không đọc được localStorage');
+    if (got !== null) {
+      throw new Error(`localStorage«${key}» vẫn còn: ${String(got).slice(0, 80)}`);
+    }
+    return undefined;
+  }
   if (s.expectText) {
     const [sel, text] = s.expectText;
     const el = page.locator(sel).first();
@@ -144,6 +160,18 @@ async function runFlow(browser, flow) {
       try { localStorage.setItem(k, v); } catch (_) {}
     }, [storageKey(SB), fakeSession]);
   }
+  // GIEO SẴN localStorage. Có luồng chỉ tồn tại khi trang mở ra và ĐÃ CÓ trạng
+  // thái cũ: nợ báo-điểm-Speaking được ghi lại ở lần hỏng trước, rồi trang chủ
+  // phát lại lúc mở. Không gieo được thì nhánh cứu bài đó không có cách nào chạm
+  // tới — mà nó chính là nhánh giữ cho một lượt thi thử không mất điểm.
+  if (flow.initStorage) {
+    await ctx.addInitScript((pairs) => {
+      try {
+        for (const [k, v] of pairs) localStorage.setItem(k, v);
+      } catch (_) {}
+    }, Object.entries(flow.initStorage));
+  }
+
   const page = await ctx.newPage();
 
   // ĐỒNG HỒ GIẢ. Có nhánh chỉ mở ra sau một khoảng chờ dài — báo động "máy chủ
