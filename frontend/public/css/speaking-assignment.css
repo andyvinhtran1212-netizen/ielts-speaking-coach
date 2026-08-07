@@ -155,7 +155,18 @@
    2 — BẢNG TỔNG KẾT NỘP BÀI
    ══════════════════════════════════════════════════════════════════════ */
 
-.av-tally { --tally-gap-w: 3px; }
+/* BỀ RỘNG CÓ TRẦN — đây là phần "xấu" mà bản vá tràn (PR 979) không chạm tới.
+   Khu này rộng 1632px trên màn 1920, mà nội dung chỉ là tên + giờ nộp + điểm +
+   một nút. Cột tên là `1fr` nên nó nuốt trọn phần thừa: đo được 1359px. Kết quả
+   là tên dính mép trái, ba ô dữ liệu dạt mép phải, ở giữa là hơn một nghìn
+   pixel trắng — mắt phải đi hết chiều ngang màn hình để nối một cái tên với
+   điểm của chính nó.
+   Trần đặt trên `.av-tally` chứ không trên `.av-tally__row`, để dòng đầu (số đã
+   nộp, trạng thái) và dòng chân thẳng cột với các hàng. */
+.av-tally {
+  --tally-gap-w: 3px;
+  max-width: var(--av-width-read);
+}
 
 .av-tally__head {
   display: flex;
