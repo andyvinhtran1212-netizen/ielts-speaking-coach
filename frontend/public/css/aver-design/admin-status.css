@@ -29,7 +29,8 @@
 .adm-status-pill,
 .lst-chip, .tl-chip, .det-chip, .td-chip,   /* listening aliases */
 .ar-status-pill {                           /* reading alias */
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 2px 10px;                        /* matches canonical .adm-chip */
   border-radius: var(--av-radius-pill);
   font-size: var(--av-fs-xs);
@@ -71,9 +72,9 @@
 /* Teal (active / live) — currently operating (access code, feature). */
 .adm-status-pill.is-active,
 .adm-status-pill.is-live {
-  background: var(--av-brand-teal-50);
-  color: var(--av-brand-teal-800);
-  border-color: var(--av-brand-teal-200);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
 }
 
 /* Warning (new) — recently added, worth noticing. */
@@ -117,6 +118,17 @@
 /* Compact size so row actions in a tight table cell read as one unit and
    share the danger button's footprint (padding/size/radius). */
 .adm-btn-sm {
+  padding: 4px 10px;
+  font-size: var(--av-fs-xs);
+  border-radius: var(--av-radius-sm);
+}
+
+/* Combined selectors make the compact modifier deterministic whether this
+   stylesheet is loaded directly or through admin-components.css. */
+.adm-btn-primary.adm-btn-sm,
+.adm-btn-secondary.adm-btn-sm,
+.adm-btn-danger.adm-btn-sm {
+  min-height: 32px;
   padding: 4px 10px;
   font-size: var(--av-fs-xs);
   border-radius: var(--av-radius-sm);

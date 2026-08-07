@@ -27,27 +27,38 @@
 
 /* Labels stay on one line (matches .adm-btn-*, Sprint 18.3.1.1). */
 .btn-primary, .btn-secondary, .btn-danger, .btn-refresh,
-.td-btn-primary, .td-btn-ghost, .td-btn-danger, .db-refresh { white-space: nowrap; }
+.td-btn-primary, .td-btn-ghost, .td-btn-danger, .db-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
 
 /* Primary — solid teal. */
 .btn-primary, .td-btn-primary {
-  padding: var(--av-space-3) var(--av-space-6);
+  min-height: 40px;
+  padding: var(--av-space-2) var(--av-space-6);
   border-radius: var(--av-radius-md);
-  background: var(--av-brand-teal-700);
+  background: var(--av-primary);
   color: var(--av-text-on-primary);
   border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
   font-size: var(--av-fs-sm); font-family: inherit;
+  transition: background-color var(--av-duration-fast) var(--av-easing-default),
+              transform var(--av-duration-fast) var(--av-easing-default);
 }
-.btn-primary:hover, .td-btn-primary:hover { background: var(--av-brand-teal-800); }
+.btn-primary:hover, .td-btn-primary:hover { background: var(--av-primary-hover); transform: translateY(-1px); }
 .btn-primary:disabled, .td-btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
 
 /* Secondary / refresh / ghost-tabs — transparent, bordered. */
 .btn-secondary, .btn-refresh, .td-btn-ghost, .db-refresh {
+  min-height: 40px;
   padding: var(--av-space-2) var(--av-space-4);
   border-radius: var(--av-radius-md);
   background: transparent; color: var(--av-text-secondary);
   border: 1px solid var(--av-border-default); cursor: pointer;
   font-size: var(--av-fs-sm); text-decoration: none; font-family: inherit;
+  transition: background-color var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
 }
 .btn-secondary:hover, .btn-refresh:hover, .td-btn-ghost:hover, .db-refresh:hover {
   background: var(--av-surface-sunken); color: var(--av-text-primary);
@@ -55,10 +66,15 @@
 
 /* Danger — outline, theme-aware --av-error (was hardcoded red, audit row 18). */
 .btn-danger, .td-btn-danger {
-  padding: 4px 10px; border-radius: var(--av-radius-sm);
+  min-height: 32px; padding: 4px 10px; border-radius: var(--av-radius-md);
   background: transparent;
   color: var(--av-error);
-  border: 1px solid color-mix(in srgb, var(--av-error) 32%, transparent);
+  border: 1px solid var(--av-border-default);
+  border-color: color-mix(in srgb, var(--av-error) 32%, transparent);
   cursor: pointer; font-size: var(--av-fs-xs); font-family: inherit;
 }
 .btn-danger:hover, .td-btn-danger:hover { background: var(--av-error-soft); border-color: var(--av-error); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:hover, .td-btn-primary:hover { transform: none; }
+}

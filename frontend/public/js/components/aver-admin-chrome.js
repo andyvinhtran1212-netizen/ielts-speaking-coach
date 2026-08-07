@@ -43,7 +43,8 @@ import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
 const VALID_ACTIVE = [
   'overview', 'dashboard',
-  'speaking', 'writing', 'listening', 'vocab', 'grammar', 'mock-tests',
+  'speaking', 'writing', 'listening', 'reading', 'vocab', 'grammar', 'mock-tests',
+  'instructors',
   'students', 'users', 'classes',
   'access-codes', 'usage', 'foot-traffic',
   'error-logs', 'feedback',
@@ -56,6 +57,7 @@ const VALID_ACTIVE = [
 const PHASE_B_SECTIONS = new Set([]);
 
 const SIDEBAR_LS_KEY = 'av-admin-sidebar-collapsed';
+const ADMIN_SURFACE_STYLES = '/css/aver-design/admin-surface.css';
 
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
@@ -70,9 +72,17 @@ const STYLE = /* css */ `
 :host {
   display: block;
   font-family: var(--av-font-sans);
-  --admin-sidebar-w: 240px;
-  --admin-sidebar-w-collapsed: 64px;
-  --admin-header-h: 56px;
+  --admin-sidebar-w: 264px;
+  --admin-sidebar-w-collapsed: 72px;
+  --admin-header-h: 68px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+*:focus-visible {
+  outline: 2px solid var(--av-border-focus);
+  outline-offset: 2px;
+  box-shadow: var(--av-shadow-focus);
 }
 
 /* ── Theme toggle (mirrors aver-chrome) ───────────────────────── */
@@ -93,10 +103,10 @@ const STYLE = /* css */ `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  background: transparent;
+  background: var(--av-surface-card);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-pill);
   color: var(--av-text-secondary);
@@ -104,7 +114,9 @@ const STYLE = /* css */ `
   font-family: inherit;
 }
 .av-theme-toggle:hover {
-  background: var(--av-surface-sunken);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
 }
 
 /* ── Header (top bar) ─────────────────────────────────────────── */
@@ -112,14 +124,17 @@ const STYLE = /* css */ `
   position: sticky; top: 0; z-index: 30;
   height: var(--admin-header-h);
   display: flex; align-items: center;
-  gap: var(--av-space-4);
-  padding: 0 var(--av-space-6);
+  gap: var(--av-space-3);
+  padding: 0 clamp(var(--av-space-4), 2.5vw, var(--av-space-8));
   background: var(--av-surface-card);
+  background: color-mix(in srgb, var(--av-surface-card) 92%, transparent);
   border-bottom: 1px solid var(--av-border-subtle);
+  box-shadow: var(--av-shadow-sm);
+  backdrop-filter: blur(14px);
 }
 .hamburger {
   display: none;
-  width: 36px; height: 36px;
+  width: 40px; height: 40px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--av-border-default);
@@ -140,10 +155,10 @@ const STYLE = /* css */ `
   color: var(--av-text-secondary);
   text-decoration: none;
 }
-.back-link:hover { color: var(--av-text-primary); }
+.back-link:hover { color: var(--av-primary); }
 .brand {
   font-family: var(--av-font-sans);
-  font-size: var(--av-fs-base);
+  font-size: var(--av-fs-lg);
   font-weight: var(--av-fw-bold);
   letter-spacing: var(--av-tracking-tight);
   color: var(--av-text-primary);
@@ -151,14 +166,14 @@ const STYLE = /* css */ `
 }
 .brand .mark { color: var(--av-primary); }
 .admin-badge {
-  font-family: var(--av-font-mono);
+  font-family: var(--av-font-sans);
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-bold);
   padding: 2px 8px;
-  border-radius: var(--av-radius-sm);
-  background: var(--av-brand-teal-50);
-  color: var(--av-brand-teal-800);
-  border: 1px solid var(--av-brand-teal-200);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border: 1px solid var(--av-primary-border);
   letter-spacing: var(--av-tracking-wide);
 }
 .brand-divider {
@@ -178,10 +193,6 @@ const STYLE = /* css */ `
   grid-template-columns: var(--admin-sidebar-w) 1fr;
   min-height: calc(100vh - var(--admin-header-h));
 }
-:host([data-collapsed="1"]) .admin-body {
-  grid-template-columns: var(--admin-sidebar-w-collapsed) 1fr;
-}
-
 /* ── Sidebar ──────────────────────────────────────────────────── */
 .sidebar {
   position: sticky;
@@ -189,25 +200,27 @@ const STYLE = /* css */ `
   align-self: flex-start;
   height: calc(100vh - var(--admin-header-h));
   overflow-y: auto;
-  padding: var(--av-space-4) var(--av-space-2);
-  background: var(--av-surface-sunken);
+  padding: var(--av-space-4) var(--av-space-3);
+  background: var(--av-surface-card);
   border-right: 1px solid var(--av-border-subtle);
   display: flex; flex-direction: column;
-  gap: var(--av-space-1);
+  gap: var(--av-space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--av-border-strong) transparent;
 }
 .collapse-btn {
   align-self: flex-end;
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--av-border-default);
-  border-radius: var(--av-radius-sm);
+  border-radius: var(--av-radius-md);
   color: var(--av-text-secondary);
   cursor: pointer; font-family: inherit;
   display: inline-flex; align-items: center; justify-content: center;
   margin-bottom: var(--av-space-2);
 }
-.collapse-btn:hover { background: var(--av-surface-card); }
+.collapse-btn:hover { background: var(--av-primary-soft); color: var(--av-primary); }
 .collapse-btn svg {
   width: 14px; height: 14px;
   stroke-width: 2; fill: none; stroke: currentColor;
@@ -223,29 +236,43 @@ const STYLE = /* css */ `
   text-transform: uppercase;
   letter-spacing: var(--av-tracking-widest);
   color: var(--av-text-muted);
-  padding: var(--av-space-2) var(--av-space-3) var(--av-space-1);
+  padding: var(--av-space-3) var(--av-space-3) var(--av-space-1);
   font-weight: var(--av-fw-semibold);
 }
 .nav-item {
   display: flex; align-items: center;
   gap: var(--av-space-2);
+  min-height: 42px;
   padding: var(--av-space-2) var(--av-space-3);
-  border-radius: var(--av-radius-md);
+  border-radius: var(--av-radius-lg);
   font-size: var(--av-fs-sm);
   font-weight: var(--av-fw-medium);
   color: var(--av-text-secondary);
   text-decoration: none;
   border: 1px solid transparent;
+  position: relative;
+  transition: background-color var(--av-duration-fast) var(--av-easing-default),
+              color var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
 }
 .nav-item:hover {
-  background: var(--av-surface-card);
+  background: var(--av-surface-sunken);
   color: var(--av-text-primary);
 }
 .nav-item.active {
-  background: var(--av-brand-teal-50);
-  color: var(--av-brand-teal-800);
-  border-color: var(--av-brand-teal-200);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
   font-weight: var(--av-fw-semibold);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  inset-block: 9px;
+  inset-inline-start: -1px;
+  width: 3px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
 }
 .nav-item .nav-icon {
   width: 16px; height: 16px;
@@ -266,11 +293,16 @@ const STYLE = /* css */ `
   letter-spacing: var(--av-tracking-wide);
 }
 
-:host([data-collapsed="1"]) .nav-group-title,
-:host([data-collapsed="1"]) .nav-label,
-:host([data-collapsed="1"]) .phase-b-tag { display: none; }
-:host([data-collapsed="1"]) .nav-item { justify-content: center; padding: var(--av-space-2); }
-:host([data-collapsed="1"]) .nav-subgroup { display: none; }
+@media (min-width: 769px) {
+  :host([data-collapsed="1"]) .admin-body {
+    grid-template-columns: var(--admin-sidebar-w-collapsed) 1fr;
+  }
+  :host([data-collapsed="1"]) .nav-group-title,
+  :host([data-collapsed="1"]) .nav-label,
+  :host([data-collapsed="1"]) .phase-b-tag { display: none; }
+  :host([data-collapsed="1"]) .nav-item { justify-content: center; padding: var(--av-space-2); }
+  :host([data-collapsed="1"]) .nav-subgroup { display: none; }
+}
 
 /* ── Sub-items (Sprint 12.2 F2) ──────────────────────────────── */
 .nav-subgroup {
@@ -279,31 +311,32 @@ const STYLE = /* css */ `
   gap: 2px;
   margin: 2px 0 var(--av-space-2) calc(var(--av-space-3) + 16px);
   padding-left: var(--av-space-2);
-  border-left: 1px solid var(--av-border-default);
+  border-left: 1px solid var(--av-primary-border);
 }
 .nav-subitem {
   display: block;
-  padding: 4px var(--av-space-2);
-  border-radius: var(--av-radius-sm);
+  min-height: 32px;
+  padding: 6px var(--av-space-2);
+  border-radius: var(--av-radius-md);
   font-size: var(--av-fs-xs);
   color: var(--av-text-muted);
   text-decoration: none;
   border: 1px solid transparent;
 }
 .nav-subitem:hover {
-  background: var(--av-surface-card);
+  background: var(--av-surface-sunken);
   color: var(--av-text-primary);
 }
 .nav-subitem.active {
-  background: var(--av-brand-teal-50);
-  color: var(--av-brand-teal-800);
-  border-color: var(--av-brand-teal-200);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
   font-weight: var(--av-fw-semibold);
 }
 
 /* ── Content slot ─────────────────────────────────────────────── */
 .content {
-  padding: var(--av-space-6);
+  padding: clamp(var(--av-space-4), 2.6vw, var(--av-space-8));
   background: var(--av-surface-page, var(--av-surface-card));
   min-width: 0;
 }
@@ -313,7 +346,7 @@ const STYLE = /* css */ `
   display: none;
   position: fixed;
   top: var(--admin-header-h); left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--av-surface-overlay);
   z-index: 20;
 }
 :host([data-mobile-open="1"]) .backdrop { display: block; }
@@ -329,12 +362,28 @@ const STYLE = /* css */ `
     width: var(--admin-sidebar-w);
     height: auto;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform var(--av-duration-base) var(--av-easing-default);
     z-index: 25;
     background: var(--av-surface-card);
+    box-shadow: var(--av-shadow-xl);
   }
-  :host([data-mobile-open="1"]) .sidebar { transform: translateX(0); }
+  :host([data-mobile-open="1"]) .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+  }
   .collapse-btn { display: none; }
+}
+
+@media (max-width: 520px) {
+  .back-label, .brand-divider, .admin-badge { display: none; }
+  .admin-header { gap: var(--av-space-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
 }
 `;
 
@@ -504,14 +553,15 @@ const ICONS = {
 };
 
 
-function renderNavItem(item, isActive) {
+function renderNavItem(item, isActive, currentKind = null) {
   const cls = isActive ? 'nav-item active' : 'nav-item';
   const tag = item.phaseB
     ? '<span class="phase-b-tag">Sắp ra mắt</span>'
     : '';
   return `
     <a href="${item.href}" class="${cls}" data-section="${item.section}"
-       aria-label="${item.label}${item.phaseB ? ' — Phase B' : ''}">
+       aria-label="${item.label}${item.phaseB ? ' — Phase B' : ''}"
+       title="${item.label}"${currentKind ? ` aria-current="${currentKind}"` : ''}>
       <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
         ${ICONS[item.icon] || ''}
       </svg>
@@ -528,7 +578,7 @@ function renderSubItem(parentSection, sub, isActive) {
     <a href="${sub.href}" class="${cls}"
        data-section="${parentSection}"
        data-subsection="${sub.slug}"
-       aria-label="${sub.label}">
+       aria-label="${sub.label}"${isActive ? ' aria-current="page"' : ''}>
       <span class="nav-sublabel">${sub.label}</span>
     </a>
   `;
@@ -539,7 +589,7 @@ function renderSidebar(active, subsection) {
   return NAV_GROUPS.map((group) => {
     const items = group.items.map((item) => {
       const isActive = item.section === active;
-      const parent = renderNavItem(item, isActive);
+      const parent = renderNavItem(item, isActive, isActive && !subsection ? 'page' : null);
       if (!isActive || !item.subsections || !item.subsections.length) {
         return parent;
       }
@@ -559,7 +609,8 @@ function renderSidebar(active, subsection) {
 function buildTemplate(active, subsection) {
   return /* html */ `
 <div class="admin-header">
-  <button class="hamburger" id="hamburger" type="button" aria-label="Mở/đóng sidebar">
+  <button class="hamburger" id="hamburger" type="button" aria-label="Mở menu quản trị"
+          aria-controls="sidebar" aria-expanded="false">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <line x1="3" y1="6"  x2="21" y2="6"/>
       <line x1="3" y1="12" x2="21" y2="12"/>
@@ -571,13 +622,13 @@ function buildTemplate(active, subsection) {
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M15 19l-7-7 7-7"/>
     </svg>
-    Trang chủ
+    <span class="back-label">Trang chủ</span>
   </a>
   <span class="brand-divider">|</span>
   <a href="/pages/admin/index.html" class="brand">
-    IELTS<span class="mark">Coach</span>
+    Aver<span class="mark">.</span>Learning
   </a>
-  <span class="admin-badge">ADMIN</span>
+  <span class="admin-badge">Quản trị</span>
   <div class="header-spacer"></div>
   <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
     <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
@@ -592,9 +643,9 @@ function buildTemplate(active, subsection) {
 </div>
 
 <div class="admin-body">
-  <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+  <aside class="sidebar" id="sidebar" aria-label="Điều hướng quản trị">
     <button class="collapse-btn" id="collapse-btn" type="button"
-            aria-label="Thu/mở rộng sidebar" title="Thu gọn">
+            aria-label="Thu gọn thanh điều hướng" aria-expanded="true" title="Thu gọn">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
@@ -624,7 +675,15 @@ export class AverAdminChrome extends HTMLElement {
   }
 
   connectedCallback() {
-    if (this._mounted) return;
+    this._ensureSurfaceStyles();
+
+    // A custom element can be detached and inserted again. The shadow tree is
+    // mounted once, but listeners are rebound after disconnectedCallback()
+    // aborts the previous controller.
+    if (this._mounted) {
+      if (!this.hasAttribute('embed')) this._bindInteractiveChrome();
+      return;
+    }
     this._mounted = true;
 
     // Sprint 12.3 — autoload the global error reporter so every page
@@ -663,16 +722,13 @@ export class AverAdminChrome extends HTMLElement {
     const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
     shadow.innerHTML = `<style>${STYLE}</style>${buildTemplate(active, subsection)}`;
 
-    this._bindToggle();
-    this._bindCollapse();
-    this._bindHamburger();
-    this._populateEmail();
+    this._bindInteractiveChrome();
   }
 
   disconnectedCallback() {
     // Always release body scroll on tear-down so a mid-state component
     // detach doesn't leave the page non-scrollable.
-    this._setBodyScrollLock(false);
+    this._setMobileOpen(false);
     if (this._toggleTeardown) {
       try { this._toggleTeardown(); } catch { /* swallow */ }
       this._toggleTeardown = null;
@@ -695,6 +751,7 @@ export class AverAdminChrome extends HTMLElement {
     }
     const collapseBtn = sidebar.querySelector('.collapse-btn');
     sidebar.innerHTML = (collapseBtn ? collapseBtn.outerHTML : '') + renderSidebar(active, subsection);
+    if (!this.isConnected) return;
     this._bindCollapse();
     // Re-bind hamburger nav-item close handlers for the new DOM.
     this._rebindNavItemCloseHandlers();
@@ -706,6 +763,25 @@ export class AverAdminChrome extends HTMLElement {
 
   _normalizeActive(value) {
     return VALID_ACTIVE.includes(value) ? value : null;
+  }
+
+  _ensureSurfaceStyles() {
+    if (typeof document === 'undefined') return;
+    if (document.body) document.body.classList.add('av-admin-surface');
+    if (!document.head || document.querySelector('link[data-aver-admin-surface]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = ADMIN_SURFACE_STYLES;
+    link.setAttribute('data-aver-admin-surface', '1');
+    document.head.appendChild(link);
+  }
+
+  _bindInteractiveChrome() {
+    this._bindToggle();
+    this._bindCollapse();
+    this._bindHamburger();
+    this._bindEscape();
+    this._populateEmail();
   }
 
   _normalizeSubsection(value, active) {
@@ -731,8 +807,7 @@ export class AverAdminChrome extends HTMLElement {
     const sig = this._abortController.signal;
     this.shadowRoot.querySelectorAll('.nav-item, .nav-subitem').forEach((a) => {
       a.addEventListener('click', () => {
-        this.removeAttribute('data-mobile-open');
-        this._setBodyScrollLock(false);
+        this._setMobileOpen(false);
       }, { signal: sig });
     });
   }
@@ -744,7 +819,7 @@ export class AverAdminChrome extends HTMLElement {
     if (locked) {
       this._priorBodyOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-    } else {
+    } else if (this._priorBodyOverflow !== undefined) {
       document.body.style.overflow = this._priorBodyOverflow || '';
       this._priorBodyOverflow = undefined;
     }
@@ -760,6 +835,13 @@ export class AverAdminChrome extends HTMLElement {
     const btn = this.shadowRoot.getElementById('collapse-btn');
     if (!btn) return;
     this._abortController = this._abortController || new AbortController();
+    const reflect = () => {
+      const collapsed = this.getAttribute('data-collapsed') === '1';
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      btn.setAttribute('aria-label', collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng');
+      btn.title = collapsed ? 'Mở rộng' : 'Thu gọn';
+    };
+    reflect();
     btn.addEventListener('click', () => {
       const collapsed = this.getAttribute('data-collapsed') === '1';
       if (collapsed) {
@@ -769,7 +851,27 @@ export class AverAdminChrome extends HTMLElement {
         this.setAttribute('data-collapsed', '1');
         try { localStorage.setItem(SIDEBAR_LS_KEY, '1'); } catch { /* swallow */ }
       }
+      reflect();
     }, { signal: this._abortController.signal });
+  }
+
+  _setMobileOpen(open) {
+    const ham = this.shadowRoot && this.shadowRoot.getElementById('hamburger');
+    if (open) this.setAttribute('data-mobile-open', '1');
+    else this.removeAttribute('data-mobile-open');
+    if (ham) {
+      ham.setAttribute('aria-expanded', String(open));
+      ham.setAttribute('aria-label', open ? 'Đóng menu quản trị' : 'Mở menu quản trị');
+    }
+    this._setBodyScrollLock(open);
+    if (open && typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        if (this.getAttribute('data-mobile-open') !== '1' || !this.shadowRoot) return;
+        const target = this.shadowRoot.querySelector('.nav-item.active')
+          || this.shadowRoot.querySelector('.nav-item');
+        if (target) target.focus();
+      });
+    }
   }
 
   _bindHamburger() {
@@ -780,28 +882,52 @@ export class AverAdminChrome extends HTMLElement {
     const sig = this._abortController.signal;
     ham.addEventListener('click', () => {
       const open = this.getAttribute('data-mobile-open') === '1';
-      if (open) {
-        this.removeAttribute('data-mobile-open');
-        this._setBodyScrollLock(false);
-      } else {
-        this.setAttribute('data-mobile-open', '1');
-        this._setBodyScrollLock(true);
-      }
+      this._setMobileOpen(!open);
     }, { signal: sig });
     backdrop.addEventListener('click', () => {
-      this.removeAttribute('data-mobile-open');
-      this._setBodyScrollLock(false);
+      this._setMobileOpen(false);
     }, { signal: sig });
     // Close mobile sidebar when a nav item is clicked.
     this._rebindNavItemCloseHandlers();
   }
 
+  _bindEscape() {
+    if (typeof document === 'undefined') return;
+    this._abortController = this._abortController || new AbortController();
+    document.addEventListener('keydown', (event) => {
+      if (this.getAttribute('data-mobile-open') !== '1') return;
+      const ham = this.shadowRoot && this.shadowRoot.getElementById('hamburger');
+      if (event.key === 'Escape') {
+        this._setMobileOpen(false);
+        if (ham) ham.focus();
+        return;
+      }
+      if (event.key !== 'Tab' || !this.shadowRoot) return;
+      const sidebar = this.shadowRoot.getElementById('sidebar');
+      if (!sidebar) return;
+      const focusable = Array.from(sidebar.querySelectorAll('a[href], button:not([disabled])'))
+        .filter((node) => node.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && this.shadowRoot.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && this.shadowRoot.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }, { signal: this._abortController.signal });
+  }
+
   _populateEmail() {
     const emailEl = this.shadowRoot.getElementById('header-email');
     if (!emailEl) return;
+    const signal = this._abortController && this._abortController.signal;
+    if (!signal) return;
     let tries = 0;
     const tick = async () => {
-      if (!this.shadowRoot) return;
+      if (signal.aborted || !this.isConnected) return;
       const sb = (typeof window !== 'undefined'
                   && typeof window.getSupabase === 'function')
                  ? window.getSupabase()
@@ -814,6 +940,7 @@ export class AverAdminChrome extends HTMLElement {
       }
       try {
         const { data } = await sb.auth.getSession();
+        if (signal.aborted || !this.isConnected) return;
         const session = data && data.session;
         if (session && session.user && session.user.email) {
           emailEl.textContent = session.user.email;
