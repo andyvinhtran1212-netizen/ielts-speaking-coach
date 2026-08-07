@@ -62,7 +62,14 @@ const TRANSPORT_ERRORS = new Set([
   'net::ERR_EMPTY_RESPONSE',
   'net::ERR_SOCKET_NOT_CONNECTED',
   'net::ERR_TIMED_OUT',
-  'net::ERR_FAILED',
+  // TCP FIN/dữ liệu không được ACK ⇒ Chromium phát mã này. Thiếu nó là quay lại
+  // đúng hành vi cũ: đem bản chụp hỏng đi so rồi sinh hàng loạt lệch giả.
+  'net::ERR_CONNECTION_ABORTED',
+  // `net::ERR_FAILED` CỐ Ý ĐỨNG NGOÀI, dù nghe rất giống "mất kết nối".
+  // Chromium dùng chính mã này cho LỖI CORS. Đưa vào đây thì một hồi quy CORS
+  // của bản Next — tức đúng loại khuyết tật cổng này sinh ra để bắt — sẽ bị dán
+  // nhãn "hạ tầng hỏng" và biến mất khỏi báo cáo. Một bộ lọc chống-đỏ-giả mà
+  // nuốt luôn lỗi thật thì tệ hơn là không có.
 ]);
 
 /**

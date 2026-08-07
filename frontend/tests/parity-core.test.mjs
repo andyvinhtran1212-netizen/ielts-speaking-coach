@@ -458,7 +458,19 @@ describe('cổng parity trong CI (review #914)', () => {
     const lines = GATE_ACTIVE.split('\n');
     const i = lines.findIndex((l) => /for VP in 1280x900 375x812/.test(l));
     assert.ok(i > 0, 'không tìm thấy vòng lặp bề rộng');
-    const j = lines.findIndex((l, k) => k > i && /^\s{12}done\s*$/.test(l));
+    // Đếm `for`/`done` để tìm ĐÚNG điểm đóng, không tin thụt lề: bash không coi
+    // thụt lề có nghĩa, nên một vòng lặp LỒNG đóng bằng `done` thụt 12 dấu cách
+    // sẽ bị chọn nhầm, và phần thân sau đó — kể cả một `exit` nằm trong vòng
+    // `VP` — không được quét (codex bắt ở #999).
+    let sâu = 1;
+    let j = -1;
+    for (let k = i + 1; k < lines.length; k += 1) {
+      if (/^\s*(for|while|until)\b/.test(lines[k])) sâu += 1;
+      else if (/^\s*done\b/.test(lines[k])) {
+        sâu -= 1;
+        if (sâu === 0) { j = k; break; }
+      }
+    }
     assert.ok(j > i, 'không tìm thấy điểm kết thúc vòng lặp bề rộng');
 
     const thân = lines.slice(i + 1, j);
@@ -727,7 +739,7 @@ describe('isTransportError — lỗi hạ tầng không phải khuyết tật tr
   test('nhận đúng các mã tầng vận chuyển', () => {
     for (const mã of ['net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_RESET',
                       'net::ERR_NAME_NOT_RESOLVED', 'net::ERR_TIMED_OUT',
-                      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_FAILED']) {
+                      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_CONNECTION_ABORTED']) {
       assert.equal(isTransportError(mã), true, `«${mã}» phải được nhận là lỗi vận chuyển`);
     }
   });
@@ -738,6 +750,14 @@ describe('isTransportError — lỗi hạ tầng không phải khuyết tật tr
   // cách một bản vá chống-đỏ-giả tự biến thành cách tắt cổng.
   test('KHÔNG nhận ERR_ABORTED — nó xảy ra trong lượt chạy bình thường', () => {
     assert.equal(isTransportError('net::ERR_ABORTED'), false);
+  });
+
+  // `net::ERR_FAILED` nghe RẤT giống "mất kết nối", và bản đầu của tôi đã xếp
+  // nó vào nhóm hạ tầng. Chromium dùng chính mã này cho LỖI CORS — nên xếp vào
+  // đó là để một hồi quy CORS của bản Next, tức đúng loại khuyết tật cổng này
+  // sinh ra để bắt, bị dán nhãn "hạ tầng" rồi biến mất khỏi báo cáo.
+  test('KHÔNG nhận ERR_FAILED — Chromium dùng nó cho lỗi CORS', () => {
+    assert.equal(isTransportError('net::ERR_FAILED'), false);
   });
 
   test('KHÔNG nhận lỗi tầng ứng dụng hay đầu vào rác', () => {

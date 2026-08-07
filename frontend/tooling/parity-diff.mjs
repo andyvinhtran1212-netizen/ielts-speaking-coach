@@ -166,6 +166,20 @@ async function expandGrammar() {
  * nhau, khác nhau thì thử lại, vẫn khác thì báo `unstable-extraction` — một
  * phát hiện mức cao, chứ không phải một con số trông có vẻ chắc chắn.
  */
+/**
+ * URL này có thuộc hạ tầng của chính phép đo không?
+ *
+ * Đúng hai origin: backend đang gọi, và máy chủ đang phục vụ hai vế. Mọi origin
+ * khác mà hỏng đều là khuyết tật của TRANG, và phải ở lại `resourceFailures` để
+ * bộ so nói ra.
+ */
+function isInfraOrigin(url) {
+  try {
+    const o = new URL(url).origin;
+    return o === API_ORIGIN || o === new URL(BASE).origin;
+  } catch { return false; }
+}
+
 async function extractStable(mkContext, url) {
   let last = null;
   // Mỗi LẦN CHỤP một context sạch, không chỉ mỗi cặp: `grammar.js:844` ghi
@@ -191,7 +205,10 @@ async function extractStable(mkContext, url) {
       last = a;
       // Giãn cách tăng dần: sự cố hay gặp là backend từ chối cả CỤM request
       // dưới tải, nên thử lại ngay lập tức thường chỉ nện thêm vào đúng chỗ đau.
-      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      // KHÔNG ngủ sau lần thử CUỐI — không còn lượt nào để chờ cho. Với 150
+      // cặp và backend hỏng liên tục, lần ngủ thừa đó cộng ~225 giây mỗi bề
+      // rộng, tức ~7,5 phút cho hai bề rộng, trong khi job chỉ có 30 phút.
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       continue;
     }
     const key = (f) => JSON.stringify([f.headings, f.links, f.lines, f.components, f.status]);
@@ -250,7 +267,11 @@ async function extractOnce(context, url) {
     // Tách riêng lỗi TẦNG VẬN CHUYỂN. Nó không nói gì về trang — xem chú thích
     // dài ở `isTransportError` trong `parity-core.mjs`.
     const err = r.failure() ? r.failure().errorText : '';
-    if (isTransportError(err)) {
+    // CHỈ các origin HẠ TẦNG mới được coi là hỏng hạ tầng. Không giới hạn thì
+    // một bản Next lỡ trỏ `<script src="https://cdn-go-nham.invalid/x.js">` sẽ
+    // cho `ERR_NAME_NOT_RESOLVED` ỔN ĐỊNH — một khuyết tật THẬT của trang — mà
+    // cả cặp lại bị ghi «không kết luận được», rồi báo oan cho backend.
+    if (isTransportError(err) && isInfraOrigin(r.url())) {
       try { netErrors.push(`${err.trim().split(/\s+/)[0]} ${new URL(r.url()).origin}`); }
       catch { netErrors.push(err); }
     }
@@ -477,6 +498,7 @@ async function main() {
   // chưa đo được, và đó chính là cách một cổng mất uy tín: đỏ vì lý do sai vài
   // lần là người ta bắt đầu bỏ qua nó. Mã thoát 3 để phân biệt được từ ngoài.
   const noVerdict = results.filter((r) => r.noVerdict);
+  const cóLệch = results.some((r) => !r.pass);
   if (noVerdict.length) {
     const mã = [...new Set(noVerdict.flatMap((r) => r.transportFailed))].sort();
     console.log(`\n⚠ KHÔNG KẾT LUẬN ĐƯỢC PARITY cho ${noVerdict.length}/${results.length} cặp:`
@@ -485,6 +507,14 @@ async function main() {
     for (const r of noVerdict.slice(0, 10)) console.log(`  · ${r.name}`);
     if (noVerdict.length > 10) console.log(`  · … và ${noVerdict.length - 10} cặp nữa`);
     console.log('\nĐây là hỏng HẠ TẦNG, không phải khuyết tật trang. Kiểm backend rồi chạy lại.');
+    // MÃ RIÊNG cho ca VỪA lệch parity VỪA hỏng hạ tầng. Trả 3 ở đây thì
+    // workflow chỉ đặt `INFRA=1` rồi in thông điệp ngụ ý «không phải phát hiện
+    // parity» — trong khi có 5 cặp lệch thật nằm ngay trong báo cáo. Mất một
+    // loại trạng thái là mất đúng loại nguy hiểm hơn.
+    if (cóLệch) {
+      console.log(`\n⚠ NGOÀI RA còn ${results.filter((r) => !r.pass).length} cặp LỆCH THẬT — đọc bảng trên.`);
+      process.exit(4);
+    }
     process.exit(3);
   }
   process.exit(results.some((r) => !r.pass) ? 1 : 0);
