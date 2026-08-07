@@ -1192,7 +1192,17 @@ function renderTally(d) {
  * lỗi, đáp án mẫu): giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai
  * bên nói về hai thứ khác nhau khi ngồi lại với nhau.
  */
-const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
+const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' };
+
+/**
+ * Câu ĐÚNG ngữ pháp mà còn lỗi hình thức (viết hoa đầu câu, dấu chấm cuối).
+ *
+ * GIỐNG HỆT `isFormOnly` phía học viên, và phải giữ giống: hai bên ngồi lại với
+ * nhau trên cùng một bản chấm, nên một câu không được là "đúng" ở màn này và
+ * "sai" ở màn kia.
+ */
+const cwFormOnly = (g) => g && g.ok === true
+  && Array.isArray(g.issues) && g.issues.length > 0;
 
 /**
  * `**đậm**` → <mark>, GIỐNG HỆT `md()` phía học viên.
@@ -1231,22 +1241,28 @@ function renderStudentWriting(d) {
   if (!sub) {
     return '<p class="adm-hint">Học viên này chưa nộp phần tự luận.</p>';
   }
+  const cwList = (g) => `<ul class="cw-issues">${(g.issues || []).map((x) => `
+      <li class="cw-issue">
+        <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
+        <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
+        ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
+      </li>`).join('')}</ul>`;
+
   const items = (sub.items || []).map((g, i) => {
     const ok = g.ok;
+    const formOnly = cwFormOnly(g);
     const body = ok === null
       ? `<p class="cw-diff">${esc(g.answer)}</p>`
         + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
-      : ok
-        ? `<p class="cw-diff">${esc(g.answer)}</p>`
-          + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
-        : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
-          + `<ul class="cw-issues">${(g.issues || []).map((x) => `
-              <li class="cw-issue">
-                <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
-                <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
-                ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
-              </li>`).join('')}</ul>`;
-    return `<article class="cw-item" data-ok="${String(ok)}">
+      : formOnly
+        ? `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
+          + '<p class="cw-unknown">Đúng ngữ pháp, còn lỗi trình bày — tính là đúng.</p>'
+          + cwList(g)
+        : ok
+          ? `<p class="cw-diff">${esc(g.answer)}</p>`
+            + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
+          : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>` + cwList(g);
+    return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>
       <span class="cw-item__no">Câu ${i + 1}</span>
       <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
@@ -1255,9 +1271,11 @@ function renderStudentWriting(d) {
   }).join('');
 
   const when = sub.graded_at ? hhmm(sub.graded_at) : '';
-  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu không lỗi</small></div>
+  const forms = (sub.items || []).filter(cwFormOnly).length;
+  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu đúng ngữ pháp</small></div>
     <p class="adm-hint">Chấm lúc ${esc(when)}${sub.model ? ' · ' + esc(sub.model) : ''}.
-       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.</p>
+       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.
+       ${forms ? `Có <strong>${forms}</strong> câu đúng ngữ pháp nhưng còn lỗi trình bày.` : ''}</p>
     <div class="cw-list">${items}</div>`;
 }
 
@@ -1276,12 +1294,22 @@ async function openStudentWriting(assignmentId, studentId) {
       + '/assignments/' + encodeURIComponent(assignmentId)
       + '/writing/' + encodeURIComponent(studentId));
     if (gen !== _mkGen) return;
+    // Nút TRẢ BÀI chỉ hiện khi CÓ bài để trả. Một nút mờ cạnh chỗ trống nói
+    // rằng ở đây có việc làm được, trong khi không.
+    const canReturn = !!(d && d.submission);
     body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
-      + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
+      + '← Về bảng tổng kết</button>'
+      + (canReturn
+          ? ' <button class="adm-btn-secondary" type="button" id="cw-return">'
+            + 'Trả bài cho em làm lại</button>'
+          : '')
+      + renderStudentWriting(d);
     const b = $('cw-back');
     if (b) {
       b.onclick = () => { body.innerHTML = back; };
     }
+    const r = $('cw-return');
+    if (r) r.onclick = () => returnStudentWork(assignmentId, studentId);
   } catch (err) {
     if (gen !== _mkGen) return;
     // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
@@ -1289,6 +1317,46 @@ async function openStudentWriting(assignmentId, studentId) {
     body.innerHTML = '<p class="adm-banner">Không đọc được bài tự luận: '
       + esc(err.message || String(err)) + '</p>';
   }
+}
+
+/**
+ * TRẢ BÀI — mở lại một mục đã nộp để em ấy làm tiếp.
+ *
+ * Hỏi trước, vì nó vứt lượt nộp hiện tại khỏi sổ (bài viết và bản chấm vẫn còn
+ * trong kho, nhưng bảng tổng kết sẽ đọc là "chưa nộp"). Sau khi ghi thì ĐỌC LẠI
+ * bảng từ máy chủ, không tự sửa dòng đang cầm trên tay: máy chủ có thể đã từ
+ * chối một phần, và một bảng tự vẽ theo ý mình là một bảng nói dối.
+ */
+function returnStudentWork(assignmentId, studentId) {
+  window.confirmDanger({
+    title: 'Trả bài cho em làm lại?',
+    body: 'Lượt nộp hiện tại sẽ không còn tính là đã nộp. Chính những câu em ấy '
+      + 'đã nộp được đưa lại vào ô nhập để sửa tiếp — không phải gõ lại từ đầu. '
+      + 'Bản chấm cũ vẫn được giữ để tra lại. '
+      + 'Chỉ trả được khi bài giao còn hạn nhận bài.',
+    confirmLabel: 'Trả bài',
+    onConfirm: async () => {
+      let r;
+      try {
+        r = await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId)
+          + '/assignments/' + encodeURIComponent(assignmentId)
+          + '/return/' + encodeURIComponent(studentId), {});
+      } catch (err) {
+        // Nguyên câu của máy chủ: nó nói rõ PHẢI LÀM GÌ (dời hạn trước, tải lại
+        // bảng). Đắp một câu chung chung lên trên là lấy mất chỉ dẫn ấy.
+        toast('Chưa trả được bài: ' + (err.message || String(err)), 'error');
+        return;
+      }
+      // Nói luôn em ấy mở ra sẽ thấy BÀI CŨ hay TRANG TRẮNG. Giáo viên nhắn cho
+      // học viên ngay sau khi bấm, nên đây là thứ họ cần biết lúc này.
+      const n = (r && r.draft_restored) || 0;
+      toast(n
+        ? `Đã trả bài. ${n} câu em ấy viết đã được đưa lại vào ô nhập.`
+        : 'Đã trả bài, nhưng KHÔNG khôi phục được câu nào — em ấy sẽ phải viết lại.',
+        n ? undefined : 'error');
+      openTally(assignmentId);
+    },
+  });
 }
 
 let _tallyAsg = null;
