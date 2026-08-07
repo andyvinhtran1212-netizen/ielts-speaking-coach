@@ -258,8 +258,13 @@ describe('bài course: đạt/chưa đạt/đang làm (cổng thuộc bài)', ()
   });
 
   test('đạt hiện ✓, kèm số lần kiểm tra lại khi có', () => {
+    // Ghim NỘI DUNG, không ghim cách xếp: ô điểm nay tách con số ra khỏi phần
+    // phụ (`<small>`) để cột không phình theo chuỗi dài nhất và đẩy cả hàng
+    // tràn khỏi khung. Ba mẩu tin vẫn còn đủ.
     const html = row({ passed_at: '2026-08-04T00:00:00Z', verdicts: 3, retakes: 2, score: 85 });
-    assert.match(html, />85% ✓ · KTL×2</);
+    assert.match(html, /85%/);
+    assert.match(html, /✓/);
+    assert.match(html, /KTL×2/);
     assert.doesNotMatch(html, /chưa đạt/);
   });
 
@@ -314,5 +319,89 @@ describe('đổi bài giao không kéo theo bảng của bài cũ (codex cục b
     }
     assert.ok((SRC.match(/gen !== _mkGen/g) || []).length >= 4,
       'phải kiểm lại ở mọi chỗ vẽ');
+  });
+});
+
+// ── Hàng KHÔNG được tràn ra khỏi khung ────────────────────────────────────
+//
+// `1fr` thực chất là `minmax(auto, 1fr)`: cột tên không co được dưới bề rộng
+// nội dung. Cộng ba cột `auto` (giờ nộp, điểm, nút mở bài) thì một tên dài
+// hoặc một ô điểm dài — "85% · chưa đạt · KTL×2" — đẩy cả hàng vượt khung.
+
+describe('bảng nhận bài không tràn viền', () => {
+  const css = readFileSync(
+    new URL('../public/css/speaking-assignment.css', import.meta.url), 'utf8');
+
+  test('cột tên dùng minmax(0, 1fr), không phải 1fr', () => {
+    const rule = css.match(/\.av-tally__row\s*\{[^}]*\}/);
+    assert.ok(rule, 'không thấy .av-tally__row');
+    assert.match(rule[0], /minmax\(0,\s*1fr\)/);
+    assert.doesNotMatch(rule[0], /columns:[^;]*\s1fr\s/,
+      '`1fr` trần không co được dưới bề rộng nội dung');
+  });
+
+  test('và cột tên vẫn giữ quyền xuống dòng của nó', () => {
+    // `min-width: 0` + `overflow-wrap` ĐÃ có sẵn — thiếu chỉ là quyền CO
+    // (`minmax`). Thêm `text-overflow: ellipsis` ở đây sẽ đổi tên dài từ
+    // XUỐNG DÒNG thành CẮT CỤT: một hồi quy đội lốt bản vá.
+    const rules = [...css.matchAll(/\.av-tally__name\s*\{[^}]*\}/g)].map((m) => m[0]);
+    const main = rules.find((r) => /min-width/.test(r));
+    assert.ok(main, 'không thấy quy tắc chính của .av-tally__name');
+    assert.match(main, /overflow-wrap:\s*anywhere/);
+    assert.doesNotMatch(main, /text-overflow|white-space:\s*nowrap/);
+    assert.equal(rules.filter((r) => /min-width/.test(r)).length, 1,
+      'hai quy tắc cùng tên là hai chỗ tranh nhau');
+  });
+
+  test('hẹp thì XUỐNG DÒNG, không cuộn ngang', () => {
+    // Cuộn ngang từng hàng là bắt tìm lại cái tên sau mỗi lần cuộn.
+    assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.av-tally__row/);
+    assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /overflow-x/);
+  });
+
+  test('ô điểm cho phần phụ xuống dòng riêng', () => {
+    const rule = css.match(/\.av-tally__band small\s*\{[^}]*\}/);
+    assert.ok(rule, 'chưa tách phần phụ');
+    assert.match(rule[0], /display:\s*block/);
+  });
+});
+
+describe('lỗi đọc bảng tổng kết là LỜI MỜI, không phải ngõ cụt', () => {
+  const SRC2 = readFileSync(
+    new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
+
+  test('có nút Thử lại', () => {
+    const fn = SRC2.slice(SRC2.indexOf('async function openTally'),
+                          SRC2.indexOf('async function openTally') + 1800);
+    assert.match(fn, /data-action="retry-tally"/);
+    assert.match(fn, /Thử lại/);
+  });
+
+  test('và nút ấy được nối', () => {
+    assert.match(SRC2, /button\[data-action="retry-tally"\]/);
+    assert.match(SRC2, /openTally\(_mk\.asg\)/);
+  });
+
+  test('phân biệt lỗi THOÁNG QUA với lỗi thật', () => {
+    // Ghim HÀNH VI: bản trước soi chữ trong mã, nên đổi `transient` thành
+    // `false` vẫn xanh — chốt canh một nhánh không bao giờ chạy.
+    const fn = new Function(
+      SRC2.slice(SRC2.indexOf('function isTransientNetworkError'),
+                 SRC2.indexOf('async function openTally'))
+      + ' return isTransientNetworkError;')();
+    for (const m of ['Failed to fetch', 'NetworkError when attempting to fetch',
+                     'Load failed']) {
+      assert.equal(fn(m), true, m);
+    }
+    // Bấm lại một 404/500 chỉ hỏng y hệt — mời bấm lại là mời phí thời gian.
+    for (const m of ['404 Not Found', 'Lỗi máy chủ 500', '', null]) {
+      assert.equal(fn(m), false, String(m));
+    }
+  });
+
+  test('và lời nhắn ấy có mặt', () => {
+    const fn = SRC2.slice(SRC2.indexOf('async function openTally'),
+                          SRC2.indexOf('async function openTally') + 1800);
+    assert.match(fn, /khởi động lại/);
   });
 });

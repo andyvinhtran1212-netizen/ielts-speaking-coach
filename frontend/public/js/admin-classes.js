@@ -831,16 +831,20 @@ function tallyRow(r, skill) {
   // là nói dối. Kèm đạt/chưa từ cổng thuộc bài; số lần kiểm tra lại chỉ hiện
   // khi >0 vì đó mới là tín hiệu cần kèm cặp.
   let band;
-  if (empty) band = '—';
+  if (empty) band = '—';   // `band` có thể chứa thẻ; mọi giá trị từ máy chủ
+                           // bên trong nó ĐỀU đã qua `esc`.
   else if (skill === 'course') {
     // "Chưa đạt" chỉ khi ĐÃ có lượt xét trượt. Mới xong chặng 1 thì submitted_at
     // đã đóng dấu nhưng chưa ai xét gì — nói "chưa đạt" lúc ấy là kết tội một
     // bài đang làm dở.
     const state = r.passed_at ? ' ✓'
       : (r.verdicts ? ' · chưa đạt' : ' · đang làm');
-    band = Math.round(Number(r.score)) + '%' + state
-      + (r.retakes ? ` · KTL×${r.retakes}` : '');
-  } else band = Number(r.score).toFixed(1);
+    // Con số ĐỨNG RIÊNG, phần phụ xuống dòng: gộp cả ba vào một dòng làm cột
+    // phình theo chuỗi dài nhất và đẩy cả hàng tràn khỏi khung.
+    band = `${Math.round(Number(r.score))}%`
+      + `<small>${esc(state.replace(/^ · /, '').replace(/^ /, ''))}`
+      + `${r.retakes ? ` · KTL×${r.retakes}` : ''}</small>`;
+  } else band = esc(Number(r.score).toFixed(1));
   // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này
   // để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh tên em ấy.
   // Mỗi cờ nói đủ ba thứ — chuyện gì, vì sao, làm gì tiếp; một chấm đỏ không
@@ -873,7 +877,7 @@ function tallyRow(r, skill) {
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
-    <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+    <span class="av-tally__band" data-empty="${empty}">${band}</span>
     ${open}
   </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
@@ -1133,6 +1137,20 @@ async function openOneReport(userId, name) {
   }
 }
 
+/**
+ * Lỗi này có phải chuyện thoáng qua không?
+ *
+ * `Failed to fetch` (Chrome) / `NetworkError` (Firefox) / `Load failed`
+ * (Safari) đều nghĩa là yêu cầu KHÔNG tới nơi — hầu hết là backend đang khởi
+ * động lại sau một lượt phát hành. Vài giây sau bấm lại là được, nên nói ra.
+ *
+ * Một 404 hay 500 thì KHÔNG: bấm lại chỉ hỏng y hệt, và mời bấm lại là mời
+ * người ta phí thời gian.
+ */
+function isTransientNetworkError(msg) {
+  return /failed to fetch|networkerror|load failed/i.test(String(msg || ''));
+}
+
 async function openTally(assignmentId) {
   const gen = _mkGen;
   const body = $('tally-body');
@@ -1147,8 +1165,17 @@ async function openTally(assignmentId) {
   } catch (err) {
     // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
     // không hề chứng minh được.
-    body.innerHTML = '<p class="adm-banner">Không đọc được bảng tổng kết: '
-      + esc(err.message || String(err)) + '</p>';
+    //
+    // Và một màn hỏng phải là LỜI MỜI LÀM VIỆC, không phải ngõ cụt: trước đây
+    // giáo viên gặp lỗi này chỉ còn cách tải lại cả trang, mất luôn chỗ đang
+    // đứng. `Failed to fetch` hầu hết là backend đang khởi động lại sau một lượt
+    // phát hành — vài giây sau bấm lại là được.
+    const why = String(err && (err.message || err) || '');
+    const transient = isTransientNetworkError(why);
+    body.innerHTML = `<p class="adm-banner">Không đọc được bảng tổng kết: ${esc(why)}`
+      + (transient ? ' Thường là máy chủ đang khởi động lại — thử lại sau vài giây.' : '')
+      + `</p><button class="adm-btn-secondary" type="button"
+           data-action="retry-tally">Thử lại</button>`;
   }
 }
 
@@ -2736,6 +2763,13 @@ function bindDetail() {
   $('btn-mf-cancel').addEventListener('click', closeMemberModal);
   $('btn-mf-submit').addEventListener('click', submitMember);
   bindModalBackdrop('member-modal', closeMemberModal);
+
+  // Thử lại bảng tổng kết. Nghe trên VÙNG CHỨA vì nút chỉ tồn tại lúc có lỗi.
+  $('tally-body').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-tally"]') && _mk && _mk.asg) {
+      openTally(_mk.asg);
+    }
+  });
 
   $('roster-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action="remove-member"]');
