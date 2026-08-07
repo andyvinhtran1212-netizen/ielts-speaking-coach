@@ -490,6 +490,7 @@ jobs:
           esac
 
           FAIL=0
+          INFRA=0
           for S in $RUNS; do
             case "$S" in
               authed) ARGS="--auth --pairs tooling/parity-pairs-authed.json" ;;
@@ -498,11 +499,40 @@ jobs:
             esac
             for VP in 1280x900 375x812; do
               echo "════════ lượt $S · bề rộng $VP ════════"
+              # `|| RC=$?` thay vì bật/tắt `set -e`: bước này chạy dưới `bash -e`,
+              # và đụng vào trạng thái đó sẽ đổi hành vi của mọi lệnh phía sau.
+              RC=0
               node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || FAIL=1
+                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || RC=$?
+              # PHÂN BIỆT HAI LOẠI ĐỎ. Mã 3 = không gọi được backend, tức bộ so
+              # KHÔNG kết luận gì về parity. Gộp nó vào FAIL sẽ hiện ra như «bản
+              # Next lệch bản legacy» — một lời khẳng định chưa đo được, và vài
+              # lần như thế là người ta bắt đầu bỏ qua cổng này.
+              case "$RC" in
+                0) ;;
+                3) INFRA=1
+                   echo "::warning::lượt $S/$VP KHÔNG kết luận được: backend không gọi được" ;;
+                *) FAIL=1 ;;
+              esac
             done
           done
-          exit $FAIL
+          if [ "$INFRA" = "1" ]; then
+            echo "::error::Cổng parity không chạy xong được vì backend không gọi được (mã 3)."
+            echo "Đây KHÔNG phải phát hiện về parity. Kiểm backend production rồi chạy lại."
+          fi
+          # Vẫn đỏ khi hạ tầng hỏng — bỏ qua trong im lặng thì lần merge kế tiếp
+          # đi qua một cổng chưa từng chạy. Đỏ, nhưng đỏ ĐÚNG LÝ DO.
+          #
+          # Dạng `if` tường minh thay cho `A || B && C`. Đo thật thì dạng kia
+          # KHÔNG sai ở đây (bash không kích hoạt `-e` cho lệnh nằm giữa danh
+          # sách `||`/`&&`), nhưng nó đọc như «hoặc A, hoặc B-rồi-C» trong khi
+          # thực chất là `(A || B) && C`, và trạng thái thoát của nó phụ thuộc
+          # vào lệnh nào được chạy sau cùng. Ở một dòng quyết định cổng đỏ hay
+          # xanh, thứ cần là đọc phát hiểu ngay.
+          if [ "$FAIL" = "1" ] || [ "$INFRA" = "1" ]; then
+            exit 1
+          fi
+          exit 0
 
       # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
       # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong

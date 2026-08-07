@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   canonicalHref, normalizeText, comparePages, formatReport,
-  buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl,
+  buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl, isTransportError,
 } from '../tooling/parity-core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -447,8 +447,30 @@ describe('cổng parity trong CI (review #914)', () => {
     assert.match(GATE_ACTIVE, /for VP in 1280x900 375x812/,
       'phải chạy cả hai bề rộng');
     assert.match(GATE_ACTIVE, /--viewport "\$VP"/);
+
     // Và phải chạy HẾT rồi mới thoát, không dừng ở cái đỏ đầu tiên.
-    assert.match(GATE_ACTIVE, /\|\| FAIL=1[\s\S]*exit \$FAIL/);
+    //
+    // Ghim TÍNH CHẤT, không ghim nguyên văn. Bản trước khẳng định
+    // `/\|\| FAIL=1[\s\S]*exit \$FAIL/` — tức ghim đúng một cách viết. Khi
+    // thân vòng lặp đổi (thêm phân loại mã thoát 3 cho ca hạ tầng), chốt đỏ dù
+    // tính chất nó canh vẫn nguyên vẹn. Chốt ghim cách viết thì mỗi lần sửa mã
+    // là một lần phải sửa chốt, và người ta học cách nới chốt cho hết đỏ.
+    const lines = GATE_ACTIVE.split('\n');
+    const i = lines.findIndex((l) => /for VP in 1280x900 375x812/.test(l));
+    assert.ok(i > 0, 'không tìm thấy vòng lặp bề rộng');
+    const j = lines.findIndex((l, k) => k > i && /^\s{12}done\s*$/.test(l));
+    assert.ok(j > i, 'không tìm thấy điểm kết thúc vòng lặp bề rộng');
+
+    const thân = lines.slice(i + 1, j);
+    assert.deepEqual(thân.filter((l) => /^\s*exit\b/.test(l)), [],
+      'không được thoát GIỮA vòng lặp — làm thế là bỏ các bề rộng còn lại');
+
+    // Sau vòng lặp phải có đường thoát đỏ, và nó phải phụ thuộc vào cờ tích luỹ
+    // chứ không phải mã thoát của lần chạy cuối cùng.
+    const sau = lines.slice(j).join('\n');
+    assert.match(sau, /exit 1/, 'phải có đường thoát đỏ sau khi chạy hết');
+    assert.match(sau, /\$FAIL|\$INFRA/,
+      'đường thoát phải đọc cờ tích luỹ, không phải mã của lượt cuối');
   });
 
   test('có chốt CORS chạy TRƯỚC khi so', () => {
@@ -688,4 +710,50 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
                      'frontend/public/js/grammar.js']) {
     assert.ok(!authedRe.test(neg), `«${neg}» không được kích hoạt lượt authed`);
   }
+});
+
+// ── Phân biệt "trang hỏng" với "dụng cụ đo mất kết nối" ──────────────────────
+//
+// Ngày 2026-08-07, lượt `full` của cổng G1 báo 87/150 cặp lệch và 610 phát hiện
+// mức cao. Không phát hiện nào là thật: backend production từ chối kết nối giữa
+// chừng, và bản chụp HỎNG bị đem so với vế kia vốn gọi được.
+//
+// Kiểm-ổn-định sẵn có KHÔNG bắt được ca này, và lý do đáng nhớ: khi backend từ
+// chối RẢI RÁC thì hai lần chụp khác nhau ⇒ báo `unstable-extraction`; nhưng khi
+// nó từ chối ỔN ĐỊNH trong một quãng thì hai lần chụp GIỐNG HỆT NHAU (cùng
+// hỏng) ⇒ harness kết luận "ổn định". Một bộ kiểm tính lặp lại sẽ coi hỏng-ổn
+// -định là đạt. Nên phép kiểm mạng phải đứng TRƯỚC phép kiểm ổn định.
+describe('isTransportError — lỗi hạ tầng không phải khuyết tật trang', () => {
+  test('nhận đúng các mã tầng vận chuyển', () => {
+    for (const mã of ['net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_RESET',
+                      'net::ERR_NAME_NOT_RESOLVED', 'net::ERR_TIMED_OUT',
+                      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_FAILED']) {
+      assert.equal(isTransportError(mã), true, `«${mã}» phải được nhận là lỗi vận chuyển`);
+    }
+  });
+
+  // ĐỐI CHỨNG ÂM QUAN TRỌNG NHẤT. `ERR_ABORTED` xảy ra bình thường (điều hướng
+  // bị huỷ, tải media bị dừng). Gộp nó vào sẽ khiến gần như MỌI lượt chạy tự
+  // tuyên bố "hạ tầng hỏng" ⇒ cổng không bao giờ kết luận được gì nữa. Đó là
+  // cách một bản vá chống-đỏ-giả tự biến thành cách tắt cổng.
+  test('KHÔNG nhận ERR_ABORTED — nó xảy ra trong lượt chạy bình thường', () => {
+    assert.equal(isTransportError('net::ERR_ABORTED'), false);
+  });
+
+  test('KHÔNG nhận lỗi tầng ứng dụng hay đầu vào rác', () => {
+    // Đây là lỗi THẬT của trang, phải để cổng bắt chứ không được dán nhãn hạ tầng.
+    assert.equal(isTransportError('net::ERR_BLOCKED_BY_CLIENT'), false);
+    assert.equal(isTransportError('net::ERR_CERT_AUTHORITY_INVALID'), false);
+    for (const rác of ['', null, undefined, 0, {}, [], 'ERR_CONNECTION_REFUSED']) {
+      assert.equal(isTransportError(rác), false, `«${String(rác)}» không được tính là lỗi vận chuyển`);
+    }
+  });
+
+  test('so BẰNG chứ không so CHỨA', () => {
+    // Nếu cài bằng `includes`, chuỗi dưới sẽ khớp và một lỗi lạ bị giấu dưới
+    // nhãn hạ tầng.
+    assert.equal(isTransportError('net::ERR_FAILED_SOMETHING_ELSE'), false);
+    // Nhưng hậu tố mô tả sau DẤU CÁCH là hình dạng Playwright thật sự phát ra.
+    assert.equal(isTransportError('net::ERR_CONNECTION_REFUSED at http://x/y'), true);
+  });
 });
