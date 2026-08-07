@@ -199,7 +199,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 |---|---|---|---|---|---|---|---|
 | `/vocabulary` | `/vocabulary.html` (root), `/pages/vocabulary.html`, `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json line 35) | `pages/vocabulary.html` | Student | none | localStorage (theme), sessionStorage (card state), Supabase session | M | Student vocab hub; curated topic words |
 | `/vocabulary/exam` | `/pages/vocab-exam.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-vocab-exam)/vocabulary/exam/page.tsx` — CUTOVER 2026-08-06 | Student | `list_id` (AWL, TOEIC, THPT, or course-specific) | localStorage (theme), sessionStorage (quiz state, score), fetch API | L | Quiz from imported vocabulary list |
-| `/vocabulary/practice` | — | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
+| `/vocabulary/practice` | `app/(authed-vocab-practice)/vocabulary/practice/page.tsx` — CUTOVER 2026-08-07 | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
 | `/vocabulary/article` | — | `pages/vocab-article.html` | Public | `word_id`, `source` (reading, listening, etc.) | localStorage (theme), fetch (word definition + examples) | S | Word detail + etymology + usage |
 
 ### Exercises & Quizzes
