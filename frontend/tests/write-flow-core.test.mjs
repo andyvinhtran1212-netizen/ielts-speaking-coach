@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, validateFlow, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -267,13 +267,14 @@ describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
     assert.match(r.findings[0].why, /cả tập/);
   });
 
-  test('bodyAll KHÔNG phải hàm ⇒ ĐỎ, không được lặng lẽ bỏ qua', () => {
-    // `bodyAll: true` là cách gõ nhầm dễ gặp; bỏ qua nó thì bản khai đọc như
-    // đang chặn trùng lặp trong khi không chặn gì (codex cục bộ #969).
-    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
-      W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' })], decl({ bodyAll: true }));
-    assert.equal(r.pass, false);
-    assert.match(r.findings[0].why, /phải là HÀM/);
+  test('bodyAll KHÔNG phải hàm ⇒ ĐỎ ở BỘ KIỂM LƯỢC ĐỒ', () => {
+    // `bodyAll: true` là cách gõ nhầm dễ gặp. Chốt này TỪNG nằm trong `judge`;
+    // nay nó thuộc `validateFlow`, chạy MỘT LẦN trước khi luồng chạy — vì ba
+    // vòng review liên tiếp bắt cùng loại lỗi ở các khoá khác nhau, nên vá tập
+    // trung thay vì thêm chốt tại từng chỗ dùng (codex cục bộ #973).
+    const errs = validateFlow({ name: 'x',
+      writes: [{ method: 'PATCH', path: '/a/answers', bodyAll: true }] });
+    assert.ok(errs.some((e) => /bodyAll.*phải là HÀM/.test(e)), errs.join(' | '));
   });
 
   test('CÓ bodyAll: đủ hai câu ⇒ đạt', () => {
@@ -309,14 +310,14 @@ describe('so TIÊU ĐỀ request', () => {
     assert.equal(judge([W({ 'x-reading-anon': 'khac' })], D({ 'X-Reading-Anon': 'abc' })).pass, false);
   });
 
-  test('headers sai kiểu ⇒ ĐỎ, không được lặng lẽ bỏ qua', () => {
-    // `headers: true` hay một hàm đều làm `Object.entries` trả mảng RỖNG, nên
-    // bản khai đọc như đang ghim tiêu đề trong khi không ghim gì. Cùng họ với
-    // `bodyAll` ở #969 (codex cục bộ #973).
-    for (const bad of [true, () => false, ['a']]) {
-      const r = judge([W({})], [{ method: 'POST', path: '/a/x', headers: bad }]);
-      assert.equal(r.pass, false, `headers=${typeof bad} phải ĐỎ`);
-      assert.match(r.findings[0].why, /phải là object thường/);
+  test('headers sai kiểu ⇒ ĐỎ ở BỘ KIỂM LƯỢC ĐỒ', () => {
+    // `headers: true`, một hàm, hay `new Map()` đều làm `Object.entries` trả
+    // mảng RỖNG, nên bản khai đọc như đang ghim tiêu đề trong khi không ghim gì.
+    for (const bad of [true, () => false, ['a'], new Map([['a', 'b']]), {}]) {
+      const errs = validateFlow({ name: 'x',
+        writes: [{ method: 'POST', path: '/a/x', headers: bad }] });
+      assert.ok(errs.some((e) => /headers/.test(e)),
+        `headers=${Object.prototype.toString.call(bad)} phải ĐỎ`);
     }
   });
 

@@ -12,6 +12,8 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { validateFlow } from '../tooling/write-flow-core.mjs';
+
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'write-flows');
 const files = readdirSync(DIR).filter((f) => f.endsWith('.mjs'));
 const flows = await Promise.all(
@@ -40,4 +42,45 @@ describe('bản khai luồng ghi', () => {
         `${file} hoãn vế Next mà KHÔNG có \`legacyRoute\` ⇒ luồng này không được kiểm ở đâu cả`);
     });
   }
+});
+
+
+describe('lược đồ bản khai', () => {
+  // Chốt TĨNH cho bộ kiểm mà bộ chạy trình duyệt cũng dùng. Có nó thì một bản
+  // khai sai kiểu đỏ ngay ở `node --test`, không phải đợi tới lượt chạy cổng —
+  // và quan trọng hơn: nó đỏ kể cả khi cổng ghi KHÔNG được kích hoạt bởi
+  // `paths` của PR đó.
+  test('mọi bản khai đều hợp lệ', () => {
+    const bad = [];
+    for (const { file, flow } of flows) {
+      for (const e of validateFlow(flow)) bad.push(`${file}: ${e}`);
+    }
+    assert.deepEqual(bad, []);
+  });
+
+  test('bộ kiểm bắt được các cách khai hỏng', () => {
+    // Bốn ca này là bốn vòng review liên tiếp cùng một loại lỗi: khai sai kiểu
+    // thì `Object.entries` trả rỗng và bản khai qua âm thầm.
+    const base = { name: 'x', writes: [{ method: 'POST', path: '/a' }] };
+    const cases = [
+      [{ ...base, expectFinalUrl: '' }, /expectFinalUrl/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: true }] }, /bodyAll/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', headers: new Map([['a', 'b']]) }] }, /headers/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', headers: {} }] }, /KHÁC RỖNG/],
+      [{ ...base, steps: [{ expectStorage: ['k', null] }] }, /expectStorage/],
+      [{ ...base, ignoreWrite: [] }, /khoá lạ/],
+      [{ ...base, steps: [{ clickk: '#a' }] }, /ĐÚNG MỘT hành động/],
+    ];
+    for (const [flow, re] of cases) {
+      const errs = validateFlow(flow);
+      assert.ok(errs.length, `phải ĐỎ: ${JSON.stringify(Object.keys(flow))}`);
+      assert.ok(errs.some((e) => re.test(e)), `thông báo không khớp ${re}: ${errs.join(' | ')}`);
+    }
+  });
+
+  test('khai hỏng chỉ báo MỘT lần dù `times` bao nhiêu', () => {
+    const errs = validateFlow({ name: 'x',
+      writes: [{ method: 'POST', path: '/a', times: 3, headers: true }] });
+    assert.equal(errs.filter((e) => /headers/.test(e)).length, 1);
+  });
 });

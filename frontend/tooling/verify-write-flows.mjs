@@ -21,7 +21,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatFindings, isWrite, judge } from './write-flow-core.mjs';
+import { formatFindings, isWrite, judge, validateFlow } from './write-flow-core.mjs';
 import { storageKey } from './supabase-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -251,6 +251,16 @@ const browser = await chromium.launch();
 let failed = 0;
 for (const f of files) {
   const flow = (await import(path.join(FLOW_DIR, f))).default;
+
+  // Kiểm LƯỢC ĐỒ trước khi chạy. Một bản khai sai kiểu chạy được nhưng không
+  // ghim gì là thứ nguy hơn một bản khai đỏ.
+  const schemaErrs = validateFlow(flow);
+  if (schemaErrs.length) {
+    failed += 1;
+    console.log(`\n══ ${flow && flow.name ? flow.name : f}`);
+    for (const e of schemaErrs) console.log(`  ✗ [bản khai] ${e}`);
+    continue;
+  }
 
   // Bản khai được viết TRƯỚC khi trang Next tồn tại (đó là cả điểm của cách làm
   // này) sẽ làm vế Next đỏ vì route chưa có. `nextPending` hoãn ĐÚNG vế đó, và
