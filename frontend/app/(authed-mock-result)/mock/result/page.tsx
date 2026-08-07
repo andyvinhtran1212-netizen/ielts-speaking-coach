@@ -3,6 +3,7 @@
 // Cùng khuôn các trang port trước: JS và CSS đã tách khỏi mã inline, CẢ HAI VẾ
 // nạp chung tệp đó.
 import type { Metadata } from 'next';
+import HydratedSignal from '@/components/hydrated-signal';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -26,11 +27,15 @@ export const metadata: Metadata = {
 const MOUNT = `
 import { mount } from '/js/mock-result.js';
 const afterHydration = (fn) => {
-  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
-  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
-  // template literal, va mot dau nguoc se ket thuc chuoi som.
-  if (document.readyState === 'complete') setTimeout(fn, 0);
-  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+  // React TU BAO khi hydrate xong (components/hydrated-signal.tsx). KHONG doan
+  // theo su kien load: ban dau toi cho load roi cong mot macrotask, kem chu
+  // thich "load xay ra sau khi React da hydrate xong cay" - dieu do SAI. React
+  // hydrate theo che do dong thoi, nen no co the CHUA xong luc load ban. Do
+  // duoc, lap lai 3/3 khi ep chunk cham: module ghi DOM truoc, React vut HTML
+  // may chu ngay sau. KHONG dung dau nguoc trong chu thich nay: no nam TRONG
+  // mot template literal.
+  if (window.__averHydrated) { fn(); return; }
+  window.addEventListener("aver:hydrated", fn, { once: true });
 };
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 if (ready()) afterHydration(mount);
@@ -56,6 +61,7 @@ else {
 export default function MockResultPage() {
   return (
     <>
+      <HydratedSignal />
       {/* @ts-ignore */}
       <aver-chrome active="home" />
 
