@@ -88,5 +88,11 @@
     "legacy": "/pages/vocab-exam.html",
     "next": "/vocabulary/exam",
     "allow": []
+  },
+  {
+    "name": "full-test",
+    "legacy": "/pages/full-test.html",
+    "next": "/full-test",
+    "allow": []
   }
 ]
