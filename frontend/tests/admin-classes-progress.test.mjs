@@ -17,7 +17,38 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
 const PAGE = readFileSync(join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
 
-const codeOnly = (s) => s.replace(/\/\/[^\n]*/g, '');
+// Bỏ CẢ hai kiểu chú thích. Bản cũ chỉ bỏ `//`, nên một chú thích doc `/** */`
+// nhắc đúng chuỗi đang ghim sẽ tự làm chốt xanh — bắt được tại trận ở chốt cuộn
+// ngăn kéo: đổi mã `'nearest'` → `'start'` mà không chốt nào đỏ.
+const codeOnly = (s) => s
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/[^\n]*/g, '');
+
+/**
+ * Thân của `<div class="cl-roster-split">`, lấy bằng cách ĐẾM ĐỘ SÂU thẻ.
+ *
+ * Repo giữ `frontend/tests` không phụ thuộc gì, nên không có jsdom để hỏi cha
+ * con. Cách rẻ tiền là cắt "từ thẻ mở tới một mốc phía sau" — nhưng thế thì dời
+ * một khối ra NGOÀI cha mà vẫn trước mốc là chốt vẫn xanh trong khi lỗi quay
+ * lại. Đếm `<div`/`</div>` cho ra ranh giới THẬT.
+ */
+function splitBody() {
+  const open = PAGE.indexOf('<div class="cl-roster-split">');
+  assert.ok(open !== -1, 'thiếu cha lưới .cl-roster-split');
+  let i = open, depth = 0;
+  // Chú thích HTML có thể chứa chữ "div" — bỏ chúng trước khi đếm.
+  const src = PAGE.replace(/<!--[\s\S]*?-->/g, (m) => ' '.repeat(m.length));
+  const tag = /<(\/?)div\b/g;
+  tag.lastIndex = open;
+  for (let m = tag.exec(src); m; m = tag.exec(src)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) { i = m.index; break; }
+  }
+  assert.ok(i > open, 'không tìm được thẻ đóng của .cl-roster-split');
+  return PAGE.slice(open, i);
+}
+
+const inSplit = (needle) => splitBody().includes(needle);
 
 function loadHelpers() {
   // Cắt từ `strip` chứ không từ `skillCell`: `skillCell` GỌI `strip`, nên lát
@@ -137,6 +168,73 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
                                   SRC.indexOf("const lensBar")));
     assert.match(fn, /_picked/, 'phải nhớ hàng đang chọn để giữ nó sáng');
     assert.doesNotMatch(fn, /openModal|showModal/, 'hộp thoại làm mất chỗ đứng');
+  });
+
+  // ── Ngăn kéo phải mở ở chỗ MẮT ĐANG NHÌN ────────────────────────────────
+  //
+  // Đo trên prod, màn 1920×935: hàng bấm ở y=541, ngăn kéo mở ở y=1571 — thấp
+  // hơn 1030px và NGOÀI khung nhìn. Giáo viên bấm một cái tên, màn hình đứng
+  // yên, đọc ra là web hỏng. "Mở trong trang" đã đúng; "mở dưới đáy trang" thì
+  // không.
+  test('bảng và ngăn kéo chung MỘT cha lưới, không phải trên-dưới', () => {
+    // Cắt "từ thẻ mở tới một mốc phía sau" là chốt DƯƠNG TÍNH GIẢ: dời ngăn kéo
+    // ra NGOÀI cha lưới mà vẫn trước mốc thì chốt vẫn xanh, trong khi lỗi gốc
+    // quay lại nguyên vẹn (codex cục bộ 07/08). Repo không có jsdom, nên đếm độ
+    // sâu thẻ để lấy đúng phần THÂN của cha lưới.
+    assert.equal(inSplit('id="roster-table-wrap"'), true);
+    assert.equal(inSplit('id="roster-drawer"'), true,
+      'ngăn kéo nằm ngoài cha lưới thì nó lại rơi xuống đáy bảng');
+  });
+
+  test('hai cột trên màn rộng, và cột bảng CO được', () => {
+    const block = PAGE.match(/@media \(min-width: 1400px\)\s*\{[\s\S]*?\n    \}/);
+    // 1400px chứ không 1200px: `main.cl-shell` chốt ở `max-width: 1100px`, nên
+    // ở khung nhìn 1200 cột bảng chỉ còn ~524px — một bảng 6 cột trong đó là
+    // đổi lỗi này lấy lỗi khác (codex cục bộ 07/08).
+    assert.ok(block, 'thiếu điểm ngắt hai cột ở 1400px');
+    assert.match(block[0], /\.cl-roster-split\s*\{[^}]*display:\s*grid/);
+    // `1fr` trần là `minmax(auto, 1fr)`: bảng không co được sẽ đẩy ngăn kéo ra
+    // khỏi khung — đúng lỗi đã vá ở bảng nhận bài (#979).
+    assert.match(block[0], /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    // Neo DƯỚI thanh tiêu đề `sticky` cao 56px, không neo ở 0 — neo ở 0 là dính
+    // vào đúng chỗ bị nó che.
+    assert.match(block[0], /top:\s*calc\(var\(--admin-header-h/);
+  });
+
+  test('màn hẹp thì CUỘN ngăn kéo vào tầm nhìn', () => {
+    // Dưới 1200px vẫn xếp dọc (một cột 340px trên 990px bề ngang bóp chết cái
+    // bảng), nên ở đó phải tự cuộn tới — nếu không thì lỗi gốc còn nguyên trên
+    // laptop 13".
+    const click = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                     SRC.indexOf('const lensBar')));
+    assert.match(click, /revealDrawer\(\)/, 'vẽ xong mà không đưa vào tầm nhìn');
+    // Chú thích doc của `revealDrawer` nhắc đúng chuỗi đang ghim dưới đây, nên
+    // chốt này chỉ có nghĩa khi `codeOnly` bỏ cả `/* */` — xem ghi chú ở đó.
+    const body = codeOnly(SRC.slice(SRC.indexOf('function revealDrawer'),
+                                    SRC.indexOf('function renderDrawer')));
+    // `'nearest'` chứ không `'start'`: đã thấy đủ thì đứng yên, cuộn một trang
+    // đang đọc được là tự tay làm mất chỗ giáo viên đang nhìn.
+    assert.match(body, /block:\s*'nearest'/);
+    assert.doesNotMatch(body, /block:\s*'(start|center|end)'/);
+    assert.match(body, /prefers-reduced-motion/,
+      'scrollIntoView không tự tôn trọng nó — phải hỏi rồi mới quyết');
+    // Mốc "đã thấy" phải trừ thanh tiêu đề `sticky` và phải đòi thấy ĐỦ. Kiểm
+    // giao-nhau (`r.top < innerHeight && r.bottom > 0`) coi cả phần khuất sau
+    // tiêu đề là đã thấy, và hở một pixel là thoát sớm không cuộn gì.
+    assert.match(body, /--admin-header-h/);
+    assert.match(body, /r\.bottom <= window\.innerHeight/);
+    // Mốc kiểm đúng vẫn CHƯA đủ: `scrollIntoView` không biết gì về thanh tiêu
+    // đề đè lên, nên ở `0 < top < 56` nó tính "đã gần nhất" và không cuộn gì —
+    // lệnh cuộn thành lệnh rỗng, khối vẫn khuất một nửa (codex #983).
+    // `scroll-margin-top` phải ở quy tắc GỐC: màn hẹp cũng có tiêu đề ấy.
+    const base = PAGE.match(/\n    \.cl-drawer \{[^}]*\}/);
+    assert.ok(base, 'không thấy quy tắc gốc .cl-drawer');
+    assert.match(base[0], /scroll-margin-top:\s*calc\(var\(--admin-header-h/);
+    assert.doesNotMatch(body, /r\.bottom > 0/, 'đó là kiểm giao nhau, không phải thấy đủ');
+    // Cuộn đi cả nghìn pixel mà để tiêu điểm ở lại là bỏ rơi người dùng bàn phím.
+    assert.match(body, /\.focus\(/);
+    assert.match(PAGE, /id="roster-drawer"[^>]*tabindex="-1"/,
+      'không có tabindex thì `.focus()` là lệnh rỗng');
   });
 
   test('the four skill columns are all present', () => {

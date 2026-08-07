@@ -457,6 +457,42 @@ function syncProgressPanel() {
   if (dup) dup.hidden = true;
 }
 
+/**
+ * Đưa ngăn kéo vào tầm nhìn khi nó xếp DƯỚI bảng.
+ *
+ * Trên màn ≥1200px bảng và ngăn kéo là hai cột, nên nó đã nằm cạnh hàng vừa bấm
+ * và không cần cuộn gì. Dưới ngưỡng ấy nó xếp xuống dưới cả bảng — với lớp 14
+ * em thì đo được là thấp hơn chỗ bấm 1030px, ngoài hẳn khung nhìn 935px, nên
+ * bấm một cái tên trông y như không có gì xảy ra.
+ *
+ * `block: 'nearest'` chứ không `'start'`: khi ngăn kéo ĐÃ hiện đủ thì đứng yên.
+ * Cuộn một trang đang đọc được là tự tay làm mất chỗ giáo viên đang nhìn.
+ */
+function revealDrawer() {
+  const d = $('roster-drawer');
+  if (!d || d.hidden) return;
+  const r = d.getBoundingClientRect();
+  // Mốc trên KHÔNG phải 0: thanh tiêu đề admin `sticky`, cao `--admin-header-h`,
+  // nằm đè lên đầu trang. Lấy 0 làm mốc nghĩa là coi phần nằm KHUẤT SAU nó là
+  // "đã thấy". Và phải đòi thấy ĐỦ, chứ `r.top < innerHeight && r.bottom > 0`
+  // chỉ đòi giao nhau — hở đúng một pixel là hàm thoát sớm và không cuộn gì
+  // (codex cục bộ 07/08).
+  const headH = parseFloat(
+    getComputedStyle(d).getPropertyValue('--admin-header-h')) || 56;
+  if (r.top >= headH && r.bottom <= window.innerHeight) return;   // đã thấy đủ
+  // `scrollIntoView` KHÔNG tự tôn trọng prefers-reduced-motion — nó nhận đúng
+  // chuỗi mình truyền. Hỏi rồi mới quyết.
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  d.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' });
+  // TIÊU ĐIỂM ĐI THEO MÀN HÌNH.
+  //
+  // Nơi gọi vừa trả tiêu điểm về đúng nút vừa bấm (đúng, cho lượt vẽ lại). Nhưng
+  // khi xếp dọc thì ta vừa cuộn đi khoảng một nghìn pixel khỏi cái nút ấy: người
+  // dùng bàn phím mất luôn vòng sáng, và phím Tab tiếp theo nhảy về giữa bảng.
+  // Đưa tiêu điểm vào chính khối vừa mở — đóng lại thì nơi gọi trả nó về hàng.
+  d.focus({ preventScroll: true });
+}
+
 /** Ngăn kéo: mở TRONG trang, hàng vẫn sáng. */
 function renderDrawer() {
   const d = $('roster-drawer');
@@ -2791,6 +2827,7 @@ function bindDetail() {
     const back = $('roster-tbody')
       .querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
     if (back) back.focus();
+    revealDrawer();
   });
 
   // Đổi ống kính: nghe trên VÙNG CHỨA, không gắn vào từng nút — thêm ống kính

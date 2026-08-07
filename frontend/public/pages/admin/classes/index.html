@@ -262,9 +262,68 @@
 
     /* ── Ngăn kéo ────────────────────────────────────────────────────────
        Bấm một hàng mở nó NGAY TRONG trang. Trang này có 19 chỗ hộp thoại, và
-       mỗi lần đóng là một lần giáo viên phải tìm lại chỗ đang đọc. */
+       mỗi lần đóng là một lần giáo viên phải tìm lại chỗ đang đọc.
+
+       NHƯNG "trong trang" không có nghĩa là "dưới đáy trang". Đo trên prod, màn
+       1920×935: hàng bấm ở y=541, ngăn kéo mở ra ở y=1571 — thấp hơn 1030px và
+       NẰM NGOÀI khung nhìn. Giáo viên bấm một cái tên và màn hình đứng yên; đọc
+       ra là web hỏng. Nguyên nhân: nó là em út của khung bảng trong một cha
+       `display: block`, nên nó xếp XUỐNG DƯỚI cả bảng dài.
+
+       Chữa bằng cách để bảng và ngăn kéo thành HAI CỘT trên màn đủ rộng — hàng
+       vừa bấm và thông tin của nó cùng nằm trong một tầm mắt. Màn hẹp thì vẫn
+       xếp dọc (một cột 340px trên 990px bề ngang là bóp chết cái bảng), và ở đó
+       `openStudent` cuộn ngăn kéo vào tầm nhìn. */
+    .cl-roster-split { display: block; }
+
+    /* NGƯỠNG 1400px, không phải 1200px. `main.cl-shell` chốt ở `max-width:
+       1100px`, nên bề rộng thật của khu này là `min(1100, khung nhìn − thanh
+       bên 264) − 48` — nó KHÔNG giãn theo màn hình. Tính ngược ra:
+
+         khung nhìn 1440+ → cột bảng 688px
+         khung nhìn 1280  → cột bảng 604px
+         khung nhìn 1200  → cột bảng 524px
+
+       Một bảng 6 cột trong 524px là bắt cuộn ngang để đọc, tức đổi một lỗi lấy
+       một lỗi. Từ 1400px trở lên thì cột bảng luôn đủ 688px. Dưới ngưỡng, xếp
+       dọc và `revealDrawer` cuộn tới — đó mới là đường lùi đúng. */
+    @media (min-width: 1400px) {
+      .cl-roster-split {
+        display: grid;
+        /* `minmax(0, …)` chứ không `1fr`: cột bảng phải CO được, nếu không một
+           bảng rộng sẽ đẩy ngăn kéo ra khỏi khung — đúng lỗi đã vá ở bảng nhận
+           bài (#979). */
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: var(--av-space-6);
+        align-items: start;
+      }
+      /* Dính lại khi cuộn: bảng dài hơn ngăn kéo, và cuộn xuống hàng thứ 12 mà
+         mất luôn khối thông tin thì hai cột lại thành hai màn hình.
+
+         Neo DƯỚI thanh tiêu đề, không neo ở 0. Thanh tiêu đề của admin cũng
+         `sticky`, cao 56px, `z-index: 30` — dính ở `var(--av-space-6)` là dính
+         vào chỗ bị nó che. Biến ấy khai trong shadow DOM của `aver-admin-chrome`
+         nhưng biến tuỳ chỉnh thừa kế xuyên qua `<slot>`, nên đọc được ở đây (đo
+         trên prod: 56px). Vẫn để giá trị lùi phòng khi thẻ ấy chưa nâng cấp. */
+      .cl-roster-split .cl-drawer {
+        position: sticky;
+        top: calc(var(--admin-header-h, 56px) + var(--av-space-4));
+        margin-top: 0;
+      }
+    }
+
     .cl-drawer {
       margin-top: var(--av-space-4);
+      /* `scrollIntoView` KHÔNG biết gì về thanh tiêu đề đè lên trên. Khi ngăn
+         kéo nằm ở `0 < top < 56` thì trình duyệt tính rằng nó đã "gần nhất" rồi
+         và KHÔNG cuộn gì — mốc kiểm ở `revealDrawer` báo chưa đủ, nhưng lệnh
+         cuộn lại thành lệnh rỗng và khối vẫn khuất một nửa (codex #983).
+
+         `scroll-margin-top` là chỗ duy nhất trình duyệt chịu nghe: nó nới hộp
+         cuộn của phần tử lên trên đúng bằng chiều cao tiêu đề, nên "gần nhất"
+         được tính trên cái hộp đã nới. Đặt ở quy tắc GỐC, không trong khối
+         `@media`: màn hẹp cũng có đúng thanh tiêu đề ấy. */
+      scroll-margin-top: calc(var(--admin-header-h, 56px) + var(--av-space-4));
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-card);
@@ -565,24 +624,33 @@
           Lớp này chưa có học viên. Thêm học viên đã có hồ sơ vào lớp để bắt đầu.
         </div>
 
-        <div class="adm-table-wrap" id="roster-table-wrap" hidden>
-          <table class="adm-table">
-            <thead>
-              <tr>
-                <th>Học viên</th>
-                <th>Mã HV</th>
-                <th>Phiên nói</th>
-                <th>Hoạt động gần nhất</th>
-                <th>Chi phí AI</th>
-                <th><span class="sr-only">Thao tác</span></th>
-              </tr>
-            </thead>
-            <tbody id="roster-tbody"></tbody>
-          </table>
+        <!-- Bảng và ngăn kéo là HAI CỘT trên màn rộng, nên chúng phải có chung
+             một cha lưới. Để ngăn kéo làm em út của một cha `display: block` là
+             đẩy nó xuống dưới đáy cả bảng — ngoài khung nhìn. -->
+        <div class="cl-roster-split">
+          <div class="adm-table-wrap" id="roster-table-wrap" hidden>
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Học viên</th>
+                  <th>Mã HV</th>
+                  <th>Phiên nói</th>
+                  <th>Hoạt động gần nhất</th>
+                  <th>Chi phí AI</th>
+                  <th><span class="sr-only">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="roster-tbody"></tbody>
+            </table>
+          </div>
+          <!-- Ngăn kéo mở TRONG trang: hàng vẫn sáng, sổ vẫn đó. Hộp thoại che
+               mất sổ và bắt tìm lại chỗ đang đọc sau mỗi lần đóng. -->
+          <!-- `tabindex="-1"`: chuột không tab vào được, nhưng mã đưa được tiêu
+               điểm vào đây khi màn hẹp phải cuộn tới — nếu không thì người dùng
+               bàn phím bị bỏ lại cách đó một nghìn pixel. -->
+          <aside class="cl-drawer" id="roster-drawer" hidden tabindex="-1"
+                 aria-live="polite"></aside>
         </div>
-        <!-- Ngăn kéo mở TRONG trang: hàng vẫn sáng, sổ vẫn đó. Hộp thoại che
-             mất sổ và bắt tìm lại chỗ đang đọc sau mỗi lần đóng. -->
-        <aside class="cl-drawer" id="roster-drawer" hidden aria-live="polite"></aside>
       </section>
 
       <!-- Buổi học -->
