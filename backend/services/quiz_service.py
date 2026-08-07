@@ -708,10 +708,18 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
             # `mark_item_submitted` không dùng được: nó luỹ đẳng, chỉ ghi khi
             # `submitted_at` còn trống, mà ở đây nó đã có. Ghi thẳng cột điểm.
             item_id = r.get("class_assignment_item_id")
-            if item_id and len(graded):
+            # CÙNG luật với ba đường kia. Bộ đề có trắc nghiệm thì điểm của
+            # mục là kết quả trắc nghiệm — chấm lại bài viết không được động
+            # vào nó (codex cục bộ 07/08: đây là người ghi thứ TƯ, và chốt
+            # điểm-danh hụt nó vì nó chia cho `len(graded)` chứ không cho
+            # `total`).
+            pct = course_hand_in_score(
+                has_mcq=bool(_course_bank_shape(r.get("bank_id"))[0]),
+                clean=clean, total=len(graded))
+            if item_id and pct is not None:
                 try:
                     (db.table("class_assignment_items")
-                     .update({"score": round(clean / len(graded) * 100, 1)})
+                     .update({"score": pct})
                      .eq("id", item_id).execute())
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("[course-writing] regrade: đồng bộ điểm hỏng "
@@ -1428,10 +1436,29 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
                 "id, class_assignment_item_id, graded_at, total, clean",
                 lambda q, c=c: q.in_("class_assignment_item_id", c), db=db)
              if w.get("class_assignment_item_id")}))
+    # Hình dạng bộ đề đọc THEO LÔ: vòng lặp dưới có thể chạy qua nhiều mục của
+    # cùng một bank, và hỏi lại từng mục là N lượt đọc cho một câu trả lời.
+    #
+    # Đọc hỏng KHÔNG được chặn lượt chốt sổ. Dòng tự luận đã chấm tự nó đủ để
+    # chốt sổ; bắt nó chờ `quiz_questions` là dựng lại đúng cái ràng buộc mà
+    # docstring trên nói phải tránh — và bộ test đã bắt tôi làm thế.
+    #
+    # Không biết hình dạng ⇒ coi như CÓ trắc nghiệm ⇒ không chạm cột điểm. Chiều
+    # an toàn là không ghi: ghi nhầm sẽ xoá kết quả trắc nghiệm, còn không ghi
+    # chỉ là để trống một con số mà `course_verdict` sẽ điền.
+    try:
+        w_shapes = _bank_shapes([b for b in {_bank_of(i) for i in wrote} if b], db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] reconcile: không đọc được hình dạng bộ đề: %s", exc)
+        w_shapes = {}
+        hurt.append("đọc hình dạng bộ đề")
     for item_id, w in wrote.items():
+        bank = _bank_of(item_id)
+        known = bank in w_shapes
         _stamp(item_id, "course_writing", w["id"], _at(w.get("graded_at")),
-               round(int(w["clean"]) / int(w["total"]) * 100, 1)
-               if w.get("total") else None)
+               course_hand_in_score(
+                   has_mcq=(not known) or bool(w_shapes[bank][0]),
+                   clean=w.get("clean"), total=w.get("total")))
 
     # ── Bằng chứng 2: các phiên trắc nghiệm đã chốt ─────────────────────────
     rest = [i for i in pending if i not in wrote]
@@ -1444,6 +1471,48 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
     if hurt:
         raise ReconcileIncomplete("; ".join(hurt))
     return fixed
+
+
+def course_hand_in_score(*, has_mcq: bool, clean, total) -> float | None:
+    """Điểm ghi sổ khi chốt/đồng bộ một mục bài-theo-buổi TỪ BÀI TỰ LUẬN.
+
+    `None` = ĐỪNG chạm cột điểm.
+
+    ── Cảnh hỏng đã xảy ra trên prod ───────────────────────────────────────
+    Cột `score` có BỐN người ghi mang HAI nghĩa, và người ghi sau thắng:
+
+      · `course_verdict` ghi `score = pct` (tỉ lệ đúng trắc nghiệm), và
+        `passed_at` được xét trên CHÍNH con số ấy — nhưng nó không ghi
+        `submitted_at`
+      · `submit_course_writing`, `reconcile_course_items`, `assignment_tally`,
+        `regrade_failed_course_writing` ghi độ sạch bài viết
+
+    `mark_item_submitted` luỹ đẳng theo `submitted_at`, KHÔNG theo `score`, nên
+    lượt sau xoá sạch kết quả của lượt trước. Đo trên prod 07/08: 11/11 mục đã
+    nộp mang dấu `course_writing`, 0 mang dấu trắc nghiệm; 6/11 dòng TỰ MÂU
+    THUẪN (đã đạt mà điểm dưới ngưỡng). Em Dương Dương hiện "10% · đã đạt"
+    (thật 95%), em Hà Linh hiện "0%" (thật 65%).
+
+    ── Luật khoá vào HÌNH DẠNG BỘ ĐỀ, không vào trạng thái dòng ────────────
+    Bộ đề có trắc nghiệm ⇒ điểm của mục LÀ kết quả trắc nghiệm, và chỉ
+    `course_verdict` được ghi nó. Bộ đề chỉ-có-viết ⇒ độ sạch bài viết đúng là
+    kết quả duy nhất.
+
+    Hỏi "dòng này đã có mastery chưa" thì đúng về nghĩa nhưng dựng một cuộc
+    ĐUA: lượt nộp tự luận đọc dòng TRƯỚC khi gọi model chấm, rồi ghi SAU — và
+    một lượt xét kết quả chạy xen vào giữa (hai tab) sẽ bị ghi đè y như cũ. Hình
+    dạng bộ đề là nội dung tĩnh, đọc lúc nào cũng thế, nên không có cửa sổ nào
+    để lọt (codex cục bộ 07/08).
+
+    Nhận `has_mcq` chứ không nhận `bank_id`: nơi gọi nào cũng đã có sẵn hình
+    dạng bộ đề (hoặc đọc theo lô), và một hàm thuần thì thử được mọi nhánh mà
+    không cần dựng cơ sở dữ liệu.
+    """
+    if has_mcq:
+        return None
+    if not total:
+        return None
+    return round(int(clean or 0) / int(total) * 100, 1)
 
 
 def _reconcile_chunk(item_ids: list[str], bank_of, stamp, db=None) -> None:
@@ -1780,10 +1849,20 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
 
     saved = (res.data or [{}])[0]
 
-    # CHỐT SỔ BÀI GIAO. Với bank có cả trắc nghiệm thì `end_session` đã đóng dấu
-    # từ chặng đầu và lệnh này luỹ đẳng nên không đổi gì. Với bank CHỈ có tự
-    # luận thì đây là đường DUY NHẤT — thiếu nó, bài đã nộp vẫn nằm ở "Cần nộp"
-    # rồi thành "Quá hạn", và bảng của giáo viên không thấy gì (codex #935).
+    # CHỐT SỔ BÀI GIAO — và đây là đường DUY NHẤT cho MỌI bộ đề có phần viết,
+    # không chỉ cho bộ đề chỉ-có-viết.
+    #
+    # Chú thích cũ ở đây ghi rằng với bank có cả trắc nghiệm thì `end_session`
+    # "đã đóng dấu từ chặng đầu và lệnh này luỹ đẳng nên không đổi gì". SAI, và
+    # nó sai đúng ở loại bộ đề nó đang nói tới: `_course_work_is_done` có
+    # `if writing: return False`, nên `end_session` KHÔNG BAO GIỜ đóng dấu khi
+    # bộ đề còn phần viết. Lệnh dưới đây là lượt ghi THẬT, không phải lượt
+    # luỹ đẳng — và vì nó ghi cả `score`, nó từng xoá sạch kết quả trắc nghiệm
+    # của cả lớp (11/11 mục trên prod). Chính chú thích sai này là thứ khiến
+    # không ai đi kiểm.
+    #
+    # Thiếu lệnh này thì bài đã nộp vẫn nằm ở "Cần nộp" rồi thành "Quá hạn", và
+    # bảng của giáo viên không thấy gì (codex #935).
     #
     # Best-effort: hỏng ở đây KHÔNG được làm đổ lượt nộp — bài đã chấm và đã ghi
     # rồi, còn sổ thì vá lại được bằng lượt đối chiếu.
@@ -1792,8 +1871,13 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
             mark_item_submitted(
                 supabase_admin, item_id=item["id"],
                 artifact_kind="course_writing", artifact_id=saved.get("id"),
-                score=(round(row["clean"] / row["total"] * 100, 1)
-                       if row["total"] else None),
+                # MỘT luật cho cả ba đường chốt sổ. Đây là đường chạy THẬT trên
+                # sản phẩm; hai đường kia là vá sổ. Tự tính ở đây nghĩa là độ
+                # sạch bài viết đè lên kết quả trắc nghiệm mà `passed_at` được
+                # xét trên — và nó đã đè, 11/11 mục trên prod.
+                score=course_hand_in_score(
+                    has_mcq=bool(_course_bank_shape(bank_id)[0]),
+                    clean=row["clean"], total=row["total"]),
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] chốt sổ tự luận hỏng item=%s: %s",

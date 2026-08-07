@@ -31,7 +31,11 @@ from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
-from services.quiz_service import reconcile_course_items
+from services.quiz_service import (
+    _course_bank_shape,
+    course_hand_in_score,
+    reconcile_course_items,
+)
 from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
@@ -1130,6 +1134,16 @@ async def assignment_tally(
     writing_total, writing_ok = _course_writing_count(assignment.get("content_id"))
     if not writing_ok:
         stale = True
+    # Có câu TRẮC NGHIỆM không — quyết định điểm của mục là kết quả trắc nghiệm
+    # hay độ sạch bài viết (`course_hand_in_score`). Đọc một lần cho cả bảng.
+    mcq_total = 0
+    if assignment.get("skill") == "course":
+        try:
+            mcq_total = len(_course_bank_shape(assignment.get("content_id"))[0])
+        except Exception as exc:  # noqa: BLE001
+            stale = True
+            logger.warning("[class] đọc hình dạng bộ đề hỏng asg=%s: %s",
+                           assignment_id, exc)
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1162,8 +1176,14 @@ async def assignment_tally(
             # giờ" sẽ ghi một bài nộp đúng hạn thành nộp TRỄ. Cùng lý do
             # `_record_class_hand_in` so với giờ phiên hoàn thành.
             when = _at(w.get("graded_at")) or datetime.now(timezone.utc)
-            pct = (round((w.get("clean") or 0) / w["total"] * 100, 1)
-                   if w.get("total") else None)
+            # MỘT luật cho cả hai đường chốt sổ. Đường kia là
+            # `reconcile_course_items`; hai chỗ tự tính độ sạch bài viết thành
+            # điểm của mục là hai chỗ để trôi khỏi nhau — và cái trôi ở đây xoá
+            # mất kết quả trắc nghiệm mà không kêu.
+            # `writing_total > 0` + `mcq_total > 0` là hình dạng bộ đề, đọc một
+            # lần cho cả bảng ở trên.
+            pct = course_hand_in_score(has_mcq=mcq_total > 0,
+                                       clean=w.get("clean"), total=w.get("total"))
             try:
                 # `artifact_id` trỏ vào BẢN NỘP, không phải vào chính dòng mục —
                 # nó là thứ nói cho mọi mặt đọc biết phải mở cái gì.
