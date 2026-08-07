@@ -268,11 +268,36 @@ async def test_submitting_writing_stamps_the_assignment_ledger():
     def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
         seen.update(item_id=item_id, kind=artifact_kind, score=score)
         return True
-    with patch.object(qs, "mark_item_submitted", fake_mark):
+    # Khai HÌNH DẠNG BỘ ĐỀ tường minh, đúng tiền đề của chính chốt này ("bank
+    # CHỈ có tự luận"). Bộ giả ở tệp này không phục vụ `quiz_questions`, nên
+    # `bank_has_mcq` sẽ trả True theo chiều an toàn và chốt đỏ vì một lý do
+    # không liên quan tới thứ nó kiểm.
+    with patch.object(qs, "mark_item_submitted", fake_mark), \
+         patch.object(qs, "bank_has_mcq", lambda _b: False):
         await _submit({"E1": "a", "E2": "b"})
     assert seen["item_id"] == "it1"
     assert seen["kind"] == "course_writing", "mượn 'quiz_session' là trỏ vào bảng không có dòng ấy"
     assert seen["score"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_a_MIXED_bank_is_stamped_WITHOUT_touching_the_quiz_score():
+    """Bộ đề có trắc nghiệm ⇒ vẫn chốt sổ, nhưng KHÔNG ghi điểm.
+
+    Điểm của mục là kết quả trắc nghiệm mà `course_verdict` đã ghi và `passed_at`
+    được xét trên. Đây là đường chạy THẬT trên sản phẩm, và nó đã xoá điểm của
+    11/11 mục trên prod.
+    """
+    seen = {}
+    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
+        seen.update(item_id=item_id, kind=artifact_kind, score=score)
+        return True
+    with patch.object(qs, "mark_item_submitted", fake_mark), \
+         patch.object(qs, "bank_has_mcq", lambda _b: True):
+        await _submit({"E1": "a", "E2": "b"})
+    assert seen["item_id"] == "it1", "vẫn phải chốt sổ"
+    assert seen["kind"] == "course_writing"
+    assert seen["score"] is None, "đã ghi đè lên kết quả trắc nghiệm"
 
 
 @pytest.mark.asyncio

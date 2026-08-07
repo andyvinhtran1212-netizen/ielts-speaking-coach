@@ -739,3 +739,64 @@ def test_an_unreadable_bank_shape_withholds_the_score_but_still_closes_the_item(
     assert db.marked, "bài viết đã chấm phải vào sổ dù bảng bộ đề đang hỏng"
     assert db.marked[0]["artifact_kind"] == "course_writing"
     assert "score" not in db.marked[0], "đã ĐOÁN điểm khi không đọc được bộ đề"
+
+
+# ── Đọc hình dạng bộ đề HỎNG: `_course_bank_shape` KHÔNG ném ────────────────
+
+def test_bank_has_mcq_says_YES_when_it_cannot_tell():
+    """`_course_bank_shape` trả `(set(), 0, False)` khi đọc hỏng, KHÔNG ném.
+
+    Nên `bool(shape[0])` đọc một lượt đọc hỏng thành "bộ đề chỉ có tự luận" — và
+    ghi độ sạch bài viết đè lên kết quả trắc nghiệm, đúng cái hỏng cả bản vá này
+    sinh ra để chặn (codex #994, P1). Ba nơi gọi từng tự bóc `[0]` và cả ba cùng
+    sai một kiểu.
+    """
+    with patch.object(qs, "_course_bank_shape", lambda _b: (set(), 0, False)):
+        assert qs.bank_has_mcq("bank-1") is True, "đọc hỏng mà đoán là không có mcq"
+    with patch.object(qs, "_course_bank_shape", lambda _b: (set(), 3, True)):
+        assert qs.bank_has_mcq("bank-1") is False, "bộ đề chỉ-có-viết bị chặn oan"
+    with patch.object(qs, "_course_bank_shape", lambda _b: ({"q1"}, 3, True)):
+        assert qs.bank_has_mcq("bank-1") is True
+
+
+def test_no_caller_unpacks_the_shape_tuple_by_index():
+    """Chốt ĐIỂM DANH cho đúng lỗi vừa mắc: `[0]` bỏ mất cờ đọc-được, và cả ba
+    nơi gọi cùng bỏ một kiểu. Chiều an toàn phải nằm ở MỘT chỗ."""
+    import ast, inspect, re
+    import routers.admin_class_assignments as adm
+
+    def _code_only(mod):
+        """Bỏ CHÚ THÍCH và DOCSTRING trước khi quét.
+
+        Docstring của `bank_has_mcq` nhắc đúng mẫu đang cấm để giải thích vì sao
+        cấm — nên nó tự làm chốt ĐỎ oan. Cùng họ với bẫy đã gặp ba lần trong
+        ngày: chốt soi chữ mà không tách mã khỏi lời kể thì nó nói về lời kể.
+        """
+        src = inspect.getsource(mod)
+        tree = ast.parse(src)
+        drop = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef, ast.Module)):
+                d = ast.get_docstring(node, clean=False)
+                if d:
+                    drop.add(d)
+        lines = [l for l in src.splitlines() if not l.lstrip().startswith("#")]
+        out = "\n".join(lines)
+        for d in drop:
+            out = out.replace(d, "")
+        return out
+
+    for name, src in (("quiz_service", _code_only(qs)),
+                      ("admin_class_assignments", _code_only(adm))):
+        bad = re.findall(r"_course_bank_shape\([^)]*\)\[\d\]", src)
+        assert not bad, f"{name}: bóc tuple theo chỉ số, mất cờ đọc-được: {bad}"
+
+
+def test_all_three_direct_callers_go_through_the_safe_helper():
+    import inspect
+    import routers.admin_class_assignments as adm
+    for what, fn in (("submit_course_writing", qs.submit_course_writing),
+                     ("regrade_failed_course_writing", qs.regrade_failed_course_writing),
+                     ("assignment_tally", adm.assignment_tally)):
+        assert "bank_has_mcq(" in inspect.getsource(fn), f"{what} không dùng hàm an toàn"

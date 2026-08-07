@@ -714,7 +714,7 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
             # điểm-danh hụt nó vì nó chia cho `len(graded)` chứ không cho
             # `total`).
             pct = course_hand_in_score(
-                has_mcq=bool(_course_bank_shape(r.get("bank_id"))[0]),
+                has_mcq=bank_has_mcq(r.get("bank_id")),
                 clean=clean, total=len(graded))
             if item_id and pct is not None:
                 try:
@@ -1473,6 +1473,24 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
     return fixed
 
 
+def bank_has_mcq(bank_id: str | None) -> bool:
+    """Bộ đề này có câu trắc nghiệm không — và KHÔNG CHẮC thì trả True.
+
+    `_course_bank_shape` KHÔNG ném khi đọc hỏng: nó trả `(set(), 0, False)`.
+    Nên `bool(_course_bank_shape(x)[0])` đọc một lượt đọc hỏng thành "bộ đề
+    chỉ có tự luận" — và ghi độ sạch bài viết đè lên kết quả trắc nghiệm, đúng
+    cái hỏng cả bản vá này sinh ra để chặn, chỉ khác là nó chỉ nổ khi
+    `quiz_questions` đang chập chờn (codex #994, P1).
+
+    Ba nơi gọi từng tự bóc `[0]` và cả ba cùng sai một kiểu. Gói lại một hàm để
+    chiều an toàn nằm ở MỘT chỗ: không đọc được ⇒ coi như CÓ trắc nghiệm ⇒ không
+    chạm cột điểm. Không ghi chỉ để trống một con số `course_verdict` sẽ điền;
+    ghi nhầm thì xoá mất bằng chứng.
+    """
+    mcq, _writing, ok = _course_bank_shape(bank_id)
+    return (not ok) or bool(mcq)
+
+
 def course_hand_in_score(*, has_mcq: bool, clean, total) -> float | None:
     """Điểm ghi sổ khi chốt/đồng bộ một mục bài-theo-buổi TỪ BÀI TỰ LUẬN.
 
@@ -1876,7 +1894,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
                 # sạch bài viết đè lên kết quả trắc nghiệm mà `passed_at` được
                 # xét trên — và nó đã đè, 11/11 mục trên prod.
                 score=course_hand_in_score(
-                    has_mcq=bool(_course_bank_shape(bank_id)[0]),
+                    has_mcq=bank_has_mcq(bank_id),
                     clean=row["clean"], total=row["total"]),
             )
         except Exception as exc:  # noqa: BLE001

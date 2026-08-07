@@ -32,7 +32,7 @@ from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
 from services.quiz_service import (
-    _course_bank_shape,
+    bank_has_mcq,
     course_hand_in_score,
     reconcile_course_items,
 )
@@ -1136,14 +1136,11 @@ async def assignment_tally(
         stale = True
     # Có câu TRẮC NGHIỆM không — quyết định điểm của mục là kết quả trắc nghiệm
     # hay độ sạch bài viết (`course_hand_in_score`). Đọc một lần cho cả bảng.
-    mcq_total = 0
+    # `bank_has_mcq` tự lo chiều an toàn khi đọc hỏng — `_course_bank_shape`
+    # KHÔNG ném, nên một `try/except` ở đây không bắt được gì (codex #994).
+    has_mcq = False
     if assignment.get("skill") == "course":
-        try:
-            mcq_total = len(_course_bank_shape(assignment.get("content_id"))[0])
-        except Exception as exc:  # noqa: BLE001
-            stale = True
-            logger.warning("[class] đọc hình dạng bộ đề hỏng asg=%s: %s",
-                           assignment_id, exc)
+        has_mcq = bank_has_mcq(assignment.get("content_id"))
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1182,7 +1179,7 @@ async def assignment_tally(
             # mất kết quả trắc nghiệm mà không kêu.
             # `writing_total > 0` + `mcq_total > 0` là hình dạng bộ đề, đọc một
             # lần cho cả bảng ở trên.
-            pct = course_hand_in_score(has_mcq=mcq_total > 0,
+            pct = course_hand_in_score(has_mcq=has_mcq,
                                        clean=w.get("clean"), total=w.get("total"))
             try:
                 # `artifact_id` trỏ vào BẢN NỘP, không phải vào chính dòng mục —

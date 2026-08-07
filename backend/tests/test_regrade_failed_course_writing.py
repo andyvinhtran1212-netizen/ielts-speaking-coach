@@ -105,6 +105,17 @@ def test_an_empty_items_list_is_skipped():
     assert plan == []
 
 
+def _writing_only(fn):
+    """Khai HÌNH DẠNG BỘ ĐỀ tường minh cho các chốt về đồng bộ điểm.
+
+    Bộ giả ở tệp này trả cùng một bảng cho mọi tên, nên `_course_bank_shape`
+    không đọc được gì thật — và `bank_has_mcq` khi ấy trả True (chiều an toàn),
+    làm những chốt này đỏ vì một lý do KHÔNG liên quan tới thứ chúng kiểm.
+    Chúng nói về việc ĐỒNG BỘ điểm, không về việc dò hình dạng bộ đề.
+    """
+    return patch.object(qs, "bank_has_mcq", lambda _b: False)
+
+
 def test_the_class_ledger_score_is_synced_too():
     """Lượt nộp hỏng đã ghi 0 vào `class_assignment_items.score`, và cả trang
     học viên lẫn bảng giáo viên đọc CỘT ẤY. Sửa mỗi bản chấm thì chi tiết nói
@@ -112,9 +123,23 @@ def test_the_class_ledger_score_is_synced_too():
     """
     row = _sub("s1", [None] * 10)
     row["class_assignment_item_id"] = "it-1"
-    _, db = _run([row], grade_result=True, commit=True)
+    with _writing_only(None):
+        _, db = _run([row], grade_result=True, commit=True)
     scores = [w for w in db.writes if "score" in w]
     assert scores and scores[0] == {"id": "it-1", "score": 100.0}, db.writes
+
+
+def test_a_MIXED_bank_keeps_the_quiz_score_when_the_essay_is_regraded():
+    """Bộ đề có trắc nghiệm ⇒ điểm của mục là kết quả trắc nghiệm
+    (`course_verdict` ghi, `passed_at` xét trên số ấy). Chấm lại bài viết không
+    được động vào nó — đây là người ghi THỨ TƯ trong cùng một họ lỗi, và chốt
+    điểm-danh cũ hụt nó vì nó chia cho `len(graded)` chứ không cho `total`."""
+    row = _sub("s1", [None] * 10)
+    row["class_assignment_item_id"] = "it-1"
+    with patch.object(qs, "bank_has_mcq", lambda _b: True):
+        _, db = _run([row], grade_result=True, commit=True)
+    assert [w for w in db.writes if "score" in w] == [], \
+        "chấm lại bài viết đã ghi đè kết quả trắc nghiệm"
 
 
 def test_a_submission_with_no_class_item_skips_the_ledger_write():
