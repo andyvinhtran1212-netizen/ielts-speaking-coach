@@ -206,7 +206,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/grammar/exercises` | — | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
+| `/grammar/exercises` | `app/(public-content)/grammar/exercises/page.tsx` — CUTOVER 2026-08-07 | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
 | `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
 | `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
 | `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
