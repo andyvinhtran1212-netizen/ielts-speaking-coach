@@ -128,5 +128,12 @@
     "allow": [],
     "minBaselineLines": 1,
     "note": "Không có `?sitting=` thì trang dừng ở trạng thái lỗi/chờ — rất ít dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này chỉ chứng minh hai vế khớp ở nhánh THIẾU THAM SỐ; muốn phủ phiếu điểm thật thì cần một lượt thi đã công bố cho tài khoản probe."
+  },
+  {
+    "name": "vocabulary-hub",
+    "legacy": "/pages/vocabulary.html",
+    "next": "/vocabulary/hub",
+    "allow": [],
+    "note": "Route Next CỐ Ý không lấy tên `/vocabulary`: hôm nay tên đó đang được `/vocabulary.html` (Wiki công khai) dùng, và sổ route ghi bản gốc 'cần rà soát'. Khi chủ dự án chốt trang nào sở hữu `/vocabulary` thì đổi `next` ở đây."
   }
 ]
