@@ -58,10 +58,24 @@ describe('lược đồ bản khai', () => {
     assert.deepEqual(bad, []);
   });
 
+  test('bộ kiểm KHÔNG BAO GIỜ ném — vật vào gì cũng trả về mảng lỗi', () => {
+    // Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại không ai thấy, và người
+    // đọc nhận một stack trace thay vì danh sách việc (codex cục bộ #973 vòng 3).
+    const junk = [null, undefined, 0, '', 'x', [], new Map(), new Date(),
+      { name: 'x', steps: {} }, { name: 'x', writes: {} },
+      { name: 'x', steps: [{ expectStorage: {} }] },
+      { name: 'x', steps: [{ fill: 'khong-phai-mang' }] }];
+    for (const j of junk) {
+      const errs = validateFlow(j);
+      assert.ok(Array.isArray(errs) && errs.length, `phải trả lỗi cho ${JSON.stringify(j)}`);
+    }
+  });
+
   test('bộ kiểm bắt được các cách khai hỏng', () => {
     // Bốn ca này là bốn vòng review liên tiếp cùng một loại lỗi: khai sai kiểu
     // thì `Object.entries` trả rỗng và bản khai qua âm thầm.
-    const base = { name: 'x', writes: [{ method: 'POST', path: '/a' }] };
+    const base = { name: 'x', route: '/r', steps: [{ click: '#a' }],
+      writes: [{ method: 'POST', path: '/a' }] };
     const cases = [
       [{ ...base, expectFinalUrl: '' }, /expectFinalUrl/],
       [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: true }] }, /bodyAll/],
@@ -70,6 +84,20 @@ describe('lược đồ bản khai', () => {
       [{ ...base, steps: [{ expectStorage: ['k', null] }] }, /expectStorage/],
       [{ ...base, ignoreWrite: [] }, /khoá lạ/],
       [{ ...base, steps: [{ clickk: '#a' }] }, /ĐÚNG MỘT hành động/],
+      // Vòng 3 codex: hình dạng BÊN TRONG mỗi hành động.
+      [{ ...base, steps: [{ fill: ['#a'] }] }, /fill/],
+      [{ ...base, steps: [{ dispatch: ['#a'] }] }, /dispatch/],
+      [{ ...base, steps: [{ expectStorage: 'kv' }] }, /expectStorage/],
+      [{ ...base, steps: [{ wait: -1 }] }, /wait/],
+      [{ ...base, steps: [{ advance: 100 }] }, /fakeClock/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', unordered: 'false' }] }, /unordered/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: {} }] }, /body/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: Symbol('go-nham') }] }, /body/],
+      [{ ...base, steps: [{ click: '#a' }], writes: [] }, /writes/],
+      [{ name: 'x', route: '/r', writes: [{ method: 'POST', path: '/a' }] }, /steps/],
+      [{ ...base, canned: '' }, /canned/],
+      [{ ...base, ignoreWrites: '' }, /ignoreWrites/],
+      [{ ...base, settleMs: -5 }, /settleMs/],
     ];
     for (const [flow, re] of cases) {
       const errs = validateFlow(flow);

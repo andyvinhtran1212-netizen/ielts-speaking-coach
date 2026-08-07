@@ -310,83 +310,155 @@ export function formatFindings(findings) {
  * tiếp bắt CÙNG MỘT LOẠI lỗi — một khoá khai sai kiểu bị bỏ qua âm thầm, nên bản
  * khai đọc như đang ghim rất chặt trong khi nó không ghim gì. Lần lượt là
  * `bodyAll`, `expectFinalUrl`, `headers`, rồi `expectStorage` và các object
- * KHÔNG THUẦN (`new Map()`, `new Headers()` — `Object.entries` trả rỗng).
+ * KHÔNG THUẦN (`new Map()` — `Object.entries` trả rỗng).
  *
- * Vá từng chỗ thì lần sau thêm khoá mới lại sinh ra lỗ mới. Một bộ kiểm tập
- * trung thì khoá mới BUỘC phải khai ở đây mới dùng được, và gõ nhầm tên khoá —
- * loại lỗi không chốt nào ở trên bắt được — cũng đỏ ngay.
+ * Vá từng chỗ thì lần sau thêm khoá mới lại sinh ra lỗ mới. Bộ kiểm tập trung
+ * thì khoá mới BUỘC phải khai ở đây mới dùng được, và GÕ NHẦM TÊN KHOÁ — loại
+ * lỗi không chốt lẻ nào bắt được — cũng đỏ ngay.
+ *
+ * HAI NGUYÊN TẮC của chính hàm này:
+ *   · KHÔNG BAO GIỜ NÉM. Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại
+ *     không ai thấy, và người đọc nhận một stack trace thay vì danh sách việc.
+ *   · KIỂM ĐỦ HÌNH DẠNG, không chỉ kiểu ngoài cùng. `fill: ['a']` hay
+ *     `dispatch` một phần tử đều chạy được mà không kiểm gì.
  *
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
   'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous']);
-const STEP_KEYS = new Set(['click', 'fill', 'wait', 'advance', 'paste', 'dispatch',
-  'expectVisible', 'expectText', 'expectStorage']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
+
+// Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
+const STEP_SHAPES = {
+  click: 'str', expectVisible: 'str',
+  fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
+  dispatch: 'dispatch',
+  wait: 'ms', advance: 'ms',
+};
 
 function isPlainObject(v) {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
   const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
+  // `Object.create(null)` là object thuần; các lớp dựng sẵn (`Map`, `Headers`,
+  // `Date`) thì không — và chúng mới là thứ làm `Object.entries` trả rỗng.
+  return proto === null || Object.getPrototypeOf(proto) === null;
 }
+const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isPair = (v) => Array.isArray(v) && v.length === 2 && v.every(isStr);
 
 export function validateFlow(flow) {
   const errs = [];
   const bad = (m) => errs.push(m);
-
   if (!isPlainObject(flow)) return ['bản khai phải là object thường'];
+
   for (const k of Object.keys(flow)) {
     if (!FLOW_KEYS.has(k)) bad(`khoá lạ ở mức bản khai: «${k}» (gõ nhầm?)`);
   }
-  if (!flow.name) bad('thiếu `name`');
-  if ('expectFinalUrl' in flow) {
-    const v = flow.expectFinalUrl;
-    if (!(v instanceof RegExp) && !(typeof v === 'string' && v)) {
-      bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
-    }
+  if (!isStr(flow.name)) bad('`name` phải là chuỗi khác rỗng');
+  if (!isStr(flow.route)) bad('`route` phải là chuỗi khác rỗng');
+  for (const k of ['legacyRoute', 'nextPending']) {
+    if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
   }
   for (const k of ['fakeClock', 'anonymous']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
   }
-
-  for (const [i, st] of (flow.steps || []).entries()) {
-    if (!isPlainObject(st)) { bad(`bước ${i}: phải là object thường`); continue; }
-    const keys = Object.keys(st);
-    const known = keys.filter((k) => STEP_KEYS.has(k));
-    if (known.length !== 1 || keys.length !== 1) {
-      bad(`bước ${i}: phải có ĐÚNG MỘT hành động đã biết, thấy [${keys.join(', ')}]`);
-      continue;
+  for (const k of ['settleMs', 'drainMs']) {
+    if (k in flow && !(Number.isFinite(flow[k]) && flow[k] >= 0)) {
+      bad(`\`${k}\` phải là số không âm`);
     }
-    if (st.expectStorage) {
-      const [key, want] = st.expectStorage;
-      // `null` bị từ chối có chủ ý: `getItem` trả `null` cả khi khoá VẮNG lẫn
-      // khi localStorage không dùng được, nên `expectStorage: [k, null]` là một
-      // phép so luôn đúng — đúng nghĩa xanh-rỗng.
-      if (typeof key !== 'string' || !key || typeof want !== 'string' || !want) {
-        bad(`bước ${i}: \`expectStorage\` cần [khoá, giá trị] đều là chuỗi khác rỗng`);
-      }
-    }
-    if (st.expectText && (!Array.isArray(st.expectText) || st.expectText.length !== 2
-        || st.expectText.some((x) => typeof x !== 'string' || !x))) {
-      bad(`bước ${i}: \`expectText\` cần [chọn tử, chữ] đều là chuỗi khác rỗng`);
+  }
+  if ('expectFinalUrl' in flow) {
+    const v = flow.expectFinalUrl;
+    const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
+    if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
+  }
+  if ('ignoreWrites' in flow
+      && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {
+    bad('`ignoreWrites` phải là mảng chuỗi khác rỗng');
+  }
+  if ('canned' in flow) {
+    if (!Array.isArray(flow.canned)) bad('`canned` phải là mảng');
+    else {
+      flow.canned.forEach((c, i) => {
+        const okRe = Array.isArray(c) && c.length === 2
+          && Object.prototype.toString.call(c[0]) === '[object RegExp]';
+        if (!okRe) bad(`canned[${i}]: phải là [RegExp, dữ liệu]`);
+      });
     }
   }
 
-  for (const [i, w] of (flow.writes || []).entries()) {
-    if (!isPlainObject(w)) { bad(`đường ghi ${i}: phải là object thường`); continue; }
+  // ── steps ────────────────────────────────────────────────────────────────
+  if (!Array.isArray(flow.steps) || !flow.steps.length) {
+    bad('`steps` phải là mảng khác rỗng');
+  } else {
+    flow.steps.forEach((st, i) => {
+      if (!isPlainObject(st)) { bad(`bước ${i}: phải là object thường`); return; }
+      const keys = Object.keys(st);
+      if (keys.length !== 1 || !(keys[0] in STEP_SHAPES)) {
+        bad(`bước ${i}: phải có ĐÚNG MỘT hành động đã biết, thấy [${keys.join(', ')}]`);
+        return;
+      }
+      const [k] = keys;
+      const v = st[k];
+      const shape = STEP_SHAPES[k];
+      if (shape === 'str' && !isStr(v)) bad(`bước ${i}: \`${k}\` phải là chuỗi khác rỗng`);
+      if (shape === 'pair' && !isPair(v)) {
+        bad(`bước ${i}: \`${k}\` phải là [chuỗi, chuỗi] — cả hai khác rỗng`);
+      }
+      if (shape === 'ms' && !(Number.isFinite(v) && v > 0)) {
+        bad(`bước ${i}: \`${k}\` phải là số dương`);
+      }
+      if (shape === 'dispatch') {
+        const ok = Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(isStr);
+        if (!ok) bad(`bước ${i}: \`dispatch\` phải là [chọn tử, sự kiện] hoặc [chọn tử, sự kiện, thuộc tính]`);
+      }
+      // Tua đồng hồ mà không bật đồng hồ giả thì `page.clock` chưa cài — bước đó
+      // sẽ ném lỗi giữa luồng, hoặc tệ hơn là không làm gì.
+      if (k === 'advance' && !flow.fakeClock) {
+        bad(`bước ${i}: \`advance\` cần \`fakeClock: true\``);
+      }
+    });
+  }
+
+  // ── writes ───────────────────────────────────────────────────────────────
+  if (!Array.isArray(flow.writes) || !flow.writes.length) {
+    bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
+      + 'nó chỉ đang chứng minh trang không sập');
+    return errs;
+  }
+  flow.writes.forEach((w, i) => {
+    if (!isPlainObject(w)) { bad(`đường ghi ${i}: phải là object thường`); return; }
     for (const k of Object.keys(w)) {
       if (!WRITE_KEYS.has(k)) bad(`đường ghi ${i}: khoá lạ «${k}» (gõ nhầm?)`);
     }
-    if (!w.method || !w.path) bad(`đường ghi ${i}: thiếu \`method\` hoặc \`path\``);
+    if (!isStr(w.method)) bad(`đường ghi ${i}: \`method\` phải là chuỗi khác rỗng`);
+    if (!isStr(w.path)) bad(`đường ghi ${i}: \`path\` phải là chuỗi khác rỗng`);
     if ('times' in w && !(Number.isInteger(w.times) && w.times > 0)) {
       bad(`đường ghi ${i}: \`times\` phải là số nguyên dương`);
+    }
+    // `unordered: 'false'` là chuỗi TRUTHY — nó tắt hẳn việc ép thứ tự trong khi
+    // đọc như đang bật. Chuỗi rỗng thì ngược lại. Buộc phải là boolean.
+    if ('unordered' in w && typeof w.unordered !== 'boolean') {
+      bad(`đường ghi ${i}: \`unordered\` phải là boolean`);
     }
     if ('bodyAll' in w && typeof w.bodyAll !== 'function') {
       bad(`đường ghi ${i}: \`bodyAll\` phải là HÀM`);
     }
-    if ('body' in w && !(w.body === undefined || typeof w.body === 'function'
-        || typeof w.body === 'symbol' || isPlainObject(w.body))) {
-      bad(`đường ghi ${i}: \`body\` phải là object thường, hàm, hoặc ký hiệu`);
+    if ('body' in w) {
+      const b = w.body;
+      const okSymbol = b === NO_BODY;
+      const okObj = isPlainObject(b) && Object.keys(b).length > 0;
+      if (!(okSymbol || typeof b === 'function' || okObj)) {
+        bad(`đường ghi ${i}: \`body\` phải là NO_BODY, một HÀM, hoặc object thường KHÁC RỖNG`
+          + ' (object rỗng và ký hiệu lạ đều không so gì cả)');
+      }
+      if (okObj) {
+        for (const [k, v] of Object.entries(b)) {
+          const okVal = typeof v === 'function' || v === NON_EMPTY || v === NO_LIST
+            || v === NO_TEXT || typeof v !== 'symbol';
+          if (!okVal) bad(`đường ghi ${i}: trường «${k}» dùng ký hiệu lạ`);
+        }
+      }
     }
     if ('headers' in w) {
       if (!isPlainObject(w.headers) || !Object.keys(w.headers).length) {
@@ -399,6 +471,6 @@ export function validateFlow(flow) {
         }
       }
     }
-  }
+  });
   return errs;
 }
