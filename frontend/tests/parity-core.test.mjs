@@ -554,6 +554,16 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
   const paired = new Set(pairs.map((p) => p.next));
 
+  // CẶP CÔNG KHAI khai ở chỗ KHÁC: `DEFAULT_PAIRS` trong `parity-diff.mjs`.
+  // Chốt này ban đầu chỉ đọc tệp authed, nên một trang công khai vừa port sẽ bị
+  // báo "cutover mà không có cặp" DÙ nó có cặp — và thông báo lỗi lại đẩy người
+  // đọc đi thêm một tên vào `KNOWN_NO_PAIR`, tức tự tay tạo ra đúng lỗ mà chốt
+  // sinh ra để chặn. Mô hình của chốt phải phủ CẢ HAI nơi khai cặp.
+  const diffSrc = readFileSync(path.join(ROOT, 'frontend/tooling/parity-diff.mjs'), 'utf8');
+  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(publicPairs.length >= 1, 'không đọc được cặp công khai nào — bộ dò hỏng?');
+  for (const r of publicPairs) paired.add(r);
+
   // Route Next "đã cutover" = có hàng CUTOVER trong sổ route.
   const ledger = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
   const cutover = [...ledger.matchAll(/^\| `(\/[^`]*)` \|.*CUTOVER/gm)]
