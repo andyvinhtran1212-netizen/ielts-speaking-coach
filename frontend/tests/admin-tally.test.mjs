@@ -353,9 +353,16 @@ describe('bảng nhận bài không tràn viền', () => {
       'hai quy tắc cùng tên là hai chỗ tranh nhau');
   });
 
-  test('hẹp thì XUỐNG DÒNG, không cuộn ngang', () => {
-    // Cuộn ngang từng hàng là bắt tìm lại cái tên sau mỗi lần cuộn.
-    assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.av-tally__row/);
+  test('MỘT khối cho màn hẹp, và nó cũng dùng minmax(0, …)', () => {
+    // Thêm một `@media` thứ hai thì khối đứng SAU ghi đè khối trước, và bản vá
+    // chỉ sống trong dải giữa hai điểm ngắt — điện thoại thật vẫn nhận `1fr`
+    // trần (codex #979).
+    const blocks = [...css.matchAll(/@media \(max-width:[^)]*\)\s*\{[\s\S]*?\n\}/g)]
+      .map((m) => m[0]).filter((b) => b.includes('.av-tally__row'));
+    assert.equal(blocks.length, 1, 'hai khối là hai chỗ triệt tiêu nhau');
+    assert.match(blocks[0], /minmax\(0,\s*1fr\)/);
+    assert.doesNotMatch(blocks[0], /grid-template-columns:[^;]*\s1fr\s/);
+    // Không cuộn ngang: cuộn ngang từng hàng là bắt tìm lại cái tên mỗi lần.
     assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /overflow-x/);
   });
 
@@ -370,11 +377,18 @@ describe('lỗi đọc bảng tổng kết là LỜI MỜI, không phải ngõ c
   const SRC2 = readFileSync(
     new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
 
-  test('có nút Thử lại', () => {
+  test('có nút Thử lại — nhưng CHỈ với lỗi thoáng qua', () => {
+    // Mời bấm lại một 404/500 là mời phí thời gian, và làm chính lời phân loại
+    // thành vô nghĩa (codex #979).
     const fn = SRC2.slice(SRC2.indexOf('async function openTally'),
-                          SRC2.indexOf('async function openTally') + 1800);
+                          SRC2.indexOf('async function openTally') + 2000);
     assert.match(fn, /data-action="retry-tally"/);
-    assert.match(fn, /Thử lại/);
+    // Soi ĐÚNG đoạn giữa lời nhắn và cái nút. Bản trước dò `transient ?` trong
+    // 200 ký tự trước nút, và nó bắt trúng nhánh của CÂU CHỮ nằm ngay trên —
+    // nên bỏ hẳn cổng của nút vẫn xanh.
+    const gate = fn.slice(fn.indexOf("'</p>'"), fn.indexOf('retry-tally'));
+    assert.match(gate, /transient/,
+      'nút phải nằm trong nhánh `transient`, không được nối vô điều kiện');
   });
 
   test('và nút ấy được nối', () => {

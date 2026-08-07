@@ -1172,10 +1172,16 @@ async function openTally(assignmentId) {
     // phát hành — vài giây sau bấm lại là được.
     const why = String(err && (err.message || err) || '');
     const transient = isTransientNetworkError(why);
+    // Nút Thử lại CHỈ hiện với lỗi thoáng qua. Mời bấm lại một 404/500 là mời
+    // phí thời gian — và làm chính lời phân loại ở trên thành vô nghĩa
+    // (codex #979).
     body.innerHTML = `<p class="adm-banner">Không đọc được bảng tổng kết: ${esc(why)}`
       + (transient ? ' Thường là máy chủ đang khởi động lại — thử lại sau vài giây.' : '')
-      + `</p><button class="adm-btn-secondary" type="button"
-           data-action="retry-tally">Thử lại</button>`;
+      + '</p>'
+      + (transient
+          ? `<button class="adm-btn-secondary" type="button"
+               data-action="retry-tally">Thử lại</button>`
+          : '');
   }
 }
 

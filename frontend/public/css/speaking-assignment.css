@@ -231,20 +231,6 @@
   border-bottom: 1px solid var(--av-border-subtle);
 }
 
-/* Hẹp thì XUỐNG DÒNG, đừng cuộn ngang: một hàng phải đọc trọn được, và cuộn
-   ngang từng hàng là bắt tìm lại cái tên sau mỗi lần cuộn. */
-@media (max-width: 720px) {
-  .av-tally__row {
-    grid-template-columns: var(--tally-gap-w) minmax(0, 1fr) auto;
-    gap: var(--av-space-1) var(--av-space-3);
-  }
-  .av-tally__name { grid-column: 2 / -1; }
-  .av-tally__when { grid-column: 2; }
-  .av-tally__band { grid-column: 3; justify-self: end; }
-  .av-tally__open,
-  .av-tally__none { grid-column: 2 / -1; justify-self: start; }
-}
-
 /* Ô điểm gánh ba việc: con số, đạt/chưa, số lần kiểm tra lại. Xuống dòng phần
    phụ để cột không phình theo chuỗi dài nhất. */
 .av-tally__band { text-align: right; font-variant-numeric: tabular-nums; }
@@ -338,9 +324,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* MỘT khối cho màn hẹp, không phải hai.
+   Thêm một `@media` thứ hai ở 720px thì khối 40rem đứng SAU sẽ ghi đè nó dưới
+   640px — bản vá chỉ sống trong dải 641–720px, còn điện thoại thật vẫn nhận
+   `1fr` trần. Đúng bẫy "hai quy tắc triệt tiêu nhau" (codex PR 979). */
 @media (max-width: 40rem) {
-  .av-tally__row { grid-template-columns: var(--tally-gap-w) 1fr auto auto; }
+  .av-tally__row {
+    /* `minmax(0, …)` ở ĐÂY nữa: đây mới là bề rộng thật của điện thoại. */
+    grid-template-columns: var(--tally-gap-w) minmax(0, 1fr) auto;
+    gap: var(--av-space-1) var(--av-space-3);
+  }
   .av-tally__when { display: none; }   /* tên + trạng thái + điểm là đủ trên máy nhỏ */
+  /* Nút mở bài XUỐNG DÒNG riêng: nhét nó vào cùng hàng với tên và điểm là ba
+     thứ tranh nhau một bề ngang 360px. */
+  .av-tally__open,
+  .av-tally__none { grid-column: 2 / -1; justify-self: start; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
