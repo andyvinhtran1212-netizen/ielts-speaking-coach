@@ -20,9 +20,11 @@
 //   · tên trường `audio_file` — phải khớp tham số File của backend
 //     (`practice.js:681` ghi rõ "must match backend File param"); đổi tên là
 //     backend nhận rỗng;
-//   · KÍCH THƯỚC blob — phải KHÁC 0. Đây là điều duy nhất phân biệt "gửi bản thu"
-//     với "gửi một cái vỏ rỗng", và một bản port dựng FormData sai thứ tự sẽ rơi
-//     đúng vào đó.
+//   · KÍCH THƯỚC blob — phải khác 0, đo theo BYTE THẬT. Nói chính xác điều này
+//     chứng minh: "có một tệp, đúng tên trường, không rỗng". Nó KHÔNG chứng minh
+//     trong tệp có tiếng nói — một bản thu toàn im lặng vẫn có phần đầu container
+//     nên vẫn khác 0. Khẳng định "có tiếng" cần giải mã âm thanh, nằm ngoài cổng
+//     này; ghi ra đây để không ai đọc nhầm cái chốt đang bảo đảm gì.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,7 +57,12 @@ export default {
     // Hình dạng phản hồi chấm bài — trang đọc `overall_band` + `transcript` để
     // vẽ màn nhận xét; thiếu thì nó ném lỗi JS và luồng đỏ.
     [/\/responses$/, {
-      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      // `response_id`, KHÔNG phải `id`. Một phản hồi 200 mà thiếu trường này
+      // được trang hiểu là "chấm xong nhưng KHÔNG lưu được", và nó chuyển sang
+      // màn báo-lỗi-thử-lại (`practice.js:714-725`). Dữ liệu giả sai tên trường
+      // khiến bản khai vẫn xanh — vì nó chỉ soi request ĐI RA — trong khi trang
+      // đang ở trạng thái hỏng (codex cục bộ #980).
+      response_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       question_id: QUESTION,
       transcript: 'This is a test answer.',
       overall_band: 6.5,
@@ -69,6 +76,10 @@ export default {
     // Bấm Bắt đầu là thu âm chạy NGAY, không cần thêm cú bấm nào
     // (`practice.js:372`).
     { click: '#prep-start-btn' },
+    // CHỜ THU BẮT ĐẦU rồi mới tính giờ. `getUserMedia` là bất đồng bộ và thiết
+    // bị mất một lúc mới sẵn sàng; đếm 16 giây từ lúc BẤM thì máy CI chậm sẽ chỉ
+    // thu được 14 giây, nút Nộp không mở, và luồng đỏ vì lý do SAI.
+    { expectVisible: '#rec-recording' },
     // THU THẬT 16 GIÂY. Part 1 khoá nút Nộp tới khi đủ 15 giây
     // (`MIN_RECORD_SEC`, cố ý đồng bộ với `MIN_DURATION_BY_PART` phía backend),
     // và backend còn từ chối bản thu ngắn bằng 422 `audio_too_short`.
@@ -81,6 +92,10 @@ export default {
     { click: 'button[onclick="PracticeApp.stopRecording()"]' },
     { wait: 600 },
     { click: '#rec-submit-btn' },
+    { wait: 1200 },
+    // Trang phải ĐẾN được màn nhận xét. Chỉ soi request đi ra thì một phản hồi
+    // thiếu `response_id` (hoặc bất kỳ lỗi hậu-nộp nào) vẫn cho bản khai xanh.
+    { expectVisible: '#state-feedback' },
   ],
 
   ignoreWrites: ['/api/analytics/events'],

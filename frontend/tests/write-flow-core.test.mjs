@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, validateFlow, bodyMatches, isWrite, judge, normalizePath,
+  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, parseMultipart, validateFlow, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -325,5 +325,53 @@ describe('so TIÊU ĐỀ request', () => {
     const d = D({ 'X-Reading-Anon': (v) => v === undefined });
     assert.equal(judge([W({})], d).pass, true);
     assert.equal(judge([W({ 'x-reading-anon': 'tu-bia-ra' })], d).pass, false);
+  });
+});
+
+describe('parseMultipart — thân multipart của bản thu âm', () => {
+  const B = 'X-BOUND';
+  const CT = `multipart/form-data; boundary=${B}`;
+  const CRLF = '\r\n';
+  const body = (parts, closing = true) =>
+    Buffer.from(parts.map((p) => `--${B}${CRLF}${p}${CRLF}`).join('')
+      + (closing ? `--${B}--${CRLF}` : ''), 'latin1');
+
+  const field = (n, v) => `Content-Disposition: form-data; name="${n}"${CRLF}${CRLF}${v}`;
+  const file = (n, fn, type, bytes) =>
+    `Content-Disposition: form-data; name="${n}"; filename="${fn}"${CRLF}`
+    + `Content-Type: ${type}${CRLF}${CRLF}${bytes}`;
+
+  test('tách trường thường và trường TỆP', () => {
+    const out = parseMultipart(body([
+      field('question_id', 'q-1'),
+      file('audio_file', 'response.webm', 'audio/webm', 'abcde'),
+    ]), CT);
+    assert.equal(out.question_id, 'q-1');
+    assert.deepEqual(out.audio_file,
+      { filename: 'response.webm', contentType: 'audio/webm', size: 5 });
+  });
+
+  test('`size` là SỐ BYTE, không phải số ký tự UTF-16', () => {
+    // 4 byte trong latin1; nếu đọc qua chuỗi UTF-8 thì con số sẽ khác.
+    const out = parseMultipart(body([file('f', 'a.bin', 'application/octet-stream',
+      '\xff\xfe\x00\x01')]), CT);
+    assert.equal(out.f.size, 4);
+  });
+
+  test('thân CẮT CỤT (thiếu dấu đóng) ⇒ null, không tách nửa vời', () => {
+    // Máy chủ thật từ chối thân này; cổng cũng phải từ chối, nếu không một thân
+    // hỏng vẫn khớp bản khai nhờ phần đầu còn nguyên (codex cục bộ #980).
+    assert.equal(parseMultipart(body([field('question_id', 'q-1')], false), CT), null);
+  });
+
+  test('phần DỊ DẠNG ⇒ null', () => {
+    assert.equal(parseMultipart(Buffer.from(`--${B}${CRLF}rác không có tên${CRLF}--${B}--${CRLF}`,
+      'latin1'), CT), null);
+    assert.equal(parseMultipart(Buffer.from('không phải multipart', 'latin1'), CT), null);
+  });
+
+  test('thiếu boundary hoặc không phải Buffer ⇒ null', () => {
+    assert.equal(parseMultipart(body([field('a', 'b')]), 'multipart/form-data'), null);
+    assert.equal(parseMultipart('chuỗi chứ không phải buffer', CT), null);
   });
 });

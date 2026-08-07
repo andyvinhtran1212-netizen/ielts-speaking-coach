@@ -100,33 +100,53 @@ export const NO_LIST = Symbol('no-list-data');
 export const NO_TEXT = Symbol('no-text-data');
 
 /**
- * Tách thân `multipart/form-data` thành `{tên trường: giá trị}`.
+ * Tách thân `multipart/form-data` từ BUFFER thành `{tên trường: giá trị}`.
  *
- * Trường thường → chuỗi. Trường TỆP → `{filename, contentType, size}`; KHÔNG giữ
- * nội dung, vì thứ đáng ghim là "có tệp, tên đúng, không rỗng" chứ không phải
- * từng byte âm thanh.
+ * Nhận `Buffer` chứ không nhận chuỗi: `postData()` của Playwright là chuỗi đã
+ * diễn giải UTF-8, nên với dữ liệu nhị phân thì `.length` là số đơn vị UTF-16
+ * chứ KHÔNG phải số byte tệp. Một con số nghe như byte mà không phải byte thì
+ * tệ hơn là không có con số nào (codex cục bộ #980).
  *
- * Trả `null` nếu không tách được — chỗ gọi sẽ giữ nguyên chuỗi thô, để một thân
- * lạ không bị âm thầm biến thành object rỗng rồi khớp với mọi bản khai.
+ * Trường thường → chuỗi. Trường TỆP → `{filename, contentType, size}` với `size`
+ * là SỐ BYTE THẬT; không giữ nội dung.
+ *
+ * ĐỌC ĐÚNG `size` NGHĨA LÀ GÌ: nó chứng minh "có một tệp, đúng tên trường, và
+ * không rỗng". Nó KHÔNG chứng minh trong tệp có tiếng nói — một bản thu 16 giây
+ * toàn im lặng vẫn có phần đầu container và khung Opus, tức vẫn khác 0. Muốn
+ * khẳng định "có tiếng" thì phải giải mã âm thanh, việc đó nằm ngoài cổng này.
+ *
+ * NGHIÊM NGẶT: trả `null` nếu thân dị dạng hoặc thiếu dấu đóng `--boundary--`.
+ * Một thân bị cắt cụt vẫn có thể chứa `question_id` hợp lệ và phần đầu của tệp;
+ * máy chủ thật sẽ từ chối nó, nên cổng cũng phải từ chối thay vì tách được phần
+ * nào hay phần đó.
  */
-export function parseMultipart(raw, contentType) {
-  const m = /boundary=(?:\"([^\"]+)\"|([^;]+))/i.exec(contentType || '');
+export function parseMultipart(buf, contentType) {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
   const boundary = m && (m[1] || m[2] || '').trim();
-  if (!boundary || typeof raw !== 'string') return null;
+  if (!boundary || !buf || typeof buf.subarray !== 'function') return null;
 
-  const parts = raw.split(`--${boundary}`);
+  const CRLF = '\r\n';
+  const raw = buf.toString('latin1');   // 1 byte ↔ 1 ký tự: giữ đúng độ dài
+  const delim = `--${boundary}`;
+  if (!raw.startsWith(delim)) return null;
+  if (!raw.includes(`${delim}--`)) return null;   // thiếu dấu đóng ⇒ cắt cụt
+
+  const segments = raw.split(delim);
   const out = {};
   let found = 0;
-  for (const part of parts) {
-    const sep = part.indexOf('\r\n\r\n');
-    if (sep < 0) continue;
+  for (const seg of segments) {
+    if (seg === '' || seg === CRLF) continue;
+    if (seg.startsWith('--')) continue;           // đoạn đóng
+    if (!seg.startsWith(CRLF)) return null;       // dị dạng
+    const part = seg.slice(CRLF.length);
+    const sep = part.indexOf(CRLF + CRLF);
+    if (sep < 0) return null;
     const head = part.slice(0, sep);
     const name = /name="([^"]*)"/i.exec(head);
-    if (!name) continue;
-    // Bỏ `\r\n` đóng phần, không dùng trim(): giá trị thật có thể cố ý bắt đầu
-    // hoặc kết thúc bằng khoảng trắng, và trim() sẽ làm phép so sai lệch.
+    if (!name) return null;
+
     let value = part.slice(sep + 4);
-    if (value.endsWith('\r\n')) value = value.slice(0, -2);
+    if (value.endsWith(CRLF)) value = value.slice(0, -CRLF.length);
 
     const file = /filename="([^"]*)"/i.exec(head);
     if (file) {
@@ -134,10 +154,7 @@ export function parseMultipart(raw, contentType) {
       out[name[1]] = {
         filename: file[1],
         contentType: type ? type[1].trim() : null,
-        // Số byte gần đúng: Playwright trả `postData()` dạng chuỗi nên byte nhị
-        // phân đã bị diễn giải. Đủ để phân biệt "có tiếng" với "rỗng" — cũng là
-        // câu hỏi duy nhất bản khai đặt ra ở đây.
-        size: value.length,
+        size: value.length,   // latin1 ⇒ đúng số byte
       };
     } else {
       out[name[1]] = value;
