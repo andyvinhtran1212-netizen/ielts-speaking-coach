@@ -138,3 +138,56 @@ def test_a_REAL_prior_submission_still_blocks_a_second_one():
         _submit(grade_oks=[True, True],
                 prior_items=[{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}])
     assert e.value.status_code == 409
+
+
+# ── Đường chấm lại phải TỚI ĐƯỢC từ giao diện ─────────────────────────────
+#
+# Cho phép chấm lại ở `submit` là chưa đủ: `course_writing_state` vẫn báo mọi
+# dòng là "đã nộp" và `save_course_writing_draft` vẫn chặn lưu nháp, nên sau
+# khi tải lại trang em ấy bị khoá khung viết và `submit()` trả `{already:true}`
+# — đường vá có mà không ai tới được (codex #971).
+
+BROKEN = [{"qid": "w1", "ok": None}, {"qid": "w2", "ok": None}]
+REAL = [{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}]
+
+
+def test_one_rule_decides_what_a_broken_row_is():
+    assert qs._writing_row_is_broken({"items": BROKEN}) is True
+    assert qs._writing_row_is_broken({"items": REAL}) is False
+    assert qs._writing_row_is_broken({"items": []}) is False
+    assert qs._writing_row_is_broken(None) is False
+
+
+def test_all_THREE_contracts_ask_that_same_question():
+    """Ba nơi phải nói cùng một câu. Sửa mỗi nơi thứ ba là đường vá không tới."""
+    import inspect
+    for fn in (qs.course_writing_state, qs.save_course_writing_draft,
+               qs.submit_course_writing):
+        assert "_writing_row_is_broken" in inspect.getsource(fn), fn.__name__
+
+
+def test_a_broken_row_does_not_read_as_SUBMITTED():
+    """Trang đọc `submitted` để quyết hiện KHUNG VIẾT hay BẢN CHẤM."""
+    import inspect
+    src = inspect.getsource(qs.course_writing_state)
+    # ĐÚNG DÒNG `"submitted"`, không phải "đâu đó gần nó": dòng `grader_failed`
+    # nằm ngay bên dưới và cũng gọi cùng hàm, nên cắt theo khoảng ký tự sẽ xanh
+    # kể cả khi `submitted` quay về `bool(sub)`.
+    line = next(l for l in src.splitlines() if '"submitted":' in l)
+    assert "_writing_row_is_broken" in line, line.strip()
+    # …và không phát ra một "bản chấm" rỗng để trang vẽ 0/10.
+    j = src.index('"graded_at":')
+    assert "_writing_row_is_broken" in src[j:j + 300]
+
+
+def test_the_retry_write_is_a_COMPARE_AND_SWAP():
+    """Hai tab cùng bấm Nộp lại thì cả hai qua được phép kiểm ở trên. Không có
+    so-và-đổi thì cả hai cùng ghi, bản xong SAU đè lên bản trước, và sổ lớp
+    nhận một điểm khác."""
+    import inspect
+    src = inspect.getsource(qs.submit_course_writing)
+    i = src.index("if retry_of:")
+    seg = src[i:i + 900]
+    assert 'eq("graded_at", retry_stamp)' in seg, "phải so với mốc đã đọc"
+    assert "if not (res.data or []):" in seg, "người thua phải biết mình thua"
+    assert "409" in seg
