@@ -21,7 +21,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatFindings, isWrite, judge, validateFlow } from './write-flow-core.mjs';
+import { formatFindings, isWrite, judge, parseMultipart, validateFlow } from './write-flow-core.mjs';
 import { storageKey } from './supabase-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -121,7 +121,12 @@ async function step(page, s) {
 }
 
 async function runFlow(browser, flow) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    // Chỉ cấp quyền micro cho luồng KHAI cần — để một luồng khác lỡ xin quyền
+    // thì vẫn đi đúng nhánh "bị từ chối" như người dùng thật chưa cho phép.
+    ...(flow.fakeMedia ? { permissions: ['microphone'] } : {}),
+  });
   // `anonymous: true` — KHÔNG gieo phiên đăng nhập. Mặc định mọi luồng đều được
   // gieo một phiên giả, nên một luồng tự nhận là "ẩn danh" vẫn gửi kèm
   // `Authorization` và chưa từng chạy đúng cảnh người dùng CHƯA đăng nhập: một
@@ -163,6 +168,18 @@ async function runFlow(browser, flow) {
     if (isWrite(req.method())) {
       let body = null;
       try { body = JSON.parse(req.postData() || 'null'); } catch { body = req.postData(); }
+      // MULTIPART: tách thành `{tên trường: giá trị}` để bản khai ghim được.
+      //
+      // Bản thu của học viên đi bằng `FormData` (`practice.js:679-684`), và
+      // chuỗi multipart thô thì không phép so nào đọc nổi — tức đường ghi ĐẮT
+      // GIÁ NHẤT của Speaking là đường duy nhất cổng này không soi được. Với
+      // phần TỆP thì giữ lại siêu dữ liệu (tên tệp, kiểu, SỐ BYTE) chứ không giữ
+      // nội dung: thứ cần ghim là "có tệp và tệp không rỗng", không phải byte.
+      const ct = (req.headers()['content-type'] || '');
+      if (typeof body === 'string' && ct.startsWith('multipart/form-data')) {
+        const parsed = parseMultipart(body, ct);
+        if (parsed) body = parsed;
+      }
       // GHI LẠI TIÊU ĐỀ, không chỉ thân. Có hợp đồng mà bằng chứng nằm ở tiêu
       // đề chứ không ở thân: bài Đọc qua liên kết chia sẻ mang danh tính ẩn danh
       // ở `X-Reading-Anon`, và mất nó thì máy chủ từ chối lưu — mất bài của học
@@ -247,7 +264,20 @@ if (!files.length) {
   process.exit(2);
 }
 
-const browser = await chromium.launch();
+// THIẾT BỊ GIẢ của Chrome — bật sẵn cho mọi lượt chạy.
+//
+// Đường ghi đắt giá nhất của Speaking là bản THU ÂM của học viên, và nó chỉ tồn
+// tại nếu `getUserMedia` + `MediaRecorder` chạy được. Cách khác là chèn stub vào
+// mã sản phẩm, nhưng thế thì bản khai kiểm cái stub chứ không kiểm trang. Cờ
+// này cho Chrome cấp một thiết bị âm thanh giả, nên `MediaRecorder` chạy THẬT và
+// sinh ra blob thật. Vô hại với các luồng không dùng media.
+const browser = await chromium.launch({
+  args: [
+    '--use-fake-device-for-media-stream',
+    '--use-fake-ui-for-media-stream',
+    '--autoplay-policy=no-user-gesture-required',
+  ],
+});
 let failed = 0;
 for (const f of files) {
   const flow = (await import(path.join(FLOW_DIR, f))).default;

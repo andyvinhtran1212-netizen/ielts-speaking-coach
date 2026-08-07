@@ -221,6 +221,15 @@ on:
       - 'frontend/public/js/runtime-config.js'
       - 'frontend/public/css/reading-exam.css'
       - 'frontend/public/css/reading-exam-mockup.css'
+      # ── Trang luyện Speaking ─────────────────────────────────────────────
+      # Cũng chưa có cặp parity, nên nằm cùng khối này. Đây là trang mang đường
+      # ghi ĐẮT GIÁ NHẤT của sản phẩm: bản thu của học viên chỉ tồn tại trong bộ
+      # nhớ trang cho tới khi `POST /sessions/{id}/responses` nhận được. Trước
+      # PR này, sửa `practice.js` KHÔNG chạy cổng ghi lần nào.
+      - 'frontend/public/pages/practice.html'
+      - 'frontend/public/js/practice.js'
+      - 'frontend/public/css/practice.css'
+      - 'frontend/public/css/speaking-assignment.css'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh

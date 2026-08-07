@@ -99,6 +99,54 @@ export const NO_BODY = Symbol('no-body');
 export const NO_LIST = Symbol('no-list-data');
 export const NO_TEXT = Symbol('no-text-data');
 
+/**
+ * Tách thân `multipart/form-data` thành `{tên trường: giá trị}`.
+ *
+ * Trường thường → chuỗi. Trường TỆP → `{filename, contentType, size}`; KHÔNG giữ
+ * nội dung, vì thứ đáng ghim là "có tệp, tên đúng, không rỗng" chứ không phải
+ * từng byte âm thanh.
+ *
+ * Trả `null` nếu không tách được — chỗ gọi sẽ giữ nguyên chuỗi thô, để một thân
+ * lạ không bị âm thầm biến thành object rỗng rồi khớp với mọi bản khai.
+ */
+export function parseMultipart(raw, contentType) {
+  const m = /boundary=(?:\"([^\"]+)\"|([^;]+))/i.exec(contentType || '');
+  const boundary = m && (m[1] || m[2] || '').trim();
+  if (!boundary || typeof raw !== 'string') return null;
+
+  const parts = raw.split(`--${boundary}`);
+  const out = {};
+  let found = 0;
+  for (const part of parts) {
+    const sep = part.indexOf('\r\n\r\n');
+    if (sep < 0) continue;
+    const head = part.slice(0, sep);
+    const name = /name="([^"]*)"/i.exec(head);
+    if (!name) continue;
+    // Bỏ `\r\n` đóng phần, không dùng trim(): giá trị thật có thể cố ý bắt đầu
+    // hoặc kết thúc bằng khoảng trắng, và trim() sẽ làm phép so sai lệch.
+    let value = part.slice(sep + 4);
+    if (value.endsWith('\r\n')) value = value.slice(0, -2);
+
+    const file = /filename="([^"]*)"/i.exec(head);
+    if (file) {
+      const type = /content-type:\s*([^\r\n]+)/i.exec(head);
+      out[name[1]] = {
+        filename: file[1],
+        contentType: type ? type[1].trim() : null,
+        // Số byte gần đúng: Playwright trả `postData()` dạng chuỗi nên byte nhị
+        // phân đã bị diễn giải. Đủ để phân biệt "có tiếng" với "rỗng" — cũng là
+        // câu hỏi duy nhất bản khai đặt ra ở đây.
+        size: value.length,
+      };
+    } else {
+      out[name[1]] = value;
+    }
+    found += 1;
+  }
+  return found ? out : null;
+}
+
 export function bodyMatches(actual, expected) {
   if (expected === NO_BODY) {
     const empty = actual == null || actual === '';
@@ -325,7 +373,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -390,7 +438,7 @@ export function validateFlow(flow) {
   for (const k of ['legacyRoute', 'nextPending']) {
     if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
   }
-  for (const k of ['fakeClock', 'anonymous']) {
+  for (const k of ['fakeClock', 'anonymous', 'fakeMedia']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
   }
   for (const k of ['settleMs', 'drainMs']) {
