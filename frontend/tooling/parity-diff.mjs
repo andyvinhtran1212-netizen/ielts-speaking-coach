@@ -257,6 +257,8 @@ async function extractOnce(context, url) {
   // là tình trạng của chính dụng cụ đo. Đưa vào `FACT_KEYS` là biến một sự cố
   // hạ tầng thành một khác biệt giữa legacy↔Next — đúng cái nhầm cần tránh.
   const netErrors = [];
+  // Lỗi vận chuyển ở origin KHÔNG thuộc hạ tầng phép đo — giữ riêng để in ra.
+  const foreignNetErrors = [];
   page.on('response', (r) => {
     if (r.status() >= 400) {
       try { resourceFailures.push(`${r.status()} ${new URL(r.url()).pathname}`); } catch { /* bỏ */ }
@@ -271,9 +273,17 @@ async function extractOnce(context, url) {
     // một bản Next lỡ trỏ `<script src="https://cdn-go-nham.invalid/x.js">` sẽ
     // cho `ERR_NAME_NOT_RESOLVED` ỔN ĐỊNH — một khuyết tật THẬT của trang — mà
     // cả cặp lại bị ghi «không kết luận được», rồi báo oan cho backend.
-    if (isTransportError(err) && isInfraOrigin(r.url())) {
-      try { netErrors.push(`${err.trim().split(/\s+/)[0]} ${new URL(r.url()).origin}`); }
-      catch { netErrors.push(err); }
+    if (isTransportError(err)) {
+      let origin = '(không đọc được)';
+      try { origin = new URL(r.url()).origin; } catch { /* giữ nguyên */ }
+      const mã = `${err.trim().split(/\s+/)[0]} ${origin}`;
+      if (isInfraOrigin(r.url())) netErrors.push(mã);
+      // Lỗi vận chuyển ở origin LẠ là khuyết tật của TRANG (ví dụ bản Next trỏ
+      // nhầm một CDN), nên nó ở lại `resourceFailures` để bộ so nói ra. Nhưng
+      // phải GHI RA origin: bản đầu chỉ lưu `pathname`, nên khi lượt chạy CI
+      // đỏ vì `ERR_CONNECTION_REFUSED` tôi KHÔNG có cách nào biết host nào bị
+      // từ chối — và không có dữ kiện đó thì mọi phân tích chỉ là phỏng đoán.
+      else foreignNetErrors.push(mã);
     }
   });
   page.on('request', (r) => {
@@ -299,7 +309,7 @@ async function extractOnce(context, url) {
     return { ...buildFacts({}, { url, finalUrl: url, status, apiCalls: [],
                                  resourceFailures,
                                  consoleErrors: [`NAVIGATION: ${e.message}`] }),
-             netErrors };
+             netErrors, foreignNetErrors };
   }
 
   const facts = await page.evaluate(() => {
@@ -375,7 +385,7 @@ async function extractOnce(context, url) {
   return { ...buildFacts(
     { ...facts, links: [...facts.links, ...inlineLinks] },
     { url, finalUrl, status, apiCalls, resourceFailures, consoleErrors,
-      blockedMutations }), netErrors };
+      blockedMutations }), netErrors, foreignNetErrors };
 }
 
 async function main() {
@@ -434,6 +444,8 @@ async function main() {
       // nằm trong báo cáo thì người đọc không cách nào biết cái nào thật. Cặp
       // này không có phán quyết; nó làm cả lượt chạy đỏ ở cuối, bằng thông điệp
       // riêng nói đúng chuyện đã xảy ra.
+      const lạ = [...new Set([...(legacy.foreignNetErrors || []),
+                              ...(next.foreignNetErrors || [])])];
       const netFail = [...new Set([...(legacy.transportFailed || []),
                                    ...(next.transportFailed || [])])];
       if (netFail.length) {
@@ -466,6 +478,7 @@ async function main() {
           r.pass = false;
         }
       }
+      if (lạ.length) r.foreignNetErrors = lạ;
       results.push({ name: p.name, ...r });
       done += 1;
       if (done % 10 === 0) console.log(`  … ${done}/${pairs.length}`);
@@ -480,6 +493,16 @@ async function main() {
     for (const a of r.unusedAllow || []) {
       console.log(`  ⚠ ngoại lệ không còn khớp gì (${r.name}): ${a.kind} = ${a.value}`);
     }
+  }
+
+  // Origin LẠ bị từ chối: không tự làm lượt chạy đỏ (đó là việc của bộ so),
+  // nhưng phải HIỆN RA. Không có dòng này thì một lượt đỏ vì mất kết nối tới
+  // một host ngoài dự kiến sẽ không để lại manh mối nào về host đó.
+  const lạTấtCả = [...new Set(results.flatMap((r) => r.foreignNetErrors || []))];
+  if (lạTấtCả.length) {
+    console.log(`\n⚠ lỗi mạng ở origin NGOÀI hạ tầng phép đo (${lạTấtCả.length} loại) —`
+      + ' được tính là khuyết tật TRANG, không phải hỏng hạ tầng:');
+    for (const m of lạTấtCả) console.log(`  ✗ ${m}`);
   }
 
   const blocked = [...new Set(results.flatMap((r) => r.blockedMutations || []))];
