@@ -244,7 +244,20 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       // TIÊU ĐỀ cũng là một phần hợp đồng. Tên tiêu đề KHÔNG phân biệt hoa
       // thường (RFC 9110 §5.1) nên hạ về chữ thường cả hai vế — so thẳng thì một
       // bản port viết `x-reading-anon` sẽ đỏ oan.
-      if (d.headers) {
+      // Khai `headers` sai kiểu là LỖI, không phải "bỏ qua": `headers: true` hay
+      // một hàm đều làm `Object.entries` trả mảng RỖNG, nên bản khai đọc như
+      // đang ghim tiêu đề trong khi nó không ghim gì. Cùng họ với `bodyAll` ở
+      // #969 (codex cục bộ #973).
+      if (d.headers != null
+          && (typeof d.headers !== 'object' || Array.isArray(d.headers))) {
+        findings.push({
+          kind: 'write-header',
+          what: `${wantMethod} ${wantPath}`,
+          why: `\`headers\` phải là object thường, nhận ${
+            Array.isArray(d.headers) ? 'mảng' : typeof d.headers}`,
+        });
+      }
+      if (d.headers && typeof d.headers === 'object' && !Array.isArray(d.headers)) {
         const got = remaining[i].headers || {};
         const lower = {};
         for (const [k, v] of Object.entries(got)) lower[k.toLowerCase()] = v;

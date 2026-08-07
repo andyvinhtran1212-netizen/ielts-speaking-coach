@@ -34,6 +34,10 @@ export default {
   route: '/reading/exam',
   legacyRoute: `/pages/reading-exam.html?share=${TOKEN}`,
   nextPending: 'trang Next chưa tồn tại — bản khai dựng TRƯỚC khi port',
+  // CHƯA ĐĂNG NHẬP — đó là cả điểm của liên kết chia sẻ. Mặc định harness gieo
+  // một phiên giả cho mọi luồng, nên nếu không khai dòng này thì luồng vẫn gửi
+  // kèm `Authorization` và chưa từng chạy đúng cảnh người dùng ẩn danh.
+  anonymous: true,
   settleMs: 700,
   drainMs: 2500,
 
@@ -55,6 +59,10 @@ export default {
     { click: '#exam-start-btn' },
     { wait: 700 },
     { expectText: ['.exam-passage__body', 'Nội dung đoạn đọc.'] },
+    // Danh tính phải được CẤT LẠI, không chỉ gửi đi. Giữ trong bộ nhớ thì mọi
+    // request trong phiên vẫn đúng tiêu đề, mà tải lại trang là mất quyền sở hữu
+    // lượt làm bài — tức mất bài (`reading-exam.js:2985-2992`).
+    { expectStorage: [`reading-anon:${TOKEN}`, ANON] },
     { fill: ['input[name="q-1"]', A1] },
     { fill: ['input[name="q-2"]', A2] },
     { click: '#exam-passage' },
@@ -74,7 +82,12 @@ export default {
       body: NO_BODY,
       // CHƯA có danh tính lúc này — máy chủ mới là bên cấp. Một bản port tự nghĩ
       // ra id rồi gửi kèm là tự tạo quyền sở hữu, nên ghim là PHẢI VẮNG.
-      headers: { 'X-Reading-Anon': (v) => v === undefined },
+      headers: {
+        'X-Reading-Anon': (v) => v === undefined,
+        // Không đăng nhập thì KHÔNG được có tiêu đề uỷ quyền. Ghim để một bản
+        // port lỡ gắn phiên vào đây sẽ đỏ.
+        Authorization: (v) => v === undefined,
+      },
     },
     {
       method: 'PATCH',
@@ -83,13 +96,13 @@ export default {
       body: (b) => (b.q_num === 1 && b.user_answer === A1)
         || (b.q_num === 2 && b.user_answer === A2),
       bodyAll: (bodies) => new Set(bodies.map((b) => b.q_num)).size === 2,
-      headers: { 'X-Reading-Anon': ANON },
+      headers: { 'X-Reading-Anon': ANON, Authorization: (v) => v === undefined },
     },
     {
       method: 'POST',
       path: `/api/reading/test/attempts/${ATTEMPT}/submit`,
       body: (b) => Array.isArray(b.answers) && b.answers.length === 2,
-      headers: { 'X-Reading-Anon': ANON },
+      headers: { 'X-Reading-Anon': ANON, Authorization: (v) => v === undefined },
     },
   ],
 };

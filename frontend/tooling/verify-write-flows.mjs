@@ -84,6 +84,19 @@ async function step(page, s) {
   // Kiểm NỘI DUNG chứ không chỉ sự tồn tại. Một khối rỗng vẫn "hiện": fixture
   // Đọc từng ghi `body` thay vì `body_markdown`, nên đoạn đọc render RỖNG mà
   // luồng vẫn xanh vì nó chỉ cần ô nhập (codex cục bộ #969).
+  // Kiểm thứ trang CẤT LẠI, không chỉ thứ nó gửi đi. Danh tính ẩn danh chỉ có
+  // giá trị nếu nó sống qua một lần tải lại trang — giữ trong bộ nhớ thì mọi
+  // request trong phiên vẫn đúng, mà mở lại là mất bài (codex cục bộ #973).
+  if (s.expectStorage) {
+    const [key, want] = s.expectStorage;
+    const got = await page.evaluate((k) => {
+      try { return localStorage.getItem(k); } catch (e) { return null; }
+    }, key);
+    if (got !== want) {
+      throw new Error(`localStorage«${key}» = ${JSON.stringify(got)}, khai ${JSON.stringify(want)}`);
+    }
+    return undefined;
+  }
   if (s.expectText) {
     const [sel, text] = s.expectText;
     const el = page.locator(sel).first();
@@ -109,9 +122,15 @@ async function step(page, s) {
 
 async function runFlow(browser, flow) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  await ctx.addInitScript(([k, v]) => {
-    try { localStorage.setItem(k, v); } catch (_) {}
-  }, [storageKey(SB), fakeSession]);
+  // `anonymous: true` — KHÔNG gieo phiên đăng nhập. Mặc định mọi luồng đều được
+  // gieo một phiên giả, nên một luồng tự nhận là "ẩn danh" vẫn gửi kèm
+  // `Authorization` và chưa từng chạy đúng cảnh người dùng CHƯA đăng nhập: một
+  // cổng quyền làm hỏng đúng nhóm đó vẫn xanh (codex cục bộ #973).
+  if (!flow.anonymous) {
+    await ctx.addInitScript(([k, v]) => {
+      try { localStorage.setItem(k, v); } catch (_) {}
+    }, [storageKey(SB), fakeSession]);
+  }
   const page = await ctx.newPage();
 
   // ĐỒNG HỒ GIẢ. Có nhánh chỉ mở ra sau một khoảng chờ dài — báo động "máy chủ

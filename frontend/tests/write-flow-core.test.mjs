@@ -309,6 +309,17 @@ describe('so TIÊU ĐỀ request', () => {
     assert.equal(judge([W({ 'x-reading-anon': 'khac' })], D({ 'X-Reading-Anon': 'abc' })).pass, false);
   });
 
+  test('headers sai kiểu ⇒ ĐỎ, không được lặng lẽ bỏ qua', () => {
+    // `headers: true` hay một hàm đều làm `Object.entries` trả mảng RỖNG, nên
+    // bản khai đọc như đang ghim tiêu đề trong khi không ghim gì. Cùng họ với
+    // `bodyAll` ở #969 (codex cục bộ #973).
+    for (const bad of [true, () => false, ['a']]) {
+      const r = judge([W({})], [{ method: 'POST', path: '/a/x', headers: bad }]);
+      assert.equal(r.pass, false, `headers=${typeof bad} phải ĐỎ`);
+      assert.match(r.findings[0].why, /phải là object thường/);
+    }
+  });
+
   test('vị từ ghim "phải VẮNG" ⇒ có mặt là ĐỎ', () => {
     const d = D({ 'X-Reading-Anon': (v) => v === undefined });
     assert.equal(judge([W({})], d).pass, true);
