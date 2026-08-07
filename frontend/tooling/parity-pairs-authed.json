@@ -96,5 +96,13 @@
     "allow": [],
     "minBaselineLines": 3,
     "note": "Tài khoản probe KHÔNG có kỳ thi thử nào, nên vế legacy chỉ render trạng thái RỖNG: tiêu đề + mô tả + câu 'chưa có kỳ thi nào'. Đó là 3 dòng và là nội dung ĐẦY ĐỦ của trạng thái đó, không phải vế tham chiếu hỏng. Cặp này vì thế mới chỉ chứng minh: hai vế khớp TIÊU ĐỀ, khớp từng dòng chữ, không lỗi console, và khớp getComputedStyle ở cả hai bề rộng — cho ĐÚNG trạng thái rỗng. Nó KHÔNG chứng minh gì về danh sách kỳ thi. Muốn phủ nốt: mở một kỳ thi cho tài khoản probe rồi bỏ `minBaselineLines`."
+  },
+  {
+    "name": "vocab-practice",
+    "legacy": "/pages/vocab-practice.html",
+    "next": "/vocabulary/practice",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể KHÔNG có bài luyện nào được mở, khi đó legacy chỉ render tiêu đề + mô tả + câu 'chưa có bài luyện nào' — nội dung ĐẦY ĐỦ của trạng thái rỗng, không phải vế tham chiếu hỏng. Xem ghi chú cặp `full-test`: cặp này khi rỗng chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style, KHÔNG chứng minh gì về danh sách bài luyện."
   }
 ]
