@@ -331,23 +331,25 @@ export function CourseBehavior() {
         $('cx-next')!.hidden = true;
         const done = $('cx-done')!;
         done.hidden = false;
+        // Mở lại màn viết thì về BƯỚC MỘT. "Đã đọc lại rồi" là chuyện của lượt
+        // ngồi trước màn hình vừa xong; quay lại sau khi đi xem chỗ khác mà vẫn
+        // thấy nút "Nộp luôn" chờ sẵn là dựng lại đúng cú bấm-một-nhát.
+        writing.disarm();
         done.innerHTML = writing.submitted ? writing.renderResult() : writing.renderForm();
         if (!writing.submitted) syncWritingNote();
         const st = $('cx-stage'); if (st) st.hidden = true;
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
+      // Vẽ lại CẢ thanh nộp, không chỉ dòng chữ: nút và trạng thái tắt/bật nằm
+      // trong cùng một khối do module dựng, nên hai bên không thể lệch nhau.
       function syncWritingNote() {
-        const note = $('cw-note');
-        if (note) note.innerHTML = writing.renderNote();
-        const btn = $('cw-submit') as HTMLButtonElement | null;
-        // Nút TẮT khi chưa đủ câu — kèm lời nói rõ còn thiếu câu nào, vì một nút
-        // mờ không lý do khiến người ta bấm mấy lần rồi tưởng trang hỏng.
-        if (btn) btn.disabled = writing.missing.length > 0;
+        const bar = $('cw-bar');
+        if (bar) bar.innerHTML = writing.renderBar();
       }
 
-      async function onWritingSubmit() {
-        const btn = $('cw-submit') as HTMLButtonElement | null;
+      /** Bấm Nộp lần đầu: chỉ tay chỗ còn thiếu, hoặc sang bước xác nhận. */
+      function onWritingArm() {
         const miss = writing.missing;
         if (miss.length) {
           // Đánh dấu ĐÚNG những ô còn trống rồi nhảy tới ô đầu tiên.
@@ -359,11 +361,21 @@ export function CourseBehavior() {
           syncWritingNote();
           return;
         }
+        writing.arm();
+        syncWritingNote();
+        // Con trỏ về nút AN TOÀN, không về nút nộp: bàn phím Enter hai lần liên
+        // tiếp không được biến bước xác nhận thành một thủ tục bấm cho xong.
+        ($('cw-cancel') as HTMLButtonElement | null)?.focus();
+      }
+
+      async function onWritingSubmit() {
+        const btn = $('cw-confirm') as HTMLButtonElement | null;
+        if (!writing.armed) return onWritingArm();
         if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
         try {
           await writing.submit();
         } catch (err: any) {
-          if (btn) { btn.disabled = false; btn.textContent = 'Nộp phần tự luận'; }
+          if (btn) { btn.disabled = false; btn.textContent = 'Nộp luôn'; }
           const note = $('cw-note');
           if (note) {
             // 422 của server mang `message` nói rõ chuyện gì (thiếu câu / câu
@@ -429,7 +441,11 @@ export function CourseBehavior() {
         if (t.id === 'cx-resend') return void renderDone();
         if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
-        if (t.id === 'cw-submit') return void onWritingSubmit();
+        // Hai nút, hai việc: `cw-submit` mở bước xác nhận, `cw-confirm` mới nộp
+        // thật. Dùng chung một id cho cả hai là dựng lại đúng cú bấm-một-nhát.
+        if (t.id === 'cw-submit') return onWritingArm();
+        if (t.id === 'cw-cancel') { writing.disarm(); return syncWritingNote(); }
+        if (t.id === 'cw-confirm') return void onWritingSubmit();
       };
       document.addEventListener('click', onClick);
 

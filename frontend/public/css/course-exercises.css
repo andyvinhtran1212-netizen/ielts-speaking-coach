@@ -560,6 +560,15 @@
   font-size: var(--av-fs-sm);
   color: var(--av-text-secondary);
 }
+/* Bước XÁC NHẬN. Thanh nộp đổi hẳn giọng — cùng một chỗ vừa nói "đọc lại rồi
+   nộp" mà giờ nói "không sửa được nữa" thì phải trông khác, kẻo mắt lướt qua
+   như cũ và tay bấm tiếp. */
+.cw-bar__warn { color: var(--av-text-primary); }
+.cw-bar__warn strong { color: var(--av-warning); }
+.cw-bar:has(.cw-bar__warn) {
+  border-color: var(--av-warning);
+  background: var(--av-warning-soft);
+}
 /* Còn thiếu câu nào thì NHẢY THẲNG tới đó — một con số "còn 3 câu" bắt học
    viên tự cuộn dò trong mười ô. */
 .cw-jump {

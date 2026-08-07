@@ -89,6 +89,10 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   let submitted = false;
   let submission = null;
   let draft = {};
+  // Đã bấm Nộp một lần và đang chờ xác nhận. KHÔNG lưu xuống đâu cả: tải lại
+  // trang phải quay về bước một, vì "đã đọc lại rồi" là chuyện của lượt ngồi
+  // trước màn hình chứ không phải một trạng thái đáng nhớ.
+  let armed = false;
   let itemId = null;
   // Đẩy nháp lên máy chủ SAU khi ngừng gõ, không phải mỗi phím: một câu 600 ký
   // tự là 600 request.
@@ -180,11 +184,66 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     .filter((q) => !String(draft[q.qid] || '').trim())
     .map((q) => q.qid);
 
+  /**
+   * Thanh nộp: HAI BƯỚC.
+   *
+   * Em Lê Ngọc Hà Linh lưu nháp lúc 08:22:02 và nộp lúc 08:22:06 — bốn giây, tức
+   * là một cú bấm chứ không phải một quyết định. Lượt nộp chỉ có MỘT và không có
+   * đường lùi trong sản phẩm, nên một cú bấm nhầm là hết bài; mở lại phải chạy
+   * SQL tay.
+   *
+   * Bước hai KHÔNG phải hộp thoại của trình duyệt: hộp ấy chặn cả trang, trên
+   * điện thoại thì hiện như thông báo hệ thống và người ta bấm "OK" theo phản
+   * xạ — đúng cái phản xạ đang cần chặn. Đây là một thanh ngay dưới bài viết,
+   * nói rõ hậu quả, và nút an toàn ("đọc lại") đứng TRƯỚC.
+   */
+  const bar = () => {
+    const miss = missing();
+    if (!armed) {
+      return `<span class="cw-bar__note" id="cw-note">${noteHtml()}</span>
+        <button class="av-button av-button-primary" id="cw-submit" type="button"${
+          miss.length ? ' disabled' : ''}>Nộp phần tự luận</button>`;
+    }
+    return `<span class="cw-bar__note cw-bar__warn" id="cw-note">
+        Nộp rồi là <strong>không sửa được nữa</strong>, và chỉ nộp được một lần.
+        Đọc lại ${questions.length} câu một lượt trước khi chốt nhé.</span>
+      <button class="av-button" id="cw-cancel" type="button">Để tôi đọc lại</button>
+      <button class="av-button av-button-primary" id="cw-confirm" type="button">Nộp luôn</button>`;
+  };
+
+  const noteHtml = () => {
+    const miss = missing();
+    if (!miss.length) {
+      return `Đã viết đủ ${questions.length}/${questions.length} câu. Đọc lại rồi nộp.`;
+    }
+    const idx = {};
+    questions.forEach((q, i) => { idx[q.qid] = i + 1; });
+    const jump = miss.slice(0, 10)
+      .map((qid) => `<a href="#cw-${esc(qid)}">${idx[qid]}</a>`).join('');
+    return `Còn <strong>${miss.length}</strong> câu chưa viết`
+      + `<span class="cw-jump">${jump}</span>`;
+  };
+
   return {
     get submitted() { return submitted; },
     get questions() { return questions.slice(); },
     get missing() { return missing(); },
     get draft() { return { ...draft }; },
+    /** Đang ở bước XÁC NHẬN (đã bấm Nộp một lần). */
+    get armed() { return armed; },
+
+    /**
+     * Bấm Nộp lần đầu → sang bước xác nhận. Trả `false` khi chưa đủ câu: thiếu
+     * bài thì chưa có gì để xác nhận, và trang phải chỉ chỗ còn trống trước.
+     */
+    arm() {
+      if (submitted || missing().length) return false;
+      armed = true;
+      return true;
+    },
+
+    /** Về bước một. Gọi khi bấm "đọc lại", và khi em ấy gõ thêm. */
+    disarm() { armed = false; },
 
     async load(id) {
       bankId = id;
@@ -237,6 +296,8 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     write(qid, text) {
       if (submitted) return missing().length;
       draft[qid] = text;
+      // Sửa bài thì lời xác nhận vừa rồi nói về một bài KHÁC. Về bước một.
+      armed = false;
       saveDraft();
       schedulePush();
       return missing().length;
@@ -245,11 +306,17 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     /**
      * Nộp CẢ CỤM. Thiếu câu thì KHÔNG gọi mạng — lượt chấm chỉ có một, và tiêu
      * nó cho một bài dở dang là không lấy lại được.
+     *
+     * CHƯA XÁC NHẬN thì không nộp. Chốt nằm ở đây, không chỉ ở trang: nút và
+     * lời cảnh báo là chuyện của mặt vẽ, còn "một cú bấm không nộp được bài" là
+     * một luật — và một luật để ngoài trang thì lần dựng lại giao diện sau sẽ
+     * đánh rơi nó mà không ai thấy.
      */
     async submit() {
       if (submitted) return { already: true };
       const miss = missing();
       if (miss.length) return { missing: miss };
+      if (!armed) return { needsConfirm: true };
       const answers = {};
       questions.forEach((q) => { answers[q.qid] = String(draft[q.qid] || '').trim(); });
       const r = await api.post('/api/quiz/course/writing', { bank_id: bankId, answers });
@@ -283,25 +350,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
              <strong>Chỉ nộp được một lần</strong>, nên viết xong hãy đọc lại.</p>
         </div>
         <div class="cw-list">${items}</div>
-        <div class="cw-bar">
-          <span class="cw-bar__note" id="cw-note"></span>
-          <button class="av-button av-button-primary" id="cw-submit" type="button">Nộp phần tự luận</button>
-        </div>`;
+        <div class="cw-bar" id="cw-bar">${bar()}</div>`;
     },
 
+    /** Cả thanh nộp — bước một hoặc bước xác nhận. Trang vẽ lại nó sau mỗi phím. */
+    renderBar() { return bar(); },
+
     /** Dòng trạng thái ở thanh nộp — kèm đường nhảy tới câu còn thiếu. */
-    renderNote() {
-      const miss = missing();
-      if (!miss.length) {
-        return `Đã viết đủ ${questions.length}/${questions.length} câu. Đọc lại rồi nộp.`;
-      }
-      const idx = {};
-      questions.forEach((q, i) => { idx[q.qid] = i + 1; });
-      const jump = miss.slice(0, 10)
-        .map((qid) => `<a href="#cw-${esc(qid)}">${idx[qid]}</a>`).join('');
-      return `Còn <strong>${miss.length}</strong> câu chưa viết`
-        + `<span class="cw-jump">${jump}</span>`;
-    },
+    renderNote() { return noteHtml(); },
 
     /** Màn ĐÃ CHẤM. */
     renderResult() {

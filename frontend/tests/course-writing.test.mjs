@@ -123,6 +123,7 @@ describe('đủ câu mới nộp được', () => {
     const { w, api } = await load();
     w.write('E1', '  I am a student.  ');
     w.write('E2', 'She works here.');
+    w.arm();
     await w.submit();
     assert.equal(api.calls.post.length, 1);
     assert.deepEqual(api.calls.post[0].body.answers,
@@ -136,6 +137,7 @@ describe('nộp một lần', () => {
   test('đã nộp thì không gửi lần nữa', async () => {
     const { w, api } = await load();
     w.write('E1', 'a'); w.write('E2', 'b');
+    w.arm();
     await w.submit();
     const again = await w.submit();
     assert.deepEqual(again, { already: true });
@@ -194,6 +196,7 @@ describe('bản nháp', () => {
     const storage = memStore();
     const { w } = await load({ storage });
     w.write('E1', 'a'); w.write('E2', 'b');
+    w.arm();
     await w.submit();
     assert.equal(storage.getItem(draftKey('b1', 'u1', 'it1')), null);
   });
@@ -213,12 +216,84 @@ describe('bản nháp', () => {
                       removeItem() { throw new Error('chặn'); } };
     const { w, api } = await load({ storage: blocked });
     w.write('E1', 'a'); w.write('E2', 'b');
+    w.arm();
     await w.submit();
     assert.equal(api.calls.post.length, 1);
   });
 });
 
 // ── Vẽ ───────────────────────────────────────────────────────────────────────
+
+describe('nộp phải qua HAI bước (nộp nhầm 07/08)', () => {
+  // Em Lê Ngọc Hà Linh lưu nháp lúc 08:22:02 và nộp lúc 08:22:06. Bốn giây là
+  // một cú bấm, không phải một quyết định — mà lượt nộp chỉ có MỘT và trong sản
+  // phẩm không có đường lùi.
+  const full = async (over = {}) => {
+    const { w, api } = await load(over);
+    w.write('E1', 'I am fine.'); w.write('E2', 'She works here.');
+    return { w, api };
+  };
+
+  test('bấm Nộp một nhát KHÔNG gọi mạng — luật nằm ở module, không ở trang', async () => {
+    const { w, api } = await full();
+    const out = await w.submit();
+    assert.deepEqual(out, { needsConfirm: true });
+    assert.equal(api.calls.post.filter((c) => !c.path.includes('draft')).length, 0,
+      'chưa xác nhận mà đã tiêu lượt nộp duy nhất');
+  });
+
+  test('xác nhận rồi mới nộp thật', async () => {
+    const { w, api } = await full();
+    assert.equal(w.arm(), true);
+    const out = await w.submit();
+    assert.ok(out.graded, 'đã xác nhận thì phải nộp được');
+    assert.equal(api.calls.post.filter((c) => !c.path.includes('draft')).length, 1);
+  });
+
+  test('thiếu câu thì KHÔNG vào được bước xác nhận', async () => {
+    const { w } = await load();
+    w.write('E1', 'chỉ một câu');
+    assert.equal(w.arm(), false);
+    assert.equal(w.armed, false);
+    assert.deepEqual(await w.submit(), { missing: ['E2'] });
+  });
+
+  test('gõ thêm một chữ là quay về bước một', async () => {
+    // Lời xác nhận vừa rồi nói về một bài KHÁC với bài đang nằm trên màn hình.
+    const { w } = await full();
+    w.arm();
+    assert.equal(w.armed, true);
+    w.write('E1', 'I am fine, thanks.');
+    assert.equal(w.armed, false, 'sửa bài rồi thì phải đọc lại và xác nhận lại');
+    assert.deepEqual(await w.submit(), { needsConfirm: true });
+  });
+
+  test('bấm "đọc lại" đưa thanh nộp về bước một', async () => {
+    const { w } = await full();
+    w.arm();
+    w.disarm();
+    assert.match(w.renderBar(), /id="cw-submit"/);
+    assert.ok(!/id="cw-confirm"/.test(w.renderBar()));
+  });
+
+  test('thanh nộp bước hai nói rõ hậu quả, và nút AN TOÀN đứng trước', async () => {
+    const { w } = await full();
+    w.arm();
+    const html = w.renderBar();
+    assert.match(html, /không sửa được nữa/);
+    assert.match(html, /chỉ nộp được một lần/);
+    assert.ok(html.indexOf('id="cw-cancel"') < html.indexOf('id="cw-confirm"'),
+      'nút nộp thật không được là nút đầu tiên tay chạm tới');
+    assert.ok(!/id="cw-submit"/.test(html));
+  });
+
+  test('bước một: nút TẮT khi còn thiếu câu, BẬT khi đã đủ', async () => {
+    const { w } = await load();
+    assert.match(w.renderBar(), /id="cw-submit"[^>]*disabled/);
+    w.write('E1', 'a'); w.write('E2', 'b');
+    assert.ok(!/disabled/.test(w.renderBar()));
+  });
+});
 
 describe('màn hình', () => {
   test('màn viết: mỗi câu một ô nhập, mang đúng qid', async () => {
@@ -357,6 +432,32 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
 
   test('bank chỉ có tự luận vào THẲNG màn tự luận', () => {
     assert.match(PAGE, /if \(!runner\.total && runner\.hasWriting\)/);
+  });
+});
+
+describe('dây nối bước xác nhận ở trang', () => {
+  // Chốt thật nằm trong module (`submit()` từ chối khi chưa xác nhận), nhưng
+  // nếu trang nối sai thì lỗi lại thành "bấm mãi không nộp được" — im lặng và
+  // tệ ngang. Ba nút, ba việc, và cả ba phải có mặt.
+  test('cw-submit MỞ bước xác nhận, không nộp thẳng', () => {
+    assert.match(PAGE, /t\.id === 'cw-submit'\) return onWritingArm\(\)/);
+  });
+
+  test('cw-cancel về bước một, cw-confirm mới gọi lượt nộp', () => {
+    assert.match(PAGE, /t\.id === 'cw-cancel'\) \{ writing\.disarm\(\);/);
+    assert.match(PAGE, /t\.id === 'cw-confirm'\) return void onWritingSubmit\(\)/);
+  });
+
+  test('vẽ lại CẢ thanh nộp, không riêng dòng chữ', () => {
+    // Nút và trạng thái tắt/bật nằm cùng một khối do module dựng; vá riêng dòng
+    // chữ là để nút nói một đằng, trạng thái một nẻo.
+    const i = PAGE.indexOf('function syncWritingNote');
+    assert.match(PAGE.slice(i, i + 300), /writing\.renderBar\(\)/);
+  });
+
+  test('con trỏ về nút AN TOÀN sau khi mở bước xác nhận', () => {
+    const i = PAGE.indexOf('function onWritingArm');
+    assert.match(PAGE.slice(i, i + 900), /cw-cancel'\)[\s\S]{0,60}\.focus\(\)/);
   });
 });
 
@@ -588,7 +689,9 @@ describe('bộ chấm hỏng khi nộp', () => {
   // Mã câu phải là mã THẬT của bộ giả (`E1`/`E2`). Viết vào một mã không tồn
   // tại thì `submit()` thoát sớm vì "thiếu câu" và chốt chẳng gọi tới mạng —
   // xanh mà không kiểm gì.
-  const fill = (w) => { w.write('E1', 'câu một'); w.write('E2', 'câu hai'); };
+  // `arm()` liền sau khi viết: bước xác nhận là chuyện của luồng bấm nút, còn
+  // các ca dưới đây nói về chuyện xảy ra SAU khi đã xác nhận.
+  const fill = (w) => { w.write('E1', 'câu một'); w.write('E2', 'câu hai'); w.arm(); };
   const draftKeys = (storage) =>
     [...storage._m.entries()].filter(([k]) => k.startsWith('cw:'));
   const boom = () => {
