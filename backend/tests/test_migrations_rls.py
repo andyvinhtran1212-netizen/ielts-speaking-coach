@@ -60,7 +60,12 @@ def test_migration_197_ton_tai_va_quet_moi_bang():
     assert "relrowsecurity" in body, "phải quét theo `pg_class`, không liệt kê tay"
     # Bảng phân mảnh CHA mang `relkind='p'`. Bật RLS cho mảnh con không che được
     # truy vấn đi qua bảng cha, nên thiếu 'p' là để hở đúng đường người ta query.
-    assert re.search(r"relkind\s+IN\s*\(\s*'r'\s*,\s*'p'\s*\)", body), (
+    # `re.I` VÀ bỏ chú thích — phải đi cùng nhau. SQL không phân biệt hoa thường
+    # nên `in ('r','p')` là hợp lệ và không được đỏ oan; nhưng phần chú thích đầu
+    # migration CŨNG chứa đúng chuỗi đó (câu psql mẫu), nên thêm `re.I` mà quên bỏ
+    # chú thích thì khẳng định khớp CHÚ THÍCH và thành xanh-rỗng (codex #978 vòng 2).
+    assert re.search(r"relkind\s+IN\s*\(\s*'r'\s*,\s*'p'\s*\)",
+                     _strip_sql_comments(body), re.I), (
         "migration 197 phải phủ CẢ `relkind='r'` (bảng thường) lẫn `'p'` "
         "(bảng phân mảnh cha)")
 
