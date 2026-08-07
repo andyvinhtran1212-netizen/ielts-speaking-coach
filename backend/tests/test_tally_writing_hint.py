@@ -169,7 +169,34 @@ def test_the_backfill_still_skips_the_row_afterwards():
     """Điền bù xong phải `continue`: rơi xuống nhánh chốt sổ bên dưới là gọi
     `mark_item_submitted` cho một dòng đã chốt — vô hại nhưng là một lượt ghi
     thừa cho mỗi lần giáo viên mở bảng."""
+    # Cắt theo MỐC THẬT, không theo độ dài: khối này dài ra sau mỗi vòng review,
+    # và một cửa sổ đếm ký tự sẽ cắt cụt rồi báo đỏ oan (đã xảy ra ở vòng 3).
+    #
+    # Và bỏ CHÚ THÍCH trước khi tìm mốc: chính đoạn chú thích của khối có nhắc
+    # `mark_item_submitted` để giải thích vì sao không dùng được nó, nên lát cắt
+    # dừng ngay ở đó và mọi khẳng định bên dưới nói về một khối cụt. Đây là lần
+    # thứ NĂM trong ngày một chốt soi chữ nói về lời kể thay vì về mã.
+    code = "\n".join(l for l in _src().splitlines()
+                     if not l.lstrip().startswith("#"))
+    i = code.index("if it.get(\"score\") is None:")
+    blk = code[i:code.index("mark_item_submitted", i)]
+    assert "\n                continue" in blk, \
+        "điền bù xong không `continue` — rơi xuống nhánh chốt sổ của dòng đã chốt"
+
+
+def test_the_backfill_mirror_follows_the_LEDGER_not_the_intent():
+    """Ghi có điều kiện mà chép kết quả vô điều kiện là tự dựng lại chỗ lệch.
+
+    `course_verdict` điền ô ấy giữa lúc đọc và lúc ghi ⇒ `.is_("score","null")`
+    khớp 0 dòng (đúng), nhưng bản trong bộ nhớ vẫn mang `pct` ⇒ bảng hiện điểm
+    BÀI VIẾT trong khi sổ giữ điểm TRẮC NGHIỆM, lệch nhau tới khi tải lại trang
+    (codex #994 vòng 3).
+    """
     src = _src()
     i = src.index("ĐIỀN BÙ")
-    blk = src[i:i + 1500]
-    assert blk.rstrip().endswith("continue") or "\n                continue" in blk
+    blk = src[i:i + 2000]
+    assert "if res.data:" in blk, "chép kết quả vô điều kiện"
+    assert 'select("score")' in blk, "không thắng thì phải hỏi lại sổ"
+    j = blk.index("if res.data:")
+    assert blk.count('it["score"] = pct') == 1 and blk.index('it["score"] = pct') > j, \
+        "vẫn còn một chỗ gán `pct` ngoài nhánh thắng"

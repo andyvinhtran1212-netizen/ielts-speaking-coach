@@ -1183,10 +1183,23 @@ async def assignment_tally(
                                                clean=w.get("clean"), total=w.get("total"))
                     if pct is not None:
                         try:
-                            (supabase_admin.table("class_assignment_items")
-                             .update({"score": pct}).eq("id", it["id"])
-                             .is_("score", "null").execute())
-                            it["score"] = pct
+                            res = (supabase_admin.table("class_assignment_items")
+                                   .update({"score": pct}).eq("id", it["id"])
+                                   .is_("score", "null").execute())
+                            if res.data:
+                                it["score"] = pct
+                            else:
+                                # Lượt ghi KHÔNG thắng: `course_verdict` đã điền
+                                # ô ấy giữa lúc đọc và lúc ghi. Chép `pct` vào
+                                # bản trong bộ nhớ khi ấy là bảng nói điểm bài
+                                # viết trong khi sổ giữ điểm trắc nghiệm — hai
+                                # thứ lệch nhau cho tới khi tải lại trang
+                                # (codex #994 vòng 3). Hỏi lại sổ.
+                                back = (supabase_admin.table("class_assignment_items")
+                                        .select("score").eq("id", it["id"])
+                                        .limit(1).execute().data) or []
+                                if back:
+                                    it["score"] = back[0].get("score")
                         except Exception as exc:  # noqa: BLE001
                             stale = True
                             logger.warning("[class] điền bù điểm tự luận hỏng "
