@@ -289,7 +289,29 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // bằng tab mới; không lần nào chạm tới trang này.
     assert.doesNotMatch(fn, /if \(!sid \|\| _work\.by\[sid\]/,
       'dùng lại kho cũ là để nó sai vô thời hạn');
-    assert.match(fn, /_work\.loading\[sid\]/, 'vẫn phải gộp lượt ĐANG BAY');
+  });
+
+  test('MỘT số thế hệ làm chủ cả gộp-lượt lẫn vô-hiệu-hoá', () => {
+    // Ba vòng review liên tiếp bắt cùng một họ lỗi ở `loadStudentWork` — số
+    // lượt toàn cục gây kẹt, HTML không vẽ lại, lượt đang bay ghi đè bản
+    // trước-khi-đổi. Đó là một lỗi THIẾT KẾ: ba cờ rời không biết gì về nhau,
+    // nên mỗi lần vá lại hở một khe mới (codex #989 vòng 2, 3, 4).
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function loadStudentWork'),
+                                  SRC.indexOf('function refreshDrawerWork')));
+    // Chụp thế hệ lúc bắt đầu…
+    assert.match(fn, /const epoch = _work\.epoch/);
+    // …gộp trong CÙNG thế hệ, không gộp xuyên thế hệ: một lượt bắt đầu trước
+    // khi dữ liệu đổi không được chặn lượt đọc lại sau khi đổi.
+    assert.match(fn, /_work\.inflight\[sid\] === epoch\) return/);
+    // …và chỉ GHI được nếu thế hệ ấy còn hiện tại. Cả nhánh thành công lẫn
+    // nhánh lỗi: một lỗi cũ ghi đè cũng là ghi đè.
+    assert.equal((fn.match(/epoch !== _work\.epoch\) return/g) || []).length, 2,
+      'phải chặn cả nhánh thành công lẫn nhánh lỗi');
+
+    // Mọi đường làm dữ liệu cũ đi đều phải TĂNG thế hệ, không chỉ xoá kho.
+    const inv = codeOnly(SRC.slice(SRC.indexOf('function invalidateProgress'),
+                                   SRC.indexOf('async function loadProgress')));
+    assert.match(inv, /_work\.epoch \+= 1/);
   });
 
   test('màn bài tự luận chặn ĐUA ở chính chỗ ghi, không chỉ ở nơi gọi', () => {
@@ -480,6 +502,71 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     const sp = codeOnly(SRC.slice(SRC.indexOf('function showPanel'),
                                   SRC.indexOf('function showPanel') + 1400));
     assert.match(sp, /name === 'roster'[\s\S]{0,60}refreshDrawerWork\(\)/);
+  });
+
+  // CHẠY cuộc đua thật, không soi chữ nó. Chốt soi chữ chứng minh hình dạng của
+  // mã; cái sai ở đây là THỨ TỰ THỜI GIAN, mà thứ tự thời gian không nhìn thấy
+  // được trong một tệp nguồn.
+  function workHarness(fetchImpl) {
+    const start = SRC.indexOf('const _work = {');
+    const end = SRC.indexOf('function refreshDrawerWork');
+    assert.ok(start !== -1 && end > start, 'không cắt được khối bài-của-một-em');
+    const box = { innerHTML: '' };
+    const esc = (s) => String(s == null ? '' : s);
+    const h = new Function('esc', 'SKILL_LABEL', 'api', '$', '_cohortId', '_who', `
+      let _picked = null;
+      ${SRC.slice(start, end)}
+      return { loadStudentWork, _work, renderWork,
+               pick: (v) => { _picked = v; } };
+    `)(esc, { course: 'bài' }, { get: fetchImpl }, () => box, 'co-1',
+       { members: [{ student_id: 'st-1', name: 'An' }] });
+    h.box = box;
+    return h;
+  }
+
+  test('lượt đọc bắt đầu TRƯỚC khi dữ liệu đổi không ghi đè được', async () => {
+    // Ca của codex #989 vòng 4: giữ lượt đọc đầu, đổi dữ liệu (giao/đóng một
+    // bài), rồi thả lượt cũ ra. Nếu nó ghi được thì ngăn kéo hiện ảnh chụp
+    // TRƯỚC khi đổi, mâu thuẫn với chính nó sau một lần tải lại trang.
+    let release;
+    const held = new Promise((r) => { release = r; });
+    let call = 0;
+    const h = workHarness(async () => {
+      call += 1;
+      if (call === 1) { await held; return { items: [{ assignment_id: 'CŨ', title: 'CŨ' }] }; }
+      return { items: [{ assignment_id: 'MỚI', title: 'MỚI' }] };
+    });
+    h.pick('st-1');
+
+    const first = h.loadStudentWork('st-1');   // lượt 1, đang bị giữ
+    h._work.epoch += 1;                        // dữ liệu đổi giữa chừng
+    await h.loadStudentWork('st-1');           // lượt 2, về ngay
+    assert.equal(h._work.by['st-1'].items[0].assignment_id, 'MỚI');
+
+    release();
+    await first;
+    assert.equal(h._work.by['st-1'].items[0].assignment_id, 'MỚI',
+      'lượt cũ đã ghi đè bản sau-khi-đổi');
+    assert.equal(call, 2, 'lượt đang bay của thế hệ cũ đã CHẶN lượt đọc lại');
+  });
+
+  test('An → Bình → An không để An mắc "Đang tải…" vĩnh viễn', async () => {
+    // Ca của vòng 2, nay chạy thật chứ không chỉ ghim tên biến.
+    let release;
+    const held = new Promise((r) => { release = r; });
+    let calls = 0;
+    const h = workHarness(async () => {
+      calls += 1;
+      if (calls === 1) await held;
+      return { items: [{ assignment_id: 'a1', title: 'B' }] };
+    });
+    h.pick('st-1');
+    const first = h.loadStudentWork('st-1');
+    h.pick('st-2');                            // sang Bình
+    h.pick('st-1');                            // rồi về An
+    release();
+    await first;
+    assert.ok(h._work.by['st-1'], 'An không bao giờ nhận được dữ liệu');
   });
 
   // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────

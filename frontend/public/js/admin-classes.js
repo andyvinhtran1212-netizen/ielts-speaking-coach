@@ -524,7 +524,21 @@ function renderDrawer() {
 // (trang phiên Speaking, tab "Bài từng em", màn bài tự luận); dựng bản vẽ thứ
 // hai ở đây là dựng chỗ để trôi khỏi bản gốc. Ngăn kéo chỉ đưa giáo viên TỚI
 // đúng chỗ ấy.
-const _work = { by: {}, loading: {}, error: {} };
+// MỘT SỐ THẾ HỆ, không phải ba cờ rời.
+//
+// Ba vòng review liên tiếp bắt cùng một họ lỗi ở đây — số lượt toàn cục gây
+// kẹt, HTML không vẽ lại, lượt đang bay ghi đè bản trước-khi-đổi. Đó không
+// phải ba lỗi rời mà là một lỗi thiết kế: tôi tự dựng bộ nhớ đệm, gộp-lượt và
+// vô-hiệu-hoá bằng ba cờ không biết gì về nhau, nên mỗi lần vá lại hở một khe
+// mới (codex #989 vòng 2, 3, 4).
+//
+// Nay một quy tắc: mỗi lượt đọc chụp `epoch` lúc bắt đầu và CHỈ GHI được nếu
+// `epoch` ấy còn là hiện tại. Mọi thay đổi dữ liệu tăng `epoch` lên một.
+//   · lượt cũ về sau khi dữ liệu đã đổi → không ghi được, tự rụng
+//   · `inflight[sid]` giữ epoch của lượt đang bay, nên một lượt của epoch cũ
+//     KHÔNG chặn được lượt mới — đúng khe mà bản trước để hở
+//   · trong cùng một epoch thì vẫn gộp, không gọi mạng hai lần
+const _work = { by: {}, inflight: {}, error: {}, epoch: 0 };
 
 /** Trạng thái một lượt nộp — CÙNG bộ chữ với bảng tổng kết. */
 const WORK_STATUS = {
@@ -613,32 +627,31 @@ function workOpen(it) {
  * cái bẫy đã vá ở `openOneReport`.
  */
 async function loadStudentWork(sid) {
-  // Chỉ gộp lượt ĐANG BAY, không dùng lại kết quả cũ. Bộ nhớ đệm không có tuổi
-  // thì nó sai vô thời hạn: em ấy nộp bài ở tab khác, hạn trôi qua biến "chưa
-  // nộp" thành "không nộp", giáo viên chấm ở trang phiên mở bằng tab mới —
-  // không lần nào trong số đó chạm tới trang này (codex cục bộ 07/08).
-  //
-  // Bản cũ vẫn hiện trong lúc đọc lại, nên không chớp về "Đang tải…".
-  if (!sid || _work.loading[sid]) return;
-  _work.loading[sid] = true;
+  if (!sid) return;
+  const epoch = _work.epoch;
+  // Gộp trong CÙNG epoch, không gộp xuyên epoch: một lượt bắt đầu trước khi dữ
+  // liệu đổi không được phép chặn lượt đọc lại sau khi đổi.
+  if (_work.inflight[sid] === epoch) return;
+  _work.inflight[sid] = epoch;
   delete _work.error[sid];
   try {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/students/' + encodeURIComponent(sid) + '/work');
+    // Dữ liệu đã đổi trong lúc đọc ⇒ bản này là ảnh chụp TRƯỚC khi đổi. Rụng
+    // nó đi; lượt của epoch mới đang bay hoặc sắp bay.
+    if (epoch !== _work.epoch) return;
     _work.by[sid] = { items: d.items || [], homework_stale: !!d.homework_stale };
     delete _work.error[sid];
   } catch (err) {
+    if (epoch !== _work.epoch) return;
     _work.error[sid] = err.message || String(err);
   } finally {
-    delete _work.loading[sid];
+    if (_work.inflight[sid] === epoch) delete _work.inflight[sid];
   }
-  // Điều kiện DUY NHẤT: em đang chọn vẫn là em này.
-  //
-  // Trước đây có thêm một số lượt toàn cục, và nó vừa thừa vừa gây kẹt: kho
-  // lưu theo TỪNG EM nên không có chuyện bài em này ghi đè ngăn kéo em kia.
-  // Còn An → Bình → An thì lượt của An mang số cũ hơn, không vẽ được, trong
-  // khi chốt `loading` đã chặn lượt thứ hai — ngăn kéo của An mắc "Đang tải…"
-  // vĩnh viễn (codex cục bộ 07/08).
+  // Vẽ khi em đang chọn vẫn là em này. Kho lưu theo TỪNG EM nên không cần thêm
+  // số lượt nào nữa — và một số lượt toàn cục ở đây từng gây kẹt: An → Bình →
+  // An thì lượt của An mang số cũ hơn nên không vẽ được, trong khi chốt gộp đã
+  // chặn lượt thứ hai (codex #989 vòng 2).
   if (_picked === sid) {
     const box = $('drawer-work');
     const m = (_who.members || []).find((x) => x.student_id === sid);
@@ -2658,8 +2671,12 @@ function invalidateProgress() {
   // được giao gì" — cùng loại lỗi với hai dòng trên, ở một chỗ mới.
   _work.by = {};
   _work.error = {};
-  // Và VẼ LẠI ngay, không chỉ xoá kho: phần HTML đã vẽ đứng nguyên trên màn
-  // hình cho tới khi giáo viên đóng em ấy ra mở lại.
+  // TĂNG THẾ HỆ, không chỉ xoá kho. Một lượt đọc bắt đầu trước lúc này đang bay
+  // và sẽ về sau — nó mang ảnh chụp TRƯỚC khi đổi, và nếu chỉ xoá kho thì nó
+  // ghi đè bản trước-khi-đổi ấy vào chỗ vừa dọn (codex #989 vòng 4).
+  _work.epoch += 1;
+  // Và VẼ LẠI ngay: phần HTML đã vẽ đứng nguyên trên màn hình cho tới khi giáo
+  // viên đóng em ấy ra mở lại.
   refreshDrawerWork();
   // Ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau. Điều kiện cũ hỏi
   // `panel-progress` có hiện không — sau khi Tiến độ thành ống kính thì câu hỏi
@@ -3050,6 +3067,8 @@ function bindDetail() {
     drawer.addEventListener('click', (e) => {
       const retry = e.target.closest('button[data-work-retry]');
       if (retry) {
+        // Tăng thế hệ để lượt hỏng (nếu còn đang bay) không ghi đè lượt mới.
+        _work.epoch += 1;
         delete _work.error[retry.dataset.workRetry];
         renderDrawer();
         loadStudentWork(retry.dataset.workRetry);
