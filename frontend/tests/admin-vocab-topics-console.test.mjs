@@ -84,7 +84,13 @@ describe('Pha 4 — grammar exercises wiring', () => {
 });
 
 describe('Pha 5a — analytics + progress', () => {
-  const progress = readFileSync(path.join(ROOT, 'frontend/pages/quiz-progress.html'), 'utf8');
+  // Logic của trang đã TÁCH sang `/js/quiz-progress.js` khi port sang Next: bản
+  // Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định ở đây là
+  // "nguồn trang có chứa X", nên nguồn trang nay = HTML + module của nó. Gộp
+  // giữ ĐÚNG ý định cũ; ở tệp này không có khẳng định nào phụ thuộc THỨ TỰ
+  // trong HTML (đã kiểm), nên gộp là an toàn.
+  const progress = readFileSync(path.join(ROOT, 'frontend/pages/quiz-progress.html'), 'utf8')
+    + '\n' + readFileSync(path.join(ROOT, 'frontend/public/js/quiz-progress.js'), 'utf8');
   const player = readFileSync(path.join(ROOT, 'frontend/pages/quiz.html'), 'utf8');
   test('topic console loads per-bank analytics ("từ dễ sai")', () => {
     assert.match(html, /data-stats=/);
