@@ -372,6 +372,11 @@ async function main() {
         allow: p.allow || [],
         // Cặp nào cố ý trỏ vào route lỗi thì phải KHAI ra, không mặc định.
         ...(p.expectStatus === undefined ? {} : { expectStatus: p.expectStatus }),
+        // Sàn `baseline-suspect` cũng phải KHAI theo cặp, không nới mặc định:
+        // chốt đó tồn tại để phân biệt "hai bên giống nhau" với "cả hai bên cùng
+        // hỏng", và hạ sàn cho TẤT CẢ là tự tay tháo nó. Cặp nào có trạng thái
+        // rỗng hợp lệ ngắn hơn 5 dòng thì nói ra, kèm lý do trong tài liệu.
+        ...(p.minBaselineLines === undefined ? {} : { minBaselineLines: p.minBaselineLines }),
       });
       // Đưa danh sách ghi-bị-chặn vào báo cáo: "công cụ đo không ghi" phải là
       // thứ KIỂM ĐƯỢC, không phải lời hứa trong bình luận.
