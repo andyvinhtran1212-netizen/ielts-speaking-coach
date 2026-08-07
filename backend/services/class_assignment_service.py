@@ -402,6 +402,124 @@ def mark_item_submitted(
     return bool(r.data)
 
 
+class ReturnNotPossible(Exception):
+    """Trả bài KHÔNG làm được, và lý do phải nói ra thành lời.
+
+    Mọi ca ở đây đều là "làm thì hỏng chuyện", không phải "hệ thống lỗi" — nên
+    chúng thành 4xx kèm nguyên câu, chứ không phải một 500 nuốt lý do.
+    """
+
+
+# Loại bài nộp mà trả bài GIỮ ĐƯỢC. Danh sách này ngắn có lý do, không phải vì
+# chưa làm nốt:
+#
+# Sổ cái tự vá lại từ bằng chứng bền — `assignment_tally` và
+# `reconcile_course_items` (bài theo buổi), `reconcile_ledger_from_sessions`
+# (Speaking), `reconcile_test_attempts` (Reading/Listening) đều tìm "mục chưa
+# nộp mà đã có bằng chứng" rồi đóng dấu lại. Trả bài mà không gỡ được bằng chứng
+# thì lần đầu có người mở trang là mục đóng lại, trong vài giây, không một lời
+# báo — một cái nút nói dối.
+#
+# Bài TỰ LUẬN theo buổi gỡ được: bằng chứng là MỘT dòng, và gỡ nó khỏi mục
+# (`class_assignment_item_id` = NULL) vẫn giữ nguyên bài em ấy viết để tra lại.
+# Speaking/Reading/Listening thì bằng chứng là chính phiên làm bài; gỡ chúng là
+# xoá bài em ấy đã làm khỏi mọi mặt đọc, nên đường ấy cần một thiết kế riêng chứ
+# không phải một dòng thêm vào danh sách này.
+_RETURNABLE_KINDS = {"course_writing"}
+
+
+def return_item_to_student(
+    db,
+    *,
+    item_id: str,
+    clear_score: bool,
+    now: Optional[datetime] = None,
+) -> dict:
+    """Trả một mục bài giao về cho học viên làm tiếp. Ném `ReturnNotPossible`.
+
+    Đây là đường ngược của `mark_item_submitted`, và nó phải gỡ ĐÚNG những gì
+    lượt nộp đã đặt vào — không hơn:
+
+      · `submitted_at`, `state`, `artifact_kind`, `artifact_id` → về trạng thái
+        chưa nộp;
+      · `score` chỉ xoá khi CHÍNH lượt nộp ấy ghi nó (`clear_score`, tính bằng
+        `course_hand_in_score` ở nơi gọi). Bộ đề có trắc nghiệm thì điểm của mục
+        là kết quả trắc nghiệm do `course_verdict` ghi — xoá nó ở đây là xoá
+        đúng thứ em ấy đã làm được;
+      · `mastery` KHÔNG đụng: sổ các lượt làm là lịch sử, không phải một lượt
+        nộp.
+
+    THỨ TỰ CÓ CHỦ Ý: dọn sổ TRƯỚC, gỡ bằng chứng SAU. Gỡ trước mà dọn sổ hỏng
+    thì còn lại một mục vẫn mang dấu đã-nộp trỏ vào hư không. Làm ngược lại,
+    lượt vá sổ kế tiếp đóng dấu lại bằng CHÍNH `graded_at` cũ — trạng thái quay
+    về đúng như trước khi bấm, và giáo viên bấm lại được.
+    """
+    rows = (db.table("class_assignment_items")
+            .select("id, state, submitted_at, artifact_kind, artifact_id, opened_at")
+            .eq("id", item_id).limit(1).execute().data) or []
+    if not rows:
+        raise ReturnNotPossible("Không tìm thấy mục bài giao này.")
+    item = rows[0]
+
+    # Chép ra biến TRƯỚC lượt ghi. Lượt ghi bên dưới xoá chính ba ô này khỏi
+    # dòng, và đọc lại chúng từ `item` sau đó là đọc một dòng đã bị dọn — dựa
+    # vào việc client trả về một bản sao là dựa vào chi tiết cài đặt của thư viện.
+    was_submitted_at = item.get("submitted_at")
+    kind = item.get("artifact_kind")
+    artifact_id = item.get("artifact_id")
+
+    if not was_submitted_at:
+        raise ReturnNotPossible("Em này chưa nộp — không có gì để trả.")
+    if kind not in _RETURNABLE_KINDS:
+        raise ReturnNotPossible(
+            f"Chưa trả được bài dạng “{kind or 'không rõ'}”. Sổ lớp tự dựng lại "
+            "lượt nộp ấy từ chính phiên làm bài, nên trả xong nó sẽ tự đóng lại.")
+
+    patch: Dict[str, Any] = {
+        # 'opened' chứ không 'assigned': em ấy ĐÃ mở bài. Và ràng buộc
+        # `class_assignment_items_submitted_at_required` cấm giữ 'graded' khi
+        # `submitted_at` trống.
+        "state": "opened" if item.get("opened_at") else "assigned",
+        "submitted_at": None,
+        "artifact_kind": None,
+        "artifact_id": None,
+        "updated_at": (now or datetime.now(timezone.utc)).isoformat(),
+    }
+    if clear_score:
+        patch["score"] = None
+
+    # SO SÁNH RỒI ĐỔI trên chính dấu nộp vừa đọc: giữa lúc đọc và lúc ghi, một
+    # lượt vá sổ (hay một giáo viên khác) có thể đã đổi dòng này. 0 dòng nghĩa là
+    # tiền đề sai, và đúng lúc ấy phải dừng chứ không ghi tiếp.
+    res = (db.table("class_assignment_items").update(patch)
+           .eq("id", item_id).eq("submitted_at", was_submitted_at)
+           .execute())
+    if not (res.data or []):
+        raise ReturnNotPossible(
+            "Mục này vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.")
+
+    # GỠ bằng chứng khỏi mục — KHÔNG xoá dòng. Bài em ấy viết và bản chấm còn
+    # nguyên để tra lại; ràng buộc "một lượt mỗi mục" chỉ tính dòng CÓ mục nên
+    # lượt nộp mới không va vào nó.
+    detached = (db.table("course_writing_submissions")
+                .update({"class_assignment_item_id": None})
+                .eq("id", artifact_id)
+                .eq("class_assignment_item_id", item_id)
+                .execute())
+    if not (detached.data or []):
+        # Sổ đã dọn nhưng bằng chứng còn gắn: lượt vá sổ kế tiếp sẽ đóng dấu lại
+        # bằng `graded_at` cũ, tức là quay về đúng trạng thái trước khi bấm. Nói
+        # thẳng là chưa trả được, đừng báo xong.
+        raise ReturnNotPossible(
+            "Không gỡ được bài đã nộp khỏi mục — chưa trả bài. Tải lại bảng "
+            "rồi thử lại.")
+
+    logger.info("[class] trả bài item=%s kind=%s artifact=%s clear_score=%s",
+                item_id, kind, artifact_id, clear_score)
+    return {"item_id": item_id, "artifact_kind": kind,
+            "artifact_id": artifact_id, "score_cleared": clear_score}
+
+
 class SubsetNeedsStudentsError(Exception):
     """Bù người nhận cho một bài giao-theo-nhóm mà không nêu ai — 400, không 500.
 

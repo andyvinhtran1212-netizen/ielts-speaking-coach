@@ -1294,12 +1294,22 @@ async function openStudentWriting(assignmentId, studentId) {
       + '/assignments/' + encodeURIComponent(assignmentId)
       + '/writing/' + encodeURIComponent(studentId));
     if (gen !== _mkGen) return;
+    // Nút TRẢ BÀI chỉ hiện khi CÓ bài để trả. Một nút mờ cạnh chỗ trống nói
+    // rằng ở đây có việc làm được, trong khi không.
+    const canReturn = !!(d && d.submission);
     body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
-      + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
+      + '← Về bảng tổng kết</button>'
+      + (canReturn
+          ? ' <button class="adm-btn-secondary" type="button" id="cw-return">'
+            + 'Trả bài cho em làm lại</button>'
+          : '')
+      + renderStudentWriting(d);
     const b = $('cw-back');
     if (b) {
       b.onclick = () => { body.innerHTML = back; };
     }
+    const r = $('cw-return');
+    if (r) r.onclick = () => returnStudentWork(assignmentId, studentId);
   } catch (err) {
     if (gen !== _mkGen) return;
     // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
@@ -1307,6 +1317,38 @@ async function openStudentWriting(assignmentId, studentId) {
     body.innerHTML = '<p class="adm-banner">Không đọc được bài tự luận: '
       + esc(err.message || String(err)) + '</p>';
   }
+}
+
+/**
+ * TRẢ BÀI — mở lại một mục đã nộp để em ấy làm tiếp.
+ *
+ * Hỏi trước, vì nó vứt lượt nộp hiện tại khỏi sổ (bài viết và bản chấm vẫn còn
+ * trong kho, nhưng bảng tổng kết sẽ đọc là "chưa nộp"). Sau khi ghi thì ĐỌC LẠI
+ * bảng từ máy chủ, không tự sửa dòng đang cầm trên tay: máy chủ có thể đã từ
+ * chối một phần, và một bảng tự vẽ theo ý mình là một bảng nói dối.
+ */
+function returnStudentWork(assignmentId, studentId) {
+  window.confirmDanger({
+    title: 'Trả bài cho em làm lại?',
+    body: 'Lượt nộp hiện tại sẽ không còn tính là đã nộp, và em ấy viết lại được '
+      + 'từ chính bản nháp cũ. Bài đã viết vẫn được giữ để tra lại. '
+      + 'Chỉ trả được khi bài giao còn hạn nhận bài.',
+    confirmLabel: 'Trả bài',
+    onConfirm: async () => {
+      try {
+        await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId)
+          + '/assignments/' + encodeURIComponent(assignmentId)
+          + '/return/' + encodeURIComponent(studentId), {});
+      } catch (err) {
+        // Nguyên câu của máy chủ: nó nói rõ PHẢI LÀM GÌ (dời hạn trước, tải lại
+        // bảng). Đắp một câu chung chung lên trên là lấy mất chỉ dẫn ấy.
+        toast('Chưa trả được bài: ' + (err.message || String(err)), 'error');
+        return;
+      }
+      toast('Đã trả bài. Em ấy làm tiếp được ngay.');
+      openTally(assignmentId);
+    },
+  });
 }
 
 let _tallyAsg = null;

@@ -40,10 +40,13 @@ from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
     AssignmentNotFoundError,
+    ReturnNotPossible,
     SubsetNeedsStudentsError,
     backfill_assignment_items,
     create_class_assignment,
+    is_accepting_submissions,
     mark_item_submitted,
+    return_item_to_student,
     _ID_CHUNK,
     _at,
     _paged,
@@ -1367,6 +1370,87 @@ async def student_course_writing(
         # chuyện ấy bằng hai câu khác nhau.
         "submission": (subs[0] if subs else None),
     }
+
+
+@router.post("/{cohort_id}/assignments/{assignment_id}/return/{student_id}")
+async def return_student_work(
+    cohort_id: str,
+    assignment_id: str,
+    student_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """TRẢ BÀI: mở lại một mục đã nộp để học viên làm tiếp.
+
+    ── Vì sao có đường này ──────────────────────────────────────────────────
+    Ngày 07/08 em Lê Ngọc Hà Linh lưu nháp lúc 08:22:02 và nộp lúc 08:22:06.
+    Bốn giây — một cú bấm nhầm. Phần tự luận chỉ nộp được MỘT lần, và trong sản
+    phẩm không có đường lùi: phải chạy SQL tay trên máy chủ thật mới mở lại
+    được cho em ấy. Một việc sư phạm bình thường không nên cần tới đó.
+
+    ── Ba chốt, và cả ba đều từ chối thành LỜI ─────────────────────────────
+    · Quá hạn thì KHÔNG trả. `_assignment_item_for` đòi bài giao còn nhận bài,
+      nên trả bài sau hạn là mở ra một khung viết bấm Nộp sẽ ăn 404 — tệ hơn cả
+      không trả. Dời hạn trước đã.
+    · Dạng bài chưa gỡ được bằng chứng thì KHÔNG trả (`_RETURNABLE_KINDS`).
+    · Chưa nộp thì không có gì để trả.
+
+    Điểm chỉ xoá khi CHÍNH lượt nộp ấy ghi nó — cùng một luật với lúc chốt sổ
+    (`course_hand_in_score`). Bộ đề có trắc nghiệm thì điểm của mục là kết quả
+    trắc nghiệm; xoá nó ở đây là xoá đúng thứ em ấy đã làm được (#994).
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    rows = (supabase_admin.table("class_assignments")
+            .select("id, cohort_id, title, skill, content_id, status, due_at, publish_at")
+            .eq("id", assignment_id).limit(1).execute().data) or []
+    # Bài giao phải thuộc CHÍNH lớp trên đường dẫn — thiếu chốt này thì id của
+    # một lớp khác vẫn mở được qua đường của lớp mình.
+    if not rows or rows[0].get("cohort_id") != cohort_id:
+        raise HTTPException(404, "Không tìm thấy bài giao của lớp này")
+    asg = rows[0]
+
+    if not is_accepting_submissions(asg):
+        raise HTTPException(
+            409, "Bài giao đã quá hạn nhận bài. Dời hạn nộp trước, rồi mới trả "
+                 "bài được — trả bây giờ thì em ấy viết xong vẫn không nộp được.")
+
+    items = (supabase_admin.table("class_assignment_items")
+             .select("id, artifact_kind, artifact_id, submitted_at")
+             .eq("assignment_id", assignment_id).eq("student_id", student_id)
+             .limit(1).execute().data) or []
+    if not items:
+        raise HTTPException(404, "Học viên này không có mục trong bài giao")
+    item = items[0]
+
+    # Độ sạch bài viết của CHÍNH lượt nộp đang trả — để hỏi đúng một câu: lượt
+    # ấy có ghi vào cột điểm không. Đọc hỏng thì để `clear_score=False`: để lại
+    # một con số cũ còn hơn xoá mất kết quả trắc nghiệm.
+    clear_score = False
+    if item.get("artifact_kind") == "course_writing" and item.get("artifact_id"):
+        try:
+            subs = (supabase_admin.table("course_writing_submissions")
+                    .select("id, total, clean")
+                    .eq("id", item["artifact_id"]).limit(1).execute().data) or []
+            if subs:
+                clear_score = course_hand_in_score(
+                    has_mcq=bank_has_mcq(asg.get("content_id")),
+                    clean=subs[0].get("clean"), total=subs[0].get("total")) is not None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[class] trả bài: không đọc được lượt nộp item=%s: %s",
+                           item["id"], exc)
+
+    try:
+        out = return_item_to_student(
+            supabase_admin, item_id=item["id"], clear_score=clear_score)
+    except ReturnNotPossible as exc:
+        raise HTTPException(409, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi khi trả bài: {exc}")
+
+    logger.info("[class] admin trả bài lớp=%s bài giao=%s học viên=%s",
+                cohort_id, assignment_id, student_id)
+    return {"returned": True, **out}
 
 
 def _longest_missing_run(cells: list[dict]) -> int:
