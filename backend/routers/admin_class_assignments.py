@@ -31,7 +31,11 @@ from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
-from services.quiz_service import reconcile_course_items
+from services.quiz_service import (
+    bank_has_mcq,
+    course_hand_in_score,
+    reconcile_course_items,
+)
 from services.class_assignment_service import (
     CLASS_TZ,
     EmptyRosterError,
@@ -1130,6 +1134,13 @@ async def assignment_tally(
     writing_total, writing_ok = _course_writing_count(assignment.get("content_id"))
     if not writing_ok:
         stale = True
+    # Có câu TRẮC NGHIỆM không — quyết định điểm của mục là kết quả trắc nghiệm
+    # hay độ sạch bài viết (`course_hand_in_score`). Đọc một lần cho cả bảng.
+    # `bank_has_mcq` tự lo chiều an toàn khi đọc hỏng — `_course_bank_shape`
+    # KHÔNG ném, nên một `try/except` ở đây không bắt được gì (codex #994).
+    has_mcq = False
+    if assignment.get("skill") == "course":
+        has_mcq = bank_has_mcq(assignment.get("content_id"))
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1155,15 +1166,58 @@ async def assignment_tally(
         # Bản thân bài tự luận đã chấm LÀ bằng chứng của một lượt nộp.
         for it in items:
             w = writing_by_item.get(it["id"])
-            if not w or it.get("submitted_at"):
+            if not w:
+                continue
+            if it.get("submitted_at"):
+                # ĐIỀN BÙ. Đã chốt sổ nhưng ô điểm còn trống nghĩa là lượt chốt
+                # trước đó KHÔNG đọc được hình dạng bộ đề nên giữ điểm lại theo
+                # chiều an toàn. Với bộ đề chỉ-có-viết thì không có
+                # `course_verdict` nào sẽ điền, mà cả hai đường vá đều bỏ qua
+                # dòng đã có `submitted_at` — ô ấy trống VĨNH VIỄN, và cả trang
+                # học viên lẫn bảng giáo viên đọc đúng cột ấy (codex #994 vòng 2).
+                #
+                # `mark_item_submitted` không dùng được: nó chỉ ghi khi
+                # `submitted_at` còn trống. Ghi thẳng cột điểm.
+                if it.get("score") is None:
+                    pct = course_hand_in_score(has_mcq=has_mcq,
+                                               clean=w.get("clean"), total=w.get("total"))
+                    if pct is not None:
+                        try:
+                            res = (supabase_admin.table("class_assignment_items")
+                                   .update({"score": pct}).eq("id", it["id"])
+                                   .is_("score", "null").execute())
+                            if res.data:
+                                it["score"] = pct
+                            else:
+                                # Lượt ghi KHÔNG thắng: `course_verdict` đã điền
+                                # ô ấy giữa lúc đọc và lúc ghi. Chép `pct` vào
+                                # bản trong bộ nhớ khi ấy là bảng nói điểm bài
+                                # viết trong khi sổ giữ điểm trắc nghiệm — hai
+                                # thứ lệch nhau cho tới khi tải lại trang
+                                # (codex #994 vòng 3). Hỏi lại sổ.
+                                back = (supabase_admin.table("class_assignment_items")
+                                        .select("score").eq("id", it["id"])
+                                        .limit(1).execute().data) or []
+                                if back:
+                                    it["score"] = back[0].get("score")
+                        except Exception as exc:  # noqa: BLE001
+                            stale = True
+                            logger.warning("[class] điền bù điểm tự luận hỏng "
+                                           "item=%s: %s", it["id"], exc)
                 continue
             # Đóng dấu bằng GIỜ CHẤM của chính bản nộp, không phải giờ mở bảng:
             # lượt vá này chạy bất kỳ lúc nào giáo viên mở bảng, nên lấy "bây
             # giờ" sẽ ghi một bài nộp đúng hạn thành nộp TRỄ. Cùng lý do
             # `_record_class_hand_in` so với giờ phiên hoàn thành.
             when = _at(w.get("graded_at")) or datetime.now(timezone.utc)
-            pct = (round((w.get("clean") or 0) / w["total"] * 100, 1)
-                   if w.get("total") else None)
+            # MỘT luật cho cả hai đường chốt sổ. Đường kia là
+            # `reconcile_course_items`; hai chỗ tự tính độ sạch bài viết thành
+            # điểm của mục là hai chỗ để trôi khỏi nhau — và cái trôi ở đây xoá
+            # mất kết quả trắc nghiệm mà không kêu.
+            # `writing_total > 0` + `mcq_total > 0` là hình dạng bộ đề, đọc một
+            # lần cho cả bảng ở trên.
+            pct = course_hand_in_score(has_mcq=has_mcq,
+                                       clean=w.get("clean"), total=w.get("total"))
             try:
                 # `artifact_id` trỏ vào BẢN NỘP, không phải vào chính dòng mục —
                 # nó là thứ nói cho mọi mặt đọc biết phải mở cái gì.
