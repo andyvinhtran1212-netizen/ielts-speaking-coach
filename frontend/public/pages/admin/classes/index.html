@@ -248,16 +248,61 @@
        có đúng một vai: con số quan trọng nhất màn hình. */
     /* ── Bộ đổi ống kính ─────────────────────────────────────────────────
        KHÔNG phải tab: tab đổi MÀN HÌNH, ống kính đổi CỘT. */
-    .cl-lens { display: flex; gap: var(--av-space-1); margin-bottom: var(--av-space-4); }
-    .cl-lens button {
+    /* ── BA TẦNG ĐIỀU HƯỚNG, BA HÌNH DẠNG ────────────────────────────────
+       Đo được trên trang: CHÍN phần tử cùng mang lớp `.adm-subtab`, nằm ở ba
+       tầng lồng nhau — `Lớp/Học viên`, rồi `Sổ điểm danh/Buổi học/Bài tập/Nhận
+       bài`, rồi `Ai nộp/Chi tiết làm bài/Bài từng em`. Chúng trông giống hệt
+       nhau, nên nhìn vào không đọc được mình đang đứng ở tầng nào, và bấm nhầm
+       tầng là mất luôn chỗ đang xem.
+
+       Hình dạng mang NGHĨA, không mang độ sâu:
+
+         viên có viền  → đang ở KHU nào của admin        (tầng 1, giữ nguyên)
+         gạch chân     → đang xem PHẦN nào của lớp này   (tầng 2)
+         hộp ghép      → NHÌN thứ đang mở theo cách nào  (tầng 3 và ống kính)
+
+       Ống kính `Sĩ số / Tiến độ` và tầng 3 `Ai nộp / …` cùng trả lời một câu
+       hỏi — "đổi cách nhìn, không đổi chỗ đứng" — nên chúng dùng CHUNG một hình
+       dạng. Nếu chia theo độ sâu thì hai thứ cùng nghĩa lại trông khác nhau.
+
+       Tất cả bó trong `.cl-shell`: `.adm-subtabs` dùng chung với queue.html và
+       users/index.html, sửa luật gốc là sửa cả ba trang. */
+
+    /* Tầng 2 — gạch chân. */
+    .cl-shell .adm-subtabs[data-level="section"] { gap: var(--av-space-4); }
+    .cl-shell .adm-subtabs[data-level="section"] .adm-subtab {
+      background: transparent; border: 0; border-radius: 0;
+      border-bottom: 2px solid transparent;
+      padding: var(--av-space-2) var(--av-space-1);
+    }
+    .cl-shell .adm-subtabs[data-level="section"] .adm-subtab.is-active {
+      background: transparent; border-bottom-color: var(--av-primary);
+      color: var(--av-text-primary);
+    }
+
+    /* Tầng 3 + ống kính — hộp ghép trên nền chìm. */
+    .cl-shell .adm-subtabs[data-level="view"], .cl-lens {
+      display: inline-flex; gap: 2px; padding: 2px;
+      background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-md);
+    }
+    .cl-lens { margin-bottom: var(--av-space-4); }
+    .cl-shell .adm-subtabs[data-level="view"] .adm-subtab, .cl-lens button {
       font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
-      padding: var(--av-space-2) var(--av-space-4);
-      background: transparent; border: 0; border-bottom: 2px solid transparent;
+      padding: var(--av-space-1) var(--av-space-3);
+      background: transparent; border: 0;
+      border-radius: var(--av-radius-sm);
       color: var(--av-text-muted);
     }
+    /* Hai bộ dùng hai cách đánh dấu khác nhau — `.is-active` và
+       `aria-current="true"` — nên phải bắt CẢ HAI. Chỉ bắt một là một trong hai
+       bộ mất hẳn dấu "đang mở". */
+    .cl-shell .adm-subtabs[data-level="view"] .adm-subtab.is-active,
     .cl-lens button[aria-current="true"] {
+      background: var(--av-surface-card);
       color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
-      border-bottom-color: var(--av-primary);
+      box-shadow: var(--av-shadow-sm);
     }
 
     /* ── Ngăn kéo ────────────────────────────────────────────────────────
@@ -439,7 +484,19 @@
       width: 100%; min-width: 0; max-width: 360px; }
     .st-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .st-empty { padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    /* `nowrap`: ba nút xuống hai dòng là dòng bảng cao 104px, và 44 học viên
+       thành 4576px cuộn — một màn thấy 5 người. Ba nhãn tiếng Việt ngắn xếp
+       vừa một dòng; khung bảng đã tự cuộn ngang nếu thật sự không đủ. */
+    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+
+    /* Ô mục tiêu: con số trên, hạn dưới. Số dùng chữ đơn cách để "6.0 → 7.5"
+       của các hàng thẳng cột nhau. */
+    .goal-cell { white-space: nowrap; }
+    .st-goal { font-variant-numeric: tabular-nums; font-weight: var(--av-fw-semibold); }
+    .st-goal-date { display: block; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    /* Chưa đặt mục tiêu là CHƯA ĐẶT, không phải một số bằng không — để nó mờ
+       hơn chữ thường thì mắt lướt qua được cả cột. */
+    .st-none { color: var(--av-text-faint); }
     /* WF-1 bulk-assign bar + row-select checkbox column */
     .st-bulk-bar { display: flex; align-items: center; gap: var(--av-space-3);
       flex-wrap: wrap; margin: var(--av-space-3) 0;
@@ -591,7 +648,7 @@
 
       <div class="adm-banner" id="detail-banner" hidden></div>
 
-      <nav class="adm-subtabs" aria-label="Nội dung lớp">
+      <nav class="adm-subtabs" data-level="section" aria-label="Nội dung lớp">
         <!-- SỔ ĐIỂM DANH gộp `Sĩ số` + `Tiến độ`: cả hai đều là HÀNG HỌC VIÊN,
              chỉ khác phần cột. `Bài tập` và `Buổi học` ở lại riêng vì chúng là
              đối tượng KHÁC (bài giao, buổi học), không phải học viên — gộp
@@ -764,7 +821,7 @@
   </div>
 
   <div id="state-denied" class="st-denied hidden">
-    <h2>🔒 Admin Access Required</h2>
+    <h2>Trang này chỉ dành cho quản trị viên</h2>
     <a href="/home">← Quay lại trang chủ</a>
   </div>
 
@@ -772,11 +829,11 @@
     <div class="st-head">
       <div>
         <h1>Học viên</h1>
-        <p class="st-subtitle">Quản lý profile + theo dõi lịch sử bài viết</p>
+        <p class="st-subtitle">Hồ sơ học viên và lịch sử bài viết</p>
       </div>
       <div class="st-actions">
         <label class="adm-btn-secondary st-file-button">
-          📥 Import CSV
+          Nhập từ CSV
           <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
         </label>
         <button id="btn-new" class="adm-btn-primary">＋ Học viên mới</button>
@@ -805,14 +862,16 @@
             <th>Mã HV</th>
             <th>Họ tên</th>
             <th>Lớp</th>
+            <!-- MỘT cột cho cả "hiện tại → mục tiêu" và hạn đích. Ba cột riêng
+                 đo được trên prod là rỗng 44/44 — 237px không mang chữ nào,
+                 trong khi cột Họ tên chỉ có 155px. Ba trường ấy vẫn sửa được
+                 trong hộp thoại nên gộp chứ không xoá. -->
             <th>Mục tiêu</th>
-            <th>Hiện tại</th>
-            <th>Hạn đích</th>
             <th class="th-right">Thao tác</th>
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="8" class="st-empty">Đang tải…</td></tr>
+          <tr><td colspan="6" class="st-empty">Đang tải…</td></tr>
         </tbody>
       </table>
     </div>
@@ -839,14 +898,14 @@
       <div id="summary-noaccount" class="st-empty-note" hidden></div>
 
       <div class="st-drawer-actions">
-        <a id="summary-assign" class="adm-btn-primary" href="#">📝 Giao writing</a>
+        <a id="summary-assign" class="adm-btn-primary" href="#">Giao bài viết</a>
       </div>
 
       <h3 class="st-section-heading">Tiến độ (writing)</h3>
       <div class="st-stat-grid">
         <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
         <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Flagged</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Đã gắn cờ</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
         <div class="adm-card"><div class="adm-card-label">Avg band 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
       </div>
 
@@ -1180,7 +1239,7 @@
         <span class="cl-marking__sub" id="marking-sub"></span>
       </div>
 
-      <nav class="adm-subtabs" aria-label="Cách xem bài nộp">
+      <nav class="adm-subtabs" data-level="view" aria-label="Cách xem bài nộp">
         <button class="adm-subtab is-active" id="mtab-tally" type="button" aria-current="page">Ai nộp</button>
         <button class="adm-subtab" id="mtab-effort" type="button">Chi tiết làm bài</button>
         <button class="adm-subtab" id="mtab-one" type="button">Bài từng em</button>

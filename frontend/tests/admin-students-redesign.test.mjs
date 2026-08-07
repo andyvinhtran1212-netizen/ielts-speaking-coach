@@ -16,6 +16,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+// `html` là HTML NỐI với JS, nên nó không phân biệt được "chuỗi này ở trang" với
+// "chuỗi này trong mã". Vài khẳng định cần đúng một trong hai — ví dụ cắt lấy
+// thân một hàm — nên giữ thêm hai nguồn rời.
+let PAGE;
+let JS;
 
 // Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
 // back-link) bail when the page uses <aver-admin-chrome>. The chrome
@@ -24,10 +29,12 @@ const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admi
 
 let css;
 
-before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/classes/index.html'), 'utf8')
-    // GĐ 1b: khung bảng Học viên ở trang gộp, mã ở panel JS — nối lại để
-    // mọi khẳng định sẵn có giữ nguyên ý nghĩa.
-    + readFileSync(path.join(REPO_ROOT, 'frontend/js/admin-students-panel.js'), 'utf8');
+before(() => {
+  PAGE = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/classes/index.html'), 'utf8');
+  JS   = readFileSync(path.join(REPO_ROOT, 'frontend/js/admin-students-panel.js'), 'utf8');
+  // GĐ 1b: khung bảng Học viên ở trang gộp, mã ở panel JS — nối lại để
+  // mọi khẳng định sẵn có giữ nguyên ý nghĩa.
+  html = PAGE + JS;
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),     'utf8');
 });
 
@@ -99,7 +106,14 @@ describe('admin-students.html / table contract preserved', () => {
     assert.match(html, /<table\s+id=["']students-table["']\s+class=["']adm-table["']/);
   });
 
-  test('thead giữ đủ 7 cột, ĐÚNG thứ tự, và bằng TIẾNG VIỆT', () => {
+  test('thead 5 cột, ĐÚNG thứ tự, và bằng TIẾNG VIỆT', () => {
+    // Trước là 7 cột. Ba trong số đó — Mục tiêu, Hiện tại, Hạn đích — đo được
+    // trên prod là RỖNG 44/44 học viên: 237px bề ngang không mang một chữ nào,
+    // trong khi cột Họ tên chỉ có 155px. Chúng nay gộp thành MỘT cột "Mục tiêu"
+    // đọc là "hiện tại → đích" kèm hạn ở dòng dưới.
+    //
+    // Gộp chứ KHÔNG xoá: ba trường ấy sửa được trong hộp thoại và hiện trong
+    // ngăn kéo, nên xoá khỏi bảng là bịt đường đọc khi có dữ liệu.
     // GĐ 1b: the merged page has more than one table, and the class list comes
     // first — scope to the students table or this asserts the wrong thead.
     //
@@ -116,7 +130,61 @@ describe('admin-students.html / table contract preserved', () => {
       .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
       .filter(Boolean);
     assert.deepEqual(cols,
-      ['Mã HV', 'Họ tên', 'Lớp', 'Mục tiêu', 'Hiện tại', 'Hạn đích', 'Thao tác']);
+      ['Mã HV', 'Họ tên', 'Lớp', 'Mục tiêu', 'Thao tác']);
+  });
+
+  test('ô Mục tiêu gộp ba trường mà không nuốt mất trường nào', () => {
+    // Gộp cột dễ thành gộp DỮ LIỆU: một ô chỉ vẽ `target_band` là hai trường
+    // kia biến mất khỏi bảng vĩnh viễn mà không ai thấy — đúng loại hồi quy mà
+    // "bảng gọn hơn" che được.
+    const fn = JS.slice(JS.indexOf('function goalCell'), JS.indexOf('function renderRows'));
+    for (const f of ['target_band', 'current_band_estimate', 'target_date']) {
+      assert.ok(fn.includes(f), `ô gộp đánh rơi ${f}`);
+    }
+    // Chưa đặt gì thì MỘT dấu gạch. Ba dấu gạch cạnh nhau đọc ra là ba thứ đang
+    // hỏng, chứ không phải một mục tiêu chưa đặt.
+    assert.match(fn, /t == null && c == null && !d/);
+  });
+
+  test('cột Thao tác bỏ nút trùng và hết lẫn tiếng Anh', () => {
+    // "📊 Tổng quan" mang ĐÚNG `data-act="summary"` với đúng bộ dữ liệu như nút
+    // tên ngay bên trái — hai nút một việc, nhân lên 44 hàng, và chính nó đẩy
+    // cột Thao tác xuống hai dòng (dòng bảng cao 104px).
+    const row = JS.slice(JS.indexOf('st-row-actions'), JS.indexOf('</div></td>'));
+    assert.equal((row.match(/<button/g) || []).length, 3, 'phải còn đúng ba nút');
+    assert.doesNotMatch(row, /Tổng quan/, 'nút trùng với nút tên');
+    for (const en of ['New Essay', 'Edit', 'Delete']) {
+      assert.ok(!row.includes(en), `còn nhãn tiếng Anh: ${en}`);
+    }
+    for (const vi of ['Giao bài viết', 'Sửa', 'Xoá']) {
+      assert.ok(row.includes(vi), `thiếu nhãn: ${vi}`);
+    }
+    // Nút tên VẪN phải mở được tổng quan — bỏ nút kia mà quên nó là gỡ mất
+    // đường vào ngăn kéo của cả 44 hàng.
+    assert.match(JS, /class="st-namebtn" data-act="summary"/);
+    // Và nó phải NÓI RA việc. Nút "Tổng quan" đi rồi thì với người đọc màn hình
+    // cái tên trần là tất cả những gì còn lại: nghe "Chinh Le, nút" không cho
+    // biết bấm vào sẽ ra gì (codex cục bộ 07/08).
+    assert.match(JS, /aria-label="Xem tổng quan của[^"]*' \+ name/);
+  });
+
+  test('nhãn người dùng thấy KHÔNG còn emoji TRANG TRÍ và KHÔNG còn tiếng Anh', () => {
+    // Design system: emoji không dùng làm dấu mục. Và màn này của giáo viên
+    // người Việt — bảng cũ trộn hai thứ tiếng ngay trên một hàng.
+    //
+    // Chốt này nói về emoji TRANG TRÍ (📊 📝 📥 🎧 🏫 🎯 🚩 🔄 🔒), không phải mọi
+    // ký tự ngoài bảng chữ. `⚠` ở nhãn "Đã gắn cờ" là một DẤU TRẠNG THÁI: nó
+    // mang nghĩa, và bỏ nó đi thì trạng thái ấy chỉ còn phân biệt bằng màu —
+    // người mù màu mất luôn. Nói rõ giới hạn ở đây, vì một chốt hứa rộng hơn
+    // thứ nó kiểm là một lời bảo đảm sai (codex cục bộ 07/08).
+    const EMOJI = /[\u{1F300}-\u{1FAFF}]/u;
+    assert.doesNotMatch(JS, EMOJI, 'còn emoji trang trí trong admin-students-panel.js');
+    assert.doesNotMatch(PAGE, EMOJI, 'còn emoji trang trí trong trang');
+    // `⚠` được giữ CÓ CHỦ Ý — ghim lại để nó không bị "dọn" nhầm ở lượt sau.
+    assert.ok(JS.includes('⚠ Đã gắn cờ'), 'dấu trạng thái ⚠ phải còn');
+    for (const en of ['Admin Access Required', 'Under review', '>Flagged<', 'Target: ']) {
+      assert.ok(!html.includes(en), `còn tiếng Anh: ${en}`);
+    }
   });
 
   test('table renders Actions column with 4 button data-act values', () => {
@@ -382,9 +450,36 @@ describe('admin-students.html / WF-1 Lớp column + bulk-assign', () => {
     assert.match(html, /student_ids:\s*ids/);
   });
 
-  test('colspan updated to 8 (checkbox + Lớp added)', () => {
-    assert.doesNotMatch(html, /colspan="6"/);
-    assert.match(html, /colspan="8"/);
+  test('colspan khớp số cột THẬT của thead', () => {
+    // Ghim con số trần ("phải là 8") là ghim một lần chụp: gộp ba cột mục tiêu
+    // làm nó sai mà không nói được sai ở đâu. Đếm `<th>` rồi so — chốt này tự
+    // đúng qua mọi lần đổi cột, và bắt được đúng thứ nó tồn tại để bắt: một
+    // dòng "Chưa có học viên" trải sai số ô.
+    const thead = PAGE.match(/<table id="students-table"[\s\S]*?<\/thead>/);
+    const n = (thead[0].match(/<th[\s>]/g) || []).length;
+
+    // Đọc `colspan` KHÔNG phụ thuộc thứ tự thuộc tính hay kiểu nháy: bản trước
+    // chỉ khớp đúng chuỗi `colspan="N" class="st-empty"`, nên viết ngược thành
+    // `class="st-empty" colspan="5"` là chốt lặng thinh (codex cục bộ 07/08).
+    const colspanOf = (tag) => {
+      const m = tag.match(/colspan\s*=\s*["']?(\d+)/);
+      return m ? Number(m[1]) : null;
+    };
+    // Và soi ĐÚNG hai chỗ, không quét cả tệp: ô chờ trong `<tbody>` của bảng
+    // học viên, và nhánh "chưa có học viên" của `renderRows`.
+    const places = [
+      ['ô chờ trong trang',
+       PAGE.slice(PAGE.indexOf('<tbody id="students-tbody">'),
+                  PAGE.indexOf('</tbody>', PAGE.indexOf('<tbody id="students-tbody">')))],
+      ['nhánh rỗng của renderRows',
+       JS.slice(JS.indexOf('function renderRows'), JS.indexOf('rows.map(function'))],
+    ];
+    for (const [what, src] of places) {
+      const tags = [...src.matchAll(/<td[^>]*st-empty[^>]*>/g)].map((m) => m[0]);
+      assert.equal(tags.length, 1, `${what}: phải có đúng một ô chờ`);
+      assert.equal(colspanOf(tags[0]), n,
+        `${what}: colspan=${colspanOf(tags[0])} nhưng thead có ${n} cột`);
+    }
   });
 
   test('cohort dropdown batched once from GET /admin/cohorts (no N+1)', () => {

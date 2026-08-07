@@ -237,6 +237,47 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       'không có tabindex thì `.focus()` là lệnh rỗng');
   });
 
+  // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────
+  //
+  // Đo được trên trang: CHÍN phần tử cùng mang `.adm-subtab`, ở ba tầng lồng
+  // nhau — `Lớp/Học viên`, `Sổ điểm danh/…`, `Ai nộp/…`. Trông giống hệt nhau
+  // nên không đọc được mình đang đứng ở tầng nào, và bấm nhầm tầng là mất chỗ
+  // đang xem.
+  test('mỗi tầng một hình dạng, và hình dạng theo NGHĨA chứ không theo độ sâu', () => {
+    // Tầng 1 giữ nguyên viên-có-viền (mặc định dùng chung); hai tầng trong
+    // được đánh dấu để nhận luật riêng.
+    assert.match(PAGE, /<nav class="adm-subtabs" data-level="section"/);
+    assert.match(PAGE, /<nav class="adm-subtabs" data-level="view"/);
+
+    // Tầng 2 — gạch chân, KHÔNG viền hộp.
+    const sec = PAGE.match(
+      /\.cl-shell \.adm-subtabs\[data-level="section"\] \.adm-subtab \{[^}]*\}/);
+    assert.ok(sec, 'tầng 2 chưa có hình dạng riêng');
+    assert.match(sec[0], /border-bottom:\s*2px/);
+    assert.match(sec[0], /border:\s*0/);
+
+    // Tầng 3 và ỐNG KÍNH cùng trả lời "đổi cách nhìn, không đổi chỗ đứng", nên
+    // dùng CHUNG một hình dạng. Chia theo độ sâu thì hai thứ cùng nghĩa lại
+    // trông khác nhau — ghim chúng ở CÙNG một quy tắc để không trôi khỏi nhau.
+    const view = PAGE.match(
+      /\.cl-shell \.adm-subtabs\[data-level="view"\], \.cl-lens \{[^}]*\}/);
+    assert.ok(view, 'tầng 3 và ống kính phải dùng chung một quy tắc');
+    assert.match(view[0], /background:\s*var\(--av-surface-sunken\)/);
+
+    // Hai bộ đánh dấu "đang mở" bằng hai cách khác nhau. Chỉ bắt một là một
+    // trong hai bộ mất hẳn dấu ấy.
+    const on = PAGE.match(
+      /\.cl-shell \.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active,\s*\n\s*\.cl-lens button\[aria-current="true"\] \{[^}]*\}/);
+    assert.ok(on, 'thiếu một trong hai cách đánh dấu đang-mở');
+
+    // Luật gốc `.adm-subtabs` dùng chung với queue.html và users/index.html —
+    // mọi luật mới phải bó trong `.cl-shell`, nếu không là sửa cả ba trang.
+    for (const m of PAGE.matchAll(/^\s*(\.adm-subtabs?\[?[^{]*)\{/gm)) {
+      assert.ok(/\.cl-shell/.test(m[1]) || /button\.adm-subtab/.test(m[1]),
+        `luật không bó trong .cl-shell: ${m[1].trim()}`);
+    }
+  });
+
   test('the four skill columns are all present', () => {
     for (const s of ['Speaking', 'Writing', 'Reading', 'Listening']) {
       assert.match(PAGE, new RegExp(`<th>${s}</th>`));
