@@ -41,18 +41,31 @@ const BODY = "  <aver-chrome active=\"vocabulary\"></aver-chrome>\n\n  <div clas
 // Bản legacy không gặp vì nó gọi `initSupabase(...)` NGAY TRƯỚC thẻ script đó.
 // Nên ở đây phải chờ phiên rồi mới nạp — vẫn là CHÍNH tệp legacy, chỉ đổi thời
 // điểm nạp cho khớp thứ tự bản legacy.
+// PHẢI CHỜ REACT HYDRATE XONG rồi mới cho mã legacy đụng DOM. Script kiểu module
+// chạy TRƯỚC `DOMContentLoaded`; nếu lúc đó điều kiện đã sẵn sàng thì hàm mount
+// chạy ngay và ĐỔI DOM trước khi React hydrate → React #418 → nó vứt HTML máy
+// chủ và dựng lại từ đầu, xoá sạch thay đổi của script, trang quay về trạng thái
+// ban đầu. Đã xảy ra THẬT (G1 bắt ở `/mock/result` rồi `/speaking/result`); các
+// trang khác chỉ thoát vì điều kiện chưa sẵn sàng ở nhịp đầu — tức MAY.
 const BOOT = `
+const afterHydration = (fn) => {
+  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
+  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
+  // template literal, va mot dau nguoc se ket thuc chuoi som.
+  if (document.readyState === 'complete') setTimeout(fn, 0);
+  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+};
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 const load = () => {
   const s = document.createElement('script');
   s.src = '/js/vocab-landing.js';
   document.body.appendChild(s);
 };
-if (ready()) load();
+if (ready()) afterHydration(load);
 else {
   let n = 0;
   const iv = setInterval(() => {
-    if (ready()) { clearInterval(iv); load(); }
+    if (ready()) { clearInterval(iv); afterHydration(load); }
     else if (++n > 500) {  // 500 x 20ms = 10s
       clearInterval(iv);
       console.error('[vocabulary-hub] Supabase khong san sang sau 10s');
