@@ -540,3 +540,53 @@ describe('lưu tự động NỐI ĐUÔI (codex cục bộ 05/08)', () => {
     release();
   });
 });
+
+// ── Bộ chấm hỏng: lượt nộp KHÔNG bị tiêu ──────────────────────────────────
+//
+// Lượt nộp tự luận chỉ có MỘT. Ngày 06/08 model bị ngừng cấp và TÁM em mất
+// lượt duy nhất — máy chủ nay trả 503 thay vì ghi một dòng rỗng, còn trang thì
+// phải GIỮ NGUYÊN bài để em ấy bấm Nộp lại mà không gõ lại chữ nào.
+
+describe('bộ chấm hỏng khi nộp', () => {
+  // Mã câu phải là mã THẬT của bộ giả (`E1`/`E2`). Viết vào một mã không tồn
+  // tại thì `submit()` thoát sớm vì "thiếu câu" và chốt chẳng gọi tới mạng —
+  // xanh mà không kiểm gì.
+  const fill = (w) => { w.write('E1', 'câu một'); w.write('E2', 'câu hai'); };
+  const draftKeys = (storage) =>
+    [...storage._m.entries()].filter(([k]) => k.startsWith('cw:'));
+  const boom = () => {
+    const e = new Error('503');
+    e.detail = { message: 'Bộ chấm đang không dùng được nên chưa chấm được bài '
+      + 'của em. Bài vẫn còn nguyên — bấm Nộp lại sau ít phút.', grader_down: true };
+    throw e;
+  };
+
+  test('bài KHÔNG bị xoá khỏi nháp', async () => {
+    const { w, storage } = await load({ onPost: boom });
+    fill(w);
+    const before = JSON.stringify(draftKeys(storage));
+    assert.notEqual(before, '[]', 'chưa có nháp thì chốt này vô nghĩa');
+    await w.submit().catch(() => {});
+    assert.equal(JSON.stringify(draftKeys(storage)), before,
+      'xoá nháp là bắt em ấy gõ lại từ đầu');
+  });
+
+  test('và trang vẫn cho bấm Nộp lần nữa', async () => {
+    const { w, api } = await load({ onPost: boom });
+    fill(w);
+    await w.submit().catch(() => {});
+    const again = await w.submit().catch(() => null);
+    assert.ok(!(again && again.already),
+      'đánh dấu đã-nộp sau một lượt chấm hỏng là khoá em ấy ra khỏi bài của mình');
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/course/writing').length,
+      2, 'lần bấm thứ hai phải THỰC SỰ gọi lại máy chủ');
+  });
+
+  test('nộp được thì mới xoá nháp', async () => {
+    const { w, storage } = await load();
+    fill(w);
+    assert.equal(draftKeys(storage).length, 1, 'chưa có nháp thì chốt này vô nghĩa');
+    await w.submit();
+    assert.deepEqual(draftKeys(storage), [], 'nộp xong thì nháp hết việc');
+  });
+});

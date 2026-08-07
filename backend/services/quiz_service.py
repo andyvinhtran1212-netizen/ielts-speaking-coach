@@ -1642,12 +1642,19 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     # Kiểm SỚM, trước khi tốn một lượt gọi model.
     try:
         already = (supabase_admin.table("course_writing_submissions")
-                   .select("id").eq("class_assignment_item_id", item["id"])
+                   .select("id, items").eq("class_assignment_item_id", item["id"])
                    .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+    # Dòng cũ mà bộ chấm hỏng HOÀN TOÀN thì KHÔNG phải một lượt đã dùng — đó là
+    # một lượt bị máy chủ làm hỏng. Cho chấm lại TẠI CHỖ, dùng lại đúng dòng ấy.
+    retry_of = None
     if already:
-        raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
+        prior = already[0].get("items") or []
+        if prior and all(i.get("ok") is None for i in prior):
+            retry_of = already[0]["id"]
+        else:
+            raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
 
     # `explain` (đáp án mẫu) vào BẢN CHỤP luôn. Đọc nó từ đề hiện hành lúc hiện
     # kết quả thì đề soạn lại sẽ ghép bài cũ với đáp án mẫu của một đề khác, còn
@@ -1656,6 +1663,27 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
               "explain": q.get("explain") or "",
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
     graded, model_name = await course_writing_grader.grade(items)
+
+    # ── CHẤM HỎNG HẾT THÌ KHÔNG TIÊU LƯỢT NỘP ───────────────────────────────
+    #
+    # Lượt nộp tự luận chỉ có MỘT. Bản trước ghi dòng dù mọi câu `ok=None`, nên
+    # một lượt gọi model hỏng ăn mất lượt duy nhất của học viên và không đường
+    # nào chấm lại. Ngày 06/08 model `gemini-2.5-flash-lite` bị ngừng cấp và TÁM
+    # em mất lượt — phải chạy một kịch bản riêng mới trả lại được.
+    #
+    # Nay: không ghi gì, nói thẳng, và giữ nguyên bản nháp trên máy chủ để em ấy
+    # bấm Nộp lại mà không phải gõ lại chữ nào.
+    #
+    # Chấm được dù CHỈ MỘT câu thì vẫn ghi: đó là một bản chấm thật, và bắt em
+    # ấy nộp lại sẽ vứt luôn phần đã chấm được.
+    if graded and all(g.get("ok") is None for g in graded):
+        logger.error("[quiz] tự luận: bộ chấm hỏng hoàn toàn, KHÔNG ghi lượt nộp "
+                     "item=%s model=%s", item["id"], model_name)
+        raise HTTPException(503, {
+            "message": "Bộ chấm đang không dùng được nên chưa chấm được bài của "
+                       "em. Bài vẫn còn nguyên — bấm Nộp lại sau ít phút.",
+            "grader_down": True,
+        })
 
     row = {
         "bank_id": bank_id, "user_id": user_id,
@@ -1666,7 +1694,14 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
         "model": model_name,
     }
     try:
-        res = supabase_admin.table("course_writing_submissions").insert(row).execute()
+        if retry_of:
+            # Chấm lại một lượt máy chủ đã làm hỏng — dùng lại đúng dòng cũ, nên
+            # ràng buộc "một lượt mỗi mục" (mig 192) không bị đụng tới.
+            res = (supabase_admin.table("course_writing_submissions")
+                   .update({**row, "graded_at": _now()})
+                   .eq("id", retry_of).execute())
+        else:
+            res = supabase_admin.table("course_writing_submissions").insert(row).execute()
     except Exception as exc:  # noqa: BLE001
         # 23505 = va UNIQUE: hai tab cùng bấm Nộp. Đó là "đã nộp rồi", không
         # phải lỗi máy chủ — và bản chấm vừa tốn tiền gọi model thì bỏ, vì bản
