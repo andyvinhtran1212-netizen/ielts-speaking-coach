@@ -298,6 +298,19 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active,\s*\n\s*\.cl-lens button\[aria-current="true"\] \{[^}]*\}/);
     assert.ok(on, 'thiếu một trong hai cách đánh dấu đang-mở');
 
+    // Và ô ĐANG MỞ vẫn phải thấy được vầng tiêu điểm. Vầng sáng chung là
+    // `body.av-page :focus-visible` — độ đặc hiệu (0,2,1) — còn luật "đang mở"
+    // là (0,4,0), nên nó thắng ở `box-shadow` trong khi `outline: none` của
+    // luật kia vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành VÔ HÌNH
+    // hoàn toàn (codex #986). Phải giành lại bằng chính hai bộ chọn ấy.
+    const halo = PAGE.match(
+      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active:focus-visible,\s*\n\s*\.cl-lens button\[aria-current="true"\]:focus-visible \{[^}]*\}/);
+    assert.ok(halo, 'ô đang mở mất vầng tiêu điểm');
+    assert.match(halo[0], /box-shadow:\s*var\(--av-shadow-focus\)/);
+    // Và nó phải đứng SAU luật "đang mở" — cùng độ đặc hiệu thì thứ tự quyết.
+    assert.ok(PAGE.indexOf(halo[0]) > PAGE.indexOf(on[0]),
+      'đặt trước thì luật đang-mở ghi đè lại và vầng lại mất');
+
     // Luật gốc `.adm-subtabs` dùng chung với queue.html và users/index.html, nên
     // luật mới vẫn phải bó — chỉ là bó bằng `[data-level]` (thuộc tính chỉ
     // trang này đặt) chứ không bằng một tổ tiên.

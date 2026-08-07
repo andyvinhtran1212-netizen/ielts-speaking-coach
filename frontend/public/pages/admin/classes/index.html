@@ -309,6 +309,17 @@
       color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
       box-shadow: var(--av-shadow-sm);
     }
+    /* VẦNG TIÊU ĐIỂM PHẢI THẮNG LẠI.
+       Vầng sáng chung là `body.av-page :focus-visible { outline: none;
+       box-shadow: var(--av-shadow-focus) }` — độ đặc hiệu (0,2,1). Luật
+       "đang mở" ở trên là (0,4,0) nên nó thắng ở `box-shadow`, trong khi
+       `outline: none` vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành
+       VÔ HÌNH HOÀN TOÀN — không viền, không vầng (codex #986).
+       Nối `:focus-visible` vào chính hai bộ chọn ấy để giành lại. */
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active:focus-visible,
+    .cl-lens button[aria-current="true"]:focus-visible {
+      box-shadow: var(--av-shadow-focus);
+    }
 
     /* ── Ngăn kéo ────────────────────────────────────────────────────────
        Bấm một hàng mở nó NGAY TRONG trang. Trang này có 19 chỗ hộp thoại, và
