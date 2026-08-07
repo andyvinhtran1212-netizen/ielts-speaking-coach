@@ -31,10 +31,18 @@
 -- ── Conventions (cloned from listening 056/065) ───────────────────────
 --   • Enums are TEXT + CHECK, NOT Postgres ENUM types (project convention;
 --     also avoids non-transactional ALTER TYPE ADD VALUE for Phase B types).
---   • CONTENT tables are admin-curated + RLS-free; the router enforces
+--   • CONTENT tables are admin-curated; the router enforces
 --     status='published' on student reads. Only the user-scoped attempt
---     table (087) gets RLS. Mirrors listening_content (RLS-free) vs
---     listening_test_attempts (RLS).
+--     table (087) gets RLS POLICIES. Mirrors listening_content vs
+--     listening_test_attempts.
+--
+--     SỬA 2026-08-07 (migration 197): dòng này TỪNG ghi bảng nội dung là
+--     "RLS-free". SAI so với thực tế. Đo trên production: `reading_questions`,
+--     `reading_passages`, `reading_tests` đều có RLS BẬT (không policy — tức
+--     chặn sạch, chỉ `service_role` đọc được), y như mọi bảng `public` khác.
+--     Chú thích cũ khiến người đọc mã tin rằng khoá anon lấy được đáp án; đúng
+--     hiểu lầm đó đã xảy ra trong lượt rà rò rỉ đáp án Reading (#977). Trạng
+--     thái thật nay được ghi tường minh ở migration 197.
 --   • Cloudinary images: image_url + image_public_id (nullable), app-layer
 --     enforced — mirrors writing_prompts (migration 038).
 --   • Idempotent (IF NOT EXISTS everywhere). Forward-only, no rollback script.
