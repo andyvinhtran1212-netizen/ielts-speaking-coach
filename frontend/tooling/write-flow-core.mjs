@@ -241,6 +241,26 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       if (!m.ok) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
       }
+      // TIÊU ĐỀ cũng là một phần hợp đồng. Tên tiêu đề KHÔNG phân biệt hoa
+      // thường (RFC 9110 §5.1) nên hạ về chữ thường cả hai vế — so thẳng thì một
+      // bản port viết `x-reading-anon` sẽ đỏ oan.
+      if (d.headers) {
+        const got = remaining[i].headers || {};
+        const lower = {};
+        for (const [k, v] of Object.entries(got)) lower[k.toLowerCase()] = v;
+        for (const [k, want] of Object.entries(d.headers)) {
+          const have = lower[k.toLowerCase()];
+          const ok = typeof want === 'function' ? want(have) : have === want;
+          if (!ok) {
+            findings.push({
+              kind: 'write-header',
+              what: `${wantMethod} ${wantPath}`,
+              why: `tiêu đề «${k}» = ${JSON.stringify(have)}, khai ${
+                typeof want === 'function' ? '(điều kiện)' : JSON.stringify(want)}`,
+            });
+          }
+        }
+      }
     }
 
     // `bodyAll` soi CẢ TẬP thân request đã khớp, không phải từng cái một.
@@ -249,16 +269,6 @@ export function judge(observed, declared, { ignore = [] } = {}) {
     // vị từ dạng "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN
     // CÙNG một câu — tức câu còn lại không được lưu, đúng thứ bản khai tưởng
     // mình đang chặn (bot bắt ở #969). Chỉ nhìn cả tập mới thấy "thiếu một câu".
-    // Khai `bodyAll` mà không phải hàm là LỖI, không phải "bỏ qua". Bỏ qua
-    // nghĩa là `bodyAll: true` — một cách viết rất dễ gõ nhầm — làm bản khai
-    // đọc như đang chặn trùng lặp trong khi nó không chặn gì (codex cục bộ #969).
-    if (d.bodyAll != null && typeof d.bodyAll !== 'function') {
-      findings.push({
-        kind: 'write-body',
-        what: `${wantMethod} ${wantPath}`,
-        why: `\`bodyAll\` phải là HÀM, nhận ${typeof d.bodyAll}`,
-      });
-    }
     if (typeof d.bodyAll === 'function' && hits.length === times) {
       const bodies = hits.map((i) => remaining[i].body);
       if (!d.bodyAll(bodies)) {
@@ -290,4 +300,237 @@ export function judge(observed, declared, { ignore = [] } = {}) {
 export function formatFindings(findings) {
   if (!findings.length) return '  ✓ mọi đường ghi khớp bản khai';
   return findings.map((f) => `  ✗ [${f.kind}] ${f.what} — ${f.why}`).join('\n');
+}
+
+
+/**
+ * KIỂM LƯỢC ĐỒ BẢN KHAI — chạy MỘT LẦN, trước khi luồng chạy.
+ *
+ * VÌ SAO CÓ HÀM NÀY thay vì thêm chốt tại từng chỗ dùng: ba vòng review liên
+ * tiếp bắt CÙNG MỘT LOẠI lỗi — một khoá khai sai kiểu bị bỏ qua âm thầm, nên bản
+ * khai đọc như đang ghim rất chặt trong khi nó không ghim gì. Lần lượt là
+ * `bodyAll`, `expectFinalUrl`, `headers`, rồi `expectStorage` và các object
+ * KHÔNG THUẦN (`new Map()` — `Object.entries` trả rỗng).
+ *
+ * Vá từng chỗ thì lần sau thêm khoá mới lại sinh ra lỗ mới. Bộ kiểm tập trung
+ * thì khoá mới BUỘC phải khai ở đây mới dùng được, và GÕ NHẦM TÊN KHOÁ — loại
+ * lỗi không chốt lẻ nào bắt được — cũng đỏ ngay.
+ *
+ * HAI NGUYÊN TẮC của chính hàm này:
+ *   · KHÔNG BAO GIỜ NÉM. Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại
+ *     không ai thấy, và người đọc nhận một stack trace thay vì danh sách việc.
+ *   · KIỂM ĐỦ HÌNH DẠNG, không chỉ kiểu ngoài cùng. `fill: ['a']` hay
+ *     `dispatch` một phần tử đều chạy được mà không kiểm gì.
+ *
+ * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
+ */
+const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous']);
+const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
+
+// Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
+const STEP_SHAPES = {
+  click: 'str', expectVisible: 'str',
+  fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
+  dispatch: 'dispatch',
+  wait: 'ms', advance: 'ms',
+};
+
+function isPlainObject(v) {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  // `Object.create(null)` là object thuần; các lớp dựng sẵn (`Map`, `Headers`,
+  // `Date`) thì không — và chúng mới là thứ làm `Object.entries` trả rỗng.
+  return proto === null || Object.getPrototypeOf(proto) === null;
+}
+const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isPair = (v) => Array.isArray(v) && v.length === 2 && v.every(isStr);
+// `fill`/`paste` cho phép GIÁ TRỊ RỖNG: xoá trắng một ô là thao tác thật, và
+// chính nó là cách kiểm "ghi đè bản nháp bằng rỗng". Chỉ CHỌN TỬ mới bắt buộc
+// khác rỗng.
+const isSelPair = (v) => Array.isArray(v) && v.length === 2
+  && isStr(v[0]) && typeof v[1] === 'string';
+
+/** Vị từ phải TRẢ VỀ boolean ngay. Hàm `async` trả về Promise — mà Promise thì
+ *  LUÔN truthy, nên `async (b) => false` cho MỌI thân request đi qua. Đây là
+ *  cách viết rất dễ gõ theo thói quen (codex cục bộ #973 vòng 4). */
+function badPredicate(fn) {
+  const n = fn && fn.constructor && fn.constructor.name;
+  return n === 'AsyncFunction' || n === 'GeneratorFunction' || n === 'AsyncGeneratorFunction';
+}
+
+/** Hàm và ký hiệu chỉ có nghĩa ở TẦNG ĐẦU của `body`. Lồng sâu hơn thì
+ *  `JSON.stringify` xoá chúng, nên `body: {extra: {id: (v) => ...}}` so với
+ *  `{extra: {}}` — khai một điều kiện rồi nó biến mất không dấu vết. */
+function deepBadValues(obj, path, out) {
+  for (const [k, v] of Object.entries(obj)) {
+    const at = path ? `${path}.${k}` : k;
+    if (typeof v === 'function' || typeof v === 'symbol') out.push(at);
+    else if (isPlainObject(v)) deepBadValues(v, at, out);
+    else if (Array.isArray(v)) {
+      v.forEach((x, i) => {
+        if (typeof x === 'function' || typeof x === 'symbol') out.push(`${at}[${i}]`);
+        else if (isPlainObject(x)) deepBadValues(x, `${at}[${i}]`, out);
+      });
+    }
+  }
+  return out;
+}
+
+export function validateFlow(flow) {
+  const errs = [];
+  const bad = (m) => errs.push(m);
+  if (!isPlainObject(flow)) return ['bản khai phải là object thường'];
+
+  for (const k of Object.keys(flow)) {
+    if (!FLOW_KEYS.has(k)) bad(`khoá lạ ở mức bản khai: «${k}» (gõ nhầm?)`);
+  }
+  if (!isStr(flow.name)) bad('`name` phải là chuỗi khác rỗng');
+  if (!isStr(flow.route)) bad('`route` phải là chuỗi khác rỗng');
+  for (const k of ['legacyRoute', 'nextPending']) {
+    if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
+  }
+  for (const k of ['fakeClock', 'anonymous']) {
+    if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
+  }
+  for (const k of ['settleMs', 'drainMs']) {
+    if (k in flow && !(Number.isFinite(flow[k]) && flow[k] >= 0)) {
+      bad(`\`${k}\` phải là số không âm`);
+    }
+  }
+  if ('expectFinalUrl' in flow) {
+    const v = flow.expectFinalUrl;
+    const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
+    if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
+  }
+  if ('ignoreWrites' in flow
+      && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {
+    bad('`ignoreWrites` phải là mảng chuỗi khác rỗng');
+  }
+  if ('canned' in flow) {
+    if (!Array.isArray(flow.canned)) bad('`canned` phải là mảng');
+    else {
+      flow.canned.forEach((c, i) => {
+        const okRe = Array.isArray(c) && c.length === 2
+          && Object.prototype.toString.call(c[0]) === '[object RegExp]';
+        if (!okRe) bad(`canned[${i}]: phải là [RegExp, dữ liệu]`);
+      });
+    }
+  }
+
+  // ── steps ────────────────────────────────────────────────────────────────
+  if (!Array.isArray(flow.steps) || !flow.steps.length) {
+    bad('`steps` phải là mảng khác rỗng');
+  } else {
+    flow.steps.forEach((st, i) => {
+      if (!isPlainObject(st)) { bad(`bước ${i}: phải là object thường`); return; }
+      const keys = Object.keys(st);
+      if (keys.length !== 1 || !(keys[0] in STEP_SHAPES)) {
+        bad(`bước ${i}: phải có ĐÚNG MỘT hành động đã biết, thấy [${keys.join(', ')}]`);
+        return;
+      }
+      const [k] = keys;
+      const v = st[k];
+      const shape = STEP_SHAPES[k];
+      if (shape === 'str' && !isStr(v)) bad(`bước ${i}: \`${k}\` phải là chuỗi khác rỗng`);
+      if (shape === 'pair') {
+        const ok = (k === 'fill' || k === 'paste') ? isSelPair(v) : isPair(v);
+        if (!ok) {
+          bad(`bước ${i}: \`${k}\` phải là [chọn tử, chuỗi]`
+            + ((k === 'fill' || k === 'paste') ? ' (giá trị được phép rỗng)'
+              : ' — cả hai khác rỗng'));
+        }
+      }
+      if (shape === 'ms' && !(Number.isFinite(v) && v > 0)) {
+        bad(`bước ${i}: \`${k}\` phải là số dương`);
+      }
+      if (shape === 'dispatch') {
+        const ok = Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(isStr);
+        if (!ok) bad(`bước ${i}: \`dispatch\` phải là [chọn tử, sự kiện] hoặc [chọn tử, sự kiện, thuộc tính]`);
+      }
+      // Tua đồng hồ mà không bật đồng hồ giả thì `page.clock` chưa cài — bước đó
+      // sẽ ném lỗi giữa luồng, hoặc tệ hơn là không làm gì.
+      if (k === 'advance' && !flow.fakeClock) {
+        bad(`bước ${i}: \`advance\` cần \`fakeClock: true\``);
+      }
+    });
+  }
+
+  // ── writes ───────────────────────────────────────────────────────────────
+  if (!Array.isArray(flow.writes) || !flow.writes.length) {
+    bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
+      + 'nó chỉ đang chứng minh trang không sập');
+    return errs;
+  }
+  flow.writes.forEach((w, i) => {
+    if (!isPlainObject(w)) { bad(`đường ghi ${i}: phải là object thường`); return; }
+    for (const k of Object.keys(w)) {
+      if (!WRITE_KEYS.has(k)) bad(`đường ghi ${i}: khoá lạ «${k}» (gõ nhầm?)`);
+    }
+    if (!isStr(w.method)) bad(`đường ghi ${i}: \`method\` phải là chuỗi khác rỗng`);
+    if (!isStr(w.path)) bad(`đường ghi ${i}: \`path\` phải là chuỗi khác rỗng`);
+    if ('times' in w && !(Number.isInteger(w.times) && w.times > 0)) {
+      bad(`đường ghi ${i}: \`times\` phải là số nguyên dương`);
+    }
+    // `unordered: 'false'` là chuỗi TRUTHY — nó tắt hẳn việc ép thứ tự trong khi
+    // đọc như đang bật. Chuỗi rỗng thì ngược lại. Buộc phải là boolean.
+    if ('unordered' in w && typeof w.unordered !== 'boolean') {
+      bad(`đường ghi ${i}: \`unordered\` phải là boolean`);
+    }
+    if ('bodyAll' in w) {
+      if (typeof w.bodyAll !== 'function') bad(`đường ghi ${i}: \`bodyAll\` phải là HÀM`);
+      else if (badPredicate(w.bodyAll)) {
+        bad(`đường ghi ${i}: \`bodyAll\` không được là hàm async/generator — `
+          + 'Promise luôn truthy nên mọi thân request đều qua');
+      }
+    }
+    if ('body' in w) {
+      const b = w.body;
+      const okSymbol = b === NO_BODY;
+      const okObj = isPlainObject(b) && Object.keys(b).length > 0;
+      if (!(okSymbol || typeof b === 'function' || okObj)) {
+        bad(`đường ghi ${i}: \`body\` phải là NO_BODY, một HÀM, hoặc object thường KHÁC RỖNG`
+          + ' (object rỗng và ký hiệu lạ đều không so gì cả)');
+      }
+      if (typeof b === 'function' && badPredicate(b)) {
+        bad(`đường ghi ${i}: \`body\` không được là hàm async/generator — `
+          + 'Promise luôn truthy nên mọi thân request đều qua');
+      }
+      if (okObj) {
+        for (const [k, v] of Object.entries(b)) {
+          if (typeof v === 'symbol'
+              && !(v === NON_EMPTY || v === NO_LIST || v === NO_TEXT)) {
+            bad(`đường ghi ${i}: trường «${k}» dùng ký hiệu lạ`);
+          }
+          if (typeof v === 'function' && badPredicate(v)) {
+            bad(`đường ghi ${i}: vị từ «${k}» không được là hàm async/generator`);
+          }
+          // Lồng sâu hơn một tầng thì hàm/ký hiệu bị `JSON.stringify` xoá mất.
+          const deep = [];
+          if (isPlainObject(v)) deepBadValues(v, k, deep);
+          if (Array.isArray(v)) {
+            v.forEach((x, n) => { if (isPlainObject(x)) deepBadValues(x, `${k}[${n}]`, deep); });
+          }
+          for (const at of deep) {
+            bad(`đường ghi ${i}: «${at}» là hàm/ký hiệu LỒNG SÂU — `
+              + '`JSON.stringify` xoá mất nên điều kiện đó không bao giờ chạy');
+          }
+        }
+      }
+    }
+    if ('headers' in w) {
+      if (!isPlainObject(w.headers) || !Object.keys(w.headers).length) {
+        bad(`đường ghi ${i}: \`headers\` phải là object thường KHÁC RỖNG`);
+      } else {
+        for (const [k, v] of Object.entries(w.headers)) {
+          if (typeof v !== 'string' && typeof v !== 'function') {
+            bad(`đường ghi ${i}: tiêu đề «${k}» phải là chuỗi hoặc hàm`);
+          } else if (typeof v === 'function' && badPredicate(v)) {
+            bad(`đường ghi ${i}: vị từ tiêu đề «${k}» không được là hàm async/generator`);
+          }
+        }
+      }
+    }
+  });
+  return errs;
 }

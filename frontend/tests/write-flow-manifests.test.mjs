@@ -12,6 +12,8 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { validateFlow } from '../tooling/write-flow-core.mjs';
+
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'write-flows');
 const files = readdirSync(DIR).filter((f) => f.endsWith('.mjs'));
 const flows = await Promise.all(
@@ -40,4 +42,92 @@ describe('bản khai luồng ghi', () => {
         `${file} hoãn vế Next mà KHÔNG có \`legacyRoute\` ⇒ luồng này không được kiểm ở đâu cả`);
     });
   }
+});
+
+
+describe('lược đồ bản khai', () => {
+  // Chốt TĨNH cho bộ kiểm mà bộ chạy trình duyệt cũng dùng. Có nó thì một bản
+  // khai sai kiểu đỏ ngay ở `node --test`, không phải đợi tới lượt chạy cổng —
+  // và quan trọng hơn: nó đỏ kể cả khi cổng ghi KHÔNG được kích hoạt bởi
+  // `paths` của PR đó.
+  test('mọi bản khai đều hợp lệ', () => {
+    const bad = [];
+    for (const { file, flow } of flows) {
+      for (const e of validateFlow(flow)) bad.push(`${file}: ${e}`);
+    }
+    assert.deepEqual(bad, []);
+  });
+
+  test('xoá trắng một ô là HỢP LỆ — `fill` được phép giá trị rỗng', () => {
+    // Chiều ngược của mọi chốt ở trên: bộ kiểm chặt quá thì nó CHẶN việc đúng.
+    // Ghi đè bản nháp bằng chuỗi rỗng chính là thứ `NON_EMPTY` sinh ra để bắt,
+    // nên bản khai phải gõ được thao tác đó (codex cục bộ #973 vòng 4).
+    const flow = { name: 'x', route: '/r', steps: [{ fill: ['#a', ''] }],
+      writes: [{ method: 'POST', path: '/a' }] };
+    assert.deepEqual(validateFlow(flow), []);
+  });
+
+  test('bộ kiểm KHÔNG BAO GIỜ ném — vật vào gì cũng trả về mảng lỗi', () => {
+    // Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại không ai thấy, và người
+    // đọc nhận một stack trace thay vì danh sách việc (codex cục bộ #973 vòng 3).
+    const junk = [null, undefined, 0, '', 'x', [], new Map(), new Date(),
+      { name: 'x', steps: {} }, { name: 'x', writes: {} },
+      { name: 'x', steps: [{ expectStorage: {} }] },
+      { name: 'x', steps: [{ fill: 'khong-phai-mang' }] }];
+    for (const j of junk) {
+      const errs = validateFlow(j);
+      assert.ok(Array.isArray(errs) && errs.length, `phải trả lỗi cho ${JSON.stringify(j)}`);
+    }
+  });
+
+  test('bộ kiểm bắt được các cách khai hỏng', () => {
+    // Bốn ca này là bốn vòng review liên tiếp cùng một loại lỗi: khai sai kiểu
+    // thì `Object.entries` trả rỗng và bản khai qua âm thầm.
+    const base = { name: 'x', route: '/r', steps: [{ click: '#a' }],
+      writes: [{ method: 'POST', path: '/a' }] };
+    const cases = [
+      [{ ...base, expectFinalUrl: '' }, /expectFinalUrl/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: true }] }, /bodyAll/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', headers: new Map([['a', 'b']]) }] }, /headers/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', headers: {} }] }, /KHÁC RỖNG/],
+      [{ ...base, steps: [{ expectStorage: ['k', null] }] }, /expectStorage/],
+      [{ ...base, ignoreWrite: [] }, /khoá lạ/],
+      [{ ...base, steps: [{ clickk: '#a' }] }, /ĐÚNG MỘT hành động/],
+      // Vòng 3 codex: hình dạng BÊN TRONG mỗi hành động.
+      [{ ...base, steps: [{ fill: ['#a'] }] }, /fill/],
+      [{ ...base, steps: [{ dispatch: ['#a'] }] }, /dispatch/],
+      [{ ...base, steps: [{ expectStorage: 'kv' }] }, /expectStorage/],
+      [{ ...base, steps: [{ wait: -1 }] }, /wait/],
+      [{ ...base, steps: [{ advance: 100 }] }, /fakeClock/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', unordered: 'false' }] }, /unordered/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: {} }] }, /body/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: Symbol('go-nham') }] }, /body/],
+      [{ ...base, steps: [{ click: '#a' }], writes: [] }, /writes/],
+      [{ name: 'x', route: '/r', writes: [{ method: 'POST', path: '/a' }] }, /steps/],
+      [{ ...base, canned: '' }, /canned/],
+      [{ ...base, ignoreWrites: '' }, /ignoreWrites/],
+      [{ ...base, settleMs: -5 }, /settleMs/],
+      // Vòng 4 codex — ba ca có rủi ro THẬT (khác với các ca chỉ xảy ra khi cố
+      // tình viết bản khai quái dị):
+      // · `async` trả Promise, mà Promise LUÔN truthy ⇒ mọi thân request đều qua;
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: async () => false }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: async () => false }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        headers: { A: async () => false } }] }, /async/],
+      // · vị từ LỒNG SÂU bị `JSON.stringify` xoá mất — khai rồi mà không chạy;
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        body: { extra: { id: (v) => v === 1 } } }] }, /LỒNG SÂU/],
+    ];
+    for (const [flow, re] of cases) {
+      const errs = validateFlow(flow);
+      assert.ok(errs.length, `phải ĐỎ: ${JSON.stringify(Object.keys(flow))}`);
+      assert.ok(errs.some((e) => re.test(e)), `thông báo không khớp ${re}: ${errs.join(' | ')}`);
+    }
+  });
+
+  test('khai hỏng chỉ báo MỘT lần dù `times` bao nhiêu', () => {
+    const errs = validateFlow({ name: 'x',
+      writes: [{ method: 'POST', path: '/a', times: 3, headers: true }] });
+    assert.equal(errs.filter((e) => /headers/.test(e)).length, 1);
+  });
 });

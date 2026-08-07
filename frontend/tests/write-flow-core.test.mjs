@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, bodyMatches, isWrite, judge, normalizePath,
+  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, validateFlow, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -267,13 +267,14 @@ describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
     assert.match(r.findings[0].why, /cả tập/);
   });
 
-  test('bodyAll KHÔNG phải hàm ⇒ ĐỎ, không được lặng lẽ bỏ qua', () => {
-    // `bodyAll: true` là cách gõ nhầm dễ gặp; bỏ qua nó thì bản khai đọc như
-    // đang chặn trùng lặp trong khi không chặn gì (codex cục bộ #969).
-    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
-      W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' })], decl({ bodyAll: true }));
-    assert.equal(r.pass, false);
-    assert.match(r.findings[0].why, /phải là HÀM/);
+  test('bodyAll KHÔNG phải hàm ⇒ ĐỎ ở BỘ KIỂM LƯỢC ĐỒ', () => {
+    // `bodyAll: true` là cách gõ nhầm dễ gặp. Chốt này TỪNG nằm trong `judge`;
+    // nay nó thuộc `validateFlow`, chạy MỘT LẦN trước khi luồng chạy — vì ba
+    // vòng review liên tiếp bắt cùng loại lỗi ở các khoá khác nhau, nên vá tập
+    // trung thay vì thêm chốt tại từng chỗ dùng (codex cục bộ #973).
+    const errs = validateFlow({ name: 'x',
+      writes: [{ method: 'PATCH', path: '/a/answers', bodyAll: true }] });
+    assert.ok(errs.some((e) => /bodyAll.*phải là HÀM/.test(e)), errs.join(' | '));
   });
 
   test('CÓ bodyAll: đủ hai câu ⇒ đạt', () => {
@@ -281,5 +282,48 @@ describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
     const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
       W('PATCH', 'https://h/a/answers', { q_num: 2, v: 'y' })], decl(all));
     assert.equal(r.pass, true);
+  });
+});
+
+describe('so TIÊU ĐỀ request', () => {
+  // Có hợp đồng mà bằng chứng nằm ở tiêu đề: bài Đọc qua liên kết chia sẻ mang
+  // danh tính ẩn danh ở `X-Reading-Anon`, và mất nó thì máy chủ từ chối lưu —
+  // mất bài của học viên trong khi thân request vẫn đúng từng chữ.
+  const W = (h) => ({ method: 'POST', url: 'https://h/a/x', body: {}, headers: h });
+  const D = (headers) => [{ method: 'POST', path: '/a/x', headers }];
+
+  test('khớp giá trị ⇒ đạt', () => {
+    assert.equal(judge([W({ 'x-reading-anon': 'abc' })], D({ 'X-Reading-Anon': 'abc' })).pass, true);
+  });
+
+  test('KHÔNG phân biệt hoa thường ở TÊN tiêu đề (RFC 9110 §5.1)', () => {
+    assert.equal(judge([W({ 'X-Reading-Anon': 'abc' })], D({ 'x-reading-anon': 'abc' })).pass, true);
+  });
+
+  test('thiếu tiêu đề ⇒ ĐỎ', () => {
+    const r = judge([W({})], D({ 'X-Reading-Anon': 'abc' }));
+    assert.equal(r.pass, false);
+    assert.equal(r.findings[0].kind, 'write-header');
+  });
+
+  test('sai giá trị ⇒ ĐỎ', () => {
+    assert.equal(judge([W({ 'x-reading-anon': 'khac' })], D({ 'X-Reading-Anon': 'abc' })).pass, false);
+  });
+
+  test('headers sai kiểu ⇒ ĐỎ ở BỘ KIỂM LƯỢC ĐỒ', () => {
+    // `headers: true`, một hàm, hay `new Map()` đều làm `Object.entries` trả
+    // mảng RỖNG, nên bản khai đọc như đang ghim tiêu đề trong khi không ghim gì.
+    for (const bad of [true, () => false, ['a'], new Map([['a', 'b']]), {}]) {
+      const errs = validateFlow({ name: 'x',
+        writes: [{ method: 'POST', path: '/a/x', headers: bad }] });
+      assert.ok(errs.some((e) => /headers/.test(e)),
+        `headers=${Object.prototype.toString.call(bad)} phải ĐỎ`);
+    }
+  });
+
+  test('vị từ ghim "phải VẮNG" ⇒ có mặt là ĐỎ', () => {
+    const d = D({ 'X-Reading-Anon': (v) => v === undefined });
+    assert.equal(judge([W({})], d).pass, true);
+    assert.equal(judge([W({ 'x-reading-anon': 'tu-bia-ra' })], d).pass, false);
   });
 });
