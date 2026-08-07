@@ -111,17 +111,32 @@ describe('the tab reports failure instead of an empty class', () => {
 });
 
 
-describe('the panel is wired like the others', () => {
-  test('the tab and panel exist', () => {
-    assert.match(PAGE, /id="tab-progress"/);
+describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
+  // Giáo viên không nghĩ theo tab, họ nghĩ theo HỌC VIÊN: "Sĩ số" và "Tiến độ"
+  // là cùng một danh sách nhìn qua hai ống kính. Hàng đứng yên, chỉ cột đổi.
+  test('có nút ống kính, KHÔNG còn tab riêng', () => {
+    assert.match(PAGE, /data-lens="progress"/);
+    assert.match(PAGE, /data-lens="today"/);
+    assert.doesNotMatch(PAGE, /id="tab-progress"/,
+      'còn tab là còn bốn tầng điều hướng');
+    // Khung bảng 4 kỹ năng vẫn ở lại: ống kính đọc lại dữ liệu đã dựng vào đó.
     assert.match(PAGE, /id="panel-progress"/);
   });
 
-  test('it loads lazily, on first open only', () => {
-    const fn = codeOnly(SRC.slice(SRC.indexOf('function showPanel'),
-                                  SRC.indexOf('function bindModalBackdrop')));
+  test('vẫn nạp LÚC CẦN, ở lần đổi ống kính đầu tiên', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
+                                  SRC.indexOf('function renderDrawer')));
     assert.match(fn, /'progress'/);
     assert.match(fn, /_progressLoaded/);
+    assert.match(fn, /loadProgress\(\)/);
+  });
+
+  test('bấm một hàng mở NGĂN KÉO, không mở hộp thoại', () => {
+    assert.match(PAGE, /id="roster-drawer"/);
+    const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                  SRC.indexOf("const lensBar")));
+    assert.match(fn, /_picked/, 'phải nhớ hàng đang chọn để giữ nó sáng');
+    assert.doesNotMatch(fn, /openModal|showModal/, 'hộp thoại làm mất chỗ đứng');
   });
 
   test('the four skill columns are all present', () => {
@@ -156,10 +171,21 @@ describe('a roster change invalidates the cached progress (Codex review)', () =>
       'leaving the old rows would flash the previous class on reopen');
   });
 
-  test('an open tab refreshes immediately rather than on next open', () => {
+  test('ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau', () => {
+    // Câu hỏi đúng nay là "ống kính nào đang bật", không phải "panel-progress
+    // có hiện không" — sau khi Tiến độ thành ống kính, khối ấy chỉ hiện khi
+    // ống kính bật, nên điều kiện cũ trở thành vòng lặp tự nói về mình.
     const fn = between('function invalidateProgress', 'async function loadProgress');
-    assert.match(fn, /panel-progress'\)\.hidden/);
+    assert.match(fn, /_lens === 'progress'/);
     assert.match(fn, /loadProgress\(\)/);
+  });
+
+  test('bộ nhớ THỨ HAI của ống kính cũng bị xoá', () => {
+    // Quên nó thì thêm một em vào lớp sẽ để những em cũ hiện số cũ trông y như
+    // thật, còn em mới thì "chưa đọc được" — một bảng nửa cũ nửa mới, tệ hơn
+    // một bảng nói thẳng là chưa đọc (codex #975).
+    const fn = between('function invalidateProgress', 'async function loadProgress');
+    assert.match(fn, /_progressBy = null/);
   });
 });
 
@@ -429,5 +455,63 @@ describe('trang đọc ĐÚNG TÊN trường máy chủ gửi', () => {
     const src = readFileSync(
       new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
     assert.ok(src.includes('strip(cell.recent_bands, target)'));
+  });
+});
+
+// ── Ống kính Tiến độ KHÔNG được chôn mất các bảng khác ─────────────────────
+//
+// `panel-progress` không chỉ chứa bảng 4 kỹ năng: bảng liên tục hằng ngày,
+// danh sách can thiệp Speaking và cờ "chưa đối chiếu được" đều sống trong đó.
+// Giấu cả khối là làm chúng biến mất khỏi sản phẩm (codex #975).
+
+describe('ống kính Tiến độ mở đủ mặt của nó', () => {
+  const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
+                                SRC.indexOf('function renderDrawer')));
+
+  test('MỘT nơi quyết việc ẩn/hiện khối phụ trợ', () => {
+    // Ba lỗi liên tiếp sinh ra vì việc ấy nằm rải rác: `setLens` bật nó,
+    // `showPanel` không tắt (khối trôi xuống dưới tab Bài tập), và
+    // `renderProgress` lại mở cái bảng đã bị thay ra (codex #976).
+    for (const caller of ['function setLens', 'function showPanel',
+                          'function renderProgress']) {
+      const body = codeOnly(SRC.slice(SRC.indexOf(caller),
+                                      SRC.indexOf(caller) + 1800));
+      assert.match(body, /syncProgressPanel\(\)/, caller);
+    }
+    const owner = codeOnly(SRC.slice(SRC.indexOf('function syncProgressPanel'),
+                                     SRC.indexOf('function renderDrawer')));
+    assert.match(owner, /_lens === 'progress'/);
+    assert.match(owner, /panel-roster/, 'rời sổ thì khối phụ trợ phải đi theo');
+    assert.match(owner, /progress-table-wrap/);
+  });
+
+  test('KHÔNG tự đặt chốt của loadDailyBoard', () => {
+    // `loadDailyBoard` có chốt riêng và thoát ngay nếu thấy chốt đã bật — đặt
+    // hộ nó là làm nó KHÔNG BAO GIỜ chạy (codex #976).
+    assert.match(fn, /loadDailyBoard\(\)/);
+    assert.doesNotMatch(fn, /_dailyBoardLoaded = true/);
+  });
+});
+
+describe('mở ngăn kéo bằng BÀN PHÍM', () => {
+  test('tên học viên là một nút thật, không phải hàng bấm được', () => {
+    // Một `<tr>` nghe click thì người dùng bàn phím không bao giờ mở được ngăn
+    // kéo nào — họ chỉ tab tới được nút "Gỡ khỏi lớp" chẳng liên quan.
+    assert.match(SRC, /class="cl-rowbtn"/);
+    assert.match(SRC, /data-action="open-student"/);
+    assert.match(SRC, /aria-expanded=/);
+  });
+
+  test('vẽ lại bảng xong phải trả TIÊU ĐIỂM về đúng nút vừa bấm', () => {
+    // Không trả thì mỗi lần mở ngăn kéo là một lần bị ném về đầu trang.
+    const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                  SRC.indexOf('const lensBar')));
+    assert.match(fn, /\.focus\(\)/);
+  });
+
+  test('nút ấy có vòng tiêu điểm nhìn thấy được', () => {
+    const css = readFileSync(
+      new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+    assert.match(css, /\.cl-rowbtn:focus-visible[^}]*outline/);
   });
 });

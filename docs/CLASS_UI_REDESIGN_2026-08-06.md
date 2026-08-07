@@ -228,6 +228,6 @@ tự luận · Bỏ dở · Xong**.
 | 3 | Việt hoá + bỏ cột thao tác ở bảng Học viên (A2) | Thấp |
 | 4 | Trang học viên 360px (A3) — **XONG**: ô số 2 cột, kẻ dọc không cụt, nút ≥44px | Thấp, tách riêng khỏi phần admin |
 | 5 | Cột tên dính + dải ô (A2) — **XONG**: dính từ 900px, dải 8 lượt gần nhất, "yếu" so với mục tiêu của CHÍNH em ấy | Trung bình |
-| 6 | Sổ điểm danh + ống kính + ngăn kéo, gỡ 5 tab và modal (A1) | **Cao** — đụng `admin-classes.js` 2806 dòng |
+| 6 | Sổ điểm danh + ống kính + ngăn kéo (A1) — **XONG một phần**: `Sĩ số`+`Tiến độ` gộp thành sổ hai ống kính, bấm hàng mở ngăn kéo trong trang. `Bài tập`/`Buổi học` Ở LẠI: chúng là đối tượng khác, không phải học viên. | **Cao** — đụng `admin-classes.js` 2806 dòng |
 
 Bước 1–4 làm được ngay và độc lập. Bước 6 nên đi riêng một PR, có ảnh trước/sau.
