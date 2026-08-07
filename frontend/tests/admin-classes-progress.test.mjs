@@ -347,20 +347,26 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       `${SRC.slice(start, end)} return { workOpen, renderWork };`)(
       esc, { course: 'bài tập theo buổi' },
       { by: { x: { items: [{ assignment_id: 'a1', title: 'Buổi 3', skill: 'course',
-                             status: 'submitted', score: null }] } },
+                             status: 'submitted', score: null, bank_id: 'b1' }] } },
         loading: {}, error: {} }, () => null);
 
     const item = { assignment_id: 'a1', title: 'Buổi 3', bank_id: 'b1', artifact_id: 'q1' };
+    // MỌI nút, kể cả chính dòng: hai vòng review liên tiếp bắt đúng lỗi này ở
+    // hai nút KHÁC nhau, nên chốt phải quét cả bộ chứ không đi từng cái.
     for (const [what, html] of [
       ['Xem tự luận', workOpen({ ...item, has_writing: true })],
       ['Xem từng câu', workOpen(item)],
       ['dòng', renderWork({ student_id: 'x' })],
     ]) {
       assert.match(html, /data-title="Buổi 3"/, `${what}: thiếu tên bài`);
+      assert.match(html, /data-bank="b1"/, `${what}: thiếu kho câu hỏi`);
     }
-    // Kho câu hỏi: hai nút dẫn vào khu bài-theo-buổi đều cần.
-    assert.match(workOpen({ ...item, has_writing: true }), /data-bank="b1"/);
-    assert.match(workOpen(item), /data-bank="b1"/);
+    // Và chúng phải sinh ở MỘT chỗ, không chép vào từng nút — vá từng cái là
+    // hẹn gặp lại ở nút thứ tư (codex #989 vòng 1 và vòng 2, cùng một lỗi).
+    const src = codeOnly(SRC.slice(SRC.indexOf('function workCtx'),
+                                   SRC.indexOf('async function loadStudentWork')));
+    assert.equal((src.match(/data-title="/g) || []).length, 1,
+      'tên bài viết ở nhiều chỗ là nhiều chỗ để quên');
 
     // VÀ chỗ nghe phải CHUYỂN TIẾP chúng. Ghim cái nút mà quên chỗ gọi là để
     // lọt đúng một nửa lỗi: thuộc tính có mặt, không ai đọc — bẫy "test đường,
@@ -437,6 +443,23 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     assert.match(bad, /Không đọc được/);
     assert.doesNotMatch(bad, /chưa được giao bài nào/,
       'đọc hỏng mà nói "chưa được giao" là một khẳng định không có bằng chứng');
+  });
+
+  test('bài ĐÃ ĐÓNG nói ra là đã đóng, không đọc thành em ấy bỏ bài', () => {
+    // Máy chủ trả `archived` mà trang bỏ qua thì một bài giáo viên tự tay đóng
+    // hiện ra "chưa nộp" — đọc như lỗi của học viên (codex #989 vòng 2).
+    const start = SRC.indexOf('const WORK_STATUS = {');
+    const end = SRC.indexOf('async function loadStudentWork');
+    const esc = (x) => String(x == null ? '' : x);
+    const mk = (items) => new Function('esc', 'SKILL_LABEL', '_work', '$',
+      `${SRC.slice(start, end)} return { renderWork };`)(
+      esc, { course: 'bài tập theo buổi' },
+      { by: { x: { items } }, loading: {}, error: {} }, () => null)
+      .renderWork({ student_id: 'x' });
+
+    const base = { assignment_id: 'a1', title: 'B', skill: 'course', status: 'pending' };
+    assert.match(mk([{ ...base, archived: true }]), /đã đóng/);
+    assert.doesNotMatch(mk([{ ...base, archived: false }]), /đã đóng/);
   });
 
   // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────

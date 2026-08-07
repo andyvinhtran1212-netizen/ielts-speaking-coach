@@ -550,11 +550,15 @@ function renderWork(m) {
   return `<h4 class="cl-work__head">Bài đã giao</h4>${stale}<ul class="cl-work__list">`
     + w.items.map((it) => `<li data-status="${esc(it.status)}">
         <button type="button" class="cl-work__row" data-open-work="${esc(it.assignment_id)}"
-                data-title="${esc(it.title || '')}">
+                ${workCtx(it)}>
           <span class="cl-work__title">${esc(it.title || '(Không tên)')}</span>
           <span class="cl-work__meta">${esc(SKILL_LABEL[it.skill] || it.skill)}
             · ${esc(WORK_STATUS[it.status] || it.status)}${
-              it.score == null ? '' : ` · ${esc(it.score)}`}</span>
+              it.score == null ? '' : ` · ${esc(it.score)}`}${
+              // ĐÃ ĐÓNG là chuyện của giáo viên, không phải lỗi của em ấy. Một
+              // bài đã đóng mà hiện "chưa nộp" đọc ra như em ấy bỏ bài, trong
+              // khi chính giáo viên đã ngừng nhận (codex #989 vòng 2).
+              it.archived ? ' · đã đóng' : ''}</span>
         </button>
         ${workOpen(it)}
       </li>`).join('')
@@ -568,6 +572,21 @@ function renderWork(m) {
  * không có liên kết. Nên chỗ này hỏi `artifact_id`/`has_writing` chứ không hỏi
  * "em ấy đã nộp chưa" — sổ có thể ghi đã nộp trong khi khoá nối chưa có.
  */
+/**
+ * NGỮ CẢNH của một dòng, sinh ở MỘT chỗ.
+ *
+ * `_homework` chỉ nạp khi mở tab Bài tập, còn ngăn kéo mở từ Sổ điểm danh —
+ * tức đường CHÍNH là đường `_homework` còn rỗng. Nên mọi nút phải tự mang tên
+ * bài và kho câu hỏi; thiếu chúng thì khu Nhận bài mở ra không tiêu đề và
+ * `openMarking` ẩn luôn hai tab chỉ-bài-theo-buổi.
+ *
+ * Sinh ở một chỗ chứ không chép vào từng nút: hai vòng review liên tiếp đều bắt
+ * đúng lỗi này ở một nút KHÁC (#989) — vá từng cái là hẹn gặp lại ở nút thứ tư.
+ */
+function workCtx(it) {
+  return `data-bank="${esc(it.bank_id || '')}" data-title="${esc(it.title || '')}"`;
+}
+
 function workOpen(it) {
   if (it.artifact_kind === 'session' && it.artifact_id) {
     return `<a class="cl-work__open" target="_blank" rel="noopener"
@@ -575,19 +594,12 @@ function workOpen(it) {
       >Nghe bài</a>`;
   }
   if (it.has_writing) {
-    // Mang theo tên bài VÀ kho câu hỏi, y như nút "Xem từng câu". Ngăn kéo mở
-    // được từ Sổ điểm danh, nơi `_homework` CHƯA nạp — thiếu hai thứ này thì
-    // bài tự luận mở ra dưới tiêu đề trống "Nhận bài", và `openMarking` ẩn luôn
-    // hai tab chỉ-bài-theo-buổi vì tưởng đây không phải bài theo buổi
-    // (codex #989).
     return `<button class="cl-work__open" type="button"
-      data-open-writing="${esc(it.assignment_id)}" data-bank="${esc(it.bank_id || '')}"
-      data-title="${esc(it.title || '')}">Xem tự luận</button>`;
+      data-open-writing="${esc(it.assignment_id)}" ${workCtx(it)}>Xem tự luận</button>`;
   }
   if (it.bank_id && it.artifact_id) {
     return `<button class="cl-work__open" type="button"
-      data-open-one="${esc(it.assignment_id)}" data-bank="${esc(it.bank_id)}"
-      data-title="${esc(it.title || '')}">Xem từng câu</button>`;
+      data-open-one="${esc(it.assignment_id)}" ${workCtx(it)}>Xem từng câu</button>`;
   }
   return '';
 }
@@ -3035,7 +3047,10 @@ function bindDetail() {
       // Reading/Listening và cho bài chưa nộp — không có mặt đọc riêng, nhưng
       // bảng tổng kết của bài ấy là câu trả lời gần nhất.
       const row = e.target.closest('button[data-open-work]');
-      if (row) openWorkItem(row.dataset.openWork, { title: row.dataset.title });
+      if (row) {
+        openWorkItem(row.dataset.openWork,
+          { bank: row.dataset.bank, title: row.dataset.title });
+      }
     });
   }
 

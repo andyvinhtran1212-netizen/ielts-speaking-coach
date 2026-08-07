@@ -1379,7 +1379,7 @@ async def student_work(
 
     assignments = _paged(
         supabase_admin, "class_assignments",
-        "id, title, skill, due_at, status, content_id, content_config",
+        "id, title, skill, due_at, status, content_id, content_config, created_at",
         lambda q: q.eq("cohort_id", cohort_id),
     )
     if not assignments:
@@ -1447,6 +1447,10 @@ async def student_work(
             "title":         a.get("title"),
             "skill":         a.get("skill"),
             "due_at":        a.get("due_at"),
+            # Đi kèm vì nhóm KHÔNG HẠN xếp theo nó. Không mang ra thì phép xếp
+            # bên dưới đọc `None` cho mọi dòng và trở thành một lệnh rỗng —
+            # xanh mà không làm gì.
+            "created_at":    a.get("created_at"),
             "archived":      a.get("status") == "archived",
             "status":        _hand_in_status(it, student, due, bool(due and now > due)),
             "submitted_at":  it.get("submitted_at"),
@@ -1467,6 +1471,11 @@ async def student_work(
     dated = [r for r in out if r["due_at"]]
     undated = [r for r in out if not r["due_at"]]
     dated.sort(key=lambda r: r["due_at"], reverse=True)
+    # Nhóm không-hạn cũng phải MỚI TRƯỚC. Bỏ nguyên thứ tự đầu vào là xếp theo
+    # `id` — `_paged` sắp theo id để cửa sổ phân trang ổn định, mà id là UUID
+    # ngẫu nhiên. Một danh sách hứa "mới nhất lên đầu" mà nửa dưới xếp ngẫu
+    # nhiên thì nửa dưới ấy không đọc được (codex #989 vòng 2).
+    undated.sort(key=lambda r: r.get("created_at") or "", reverse=True)
     out = dated + undated
 
     result = {"student": _student_brief(student), "items": out}

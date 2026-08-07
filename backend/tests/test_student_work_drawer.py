@@ -87,20 +87,30 @@ def _tables(**over):
         "class_assignments": [
             {"id": "a-old", "cohort_id": COHORT, "title": "Buổi 1", "skill": "course",
              "due_at": "2026-08-01T12:00:00+00:00", "status": "published",
-             "content_id": "bank-1", "content_config": {}},
+             "content_id": "bank-1", "created_at": "2026-07-10T00:00:00+00:00", "content_config": {}},
             # `content_id` KHÁC None dù là bài Speaking: nếu ô thử để None ở
             # đây thì "chỉ bài theo buổi mới kèm kho câu hỏi" không kiểm được gì
             # — bỏ hẳn phép lọc `skill` vẫn ra None và chốt vẫn xanh.
             {"id": "a-new", "cohort_id": COHORT, "title": "Buổi 2", "skill": "speaking",
              "due_at": "2026-08-05T12:00:00+00:00", "status": "published",
-             "content_id": "topic-9", "content_config": {}},
-            {"id": "a-none", "cohort_id": COHORT, "title": "Không hạn", "skill": "reading",
-             "due_at": None, "status": "published",
+             "content_id": "topic-9", "created_at": "2026-07-15T00:00:00+00:00", "content_config": {}},
+            # HAI bài không hạn, và id (UUID, ngẫu nhiên trên thật) xếp NGƯỢC
+            # với thời gian tạo — nếu chỉ có một bài thì phép xếp nhóm ấy không
+            # kiểm được gì.
+            # `id` xếp NGƯỢC với `created_at`: "a-none" đứng trước theo id nhưng
+            # được tạo TRƯỚC (cũ hơn). Nếu hai thứ tự trùng nhau thì bỏ hẳn
+            # phép xếp nhóm không-hạn vẫn xanh — ô thử khi ấy không kiểm gì cả
+            # (tôi đã dựng đúng như thế rồi tự bắt lại).
+            {"id": "a-none", "cohort_id": COHORT, "title": "Không hạn CŨ", "skill": "listening",
+             "due_at": None, "status": "archived", "created_at": "2026-07-01T00:00:00+00:00",
+             "content_id": None, "content_config": {}},
+            {"id": "a-none-z", "cohort_id": COHORT, "title": "Không hạn MỚI", "skill": "reading",
+             "due_at": None, "status": "published", "created_at": "2026-07-20T00:00:00+00:00",
              "content_id": None, "content_config": {}},
             # Bài của LỚP KHÁC — không được lọt vào.
             {"id": "a-other", "cohort_id": "co-2", "title": "Lớp khác", "skill": "speaking",
              "due_at": "2026-08-09T12:00:00+00:00", "status": "published",
-             "content_id": None, "content_config": {}},
+             "content_id": None, "created_at": "2026-06-01T00:00:00+00:00", "content_config": {}},
         ],
         "class_assignment_items": [
             {"id": "i-old", "assignment_id": "a-old", "student_id": SID,
@@ -108,6 +118,10 @@ def _tables(**over):
              "artifact_kind": "quiz_session", "artifact_id": "q-1",
              "passed_at": None, "mastery": {}},
             {"id": "i-new", "assignment_id": "a-new", "student_id": SID,
+             "submitted_at": None, "score": None, "state": None,
+             "artifact_kind": None, "artifact_id": None,
+             "passed_at": None, "mastery": {}},
+            {"id": "i-none-z", "assignment_id": "a-none-z", "student_id": SID,
              "submitted_at": None, "score": None, "state": None,
              "artifact_kind": None, "artifact_id": None,
              "passed_at": None, "mastery": {}},
@@ -180,7 +194,7 @@ def test_status_comes_from_the_same_rule_the_tally_uses():
         assert items[a["id"]]["status"] == adm._hand_in_status(it, STUDENT, due, sealed)
         checked += 1
     # Vòng lặp không so được dòng nào thì chốt này chỉ là một câu `pass` dài.
-    assert checked == 3
+    assert checked == 4
 
 
 def test_a_student_with_no_account_never_reads_as_lazy():
@@ -197,7 +211,7 @@ def test_only_this_class_and_only_this_student():
     res = _call()
     ids = set(_by_id(res))
     assert "a-other" not in ids, "bài của lớp khác lọt vào"
-    assert ids == {"a-old", "a-new", "a-none"}
+    assert ids == {"a-old", "a-new", "a-none", "a-none-z"}
 
 
 def test_an_assignment_with_no_item_for_this_student_is_left_out():
@@ -218,7 +232,7 @@ def test_newest_deadline_first_and_undated_LAST():
 
     Một khẳng định, một thứ tự. Chốt nhận `A or B` là chốt không nói gì.
     """
-    assert [i["assignment_id"] for i in _call()["items"]] == ["a-new", "a-old", "a-none"]
+    assert [i["assignment_id"] for i in _call()["items"]] == ["a-new", "a-old", "a-none-z", "a-none"]
 
 
 # ── Đường mở bài ───────────────────────────────────────────────────────────
@@ -266,7 +280,7 @@ def test_a_failed_reconcile_marks_the_list_stale():
          patch.object(adm, "reconcile_course_items", lambda *a, **k: None):
         res = asyncio.run(adm.student_work(COHORT, SID, authorization="Bearer x"))
     assert res.get("homework_stale") is True
-    assert len(res["items"]) == 3, "vá hỏng KHÔNG được nuốt luôn danh sách"
+    assert len(res["items"]) == 4, "vá hỏng KHÔNG được nuốt luôn danh sách"
 
 
 def test_a_clean_read_does_not_cry_wolf():
@@ -293,7 +307,7 @@ def test_a_student_of_another_class_is_404_even_though_the_id_is_real():
 def test_a_student_on_this_roster_is_let_through():
     """Chốt trên phải TỪ CHỐI đúng thứ cần từ chối, không từ chối tất cả."""
     res = _call(_tables(students=[{**STUDENT, "cohort_id": COHORT}]))
-    assert res["student"]["id"] == SID and len(res["items"]) == 3
+    assert res["student"]["id"] == SID and len(res["items"]) == 4
 
 
 def test_an_unknown_student_is_404_not_an_empty_list():
@@ -303,3 +317,31 @@ def test_an_unknown_student_is_404_not_an_empty_list():
     with pytest.raises(HTTPException) as e:
         _call(_tables(students=[]))
     assert e.value.status_code == 404
+
+
+# ── Nhóm KHÔNG HẠN cũng phải mới-trước (codex #989 vòng 2) ─────────────────
+
+def test_undated_group_is_sorted_by_creation_not_by_uuid():
+    """`_paged` sắp theo `id` để cửa sổ phân trang ổn định, mà `id` là UUID
+    ngẫu nhiên. Giữ nguyên thứ tự đầu vào cho nhóm không-hạn nghĩa là nửa dưới
+    của một danh sách hứa "mới nhất lên đầu" xếp ngẫu nhiên."""
+    ids = [i["assignment_id"] for i in _call()["items"]]
+    assert ids[-2:] == ["a-none-z", "a-none"], "bài không hạn MỚI phải đứng trước"
+    # Và thứ tự ấy phải NGƯỢC thứ tự id, nếu không chốt không kiểm gì.
+    assert sorted(ids[-2:]) != ids[-2:]
+
+
+def test_created_at_travels_so_the_sort_is_not_a_no_op():
+    """Xếp theo một khoá KHÔNG có trong dòng là một lệnh rỗng — xanh mà không
+    làm gì. Tôi đã viết đúng nó rồi tự bắt lại."""
+    assert all(i.get("created_at") for i in _call()["items"])
+
+
+# ── ĐÃ ĐÓNG là chuyện của giáo viên, không phải lỗi của em ấy ──────────────
+
+def test_archived_is_reported_so_the_page_can_say_so():
+    """Một bài đã đóng mà chỉ hiện "chưa nộp" đọc ra như em ấy bỏ bài, trong
+    khi chính giáo viên đã ngừng nhận."""
+    items = _by_id(_call())
+    assert items["a-none"]["archived"] is True
+    assert items["a-none-z"]["archived"] is False
