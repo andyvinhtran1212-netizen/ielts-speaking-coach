@@ -510,7 +510,226 @@ function renderDrawer() {
       <dd>${esc(lastActiveLabel(m.last_active))}</dd>
       <dt>Nộp đúng hạn</dt>
       <dd>${p ? punctualityCell(p.homework) : '<span class="cl-skill-none">—</span>'}</dd>
-    </dl>`;
+    </dl>
+    <div class="cl-work" id="drawer-work">${renderWork(m)}</div>`;
+}
+
+// ── Bài của MỘT em ──────────────────────────────────────────────────────────
+//
+// Cho tới nay bấm vào tên một em chỉ ra ba dòng dữ kiện và KHÔNG hành động nào.
+// Nhưng việc giáo viên mở màn này để làm là "em ấy đã làm gì, cho tôi xem" —
+// nên ngăn kéo phải dẫn được tới đúng bài, chứ không chỉ mô tả em ấy.
+//
+// Nó KHÔNG tự vẽ lại bài làm. Mỗi loại bài đã có một chỗ đọc chạy được rồi
+// (trang phiên Speaking, tab "Bài từng em", màn bài tự luận); dựng bản vẽ thứ
+// hai ở đây là dựng chỗ để trôi khỏi bản gốc. Ngăn kéo chỉ đưa giáo viên TỚI
+// đúng chỗ ấy.
+// MỘT SỐ THẾ HỆ, không phải ba cờ rời.
+//
+// Ba vòng review liên tiếp bắt cùng một họ lỗi ở đây — số lượt toàn cục gây
+// kẹt, HTML không vẽ lại, lượt đang bay ghi đè bản trước-khi-đổi. Đó không
+// phải ba lỗi rời mà là một lỗi thiết kế: tôi tự dựng bộ nhớ đệm, gộp-lượt và
+// vô-hiệu-hoá bằng ba cờ không biết gì về nhau, nên mỗi lần vá lại hở một khe
+// mới (codex #989 vòng 2, 3, 4).
+//
+// Nay một quy tắc: mỗi lượt đọc chụp `epoch` lúc bắt đầu và CHỈ GHI được nếu
+// `epoch` ấy còn là hiện tại. Mọi thay đổi dữ liệu tăng `epoch` lên một.
+//   · lượt cũ về sau khi dữ liệu đã đổi → không ghi được, tự rụng
+//   · `inflight[sid]` giữ epoch của lượt đang bay, nên một lượt của epoch cũ
+//     KHÔNG chặn được lượt mới — đúng khe mà bản trước để hở
+//   · trong cùng một epoch thì vẫn gộp, không gọi mạng hai lần
+const _work = { by: {}, inflight: {}, error: {}, epoch: 0 };
+
+// 30 giây. Đủ ngắn để một bài vừa nộp ở tab khác hiện ra gần như ngay, đủ dài
+// để bấm qua lại vài em không kéo theo vài lượt quét cả lớp — máy chủ chạy ba
+// bộ đối chiếu trên toàn bộ bài giao của lớp cho MỖI lượt gọi.
+const WORK_TTL_MS = 30_000;
+
+/** Trạng thái một lượt nộp — CÙNG bộ chữ với bảng tổng kết. */
+const WORK_STATUS = {
+  submitted: 'đã nộp', late: 'nộp trễ', missing: 'không nộp',
+  pending: 'chưa nộp', 'no-account': 'chưa kích hoạt',
+};
+
+function renderWork(m) {
+  const sid = m.student_id;
+  if (_work.error[sid]) {
+    return `<p class="cl-work__note">Không đọc được bài của em này: ${esc(_work.error[sid])}
+      <button class="adm-btn-secondary" type="button" data-work-retry="${esc(sid)}">Thử lại</button></p>`;
+  }
+  const w = _work.by[sid];
+  if (!w) return '<p class="cl-work__note">Đang tải bài đã giao…</p>';
+  if (!w.items.length) {
+    return '<p class="cl-work__note">Em này chưa được giao bài nào trong lớp.</p>';
+  }
+  // Cờ "chưa đối chiếu được" hiện RA, không nuốt: một danh sách trông đầy đủ mà
+  // thiếu bài là lời nói dối tệ hơn một lời cảnh báo.
+  const stale = w.homework_stale
+    ? '<p class="cl-work__note">Sổ chưa đối chiếu được — vài bài có thể thiếu.</p>' : '';
+  return `<h4 class="cl-work__head">Bài đã giao</h4>${stale}<ul class="cl-work__list">`
+    + w.items.map((it) => `<li data-status="${esc(it.status)}">
+        <button type="button" class="cl-work__row" data-open-work="${esc(it.assignment_id)}"
+                ${workCtx(it)}>
+          <span class="cl-work__title">${esc(it.title || '(Không tên)')}</span>
+          <span class="cl-work__meta">${esc(SKILL_LABEL[it.skill] || it.skill)}
+            · ${esc(WORK_STATUS[it.status] || it.status)}${
+              it.score == null ? '' : ` · ${esc(it.score)}`}${
+              // ĐÃ ĐÓNG là chuyện của giáo viên, không phải lỗi của em ấy. Một
+              // bài đã đóng mà hiện "chưa nộp" đọc ra như em ấy bỏ bài, trong
+              // khi chính giáo viên đã ngừng nhận (codex #989 vòng 2).
+              it.archived ? ' · đã đóng' : ''}</span>
+        </button>
+        ${workOpen(it)}
+      </li>`).join('')
+    + '</ul>';
+}
+
+/**
+ * Đường mở thẳng, CHỈ khi có bài thật để mở.
+ *
+ * Đúng luật đã dùng ở bảng tổng kết: một liên kết dẫn tới trang trống tệ hơn
+ * không có liên kết. Nên chỗ này hỏi `artifact_id`/`has_writing` chứ không hỏi
+ * "em ấy đã nộp chưa" — sổ có thể ghi đã nộp trong khi khoá nối chưa có.
+ */
+/**
+ * NGỮ CẢNH của một dòng, sinh ở MỘT chỗ.
+ *
+ * `_homework` chỉ nạp khi mở tab Bài tập, còn ngăn kéo mở từ Sổ điểm danh —
+ * tức đường CHÍNH là đường `_homework` còn rỗng. Nên mọi nút phải tự mang tên
+ * bài và kho câu hỏi; thiếu chúng thì khu Nhận bài mở ra không tiêu đề và
+ * `openMarking` ẩn luôn hai tab chỉ-bài-theo-buổi.
+ *
+ * Sinh ở một chỗ chứ không chép vào từng nút: hai vòng review liên tiếp đều bắt
+ * đúng lỗi này ở một nút KHÁC (#989) — vá từng cái là hẹn gặp lại ở nút thứ tư.
+ */
+function workCtx(it) {
+  return `data-bank="${esc(it.bank_id || '')}" data-title="${esc(it.title || '')}"`;
+}
+
+function workOpen(it) {
+  if (it.artifact_kind === 'session' && it.artifact_id) {
+    return `<a class="cl-work__open" target="_blank" rel="noopener"
+      href="/pages/admin/speaking/sessions.html?session=${esc(it.artifact_id)}"
+      >Nghe bài</a>`;
+  }
+  if (it.has_writing) {
+    return `<button class="cl-work__open" type="button"
+      data-open-writing="${esc(it.assignment_id)}" ${workCtx(it)}>Xem tự luận</button>`;
+  }
+  if (it.bank_id && it.artifact_id) {
+    return `<button class="cl-work__open" type="button"
+      data-open-one="${esc(it.assignment_id)}" ${workCtx(it)}>Xem từng câu</button>`;
+  }
+  return '';
+}
+
+/**
+ * Nạp bài của một em. Một lượt cho mỗi em, giữ lại để bấm qua bấm lại không gọi
+ * mạng thêm.
+ *
+ * `seq` chống đua: bấm An rồi Bình lúc mạng chậm thì bài của An về sau và ghi
+ * đè ngăn kéo của Bình — giáo viên đọc bài một em dưới tên một em khác. Cùng
+ * cái bẫy đã vá ở `openOneReport`.
+ */
+async function loadStudentWork(sid) {
+  if (!sid) return;
+  const epoch = _work.epoch;
+  // Gộp trong CÙNG epoch, không gộp xuyên epoch: một lượt bắt đầu trước khi dữ
+  // liệu đổi không được phép chặn lượt đọc lại sau khi đổi.
+  if (_work.inflight[sid] === epoch) return;
+  // HẠN DÙNG, không phải "dùng mãi" cũng không phải "đọc lại mọi lần".
+  //
+  // Hai vòng review nói ngược nhau ở đây, và cả hai đều đúng một nửa. Dùng lại
+  // kho vô hạn thì nó sai vô thời hạn: em ấy nộp bài ở tab khác, hạn trôi qua
+  // biến "chưa nộp" thành "không nộp", giáo viên chấm ở trang mở bằng tab
+  // mới — không lần nào trong số đó chạm tới trang này, nên `epoch` không thấy.
+  // Đọc lại MỌI lần thì bấm An → Bình → An là ba lượt quét CẢ LỚP, vì máy chủ
+  // chạy ba bộ đối chiếu trên toàn bộ bài giao của lớp mỗi lần gọi.
+  //
+  // Hạn dùng giải cả hai: điều hướng qua lại không tốn gì, còn cái sai thì có
+  // trần thời gian thay vì kéo dài tới khi đóng tab.
+  const hit = _work.by[sid];
+  if (hit && hit.epoch === epoch && Date.now() - hit.at < WORK_TTL_MS) return;
+  _work.inflight[sid] = epoch;
+  delete _work.error[sid];
+  try {
+    const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/students/' + encodeURIComponent(sid) + '/work');
+    // Dữ liệu đã đổi trong lúc đọc ⇒ bản này là ảnh chụp TRƯỚC khi đổi. Rụng
+    // nó đi; lượt của epoch mới đang bay hoặc sắp bay.
+    if (epoch !== _work.epoch) return;
+    _work.by[sid] = { items: d.items || [], homework_stale: !!d.homework_stale,
+                      at: Date.now(), epoch };
+    delete _work.error[sid];
+  } catch (err) {
+    if (epoch !== _work.epoch) return;
+    _work.error[sid] = err.message || String(err);
+  } finally {
+    if (_work.inflight[sid] === epoch) delete _work.inflight[sid];
+  }
+  // Vẽ khi em đang chọn vẫn là em này. Kho lưu theo TỪNG EM nên không cần thêm
+  // số lượt nào nữa — và một số lượt toàn cục ở đây từng gây kẹt: An → Bình →
+  // An thì lượt của An mang số cũ hơn nên không vẽ được, trong khi chốt gộp đã
+  // chặn lượt thứ hai (codex #989 vòng 2).
+  if (_picked === sid) {
+    const box = $('drawer-work');
+    const m = (_who.members || []).find((x) => x.student_id === sid);
+    if (box && m) box.innerHTML = renderWork(m);
+  }
+}
+
+/**
+ * MỘT nơi làm chủ việc làm mới danh sách bài trong ngăn kéo.
+ *
+ * Xoá bộ nhớ đệm là CHƯA ĐỦ: phần HTML đã vẽ vẫn đứng nguyên trên màn hình.
+ * Giao thêm một bài, đóng một bài, hay chấm xong rồi quay lại — ngăn kéo vẫn
+ * hiện danh sách của trước đó, và nó chỉ đúng lại khi giáo viên đóng em ấy ra
+ * mở lại. Tức là màn hình mâu thuẫn với chính nó sau một lần tải lại trang
+ * (codex #989 vòng 3).
+ *
+ * Gọi từ HAI chỗ vì có hai đường tới: đổi dữ liệu (`invalidateProgress`) và
+ * quay về sổ điểm danh (`showPanel`). Một hàm để hai đường không trôi khỏi nhau.
+ */
+function refreshDrawerWork() {
+  if (!_picked) return;
+  renderDrawer();               // vẽ lại bằng kho đã xoá → "Đang tải…"
+  loadStudentWork(_picked);
+}
+
+/**
+ * Đưa giáo viên VÀO khu Nhận bài của đúng bài giao, rồi tới đúng mặt đọc.
+ *
+ * `_homework` có thể CHƯA nạp — ngăn kéo mở được từ tab Sổ điểm danh, còn danh
+ * sách bài giao chỉ nạp khi mở tab Bài tập. Nên tên bài và kho câu hỏi đi kèm
+ * theo từng dòng thay vì tra ngược từ đó; tra ngược sẽ cho một khu Nhận bài
+ * không tiêu đề và tab "Bài từng em" bị ẩn.
+ */
+async function openWorkItem(assignmentId, opts = {}) {
+  const a = (_homework || []).find((x) => x.id === assignmentId) || {};
+  const bank = opts.bank || (a.skill === 'course' ? a.content_id : null) || null;
+  const m = (_who.members || []).find((x) => x.student_id === _picked);
+  const sid = _picked;
+  // BỎ bộ nhớ đệm của đúng em này TRƯỚC khi rời đi. Giáo viên vào khu Nhận bài
+  // để CHẤM; quay lại ngăn kéo mà vẫn thấy "chưa nộp · chưa chấm" của lần đọc
+  // trước là màn này nói sai về việc giáo viên vừa tự tay làm.
+  if (sid) delete _work.by[sid];
+  const done = openMarking(assignmentId, opts.title || a.title || '', bank);
+  if (opts.one && bank) {
+    showMarkTab('one');
+    // `openMarking` đặt `_mk` ĐỒNG BỘ ngay đầu hàm, nên lời gọi dưới đây đọc
+    // đúng bài vừa mở, không phải bài trước đó.
+    if (m && m.user_id) openOneReport(m.user_id, m.name || '');
+  } else if (opts.writing && sid) {
+    // Đợi bảng tổng kết vẽ xong rồi mới ghi đè: cả hai viết vào `#tally-body`,
+    // và màn tự luận chụp lại nội dung đang có để làm đường "quay lại".
+    const gen = _mkGen;
+    try { await done; } catch { /* lỗi bảng đã tự nói ra ở đó */ }
+    // Trong lúc chờ, giáo viên có thể đã mở một bài giao khác. `openStudentWriting`
+    // tự chụp thế hệ ở ĐẦU nó, tức là sẽ chụp thế hệ MỚI và ghi bài của bài giao
+    // cũ vào khung của bài giao mới — chốt của nó không cứu được ca này.
+    if (gen !== _mkGen) return;
+    openStudentWriting(assignmentId, sid);
+  }
 }
 
 async function populateStudentPicker() {
@@ -1043,6 +1262,12 @@ function renderStudentWriting(d) {
 }
 
 async function openStudentWriting(assignmentId, studentId) {
+  // THẾ HỆ, chặn ngay tại chỗ ghi. Mở bài giao A (mạng chậm) rồi mở bài giao B:
+  // bài tự luận của A về sau và ghi đè `#tally-body` của B — giáo viên đọc bài
+  // một em ở một bài giao khác với tiêu đề đang hiện. Cùng bẫy `openOneReport`
+  // đã vá, và nó có SẴN ở đường cũ từ bảng tổng kết chứ không phải chỉ ở đường
+  // mới từ ngăn kéo — nên chặn ở đây, không chặn ở nơi gọi (codex cục bộ 07/08).
+  const gen = _mkGen;
   const body = $('tally-body');
   const back = body.innerHTML;          // để quay lại đúng bảng đang mở
   body.innerHTML = '<p class="adm-hint">Đang tải bài tự luận…</p>';
@@ -1050,6 +1275,7 @@ async function openStudentWriting(assignmentId, studentId) {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId)
       + '/writing/' + encodeURIComponent(studentId));
+    if (gen !== _mkGen) return;
     body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
       + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
     const b = $('cw-back');
@@ -1057,6 +1283,7 @@ async function openStudentWriting(assignmentId, studentId) {
       b.onclick = () => { body.innerHTML = back; };
     }
   } catch (err) {
+    if (gen !== _mkGen) return;
     // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
     // không chứng minh được.
     body.innerHTML = '<p class="adm-banner">Không đọc được bài tự luận: '
@@ -1114,7 +1341,12 @@ function openMarking(assignmentId, title, bankId) {
   $('tab-marking').hidden = false;
   showPanel('marking');
   showMarkTab('tally');
-  openTally(assignmentId);
+  // TRẢ promise ra. Nơi gọi nào muốn ghi tiếp vào `#tally-body` — ví dụ mở
+  // thẳng bài tự luận của một em từ ngăn kéo — phải đợi bảng tổng kết vẽ xong,
+  // nếu không hai lượt ghi đua nhau trên cùng một khung và bản chụp "quay lại"
+  // của màn tự luận chụp nhầm dòng "Đang tải…". Các nơi gọi cũ bỏ qua giá trị
+  // này nên hành vi của chúng không đổi.
+  return openTally(assignmentId);
 }
 
 /** Danh sách em để chọn — lấy từ chính bảng "Chi tiết làm bài". */
@@ -2453,6 +2685,18 @@ function invalidateProgress() {
   // em cũ hiện số cũ trông y như thật, còn em mới thì "chưa đọc được" — một
   // bảng nửa cũ nửa mới, tệ hơn một bảng nói thẳng là chưa đọc (codex #975).
   _progressBy = null;
+  // Bộ nhớ THỨ BA: danh sách bài trong ngăn kéo. Giao thêm hay đóng một bài
+  // giao làm nó cũ ngay, và một ngăn kéo thiếu bài vừa giao đọc ra "em này chưa
+  // được giao gì" — cùng loại lỗi với hai dòng trên, ở một chỗ mới.
+  _work.by = {};
+  _work.error = {};
+  // TĂNG THẾ HỆ, không chỉ xoá kho. Một lượt đọc bắt đầu trước lúc này đang bay
+  // và sẽ về sau — nó mang ảnh chụp TRƯỚC khi đổi, và nếu chỉ xoá kho thì nó
+  // ghi đè bản trước-khi-đổi ấy vào chỗ vừa dọn (codex #989 vòng 4).
+  _work.epoch += 1;
+  // Và VẼ LẠI ngay: phần HTML đã vẽ đứng nguyên trên màn hình cho tới khi giáo
+  // viên đóng em ấy ra mở lại.
+  refreshDrawerWork();
   // Ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau. Điều kiện cũ hỏi
   // `panel-progress` có hiện không — sau khi Tiến độ thành ống kính thì câu hỏi
   // đúng là ống kính nào đang bật.
@@ -2754,6 +2998,9 @@ function showPanel(name) {
   // Rời sổ điểm danh thì khối phụ trợ của Tiến độ phải đi theo — nó không nằm
   // trong `PANELS` nên không ai tắt hộ.
   syncProgressPanel();
+  // Về sổ điểm danh thì ngăn kéo đang mở phải nói lại cho đúng: giáo viên vừa
+  // ở khu Nhận bài về, có thể vừa chấm hoặc vừa đóng một bài.
+  if (name === 'roster') refreshDrawerWork();
   // Each panel fetches on first open only — opening the class must not fire
   // three requests for two tabs the admin may never look at.
   if (name === 'lessons' && !_lessonsLoaded) {
@@ -2828,7 +3075,46 @@ function bindDetail() {
       .querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
     if (back) back.focus();
     revealDrawer();
+    // Nạp LÚC MỞ, không nạp sẵn cho cả lớp: 14 em là 14 lượt gọi mạng cho một
+    // ngăn kéo giáo viên có thể không mở cái nào.
+    if (_picked) loadStudentWork(_picked);
   });
+
+  // Ngăn kéo được vẽ lại mỗi lần đổi em, nên uỷ quyền trên chính nó.
+  const drawer = $('roster-drawer');
+  if (drawer) {
+    drawer.addEventListener('click', (e) => {
+      const retry = e.target.closest('button[data-work-retry]');
+      if (retry) {
+        // Tăng thế hệ để lượt hỏng (nếu còn đang bay) không ghi đè lượt mới.
+        _work.epoch += 1;
+        delete _work.error[retry.dataset.workRetry];
+        renderDrawer();
+        loadStudentWork(retry.dataset.workRetry);
+        return;
+      }
+      const one = e.target.closest('button[data-open-one]');
+      if (one) {
+        openWorkItem(one.dataset.openOne,
+          { one: true, bank: one.dataset.bank, title: one.dataset.title });
+        return;
+      }
+      const w = e.target.closest('button[data-open-writing]');
+      if (w) {
+        openWorkItem(w.dataset.openWriting,
+          { writing: true, bank: w.dataset.bank, title: w.dataset.title });
+        return;
+      }
+      // Bấm vào chính dòng: mở khu Nhận bài của bài ấy. Đây là đường lùi cho
+      // Reading/Listening và cho bài chưa nộp — không có mặt đọc riêng, nhưng
+      // bảng tổng kết của bài ấy là câu trả lời gần nhất.
+      const row = e.target.closest('button[data-open-work]');
+      if (row) {
+        openWorkItem(row.dataset.openWork,
+          { bank: row.dataset.bank, title: row.dataset.title });
+      }
+    });
+  }
 
   // Đổi ống kính: nghe trên VÙNG CHỨA, không gắn vào từng nút — thêm ống kính
   // thứ ba sau này sẽ tự chạy, không phải nhớ nối tay.

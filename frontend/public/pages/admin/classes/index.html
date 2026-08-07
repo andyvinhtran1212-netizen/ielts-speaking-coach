@@ -391,6 +391,43 @@
       padding: var(--av-space-6);
     }
     .cl-drawer[hidden] { display: none; }
+    /* ── Bài của một em, trong ngăn kéo ──────────────────────────────────
+       Cho tới nay bấm vào tên chỉ ra ba dòng dữ kiện và KHÔNG hành động nào,
+       trong khi việc giáo viên mở màn này để làm là "em ấy đã làm gì, cho tôi
+       xem". Danh sách này là đường đi từ một cái tên tới đúng bài. */
+    .cl-work { margin-top: var(--av-space-6); border-top: 1px solid var(--av-border-subtle);
+      padding-top: var(--av-space-4); }
+    .cl-work__head { margin: 0 0 var(--av-space-2); font-size: var(--av-fs-xs);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+    .cl-work__note { margin: 0; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .cl-work__list { list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .cl-work__list li { display: flex; align-items: center; gap: var(--av-space-2); }
+    .cl-work__row {
+      flex: 1; min-width: 0; text-align: left;
+      font: inherit; cursor: pointer; background: none; border: 0;
+      padding: var(--av-space-1) 0;
+      /* Vạch mép trái theo quy ước của cả sản phẩm: MỰC = CHỖ CẦN CHÚ Ý. Đọc
+         dọc là ra ngay em ấy đang thiếu bài nào, không cần đọc chữ. */
+      border-left: 3px solid transparent; padding-left: var(--av-space-3);
+    }
+    .cl-work__list li[data-status="missing"] .cl-work__row { border-left-color: var(--av-accent); }
+    .cl-work__list li[data-status="late"]    .cl-work__row { border-left-color: var(--av-warning); }
+    .cl-work__row:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: 2px; }
+    .cl-work__title { display: block; font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); overflow-wrap: anywhere; }
+    .cl-work__meta { display: block; font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      font-variant-numeric: tabular-nums; }
+    .cl-work__open {
+      flex: none; font: inherit; font-size: var(--av-fs-xs); cursor: pointer;
+      padding: var(--av-space-1) var(--av-space-2);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card); color: var(--av-text-secondary);
+      text-decoration: none; white-space: nowrap;
+    }
+    .cl-work__open:hover { color: var(--av-text-primary); border-color: var(--av-border-strong); }
+
     .cl-drawer h3 { margin: 0 0 var(--av-space-1); font-size: var(--av-fs-lg);
       font-weight: var(--av-fw-semibold); }
     .cl-drawer dt { color: var(--av-text-muted); font-size: var(--av-fs-xs);
