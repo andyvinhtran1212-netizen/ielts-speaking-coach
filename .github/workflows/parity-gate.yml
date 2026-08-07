@@ -316,7 +316,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: parity-gate-${{ github.ref }}
+  # PHẢI có `event_name` trong group. Trước đây group chỉ theo `github.ref`, mà
+  # push lên main, lịch đêm và dispatch tay đều mang `refs/heads/main` — nên một
+  # lần dispatch `scope=categories` sẽ HUỶ lượt post-merge đang chạy `full +
+  # authed`, rồi báo xanh. Commit đó vĩnh viễn không được lượt nào kiểm đủ, và
+  # bảng check thì trông y hệt lúc kiểm đủ.
+  #
+  # Giữa hai lần PUSH thì vẫn huỷ lượt cũ, và đó là cố ý: chỉ tip hiện tại mới
+  # là thứ đang chạy trên production. Hệ quả phải nói thẳng — trong một chuỗi
+  # merge dày, các commit ở giữa KHÔNG được kiểm riêng; thứ được bảo đảm là
+  # «main lành ở tip mới nhất», không phải «mỗi commit đều lành».
+  group: parity-gate-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:

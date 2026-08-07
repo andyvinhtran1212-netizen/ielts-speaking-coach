@@ -49,10 +49,20 @@ jobs:
           # Push lên main KHÔNG có `base_ref`; bỏ qua ca này thì `BASE=origin/`
           # và `git diff` hỏng — mà `|| true` ở dưới sẽ nuốt lỗi, cho `RAW` rỗng
           # và cổng XANH mà chưa so gì. Mốc đúng là tip main TRƯỚC lần đẩy này.
+          # HAI SỰ KIỆN, HAI PHÉP SO KHÁC NHAU — không phải cùng một phép với mốc
+          # khác nhau:
+          #   · PR dùng ba chấm (`A...HEAD`, so từ merge-base). Đúng, vì nó loại
+          #     những tệp do NHÁNH GỐC tiến lên chứ không phải do PR thêm.
+          #   · Push dùng hai chấm (`A HEAD`, so thẳng hai cây). Đúng, vì câu hỏi
+          #     là «lần đẩy này làm main mọc thêm trang HTML nào». Dùng ba chấm ở
+          #     đây thì sau một force-push sang lịch sử phân kỳ, một trang có ở
+          #     merge-base nhưng vắng ở tip cũ sẽ KHÔNG bị tính là thêm mới.
           if [ -n "${{ github.base_ref }}" ]; then
             BASE="origin/${{ github.base_ref }}"
+            RANGE="$BASE...HEAD"
           else
             BASE="${{ github.event.before }}"
+            RANGE="$BASE HEAD"
           fi
           # Lần đẩy đầu tiên vào một nhánh cho `before` toàn số 0 — không có mốc
           # nào để so, và im lặng ở đây lại thành cổng tự khen. Nói rõ rồi thoát.
@@ -61,6 +71,14 @@ jobs:
               echo "::notice::không có mốc để so (before=$BASE) — bỏ qua lượt này"
               exit 0 ;;
           esac
+          # Mốc phải TỒN TẠI trong clone này. Sau một force-push, `before` có thể
+          # đã bị bỏ và không nằm trong bản checkout — khi đó `git diff` hỏng, và
+          # `|| true` bên dưới biến nó thành «không thêm tệp nào» rồi cổng báo
+          # xanh. Đây đúng là kiểu xanh-mà-chưa-đo-gì mà cả PR này sinh ra để chặn.
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::error::không tìm thấy mốc $BASE trong clone (force-push?) — không thể kết luận"
+            exit 1
+          fi
           echo "so với mốc: $BASE"
           # `--diff-filter=A`: chỉ tệp THÊM MỚI. Sửa và xoá đều không sao.
           #
@@ -69,7 +87,10 @@ jobs:
           # `frontend/tests/e2e/fixtures/retention-harness.html` — đã đo đúng ca đó.
           # Điều kiện thật: đuôi .html VÀ (nằm dưới frontend/public/ HOẶC nằm
           # ngay tại frontend/), và KHÔNG thuộc frontend/tests/.
-          RAW=$(git diff --diff-filter=A --name-only "$BASE"...HEAD -- frontend || true)
+          # KHÔNG `|| true`. Mốc đã được kiểm tồn tại ở trên, nên `git diff` hỏng
+          # ở đây là chuyện bất thường — và nuốt nó đi thì `RAW` rỗng, vòng lặp
+          # dưới không chạy lần nào, cổng báo xanh. Hỏng thì phải đỏ.
+          RAW=$(git diff --diff-filter=A --name-only $RANGE -- frontend)
           ADDED=""
           for f in $RAW; do
             case "$f" in
