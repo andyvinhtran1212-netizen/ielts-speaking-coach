@@ -27,6 +27,9 @@ on:
       - 'frontend/*.html'
       - 'docs/LEGACY_FREEZE_EXCEPTIONS.md'
       - '.github/workflows/legacy-freeze.yml'
+  # Sau khi merge — xem chú thích cùng chủ đề ở `parity-gate.yml`.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -43,7 +46,22 @@ jobs:
 
       - name: Tìm trang HTML mới thêm
         run: |
-          BASE="origin/${{ github.base_ref }}"
+          # Push lên main KHÔNG có `base_ref`; bỏ qua ca này thì `BASE=origin/`
+          # và `git diff` hỏng — mà `|| true` ở dưới sẽ nuốt lỗi, cho `RAW` rỗng
+          # và cổng XANH mà chưa so gì. Mốc đúng là tip main TRƯỚC lần đẩy này.
+          if [ -n "${{ github.base_ref }}" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          # Lần đẩy đầu tiên vào một nhánh cho `before` toàn số 0 — không có mốc
+          # nào để so, và im lặng ở đây lại thành cổng tự khen. Nói rõ rồi thoát.
+          case "$BASE" in
+            0000000000000000000000000000000000000000|origin/)
+              echo "::notice::không có mốc để so (before=$BASE) — bỏ qua lượt này"
+              exit 0 ;;
+          esac
+          echo "so với mốc: $BASE"
           # `--diff-filter=A`: chỉ tệp THÊM MỚI. Sửa và xoá đều không sao.
           #
           # LỌC BẰNG TAY, KHÔNG TIN PATHSPEC. Trong git pathspec, `*` khớp CẢ dấu

@@ -25,6 +25,12 @@ name: Tests
 # checks and vice versa.
 
 on:
+  # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc dưới đây trả lời câu «PR này có
+  # đáng chạy test không»; ở đây câu hỏi khác hẳn: «main sau khi hợp nhất còn
+  # xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
+  # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `parity-gate.yml`.
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'backend/**'
