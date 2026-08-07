@@ -58,6 +58,15 @@ describe('lược đồ bản khai', () => {
     assert.deepEqual(bad, []);
   });
 
+  test('xoá trắng một ô là HỢP LỆ — `fill` được phép giá trị rỗng', () => {
+    // Chiều ngược của mọi chốt ở trên: bộ kiểm chặt quá thì nó CHẶN việc đúng.
+    // Ghi đè bản nháp bằng chuỗi rỗng chính là thứ `NON_EMPTY` sinh ra để bắt,
+    // nên bản khai phải gõ được thao tác đó (codex cục bộ #973 vòng 4).
+    const flow = { name: 'x', route: '/r', steps: [{ fill: ['#a', ''] }],
+      writes: [{ method: 'POST', path: '/a' }] };
+    assert.deepEqual(validateFlow(flow), []);
+  });
+
   test('bộ kiểm KHÔNG BAO GIỜ ném — vật vào gì cũng trả về mảng lỗi', () => {
     // Một bộ kiểm ném lỗi giữa chừng thì các lỗi còn lại không ai thấy, và người
     // đọc nhận một stack trace thay vì danh sách việc (codex cục bộ #973 vòng 3).
@@ -98,6 +107,16 @@ describe('lược đồ bản khai', () => {
       [{ ...base, canned: '' }, /canned/],
       [{ ...base, ignoreWrites: '' }, /ignoreWrites/],
       [{ ...base, settleMs: -5 }, /settleMs/],
+      // Vòng 4 codex — ba ca có rủi ro THẬT (khác với các ca chỉ xảy ra khi cố
+      // tình viết bản khai quái dị):
+      // · `async` trả Promise, mà Promise LUÔN truthy ⇒ mọi thân request đều qua;
+      [{ ...base, writes: [{ method: 'POST', path: '/a', body: async () => false }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: async () => false }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        headers: { A: async () => false } }] }, /async/],
+      // · vị từ LỒNG SÂU bị `JSON.stringify` xoá mất — khai rồi mà không chạy;
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        body: { extra: { id: (v) => v === 1 } } }] }, /LỒNG SÂU/],
     ];
     for (const [flow, re] of cases) {
       const errs = validateFlow(flow);
