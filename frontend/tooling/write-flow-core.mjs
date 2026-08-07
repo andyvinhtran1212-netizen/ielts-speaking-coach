@@ -99,6 +99,71 @@ export const NO_BODY = Symbol('no-body');
 export const NO_LIST = Symbol('no-list-data');
 export const NO_TEXT = Symbol('no-text-data');
 
+/**
+ * Tách thân `multipart/form-data` từ BUFFER thành `{tên trường: giá trị}`.
+ *
+ * Nhận `Buffer` chứ không nhận chuỗi: `postData()` của Playwright là chuỗi đã
+ * diễn giải UTF-8, nên với dữ liệu nhị phân thì `.length` là số đơn vị UTF-16
+ * chứ KHÔNG phải số byte tệp. Một con số nghe như byte mà không phải byte thì
+ * tệ hơn là không có con số nào (codex cục bộ #980).
+ *
+ * Trường thường → chuỗi. Trường TỆP → `{filename, contentType, size}` với `size`
+ * là SỐ BYTE THẬT; không giữ nội dung.
+ *
+ * ĐỌC ĐÚNG `size` NGHĨA LÀ GÌ: nó chứng minh "có một tệp, đúng tên trường, và
+ * không rỗng". Nó KHÔNG chứng minh trong tệp có tiếng nói — một bản thu 16 giây
+ * toàn im lặng vẫn có phần đầu container và khung Opus, tức vẫn khác 0. Muốn
+ * khẳng định "có tiếng" thì phải giải mã âm thanh, việc đó nằm ngoài cổng này.
+ *
+ * NGHIÊM NGẶT: trả `null` nếu thân dị dạng hoặc thiếu dấu đóng `--boundary--`.
+ * Một thân bị cắt cụt vẫn có thể chứa `question_id` hợp lệ và phần đầu của tệp;
+ * máy chủ thật sẽ từ chối nó, nên cổng cũng phải từ chối thay vì tách được phần
+ * nào hay phần đó.
+ */
+export function parseMultipart(buf, contentType) {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+  const boundary = m && (m[1] || m[2] || '').trim();
+  if (!boundary || !buf || typeof buf.subarray !== 'function') return null;
+
+  const CRLF = '\r\n';
+  const raw = buf.toString('latin1');   // 1 byte ↔ 1 ký tự: giữ đúng độ dài
+  const delim = `--${boundary}`;
+  if (!raw.startsWith(delim)) return null;
+  if (!raw.includes(`${delim}--`)) return null;   // thiếu dấu đóng ⇒ cắt cụt
+
+  const segments = raw.split(delim);
+  const out = {};
+  let found = 0;
+  for (const seg of segments) {
+    if (seg === '' || seg === CRLF) continue;
+    if (seg.startsWith('--')) continue;           // đoạn đóng
+    if (!seg.startsWith(CRLF)) return null;       // dị dạng
+    const part = seg.slice(CRLF.length);
+    const sep = part.indexOf(CRLF + CRLF);
+    if (sep < 0) return null;
+    const head = part.slice(0, sep);
+    const name = /name="([^"]*)"/i.exec(head);
+    if (!name) return null;
+
+    let value = part.slice(sep + 4);
+    if (value.endsWith(CRLF)) value = value.slice(0, -CRLF.length);
+
+    const file = /filename="([^"]*)"/i.exec(head);
+    if (file) {
+      const type = /content-type:\s*([^\r\n]+)/i.exec(head);
+      out[name[1]] = {
+        filename: file[1],
+        contentType: type ? type[1].trim() : null,
+        size: value.length,   // latin1 ⇒ đúng số byte
+      };
+    } else {
+      out[name[1]] = value;
+    }
+    found += 1;
+  }
+  return found ? out : null;
+}
+
 export function bodyMatches(actual, expected) {
   if (expected === NO_BODY) {
     const empty = actual == null || actual === '';
@@ -325,7 +390,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -390,7 +455,7 @@ export function validateFlow(flow) {
   for (const k of ['legacyRoute', 'nextPending']) {
     if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
   }
-  for (const k of ['fakeClock', 'anonymous']) {
+  for (const k of ['fakeClock', 'anonymous', 'fakeMedia']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
   }
   for (const k of ['settleMs', 'drainMs']) {
