@@ -390,12 +390,12 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'expectNoWrites']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
 const STEP_SHAPES = {
-  click: 'str', expectVisible: 'str',
+  click: 'str', expectVisible: 'str', expectStorageAbsent: 'str',
   fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
   dispatch: 'dispatch',
   wait: 'ms', advance: 'ms',
@@ -468,6 +468,12 @@ export function validateFlow(flow) {
     const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
     if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
   }
+  if ('initStorage' in flow) {
+    const v = flow.initStorage;
+    const ok = isPlainObject(v) && Object.keys(v).length
+      && Object.entries(v).every(([k, x]) => isStr(k) && typeof x === 'string');
+    if (!ok) bad('`initStorage` phải là object thường KHÁC RỖNG, giá trị là chuỗi');
+  }
   if ('ignoreWrites' in flow
       && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {
     bad('`ignoreWrites` phải là mảng chuỗi khác rỗng');
@@ -522,9 +528,27 @@ export function validateFlow(flow) {
   }
 
   // ── writes ───────────────────────────────────────────────────────────────
+  // `expectNoWrites: true` — luồng mà cả ĐIỂM của nó là KHÔNG có đường ghi nào.
+  //
+  // Luật "phải ghim ít nhất một đường ghi" đúng cho mọi luồng thường: không ghim
+  // gì thì bản khai chỉ đang chứng minh trang không sập. Nhưng có thứ cần ghim là
+  // một điều-KHÔNG-được-xảy-ra — ví dụ nợ báo điểm của NGƯỜI KHÁC trên máy dùng
+  // chung thì tuyệt đối không được gửi đi. Bộ chạy vốn coi mọi request ghi không
+  // khai là lỗi, nên `writes: []` cộng cờ này là cách ghim điều đó.
+  //
+  // Bắt phải KHAI RA thay vì nới luật: `writes: []` lặng lẽ được chấp nhận thì
+  // một bản khai quên viết `writes` cũng qua, và nó trông y hệt.
+  if ('expectNoWrites' in flow) {
+    if (flow.expectNoWrites !== true) bad('`expectNoWrites` chỉ nhận `true`');
+    if (!Array.isArray(flow.writes) || flow.writes.length) {
+      bad('`expectNoWrites: true` thì `writes` phải là mảng RỖNG');
+    }
+    return errs;
+  }
   if (!Array.isArray(flow.writes) || !flow.writes.length) {
     bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
-      + 'nó chỉ đang chứng minh trang không sập');
+      + 'nó chỉ đang chứng minh trang không sập (luồng cố ý không ghi thì khai '
+      + '`expectNoWrites: true`)');
     return errs;
   }
   flow.writes.forEach((w, i) => {

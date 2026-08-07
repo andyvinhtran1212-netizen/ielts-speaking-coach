@@ -64,3 +64,13 @@ export async function signIn({ supabaseUrl, anonKey, email, password, timeoutMs 
   }
   return body;
 }
+
+/**
+ * ID người dùng của phiên GIẢ mà cổng đường-ghi gieo cho mọi luồng.
+ *
+ * Xuất ra ở đây thay vì để bản khai chép lại chuỗi: có hợp đồng phụ thuộc đúng
+ * việc "chủ nợ có PHẢI người đang đăng nhập không" (`speaking-debt.js:109` —
+ * localStorage dùng chung cả origin, nên trên máy dùng chung thì nợ của người
+ * khác không được phát lại). Chép tay hai nơi là hai nơi trôi khỏi nhau.
+ */
+export const FAKE_USER_ID = '00000000-0000-0000-0000-000000000000';
