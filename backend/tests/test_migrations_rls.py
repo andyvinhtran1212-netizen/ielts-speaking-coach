@@ -40,7 +40,10 @@ def _strip_sql_comments(sql: str) -> str:
 
 
 def _num(path: Path) -> int:
-    m = re.match(r"(\d+)_", path.name)
+    """Số thứ tự, BỎ QUA hậu tố chữ. Repo có `019b_`, `022b_`, `161b_` — đòi dấu
+    gạch dưới ngay sau chữ số sẽ trả -1 cho chúng, và một tệp `198b_` tương lai
+    sẽ lọt qua mốc chặn như thể nó có trước 197 (codex cục bộ #978)."""
+    m = re.match(r"(\d+)", path.name)
     return int(m.group(1)) if m else -1
 
 
@@ -55,6 +58,11 @@ def test_migration_197_ton_tai_va_quet_moi_bang():
     body = f.read_text(encoding="utf-8")
     assert "ENABLE ROW LEVEL SECURITY" in body.upper()
     assert "relrowsecurity" in body, "phải quét theo `pg_class`, không liệt kê tay"
+    # Bảng phân mảnh CHA mang `relkind='p'`. Bật RLS cho mảnh con không che được
+    # truy vấn đi qua bảng cha, nên thiếu 'p' là để hở đúng đường người ta query.
+    assert re.search(r"relkind\s+IN\s*\(\s*'r'\s*,\s*'p'\s*\)", body), (
+        "migration 197 phải phủ CẢ `relkind='r'` (bảng thường) lẫn `'p'` "
+        "(bảng phân mảnh cha)")
 
 
 def test_bo_do_doc_duoc_luong_migration_dang_ke():
@@ -65,6 +73,63 @@ def test_bo_do_doc_duoc_luong_migration_dang_ke():
     for f in files:
         created |= set(_CREATE.findall(_strip_sql_comments(f.read_text(encoding="utf-8"))))
     assert len(created) >= 50, f"chỉ dò được {len(created)} bảng — biểu thức hỏng?"
+
+
+# ── Bộ dò phải được ĐEM RA CHẠY, không chỉ tồn tại ──────────────────────────
+#
+# Hôm nay chưa có migration nào sau 197, nên thân vòng lặp của
+# `test_bang_them_sau_197_phai_bat_rls` KHÔNG chạy lần nào: nó xanh vì rỗng chứ
+# không vì đúng, và `_ENABLE` có thể bị đổi thành một biểu thức không bao giờ
+# khớp mà cả tệp vẫn xanh. Các ca dựng sẵn dưới đây bắt bộ dò phải làm việc ngay
+# từ hôm nay (codex cục bộ #978).
+
+def _classify(files: dict[str, str]) -> list[str]:
+    """Chạy đúng logic của chốt trên một bộ tệp dựng sẵn."""
+    enabled: set[str] = set()
+    missing: list[str] = []
+    for name in sorted(files):
+        sql = _strip_sql_comments(files[name])
+        enabled |= {t.lower() for t in _ENABLE.findall(sql)}
+        # GỌI `_num` chứ không chép lại cách đọc số: chép lại thì phá `_num`
+        # đi mà ca dựng sẵn vẫn xanh — đúng cái bẫy "ghim hàm nhưng quên ghim
+        # chỗ gọi" (phá thử bắt ở #978).
+        if _num(Path(name)) <= BLANKET:
+            continue
+        for tbl in {t.lower() for t in _CREATE.findall(sql)}:
+            if tbl.startswith(("tmp_", "temp_")) or tbl in enabled:
+                continue
+            missing.append(f"{name}: {tbl}")
+    return missing
+
+
+def test_bo_do_chay_dung_tren_cac_ca_dung_san():
+    assert _classify({"198_a.sql": "CREATE TABLE public.x (id uuid);"}) == ["198_a.sql: x"]
+    assert _classify({"198_a.sql":
+        "CREATE TABLE public.x (id uuid);\nALTER TABLE public.x ENABLE ROW LEVEL SECURITY;"}) == []
+    # hậu tố chữ vẫn phải bị chặn
+    assert _classify({"198b_a.sql": "CREATE TABLE public.y (id uuid);"}) == ["198b_a.sql: y"]
+    # Bật ở migration SAU thì KHÔNG được tính. Giữa hai lần áp, một môi trường
+    # dựng từ migration có bảng đó ĐANG HỞ — đúng khoảng trống chốt này sinh ra
+    # để đóng. Luật là "bật ngay trong migration tạo nó".
+    assert _classify({"198_a.sql": "CREATE TABLE public.z (id uuid);",
+                      "199_b.sql": "ALTER TABLE public.z ENABLE ROW LEVEL SECURITY;"}) \
+        == ["198_a.sql: z"]
+    # trước mốc chặn thì migration 197 đã phủ
+    assert _classify({"150_a.sql": "CREATE TABLE public.w (id uuid);"}) == []
+    # cú pháp thật trong repo: định danh có nháy kép, IF NOT EXISTS, IF EXISTS
+    assert _classify({'198_a.sql':
+        'CREATE TABLE IF NOT EXISTS public."q" (id uuid);\n'
+        'ALTER TABLE IF EXISTS public."q" ENABLE ROW LEVEL SECURITY;'}) == []
+
+
+def test_bo_do_ENABLE_that_su_khop_cu_phap_dang_dung():
+    """`_ENABLE` phải khớp các dòng CÓ THẬT trong repo — nếu không, chốt chính chỉ
+    xanh vì không nhận ra dòng nào cả."""
+    seen = set()
+    for f in _files():
+        seen |= {t.lower() for t in _ENABLE.findall(
+            _strip_sql_comments(f.read_text(encoding="utf-8")))}
+    assert len(seen) >= 20, f"chỉ nhận ra {len(seen)} lệnh bật RLS — biểu thức hỏng?"
 
 
 def test_bang_them_sau_197_phai_bat_rls():

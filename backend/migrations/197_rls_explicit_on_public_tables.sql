@@ -28,7 +28,7 @@
 --   psql "$DATABASE_URL" -c "select relname, relrowsecurity,
 --     (select count(*) from pg_policy p where p.polrelid=c.oid)
 --     from pg_class c join pg_namespace n on n.oid=c.relnamespace
---     where n.nspname='public' and c.relkind='r' and not relrowsecurity;"
+--     where n.nspname='public' and c.relkind in ('r','p') and not relrowsecurity;"
 --   -- ra 0 dòng = mọi bảng đều được bật.
 --
 -- Idempotent. Forward-only.
@@ -43,7 +43,10 @@ BEGIN
     FROM pg_class c
     JOIN pg_namespace ns ON ns.oid = c.relnamespace
     WHERE ns.nspname = 'public'
-      AND c.relkind = 'r'
+      -- 'r' bảng thường VÀ 'p' bảng phân mảnh CHA. Bật RLS cho mảnh con không
+      -- che được truy vấn đi qua bảng cha, nên thiếu 'p' là để hở đúng đường mà
+      -- người ta thật sự query (codex cục bộ #978).
+      AND c.relkind IN ('r', 'p')
       AND NOT c.relrowsecurity
     ORDER BY 1
   LOOP
