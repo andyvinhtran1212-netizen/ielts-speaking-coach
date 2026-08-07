@@ -15,16 +15,29 @@
 //   · ĐÚNG MỘT lần ghi cho mỗi micro-check — trang chốt bằng `mc.dataset.done`.
 //     Mất chốt đó là mỗi cú bấm lại thêm một bằng chứng, và em bấm nghịch vài
 //     lần là bản đồ thành thạo lệch hẳn.
-const ATTEMPT = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
-const KP = { type: 'grammar', slug: 'thi-hien-tai-don', anchor: 'dinh-nghia' };
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Hình dạng theo đúng thứ trang ĐỌC (`reading-review.js:318-321, 360-376`):
-// `stepper.steps[].kp_refs` + `.microcheck{prompt, options, answer}`, và
-// `data-letter` được sinh theo THỨ TỰ A/B/C — không lấy từ dữ liệu.
+// Dữ liệu giả đọc từ tệp JSON dùng chung, và
+// `backend/tests/test_write_flow_fixtures.py` bắt nó qua CHÍNH hàm production:
+// `validate_solution_structure`, `resolve_ref` (KP phải giải được), và
+// `build_stepper(solution)` phải BẰNG ĐÚNG `stepper` trong fixture.
+//
+// Bản đầu tôi viết thẳng vào đây và sai hai chỗ mà không gì bắt được: hành động
+// `scan` không có trong danh sách đóng, và KP `thi-hien-tai-don` không có bài
+// nào — production sẽ BỎ QUA lặng lẽ (`recorded: 0`) trong khi bản khai vẫn
+// xanh. (codex cục bộ #985)
+const FX = JSON.parse(readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/reading-review.json'), 'utf8'));
+
+const ATTEMPT = FX.attempt_id;
+const KP = FX.kp;
+
+// `passages` + `passage_order` là BẮT BUỘC: trang gom câu theo phần
+// (`reading-review.js:149-152`) rồi `sort` — thiếu là `undefined.sort` và cả
+// trang vào màn lỗi. Bỏ sót vì tôi chỉ nhìn phần render micro-check.
 const REVIEW = {
-  // `passages` + `passage_order` là BẮT BUỘC: trang gom câu theo phần
-  // (`reading-review.js:149-152`) rồi `sort` — thiếu là `undefined.sort` và cả
-  // trang vào màn lỗi. Bỏ sót vì tôi chỉ nhìn phần render micro-check.
   passages: [{ passage_order: 1, title: 'Đoạn 1', body_markdown: 'Nội dung đoạn đọc.' }],
   skill_breakdown: { tfng: { correct: 0, total: 1 } },
   review: [{
@@ -35,19 +48,10 @@ const REVIEW = {
     expected: 'TRUE',
     question_type: 'true_false_not_given',
     prompt: 'Câu hỏi 1?',
-    solution: { band: 6, skill_name: 'TFNG' },
-    stepper: {
-      steps: [{
-        action: 'scan',
-        instruction_vi: 'Tìm từ khoá trong đoạn 2.',
-        kp_refs: [KP],
-        microcheck: {
-          prompt: 'Câu nào đúng?',
-          options: [{ text: 'Phương án A' }, { text: 'Phương án B' }],
-          answer: 'B',                 // ⇒ bấm A là SAI, bấm B là ĐÚNG
-        },
-      }],
-    },
+    solution: FX.solution,
+    // KHÔNG bịa: đây là thứ `build_stepper(solution)` dựng ra, chốt backend so
+    // bằng nhau.
+    stepper: FX.stepper,
   }],
 };
 

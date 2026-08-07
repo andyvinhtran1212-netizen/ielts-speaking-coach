@@ -81,6 +81,40 @@ def _reading_question_types_from_migration() -> set[str]:
     return types
 
 
+def _check_reading_review(fx: dict) -> None:
+    """Fixture trang chữa bài phải là thứ MÁY CHỦ THẬT dựng ra được.
+
+    Ba ràng buộc, đều gọi CHÍNH hàm production:
+      · `validate_solution_structure` — lời giải đúng hình dạng tác giả (hành
+        động phải nằm trong danh sách đóng: bản đầu tôi viết `scan`, không tồn
+        tại);
+      · `build_stepper(solution)` phải BẰNG ĐÚNG `stepper` trong fixture — vì
+        `stepper` là thứ máy chủ DỰNG RA từ `solution` (`reading_student.py:1364`),
+        không phải trường độc lập. Bịa một `stepper` rời là mô tả một response
+        không bao giờ trả về;
+      · `resolve_ref` phải giải được KP — bản đầu tôi dùng slug `thi-hien-tai-don`
+        không có bài nào, nên production sẽ BỎ QUA lặng lẽ (`recorded: 0`) và bản
+        khai vẫn xanh dù chẳng ghi được gì.
+    (codex cục bộ #985)
+    """
+    from services.kp_registry import resolve_ref
+    from services.reading_solution import build_stepper, validate_solution_structure
+
+    errs = validate_solution_structure(fx["solution"], "fixture")
+    assert errs == [], f"lời giải sai hình dạng tác giả: {errs}"
+
+    kp = fx["kp"]
+    reason = resolve_ref(kp["type"], kp["slug"], kp.get("anchor", ""))
+    assert reason is None, f"KP không giải được ⇒ production bỏ qua lặng lẽ: {reason}"
+
+    built = build_stepper(fx["solution"])
+    assert built == fx["stepper"], (
+        "`stepper` trong fixture KHÁC thứ `build_stepper()` dựng ra — tức nó mô "
+        "tả một response máy chủ không bao giờ trả về."
+    )
+    assert built["steps"][0].get("microcheck"), "mất micro-check thì luồng không có gì để bấm"
+
+
 def _check_reading_exam(fx: dict) -> None:
     """Fixture Đọc mô tả thứ MÁY CHỦ TRẢ VỀ TRÌNH DUYỆT, không phải hình dạng
     tác giả — nên KHÔNG dùng `validate_reading_questions` (bộ đó đòi `answer`,
@@ -116,6 +150,7 @@ VALIDATORS = {
     "listening-tf": lambda fx: _validate_true_false_payload(fx["payload"]),
     "listening-gist": lambda fx: _validate_gist_payload(fx["payload"]),
     "reading-exam": _check_reading_exam,
+    "reading-review": _check_reading_review,
 }
 
 
@@ -143,6 +178,7 @@ UUID_KEYS = {
     "listening-tf": ("content_id", "exercise_id"),
     "listening-gist": ("content_id", "exercise_id"),
     "reading-exam": ("attempt_id",),
+    "reading-review": ("attempt_id",),
 }
 
 

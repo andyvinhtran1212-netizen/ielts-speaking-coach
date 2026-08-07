@@ -22,6 +22,6 @@ export default {
     ...base.writes[0],
     body: (b) => b && Array.isArray(b.answers) && b.answers.length === 1
       && b.answers[0].correct === true
-      && b.answers[0].kp && b.answers[0].kp.slug === 'thi-hien-tai-don',
+      && b.answers[0].kp && b.answers[0].kp.slug === 'present-simple',
   }],
 };
