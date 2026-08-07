@@ -120,5 +120,13 @@
     "allow": [],
     "minBaselineLines": 4,
     "note": "Tài khoản probe có thể chưa làm Quick-Check nào, khi đó trang chỉ render tiêu đề + mô tả + các đề mục rỗng. Cặp này khi đó chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style ở trạng thái rỗng."
+  },
+  {
+    "name": "mock-result",
+    "legacy": "/pages/mock-result.html",
+    "next": "/mock/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?sitting=` thì trang dừng ở trạng thái lỗi/chờ — rất ít dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này chỉ chứng minh hai vế khớp ở nhánh THIẾU THAM SỐ; muốn phủ phiếu điểm thật thì cần một lượt thi đã công bố cho tài khoản probe."
   }
 ]

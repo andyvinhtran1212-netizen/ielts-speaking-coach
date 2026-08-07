@@ -15,7 +15,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
 const CONSOLE = pub('js', 'admin-mock-reviews.js');
-const TRF = pub('pages', 'mock-result.html');
+// Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
+// phải chạy CHÍNH mã đó chứ không chép lại. Khẳng định ở đây là "nguồn trang có
+// chứa X", nên nguồn trang nay = HTML + module của nó. Đã kiểm: tệp này không có
+// khẳng định nào phụ thuộc THỨ TỰ trong HTML, nên gộp giữ đúng ý định cũ.
+const TRF = pub('pages', 'mock-result.html') + '\n' + pub('js', 'mock-result.js');
 
 describe('console duyệt bài — ô band Speaking tuỳ dữ liệu', () => {
   test('ô nhập sinh từ bandSkills(), không phải reqSkills()', () => {
