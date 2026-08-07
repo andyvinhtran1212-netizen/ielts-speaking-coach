@@ -283,3 +283,35 @@ describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
     assert.equal(r.pass, true);
   });
 });
+
+describe('so TIÊU ĐỀ request', () => {
+  // Có hợp đồng mà bằng chứng nằm ở tiêu đề: bài Đọc qua liên kết chia sẻ mang
+  // danh tính ẩn danh ở `X-Reading-Anon`, và mất nó thì máy chủ từ chối lưu —
+  // mất bài của học viên trong khi thân request vẫn đúng từng chữ.
+  const W = (h) => ({ method: 'POST', url: 'https://h/a/x', body: {}, headers: h });
+  const D = (headers) => [{ method: 'POST', path: '/a/x', headers }];
+
+  test('khớp giá trị ⇒ đạt', () => {
+    assert.equal(judge([W({ 'x-reading-anon': 'abc' })], D({ 'X-Reading-Anon': 'abc' })).pass, true);
+  });
+
+  test('KHÔNG phân biệt hoa thường ở TÊN tiêu đề (RFC 9110 §5.1)', () => {
+    assert.equal(judge([W({ 'X-Reading-Anon': 'abc' })], D({ 'x-reading-anon': 'abc' })).pass, true);
+  });
+
+  test('thiếu tiêu đề ⇒ ĐỎ', () => {
+    const r = judge([W({})], D({ 'X-Reading-Anon': 'abc' }));
+    assert.equal(r.pass, false);
+    assert.equal(r.findings[0].kind, 'write-header');
+  });
+
+  test('sai giá trị ⇒ ĐỎ', () => {
+    assert.equal(judge([W({ 'x-reading-anon': 'khac' })], D({ 'X-Reading-Anon': 'abc' })).pass, false);
+  });
+
+  test('vị từ ghim "phải VẮNG" ⇒ có mặt là ĐỎ', () => {
+    const d = D({ 'X-Reading-Anon': (v) => v === undefined });
+    assert.equal(judge([W({})], d).pass, true);
+    assert.equal(judge([W({ 'x-reading-anon': 'tu-bia-ra' })], d).pass, false);
+  });
+});

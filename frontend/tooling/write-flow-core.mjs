@@ -241,6 +241,26 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       if (!m.ok) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
       }
+      // TIÊU ĐỀ cũng là một phần hợp đồng. Tên tiêu đề KHÔNG phân biệt hoa
+      // thường (RFC 9110 §5.1) nên hạ về chữ thường cả hai vế — so thẳng thì một
+      // bản port viết `x-reading-anon` sẽ đỏ oan.
+      if (d.headers) {
+        const got = remaining[i].headers || {};
+        const lower = {};
+        for (const [k, v] of Object.entries(got)) lower[k.toLowerCase()] = v;
+        for (const [k, want] of Object.entries(d.headers)) {
+          const have = lower[k.toLowerCase()];
+          const ok = typeof want === 'function' ? want(have) : have === want;
+          if (!ok) {
+            findings.push({
+              kind: 'write-header',
+              what: `${wantMethod} ${wantPath}`,
+              why: `tiêu đề «${k}» = ${JSON.stringify(have)}, khai ${
+                typeof want === 'function' ? '(điều kiện)' : JSON.stringify(want)}`,
+            });
+          }
+        }
+      }
     }
 
     // `bodyAll` soi CẢ TẬP thân request đã khớp, không phải từng cái một.

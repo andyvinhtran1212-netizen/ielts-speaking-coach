@@ -42,6 +42,9 @@ async function step(page, s) {
   if (s.click) return page.locator(s.click).first().click();
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
+  // Tua đồng hồ của TRANG (cần `fakeClock: true`). Khác `wait`: `wait` để trang
+  // chạy thật, `advance` nhảy thời gian mà không tốn thời gian thật.
+  if (s.advance) return page.clock.runFor(s.advance);
   // Dán là một HÀNH VI RIÊNG, không phải `fill`. Trang Bài viết phân loại theo
   // độ dài đoạn dán (<50 im lặng · 50–200 ghi nhật ký · >200 chặn rồi ghi), và
   // `fill` không hề phát sinh sự kiện `paste` nên sẽ không kiểm được nhánh nào
@@ -83,10 +86,16 @@ async function step(page, s) {
   // luồng vẫn xanh vì nó chỉ cần ô nhập (codex cục bộ #969).
   if (s.expectText) {
     const [sel, text] = s.expectText;
-    const got = await page.locator(sel).first().innerText().catch(() => null);
-    if (got == null) throw new Error(`không thấy «${sel}»`);
-    if (!got.includes(text)) {
-      throw new Error(`«${sel}» không chứa «${text}» — nhận «${got.slice(0, 60)}»`);
+    const el = page.locator(sel).first();
+    // HIỆN RA rồi mới xét chữ. `innerText()` vẫn trả chữ của một phần tử đang
+    // `hidden`, nên chỉ so chữ thì một cảnh báo có nội dung nhưng KHÔNG hiện lên
+    // vẫn qua — đúng thứ cảnh báo đó sinh ra để làm (phá thử bắt ở #970).
+    if (!(await el.isVisible().catch(() => false))) {
+      throw new Error(`«${sel}» không hiện ra (có thể đang bị ẩn)`);
+    }
+    const got = await el.innerText().catch(() => null);
+    if (got == null || !got.includes(text)) {
+      throw new Error(`«${sel}» không chứa «${text}» — nhận «${String(got).slice(0, 60)}»`);
     }
     return undefined;
   }
@@ -104,6 +113,12 @@ async function runFlow(browser, flow) {
     try { localStorage.setItem(k, v); } catch (_) {}
   }, [storageKey(SB), fakeSession]);
   const page = await ctx.newPage();
+
+  // ĐỒNG HỒ GIẢ. Có nhánh chỉ mở ra sau một khoảng chờ dài — báo động "máy chủ
+  // chưa nhận được câu nào" đợi 45 giây lưu hỏng. Chờ thật thì một luồng ăn gần
+  // một phút CI; sửa ngưỡng trong mã sản phẩm để dễ kiểm thì làm yếu đúng bảo
+  // đảm đang muốn ghim. Tua đồng hồ giữ nguyên cả hai.
+  if (flow.fakeClock) await page.clock.install();
 
   // ĐỒNG Ý mọi hộp thoại. Playwright mặc định tự bấm HUỶ, và mặc định đó âm
   // thầm vô hiệu hoá cả cổng này: trang Bài viết đặt `confirm()` ngay trước khi
@@ -129,7 +144,11 @@ async function runFlow(browser, flow) {
     if (isWrite(req.method())) {
       let body = null;
       try { body = JSON.parse(req.postData() || 'null'); } catch { body = req.postData(); }
-      observed.push({ method: req.method(), url, body });
+      // GHI LẠI TIÊU ĐỀ, không chỉ thân. Có hợp đồng mà bằng chứng nằm ở tiêu
+      // đề chứ không ở thân: bài Đọc qua liên kết chia sẻ mang danh tính ẩn danh
+      // ở `X-Reading-Anon`, và mất nó thì máy chủ từ chối lưu — mất bài của học
+      // viên trong khi thân request vẫn đúng từng chữ (codex cục bộ #969).
+      observed.push({ method: req.method(), url, body, headers: req.headers() });
     }
 
     // CDN đi thật — chúng là hành vi trang thật (lucide, supabase-js, chart.js).
@@ -139,8 +158,12 @@ async function runFlow(browser, flow) {
     for (const [re, payload] of flow.canned || []) {
       if (re.test(url)) {
         if (payload && payload.__delayMs) await new Promise((r) => setTimeout(r, payload.__delayMs));
+        // `__status` cho phép dựng ĐƯỜNG HỎNG. Không có nó thì mọi lời gọi đều
+        // 200, và các nhánh chỉ chạy khi máy chủ lỗi — như báo động "máy chủ
+        // chưa nhận được câu nào" — không thể chạm tới (codex cục bộ #969).
+        const status = (payload && payload.__status) || 200;
         return route.fulfill({
-          status: 200, contentType: 'application/json',
+          status, contentType: 'application/json',
           body: JSON.stringify(payload && payload.__body !== undefined ? payload.__body : payload),
         });
       }
