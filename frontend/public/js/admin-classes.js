@@ -2121,7 +2121,33 @@ let _progressLoaded = false;
  * Bốn cột trước đây chỉ phân biệt bằng VỊ TRÍ, nên đọc chéo một hàng phải đếm
  * cột. Nhãn màu mảnh ở mép trái cho mắt bám cột mà không cần đếm.
  */
-function skillCell(cell, skill) {
+/**
+ * Dải ô cho một kỹ năng: mỗi lượt gần đây là một ô, ô tô kín = CHƯA ĐẠT.
+ *
+ * Bốn cột band số (`6.5 · 6.0 · — · 5.5`) bắt mắt đọc bốn con số rồi tự so.
+ * Một vệt đậm thì thấy ngay, không phải đọc chữ nào — cùng quy ước
+ * `course-report.js` đã dựng, nên chỉ phải học một lần.
+ *
+ * Không có dữ liệu lượt gần đây thì KHÔNG vẽ gì: một dải rỗng trông như "toàn
+ * đạt", và đó là một khẳng định mà chúng ta không có bằng chứng.
+ */
+function strip(bands, target) {
+  if (!Array.isArray(bands) || !bands.length) return '';
+  // "Yếu" là DƯỚI MỤC TIÊU CỦA CHÍNH EM ẤY. Một ngưỡng chung cho cả lớp sẽ gọi
+  // một em mục tiêu 5.5 đạt 6.0 là yếu.
+  //
+  // Chưa đặt mục tiêu thì KHÔNG tô ô nào: đoán một ngưỡng rồi vẽ ra như sự thật
+  // còn tệ hơn vẽ một dải phẳng.
+  const t = typeof target === 'number' ? target : null;
+  return '<span class="cl-strip" aria-hidden="true">'
+    + bands.slice(-8).map((b) => {
+      const weak = t !== null && typeof b === 'number' && b < t;
+      return `<i data-w="${weak ? '1' : '0'}"></i>`;
+    }).join('')
+    + '</span>';
+}
+
+function skillCell(cell, skill, target) {
   if (cell === null || cell === undefined) {
     return '<span class="cl-skill-unknown">không đọc được</span>';
   }
@@ -2129,7 +2155,8 @@ function skillCell(cell, skill) {
   const band = cell.last_band != null
     ? `<span class="cl-skill-band">band ${esc(cell.last_band)}</span>` : '';
   return `<div class="cl-skill" data-skill="${esc(skill || '')}">`
-    + `<span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
+    + `<span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}`
+    + strip(cell.recent_bands, target) + '</div>';
 }
 
 /**
@@ -2209,10 +2236,10 @@ function renderProgress() {
     const last = lastAcrossSkills(r.skills);
     return `<tr>
       <td><div>${esc(r.name) || '—'}</div>${sub}</td>
-      <td>${skillCell(r.skills.speaking, 'speaking')}</td>
-      <td>${skillCell(r.skills.writing, 'writing')}</td>
-      <td>${skillCell(r.skills.reading, 'reading')}</td>
-      <td>${skillCell(r.skills.listening, 'listening')}</td>
+      <td>${skillCell(r.skills.speaking, 'speaking', r.target_band)}</td>
+      <td>${skillCell(r.skills.writing, 'writing', r.target_band)}</td>
+      <td>${skillCell(r.skills.reading, 'reading', r.target_band)}</td>
+      <td>${skillCell(r.skills.listening, 'listening', r.target_band)}</td>
       <td>${punctualityCell(r.homework)}</td>
       <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
     </tr>`;

@@ -159,7 +159,11 @@ def test_a_failed_skill_is_null_not_zero():
     row = out["students"][0]
     assert row["skills"]["reading"] is None, "a failed query must not render as 0 lượt"
     # …and the other three still report.
-    assert row["skills"]["speaking"] == {"attempts": 0, "last_activity": None, "last_band": None}
+    # Ghim ĐIỀU CẦN GIỮ, không ghim cả hình dạng: một kỹ năng không có lượt nào
+    # phải là 0 lượt / không band, chứ không phải None. Ghim nguyên từ điển thì
+    # thêm một trường mới (`recent_bands`) làm chốt đỏ dù không có gì hỏng.
+    sp = row["skills"]["speaking"]
+    assert sp["attempts"] == 0 and sp["last_activity"] is None and sp["last_band"] is None
 
 
 def test_one_broken_skill_does_not_take_the_others_down():
@@ -681,3 +685,48 @@ def test_a_course_hand_in_shows_up_even_if_progress_is_opened_first():
     hw = cohort_progress(_DB(tables), COHORT)["students"][0]["homework"]
     assert hw["submitted"] == 1, "phiên đã kết phủ đủ câu là bằng chứng — phải vá trước khi đọc"
     assert hw["missing"] == 0
+
+
+# ── Dải ô cần DỮ LIỆU THẬT ────────────────────────────────────────────────
+#
+# Bảng vẽ một dải ô từ `recent_bands`, và tô ô theo `target_band` của CHÍNH em
+# ấy. Thiếu một trong hai thì dải không bao giờ hiện — mà chốt phía trang vẫn
+# xanh vì nó tự đưa dữ liệu vào.
+
+def test_the_payload_carries_recent_bands_and_the_target():
+    students = [_student("s1", "u1")]
+    tables = _tables(students=students)
+    tables["students"][0]["target_band"] = 6.5
+    # `started_at`, KHÔNG phải `completed_at`: đường Speaking xếp theo cột ấy.
+    # Đặt nhầm cột thì mọi dòng cùng khoá rỗng và thứ tự thành ngẫu nhiên — chốt
+    # đỏ vì dữ liệu thử, không phải vì mã.
+    tables["sessions"] = [
+        {"id": f"x{i}", "user_id": "u1", "status": "completed",
+         "started_at": f"2026-08-0{i+1}T10:00:00+00:00", "overall_band": 5.0 + i * 0.5}
+        for i in range(3)
+    ]
+    row = cohort_progress(_DB(tables), COHORT)["students"][0]
+    assert row["target_band"] == 6.5, "không có mục tiêu thì không tô được ô nào"
+    sp = row["skills"]["speaking"]
+    assert sp["recent_bands"] == [5.0, 5.5, 6.0], "CŨ trước, MỚI sau — dải đọc trái sang phải"
+
+
+def test_recent_bands_keeps_the_EIGHT_most_recent():
+    students = [_student("s1", "u1")]
+    tables = _tables(students=students)
+    tables["sessions"] = [
+        {"id": f"x{i:02d}", "user_id": "u1", "status": "completed",
+         "started_at": f"2026-08-{i+1:02d}T10:00:00+00:00", "overall_band": float(i)}
+        for i in range(12)
+    ]
+    sp = cohort_progress(_DB(tables), COHORT)["students"][0]["skills"]["speaking"]
+    assert sp["recent_bands"] == [4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0], \
+        "giữ 8 lượt MỚI nhất, xếp cũ→mới"
+
+
+def test_a_student_with_no_attempts_gets_an_empty_strip_not_a_missing_key():
+    """Trang đọc `cell.recent_bands`; thiếu khoá thì nó vẽ theo `undefined` và
+    im lặng bỏ qua — im lặng ở đây trông y hệt 'chưa có gì', nên phải là danh
+    sách rỗng THẬT."""
+    row = cohort_progress(_DB(_tables(students=[_student("s1", "u1")])), COHORT)["students"][0]
+    assert row["skills"]["speaking"]["recent_bands"] == []

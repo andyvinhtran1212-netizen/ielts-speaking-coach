@@ -246,12 +246,49 @@
        TRÍ, nên đọc chéo một hàng phải đếm cột.
        Speaking có màu RIÊNG từ 06/08 — nó từng dùng chung --av-accent, mà amber
        có đúng một vai: con số quan trọng nhất màn hình. */
+    /* ── Cột tên DÍNH ────────────────────────────────────────────────────
+       Bảng tiến độ có 7 cột và cuộn ngang trong khung của nó. Cuộn tới cột
+       Listening là mất luôn cái tên — mà mất tên thì cả hàng hết nghĩa: giáo
+       viên đang đọc về AI?
+
+       Chỉ dính ở màn đủ rộng để CÓ cuộn. Trên màn hẹp, một cột dính chiếm mất
+       phần lớn bề ngang và làm khó hơn là dễ. */
+    @media (min-width: 900px) {
+      #progress-table-wrap th:first-child,
+      #progress-table-wrap td:first-child {
+        position: sticky; left: 0; z-index: 1;
+        /* Nền ĐẶC, không trong suốt: nội dung cuộn qua bên dưới sẽ hiện xuyên
+           lên và hai lớp chữ chồng nhau. */
+        background: var(--av-surface-card);
+        box-shadow: 1px 0 0 var(--av-border-default);
+      }
+      #progress-table-wrap th:first-child { background: var(--av-surface-sunken); }
+    }
+
+    /* ── Dải ô: bốn cột số thành bốn vệt đọc-trong-ba-giây ────────────────
+       Quy ước MỰC = CHỖ CẦN CHÚ Ý, dùng lại đúng của `course-report.js` —
+       học viên và giáo viên chỉ phải học nó một lần. Ô tô kín = lượt làm
+       KHÔNG đạt ngưỡng; ô mảnh = đạt. */
+    .cl-strip { display: inline-flex; gap: 2px; margin-top: 2px; }
+    .cl-strip i {
+      width: 4px; height: 12px; border-radius: 1px;
+      background: var(--av-border-default);
+    }
+    /* Ô tô kín lấy đúng màu của cột. `currentColor` không dùng được: nó là màu
+       CHỮ thừa kế, không phải màu kỹ năng. */
+    .cl-strip i[data-w="1"] { background: var(--cl-skill-hue, var(--av-text-secondary)); }
+
     .cl-skill { display: flex; flex-direction: column; gap: 1px;
       border-left: 2px solid transparent; padding-left: var(--av-space-2); }
-    .cl-skill[data-skill="speaking"]  { border-left-color: var(--av-skill-speaking); }
-    .cl-skill[data-skill="writing"]   { border-left-color: var(--av-primary); }
-    .cl-skill[data-skill="reading"]   { border-left-color: var(--av-skill-reading); }
-    .cl-skill[data-skill="listening"] { border-left-color: var(--av-skill-listening); }
+    /* MỘT biến cho cả hai chỗ dùng màu kỹ năng: nhãn mép trái và ô tô kín của
+       dải. Trước đây chỉ đặt `border-left-color`, nên `currentColor` trong dải
+       rơi về màu chữ THỪA KẾ của bảng — bốn dải tô cùng một màu, đúng thứ mà
+       nhãn màu sinh ra để phân biệt (codex #974). */
+    .cl-skill[data-skill="speaking"]  { --cl-skill-hue: var(--av-skill-speaking); }
+    .cl-skill[data-skill="writing"]   { --cl-skill-hue: var(--av-primary); }
+    .cl-skill[data-skill="reading"]   { --cl-skill-hue: var(--av-skill-reading); }
+    .cl-skill[data-skill="listening"] { --cl-skill-hue: var(--av-skill-listening); }
+    .cl-skill[data-skill] { border-left-color: var(--cl-skill-hue); }
     .cl-skill-count { font-variant-numeric: tabular-nums; }
     .cl-skill-band { font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); }
