@@ -260,6 +260,25 @@ async def test_a_real_grammar_error_still_fails_even_beside_a_form_error():
     assert [x["type"] for x in g["issues"]] == [cw.MECHANICS, "grammar"]
 
 
+@pytest.mark.parametrize("before,after", [
+    ("its", "it's"),            # dấu lược MANG NGHĨA
+    ("students", "student's"),  # sở hữu cách
+    ("alot", "a lot"),          # tách từ
+    ("in to", "into"),          # dính từ
+    ("hes", "he's"),
+])
+@pytest.mark.asyncio
+async def test_apostrophes_and_word_boundaries_stay_countable(before, after):
+    """Bản đầu cắt sạch mọi ký tự không-phải-chữ rồi so, nên bốn lỗi thật này
+    cho hai lõi giống hệt nhau và được ghi lại là câu ĐÚNG (codex #1000, P1).
+
+    Dấu lược và ranh giới từ đổi mặt chữ; khoảng trắng thừa với dấu chấm cuối
+    câu thì không. Chỉ ba thứ sau mới là hình thức."""
+    g = await _one([{"type": "spelling", "before": before, "after": after}])
+    assert g["issues"][0]["type"] != cw.MECHANICS, f"{before!r}→{after!r} là lỗi thật"
+    assert g["ok"] is False
+
+
 @pytest.mark.asyncio
 async def test_the_model_cannot_hide_a_word_change_by_calling_it_mechanics():
     """Nhãn `mechanics` do PHÉP SO đặt, không do model đặt.

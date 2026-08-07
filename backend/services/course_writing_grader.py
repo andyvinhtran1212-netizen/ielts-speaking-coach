@@ -154,14 +154,35 @@ def _is_config_error(exc: Exception) -> bool:
 MECHANICS = "mechanics"
 _COUNTED_TYPES = {"grammar", "spelling"}
 
-# Chỉ giữ chữ và số. `[\W_]` cắt mọi dấu câu, khoảng trắng, gạch nối — còn
-# `casefold` xoá phân biệt hoa thường. Hai chuỗi bằng nhau sau phép này nghĩa là
-# chúng chỉ khác nhau ở HÌNH THỨC.
-_NOT_LETTER = re.compile(r"[\W_]+", re.UNICODE)
+# ĐÚNG BA phép, không hơn — mỗi phép ứng với một thứ đã nêu tên ở trên là "hình
+# thức": khoảng trắng, dấu KẾT CÂU, và hoa/thường.
+#
+# Bản đầu cắt sạch `[\W_]` rồi so. Rộng quá, và rộng đúng về phía nguy hiểm:
+# `its`→`it's`, `students`→`student's`, `alot`→`a lot`, `in to`→`into` đều cho
+# hai lõi giống hệt nhau, nên bốn lỗi CHÍNH TẢ/NGỮ PHÁP thật lọt vào nhóm
+# không-tính-điểm và được ghi lại là câu đúng (codex #1000, P1). Dấu lược và
+# ranh giới từ MANG NGHĨA; khoảng trắng thừa và dấu chấm cuối câu thì không.
+_WS = re.compile(r"\s+")
+# Dấu KẾT CÂU ở cuối. Cố ý KHÔNG có dấu phẩy: thiếu phẩy có thể là lỗi ngữ pháp
+# thật (câu ghép dính), và chiều an toàn ở đây là TÍNH ĐIỂM.
+_SENT_END = ".!?…"
 
 
-def _core(s: Any) -> str:
-    return _NOT_LETTER.sub("", str(s or "").casefold())
+def _presentation_only(before: Any, after: Any) -> bool:
+    """Hai chuỗi này chỉ khác nhau ở cách TRÌNH BÀY?
+
+    Khác nhau ở chữ, ở dấu lược, ở chỗ tách/dính từ ⇒ KHÔNG. Đó là những thứ
+    đổi nghĩa hoặc đổi mặt chữ, tức là bài học viên sai thật.
+    """
+    a, b = str(before or ""), str(after or "")
+    if a == b:
+        return False                      # không có gì đổi
+    # 1. Khoảng trắng: gộp dãy, bỏ hai đầu. `found  the` → `found the`.
+    a, b = _WS.sub(" ", a).strip(), _WS.sub(" ", b).strip()
+    # 2. Dấu kết câu ở CUỐI: `autumn` ↔ `autumn.`
+    a, b = a.rstrip(_SENT_END).rstrip(), b.rstrip(_SENT_END).rstrip()
+    # 3. Hoa/thường: `the` ↔ `The`, `i` ↔ `I`.
+    return a.casefold() == b.casefold()
 
 
 def _classify(issue: Dict[str, Any]) -> str:
@@ -184,8 +205,7 @@ def _classify(issue: Dict[str, Any]) -> str:
     """
     before, after = issue.get("before"), issue.get("after")
     declared = str(issue.get("type") or "").strip().lower()
-    if (before or after) and str(before or "") != str(after or "") \
-            and _core(before) == _core(after):
+    if (before or after) and _presentation_only(before, after):
         return MECHANICS
     return declared if declared in _COUNTED_TYPES else "grammar"
 

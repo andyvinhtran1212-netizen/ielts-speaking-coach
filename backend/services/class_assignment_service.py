@@ -428,6 +428,49 @@ class ReturnNotPossible(Exception):
 _RETURNABLE_KINDS = {"course_writing"}
 
 
+def _seed_draft_from_submission(db, *, item_id: str, submission_id: str) -> int:
+    """Chép bài trong lượt nộp trở lại bản nháp của mục. Trả về số câu đã chép.
+
+    Bản chụp trong `course_writing_submissions.items` là bài THẬT em ấy bấm nộp;
+    bản nháp trên máy chủ chỉ là lượt lưu tự động có độ trễ, và có thể cũ hơn
+    hoặc chưa từng tới nơi. Ghi đè là ĐÚNG chiều: sau khi nộp, học viên không
+    còn đường nào ghi nháp nữa (`save_course_writing_draft` từ chối), nên không
+    có bản nào mới hơn để mà giẫm lên.
+
+    Không có gì để chép (lượt nộp rỗng) thì KHÔNG ghi một dòng rỗng: một bản
+    nháp trống và không có bản nháp nào dẫn tới cùng một màn hình, mà dòng rỗng
+    thì còn giẫm lên bản nháp cũ — thứ duy nhất còn sót lại của em ấy.
+    """
+    rows = (db.table("course_writing_submissions")
+            .select("id, user_id, bank_id, items")
+            .eq("id", submission_id).limit(1).execute().data) or []
+    if not rows:
+        raise ReturnNotPossible("Không đọc được bài đã nộp — chưa trả bài.")
+    sub = rows[0]
+
+    answers = {}
+    for it in (sub.get("items") or []):
+        if not isinstance(it, dict):
+            continue
+        qid, text = it.get("qid"), it.get("answer")
+        if qid and str(text or "").strip():
+            answers[str(qid)] = str(text)
+    if not answers:
+        return 0
+    if not (sub.get("user_id") and sub.get("bank_id")):
+        raise ReturnNotPossible(
+            "Lượt nộp thiếu thông tin học viên/bộ đề — chưa trả bài.")
+
+    db.table("course_writing_drafts").upsert({
+        "class_assignment_item_id": item_id,
+        "user_id": sub["user_id"],
+        "bank_id": sub["bank_id"],
+        "answers": answers,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }, on_conflict="class_assignment_item_id").execute()
+    return len(answers)
+
+
 def return_item_to_student(
     db,
     *,
@@ -449,7 +492,11 @@ def return_item_to_student(
       · `mastery` KHÔNG đụng: sổ các lượt làm là lịch sử, không phải một lượt
         nộp.
 
-    THỨ TỰ CÓ CHỦ Ý: dọn sổ TRƯỚC, gỡ bằng chứng SAU. Gỡ trước mà dọn sổ hỏng
+    Và nó phải TRẢ LẠI CẢ BÀI, không chỉ mở lại ô trống — xem
+    `_seed_draft_from_submission`.
+
+    THỨ TỰ CÓ CHỦ Ý: rót nháp TRƯỚC (vô hình khi mục còn mang lượt nộp, nên hỏng
+    thì dừng khi chưa đụng gì), rồi dọn sổ, rồi gỡ bằng chứng SAU CÙNG. Gỡ trước mà dọn sổ hỏng
     thì còn lại một mục vẫn mang dấu đã-nộp trỏ vào hư không. Làm ngược lại,
     lượt vá sổ kế tiếp đóng dấu lại bằng CHÍNH `graded_at` cũ — trạng thái quay
     về đúng như trước khi bấm, và giáo viên bấm lại được.
@@ -474,6 +521,20 @@ def return_item_to_student(
         raise ReturnNotPossible(
             f"Chưa trả được bài dạng “{kind or 'không rõ'}”. Sổ lớp tự dựng lại "
             "lượt nộp ấy từ chính phiên làm bài, nên trả xong nó sẽ tự đóng lại.")
+
+    # ── RÓT BÀI ĐÃ NỘP TRỞ LẠI NHÁP, TRƯỚC MỌI LƯỢT GHI KHÁC ────────────────
+    #
+    # Trả bài mà em ấy mở ra thấy trang trắng thì đây không phải một món quà,
+    # mà là án gõ lại mười câu. Bản nháp trên máy chủ KHÔNG đủ để tin: trang xoá
+    # nháp trong máy ngay khi nộp xong, còn bản trên máy chủ là lượt lưu tự động
+    # có độ trễ — những phím cuối trước lúc bấm Nộp hoàn toàn có thể chưa kịp
+    # bay lên (codex #1000, P2). Bản chụp trong lượt nộp mới là bài THẬT.
+    #
+    # Ghi TRƯỚC khi dọn sổ, vì trong lúc mục còn mang lượt nộp thì nháp không ai
+    # đọc (`course_writing_state` chỉ rót nháp khi mục chưa có lượt nộp) — nên
+    # ghi sớm là vô hình, còn hỏng thì dừng lại khi chưa đụng vào gì cả.
+    restored = _seed_draft_from_submission(
+        db, item_id=item_id, submission_id=artifact_id)
 
     patch: Dict[str, Any] = {
         # 'opened' chứ không 'assigned': em ấy ĐÃ mở bài. Và ràng buộc
@@ -514,10 +575,13 @@ def return_item_to_student(
             "Không gỡ được bài đã nộp khỏi mục — chưa trả bài. Tải lại bảng "
             "rồi thử lại.")
 
-    logger.info("[class] trả bài item=%s kind=%s artifact=%s clear_score=%s",
-                item_id, kind, artifact_id, clear_score)
+    logger.info("[class] trả bài item=%s kind=%s artifact=%s clear_score=%s "
+                "nháp=%s câu", item_id, kind, artifact_id, clear_score, restored)
     return {"item_id": item_id, "artifact_kind": kind,
-            "artifact_id": artifact_id, "score_cleared": clear_score}
+            "artifact_id": artifact_id, "score_cleared": clear_score,
+            # Số câu đã rót lại vào nháp — giáo viên cần biết em ấy mở ra sẽ
+            # thấy bài cũ hay một trang trắng.
+            "draft_restored": restored}
 
 
 class SubsetNeedsStudentsError(Exception):

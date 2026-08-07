@@ -33,13 +33,17 @@ class _Table:
 
     def __init__(self, name, rows, log):
         self._name, self._rows, self._log = name, rows, log
-        self._filters, self._patch = [], None
+        self._filters, self._patch, self._upsert = [], None, None
 
     def select(self, *_a, **_k): return self
     def limit(self, *_a): return self
 
     def update(self, patch):
         self._patch = patch
+        return self
+
+    def upsert(self, row, on_conflict=None):
+        self._upsert = (row, on_conflict)
         return self
 
     def eq(self, field, value):
@@ -53,6 +57,16 @@ class _Table:
         return out
 
     def execute(self):
+        if self._upsert is not None:
+            row, key = self._upsert
+            for r in self._rows:
+                if key and r.get(key) == row.get(key):
+                    r.update(row)
+                    break
+            else:
+                self._rows.append(dict(row))
+            self._log.append((self._name, "upsert", dict(row)))
+            return _Resp([row])
         hit = self._matching()
         if self._patch is None:
             return _Resp(hit)
@@ -62,12 +76,14 @@ class _Table:
         return _Resp(hit)
 
 
-def _db(items, subs, log=None):
+def _db(items, subs, log=None, drafts=None):
     log = [] if log is None else log
-    tables = {"class_assignment_items": items, "course_writing_submissions": subs}
+    tables = {"class_assignment_items": items, "course_writing_submissions": subs,
+              "course_writing_drafts": drafts if drafts is not None else []}
     db = type("DB", (), {})()
     db.table = lambda n: _Table(n, tables.get(n, []), log)
     db._log = log
+    db._tables = tables
     return db
 
 
@@ -79,7 +95,11 @@ def _item(**over):
 
 def _sub(**over):
     return {"id": "w1", "class_assignment_item_id": "it1",
-            "total": 10, "clean": 0, **over}
+            "user_id": "u1", "bank_id": "b1", "total": 10, "clean": 0,
+            "items": [
+                {"qid": "E1", "answer": "i find the new timetable confusing"},
+                {"qid": "E2", "answer": "air pollution make him tired"},
+            ], **over}
 
 
 def test_returning_clears_the_hand_in_and_detaches_the_evidence():
@@ -165,6 +185,54 @@ def test_evidence_that_will_not_detach_is_reported_as_NOT_returned():
     items, subs = [_item()], [_sub(class_assignment_item_id="it-KHAC")]
     with pytest.raises(ReturnNotPossible, match="chưa trả bài"):
         return_item_to_student(_db(items, subs), item_id="it1", clear_score=False)
+
+
+# ── Trả bài phải trả lại CẢ BÀI, không chỉ mở lại ô trống (codex #1000, P2) ──
+
+def test_the_submitted_answers_come_back_as_the_draft():
+    """Trang xoá nháp trong máy ngay khi nộp xong, còn bản trên máy chủ là lượt
+    lưu tự động có độ trễ. Không rót lại thì em ấy mở ra thấy trang trắng — trả
+    bài thành án gõ lại mười câu."""
+    drafts = []
+    out = return_item_to_student(_db([_item()], [_sub()], drafts=drafts),
+                                 item_id="it1", clear_score=False)
+    assert out["draft_restored"] == 2
+    assert drafts[0]["class_assignment_item_id"] == "it1"
+    assert drafts[0]["answers"] == {
+        "E1": "i find the new timetable confusing",
+        "E2": "air pollution make him tired",
+    }
+    assert drafts[0]["user_id"] == "u1" and drafts[0]["bank_id"] == "b1"
+
+
+def test_a_stale_autosave_is_overwritten_by_the_submitted_snapshot():
+    # Sau khi nộp, học viên không còn đường nào ghi nháp nữa — nên không có bản
+    # nào MỚI HƠN để mà giẫm lên.
+    drafts = [{"class_assignment_item_id": "it1", "user_id": "u1", "bank_id": "b1",
+               "answers": {"E1": "câu viết dở, lưu từ ba phút trước"}}]
+    return_item_to_student(_db([_item()], [_sub()], drafts=drafts),
+                           item_id="it1", clear_score=False)
+    assert len(drafts) == 1, "phải ghi ĐÈ, không đẻ thêm dòng thứ hai"
+    assert drafts[0]["answers"]["E1"] == "i find the new timetable confusing"
+    assert drafts[0]["answers"]["E2"] == "air pollution make him tired"
+
+
+def test_an_empty_submission_does_not_stamp_an_empty_draft_over_the_old_one():
+    drafts = [{"class_assignment_item_id": "it1", "user_id": "u1", "bank_id": "b1",
+               "answers": {"E1": "thứ duy nhất còn sót lại của em ấy"}}]
+    out = return_item_to_student(
+        _db([_item()], [_sub(items=[])], drafts=drafts),
+        item_id="it1", clear_score=False)
+    assert out["draft_restored"] == 0
+    assert drafts[0]["answers"] == {"E1": "thứ duy nhất còn sót lại của em ấy"}
+
+
+def test_a_submission_that_cannot_be_read_stops_the_return_before_any_write():
+    items = [_item()]
+    with pytest.raises(ReturnNotPossible, match="Không đọc được bài đã nộp"):
+        return_item_to_student(_db(items, []), item_id="it1", clear_score=False)
+    assert items[0]["submitted_at"] == "2026-08-07T01:22:06Z", \
+        "rót nháp hỏng thì phải dừng khi CHƯA đụng vào sổ"
 
 
 def test_the_returnable_list_is_deliberately_short():

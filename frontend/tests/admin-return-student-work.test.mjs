@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
 
-function load({ postFails = null } = {}) {
+function load({ postFails = null, postReturns = { returned: true, draft_restored: 10 } } = {}) {
   const start = SRC.indexOf('function returnStudentWork');
   const end = SRC.indexOf('let _tallyAsg');
   assert.ok(start !== -1 && end > start, 'không tìm thấy hàm trả bài — module bị dựng lại?');
@@ -37,7 +37,7 @@ function load({ postFails = null } = {}) {
     async post(path, body) {
       seen.posts.push({ path, body });
       if (postFails) throw postFails;
-      return { returned: true };
+      return postReturns;
     },
   };
   const toast = (msg, kind) => seen.toasts.push({ msg, kind });
@@ -63,6 +63,7 @@ describe('trả bài: hỏi trước, ghi sau, rồi đọc lại', () => {
     const o = seen.confirms[0];
     assert.match(o.title, /Trả bài/);
     assert.match(o.body, /không còn tính là đã nộp/);
+    assert.match(o.body, /đưa lại vào ô nhập/, 'phải nói rõ em ấy KHÔNG phải gõ lại');
     assert.match(o.body, /vẫn được giữ|giữ để tra lại/);
     assert.match(o.body, /còn hạn/, 'giáo viên phải biết trước cái chốt sẽ từ chối mình');
   });
@@ -82,6 +83,22 @@ describe('trả bài: hỏi trước, ghi sau, rồi đọc lại', () => {
     await seen.confirms[0].onConfirm();
     assert.deepEqual(seen.tally, ['asg-1']);
     assert.equal(seen.toasts[0].kind, undefined);
+  });
+
+  test('nói luôn em ấy mở ra thấy BÀI CŨ hay TRANG TRẮNG', async () => {
+    // Giáo viên nhắn cho học viên ngay sau khi bấm — đây là thứ họ cần biết lúc
+    // này, và "khôi phục được 0 câu" phải kêu chứ không lẫn vào lời báo xong.
+    const ok = load();
+    ok.fn('asg-1', 'st-1');
+    await ok.seen.confirms[0].onConfirm();
+    assert.match(ok.seen.toasts[0].msg, /10 câu/);
+
+    const blank = load({ postReturns: { returned: true, draft_restored: 0 } });
+    blank.fn('asg-1', 'st-1');
+    await blank.seen.confirms[0].onConfirm();
+    assert.match(blank.seen.toasts[0].msg, /phải viết lại/);
+    assert.equal(blank.seen.toasts[0].kind, 'error');
+    assert.deepEqual(blank.seen.tally, ['asg-1'], 'vẫn phải đọc lại bảng — bài ĐÃ trả');
   });
 
   test('máy chủ từ chối thì kể NGUYÊN CÂU, và KHÔNG báo là đã trả', async () => {

@@ -1330,13 +1330,15 @@ async function openStudentWriting(assignmentId, studentId) {
 function returnStudentWork(assignmentId, studentId) {
   window.confirmDanger({
     title: 'Trả bài cho em làm lại?',
-    body: 'Lượt nộp hiện tại sẽ không còn tính là đã nộp, và em ấy viết lại được '
-      + 'từ chính bản nháp cũ. Bài đã viết vẫn được giữ để tra lại. '
+    body: 'Lượt nộp hiện tại sẽ không còn tính là đã nộp. Chính những câu em ấy '
+      + 'đã nộp được đưa lại vào ô nhập để sửa tiếp — không phải gõ lại từ đầu. '
+      + 'Bản chấm cũ vẫn được giữ để tra lại. '
       + 'Chỉ trả được khi bài giao còn hạn nhận bài.',
     confirmLabel: 'Trả bài',
     onConfirm: async () => {
+      let r;
       try {
-        await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId)
+        r = await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId)
           + '/assignments/' + encodeURIComponent(assignmentId)
           + '/return/' + encodeURIComponent(studentId), {});
       } catch (err) {
@@ -1345,7 +1347,13 @@ function returnStudentWork(assignmentId, studentId) {
         toast('Chưa trả được bài: ' + (err.message || String(err)), 'error');
         return;
       }
-      toast('Đã trả bài. Em ấy làm tiếp được ngay.');
+      // Nói luôn em ấy mở ra sẽ thấy BÀI CŨ hay TRANG TRẮNG. Giáo viên nhắn cho
+      // học viên ngay sau khi bấm, nên đây là thứ họ cần biết lúc này.
+      const n = (r && r.draft_restored) || 0;
+      toast(n
+        ? `Đã trả bài. ${n} câu em ấy viết đã được đưa lại vào ô nhập.`
+        : 'Đã trả bài, nhưng KHÔNG khôi phục được câu nào — em ấy sẽ phải viết lại.',
+        n ? undefined : 'error');
       openTally(assignmentId);
     },
   });
