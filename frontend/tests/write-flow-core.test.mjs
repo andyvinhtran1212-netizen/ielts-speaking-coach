@@ -375,3 +375,94 @@ describe('parseMultipart — thân multipart của bản thu âm', () => {
     assert.equal(parseMultipart('chuỗi chứ không phải buffer', CT), null);
   });
 });
+
+// ── `query`: chuỗi truy vấn cũng là hợp đồng ────────────────────────────────
+//
+// VÌ SAO CÓ: `normalizePath` cắt bỏ `?...`, nên trước nguyên hàm này KHÔNG cách
+// nào khai được "tham số này phải có mặt". Bản khai đầu tiên của
+// `listening-test-class-item` tưởng đã ghim `class_item` bằng cách nhét nó vào
+// `path`; nó chạy XANH, và khi bỏ hẳn tham số khỏi URL thì VẪN XANH — tức nó
+// chưa từng kiểm điều nó tuyên bố. Chỉ đối chứng âm mới lộ ra.
+//
+// Với bài giao của lớp, mất `class_item` nghĩa là bài vẫn chấm ra điểm nhưng sổ
+// bài giao trống và học viên bị ghi là chưa nộp. Không màn hình nào tố cáo.
+describe('cổng đường-ghi — ghim chuỗi truy vấn', () => {
+  const ATT = '/api/listening/tests/9f1c2b64-5d7a-4e18-9c33-2a7b41e0d5f6/attempts';
+
+  test('tham số đúng ⇒ đạt; thiếu tham số ⇒ đỏ', () => {
+    const khai = [{ method: 'POST', path: '/api/listening/tests/:id/attempts',
+                    query: { class_item: 'abc' } }];
+    assert.ok(judge([W('POST', `${ATT}?class_item=abc`, {})], khai).pass);
+
+    const r = judge([W('POST', ATT, {})], khai);
+    assert.equal(r.pass, false, 'thiếu class_item mà vẫn đạt');
+    assert.equal(r.findings[0].kind, 'write-query');
+  });
+
+  test('tham số SAI GIÁ TRỊ cũng đỏ — không chỉ kiểm sự có mặt', () => {
+    // Gắn nhầm bài giao còn tệ hơn không gắn: nó ghi vào sổ của lần giao KHÁC.
+    const r = judge([W('POST', `${ATT}?class_item=khac`, {})],
+      [{ method: 'POST', path: '/api/listening/tests/:id/attempts',
+         query: { class_item: 'abc' } }]);
+    assert.equal(r.pass, false);
+  });
+
+  test('nhét query vào `path` KHÔNG ghim được gì — lý do nguyên hàm này tồn tại', () => {
+    // Chính là bản khai sai của tôi. Giữ lại làm chốt để không ai viết lại.
+    const r = judge([W('POST', ATT, {})],
+      [{ method: 'POST', path: '/api/listening/tests/:id/attempts?class_item=abc' }]);
+    assert.ok(r.pass, 'nếu ca này đỏ thì normalizePath đã đổi — xem lại chú thích trên');
+  });
+});
+
+// ── `atLeast`: SÀN cho những đường ghi mà SỐ LẦN là tạo tác ─────────────────
+//
+// `listening-test-player.js:1189-1190` gắn CẢ `input` LẪN `change` vào cùng một
+// hàm lưu, nên số lần PATCH cho một câu phụ thuộc nhịp gõ. Đo trên chính trang
+// legacy: chờ 300ms giữa các câu ⇒ 4 lần ghi, chờ 1400ms ⇒ 6 lần, cho cùng ba
+// đáp án. Ghim `times` ở đó là ghim một con số vô nghĩa, và cổng sẽ chập chờn
+// tới khi ai đó nới nó ra cho hết đỏ.
+describe('cổng đường-ghi — `atLeast`', () => {
+  const P = '/api/listening/tests/attempts/c7d81f30-6a24-4b9e-8d17-5f0b3c92e6a8/answers';
+  const khai = (over) => [{ method: 'PATCH', path: '/api/listening/tests/attempts/:id/answers',
+                            atLeast: 3, ...over }];
+
+  test('đủ sàn thì đạt, kể cả khi thừa', () => {
+    const ba = [W('PATCH', P, { q_num: 1 }), W('PATCH', P, { q_num: 2 }), W('PATCH', P, { q_num: 3 })];
+    assert.ok(judge(ba, khai()).pass, 'đúng bằng sàn mà đỏ');
+    assert.ok(judge([...ba, W('PATCH', P, { q_num: 1 })], khai()).pass, 'thừa mà đỏ');
+  });
+
+  test('THIẾU so với sàn thì đỏ — sàn không phải là bỏ kiểm', () => {
+    const r = judge([W('PATCH', P, { q_num: 1 })], khai());
+    assert.equal(r.pass, false, 'mất hai câu mà vẫn đạt');
+  });
+
+  test('`bodyAll` vẫn soi TOÀN BỘ tập, kể cả phần thừa', () => {
+    // Nếu chỉ soi đúng `atLeast` request đầu, một lần ghi thừa mang thân sai sẽ
+    // lọt — mà "lần ghi cuối mang giá trị sai" chính là kiểu hỏng làm mất bài.
+    const r = judge(
+      [W('PATCH', P, { q_num: 1 }), W('PATCH', P, { q_num: 2 }),
+       W('PATCH', P, { q_num: 3 }), W('PATCH', P, { q_num: 99 })],
+      khai({ bodyAll: (bs) => bs.every((b) => b.q_num >= 1 && b.q_num <= 40) }));
+    assert.equal(r.pass, false, 'thân sai ở request thừa mà vẫn đạt');
+  });
+
+  test('khai CẢ `times` lẫn `atLeast` bị từ chối', () => {
+    const v = validateFlow({
+      name: 'x', route: '/x', steps: [{ wait: 1 }],
+      writes: [{ method: 'POST', path: '/x', times: 2, atLeast: 2 }],
+    });
+    assert.ok(v.some((m) => /times.*atLeast|atLeast.*times/.test(m)), JSON.stringify(v));
+  });
+
+  test('`atLeast` phải là số nguyên dương', () => {
+    for (const xấu of [0, -1, 1.5, '3', null]) {
+      const v = validateFlow({
+        name: 'x', route: '/x', steps: [{ wait: 1 }],
+        writes: [{ method: 'POST', path: '/x', atLeast: xấu }],
+      });
+      assert.ok(v.length, `atLeast=${String(xấu)} phải bị từ chối`);
+    }
+  });
+});
