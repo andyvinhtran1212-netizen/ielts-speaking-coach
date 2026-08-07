@@ -246,6 +246,39 @@
        TRÍ, nên đọc chéo một hàng phải đếm cột.
        Speaking có màu RIÊNG từ 06/08 — nó từng dùng chung --av-accent, mà amber
        có đúng một vai: con số quan trọng nhất màn hình. */
+    /* ── Bộ đổi ống kính ─────────────────────────────────────────────────
+       KHÔNG phải tab: tab đổi MÀN HÌNH, ống kính đổi CỘT. */
+    .cl-lens { display: flex; gap: var(--av-space-1); margin-bottom: var(--av-space-4); }
+    .cl-lens button {
+      font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
+      padding: var(--av-space-2) var(--av-space-4);
+      background: transparent; border: 0; border-bottom: 2px solid transparent;
+      color: var(--av-text-muted);
+    }
+    .cl-lens button[aria-current="true"] {
+      color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
+      border-bottom-color: var(--av-primary);
+    }
+
+    /* ── Ngăn kéo ────────────────────────────────────────────────────────
+       Bấm một hàng mở nó NGAY TRONG trang. Trang này có 19 chỗ hộp thoại, và
+       mỗi lần đóng là một lần giáo viên phải tìm lại chỗ đang đọc. */
+    .cl-drawer {
+      margin-top: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      padding: var(--av-space-6);
+    }
+    .cl-drawer[hidden] { display: none; }
+    .cl-drawer h3 { margin: 0 0 var(--av-space-1); font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold); }
+    .cl-drawer dt { color: var(--av-text-muted); font-size: var(--av-fs-xs);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+    .cl-drawer dd { margin: 2px 0 var(--av-space-3); }
+    #roster-tbody tr { cursor: pointer; }
+    #roster-tbody tr[aria-selected="true"] { background: var(--av-primary-soft); }
+
     /* ── Cột tên DÍNH ────────────────────────────────────────────────────
        Bảng tiến độ có 7 cột và cuộn ngang trong khung của nó. Cuộn tới cột
        Listening là mất luôn cái tên — mà mất tên thì cả hàng hết nghĩa: giáo
@@ -255,14 +288,17 @@
        phần lớn bề ngang và làm khó hơn là dễ. */
     @media (min-width: 900px) {
       #progress-table-wrap th:first-child,
-      #progress-table-wrap td:first-child {
+      #progress-table-wrap td:first-child,
+      #roster-table-wrap th:first-child,
+      #roster-table-wrap td:first-child {
         position: sticky; left: 0; z-index: 1;
         /* Nền ĐẶC, không trong suốt: nội dung cuộn qua bên dưới sẽ hiện xuyên
            lên và hai lớp chữ chồng nhau. */
         background: var(--av-surface-card);
         box-shadow: 1px 0 0 var(--av-border-default);
       }
-      #progress-table-wrap th:first-child { background: var(--av-surface-sunken); }
+      #progress-table-wrap th:first-child,
+      #roster-table-wrap th:first-child { background: var(--av-surface-sunken); }
     }
 
     /* ── Dải ô: bốn cột số thành bốn vệt đọc-trong-ba-giây ────────────────
@@ -481,10 +517,13 @@
       <div class="adm-banner" id="detail-banner" hidden></div>
 
       <nav class="adm-subtabs" aria-label="Nội dung lớp">
-        <button class="adm-subtab is-active" id="tab-roster" type="button" aria-current="page">Sĩ số</button>
+        <!-- SỔ ĐIỂM DANH gộp `Sĩ số` + `Tiến độ`: cả hai đều là HÀNG HỌC VIÊN,
+             chỉ khác phần cột. `Bài tập` và `Buổi học` ở lại riêng vì chúng là
+             đối tượng KHÁC (bài giao, buổi học), không phải học viên — gộp
+             chúng vào đây là gộp hai thứ chỉ vì chúng cùng nằm trong một lớp. -->
+        <button class="adm-subtab is-active" id="tab-roster" type="button" aria-current="page">Sổ điểm danh</button>
         <button class="adm-subtab" id="tab-lessons" type="button">Buổi học</button>
         <button class="adm-subtab" id="tab-homework" type="button">Bài tập</button>
-        <button class="adm-subtab" id="tab-progress" type="button">Tiến độ</button>
         <!-- Chỉ hiện khi đang mở một bài giao — nó KHÔNG phải một mục của
              lớp mà là một chỗ đứng tạm, và một tab trống thì mời bấm vào
              chỗ không có gì. -->
@@ -493,6 +532,13 @@
 
       <!-- Sĩ số -->
       <section id="panel-roster">
+        <!-- Ba việc của giáo viên là ba ỐNG KÍNH nhìn cùng MỘT danh sách lớp.
+             Tab đổi màn hình; ống kính đổi CỘT — hàng đứng yên nên mắt không
+             phải tìm lại chỗ đang đọc. -->
+        <div class="cl-lens" role="group" aria-label="Ống kính">
+          <button type="button" data-lens="today" aria-current="true">Sĩ số</button>
+          <button type="button" data-lens="progress" aria-current="false">Tiến độ 4 kỹ năng</button>
+        </div>
         <div class="cl-panel-head">
           <p class="cl-panel-note" id="roster-summary"></p>
           <button class="adm-btn-primary" id="btn-add-member" type="button">Thêm học viên</button>
@@ -518,6 +564,9 @@
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
+        <!-- Ngăn kéo mở TRONG trang: hàng vẫn sáng, sổ vẫn đó. Hộp thoại che
+             mất sổ và bắt tìm lại chỗ đang đọc sau mỗi lần đóng. -->
+        <aside class="cl-drawer" id="roster-drawer" hidden aria-live="polite"></aside>
       </section>
 
       <!-- Buổi học -->
