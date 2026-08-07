@@ -26,10 +26,14 @@ export default {
   ],
 
   steps: [
-    // CHỜ HẾT chuỗi thử lại (1s + 3s + 8s) TRƯỚC khi soi kho. Bước chạy trước
-    // `drainMs`, nên soi ở giây thứ 2 là soi lúc lần gửi cuối còn chưa xảy ra —
-    // một bản mã xoá nợ SAU lần hỏng cuối cùng vẫn qua (codex cục bộ #982).
-    { wait: 15000 },
+    // Chờ tới khi ĐỦ 4 lần gửi, không chờ theo đồng hồ. Chuỗi thử lại giãn
+    // 1s+3s+8s; một con số giây cố định là ghim vào tốc độ máy — CI kẹt nặng chỉ
+    // kịp 3 lần và luồng đỏ vì CHẬM chứ không phải vì SAI.
+    { waitForWrites: [base.writes[0].path, 4] },
+    // Nhịp ngắn sau lần gửi CUỐI: quyết định "xoá nợ hay giữ" chạy khi phản hồi
+    // đã về, tức SAU khi request rời đi. Soi ngay lúc thấy request thứ 4 là soi
+    // sớm hơn một nhịp.
+    { wait: 500 },
     // Nợ phải còn NGUYÊN. Bản khai chị em ghim chiều ngược (trả xong thì xoá),
     // nên hai cái cộng lại ghim đúng một câu: xoá KHI VÀ CHỈ KHI máy chủ nhận.
     { expectStorage: [KEY, base.initStorage[KEY]] },

@@ -58,6 +58,13 @@ describe('lược đồ bản khai', () => {
     assert.deepEqual(bad, []);
   });
 
+  test('`waitForWrites` khai đúng thì HỢP LỆ (có và không có hạn giờ)', () => {
+    for (const v of [['/a', 2], ['/a', 2, 45000]]) {
+      assert.deepEqual(validateFlow({ name: 'x', route: '/r',
+        steps: [{ waitForWrites: v }], writes: [{ method: 'POST', path: '/a' }] }), []);
+    }
+  });
+
   test('xoá trắng một ô là HỢP LỆ — `fill` được phép giá trị rỗng', () => {
     // Chiều ngược của mọi chốt ở trên: bộ kiểm chặt quá thì nó CHẶN việc đúng.
     // Ghi đè bản nháp bằng chuỗi rỗng chính là thứ `NON_EMPTY` sinh ra để bắt,
@@ -113,6 +120,12 @@ describe('lược đồ bản khai', () => {
       [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /mảng khác rỗng/],
       [{ ...base, initStorage: {} }, /initStorage/],
       [{ ...base, initStorage: { k: 1 } }, /initStorage/],
+      // `waitForWrites` — đồng bộ theo SỐ REQUEST thay cho đồng hồ tường.
+      [{ ...base, steps: [{ waitForWrites: ['/a'] }] }, /waitForWrites/],
+      [{ ...base, steps: [{ waitForWrites: ['/a', 0] }] }, /waitForWrites/],
+      [{ ...base, steps: [{ waitForWrites: ['/a', 2.5] }] }, /waitForWrites/],
+      [{ ...base, steps: [{ waitForWrites: ['', 2] }] }, /waitForWrites/],
+      [{ ...base, steps: [{ waitForWrites: ['/a', 2, -1] }] }, /waitForWrites/],
       // Vòng 4 codex — ba ca có rủi ro THẬT (khác với các ca chỉ xảy ra khi cố
       // tình viết bản khai quái dị):
       // · `async` trả Promise, mà Promise LUÔN truthy ⇒ mọi thân request đều qua;
