@@ -139,3 +139,37 @@ def test_the_rule_is_fed_by_BANK_SHAPE_never_by_a_row_field():
         assert any(k in arg for k in ("bank_has_mcq", "_bank_shape", "_shapes",
                                       "has_mcq", "known")), \
             f"`has_mcq` không đến từ hình dạng bộ đề: {arg}"
+
+
+# ── Điền bù ô điểm bị GIỮ LẠI vì một lượt đọc hỏng ─────────────────────────
+
+def test_the_tally_backfills_a_score_that_the_safe_direction_withheld():
+    """Chiều an toàn chữa được lỗi ghi đè, nhưng để lại một ô trống VĨNH VIỄN.
+
+    Lượt chốt sổ không đọc được hình dạng bộ đề ⇒ giữ điểm lại nhưng vẫn đóng
+    dấu `submitted_at`. Với bộ đề chỉ-có-viết thì không có `course_verdict` nào
+    sẽ điền, mà cả `reconcile_course_items` (lọc `pending`) lẫn chính bảng này
+    (`if submitted_at: continue`) đều bỏ qua dòng đã chốt (codex #994 vòng 2).
+
+    Ghim ba mặt của đường bù: chỉ chạm ô ĐANG TRỐNG, chỉ với bộ đề chỉ-có-viết,
+    và ghi thẳng cột (vì `mark_item_submitted` chỉ ghi khi `submitted_at` trống).
+    """
+    src = _src()
+    i = src.index("ĐIỀN BÙ")
+    blk = src[i:i + 1400]
+    assert 'it.get("score") is None' in blk, "điền bù đè lên ô đã có điểm"
+    assert "course_hand_in_score(has_mcq=has_mcq" in blk, "bỏ qua hình dạng bộ đề"
+    assert '.update({"score": pct})' in blk, "vẫn đi qua mark_item_submitted (không ghi được)"
+    # Ghi có ĐIỀU KIỆN ở tầng cơ sở dữ liệu: một lượt xét kết quả chạy xen vào
+    # giữa đọc và ghi sẽ điền ô ấy, và lượt này không được đè lên.
+    assert '.is_("score", "null")' in blk, "ghi vô điều kiện — đua với course_verdict"
+
+
+def test_the_backfill_still_skips_the_row_afterwards():
+    """Điền bù xong phải `continue`: rơi xuống nhánh chốt sổ bên dưới là gọi
+    `mark_item_submitted` cho một dòng đã chốt — vô hại nhưng là một lượt ghi
+    thừa cho mỗi lần giáo viên mở bảng."""
+    src = _src()
+    i = src.index("ĐIỀN BÙ")
+    blk = src[i:i + 1500]
+    assert blk.rstrip().endswith("continue") or "\n                continue" in blk

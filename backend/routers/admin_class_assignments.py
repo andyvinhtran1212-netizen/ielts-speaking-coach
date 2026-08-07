@@ -1166,7 +1166,31 @@ async def assignment_tally(
         # Bản thân bài tự luận đã chấm LÀ bằng chứng của một lượt nộp.
         for it in items:
             w = writing_by_item.get(it["id"])
-            if not w or it.get("submitted_at"):
+            if not w:
+                continue
+            if it.get("submitted_at"):
+                # ĐIỀN BÙ. Đã chốt sổ nhưng ô điểm còn trống nghĩa là lượt chốt
+                # trước đó KHÔNG đọc được hình dạng bộ đề nên giữ điểm lại theo
+                # chiều an toàn. Với bộ đề chỉ-có-viết thì không có
+                # `course_verdict` nào sẽ điền, mà cả hai đường vá đều bỏ qua
+                # dòng đã có `submitted_at` — ô ấy trống VĨNH VIỄN, và cả trang
+                # học viên lẫn bảng giáo viên đọc đúng cột ấy (codex #994 vòng 2).
+                #
+                # `mark_item_submitted` không dùng được: nó chỉ ghi khi
+                # `submitted_at` còn trống. Ghi thẳng cột điểm.
+                if it.get("score") is None:
+                    pct = course_hand_in_score(has_mcq=has_mcq,
+                                               clean=w.get("clean"), total=w.get("total"))
+                    if pct is not None:
+                        try:
+                            (supabase_admin.table("class_assignment_items")
+                             .update({"score": pct}).eq("id", it["id"])
+                             .is_("score", "null").execute())
+                            it["score"] = pct
+                        except Exception as exc:  # noqa: BLE001
+                            stale = True
+                            logger.warning("[class] điền bù điểm tự luận hỏng "
+                                           "item=%s: %s", it["id"], exc)
                 continue
             # Đóng dấu bằng GIỜ CHẤM của chính bản nộp, không phải giờ mở bảng:
             # lượt vá này chạy bất kỳ lúc nào giáo viên mở bảng, nên lấy "bây
