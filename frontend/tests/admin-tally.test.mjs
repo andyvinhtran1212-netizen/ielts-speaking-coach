@@ -366,6 +366,26 @@ describe('bảng nhận bài không tràn viền', () => {
     assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /overflow-x/);
   });
 
+  test('bề rộng có TRẦN, và trần nằm trên khối chứ không trên hàng', () => {
+    // Không tràn mà vẫn xấu là hai lỗi khác nhau. Đo trên prod: khu này rộng
+    // 1632px trên màn 1920, cột tên `1fr` nuốt 1359px trong số đó — tên dính
+    // mép trái, giờ nộp/điểm/nút dạt mép phải, giữa là hơn nghìn pixel trắng.
+    // Neo ĐẦU DÒNG: `/\.av-tally\s*\{/` không neo sẽ nhận cả `.foo.av-tally {`
+    // và `.disabled .av-tally {` — hai bộ chọn hẹp hơn, chỉ sống trong một
+    // trạng thái, nên chốt sẽ xanh trong khi khu này vẫn kéo hết bề ngang
+    // (codex cục bộ 07/08).
+    const blocks = [...css.matchAll(/^\.av-tally\s*\{[^}]*\}/gm)].map((m) => m[0]);
+    assert.equal(blocks.length, 1, 'hai quy tắc gốc là hai chỗ tranh nhau');
+    assert.match(blocks[0], /max-width:\s*var\(--av-width-read\)/,
+      'thiếu trần thì cột tên lại nuốt hết phần thừa');
+    // Đo trên trang thật (prod, màn 1920) SAU khi áp luật này: khối 760px, cột
+    // tên 1359px → 487px, 0 hàng tràn. Chốt dưới đây chỉ giữ cho luật khỏi bị
+    // gỡ; bằng chứng nó CÓ TÁC DỤNG là phép đo ấy.
+    // Trần phải ở KHỐI: đặt trên hàng thì dòng đầu (số đã nộp, trạng thái) và
+    // dòng chân vẫn kéo hết bề ngang, và các hàng thụt vào so với chúng.
+    assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /max-width/);
+  });
+
   test('ô điểm cho phần phụ xuống dòng riêng', () => {
     const rule = css.match(/\.av-tally__band small\s*\{[^}]*\}/);
     assert.ok(rule, 'chưa tách phần phụ');
