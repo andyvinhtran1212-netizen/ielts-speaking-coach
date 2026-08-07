@@ -81,6 +81,15 @@ const DEFAULT_PAIRS = [
       // đọc được đích của onclick, hai bên so được thật.
     ],
   },
+  {
+    // Trang CÔNG KHAI, port 2026-08-07. Logic đã tách sang
+    // `/js/grammar-exercises.js` nên cả hai vế chạy CHÍNH tệp đó — cổng so được
+    // nội dung thật chứ không phải hai bản chép.
+    name: 'grammar-exercises',
+    legacy: '/pages/grammar-exercises.html',
+    next: '/grammar/exercises',
+    allow: [],
+  },
 ];
 
 /** Bổ sung toàn bộ bài Grammar từ backend — không lấy mẫu, quét hết. */

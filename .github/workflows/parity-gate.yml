@@ -43,6 +43,8 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      - 'frontend/public/pages/grammar-exercises.html'
+      - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
       # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
