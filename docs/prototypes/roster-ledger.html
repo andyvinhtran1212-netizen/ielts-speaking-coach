@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nguyên mẫu · Sổ điểm danh (bước 6)</title>
+
+<!-- TOKEN THẬT, không phải bản chép. Nguyên mẫu dùng lại đúng tệp sản phẩm
+     đang dùng, nên màu ở đây LÀ màu sẽ ra. -->
+<link rel="stylesheet" href="../../frontend/public/css/aver-design/tokens.css" />
+
+<style>
+  /* ─────────────────────────────────────────────────────────────────────
+     SỔ ĐIỂM DANH — thay 5 tab con + 19 chỗ modal.
+
+     Luận điểm: giáo viên không nghĩ theo tab, họ nghĩ theo HỌC VIÊN. Ba việc
+     của họ — sáng nay ai chưa nộp · em nào đang tụt · mở bài một em để chấm —
+     là BA ỐNG KÍNH nhìn cùng một danh sách lớp, không phải ba màn hình.
+
+     Hàng học viên đứng yên; chỉ phần cột bên phải đổi. Bốn tầng điều hướng co
+     còn một.
+     ───────────────────────────────────────────────────────────────────── */
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: var(--av-space-8);
+    background: var(--av-surface-page);
+    color: var(--av-text-primary);
+    font-family: var(--av-font-sans);
+    font-size: var(--av-fs-base);
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ── Đầu sổ ─────────────────────────────────────────────────────────── */
+  .rl-head { display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--av-space-4); flex-wrap: wrap; }
+  .rl-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold);
+    margin: 0; letter-spacing: var(--av-tracking-tight); }
+  .rl-head p { margin: 0; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+  .rl-act { display: flex; gap: var(--av-space-2); }
+  .btn { font: inherit; font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+    padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+    border: 1px solid transparent; cursor: pointer; min-height: 40px; }
+  .btn-primary { background: var(--av-primary); color: var(--av-text-on-primary); }
+  .btn-quiet { background: transparent; color: var(--av-text-secondary);
+    border-color: var(--av-border-default); }
+
+  /* ── Con số amber DUY NHẤT của màn này ──────────────────────────────── */
+  .rl-lead {
+    margin: var(--av-space-6) 0;
+    padding-bottom: var(--av-space-4);
+    border-bottom: 1px solid var(--av-border-default);
+    display: flex; align-items: baseline; gap: var(--av-space-3);
+  }
+  .rl-lead b {
+    font-family: var(--av-font-mono); font-size: var(--av-fs-5xl);
+    font-weight: var(--av-fw-bold); line-height: 1;
+    color: var(--av-accent);              /* amber = MỘT chỗ mỗi màn */
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .rl-lead span { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+  /* ── Bộ đổi ống kính ────────────────────────────────────────────────── */
+  .rl-lens { display: flex; gap: var(--av-space-1); margin-bottom: var(--av-space-4); }
+  .rl-lens button {
+    font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
+    padding: var(--av-space-2) var(--av-space-4);
+    background: transparent; border: 0; border-bottom: 2px solid transparent;
+    color: var(--av-text-muted);
+  }
+  .rl-lens button[aria-current="true"] {
+    color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
+    border-bottom-color: var(--av-primary);
+  }
+  .rl-lens button:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: 2px; }
+
+  /* ── Sổ + ngăn kéo ──────────────────────────────────────────────────── */
+  .rl-body { display: grid; grid-template-columns: 1fr; gap: var(--av-space-6); }
+  @media (min-width: 1100px) { .rl-body.is-open { grid-template-columns: 1fr 340px; } }
+
+  .rl-scroll { overflow-x: auto; border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md); background: var(--av-surface-card); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: var(--av-space-3) var(--av-space-4); text-align: left;
+    font-size: var(--av-fs-sm); border-bottom: 1px solid var(--av-border-subtle); }
+  th { font-size: var(--av-fs-xs); text-transform: uppercase;
+    letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted);
+    font-weight: var(--av-fw-semibold); background: var(--av-surface-sunken); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--av-surface-sunken); }
+  tbody tr[aria-selected="true"] { background: var(--av-primary-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  /* Cột tên DÍNH — mất tên là cả hàng hết nghĩa. */
+  @media (min-width: 900px) {
+    th:first-child, td:first-child {
+      position: sticky; left: 0; z-index: 1;
+      background: var(--av-surface-card);
+      box-shadow: 1px 0 0 var(--av-border-default);
+    }
+    th:first-child { background: var(--av-surface-sunken); }
+    tbody tr[aria-selected="true"] td:first-child { background: var(--av-primary-soft); }
+  }
+  .nm { font-weight: var(--av-fw-medium); }
+  .sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+  .num { font-family: var(--av-font-mono); font-variant-numeric: tabular-nums; }
+
+  /* Dải ô — MỰC = CHỖ CẦN CHÚ Ý. Cùng quy ước course-report.js. */
+  .strip { display: inline-flex; gap: 2px; }
+  .strip i { width: 4px; height: 12px; border-radius: 1px; background: var(--av-border-default); }
+  .strip i[data-w="1"] { background: currentColor; }
+  .sk-speaking  { color: var(--av-skill-speaking); }
+  .sk-writing   { color: var(--av-primary); }
+  .sk-reading   { color: var(--av-skill-reading); }
+  .sk-listening { color: var(--av-skill-listening); }
+
+  /* Năm trạng thái, NĂM màu — cột này đọc bằng màu trước rồi mới đọc chữ. */
+  .st { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
+  .st[data-s="stalled"]  { color: var(--av-error); }
+  .st[data-s="doing"]    { color: var(--av-warning); }
+  .st[data-s="await"]    { color: var(--av-info); }
+  .st[data-s="done"]     { color: var(--av-text-muted); }
+  .st[data-s="untouched"]{ color: var(--av-text-faint); }
+
+  /* ── Ngăn kéo: mở TRONG trang, hàng vẫn sáng ────────────────────────── */
+  .rl-drawer { border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md); background: var(--av-surface-card);
+    padding: var(--av-space-6); align-self: start; }
+  .rl-drawer[hidden] { display: none; }
+  .rl-drawer h2 { margin: 0 0 var(--av-space-1); font-size: var(--av-fs-lg);
+    font-weight: var(--av-fw-semibold); }
+  .rl-drawer .close { float: right; background: transparent; border: 0;
+    cursor: pointer; color: var(--av-text-muted); font-size: var(--av-fs-lg);
+    line-height: 1; padding: 0 var(--av-space-1); }
+  .rl-kv { margin: var(--av-space-4) 0 0; padding: var(--av-space-4) 0 0;
+    border-top: 1px solid var(--av-border-subtle); }
+  .rl-kv dt { color: var(--av-text-muted); font-size: var(--av-fs-xs);
+    text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+  .rl-kv dd { margin: 2px 0 var(--av-space-3); }
+  .rl-drawer .btn { width: 100%; margin-top: var(--av-space-2); }
+
+  .note { margin-top: var(--av-space-8); padding-top: var(--av-space-4);
+    border-top: 1px solid var(--av-border-subtle);
+    color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+  .note b { color: var(--av-text-secondary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="rl-head">
+    <div>
+      <h1>IELTS 6.5 — Tối 2·4·6</h1>
+      <p>14 học viên · Buổi 7 · hạn nộp 19:00 hôm nay</p>
+    </div>
+    <div class="rl-act">
+      <button class="btn btn-quiet" type="button">Thêm buổi học</button>
+      <button class="btn btn-primary" type="button">Giao bài</button>
+    </div>
+  </div>
+
+  <!-- Con số amber DUY NHẤT: thứ giáo viên mở trang để biết. -->
+  <div class="rl-lead"><b>7</b><span>em chưa nộp bài hôm nay</span></div>
+
+  <div class="rl-lens" role="tablist" aria-label="Ống kính">
+    <button type="button" aria-current="true"  data-lens="today">Hôm nay</button>
+    <button type="button" aria-current="false" data-lens="progress">Tiến độ</button>
+    <button type="button" aria-current="false" data-lens="homework">Bài tập</button>
+  </div>
+
+  <div class="rl-body" id="body">
+    <div class="rl-scroll">
+      <table>
+        <thead id="head"></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <aside class="rl-drawer" id="drawer" hidden aria-live="polite"></aside>
+  </div>
+
+  <p class="note">
+    <b>Nguyên mẫu tĩnh.</b> Dữ liệu là mẫu, nhưng token · dải ô · năm màu trạng
+    thái · cột tên dính đều là thứ đang chạy thật. Bấm một hàng để xem ngăn kéo.
+    Ba nút ống kính đổi CỘT, không đổi hàng — đó là điểm chính của thiết kế này.
+  </p>
+</div>
+
+<script type="module">
+// Dữ liệu mẫu — tên và tình huống lấy theo lớp thật để hình dung đúng mật độ.
+const S = [
+  { n: 'Nguyễn Phương Anh', c: 'HV-014', st: 'done',      done: '9/9', pct: 80,
+    sk: [3, 1, 0, 2], late: '8/9', last: '2 giờ trước', axis: 'give/send SVOO', wrong: '3/8' },
+  { n: 'Lê Ngọc Hà Linh',   c: 'HV-021', st: 'doing',     done: '6/9', pct: 59,
+    sk: [4, 2, 1, 1], late: '5/8', last: '18 phút trước', axis: 'tìm ô V có chia', wrong: '6/8' },
+  { n: 'Minh Ngọc Võ',      c: 'HV-009', st: 'await',     done: '9/9', pct: 74,
+    sk: [2, 0, 2, 3], late: '7/9', last: '1 giờ trước', axis: 'động từ nối seem/become', wrong: '4/7' },
+  { n: 'Trang Hà',          c: 'HV-018', st: 'done',      done: '9/9', pct: 88,
+    sk: [0, 1, 0, 0], late: '9/9', last: 'hôm qua', axis: 'mạo từ a/an', wrong: '2/9' },
+  { n: 'Thuỳ Dung',         c: 'HV-003', st: 'done',      done: '9/9', pct: 91,
+    sk: [0, 0, 1, 0], late: '9/9', last: 'hôm qua', axis: '—', wrong: '1/9' },
+  { n: 'Dương Dương',       c: 'HV-027', st: 'stalled',   done: '2/9', pct: 22,
+    sk: [6, 4, 3, 5], late: '2/7', last: '3 ngày trước', axis: 'tìm ô V có chia', wrong: '7/8' },
+  { n: 'Thảo Uyên Trần',    c: 'HV-011', st: 'untouched', done: '0/9', pct: null,
+    sk: [1, 1, 2, 1], late: '6/8', last: '5 ngày trước', axis: '—', wrong: '—' },
+  { n: 'Nhàn Thanh',        c: 'HV-006', st: 'doing',     done: '4/9', pct: 66,
+    sk: [2, 3, 1, 2], late: '7/8', last: '40 phút trước', axis: 'giới từ chỉ thời gian', wrong: '5/9' },
+];
+
+const LABEL = { stalled: 'Bỏ dở', doing: 'Đang làm', await: 'Thiếu phần tự luận',
+                done: 'Xong', untouched: 'Chưa mở' };
+const SK = ['speaking', 'writing', 'reading', 'listening'];
+const SKVN = ['Speaking', 'Writing', 'Reading', 'Listening'];
+
+const strip = (weak, cls) => `<span class="strip ${cls}" aria-hidden="true">`
+  + Array.from({ length: 8 }, (_, i) => `<i data-w="${i < weak ? 1 : 0}"></i>`).join('')
+  + '</span>';
+
+const LENS = {
+  today: {
+    head: ['Học viên', 'Tiến độ bài hôm nay', 'Hạn', 'Tình hình'],
+    row: (s) => `<td>${strip(9 - Number(s.done.split('/')[0]), 'sk-writing')}
+        <div class="sub num">${s.done} chặng</div></td>
+      <td class="num">19:00</td>
+      <td><span class="st" data-s="${s.st}">${LABEL[s.st]}</span></td>`,
+  },
+  progress: {
+    head: ['Học viên', ...SKVN, 'Nộp đúng hạn', 'Gần nhất'],
+    row: (s) => SK.map((k, i) => `<td>${strip(s.sk[i], 'sk-' + k)}</td>`).join('')
+      + `<td class="num">${s.late}</td><td class="sub">${s.last}</td>`,
+  },
+  homework: {
+    head: ['Học viên', 'Buổi 5', 'Buổi 6', 'Buổi 7', 'Điểm gộp'],
+    row: (s) => `<td><span class="st" data-s="done">Xong</span></td>
+      <td><span class="st" data-s="${s.st === 'untouched' ? 'untouched' : 'done'}">${
+        s.st === 'untouched' ? 'Chưa mở' : 'Xong'}</span></td>
+      <td><span class="st" data-s="${s.st}">${LABEL[s.st]}</span></td>
+      <td class="num">${s.pct == null ? '—' : s.pct + '%'}</td>`,
+  },
+};
+
+let lens = 'today', picked = null;
+
+function draw() {
+  const L = LENS[lens];
+  document.getElementById('head').innerHTML =
+    '<tr>' + L.head.map((h) => `<th>${h}</th>`).join('') + '</tr>';
+  document.getElementById('rows').innerHTML = S.map((s, i) => `
+    <tr data-i="${i}" aria-selected="${picked === i}">
+      <td><div class="nm">${s.n}</div><div class="sub num">${s.c}</div></td>
+      ${L.row(s)}
+    </tr>`).join('');
+  drawer();
+}
+
+function drawer() {
+  const d = document.getElementById('drawer');
+  const body = document.getElementById('body');
+  if (picked === null) { d.hidden = true; body.classList.remove('is-open'); return; }
+  const s = S[picked];
+  d.hidden = false; body.classList.add('is-open');
+  d.innerHTML = `
+    <button class="close" type="button" id="x" aria-label="Đóng">×</button>
+    <h2>${s.n}</h2>
+    <div class="sub num">${s.c}</div>
+    <dl class="rl-kv">
+      <dt>Bài buổi 7</dt>
+      <dd><span class="num">${s.done}</span> chặng ·
+        <span class="st" data-s="${s.st}">${LABEL[s.st]}</span></dd>
+      <dt>Điểm gộp</dt>
+      <dd class="num">${s.pct == null ? '—' : s.pct + '%'} · ngưỡng 75%</dd>
+      <dt>Trục yếu nhất</dt>
+      <dd>${s.axis}<div class="sub">sai ${s.wrong} câu</div></dd>
+      <dt>Hoạt động gần nhất</dt>
+      <dd class="sub">${s.last}</dd>
+    </dl>
+    <button class="btn btn-primary" type="button">Nghe bài nói</button>
+    <button class="btn btn-quiet" type="button">Xem từng câu</button>`;
+  d.querySelector('#x').onclick = () => { picked = null; draw(); };
+}
+
+document.querySelector('.rl-lens').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-lens]');
+  if (!b) return;
+  lens = b.dataset.lens;
+  document.querySelectorAll('.rl-lens button').forEach((x) =>
+    x.setAttribute('aria-current', String(x === b)));
+  draw();
+});
+
+document.getElementById('rows').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr[data-i]');
+  if (!tr) return;
+  const i = Number(tr.dataset.i);
+  picked = picked === i ? null : i;
+  draw();
+});
+
+draw();
+</script>
+</body>
+</html>
