@@ -89,9 +89,21 @@ def _check_reading_exam(fx: dict) -> None:
     Ràng buộc đúng tầng: `question_type` phải nằm trong CHECK của bảng, và câu
     hỏi KHÔNG được mang đáp án.
     """
+    # Trường BẮT BUỘC, lấy theo thứ trang THẬT SỰ ĐỌC — không phải theo trí nhớ.
+    # Bản đầu fixture ghi `body` trong khi cột và trang đều dùng `body_markdown`
+    # (`migrations/086:105`, `reading-exam.js:499`), nên đoạn đọc render RỖNG mà
+    # luồng vẫn xanh: nó chỉ cần ô nhập. Chốt này khi đó chỉ kiểm loại câu hỏi
+    # nên không thấy gì (codex cục bộ #969).
+    for p in fx["test"]["passages"]:
+        for key in ("passage_order", "title", "body_markdown"):
+            assert p.get(key), f"đoạn đọc thiếu «{key}» — trang sẽ render rỗng"
+
     allowed = _reading_question_types_from_migration()
     questions = fx["test"]["questions"]
     assert questions, "fixture không có câu hỏi nào"
+    for q in questions:
+        for key in ("q_num", "prompt", "question_type"):
+            assert q.get(key), f"câu hỏi thiếu «{key}» (`reading-exam.js:1109-1197`)"
     for q in questions:
         assert q["question_type"] in allowed, (
             f"question_type={q['question_type']!r} không có trong CHECK của bảng")

@@ -55,6 +55,9 @@ export default {
     { wait: 700 },
     { click: '#exam-start-btn' },
     { wait: 700 },
+    // Đoạn đọc phải HIỆN CHỮ. Không có dòng này thì một fixture sai tên trường
+    // vẫn cho luồng xanh, vì luồng chỉ cần ô nhập tồn tại.
+    { expectText: ['.exam-passage__body', 'Nội dung đoạn đọc.'] },
     { fill: ['input[name="q-1"]', A1] },
     { fill: ['input[name="q-2"]', A2] },
     // Rời tiêu điểm TRƯỚC khi chờ. Bấm thẳng nút Nộp trong khi ô cuối còn tiêu

@@ -249,6 +249,16 @@ export function judge(observed, declared, { ignore = [] } = {}) {
     // vị từ dạng "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN
     // CÙNG một câu — tức câu còn lại không được lưu, đúng thứ bản khai tưởng
     // mình đang chặn (bot bắt ở #969). Chỉ nhìn cả tập mới thấy "thiếu một câu".
+    // Khai `bodyAll` mà không phải hàm là LỖI, không phải "bỏ qua". Bỏ qua
+    // nghĩa là `bodyAll: true` — một cách viết rất dễ gõ nhầm — làm bản khai
+    // đọc như đang chặn trùng lặp trong khi nó không chặn gì (codex cục bộ #969).
+    if (d.bodyAll != null && typeof d.bodyAll !== 'function') {
+      findings.push({
+        kind: 'write-body',
+        what: `${wantMethod} ${wantPath}`,
+        why: `\`bodyAll\` phải là HÀM, nhận ${typeof d.bodyAll}`,
+      });
+    }
     if (typeof d.bodyAll === 'function' && hits.length === times) {
       const bodies = hits.map((i) => remaining[i].body);
       if (!d.bodyAll(bodies)) {

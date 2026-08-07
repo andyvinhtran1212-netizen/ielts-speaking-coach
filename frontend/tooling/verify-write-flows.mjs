@@ -78,6 +78,18 @@ async function step(page, s) {
       target.dispatchEvent(onProp ? new Event(name) : new CustomEvent(name, { bubbles: true }));
     }, [ev, prop]);
   }
+  // Kiểm NỘI DUNG chứ không chỉ sự tồn tại. Một khối rỗng vẫn "hiện": fixture
+  // Đọc từng ghi `body` thay vì `body_markdown`, nên đoạn đọc render RỖNG mà
+  // luồng vẫn xanh vì nó chỉ cần ô nhập (codex cục bộ #969).
+  if (s.expectText) {
+    const [sel, text] = s.expectText;
+    const got = await page.locator(sel).first().innerText().catch(() => null);
+    if (got == null) throw new Error(`không thấy «${sel}»`);
+    if (!got.includes(text)) {
+      throw new Error(`«${sel}» không chứa «${text}» — nhận «${got.slice(0, 60)}»`);
+    }
+    return undefined;
+  }
   if (s.expectVisible) {
     const v = await page.locator(s.expectVisible).first().isVisible();
     if (!v) throw new Error(`không thấy «${s.expectVisible}»`);
@@ -165,11 +177,20 @@ async function runFlow(browser, flow) {
   // nhánh đó; không có chốt này thì trang có thể nhận response niêm phong rồi
   // đứng im, và bản khai vẫn xanh (bot bắt ở #969).
   let urlError = null;
-  if (flow.expectFinalUrl) {
-    const got = page.url();
+  if ('expectFinalUrl' in flow) {
     const want = flow.expectFinalUrl;
-    const ok = want instanceof RegExp ? want.test(got) : got.includes(want);
-    if (!ok) urlError = `đường dẫn cuối là «${got}», khai «${want}»`;
+    // Khai rỗng hay sai kiểu là LỖI, không phải "bỏ qua": `expectFinalUrl: ''`
+    // đọc như đang ghim đường quay về trong khi nó không ghim gì.
+    if (!(want instanceof RegExp) && !(typeof want === 'string' && want)) {
+      urlError = '`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng';
+    } else {
+      // So với ĐƯỜNG DẪN + THAM SỐ, không phải chuỗi con của cả URL: so chuỗi
+      // con thì một giá trị nằm lọt trong một tham số khác cũng khớp.
+      const u = new URL(page.url());
+      const got = u.pathname + u.search;
+      const ok = want instanceof RegExp ? want.test(got) : got === want;
+      if (!ok) urlError = `đường dẫn cuối là «${got}», khai «${want}»`;
+    }
   }
 
   const verdict = judge(observed, flow.writes || [], { ignore: flow.ignoreWrites || [] });

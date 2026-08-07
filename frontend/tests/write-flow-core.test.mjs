@@ -267,6 +267,15 @@ describe('bodyAll — soi CẢ TẬP thân request đã khớp', () => {
     assert.match(r.findings[0].why, /cả tập/);
   });
 
+  test('bodyAll KHÔNG phải hàm ⇒ ĐỎ, không được lặng lẽ bỏ qua', () => {
+    // `bodyAll: true` là cách gõ nhầm dễ gặp; bỏ qua nó thì bản khai đọc như
+    // đang chặn trùng lặp trong khi không chặn gì (codex cục bộ #969).
+    const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
+      W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' })], decl({ bodyAll: true }));
+    assert.equal(r.pass, false);
+    assert.match(r.findings[0].why, /phải là HÀM/);
+  });
+
   test('CÓ bodyAll: đủ hai câu ⇒ đạt', () => {
     const all = { bodyAll: (bs) => new Set(bs.map((b) => b.q_num)).size === 2 };
     const r = judge([W('PATCH', 'https://h/a/answers', { q_num: 1, v: 'x' }),
