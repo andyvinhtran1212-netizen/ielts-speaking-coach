@@ -184,23 +184,40 @@ def test_attempts_are_sorted_ACROSS_batches_not_inside_each():
 
 # ── Vòng bot PR 952 ─────────────────────────────────────────────────────────
 
-def test_the_report_recomputes_correctness_from_the_stored_answer():
-    """`log_progress` nhận nguyên cờ `is_correct` do CLIENT gửi. `course_verdict`
-    đã tự chấm lại từ lâu vì đúng lý do này; báo cáo tin cờ client thì một
-    payload sửa tay biến câu sai thành câu đúng và giấu luôn đáp án thật."""
-    src = _src()
-    assert "ok = (picked == correct) if (picked is not None and correct is not None)" in src
-    assert '"is_correct": ok,' in src
-    # Không so được thì mới dùng cờ đã lưu — thà giữ nguyên còn hơn kết luận bừa.
-    assert 'else bool(a.get("is_correct"))' in src
+def test_all_THREE_surfaces_grade_with_the_SAME_helper():
+    """`log_progress` nhận nguyên cờ `is_correct` do CLIENT gửi, nên cả ba mặt
+    đọc phải tự chấm lại — và phải chấm bằng CÙNG một thước.
+
+    Trước đây ba nơi chấm ba kiểu: lượt xét so CHUỖI, báo cáo parse SỐ, bảng lớp
+    parse SỐ rồi lùi về cờ client. `answer_given="01"` cho hai kết quả trái
+    nhau (codex #970). Ghim LỜI GỌI, không ghim biểu thức: bản trước ghim đúng
+    chuỗi `int(a.get("answer_given")) == want`, nên gom về một hàm chung — việc
+    ĐÚNG — lại làm chốt đỏ.
+    """
+    for fn in (qs.course_verdict, qs.course_answer_report, qs.course_attempt_report):
+        assert "grade_attempt(" in inspect.getsource(fn), fn.__name__
 
 
-def test_the_class_table_recomputes_it_too():
-    """Hai mặt đọc phải chấm bằng CÙNG một thước."""
-    table = inspect.getsource(qs.course_attempt_report)
-    assert "def _ok(a: dict) -> bool:" in table
-    assert 'int(a.get("answer_given")) == want' in table
-    assert 'a["is_correct"] = _ok(a)' in table
+def test_the_grader_never_falls_back_to_the_client_flag_when_the_bank_HAS_an_answer():
+    """Một payload sửa tay khai `answer_given="x"` kèm `is_correct=true` từng
+    được hai trong ba mặt đọc tính là ĐÚNG."""
+    assert qs.grade_attempt("x", 1) is False
+    assert qs.grade_attempt(None, 1) is False
+
+
+def test_leading_zeros_and_spaces_are_the_same_choice():
+    """`"01"` là lựa chọn số 1, không phải một chuỗi lạ. Bản cũ của lượt xét so
+    chuỗi nên gọi nó là SAI, còn báo cáo gọi là ĐÚNG."""
+    for given in ("1", "01", " 1 ", "  01"):
+        assert qs.grade_attempt(given, 1) is True, given
+    assert qs.grade_attempt("2", 1) is False
+
+
+def test_a_question_with_no_usable_answer_returns_None():
+    """Câu tự luận, hay đề thiếu đáp án: lúc ấy thật sự không còn gì tốt hơn cờ
+    đã lưu, nên trả None để nơi gọi tự lo."""
+    assert qs.grade_attempt("1", None) is None
+    assert qs.grade_attempt("1", "1") is None, "đáp án phải là SỐ mới so được"
 
 
 def test_time_totals_come_from_the_SAME_set_as_the_median():
