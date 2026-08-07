@@ -202,7 +202,12 @@ describe('the callers stamp the origin', () => {
     assert.match(LPLAYER_JS, /listening-review\.html\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
   });
   test('the mock result tags BOTH its reviews with the sitting to return to', () => {
-    const MOCK = read('public', 'pages', 'mock-result.html');
+    // Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
+    // phải chạy CHÍNH mã đó chứ không chép lại. Khẳng định ở đây là "nguồn trang có
+    // chứa X", nên nguồn trang nay = HTML + module của nó. Đã kiểm: tệp này không có
+    // khẳng định nào phụ thuộc THỨ TỰ trong HTML, nên gộp giữ đúng ý định cũ.
+    const MOCK = read('public', 'pages', 'mock-result.html')
+      + '\n' + read('public', 'js', 'mock-result.js');
     assert.match(MOCK, /var mockOrigin = '&from=mock&sitting=' \+ encodeURIComponent\(sitting\)/);
     assert.match(MOCK, /listening-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
     assert.match(MOCK, /reading-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
