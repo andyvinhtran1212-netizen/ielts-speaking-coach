@@ -742,6 +742,40 @@ def _course_answered_qids(session_ids: list[str]) -> set[str] | None:
     return out
 
 
+def grade_attempt(answer_given, answer) -> bool | None:
+    """Đúng/sai của MỘT lượt làm. `None` = đề không so được, nơi gọi tự lo.
+
+    ── Vì sao phải có MỘT hàm ───────────────────────────────────────────────
+    Trước đây ba mặt đọc chấm ba kiểu:
+
+      · `course_verdict`        so CHUỖI  → `"01"` khác `"1"` ⇒ SAI
+      · `course_answer_report`  parse SỐ  → `int("01") == 1` ⇒ ĐÚNG
+      · bảng lớp `_ok`          parse SỐ, hỏng thì lùi về cờ client
+
+    Cùng một lượt làm, ba con số. Học viên đọc một kiểu, giáo viên đọc kiểu
+    khác, và cổng thuộc bài kết luận kiểu thứ ba (codex #970).
+
+    ── KHÔNG bao giờ lùi về cờ của client khi đề CÓ đáp án ──────────────────
+    `is_correct` trong `quiz_attempts` là lời CLIENT gửi lên: `log_progress`
+    nhận nguyên nó. Một payload sửa tay khai `answer_given="x"` kèm
+    `is_correct=true` sẽ được hai mặt đọc kia tính là ĐÚNG. `course_verdict` đã
+    từ chối trò ấy từ lâu; nay cả ba từ chối.
+
+    Không so được thì trả `None` — nơi gọi dùng cờ đã lưu, vì lúc ấy thật sự
+    không còn gì tốt hơn (câu tự luận, hoặc đề thiếu đáp án).
+    """
+    if not isinstance(answer, int):
+        return None
+    try:
+        # `int()` nuốt cả khoảng trắng thừa lẫn số 0 đứng đầu: `" 01 "` là lựa
+        # chọn số 1, không phải một chuỗi lạ.
+        return int(str(answer_given).strip()) == answer
+    except (TypeError, ValueError):
+        # Đề CÓ đáp án mà lượt làm không đọc được ⇒ SAI. Lùi về cờ client ở đây
+        # là mở đúng cái cửa mà cả hàm này sinh ra để đóng.
+        return False
+
+
 def _course_mcq_order(bank_id: str) -> list[str]:
     """qid các câu TRẮC NGHIỆM, ĐÚNG thứ tự trang nạp. Hỏng thì NÉM.
 
@@ -1879,7 +1913,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
 
     graded = len(seen)
     correct = sum(1 for qid, a in seen.items()
-                  if str(a.get("answer_given")).strip() == str(key[qid]["answer"]))
+                  if grade_attempt(a.get("answer_given"), key[qid].get("answer")) is True)
     pct = round(correct / graded * 100, 1)
     passed = pct >= cfg["pass_pct"]
 
@@ -2184,8 +2218,8 @@ def course_answer_report(*, user_id: str, bank_id: str,
         #
         # Không so được (đề không phải trắc nghiệm, hoặc thiếu đáp án) thì mới
         # dùng cờ đã lưu — thà giữ nguyên còn hơn kết luận bừa.
-        ok = (picked == correct) if (picked is not None and correct is not None) \
-            else bool(a.get("is_correct"))
+        graded_ok = grade_attempt(a.get("answer_given"), correct)
+        ok = bool(a.get("is_correct")) if graded_ok is None else graded_ok
         rows.append({
             "qid":       q.get("qid"),
             "item_key":  q.get("item_key"),
@@ -2433,14 +2467,13 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         out["stale"] = True
 
     def _ok(a: dict) -> bool:
-        """Đúng/sai TÍNH LẠI từ `answer_given`, không tin cờ client gửi."""
-        want = key_of.get(a.get("qid"))
-        if want is None:
-            return bool(a.get("is_correct"))
-        try:
-            return int(a.get("answer_given")) == want
-        except (TypeError, ValueError):
-            return bool(a.get("is_correct"))
+        """Đúng/sai TÍNH LẠI từ `answer_given`, không tin cờ client gửi.
+
+        Dùng CHUNG `grade_attempt` với lượt xét và báo cáo cá nhân — ba nơi này
+        từng chấm ba kiểu và cho ba con số cho cùng một lượt làm.
+        """
+        got = grade_attempt(a.get("answer_given"), key_of.get(a.get("qid")))
+        return bool(a.get("is_correct")) if got is None else got
 
     all_rows.sort(key=lambda x: x.get("created_at") or "")
     for a in all_rows:
