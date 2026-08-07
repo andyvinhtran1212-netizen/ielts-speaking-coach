@@ -1192,7 +1192,17 @@ function renderTally(d) {
  * lỗi, đáp án mẫu): giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai
  * bên nói về hai thứ khác nhau khi ngồi lại với nhau.
  */
-const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
+const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' };
+
+/**
+ * Câu ĐÚNG ngữ pháp mà còn lỗi hình thức (viết hoa đầu câu, dấu chấm cuối).
+ *
+ * GIỐNG HỆT `isFormOnly` phía học viên, và phải giữ giống: hai bên ngồi lại với
+ * nhau trên cùng một bản chấm, nên một câu không được là "đúng" ở màn này và
+ * "sai" ở màn kia.
+ */
+const cwFormOnly = (g) => g && g.ok === true
+  && Array.isArray(g.issues) && g.issues.length > 0;
 
 /**
  * `**đậm**` → <mark>, GIỐNG HỆT `md()` phía học viên.
@@ -1231,22 +1241,28 @@ function renderStudentWriting(d) {
   if (!sub) {
     return '<p class="adm-hint">Học viên này chưa nộp phần tự luận.</p>';
   }
+  const cwList = (g) => `<ul class="cw-issues">${(g.issues || []).map((x) => `
+      <li class="cw-issue">
+        <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
+        <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
+        ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
+      </li>`).join('')}</ul>`;
+
   const items = (sub.items || []).map((g, i) => {
     const ok = g.ok;
+    const formOnly = cwFormOnly(g);
     const body = ok === null
       ? `<p class="cw-diff">${esc(g.answer)}</p>`
         + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
-      : ok
-        ? `<p class="cw-diff">${esc(g.answer)}</p>`
-          + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
-        : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
-          + `<ul class="cw-issues">${(g.issues || []).map((x) => `
-              <li class="cw-issue">
-                <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
-                <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
-                ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
-              </li>`).join('')}</ul>`;
-    return `<article class="cw-item" data-ok="${String(ok)}">
+      : formOnly
+        ? `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
+          + '<p class="cw-unknown">Đúng ngữ pháp, còn lỗi trình bày — tính là đúng.</p>'
+          + cwList(g)
+        : ok
+          ? `<p class="cw-diff">${esc(g.answer)}</p>`
+            + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
+          : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>` + cwList(g);
+    return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>
       <span class="cw-item__no">Câu ${i + 1}</span>
       <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
@@ -1255,9 +1271,11 @@ function renderStudentWriting(d) {
   }).join('');
 
   const when = sub.graded_at ? hhmm(sub.graded_at) : '';
-  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu không lỗi</small></div>
+  const forms = (sub.items || []).filter(cwFormOnly).length;
+  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu đúng ngữ pháp</small></div>
     <p class="adm-hint">Chấm lúc ${esc(when)}${sub.model ? ' · ' + esc(sub.model) : ''}.
-       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.</p>
+       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.
+       ${forms ? `Có <strong>${forms}</strong> câu đúng ngữ pháp nhưng còn lỗi trình bày.` : ''}</p>
     <div class="cw-list">${items}</div>`;
 }
 

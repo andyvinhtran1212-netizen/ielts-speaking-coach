@@ -275,6 +275,43 @@ describe('màn hình', () => {
     assert.match(html, /data-ok="true"/);
   });
 
+  test('đúng ngữ pháp mà còn lỗi trình bày: vẫn hiện chỗ sửa, KHÔNG đọc thành sai', async () => {
+    // Em Hà Linh, 07/08: 8/10 câu bị trừ vì viết thường đầu câu. Giấu lời nhắc
+    // đi là dạy sai; tô đỏ cả câu cũng là nói sai. Phải nói được cả hai.
+    const { w } = await load({
+      submitted: true, questions: [Q('E1')],
+      submission: { total: 1, clean: 1, items: [{
+        qid: 'E1', answer: 'i find the new timetable confusing',
+        corrected: 'I find the new timetable confusing.', ok: true,
+        issues: [{ type: 'mechanics', before: 'i', after: 'I',
+                   note: "Đại từ 'I' luôn phải viết hoa." }] }] },
+    });
+    const html = w.renderResult();
+    assert.match(html, /data-ok="true"/);
+    assert.match(html, /data-form="true"/, 'phải phân biệt được với câu sạch hẳn');
+    assert.match(html, /hình thức/, 'nhãn loại lỗi nói đúng tên nó');
+    assert.match(html, /Đại từ 'I' luôn phải viết hoa|Đại từ &#39;I&#39;/,
+      'lời nhắc vẫn phải tới tay em ấy');
+    assert.match(html, /vẫn tính là đúng/);
+    assert.match(html, /1 câu đúng ngữ pháp nhưng còn lỗi trình bày/);
+    assert.ok(!/Không có lỗi/.test(html), 'còn chỗ phải sửa thì đừng nói là không có lỗi');
+  });
+
+  test('câu sai thật vẫn là sai, và con số đếm theo NGỮ PHÁP', async () => {
+    const { w } = await load({
+      submitted: true, questions: [Q('E1')],
+      submission: { total: 2, clean: 1, items: [{
+        qid: 'E1', answer: 'air pollution make him tired',
+        corrected: 'Air pollution makes him tired.', ok: false,
+        issues: [{ type: 'mechanics', before: 'air', after: 'Air' },
+                 { type: 'grammar', before: 'make', after: 'makes' }] }] },
+    });
+    const html = w.renderResult();
+    assert.match(html, /data-ok="false"/);
+    assert.ok(!/data-form="true"/.test(html), 'có lỗi ngữ pháp thì không phải "chỉ lỗi hình thức"');
+    assert.match(html, /1<small>\/ 2 câu đúng ngữ pháp/);
+  });
+
   test('CHƯA CHẤM ĐƯỢC khác hẳn câu-của-em-đúng', async () => {
     // Đây là điều tệ nhất phần này có thể làm: khen một câu chưa ai đọc.
     const { w } = await load({

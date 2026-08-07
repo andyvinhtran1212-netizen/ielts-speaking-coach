@@ -12,6 +12,7 @@ Và một luật của chính bộ chấm: sửa NGỮ PHÁP + CHÍNH TẢ, khô
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -214,6 +215,75 @@ async def test_ok_is_derived_from_issues_not_from_the_models_own_flag():
     with patch.object(cw, "_model", return_value=("m", fake)):
         out, _ = await cw.grade([{"qid": "E1", "prompt": "p", "answer": "I am a student."}])
     assert out[0]["ok"] is False
+
+
+# ── Lỗi HÌNH THỨC không đánh rớt một câu ngữ pháp đúng ──────────────────────
+#
+# Dữ liệu thật, 07/08: em Lê Ngọc Hà Linh nộp 10 câu, nhận 0/10. Tám câu bị trừ
+# vì viết thường đầu câu, NĂM trong số đó không có lỗi nào khác.
+
+async def _one(issues, answer="the audience found the documentary shocking",
+               corrected="The audience found the documentary shocking."):
+    class _R:
+        text = json.dumps({"results": [{"qid": "E1", "corrected": corrected,
+                                        "ok": False, "issues": issues}]})
+    fake = type("M", (), {"generate_content_async": AsyncMock(return_value=_R())})()
+    with patch.object(cw, "_model", return_value=("m", fake)):
+        out, _ = await cw.grade([{"qid": "E1", "prompt": "p", "answer": answer}])
+    return out[0]
+
+
+@pytest.mark.asyncio
+async def test_a_lowercase_first_letter_does_not_fail_a_correct_sentence():
+    g = await _one([{"type": "grammar", "before": "the", "after": "The",
+                     "note": "Câu cần bắt đầu bằng chữ cái viết hoa."}])
+    assert g["ok"] is True, "câu dựng đúng khung không được rớt vì một chữ hoa"
+    assert g["issues"][0]["type"] == cw.MECHANICS, "vẫn phải BÁO, chỉ là không tính"
+
+
+@pytest.mark.asyncio
+async def test_the_pronoun_I_and_a_missing_full_stop_are_form_not_grammar():
+    for issue in ({"type": "grammar", "before": "i", "after": "I"},
+                  {"type": "grammar", "before": "autumn", "after": "autumn."},
+                  {"type": "grammar", "before": "found  the", "after": "found the"}):
+        g = await _one([issue])
+        assert g["ok"] is True, issue
+        assert g["issues"][0]["type"] == cw.MECHANICS, issue
+
+
+@pytest.mark.asyncio
+async def test_a_real_grammar_error_still_fails_even_beside_a_form_error():
+    g = await _one([{"type": "grammar", "before": "air", "after": "Air"},
+                    {"type": "grammar", "before": "make", "after": "makes"}],
+                   answer="air pollution make him tired")
+    assert g["ok"] is False, "chia sai động từ vẫn là sai, dù đứng cạnh lỗi hình thức"
+    assert [x["type"] for x in g["issues"]] == [cw.MECHANICS, "grammar"]
+
+
+@pytest.mark.asyncio
+async def test_the_model_cannot_hide_a_word_change_by_calling_it_mechanics():
+    """Nhãn `mechanics` do PHÉP SO đặt, không do model đặt.
+
+    Tin nhãn của model là mở một đường cho mọi lỗi ngữ pháp trốn khỏi ô đúng/sai
+    — chỉ cần model gọi tên nó khác đi.
+    """
+    g = await _one([{"type": "mechanics", "before": "rise", "after": "are"}])
+    assert g["ok"] is False
+    assert g["issues"][0]["type"] == "grammar"
+
+
+@pytest.mark.asyncio
+async def test_an_issue_with_nothing_to_compare_stays_countable():
+    """`before`/`after` cùng rỗng thì không so được — và đoán rằng nó vô hại là
+    âm thầm nâng điểm."""
+    g = await _one([{"type": "grammar", "note": "Thiếu ô V."}])
+    assert g["ok"] is False
+    assert g["issues"][0]["type"] == "grammar"
+
+
+def test_the_prompt_tells_the_model_that_form_errors_are_their_own_kind():
+    for phrase in ["mechanics", "viết hoa đầu câu", "KHÔNG"]:
+        assert phrase in cw._PROMPT, phrase
 
 
 @pytest.mark.asyncio

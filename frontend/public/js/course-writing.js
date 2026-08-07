@@ -50,7 +50,18 @@ export function inlineDiff(before, after) {
     + esc(same2);
 }
 
-const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
+const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' };
+
+/**
+ * Lỗi HÌNH THỨC (viết hoa đầu câu, dấu chấm cuối, khoảng trắng) vẫn hiện đủ,
+ * nhưng KHÔNG làm câu bị tính là sai — nhãn ấy do máy chủ đặt bằng phép so
+ * (`_classify`), không do model tự khai.
+ *
+ * Ở đây chỉ là mặt vẽ: bản chấm CŨ (trước 07/08) gắn nhãn `grammar` cho những
+ * lỗi ấy và vẫn hiện y như trước — không có bản chuyển đổi nào chạy sau lưng.
+ */
+export const isFormOnly = (g) => g && g.ok === true
+  && Array.isArray(g.issues) && g.issues.length > 0;
 
 /**
  * Chờ bao lâu sau phím cuối mới đẩy nháp lên máy chủ.
@@ -266,7 +277,9 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       return `<div class="cw-intro">
           <h2>Phần tự luận — ${questions.length} câu</h2>
           <p>Viết hết các câu rồi bấm nộp. Máy soát <strong>ngữ pháp và chính tả</strong>
-             rồi trả lại câu đã sửa — không đổi cách viết của bạn.
+             rồi trả lại câu đã sửa — không đổi cách viết của bạn. Lỗi trình bày
+             (viết hoa đầu câu, dấu chấm cuối câu) vẫn được nhắc nhưng
+             <strong>không làm câu bị tính là sai</strong>.
              <strong>Chỉ nộp được một lần</strong>, nên viết xong hãy đọc lại.</p>
         </div>
         <div class="cw-list">${items}</div>
@@ -303,29 +316,39 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const clean = (submission && submission.clean) || 0;
       const total = (submission && submission.total) || items0.length;
 
+      const list = (g) => `<ul class="cw-issues">${(g.issues || []).map((x) => `
+          <li class="cw-issue">
+            <span class="cw-issue__kind">${esc(KIND[x.type] || x.type || 'lỗi')}</span>
+            <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
+            ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
+          </li>`).join('')}</ul>`;
+
       const items = items0.map((g, i) => {
         const q = byQid[g.qid] || {};
         const ok = g.ok;
+        const formOnly = isFormOnly(g);
+        // Câu ĐÚNG ngữ pháp mà còn lỗi hình thức vẫn phải thấy chỗ sửa: giấu đi
+        // là dạy em ấy rằng viết thường đầu câu cũng được. Nói rõ nó không làm
+        // câu bị tính sai, rồi hiện đúng chỗ cần sửa.
         const body = ok === null
           ? `<p class="cw-diff">${esc(g.answer)}</p>`
             + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
-          : ok
+          : formOnly
+            ? `<p class="cw-diff">${inlineDiff(g.answer, g.corrected)}</p>`
+              + '<p class="cw-unknown">Câu đúng ngữ pháp. Còn lỗi trình bày — '
+              + 'sửa cho quen tay, câu này vẫn tính là đúng.</p>'
+              + list(g)
+            : ok
               ? `<p class="cw-diff">${esc(g.answer)}</p>`
                 + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
-              : `<p class="cw-diff">${inlineDiff(g.answer, g.corrected)}</p>`
-                + `<ul class="cw-issues">${(g.issues || []).map((x) => `
-                    <li class="cw-issue">
-                      <span class="cw-issue__kind">${esc(KIND[x.type] || x.type || 'lỗi')}</span>
-                      <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
-                      ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
-                    </li>`).join('')}</ul>`;
+              : `<p class="cw-diff">${inlineDiff(g.answer, g.corrected)}</p>` + list(g);
         // Đáp án mẫu cũng từ BẢN CHỤP: đề soạn lại mà lấy `q.explain` thì bài
         // cũ đứng cạnh đáp án mẫu của một đề khác (codex #935).
         const modelText = g.explain || q.explain || '';
         const model = modelText ? `<div class="cw-model">${md(modelText)}</div>` : '';
         // Đề lấy từ BẢN CHỤP trước, đề hiện hành chỉ là phương án dự phòng.
         const ask = g.prompt || q.prompt || '';
-        return `<article class="cw-item" data-ok="${String(ok)}">
+        return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>
           <span class="cw-item__no">Câu ${i + 1}${q.subtype ? ' · ' + esc(q.subtype) : ''}</span>
           <p class="cw-item__ask">${md(ask)}</p>
           ${body}
@@ -333,7 +356,16 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         </article>`;
       }).join('');
 
-      return `<div class="cw-done">${clean}<small>/ ${total} câu không lỗi</small></div>
+      // Con số nói về NGỮ PHÁP — đúng thứ bài tập này dạy. Lỗi hình thức đếm
+      // riêng ở dòng dưới, để em ấy vẫn biết mình cần sửa gì mà không đọc thành
+      // "bài mình sai".
+      const forms = items0.filter(isFormOnly).length;
+      const hint = forms
+        ? `<p class="cw-unknown">${forms} câu đúng ngữ pháp nhưng còn lỗi trình bày `
+          + '(viết hoa đầu câu, dấu chấm cuối câu).</p>'
+        : '';
+      return `<div class="cw-done">${clean}<small>/ ${total} câu đúng ngữ pháp</small></div>
+        ${hint}
         <div class="cw-list">${items}</div>`;
     },
   };

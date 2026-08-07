@@ -10,6 +10,11 @@ Khoá 1 đang học ô S/V/O/C và ràng buộc cơ bản. Một bản sửa "ha
 câu các em chưa học tới sẽ dạy sai trọng tâm buổi ấy, và tệ hơn — nó khiến một
 câu ĐÚNG trông như câu sai. Câu đúng phải được trả lại NGUYÊN VĂN.
 
+Lỗi HÌNH THỨC (viết hoa đầu câu, dấu chấm cuối câu, khoảng trắng thừa) vẫn được
+báo nhưng KHÔNG tính vào ô đúng/sai — xem `_classify`. Đây là bài tập ngữ pháp;
+một câu dựng đúng khung mà bị chấm sai vì chữ "t" thường ở đầu dòng thì con số
+trả về nói sai về học viên.
+
 Model: `COURSE_WRITING_MODEL` (mặc định gemini-2.5-flash-lite — rẻ, và việc này
 không cần suy luận sâu). Nhiệt độ 0: cùng một câu sai phải cho cùng một bản sửa,
 vì hai học viên viết giống nhau mà nhận hai lời khác nhau là mất tin.
@@ -56,7 +61,10 @@ kể cả khi bạn nghĩ có cách viết hay hơn.
 Với mỗi câu, trả về:
 - "corrected": câu sau khi sửa (hoặc nguyên văn nếu không có lỗi)
 - "issues": danh sách lỗi, mỗi lỗi gồm
-    "type": "grammar" hoặc "spelling"
+    "type": "grammar", "spelling", hoặc "mechanics"
+           — "mechanics" là lỗi HÌNH THỨC: viết hoa đầu câu, đại từ I, thiếu
+             dấu chấm cuối câu, thừa khoảng trắng. Vẫn phải báo, nhưng nó KHÔNG
+             phải lỗi ngữ pháp và không làm câu bị tính là sai.
     "before": phần sai (nguyên văn, ngắn)
     "after": phần đã sửa
     "note": MỘT câu tiếng Việt ngắn nói vì sao sai
@@ -134,6 +142,54 @@ def _is_config_error(exc: Exception) -> bool:
     return any(str(c) in head for c in _CONFIG_STATUS)
 
 
+# ── Lỗi HÌNH THỨC vs lỗi NGỮ PHÁP ────────────────────────────────────────────
+#
+# Em Lê Ngọc Hà Linh nộp 10 câu ngày 07/08 và nhận 0/10. Tám câu bị trừ vì viết
+# thường đầu câu; NĂM trong số đó không có lỗi nào khác. Một em viết đúng cả
+# khung SVOC mà đọc được con số "0" thì con số ấy nói sai về chính em ấy — và
+# đây là bài tập NGỮ PHÁP, không phải bài tập gõ chữ hoa.
+#
+# Lỗi hình thức vẫn được BÁO (viết hoa đầu câu là thói quen phải sửa), chỉ là
+# không tính vào ô đúng/sai.
+MECHANICS = "mechanics"
+_COUNTED_TYPES = {"grammar", "spelling"}
+
+# Chỉ giữ chữ và số. `[\W_]` cắt mọi dấu câu, khoảng trắng, gạch nối — còn
+# `casefold` xoá phân biệt hoa thường. Hai chuỗi bằng nhau sau phép này nghĩa là
+# chúng chỉ khác nhau ở HÌNH THỨC.
+_NOT_LETTER = re.compile(r"[\W_]+", re.UNICODE)
+
+
+def _core(s: Any) -> str:
+    return _NOT_LETTER.sub("", str(s or "").casefold())
+
+
+def _classify(issue: Dict[str, Any]) -> str:
+    """Loại THẬT của một lỗi — suy từ chính cặp (before, after), không tin nhãn.
+
+    Hai chiều đều phải chặn, và chỉ một phép so lo được cả hai:
+
+      · model gắn nhãn "grammar" cho một chỗ chỉ khác mỗi chữ hoa (chuyện xảy ra
+        THẬT: 8/10 câu của em Hà Linh) — ở đây thành `mechanics`;
+      · model gắn nhãn "mechanics" cho một chỗ đổi hẳn từ (`make` → `makes`) và
+        qua đó giấu một lỗi ngữ pháp thật khỏi ô đúng/sai — ở đây thành lỗi có
+        tính điểm.
+
+    Nhãn `mechanics` vì thế KHÔNG BAO GIỜ do model đặt; nó chỉ do phép so này
+    đặt. Nhãn model tự khai chỉ còn dùng để phân biệt grammar với spelling.
+
+    Không so được thì coi là lỗi CÓ TÍNH ĐIỂM: `before`/`after` cùng rỗng nghĩa
+    là chỉ còn lời ghi chú, và đoán rằng một lời ghi chú không đọc được là lỗi
+    hình thức sẽ âm thầm nâng điểm.
+    """
+    before, after = issue.get("before"), issue.get("after")
+    declared = str(issue.get("type") or "").strip().lower()
+    if (before or after) and str(before or "") != str(after or "") \
+            and _core(before) == _core(after):
+        return MECHANICS
+    return declared if declared in _COUNTED_TYPES else "grammar"
+
+
 async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
@@ -186,7 +242,8 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             # Thiếu MỘT câu không được kéo cả cụm xuống — nói riêng câu ấy.
             out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
             continue
-        issues = [x for x in (r.get("issues") or []) if isinstance(x, dict)]
+        issues = [{**x, "type": _classify(x)}
+                  for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
         corrected = (r.get("corrected") or "").strip() or it.get("answer", "")
         out.append({
             "qid":       it["qid"],
@@ -194,11 +251,15 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             "explain":   it.get("explain", ""),
             "answer":    it.get("answer", ""),
             "corrected": corrected,
-            "issues":    issues[:6],
+            "issues":    issues,
             # `ok` suy từ ISSUES, không tin cờ `ok` của model: model hay trả
             # ok=true kèm một danh sách lỗi không rỗng, và khi hai thứ mâu
             # thuẫn thì danh sách lỗi mới là thứ học viên đọc.
-            "ok":        len(issues) == 0,
+            #
+            # Lỗi HÌNH THỨC không vào phép đếm này — xem `_classify`. Câu vẫn
+            # hiện đủ lời nhắc, chỉ là ô đúng/sai nói về ngữ pháp, đúng thứ bài
+            # tập này dạy.
+            "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
         })
     return out, name
 
