@@ -104,5 +104,13 @@
     "allow": [],
     "minBaselineLines": 4,
     "note": "Tài khoản probe có thể KHÔNG có bài luyện nào được mở, khi đó legacy chỉ render tiêu đề + mô tả + câu 'chưa có bài luyện nào' — nội dung ĐẦY ĐỦ của trạng thái rỗng, không phải vế tham chiếu hỏng. Xem ghi chú cặp `full-test`: cặp này khi rỗng chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style, KHÔNG chứng minh gì về danh sách bài luyện."
+  },
+  {
+    "name": "speaking-result",
+    "legacy": "/pages/speaking-result.html",
+    "next": "/speaking/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có tham số `?sitting=` thì trang dừng ở 'Thiếu mã lượt thi' — MỘT dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này vì thế chỉ chứng minh hai vế khớp tiêu đề + dòng chữ + style ở NHÁNH THIẾU THAM SỐ. Muốn phủ nhánh có nhận xét thật: cho tài khoản probe một lượt thi đã chấm rồi thêm `?sitting=` vào cả hai vế."
   }
 ]

@@ -43,7 +43,11 @@ describe('console duyệt bài — ô band Speaking tuỳ dữ liệu', () => {
 });
 
 describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệt trf-v2)', () => {
-  const SPR = pub('pages', 'speaking-result.html');
+  // Logic đã TÁCH khỏi mã inline sang `/js/speaking-result.js` khi port trang
+  // sang Next: bản Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định
+  // về HÀNH VI vì thế soi tệp JS; phần markup vẫn soi HTML.
+  const SPR = pub('js', 'speaking-result.js');
+  const SPR_HTML = pub('pages', 'speaking-result.html');
 
   test('TRF đẩy thẻ Speaking vào Việc tiếp theo, KHÔNG render inline nữa', () => {
     assert.match(TRF, /speaking-result\.html\?sitting='/);
@@ -75,9 +79,11 @@ describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệ
   test('trang riêng NẠP supabase-js trước api.js', () => {
     // initSupabase dereference window.supabase.createClient — thiếu script CDN
     // là trang chết vĩnh viễn ở "Đang tải" ngay lần ghé đầu tiên (Codex #875).
-    const at = SPR.indexOf('@supabase/supabase-js');
+    // Đây là khẳng định về THẺ SCRIPT, nên nó soi HTML — không phải tệp logic
+    // vừa tách ra.
+    const at = SPR_HTML.indexOf('@supabase/supabase-js');
     assert.ok(at > 0, 'thiếu script supabase-js');
-    assert.ok(at < SPR.indexOf('/js/api.js'), 'supabase-js phải đứng trước api.js');
+    assert.ok(at < SPR_HTML.indexOf('/js/api.js'), 'supabase-js phải đứng trước api.js');
   });
 
   test('phiếu v2 co được về 320px: media query trỏ đúng class đang tồn tại', () => {
