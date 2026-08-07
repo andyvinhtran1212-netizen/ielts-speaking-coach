@@ -1,0 +1,74 @@
+/* Trang "Thống kê luyện tập".
+ *
+ * TÁCH RA TỪ `<style>` inline của `pages/quiz-progress.html` khi port sang Next
+ * (không đổi một khai báo nào). Bản Next nạp CHÍNH tệp này.
+ */
+.pg-shell { padding: var(--av-space-6) var(--av-space-6) var(--av-space-16); }
+.pg-title { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary); margin: var(--av-space-2) 0 0; }
+.pg-sub { color: var(--av-text-muted); font-size: var(--av-fs-sm); margin-top: var(--av-space-1); }
+.pg-h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary); margin: var(--av-space-8) 0 var(--av-space-3); }
+
+/* Lifetime stat tiles */
+.pg-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--av-space-3); margin-top: var(--av-space-6); }
+.pg-stat { padding: var(--av-space-4); }
+.pg-stat__label { font-size: var(--av-fs-xs); text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+.pg-stat__val { font-family: var(--av-font-mono); font-size: var(--av-fs-3xl);
+  font-weight: var(--av-fw-medium); color: var(--av-text-primary);
+  letter-spacing: var(--av-tracking-tight); line-height: var(--av-lh-tight); margin-top: var(--av-space-1); }
+.pg-stat__val small { font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-regular); color: var(--av-text-muted); margin-left: 2px; }
+
+/* Per-bank progress cards */
+.pg-bank { padding: var(--av-space-4); margin-top: var(--av-space-3); }
+.pg-bank__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--av-space-3); }
+.pg-bank__name { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+.pg-bank__meta { color: var(--av-text-muted); font-size: var(--av-fs-sm);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-track { height: 8px; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken);
+  overflow: hidden; margin-top: var(--av-space-3); }
+.pg-bar { height: 100%; width: 0; background: var(--av-primary); border-radius: inherit;
+  transition: width var(--av-duration-base) var(--av-easing-default); }
+
+/* Recent-sessions table */
+table.pg-sess { width: 100%; border-collapse: collapse; margin-top: var(--av-space-3);
+  font-size: var(--av-fs-sm); }
+table.pg-sess th { text-align: left; color: var(--av-text-faint); font-weight: var(--av-fw-semibold);
+  font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+table.pg-sess td, table.pg-sess th { padding: var(--av-space-3) var(--av-space-2);
+  border-bottom: 1px solid var(--av-border-subtle); }
+table.pg-sess td { color: var(--av-text-secondary); font-variant-numeric: tabular-nums; }
+.pg-empty { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-4) 0; }
+.pg-err { color: var(--av-error); padding: var(--av-space-6) 0; }
+
+/* ── Mistakes review (audit 2026-07-28 §C2) ──────────────────────
+   The in-session "Xem lại bài làm" list only ever lived in the tab's
+   memory, so leaving the result screen destroyed every wrong answer.
+   These cards are the durable version, read back from quiz_attempts. */
+.pg-mk { padding: var(--av-space-4); margin-top: var(--av-space-3); }
+.pg-mk__head { display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--av-space-3); width: 100%; background: none; border: 0; padding: 0;
+  cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.pg-mk__word { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+.pg-mk__meta { color: var(--av-text-muted); font-size: var(--av-fs-sm);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-mk__body { margin-top: var(--av-space-3); border-top: 1px solid var(--av-border-subtle);
+  padding-top: var(--av-space-3); }
+.pg-mk__q + .pg-mk__q { margin-top: var(--av-space-4);
+  border-top: 1px solid var(--av-border-subtle); padding-top: var(--av-space-4); }
+.pg-mk__prompt { color: var(--av-text-primary); font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed); }
+.pg-mk__row { font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+  margin-top: var(--av-space-2); }
+.pg-mk__ans { font-weight: var(--av-fw-semibold); }
+.pg-mk__ans.is-wrong { color: var(--av-error); }
+.pg-mk__ans.is-right { color: var(--av-success, var(--av-primary)); }
+.pg-mk__explain { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
+  color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
+.pg-mk__hint { margin-top: var(--av-space-1); font-size: var(--av-fs-sm);
+  color: var(--av-text-faint); }
+.pg-cap { color: var(--av-text-faint); font-size: var(--av-fs-xs);
+  margin-top: var(--av-space-3); }
