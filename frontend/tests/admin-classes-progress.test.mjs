@@ -111,17 +111,32 @@ describe('the tab reports failure instead of an empty class', () => {
 });
 
 
-describe('the panel is wired like the others', () => {
-  test('the tab and panel exist', () => {
-    assert.match(PAGE, /id="tab-progress"/);
+describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
+  // Giáo viên không nghĩ theo tab, họ nghĩ theo HỌC VIÊN: "Sĩ số" và "Tiến độ"
+  // là cùng một danh sách nhìn qua hai ống kính. Hàng đứng yên, chỉ cột đổi.
+  test('có nút ống kính, KHÔNG còn tab riêng', () => {
+    assert.match(PAGE, /data-lens="progress"/);
+    assert.match(PAGE, /data-lens="today"/);
+    assert.doesNotMatch(PAGE, /id="tab-progress"/,
+      'còn tab là còn bốn tầng điều hướng');
+    // Khung bảng 4 kỹ năng vẫn ở lại: ống kính đọc lại dữ liệu đã dựng vào đó.
     assert.match(PAGE, /id="panel-progress"/);
   });
 
-  test('it loads lazily, on first open only', () => {
-    const fn = codeOnly(SRC.slice(SRC.indexOf('function showPanel'),
-                                  SRC.indexOf('function bindModalBackdrop')));
+  test('vẫn nạp LÚC CẦN, ở lần đổi ống kính đầu tiên', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
+                                  SRC.indexOf('function renderDrawer')));
     assert.match(fn, /'progress'/);
     assert.match(fn, /_progressLoaded/);
+    assert.match(fn, /loadProgress\(\)/);
+  });
+
+  test('bấm một hàng mở NGĂN KÉO, không mở hộp thoại', () => {
+    assert.match(PAGE, /id="roster-drawer"/);
+    const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
+                                  SRC.indexOf("const lensBar")));
+    assert.match(fn, /_picked/, 'phải nhớ hàng đang chọn để giữ nó sáng');
+    assert.doesNotMatch(fn, /openModal|showModal/, 'hộp thoại làm mất chỗ đứng');
   });
 
   test('the four skill columns are all present', () => {
