@@ -647,6 +647,24 @@ async function loadStudentWork(sid) {
 }
 
 /**
+ * MỘT nơi làm chủ việc làm mới danh sách bài trong ngăn kéo.
+ *
+ * Xoá bộ nhớ đệm là CHƯA ĐỦ: phần HTML đã vẽ vẫn đứng nguyên trên màn hình.
+ * Giao thêm một bài, đóng một bài, hay chấm xong rồi quay lại — ngăn kéo vẫn
+ * hiện danh sách của trước đó, và nó chỉ đúng lại khi giáo viên đóng em ấy ra
+ * mở lại. Tức là màn hình mâu thuẫn với chính nó sau một lần tải lại trang
+ * (codex #989 vòng 3).
+ *
+ * Gọi từ HAI chỗ vì có hai đường tới: đổi dữ liệu (`invalidateProgress`) và
+ * quay về sổ điểm danh (`showPanel`). Một hàm để hai đường không trôi khỏi nhau.
+ */
+function refreshDrawerWork() {
+  if (!_picked) return;
+  renderDrawer();               // vẽ lại bằng kho đã xoá → "Đang tải…"
+  loadStudentWork(_picked);
+}
+
+/**
  * Đưa giáo viên VÀO khu Nhận bài của đúng bài giao, rồi tới đúng mặt đọc.
  *
  * `_homework` có thể CHƯA nạp — ngăn kéo mở được từ tab Sổ điểm danh, còn danh
@@ -2640,6 +2658,9 @@ function invalidateProgress() {
   // được giao gì" — cùng loại lỗi với hai dòng trên, ở một chỗ mới.
   _work.by = {};
   _work.error = {};
+  // Và VẼ LẠI ngay, không chỉ xoá kho: phần HTML đã vẽ đứng nguyên trên màn
+  // hình cho tới khi giáo viên đóng em ấy ra mở lại.
+  refreshDrawerWork();
   // Ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau. Điều kiện cũ hỏi
   // `panel-progress` có hiện không — sau khi Tiến độ thành ống kính thì câu hỏi
   // đúng là ống kính nào đang bật.
@@ -2941,6 +2962,9 @@ function showPanel(name) {
   // Rời sổ điểm danh thì khối phụ trợ của Tiến độ phải đi theo — nó không nằm
   // trong `PANELS` nên không ai tắt hộ.
   syncProgressPanel();
+  // Về sổ điểm danh thì ngăn kéo đang mở phải nói lại cho đúng: giáo viên vừa
+  // ở khu Nhận bài về, có thể vừa chấm hoặc vừa đóng một bài.
+  if (name === 'roster') refreshDrawerWork();
   // Each panel fetches on first open only — opening the class must not fire
   // three requests for two tabs the admin may never look at.
   if (name === 'lessons' && !_lessonsLoaded) {

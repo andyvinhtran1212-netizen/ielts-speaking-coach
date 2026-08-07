@@ -462,6 +462,26 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     assert.doesNotMatch(mk([{ ...base, archived: false }]), /đã đóng/);
   });
 
+  test('đổi dữ liệu hay quay về sổ thì ngăn kéo VẼ LẠI, không chỉ xoá kho', () => {
+    // Xoá bộ nhớ đệm là chưa đủ: phần HTML đã vẽ đứng nguyên trên màn hình.
+    // Giao thêm một bài, đóng một bài, hay chấm xong rồi quay lại — ngăn kéo
+    // vẫn hiện danh sách của trước đó, và chỉ đúng lại sau khi giáo viên đóng
+    // em ấy ra mở lại; tức màn hình mâu thuẫn với chính nó sau một lần tải lại
+    // trang (codex #989 vòng 3).
+    const fn = codeOnly(SRC.slice(SRC.indexOf('function refreshDrawerWork'),
+                                  SRC.indexOf('async function openWorkItem')));
+    assert.match(fn, /renderDrawer\(\)/, 'xoá kho mà không vẽ lại là không đổi gì');
+    assert.match(fn, /loadStudentWork\(_picked\)/);
+
+    // HAI đường tới, cùng một hàm — để chúng không trôi khỏi nhau.
+    const inv = codeOnly(SRC.slice(SRC.indexOf('function invalidateProgress'),
+                                   SRC.indexOf('async function loadProgress')));
+    assert.match(inv, /refreshDrawerWork\(\)/);
+    const sp = codeOnly(SRC.slice(SRC.indexOf('function showPanel'),
+                                  SRC.indexOf('function showPanel') + 1400));
+    assert.match(sp, /name === 'roster'[\s\S]{0,60}refreshDrawerWork\(\)/);
+  });
+
   // ── Ba tầng điều hướng phải TRÔNG khác nhau ──────────────────────────────
   //
   // Đo được trên trang: CHÍN phần tử cùng mang `.adm-subtab`, ở ba tầng lồng
