@@ -370,14 +370,31 @@ describe('dải ô', () => {
     assert.match(strip([5.0], 6.0), /aria-hidden="true"/);
   });
 
-  test('ô kín lấy màu của CỘT, không phải một màu riêng', () => {
-    // `currentColor` để dải ô thừa hưởng màu kỹ năng của ô chứa nó — thêm một
-    // màu nữa là thêm một thứ người đọc phải học.
+  test('ô kín lấy đúng màu KỸ NĂNG của cột', () => {
+    // `currentColor` KHÔNG dùng được: quy tắc kỹ năng chỉ đặt `border-left-color`
+    // nên `currentColor` rơi về màu CHỮ thừa kế, và bốn dải tô cùng một màu —
+    // đúng thứ mà nhãn màu sinh ra để phân biệt (codex #974).
     const css = readFileSync(
       new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
     const rule = css.match(/\.cl-strip i\[data-w="1"\][^}]*}/);
     assert.ok(rule, 'chưa có quy tắc cho ô tô kín');
-    assert.match(rule[0], /currentColor/);
+    assert.match(rule[0], /var\(--cl-skill-hue/);
+    assert.doesNotMatch(rule[0], /currentColor/);
+  });
+
+  test('mỗi kỹ năng đặt biến màu RIÊNG', () => {
+    const css = readFileSync(
+      new URL('../public/pages/admin/classes/index.html', import.meta.url), 'utf8');
+    const hues = {};
+    for (const s of ['speaking', 'writing', 'reading', 'listening']) {
+      const m = css.match(new RegExp(`\\.cl-skill\\[data-skill="${s}"\\][^}]*}`));
+      assert.ok(m, `thiếu màu cho ${s}`);
+      const v = m[0].match(/--cl-skill-hue:\s*var\((--av-[a-z-]+)\)/);
+      assert.ok(v, `${s} chưa đặt --cl-skill-hue`);
+      hues[s] = v[1];
+    }
+    assert.equal(new Set(Object.values(hues)).size, 4,
+      'bốn kỹ năng phải bốn màu — trùng màu là không phân biệt được');
   });
 });
 

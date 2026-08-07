@@ -274,14 +274,21 @@
       width: 4px; height: 12px; border-radius: 1px;
       background: var(--av-border-default);
     }
-    .cl-strip i[data-w="1"] { background: currentColor; }
+    /* Ô tô kín lấy đúng màu của cột. `currentColor` không dùng được: nó là màu
+       CHỮ thừa kế, không phải màu kỹ năng. */
+    .cl-strip i[data-w="1"] { background: var(--cl-skill-hue, var(--av-text-secondary)); }
 
     .cl-skill { display: flex; flex-direction: column; gap: 1px;
       border-left: 2px solid transparent; padding-left: var(--av-space-2); }
-    .cl-skill[data-skill="speaking"]  { border-left-color: var(--av-skill-speaking); }
-    .cl-skill[data-skill="writing"]   { border-left-color: var(--av-primary); }
-    .cl-skill[data-skill="reading"]   { border-left-color: var(--av-skill-reading); }
-    .cl-skill[data-skill="listening"] { border-left-color: var(--av-skill-listening); }
+    /* MỘT biến cho cả hai chỗ dùng màu kỹ năng: nhãn mép trái và ô tô kín của
+       dải. Trước đây chỉ đặt `border-left-color`, nên `currentColor` trong dải
+       rơi về màu chữ THỪA KẾ của bảng — bốn dải tô cùng một màu, đúng thứ mà
+       nhãn màu sinh ra để phân biệt (codex #974). */
+    .cl-skill[data-skill="speaking"]  { --cl-skill-hue: var(--av-skill-speaking); }
+    .cl-skill[data-skill="writing"]   { --cl-skill-hue: var(--av-primary); }
+    .cl-skill[data-skill="reading"]   { --cl-skill-hue: var(--av-skill-reading); }
+    .cl-skill[data-skill="listening"] { --cl-skill-hue: var(--av-skill-listening); }
+    .cl-skill[data-skill] { border-left-color: var(--cl-skill-hue); }
     .cl-skill-count { font-variant-numeric: tabular-nums; }
     .cl-skill-band { font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); }
