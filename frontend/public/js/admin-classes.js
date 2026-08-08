@@ -398,42 +398,19 @@ async function loadDetail(cohortId) {
 }
 
 
-/**
- * SỔ ĐIỂM DANH — một danh sách lớp, hai ống kính.
- *
- * Giáo viên không nghĩ theo tab, họ nghĩ theo HỌC VIÊN. "Sĩ số" và "Tiến độ"
- * là cùng một danh sách nhìn qua hai ống kính, không phải hai màn hình: hàng
- * đứng yên, chỉ cột đổi, nên mắt không phải tìm lại chỗ đang đọc.
- *
- * `Bài tập` và `Buổi học` KHÔNG gộp vào đây — chúng là đối tượng khác (bài
- * giao, buổi học). Gộp chúng chỉ vì cùng nằm trong một lớp là gộp nhầm.
- */
-let _lens = 'today';
+/** SỔ ĐIỂM DANH — danh sách vận hành và hồ sơ nhanh của từng học viên. */
 let _picked = null;
-/** Tiến độ theo MÃ HỌC VIÊN, để ống kính tra được mà không gọi lại mạng. */
+/** Tiến độ theo MÃ HỌC VIÊN, dùng lại trong ngăn hồ sơ mà không gọi lại mạng. */
 let _progressBy = null;
 
-const LENS = {
-  today: {
-    head: ['Học viên', 'Mã HV', 'Phiên nói', 'Hoạt động gần nhất', 'Chi phí AI', ''],
-    cells: (m) => `<td class="code-cell">${esc(m.student_code) || '—'}</td>
-      <td>${countLabel(m.sessions)}</td>
-      <td>${esc(lastActiveLabel(m.last_active))}</td>
-      <td>${esc(usdLabel(m.ai_cost_usd))}</td>
-      <td><button class="adm-btn-secondary" data-action="remove-member"
-            data-student="${esc(m.student_id)}">Gỡ khỏi lớp</button></td>`,
-  },
-  progress: {
-    head: ['Học viên', 'Speaking', 'Writing', 'Reading', 'Listening', 'Nộp đúng hạn'],
-    cells: (m) => {
-      const p = (_progressBy || {})[m.student_id];
-      // Chưa đọc được thì NÓI RA. Ô trống đọc ra là "em ấy chưa làm gì".
-      if (!p) return '<td colspan="5" class="cl-skill-unknown">chưa đọc được</td>';
-      return ['speaking', 'writing', 'reading', 'listening']
-        .map((k) => `<td>${skillCell(p.skills[k], k, p.target_band)}</td>`).join('')
-        + `<td>${punctualityCell(p.homework)}</td>`;
-    },
-  },
+const ROSTER_COLUMNS = {
+  head: ['Học viên', 'Mã HV', 'Phiên nói', 'Hoạt động gần nhất', 'Chi phí AI', ''],
+  cells: (m) => `<td class="code-cell">${esc(m.student_code) || '—'}</td>
+    <td>${countLabel(m.sessions)}</td>
+    <td>${esc(lastActiveLabel(m.last_active))}</td>
+    <td>${esc(usdLabel(m.ai_cost_usd))}</td>
+    <td><button class="adm-btn-secondary" data-action="remove-member"
+          data-student="${esc(m.student_id)}">Gỡ khỏi lớp</button></td>`,
 };
 
 function renderRoster(members) {
@@ -451,10 +428,9 @@ function renderRoster(members) {
   $('roster-table-wrap').hidden = visible.length === 0;
   $('roster-result-count').textContent = `${countLabel(visible.length)} / ${countLabel(members.length)} học viên`;
   if (_picked && !visible.some((m) => m.student_id === _picked)) _picked = null;
-  const L = LENS[_lens] || LENS.today;
   const head = $('roster-table-wrap').querySelector('thead tr');
   if (head) {
-    head.innerHTML = L.head.map((h) => (h
+    head.innerHTML = ROSTER_COLUMNS.head.map((h) => (h
       ? `<th>${esc(h)}</th>` : '<th><span class="sr-only">Thao tác</span></th>')).join('');
   }
   $('roster-tbody').innerHTML = visible.map((m) => {
@@ -471,52 +447,10 @@ function renderRoster(members) {
       <td><button type="button" class="cl-rowbtn" data-action="open-student"
             aria-expanded="${_picked === m.student_id}"
             data-student="${esc(m.student_id)}">${esc(m.name) || '—'}</button>${account}</td>
-      ${L.cells(m)}
+      ${ROSTER_COLUMNS.cells(m)}
     </tr>`;
   }).join('');
   renderDrawer();
-}
-
-function setLens(name) {
-  if (!LENS[name]) return;
-  _lens = name;
-  document.querySelectorAll('.cl-lens button').forEach((b) =>
-    b.setAttribute('aria-current', String(b.dataset.lens === name)));
-
-  syncProgressPanel();
-  // Nạp LÚC CẦN, không nạp sẵn: phần lớn lượt mở lớp là để xem sĩ số.
-  if (name === 'progress' && !_progressLoaded) {
-    _progressLoaded = true;
-    loadProgress();
-    loadSpeakingPerf();
-  }
-  // KHÔNG tự đặt `_dailyBoardLoaded`: `loadDailyBoard` có chốt riêng và sẽ
-  // thoát ngay nếu thấy chốt đã bật — đặt hộ nó là làm nó không bao giờ chạy
-  // (codex #976).
-  if (name === 'progress') loadDailyBoard();
-  renderRoster(_who.members || []);
-}
-
-/**
- * MỘT nơi làm chủ việc ẩn/hiện khối phụ trợ của Tiến độ.
- *
- * `panel-progress` chứa bảng liên tục hằng ngày, danh sách can thiệp Speaking
- * và cờ "chưa đối chiếu được" — nên nó phải hiện khi ống kính Tiến độ bật, và
- * BIẾN MẤT ở mọi lúc khác. Ba lỗi liên tiếp sinh ra vì việc ấy nằm rải rác:
- * `setLens` bật nó, `showPanel` không tắt (khối trôi xuống dưới tab Bài tập),
- * và `renderProgress` lại mở cái bảng đã bị thay ra (hai bảng cùng nội dung).
- *
- * Nay chỉ một hàm quyết, và cả ba nơi gọi nó.
- */
-function syncProgressPanel() {
-  const panel = $('panel-progress');
-  if (!panel) return;
-  const onRoster = !$('panel-roster').hidden;
-  panel.hidden = !(onRoster && _lens === 'progress');
-  // Bảng 7 cột cũ đã bị sổ điểm danh thay: giấu VĨNH VIỄN, kể cả sau khi
-  // `renderProgress` chạy xong và tự mở nó ra.
-  const dup = $('progress-table-wrap');
-  if (dup) dup.hidden = true;
 }
 
 /**
@@ -559,11 +493,18 @@ function revealDrawer() {
 function renderDrawer() {
   const d = $('roster-drawer');
   if (!d) return;
+  const split = d.closest('.cl-roster-split');
   const m = (_who.members || []).find((x) => x.student_id === _picked);
-  if (!m) { _picked = null; d.hidden = true; return; }
+  if (!m) {
+    _picked = null;
+    d.hidden = true;
+    if (split) split.dataset.drawerOpen = 'false';
+    return;
+  }
   const p = (_progressBy || {})[m.student_id] || null;
   d.hidden = false;
-  const progressRequested = _lens === 'progress';
+  if (split) split.dataset.drawerOpen = 'true';
+  const progressRequested = _progressLoaded;
   const skills = p && p.skills ? ['speaking', 'writing', 'reading', 'listening']
     .map((key) => {
       const label = key.charAt(0).toUpperCase() + key.slice(1);
@@ -572,7 +513,7 @@ function renderDrawer() {
       </div>`;
     }).join('') : (progressRequested
       ? '<p class="cl-skill-unknown">Chưa đọc được tiến độ của học viên này.</p>'
-      : '<p class="cl-muted">Mở ống kính Tiến độ để đọc dữ liệu 4 kỹ năng.</p>');
+      : '<p class="cl-muted">Mở thẻ Tiến độ 4 kỹ năng để đọc dữ liệu này.</p>');
   d.innerHTML = `<div class="cl-drawer-head">
       <div><p class="cl-eyebrow">Hồ sơ trong lớp</p><h3 id="roster-drawer-title" tabindex="-1">${esc(m.name) || '—'}</h3>
         <div class="cl-lesson-sub code-cell">${esc(m.student_code) || '—'}</div></div>
@@ -2953,15 +2894,13 @@ function renderProgress() {
   renderProgressBanner();
 
   $('progress-empty').hidden = rows.length > 0;
-  // KHÔNG tự mở bảng này: sổ điểm danh đã thay nó, và mở ra là hai bảng cùng
-  // nội dung nằm cạnh nhau. `syncProgressPanel` là nơi duy nhất quyết.
-  syncProgressPanel();
+  $('progress-table-wrap').hidden = rows.length === 0;
   if (!rows.length) return;
 
-  // Giữ theo MÃ HỌC VIÊN để ống kính Tiến độ tra được mà không gọi lại mạng.
+  // Giữ theo MÃ HỌC VIÊN để ngăn hồ sơ có thể dùng lại mà không gọi mạng.
   _progressBy = {};
   rows.forEach((r) => { _progressBy[r.student_id] = r; });
-  if (_lens === 'progress') renderRoster(_who.members || []);
+  if (_picked) renderDrawer();
   $('progress-tbody').innerHTML = rows.map((r) => {
     // A student with no account has genuinely done nothing in the three
     // user-keyed skills — that is the activation gap, not inactivity.
@@ -2993,7 +2932,7 @@ function invalidateProgress() {
   // ngày làm nó cũ ngay — kể cả khi thẻ Tiến độ đang đóng. Cờ này là thứ khiến
   // lần mở sau nạp lại (codex #931).
   _dailyBoardLoaded = false;
-  // Bộ nhớ THỨ HAI của ống kính. Quên nó thì thêm một em vào lớp sẽ để những
+  // Bộ nhớ THỨ HAI của tab tiến độ. Quên nó thì thêm một em vào lớp sẽ để những
   // em cũ hiện số cũ trông y như thật, còn em mới thì "chưa đọc được" — một
   // bảng nửa cũ nửa mới, tệ hơn một bảng nói thẳng là chưa đọc (codex #975).
   _progressBy = null;
@@ -3009,10 +2948,8 @@ function invalidateProgress() {
   // Và VẼ LẠI ngay: phần HTML đã vẽ đứng nguyên trên màn hình cho tới khi giáo
   // viên đóng em ấy ra mở lại.
   refreshDrawerWork();
-  // Ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau. Điều kiện cũ hỏi
-  // `panel-progress` có hiện không — sau khi Tiến độ thành ống kính thì câu hỏi
-  // đúng là ống kính nào đang bật.
-  if (_lens === 'progress') {
+  // Thẻ Tiến độ đang mở thì nạp lại NGAY, không đợi lần mở sau.
+  if (!$('panel-progress').hidden) {
     _progressLoaded = true;
     loadProgress();
     loadSpeakingPerf();
@@ -3293,10 +3230,7 @@ async function loadProgress() {
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  // `progress` KHÔNG còn là tab — nó là một ống kính của sổ điểm danh. Giữ
-  // `panel-progress` trong DOM (bảng 4 kỹ năng vẫn dựng vào đó để ống kính đọc
-  // lại), nhưng không ai bấm tới nó nữa.
-  const PANELS = ['roster', 'lessons', 'homework', 'marking'];
+  const PANELS = ['roster', 'progress', 'lessons', 'homework', 'marking'];
   for (const p of PANELS) {
     const on = p === name;
     const tab = $('tab-' + p);
@@ -3307,9 +3241,6 @@ function showPanel(name) {
     tab.setAttribute('aria-current', on ? 'page' : 'false');
     $('panel-' + p).hidden = !on;
   }
-  // Rời sổ điểm danh thì khối phụ trợ của Tiến độ phải đi theo — nó không nằm
-  // trong `PANELS` nên không ai tắt hộ.
-  syncProgressPanel();
   // Về sổ điểm danh thì ngăn kéo đang mở phải nói lại cho đúng: giáo viên vừa
   // ở khu Nhận bài về, có thể vừa chấm hoặc vừa đóng một bài.
   if (name === 'roster') refreshDrawerWork();
@@ -3452,17 +3383,8 @@ function bindDetail() {
     });
   }
 
-  // Đổi ống kính: nghe trên VÙNG CHỨA, không gắn vào từng nút — thêm ống kính
-  // thứ ba sau này sẽ tự chạy, không phải nhớ nối tay.
-  const lensBar = document.querySelector('.cl-lens');
-  if (lensBar) {
-    lensBar.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-lens]');
-      if (b) setLens(b.dataset.lens);
-    });
-  }
-
   $('tab-roster').addEventListener('click', () => showPanel('roster'));
+  $('tab-progress').addEventListener('click', () => showPanel('progress'));
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
   $('tab-homework').addEventListener('click', () => showPanel('homework'));
   // Thiếu dòng này thì tab hiện ra nhưng bấm KHÔNG có gì xảy ra: giáo viên rời

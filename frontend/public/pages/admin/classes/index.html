@@ -247,10 +247,8 @@
        TRÍ, nên đọc chéo một hàng phải đếm cột.
        Speaking có màu RIÊNG từ 06/08 — nó từng dùng chung --av-accent, mà amber
        có đúng một vai: con số quan trọng nhất màn hình. */
-    /* ── Bộ đổi ống kính ─────────────────────────────────────────────────
-       KHÔNG phải tab: tab đổi MÀN HÌNH, ống kính đổi CỘT. */
     /* ── BA TẦNG ĐIỀU HƯỚNG, BA HÌNH DẠNG ────────────────────────────────
-       Đo được trên trang: CHÍN phần tử cùng mang lớp `.adm-subtab`, nằm ở ba
+       Các phần tử cùng mang lớp `.adm-subtab`, nằm ở ba
        tầng lồng nhau — `Lớp/Học viên`, rồi `Sổ điểm danh/Buổi học/Bài tập/Nhận
        bài`, rồi `Ai nộp/Chi tiết làm bài/Bài từng em`. Chúng trông giống hệt
        nhau, nên nhìn vào không đọc được mình đang đứng ở tầng nào, và bấm nhầm
@@ -260,18 +258,11 @@
 
          viên có viền  → đang ở KHU nào của admin        (tầng 1, giữ nguyên)
          gạch chân     → đang xem PHẦN nào của lớp này   (tầng 2)
-         hộp ghép      → NHÌN thứ đang mở theo cách nào  (tầng 3 và ống kính)
-
-       Ống kính `Sĩ số / Tiến độ` và tầng 3 `Ai nộp / …` cùng trả lời một câu
-       hỏi — "đổi cách nhìn, không đổi chỗ đứng" — nên chúng dùng CHUNG một hình
-       dạng. Nếu chia theo độ sâu thì hai thứ cùng nghĩa lại trông khác nhau.
+         hộp ghép      → NHÌN thứ đang mở theo cách nào  (tầng 3)
 
        Bó bằng THUỘC TÍNH `[data-level]`, không bằng `.cl-shell`. `.adm-subtabs`
        dùng chung với queue.html và users/index.html nên sửa luật gốc là sửa cả
-       ba trang — nhưng `.cl-shell` là cái bó SAI: `#panel-marking` (tầng 3) nằm
-       NGOÀI shell, shell đóng ở giữa tài liệu, nên tiền tố ấy làm bộ chọn không
-       bao giờ khớp và tầng 3 giữ nguyên hình viên-có-viền của tầng 1 — đúng lỗi
-       cần chữa (codex #986). `data-level` chỉ trang này đặt, nên nó vừa bó đủ
+       ba trang. `data-level` chỉ trang này đặt, nên nó vừa bó đủ
        chặt vừa không phụ thuộc chỗ đứng của khối trong tài liệu. */
 
     /* Tầng 2 — gạch chân. */
@@ -286,26 +277,21 @@
       color: var(--av-text-primary);
     }
 
-    /* Tầng 3 + ống kính — hộp ghép trên nền chìm. */
-    .adm-subtabs[data-level="view"], .cl-lens {
+    /* Tầng xem trong Nhận bài — hộp ghép trên nền chìm. */
+    .adm-subtabs[data-level="view"] {
       display: inline-flex; gap: 2px; padding: 2px;
       background: var(--av-surface-sunken);
       border: 1px solid var(--av-border-subtle);
       border-radius: var(--av-radius-md);
     }
-    .cl-lens { margin-bottom: var(--av-space-4); }
-    .adm-subtabs[data-level="view"] .adm-subtab, .cl-lens button {
+    .adm-subtabs[data-level="view"] .adm-subtab {
       font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
       padding: var(--av-space-1) var(--av-space-3);
       background: transparent; border: 0;
       border-radius: var(--av-radius-sm);
       color: var(--av-text-muted);
     }
-    /* Hai bộ dùng hai cách đánh dấu khác nhau — `.is-active` và
-       `aria-current="true"` — nên phải bắt CẢ HAI. Chỉ bắt một là một trong hai
-       bộ mất hẳn dấu "đang mở". */
-    .adm-subtabs[data-level="view"] .adm-subtab.is-active,
-    .cl-lens button[aria-current="true"] {
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active {
       background: var(--av-surface-card);
       color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
       box-shadow: var(--av-shadow-sm);
@@ -317,8 +303,7 @@
        `outline: none` vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành
        VÔ HÌNH HOÀN TOÀN — không viền, không vầng (codex #986).
        Nối `:focus-visible` vào chính hai bộ chọn ấy để giành lại. */
-    .adm-subtabs[data-level="view"] .adm-subtab.is-active:focus-visible,
-    .cl-lens button[aria-current="true"]:focus-visible {
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active:focus-visible {
       box-shadow: var(--av-shadow-focus);
     }
 
@@ -355,9 +340,14 @@
         /* `minmax(0, …)` chứ không `1fr`: cột bảng phải CO được, nếu không một
            bảng rộng sẽ đẩy ngăn kéo ra khỏi khung — đúng lỗi đã vá ở bảng nhận
            bài (#979). */
-        grid-template-columns: minmax(0, 1fr) 340px;
+        grid-template-columns: minmax(0, 1fr);
         gap: var(--av-space-6);
         align-items: start;
+      }
+      /* Chỉ giữ cột 340px khi hồ sơ học viên thật sự mở. Drawer `[hidden]`
+         không còn để lại một cột rỗng khiến bảng Sĩ số co còn khoảng 2/3. */
+      .cl-roster-split[data-drawer-open="true"] {
+        grid-template-columns: minmax(0, 1fr) 340px;
       }
       /* Dính lại khi cuộn: bảng dài hơn ngăn kéo, và cuộn xuống hàng thứ 12 mà
          mất luôn khối thông tin thì hai cột lại thành hai màn hình.
@@ -750,11 +740,8 @@
       <div class="adm-banner" id="detail-banner" hidden></div>
 
       <nav class="adm-subtabs" data-level="section" aria-label="Nội dung lớp">
-        <!-- SỔ ĐIỂM DANH gộp `Sĩ số` + `Tiến độ`: cả hai đều là HÀNG HỌC VIÊN,
-             chỉ khác phần cột. `Bài tập` và `Buổi học` ở lại riêng vì chúng là
-             đối tượng KHÁC (bài giao, buổi học), không phải học viên — gộp
-             chúng vào đây là gộp hai thứ chỉ vì chúng cùng nằm trong một lớp. -->
         <button class="adm-subtab is-active" id="tab-roster" type="button" aria-current="page">Sổ điểm danh</button>
+        <button class="adm-subtab" id="tab-progress" type="button">Tiến độ 4 kỹ năng</button>
         <button class="adm-subtab" id="tab-lessons" type="button">Buổi học</button>
         <button class="adm-subtab" id="tab-homework" type="button">Bài tập</button>
         <!-- Chỉ hiện khi đang mở một bài giao — nó KHÔNG phải một mục của
@@ -765,13 +752,6 @@
 
       <!-- Sĩ số -->
       <section id="panel-roster">
-        <!-- Ba việc của giáo viên là ba ỐNG KÍNH nhìn cùng MỘT danh sách lớp.
-             Tab đổi màn hình; ống kính đổi CỘT — hàng đứng yên nên mắt không
-             phải tìm lại chỗ đang đọc. -->
-        <div class="cl-lens" role="group" aria-label="Ống kính">
-          <button type="button" data-lens="today" aria-current="true">Sĩ số</button>
-          <button type="button" data-lens="progress" aria-current="false">Tiến độ 4 kỹ năng</button>
-        </div>
         <div class="cl-roster-command" role="search">
           <div class="adm-field">
             <label for="roster-search">Tìm học viên</label>
@@ -803,7 +783,7 @@
         <!-- Bảng và ngăn kéo là HAI CỘT trên màn rộng, nên chúng phải có chung
              một cha lưới. Để ngăn kéo làm em út của một cha `display: block` là
              đẩy nó xuống dưới đáy cả bảng — ngoài khung nhìn. -->
-        <div class="cl-roster-split">
+        <div class="cl-roster-split" data-drawer-open="false">
           <div class="adm-table-wrap" id="roster-table-wrap" hidden>
             <table class="adm-table">
               <thead>
@@ -972,6 +952,38 @@
             </thead>
             <tbody id="homework-tbody"></tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- ── NHẬN BÀI ────────────────────────────────────────────────
+           Cùng nằm trong shell chi tiết lớp để lề và chiều rộng luôn thẳng với
+           Sổ điểm danh, Tiến độ, Buổi học và Bài tập. -->
+      <section class="cl-marking" id="panel-marking" hidden>
+        <div class="cl-marking__head">
+          <button class="adm-btn-link" id="btn-marking-back" type="button">← Quay lại Bài tập</button>
+          <div>
+            <p class="cl-eyebrow">Không gian chấm bài</p>
+            <h2 id="marking-title">Nhận bài</h2>
+            <span class="cl-marking__sub" id="marking-sub"></span>
+          </div>
+        </div>
+
+        <nav class="adm-subtabs" data-level="view" aria-label="Cách xem bài nộp">
+          <button class="adm-subtab is-active" id="mtab-tally" type="button" aria-current="page">Ai nộp</button>
+          <button class="adm-subtab" id="mtab-effort" type="button">Chi tiết làm bài</button>
+          <button class="adm-subtab" id="mtab-one" type="button">Bài từng em</button>
+        </nav>
+
+        <div id="mpanel-tally"><div id="tally-body"></div></div>
+        <div id="mpanel-effort" hidden><div id="effort-body"></div></div>
+
+        <!-- Hai khung: trái chọn em, phải là chính bộ vẽ báo cáo học viên đang
+             thấy. Một bộ vẽ cho hai người đọc. -->
+        <div id="mpanel-one" class="cl-one" hidden>
+          <ul class="cl-one__list" id="one-list"></ul>
+          <div class="cl-one__body" id="one-body">
+            <p class="adm-hint">Chọn một học viên ở danh sách bên trái.</p>
+          </div>
         </div>
       </section>
     </main>
@@ -1495,42 +1507,6 @@
         </div>
       </div>
     </div>
-
-    <!-- ── Chi tiết làm bài (bài tập theo buổi) ──────────────────────── -->
-
-    <!-- ── NHẬN BÀI ───────────────────────────────────────────────────
-         Trước đây là hai popup chật. Bảng 14 học viên × 7 cột không sống nổi
-         trong một hộp thoại, và giáo viên phải đóng cái này mới mở được cái
-         kia. Nay là một khu chiếm trọn trang, ba tab, giữ nguyên chỗ đứng khi
-         chuyển qua lại. -->
-    <section class="cl-marking" id="panel-marking" hidden>
-      <div class="cl-marking__head">
-        <button class="adm-btn-link" id="btn-marking-back" type="button">← Quay lại Bài tập</button>
-        <div>
-          <p class="cl-eyebrow">Không gian chấm bài</p>
-          <h2 id="marking-title">Nhận bài</h2>
-          <span class="cl-marking__sub" id="marking-sub"></span>
-        </div>
-      </div>
-
-      <nav class="adm-subtabs" data-level="view" aria-label="Cách xem bài nộp">
-        <button class="adm-subtab is-active" id="mtab-tally" type="button" aria-current="page">Ai nộp</button>
-        <button class="adm-subtab" id="mtab-effort" type="button">Chi tiết làm bài</button>
-        <button class="adm-subtab" id="mtab-one" type="button">Bài từng em</button>
-      </nav>
-
-      <div id="mpanel-tally"><div id="tally-body"></div></div>
-      <div id="mpanel-effort" hidden><div id="effort-body"></div></div>
-
-      <!-- Hai khung: trái chọn em, phải là chính bộ vẽ báo cáo học viên đang
-           thấy. Một bộ vẽ cho hai người đọc. -->
-      <div id="mpanel-one" class="cl-one" hidden>
-        <ul class="cl-one__list" id="one-list"></ul>
-        <div class="cl-one__body" id="one-body">
-          <p class="adm-hint">Chọn một học viên ở danh sách bên trái.</p>
-        </div>
-      </div>
-    </section>
 
     <!-- ── Tạo / sửa buổi học ────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="lesson-modal" hidden>
