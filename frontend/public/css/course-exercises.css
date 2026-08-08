@@ -813,7 +813,7 @@
 
 .cx-spec {
   margin-bottom: var(--av-space-6);
-  padding: var(--av-space-5, 20px);
+  padding: var(--av-space-4);
   border-inline-start-width: 4px;
   border-radius: 0 var(--av-radius-lg) var(--av-radius-lg) 0;
   font-size: var(--av-fs-base);
@@ -824,7 +824,7 @@
 .cx-opt {
   grid-template-columns: 2rem minmax(0, 1fr) auto;
   min-height: 58px;
-  padding: var(--av-space-4) var(--av-space-5, 20px);
+  padding: var(--av-space-4);
   border-radius: var(--av-radius-lg);
   font-size: var(--av-fs-base);
   transition:
@@ -904,7 +904,7 @@
 
 .cx-why {
   margin-top: var(--av-space-3);
-  padding: var(--av-space-5, 20px);
+  padding: var(--av-space-4);
   border: 1px solid var(--av-border-subtle);
   border-radius: var(--av-radius-lg);
 }

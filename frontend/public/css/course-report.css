@@ -247,7 +247,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--av-space-6);
-  padding: var(--av-space-5, 20px) var(--av-space-6);
+  padding: var(--av-space-4) var(--av-space-6);
   border-bottom: 1px solid var(--av-border-subtle);
 }
 

@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'my-class.js'), 'utf8');
 const PAGE = readFileSync(join(HERE, '..', 'public', 'pages', 'my-class.html'), 'utf8');
+const MY_CLASS_CSS = readFileSync(join(HERE, '..', 'public', 'css', 'my-class.css'), 'utf8');
 const HOME_JS = readFileSync(join(HERE, '..', 'public', 'js', 'home.js'), 'utf8');
 
 /** Strip `//` comments before asserting a symbol is ABSENT — a comment
@@ -729,9 +730,11 @@ describe('trang học viên trên điện thoại', () => {
   });
 
   test('nút bấm cao tối thiểu 44px', () => {
-    const btn = css.match(/\.mc-btn\s*\{[^}]*\}/);
-    assert.ok(btn, 'không thấy .mc-btn');
-    assert.match(btn[0], /min-height:\s*44px/,
-      'đệm space-2 cho ra ~32px — đủ cho chuột, hụt cho ngón tay');
+    assert.match(PAGE, /class="av-button av-button-primary" id="mc-due-start"/,
+      'CTA phải dùng primitive button canonical');
+    assert.doesNotMatch(`${PAGE}\n${SRC}\n${MY_CLASS_CSS}`, /mc-btn/,
+      'không tạo thêm một button family riêng cho My Class');
+    assert.match(MY_CLASS_CSS, /\.mc-due-now \.av-button,[^}]*\.mc-item \.av-button\s*\{[^}]*min-height:\s*44px/s,
+      'touch target của CTA trên trang phải cao tối thiểu 44px');
   });
 });

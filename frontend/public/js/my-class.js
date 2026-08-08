@@ -146,9 +146,9 @@ function itemRow(a, { action }) {
   const canReview = a.assignment.skill === 'speaking'
     && (a.submitted_at || (a.is_missing && a.state !== 'assigned'));
   const btn = canReview
-    ? `<button class="mc-btn mc-btn-quiet" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
+    ? `<button class="av-button av-button-secondary" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
     : (action && !a.is_missing)
-      ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">${isPartial ? 'Tiếp tục bài' : 'Làm bài'}</button>`
+      ? `<button class="av-button av-button-primary" data-action="start" data-item="${esc(a.item_id)}">${isPartial ? 'Tiếp tục bài' : 'Làm bài'}</button>`
       : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
