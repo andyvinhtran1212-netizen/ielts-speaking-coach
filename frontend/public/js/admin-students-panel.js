@@ -98,7 +98,10 @@
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
-      var unassigned = rows.filter(function (r) { return !r.cohort_name; }).length;
+      // Membership truth lives on students.cohort_id. cohort_name is only a
+      // display enrichment and can be missing when the batched name lookup
+      // fails; treating that failure as "unassigned" would make this KPI lie.
+      var unassigned = rows.filter(function (r) { return !r.cohort_id; }).length;
       var upcoming = rows.filter(function (r) {
         if (!r.target_date) return false;
         var d = new Date(r.target_date + 'T00:00:00');

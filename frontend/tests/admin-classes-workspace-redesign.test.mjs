@@ -367,12 +367,20 @@ describe('Lớp & Học viên handcrafted workspace — student directory', () =
     const later = new Date(today.getTime() + 91 * 24 * 60 * 60 * 1000);
     const afterWindow = [later.getFullYear(), String(later.getMonth() + 1).padStart(2, '0'), String(later.getDate()).padStart(2, '0')].join('-');
     const nodes = studentDirectoryHarness([
-      { id: 'a', student_code: 'A01', full_name: 'An', cohort_name: 'Lớp A', target_date: localToday },
-      { id: 'b', student_code: 'B02', full_name: 'Bình', cohort_name: null, target_date: afterWindow },
+      { id: 'a', student_code: 'A01', full_name: 'An', cohort_id: 'co-a', cohort_name: 'Lớp A', target_date: localToday },
+      { id: 'b', student_code: 'B02', full_name: 'Bình', cohort_id: null, cohort_name: null, target_date: afterWindow },
     ]);
     assert.equal(nodes['student-kpi-total'].textContent, 2);
     assert.equal(nodes['student-kpi-unassigned'].textContent, 1);
     assert.equal(nodes['student-kpi-upcoming'].textContent, 1);
+  });
+
+  test('behaviour: a failed cohort-name lookup never counts an assigned student as unassigned', () => {
+    const nodes = studentDirectoryHarness([
+      { id: 'assigned', student_code: 'A01', full_name: 'An', cohort_id: 'co-a', cohort_name: null },
+      { id: 'unassigned', student_code: 'B02', full_name: 'Bình', cohort_id: null, cohort_name: null },
+    ]);
+    assert.equal(nodes['student-kpi-unassigned'].textContent, 1);
   });
 
   test('student transport failure is a retryable table state, not an empty directory', () => {
