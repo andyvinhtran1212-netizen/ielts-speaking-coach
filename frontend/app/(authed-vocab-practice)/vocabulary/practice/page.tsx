@@ -93,7 +93,7 @@ export default function VocabPracticePage() {
         <p id="vp-empty" className="vp-status hidden">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
         <p id="vp-error" className="vp-status is-error hidden"></p>
 
-        <a id="vp-progress" className="vp-progress-link hidden" href="/pages/quiz-progress.html?skill_area=vocab">📊 Xem tiến độ của tôi →</a>
+        <a id="vp-progress" className="vp-progress-link hidden" href="/quiz/progress?skill_area=vocab">📊 Xem tiến độ của tôi →</a>
       </div>
       {/* Duong lui chung mot nguon voi 11 trang kia: xem lib/watchdog-script.ts */}
       <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/vocab-practice.html') }} />

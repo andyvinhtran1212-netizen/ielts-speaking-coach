@@ -105,6 +105,6 @@ describe('Pha 5a — analytics + progress', () => {
     assert.match(progress, /Đã thuộc/);
   });
   test('player summary links to the progress page', () => {
-    assert.match(player, /\/pages\/quiz-progress\.html/);
+    assert.match(player, /\/quiz\/progress/);
   });
 });

@@ -133,7 +133,7 @@ describe('quiz.html — end-of-session result screen', () => {
     assert.match(QUIZ, /openCard\(key, el\)/);
   });
   test('actions still link to the stats page; old summary-body id retired', () => {
-    assert.match(QUIZ, /\/pages\/quiz-progress\.html/);
+    assert.match(QUIZ, /\/quiz\/progress/);
     assert.doesNotMatch(QUIZ, /id="qz-summary-body"/);
   });
 });

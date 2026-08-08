@@ -100,7 +100,7 @@
             + '<p class="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>'
             // Progress lives here (entry on the Vocabulary page) rather than behind
             // the practice flow.
-            + '<a class="vtc-progress-link" href="/pages/quiz-progress.html?skill_area=vocab"'
+            + '<a class="vtc-progress-link" href="/quiz/progress?skill_area=vocab"'
             + ' style="display:inline-block;margin-top:var(--av-space-2);font-size:var(--av-fs-sm);'
             + 'font-weight:var(--av-fw-semibold);color:var(--av-primary);text-decoration:none;">'
             + '📊 Tiến độ luyện tập →</a>'

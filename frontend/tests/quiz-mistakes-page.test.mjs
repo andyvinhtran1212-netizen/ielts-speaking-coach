@@ -74,12 +74,12 @@ describe('skill_area scoping (audit §C3)', () => {
   });
 
   test('every vocab entry point passes skill_area=vocab', () => {
-    assert.match(LANDING, /quiz-progress\.html\?skill_area=vocab/);
-    assert.match(PRACTICE, /quiz-progress\.html\?skill_area=vocab/);
+    assert.match(LANDING, /\/quiz\/progress\?skill_area=vocab/);
+    assert.match(PRACTICE, /\/quiz\/progress\?skill_area=vocab/);
   });
 
   test('the player stamps the skill it just practised onto its stats link', () => {
     assert.match(QUIZ, /id=["']qz-stats["']/);
-    assert.match(QUIZ, /quiz-progress\.html\?skill_area=' \+ encodeURIComponent\(area\)/);
+    assert.match(QUIZ, /\/quiz\/progress\?skill_area=' \+ encodeURIComponent\(area\)/);
   });
 });
