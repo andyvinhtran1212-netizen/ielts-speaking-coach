@@ -50,8 +50,8 @@
        all come from admin-components.css. */
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
 
-    /* 1100px matches .adm-subtabs and the sibling admin pages — a wider shell
-       would leave the tab bar visibly narrower than the table under it. */
+    /* Legacy fallback. The workflow stylesheet loaded below aligns the shell to
+       the shared --av-width-page token used across the current admin surface. */
     .cl-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-6); }
 
@@ -628,6 +628,7 @@
     /* a11y — focus-visible halo (--av-shadow-focus) on interactive controls */
     body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   </style>
+  <link rel="stylesheet" href="/css/aver-design/admin-classes-workspace.css?v=20260808-2" />
 </head>
 <body class="av-page av-admin-surface">
   <aver-admin-chrome active="classes" subsection="classes">
@@ -635,20 +636,46 @@
     <!-- GĐ 1b — Lớp và Học viên nay là hai mục của CÙNG một trang. Vẫn là <a>
          có href thật (không phải <button>): mục Học viên cần mở được ở tab mới,
          bookmark được, và là đích của mục con trên sidebar. -->
-    <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
+    <nav class="adm-subtabs cl-section-nav" aria-label="Khu vực Lớp và Học viên">
       <a class="adm-subtab" id="tab-classes" href="/pages/admin/classes/index.html">Lớp</a>
       <a class="adm-subtab" id="tab-students" href="/pages/admin/classes/index.html?tab=students">Học viên</a>
     </nav>
 
     <!-- ── Danh sách lớp ─────────────────────────────────────────────── -->
     <main class="cl-shell" id="view-list" hidden>
-      <header class="cl-header">
-        <h1>Lớp &amp; Học viên</h1>
-        <p class="cl-subtitle">Mỗi lớp là một lần mở của một khoá học. Sĩ số kèm số học viên chưa có tài khoản — những bạn này không nhận được bài giao.</p>
+      <header class="cl-header cl-page-head">
+        <div>
+          <p class="cl-eyebrow">Không gian vận hành đào tạo</p>
+          <h1>Lớp &amp; Học viên</h1>
+          <p class="cl-subtitle">Theo dõi từng lớp, tình trạng kích hoạt và công việc học tập ở một nơi.</p>
+        </div>
+        <button class="adm-btn-primary" id="btn-create-cohort" type="button">Tạo lớp mới</button>
       </header>
 
-      <div class="cl-toolbar">
+      <section class="cl-kpi-grid" aria-label="Tổng quan lớp học">
+        <article class="cl-kpi">
+          <span class="cl-kpi__label">Lớp đang hoạt động</span>
+          <strong class="cl-kpi__value" id="kpi-active-classes">—</strong>
+          <span class="cl-kpi__note">trên tổng số lớp</span>
+        </article>
+        <article class="cl-kpi">
+          <span class="cl-kpi__label">Tổng học viên</span>
+          <strong class="cl-kpi__value" id="kpi-total-students">—</strong>
+          <span class="cl-kpi__note">trong lớp đang hoạt động</span>
+        </article>
+        <article class="cl-kpi" data-tone="warning">
+          <span class="cl-kpi__label">Chưa kích hoạt</span>
+          <strong class="cl-kpi__value" id="kpi-unactivated">—</strong>
+          <span class="cl-kpi__note">trong lớp đang hoạt động</span>
+        </article>
+      </section>
+
+      <div class="cl-toolbar cl-command-bar">
         <div class="cl-filters">
+          <div class="cl-filter cl-filter--search">
+            <label for="filter-search">Tìm lớp</label>
+            <input id="filter-search" type="search" placeholder="Tên lớp hoặc tiền tố mã…" autocomplete="off" />
+          </div>
           <div class="cl-filter">
             <label for="filter-course">Khoá học</label>
             <select id="filter-course">
@@ -664,15 +691,15 @@
             </select>
           </div>
         </div>
-        <button class="adm-btn-primary" id="btn-create-cohort" type="button">Tạo lớp</button>
+        <p class="cl-result-summary" id="class-result-summary" aria-live="polite"></p>
       </div>
 
       <div class="adm-banner" id="list-banner" hidden></div>
       <div class="adm-loading" id="list-loading">Đang tải…</div>
       <div class="adm-empty" id="list-empty" hidden></div>
 
-      <div class="adm-table-wrap" id="list-table-wrap" hidden>
-        <table class="adm-table">
+      <div class="adm-table-wrap cl-directory" id="list-table-wrap" hidden>
+        <table class="adm-table cl-directory-table">
           <thead>
             <tr>
               <th>Lớp</th>
@@ -690,15 +717,35 @@
 
     <!-- ── Chi tiết một lớp (?cohort_id=…) ───────────────────────────── -->
     <main class="cl-shell" id="view-detail" hidden>
-      <a class="cl-back adm-btn-secondary" href="/pages/admin/classes/index.html">← Tất cả lớp</a>
+      <nav class="cl-back cl-breadcrumb" aria-label="Đường dẫn">
+        <a href="/pages/admin/classes/index.html">Lớp &amp; Học viên</a>
+        <span aria-hidden="true">/</span>
+        <strong aria-current="page">Chi tiết lớp</strong>
+      </nav>
 
-      <header class="cl-header cl-detail-head">
+      <header class="cl-header cl-detail-head cl-detail-hero">
         <div>
+          <p class="cl-eyebrow">Hồ sơ lớp học</p>
           <h1 id="detail-title">Lớp</h1>
           <div class="cl-detail-meta" id="detail-meta"></div>
         </div>
         <button class="adm-btn-secondary" id="btn-edit-cohort" type="button">Sửa thông tin lớp</button>
       </header>
+
+      <section class="cl-detail-kpis" aria-label="Tóm tắt sĩ số lớp">
+        <article>
+          <span>Tổng học viên</span>
+          <strong id="detail-kpi-total">—</strong>
+        </article>
+        <article>
+          <span>Đã kích hoạt</span>
+          <strong id="detail-kpi-activated">—</strong>
+        </article>
+        <article data-tone="warning">
+          <span>Chưa kích hoạt</span>
+          <strong id="detail-kpi-unactivated">—</strong>
+        </article>
+      </section>
 
       <div class="adm-banner" id="detail-banner" hidden></div>
 
@@ -725,6 +772,21 @@
           <button type="button" data-lens="today" aria-current="true">Sĩ số</button>
           <button type="button" data-lens="progress" aria-current="false">Tiến độ 4 kỹ năng</button>
         </div>
+        <div class="cl-roster-command" role="search">
+          <div class="adm-field">
+            <label for="roster-search">Tìm học viên</label>
+            <input id="roster-search" type="search" placeholder="Tên hoặc mã học viên…" autocomplete="off" />
+          </div>
+          <div class="adm-field">
+            <label for="roster-account-filter">Tài khoản</label>
+            <select id="roster-account-filter">
+              <option value="all">Tất cả</option>
+              <option value="activated">Đã kích hoạt</option>
+              <option value="unactivated">Chưa kích hoạt</option>
+            </select>
+          </div>
+          <span class="cl-roster-result" id="roster-result-count" aria-live="polite"></span>
+        </div>
         <div class="cl-panel-head">
           <p class="cl-panel-note" id="roster-summary"></p>
           <button class="adm-btn-primary" id="btn-add-member" type="button">Thêm học viên</button>
@@ -733,6 +795,9 @@
         <div class="adm-loading" id="roster-loading" hidden>Đang tải…</div>
         <div class="adm-empty" id="roster-empty" hidden>
           Lớp này chưa có học viên. Thêm học viên đã có hồ sơ vào lớp để bắt đầu.
+        </div>
+        <div class="adm-empty" id="roster-filter-empty" hidden>
+          Không có học viên nào khớp bộ lọc hiện tại.
         </div>
 
         <!-- Bảng và ngăn kéo là HAI CỘT trên màn rộng, nên chúng phải có chung
@@ -760,15 +825,25 @@
                điểm vào đây khi màn hẹp phải cuộn tới — nếu không thì người dùng
                bàn phím bị bỏ lại cách đó một nghìn pixel. -->
           <aside class="cl-drawer" id="roster-drawer" hidden tabindex="-1"
-                 aria-live="polite"></aside>
+                 role="region" aria-labelledby="roster-drawer-title" aria-live="polite"></aside>
         </div>
       </section>
 
       <!-- Buổi học -->
       <section id="panel-lessons" hidden>
         <div class="cl-panel-head">
-          <p class="cl-panel-note">Nội dung buổi học. Học viên chỉ thấy buổi đã đăng.</p>
+          <div>
+            <p class="cl-eyebrow">Giáo trình của lớp</p>
+            <h2 class="cl-panel-title">Buổi học</h2>
+            <p class="cl-panel-note">Sắp xếp nội dung theo dòng thời gian. Học viên chỉ thấy buổi đã đăng.</p>
+          </div>
           <button class="adm-btn-primary" id="btn-add-lesson" type="button">Thêm buổi học</button>
+        </div>
+
+        <div class="cl-panel-summary" aria-live="polite">
+          <span id="lessons-count">—</span>
+          <span class="cl-panel-summary__divider" aria-hidden="true"></span>
+          <span id="lessons-published-count">—</span>
         </div>
 
         <div class="adm-loading" id="lessons-loading" hidden>Đang tải…</div>
@@ -781,7 +856,11 @@
       <!-- Tiến độ 4 kỹ năng (GĐ 4) -->
       <section id="panel-progress" hidden>
         <div class="cl-panel-head">
-          <p class="cl-panel-note">Số lượt làm bài và band gần nhất của từng học viên, theo bốn kỹ năng.</p>
+          <div>
+            <p class="cl-eyebrow">Tín hiệu cần hành động</p>
+            <h2 class="cl-panel-title">Theo dõi nhịp học của cả lớp</h2>
+            <p class="cl-panel-note">Dữ liệu bên dưới dùng cùng danh sách học viên với sổ điểm danh; chỉ góc nhìn và cột thay đổi.</p>
+          </div>
         </div>
 
         <div class="adm-loading" id="progress-loading" hidden>Đang tải…</div>
@@ -842,13 +921,43 @@
       <!-- Bài tập (GĐ 2) -->
       <section id="panel-homework" hidden>
         <div class="cl-panel-head">
-          <p class="cl-panel-note">Bài giao cho cả lớp. Hạn nộp mặc định 19:00 giờ Việt Nam.</p>
-          <button class="adm-btn-primary" id="btn-add-homework" type="button">Giao bài Speaking</button>
+          <div>
+            <p class="cl-eyebrow">Công việc của lớp</p>
+            <h2 class="cl-panel-title">Bài tập</h2>
+            <p class="cl-panel-note">Theo dõi hạn nộp và tình hình hoàn thành. Hạn mặc định là 19:00 giờ Việt Nam.</p>
+          </div>
+          <button class="adm-btn-primary" id="btn-add-homework" type="button">Giao bài mới</button>
+        </div>
+
+        <div class="cl-homework-kpis" aria-label="Tổng quan bài tập">
+          <article><span>Đang mở</span><strong id="homework-kpi-open">—</strong></article>
+          <article><span>Sắp đến hạn</span><strong id="homework-kpi-due">—</strong></article>
+          <article><span>Đã đóng</span><strong id="homework-kpi-closed">—</strong></article>
+        </div>
+
+        <div class="cl-roster-command cl-homework-command">
+          <label class="cl-filter cl-filter--search" for="homework-search">
+            <span>Tìm bài tập</span>
+            <input id="homework-search" type="search" placeholder="Tên bài, kỹ năng…" autocomplete="off" />
+          </label>
+          <label class="cl-filter" for="homework-status-filter">
+            <span>Trạng thái</span>
+            <select id="homework-status-filter">
+              <option value="all">Tất cả</option>
+              <option value="open">Đang mở</option>
+              <option value="due-soon">Sắp đến hạn</option>
+              <option value="archived">Đã đóng</option>
+            </select>
+          </label>
+          <p class="cl-roster-result" id="homework-result-count" aria-live="polite"></p>
         </div>
 
         <div class="adm-loading" id="homework-loading" hidden>Đang tải…</div>
         <div class="adm-empty" id="homework-empty" hidden>
           Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.
+        </div>
+        <div class="adm-empty" id="homework-filter-empty" hidden>
+          Không có bài tập nào khớp bộ lọc hiện tại.
         </div>
 
         <div class="adm-table-wrap" id="homework-table-wrap" hidden>
@@ -879,34 +988,46 @@
     <a href="/home">← Quay lại trang chủ</a>
   </div>
 
-  <main id="state-ready" class="st-shell">
+  <main id="state-ready" class="st-shell hidden">
     <div class="st-head">
       <div>
+        <p class="cl-eyebrow">Danh bạ học viên</p>
         <h1>Học viên</h1>
-        <p class="st-subtitle">Hồ sơ học viên và lịch sử bài viết</p>
+        <p class="st-subtitle">Quản lý hồ sơ, mục tiêu và lịch sử học tập từ một danh sách thống nhất.</p>
       </div>
       <div class="st-actions">
         <label class="adm-btn-secondary st-file-button">
           Nhập từ CSV
           <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
         </label>
-        <button id="btn-new" class="adm-btn-primary">＋ Học viên mới</button>
+        <button id="btn-new" class="adm-btn-primary">Thêm học viên</button>
       </div>
     </div>
 
+    <div class="st-kpi-grid" role="group" aria-label="Tổng quan học viên" aria-live="polite">
+      <article><span>Kết quả đang xem</span><strong id="student-kpi-total">—</strong></article>
+      <article><span>Chưa xếp lớp (trong kết quả)</span><strong id="student-kpi-unassigned">—</strong></article>
+      <article><span>Thi trong 90 ngày (trong kết quả)</span><strong id="student-kpi-upcoming">—</strong></article>
+    </div>
+
     <div class="st-toolbar">
-      <input id="search-input" class="st-input" placeholder="Tìm theo mã hoặc tên…" aria-label="Tìm học viên theo mã hoặc tên" />
+      <label for="search-input">
+        <span>Tìm học viên</span>
+        <input id="search-input" class="st-input" type="search" placeholder="Mã học viên hoặc họ tên…" autocomplete="off" aria-label="Tìm học viên theo mã hoặc tên" />
+      </label>
       <span id="row-count" class="st-meta"></span>
     </div>
 
     <!-- WF-1 bulk-assign bar — shown when ≥1 student is selected -->
     <div id="bulk-bar" class="st-bulk-bar" hidden>
-      <span id="bulk-count" class="st-meta">0 đã chọn</span>
-      <select id="bulk-cohort" class="st-input" style="width:auto;" aria-label="Chọn lớp để gán học viên"><option value="">— Chọn lớp —</option></select>
+      <div><strong id="bulk-count">0 đã chọn</strong><span>Gán các học viên này vào cùng một lớp.</span></div>
+      <label for="bulk-cohort" class="sr-only">Chọn lớp để gán học viên</label>
+      <select id="bulk-cohort" class="st-input" aria-label="Chọn lớp để gán học viên"><option value="">— Chọn lớp —</option></select>
       <button id="bulk-assign" class="adm-btn-primary" type="button">Gán vào lớp</button>
+      <button id="bulk-clear" class="adm-btn-secondary" type="button">Bỏ chọn</button>
     </div>
 
-    <div id="alert-area"></div>
+    <div id="alert-area" hidden></div>
 
     <div class="adm-table-wrap">
       <table id="students-table" class="adm-table">
@@ -945,7 +1066,7 @@
             <span id="summary-cohort" class="st-badge" hidden></span>
           </div>
         </div>
-        <button id="summary-close" class="adm-btn-secondary">Đóng</button>
+        <button id="summary-close" class="cl-icon-button" type="button" aria-label="Đóng hồ sơ học viên">×</button>
       </div>
 
       <!-- has_account=false → explicit "chưa kích hoạt" notice (never a silent inactive state) -->
@@ -955,68 +1076,85 @@
         <a id="summary-assign" class="adm-btn-primary" href="#">Giao bài viết</a>
       </div>
 
-      <h3 class="st-section-heading">Tiến độ (writing)</h3>
-      <div class="st-stat-grid">
-        <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Đã gắn cờ</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Avg band 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
-      </div>
+      <section class="st-drawer-section">
+        <div class="st-drawer-section__head"><p class="cl-eyebrow">Kỹ năng</p><h3>Writing</h3></div>
+        <div class="st-stat-grid">
+          <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Cần xem lại</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Band TB 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
+        </div>
+        <h4 class="st-section-heading">Bài viết gần đây</h4>
+        <ul id="summary-essays" class="st-list"></ul>
+      </section>
 
-      <h3 class="st-section-heading">Tiến độ (listening)</h3>
-      <div class="st-stat-grid">
-        <div class="adm-card"><div class="adm-card-label">Lượt làm bài</div><div id="stat-listen-total" class="adm-card-num">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Đúng TB</div><div id="stat-listen-acc" class="adm-card-num">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Bỏ dở</div><div id="stat-listen-abandoned" class="adm-card-num st-flagged">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Chép chính tả</div><div id="stat-listen-dict" class="adm-card-num">—</div></div>
-      </div>
-      <ul id="summary-listening" class="st-list"></ul>
+      <section class="st-drawer-section">
+        <div class="st-drawer-section__head"><p class="cl-eyebrow">Kỹ năng</p><h3>Listening</h3></div>
+        <div class="st-stat-grid">
+          <div class="adm-card"><div class="adm-card-label">Lượt làm bài</div><div id="stat-listen-total" class="adm-card-num">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Đúng trung bình</div><div id="stat-listen-acc" class="adm-card-num">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Bỏ dở</div><div id="stat-listen-abandoned" class="adm-card-num st-flagged">—</div></div>
+          <div class="adm-card"><div class="adm-card-label">Chép chính tả</div><div id="stat-listen-dict" class="adm-card-num">—</div></div>
+        </div>
+        <ul id="summary-listening" class="st-list"></ul>
+      </section>
 
-      <h3 class="st-section-heading">Bài viết gần đây</h3>
-      <ul id="summary-essays" class="st-list"></ul>
-
-      <h3 class="st-section-heading">Lịch sử nộp bài</h3>
-      <ul id="summary-history" class="st-list"></ul>
-
-      <h3 class="st-section-heading">Đề bài giao gần đây</h3>
-      <ul id="summary-assignments" class="st-list"></ul>
+      <section class="st-drawer-section">
+        <div class="st-drawer-section__head"><p class="cl-eyebrow">Hoạt động</p><h3>Lịch sử học tập</h3></div>
+        <h4 class="st-section-heading">Lịch sử nộp bài</h4>
+        <ul id="summary-history" class="st-list"></ul>
+        <h4 class="st-section-heading">Đề bài giao gần đây</h4>
+        <ul id="summary-assignments" class="st-list"></ul>
+      </section>
     </div>
   </div>
 
   <!-- Edit / Create modal -->
   <div id="modal" class="adm-modal-backdrop hidden">
-    <div class="adm-modal">
-      <h2 id="modal-title">Học viên mới</h2>
+    <div class="adm-modal cl-form-dialog st-editor" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="cl-dialog-head">
+        <div><p class="cl-eyebrow">Hồ sơ học viên</p><h2 id="modal-title">Học viên mới</h2><p>Thông tin định danh và mục tiêu học tập.</p></div>
+        <button id="btn-st-close" class="cl-icon-button" type="button" aria-label="Đóng hộp thoại">×</button>
+      </div>
       <form id="student-form" class="st-form">
-        <div class="adm-field">
-          <label for="f-code">Mã học viên *</label>
-          <input id="f-code" required maxlength="64" />
-        </div>
-        <div class="adm-field">
-          <label for="f-name">Họ và tên *</label>
-          <input id="f-name" required maxlength="255" />
-        </div>
-        <div class="st-form-row">
+        <div class="cl-form-section">
+          <div class="cl-form-section__head"><strong>Thông tin chính</strong><span>Mã học viên và họ tên là bắt buộc.</span></div>
           <div class="adm-field">
-            <label for="f-target-band">Band mục tiêu</label>
-            <input id="f-target-band" type="number" step="0.5" min="0" max="9" />
+            <label for="f-code">Mã học viên <span aria-hidden="true">*</span></label>
+            <input id="f-code" required aria-required="true" maxlength="64" autocomplete="off" />
           </div>
           <div class="adm-field">
-            <label for="f-current-band">Band hiện tại</label>
-            <input id="f-current-band" type="number" step="0.5" min="0" max="9" />
+            <label for="f-name">Họ và tên <span aria-hidden="true">*</span></label>
+            <input id="f-name" required aria-required="true" maxlength="255" autocomplete="name" />
           </div>
         </div>
-        <div class="adm-field">
-          <label for="f-target-date">Ngày thi dự kiến</label>
-          <input id="f-target-date" type="date" />
+        <div class="cl-form-section">
+          <div class="cl-form-section__head"><strong>Mục tiêu IELTS</strong><span>Theo dõi khoảng cách giữa hiện tại và mục tiêu.</span></div>
+          <div class="st-form-row">
+            <div class="adm-field">
+              <label for="f-target-band">Band mục tiêu</label>
+              <input id="f-target-band" type="number" step="0.5" min="0" max="9" />
+            </div>
+            <div class="adm-field">
+              <label for="f-current-band">Band hiện tại</label>
+              <input id="f-current-band" type="number" step="0.5" min="0" max="9" />
+            </div>
+          </div>
+          <div class="adm-field">
+            <label for="f-target-date">Ngày thi dự kiến</label>
+            <input id="f-target-date" type="date" />
+          </div>
         </div>
-        <div class="adm-field">
-          <label for="f-notes">Ghi chú về học viên</label>
-          <textarea id="f-notes" rows="2"></textarea>
+        <div class="cl-form-section">
+          <div class="cl-form-section__head"><strong>Ghi chú nội bộ</strong><span>Chỉ quản trị viên và giáo viên có quyền mới thấy nội dung này.</span></div>
+          <div class="adm-field">
+            <label for="f-notes">Ghi chú về học viên</label>
+            <textarea id="f-notes" rows="4"></textarea>
+          </div>
         </div>
-        <div class="st-form-actions">
+        <div class="adm-modal-actions st-form-actions">
           <button type="button" id="btn-cancel" class="adm-btn-secondary">Hủy</button>
-          <button type="submit" id="btn-save" class="adm-btn-primary">Lưu</button>
+          <button type="submit" id="btn-save" class="adm-btn-primary">Lưu học viên</button>
         </div>
       </form>
     </div>
@@ -1025,29 +1163,50 @@
 
     <!-- ── Tạo / sửa lớp ─────────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="cohort-modal" hidden>
-      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
-        <h2 id="cohort-modal-title">Tạo lớp</h2>
-        <div class="adm-field">
-          <label for="cf-name">Tên lớp</label>
-          <input id="cf-name" type="text" maxlength="200" />
+      <div class="adm-modal cl-form-dialog" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
+        <div class="cl-dialog-head">
+          <div>
+            <p class="cl-eyebrow">Thiết lập lớp học</p>
+            <h2 id="cohort-modal-title">Tạo lớp</h2>
+            <p>Thông tin này xuất hiện ở danh sách quản trị và trang lớp của học viên.</p>
+          </div>
+          <button class="cl-icon-button" id="btn-cf-close" type="button" aria-label="Đóng hộp thoại">×</button>
         </div>
-        <div class="adm-field">
-          <label for="cf-course">Khoá học</label>
-          <select id="cf-course"><option value="">Chưa gán khoá</option></select>
+        <form id="cohort-form">
+        <div class="cl-form-section">
+          <div class="cl-form-section__head">
+            <strong>Thông tin chính</strong>
+            <span>Tên lớp là trường bắt buộc.</span>
+          </div>
+          <div class="adm-field">
+            <label for="cf-name">Tên lớp <span aria-hidden="true">*</span></label>
+            <input id="cf-name" type="text" maxlength="200" autocomplete="off" required aria-required="true" />
+          </div>
+          <div class="adm-field">
+            <label for="cf-course">Khoá học</label>
+            <select id="cf-course"><option value="">Chưa gán khoá</option></select>
+          </div>
         </div>
-        <div class="adm-field">
-          <label for="cf-prefix">Tiền tố mã (tuỳ chọn)</label>
-          <input id="cf-prefix" type="text" maxlength="20" />
-        </div>
-        <div class="adm-field">
-          <label for="cf-desc">Mô tả (tuỳ chọn)</label>
-          <textarea id="cf-desc" rows="2"></textarea>
+        <div class="cl-form-section">
+          <div class="cl-form-section__head">
+            <strong>Nhận diện nội bộ</strong>
+            <span>Giúp phân biệt các lần mở của cùng một khoá.</span>
+          </div>
+          <div class="adm-field">
+            <label for="cf-prefix">Tiền tố mã <span class="adm-hint">(tuỳ chọn)</span></label>
+            <input id="cf-prefix" type="text" maxlength="20" autocomplete="off" />
+          </div>
+          <div class="adm-field">
+            <label for="cf-desc">Mô tả <span class="adm-hint">(tuỳ chọn)</span></label>
+            <textarea id="cf-desc" rows="3"></textarea>
+          </div>
         </div>
         <div class="adm-banner" id="cf-error" hidden></div>
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-cf-cancel" type="button">Huỷ</button>
-          <button class="adm-btn-primary" id="btn-cf-submit" type="button">Lưu</button>
+          <button class="adm-btn-primary" id="btn-cf-submit" type="submit">Lưu</button>
         </div>
+        </form>
       </div>
     </div>
 
@@ -1070,8 +1229,29 @@
 
     <!-- ── Giao bài Speaking (GĐ 2) ──────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="homework-modal" hidden>
-      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="homework-modal-title">
-        <h2 id="homework-modal-title">Giao bài</h2>
+      <div class="adm-modal cl-homework-dialog" role="dialog" aria-modal="true" aria-labelledby="homework-modal-title">
+        <div class="cl-dialog-head">
+          <div>
+            <p class="cl-eyebrow">Bài tập mới</p>
+            <h2 id="homework-modal-title">Giao bài</h2>
+            <p>Thiết lập nội dung, người nhận và hạn nộp trước khi xác nhận.</p>
+          </div>
+          <button class="cl-icon-button" id="btn-hf-close" type="button" aria-label="Đóng hộp thoại">×</button>
+        </div>
+
+        <ol class="cl-wizard-steps" aria-label="Các bước giao bài">
+          <li data-step-indicator="1" class="is-active"><span>1</span><em>Nội dung</em></li>
+          <li data-step-indicator="2"><span>2</span><em>Người nhận</em></li>
+          <li data-step-indicator="3"><span>3</span><em>Hạn &amp; dặn dò</em></li>
+          <li data-step-indicator="4"><span>4</span><em>Xác nhận</em></li>
+        </ol>
+
+        <div class="cl-wizard-panel" data-hf-step="1">
+          <div class="cl-wizard-panel__head">
+            <span>Bước 1/4</span>
+            <h3>Chọn nội dung bài tập</h3>
+            <p>Loại bài và kỹ năng quyết định nguồn đề được sử dụng.</p>
+          </div>
 
         <!-- Loại bài đứng ĐẦU vì nó quyết định cả phần còn lại của ô này: nguồn
              đề, số câu, và cách nhập hạn. Chọn sau khi đã điền hạn nghĩa là phải
@@ -1189,6 +1369,42 @@
             </select>
           </div>
         </div>
+        </div>
+
+        <div class="cl-wizard-panel" data-hf-step="2" hidden>
+          <div class="cl-wizard-panel__head">
+            <span>Bước 2/4</span>
+            <h3>Chọn người nhận</h3>
+            <p>Mặc định giao cho cả lớp; chỉ chuyển sang nhóm khi có chủ đích.</p>
+          </div>
+          <!-- Giao cho ai. Mặc định là CẢ LỚP — mọi bài giao trước nay đều thế,
+               và đổi mặc định là đổi ý nghĩa của mọi thao tác quen tay. -->
+          <div class="adm-field">
+            <label for="hf-who">Giao cho</label>
+            <select id="hf-who">
+              <option value="all" selected>Cả lớp</option>
+              <option value="some">Chọn học viên…</option>
+            </select>
+          </div>
+          <div class="adm-field" id="hf-who-pick" hidden>
+            <div class="cl-pick-head">
+              <span id="hf-who-count">Chưa chọn ai</span>
+              <button class="adm-btn-link" id="btn-hf-who-all" type="button">Chọn tất cả</button>
+              <button class="adm-btn-link" id="btn-hf-who-none" type="button">Bỏ chọn</button>
+            </div>
+            <div class="cl-pick-list" id="hf-who-list"></div>
+            <p class="adm-hint">
+              Học viên <strong>chưa kích hoạt tài khoản</strong> vẫn có dòng bài giao nhưng chưa thể mở bài.
+            </p>
+          </div>
+        </div>
+
+        <div class="cl-wizard-panel" data-hf-step="3" hidden>
+          <div class="cl-wizard-panel__head">
+            <span>Bước 3/4</span>
+            <h3>Đặt hạn và dặn dò</h3>
+            <p>Mốc hiển thị bên dưới là giờ Việt Nam và là hạn được lưu thật.</p>
+          </div>
         <!-- Hạn nộp: ngày VÀ giờ. Giờ trước đây bị đóng cứng 19:00 trong
              backend nên không lớp nào đổi được — lớp học buổi tối cần hạn khác
              lớp học buổi sáng. -->
@@ -1221,32 +1437,33 @@
           <label for="hf-instructions">Dặn dò (tuỳ chọn)</label>
           <textarea id="hf-instructions" rows="3"></textarea>
         </div>
-        <!-- Giao cho ai. Mặc định là CẢ LỚP — mọi bài giao trước nay đều thế,
-             và đổi mặc định là đổi ý nghĩa của mọi thao tác quen tay. -->
-        <div class="adm-field">
-          <label for="hf-who">Giao cho</label>
-          <select id="hf-who">
-            <option value="all" selected>Cả lớp</option>
-            <option value="some">Chọn học viên…</option>
-          </select>
         </div>
-        <div class="adm-field" id="hf-who-pick" hidden>
-          <div class="cl-pick-head">
-            <span id="hf-who-count">Chưa chọn ai</span>
-            <button class="adm-btn-link" id="btn-hf-who-all" type="button">Chọn tất cả</button>
-            <button class="adm-btn-link" id="btn-hf-who-none" type="button">Bỏ chọn</button>
+
+        <div class="cl-wizard-panel cl-review-panel" data-hf-step="4" hidden>
+          <div class="cl-wizard-panel__head">
+            <span>Bước 4/4</span>
+            <h3>Kiểm tra trước khi giao</h3>
+            <p>Đọc lại phạm vi và hạn nộp để tránh giao nhầm.</p>
           </div>
-          <div class="cl-pick-list" id="hf-who-list"></div>
-          <p class="adm-hint">
-            Học viên <strong>chưa kích hoạt tài khoản</strong> vẫn nhận được dòng
-            bài giao nhưng không mở được — tên các bạn ấy có ghi chú riêng.
-          </p>
+          <dl class="cl-review-grid">
+            <div><dt>Nội dung</dt><dd id="hf-review-content">—</dd></div>
+            <div><dt>Người nhận</dt><dd id="hf-review-recipients">—</dd></div>
+            <div><dt>Hạn nộp</dt><dd id="hf-review-due">—</dd></div>
+            <div><dt>Dặn dò</dt><dd id="hf-review-note">Không có</dd></div>
+          </dl>
+          <div class="cl-review-notice">Sau khi giao, học viên đã kích hoạt sẽ thấy bài trong không gian học tập của mình.</div>
         </div>
-        <div class="adm-banner" id="hf-warning" hidden></div>
-        <div class="adm-banner" id="hf-error" hidden></div>
-        <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-hf-cancel" type="button">Huỷ</button>
-          <button class="adm-btn-primary" id="btn-hf-submit" type="button">Giao cho cả lớp</button>
+        <div class="cl-wizard-footer">
+          <div class="adm-banner" id="hf-warning" hidden></div>
+          <div class="adm-banner" id="hf-error" role="alert" tabindex="-1" hidden></div>
+          <div class="adm-modal-actions cl-wizard-actions">
+            <button class="adm-btn-secondary" id="btn-hf-cancel" type="button">Huỷ</button>
+            <div>
+              <button class="adm-btn-secondary" id="btn-hf-back" type="button" hidden>Quay lại</button>
+              <button class="adm-btn-primary" id="btn-hf-next" type="button">Tiếp tục</button>
+              <button class="adm-btn-primary" id="btn-hf-submit" type="button" hidden>Giao cho cả lớp</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1288,9 +1505,12 @@
          chuyển qua lại. -->
     <section class="cl-marking" id="panel-marking" hidden>
       <div class="cl-marking__head">
-        <button class="adm-btn-link" id="btn-marking-back" type="button">← Danh sách bài giao</button>
-        <h3 id="marking-title">Nhận bài</h3>
-        <span class="cl-marking__sub" id="marking-sub"></span>
+        <button class="adm-btn-link" id="btn-marking-back" type="button">← Quay lại Bài tập</button>
+        <div>
+          <p class="cl-eyebrow">Không gian chấm bài</p>
+          <h2 id="marking-title">Nhận bài</h2>
+          <span class="cl-marking__sub" id="marking-sub"></span>
+        </div>
       </div>
 
       <nav class="adm-subtabs" data-level="view" aria-label="Cách xem bài nộp">
@@ -1314,40 +1534,64 @@
 
     <!-- ── Tạo / sửa buổi học ────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="lesson-modal" hidden>
-      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-modal-title">
-        <h2 id="lesson-modal-title">Thêm buổi học</h2>
-        <div class="cl-form-row">
-          <div class="adm-field">
-            <label for="lf-no">Buổi số (tuỳ chọn)</label>
-            <input id="lf-no" type="number" min="1" step="1" />
+      <div class="adm-modal cl-form-dialog cl-lesson-dialog" role="dialog" aria-modal="true" aria-labelledby="lesson-modal-title">
+        <div class="cl-dialog-head">
+          <div>
+            <p class="cl-eyebrow">Nội dung lớp học</p>
+            <h2 id="lesson-modal-title">Thêm buổi học</h2>
+            <p>Tạo một mốc rõ ràng trên dòng thời gian của lớp.</p>
           </div>
-          <div class="adm-field">
-            <label for="lf-date">Ngày học (tuỳ chọn)</label>
-            <input id="lf-date" type="date" />
+          <button class="cl-icon-button" id="btn-lf-close" type="button" aria-label="Đóng hộp thoại">×</button>
+        </div>
+        <form id="lesson-form">
+          <div class="cl-form-section">
+            <div class="cl-form-section__head"><strong>Lịch học</strong><span>Buổi số và ngày học giúp học viên định vị nội dung.</span></div>
+            <div class="cl-form-row">
+              <div class="adm-field">
+                <label for="lf-no">Buổi số <span class="adm-hint">(tuỳ chọn)</span></label>
+                <input id="lf-no" type="number" min="1" step="1" />
+              </div>
+              <div class="adm-field">
+                <label for="lf-date">Ngày học <span class="adm-hint">(tuỳ chọn)</span></label>
+                <input id="lf-date" type="date" />
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="adm-field">
-          <label for="lf-title">Tiêu đề</label>
-          <input id="lf-title" type="text" maxlength="300" />
-        </div>
-        <div class="adm-field">
-          <label for="lf-body">Nội dung</label>
-          <textarea id="lf-body" rows="6"></textarea>
-        </div>
-        <div class="adm-field">
-          <label>Tài liệu</label>
-          <div id="lf-attachments"></div>
-          <button class="adm-btn-secondary" id="btn-lf-add-file" type="button">Thêm tài liệu</button>
-        </div>
-        <label class="cl-check">
-          <input id="lf-published" type="checkbox" />
-          Đăng cho học viên xem
-        </label>
-        <div class="adm-banner" id="lf-error" hidden></div>
-        <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-lf-cancel" type="button">Huỷ</button>
-          <button class="adm-btn-primary" id="btn-lf-submit" type="button">Lưu</button>
-        </div>
+          <div class="cl-form-section">
+            <div class="cl-form-section__head"><strong>Nội dung chính</strong><span>Tiêu đề là bắt buộc; nội dung có thể bổ sung sau.</span></div>
+            <div class="adm-field">
+              <label for="lf-title">Tiêu đề <span aria-hidden="true">*</span></label>
+              <input id="lf-title" type="text" maxlength="300" required aria-required="true" />
+            </div>
+            <div class="adm-field">
+              <label for="lf-body">Nội dung</label>
+              <textarea id="lf-body" rows="6" placeholder="Mục tiêu, nội dung đã học, việc cần chuẩn bị…"></textarea>
+            </div>
+          </div>
+          <div class="cl-form-section">
+            <div class="cl-form-section__head"><strong>Tài liệu</strong><span>Mỗi tài liệu cần có tên và đường dẫn hợp lệ.</span></div>
+            <div class="adm-field">
+              <div id="lf-attachments"></div>
+              <button class="adm-btn-secondary" id="btn-lf-add-file" type="button">＋ Thêm tài liệu</button>
+            </div>
+          </div>
+          <div class="cl-form-section cl-publish-section">
+            <div>
+              <strong>Hiển thị cho học viên</strong>
+              <p class="adm-hint">Tắt để lưu bản nháp; bạn có thể đăng sau.</p>
+            </div>
+            <label class="cl-switch">
+              <input id="lf-published" type="checkbox" />
+              <span aria-hidden="true"></span>
+              <em>Đăng ngay</em>
+            </label>
+          </div>
+          <div class="adm-banner" id="lf-error" hidden></div>
+          <div class="adm-modal-actions">
+            <button class="adm-btn-secondary" id="btn-lf-cancel" type="button">Huỷ</button>
+            <button class="adm-btn-primary" id="btn-lf-submit" type="submit">Lưu buổi học</button>
+          </div>
+        </form>
       </div>
     </div>
 
