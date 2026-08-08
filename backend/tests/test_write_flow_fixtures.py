@@ -245,6 +245,42 @@ def _check_instructor_deliver(fx):
     )
 
 
+def _check_course_exercises(fx):
+    """Bài tập ngữ pháp theo buổi — lượt chính gồm nhiều CHẶNG.
+
+    Nối tới CHÍNH bộ kiểm câu hỏi của production (`quiz_import.validate_question`)
+    và tới hằng số chia chặng của bộ chạy (`course-runner.js: STAGE = 10`,
+    `stages = ceil(len / STAGE)`).
+    """
+    from services.quiz_import import validate_question
+
+    qs = fx["questions"]
+    assert qs, "không có câu hỏi nào — luồng sẽ xanh mà chưa làm gì"
+    for q in qs:
+        loi = validate_question(q)
+        assert not loi, f"câu {q.get('qid')!r} không qua được bộ kiểm thật: {loi}"
+
+    # Số chặng phải là SỐ NGUYÊN và ≥ 2. Một chặng thì không chứng minh được điều
+    # luồng này sinh ra để chứng minh: verdict gom ĐỦ các phiên chặng.
+    stage = fx["stage_size"]
+    assert len(qs) % stage == 0, (
+        f"{len(qs)} câu không chia hết cho {stage} — chặng cuối lẻ, bước bấm sẽ lệch")
+    assert len(qs) // stage >= 2, "cần ≥2 chặng mới kiểm được việc GOM phiên"
+
+    # `completed` do SERVER trả (get_course_resume) chính là danh sách gửi đi xét
+    # đạt. Rỗng thì luồng chỉ chứng minh «gửi một phiên», tức mất đúng phần quý.
+    done = fx["resume"]["completed"]
+    assert done, "`resume.completed` rỗng — không kiểm được việc giữ phiên chặng trước"
+    assert fx["session_stage1"] in done, "`completed` không chứa phiên chặng 1"
+    assert fx["session_new"] not in done, (
+        "phiên MỚI không được nằm sẵn trong `completed` — nó do lượt này cấp")
+
+    # Chặng đang đứng phải khớp số phiên đã chốt, nếu không trang resume vào chặng
+    # khác với chặng mà fixture mô tả.
+    assert fx["resume"]["stage"] == len(done), (
+        f"stage={fx['resume']['stage']} nhưng completed có {len(done)} phiên")
+
+
 VALIDATORS = {
     "listening-mcq": lambda fx: _validate_mcq_payload(fx["payload"]),
     "listening-tf": lambda fx: _validate_true_false_payload(fx["payload"]),
@@ -253,6 +289,7 @@ VALIDATORS = {
     "reading-review": _check_reading_review,
     "listening-test": _check_listening_test,
     "instructor-deliver": _check_instructor_deliver,
+    "course-exercises": _check_course_exercises,
 }
 
 
@@ -285,6 +322,8 @@ UUID_KEYS = {
     "listening-test": ("test_id", "attempt_id", "class_item"),
     # `writing_essays.id`, `instructor_reviews.id`, `profiles.id` đều UUID.
     "instructor-deliver": ("essay_id", "review_id", "as_instructor"),
+    # `quiz_banks.id`, `quiz_sessions.id`, `class_assignment_items.id` đều UUID.
+    "course-exercises": ("bank_id", "item_id", "session_stage1", "session_new"),
 }
 
 
