@@ -60,21 +60,15 @@ const NẠP_MODULE = pages().filter((f) => LÀ_MODULE.test(khôngChúThích(f)))
 // trang hỏng, tức nó nói dối bằng cách bỏ sót. Ghi thành danh sách thì (1) một
 // trang MỚI không thể lặng lẽ nhập hội, (2) danh sách chỉ có thể ngắn đi, và
 // (3) người đọc thấy đúng quy mô còn lại.
-const CHƯA_VÁ = new Set([
-  '(authed-exercises)/exercises/page.tsx',
-  '(authed-flashcards)/flashcards/page.tsx',
-  '(authed-listening)/listening/analytics/page.tsx',
-  '(authed-listening)/listening/browse/page.tsx',
-  '(authed-listening)/listening/mini-test/page.tsx',
-  '(authed-listening)/listening/page.tsx',
-  '(authed-listening)/listening/practice/page.tsx',
-  '(authed-listening)/listening/skills/page.tsx',
-  '(authed-listening)/listening/tests/page.tsx',
-  '(authed-reading)/reading/mini-test/page.tsx',
-  '(authed-reading)/reading/skill/page.tsx',
-  '(authed-reading)/reading/test/page.tsx',
-  '(authed-reading)/reading/vocab/page.tsx',
-]);
+// NỢ ĐÃ TRẢ HẾT (2026-08-08). Danh sách này từng có 13 trang port từ các đợt
+// TRƯỚC, nạp module bằng `<script type="module" src>` trần. Sáu trang đã thử
+// đều tái hiện React #418 dưới `repro-418.mjs --slow-react`, và chúng đang
+// chạy production.
+//
+// GIỮ LẠI SET RỖNG thay vì xoá hẳn cơ chế: ngân sách 0 dưới đây biến "thêm một
+// trang vào danh sách nợ" thành lỗi đỏ ngay, nên không ai có thể nới cổng bằng
+// cách khai nợ mới.
+const CHƯA_VÁ = new Set([]);
 
 const rel = (f) => path.relative(APP, f);
 const ĐÃ_VÁ = NẠP_MODULE.filter((f) => !CHƯA_VÁ.has(rel(f)));
@@ -126,9 +120,9 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
   // hỏng vào `CHƯA_VÁ` sẽ loại nó khỏi CẢ `ĐÃ_VÁ` LẪN danh sách "trang lạ", nên
   // toàn bộ suite vẫn xanh. Một allowlist tự nới được thì không phải cổng.
   test('danh sách nợ KHÔNG được dài thêm', () => {
-    assert.ok(CHƯA_VÁ.size <= 13,
-      `CHƯA_VÁ có ${CHƯA_VÁ.size} mục — chỉ được PHÉP ngắn đi. Vá trang mới, `
-      + 'đừng thêm nó vào danh sách nợ.');
+    assert.equal(CHƯA_VÁ.size, 0,
+      `CHƯA_VÁ có ${CHƯA_VÁ.size} mục. Nợ đã trả hết ngày 2026-08-08 — ngân sách `
+      + 'là 0. Vá trang mới, đừng khai nó thành nợ.');
   });
 
   test('không trang MỚI nào nhập hội danh sách chưa vá', () => {

@@ -11,6 +11,9 @@
 // `/pages/listening-practice.html` vẫn trả 200 và đó là CỐ Ý: cổng parity chỉ so được khi
 // cả hai vế còn sống.
 import type { Metadata } from 'next';
+import HydratedSignal from '@/components/hydrated-signal';
+import LegacyModule from '@/components/legacy-module';
+import { watchdogScript } from '@/lib/watchdog-script';
 
 import { ListeningPracticeShell } from './page-shell';
 
@@ -25,12 +28,17 @@ export default function ListeningPracticePage() {
     <>
       <link rel="stylesheet" href="/css/listening-practice.css" />
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
+      <HydratedSignal />
       {/* @ts-ignore */}
       <aver-chrome active="listening" />
       <ListeningPracticeShell />
       {/* CHÍNH tệp bản legacy dùng. `type="module"` nên nó hoãn tới sau khi parse
           — cùng thời điểm với bản legacy, vốn đặt thẻ này cuối <body>. */}
-      <script type="module" src="/js/listening-practice.js" />
+      <LegacyModule src="/js/listening-practice.js" />
+      {/* Duong lui khi chunk React hong han: useEffect khong chay thi script
+          khong duoc chen va trang dung im vinh vien. Script nay chay NGOAI
+          React va chi dieu huong, khong dung DOM. */}
+      <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/listening-practice.html') }} />
     </>
   );
 }
