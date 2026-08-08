@@ -448,6 +448,7 @@ def change_assignment_due_at(
     new_due_at: Optional[str],
     expected_due_at: Optional[str],
     confirm_rewrites: bool = False,
+    confirmed_flips: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Đổi hạn nộp của một bài giao. Ném `DueChangeRefused`.
 
@@ -494,10 +495,29 @@ def change_assignment_due_at(
             submitted.append(chunk["submitted_at"])
 
     flips = _flips(submitted, old_due, new_due)
-    if (flips["to_ontime"] or flips["to_late"]) and not confirm_rewrites:
-        raise DueChangeRefused(
-            "Đổi hạn này viết lại hồ sơ đúng-hạn của những em đã nộp.",
-            {"needs_confirm": True, "flips": flips, "current_due_at": old_raw})
+    if flips["to_ontime"] or flips["to_late"]:
+        # XÁC NHẬN LÀ XÁC NHẬN CHO MỘT CON SỐ CỤ THỂ, không phải một cái cờ.
+        #
+        # Giữa lần bị từ chối và lần bấm lại, danh sách lượt nộp có thể đã khác:
+        # một em nộp xen vào đúng lúc giáo viên đang dời hạn về trước. Khi ấy
+        # `flips` tính lại ra con số KHÁC, mà chốt so-sánh-rồi-đổi ở trên chỉ
+        # canh `class_assignments.due_at` nên nó không thấy gì — giáo viên xác
+        # nhận hai hồ sơ và hệ thống viết lại ba (codex #1005).
+        #
+        # Nên đòi người gọi nêu lại CHÍNH con số họ vừa nhìn thấy. Lệch, hoặc
+        # không nêu, thì đó không phải một lời xác nhận: từ chối lần nữa, kèm
+        # con số MỚI, để họ đọc lại rồi quyết lại.
+        if not confirm_rewrites or confirmed_flips is None:
+            raise DueChangeRefused(
+                "Đổi hạn này viết lại hồ sơ đúng-hạn của những em đã nộp.",
+                {"needs_confirm": True, "flips": flips, "current_due_at": old_raw})
+        seen = {k: int(confirmed_flips.get(k) or 0) for k in ("to_ontime", "to_late")}
+        if seen != flips:
+            raise DueChangeRefused(
+                "Số lượt bị ảnh hưởng vừa đổi (có em nộp xen vào). Đọc lại con "
+                "số mới rồi quyết lại.",
+                {"needs_confirm": True, "flips": flips, "confirmed_flips": seen,
+                 "stale_confirmation": True, "current_due_at": old_raw})
 
     patch = {"due_at": new_due_at, "updated_at": datetime.now(timezone.utc).isoformat()}
     q = (db.table("class_assignments").update(patch)

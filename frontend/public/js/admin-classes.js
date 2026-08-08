@@ -2515,7 +2515,39 @@ async function openEffort(bankId, assignmentId, title) {
  *     khác vừa đổi (codex #996).
  */
 let _dueAsg = null;          // { id, title, expected } — hạn lúc mở hộp
-let _dueFlips = null;        // con số máy chủ trả về khi nó từ chối lần đầu
+/**
+ * Lời cảnh báo máy chủ vừa trả về, GẮN VỚI ĐÚNG ngày/giờ đã hiện ra cùng nó:
+ * `{ flips, date, time }`.
+ *
+ * Giữ mỗi con số thì sau khi đọc cảnh báo cho ngày 09/08, giáo viên đổi sang
+ * 12/08 (hoặc bấm "Bỏ hạn") rồi bấm lưu — và lệnh đi kèm cờ xác nhận cho một đề
+ * nghị mà con số của nó chưa ai từng nhìn thấy (codex #1005). Xác nhận là xác
+ * nhận cho MỘT đề nghị cụ thể, nên nó phải mang theo đề nghị ấy.
+ */
+let _dueFlips = null;
+
+/** Đề nghị hiện đang nằm trong hộp. Dùng để so với thứ đã được cảnh báo. */
+const dueProposal = () => ({
+  date: $('due-date').value || null,
+  time: ($('due-date').value ? ($('due-time').value || '19:00') : null),
+});
+
+/** Cảnh báo đang cầm có đúng là cảnh báo CHO đề nghị đang nằm trong hộp không. */
+function dueConfirmed() {
+  if (!_dueFlips) return false;
+  const p = dueProposal();
+  return _dueFlips.date === p.date && _dueFlips.time === p.time;
+}
+
+/** Sửa ô nhập là đề nghị đã khác — lời cảnh báo cũ hết hiệu lực, cất nó đi. */
+function syncDueWarning() {
+  if (dueConfirmed()) return;
+  _dueFlips = null;
+  const w = $('due-warn');
+  if (w) { w.hidden = true; w.innerHTML = ''; }
+  const ok = $('btn-due-ok');
+  if (ok) ok.textContent = 'Đổi hạn';
+}
 
 /** Mốc thời gian → { date: 'YYYY-MM-DD', time: 'HH:MM' } theo GIỜ VIỆT NAM. */
 function dueParts(dueAt) {
@@ -2555,19 +2587,24 @@ function closeDueEdit() {
 
 async function saveDue() {
   if (!_dueAsg) return;
-  const date = $('due-date').value || null;
-  const time = $('due-time').value || null;
+  const p = dueProposal();
+  // Xác nhận CHỈ có hiệu lực cho đúng đề nghị đã được cảnh báo. Đổi ngày/giờ
+  // xong mới bấm thì đây là một đề nghị khác, và nó phải đi qua vòng đếm lại.
+  const confirmed = dueConfirmed();
   try {
     const r = await api.patch(
       '/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(_dueAsg.id) + '/due',
       {
-        due_date: date,
-        due_time: date ? (time || '19:00') : null,
+        due_date: p.date,
+        due_time: p.time,
         expected_due_at: _dueAsg.expected,
         // Chỉ gửi cờ xác nhận sau khi máy chủ ĐÃ nói ra con số và người dùng
         // bấm lần thứ hai. Gửi sẵn từ đầu là bỏ qua chính cái chốt ấy.
-        confirm_rewrites: !!_dueFlips,
+        confirm_rewrites: confirmed,
+        // Và nêu lại CHÍNH con số đã hiện ra: máy chủ đếm lại rồi so, vì giữa
+        // hai lần bấm có thể có em nộp xen vào.
+        confirmed_flips: confirmed ? _dueFlips.flips : null,
       });
     toast(r && r.due_at
       ? 'Đã đổi hạn. Bài giao nhận bài trở lại nếu hạn mới còn ở phía trước.'
@@ -2580,7 +2617,8 @@ async function saveDue() {
     if (d.needs_confirm && d.flips) {
       // Nói ra CON SỐ rồi mới hỏi lại. "Đổi hạn này viết lại hồ sơ của ai đó" mà
       // không kèm số thì giáo viên không có gì để cân nhắc.
-      _dueFlips = d.flips;
+      // Gắn con số vào ĐÚNG đề nghị vừa gửi, không phải vào ô nhập lúc đọc lại.
+      _dueFlips = { flips: d.flips, date: p.date, time: p.time };
       const bits = [];
       if (d.flips.to_ontime) {
         bits.push(`<strong>${d.flips.to_ontime}</strong> lượt đang tính là NỘP TRỄ `
@@ -2592,7 +2630,10 @@ async function saveDue() {
       }
       const w = $('due-warn');
       w.hidden = false;
-      w.innerHTML = 'Hạn mới viết lại hồ sơ đã có: ' + bits.join(', ')
+      w.innerHTML = (d.stale_confirmation
+          ? 'Số lượt bị ảnh hưởng vừa đổi (có em nộp xen vào). Nay là: '
+          : 'Hạn mới viết lại hồ sơ đã có: ')
+        + (bits.join(', ') || 'không lượt nào')
         + '. Đây là hồ sơ của học viên, không phải một con số hiển thị — '
         + 'bấm lần nữa nếu vẫn muốn đổi.';
       $('btn-due-ok').textContent = 'Vẫn đổi hạn';
@@ -3432,8 +3473,13 @@ function bindDetail() {
     // Bỏ hạn là một trạng thái hợp lệ ("không hạn"), nên nó phải bấm được chứ
     // không phải xoá tay ô ngày rồi đoán xem có ăn không.
     $('due-date').value = '';
-    $('due-warn').hidden = true;
+    syncDueWarning();
   });
+  // Sửa ô nhập là đổi đề nghị — cất lời cảnh báo của đề nghị cũ đi ngay, để
+  // màn hình không đứng đó nói về một con số của thứ khác. Chốt thật nằm ở
+  // `dueConfirmed()`; hai chỗ này chỉ giữ cho mắt và tay khớp nhau.
+  $('due-date').addEventListener('input', syncDueWarning);
+  $('due-time').addEventListener('input', syncDueWarning);
   bindModalBackdrop('due-modal', closeDueEdit);
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));

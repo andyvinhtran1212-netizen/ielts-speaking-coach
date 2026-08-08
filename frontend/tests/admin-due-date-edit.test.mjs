@@ -50,7 +50,7 @@ function load({ patchFails = null, homework = null } = {}) {
     '$', 'api', 'toast', 'dueText', '_homework', '_cohortId',
     'loadHomework', 'invalidateProgress',
     `${SRC.slice(start, end)}
-     return { openDueEdit, closeDueEdit, saveDue, dueParts,
+     return { openDueEdit, closeDueEdit, saveDue, dueParts, syncDueWarning,
               peek: () => ({ asg: _dueAsg, flips: _dueFlips }) };`,
   )(
     el, api, (m, k) => seen.toasts.push({ m, k }), (d) => String(d || 'không hạn'),
@@ -183,6 +183,77 @@ describe('máy chủ đếm được bao nhiêu hồ sơ bị viết lại thì 
     assert.equal(seen.reloads, 1);
   });
 
+  test('đổi NGÀY sau khi đã đọc cảnh báo thì lời xác nhận hết hiệu lực', async () => {
+    // Cảnh báo là cảnh báo CHO một đề nghị cụ thể. Giữ nó qua một đề nghị khác
+    // nghĩa là gửi cờ xác nhận cho con số chưa ai từng nhìn thấy (codex #1005).
+    const { openDueEdit, saveDue, el, seen, box } =
+      load({ patchFails: refuse({ to_ontime: 3, to_late: 0 }) });
+    openDueEdit('a1', DUE, 'Grammar 1');
+    el('due-date').value = '2026-08-09';
+    await saveDue();                                  // cảnh báo cho 09/08
+
+    box.fail = null;
+    el('due-date').value = '2026-08-12';              // đề nghị KHÁC
+    await saveDue();
+    assert.equal(seen.patches[1].body.due_date, '2026-08-12');
+    assert.equal(seen.patches[1].body.confirm_rewrites, false,
+      'ngày đã khác thì con số cũ không xác nhận cho nó được');
+    assert.equal(seen.patches[1].body.confirmed_flips, null);
+  });
+
+  test('đổi GIỜ cũng thế', async () => {
+    const { openDueEdit, saveDue, el, seen, box } =
+      load({ patchFails: refuse({ to_ontime: 1, to_late: 0 }) });
+    openDueEdit('a1', DUE, 'Grammar 1');
+    el('due-date').value = '2026-08-09';
+    el('due-time').value = '19:00';
+    await saveDue();
+
+    box.fail = null;
+    el('due-time').value = '08:00';                   // sáng thay vì tối
+    await saveDue();
+    assert.equal(seen.patches[1].body.confirm_rewrites, false);
+  });
+
+  test('bấm "Bỏ hạn" sau cảnh báo cũng phải đếm lại', async () => {
+    const { openDueEdit, saveDue, el, seen, box } =
+      load({ patchFails: refuse({ to_ontime: 2, to_late: 0 }) });
+    openDueEdit('a1', DUE, 'Grammar 1');
+    el('due-date').value = '2026-08-09';
+    await saveDue();
+
+    box.fail = null;
+    el('due-date').value = '';                        // bỏ hạn — đề nghị khác hẳn
+    await saveDue();
+    assert.equal(seen.patches[1].body.due_date, null);
+    assert.equal(seen.patches[1].body.confirm_rewrites, false);
+  });
+
+  test('sửa ô nhập thì lời cảnh báo trên màn hình cũng biến mất', async () => {
+    const { openDueEdit, saveDue, syncDueWarning, el } =
+      load({ patchFails: refuse({ to_ontime: 3, to_late: 0 }) });
+    openDueEdit('a1', DUE, 'Grammar 1');
+    el('due-date').value = '2026-08-09';
+    await saveDue();
+    assert.equal(el('due-warn').hidden, false);
+
+    el('due-date').value = '2026-08-12';
+    syncDueWarning();                                  // trang gọi khi gõ
+    assert.equal(el('due-warn').hidden, true, 'để lại là nói về con số của thứ khác');
+    assert.equal(el('btn-due-ok').textContent, 'Đổi hạn');
+  });
+
+  test('xác nhận mang theo ĐÚNG con số đã hiện ra', async () => {
+    const { openDueEdit, saveDue, el, seen, box } =
+      load({ patchFails: refuse({ to_ontime: 3, to_late: 1 }) });
+    openDueEdit('a1', DUE, 'Grammar 1');
+    el('due-date').value = '2026-08-09';
+    await saveDue();
+    box.fail = null;
+    await saveDue();
+    assert.deepEqual(seen.patches[1].body.confirmed_flips, { to_ontime: 3, to_late: 1 });
+  });
+
   test('mở lại hộp là QUÊN lời xác nhận cũ', async () => {
     // Xác nhận là cho ĐÚNG cái hạn vừa nhìn thấy con số. Giữ nó qua lần mở sau
     // nghĩa là lần đổi kế tiếp bỏ qua chốt đếm mà không ai bấm gì.
@@ -191,7 +262,7 @@ describe('máy chủ đếm được bao nhiêu hồ sơ bị viết lại thì 
     openDueEdit('a1', DUE, 'Grammar 1');
     el('due-date').value = '2026-08-09';
     await saveDue();
-    assert.deepEqual(peek().flips, { to_ontime: 3, to_late: 0 });
+    assert.deepEqual(peek().flips.flips, { to_ontime: 3, to_late: 0 });
 
     openDueEdit('a1', DUE, 'Grammar 1');              // mở lại
     assert.equal(peek().flips, null);

@@ -142,9 +142,48 @@ def test_a_refused_change_does_not_touch_the_row():
 def test_confirming_lets_it_through_and_reports_what_it_rewrote():
     asg = _asg()
     out = _change(_db(asg, _items("2026-08-08T10:00:00+07:00")),
-                  confirm_rewrites=True)
+                  confirm_rewrites=True,
+                  confirmed_flips={"to_ontime": 1, "to_late": 0})
     assert asg[0]["due_at"] == NEW
     assert out["flips"] == {"to_ontime": 1, "to_late": 0}
+
+
+def test_a_confirmation_that_names_no_number_is_not_a_confirmation():
+    """Cờ suông không đủ: nó không chứng minh người bấm đã ĐỌC con số nào."""
+    asg = _asg()
+    with pytest.raises(DueChangeRefused) as e:
+        _change(_db(asg, _items("2026-08-08T10:00:00+07:00")), confirm_rewrites=True)
+    assert e.value.payload["needs_confirm"] is True
+    assert asg[0]["due_at"] == OLD
+
+
+def test_a_submission_landing_between_the_warning_and_the_retry_stops_it():
+    """Giáo viên xác nhận HAI hồ sơ, hệ thống sắp viết lại BA.
+
+    Chốt so-sánh-rồi-đổi chỉ canh `class_assignments.due_at` nên nó không thấy
+    danh sách lượt nộp vừa dài thêm — phải so chính con số (codex #1005).
+    """
+    asg = _asg()
+    db = _db(asg, _items("2026-08-08T10:00:00+07:00",
+                         "2026-08-08T11:00:00+07:00",   # em nộp xen vào
+                         "2026-08-08T12:00:00+07:00"))
+    with pytest.raises(DueChangeRefused, match="vừa đổi") as e:
+        _change(db, confirm_rewrites=True,
+                confirmed_flips={"to_ontime": 2, "to_late": 0})
+    assert e.value.payload["stale_confirmation"] is True
+    assert e.value.payload["flips"] == {"to_ontime": 3, "to_late": 0}
+    assert e.value.payload["confirmed_flips"] == {"to_ontime": 2, "to_late": 0}
+    assert asg[0]["due_at"] == OLD, "con số đã khác thì đừng ghi"
+
+
+def test_confirming_the_refreshed_number_goes_through():
+    asg = _asg()
+    out = _change(_db(asg, _items("2026-08-08T10:00:00+07:00",
+                                  "2026-08-08T11:00:00+07:00")),
+                  confirm_rewrites=True,
+                  confirmed_flips={"to_ontime": 2, "to_late": 0})
+    assert asg[0]["due_at"] == NEW
+    assert out["flips"] == {"to_ontime": 2, "to_late": 0}
 
 
 def test_students_who_never_handed_in_are_not_counted_as_rewritten():

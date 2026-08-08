@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -2105,6 +2105,9 @@ class DuePatch(BaseModel):
     # Hạn mà MÀN HÌNH ĐANG HIỆN. Bắt buộc nêu — xem `change_assignment_due_at`.
     expected_due_at: Optional[str] = None
     confirm_rewrites: bool = False
+    # CON SỐ mà màn hình vừa hiện ra cho giáo viên đọc. Xác nhận suông (chỉ cờ)
+    # không đủ: danh sách lượt nộp có thể đã khác giữa hai lần bấm.
+    confirmed_flips: Optional[Dict[str, int]] = None
 
 
 @router.patch("/{cohort_id}/assignments/{assignment_id}/due")
@@ -2152,6 +2155,7 @@ async def update_assignment_due(
             new_due_at=new_due_at,
             expected_due_at=body.expected_due_at,
             confirm_rewrites=body.confirm_rewrites,
+            confirmed_flips=body.confirmed_flips,
         )
     except DueChangeRefused as exc:
         # 409 kèm NGUYÊN con số: màn hình phải nói được "đổi hạn này biến 3 lượt
