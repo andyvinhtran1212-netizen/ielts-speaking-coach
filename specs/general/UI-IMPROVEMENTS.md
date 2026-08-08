@@ -258,6 +258,85 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 - Reworked the standalone Listening drill importer card/button/status styling
   and removed its 375px horizontal overflow caused by intrinsic file-input
   sizing.
+
+---
+
+# Learner My Class and course quiz redesign
+
+> Audit date: 2026-08-08
+> Scope: `/pages/my-class.html`, the course-exercises quiz, answer feedback,
+> mastery verdicts, and the learner-facing session/revision report.
+
+## Summary
+
+The existing surfaces already preserve the important product rules: deadlines
+come from the server, quiz progress is persisted in sessions, answers are
+explained after selection, and mastery decisions come from the backend ledger.
+The UX problem is hierarchy. My Class presents one long stack; quiz feedback is
+encoded mainly through borders; and the verdict exposes only the latest score,
+forcing learners to remember how a full run and later revision relate.
+
+The redesign uses a single learning trail: **My Class → active quiz → session
+summary → revision decision → answer report**. It does not change thresholds,
+retry eligibility, grading, autosave, or deadline contracts.
+
+## Critical issues
+
+None found that require a schema or grading rewrite.
+
+## High priority improvements
+
+### Issue: My Class has no stable visual priority
+
+- **Root cause:** deadline, four summary figures, assignment groups, rhythm,
+  and lesson notes all occupy the same single-column reading flow.
+- **Severity:** Medium.
+- **Impact:** the learner must scan most of the page to answer “what should I do
+  now?”, especially on a returning visit.
+- **Impacted files:** `frontend/public/pages/my-class.html`,
+  `frontend/public/js/my-class.js`.
+- **Minimal fix:** place class identity and totals in one hero, give the nearest
+  deadline one dominant card, keep actionable assignments in the main column,
+  and move rhythm/lesson notes to a quieter responsive rail.
+- **Verification:** 375px/768px/1280px checks with no class, empty assignment,
+  overdue, partial writing, and active-deadline fixtures.
+
+### Issue: Correct answer and explanation require visual inference
+
+- **Root cause:** answer state is mostly a changed option border/key and the
+  explanation block has no explicit label or answer sentence.
+- **Severity:** Medium.
+- **Impact:** a learner can see that something changed without immediately
+  understanding “what I chose, what is correct, and why”.
+- **Impacted files:** `course-behavior.tsx`, `course-exercises.css`.
+- **Minimal fix:** add textual state badges, a direct correct-answer summary,
+  a labelled explanation block, and preserve the selected distractor trap.
+- **Verification:** keyboard-select a correct and wrong answer; verify labels,
+  focus, contrast, and that the original grading/persistence calls are unchanged.
+
+### Issue: Retry consequences are not visible as a learning trail
+
+- **Root cause:** verdict copy explains the next action but has no canonical
+  history table; learners cannot distinguish a 10-session full run from a
+  one-session revision without remembering earlier screens.
+- **Severity:** Medium.
+- **Impact:** uncertainty about whether old answers carry over and why a full
+  retry versus short revision is required.
+- **Impacted files:** `backend/services/quiz_service.py`, `course-behavior.tsx`,
+  `course-report.js`, `course-report.css`.
+- **Minimal fix:** expose a learner-safe projection of the mastery ledger and
+  render a Session & Revision table with phase, session count, score, timestamp,
+  and canonical next action. Explicitly warn that answers do not carry over.
+- **Verification:** full fail → full retry → near pass → revision → pass; compare
+  the table against persisted mastery attempts after reload.
+
+## Positive observations to preserve
+
+- Immediate answer feedback and distractor-specific explanations are valuable.
+- Autosave, page-hide flushing, server-side regrading, and retry eligibility
+  remain backend truths and are not replaced with optimistic UI state.
+- The shared Aver token system, Plus Jakarta Sans, mono numerics, dark theme,
+  reduced motion, and 44px mobile targets remain canonical.
 - Browser checks covered Overview, Grammar, Users, Reading, the mobile drawer,
   and the standalone importer at 375px; chrome pages remained at viewport
   width, with active navigation truth preserved.

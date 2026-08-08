@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Lớp của tôi · Aver Learning</title>
+  <title>My Class · Aver Learning</title>
 
   <script>
     (function () {
@@ -230,6 +230,9 @@
     [hidden] { display: none !important; }
     body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   </style>
+  <!-- Redesign layer: kept separate from the behavioural DOM contract so the
+       class page can evolve without turning its HTML into another CSS bundle. -->
+  <link rel="stylesheet" href="/css/my-class.css" />
 </head>
 <body class="av-page">
   <aver-chrome active="class"></aver-chrome>
@@ -239,8 +242,10 @@
 
     <!-- Không thuộc lớp nào: một trạng thái bình thường, không phải lỗi. -->
     <section id="mc-noclass" hidden>
-      <header class="mc-head">
-        <h1>Lớp của tôi</h1>
+      <header class="mc-head mc-head--empty">
+        <p class="mc-eyebrow">MY CLASS</p>
+        <h1>Không gian lớp học của bạn</h1>
+        <p class="mc-lead">Bài tập, deadline và nội dung từng buổi sẽ được gom về một nơi.</p>
       </header>
       <div class="mc-empty">
         Bạn chưa được xếp vào lớp nào. Khi giảng viên thêm bạn vào lớp, bài tập và
@@ -249,62 +254,80 @@
     </section>
 
     <div id="mc-content" hidden>
-      <header class="mc-head">
-        <h1 id="mc-class-name">Lớp của tôi</h1>
-        <div class="mc-course" id="mc-course"></div>
+      <header class="mc-hero">
+        <div class="mc-head">
+          <p class="mc-eyebrow">MY CLASS</p>
+          <h1 id="mc-class-name">Lớp của tôi</h1>
+          <div class="mc-course" id="mc-course"></div>
+          <p class="mc-lead">Theo dõi việc cần làm, nhịp nộp bài và nội dung mới nhất từ lớp.</p>
+        </div>
+        <section class="mc-stats" id="mc-stats" aria-label="Tổng quan bài tập"></section>
       </header>
 
       <div class="mc-warn" id="mc-degraded" hidden></div>
 
       <!-- Đếm ngược tới hạn gần nhất — chỉ hiện khi thật sự còn bài chưa nộp. -->
       <section class="mc-due-now" id="mc-due-now" hidden>
-        <div>
+        <div class="mc-due-now__task">
+          <p class="mc-kicker">Ưu tiên tiếp theo</p>
           <h2 id="mc-due-title">—</h2>
           <p class="mc-item-sub" id="mc-due-sub"></p>
         </div>
-        <div>
+        <div class="mc-due-now__clock">
           <div class="mc-countdown" id="mc-countdown" role="timer" aria-live="polite">—</div>
           <div class="mc-countdown-label" id="mc-countdown-label"></div>
         </div>
         <button class="mc-btn" id="mc-due-start" type="button">Làm bài</button>
       </section>
 
-      <!-- NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một vạch.
-           Lớp giao bài gần như mỗi ngày, nên câu hỏi thật của học viên không
-           phải "hạn hôm nay là mấy giờ" mà là "mình có đang đều không". Bốn ô
-           thống kê trả lời được câu đầu, không trả lời được câu sau. -->
-      <section class="mc-rhythm" id="mc-rhythm" hidden aria-label="Nhịp nộp bài 14 ngày gần nhất">
-        <span class="mc-rhythm__label">Nhịp 14 ngày</span>
-        <span class="mc-rhythm__row" id="mc-rhythm-row"></span>
-        <span class="mc-rhythm__note" id="mc-rhythm-note"></span>
-      </section>
+      <div class="mc-layout">
+        <div class="mc-worklist">
+          <div class="mc-section-head">
+            <div>
+              <p class="mc-kicker">Bài tập của bạn</p>
+              <h2>Việc cần làm</h2>
+            </div>
+            <p>Ưu tiên theo deadline, sau đó mới tới lịch sử đã nộp.</p>
+          </div>
 
-      <section class="mc-stats" id="mc-stats"></section>
+          <section class="mc-group" id="mc-group-missing" hidden>
+            <h2>Quá hạn chưa nộp</h2>
+            <div class="mc-list" id="mc-missing"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-missing" hidden>
-        <h2>Quá hạn chưa nộp</h2>
-        <div class="mc-list" id="mc-missing"></div>
-      </section>
+          <section class="mc-group" id="mc-group-todo" hidden>
+            <h2>Cần nộp</h2>
+            <div class="mc-list" id="mc-todo"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-todo" hidden>
-        <h2>Cần nộp</h2>
-        <div class="mc-list" id="mc-todo"></div>
-      </section>
+          <section class="mc-group" id="mc-group-done" hidden>
+            <h2>Đã nộp</h2>
+            <div class="mc-list" id="mc-done"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-done" hidden>
-        <h2>Đã nộp</h2>
-        <div class="mc-list" id="mc-done"></div>
-      </section>
+          <section class="mc-group" id="mc-group-empty" hidden>
+            <h2>Bài tập</h2>
+            <div class="mc-empty">Chưa có bài tập nào. Khi giảng viên giao bài, bài sẽ hiện ở đây.</div>
+          </section>
+        </div>
 
-      <section class="mc-group" id="mc-group-empty" hidden>
-        <h2>Bài tập</h2>
-        <div class="mc-empty">Chưa có bài tập nào. Khi giảng viên giao bài, bài sẽ hiện ở đây.</div>
-      </section>
+        <aside class="mc-aside" aria-label="Nhịp học và nội dung buổi học">
+          <!-- NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một vạch. -->
+          <section class="mc-rhythm" id="mc-rhythm" hidden aria-label="Nhịp nộp bài 14 ngày gần nhất">
+            <span class="mc-rhythm__label">Nhịp 14 ngày</span>
+            <span class="mc-rhythm__row" id="mc-rhythm-row"></span>
+            <span class="mc-rhythm__note" id="mc-rhythm-note"></span>
+          </section>
 
-      <section class="mc-group" id="mc-group-lessons" hidden>
-        <h2>Buổi học</h2>
-        <div class="mc-list" id="mc-lessons"></div>
-      </section>
+          <section class="mc-group mc-lessons-panel" id="mc-group-lessons" hidden>
+            <div class="mc-lessons-head">
+              <p class="mc-kicker">Từ giảng viên</p>
+              <h2>Buổi học</h2>
+            </div>
+            <div class="mc-list" id="mc-lessons"></div>
+          </section>
+        </aside>
+      </div>
     </div>
   </main>
 

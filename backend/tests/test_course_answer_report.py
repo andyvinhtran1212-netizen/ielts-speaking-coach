@@ -367,7 +367,13 @@ def _report(*, passed):
                                    "created_at": "2026-08-06T00:59:30+00:00"}],
                 "quiz_questions": [{**q, "bank_id": "b1"} for q in QS],
                 "class_assignment_items": [{"id": "i1", "assignment_id": "a1",
-                                            "passed_at": "2026-08-06T02:00:00+00:00" if passed else None}],
+                                            "passed_at": "2026-08-06T02:00:00+00:00" if passed else None,
+                                            "mastery": {"threshold": 75, "attempts": [
+                                                {"phase": "run", "pct": 70,
+                                                 "at": "2026-08-06T01:10:00+00:00",
+                                                 "sessions": ["s1"],
+                                                 "next_action": "retake"},
+                                            ]}}],
                 "class_assignments": [{"id": "a1", "content_config": {"pass_pct": 75}}],
                 "quiz_banks": [{"id": "b1", "title": "Buổi 1"}],
             }.get(name, [])
@@ -413,6 +419,28 @@ def test_a_student_who_HAS_passed_gets_everything():
     assert q0["answer_text"] == "goes"
     assert q0["why_wrong"] == "thiếu -es"
     assert q0["explain"] == "ngôi thứ ba số ít"
+
+
+def test_the_learner_report_uses_the_canonical_mastery_history():
+    d = _report(passed=True)
+    assert d["history"] == [{
+        "number": 1,
+        "phase": "run",
+        "pct": 70.0,
+        "at": "2026-08-06T01:10:00+00:00",
+        "session_count": 1,
+        "next_action": "retake",
+    }]
+
+
+def test_history_shape_does_not_expose_raw_session_ids():
+    row = qs._course_attempt_history([{
+        "phase": "retake", "pct": "80", "at": "now",
+        "sessions": ["secret-session-id", "secret-session-id"],
+        "next_action": "passed",
+    }], 75)[0]
+    assert row["session_count"] == 1
+    assert "sessions" not in row
 
 
 def test_a_read_failure_in_the_gate_still_hides_the_answers():

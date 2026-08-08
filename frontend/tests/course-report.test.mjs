@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { renderReport, groupByAxis, needsWork, optLabel }
+import { renderReport, renderAttemptHistory, groupByAxis, needsWork, optLabel }
   from '../public/js/course-report.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -122,6 +122,38 @@ describe('con số', () => {
 
   test('chưa có câu nào thì nói ra, không vẽ bảng rỗng', () => {
     assert.match(renderReport({ questions: [], totals: {} }), /Chưa có câu nào được chấm/);
+  });
+});
+
+describe('bảng session & revision', () => {
+  const history = [
+    { number: 1, phase: 'run', pct: 62, session_count: 10,
+      next_action: 'retry_full', at: '2026-08-08T01:00:00Z' },
+    { number: 2, phase: 'run', pct: 70, session_count: 10,
+      next_action: 'retake', at: '2026-08-08T02:00:00Z' },
+    { number: 3, phase: 'retake', pct: 80, session_count: 1,
+      next_action: 'passed', at: '2026-08-08T03:00:00Z' },
+  ];
+
+  test('phân biệt full session và revision, hiện số session thật', () => {
+    const html = renderAttemptHistory(history);
+    assert.match(html, /Session &amp; revision/);
+    assert.match(html, /Full session/);
+    assert.match(html, /Revision/);
+    assert.match(html, /data-label="Session">10/);
+  });
+
+  test('nói đúng bước tiếp theo của từng lượt', () => {
+    const html = renderAttemptHistory(history);
+    assert.match(html, /Làm lại toàn bộ/);
+    assert.match(html, /Revision ngắn/);
+    assert.match(html, /Đã đạt/);
+  });
+
+  test('báo cáo vẫn hiện lịch sử khi chưa có chi tiết câu', () => {
+    const html = renderReport({ questions: [], totals: {}, history });
+    assert.match(html, /cr-history/);
+    assert.ok(!/Chưa có câu nào được chấm/.test(html));
   });
 });
 

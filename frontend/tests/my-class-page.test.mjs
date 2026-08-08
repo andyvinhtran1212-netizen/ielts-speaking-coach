@@ -677,8 +677,12 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
   const CHROME = readFileSync(
     join(HERE, '..', 'public', 'js', 'components', 'aver-chrome.js'), 'utf8');
 
-  test('có mục Lớp học, trỏ đúng trang', () => {
-    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class"/);
+  test('đổi nhãn thành MY CLASS và trỏ đúng trang', () => {
+    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class">MY CLASS<\/a>/);
+  });
+
+  test('MY CLASS có active state thật, không chỉ có data-tab', () => {
+    assert.match(CHROME, /VALID_ACTIVE\s*=\s*\[[^\]]*'class'/);
   });
 
   test('trang tự đánh dấu mình đang mở', () => {

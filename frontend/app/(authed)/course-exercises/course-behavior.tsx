@@ -74,6 +74,14 @@ export function CourseBehavior() {
       } catch (err: any) {
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
+      const title = $('cx-title');
+      if (title) title.textContent = runner.bank.title || 'Bài tập theo buổi';
+      const titleMeta = $('cx-title-meta');
+      if (titleMeta) {
+        titleMeta.textContent = `${runner.total} câu trắc nghiệm`
+          + (runner.hasWriting ? ` · ${runner.writing.length} câu tự luận` : '')
+          + ' · đáp án và giải thích hiện ngay sau mỗi câu.';
+      }
 
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
@@ -113,8 +121,8 @@ export function CourseBehavior() {
             }).format(new Date(runner.mastery.due_at))}`
           : '';
         $('cx-stage-label')!.innerHTML = (runner.mode === 'retake'
-          ? `${esc(runner.bank.title)} · <strong>kiểm tra lại · lần ${runner.retakeNo}</strong>`
-          : `${esc(runner.bank.title)} · chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`
+          ? `<strong>Revision · lần ${runner.retakeNo}</strong>`
+          : `Chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`
             + (runner.mastery && runner.mastery.passed_at
               ? ' <span class="cx-passbadge">✓ đã đạt</span>' : '')) + esc(due);
         $('cx-stage-ticks')!.innerHTML = qs.map((_q: any, i: number) => {
@@ -131,6 +139,7 @@ export function CourseBehavior() {
         const isWrite = q.type === 'writing';
 
         let body = '<div class="cx-q__head">'
+          + `<span class="cx-question-no">Câu ${runner.at + 1}/${runner.stageQuestions().length}</span>`
           + `<span class="cx-tag"><b>${esc(q.subtype || '')}</b>${esc(DANG[q.subtype] || '')}</span>`
           + dots(q.points) + '</div>'
           + `<p class="cx-q__ask">${md(ask)}</p>`
@@ -178,10 +187,19 @@ export function CourseBehavior() {
           // bắt đầu: một đống chữ mà học viên phải tự tìm phần nói về mình.
           if (role === 'miss' && res.trap) {
             el.querySelector('.cx-opt__body')!.insertAdjacentHTML('beforeend',
-              `<span class="cx-trap"><b>Bẫy ở đây</b>${esc(res.trap)}</span>`);
+              `<span class="cx-trap"><b>Vì sao lựa chọn này dễ nhầm</b>${esc(res.trap)}</span>`);
+          }
+          if (role === 'hit' || role === 'key' || role === 'miss') {
+            const label = role === 'hit' ? 'Bạn chọn · Đúng'
+              : role === 'key' ? 'Đáp án đúng' : 'Bạn chọn';
+            el.insertAdjacentHTML('beforeend', `<span class="cx-opt__state">${label}</span>`);
           }
         });
-        $('cx-why')!.innerHTML = `<div class="cx-why">${md(res.explain)}`
+        const answerText = (q.options && q.options[q.answer]) || '';
+        $('cx-why')!.innerHTML = `<div class="cx-answer-summary" data-ok="${res.correct}">`
+          + `<div><strong>${res.correct ? 'Chính xác' : 'Chưa đúng'}</strong>`
+          + `<span>Đáp án đúng: ${esc(KEYS[q.answer])}${answerText ? ` · ${md(answerText)}` : ''}</span></div></div>`
+          + `<div class="cx-why"><span class="cx-why__label">Giải thích</span>${md(res.explain)}`
           + (q.item_key ? `<span class="cx-why__axis">Trục: ${esc(q.item_key)}</span>` : '')
           + '</div>';
         $('cx-next')!.innerHTML =
@@ -211,15 +229,30 @@ export function CourseBehavior() {
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = false;
+        const accuracy = res.graded ? Math.round((res.right / res.graded) * 100) : 0;
+        const sessionName = runner.mode === 'retake'
+          ? `Revision · lần ${runner.retakeNo}` : `Chặng ${runner.stage + 1}`;
         $('cx-done')!.innerHTML =
-          `<div class="cx-done__score">${res.right}<small>/ ${res.graded} câu đúng</small></div>`
+          '<section class="cx-session-summary">'
+          + '<header class="cx-session-summary__head"><div>'
+          + '<p class="cx-eyebrow">Tổng kết session</p>'
+          + `<h2>${esc(sessionName)} đã hoàn thành</h2>`
+          + `<p>${res.persisted ? 'Kết quả đã được lưu vào tiến độ của bạn.' : 'Kết quả chưa được lưu lên hệ thống.'}</p>`
+          + `</div><div class="cx-done__score">${res.right}<small>/ ${res.graded}</small></div></header>`
+          + '<ul class="cx-session-grid">'
+          + `<li><span>Độ chính xác</span><b>${accuracy}%</b></li>`
+          + `<li><span>Số câu sai</span><b>${Math.max(0, res.graded - res.right)}</b></li>`
+          + `<li><span>Trạng thái</span><b>${res.persisted ? 'Đã lưu' : 'Chờ gửi lại'}</b></li>`
+          + '</ul>'
+          + '<div class="cx-session-focus"><h3>'
+          + (res.axes.length ? 'Trục cần xem lại trong session này' : 'Session này không có trục sai')
+          + '</h3>'
           + (res.axes.length
-            ? '<h2>Sai dồn vào những trục này</h2><ul class="cx-axes">'
-              + res.axes.map((a: any) =>
+            ? '<ul class="cx-axes">' + res.axes.map((a: any) =>
                 `<li class="cx-axis"><span>${esc(a.axis)}</span>`
-                + `<span class="cx-axis__n">${a.n} câu</span></li>`).join('')
-              + '</ul>'
-            : '<h2>Không sai câu nào trong chặng này.</h2>')
+                + `<span class="cx-axis__n">${a.n} câu</span></li>`).join('') + '</ul>'
+            : '<p class="cx-verdict__sub">Bạn đã trả lời đúng toàn bộ câu trong session.</p>')
+          + '</div></section>'
           // Chặng chưa tới máy chủ thì KHÔNG cho đi tiếp: đi tiếp là mang theo
           // một lỗ không vá được và verdict phủ-đủ-đề sẽ bác cả lượt ở phút
           // chót. Bài làm còn nguyên trong bộ nhớ — gửi lại là một lần thật.
@@ -230,12 +263,12 @@ export function CourseBehavior() {
               : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — '
                 + 'bài làm vẫn còn nguyên ở đây. '
                 + esc(res.error || 'Kiểm tra kết nối rồi gửi lại.') + '</p>'
-                + '<div class="cx-next" style="position:static">'
+                + '<div class="cx-next cx-next--inline">'
                 + '<button class="av-button av-button-primary" id="cx-resend" type="button">'
                 + 'Gửi lại kết quả chặng</button></div>')
           + (!res.persisted ? ''
             : res.hasMore
-              ? '<div class="cx-next" style="position:static">'
+              ? '<div class="cx-next cx-next--inline">'
                 + `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button></div>`
               : '<div id="cx-verdict"></div>');
         renderStage();
@@ -274,7 +307,7 @@ export function CourseBehavior() {
           ? '<button class="av-button av-button-primary" id="cx-writing" type="button">'
             + `Làm phần tự luận (${runner.writing.length} câu)</button>`
           : (writingReady && writing.submitted
-              ? '<button class="av-button" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
+              ? '<button class="av-button av-button-secondary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
         //
@@ -290,34 +323,68 @@ export function CourseBehavior() {
         // Chưa đạt: máy chủ cắt phần lộ đáp án và chỉ trả trục. Em chưa đạt
         // mới là em cần biết mình yếu chỗ nào nhất; khoá cả hai mức là sai
         // chiều (bản #964 khoá cả hai).
-        const seeReport = '<button class="av-button" id="cx-see-report" type="button">'
+        const seeReport = '<button class="av-button av-button-secondary" id="cx-see-report" type="button">'
           + (v.passed ? 'Xem lại toàn bộ bài làm' : 'Xem mình yếu trục nào')
           + '</button>';
+        const history = CR.renderAttemptHistory(v.history || []);
         if (v.passed) {
           const stillWriting = writingReady && runner.hasWriting && !writing.submitted;
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Kết quả cuối</p>'
             + `<p class="cx-verdict__title">${stillWriting
-              ? 'Đã đạt phần trắc nghiệm — còn phần tự luận để hoàn tất bài'
-              : 'Đã ĐẠT và hoàn tất bài tập buổi này'}</p>`
-            + `<p class="cx-verdict__sub">Điểm gộp <strong>${v.pct}%</strong> · ngưỡng ${v.threshold}%`
-            + (v.retakes ? ` · chốt ở lần kiểm tra lại thứ ${v.retakes}` : '')
-            + '</p>' + seeReport + more + '</div>';
+              ? 'Đã đạt phần trắc nghiệm — còn phần tự luận'
+              : 'Bạn đã đạt bài tập buổi này'}</p>`
+            + `<p class="cx-verdict__sub">Ngưỡng của lớp: ${v.threshold}%`
+            + (v.retakes ? ` · đạt sau ${v.retakes} revision` : ' · đạt ở full session')
+            + '</p></div>'
+            + `<div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><h3>Bước tiếp theo</h3>'
+            + '<ul class="cx-verdict__steps">'
+            + `<li data-step="1">${stillWriting
+              ? 'Hoàn thành phần tự luận để bài được ghi nhận là đã nộp.'
+              : 'Mở báo cáo để xem đáp án, lời giải và những trục cần củng cố.'}</li>`
+            + '<li data-step="2">Lịch sử full session và revision được giữ nguyên bên dưới.</li>'
+            + '</ul><div class="cx-verdict__actions">' + seeReport + more + '</div>'
+            + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
-            + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}%</p>`
-            + `<p class="cx-verdict__sub">Mức gần đạt bắt đầu từ ${v.near_threshold}%. `
-            + `Kết quả này chưa đủ để làm bài kiểm tra lại ${v.retake_size} câu — `
-            + `cần làm lại toàn bộ ${runner.stageCount} chặng.</p>`
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Chưa đạt · cần làm lại full session</p>'
+            + `<p class="cx-verdict__title">Điểm hiện tại chưa vào vùng gần đạt</p>`
+            + `<p class="cx-verdict__sub">Gần đạt bắt đầu từ ${v.near_threshold}% · ngưỡng đạt ${v.threshold}%.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><h3>Bạn cần làm gì?</h3>'
+            + '<ul class="cx-verdict__steps">'
+            + `<li data-step="1">Xem bảng trục yếu để biết phần nào cần ôn trước.</li>`
+            + `<li data-step="2">Bắt đầu lại toàn bộ ${runner.stageCount} chặng; revision ${v.retake_size} câu chưa mở ở mức điểm này.</li>`
+            + '</ul>'
+            + '<p class="cx-retry-warning"><strong>Lưu ý khi làm lại:</strong> '
+            + 'lượt mới không cộng dồn đáp án từ lượt cũ. Tiến độ cũ vẫn nằm trong lịch sử, '
+            + 'nhưng bạn cần hoàn thành lại toàn bộ câu của full session.</p>'
+            + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">'
-            + 'Làm lại toàn bộ bài</button>' + seeReport + more + '</div>';
+            + 'Bắt đầu full session mới</button>' + seeReport + more + '</div>'
+            + history + '</div></div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
-            + `<p class="cx-verdict__title">Gần đạt: ${v.pct}% — cần ${v.threshold}%</p>`
-            + `<p class="cx-verdict__sub">Làm bài kiểm tra lại để chốt buổi này: ${v.retake_size} câu `
-            + 'bốc ngẫu nhiên từ bộ đề, thứ tự câu và thứ tự đáp án được trộn lại — '
-            + 'thuộc vị trí không giúp gì đâu.</p>'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Gần đạt · đã mở revision</p>'
+            + `<p class="cx-verdict__title">Bạn đủ điều kiện làm revision ${v.retake_size} câu</p>`
+            + `<p class="cx-verdict__sub">Điểm hiện tại ${v.pct}% · cần ${v.threshold}% để đạt.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><h3>Revision hoạt động như thế nào?</h3>'
+            + '<ul class="cx-verdict__steps">'
+            + `<li data-step="1">Hệ thống chọn ngẫu nhiên ${v.retake_size} câu từ bộ đề.</li>`
+            + '<li data-step="2">Thứ tự câu và đáp án được trộn lại; kết quả revision được chấm như một lượt riêng.</li>'
+            + '</ul>'
+            + '<p class="cx-retry-warning"><strong>Trước khi bắt đầu:</strong> '
+            + `hãy hoàn thành đủ ${v.retake_size} câu trong revision. Đáp án của full session cũ `
+            + 'không được cộng vào lượt này.</p>'
+            + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Làm kiểm tra lại (${v.retake_size} câu)</button>` + seeReport + more + '</div>';
+            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + '</div>'
+            + history + '</div></div>';
         }
       }
 

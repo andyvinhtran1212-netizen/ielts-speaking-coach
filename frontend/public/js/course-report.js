@@ -84,6 +84,62 @@ function mdBold(text) {
   return esc(text).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
+const NEXT_LABEL = {
+  passed: 'Đã đạt',
+  retake: 'Revision ngắn',
+  retry_full: 'Làm lại toàn bộ',
+};
+
+function historyDate(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/**
+ * Bảng lịch sử lấy từ mastery ledger canonical, không suy từ session rời.
+ * Một full run có nhiều session (mỗi chặng một session); revision chỉ có một.
+ */
+export function renderAttemptHistory(history) {
+  const rows = Array.isArray(history) ? history : [];
+  if (!rows.length) return '';
+  return `<section class="cr-history" aria-labelledby="cr-history-title">
+    <header class="cr-history__head">
+      <div>
+        <p class="cr-history__eyebrow">Learning trail</p>
+        <h2 id="cr-history-title">Session &amp; revision</h2>
+      </div>
+      <p>Chỉ gồm các lượt đã được hệ thống chấm và ghi vào tiến độ.</p>
+    </header>
+    <div class="cr-history__table-wrap">
+      <table class="cr-history__table">
+        <thead><tr>
+          <th scope="col">Lượt</th><th scope="col">Hình thức</th>
+          <th scope="col">Session</th><th scope="col">Kết quả</th>
+          <th scope="col">Bước tiếp</th><th scope="col">Thời gian</th>
+        </tr></thead>
+        <tbody>${rows.map((row, i) => {
+          const phase = row.phase === 'retake' ? 'Revision' : 'Full session';
+          const next = NEXT_LABEL[row.next_action] || 'Đã ghi nhận';
+          const state = row.next_action === 'passed' ? 'pass'
+            : row.next_action === 'retry_full' ? 'retry' : 'revise';
+          return `<tr${i === rows.length - 1 ? ' data-current="true"' : ''}>
+            <td data-label="Lượt"><b>#${esc(row.number || i + 1)}</b></td>
+            <td data-label="Hình thức">${esc(phase)}</td>
+            <td data-label="Session">${esc(row.session_count || 0)}</td>
+            <td data-label="Kết quả"><strong>${esc(row.pct)}%</strong></td>
+            <td data-label="Bước tiếp"><span class="cr-history__state" data-state="${state}">${esc(next)}</span></td>
+            <td data-label="Thời gian">${esc(historyDate(row.at))}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+  </section>`;
+}
+
 /**
  * Vẽ trọn báo cáo.
  *
@@ -92,6 +148,7 @@ function mdBold(text) {
  */
 export function renderReport(data, opts = {}) {
   const qs = (data && data.questions) || [];
+  const history = renderAttemptHistory(data && data.history);
   // HAI MỨC. Chưa đạt thì máy chủ đã cắt hết phần lộ đáp án và chỉ để lại trục
   // — nên ở đây chỉ cần đừng vẽ thẻ câu rỗng, và nói ra điều kiện mở mức hai.
   const locked = !!(data && data.locked);
@@ -104,8 +161,8 @@ export function renderReport(data, opts = {}) {
       + 'Mở lại để thử lại.</p>'
     : '';
   if (!qs.length) {
-    return warn || '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một '
-      + 'chặng là báo cáo hiện ra ở đây.</p>';
+    return warn + history + (warn || history ? '' : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một '
+      + 'chặng là báo cáo hiện ra ở đây.</p>');
   }
   const groups = groupByAxis(qs);
   const weak = groups.filter(needsWork);
@@ -140,6 +197,8 @@ export function renderReport(data, opts = {}) {
     <ul class="cr-stats">
       ${stats.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}
     </ul>
+
+    ${history}
 
     ${locked ? `<p class="cr-locked">Xem chi tiết từng câu kèm lời giải sẽ mở khi
       em đạt ${esc(data.threshold != null ? data.threshold + '%' : 'ngưỡng của lớp')}.
