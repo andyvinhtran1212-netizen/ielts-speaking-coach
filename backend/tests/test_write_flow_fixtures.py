@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from routers.listening import (
+    TestAttemptAnswerPatchRequest,
     _validate_gist_payload,
     _validate_mcq_payload,
     _validate_true_false_payload,
@@ -145,12 +146,48 @@ def _check_reading_exam(fx: dict) -> None:
             f"fixture mang đáp án — response học viên không bao giờ có (câu {q['q_num']})")
 
 
+def _check_listening_test(fx):
+    """Bài nghe ĐẦY ĐỦ làm theo bài giao.
+
+    Nối tới CHÍNH model production nhận thân request lưu đáp án
+    (`TestAttemptAnswerPatchRequest`) và CHÍNH chốt khoảng của route
+    (`routers/listening.py:5194` — `1 <= q_num <= 40`). Không viết lại bộ kiểm:
+    một bản sao thứ hai rồi cũng trôi khỏi bản gốc.
+    """
+    from pydantic import ValidationError
+
+    answers = fx["answers"]
+    assert answers, "fixture không có đáp án nào — luồng sẽ xanh mà chưa ghi gì"
+    for a in answers:
+        # `extra="forbid"`: thừa một trường là 422, tức bản khai đang mô tả một
+        # request backend luôn từ chối.
+        try:
+            m = TestAttemptAnswerPatchRequest(**a)
+        except ValidationError as e:
+            raise AssertionError(f"đáp án {a!r} không qua được model thật: {e}") from e
+        assert 1 <= m.q_num <= 40, (
+            f"q_num={m.q_num} ngoài khoảng route chấp nhận (routers/listening.py:5194)")
+
+    # Câu hỏi trong đề phải PHỦ đúng các q_num mà luồng sẽ gõ; thiếu thì bước
+    # `fill` không tìm thấy ô nhập và luồng đỏ vì lý do sai.
+    q_nums = {
+        q["q_num"]
+        for sec in fx["test"]["sections"]
+        for ex in sec["exercises"]
+        for q in ex["payload"]["questions"]
+    }
+    for a in answers:
+        assert a["q_num"] in q_nums, (
+            f"đáp án cho câu {a['q_num']} nhưng đề không có câu đó")
+
+
 VALIDATORS = {
     "listening-mcq": lambda fx: _validate_mcq_payload(fx["payload"]),
     "listening-tf": lambda fx: _validate_true_false_payload(fx["payload"]),
     "listening-gist": lambda fx: _validate_gist_payload(fx["payload"]),
     "reading-exam": _check_reading_exam,
     "reading-review": _check_reading_review,
+    "listening-test": _check_listening_test,
 }
 
 
@@ -179,6 +216,8 @@ UUID_KEYS = {
     "listening-gist": ("content_id", "exercise_id"),
     "reading-exam": ("attempt_id",),
     "reading-review": ("attempt_id",),
+    # `listening_tests.id`, `listening_test_attempts.id`, `class_items.id` đều UUID.
+    "listening-test": ("test_id", "attempt_id", "class_item"),
 }
 
 
