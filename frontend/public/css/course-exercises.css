@@ -763,12 +763,27 @@
   white-space: nowrap;
 }
 
-.cx-save-note span {
+.cx-save-note__dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  background: var(--av-text-muted);
+  box-shadow: 0 0 0 3px var(--av-surface-card);
+}
+
+.cx-save-note[data-state='saving'] .cx-save-note__dot {
+  background: var(--av-primary);
+  box-shadow: 0 0 0 3px var(--av-primary-soft);
+}
+
+.cx-save-note[data-state='saved'] .cx-save-note__dot {
   background: var(--av-success);
   box-shadow: 0 0 0 3px var(--av-success-soft);
+}
+
+.cx-save-note[data-state='error'] .cx-save-note__dot {
+  background: var(--av-error);
+  box-shadow: 0 0 0 3px var(--av-error-soft);
 }
 
 .cx-stage {

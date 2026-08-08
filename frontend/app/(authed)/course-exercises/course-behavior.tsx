@@ -58,9 +58,31 @@ export function CourseBehavior() {
       ]);
 
       const $ = (id: string) => document.getElementById(id);
+      function setSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string) {
+        const note = $('cx-save-note');
+        const label = $('cx-save-note-text');
+        if (!note || !label) return;
+        const copy = {
+          idle: 'Sẽ lưu khi hoàn thành chặng',
+          saving: 'Đang lưu tiến độ…',
+          saved: 'Đã lưu tiến độ',
+          error: 'Chưa lưu được tiến độ',
+        };
+        note.dataset.state = state;
+        label.textContent = message || copy[state];
+      }
+
+      function passingAttemptLabel(v: any) {
+        if (v.phase === 'retake') {
+          return ` · đạt ở revision lần ${Math.max(1, Number(v.retakes) || 1)}`;
+        }
+        return ' · đạt ở full session';
+      }
+
       const fail = (msg: string) => {
         const l = $('cx-loading'); if (l) l.hidden = true;
         const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
+        setSaveState('error', 'Không thể kết nối để lưu');
       };
 
       if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
@@ -134,6 +156,8 @@ export function CourseBehavior() {
       function renderQuestion() {
         const q = runner.current();
         if (!q) return renderDone();
+        setSaveState(runner.sessionFailed ? 'error'
+          : runner.pendingCount ? 'saving' : 'idle');
         runner.show();
         const { ask, spec } = splitStem(q.prompt);
         const isWrite = q.type === 'writing';
@@ -175,6 +199,7 @@ export function CourseBehavior() {
         const q = runner.current();
         const res = runner.answer(picked);
         if (!res) return;
+        setSaveState(runner.sessionFailed ? 'error' : 'saving');
         document.querySelectorAll('.cx-opt').forEach((node) => {
           const el = node as HTMLButtonElement;
           el.disabled = true;
@@ -223,7 +248,9 @@ export function CourseBehavior() {
       }
 
       async function renderDone() {
+        setSaveState('saving');
         const res = await runner.finishStage();
+        setSaveState(res.persisted ? 'saved' : 'error');
         const deadlineClosed = !res.persisted
           && /(?:quá|hết) hạn nộp/i.test(String(res.error || ''));
         $('cx-q')!.hidden = true;
@@ -336,7 +363,7 @@ export function CourseBehavior() {
               ? 'Đã đạt phần trắc nghiệm — còn phần tự luận'
               : 'Bạn đã đạt bài tập buổi này'}</p>`
             + `<p class="cx-verdict__sub">Ngưỡng của lớp: ${v.threshold}%`
-            + (v.retakes ? ` · đạt sau ${v.retakes} revision` : ' · đạt ở full session')
+            + passingAttemptLabel(v)
             + '</p></div>'
             + `<div class="cx-verdict__score">${v.pct}%</div></div>`
             + '<div class="cx-verdict__body"><h3>Bước tiếp theo</h3>'
@@ -496,12 +523,14 @@ export function CourseBehavior() {
           || (runner.mastery && runner.mastery.retake_size) || 20;
         await runner.startRetake(size);
         if (runner.sessionFailed) {
+          setSaveState('error');
           const box = $('cx-verdict');
           if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
             + `<p class="cx-verdict__sub">Không thể mở bài kiểm tra lại: ${esc(
               runner.persistError || 'vui lòng tải lại trang và thử lại.')}</p></div>`;
           return;
         }
+        setSaveState('idle');
         renderQuestion();
       }
 
@@ -510,16 +539,19 @@ export function CourseBehavior() {
         if (rep) { rep.hidden = true; rep.innerHTML = ''; }
         await runner.restartFull();
         if (runner.sessionFailed) {
+          setSaveState('error');
           const box = $('cx-verdict');
           if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
             + '<p class="cx-verdict__sub">Chưa tạo được lượt làm mới. Tải lại trang để thử lại.</p></div>';
           return;
         }
+        setSaveState('idle');
         renderQuestion();
       }
 
       const l = $('cx-loading'); if (l) l.hidden = true;
       if (runner.sessionFailed) {
+        setSaveState('error');
         const e = $('cx-error');
         if (e) {
           e.hidden = false;

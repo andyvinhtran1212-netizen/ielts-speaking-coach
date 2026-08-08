@@ -15,6 +15,21 @@ import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(
   new URL('../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url), 'utf8');
+const SHELL = readFileSync(
+  new URL('../app/(authed)/course-exercises/page-shell.tsx', import.meta.url), 'utf8');
+
+function functionBody(name) {
+  const marker = `function ${name}`;
+  const i = SRC.indexOf(marker);
+  assert.ok(i !== -1, `không thấy ${name}`);
+  const open = SRC.indexOf('{', i);
+  let depth = 0;
+  for (let k = open; k < SRC.length; k++) {
+    if (SRC[k] === '{') depth++;
+    else if (SRC[k] === '}' && --depth === 0) return SRC.slice(open + 1, k);
+  }
+  throw new Error(`không đóng được ${name}`);
+}
 
 function loadRetakeFlow() {
   const i = SRC.indexOf('async function startRetakeFlow() {');
@@ -28,10 +43,10 @@ function loadRetakeFlow() {
   const body = SRC.slice(i, j).replace(/^\s*async function startRetakeFlow\(\)\s*\{/, '')
     .replace(/\}$/, '');
   return (env) => {
-    const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc',
+    const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc', 'setSaveState',
       `return (async () => {${body}})();`);
     return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
-      env.esc || ((value) => String(value)));
+      env.esc || ((value) => String(value)), env.setSaveState || (() => {}));
   };
 }
 
@@ -91,5 +106,47 @@ describe('làm kiểm tra lại', () => {
     });
     assert.equal(rendered, 0);
     assert.match(verdict.innerHTML, /không thuộc mức gần đạt/i);
+  });
+});
+
+describe('kết luận gọi đúng lượt đã giúp học viên đạt', () => {
+  const label = new Function('v', functionBody('passingAttemptLabel'));
+
+  test('revision cũ đã fail không được nhận công cho full retry đạt', () => {
+    assert.equal(label({ phase: 'run', retakes: 1 }), ' · đạt ở full session');
+  });
+
+  test('chỉ current phase retake mới được gọi là đạt ở revision', () => {
+    assert.equal(label({ phase: 'retake', retakes: 2 }), ' · đạt ở revision lần 2');
+  });
+});
+
+describe('chỉ báo lưu phản ánh persistence thật', () => {
+  test('shell bắt đầu trung tính, không khẳng định đã tự động lưu', () => {
+    assert.match(SHELL, /id="cx-save-note"[\s\S]*data-state="idle"/);
+    assert.match(SHELL, /Sẽ lưu khi hoàn thành chặng/);
+    assert.doesNotMatch(SHELL, />Tự động lưu tiến độ</);
+  });
+
+  test('state helper cập nhật đồng thời data-state và live-region copy', () => {
+    const note = { dataset: {} };
+    const text = { textContent: '' };
+    const $ = (id) => id === 'cx-save-note' ? note : id === 'cx-save-note-text' ? text : null;
+    const setState = new Function('$', 'state', 'message', functionBody('setSaveState'));
+
+    setState($, 'saving');
+    assert.equal(note.dataset.state, 'saving');
+    assert.equal(text.textContent, 'Đang lưu tiến độ…');
+    setState($, 'error');
+    assert.equal(note.dataset.state, 'error');
+    assert.equal(text.textContent, 'Chưa lưu được tiến độ');
+    setState($, 'saved');
+    assert.equal(note.dataset.state, 'saved');
+    assert.equal(text.textContent, 'Đã lưu tiến độ');
+  });
+
+  test('kết quả finishStage là nguồn quyết định saved hay error', () => {
+    assert.match(SRC, /setSaveState\(res\.persisted \? 'saved' : 'error'\)/);
+    assert.match(SRC, /runner\.sessionFailed \? 'error'/);
   });
 });

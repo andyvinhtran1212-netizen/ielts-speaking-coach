@@ -29,9 +29,16 @@ export function CourseShell() {
             <h1 id="cx-title">Bài tập theo buổi</h1>
             <p id="cx-title-meta">Làm từng câu, xem đáp án và giải thích ngay sau khi chọn.</p>
           </div>
-          <div className="cx-save-note" aria-label="Trạng thái lưu bài">
-            <span aria-hidden="true"></span>
-            Tự động lưu tiến độ
+          <div
+            className="cx-save-note"
+            id="cx-save-note"
+            data-state="idle"
+            role="status"
+            aria-live="polite"
+            aria-label="Trạng thái lưu bài"
+          >
+            <span className="cx-save-note__dot" aria-hidden="true"></span>
+            <span id="cx-save-note-text">Sẽ lưu khi hoàn thành chặng</span>
           </div>
         </header>
 
