@@ -10,11 +10,15 @@
 // 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
 function __averOnReady(fn) {
   if (typeof document === 'undefined') return;
-  if (document.readyState === 'loading') {
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
+    return;
   }
+  fn();
 }
 /**
  * frontend/js/reading-test.js — Sprint 20.6 L3 Full Test library.
