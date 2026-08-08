@@ -181,6 +181,37 @@ def _check_listening_test(fx):
             f"đáp án cho câu {a['q_num']} nhưng đề không có câu đó")
 
 
+def _check_instructor_deliver(fx):
+    """Trang chấm bài của giảng viên: lưu nhận xét rồi trả bài.
+
+    Nối tới CHÍNH model production nhận thân request (`InstructorNoteBody`) và
+    chốt vai trò của trang (`instructor-grade.js:45` phản chiếu
+    `require_instructor`). Không viết lại bộ kiểm.
+    """
+    from pydantic import ValidationError
+
+    from routers.instructor import InstructorNoteBody
+
+    try:
+        m = InstructorNoteBody(instructor_note=fx["instructor_note"])
+    except ValidationError as e:
+        raise AssertionError(f"nhận xét không qua được model thật: {e}") from e
+    assert m.instructor_note.strip(), (
+        "fixture dùng nhận xét RỖNG — luồng sẽ xanh mà không chứng minh được chữ "
+        "trong ô có tới nơi hay không"
+    )
+
+    # Vai trò: trang đá về /home nếu không phải instructor/admin, khi đó KHÔNG có
+    # đường ghi nào để kiểm và luồng xanh vì lý do sai.
+    assert fx["me"]["role"] in ("instructor", "admin"), (
+        f"role={fx['me']['role']!r} sẽ bị trang chuyển hướng đi (instructor-grade.js:45)"
+    )
+
+    # `delivered_at` phải là None: bài ĐÃ trả thì nút Trả bài không phải đường
+    # đang kiểm, và fixture đang mô tả một màn hình khác.
+    assert fx["essay"].get("delivered_at") is None, "fixture mô tả bài ĐÃ trả rồi"
+
+
 VALIDATORS = {
     "listening-mcq": lambda fx: _validate_mcq_payload(fx["payload"]),
     "listening-tf": lambda fx: _validate_true_false_payload(fx["payload"]),
@@ -188,6 +219,7 @@ VALIDATORS = {
     "reading-exam": _check_reading_exam,
     "reading-review": _check_reading_review,
     "listening-test": _check_listening_test,
+    "instructor-deliver": _check_instructor_deliver,
 }
 
 
@@ -218,6 +250,8 @@ UUID_KEYS = {
     "reading-review": ("attempt_id",),
     # `listening_tests.id`, `listening_test_attempts.id`, `class_items.id` đều UUID.
     "listening-test": ("test_id", "attempt_id", "class_item"),
+    # `writing_essays.id`, `instructor_reviews.id`, `profiles.id` đều UUID.
+    "instructor-deliver": ("essay_id", "review_id", "as_instructor"),
 }
 
 

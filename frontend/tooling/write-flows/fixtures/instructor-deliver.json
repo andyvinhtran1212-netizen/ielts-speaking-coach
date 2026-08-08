@@ -1,0 +1,21 @@
+{
+  "kind": "instructor-deliver",
+  "essay_id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+  "review_id": "5e2a91c7-4b83-4d16-9f52-70ac6b31d8e9",
+  "as_instructor": "7c4d8e51-2a96-4b70-83f1-6d95e2c407ba",
+  "instructor_note": "Ý tưởng rõ, nhưng đoạn 2 thiếu ví dụ. Lần sau thêm một số liệu cụ thể.",
+  "essay": {
+    "id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+    "status": "graded",
+    "task_type": "task2",
+    "essay_text": "Some people believe that university education should be free for everyone.",
+    "band_overall": 6.5,
+    "instructor_note": "",
+    "delivered_at": null,
+    "feedback": {
+      "band_scores": { "task_response": 6.5, "coherence": 6.0, "lexical": 6.5, "grammar": 6.0 },
+      "summary": "Bài đủ ý nhưng lập luận đoạn 2 còn mỏng."
+    }
+  },
+  "me": { "id": "7c4d8e51-2a96-4b70-83f1-6d95e2c407ba", "role": "instructor", "email": "gv@local" }
+}
