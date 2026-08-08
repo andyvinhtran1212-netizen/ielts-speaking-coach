@@ -409,8 +409,11 @@ def log_class_action(
     cohort_id: str,
     actor: Optional[Dict[str, Any]] = None,
     assignment_id: Optional[str] = None,
+    assignment_title: Optional[str] = None,
     student_id: Optional[str] = None,
+    student_name: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
+    at: Optional[str] = None,
 ) -> bool:
     """Ghi một dòng nhật ký thao tác. Trả True khi đã ghi được.
 
@@ -426,11 +429,25 @@ def log_class_action(
         "action": action,
         "cohort_id": cohort_id,
         "assignment_id": assignment_id,
+        # Chép TÊN lúc thao tác, cùng lý do với `actor_email`: hai khoá ngoại
+        # trên là ON DELETE SET NULL, nên xoá bài giao (hay học viên) sẽ cắt
+        # đường tra tên và dòng nhật ký còn lại chỉ nói "có người đổi cái gì
+        # đó" (codex #1010).
+        "assignment_title": assignment_title,
         "student_id": student_id,
+        "student_name": student_name,
         "actor_user_id": (actor or {}).get("id"),
         "actor_email": (actor or {}).get("email"),
         "details": details or {},
     }
+    # Mốc là lúc VIỆC XẢY RA, không phải lúc dòng nhật ký được chèn.
+    #
+    # Hai lượt ghi chạy song song: A đổi hạn xong rồi khựng trước lúc chèn, B đổi
+    # tiếp và chèn trước — để `created_at` mặc định NOW() thì nhật ký kể ngược
+    # thứ tự, và màn hình sắp theo chính cột ấy (codex cục bộ 08/08 vòng 3).
+    # Nơi gọi nắm mốc của lượt ghi thật, nên nó truyền vào.
+    if at:
+        row["created_at"] = at
     try:
         db.table("class_action_log").insert(row).execute()
         return True
@@ -440,20 +457,35 @@ def log_class_action(
         return False
 
 
-def read_class_actions(db, *, cohort_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-    """Nhật ký của một lớp, mới nhất trước.
+def read_class_actions(db, *, cohort_id: str, limit: int = 50,
+                       before: Optional[str] = None) -> Dict[str, Any]:
+    """Nhật ký của một lớp, mới nhất trước. Trả `{actions, has_more, next_before}`.
 
-    Có trần: màn hình đọc để biết "gần đây ai đụng gì", không phải để tải cả
-    lịch sử. Không trần thì một lớp chạy lâu sẽ trả về hàng nghìn dòng cho một
-    khung cuộn mà không ai kéo tới đáy.
+    Có trần cho MỖI TRANG — màn hình đọc để biết "gần đây ai đụng gì", và đổ
+    hàng nghìn dòng vào một khung cuộn thì không ai kéo tới đáy. Nhưng trần
+    không được biến thành một bức tường IM LẶNG: một nhật ký cắt cụt mà không
+    nói ra thì người đọc tin rằng mình đã thấy hết, đúng lúc họ đang đi tìm một
+    thao tác cũ (codex cục bộ 08/08 vòng 5).
+
+    Nên: `before` lật trang lùi theo `created_at`, và `has_more` nói thẳng còn
+    dòng cũ hơn. Đọc dư MỘT dòng để biết điều đó mà không phải đếm cả bảng.
     """
-    return (db.table("class_action_log")
-            .select("id, action, assignment_id, student_id, actor_email, "
-                    "details, created_at")
-            .eq("cohort_id", cohort_id)
-            .order("created_at", desc=True)
-            .limit(max(1, min(int(limit or 50), 200)))
-            .execute().data) or []
+    n = max(1, min(int(limit or 50), 200))
+    q = (db.table("class_action_log")
+         .select("id, action, assignment_id, assignment_title, student_id, "
+                 "student_name, actor_email, details, created_at")
+         .eq("cohort_id", cohort_id))
+    if before:
+        q = q.lt("created_at", before)
+    rows = (q.order("created_at", desc=True).limit(n + 1).execute().data) or []
+    has_more = len(rows) > n
+    rows = rows[:n]
+    return {
+        "actions": rows,
+        "has_more": has_more,
+        # Mốc để xin trang kế — chính `created_at` của dòng cuối đang hiện.
+        "next_before": (rows[-1]["created_at"] if rows and has_more else None),
+    }
 
 
 class DueChangeRefused(Exception):
@@ -573,7 +605,8 @@ def change_assignment_due_at(
                 {"needs_confirm": True, "flips": flips, "confirmed_flips": seen,
                  "stale_confirmation": True, "current_due_at": old_raw})
 
-    patch = {"due_at": new_due_at, "updated_at": datetime.now(timezone.utc).isoformat()}
+    changed_at = datetime.now(timezone.utc).isoformat()
+    patch = {"due_at": new_due_at, "updated_at": changed_at}
     q = (db.table("class_assignments").update(patch)
          .eq("id", assignment_id).eq("cohort_id", cohort_id))
     # Nêu hạn CŨ trong điều kiện — 0 dòng nghĩa là tiền đề sai, và đúng lúc ấy
@@ -589,6 +622,11 @@ def change_assignment_due_at(
                 assignment_id, cohort_id, old_raw, new_due_at, flips)
     return {"assignment_id": assignment_id, "due_at": new_due_at,
             "previous_due_at": old_raw, "flips": flips,
+            # Tên đọc sẵn ở đầu hàm — trả kèm để nơi gọi chép vào nhật ký mà
+            # không phải đọc lại bảng lần nữa.
+            "assignment_title": asg.get("title"),
+            # Mốc lượt ghi THẬT — nhật ký dùng nó thay cho giờ chèn dòng.
+            "changed_at": changed_at,
             "submitted_count": len(submitted)}
 
 
@@ -726,6 +764,7 @@ def return_item_to_student(
     restored = _seed_draft_from_submission(
         db, item_id=item_id, submission_id=artifact_id)
 
+    changed_at = (now or datetime.now(timezone.utc)).isoformat()
     patch: Dict[str, Any] = {
         # 'opened' chứ không 'assigned': em ấy ĐÃ mở bài. Và ràng buộc
         # `class_assignment_items_submitted_at_required` cấm giữ 'graded' khi
@@ -734,7 +773,7 @@ def return_item_to_student(
         "submitted_at": None,
         "artifact_kind": None,
         "artifact_id": None,
-        "updated_at": (now or datetime.now(timezone.utc)).isoformat(),
+        "updated_at": changed_at,
     }
     if clear_score:
         patch["score"] = None
@@ -769,6 +808,7 @@ def return_item_to_student(
                 "nháp=%s câu", item_id, kind, artifact_id, clear_score, restored)
     return {"item_id": item_id, "artifact_kind": kind,
             "artifact_id": artifact_id, "score_cleared": clear_score,
+            "changed_at": changed_at,
             # Số câu đã rót lại vào nháp — giáo viên cần biết em ấy mở ra sẽ
             # thấy bài cũ hay một trang trắng.
             "draft_restored": restored}

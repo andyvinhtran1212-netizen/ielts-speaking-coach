@@ -1497,6 +1497,7 @@ function returnStudentWork(assignmentId, studentId) {
         toast('Đã trả bài, nhưng KHÔNG ghi được vào nhật ký thao tác.', 'error');
       }
       openTally(assignmentId);
+      refreshActionLogIfOpen();
     },
   });
 }
@@ -2759,6 +2760,16 @@ const LOG_WHAT = {
   return_work: 'trả bài cho học viên làm lại',
 };
 
+/**
+ * THẾ HỆ của lượt đọc nhật ký.
+ *
+ * Mở khung xong bấm luôn một thao tác: lượt đọc đầu còn đang bay, lượt sau về
+ * trước và vẽ dòng mới — rồi lượt đầu về sau và đè lại bằng bản CŨ, mất đúng
+ * dòng vừa tạo (codex cục bộ 08/08 vòng 2). Cùng bẫy `_mkGen` đã vá ở khu Nhận
+ * bài; chụp thế hệ lúc bắt đầu, chỉ vẽ nếu nó còn khớp.
+ */
+let _logGen = 0;
+
 /** Mốc thời gian → "08/08 19:03" giờ Việt Nam. */
 function logWhen(at) {
   if (!at) return '';
@@ -2770,11 +2781,31 @@ function logWhen(at) {
   });
 }
 
+/**
+ * Hạn nộp trong nhật ký, theo GIỜ VIỆT NAM.
+ *
+ * KHÔNG dùng `dueText()`: nó vẽ theo múi giờ máy đang mở trang, nên với một
+ * giáo viên đang ở nước ngoài, cùng MỘT dòng nhật ký sẽ hiện giờ thao tác theo
+ * giờ Việt Nam (`logWhen`) mà hạn nộp theo giờ bản địa — 19:00 thành 05:00, và
+ * không có nhãn nào nói ra (codex cục bộ 08/08 vòng 2). Hạn nộp là một quy ước
+ * giờ Việt Nam; nhật ký kể lại nó thì phải kể đúng múi giờ ấy.
+ */
+function logDue(at) {
+  if (!at) return 'không hạn';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return 'hạn không đọc được';
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 /** Dòng "từ gì sang gì" — thứ khiến nhật ký đọc được mà không phải đoán. */
 function logDetail(a) {
   const d = a.details || {};
   if (a.action === 'due_change') {
-    const bits = [dueText(d.previous_due_at) + ' → ' + dueText(d.due_at)];
+    const bits = [logDue(d.previous_due_at) + ' → ' + logDue(d.due_at)];
     const f = d.flips || {};
     if (f.to_ontime) bits.push(`${f.to_ontime} lượt nộp trễ thành đúng hạn`);
     if (f.to_late) bits.push(`${f.to_late} lượt đúng hạn thành nộp trễ`);
@@ -2793,26 +2824,31 @@ function logDetail(a) {
   return '';
 }
 
-async function loadActionLog() {
+async function loadActionLog(before) {
   const box = $('action-log-body');
   if (!box) return;
-  box.innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  const gen = ++_logGen;
+  // Trang đầu thay cả khung; "Xem thêm" NỐI vào cuối, không vứt phần đang đọc.
+  if (!before) box.innerHTML = '<p class="adm-hint">Đang tải…</p>';
   let r;
   try {
-    r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/action-log');
+    r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/action-log' + (before ? '?before=' + encodeURIComponent(before) : ''));
   } catch (err) {
+    if (gen !== _logGen) return;
     // Danh sách rỗng đọc ra là "chưa ai đụng gì" — một khẳng định mà lượt đọc
     // hỏng chưa hề chứng minh.
     box.innerHTML = '<p class="adm-banner">Không đọc được nhật ký: '
       + esc(err.message || String(err)) + '</p>';
     return;
   }
+  if (gen !== _logGen) return;      // một lượt đọc mới hơn đã vẽ rồi
   const rows = (r && r.actions) || [];
-  if (!rows.length) {
+  if (!rows.length && !before) {
     box.innerHTML = '<p class="adm-hint">Chưa có thao tác nào được ghi.</p>';
     return;
   }
-  box.innerHTML = rows.map((a) => {
+  const html = rows.map((a) => {
     const what = LOG_WHAT[a.action] || a.action;
     const who = a.actor_email || 'không rõ ai';
     const on = [a.assignment_title, a.student_name].filter(Boolean).map(esc).join(' · ');
@@ -2824,6 +2860,26 @@ async function loadActionLog() {
       ${detail ? `<span class="cl-log__detail">${esc(detail)}</span>` : ''}
     </div>`;
   }).join('');
+
+  // Còn dòng cũ hơn thì NÓI RA và cho lối đi tiếp. Cắt trong im lặng làm người
+  // đọc tin rằng mình đã thấy hết — đúng lúc họ đang tìm một thao tác cũ.
+  const more = (r && r.has_more && r.next_before)
+    ? '<button class="adm-btn-secondary" type="button" data-log-more="'
+      + esc(r.next_before) + '">Xem thao tác cũ hơn</button>'
+    : '';
+  const old = before ? box.innerHTML.replace(/<button[^>]*data-log-more[\s\S]*?<\/button>/, '') : '';
+  box.innerHTML = old + html + more;
+}
+
+/** Nhật ký ĐANG MỞ thì vẽ lại sau mỗi thao tác ghi.
+ *
+ * `toggle` chỉ bắn khi đóng/mở, nên một khung đang mở sẽ đứng nguyên bản cũ
+ * ngay sau khi vừa đổi hạn — màn hình nói thiếu đúng dòng người ta vừa tạo
+ * (codex cục bộ 08/08). Đóng thì thôi: mở ra sẽ nạp.
+ */
+function refreshActionLogIfOpen() {
+  const box = $('action-log');
+  if (box && box.open) loadActionLog();
 }
 
 /* ── Đổi hạn nộp ────────────────────────────────────────────────────────────
@@ -2945,6 +3001,7 @@ async function saveDue() {
     closeDueEdit();
     await loadHomework();
     invalidateProgress();
+    refreshActionLogIfOpen();
   } catch (err) {
     const d = (err && err.detail) || {};
     if (d.needs_confirm && d.flips) {
@@ -3852,6 +3909,10 @@ function bindDetail() {
   const logBox = $('action-log');
   if (logBox) {
     logBox.addEventListener('toggle', () => { if (logBox.open) loadActionLog(); });
+    logBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-log-more]');
+      if (btn) loadActionLog(btn.dataset.logMore);
+    });
   }
   bindModalBackdrop('due-modal', closeDueEdit);
 
