@@ -326,7 +326,7 @@
         <a id="qz-back" href="/pages/vocab-practice.html" class="av-button av-button-primary">← Quay lại</a>
         <!-- Neutral default; wireChrome() appends ?skill_area= so the stats page
              scopes to the skill just practised (audit 2026-07-28 §C3). -->
-        <a id="qz-stats" href="/pages/quiz-progress.html" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
+        <a id="qz-stats" href="/quiz/progress" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
       </div>
     </div>
 
@@ -1051,7 +1051,7 @@
       }
       const stats = $('qz-stats');
       const area = (bank.bank && bank.bank.skill_area) || '';
-      if (stats && area) stats.href = '/pages/quiz-progress.html?skill_area=' + encodeURIComponent(area);
+      if (stats && area) stats.href = '/quiz/progress?skill_area=' + encodeURIComponent(area);
       if (bank.bank && bank.bank.skill_area === 'grammar') {
         if (chrome) chrome.setAttribute('active', 'grammar');
         topBack.href = '/grammar'; topLabel.textContent = 'Grammar';

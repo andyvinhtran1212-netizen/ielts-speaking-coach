@@ -57,7 +57,7 @@ describe('vocab-practice hub — lists published vocab banks', () => {
   test('has empty + error states and a progress link', () => {
     assert.match(PAGE, /id="vp-empty"/);
     assert.match(PAGE, /id="vp-error"/);
-    assert.match(PAGE, /\/pages\/quiz-progress\.html/);
+    assert.match(PAGE, /\/quiz\/progress/);
   });
 
   test('communicates the "test until the whole list is mastered" purpose', () => {
@@ -84,7 +84,7 @@ describe('vocab-landing — "Luyện tập" goes straight into the player', () =
     assert.match(LANDING, /c\.topic_id \? '&topic_id=' \+ encodeURIComponent\(c\.topic_id\)/);
   });
   test('progress is reachable from the Vocabulary page', () => {
-    assert.match(LANDING, /\/pages\/quiz-progress\.html/);
+    assert.match(LANDING, /\/quiz\/progress/);
   });
 });
 
