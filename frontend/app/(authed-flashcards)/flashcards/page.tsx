@@ -13,6 +13,7 @@
 // sang `/`): bản Next nhảy về trang chủ trong khi legacy ở nguyên trang.
 import type { Metadata } from 'next';
 import HydratedSignal from '@/components/hydrated-signal';
+import { watchdogScript } from '@/lib/watchdog-script';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -34,14 +35,6 @@ const afterHydration = (fn) => {
   // KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot template literal.
   if (window.__averHydrated) { fn(); return; }
   window.addEventListener("aver:hydrated", fn, { once: true });
-  // Cho chet: chunk React hong han thi useEffect khong chay, co khong bat, va
-  // trang dung im vinh vien. KHONG goi thang fn() - React chi CHAM thoi thi lam
-  // vay la dung lai dung cuoc dua vua sua. Sang han ban legacy, giu query/hash.
-  setTimeout(() => {
-    if (window.__averHydrated) return;
-    console.error("[aver] React khong hydrate sau 12s - sang ban legacy");
-    window.location.replace("/pages/flashcards.html" + window.location.search + window.location.hash);
-  }, 12000);
 };
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 const go = () => mount(document.getElementById('mount'), { embedded: false });
@@ -76,6 +69,8 @@ export default function FlashcardsPage() {
       <aver-chrome active="vocabulary" />
       {/* Hộp để module dựng thân trang vào — Sprint 7.4. Bản legacy để RỖNG. */}
       <main id="mount" className="vocab-module-mount"></main>
+      {/* Duong lui chung mot nguon voi 11 trang kia: xem lib/watchdog-script.ts */}
+      <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/flashcards.html') }} />
       <script type="module" dangerouslySetInnerHTML={{ __html: MOUNT }} />
     </>
   );

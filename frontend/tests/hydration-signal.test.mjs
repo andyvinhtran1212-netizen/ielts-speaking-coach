@@ -46,7 +46,15 @@ const khôngChúThích = (f) => readFileSync(f, 'utf8').split('\n')
 // `<script type="module"` với `type` đứng đầu và nháy kép, nên `<script defer
 // type='module'>` sẽ lọt khỏi mọi khẳng định bên dưới (codex bắt ở #1003).
 const LÀ_MODULE = /<script[^>]*\stype=["']module["']/;
-const NẠP_MODULE = pages().filter((f) => LÀ_MODULE.test(khôngChúThích(f)));
+// PHẢI bắt CẢ `<LegacyModule>`. Sau khi 11 trang chuyển từ thẻ `<script>` sang
+// component đó, chúng RƠI KHỎI danh sách này và mọi khẳng định bên dưới không
+// còn chạy trên chúng — chốt ngừng canh đúng thứ nó sinh ra để canh, mà vẫn
+// xanh vì `NẠP_MODULE.length >= 5` được thoả bởi các trang khác (codex #1004).
+const LÀ_LEGACY_MODULE = /<LegacyModule\s/;
+const NẠP_MODULE = pages().filter((f) => {
+  const t = khôngChúThích(f);
+  return LÀ_MODULE.test(t) || LÀ_LEGACY_MODULE.test(t);
+});
 
 // NỢ ĐÃ BIẾT — các trang port từ những đợt TRƯỚC, nạp module bằng
 // `<script type="module" src="…">` trần, KHÔNG có chốt nào.
@@ -87,8 +95,14 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
       const s = khôngChúThích(f);
       const tên = rel(f);
       if (!/<HydratedSignal\s*\/>/.test(s)) xấu.push(`${tên}: không render <HydratedSignal />`);
-      if (!/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
-      if (!/aver:hydrated/.test(s)) xấu.push(`${tên}: không nghe sự kiện aver:hydrated`);
+      // Hai khuôn: trang MOUNT nội tuyến tự đọc cờ; trang `<LegacyModule>` uỷ
+      // việc chờ cho component (useEffect) nên chỉ cần có component + watchdog.
+      const uỷ = /<LegacyModule\s/.test(s);
+      if (!uỷ && !/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
+      if (!uỷ && !/aver:hydrated/.test(s)) xấu.push(`${tên}: không nghe sự kiện aver:hydrated`);
+      // ĐƯỜNG LUI cũng là một phần hợp đồng: thiếu nó thì một lần chunk React
+      // hỏng là trang treo vĩnh viễn — bản vá đổi lỗi #418 lấy lỗi treo.
+      if (!/watchdogScript\(/.test(s)) xấu.push(`${tên}: thiếu watchdogScript()`);
     }
     assert.deepEqual(xấu.sort(), [],
       'module legacy chạy trước khi React hydrate ⇒ React vứt HTML máy chủ ⇒ trang trắng');
@@ -126,8 +140,10 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
   });
 
   test('không trang MỚI nào nhập hội danh sách chưa vá', () => {
-    const lạ = NẠP_MODULE.map(rel).filter((r) => CHƯA_VÁ.has(r) === false
-      && !/__averHydrated/.test(khôngChúThích(path.join(APP, r))));
+    const lạ = NẠP_MODULE.map(rel).filter((r) => {
+      const t = khôngChúThích(path.join(APP, r));
+      return !CHƯA_VÁ.has(r) && !/__averHydrated/.test(t) && !/<LegacyModule\s/.test(t);
+    });
     assert.deepEqual(lạ.sort(), [], 'trang nạp module mà không chờ tín hiệu hydrate');
 
     const đãBiến = [...CHƯA_VÁ].filter((r) => !NẠP_MODULE.map(rel).includes(r));

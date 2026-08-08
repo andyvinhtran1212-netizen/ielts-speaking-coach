@@ -18,6 +18,24 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 import { fetchAllPages } from './listening-list-paging.js';
 
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+  } else {
+    fn();
+  }
+}
+
 const $ = (id) => document.getElementById(id);
 
 const STATE = {
@@ -141,7 +159,7 @@ function escapeHtml(s) {
 
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  __averOnReady(() => {
     load();
     ['filter-accent', 'filter-cefr', 'filter-section'].forEach((id) => {
       $(id).addEventListener('change', load);
