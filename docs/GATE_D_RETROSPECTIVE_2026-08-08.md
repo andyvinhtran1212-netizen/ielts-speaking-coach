@@ -54,17 +54,30 @@ Client Component React và giữ nguyên endpoint kết quả đã có:
 
 Sau batch stacked: hard-navigation debt còn **19/29 route**.
 
+## Batch behavior thứ ba: `/grammar/exercises`
+
+Batch stacked `codex/nextjs-grammar-exercises` chuyển launcher Grammar công khai
+sang Client Component React:
+
+- giữ nguyên contract read-only `/api/grammar/exercises`;
+- request abort khi unmount và lỗi global/API được hiển thị;
+- bank title/code được React escape, không dùng `innerHTML`;
+- hai entry point Grammar trỏ tới canonical `/grammar/exercises`;
+- legacy HTML/JS chỉ còn phục vụ parity/rollback.
+
+Sau batch stacked: hard-navigation debt còn **18/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.013/7.013 pass |
+| Full frontend contract suite | 7.019/7.019 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; `/quiz/progress` và `/speaking/result` static prerender |
+| Next production build | pass; cả ba behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 21 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 22 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
