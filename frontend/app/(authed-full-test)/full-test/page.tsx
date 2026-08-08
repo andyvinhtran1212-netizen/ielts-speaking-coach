@@ -12,6 +12,7 @@
 // trang chủ trong khi legacy ở nguyên trang.
 import type { Metadata } from 'next';
 import HydratedSignal from '@/components/hydrated-signal';
+import { watchdogScript } from '@/lib/watchdog-script';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -39,16 +40,6 @@ const afterHydration = (fn) => {
   // mot template literal.
   if (window.__averHydrated) { fn(); return; }
   window.addEventListener("aver:hydrated", fn, { once: true });
-  // CHO CHET (watchdog). Neu chunk React hong han thi useEffect khong bao gio
-  // chay, co khong bat, va trang dung o "Dang tai..." VINH VIEN. Ban cu cho
-  // load nen van chay duoc - tuc ban va nay doi mot loi #418 lay mot loi treo.
-  // KHONG goi thang fn() o day: React chi CHAM thoi thi lam vay la dung lai
-  // cuoc dua vua sua. Thay vao do sang han ban legacy, giu nguyen query/hash.
-  setTimeout(() => {
-    if (window.__averHydrated) return;
-    console.error("[/pages/full-test.html] React khong hydrate sau 12s - sang ban legacy");
-    window.location.replace("/pages/full-test.html" + window.location.search + window.location.hash);
-  }, 12000);
 };
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 if (ready()) afterHydration(mount);
@@ -96,6 +87,8 @@ export default function FullTestPage() {
         <div id="state-error" className="hidden ft-card" style={{ textAlign: 'center', color: 'var(--av-error)' }}></div>
         <div id="exam-list" className="hidden"></div>
       </div>
+      {/* Duong lui chung mot nguon voi 11 trang kia: xem lib/watchdog-script.ts */}
+      <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/full-test.html') }} />
       <script type="module" dangerouslySetInnerHTML={{ __html: MOUNT }} />
     </>
   );

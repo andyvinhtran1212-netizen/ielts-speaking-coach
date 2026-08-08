@@ -100,8 +100,13 @@ describe('deadline cell', () => {
 
 
 describe('the give flow tells the admin who will not receive it', () => {
+  // Kết ở hàm NGAY SAU `submitHomework`, không kéo tới tận `deleteHomework`:
+  // giữa hai chỗ ấy có hơn 500 dòng của những màn khác (bù người nhận, đổi hạn
+  // nộp), và chốt "đừng dựng giờ hạn trong trình duyệt" bên dưới quét cả chúng.
+  // Một màn ĐỔI HẠN thì đương nhiên có chữ '19:00' trong ô nhập của nó — chốt
+  // đỏ ở đó là đỏ vì phạm vi quét, không phải vì có lỗi.
   const submit = SRC.slice(SRC.indexOf('async function submitHomework'),
-                           SRC.indexOf('function deleteHomework'));
+                           SRC.indexOf('async function submitLessonHomework'));
 
   test('unactivated students are surfaced on success, as an error toast', () => {
     // Those students get a row but no account, so nothing is ever shown to them

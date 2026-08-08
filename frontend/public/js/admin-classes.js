@@ -1133,7 +1133,11 @@ function renderHomework() {
                   data-id="${esc(a.id)}" data-scope="${esc(a.recipient_scope || 'class')}"
                   title="${a.recipient_scope === 'subset'
                     ? 'Bài giao theo nhóm — chọn đích danh học viên cần thêm'
-                    : 'Thêm học viên mới vào lớp vào bài này'}">Bù học viên</button>${effort} ${action}</td>
+                    : 'Thêm học viên mới vào lớp vào bài này'}">Bù học viên</button>
+          <button class="adm-btn-secondary" data-action="edit-due"
+                  data-id="${esc(a.id)}" data-due="${esc(a.due_at || '')}"
+                  data-title="${esc(a.title)}"
+                  title="Dời hạn nộp — bài quá hạn sẽ nhận bài lại">Đổi hạn</button>${effort} ${action}</td>
     </tr>`;
   }).join('');
 }
@@ -2679,6 +2683,152 @@ async function openEffort(bankId, assignmentId, title) {
  * một em vào bài không dành cho em ấy, mà lệnh bù thì KHÔNG gỡ lại được (nó chỉ
  * thêm, không bao giờ xoá).
  */
+/* ── Đổi hạn nộp ────────────────────────────────────────────────────────────
+ *
+ * Cho tới nay không đổi hạn được từ trong sản phẩm — ngày 07/08 phải viết SQL
+ * rồi chạy tay trên máy chủ thật. Và cái thiếu ấy còn khoá luôn nút Trả bài,
+ * vì trả bài đòi bài giao còn nhận bài.
+ *
+ * Hai điều màn này phải làm đúng, cả hai đều dễ làm sai mà không kêu:
+ *
+ *   · Đọc và ghi hạn theo GIỜ VIỆT NAM, không theo múi giờ của máy đang mở
+ *     trang. Máy chủ dựng hạn bằng `compose_due_at` ở múi giờ Việt Nam; nếu ô
+ *     nhập ở đây đọc theo giờ máy thì một giáo viên đang ở nước ngoài mở ra sẽ
+ *     thấy 19:00 thành 15:00, sửa một thứ khác rồi bấm lưu — và vừa dời hạn mà
+ *     không hề biết.
+ *   · Nêu hạn màn hình ĐANG HIỆN khi gửi lệnh, để máy chủ từ chối nếu người
+ *     khác vừa đổi (codex #996).
+ */
+let _dueAsg = null;          // { id, title, expected } — hạn lúc mở hộp
+/**
+ * Lời cảnh báo máy chủ vừa trả về, GẮN VỚI ĐÚNG ngày/giờ đã hiện ra cùng nó:
+ * `{ flips, date, time }`.
+ *
+ * Giữ mỗi con số thì sau khi đọc cảnh báo cho ngày 09/08, giáo viên đổi sang
+ * 12/08 (hoặc bấm "Bỏ hạn") rồi bấm lưu — và lệnh đi kèm cờ xác nhận cho một đề
+ * nghị mà con số của nó chưa ai từng nhìn thấy (codex #1005). Xác nhận là xác
+ * nhận cho MỘT đề nghị cụ thể, nên nó phải mang theo đề nghị ấy.
+ */
+let _dueFlips = null;
+
+/** Đề nghị hiện đang nằm trong hộp. Dùng để so với thứ đã được cảnh báo. */
+const dueProposal = () => ({
+  date: $('due-date').value || null,
+  time: ($('due-date').value ? ($('due-time').value || '19:00') : null),
+});
+
+/** Cảnh báo đang cầm có đúng là cảnh báo CHO đề nghị đang nằm trong hộp không. */
+function dueConfirmed() {
+  if (!_dueFlips) return false;
+  const p = dueProposal();
+  return _dueFlips.date === p.date && _dueFlips.time === p.time;
+}
+
+/** Sửa ô nhập là đề nghị đã khác — lời cảnh báo cũ hết hiệu lực, cất nó đi. */
+function syncDueWarning() {
+  if (dueConfirmed()) return;
+  _dueFlips = null;
+  const w = $('due-warn');
+  if (w) { w.hidden = true; w.innerHTML = ''; }
+  const ok = $('btn-due-ok');
+  if (ok) ok.textContent = 'Đổi hạn';
+}
+
+/** Mốc thời gian → { date: 'YYYY-MM-DD', time: 'HH:MM' } theo GIỜ VIỆT NAM. */
+function dueParts(dueAt) {
+  if (!dueAt) return { date: '', time: '19:00' };
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return { date: '', time: '19:00' };
+  const opt = { timeZone: 'Asia/Ho_Chi_Minh' };
+  // 'en-CA' cho ra đúng dạng YYYY-MM-DD; 'en-GB' cho giờ 24h.
+  const date = new Intl.DateTimeFormat('en-CA', {
+    ...opt, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', {
+    ...opt, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return { date, time };
+}
+
+function openDueEdit(id, dueAt, title) {
+  const a = _homework.find((x) => x.id === id);
+  _dueAsg = { id, title, expected: (a ? a.due_at : dueAt) || null };
+  _dueFlips = null;
+  const p = dueParts(_dueAsg.expected);
+  $('due-date').value = p.date;
+  $('due-time').value = p.time;
+  $('due-title').textContent = title || 'bài giao này';
+  $('due-current').textContent = dueText(_dueAsg.expected);
+  $('due-warn').hidden = true;
+  $('due-warn').innerHTML = '';
+  $('btn-due-ok').textContent = 'Đổi hạn';
+  $('due-modal').hidden = false;
+  $('due-date').focus();
+}
+
+function closeDueEdit() {
+  $('due-modal').hidden = true;
+  _dueAsg = null;
+  _dueFlips = null;
+}
+
+async function saveDue() {
+  if (!_dueAsg) return;
+  const p = dueProposal();
+  // Xác nhận CHỈ có hiệu lực cho đúng đề nghị đã được cảnh báo. Đổi ngày/giờ
+  // xong mới bấm thì đây là một đề nghị khác, và nó phải đi qua vòng đếm lại.
+  const confirmed = dueConfirmed();
+  try {
+    const r = await api.patch(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(_dueAsg.id) + '/due',
+      {
+        due_date: p.date,
+        due_time: p.time,
+        expected_due_at: _dueAsg.expected,
+        // Chỉ gửi cờ xác nhận sau khi máy chủ ĐÃ nói ra con số và người dùng
+        // bấm lần thứ hai. Gửi sẵn từ đầu là bỏ qua chính cái chốt ấy.
+        confirm_rewrites: confirmed,
+        // Và nêu lại CHÍNH con số đã hiện ra: máy chủ đếm lại rồi so, vì giữa
+        // hai lần bấm có thể có em nộp xen vào.
+        confirmed_flips: confirmed ? _dueFlips.flips : null,
+      });
+    toast(r && r.due_at
+      ? 'Đã đổi hạn. Bài giao nhận bài trở lại nếu hạn mới còn ở phía trước.'
+      : 'Đã bỏ hạn nộp — bài này nhận bài không giới hạn thời gian.');
+    closeDueEdit();
+    await loadHomework();
+    invalidateProgress();
+  } catch (err) {
+    const d = (err && err.detail) || {};
+    if (d.needs_confirm && d.flips) {
+      // Nói ra CON SỐ rồi mới hỏi lại. "Đổi hạn này viết lại hồ sơ của ai đó" mà
+      // không kèm số thì giáo viên không có gì để cân nhắc.
+      // Gắn con số vào ĐÚNG đề nghị vừa gửi, không phải vào ô nhập lúc đọc lại.
+      _dueFlips = { flips: d.flips, date: p.date, time: p.time };
+      const bits = [];
+      if (d.flips.to_ontime) {
+        bits.push(`<strong>${d.flips.to_ontime}</strong> lượt đang tính là NỘP TRỄ `
+          + 'sẽ thành đúng hạn');
+      }
+      if (d.flips.to_late) {
+        bits.push(`<strong>${d.flips.to_late}</strong> lượt đang tính là ĐÚNG HẠN `
+          + 'sẽ thành nộp trễ');
+      }
+      const w = $('due-warn');
+      w.hidden = false;
+      w.innerHTML = (d.stale_confirmation
+          ? 'Số lượt bị ảnh hưởng vừa đổi (có em nộp xen vào). Nay là: '
+          : 'Hạn mới viết lại hồ sơ đã có: ')
+        + (bits.join(', ') || 'không lượt nào')
+        + '. Đây là hồ sơ của học viên, không phải một con số hiển thị — '
+        + 'bấm lần nữa nếu vẫn muốn đổi.';
+      $('btn-due-ok').textContent = 'Vẫn đổi hạn';
+      return;
+    }
+    toast('Không đổi được hạn: ' + (d.message || err.message || err), 'error');
+    if (d.conflict) { closeDueEdit(); loadHomework(); }
+  }
+}
+
 let _bfPick = new Set();
 let _bfAsg = null;
 
@@ -3511,7 +3661,25 @@ function bindDetail() {
     if (btn.dataset.action === 'backfill') {
       backfillHomework(btn.dataset.id, btn.dataset.scope);
     }
+    if (btn.dataset.action === 'edit-due') {
+      openDueEdit(btn.dataset.id, btn.dataset.due || null, btn.dataset.title);
+    }
   });
+
+  $('btn-due-cancel').addEventListener('click', closeDueEdit);
+  $('btn-due-ok').addEventListener('click', saveDue);
+  $('btn-due-clear').addEventListener('click', () => {
+    // Bỏ hạn là một trạng thái hợp lệ ("không hạn"), nên nó phải bấm được chứ
+    // không phải xoá tay ô ngày rồi đoán xem có ăn không.
+    $('due-date').value = '';
+    syncDueWarning();
+  });
+  // Sửa ô nhập là đổi đề nghị — cất lời cảnh báo của đề nghị cũ đi ngay, để
+  // màn hình không đứng đó nói về một con số của thứ khác. Chốt thật nằm ở
+  // `dueConfirmed()`; hai chỗ này chỉ giữ cho mắt và tay khớp nhau.
+  $('due-date').addEventListener('input', syncDueWarning);
+  $('due-time').addEventListener('input', syncDueWarning);
+  bindModalBackdrop('due-modal', closeDueEdit);
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);

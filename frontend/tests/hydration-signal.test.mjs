@@ -46,7 +46,15 @@ const khôngChúThích = (f) => readFileSync(f, 'utf8').split('\n')
 // `<script type="module"` với `type` đứng đầu và nháy kép, nên `<script defer
 // type='module'>` sẽ lọt khỏi mọi khẳng định bên dưới (codex bắt ở #1003).
 const LÀ_MODULE = /<script[^>]*\stype=["']module["']/;
-const NẠP_MODULE = pages().filter((f) => LÀ_MODULE.test(khôngChúThích(f)));
+// PHẢI bắt CẢ `<LegacyModule>`. Sau khi 11 trang chuyển từ thẻ `<script>` sang
+// component đó, chúng RƠI KHỎI danh sách này và mọi khẳng định bên dưới không
+// còn chạy trên chúng — chốt ngừng canh đúng thứ nó sinh ra để canh, mà vẫn
+// xanh vì `NẠP_MODULE.length >= 5` được thoả bởi các trang khác (codex #1004).
+const LÀ_LEGACY_MODULE = /<LegacyModule\s/;
+const NẠP_MODULE = pages().filter((f) => {
+  const t = khôngChúThích(f);
+  return LÀ_MODULE.test(t) || LÀ_LEGACY_MODULE.test(t);
+});
 
 // NỢ ĐÃ BIẾT — các trang port từ những đợt TRƯỚC, nạp module bằng
 // `<script type="module" src="…">` trần, KHÔNG có chốt nào.
@@ -60,21 +68,15 @@ const NẠP_MODULE = pages().filter((f) => LÀ_MODULE.test(khôngChúThích(f)))
 // trang hỏng, tức nó nói dối bằng cách bỏ sót. Ghi thành danh sách thì (1) một
 // trang MỚI không thể lặng lẽ nhập hội, (2) danh sách chỉ có thể ngắn đi, và
 // (3) người đọc thấy đúng quy mô còn lại.
-const CHƯA_VÁ = new Set([
-  '(authed-exercises)/exercises/page.tsx',
-  '(authed-flashcards)/flashcards/page.tsx',
-  '(authed-listening)/listening/analytics/page.tsx',
-  '(authed-listening)/listening/browse/page.tsx',
-  '(authed-listening)/listening/mini-test/page.tsx',
-  '(authed-listening)/listening/page.tsx',
-  '(authed-listening)/listening/practice/page.tsx',
-  '(authed-listening)/listening/skills/page.tsx',
-  '(authed-listening)/listening/tests/page.tsx',
-  '(authed-reading)/reading/mini-test/page.tsx',
-  '(authed-reading)/reading/skill/page.tsx',
-  '(authed-reading)/reading/test/page.tsx',
-  '(authed-reading)/reading/vocab/page.tsx',
-]);
+// NỢ ĐÃ TRẢ HẾT (2026-08-08). Danh sách này từng có 13 trang port từ các đợt
+// TRƯỚC, nạp module bằng `<script type="module" src>` trần. Sáu trang đã thử
+// đều tái hiện React #418 dưới `repro-418.mjs --slow-react`, và chúng đang
+// chạy production.
+//
+// GIỮ LẠI SET RỖNG thay vì xoá hẳn cơ chế: ngân sách 0 dưới đây biến "thêm một
+// trang vào danh sách nợ" thành lỗi đỏ ngay, nên không ai có thể nới cổng bằng
+// cách khai nợ mới.
+const CHƯA_VÁ = new Set([]);
 
 const rel = (f) => path.relative(APP, f);
 const ĐÃ_VÁ = NẠP_MODULE.filter((f) => !CHƯA_VÁ.has(rel(f)));
@@ -93,8 +95,14 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
       const s = khôngChúThích(f);
       const tên = rel(f);
       if (!/<HydratedSignal\s*\/>/.test(s)) xấu.push(`${tên}: không render <HydratedSignal />`);
-      if (!/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
-      if (!/aver:hydrated/.test(s)) xấu.push(`${tên}: không nghe sự kiện aver:hydrated`);
+      // Hai khuôn: trang MOUNT nội tuyến tự đọc cờ; trang `<LegacyModule>` uỷ
+      // việc chờ cho component (useEffect) nên chỉ cần có component + watchdog.
+      const uỷ = /<LegacyModule\s/.test(s);
+      if (!uỷ && !/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
+      if (!uỷ && !/aver:hydrated/.test(s)) xấu.push(`${tên}: không nghe sự kiện aver:hydrated`);
+      // ĐƯỜNG LUI cũng là một phần hợp đồng: thiếu nó thì một lần chunk React
+      // hỏng là trang treo vĩnh viễn — bản vá đổi lỗi #418 lấy lỗi treo.
+      if (!/watchdogScript\(/.test(s)) xấu.push(`${tên}: thiếu watchdogScript()`);
     }
     assert.deepEqual(xấu.sort(), [],
       'module legacy chạy trước khi React hydrate ⇒ React vứt HTML máy chủ ⇒ trang trắng');
@@ -126,14 +134,16 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
   // hỏng vào `CHƯA_VÁ` sẽ loại nó khỏi CẢ `ĐÃ_VÁ` LẪN danh sách "trang lạ", nên
   // toàn bộ suite vẫn xanh. Một allowlist tự nới được thì không phải cổng.
   test('danh sách nợ KHÔNG được dài thêm', () => {
-    assert.ok(CHƯA_VÁ.size <= 13,
-      `CHƯA_VÁ có ${CHƯA_VÁ.size} mục — chỉ được PHÉP ngắn đi. Vá trang mới, `
-      + 'đừng thêm nó vào danh sách nợ.');
+    assert.equal(CHƯA_VÁ.size, 0,
+      `CHƯA_VÁ có ${CHƯA_VÁ.size} mục. Nợ đã trả hết ngày 2026-08-08 — ngân sách `
+      + 'là 0. Vá trang mới, đừng khai nó thành nợ.');
   });
 
   test('không trang MỚI nào nhập hội danh sách chưa vá', () => {
-    const lạ = NẠP_MODULE.map(rel).filter((r) => CHƯA_VÁ.has(r) === false
-      && !/__averHydrated/.test(khôngChúThích(path.join(APP, r))));
+    const lạ = NẠP_MODULE.map(rel).filter((r) => {
+      const t = khôngChúThích(path.join(APP, r));
+      return !CHƯA_VÁ.has(r) && !/__averHydrated/.test(t) && !/<LegacyModule\s/.test(t);
+    });
     assert.deepEqual(lạ.sort(), [], 'trang nạp module mà không chờ tín hiệu hydrate');
 
     const đãBiến = [...CHƯA_VÁ].filter((r) => !NẠP_MODULE.map(rel).includes(r));

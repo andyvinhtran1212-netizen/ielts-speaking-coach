@@ -600,7 +600,7 @@ export interface paths {
         /**
          * Foot Traffic
          * @description Aggregated page-view foot traffic for the admin dashboard. Default window:
-         *     last 30 days. ONE query over page_view events + a Python rollup (no N+1).
+         *     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
          *     Pattern #29: a query failure returns zeroed metrics, never a 500.
          */
         get: operations["foot_traffic_admin_analytics_foot_traffic_get"];
@@ -1512,7 +1512,23 @@ export interface paths {
         };
         /**
          * List Cohorts
-         * @description List cohorts. Default: only active. Pass is_active=false to see archived.
+         * @description List cohorts. Plain rows by default; `with_rollup=true` adds course +
+         *     roster counts.
+         *
+         *     The rollup is OPT-IN because five other admin screens (access-codes, users,
+         *     writing-queue, mock-exams, exam-content) call this endpoint purely to fill a
+         *     cohort picker. Running the roster scan for them would make those unrelated
+         *     pages pay a full paginated pass over every student in every class, growing
+         *     with the school, for data they never render. Only the merged Lớp & Học viên
+         *     page asks for it.
+         *
+         *     With the rollup on, `unactivated_count` is the number of students on the
+         *     roster with no account — they receive nothing that is assigned to them, so
+         *     that page shows it on every class row rather than behind a click. Both counts
+         *     come back `null`, plus a top-level `rollup_failed: true`, when the roster
+         *     scan errors: "0 học viên" is a claim a failed query has not earned.
+         *
+         *     Pass `is_active=false` to see archived classes; omit it for everything.
          */
         get: operations["list_cohorts_admin_cohorts_get"];
         put?: never;
@@ -1668,6 +1684,649 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cohort Progress Matrix
+         * @description Tiến độ 4 kỹ năng của cả lớp — mỗi học viên một dòng.
+         *
+         *     One query per skill over the whole roster, not per student: a class of 30
+         *     asked skill-by-skill is 120 round-trips and it grows with the roster.
+         *
+         *     Skills whose query failed come back as `null` on every row and are named in
+         *     `degraded`. "0 lượt Reading" is a claim about a student that an errored query
+         *     has not earned, and unlike a slow page a wrong zero is invisible.
+         */
+        get: operations["cohort_progress_matrix_admin_cohorts__cohort_id__progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Courses
+         * @description Courses in ladder order. `is_active` omitted → everything, so the admin
+         *     can find an archived course to restore.
+         */
+        get: operations["list_courses_admin_courses_get"];
+        put?: never;
+        /** Create Course */
+        post: operations["create_course_admin_courses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Course */
+        patch: operations["update_course_admin_courses__course_id__patch"];
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Lessons */
+        get: operations["list_lessons_admin_cohorts__cohort_id__lessons_get"];
+        put?: never;
+        /** Create Lesson */
+        post: operations["create_lesson_admin_cohorts__cohort_id__lessons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/lessons/{lesson_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Lesson
+         * @description Hard delete. Homework attached to this lesson survives with lesson_id
+         *     cleared — the composite FK from mig 178 nulls only that column.
+         */
+        delete: operations["delete_lesson_admin_cohorts__cohort_id__lessons__lesson_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Lesson
+         * @description The cohort is in the path AND in the WHERE clause: a stale tab must not be
+         *     able to edit a lesson that has since been read under a different class.
+         */
+        patch: operations["update_lesson_admin_cohorts__cohort_id__lessons__lesson_id__patch"];
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assignments
+         * @description Assignments of one class, newest deadline first, each with its progress.
+         *
+         *     `late` and `missing` are computed from timestamps at read time — there is no
+         *     column for either, so they cannot go stale when a deadline moves.
+         */
+        get: operations["list_assignments_admin_cohorts__cohort_id__assignments_get"];
+        put?: never;
+        /**
+         * Create Assignment
+         * @description Give one task to every student on the roster.
+         *
+         *     Returns `student_count` and `unactivated_count`. The UI must surface the
+         *     second one: those students have no account, so nothing is ever shown to them
+         *     and they will read as simply not having done the work.
+         */
+        post: operations["create_assignment_admin_cohorts__cohort_id__assignments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/course-banks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Course Banks
+         * @description Kho bài tập theo buổi của khoá mà lớp này thuộc về.
+         *
+         *     Trả CẢ bộ không giao được kèm lý do — `already_given` là việc đã xong, còn
+         *     `question_count = 0` là việc CHƯA làm (nạp tệp JSONL của buổi ấy).
+         */
+        get: operations["list_course_banks_admin_cohorts__cohort_id__course_banks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-lesson-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Speaking Lesson Sets
+         * @description Bộ đề theo buổi của khoá mà lớp này thuộc về.
+         *
+         *     Trả CẢ bộ không giao được kèm lý do, đúng như danh sách chủ đề: `already_given`
+         *     là việc đã xong, `ready: false` là việc CHƯA làm (chạy mẻ render).
+         */
+        get: operations["list_speaking_lesson_sets_admin_cohorts__cohort_id__speaking_lesson_sets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-lesson-sets/{set_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Lesson Set Questions
+         * @description Câu trong một bộ, để giáo viên xem và nghe thử trước khi giao.
+         */
+        get: operations["list_lesson_set_questions_admin_cohorts__cohort_id__speaking_lesson_sets__set_id__questions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Speaking Topics
+         * @description Chủ đề Speaking giao được cho lớp này, ở một Part.
+         *
+         *     Trả CẢ những chủ đề không giao được, kèm lý do — chứ không lặng lẽ bỏ đi.
+         *     Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau:
+         *
+         *       * `already_given` — lớp này đã làm rồi. Việc đã xong, chọn chủ đề khác.
+         *       * `ready: false`  — chưa có bản đọc đề. Việc CHƯA làm: chạy mẻ render
+         *                           (`scripts/pregen_speaking_question_audio.py`) là dùng
+         *                           được. Gộp hai thứ vào một chữ "không khả dụng" sẽ giấu
+         *                           mất một việc đang chờ người làm.
+         */
+        get: operations["list_speaking_topics_admin_cohorts__cohort_id__speaking_topics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-topics/{topic_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Topic Questions
+         * @description Câu hỏi của MỘT chủ đề, để giáo viên tự chọn.
+         *
+         *     Trả CẢ câu chưa giao được, kèm `giveable` + lý do — chứ không lặng lẽ giấu.
+         *     Giáo viên cần thấy "chủ đề này có 7 câu, 5 câu chọn được, 2 câu chờ tạo
+         *     audio"; giấu đi thì họ chỉ thấy một danh sách ngắn không rõ vì sao ngắn.
+         *
+         *     Với Part 1/3, `giveable` đòi bản đọc KHỚP lời hiện tại — không chỉ "có audio".
+         *     Sửa lời câu hỏi làm bản đọc cũ hết giá trị, và giao nó nghĩa là học viên nghe
+         *     một đằng bị chấm một nẻo.
+         */
+        get: operations["list_topic_questions_admin_cohorts__cohort_id__speaking_topics__topic_id__questions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/tally": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assignment Tally
+         * @description Bảng tổng kết nộp bài của MỘT bài giao — từng học viên một dòng.
+         *
+         *     KHÔNG có bảng lưu sẵn. Sau hạn hệ thống không nhận bài nữa (mig 182 +
+         *     `is_accepting_submissions`), nên trạng thái suy ra từ `submitted_at` vs
+         *     `due_at` ĐÃ đứng yên — "chốt" là một sự thật về thời gian, không phải một
+         *     bản ghi phải chụp lại. Chụp thêm một bản chỉ tạo ra thứ có thể lệch với sổ
+         *     cái, đúng cái quy tắc "trễ hạn/bỏ bài là SUY RA, không lưu" (mig 177) đã bỏ.
+         *
+         *     `sealed` cho giao diện biết vẽ trạng thái nào: trước hạn con số còn đổi, sau
+         *     hạn thì không. Hai thứ đó phải phân biệt được bằng mắt.
+         */
+        get: operations["assignment_tally_admin_cohorts__cohort_id__assignments__assignment_id__tally_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/writing/{student_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Student Course Writing
+         * @description Bài TỰ LUẬN của MỘT học viên trong một bài giao theo buổi.
+         *
+         *     Dữ liệu vốn đã được ghi đủ từ lúc chấm (`course_writing_submissions.items`
+         *     giữ nguyên văn đề, bài học viên viết, bản sửa, danh sách lỗi, đáp án mẫu) —
+         *     thứ thiếu là một mặt ĐỌC. Trước đó giáo viên chỉ thấy MỘT con số phần trăm
+         *     trên bảng tổng kết và không có cách nào biết em ấy viết gì, sai gì.
+         *
+         *     Đọc theo MỤC BÀI GIAO chứ không theo (bank, học viên): giao lại cùng bộ bài
+         *     là một lượt khác, và trộn hai lượt vào nhau sẽ cho giáo viên đọc bài của
+         *     lần giao trước (cùng lý do mig 192).
+         */
+        get: operations["student_course_writing_admin_cohorts__cohort_id__assignments__assignment_id__writing__student_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/return/{student_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return Student Work
+         * @description TRẢ BÀI: mở lại một mục đã nộp để học viên làm tiếp.
+         *
+         *     ── Vì sao có đường này ──────────────────────────────────────────────────
+         *     Ngày 07/08 em Lê Ngọc Hà Linh lưu nháp lúc 08:22:02 và nộp lúc 08:22:06.
+         *     Bốn giây — một cú bấm nhầm. Phần tự luận chỉ nộp được MỘT lần, và trong sản
+         *     phẩm không có đường lùi: phải chạy SQL tay trên máy chủ thật mới mở lại
+         *     được cho em ấy. Một việc sư phạm bình thường không nên cần tới đó.
+         *
+         *     ── Ba chốt, và cả ba đều từ chối thành LỜI ─────────────────────────────
+         *     · Quá hạn thì KHÔNG trả. `_assignment_item_for` đòi bài giao còn nhận bài,
+         *       nên trả bài sau hạn là mở ra một khung viết bấm Nộp sẽ ăn 404 — tệ hơn cả
+         *       không trả. Dời hạn trước đã.
+         *     · Dạng bài chưa gỡ được bằng chứng thì KHÔNG trả (`_RETURNABLE_KINDS`).
+         *     · Chưa nộp thì không có gì để trả.
+         *
+         *     Điểm chỉ xoá khi CHÍNH lượt nộp ấy ghi nó — cùng một luật với lúc chốt sổ
+         *     (`course_hand_in_score`). Bộ đề có trắc nghiệm thì điểm của mục là kết quả
+         *     trắc nghiệm; xoá nó ở đây là xoá đúng thứ em ấy đã làm được (#994).
+         */
+        post: operations["return_student_work_admin_cohorts__cohort_id__assignments__assignment_id__return__student_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/students/{student_id}/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Student Work
+         * @description Mọi bài giao của lớp mà MỘT em có phần — kèm đường mở thẳng bài đã làm.
+         *
+         *     Vì sao cần một đường riêng thay vì gọi `tally` từng bài: giáo viên bấm vào
+         *     tên một em để hỏi "em này đã làm gì", chứ không phải "bài này ai làm". Hỏi
+         *     ngược bằng cách quét N bảng tổng kết là N lượt gọi mạng cho một câu hỏi,
+         *     mỗi lượt kéo cả lớp về để lấy đúng một dòng.
+         *
+         *     Trả về THEO BÀI GIAO, kể cả bài em ấy chưa đụng tới: "chưa làm" cũng là câu
+         *     trả lời, và một danh sách chỉ có bài đã nộp thì không nói được em ấy đang
+         *     thiếu gì.
+         *
+         *     Trạng thái tính bằng `_hand_in_status` — CÙNG hàm bảng tổng kết dùng. Hai
+         *     màn cùng nói về một em mà một màn bảo "chưa nộp", màn kia bảo "nộp trễ", là
+         *     lỗi không kêu thành tiếng.
+         */
+        get: operations["student_work_admin_cohorts__cohort_id__students__student_id__work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Speaking Daily Board
+         * @description Bảng tổng kết bài Speaking HẰNG NGÀY: học viên × ngày, xong hay chưa.
+         *
+         *     Vì sao là một mặt đọc riêng chứ không phải bảng tổng kết của từng bài giao:
+         *     lớp có bài gần như MỖI NGÀY, nên câu hỏi thật của giáo viên không phải "bài
+         *     hôm nay ai nộp" mà là "ba tuần qua em nào đứt quãng". Trả lời được câu ấy
+         *     bằng cách mở hai chục bảng tổng kết là không trả lời được.
+         *
+         *     CHỈ `kind='daily'`. Bài sau buổi học có nhịp khác (hạn tính bằng ngày, một
+         *     buổi một bài) nên xếp chung vào lưới theo ngày sẽ tạo ra những cột trống
+         *     đọc như bỏ bài.
+         *
+         *     Ngày là NGÀY VIỆT NAM của hạn nộp (`CLASS_TZ`), không phải ngày UTC: một
+         *     bài hạn 19:00 giờ VN rơi vào 12:00Z — lấy ngày UTC vẫn đúng ở đây, nhưng
+         *     hạn 07:00 sáng thì thành ngày HÔM TRƯỚC, và cả cột lệch đi một ngày.
+         */
+        get: operations["speaking_daily_board_admin_cohorts__cohort_id__speaking_daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/speaking-performance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Speaking Performance
+         * @description Học viên nào đang khá lên, ai đang đuối — trải CẢ hai loại bài Speaking.
+         *
+         *     Một bảng, không phải hai. Bài hằng ngày và bài sau buổi học khác nhau ở
+         *     nguồn đề và cách đặt hạn; còn "em này đang tiến bộ hay tụt" thì không có lý
+         *     do gì để trả lời riêng cho từng loại. Tách ra sẽ giấu mất đúng cái so sánh
+         *     quan trọng nhất.
+         *
+         *     SO VỚI CHÍNH EM ẤY, không so với lớp. Một em band 5.0 đều đặn không có vấn
+         *     đề gì; một em từ 7.0 tụt xuống 6.0 thì có — dù em thứ hai vẫn cao hơn. Xếp
+         *     hạng trong lớp trả lời một câu hỏi khác, và ở đây nó sẽ chôn mất em thứ hai.
+         */
+        get: operations["speaking_performance_admin_cohorts__cohort_id__speaking_performance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/backfill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Backfill Assignment
+         * @description Thêm người nhận còn thiếu vào một bài ĐÃ GIAO.
+         *
+         *     Em vào lớp sau ngày giao vốn không có dòng nào trong `class_assignment_items`
+         *     nên bài ấy vô hình với em, còn bảng của giáo viên đếm em vào mẫu số mà không
+         *     bao giờ thấy bài nộp. Chỉ THÊM, không bao giờ xoá — bài đã nộp là chuyện đã
+         *     xảy ra. Gọi lại bao nhiêu lần cũng vô hại.
+         */
+        post: operations["backfill_assignment_admin_cohorts__cohort_id__assignments__assignment_id__backfill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Assignment
+         * @description Delete a give — only while nothing has been handed in.
+         *
+         *     Both ids are in the WHERE clause so a stale tab cannot delete an assignment
+         *     that now belongs to another class.
+         */
+        delete: operations["delete_assignment_admin_cohorts__cohort_id__assignments__assignment_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Assignment
+         * @description Archive (or re-publish) a give.
+         *
+         *     This is the action DELETE tells the admin to use once anyone has submitted —
+         *     and until now it did not exist, so a cancelled or mistaken assignment with
+         *     one hand-in could never be closed and stayed startable forever. Archiving
+         *     hides it from the student endpoints (`is_assignment_open`) while keeping
+         *     every submission and its evidence.
+         *
+         *     Both ids are in the WHERE clause so a stale tab cannot archive an assignment
+         *     that now belongs to another class.
+         */
+        patch: operations["update_assignment_admin_cohorts__cohort_id__assignments__assignment_id__patch"];
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Assignment Due
+         * @description Đổi hạn nộp của một bài giao.
+         *
+         *     ── Vì sao có đường này ──────────────────────────────────────────────────
+         *     `PATCH .../assignments/{id}` cố ý chỉ nhận `status`, và chú thích ở đó ghi
+         *     rằng đổi hạn "cần suy nghĩ riêng". Đây là phần suy nghĩ ấy. Cho tới nay
+         *     không đổi hạn được từ trong sản phẩm: ngày 07/08 phải viết SQL rồi chạy tay
+         *     trên máy chủ thật — và chính cái thiếu ấy còn khoá luôn nút Trả bài, vì trả
+         *     bài đòi bài giao còn nhận bài.
+         *
+         *     ── Giờ hạn dựng ở ĐÂY, không ở trình duyệt ─────────────────────────────
+         *     `compose_due_at` ghép ngày với giờ theo múi giờ Việt Nam. Trình duyệt không
+         *     được tin với việc này: một giáo viên đang ở nước ngoài sẽ đặt hạn theo múi
+         *     giờ của họ mà không ai biết — cùng lý do `create_assignment` đã làm thế.
+         *
+         *     Một đường RIÊNG chứ không nhồi vào `PATCH` cũ: đường cũ đang được sửa ở một
+         *     nhánh khác, và thêm trường vào cùng một khuôn là dựng sẵn một cuộc va.
+         */
+        patch: operations["update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch"];
+        trace?: never;
+    };
+    "/api/class/my-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Assignments
+         * @description Bài tập của học viên đang đăng nhập.
+         *
+         *     A user with no linked student row, or a student in no class, gets an empty
+         *     list and `has_class: false` — not a 404. Not being in a class is an ordinary
+         *     state, and the home page needs to tell the two apart to decide whether to
+         *     show the class card at all.
+         */
+        get: operations["my_assignments_api_class_my_assignments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class/assignments/{item_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Assignment
+         * @description Mở một bài Speaking được giao — trả về tham số để tạo session.
+         *
+         *     Deliberately does NOT create the session itself. POST /sessions owns quota,
+         *     daily caps and permission checks; duplicating any of that here would mean two
+         *     places to keep in step, and the one here would be the one nobody remembers to
+         *     update. The client posts to /sessions with these values plus
+         *     `class_assignment_item_id`, and the completion hook closes the loop.
+         *
+         *     Marks the item `opened` on first use — a stored fact (it happened), unlike
+         *     late/missed which are derived.
+         */
+        post: operations["start_assignment_api_class_assignments__item_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Class
+         * @description Trang lớp của học viên — lớp, buổi học, bài tập, tiến độ, trong một lượt gọi.
+         *
+         *     `summary=true` trả bản GỌN cho thẻ ở trang chủ: chỉ tên lớp, khoá, và các con
+         *     số tiến độ. Thẻ đó chỉ đọc bấy nhiêu, nhưng bản đầy đủ kéo về MỌI buổi học đã
+         *     đăng — kể cả `body_md` không giới hạn độ dài và danh sách tài liệu — nên mỗi
+         *     lần mở trang chủ lại nặng thêm theo lượng nội dung giảng viên soạn. Bản gọn
+         *     bỏ hẳn phần buổi học và không trả mảng bài tập, chỉ trả phần đếm.
+         *
+         *     Shaped for the page rather than the tables: one round-trip, because the class
+         *     page shows all four together and three sequential fetches would make it
+         *     flash through three half-states.
+         *
+         *     `has_class: false` is an ordinary answer, not a 404 — most learners are on a
+         *     mass code and belong to no class. The page shows a plain explanation and the
+         *     home card hides itself.
+         *
+         *     Each block is built independently and a failure downgrades only that block
+         *     (`degraded: [...]`), mirroring services/student_home_aggregator: a class page
+         *     that 500s because the lessons query hiccuped would hide the homework too,
+         *     which is the part the student actually needs.
+         */
+        get: operations["my_class_api_class_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/error-logs": {
         parameters: {
             query?: never;
@@ -1702,6 +2361,64 @@ export interface paths {
          * @description List error logs with filters. Admin only.
          */
         get: operations["list_error_logs_admin_error_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/error-logs/migration-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Error Log Migration Stats
+         * @description ADR-012 cutover dashboard: error counts by (implementation, release).
+         *
+         *     The FE-migration pilots run legacy and Next side by side; the Pilot Entry
+         *     checklist requires a dashboard that can compare error rates per
+         *     `implementation` tag (error-reporter rides them in `extra` — additive,
+         *     no schema change). Rows without tags (reports from before the tagging
+         *     change, or non-browser sources) group under "untagged".
+         *
+         *     Pagination is explicit: a bare select is capped at 1000 rows by PostgREST
+         *     (the admin-stats lesson, PR #688) — we page until exhausted with a hard
+         *     safety ceiling and report truncation honestly instead of undercounting.
+         */
+        get: operations["error_log_migration_stats_admin_error_logs_migration_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/error-logs/rollback-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Error Log Rollback Metrics
+         * @description Compute the FROZEN rollback triggers for one route (see block comment
+         *     above). The verdicts ALWAYS use their frozen windows — error-rate over
+         *     30 minutes, LCP p75 over 24h (review #761: one shared cutoff meant the
+         *     displayed verdicts were not the frozen triggers unless the admin happened
+         *     to pick the matching window). `window_minutes` scopes only the
+         *     per-implementation table. Filters ride in event_data/extra JSON, so
+         *     matching happens in Python over the window's rows — same explicit
+         *     pagination + stable ordering as migration-stats (PostgREST 1000-cap +
+         *     review #746).
+         */
+        get: operations["error_log_rollback_metrics_admin_error_logs_rollback_metrics_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1799,6 +2516,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/runtime-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Flags */
+        get: operations["list_flags_admin_runtime_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/runtime-flags/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Flag */
+        patch: operations["patch_flag_admin_runtime_flags__key__patch"];
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -1830,6 +2581,9 @@ export interface paths {
          * List Essays
          * @description List essays with optional status / student / cohort filters. Newest first.
          *     Enriched with student name+code, band, and deadline for the grade-queue UI.
+         *
+         *     `mock`: True → only 4-skill mock Writing essays (their own review tab);
+         *     False → exclude them from the regular tabs; omitted → no filter.
          */
         get: operations["list_essays_admin_writing_essays_get"];
         put?: never;
@@ -1845,6 +2599,32 @@ export interface paths {
          *     400 here so the bad request never reaches the BG queue.
          */
         post: operations["create_essay_admin_writing_essays_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/essays/{essay_id}/start-grading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Grading
+         * @description Admin picks a tier + triggers grading for an essay that was created
+         *     WITHOUT an auto-scheduled job — currently only mock-exam Writing
+         *     promotion (mock_exam_service._promote_writing_essays leaves the row
+         *     'pending' until an admin explicitly starts grading here, 2026-07-12).
+         *     Everything after this point (AI grades → 'graded' → admin reviews/edits
+         *     in grade.html → 'reviewed' → 'delivered') reuses the existing pipeline
+         *     unchanged — this endpoint only does the one missing step.
+         */
+        post: operations["start_grading_admin_writing_essays__essay_id__start_grading_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1891,6 +2671,49 @@ export interface paths {
          * @description Lightweight status payload for polling. Cheaper than full detail.
          */
         get: operations["get_essay_status_admin_writing_essays__essay_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/essays/{essay_id}/grade-rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate Grade
+         * @description Admin rates the QUALITY of this essay's AI grade (1–5 + optional note).
+         *     Snapshots which model graded it (migration 116) for later upgrade analysis.
+         *     Upserts: one current rating per essay.
+         */
+        post: operations["rate_grade_admin_writing_essays__essay_id__grade_rating_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/grade-ratings/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Grade Ratings Summary
+         * @description Aggregate admin grade-quality ratings by model — the upgrade-factoring
+         *     view: [{grading_model, n, avg_rating}].
+         */
+        get: operations["grade_ratings_summary_admin_writing_grade_ratings_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2222,7 +3045,8 @@ export interface paths {
         /**
          * Create Prompt
          * @description Create a new library prompt.  `created_by` is auto-stamped to
-         *     the calling admin's user_id.
+         *     the calling admin's user_id. For a task1_academic prompt with an image,
+         *     schedules answer-key extraction (docs/WRITING_TASK1_ANALYSIS_SPEC.md).
          */
         post: operations["create_prompt_admin_writing_prompts_post"];
         delete?: never;
@@ -2304,9 +3128,54 @@ export interface paths {
         /**
          * Update Prompt
          * @description Partial update.  Only fields present in the request body are
-         *     written; all others stay untouched.
+         *     written; all others stay untouched. If the image changed, re-schedules
+         *     answer-key extraction (and the prior analysis is re-reviewed).
          */
         patch: operations["update_prompt_admin_writing_prompts__prompt_id__patch"];
+        trace?: never;
+    };
+    "/admin/writing/prompts/{prompt_id}/reanalyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reanalyze Prompt Image
+         * @description Manually (re)run answer-key extraction for a task1_academic prompt — the
+         *     recovery path for a 'failed' analysis, or to refresh after a prompt edit.
+         *     Un-reviews the current analysis until the new run is approved.
+         */
+        post: operations["reanalyze_prompt_image_admin_writing_prompts__prompt_id__reanalyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/prompts/{prompt_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Review Prompt Analysis
+         * @description Save the admin-reviewed answer key. Approving (`reviewed=true`) is the
+         *     gate that lets these facts anchor grading — un-reviewed AI extraction never
+         *     grades. Sets status='ready' since approved content is, by definition, ready.
+         */
+        patch: operations["review_prompt_analysis_admin_writing_prompts__prompt_id__analysis_patch"];
         trace?: never;
     };
     "/admin/writing/tips": {
@@ -3973,25 +4842,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sessions/{session_id}/responses/{response_id}/pronunciation": {
+    "/api/grammar/exercises": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Assess Response Pronunciation
-         * @description Trigger Azure Pronunciation Assessment for a previously recorded response.
-         *     Safe to call multiple times — result is upserted, not duplicated.
-         *
-         *     Returns:
-         *         pronunciation_score, fluency_score, accuracy_score, completeness_score,
-         *         short_summary, words (word-level), provider, locale
+         * List Exercises
+         * @description All published grammar quiz banks (id/code/title/count). Public, uncached
+         *     (bank state is dynamic). Category is derivable from the code G-<category>-<slug>.
          */
-        post: operations["assess_response_pronunciation_sessions__session_id__responses__response_id__pronunciation_post"];
+        get: operations["list_exercises_api_grammar_exercises_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/article/{category}/{slug}/exercise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Article Exercise
+         * @description Is there a published check-up bank for this article? Returns the bank id so
+         *     the article page can link to /pages/quiz.html?bank=<id>. Public, uncached.
+         */
+        get: operations["get_article_exercise_api_grammar_article__category___slug__exercise_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4051,6 +4937,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vocabulary/categories/{category}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Category Cards
+         * @description All full vocab cards (rich fields) for a category — the topic-scoped study
+         *     stack consumed by flashcards + exercises. 404 when the category is unknown.
+         */
+        get: operations["get_category_cards_api_vocabulary_categories__category__cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/articles": {
         parameters: {
             query?: never;
@@ -4060,9 +4967,52 @@ export interface paths {
         };
         /**
          * Get Articles
-         * @description Return flat list of all article summaries (for client-side search/listing).
+         * @description Flat list of SELF-CURATED article summaries (for client-side search/listing).
+         *     Exam-list vocab (AWL/TOEIC/THPT) is served by /exam, not here, so the 'my vocab'
+         *     wiki listing never mixes in imported exam words.
          */
         get: operations["get_articles_api_vocabulary_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/exam": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Exam Families
+         * @description Exam-prep browse tree: families (AWL/TOEIC/THPT) → lists with card counts.
+         */
+        get: operations["get_exam_families_api_vocabulary_exam_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/exam/{list_slug}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Exam Cards
+         * @description Full rich cards for one exam list — the exam-prep study/flashcard stack.
+         *     404 when the list slug is unknown.
+         */
+        get: operations["get_exam_cards_api_vocabulary_exam__list_slug__cards_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5171,24 +6121,61 @@ export interface paths {
         };
         /**
          * Get Listening Analytics
-         * @description Per-user listening analytics.
+         * @description Per-user listening analytics — nguồn: listening_test_attempts.
          *
-         *     Range buckets (server-side filter to bound payload size + DB scan):
-         *       - 7d:  last 7 days
-         *       - 30d: last 30 days (default)
-         *       - all: all-time
+         *     Audit 2026-07-17: bảng listening_attempts (hệ exercise Sprint 11.x) đã chết
+         *     từ 05/2026 — mọi hoạt động thật (lesson/mini · drill · full) ghi vào
+         *     listening_test_attempts, nên thống kê đọc từ đó.
+         *
+         *     Range buckets: 7d | 30d (default) | all.
          *
          *     Aggregations:
-         *       - total_attempts: int
-         *       - by_mode: { dictation, gist, true_false, mcq } → {count, avg_score, accuracy}
-         *       - by_day: last 14 days bar chart data (count + avg_score per day)
-         *       - recent_attempts: last 10 with exercise_type + score + created_at
-         *       - weakest_mode: mode with lowest avg_score (≥3 attempts), else null
+         *       - total_attempts: mọi lượt trong range (engagement — gồm đang làm/bỏ dở)
+         *       - by_mode: { mini, drill, full, practice } → {count, avg_score, completion}
+         *         · count      = lượt ĐẦU per test (retry không đếm — Sprint 11.5.1 rule)
+         *         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
+         *         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
+         *       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
+         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+         *       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
          *
-         *     Per CLAUDE.md non-misleading-feedback rule: modes with <3 attempts
-         *     are reported as "insufficient data" rather than fabricating a band.
+         *     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
+         *     gắn nhãn "yếu nhất".
          */
         get: operations["get_listening_analytics_api_listening_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listening Overview
+         * @description How much practice material each Listening surface actually holds.
+         *
+         *     The landing page renders one tile per surface. Before this endpoint the
+         *     tiles were hard-coded, so four of them pointed at surfaces with zero
+         *     published rows — a learner clicked "Nghe ý chính" and landed on an empty
+         *     page. The landing page now hides a tile whose count is 0, which means the
+         *     count MUST match what the corresponding list endpoint would return, or a
+         *     tile promises content its own page cannot show.
+         *
+         *     So every filter here mirrors ``list_published_listening_tests`` /
+         *     ``list_listening_content`` / ``get_listening_exercises`` exactly:
+         *     published only, audio-ready only, exam-reserved papers excluded, and an
+         *     exercise counts only when BOTH it and its content row are published.
+         *     ``test_counts_consistent_with_list`` in the test suite pins that.
+         */
+        get: operations["listening_overview_api_listening_overview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5213,11 +6200,12 @@ export interface paths {
          *     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
          *     CTAs without a follow-up round-trip.
          *
-         *     test_type segregates the full-test and mini-test libraries (listening mini
-         *     test), reading metadata->>test_type:
-         *       - "mini" → ONLY mini tests.
-         *       - "full" / omitted (default) → EXCLUDE mini, but KEEP legacy tests whose
-         *         test_type IS NULL (a plain != 'mini' would drop them).
+         *     test_type segregates the full-test, mini-test and skill-drill libraries,
+         *     reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
+         *     full|mini|drill; legacy NULL-metadata rows were backfilled to 'full'):
+         *       - "mini"  → ONLY mini tests.
+         *       - "drill" → ONLY skill drills (listening Skills Practice).
+         *       - "full" / omitted (default) → ONLY full tests.
          */
         get: operations["list_published_listening_tests_api_listening_tests_get"];
         put?: never;
@@ -5253,6 +6241,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/{test_id}/dictation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Test Dictation
+         * @description Boot test-linked dictation.
+         *
+         *     Returns the test's audio + each section's transcript split into
+         *     sentences. This endpoint DELIBERATELY exposes the transcript (the
+         *     dictation reference) — it is separate from the player endpoint
+         *     (``GET /tests/{id}``) which strips transcripts to prevent students
+         *     reading the answers during a graded attempt.
+         */
+        get: operations["get_listening_test_dictation_api_listening_tests__test_id__dictation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grade Listening Test Dictation
+         * @description Grade one sentence of test-linked dictation.
+         *
+         *     Stateless (v1 — no persistence): re-splits the section transcript on
+         *     the server and grades ``sentences[sentence_idx]`` against the typed
+         *     text. Returns the same shape as the content-based dictation grader so
+         *     the frontend diff renderer is reused verbatim.
+         */
+        post: operations["grade_listening_test_dictation_api_listening_tests_dictation_grade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Listening Dictation Session
+         * @description Persist a completed dictation section + return its summary report.
+         *
+         *     The server RE-GRADES every sentence from the submitted text (canonical
+         *     truth — never trusts client-computed scores) via the same units + grader
+         *     the grade endpoint uses, rolls up accuracy + error trends, and stores one
+         *     dictation_sessions row. Returns the report the completion screen renders.
+         */
+        post: operations["submit_listening_dictation_session_api_listening_tests_dictation_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/session/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Dictation Session
+         * @description Re-read a dictation session report (owner only).
+         */
+        get: operations["get_listening_dictation_session_api_listening_tests_dictation_session__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Flag Listening Dictation
+         * @description Report a content error in a dictation sentence. Reuses the shared
+         *     user_feedback inbox (type='report', skill='listening') so it shows up in
+         *     the existing /admin/feedback admin — no dictation-specific admin needed.
+         */
+        post: operations["flag_listening_dictation_api_listening_tests_dictation_flag_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/{test_id}/attempts/in-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get In Progress Listening Attempt
+         * @description The caller's still-open attempt at this test, or null.
+         *
+         *     Exists so a Listening runner can RESUME instead of starting over. Without
+         *     it the only path to an attempt was POST /attempts, which abandons the
+         *     previous one and mints an empty replacement — so a refresh (or, inside a
+         *     4-skill mock, the embed's automatic start-click) silently destroyed every
+         *     answer the student had given.
+         *
+         *     `sitting_id` SCOPES the lookup to one mock sitting, and the mock runner
+         *     always sends it. Without that scope the query matched on (user, test,
+         *     in_progress) alone, so a student who already had a STANDALONE practice
+         *     attempt open on a test later reused by a mock exam would have the embed
+         *     auto-resume that practice attempt and attach_attempt bind it to the sealed
+         *     sitting — pulling practice answers into a real exam and corrupting both.
+         *     Standalone practice keeps the unscoped lookup.
+         *
+         *     Deliberately a separate endpoint rather than a field on the shared test
+         *     bundle: that bundle is served to several callers and is cacheable, while
+         *     this is per-user and must never be cached.
+         */
+        get: operations["get_in_progress_listening_attempt_api_listening_tests__test_id__attempts_in_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/{test_id}/attempts": {
         parameters: {
             query?: never;
@@ -5267,6 +6411,10 @@ export interface paths {
          * @description Open a new student attempt session. Marks any previously open
          *     in-progress attempt for the same (user, test) as abandoned so the
          *     1-active-attempt invariant holds.
+         *
+         *     NOTE: this is the "start over" path and it is destructive by design. A
+         *     caller that wants to CONTINUE must first check
+         *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
         delete?: never;
@@ -5290,10 +6438,97 @@ export interface paths {
         head?: never;
         /**
          * Patch Listening Test Attempt Answer
-         * @description Incrementally save a single answer. The frontend debounces ~2s
-         *     per gap; the backend treats this as an upsert keyed by ``q_num``.
+         * @description Incrementally save a single answer. The frontend debounces per gap; the
+         *     backend treats this as an upsert keyed by ``q_num``.
+         *
+         *     A4b — the merge happens inside ONE statement (fn_upsert_listening_answer,
+         *     mig 161), not as a Python read-modify-write of the whole JSONB array. The
+         *     old shape lost answers whenever two questions were saved at the same moment:
+         *     both requests read the same array and both wrote their own version back, so
+         *     the second silently erased the first. That is the NORMAL case, not an edge
+         *     one — the client debounces per question, so concurrent saves of different
+         *     q_nums are exactly what a fast typist produces.
          */
         patch: operations["patch_listening_test_attempt_answer_api_listening_tests_attempts__attempt_id__answers_patch"];
+        trace?: never;
+    };
+    "/api/listening/tests/{test_id}/practice-windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Practice Audio Windows
+         * @description Per-question audio windows for a Luyện nhanh drill — PRACTICE ONLY.
+         *
+         *     The runner plays one question at a time, scoped to that question's few
+         *     seconds of audio. It needs the windows before the learner answers, and
+         *     `GET /tests/{id}` deliberately no longer carries them: a window says where
+         *     in the recording the answer is, which on an exam is most of the skill.
+         *
+         *     Practice is the deliberate exception, not an oversight. These clips are
+         *     30–90 seconds holding ~10 questions, and what they drill is hearing a trap
+         *     as it goes past — not scanning a recording for where the answer might be.
+         *     Playing the whole clip for every question made the surface unusable: the
+         *     audio simply ran out, and from question two on there was nothing to hear.
+         *
+         *     Returns `{q_num: {start, end}}` and nothing else — no answers, no
+         *     solutions, no transcript. Refused outright for full / mini / drill, so the
+         *     exam guarantee is unchanged and this exception stays visible in one place.
+         */
+        get: operations["get_practice_audio_windows_api_listening_tests__test_id__practice_windows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Listening Practice Answer
+         * @description Grade ONE question mid-attempt, for the Luyện nhanh runner.
+         *
+         *     Luyện nhanh is a 30–90s drill, not an exam: the learner answers a question,
+         *     finds out immediately, and on a miss the player loops that question's audio
+         *     window until they hear it. Two rules keep that from turning into a way to
+         *     farm a perfect score, or into a hole in exam integrity:
+         *
+         *     **practice only.** A full / mini / drill attempt is refused outright. Those
+         *     surfaces are graded once, at submit, precisely so a student cannot probe the
+         *     key answer-by-answer while the recording is still in front of them.
+         *
+         *     **first answer is canonical.** The write goes through
+         *     fn_insert_listening_answer_once (mig 174), which appends only when that
+         *     q_num has no answer yet. Retries are graded and returned for the learner's
+         *     benefit but never overwrite the record, so the attempt's eventual score,
+         *     band and trap analytics describe the first listen — the thing worth
+         *     measuring — not the tenth.
+         *
+         *     Grading reuses ``grade_attempt`` over the attempt's stored answers with this
+         *     one substituted in, i.e. the SAME path submit takes. A separate
+         *     single-question comparison here would be free to drift from the final score,
+         *     and the learner would be told "correct" by one and "wrong" by the other.
+         *
+         *     Returns ``{q_num, correct, canonical_correct, recorded, audio_window, …}``;
+         *     ``expected`` / ``solution`` appear only on a granted reveal.
+         */
+        post: operations["check_listening_practice_answer_api_listening_tests_attempts__attempt_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/listening/tests/attempts/{attempt_id}/submit": {
@@ -5357,168 +6592,16 @@ export interface paths {
          *     the per-section transcripts, the band-conversion table, the section offsets,
          *     and a signed URL for the full premixed audio (so the review player can seek
          *     each answer's window). Mirrors the reading review contract.
+         *
+         *     Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+         *     review — including a still-sealed 4-skill mock — so the mock-review
+         *     console can reuse this same rich view while deciding the band, before
+         *     releasing results. Everyone else keeps the existing ownership + seal
+         *     gate unchanged.
          */
         get: operations["get_listening_test_attempt_review_api_listening_tests_attempts__attempt_id__review_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Upload Listening
-         * @description Admin uploads an MP3 + transcript + metadata.
-         *
-         *     `source_type` is derived from whether `external_license` is set:
-         *       - external_license set → source_type='curated_external' (BBC, TED,
-         *         LibriVox, etc.). external_source_url MUST also be set per the
-         *         license-attribution requirement (Sprint 11.0 §4).
-         *       - external_license absent → source_type='upload_mp3' (admin-
-         *         authored original content).
-         *
-         *     Premium gate (Sprint 11.0 §4E): is_premium=true + NC license → 422.
-         *     The CC BY-NC-ND family is non-commercial only; flagging such
-         *     content as premium violates the license.
-         *
-         *     Status defaults to 'draft' so admins can preview before publish.
-         */
-        post: operations["admin_upload_listening_admin_listening_upload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/upload/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Upload Validate
-         * @description Sprint 13.2 — dry-run validation. Mirrors the body shape of
-         *     POST /upload but does NOT touch storage or the DB. Returns
-         *     `{ok, errors, warnings, inferred: {duration_seconds, size_bytes}}`
-         *     so the admin UI can render inline messages before final submit.
-         */
-        post: operations["admin_upload_validate_admin_listening_upload_validate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/upload/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Upload Listening Bulk
-         * @description Sprint 13.2 — bulk MP3 upload. Accept 1-20 files plus a JSON
-         *     manifest array describing per-file metadata. Partial failures do
-         *     NOT roll back: every successful insert persists, every failed item
-         *     surfaces in `results[]` with the original filename + error code.
-         *
-         *     Manifest paired to files by filename (case-insensitive). Items in
-         *     the manifest with no matching file (or extra files with no manifest
-         *     entry) cause a 422 at the count-mismatch check.
-         */
-        post: operations["admin_upload_listening_bulk_admin_listening_upload_bulk_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/render/feature-flag": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Render Feature Flag
-         * @description Sprint 13.3 — small read-only endpoint the render UI hits on
-         *     mount to decide whether to show the form or a 503 banner.
-         *
-         *     Returns `{enabled: bool, message: str | null}`. Mirrors the gate
-         *     inside POST /render (`LISTENING_AI_RENDER_ENABLED` env bool AND
-         *     `ELEVENLABS_API_KEY` env str). Both must be set; either missing
-         *     means the render path is dark.
-         */
-        get: operations["admin_render_feature_flag_admin_listening_render_feature_flag_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/render/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Render Validate
-         * @description Sprint 13.3 — dry-run validation + cost preview. No ElevenLabs
-         *     call, no DB write. UI calls this on the "Kiểm tra trước khi render"
-         *     button and (debounced) as the script field changes.
-         */
-        post: operations["admin_render_validate_admin_listening_render_validate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/listening/render": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Render Listening
-         * @description Schedule a BackgroundTask that renders the script via ElevenLabs,
-         *     uploads the MP3, and INSERTs the listening_content row with
-         *     status='draft'. Returns immediately with a job_id; the admin polls
-         *     the content list to see the draft land.
-         *
-         *     Feature-flag gated: returns 503 if LISTENING_AI_RENDER_ENABLED=false
-         *     OR ELEVENLABS_API_KEY is empty. Both checks fire so an accidental
-         *     key set without the flag still gates safely (defense in depth).
-         */
-        post: operations["admin_render_listening_admin_listening_render_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5685,12 +6768,25 @@ export interface paths {
         };
         /**
          * Admin List Listening Tests
-         * @description Paginated list of Cambridge test bundles for the admin browser.
+         * @description Paginated list of test bundles for the admin browser.
          *
          *     status defaults to 'all'. ``search`` is a substring match against
          *     ``test_id`` (case-insensitive ilike). Each row carries a synthetic
          *     ``audio_ready_count`` — how many of the 4 section rows already have
          *     audio_storage_path set (powers the "X/4 sections có audio" column).
+         *
+         *     `test_type` accepts a concrete type, `exam` (= full|mini|drill, everything
+         *     that existed before the generated `practice` bank) or `all`.
+         *
+         *     It defaults to **all**, and the narrowing is the CALLER's job. It used to
+         *     default to `exam`, to keep a few hundred imported practice items from
+         *     filling the mock-exam picker's first page and pushing the Cambridge papers
+         *     out of sight. But four clients share this endpoint and only that one wants
+         *     the narrow view: the tests browser, the audit page and the import lookup
+         *     all call it plain, so the default silently made the entire practice bank
+         *     unfindable — an operator could not audit or publish an imported pack at
+         *     all. A default that hides rows is the wrong shape for a management list;
+         *     the picker asks for `exam` explicitly instead.
          */
         get: operations["admin_list_listening_tests_admin_listening_tests_get"];
         put?: never;
@@ -5804,30 +6900,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/listening/convert": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Convert Listening Dry Run
-         * @description Dry-run parse of a 2-file Cambridge IELTS DOCX bundle.
-         *
-         *     Returns the structured preview (test metadata + 4 sections +
-         *     warnings/errors). No DB writes. The admin reviews the preview, then
-         *     POSTs the same envelope to ``/convert/commit`` to persist.
-         */
-        post: operations["admin_convert_listening_dry_run_admin_listening_convert_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/admin/listening/import-fulltest": {
         parameters: {
             query?: never;
@@ -5839,12 +6911,12 @@ export interface paths {
         put?: never;
         /**
          * Admin Import Fulltest Dry Run
-         * @description listening-fulltest-md-import (Phase A) — ADDITIVE dry-run parse of the
+         * @description listening-fulltest-md-import (Phase A) — dry-run parse of the
          *     full-test pack (Question_Paper.md + Solution.md + timings.json; the audio
-         *     mp3 is uploaded at commit). The legacy 2-file ``/convert`` flow is
-         *     untouched. Returns the merged 40-question preview + FAIL-LOUD validation
-         *     (every missing answer / missing audio window / audio↔timings divergence is
-         *     an explicit error). No DB writes — the admin reviews, then commits (A2).
+         *     mp3 is uploaded at commit). Returns the merged 40-question preview +
+         *     FAIL-LOUD validation (every missing answer / missing audio window /
+         *     audio↔timings divergence is an explicit error). No DB writes — the admin
+         *     reviews, then commits (A2).
          */
         post: operations["admin_import_fulltest_dry_run_admin_listening_import_fulltest_post"];
         delete?: never;
@@ -5872,7 +6944,7 @@ export interface paths {
          *     (payload enriched with per-question audio_windows + solutions). The rows are
          *     the SAME shape the existing player + grader + attempt flow consume, so an
          *     imported test is takeable / gradeable / reviewable with no other changes.
-         *     No migration (Pattern #15). The legacy 2-file /convert flow is untouched.
+         *     No migration (Pattern #15).
          */
         post: operations["admin_import_fulltest_commit_admin_listening_import_fulltest_commit_post"];
         delete?: never;
@@ -5881,7 +6953,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/listening/convert/commit": {
+    "/admin/listening/drills/import": {
         parameters: {
             query?: never;
             header?: never;
@@ -5891,24 +6963,150 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Admin Convert Listening Commit
-         * @description Persist a parsed test bundle: 1 listening_tests row + 4
-         *     listening_content rows + N listening_exercises rows.
-         *
-         *     Partial-failure semantics (Sprint 13.2 pattern):
-         *       * The listening_tests row is created first; if that fails the
-         *         whole call returns 422.
-         *       * Each of the 4 section INSERTs is independent — a failure on
-         *         section 2 still commits sections 1/3/4 and returns the failure
-         *         in ``failed_sections``.
-         *       * Each exercise INSERT is independent — failure recorded in
-         *         ``failed_exercises`` but the response is still 200.
+         * Admin Import Drill Dry Run
+         * @description ADDITIVE dry-run parse of one skill-drill Source JSON (+ optional
+         *     timings.json). No DB writes — returns a preview row (drill_type, level,
+         *     task, question_count, has_audio, errors, warnings) for the batch table.
          */
-        post: operations["admin_convert_listening_commit_admin_listening_convert_commit_post"];
+        post: operations["admin_import_drill_dry_run_admin_listening_drills_import_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/drills/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Import Drill Commit
+         * @description Persist one skill-drill: 1 listening_tests (test_type='drill') +
+         *     1 listening_content + block-shaped listening_exercises (payload enriched
+         *     with audio_windows + solutions + map_svg). If an mp3 is provided the drill
+         *     is audio-ready (full_premixed); without audio it imports as ``draft`` and
+         *     stays hidden from students ("Sắp có") until audio lands. ALL-OR-NOTHING with
+         *     explicit rollback (no PostgREST transaction), same guard as full-test.
+         */
+        post: operations["admin_import_drill_commit_admin_listening_drills_import_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/tests/{test_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Preview Listening Test
+         * @description Xem trước một đề nghe bằng ĐÚNG giao diện chữa bài của học viên.
+         *
+         *     Đợt 2 (mig 170). Reuses _assemble_listening_review byte for byte rather than
+         *     rendering a second admin-only view: the point of a preview is to show what
+         *     the student will actually see, and a parallel renderer drifts.
+         *
+         *     Deliberately the CHỮA BÀI shape, not the exam shape — an admin verifying a
+         *     paper needs the questions AND the answers AND the audio, which is exactly
+         *     what the review payload carries and exactly what the exam payload strips.
+         *
+         *     Creates NOTHING. The synthetic attempt below never touches the database, so
+         *     previewing does not consume an attempt slot, does not appear in the
+         *     student's history, and cannot be mistaken for a sitting.
+         */
+        get: operations["admin_preview_listening_test_admin_listening_tests__test_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/tests/{test_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Get Test Audit
+         * @description Fast structural + audio-bounds audit of a persisted test (NO LLM, no
+         *     writes). Returns the live issue list + the last saved audit row (status /
+         *     notes / previous full-run health). The admin audit dashboard + detail page
+         *     call this to render health without a re-import.
+         */
+        get: operations["admin_get_test_audit_admin_listening_tests__test_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Admin Triage Test Audit
+         * @description Reviewer triage — set audit status / notes and mark issues resolved. Does
+         *     NOT re-run checks (use POST .../audit/run for that).
+         */
+        patch: operations["admin_triage_test_audit_admin_listening_tests__test_id__audit_patch"];
+        trace?: never;
+    };
+    "/admin/listening/tests/{test_id}/audit/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Run Test Audit
+         * @description Full audit: structural + audio-bounds + LLM content pass. PERSISTS the
+         *     result to listening_audit (one row per test) and sets status
+         *     passed/has_issues. The LLM pass degrades to an 'inconclusive' warning if no
+         *     model key is configured or the call fails — it never blocks the structural
+         *     result.
+         */
+        post: operations["admin_run_test_audit_admin_listening_tests__test_id__audit_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/exercises/{exercise_id}/questions/{q_num}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Admin Edit Exercise Question
+         * @description Edit ONE question in place — answer / alternatives / prompt / solution /
+         *     trap_mechanisms / audio_window — writing straight into the exercise payload
+         *     JSONB. This is the core "fix without re-import" primitive behind the audit
+         *     editor. Preserves mcq_multi grouping (group_key is derived from answers[0]
+         *     at grade time, so per-slot edits stay valid). Returns the updated question +
+         *     a fresh structural/audio re-check for it.
+         */
+        patch: operations["admin_edit_exercise_question_admin_listening_exercises__exercise_id__questions__q_num__patch"];
         trace?: never;
     };
     "/admin/listening/tests/{test_id}/audio/full": {
@@ -6043,30 +7241,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/listening/exercises/{exercise_id}/generate-map-image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Admin Generate Map Image
-         * @description Sprint 13.5.6 — generate a Cambridge-style floor-plan image for
-         *     a plan-label exercise via Imagen 4 / Gemini 2.5 Flash Image, upload
-         *     to Supabase Storage, and merge the metadata into the exercise's
-         *     payload. Returns a 1h signed URL so the admin UI can preview the
-         *     output without a follow-up round-trip.
-         */
-        post: operations["admin_generate_map_image_admin_listening_exercises__exercise_id__generate_map_image_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/admin/listening/exercises/{exercise_id}/upload-map-image": {
         parameters: {
             query?: never;
@@ -6147,63 +7321,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/listening/tests/{test_id}/detect-silence": {
+    "/admin/listening/dictation-reports": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Admin Detect Silence Boundaries
-         * @description Sprint 13.6 — propose ``target_section_count`` audio boundaries
-         *     by running ``ffmpeg silencedetect`` against the test's
-         *     ``full_audio_storage_path``. Returns ``[{start, end}, ...]``
-         *     ranges suitable for pre-filling regions in the admin cutter UI.
-         *
-         *     Requirements:
-         *       * test must carry ``audio_assembly_mode == "full_premixed"``
-         *       * test must have ``full_audio_storage_path`` set
-         *
-         *     The threshold + min-duration defaults
-         *     (``-40 dB`` / ``2.0 s``) suit IELTS Listening section gaps. Both
-         *     are tunable per request for noisy / quiet source audio.
+         * Admin List Dictation Reports
+         * @description Admin: list dictation sessions (newest first), filter theo external test
+         *     id và/hoặc học viên (user_query ilike email/tên). Mỗi item kèm danh tính
+         *     học viên (audit 2026-07-17: list từng trả user_id trần — admin không biết
+         *     "học viên nào"). Returns {items, total, limit, offset}.
          */
-        post: operations["admin_detect_silence_boundaries_admin_listening_tests__test_id__detect_silence_post"];
+        get: operations["admin_list_dictation_reports_admin_listening_dictation_reports_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/listening/tests/{test_id}/cut-audio": {
+    "/admin/listening/dictation-reports/aggregate": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Admin Cut Audio Segments
-         * @description Sprint 13.6 — carve the test's full pre-mixed audio into N
-         *     segments via ffmpeg stream-copy (no re-encoding). Each segment
-         *     becomes a new ``listening_content`` row tied to the same test
-         *     with ``parent_content_id`` left NULL (the source is the test's
-         *     full audio, not a content row) and ``segment_label`` +
-         *     ``segment_start_seconds`` / ``segment_end_seconds`` populated.
-         *
-         *     The source full audio is preserved — segments are additive. The
-         *     admin can re-cut at any time; previously cut rows stay around
-         *     until explicitly archived.
-         *
-         *     Returns the inserted segment metadata so the admin panel can
-         *     re-render without a follow-up fetch.
+         * Admin Dictation Reports Aggregate
+         * @description Admin: per-test analytics — mean accuracy + the words most often missed
+         *     or typed wrong across sessions, so weak/ambiguous content surfaces.
+         *     Nhận CÙNG bộ lọc với list (test_id + user_query) — số tổng hợp phải cùng
+         *     phạm vi với bảng phiên, không được lệch (review P2, PR #809).
          */
-        post: operations["admin_cut_audio_segments_admin_listening_tests__test_id__cut_audio_post"];
+        get: operations["admin_dictation_reports_aggregate_admin_listening_dictation_reports_aggregate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/dictation-reports/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Get Dictation Report
+         * @description Admin: one session's full report (per-sentence detail + trends).
+         */
+        get: operations["admin_get_dictation_report_admin_listening_dictation_reports__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Listening Attempts
+         * @description Admin: list lượt làm bài nghe (newest first) kèm danh tính học viên + bài.
+         *
+         *     - user_query: khớp email/display_name (ilike) — admin gõ tên/email, không UUID.
+         *     - test_query: khớp test_id ngoài (ILR-LIS-…) hoặc title (ilike).
+         *     - test_type: full | mini | drill | practice. status: in_progress | submitted | abandoned.
+         *     Trả {items, total, limit, offset}; item KHÔNG mang grading_details (xem detail).
+         */
+        get: operations["admin_list_listening_attempts_admin_listening_attempts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Get Listening Attempt
+         * @description Admin: chi tiết 1 lượt làm bài — per-question grading_details (học viên trả
+         *     lời gì, đáp án, trap caught/missed) + trap_analytics + band ước lượng.
+         */
+        get: operations["admin_get_listening_attempt_admin_listening_attempts__attempt_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6350,6 +7573,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reading/content/tests/{test_id}/exam-only": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Set Reading Exam Only
+         * @description Giữ riêng một đề đọc cho kỳ thi thử — hoặc trả nó lại thư viện.
+         *
+         *     Mig 170 gives listening and writing a way to set the flag but left reading
+         *     with none, so a paper imported and published for a FUTURE exam stayed in the
+         *     student library until the moment an exam referenced it — the exact
+         *     pre-assignment leak the flag exists to close (Codex review, PR #862).
+         *
+         *     Keyed by the human test_id the admin list shows, like every other route
+         *     here — an admin should never have to find a UUID.
+         */
+        post: operations["admin_set_reading_exam_only_admin_reading_content_tests__test_id__exam_only_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/reading/content/tests/{test_id}/lock": {
         parameters: {
             query?: never;
@@ -6444,6 +7695,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reading/content/tests/{test_uuid}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Preview Reading Test
+         * @description Xem trước một đề đọc bằng ĐÚNG giao diện chữa bài của học viên.
+         *
+         *     Đợt 2 (mig 170). Reuses _assemble_reading_review byte for byte rather than
+         *     rendering a second admin-only view — a preview that renders differently from
+         *     the student page is not a preview.
+         *
+         *     Deliberately the CHỮA BÀI shape, not the exam shape: verifying a paper needs
+         *     the questions AND the answers AND the explanations, which is exactly what
+         *     the review payload carries and the exam payload strips.
+         *
+         *     Creates NOTHING — the synthetic attempt never touches the database, so this
+         *     consumes no attempt and leaves no trace in anyone's history.
+         */
+        get: operations["admin_preview_reading_test_admin_reading_content_tests__test_uuid__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/reading/questions/{question_id}/upload-diagram-image": {
         parameters: {
             query?: never;
@@ -6504,6 +7786,626 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Vocab Word
+         * @description Import a vocab file of ONE-OR-MANY word blocks (frontmatter + body each).
+         *     dry_run=true (default) parses + validates every block without touching the DB
+         *     so the admin preview can show "thêm X / cập nhật Y / lỗi Z (block + dòng)"
+         *     before committing. Commit is all-or-nothing: any block error → nothing writes.
+         *
+         *     Returns {dry_run, blocks[], validation_errors[], committed_ids[], summary,
+         *     duplicate_slugs, parsed_data, action} (the last two mirror the single block
+         *     when the file holds exactly one word).
+         */
+        post: operations["import_vocab_word_admin_vocabulary_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vocab
+         * @description List words for the admin console — newest-updated first, with optional
+         *     category filter + headword search + pagination (the table can hold >30
+         *     topics, so we never load everything at once).
+         */
+        get: operations["list_vocab_admin_vocabulary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/{vocab_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Vocab
+         * @description Full row for the edit form.
+         */
+        get: operations["get_vocab_admin_vocabulary__vocab_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Vocab
+         * @description Hard delete one word. NOTE: a seed word that still exists in content_vocab/**
+         *     will reappear if the migrate-in script is re-run — flagged for the operator.
+         */
+        delete: operations["delete_vocab_admin_vocabulary__vocab_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Vocab
+         * @description Partial update by stable id (editing the headword does NOT move the slug —
+         *     the article URL stays valid). Only fields present in the body are written.
+         */
+        patch: operations["update_vocab_admin_vocabulary__vocab_id__patch"];
+        trace?: never;
+    };
+    "/admin/vocabulary/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Delete Vocab
+         * @description Hard-delete many words by id in ONE query → ONE reload (G1). Returns the
+         *     deleted count + any ids that weren't found (idempotent-ish; never 500s on a
+         *     stale id). The FE shows the selected words + a counted confirm before calling,
+         *     so this is a by-ids delete, never a blind delete-by-category.
+         */
+        post: operations["bulk_delete_vocab_admin_vocabulary_bulk_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/generate-audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Audio
+         * @description Queue a voice-render job for the selected words. Target precedence:
+         *     ids → category → all. engine=openai|elevenlabs; scope=headword|example|both.
+         *     Returns immediately ({queued_count, engine}); the render runs in the
+         *     background and stamps audio_* + status='final' (then reload G1).
+         */
+        post: operations["generate_audio_admin_vocabulary_generate_audio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/content-topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Topics */
+        get: operations["list_topics_admin_content_topics_get"];
+        put?: never;
+        /** Create Topic */
+        post: operations["create_topic_admin_content_topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/content-topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Topic */
+        get: operations["get_topic_admin_content_topics__topic_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Topic */
+        delete: operations["delete_topic_admin_content_topics__topic_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Topic */
+        patch: operations["update_topic_admin_content_topics__topic_id__patch"];
+        trace?: never;
+    };
+    "/admin/content-topics/{topic_id}/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Topic Bundle */
+        get: operations["get_topic_bundle_admin_content_topics__topic_id__bundle_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Bank */
+        post: operations["import_bank_admin_quiz_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/banks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Banks */
+        get: operations["list_banks_admin_quiz_banks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/banks/{bank_id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bank Analytics
+         * @description Class-wide 'từ dễ sai' for a bank — per-item + per-skill error rates.
+         */
+        get: operations["bank_analytics_admin_quiz_banks__bank_id__analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/banks/{bank_id}/attempt-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bank Attempt Report
+         * @description Học viên làm bài tập theo buổi trong bao lâu, và vướng ở đâu.
+         *
+         *     Trả `{students, axes}`. `students[].state` phân biệt ba chuyện mà tới nay
+         *     bị gộp thành "chưa nộp": đang làm dở, bỏ dở quá 24 giờ, và chưa mở bài lần
+         *     nào — chỉ chuyện thứ ba mới thật sự là "chưa làm".
+         */
+        get: operations["bank_attempt_report_admin_quiz_banks__bank_id__attempt_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/banks/{bank_id}/students/{user_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Student Answer Report
+         * @description Bài làm chi tiết của MỘT học viên trong MỘT bài giao.
+         *
+         *     Trước đó giáo viên chỉ thấy một con số phần trăm và không có cách nào biết
+         *     em ấy sai ở đâu, chọn nhầm phương án nào, hay mất bao lâu cho mỗi câu.
+         */
+        get: operations["student_answer_report_admin_quiz_banks__bank_id__students__user_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quiz Students
+         * @description Observe learners' practice for a skill_area — {overview, students}.
+         */
+        get: operations["quiz_students_admin_quiz_students_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/students/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quiz Student Detail
+         * @description One learner's practice detail — per-bank progress + recent sessions, scoped
+         *     to skill_area so the vocab report doesn't leak grammar practice.
+         */
+        get: operations["quiz_student_detail_admin_quiz_students__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/banks/{bank_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bank */
+        get: operations["get_bank_admin_quiz_banks__bank_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Bank */
+        delete: operations["delete_bank_admin_quiz_banks__bank_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Bank */
+        patch: operations["update_bank_admin_quiz_banks__bank_id__patch"];
+        trace?: never;
+    };
+    "/api/quiz/banks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Banks */
+        get: operations["list_banks_api_quiz_banks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Progress
+         * @description The caller's own quiz progress — per-bank mastery + recent sessions.
+         *
+         *     `skill_area` scopes it: the Vocabulary page's "📊 Tiến độ luyện tập" link
+         *     must not list the learner's grammar banks (audit 2026-07-28 §C3).
+         */
+        get: operations["my_progress_api_quiz_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/mistakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Mistakes
+         * @description The caller's own wrong answers, grouped by word.
+         *
+         *     The in-session "Xem lại bài làm" list only ever existed in the tab's memory,
+         *     so leaving the result screen destroyed it (audit 2026-07-28 §C2). The attempts
+         *     were persisted all along — this is the missing read path.
+         */
+        get: operations["my_mistakes_api_quiz_mistakes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/banks/{bank_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bank */
+        get: operations["get_bank_api_quiz_banks__bank_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/banks/{bank_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resume */
+        get: operations["resume_api_quiz_banks__bank_id__resume_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/banks/{bank_id}/course-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course Resume
+         * @description Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả.
+         */
+        get: operations["course_resume_api_quiz_banks__bank_id__course_resume_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/banks/{bank_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Progress
+         * @description Wipe the caller's mastery cache for one bank so the adaptive test starts
+         *     over from scratch. Session/attempt history is untouched (append-only log).
+         */
+        post: operations["reset_progress_api_quiz_banks__bank_id__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Session */
+        post: operations["start_session_api_quiz_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/writing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course Writing State
+         * @description Đề tự luận của bank + bản chấm nếu đã nộp.
+         */
+        get: operations["course_writing_state_api_quiz_course_writing_get"];
+        put?: never;
+        /**
+         * Submit Course Writing
+         * @description Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank.
+         */
+        post: operations["submit_course_writing_api_quiz_course_writing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/writing/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Course Writing Draft
+         * @description Lưu bản NHÁP phần tự luận. Không chấm, không chốt, gọi lại vô hại.
+         *
+         *     Có đường này thì bản nháp sống qua đổi máy và xoá bộ nhớ trình duyệt —
+         *     trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
+         */
+        post: operations["save_course_writing_draft_api_quiz_course_writing_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course Answer Report
+         * @description Bài làm chi tiết của CHÍNH học viên: câu nào sai, em chọn gì, đáp án gì.
+         *
+         *     Cùng một bộ dựng với mặt đọc của giáo viên — hai bộ dựng cho cùng một nội
+         *     dung là hai chỗ để trôi khỏi nhau.
+         */
+        get: operations["course_answer_report_api_quiz_course_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/verdict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Verdict
+         * @description Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại).
+         */
+        post: operations["course_verdict_api_quiz_course_verdict_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/sessions/{session_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log Progress */
+        post: operations["log_progress_api_quiz_sessions__session_id__progress_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** End Session */
+        patch: operations["end_session_api_quiz_sessions__session_id__patch"];
         trace?: never;
     };
     "/api/reading/vocab": {
@@ -6649,11 +8551,10 @@ export interface paths {
          *     only — passage bodies + questions live behind GET .../{test_id}.
          *
          *     test_type segregates the FULL-test and MINI-test libraries (Reading mini
-         *     test). It reads reading_tests.metadata->>test_type:
+         *     test), reading the real ``test_type`` column (mig 158 — NOT NULL, CHECK
+         *     full|mini; legacy NULL-metadata rows were backfilled to 'full'):
          *       - "mini" → ONLY mini tests.
-         *       - "full" or omitted (default) → EXCLUDE mini. Legacy tests predate
-         *         test_type (value IS NULL) and are full, so the filter must be
-         *         `IS NULL OR != 'mini'` — a plain `!= 'mini'` would wrongly drop them.
+         *       - "full" or omitted (default) → ONLY full tests.
          *     A mini is just a full test the admin flagged at import; the rest of the
          *     pipeline (passages/questions/grader) is identical.
          */
@@ -6869,6 +8770,13 @@ export interface paths {
          *     DURING-test fetch; this endpoint is the only place it surfaces, and it
          *     HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
          *     abandoned attempt can never leak the answers.
+         *
+         *     Admin bypass (2026-07-12): an admin may open ANY submitted attempt's
+         *     review — including a still-sealed 4-skill mock — so the mock-review
+         *     console can show the same rich chữa-bài while the admin is deciding the
+         *     band, before they release results. Ownership + the seal gate still apply
+         *     to everyone else (the student can't see it early just by being an admin
+         *     of a DIFFERENT sitting).
          */
         get: operations["review_reading_test_attempt_api_reading_test_attempts__attempt_id__review_get"];
         put?: never;
@@ -7016,6 +8924,1144 @@ export interface paths {
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/kp/microcheck-answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Microcheck Answers
+         * @description Record one or more micro-check answers as source=microcheck evidence.
+         *     Skips (does not error on) answers whose KP doesn't resolve.
+         */
+        post: operations["submit_microcheck_answers_api_kp_microcheck_answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/kp-mastery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Kp Mastery
+         * @description The caller's KP mastery profile, optionally filtered by status / kp_type.
+         */
+        get: operations["get_my_kp_mastery_api_me_kp_mastery_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Roadmap
+         * @description Personal roadmap: weak KPs ∪ their not-yet-strong prerequisites, ordered
+         *     so prerequisites come first (topo-sort). Falls back to the static pathways
+         *     when the learner has no evidence yet.
+         */
+        get: operations["get_my_roadmap_api_me_roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Exams */
+        get: operations["list_exams_api_exams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams/{test_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Exam */
+        get: operations["get_exam_api_exams__test_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams/{test_id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Exam Attempt */
+        post: operations["submit_exam_attempt_api_exams__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams/attempts/{attempt_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Exam Attempt */
+        get: operations["review_exam_attempt_api_exams_attempts__attempt_id__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Exams */
+        get: operations["admin_list_exams_admin_exams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exams/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Import Exam */
+        post: operations["admin_import_exam_admin_exams_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Open
+         * @description Open exams the student can start (published + is_open + cohort-eligible).
+         */
+        get: operations["list_open_api_mock_exams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/my-sittings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Sittings
+         * @description The caller's own sittings (resume targets + released results) — powers the
+         *     student home's mock section + result tile.
+         */
+        get: operations["my_sittings_api_mock_exams_my_sittings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/{code}/sittings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Sitting */
+        post: operations["open_sitting_api_mock_exams__code__sittings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Sitting State */
+        get: operations["get_sitting_state_api_mock_exams_sittings__sitting_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/sections/{section}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Section
+         * @description Retake only: the student begins a section — stamps its per-sitting clock
+         *     so the countdown + auto-submit start. Sequential opens sections via the
+         *     admin's advance instead.
+         */
+        post: operations["start_section_api_mock_exams_sittings__sitting_id__sections__section__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach Attempt */
+        post: operations["attach_attempt_api_mock_exams_sittings__sitting_id__attach_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/writing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Writing */
+        post: operations["submit_writing_api_mock_exams_sittings__sitting_id__writing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/sections/{section}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Section
+         * @description Collect ONE section (listening/reading/writing). No early manual
+         *     submit exists client-side — this fires when that section's shared clock
+         *     hits 0. Finalises the sitting once every configured section is in.
+         *
+         *     On a Writing submit, auto-start AI grading for the essays this promoted so
+         *     they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
+         *     click (the review + release still gate on the admin approving each).
+         */
+        post: operations["submit_section_api_mock_exams_sittings__sitting_id__sections__section__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/integrity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Integrity
+         * @description Soft integrity counters from the runner (tab hidden, resumes, drops).
+         *
+         *     INFORMATIONAL ONLY — never auto-penalises, never feeds a band. Lets an
+         *     examiner looking at a surprising result see whether the tab was hidden for
+         *     ten minutes or the connection died six times, instead of guessing.
+         *     Monotonic + idempotent, so a retry cannot inflate or erase anything.
+         */
+        post: operations["record_integrity_api_mock_exams_sittings__sitting_id__integrity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/speaking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Speaking */
+        post: operations["record_speaking_api_mock_exams_sittings__sitting_id__speaking_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-exams/sittings/{sitting_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Result
+         * @description The TRF result — 403 until the sitting is released (server-side seal).
+         */
+        get: operations["get_result_api_mock_exams_sittings__sitting_id__result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exam-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Exam Content
+         * @description Papers across all three libraries with level + classes, filterable.
+         */
+        get: operations["list_exam_content_admin_exam_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Course Level */
+        patch: operations["set_course_level_admin_exam_content__kind___content_id__level_patch"];
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/cohorts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Cohorts
+         * @description Thay TOÀN BỘ tập lớp của nội dung này — body là trạng thái, không phải delta.
+         *
+         *     PATCH rather than PUT purely so the browser stays inside the CORS allowlist:
+         *     _CORS_METHODS lists only the verbs the app actually uses, and adding PUT for
+         *     one endpoint would mean a preflight that fails for everyone who has a cached
+         *     one — the exact failure that swallowed a student's whole paper on
+         *     2026-07-26. POST would be worse than either: it reads as "add one".
+         */
+        patch: operations["set_cohorts_admin_exam_content__kind___content_id__cohorts_patch"];
+        trace?: never;
+    };
+    "/admin/mock-exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Exams */
+        get: operations["list_exams_admin_mock_exams_get"];
+        put?: never;
+        /** Create Exam */
+        post: operations["create_exam_admin_mock_exams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/reading-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Available Reading Tests
+         * @description Published reading tests for the "Tạo đề mới" picker. Deliberately does
+         *     NOT hide tests already assigned to another mock exam — unlike the student
+         *     practice list, a reading test may be reused across several mock exams.
+         */
+        get: operations["available_reading_tests_admin_mock_exams_reading_tests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Exam */
+        patch: operations["update_exam_admin_mock_exams__exam_id__patch"];
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Open
+         * @description Live toggle — open the exam so students can start, or close it.
+         */
+        post: operations["set_open_admin_mock_exams__exam_id__open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Advance Section
+         * @description Open the NEXT seated section for every sitting under this exam —
+         *     not_started → listening → reading → writing → done.
+         *
+         *     The transition returns immediately; the straggler sweep for the section
+         *     being closed is QUEUED (B3). It used to run inline — one loop over every
+         *     unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
+         *     made this a very long request, and a timeout left papers collected but the
+         *     section unmoved with no way for the admin to tell.
+         *
+         *     The live console polls every 5s, so the papers visibly land one by one. If
+         *     the sweep dies (a restart mid-task), the console flags the section as
+         *     "chưa thu đủ" and POST /collect?section=… re-runs it.
+         */
+        post: operations["advance_section_admin_mock_exams__exam_id__advance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Collect Section
+         * @description THU BÀI for a section WITHOUT opening the next one.
+         *
+         *     Lets the invigilator run the real sequence — take papers in, check everyone
+         *     is accounted for, then hand out the next section — instead of the two being
+         *     one irreversible button. Students drop into the waiting room with no clock
+         *     running until /advance.
+         *
+         *     Validated synchronously (so a rejected request is a real error, not a silent
+         *     202) then swept in the background, same as /advance. `section` defaults to
+         *     the open one; passing an earlier one re-sweeps it — the recovery path when a
+         *     background sweep died half-way.
+         */
+        post: operations["collect_section_admin_mock_exams__exam_id__collect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/section-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Section Progress
+         * @description Live "đã nộp X/Y" counts per section — informs when to advance.
+         */
+        get: operations["section_progress_admin_mock_exams__exam_id__section_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live Monitor
+         * @description Per-student live state for the invigilator console — the shared section
+         *     clock, the expected roster vs who actually showed up, and each student's
+         *     per-section progress (submitted / working / waiting, answers the server
+         *     holds, last activity). One poll, batched lookups, persisted state only.
+         */
+        get: operations["live_monitor_admin_mock_exams__exam_id__live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/sittings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sittings */
+        get: operations["list_sittings_admin_mock_exams__exam_id__sittings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/retest-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retest Summary
+         * @description Per-skill "cần test lại" counts for this exam's class — how many
+         *     sittings an admin flagged, broken out per skill, plus the roster.
+         */
+        get: operations["retest_summary_admin_mock_exams__exam_id__retest_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Roster
+         * @description Class roster grid for the review console — one row per sitting with a
+         *     per-skill preliminary snapshot (L/R correct count, Writing word counts,
+         *     Speaking session count) + claim status. Replaces the flat review queue.
+         */
+        get: operations["roster_admin_mock_exams__exam_id__roster_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assignments
+         * @description Per-student retake assignments for this exam (with student names).
+         */
+        get: operations["list_assignments_admin_mock_exams__exam_id__assignments_get"];
+        put?: never;
+        /**
+         * Create Assignments
+         * @description Assign a retake exam to specific students (each with a skill subset +
+         *     time window). Idempotent per student — re-posting refreshes the row. The
+         *     admin UI builds `assignments` from the source exam's retest_summary.
+         */
+        post: operations["create_assignments_admin_mock_exams__exam_id__assignments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/assignments/{student_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Assignment
+         * @description Un-assign one student from a retake exam.
+         *
+         *     Also VOIDS any sitting they already opened for it — deleting the assignment
+         *     alone did not revoke access, because create_sitting resumes an existing
+         *     sitting before the eligibility gates. Reports the voided ids rather than
+         *     doing two things silently under one verb.
+         */
+        delete: operations["delete_assignment_admin_mock_exams__exam_id__assignments__student_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/writing/bulk-grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Grade Writing
+         * @description Send the promoted Writing essays of several sittings into the grading
+         *     queue in one action (2026-07-12) — the roster-grid bulk version of the
+         *     per-essay start-grading button. For each requested sitting (validated to
+         *     belong to THIS exam), each task's essay that is still 'pending' is claimed
+         *     atomically and queued; anything already grading/graded is skipped and
+         *     reported. A sitting the admin flagged for retest (needs_retest) is skipped
+         *     entirely — no point grading a retaker's Writing (server-side guard; the
+         *     roster UI already excludes it). Reuses the same claim + background task as
+         *     the single endpoint, so the downstream pipeline is unchanged.
+         */
+        post: operations["bulk_grade_writing_admin_mock_exams__exam_id__writing_bulk_grade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/writing/essays/{essay_id}/skip-grading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip Writing Grading
+         * @description Admin decides NOT to grade a too-short mock Writing essay — stamp
+         *     grading_skipped_at so the mock release gate stops blocking on it (the student
+         *     gets the manual Writing band with no per-task feedback). Mock-scoped: rejects
+         *     a non-mock essay (sitting_id null) so this can't silently drop a normal
+         *     self-submit essay out of its own queue.
+         */
+        post: operations["skip_writing_grading_admin_mock_exams_writing_essays__essay_id__skip_grading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/writing/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Writing
+         * @description Backfill: create the writing_essays for this exam's sittings whose Writing
+         *     was collected but never promoted (a cohort that sat the exam before the
+         *     promotion feature shipped → text captured, no essay rows, nothing to grade).
+         *     Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts.
+         */
+        post: operations["promote_writing_admin_mock_exams__exam_id__writing_promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/retest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Sitting Retest
+         * @description Toggle the EARLY 'cần test lại' flag on a sitting (mig 153) — set from the
+         *     roster off the auto-graded L/R results so Writing bulk-grade skips a retaker
+         *     before any grading budget is spent.
+         */
+        post: operations["set_sitting_retest_admin_mock_exams_sittings__sitting_id__retest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/bulk-claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Claim
+         * @description Nhận many reviews at once. Only a 'queued' row is taken — claim()'s atomic
+         *     WHERE clause is still the lock, so this cannot lift another admin's review.
+         *     A row it could not take is skipped with a reason, never raised. Scoped to
+         *     THIS exam, like writing/bulk-grade.
+         */
+        post: operations["bulk_claim_admin_mock_exams__exam_id__bulk_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/bulk-final-bands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Final Bands
+         * @description Chốt band for many claimed reviews from the bands the console pre-fills
+         *     (L/R off the Cambridge table, Writing off the two admin-reviewed essays).
+         *
+         *     The client posts NO bands — the server derives them, and save_final_bands
+         *     still validates each one and recomputes the overall. A sitting whose required
+         *     band cannot be derived (e.g. Speaking) is skipped with a reason rather than
+         *     signed off with a number nobody chose. Does not publish; use bulk-release.
+         *
+         *     Scoped to THIS exam: without it a stray id could mark another exam's review
+         *     'reviewed' — and 'reviewed' is exactly what bulk-release then publishes.
+         */
+        post: operations["bulk_final_bands_admin_mock_exams__exam_id__bulk_final_bands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/bulk-release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Release
+         * @description Công bố many sittings at once — PUBLISHES results to real students.
+         *
+         *     Gates are per sitting and unchanged (reviewed + claimed by this admin +
+         *     Writing resolved); a sitting failing any of them is skipped with a reason
+         *     rather than sinking the batch. The response's `skipped` list is not optional
+         *     detail — the caller must show it, or the admin cannot tell who was published.
+         *
+         *     Scoped to THIS exam (2026-07-16). Codex flagged the gap on the two new bulk
+         *     routes; this one has had it since #778 and is the one that PUBLISHES to real
+         *     students, so it is closed with the same helper rather than left as the only
+         *     unscoped bulk action in the file.
+         */
+        post: operations["bulk_release_admin_mock_exams__exam_id__bulk_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/retest-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Sitting Retest Flags
+         * @description Record WHICH skills the student must retake, straight from the roster.
+         *
+         *     Distinct from /retest above: that one flips the sitting's needs_retest gate
+         *     (Writing bulk-grade skips the sitting — an early cost gate). This one only
+         *     records the per-skill decision and never blocks grading (product decision
+         *     2026-07-15). PATCH-shaped semantics, POST verb to match the sibling route.
+         */
+        post: operations["set_sitting_retest_flags_admin_mock_exams_sittings__sitting_id__retest_flags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/pacing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sitting Pacing
+         * @description How the student SPENT the exam — reconstructed from `answered_at` stamps
+         *     that every answer write has always made and nobody has ever read.
+         *
+         *     Order answers actually landed in, pauses between them, rushed finishes, and
+         *     where the work stopped. The response carries its own caveats: answered_at is
+         *     the LAST touch of a question, so gaps bracket think-time rather than being
+         *     it.
+         */
+        get: operations["sitting_pacing_admin_mock_exams_sittings__sitting_id__pacing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/record-speaking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Record Speaking
+         * @description Unstick a sitting whose Speaking never got reported.
+         *
+         *     The student's report call is fire-and-forget; if it failed the sitting stays
+         *     `speaking_pending` forever — no review, never released — and nobody could
+         *     fix it. Ratifies only the sessions ALREADY bound to this sitting, so it can
+         *     never attach work the student didn't do.
+         */
+        post: operations["admin_record_speaking_admin_mock_exams_sittings__sitting_id__record_speaking_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Sitting */
+        post: operations["void_sitting_admin_mock_exams_sittings__sitting_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Queue
+         * @description Reviews are duyệt theo từng đề — mock_exam_id scopes the queue to one
+         *     exam's sittings. Omitting it still works (cross-exam, legacy) but the
+         *     console always passes it now.
+         */
+        get: operations["queue_admin_mock_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review */
+        get: operations["get_review_admin_mock_reviews__review_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim */
+        post: operations["claim_admin_mock_reviews__review_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}/release-claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release Claim */
+        post: operations["release_claim_admin_mock_reviews__review_id__release_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}/final-bands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Final Bands */
+        post: operations["save_final_bands_admin_mock_reviews__review_id__final_bands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}/speaking-assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Speaking Assessment
+         * @description Form console nhập bài chấm Speaking trực tiếp (thay đường import docx).
+         */
+        post: operations["save_speaking_assessment_admin_mock_reviews__review_id__speaking_assessment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-reviews/{review_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release */
+        post: operations["release_admin_mock_reviews__review_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -7048,6 +10094,9 @@ export interface paths {
          * @description Comprehensive readiness probe.  Always returns HTTP 200; the per-check
          *     statuses + the overall `status` field carry the verdict so monitors can
          *     differentiate "down" from "degraded" without juggling 5xx codes.
+         *
+         *     Anonymous callers see only pass/fail statuses; the raw DB error string
+         *     (which can leak hostname/schema hints) is included only for admins.
          */
         get: operations["health_ready_health_ready_get"];
         put?: never;
@@ -7070,8 +10119,12 @@ export interface paths {
          * @description Sprint 6.5 runtime diagnostic.  Surfaces the deployed git SHA + the
          *     grammar-mapping inventory the running process actually loaded so we
          *     can prove whether prod Railway is on stale code (Scenario A) vs the
-         *     matcher itself dropping anchors (B/C/D).  Unauthenticated by design
-         *     (no PII; mapping ids are open-source) so curl-from-anywhere works.
+         *     matcher itself dropping anchors (B/C/D).
+         *
+         *     Mapping inventory stays public (open-source ids, no PII). The Railway
+         *     deployment identifiers (git SHA, deployment/service/env names) aid
+         *     fingerprinting, so they're redacted for anonymous callers and returned
+         *     only to admins (an admin curl with a Bearer token still gets them).
          */
         get: operations["health_runtime_health_runtime_get"];
         put?: never;
@@ -7126,6 +10179,32 @@ export interface paths {
          *     the verdict, matching /health/ready's convention (no 5xx juggling).
          */
         get: operations["health_grammar_check_health_grammar_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/quiz-write": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health Quiz Write
+         * @description Probe that quiz progress-saving works — i.e. PostgREST recognizes the ON
+         *     CONFLICT unique constraints (migration 119) that log_progress upserts depend
+         *     on. This catches the exact failure that silently broke vocab/grammar quiz
+         *     progress (every POST .../progress → 500 "no unique constraint matching ON
+         *     CONFLICT") after a manual migration without a PostgREST schema reload, while
+         *     quiz_sessions inserts kept working. Always HTTP 200; the ``status`` field
+         *     (healthy | error) carries the verdict.
+         */
+        get: operations["health_quiz_write_health_quiz_write_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7194,6 +10273,23 @@ export interface paths {
          *     re-checked at request time on the relevant POST.
          */
         get: operations["my_permissions_api_student_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Stats */
+        get: operations["public_stats_api_public_stats_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7334,6 +10430,22 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * AdvanceBody
+         * @description The section the admin's screen was showing when they clicked.
+         *
+         *     Sent so a duplicate click from a stale tab is REJECTED, not replayed: the
+         *     optimistic compare-and-set alone only catches requests whose DB reads
+         *     overlap, so two clicks where the first has already committed would both
+         *     advance and the class would skip a section.
+         */
+        AdvanceBody: {
+            /**
+             * From Section
+             * @description Phần mà màn hình của admin đang hiển thị lúc bấm.
+             */
+            from_section: string;
+        };
         /** AnalyticsEventPayload */
         AnalyticsEventPayload: {
             /** Event Name */
@@ -7348,30 +10460,19 @@ export interface components {
             /** Session Id */
             session_id?: string | null;
         };
-        /**
-         * AssignBody
-         * @description Single-student assign (one prompt → one of MY students).
-         */
-        AssignBody: {
+        /** AssignRow */
+        AssignRow: {
+            /** User Id */
+            user_id: string;
+            /** Skills */
+            skills?: string[];
+            /** Open From */
+            open_from?: string | null;
             /**
-             * Prompt Id
-             * Format: uuid
+             * Open Until
+             * @description Hạn đóng của bài test lại (ISO 8601). Bắt buộc với mọi dòng CÓ kỹ năng; dòng không kỹ năng bị bỏ qua nên không cần.
              */
-            prompt_id: string;
-            /**
-             * Student Id
-             * Format: uuid
-             */
-            student_id: string;
-            /** Deadline */
-            deadline?: string | null;
-            /** Instructions */
-            instructions?: string | null;
-            /**
-             * Analysis Level
-             * @default 3
-             */
-            analysis_level: number;
+            open_until?: string | null;
         };
         /** AssignStudentRequest */
         AssignStudentRequest: {
@@ -7379,52 +10480,16 @@ export interface components {
             student_id: string;
         };
         /**
-         * AssignmentCreate
-         * @description N prompts → one or more students.  Every (prompt × student) pair
-         *     becomes its own writing_assignments row (each prompt is graded
-         *     separately — IELTS T1/T2 are distinct essays).  The rows created by
-         *     one call share an `assignment_group_id` + `name` so the UIs can
-         *     group them ("Buổi 5: Task 1 + Task 2").  Cap at 100 students.
-         *
-         *     W-ASSIGN: `prompt_ids` (multi) is the new field; `prompt_id` (single)
-         *     is accepted for back-compat with the pre-W-ASSIGN admin UI — exactly
-         *     one of the two must be provided, and both normalize to `prompt_ids`.
-         *
-         *     Phase 2.3c-3: `is_timed` + `time_limit_minutes` opt the assignment
-         *     into IELTS-exam mode.  The pair is enforced together (one without
-         *     the other is a 422) — the same invariant the migration's CHECK
-         *     constraint enforces at the DB layer.
+         * AssignmentPatch
+         * @description Only `status` for now. Deadline/instruction edits would change what was
+         *     asked of students who have already answered, which needs its own thinking.
          */
-        AssignmentCreate: {
-            /** Prompt Id */
-            prompt_id?: string | null;
-            /** Prompt Ids */
-            prompt_ids?: string[] | null;
-            /** Student Ids */
-            student_ids: string[];
-            /** Name */
-            name?: string | null;
+        AssignmentPatch: {
             /**
-             * Allow Soft Check
-             * @default false
+             * Status
+             * @enum {string}
              */
-            allow_soft_check: boolean;
-            /** Deadline */
-            deadline?: string | null;
-            /** Instructions */
-            instructions?: string | null;
-            /**
-             * Is Timed
-             * @default false
-             */
-            is_timed: boolean;
-            /** Time Limit Minutes */
-            time_limit_minutes?: number | null;
-            /**
-             * Analysis Level
-             * @default 3
-             */
-            analysis_level: number;
+            status: "published" | "archived";
         };
         /**
          * AssignmentUpdate
@@ -7446,18 +10511,79 @@ export interface components {
             /** Status */
             status?: string | null;
         };
-        /** Body_admin_convert_listening_dry_run_admin_listening_convert_post */
-        Body_admin_convert_listening_dry_run_admin_listening_convert_post: {
+        /** AttachBody */
+        AttachBody: {
+            /** Section */
+            section: string;
+            /** Attempt Id */
+            attempt_id: string;
+        };
+        /** Attachment */
+        Attachment: {
+            /** Label */
+            label: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * AuditTriageRequest
+         * @description Human triage of a persisted audit: update reviewer status / notes and/or
+         *     mark specific issues resolved (by index into the saved issues array).
+         */
+        AuditTriageRequest: {
+            /** Status */
+            status?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Resolved Indexes */
+            resolved_indexes?: number[] | null;
+        };
+        /**
+         * BackfillBody
+         * @description Bỏ trống = mọi em đang trong lớp mà chưa có dòng.
+         */
+        BackfillBody: {
+            /** Student Ids */
+            student_ids?: string[] | null;
+        };
+        /** BankUpdate */
+        BankUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Topic Id */
+            topic_id?: string | null;
+            /** Is Published */
+            is_published?: boolean | null;
+        };
+        /** Body_admin_import_drill_commit_admin_listening_drills_import_commit_post */
+        Body_admin_import_drill_commit_admin_listening_drills_import_commit_post: {
             /**
-             * Question Paper
+             * Source Json
              * Format: binary
              */
-            question_paper: string;
+            source_json: string;
+            /** Timings */
+            timings?: string | null;
+            /** Audio */
+            audio?: string | null;
+        };
+        /** Body_admin_import_drill_dry_run_admin_listening_drills_import_post */
+        Body_admin_import_drill_dry_run_admin_listening_drills_import_post: {
             /**
-             * Script Answerkey
+             * Source Json
              * Format: binary
              */
-            script_answerkey: string;
+            source_json: string;
+            /** Timings */
+            timings?: string | null;
+        };
+        /** Body_admin_import_exam_admin_exams_import_post */
+        Body_admin_import_exam_admin_exams_import_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
         };
         /** Body_admin_import_fulltest_commit_admin_listening_import_fulltest_commit_post */
         Body_admin_import_fulltest_commit_admin_listening_import_fulltest_commit_post: {
@@ -7508,42 +10634,6 @@ export interface components {
              */
             image_file: string;
         };
-        /** Body_admin_upload_listening_admin_listening_upload_post */
-        Body_admin_upload_listening_admin_listening_upload_post: {
-            /**
-             * Audio File
-             * Format: binary
-             */
-            audio_file: string;
-            /** Title */
-            title: string;
-            /** Transcript */
-            transcript: string;
-            /** Accent Tag */
-            accent_tag: string;
-            /** Cefr Level */
-            cefr_level: string;
-            /** Ielts Section */
-            ielts_section: number;
-            /** External License */
-            external_license?: string | null;
-            /** External Source Url */
-            external_source_url?: string | null;
-            /** Topic Tags */
-            topic_tags?: string | null;
-            /**
-             * Is Premium
-             * @default false
-             */
-            is_premium: boolean;
-        };
-        /** Body_admin_upload_listening_bulk_admin_listening_upload_bulk_post */
-        Body_admin_upload_listening_bulk_admin_listening_upload_bulk_post: {
-            /** Files */
-            files: string[];
-            /** Manifest */
-            manifest: string;
-        };
         /** Body_admin_upload_map_image_admin_listening_exercises__exercise_id__upload_map_image_post */
         Body_admin_upload_map_image_admin_listening_exercises__exercise_id__upload_map_image_post: {
             /**
@@ -7567,35 +10657,6 @@ export interface components {
              * Format: binary
              */
             audio: string;
-        };
-        /** Body_admin_upload_validate_admin_listening_upload_validate_post */
-        Body_admin_upload_validate_admin_listening_upload_validate_post: {
-            /**
-             * Audio File
-             * Format: binary
-             */
-            audio_file: string;
-            /** Title */
-            title: string;
-            /** Transcript */
-            transcript: string;
-            /** Accent Tag */
-            accent_tag: string;
-            /** Cefr Level */
-            cefr_level: string;
-            /** Ielts Section */
-            ielts_section: number;
-            /** External License */
-            external_license?: string | null;
-            /** External Source Url */
-            external_source_url?: string | null;
-            /** Topic Tags */
-            topic_tags?: string | null;
-            /**
-             * Is Premium
-             * @default false
-             */
-            is_premium: boolean;
         };
         /** Body_extract_essay_file_admin_writing_extract_text_post */
         Body_extract_essay_file_admin_writing_extract_text_post: {
@@ -7626,6 +10687,14 @@ export interface components {
              * @description Audio recording (MP3 / WAV / WebM / OGG)
              */
             audio_file: string;
+        };
+        /** Body_import_bank_admin_quiz_import_post */
+        Body_import_bank_admin_quiz_import_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
         };
         /** Body_import_content_admin_writing_content_import_post */
         Body_import_content_admin_writing_content_import_post: {
@@ -7665,6 +10734,14 @@ export interface components {
              */
             file: string;
         };
+        /** Body_import_vocab_word_admin_vocabulary_import_post */
+        Body_import_vocab_word_admin_vocabulary_import_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
         /** Body_upload_image_admin_writing_prompts_upload_image_post */
         Body_upload_image_admin_writing_prompts_upload_image_post: {
             /**
@@ -7685,6 +10762,14 @@ export interface components {
             /** Student Ids */
             student_ids: string[];
         };
+        /**
+         * BulkDeleteRequest
+         * @description ids to hard-delete. Pydantic validates each is a UUID (bad id → 422).
+         */
+        BulkDeleteRequest: {
+            /** Ids */
+            ids: string[];
+        };
         /** BulkGenerateTopicsRequest */
         BulkGenerateTopicsRequest: {
             /** Topic Ids */
@@ -7696,6 +10781,26 @@ export interface components {
              */
             mode: string;
         };
+        /** BulkGradeBody */
+        BulkGradeBody: {
+            /** Sitting Ids */
+            sitting_ids?: string[];
+            /**
+             * Grading Tier
+             * @default standard
+             */
+            grading_tier: string;
+            /**
+             * Analysis Level
+             * @default 3
+             */
+            analysis_level: number;
+            /**
+             * Selected Model
+             * @default gemini-2.5-pro
+             */
+            selected_model: string;
+        };
         /** BulkMarkDeliveredRequest */
         BulkMarkDeliveredRequest: {
             /** Essay Ids */
@@ -7705,6 +10810,20 @@ export interface components {
              * @default google_docs_paste
              */
             method: string;
+        };
+        /** BulkReleaseBody */
+        BulkReleaseBody: {
+            /** Sitting Ids */
+            sitting_ids?: string[];
+        };
+        /**
+         * BulkSittingsBody
+         * @description Selected roster rows for bulk-claim / bulk-final-bands. Neither carries
+         *     bands or flags: the server derives them, so a stale tab cannot post a band.
+         */
+        BulkSittingsBody: {
+            /** Sitting Ids */
+            sitting_ids?: string[];
         };
         /** BulkTopicIdsRequest */
         BulkTopicIdsRequest: {
@@ -7733,6 +10852,8 @@ export interface components {
             code_prefix?: string | null;
             /** Description */
             description?: string | null;
+            /** Course Id */
+            course_id?: string | null;
         };
         /** CohortPatchRequest */
         CohortPatchRequest: {
@@ -7744,6 +10865,13 @@ export interface components {
             description?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Course Id */
+            course_id?: string | null;
+        };
+        /** CohortsBody */
+        CohortsBody: {
+            /** Cohort Ids */
+            cohort_ids?: string[];
         };
         /**
          * ComposeBody
@@ -7762,25 +10890,51 @@ export interface components {
             /** Grammaticalrange */
             grammaticalRange: number;
         };
-        /**
-         * ConvertCommitRequest
-         * @description POST /admin/listening/convert/commit body.
-         *
-         *     Carries the parsed-result envelope the dry-run returned, so the admin
-         *     can review + tweak before persisting. The server re-validates shape
-         *     (it does NOT trust the client to send arbitrary section payloads).
-         */
-        ConvertCommitRequest: {
-            /** Test Metadata */
-            test_metadata: {
-                [key: string]: unknown;
+        /** CourseCreate */
+        CourseCreate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** CoursePatch */
+        CoursePatch: {
+            /** Code */
+            code?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Sort Order */
+            sort_order?: number | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
+        /** CourseVerdictBody */
+        CourseVerdictBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Session Ids */
+            session_ids: string[];
+        };
+        /** CourseWritingBody */
+        CourseWritingBody: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Answers
+             * @default {}
+             */
+            answers: {
+                [key: string]: string;
             };
-            /** Sections */
-            sections: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
         };
         /** CreateEssayRequest */
         CreateEssayRequest: {
@@ -7823,6 +10977,10 @@ export interface components {
             part: number;
             /** Topic */
             topic: string;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
@@ -7905,20 +11063,6 @@ export interface components {
             /** Bullets */
             bullets?: string[];
         };
-        /** CutAudioRequest */
-        CutAudioRequest: {
-            /** Segments */
-            segments: components["schemas"]["CutSegmentInput"][];
-        };
-        /** CutSegmentInput */
-        CutSegmentInput: {
-            /** Label */
-            label: string;
-            /** Start */
-            start: number;
-            /** End */
-            end: number;
-        };
         /** D1AttemptRequest */
         D1AttemptRequest: {
             /** User Answer */
@@ -7945,17 +11089,48 @@ export interface components {
             /** Instructor Note */
             instructor_note?: string | null;
         };
-        /** DetectSilenceRequest */
-        DetectSilenceRequest: {
-            /** Silence Threshold Db */
-            silence_threshold_db?: number | null;
-            /** Min Silence Duration */
-            min_silence_duration?: number | null;
+        /** DictationFlagRequest */
+        DictationFlagRequest: {
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /** Sentence Idx */
+            sentence_idx?: number | null;
+            /** Category */
+            category?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** DictationSentenceSubmit */
+        DictationSentenceSubmit: {
+            /** Sentence Idx */
+            sentence_idx: number;
             /**
-             * Target Section Count
-             * @default 4
+             * User Transcript
+             * @default
              */
-            target_section_count: number;
+            user_transcript: string;
+            /**
+             * Listen Count
+             * @default 0
+             */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+        };
+        /** DictationSessionRequest */
+        DictationSessionRequest: {
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Sentences */
+            sentences?: components["schemas"]["DictationSentenceSubmit"][];
         };
         /**
          * DraftUpsert
@@ -7970,6 +11145,63 @@ export interface components {
              * @default
              */
             draft_text: string;
+        };
+        /**
+         * DuePatch
+         * @description Đổi hạn nộp.
+         *
+         *     `due_date = None` nghĩa là BỎ HẠN — một trạng thái hợp lệ ("không hạn"), khác
+         *     hẳn "đừng đụng tới hạn". Vì nó là một đường riêng, không có ca "đừng đụng":
+         *     gọi tới đây là để đổi hạn, nên không cần thêm một cờ để phân biệt hai ý.
+         */
+        DuePatch: {
+            /** Due Date */
+            due_date?: string | null;
+            /** Due Time */
+            due_time?: string | null;
+            /** Expected Due At */
+            expected_due_at?: string | null;
+            /**
+             * Confirm Rewrites
+             * @default false
+             */
+            confirm_rewrites: boolean;
+            /** Confirmed Flips */
+            confirmed_flips?: {
+                [key: string]: number;
+            } | null;
+        };
+        /** EndSessionBody */
+        EndSessionBody: {
+            /** Duration Sec */
+            duration_sec?: number | null;
+            /**
+             * Total Questions
+             * @default 0
+             */
+            total_questions: number;
+            /**
+             * Total Correct
+             * @default 0
+             */
+            total_correct: number;
+            /**
+             * Total Wrong
+             * @default 0
+             */
+            total_wrong: number;
+            /**
+             * Words Mastered
+             * @default 0
+             */
+            words_mastered: number;
+            /**
+             * Words Carried Over
+             * @default 0
+             */
+            words_carried_over: number;
+            /** Ended By */
+            ended_by?: string | null;
         };
         /** ErrorReportRequest */
         ErrorReportRequest: {
@@ -7998,6 +11230,89 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ExamAnswer */
+        ExamAnswer: {
+            /** Q Num */
+            q_num: number;
+            /**
+             * User Answer
+             * @default
+             */
+            user_answer: string | null;
+        };
+        /** ExamCreate */
+        ExamCreate: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Exam Mode
+             * @default sequential
+             */
+            exam_mode: string;
+            /** Listening Test Id */
+            listening_test_id?: string | null;
+            /** Reading Test Id */
+            reading_test_id?: string | null;
+            /** Writing Task1 Prompt Id */
+            writing_task1_prompt_id?: string | null;
+            /** Writing Task2 Prompt Id */
+            writing_task2_prompt_id?: string | null;
+            /** Speaking Topic Set */
+            speaking_topic_set?: {
+                [key: string]: unknown;
+            };
+            /** Total Minutes */
+            total_minutes?: number | null;
+            /** Reading Minutes */
+            reading_minutes?: number | null;
+            /** Writing Minutes */
+            writing_minutes?: number | null;
+            /** Open From */
+            open_from?: string | null;
+            /** Open Until */
+            open_until?: string | null;
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Review Sla Days */
+            review_sla_days?: number | null;
+        };
+        /** ExamPatch */
+        ExamPatch: {
+            /** Title */
+            title?: string | null;
+            /** Exam Mode */
+            exam_mode?: string | null;
+            /** Listening Test Id */
+            listening_test_id?: string | null;
+            /** Reading Test Id */
+            reading_test_id?: string | null;
+            /** Writing Task1 Prompt Id */
+            writing_task1_prompt_id?: string | null;
+            /** Writing Task2 Prompt Id */
+            writing_task2_prompt_id?: string | null;
+            /** Speaking Topic Set */
+            speaking_topic_set?: {
+                [key: string]: unknown;
+            } | null;
+            /** Total Minutes */
+            total_minutes?: number | null;
+            /** Reading Minutes */
+            reading_minutes?: number | null;
+            /** Writing Minutes */
+            writing_minutes?: number | null;
+            /** Open From */
+            open_from?: string | null;
+            /** Open Until */
+            open_until?: string | null;
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Review Sla Days */
+            review_sla_days?: number | null;
+            /** Status */
+            status?: string | null;
+        };
         /** FanOutBody */
         FanOutBody: {
             /** Prompt Ids */
@@ -8023,6 +11338,12 @@ export interface components {
              * @default 3
              */
             analysis_level: number;
+            /**
+             * Grading Tier
+             * @default standard
+             * @enum {string}
+             */
+            grading_tier: "standard" | "deep";
         };
         /**
          * FanOutCreate
@@ -8075,7 +11396,11 @@ export interface components {
             /** Skill */
             skill: string;
             /** Attempt Id */
-            attempt_id: string;
+            attempt_id?: string | null;
+            /** Passage Slug */
+            passage_slug?: string | null;
+            /** Content Id */
+            content_id?: string | null;
             /** Q Num */
             q_num?: number | null;
             /** Rating De */
@@ -8087,6 +11412,23 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** FinalBandsBody */
+        FinalBandsBody: {
+            /** Final Bands */
+            final_bands: {
+                [key: string]: unknown;
+            };
+            /** Examiner Comment Vi */
+            examiner_comment_vi?: string | null;
+            /** Per Skill Notes */
+            per_skill_notes?: {
+                [key: string]: unknown;
+            } | null;
+            /** Retest Flags */
+            retest_flags?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** FinalizeFullTestBody */
         FinalizeFullTestBody: {
             /** P1 Id */
@@ -8095,6 +11437,13 @@ export interface components {
             p2_id?: string | null;
             /** P3 Id */
             p3_id?: string | null;
+        };
+        /** FlagUpdate */
+        FlagUpdate: {
+            /** Enabled */
+            enabled: boolean;
+            /** Note */
+            note?: string | null;
         };
         /** FullPronRequest */
         FullPronRequest: {
@@ -8137,6 +11486,38 @@ export interface components {
              * @description UUID lớp (bắt buộc khi code_type='direct')
              */
             cohort_id?: string | null;
+        };
+        /**
+         * GenerateAudioRequest
+         * @description Which words to render + how. Target = ids OR category OR all (in that
+         *     precedence). engine = openai|elevenlabs; scope = headword|example|both.
+         *     skip_existing_audio=True skips fields that already have a stored URL.
+         */
+        GenerateAudioRequest: {
+            /** Ids */
+            ids?: string[] | null;
+            /** Category */
+            category?: string | null;
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Engine
+             * @default openai
+             */
+            engine: string;
+            /**
+             * Scope
+             * @default both
+             */
+            scope: string;
+            /**
+             * Skip Existing Audio
+             * @default false
+             */
+            skip_existing_audio: boolean;
         };
         /** GenerateCodesRequest */
         GenerateCodesRequest: {
@@ -8187,13 +11568,6 @@ export interface components {
              */
             intended_email?: string | null;
         };
-        /** GenerateMapImageRequest */
-        GenerateMapImageRequest: {
-            /** Model */
-            model?: string | null;
-            /** Custom Prompt Override */
-            custom_prompt_override?: string | null;
-        };
         /** GenerateTopicQuestionsRequest */
         GenerateTopicQuestionsRequest: {
             /**
@@ -8202,6 +11576,16 @@ export interface components {
              * @default replace_all
              */
             mode: string;
+        };
+        /** GradeRatingBody */
+        GradeRatingBody: {
+            /** Rating */
+            rating: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
@@ -8323,6 +11707,38 @@ export interface components {
          * @enum {string}
          */
         InstructorReviewStatus: "queued" | "claimed" | "edited" | "delivered" | "released";
+        /**
+         * IntegrityBody
+         * @description Absolute running totals from the runner, not deltas — the client keeps
+         *     them in localStorage so they survive a reload, and the server takes the max,
+         *     which makes retries idempotent and makes the value un-decreasable.
+         *
+         *     DELIBERATELY UNCONSTRAINED at this boundary. record_integrity() sanitises
+         *     field by field — junk is dropped, never raised, because a SOFT signal must
+         *     never be able to break an exam. Constrained `int = Field(ge=0)` fields
+         *     undid that: a mixed payload like {"blur_count": "bad", "offline_events": 2}
+         *     was rejected wholesale with a 422 before the service ever saw it, so the
+         *     VALID counter was lost too (Codex review, PR #849).
+         */
+        IntegrityBody: {
+            /** Blur Count */
+            blur_count?: unknown | null;
+            /** Blur Seconds */
+            blur_seconds?: unknown | null;
+            /** Resumes */
+            resumes?: unknown | null;
+            /** Offline Events */
+            offline_events?: unknown | null;
+        };
+        /** KpRef */
+        KpRef: {
+            /** Type */
+            type: string;
+            /** Slug */
+            slug: string;
+            /** Anchor */
+            anchor?: string | null;
+        };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
             /** Original Word */
@@ -8333,6 +11749,44 @@ export interface components {
             pos_tag?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** LessonCreate */
+        LessonCreate: {
+            /** Title */
+            title: string;
+            /** Lesson No */
+            lesson_no?: number | null;
+            /** Lesson Date */
+            lesson_date?: string | null;
+            /** Body Md */
+            body_md?: string | null;
+            /** Attachments */
+            attachments?: components["schemas"]["Attachment"][];
+            /**
+             * Is Published
+             * @default false
+             */
+            is_published: boolean;
+        };
+        /** LessonPatch */
+        LessonPatch: {
+            /** Title */
+            title?: string | null;
+            /** Lesson No */
+            lesson_no?: number | null;
+            /** Lesson Date */
+            lesson_date?: string | null;
+            /** Body Md */
+            body_md?: string | null;
+            /** Attachments */
+            attachments?: components["schemas"]["Attachment"][] | null;
+            /** Is Published */
+            is_published?: boolean | null;
+        };
+        /** LevelBody */
+        LevelBody: {
+            /** Course Level */
+            course_level?: string | null;
         };
         /**
          * ListeningAttemptRequest
@@ -8469,77 +11923,19 @@ export interface components {
              */
             status: string;
         };
-        /**
-         * ListeningRenderRequest
-         * @description Admin POST /admin/listening/render body.
-         *
-         *     All fields validated at the router layer; the BackgroundTask helper
-         *     trusts the caller. ElevenLabs voice_id is opaque (24-char string);
-         *     no enum because Andy adds voices as he discovers them and a hardcoded
-         *     list would force a code change per voice.
-         */
-        ListeningRenderRequest: {
-            /** Script Text */
-            script_text: string;
-            /** Voice Id */
-            voice_id?: string | null;
+        /** ListeningTestDictationGradeRequest */
+        ListeningTestDictationGradeRequest: {
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /** Sentence Idx */
+            sentence_idx: number;
             /**
-             * Model
-             * @default eleven_multilingual_v2
+             * User Transcript
+             * @default
              */
-            model: string;
-            /** Title */
-            title: string;
-            /** Accent Tag */
-            accent_tag: string;
-            /** Cefr Level */
-            cefr_level?: string | null;
-            /** Ielts Section */
-            ielts_section?: number | null;
-            /** Topic Tags */
-            topic_tags?: string[];
-            /** Transcript */
-            transcript?: string | null;
-        };
-        /**
-         * ListeningRenderValidateRequest
-         * @description Sprint 13.3 — dry-run validation body for the render UI.
-         *
-         *     Mirrors the shape of POST /render but is also useful for the live
-         *     cost preview as the admin types: the UI debounces and POSTs the
-         *     current script + voice + model and gets back `{ok, errors,
-         *     warnings, estimated_cost_credits, estimated_cost_usd,
-         *     estimated_render_seconds}`. No ElevenLabs call, no DB write.
-         */
-        ListeningRenderValidateRequest: {
-            /** Script Text */
-            script_text: string;
-            /** Voice Id */
-            voice_id?: string | null;
-            /**
-             * Model
-             * @default eleven_multilingual_v2
-             */
-            model: string;
-            /** Title */
-            title?: string | null;
-            /** Accent Tag */
-            accent_tag: string;
-            /** Cefr Level */
-            cefr_level?: string | null;
-            /** Ielts Section */
-            ielts_section?: number | null;
-            /** Topic Tags */
-            topic_tags?: string[];
-            /**
-             * Is Premium
-             * @default false
-             */
-            is_premium: boolean;
-            /** External License */
-            external_license?: string | null;
-            /** External Source Url */
-            external_source_url?: string | null;
+            user_transcript: string;
         };
         /**
          * ListeningTestPatchRequest
@@ -8563,6 +11959,8 @@ export interface components {
             themes?: {
                 [key: string]: string;
             } | null;
+            /** Exam Only */
+            exam_only?: boolean | null;
         };
         /** ListeningTestStatusPatchRequest */
         ListeningTestStatusPatchRequest: {
@@ -8581,6 +11979,26 @@ export interface components {
              * @default false
              */
             hide_subbands: boolean;
+        };
+        /** MicrocheckAnswer */
+        MicrocheckAnswer: {
+            kp: components["schemas"]["KpRef"];
+            /** Correct */
+            correct: boolean;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** MicrocheckBody */
+        MicrocheckBody: {
+            /** Answers */
+            answers?: components["schemas"]["MicrocheckAnswer"][];
+        };
+        /** OpenBody */
+        OpenBody: {
+            /** Is Open */
+            is_open: boolean;
         };
         /**
          * PasteLog
@@ -8627,6 +12045,24 @@ export interface components {
             /** Category */
             category?: string | null;
         };
+        /**
+         * PracticeCheckRequest
+         * @description One question of a Luyện nhanh run: answer it, or ask to be shown it.
+         */
+        PracticeCheckRequest: {
+            /** Q Num */
+            q_num: number;
+            /**
+             * User Answer
+             * @default
+             */
+            user_answer: string;
+            /**
+             * Reveal
+             * @default false
+             */
+            reveal: boolean;
+        };
         /** PreviewRequest */
         PreviewRequest: {
             /** Filter Config */
@@ -8655,6 +12091,36 @@ export interface components {
             /** Notification Email */
             notification_email?: boolean | null;
         };
+        /** ProgressBody */
+        ProgressBody: {
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Word Stats
+             * @default []
+             */
+            word_stats: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * PromptAnalysisReview
+         * @description Admin approval of a Task 1 answer key. `analysis` is the (possibly
+         *     hand-edited) facts, validated against the same schema the extractor emits.
+         */
+        PromptAnalysisReview: {
+            analysis: components["schemas"]["PromptImageAnalysis"];
+            /**
+             * Reviewed
+             * @default true
+             */
+            reviewed: boolean;
+        };
         /**
          * PromptCreate
          * @description Required fields for creating a library prompt.  Bounds match
@@ -8678,10 +12144,60 @@ export interface components {
             difficulty?: string | null;
             /** Tags */
             tags?: string[];
+            /**
+             * Exam Only
+             * @description Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)
+             * @default false
+             */
+            exam_only: boolean;
             /** Prompt Image Url */
             prompt_image_url?: string | null;
             /** Prompt Image Public Id */
             prompt_image_public_id?: string | null;
+        };
+        /**
+         * PromptImageAnalysis
+         * @description Verified Task 1 "answer key" extracted once from the prompt chart and
+         *     admin-reviewed (see docs/WRITING_TASK1_ANALYSIS_SPEC.md). Stored on
+         *     writing_prompts.prompt_image_analysis and snapshotted onto the essay; the
+         *     grader injects it to anchor Task Achievement accuracy. `key_features` is what
+         *     a band-9 response must cover; `notable_data` are the checkable figures. For
+         *     map/process visuals `notable_data` may be empty and `grading_note` tells the
+         *     grader to lean on the image (which is still sent multimodally).
+         *
+         *     The before-validators coerce the LLM's shape variance (dict/list/number where
+         *     we want a string, an off-list chart_type) into the declared schema so a
+         *     slightly-structured response still yields a usable key instead of failing.
+         */
+        PromptImageAnalysis: {
+            /**
+             * Chart Type
+             * @default mixed
+             * @enum {string}
+             */
+            chart_type: "line" | "bar" | "pie" | "table" | "map" | "process" | "mixed";
+            /** Overview */
+            overview: string;
+            /** Key Features */
+            key_features?: string[];
+            /** Notable Data */
+            notable_data?: components["schemas"]["PromptImageDataPoint"][];
+            /** Axes Or Categories */
+            axes_or_categories?: string | null;
+            /** Grading Note */
+            grading_note?: string | null;
+        };
+        /**
+         * PromptImageDataPoint
+         * @description One salient figure from a Task 1 chart, for accuracy checking.
+         */
+        PromptImageDataPoint: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Unit */
+            unit?: string | null;
         };
         /**
          * PromptUpdate
@@ -8706,6 +12222,36 @@ export interface components {
             prompt_image_url?: string | null;
             /** Prompt Image Public Id */
             prompt_image_public_id?: string | null;
+            /**
+             * Exam Only
+             * @description Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)
+             */
+            exam_only?: boolean | null;
+        };
+        /**
+         * QuestionEditRequest
+         * @description In-place edit of ONE question inside a test-bundle exercise payload. All
+         *     fields optional (partial update). Editing here never re-imports the test.
+         */
+        QuestionEditRequest: {
+            /** Answer */
+            answer?: string | null;
+            /** Alternatives */
+            alternatives?: string[] | null;
+            /** Prompt */
+            prompt?: string | null;
+            /** Solution */
+            solution?: string | null;
+            /** Trap Mechanisms */
+            trap_mechanisms?: string[] | null;
+            /** Audio Window */
+            audio_window?: {
+                [key: string]: unknown;
+            } | null;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            }[] | null;
         };
         /** ReassignRequest */
         ReassignRequest: {
@@ -8745,6 +12291,31 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ReleaseBody */
+        ReleaseBody: {
+            /**
+             * Channel
+             * @default in_app
+             */
+            channel: string;
+        };
+        /** RetestBody */
+        RetestBody: {
+            /** Needs Retest */
+            needs_retest: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** RetestFlagsBody */
+        RetestFlagsBody: {
+            /** Retest Flags */
+            retest_flags?: {
+                [key: string]: boolean;
+            };
+        };
         /**
          * ReviewRequest
          * @description Body for POST /api/flashcards/{vocab_id}/review (step 4).
@@ -8752,6 +12323,69 @@ export interface components {
         ReviewRequest: {
             /** Rating */
             rating: string;
+        };
+        /** SectionSubmitBody */
+        SectionSubmitBody: {
+            /**
+             * Task1 Text
+             * @default
+             */
+            task1_text: string;
+            /**
+             * Task2 Text
+             * @default
+             */
+            task2_text: string;
+        };
+        /** SpeakingAssessmentBody */
+        SpeakingAssessmentBody: {
+            /** Bands */
+            bands: {
+                [key: string]: unknown;
+            };
+            /** Intro */
+            intro?: string | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metrics */
+            metrics?: unknown[] | null;
+            /** Sections */
+            sections?: unknown[] | null;
+        };
+        /** SpeakingBody */
+        SpeakingBody: {
+            /** Session Ids */
+            session_ids?: string[];
+        };
+        /** StartGradingRequest */
+        StartGradingRequest: {
+            /**
+             * Grading Tier
+             * @default standard
+             */
+            grading_tier: string;
+            /**
+             * Analysis Level
+             * @default 3
+             */
+            analysis_level: number;
+            /**
+             * Selected Model
+             * @default gemini-2.5-pro
+             */
+            selected_model: string;
+        };
+        /** StartSessionBody */
+        StartSessionBody: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Kind
+             * @default run
+             */
+            kind: string;
         };
         /** StartSessionRequest */
         StartSessionRequest: {
@@ -8765,6 +12399,11 @@ export interface components {
         StatusIn: {
             /** Status */
             status: string;
+        };
+        /** SubmitBody */
+        SubmitBody: {
+            /** Answers */
+            answers?: components["schemas"]["ExamAnswer"][];
         };
         /**
          * SubmitEssay
@@ -8851,6 +12490,47 @@ export interface components {
             published?: boolean | null;
             /** Display Order */
             display_order?: number | null;
+        };
+        /** TopicCreate */
+        TopicCreate: {
+            /** Title */
+            title: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * Skill Area
+             * @default vocab
+             */
+            skill_area: string;
+            /** Title Vi */
+            title_vi?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Order
+             * @default 0
+             */
+            order: number;
+            /**
+             * Is Published
+             * @default true
+             */
+            is_published: boolean;
+        };
+        /** TopicUpdate */
+        TopicUpdate: {
+            /** Slug */
+            slug?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Title Vi */
+            title_vi?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Order */
+            order?: number | null;
+            /** Is Published */
+            is_published?: boolean | null;
         };
         /** UpdateStudentRequest */
         UpdateStudentRequest: {
@@ -8959,6 +12639,58 @@ export interface components {
             ids: string[];
         };
         /**
+         * VocabUpdate
+         * @description Partial-update payload. EVERY field is a real vocab_cards column (mig 110) —
+         *     the schema-aware col-match test pins this (#538 lesson). id/slug/created_at/
+         *     updated_at/import_batch_id and the audio_* columns are intentionally absent
+         *     (slug is the stable URL key; audio is owned by the pregen, V-eleven). updated_at
+         *     auto-bumps via the BEFORE-UPDATE trigger, so the public cache key (G2) advances.
+         */
+        VocabUpdate: {
+            /** Headword */
+            headword?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Part Of Speech */
+            part_of_speech?: string | null;
+            /** Pronunciation */
+            pronunciation?: string | null;
+            /** Syllables */
+            syllables?: string | null;
+            /** Definition En */
+            definition_en?: string | null;
+            /** Definition Vi */
+            definition_vi?: string | null;
+            /** Gloss Vi */
+            gloss_vi?: string | null;
+            /** Example */
+            example?: string | null;
+            /** Register */
+            register?: string | null;
+            /** Common Error */
+            common_error?: string | null;
+            /** Memory Hook */
+            memory_hook?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Group */
+            group?: string | null;
+            /** Synonyms */
+            synonyms?: unknown[] | null;
+            /** Antonyms */
+            antonyms?: unknown[] | null;
+            /** Collocations */
+            collocations?: unknown[] | null;
+            /** Related Words */
+            related_words?: unknown[] | null;
+            /** Word Family */
+            word_family?: unknown[] | null;
+            /** Body Html */
+            body_html?: string | null;
+        };
+        /**
          * VocabUpdateStatusRequest
          * @description Sprint 10.2 — PATCH /{vocab_id} body changed from a status enum
          *     to a boolean toggle. The handler writes to flashcard_reviews (SRS
@@ -8970,6 +12702,27 @@ export interface components {
         VocabUpdateStatusRequest: {
             /** Mastered */
             mastered: boolean;
+        };
+        /** VoidBody */
+        VoidBody: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** WritingBody */
+        WritingBody: {
+            /**
+             * Task1 Text
+             * @default
+             */
+            task1_text: string;
+            /**
+             * Task2 Text
+             * @default
+             */
+            task2_text: string;
         };
         /** _AnswerPatchItem */
         _AnswerPatchItem: {
@@ -9034,6 +12787,147 @@ export interface components {
         _SubmitRequest: {
             /** Answers */
             answers?: components["schemas"]["_SubmitAnswerItem"][];
+        };
+        /**
+         * AssignmentCreate
+         * @description Speaking (a topic + mode) or Reading/Listening (a published paper).
+         *
+         *     The two shapes share one payload because they share one ledger; which fields
+         *     matter is decided by `skill`.
+         */
+        routers__admin_class_assignments__AssignmentCreate: {
+            /**
+             * Skill
+             * @default speaking
+             * @enum {string}
+             */
+            skill: "speaking" | "reading" | "listening" | "course";
+            /**
+             * Kind
+             * @default daily
+             * @enum {string}
+             */
+            kind: "daily" | "lesson";
+            /** Due Days */
+            due_days?: number | null;
+            /** Title */
+            title: string;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Mode
+             * @default practice
+             */
+            mode: string;
+            /**
+             * Part
+             * @default 1
+             */
+            part: number;
+            /** Content Id */
+            content_id?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /** Due Time */
+            due_time?: string | null;
+            /** Question Ids */
+            question_ids?: string[] | null;
+            /** Instructions */
+            instructions?: string | null;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Pass Pct */
+            pass_pct?: number | null;
+            /** Student Ids */
+            student_ids?: string[] | null;
+            /** Retake Size */
+            retake_size?: number | null;
+        };
+        /** AssignBody */
+        routers__admin_mock_exams__AssignBody: {
+            /** Assignments */
+            assignments?: components["schemas"]["AssignRow"][];
+            /** Source Exam Id */
+            source_exam_id?: string | null;
+        };
+        /**
+         * AssignmentCreate
+         * @description N prompts → one or more students.  Every (prompt × student) pair
+         *     becomes its own writing_assignments row (each prompt is graded
+         *     separately — IELTS T1/T2 are distinct essays).  The rows created by
+         *     one call share an `assignment_group_id` + `name` so the UIs can
+         *     group them ("Buổi 5: Task 1 + Task 2").  Cap at 100 students.
+         *
+         *     W-ASSIGN: `prompt_ids` (multi) is the new field; `prompt_id` (single)
+         *     is accepted for back-compat with the pre-W-ASSIGN admin UI — exactly
+         *     one of the two must be provided, and both normalize to `prompt_ids`.
+         *
+         *     Phase 2.3c-3: `is_timed` + `time_limit_minutes` opt the assignment
+         *     into IELTS-exam mode.  The pair is enforced together (one without
+         *     the other is a 422) — the same invariant the migration's CHECK
+         *     constraint enforces at the DB layer.
+         */
+        routers__admin_writing_assignments__AssignmentCreate: {
+            /** Prompt Id */
+            prompt_id?: string | null;
+            /** Prompt Ids */
+            prompt_ids?: string[] | null;
+            /** Student Ids */
+            student_ids: string[];
+            /** Name */
+            name?: string | null;
+            /**
+             * Allow Soft Check
+             * @default false
+             */
+            allow_soft_check: boolean;
+            /** Deadline */
+            deadline?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Is Timed
+             * @default false
+             */
+            is_timed: boolean;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
+            /**
+             * Analysis Level
+             * @default 3
+             */
+            analysis_level: number;
+        };
+        /**
+         * AssignBody
+         * @description Single-student assign (one prompt → one of MY students).
+         */
+        routers__instructor__AssignBody: {
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /**
+             * Student Id
+             * Format: uuid
+             */
+            student_id: string;
+            /** Deadline */
+            deadline?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Analysis Level
+             * @default 3
+             */
+            analysis_level: number;
+            /**
+             * Grading Tier
+             * @default standard
+             * @enum {string}
+             */
+            grading_tier: "standard" | "deep";
         };
     };
     responses: never;
@@ -11658,6 +15552,8 @@ export interface operations {
         parameters: {
             query?: {
                 is_active?: boolean | null;
+                course_id?: string | null;
+                with_rollup?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -11967,6 +15863,974 @@ export interface operations {
             };
         };
     };
+    cohort_progress_matrix_admin_cohorts__cohort_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_courses_admin_courses_get: {
+        parameters: {
+            query?: {
+                is_active?: boolean | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_admin_courses_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_admin_courses__course_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoursePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_lessons_admin_cohorts__cohort_id__lessons_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_lesson_admin_cohorts__cohort_id__lessons_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_lesson_admin_cohorts__cohort_id__lessons__lesson_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                lesson_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_lesson_admin_cohorts__cohort_id__lessons__lesson_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                lesson_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assignments_admin_cohorts__cohort_id__assignments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_assignment_admin_cohorts__cohort_id__assignments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["routers__admin_class_assignments__AssignmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_course_banks_admin_cohorts__cohort_id__course_banks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_speaking_lesson_sets_admin_cohorts__cohort_id__speaking_lesson_sets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_lesson_set_questions_admin_cohorts__cohort_id__speaking_lesson_sets__set_id__questions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_speaking_topics_admin_cohorts__cohort_id__speaking_topics_get: {
+        parameters: {
+            query?: {
+                part?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_topic_questions_admin_cohorts__cohort_id__speaking_topics__topic_id__questions_get: {
+        parameters: {
+            query?: {
+                part?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assignment_tally_admin_cohorts__cohort_id__assignments__assignment_id__tally_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_course_writing_admin_cohorts__cohort_id__assignments__assignment_id__writing__student_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    return_student_work_admin_cohorts__cohort_id__assignments__assignment_id__return__student_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_work_admin_cohorts__cohort_id__students__student_id__work_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    speaking_daily_board_admin_cohorts__cohort_id__speaking_daily_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    speaking_performance_admin_cohorts__cohort_id__speaking_performance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backfill_assignment_admin_cohorts__cohort_id__assignments__assignment_id__backfill_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackfillBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_assignment_admin_cohorts__cohort_id__assignments__assignment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_assignment_admin_cohorts__cohort_id__assignments__assignment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_assignments_api_class_my_assignments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_assignment_api_class_assignments__item_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_class_api_class_me_get: {
+        parameters: {
+            query?: {
+                summary?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     report_frontend_error_api_error_logs_post: {
         parameters: {
             query?: never;
@@ -12011,6 +16875,76 @@ export interface operations {
                 user_id?: string | null;
                 limit?: number;
                 offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    error_log_migration_stats_admin_error_logs_migration_stats_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    error_log_rollback_metrics_admin_error_logs_rollback_metrics_get: {
+        parameters: {
+            query?: {
+                route?: string;
+                window_minutes?: number;
+                match?: string;
+                baseline_error_rate?: number | null;
+                baseline_lcp_ms?: number | null;
             };
             header?: {
                 authorization?: string | null;
@@ -12170,6 +17104,74 @@ export interface operations {
             };
         };
     };
+    list_flags_admin_runtime_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_flag_admin_runtime_flags__key__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_admin_overview_admin_overview_get: {
         parameters: {
             query?: never;
@@ -12207,6 +17209,7 @@ export interface operations {
                 status?: string | null;
                 student_id?: string | null;
                 cohort_id?: string | null;
+                mock?: boolean | null;
                 limit?: number;
                 offset?: number;
             };
@@ -12250,6 +17253,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateEssayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_grading_admin_writing_essays__essay_id__start_grading_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                essay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartGradingRequest"];
             };
         };
         responses: {
@@ -12346,6 +17386,74 @@ export interface operations {
             path: {
                 essay_id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rate_grade_admin_writing_essays__essay_id__grade_rating_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                essay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeRatingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_ratings_summary_admin_writing_grade_ratings_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -12962,6 +18070,76 @@ export interface operations {
             };
         };
     };
+    reanalyze_prompt_image_admin_writing_prompts__prompt_id__reanalyze_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_prompt_analysis_admin_writing_prompts__prompt_id__analysis_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptAnalysisReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tips_admin_writing_tips_get: {
         parameters: {
             query?: {
@@ -13422,7 +18600,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssignmentCreate"];
+                "application/json": components["schemas"]["routers__admin_writing_assignments__AssignmentCreate"];
             };
         };
         responses: {
@@ -13938,7 +19116,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssignBody"];
+                "application/json": components["schemas"]["routers__instructor__AssignBody"];
             };
         };
         responses: {
@@ -16043,15 +21221,35 @@ export interface operations {
             };
         };
     };
-    assess_response_pronunciation_sessions__session_id__responses__response_id__pronunciation_post: {
+    list_exercises_api_grammar_exercises_get: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string | null;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
+        };
+    };
+    get_article_exercise_api_grammar_article__category___slug__exercise_get: {
+        parameters: {
+            query?: never;
+            header?: never;
             path: {
-                session_id: string;
-                response_id: string;
+                category: string;
+                slug: string;
             };
             cookie?: never;
         };
@@ -16063,7 +21261,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -16134,6 +21334,37 @@ export interface operations {
             };
         };
     };
+    get_category_cards_api_vocabulary_categories__category__cards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_articles_api_vocabulary_articles_get: {
         parameters: {
             query?: never;
@@ -16150,6 +21381,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_exam_families_api_vocabulary_exam_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_exam_cards_api_vocabulary_exam__list_slug__cards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -17970,10 +23252,42 @@ export interface operations {
             };
         };
     };
+    listening_overview_api_listening_overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_published_listening_tests_api_listening_tests_get: {
         parameters: {
             query?: {
                 test_type?: string | null;
+                practice_group?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -18038,9 +23352,218 @@ export interface operations {
             };
         };
     };
-    start_listening_test_attempt_api_listening_tests__test_id__attempts_post: {
+    get_listening_test_dictation_api_listening_tests__test_id__dictation_get: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_listening_test_dictation_api_listening_tests_dictation_grade_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListeningTestDictationGradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_listening_dictation_session_api_listening_tests_dictation_session_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_dictation_session_api_listening_tests_dictation_session__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    flag_listening_dictation_api_listening_tests_dictation_flag_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_in_progress_listening_attempt_api_listening_tests__test_id__attempts_in_progress_get: {
+        parameters: {
+            query?: {
+                sitting_id?: string | null;
+                class_item?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_listening_test_attempt_api_listening_tests__test_id__attempts_post: {
+        parameters: {
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -18085,6 +23608,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TestAttemptAnswerPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_practice_audio_windows_api_listening_tests__test_id__practice_windows_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_listening_practice_answer_api_listening_tests_attempts__attempt_id__check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeCheckRequest"];
             };
         };
         responses: {
@@ -18186,212 +23779,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_upload_listening_admin_listening_upload_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_admin_upload_listening_admin_listening_upload_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_upload_validate_admin_listening_upload_validate_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_admin_upload_validate_admin_listening_upload_validate_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_upload_listening_bulk_admin_listening_upload_bulk_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_admin_upload_listening_bulk_admin_listening_upload_bulk_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_render_feature_flag_admin_listening_render_feature_flag_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_render_validate_admin_listening_render_validate_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListeningRenderValidateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_render_listening_admin_listening_render_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListeningRenderRequest"];
-            };
-        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -18662,6 +24049,7 @@ export interface operations {
             query?: {
                 status?: string;
                 search?: string;
+                test_type?: string;
                 limit?: number;
                 offset?: number;
             };
@@ -18866,41 +24254,6 @@ export interface operations {
             };
         };
     };
-    admin_convert_listening_dry_run_admin_listening_convert_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_admin_convert_listening_dry_run_admin_listening_convert_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     admin_import_fulltest_dry_run_admin_listening_import_fulltest_post: {
         parameters: {
             query?: never;
@@ -18973,7 +24326,7 @@ export interface operations {
             };
         };
     };
-    admin_convert_listening_commit_admin_listening_convert_commit_post: {
+    admin_import_drill_dry_run_admin_listening_drills_import_post: {
         parameters: {
             query?: never;
             header?: {
@@ -18984,7 +24337,216 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ConvertCommitRequest"];
+                "multipart/form-data": components["schemas"]["Body_admin_import_drill_dry_run_admin_listening_drills_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_drill_commit_admin_listening_drills_import_commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_admin_import_drill_commit_admin_listening_drills_import_commit_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_preview_listening_test_admin_listening_tests__test_id__preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_test_audit_admin_listening_tests__test_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_triage_test_audit_admin_listening_tests__test_id__audit_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditTriageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_run_test_audit_admin_listening_tests__test_id__audit_run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_edit_exercise_question_admin_listening_exercises__exercise_id__questions__q_num__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exercise_id: string;
+                q_num: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionEditRequest"];
             };
         };
         responses: {
@@ -19192,43 +24754,6 @@ export interface operations {
             };
         };
     };
-    admin_generate_map_image_admin_listening_exercises__exercise_id__generate_map_image_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                exercise_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["GenerateMapImageRequest"] | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     admin_upload_map_image_admin_listening_exercises__exercise_id__upload_map_image_post: {
         parameters: {
             query?: never;
@@ -19334,22 +24859,21 @@ export interface operations {
             };
         };
     };
-    admin_detect_silence_boundaries_admin_listening_tests__test_id__detect_silence_post: {
+    admin_list_dictation_reports_admin_listening_dictation_reports_get: {
         parameters: {
-            query?: never;
+            query?: {
+                test_id?: string | null;
+                user_query?: string | null;
+                limit?: number;
+                offset?: number;
+            };
             header?: {
                 authorization?: string | null;
             };
-            path: {
-                test_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["DetectSilenceRequest"] | null;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -19371,22 +24895,123 @@ export interface operations {
             };
         };
     };
-    admin_cut_audio_segments_admin_listening_tests__test_id__cut_audio_post: {
+    admin_dictation_reports_aggregate_admin_listening_dictation_reports_aggregate_get: {
+        parameters: {
+            query?: {
+                test_id?: string | null;
+                user_query?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_dictation_report_admin_listening_dictation_reports__session_id__get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                test_id: string;
+                session_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CutAudioRequest"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
+    };
+    admin_list_listening_attempts_admin_listening_attempts_get: {
+        parameters: {
+            query?: {
+                user_query?: string | null;
+                test_query?: string | null;
+                test_type?: string | null;
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_listening_attempt_admin_listening_attempts__attempt_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -19586,6 +25211,45 @@ export interface operations {
             };
         };
     };
+    admin_set_reading_exam_only_admin_reading_content_tests__test_id__exam_only_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_lock_reading_test_admin_reading_content_tests__test_id__lock_post: {
         parameters: {
             query?: never;
@@ -19697,6 +25361,39 @@ export interface operations {
             };
         };
     };
+    admin_preview_reading_test_admin_reading_content_tests__test_uuid__preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_upload_diagram_image_admin_reading_questions__question_id__upload_diagram_image_post: {
         parameters: {
             query?: never;
@@ -19746,6 +25443,1316 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_vocab_word_admin_vocabulary_import_post: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_vocab_word_admin_vocabulary_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vocab_admin_vocabulary_get: {
+        parameters: {
+            query?: {
+                category?: string | null;
+                /** @description headword search */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vocab_admin_vocabulary__vocab_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vocab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_vocab_admin_vocabulary__vocab_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vocab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_vocab_admin_vocabulary__vocab_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vocab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_vocab_admin_vocabulary_bulk_delete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_audio_admin_vocabulary_generate_audio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateAudioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_topics_admin_content_topics_get: {
+        parameters: {
+            query?: {
+                skill_area?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_topic_admin_content_topics_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_topic_admin_content_topics__topic_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_topic_admin_content_topics__topic_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_topic_admin_content_topics__topic_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_topic_bundle_admin_content_topics__topic_id__bundle_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_bank_admin_quiz_import_post: {
+        parameters: {
+            query?: {
+                topic_id?: string | null;
+                dry_run?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_bank_admin_quiz_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_banks_admin_quiz_banks_get: {
+        parameters: {
+            query?: {
+                topic_id?: string | null;
+                skill_area?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_analytics_admin_quiz_banks__bank_id__analytics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_attempt_report_admin_quiz_banks__bank_id__attempt_report_get: {
+        parameters: {
+            query: {
+                assignment_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_answer_report_admin_quiz_banks__bank_id__students__user_id__report_get: {
+        parameters: {
+            query: {
+                assignment_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quiz_students_admin_quiz_students_get: {
+        parameters: {
+            query?: {
+                skill_area?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quiz_student_detail_admin_quiz_students__user_id__get: {
+        parameters: {
+            query?: {
+                skill_area?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bank_admin_quiz_banks__bank_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_bank_admin_quiz_banks__bank_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_bank_admin_quiz_banks__bank_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_banks_api_quiz_banks_get: {
+        parameters: {
+            query?: {
+                skill_area?: string | null;
+                topic_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_progress_api_quiz_progress_get: {
+        parameters: {
+            query?: {
+                skill_area?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_mistakes_api_quiz_mistakes_get: {
+        parameters: {
+            query?: {
+                skill_area?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bank_api_quiz_banks__bank_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_api_quiz_banks__bank_id__resume_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_resume_api_quiz_banks__bank_id__course_resume_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_progress_api_quiz_banks__bank_id__reset_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_session_api_quiz_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartSessionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_writing_state_api_quiz_course_writing_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_course_writing_api_quiz_course_writing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseWritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_course_writing_draft_api_quiz_course_writing_draft_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseWritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_answer_report_api_quiz_course_report_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_verdict_api_quiz_course_verdict_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseVerdictBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    log_progress_api_quiz_sessions__session_id__progress_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_session_api_quiz_sessions__session_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndSessionBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -20051,7 +27058,9 @@ export interface operations {
     };
     boot_reading_test_api_reading_test__test_id__boot_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "X-Reading-Password"?: string | null;
@@ -20190,7 +27199,9 @@ export interface operations {
     };
     start_reading_test_attempt_api_reading_test__test_id__attempts_post: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "X-Reading-Password"?: string | null;
@@ -20296,7 +27307,9 @@ export interface operations {
     };
     get_in_progress_reading_attempt_api_reading_test__test_id__attempts_in_progress_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -20507,6 +27520,1952 @@ export interface operations {
             };
         };
     };
+    submit_microcheck_answers_api_kp_microcheck_answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MicrocheckBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_kp_mastery_api_me_kp_mastery_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                kp_type?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_roadmap_api_me_roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exams_api_exams_get: {
+        parameters: {
+            query?: {
+                source?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_exam_api_exams__test_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_exam_attempt_api_exams__test_id__attempts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_exam_attempt_api_exams_attempts__attempt_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_exams_admin_exams_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_exam_admin_exams_import_post: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_admin_import_exam_admin_exams_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_open_api_mock_exams_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_sittings_api_mock_exams_my_sittings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_sitting_api_mock_exams__code__sittings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sitting_state_api_mock_exams_sittings__sitting_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_section_api_mock_exams_sittings__sitting_id__sections__section__start_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+                section: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_attempt_api_mock_exams_sittings__sitting_id__attach_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_writing_api_mock_exams_sittings__sitting_id__writing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_section_api_mock_exams_sittings__sitting_id__sections__section__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+                section: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SectionSubmitBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_integrity_api_mock_exams_sittings__sitting_id__integrity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntegrityBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_speaking_api_mock_exams_sittings__sitting_id__speaking_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeakingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_result_api_mock_exams_sittings__sitting_id__result_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exam_content_admin_exam_content_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                course_level?: string | null;
+                cohort_id?: string | null;
+                exam_only?: boolean | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_course_level_admin_exam_content__kind___content_id__level_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LevelBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_cohorts_admin_exam_content__kind___content_id__cohorts_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CohortsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exams_admin_mock_exams_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exam_admin_mock_exams_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    available_reading_tests_admin_mock_exams_reading_tests_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_exam_admin_mock_exams__exam_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_open_admin_mock_exams__exam_id__open_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    advance_section_admin_mock_exams__exam_id__advance_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    collect_section_admin_mock_exams__exam_id__collect_post: {
+        parameters: {
+            query: {
+                /** @description Phần mà màn hình của admin đang hiển thị lúc bấm Thu bài. */
+                from_section: string;
+                section?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    section_progress_admin_mock_exams__exam_id__section_progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    live_monitor_admin_mock_exams__exam_id__live_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sittings_admin_mock_exams__exam_id__sittings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retest_summary_admin_mock_exams__exam_id__retest_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roster_admin_mock_exams__exam_id__roster_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assignments_admin_mock_exams__exam_id__assignments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_assignments_admin_mock_exams__exam_id__assignments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["routers__admin_mock_exams__AssignBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_assignment_admin_mock_exams__exam_id__assignments__student_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_grade_writing_admin_mock_exams__exam_id__writing_bulk_grade_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkGradeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skip_writing_grading_admin_mock_exams_writing_essays__essay_id__skip_grading_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                essay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_writing_admin_mock_exams__exam_id__writing_promote_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_sitting_retest_admin_mock_exams_sittings__sitting_id__retest_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_claim_admin_mock_exams__exam_id__bulk_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkSittingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_final_bands_admin_mock_exams__exam_id__bulk_final_bands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkSittingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_release_admin_mock_exams__exam_id__bulk_release_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkReleaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_sitting_retest_flags_admin_mock_exams_sittings__sitting_id__retest_flags_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetestFlagsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sitting_pacing_admin_mock_exams_sittings__sitting_id__pacing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_record_speaking_admin_mock_exams_sittings__sitting_id__record_speaking_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_sitting_admin_mock_exams_sittings__sitting_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_admin_mock_reviews_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                mock_exam_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_admin_mock_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_admin_mock_reviews__review_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_claim_admin_mock_reviews__review_id__release_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_final_bands_admin_mock_reviews__review_id__final_bands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalBandsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_speaking_assessment_admin_mock_reviews__review_id__speaking_assessment_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeakingAssessmentBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_admin_mock_reviews__review_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_basic_health_get: {
         parameters: {
             query?: never;
@@ -20532,7 +29491,9 @@ export interface operations {
     health_ready_health_ready_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -20549,12 +29510,23 @@ export interface operations {
                     };
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     health_runtime_health_runtime_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -20569,6 +29541,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -20596,6 +29577,28 @@ export interface operations {
         };
     };
     health_grammar_check_health_grammar_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    health_quiz_write_health_quiz_write_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -20706,6 +29709,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_stats_api_public_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

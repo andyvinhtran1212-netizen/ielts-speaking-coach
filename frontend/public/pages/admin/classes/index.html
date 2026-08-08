@@ -195,6 +195,23 @@
       font: inherit; font-size: 13px; color: var(--av-primary);
       text-decoration: underline; text-underline-offset: 2px;
     }
+    /* Hàng nhập hạn nộp: ngày, giờ, và lối bỏ hạn — trên một dòng vì chúng là
+       MỘT quyết định, không phải ba. Xuống dòng khi hộp hẹp. */
+    .cl-due-row {
+      display: flex; flex-wrap: wrap; align-items: flex-end;
+      gap: var(--av-space-3); margin: var(--av-space-3) 0;
+    }
+    .cl-field { display: grid; gap: 4px; font-size: 13px; }
+    .cl-field > span { color: var(--av-text-secondary); }
+    .cl-field input {
+      font: inherit; padding: var(--av-space-2);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card); color: var(--av-text-primary);
+    }
+    .cl-field input:focus-visible {
+      outline: 2px solid var(--av-border-focus); outline-offset: 1px;
+    }
     .cl-roster-gap {
       font-size: var(--av-fs-xs); color: var(--av-warning);
       display: inline-flex; align-items: center; gap: 4px;
@@ -1508,6 +1525,37 @@
       </div>
     </div>
 
+    <!-- ── Đổi hạn nộp ────────────────────────────────────────────────
+         Giờ hạn dựng ở MÁY CHỦ theo múi giờ Việt Nam; ô nhập ở đây cũng đọc và
+         hiện theo giờ Việt Nam, nếu không thì một giáo viên đang ở nước ngoài
+         mở ra sẽ thấy sai giờ rồi vô tình dời hạn. -->
+    <div class="adm-modal-backdrop" id="due-modal" hidden role="presentation">
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="due-modal-title">
+        <h3 id="due-modal-title">Đổi hạn nộp</h3>
+        <p class="adm-hint">
+          Bài <strong id="due-title">bài giao này</strong> —
+          hạn hiện tại: <strong id="due-current">không hạn</strong>.
+          Hạn tính theo giờ Việt Nam. Dời hạn về phía trước thì bài
+          <strong>nhận bài trở lại</strong>.
+        </p>
+        <div class="cl-due-row">
+          <label class="cl-field">
+            <span>Ngày hạn</span>
+            <input type="date" id="due-date" />
+          </label>
+          <label class="cl-field">
+            <span>Giờ hạn</span>
+            <input type="time" id="due-time" value="19:00" step="60" />
+          </label>
+          <button class="adm-btn-link" id="btn-due-clear" type="button">Bỏ hạn</button>
+        </div>
+        <p class="adm-banner" id="due-warn" hidden></p>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-due-cancel" type="button">Huỷ</button>
+          <button class="adm-btn-primary" id="btn-due-ok" type="button">Đổi hạn</button>
+        </div>
+      </div>
+    </div>
     <!-- ── Tạo / sửa buổi học ────────────────────────────────────────── -->
     <div class="adm-modal-backdrop" id="lesson-modal" hidden>
       <div class="adm-modal cl-form-dialog cl-lesson-dialog" role="dialog" aria-modal="true" aria-labelledby="lesson-modal-title">

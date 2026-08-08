@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -38,11 +38,14 @@ from services.quiz_service import (
 )
 from services.class_assignment_service import (
     CLASS_TZ,
+    DueChangeRefused,
     EmptyRosterError,
     AssignmentNotFoundError,
     ReturnNotPossible,
     SubsetNeedsStudentsError,
     backfill_assignment_items,
+    change_assignment_due_at,
+    compose_due_at,
     create_class_assignment,
     is_accepting_submissions,
     mark_item_submitted,
@@ -2088,6 +2091,82 @@ async def update_assignment(
     if not r.data:
         raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
     return r.data[0]
+
+
+class DuePatch(BaseModel):
+    """Đổi hạn nộp.
+
+    `due_date = None` nghĩa là BỎ HẠN — một trạng thái hợp lệ ("không hạn"), khác
+    hẳn "đừng đụng tới hạn". Vì nó là một đường riêng, không có ca "đừng đụng":
+    gọi tới đây là để đổi hạn, nên không cần thêm một cờ để phân biệt hai ý.
+    """
+    due_date: Optional[str] = None          # 'YYYY-MM-DD', None = bỏ hạn
+    due_time: Optional[str] = None          # 'HH:MM', mặc định 19:00
+    # Hạn mà MÀN HÌNH ĐANG HIỆN. Bắt buộc nêu — xem `change_assignment_due_at`.
+    expected_due_at: Optional[str] = None
+    confirm_rewrites: bool = False
+    # CON SỐ mà màn hình vừa hiện ra cho giáo viên đọc. Xác nhận suông (chỉ cờ)
+    # không đủ: danh sách lượt nộp có thể đã khác giữa hai lần bấm.
+    confirmed_flips: Optional[Dict[str, int]] = None
+
+
+@router.patch("/{cohort_id}/assignments/{assignment_id}/due")
+async def update_assignment_due(
+    cohort_id: str,
+    assignment_id: str,
+    body: DuePatch,
+    authorization: str | None = Header(default=None),
+):
+    """Đổi hạn nộp của một bài giao.
+
+    ── Vì sao có đường này ──────────────────────────────────────────────────
+    `PATCH .../assignments/{id}` cố ý chỉ nhận `status`, và chú thích ở đó ghi
+    rằng đổi hạn "cần suy nghĩ riêng". Đây là phần suy nghĩ ấy. Cho tới nay
+    không đổi hạn được từ trong sản phẩm: ngày 07/08 phải viết SQL rồi chạy tay
+    trên máy chủ thật — và chính cái thiếu ấy còn khoá luôn nút Trả bài, vì trả
+    bài đòi bài giao còn nhận bài.
+
+    ── Giờ hạn dựng ở ĐÂY, không ở trình duyệt ─────────────────────────────
+    `compose_due_at` ghép ngày với giờ theo múi giờ Việt Nam. Trình duyệt không
+    được tin với việc này: một giáo viên đang ở nước ngoài sẽ đặt hạn theo múi
+    giờ của họ mà không ai biết — cùng lý do `create_assignment` đã làm thế.
+
+    Một đường RIÊNG chứ không nhồi vào `PATCH` cũ: đường cũ đang được sửa ở một
+    nhánh khác, và thêm trường vào cùng một khuôn là dựng sẵn một cuộc va.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+
+    try:
+        due_time = parse_due_time(body.due_time)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    try:
+        new_due_at = compose_due_at(body.due_date, due_time)
+    except ValueError:
+        raise HTTPException(422, f"Ngày hạn không hợp lệ: {body.due_date!r} "
+                                 "(cần dạng YYYY-MM-DD)")
+
+    try:
+        out = change_assignment_due_at(
+            supabase_admin,
+            assignment_id=assignment_id,
+            cohort_id=cohort_id,
+            new_due_at=new_due_at,
+            expected_due_at=body.expected_due_at,
+            confirm_rewrites=body.confirm_rewrites,
+            confirmed_flips=body.confirmed_flips,
+        )
+    except DueChangeRefused as exc:
+        # 409 kèm NGUYÊN con số: màn hình phải nói được "đổi hạn này biến 3 lượt
+        # nộp trễ thành đúng hạn" chứ không phải một câu từ chối chung chung.
+        raise HTTPException(409, exc.payload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi khi đổi hạn: {exc}")
+
+    logger.info("[class] admin đổi hạn lớp=%s bài giao=%s → %s",
+                cohort_id, assignment_id, new_due_at)
+    return out
 
 
 @router.delete("/{cohort_id}/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)

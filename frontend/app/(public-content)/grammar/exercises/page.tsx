@@ -9,6 +9,7 @@
 // Logic đã tách sang `/js/grammar-exercises.js`; CẢ HAI VẾ chạy chính tệp đó.
 import type { Metadata } from 'next';
 import HydratedSignal from '@/components/hydrated-signal';
+import { watchdogScript } from '@/lib/watchdog-script';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -37,16 +38,6 @@ const afterHydration = (fn) => {
   // mot template literal.
   if (window.__averHydrated) { fn(); return; }
   window.addEventListener("aver:hydrated", fn, { once: true });
-  // CHO CHET (watchdog). Neu chunk React hong han thi useEffect khong bao gio
-  // chay, co khong bat, va trang dung o "Dang tai..." VINH VIEN. Ban cu cho
-  // load nen van chay duoc - tuc ban va nay doi mot loi #418 lay mot loi treo.
-  // KHONG goi thang fn() o day: React chi CHAM thoi thi lam vay la dung lai
-  // cuoc dua vua sua. Thay vao do sang han ban legacy, giu nguyen query/hash.
-  setTimeout(() => {
-    if (window.__averHydrated) return;
-    console.error("[/pages/grammar-exercises.html] React khong hydrate sau 12s - sang ban legacy");
-    window.location.replace("/pages/grammar-exercises.html" + window.location.search + window.location.hash);
-  }, 12000);
 };
 const ready = () => !!(window.api && window.api.get);
 if (ready()) afterHydration(mount);
@@ -95,6 +86,8 @@ export default function GrammarExercisesPage() {
         </div>
         <div id="ex-groups" className="hidden flex flex-col gap-8"></div>
       </main>
+      {/* Duong lui chung mot nguon voi 11 trang kia: xem lib/watchdog-script.ts */}
+      <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/grammar-exercises.html') }} />
       <script type="module" dangerouslySetInnerHTML={{ __html: MOUNT }} />
     </>
   );
