@@ -307,6 +307,32 @@ def test_a_full_retry_does_not_resume_sessions_from_the_failed_run():
     assert sv["session_id"] is None
 
 
+def test_near_pass_rerun_keeps_the_prior_full_retry_boundary_on_reload():
+    """P1 PR #1014: latest action=retake must not resurrect the failed run."""
+    mastery = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "2026-08-06T03:00:00+00:00",
+         "sessions": ["old-1", "old-2"], "next_action": "retry_full"},
+        {"phase": "run", "pct": 70.0, "at": "2026-08-06T06:00:00+00:00",
+         "sessions": ["new-1", "new-2"], "next_action": "retake"},
+    ]}
+    sessions = [
+        _sess("old-1", ended_by="completed", created="2026-08-06T01:00:00+00:00"),
+        _sess("old-2", ended_by="completed", created="2026-08-06T02:00:00+00:00"),
+        _sess("new-1", ended_by="completed", created="2026-08-06T04:00:00+00:00"),
+        _sess("new-2", ended_by="completed", created="2026-08-06T05:00:00+00:00"),
+    ]
+    sv = _resume(
+        sessions=sessions,
+        attempts=[{"session_id": s, "qid": f"q{i:02d}"}
+                  for s, start in (("old-1", 0), ("old-2", 10),
+                                   ("new-1", 0), ("new-2", 10))
+                  for i in range(start, start + 10)],
+        mastery=mastery,
+    )
+    assert sv["completed"] == ["new-1", "new-2"]
+    assert sv["stage"] == 2
+
+
 def test_an_unreadable_attempt_table_does_NOT_send_a_finished_student_to_stage_0():
     """Tập rỗng đọc ra là "em ấy chưa làm câu nào" — một khẳng định mà lượt đọc
     hỏng không chứng minh được.

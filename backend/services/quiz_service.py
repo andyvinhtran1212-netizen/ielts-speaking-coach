@@ -240,6 +240,22 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     return mastery_next_action(float(attempt.get("pct") or 0), pass_pct)
 
 
+def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
+    """Newest full-retry cutoff, preserved until the assignment passes.
+
+    A successful full rerun may only reach the near-pass band. Its newest ledger
+    action then becomes ``retake``, but the earlier ``retry_full`` timestamp must
+    continue excluding the failed run's sessions on reload and re-verdict.
+    """
+    for attempt in reversed(attempts):
+        if _recorded_next_action(attempt, pass_pct) != "retry_full":
+            continue
+        boundary = _at(attempt.get("at"))
+        if boundary is not None:
+            return boundary
+    return None
+
+
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
         "id, topic_id, code, title, skill_area, words_count, updated_at"
@@ -935,9 +951,9 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     item_id = (item or {}).get("id")
     empty["item_id"] = item_id
 
-    # A score below the near-pass band starts a NEW full attempt. Sessions from
-    # the failed attempt must not make that new run look already complete after
-    # reload. The verdict timestamp is the boundary between the two runs.
+    # A score below the near-pass band starts a NEW full attempt. Preserve the
+    # newest such boundary until PASS: a near-pass full rerun changes the latest
+    # action to `retake`, but must not make the older failed sessions reappear.
     retry_after = None
     if item_id:
         try:
@@ -946,12 +962,9 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
                       .limit(1).execute().data) or []
             if ledger and not ledger[0].get("passed_at"):
                 attempts = ((ledger[0].get("mastery") or {}).get("attempts")) or []
-                if attempts:
-                    latest = attempts[-1]
-                    cfg_threshold = int((ledger[0].get("mastery") or {}).get(
-                        "threshold") or PASS_PCT_DEFAULT)
-                    if _recorded_next_action(latest, cfg_threshold) == "retry_full":
-                        retry_after = _at(latest.get("at"))
+                cfg_threshold = int((ledger[0].get("mastery") or {}).get(
+                    "threshold") or PASS_PCT_DEFAULT)
+                retry_after = _full_retry_boundary(attempts, cfg_threshold)
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] course-resume mastery read failed item=%s: %s",
                            item_id, exc)
@@ -2243,12 +2256,13 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         # chính và nộp lại đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so
         # mỗi dòng cuối thì lượt chính bị ghi trùng (codex R2).
         # Sau ``retry_full``, các phiên cũ không được tái sử dụng để lách
-        # yêu cầu làm lại toàn bài. UI đã xoá danh sách cũ; đây là
-        # chốt server cho client cũ/giả mạo payload.
+        # yêu cầu làm lại toàn bài. Mốc này phải sống qua một full rerun
+        # gần đạt; nếu chỉ nhìn action CUỐI (`retake`) thì reload sẽ kéo
+        # lượt fail cũ trở lại. UI lọc để khôi phục đúng, server lọc để
+        # client cũ/giả mạo không thể trộn session.
         if phase == "run" and existing_attempt is None and attempts:
-            latest = attempts[-1]
-            if _recorded_next_action(latest, cfg["pass_pct"]) == "retry_full":
-                boundary = _at(latest.get("at"))
+            boundary = _full_retry_boundary(attempts, cfg["pass_pct"])
+            if boundary:
                 created = [_at(s.get("created_at")) for s in rows]
                 if boundary and any(at is None or at <= boundary for at in created):
                     raise HTTPException(

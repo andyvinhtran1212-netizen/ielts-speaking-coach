@@ -264,6 +264,32 @@ def test_full_retry_accepts_a_complete_set_of_new_sessions():
     assert out["passed"] is True
 
 
+def test_near_pass_rerun_still_rejects_mixing_sessions_before_full_retry_boundary():
+    """Boundary survives latest action=retake; old+new sessions cannot be merged."""
+    ss = [
+        *_sessions(1, created_at="2026-08-08T01:00:00Z"),
+        *_sessions(1, created_at="2026-08-08T03:00:00Z"),
+    ]
+    ss[1]["id"] = "s-new"
+    prior = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "2026-08-08T02:00:00Z",
+         "sessions": ["s-old-a", "s-old-b"], "next_action": "retry_full"},
+        {"phase": "run", "pct": 70.0, "at": "2026-08-08T04:00:00Z",
+         "sessions": ["new-a", "new-b"], "next_action": "retake"},
+    ]}
+    with pytest.raises(HTTPException) as e:
+        _verdict(
+            sessions=ss,
+            questions=_questions(10),
+            attempts=_attempts(ss, _given(10)),
+            config={"pass_pct": 75},
+            item_row={"id": "it-1", "passed_at": None,
+                      "mastery": prior, "score": 70.0},
+        )
+    assert e.value.status_code == 422
+    assert "phiên mới" in e.value.detail
+
+
 def test_server_regrades_and_ignores_client_claims():
     """Client khai gì kệ client: điểm tính từ answer_given so với đáp án gốc.
 
