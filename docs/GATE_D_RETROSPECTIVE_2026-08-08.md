@@ -41,16 +41,30 @@ sang Client Component React thực sự:
 
 Sau batch: hard-navigation debt còn **20/29 route**.
 
+## Batch behavior thứ hai: `/speaking/result`
+
+Batch stacked `codex/nextjs-speaking-result` chuyển trang nhận xét Speaking sang
+Client Component React và giữ nguyên endpoint kết quả đã có:
+
+- backend tiếp tục là nguồn chân lý cho ownership và trạng thái `released`;
+- request được khóa theo `user.id + sitting`, abort khi unmount/đổi tài khoản;
+- authored feedback được React escape, không dùng `innerHTML`;
+- entry point từ phiếu TRF trỏ tới canonical `/speaking/result`;
+- legacy HTML/JS chỉ còn phục vụ parity/rollback.
+
+Sau batch stacked: hard-navigation debt còn **19/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | 84/84 pass |
-| Full frontend contract suite | 7.007/7.007 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69 pass |
+| Backend result contract | 22/22 pass |
+| Full frontend contract suite | 7.013/7.013 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; `/quiz/progress` static prerender |
+| Next production build | pass; `/quiz/progress` và `/speaking/result` static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 20 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 21 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
