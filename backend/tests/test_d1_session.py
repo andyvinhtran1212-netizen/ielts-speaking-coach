@@ -777,6 +777,9 @@ def _rls_get_user_client(email: str, password: str):
     return client
 
 
+# Đánh dấu ĐÚNG ca này, không đánh dấu cả tệp: phần trên là test đơn vị thuần,
+# và miễn trừ chúng khỏi chốt chặn mạng là tự chọc thủng cái lưới vừa dựng.
+@pytest.mark.livenet
 @pytest.mark.skipif(
     not all(os.getenv(k) for k in _RLS_REQUIRED_VARS),
     reason="Live RLS tests require 2 test users — set all RLS_TEST_USER_* env vars",
