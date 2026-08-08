@@ -62,7 +62,12 @@ export default {
     // Chặng 1 đã chốt ở lượt trước — server nhớ hộ, không phải localStorage.
     [/\/course-resume/, FX.resume],
     [/\/api\/quiz\/banks\/[^/?]+(\?|$)/, { bank: FX.bank, questions: FX.questions, mastery: FX.mastery }],
-    [/\/api\/quiz\/sessions$/, { id: SNEW }],
+    // HÌNH DẠNG THẬT của `start_session()`: `{session_id, resume}` — KHÔNG phải
+    // `{id}`. Bộ chạy đọc `s.id || s.session_id` nên cả hai đều chạy, nhưng dữ
+    // liệu sẵn sai hình dạng sẽ cho một bản port chỉ đọc `id` qua cổng rồi
+    // KHÔNG nhận được mã phiên trên production — mất luôn cả đẩy bài, chốt
+    // chặng lẫn xét đạt (bot bắt ở #1012).
+    [/\/api\/quiz\/sessions$/, { session_id: SNEW, resume: null }],
     [/\/api\/quiz\/sessions\/[^/?]+(\?|$)/, {}],
     [/\/progress$/, {}],
     [/\/course\/verdict$/, { passed: true, score: 0.9, threshold: 0.8 }],
@@ -100,13 +105,35 @@ export default {
         if (hết.length !== STAGE) return false;              // đủ 10 câu của chặng
         // Chặng 2 = câu thứ 11..20 của đề. Gửi nhầm câu chặng 1 nghĩa là ghi đè
         // lượt làm cũ bằng lượt mới — mất dữ liệu, không báo lỗi.
-        const cầnCó = new Set(FX.questions.slice(STAGE).map((q) => q.qid));
+        const chặngCuối = FX.questions.slice(STAGE);
+        const đápÁnGốc = new Map(chặngCuối.map((q) => [q.qid, q.answer]));
+        const sốLựa = new Map(chặngCuối.map((q) => [q.qid, q.options.length]));
+        const đãThấy = new Set();
         for (const a of hết) {
-          if (!a || !cầnCó.has(a.qid)) return false;
+          if (!a || !đápÁnGốc.has(a.qid)) return false;
+          // ĐÚNG MỘT LẦN mỗi câu. Đếm tổng + kiểm thuộc-tập là CHƯA đủ: gửi một
+          // qid hợp lệ mười lần vẫn qua, trong khi server gộp trùng theo qid
+          // (`quiz_service.py:2059-2078`) nên chỉ tính là 1 câu ⇒ verdict thật
+          // rớt vì thiếu cỡ mẫu, còn cổng thì xanh (bot bắt ở #1012).
+          if (đãThấy.has(a.qid)) return false;
+          đãThấy.add(a.qid);
           if (typeof a.is_correct !== 'boolean') return false;
           if (!Number.isInteger(a.response_time_ms) || a.response_time_ms < 0) return false;
           if (!a.client_id || !a.item_key) return false;
+          // `answer_given` là thứ server THẬT SỰ chấm; nó CỐ Ý bỏ qua `is_correct`
+          // vì đó chỉ là lời client (`quiz_service.py:2035-2039`). Bản khai không
+          // soi trường này thì một bản port gửi `answer_given` hỏng kèm
+          // `is_correct` nghe hợp lý vẫn qua cổng mà sai kết luận trên production.
+          //
+          // Gửi VỊ TRÍ GỐC dạng chuỗi (`course-runner.js:443-445`).
+          const n = Number(a.answer_given);
+          if (typeof a.answer_given !== 'string') return false;
+          if (!Number.isInteger(n) || n < 0 || n >= sốLựa.get(a.qid)) return false;
+          // Và hai lời khai phải NHẤT QUÁN với nhau theo đúng phép server dùng.
+          if (a.is_correct !== (n === đápÁnGốc.get(a.qid))) return false;
         }
+        // Phủ HẾT chặng, không thiếu câu nào.
+        if (đãThấy.size !== chặngCuối.length) return false;
         // `word_stats` là ô của luồng từ vựng; bài theo buổi phải để rỗng.
         return bodies.every((b) => Array.isArray(b.word_stats) && b.word_stats.length === 0);
       },
