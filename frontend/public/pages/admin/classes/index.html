@@ -195,6 +195,31 @@
       font: inherit; font-size: 13px; color: var(--av-primary);
       text-decoration: underline; text-underline-offset: 2px;
     }
+    /* Nhật ký thao tác. Kín tiếng khi đóng: nó không phải thứ đọc hằng ngày,
+       nhưng phải ở ngay dưới bảng gây ra nó khi cần. */
+    .cl-log { margin-top: var(--av-space-5); border-top: 1px solid var(--av-border-subtle);
+              padding-top: var(--av-space-4); }
+    .cl-log > summary {
+      cursor: pointer; font-size: 13px; color: var(--av-text-secondary);
+      list-style: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .cl-log > summary::before { content: "▸"; font-size: 10px; }
+    .cl-log[open] > summary::before { content: "▾"; }
+    .cl-log > summary:focus-visible { outline: 2px solid var(--av-border-focus);
+                                      outline-offset: 2px; border-radius: 3px; }
+    .cl-log__body { margin-top: var(--av-space-3); }
+    .cl-log__row {
+      display: grid; grid-template-columns: 11rem 1fr; gap: var(--av-space-2) var(--av-space-3);
+      padding: var(--av-space-3) 0; border-bottom: 1px solid var(--av-border-subtle);
+      font-size: 13px;
+    }
+    .cl-log__row:last-child { border-bottom: 0; }
+    .cl-log__when { font-family: var(--av-font-mono); font-size: 12px;
+                    color: var(--av-text-muted); }
+    .cl-log__what b { font-weight: 600; }
+    .cl-log__who { color: var(--av-text-muted); }
+    .cl-log__detail { grid-column: 2; color: var(--av-text-secondary); font-size: 12px; }
+
     /* Hàng nhập hạn nộp: ngày, giờ, và lối bỏ hạn — trên một dòng vì chúng là
        MỘT quyết định, không phải ba. Xuống dòng khi hộp hẹp. */
     .cl-due-row {
@@ -990,6 +1015,17 @@
             <tbody id="homework-tbody"></tbody>
           </table>
         </div>
+
+        <!-- ── Nhật ký thao tác ───────────────────────────────────────────
+             Đổi hạn và Trả bài đều sửa thứ học viên nhìn thấy. Nhật ký nằm
+             NGAY DƯỚI bảng gây ra chúng, không giấu trong một trang riêng —
+             chỗ cần đọc nó là chỗ vừa bấm. Nạp khi mở, không nạp sẵn. -->
+        <details class="cl-log" id="action-log">
+          <summary>Nhật ký thao tác — ai đổi hạn, ai trả bài</summary>
+          <div class="cl-log__body" id="action-log-body">
+            <p class="adm-hint">Đang tải…</p>
+          </div>
+        </details>
       </section>
     </main>
 

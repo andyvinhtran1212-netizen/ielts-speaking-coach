@@ -402,6 +402,60 @@ def mark_item_submitted(
     return bool(r.data)
 
 
+def log_class_action(
+    db,
+    *,
+    action: str,
+    cohort_id: str,
+    actor: Optional[Dict[str, Any]] = None,
+    assignment_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Ghi một dòng nhật ký thao tác. Trả True khi đã ghi được.
+
+    KHÔNG NÉM. Việc chính đã xảy ra rồi — hạn đã đổi, bài đã trả — nên để lượt
+    ghi nhật ký làm đổ lời hồi đáp là báo hỏng cho một việc đã thành công, và
+    giáo viên sẽ bấm lại lần nữa.
+
+    Nhưng cũng KHÔNG NUỐT trong im lặng: trả về False để nơi gọi nói ra "đã làm,
+    nhưng chưa ghi được vào nhật ký". Một nhật ký thủng lỗ mà không ai biết còn
+    tệ hơn không có nhật ký, vì nó được tin.
+    """
+    row = {
+        "action": action,
+        "cohort_id": cohort_id,
+        "assignment_id": assignment_id,
+        "student_id": student_id,
+        "actor_user_id": (actor or {}).get("id"),
+        "actor_email": (actor or {}).get("email"),
+        "details": details or {},
+    }
+    try:
+        db.table("class_action_log").insert(row).execute()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] KHÔNG ghi được nhật ký %s lớp=%s bài giao=%s: %s",
+                       action, cohort_id, assignment_id, exc)
+        return False
+
+
+def read_class_actions(db, *, cohort_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Nhật ký của một lớp, mới nhất trước.
+
+    Có trần: màn hình đọc để biết "gần đây ai đụng gì", không phải để tải cả
+    lịch sử. Không trần thì một lớp chạy lâu sẽ trả về hàng nghìn dòng cho một
+    khung cuộn mà không ai kéo tới đáy.
+    """
+    return (db.table("class_action_log")
+            .select("id, action, assignment_id, student_id, actor_email, "
+                    "details, created_at")
+            .eq("cohort_id", cohort_id)
+            .order("created_at", desc=True)
+            .limit(max(1, min(int(limit or 50), 200)))
+            .execute().data) or []
+
+
 class DueChangeRefused(Exception):
     """Đổi hạn KHÔNG làm, và lý do là một dữ kiện đếm được, không phải một lời.
 
