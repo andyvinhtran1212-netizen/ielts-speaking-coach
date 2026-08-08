@@ -67,6 +67,11 @@ export default {
     // chuyện đó thành lỗi đỏ.
     { expectText: ['#ig-band', 'Band 6.5'] },
     { expectVisible: '#ig-ai .ig-sec' },
+    // BIỂU NGỮ MƯỢN DANH phải hiện. `instructor-grade.js:50` chỉ bỏ `hidden` khi
+    // `?as_instructor` CÓ MẶT — nên đây là bằng chứng nhìn thấy được rằng trang
+    // đang chạy đúng đường mượn danh, chứ không phải một phiên GV thường mà tôi
+    // dán thêm tham số vào URL.
+    { expectVisible: '#ig-imp' },
     { fill: ['#ig-comment', FX.instructor_note] },
     { wait: 200 },
     { click: '#ig-deliver' },
