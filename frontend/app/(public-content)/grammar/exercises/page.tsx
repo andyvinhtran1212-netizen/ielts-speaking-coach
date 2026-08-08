@@ -8,6 +8,7 @@
 //
 // Logic đã tách sang `/js/grammar-exercises.js`; CẢ HAI VẾ chạy chính tệp đó.
 import type { Metadata } from 'next';
+import HydratedSignal from '@/components/hydrated-signal';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -27,11 +28,25 @@ export const metadata: Metadata = {
 const MOUNT = `
 import { mount } from '/js/grammar-exercises.js';
 const afterHydration = (fn) => {
-  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
-  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
-  // template literal, va mot dau nguoc se ket thuc chuoi som.
-  if (document.readyState === 'complete') setTimeout(fn, 0);
-  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+  // React TU BAO khi hydrate xong (components/hydrated-signal.tsx). KHONG doan
+  // theo su kien load: ban dau toi cho load roi cong mot macrotask, kem chu
+  // thich "load xay ra sau khi React da hydrate xong cay" - dieu do SAI. React
+  // hydrate theo che do dong thoi, nen no co the CHUA xong luc load ban. Do
+  // duoc, lap lai 3/3 khi ep chunk cham: module ghi DOM truoc, React vut HTML
+  // may chu ngay sau. KHONG dung dau nguoc trong chu thich nay: no nam TRONG
+  // mot template literal.
+  if (window.__averHydrated) { fn(); return; }
+  window.addEventListener("aver:hydrated", fn, { once: true });
+  // CHO CHET (watchdog). Neu chunk React hong han thi useEffect khong bao gio
+  // chay, co khong bat, va trang dung o "Dang tai..." VINH VIEN. Ban cu cho
+  // load nen van chay duoc - tuc ban va nay doi mot loi #418 lay mot loi treo.
+  // KHONG goi thang fn() o day: React chi CHAM thoi thi lam vay la dung lai
+  // cuoc dua vua sua. Thay vao do sang han ban legacy, giu nguyen query/hash.
+  setTimeout(() => {
+    if (window.__averHydrated) return;
+    console.error("[/pages/grammar-exercises.html] React khong hydrate sau 12s - sang ban legacy");
+    window.location.replace("/pages/grammar-exercises.html" + window.location.search + window.location.hash);
+  }, 12000);
 };
 const ready = () => !!(window.api && window.api.get);
 if (ready()) afterHydration(mount);
@@ -42,8 +57,11 @@ else {
     else if (++n > 500) {  // 500 x 20ms = 10s
       clearInterval(iv);
       console.error('[grammar-exercises] window.api khong san sang sau 10s');
-      const el = document.getElementById('ex-skeleton');
-      if (el) el.textContent = 'Khong tai duoc bai tap. Vui long tai lai trang.';
+      // Nhanh nay cung DOI DOM, nen no cung phai cho hydrate (codex #1003).
+      afterHydration(() => {
+        const el = document.getElementById('ex-skeleton');
+        if (el) el.textContent = 'Khong tai duoc bai tap. Vui long tai lai trang.';
+      });
     }
   }, 20);
 }
@@ -52,6 +70,7 @@ else {
 export default function GrammarExercisesPage() {
   return (
     <>
+      <HydratedSignal />
       {/* @ts-ignore */}
       <aver-chrome active="grammar" />
 

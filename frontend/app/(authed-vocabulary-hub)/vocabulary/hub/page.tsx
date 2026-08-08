@@ -24,6 +24,7 @@
 // React #418. `suppressHydrationWarning` và "gọi sau khi mount" đều KHÔNG giải
 // quyết được — chỉ nhúng sẵn SVG mới hết đua.
 import type { Metadata } from 'next';
+import HydratedSignal from '@/components/hydrated-signal';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
@@ -49,11 +50,25 @@ const BODY = "  <aver-chrome active=\"vocabulary\"></aver-chrome>\n\n  <div clas
 // trang khác chỉ thoát vì điều kiện chưa sẵn sàng ở nhịp đầu — tức MAY.
 const BOOT = `
 const afterHydration = (fn) => {
-  // Su kien load xay ra sau khi React da hydrate xong cay; them mot macrotask
-  // nua cho chac. KHONG dung dau nguoc trong chu thich nay: no nam TRONG mot
-  // template literal, va mot dau nguoc se ket thuc chuoi som.
-  if (document.readyState === 'complete') setTimeout(fn, 0);
-  else window.addEventListener('load', () => setTimeout(fn, 0), { once: true });
+  // React TU BAO khi hydrate xong (components/hydrated-signal.tsx). KHONG doan
+  // theo su kien load: ban dau toi cho load roi cong mot macrotask, kem chu
+  // thich "load xay ra sau khi React da hydrate xong cay" - dieu do SAI. React
+  // hydrate theo che do dong thoi, nen no co the CHUA xong luc load ban. Do
+  // duoc, lap lai 3/3 khi ep chunk cham: module ghi DOM truoc, React vut HTML
+  // may chu ngay sau. KHONG dung dau nguoc trong chu thich nay: no nam TRONG
+  // mot template literal.
+  if (window.__averHydrated) { fn(); return; }
+  window.addEventListener("aver:hydrated", fn, { once: true });
+  // CHO CHET (watchdog). Neu chunk React hong han thi useEffect khong bao gio
+  // chay, co khong bat, va trang dung o "Dang tai..." VINH VIEN. Ban cu cho
+  // load nen van chay duoc - tuc ban va nay doi mot loi #418 lay mot loi treo.
+  // KHONG goi thang fn() o day: React chi CHAM thoi thi lam vay la dung lai
+  // cuoc dua vua sua. Thay vao do sang han ban legacy, giu nguyen query/hash.
+  setTimeout(() => {
+    if (window.__averHydrated) return;
+    console.error("[/pages/vocabulary.html] React khong hydrate sau 12s - sang ban legacy");
+    window.location.replace("/pages/vocabulary.html" + window.location.search + window.location.hash);
+  }, 12000);
 };
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 const load = () => {
@@ -77,6 +92,7 @@ else {
 export default function VocabularyHubPage() {
   return (
     <>
+      <HydratedSignal />
       {/* @ts-ignore */}
       <aver-chrome active="vocabulary" />
       <div dangerouslySetInnerHTML={{ __html: BODY }} />
