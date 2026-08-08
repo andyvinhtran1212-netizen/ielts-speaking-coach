@@ -13,9 +13,50 @@
     "instructor_note": "",
     "delivered_at": null,
     "feedback": {
-      "band_scores": { "task_response": 6.5, "coherence": 6.0, "lexical": 6.5, "grammar": 6.0 },
-      "summary": "Bài đủ ý nhưng lập luận đoạn 2 còn mỏng."
+      "essay_id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+      "version": 1,
+      "model_used": "gemini-3-flash-preview",
+      "overall_band_score": 6.5,
+      "feedback_json": {
+        "overallBandScoreSummary": "Bài đủ ý, lập luận đoạn 2 còn mỏng. Cần thêm ví dụ cụ thể.",
+        "criteriaFeedback": {
+          "taskResponse": {
+            "band": 6.5,
+            "feedback": "Trả lời đủ hai vế nhưng ví dụ chung chung."
+          },
+          "coherenceAndCohesion": {
+            "band": 6.0,
+            "feedback": "Chuyển ý giữa đoạn 2 và 3 hơi gãy."
+          },
+          "lexicalResource": {
+            "band": 6.5,
+            "feedback": "Từ vựng đủ dùng, lặp «important»."
+          },
+          "grammaticalRangeAndAccuracy": {
+            "band": 6.0,
+            "feedback": "Câu phức đúng nhưng ít đa dạng."
+          }
+        },
+        "mistakeAnalysis": [
+          {
+            "original": "is very important",
+            "correction": "matters greatly",
+            "type": "lexical",
+            "explanation": "Tránh lặp cụm chung chung."
+          }
+        ]
+      }
+    },
+    "student": {
+      "id": "c8b45f92-31e7-4a60-9d28-5b07e13af6c4",
+      "student_code": "HV-0412",
+      "full_name": "Nguyễn Minh Anh",
+      "target_band": 7.0
     }
   },
-  "me": { "id": "7c4d8e51-2a96-4b70-83f1-6d95e2c407ba", "role": "instructor", "email": "gv@local" }
+  "me": {
+    "id": "a19f3b60-77d2-4c85-b043-1e8f5a92c3d7",
+    "role": "admin",
+    "email": "admin@local"
+  }
 }

@@ -45,6 +45,11 @@ export default {
   canned: [
     // Chốt vai trò: không phải instructor/admin thì trang đá về `/home` và
     // không có gì để kiểm.
+    // NGƯỜI GỌI LÀ ADMIN, mục tiêu mượn danh là một GV KHÁC. `_me()`
+    // (`routers/instructor.py:101-113`) BỎ QUA `?as_instructor` với người gọi
+    // không phải admin — nên để `/auth/me` trùng luôn id mượn danh là mô hình
+    // hoá đúng cái ca mà tham số ấy VÔ TÁC DỤNG, trong khi bản khai lại tuyên
+    // bố nó bảo vệ việc quy trách nhiệm.
     [/\/auth\/me/, FX.me],
     [/\/instructor\/essays\/[^/?]+(\?|$)/, FX.essay],
     [/\/instructor-note/, {}],
@@ -54,6 +59,14 @@ export default {
   steps: [
     { wait: 900 },
     { expectVisible: '#ig-deliver' },
+    // MÀN HÌNH PHẢI ĐÚNG LÀ MÀN HÌNH ĐANG KIỂM. Dữ liệu giả bản đầu để `feedback`
+    // sai hình dạng (`band_scores`/`summary` thay vì một dòng
+    // `writing_feedback_current`), nên trang đi nhánh «Chưa có phân tích AI.» và
+    // hiện band «—» — luồng vẫn XANH nhưng đang chạy trên một màn hình khác với
+    // màn hình nó tuyên bố kiểm (bot bắt ở #1011). Hai khẳng định dưới đây biến
+    // chuyện đó thành lỗi đỏ.
+    { expectText: ['#ig-band', 'Band 6.5'] },
+    { expectVisible: '#ig-ai .ig-sec' },
     { fill: ['#ig-comment', FX.instructor_note] },
     { wait: 200 },
     { click: '#ig-deliver' },

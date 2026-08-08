@@ -207,9 +207,42 @@ def _check_instructor_deliver(fx):
         f"role={fx['me']['role']!r} sẽ bị trang chuyển hướng đi (instructor-grade.js:45)"
     )
 
+    # MƯỢN DANH chỉ CÓ THẬT khi người gọi là ADMIN và mục tiêu là người KHÁC.
+    # `_me()` (routers/instructor.py:101-113) BỎ QUA `?as_instructor` với người
+    # gọi không phải admin — nên fixture để `/auth/me` trùng luôn id mượn danh
+    # đang mô tả đúng cái ca mà tham số ấy VÔ TÁC DỤNG, trong khi bản khai tuyên
+    # bố nó bảo vệ việc quy trách nhiệm. Xanh vì lý do sai (bot bắt ở #1011).
+    assert fx["me"]["role"] == "admin", (
+        "luồng khai `as_instructor` nên người gọi phải là ADMIN; "
+        f"role={fx['me']['role']!r} thì backend bỏ qua tham số đó"
+    )
+    assert fx["me"]["id"] != fx["as_instructor"], (
+        "người gọi trùng mục tiêu mượn danh — không mô hình hoá được đường quy trách nhiệm"
+    )
+
     # `delivered_at` phải là None: bài ĐÃ trả thì nút Trả bài không phải đường
     # đang kiểm, và fixture đang mô tả một màn hình khác.
     assert fx["essay"].get("delivered_at") is None, "fixture mô tả bài ĐÃ trả rồi"
+
+    # PHẢN HỒI ĐỌC cũng phải đúng hợp đồng. Bộ kiểm bản đầu chỉ soi thân request
+    # GHI, nên một `feedback` sai hình dạng vẫn qua — và trang khi đó đi nhánh
+    # "chưa có phân tích AI", tức luồng chạy trên MỘT MÀN HÌNH KHÁC với màn hình
+    # nó tuyên bố kiểm.
+    #
+    # `essay_service.get_essay_with_feedback()` gắn NGUYÊN một dòng
+    # `writing_feedback_current` vào khoá `feedback`; `renderEssay()`
+    # (instructor-grade.js:77-98) đọc `overall_band_score` và `feedback_json`.
+    fb = fx["essay"].get("feedback")
+    assert isinstance(fb, dict), "`feedback` phải là một dòng writing_feedback_current"
+    for k in ("overall_band_score", "feedback_json", "version"):
+        assert k in fb, f"`feedback` thiếu «{k}» — renderEssay sẽ đi nhánh rỗng"
+    assert isinstance(fb["feedback_json"], dict) and fb["feedback_json"], (
+        "`feedback_json` rỗng ⇒ trang hiện 'Chưa có phân tích AI.'"
+    )
+    st = fx["essay"].get("student")
+    assert isinstance(st, dict) and st.get("full_name"), (
+        "thiếu `student` — renderEssay:74-75 đọc nó để hiện tên học viên"
+    )
 
 
 VALIDATORS = {
