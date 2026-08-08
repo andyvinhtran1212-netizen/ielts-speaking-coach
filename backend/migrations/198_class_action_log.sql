@@ -163,9 +163,18 @@ COMMIT;
 --           JOIN pg_class c ON c.oid = t.tgrelid
 --          WHERE c.relname='class_action_log' AND NOT t.tgisinternal) AS so_trigger;
 --
--- Và thử CHÍNH hợp đồng "chỉ thêm" — hai lệnh dưới phải BÁO LỖI:
---   UPDATE class_action_log SET action='due_change' WHERE false;
---   DELETE FROM class_action_log WHERE false;
+-- Và thử CHÍNH hợp đồng "chỉ thêm". Trigger là FOR EACH ROW, nên `WHERE false`
+-- KHÔNG khớp dòng nào và nó không hề chạy — một câu thử như thế trả về
+-- "DELETE 0" rồi khiến người kiểm tưởng chốt đã hỏng (hoặc tệ hơn: tưởng nó
+-- ổn). Phải đụng một dòng CÓ THẬT, và bọc trong giao dịch để không để lại rác
+-- trong chính cái bảng cả thiết kế này dựng lên để không ai làm bẩn được:
+--
+--   BEGIN;
+--   INSERT INTO class_action_log (action, cohort_id, actor_email)
+--   VALUES ('due_change', (SELECT id FROM cohorts LIMIT 1), 'thu-trong-giao-dich');
+--   UPDATE class_action_log SET action='return_work'
+--    WHERE actor_email='thu-trong-giao-dich';   -- PHẢI báo lỗi
+--   ROLLBACK;
 --
 -- Không được có khoá ngoại nào trỏ ra khỏi bảng này — có là xoá bài giao/lớp sẽ
 -- đụng trigger rồi hỏng. Kỳ vọng 0 dòng:
