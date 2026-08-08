@@ -52,7 +52,7 @@ def test_the_kind_column_is_actually_selected():
     """Lọc theo một cột KHÔNG có trong `select` là lọc vào None: phiên kiểm tra
     lại sẽ lọt vào lượt chính. PostgREST không báo gì cả."""
     src = _src()
-    i = src.index('.select(')
+    i = src.index('.select(', src.index('table("quiz_sessions")'))
     sel = src[i:src.index(')', i)]
     assert "kind" in sel, "lọc theo `kind` thì phải CHỌN `kind`"
     assert "ended_at" in sel and "class_assignment_item_id" in sel
@@ -93,7 +93,7 @@ def test_the_totals_are_actually_selected():
     """Đọc một cột không có trong `select` là đọc ra None — và None ở đây thành
     "0 câu đúng", đúng thứ đang phải sửa."""
     src = _src()
-    i = src.index(".select(")
+    i = src.index(".select(", src.index('table("quiz_sessions")'))
     sel = src[i:src.index(")", i)]
     assert "total_correct" in sel and "total_questions" in sel
 
@@ -213,11 +213,16 @@ class _DB:
         return T()
 
 
-def _resume(*, sessions, attempts, questions=None):
+def _resume(*, sessions, attempts, questions=None, mastery=None):
     qn = questions or [{"bank_id": BANK, "qid": f"q{i:02d}", "type": "mcq", "order": i}
                        for i in range(90)]
-    db = _DB({"quiz_sessions": sessions, "quiz_attempts": attempts,
-              "quiz_questions": qn})
+    db = _DB({
+        "quiz_sessions": sessions,
+        "quiz_attempts": attempts,
+        "quiz_questions": qn,
+        "class_assignment_items": ([{"id": ITEM, "passed_at": None,
+                                     "mastery": mastery}] if mastery else []),
+    })
     with patch.object(qs, "supabase_admin", db), \
             patch.object(qs, "_bank_meta_or_404",
                          lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
@@ -280,6 +285,52 @@ def test_the_stage_comes_from_the_work_in_progress():
         + [{"session_id": "s3", "qid": f"q{i:02d}"} for i in range(30, 38)])
     assert sv["stage"] == 3
     assert sv["session_id"] == "s3" and len(sv["answered"]) == 8
+
+
+def test_a_full_retry_does_not_resume_sessions_from_the_failed_run():
+    """Dưới vùng gần đạt là failed attempt: lần mở sau phải ở chặng 1."""
+    mastery = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 60.0, "at": "2026-08-06T03:00:00+00:00",
+        "sessions": ["s1", "s2"], "next_action": "retry_full",
+    }]}
+    sv = _resume(
+        sessions=[
+            _sess("s1", ended_by="completed", created="2026-08-06T01:00:00+00:00"),
+            _sess("s2", ended_by="completed", created="2026-08-06T02:00:00+00:00"),
+        ],
+        attempts=[{"session_id": "s1", "qid": f"q{i:02d}"} for i in range(10)]
+        + [{"session_id": "s2", "qid": f"q{i:02d}"} for i in range(10, 20)],
+        mastery=mastery,
+    )
+    assert sv["stage"] == 0
+    assert sv["completed"] == []
+    assert sv["session_id"] is None
+
+
+def test_near_pass_rerun_keeps_the_prior_full_retry_boundary_on_reload():
+    """P1 PR #1014: latest action=retake must not resurrect the failed run."""
+    mastery = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "2026-08-06T03:00:00+00:00",
+         "sessions": ["old-1", "old-2"], "next_action": "retry_full"},
+        {"phase": "run", "pct": 70.0, "at": "2026-08-06T06:00:00+00:00",
+         "sessions": ["new-1", "new-2"], "next_action": "retake"},
+    ]}
+    sessions = [
+        _sess("old-1", ended_by="completed", created="2026-08-06T01:00:00+00:00"),
+        _sess("old-2", ended_by="completed", created="2026-08-06T02:00:00+00:00"),
+        _sess("new-1", ended_by="completed", created="2026-08-06T04:00:00+00:00"),
+        _sess("new-2", ended_by="completed", created="2026-08-06T05:00:00+00:00"),
+    ]
+    sv = _resume(
+        sessions=sessions,
+        attempts=[{"session_id": s, "qid": f"q{i:02d}"}
+                  for s, start in (("old-1", 0), ("old-2", 10),
+                                   ("new-1", 0), ("new-2", 10))
+                  for i in range(start, start + 10)],
+        mastery=mastery,
+    )
+    assert sv["completed"] == ["new-1", "new-2"]
+    assert sv["stage"] == 2
 
 
 def test_an_unreadable_attempt_table_does_NOT_send_a_finished_student_to_stage_0():

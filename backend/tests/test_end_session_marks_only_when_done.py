@@ -192,19 +192,21 @@ def test_a_short_bank_needs_only_its_own_questions():
     assert _done(db) is True
 
 
-def test_an_unreadable_bank_is_treated_as_DONE():
-    """Trả `False` nhầm để lại bài giao KẸT VĨNH VIỄN: `end_session` là đường
-    chốt sổ duy nhất, và `reconcile_ledger_from_sessions` chỉ vá từ bảng
-    `sessions` (Speaking), không đọc `quiz_sessions`."""
+def test_an_unreadable_bank_is_not_treated_as_done():
+    """Fail closed: submitted_at bất biến, nên đoán xong sớm không vá được.
+
+    Việc chưa đóng dấu có thể đối chiếu lại khi dữ liệu đọc được; đóng
+    dấu ngay ở chặng đầu thì làm sai vĩnh viễn mốc nộp của học viên.
+    """
     class _Boom(_DB):
         def table(self, name):
             if name == "quiz_questions":
                 raise RuntimeError("mạng đứt")
             return super().table(name)
-    assert _done(_Boom({})) is True
+    assert _done(_Boom({})) is False
 
 
-def test_a_failed_attempt_read_is_treated_as_DONE():
+def test_a_failed_attempt_read_is_not_treated_as_done():
     class _Boom(_DB):
         def table(self, name):
             if name == "quiz_attempts":
@@ -212,7 +214,7 @@ def test_a_failed_attempt_read_is_treated_as_DONE():
             return super().table(name)
     db = _Boom({"quiz_questions": [{"bank_id": BANK, **q} for q in _mcq(20)],
                 "quiz_sessions": [_sess("s1")]})
-    assert _done(db) is True
+    assert _done(db) is False
 
 
 def test_nothing_finished_yet_is_NOT_done():

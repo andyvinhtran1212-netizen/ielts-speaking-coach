@@ -181,6 +181,7 @@ COURSE_AREA = "course"
 # Ngưỡng/cỡ mẫu chỉnh được theo TỪNG BÀI GIAO (content_config), đây là mặc định.
 PASS_PCT_DEFAULT = 80
 RETAKE_SIZE_DEFAULT = 20
+NEAR_PASS_GAP = 10
 
 _SESSION_KINDS = {"run", "retake"}
 
@@ -209,6 +210,50 @@ def mastery_config(assignment: dict | None) -> dict:
         "pass_pct":    _clamp(cfg.get("pass_pct"), 50, 100, PASS_PCT_DEFAULT),
         "retake_size": _clamp(cfg.get("retake_size"), 5, 100, RETAKE_SIZE_DEFAULT),
     }
+
+
+def near_pass_pct(pass_pct: int) -> int:
+    """Floor of the near-pass band: pass=75 means near-pass=65..74.9."""
+    return max(0, int(pass_pct) - NEAR_PASS_GAP)
+
+
+def mastery_next_action(pct: float, pass_pct: int) -> str:
+    """Return `passed`, `retake`, or `retry_full` for a graded attempt."""
+    if pct >= pass_pct:
+        return "passed"
+    if pct >= near_pass_pct(pass_pct):
+        return "retake"
+    return "retry_full"
+
+
+def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
+    """Read the stored decision, deriving it only for legacy attempt rows.
+
+    New rows persist ``next_action`` so a later config edit cannot retroactively
+    turn a full-retry decision into a short-retake entitlement.
+    """
+    if not attempt:
+        return None
+    action = attempt.get("next_action")
+    if action in {"passed", "retake", "retry_full"}:
+        return action
+    return mastery_next_action(float(attempt.get("pct") or 0), pass_pct)
+
+
+def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
+    """Newest full-retry cutoff, preserved until the assignment passes.
+
+    A successful full rerun may only reach the near-pass band. Its newest ledger
+    action then becomes ``retake``, but the earlier ``retry_full`` timestamp must
+    continue excluding the failed run's sessions on reload and re-verdict.
+    """
+    for attempt in reversed(attempts):
+        if _recorded_next_action(attempt, pass_pct) != "retry_full":
+            continue
+        boundary = _at(attempt.get("at"))
+        if boundary is not None:
+            return boundary
+    return None
 
 
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
@@ -268,7 +313,14 @@ def _assignment_item_for(bank_id: str, user_id: str) -> dict | None:
                 .select("id, assignment_id, student_id")
                 .in_("assignment_id", [a["id"] for a in live]).in_("student_id", sids)
                 .limit(1).execute().data) or []
-        return rows[0] if rows else None
+        if not rows:
+            return None
+        # Carry the deadline already read above to the player. Authorization is
+        # still checked again when the stage is finalized.
+        live_by_id = {a["id"]: a for a in live}
+        item = dict(rows[0])
+        item["due_at"] = (live_by_id.get(item.get("assignment_id")) or {}).get("due_at")
+        return item
     except Exception as exc:  # noqa: BLE001
         # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
         # thời thành một lần lộ nội dung.
@@ -328,8 +380,10 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
                 "item_id": item["id"],
                 "passed_at": it.get("passed_at"),
                 "threshold": cfg["pass_pct"],
+                "near_threshold": near_pass_pct(cfg["pass_pct"]),
                 "retake_size": cfg["retake_size"],
                 "retakes": sum(1 for a in att if a.get("phase") == "retake"),
+                "due_at": item.get("due_at"),
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
@@ -482,6 +536,29 @@ def _owned_session(session_id: str, user_id: str) -> dict:
     return rows[0]
 
 
+def _assert_retake_allowed(item: dict | None) -> None:
+    """A short retake is legal only after the immediately prior near-pass."""
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+    try:
+        rows = (supabase_admin.table("class_assignment_items")
+                .select("passed_at, mastery").eq("id", item["id"])
+                .limit(1).execute().data) or []
+        assignments = (supabase_admin.table("class_assignments")
+                       .select("content_config").eq("id", item["assignment_id"])
+                       .limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm tra quyền làm bài kiểm tra lại: {exc}")
+    cur = rows[0] if rows else {}
+    attempts = ((cur.get("mastery") or {}).get("attempts")) or []
+    cfg = mastery_config(assignments[0] if assignments else None)
+    prior = _recorded_next_action(attempts[-1] if attempts else None,
+                                  cfg["pass_pct"])
+    if cur.get("passed_at") or prior != "retake":
+        raise HTTPException(422, "Lượt gần nhất không thuộc mức gần đạt — "
+                                 "không thể mở bài kiểm tra lại 20 câu.")
+
+
 def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
     """Create a session and return {session_id, resume} — resume = prior word_stats
     so the engine continues carry-over.
@@ -503,6 +580,8 @@ def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
     # đoán ấy đã sai đủ nhiều lần (mig 181) để không đáng làm lại.
     item = (_assignment_item_for(bank_id, user_id)
             if bank.get("skill_area") == COURSE_AREA else None)
+    if kind == "retake":
+        _assert_retake_allowed(item)
     row = {
         "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
         "class_assignment_item_id": (item or {}).get("id"),
@@ -872,6 +951,24 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     item_id = (item or {}).get("id")
     empty["item_id"] = item_id
 
+    # A score below the near-pass band starts a NEW full attempt. Preserve the
+    # newest such boundary until PASS: a near-pass full rerun changes the latest
+    # action to `retake`, but must not make the older failed sessions reappear.
+    retry_after = None
+    if item_id:
+        try:
+            ledger = (supabase_admin.table("class_assignment_items")
+                      .select("passed_at, mastery").eq("id", item_id)
+                      .limit(1).execute().data) or []
+            if ledger and not ledger[0].get("passed_at"):
+                attempts = ((ledger[0].get("mastery") or {}).get("attempts")) or []
+                cfg_threshold = int((ledger[0].get("mastery") or {}).get(
+                    "threshold") or PASS_PCT_DEFAULT)
+                retry_after = _full_retry_boundary(attempts, cfg_threshold)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] course-resume mastery read failed item=%s: %s",
+                           item_id, exc)
+
     try:
         q = (supabase_admin.table("quiz_sessions")
              .select("id, ended_at, ended_by, class_assignment_item_id, created_at, "
@@ -890,6 +987,10 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     rows = [r for r in rows if (r.get("class_assignment_item_id") or None) == item_id]
     # `kind` vắng mặt trên phiên cũ (trước mig 189) — coi như 'run'.
     rows = [r for r in rows if (r.get("kind") or "run") == "run"]
+    if retry_after:
+        rows = [r for r in rows
+                if (_at(r.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
+                > retry_after]
 
     # ĐÃ CHỐT phải là `ended_by='completed'`. `ended_at` được đặt cả khi TẠM
     # DỪNG, nên đếm theo nó là gọi một chặng bỏ giữa chừng là chặng đã xong —
@@ -1120,12 +1221,40 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
     return {"ok": True, "attempts": len(attempt_rows), "word_stats": len(stat_rows)}
 
 
+def _assert_course_session_accepting(session: dict, ended_by: str = "completed") -> None:
+    """Apply the deadline to final submissions; a pause is only a soft save."""
+    if ended_by == "paused":
+        return
+    item_id = (session or {}).get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        items = (supabase_admin.table("class_assignment_items")
+                 .select("id, assignment_id").eq("id", item_id)
+                 .limit(1).execute().data) or []
+        if not items:
+            raise HTTPException(404, "Không tìm thấy mục bài giao")
+        assignments = (supabase_admin.table("class_assignments").select("*")
+                       .eq("id", items[0]["assignment_id"])
+                       .limit(1).execute().data) or []
+        if not assignments:
+            raise HTTPException(404, "Không tìm thấy bài giao")
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm tra hạn nộp: {exc}")
+    if assignments[0].get("skill") == COURSE_AREA \
+            and not is_accepting_submissions(assignments[0]):
+        raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
+
+
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     """Finalize a session with totals from the client. ended_by ∈ ENDED_BY."""
     session = _owned_session(session_id, user_id)
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
+    _assert_course_session_accepting(session, ended_by)
     total = int(data.get("total_questions") or 0)
     correct = int(data.get("total_correct") or 0)
     wrong = int(data.get("total_wrong") or 0)
@@ -1203,16 +1332,18 @@ def _course_work_is_done(session: dict, item_id: str) -> bool:
     làm. `course_verdict` đã dùng luật phủ-đủ-câu từ lâu vì đúng lý do này —
     đây là mượn lại luật ấy, không phát minh luật mới.
 
-    ── Hỏng thì trả True ───────────────────────────────────────────────────
-    Không đọc được thì coi như XONG. Nghe ngược, nhưng trả `False` nhầm để lại
-    bài giao KẸT VĨNH VIỄN: `end_session` là đường chốt sổ duy nhất cho bài
-    theo buổi. Trả `True` nhầm thì chỉ đóng dấu sớm một lần, và bảng của giáo
-    viên vẫn nói đúng vì nó đọc thẳng số chặng đã chốt.
+    ── Hỏng thì trả False ───────────────────────────────────────────────────
+    Không đọc được thì KHÔNG đóng dấu. `submitted_at` chỉ ghi một
+    lần; đoán xong sớm sẽ khoá mốc nộp sai. Đoán chưa xong chỉ làm chậm
+    sổ, và `reconcile_course_items` sẽ vá từ bằng chứng thật sau đó.
     """
     bank_id = session.get("bank_id")
     mcq_qids, writing, ok = _course_bank_shape(bank_id)
     if not ok:
-        return True
+        # `submitted_at` is immutable. A transient read failure must never turn
+        # one stage into a completed assignment; reconciliation can safely fill
+        # a missing ledger entry after the evidence becomes readable again.
+        return False
     # Còn phần tự luận thì đường chốt sổ là lượt NỘP TỰ LUẬN. Đọc từ CÙNG lượt
     # đọc ở trên, không qua một cache có thể đã cũ sau re-import.
     if writing:
@@ -1228,7 +1359,7 @@ def _course_work_is_done(session: dict, item_id: str) -> bool:
                 .execute().data) or []
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] không đọc được phiên đã chốt item=%s: %s", item_id, exc)
-        return True
+        return False
     # Chỉ lượt CHÍNH. Phiên kiểm tra lại là mẫu nhỏ ngẫu nhiên, không phải chặng.
     ids = [x["id"] for x in sess if (x.get("kind") or "run") == "run"]
     if not ids:
@@ -1243,7 +1374,7 @@ def _course_work_is_done(session: dict, item_id: str) -> bool:
                     answered.add(a["qid"])
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] không đọc được lượt làm item=%s: %s", item_id, exc)
-            return True
+            return False
 
     return mcq_qids <= answered
 
@@ -1977,7 +2108,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         cfg = mastery_config(asg[0] if asg else None)
 
         rows = (supabase_admin.table("quiz_sessions")
-                .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by")
+                .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by, "
+                        "created_at")
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
@@ -2086,7 +2218,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     correct = sum(1 for qid, a in seen.items()
                   if grade_attempt(a.get("answer_given"), key[qid].get("answer")) is True)
     pct = round(correct / graded * 100, 1)
-    passed = pct >= cfg["pass_pct"]
+    next_action = mastery_next_action(pct, cfg["pass_pct"])
+    passed = next_action == "passed"
 
     sess_key = sorted(set(session_ids))
     # Ghi sổ bằng CAS trên updated_at: đọc-gộp-ghi không khoá thì hai tab cùng
@@ -2097,28 +2230,50 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     for _cas in range(3):
         mastery = cur.get("mastery") or {}
         attempts = list(mastery.get("attempts") or [])
+        existing_attempt = next(
+            (a for a in attempts
+             if a.get("phase") == phase and a.get("sessions") == sess_key),
+            None,
+        )
 
-        # Kiểm tra lại chỉ có nghĩa SAU một lượt chính dưới ngưỡng. Không có
-        # chốt này thì client tự tạo phiên retake trả lời đúng cỡ-mẫu câu là
-        # mua được kết luận đạt mà chưa từng làm đủ bài (codex R2). Luồng thật
-        # luôn thoả: nút kiểm tra lại chỉ hiện sau khi verdict lượt chính đã
-        # ghi sổ.
-        if phase == "retake" and not any(
-                a.get("phase") == "run" and (a.get("pct") or 0) < cfg["pass_pct"]
-                for a in attempts):
-            raise HTTPException(
-                422, "Chưa có lượt làm chính dưới ngưỡng — làm đủ bài trước đã")
+        # Retake 20 câu chỉ dành cho trạng thái GẦN ĐẠT của lượt NGAY TRƯỚC.
+        # Một lượt dưới near-threshold phải làm lại toàn bộ bank; cho nó tự tạo
+        # retake sẽ biến đường ngắn thành lối tắt qua luật mới.
+        # Nộp lại đúng cùng session (F5/mạng retry) là luỹ đẳng: bản ghi
+        # của chính nó đang là dòng cuối, không thể dùng nó làm "lượt
+        # trước" rồi tự bác lần gọi lại.
+        if phase == "retake" and existing_attempt is None:
+            prior_action = _recorded_next_action(
+                attempts[-1] if attempts else None, cfg["pass_pct"])
+            if prior_action != "retake":
+                raise HTTPException(
+                    422, "Chỉ được kiểm tra lại sau một lượt gần đạt — "
+                         "lượt này cần làm lại toàn bộ bài.")
 
         # Tải lại trang ở màn kết quả sẽ gọi xét lại CÙNG một lượt — sổ không
         # được phình theo số lần bấm. So với TOÀN sổ chứ không chỉ dòng cuối:
         # sau một lần kiểm tra lại trượt, F5 khôi phục về màn kết quả lượt
         # chính và nộp lại đúng bộ phiên cũ — dòng cuối lúc ấy là retake, so
         # mỗi dòng cuối thì lượt chính bị ghi trùng (codex R2).
+        # Sau ``retry_full``, các phiên cũ không được tái sử dụng để lách
+        # yêu cầu làm lại toàn bài. Mốc này phải sống qua một full rerun
+        # gần đạt; nếu chỉ nhìn action CUỐI (`retake`) thì reload sẽ kéo
+        # lượt fail cũ trở lại. UI lọc để khôi phục đúng, server lọc để
+        # client cũ/giả mạo không thể trộn session.
+        if phase == "run" and existing_attempt is None and attempts:
+            boundary = _full_retry_boundary(attempts, cfg["pass_pct"])
+            if boundary:
+                created = [_at(s.get("created_at")) for s in rows]
+                if boundary and any(at is None or at <= boundary for at in created):
+                    raise HTTPException(
+                        422, "Lượt dưới mức gần đạt phải làm lại toàn bộ "
+                             "bằng các phiên mới.")
+
         appended = False
-        if not any(a.get("phase") == phase and a.get("sessions") == sess_key
-                   for a in attempts):
+        if existing_attempt is None:
             attempts.append({
                 "phase": phase, "pct": pct, "at": _now(), "sessions": sess_key,
+                "next_action": next_action,
             })
             appended = True
         already = bool(cur.get("passed_at"))
@@ -2173,6 +2328,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         "pct": (float(cur.get("score")) if already and cur.get("score") is not None
                 else pct),
         "threshold": cfg["pass_pct"],
+        "near_threshold": near_pass_pct(cfg["pass_pct"]),
+        "next_action": ("passed" if already else next_action),
         "phase": phase,
         "retake_size": cfg["retake_size"],
         "retakes": sum(1 for a in attempts if a.get("phase") == "retake"),

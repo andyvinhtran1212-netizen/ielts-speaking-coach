@@ -28,9 +28,10 @@ function loadRetakeFlow() {
   const body = SRC.slice(i, j).replace(/^\s*async function startRetakeFlow\(\)\s*\{/, '')
     .replace(/\}$/, '');
   return (env) => {
-    const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion',
+    const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc',
       `return (async () => {${body}})();`);
-    return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion);
+    return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
+      env.esc || ((value) => String(value)));
   };
 }
 
@@ -72,5 +73,23 @@ describe('làm kiểm tra lại', () => {
       renderQuestion: () => {},
     });
     assert.equal(size, 5, 'kết luận vừa xét mới là con số của lượt này');
+  });
+
+  test('server không cho mở retake thì không để học viên làm 20 câu vô ích', async () => {
+    const run = loadRetakeFlow();
+    const verdict = { innerHTML: '' };
+    let rendered = 0;
+    await run({
+      $: (id) => (id === 'cx-verdict' ? verdict : null),
+      lastVerdict: { retake_size: 20 },
+      runner: {
+        mastery: {}, sessionFailed: true,
+        persistError: 'Lượt gần nhất không thuộc mức gần đạt',
+        startRetake: async () => {},
+      },
+      renderQuestion: () => { rendered += 1; },
+    });
+    assert.equal(rendered, 0);
+    assert.match(verdict.innerHTML, /không thuộc mức gần đạt/i);
   });
 });
