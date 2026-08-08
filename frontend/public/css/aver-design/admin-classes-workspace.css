@@ -360,31 +360,6 @@
   line-height: var(--av-lh-normal);
 }
 
-.cl-lens {
-  display: inline-flex;
-  width: fit-content;
-  margin: 0 0 var(--av-space-4);
-  padding: 3px;
-  border: 1px solid var(--av-border-default);
-  border-radius: var(--av-radius-md);
-  background: var(--av-surface-sunken);
-}
-
-.cl-lens button {
-  min-height: 36px;
-  padding: var(--av-space-2) var(--av-space-4);
-  border: 0;
-  border-radius: calc(var(--av-radius-md) - 2px);
-  color: var(--av-text-muted);
-}
-
-.cl-lens button[aria-current="true"] {
-  border: 0;
-  background: var(--av-surface-card);
-  color: var(--av-text-primary);
-  box-shadow: var(--av-shadow-sm);
-}
-
 .cl-roster-command {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.42fr) auto;
@@ -622,14 +597,14 @@
 }
 
 .cl-marking {
-  width: min(100%, var(--cl-shell-width));
-  margin-right: auto;
-  margin-left: auto;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
   padding: var(--cl-panel-pad);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-xl);
   background: var(--av-surface-card);
-  box-shadow: var(--av-shadow-md);
+  box-shadow: var(--av-shadow-sm);
 }
 
 .cl-marking__head {
@@ -642,6 +617,27 @@
 .cl-marking__head h2 { margin: 0; font-size: var(--av-fs-2xl); }
 .cl-marking__head .adm-btn-link { justify-self: start; }
 .cl-marking > .adm-subtabs { margin: var(--av-space-4) 0; }
+
+.cl-marking > [id^="mpanel-"] {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Trong shell chi tiết lớp, 1fr không còn kéo tới 1632px như mặt cũ đứng ngoài
+   shell. Cho sổ nhận bài dùng trọn chiều rộng panel để hai lề thẳng với toolbar
+   và các bảng lớp khác. */
+.cl-marking .av-tally {
+  width: 100%;
+  max-width: none;
+}
+
+#effort-body {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+#effort-body > .adm-table { min-width: 760px; }
 
 .cl-one__list {
   overflow-x: hidden;
@@ -1247,12 +1243,6 @@
   .cl-shell .adm-subtabs[data-level="section"] { top: var(--cl-header-h); }
   .adm-subtabs[data-level="section"] .adm-subtab { flex: 1 0 auto; }
 
-  .cl-lens,
-  .cl-lens button {
-    width: 100%;
-  }
-
-  .cl-lens button { flex: 1 1 0; }
   .cl-panel-head { align-items: stretch; }
   .cl-panel-head .adm-btn-primary { width: 100%; }
   .cl-homework-command { grid-template-columns: 1fr; }

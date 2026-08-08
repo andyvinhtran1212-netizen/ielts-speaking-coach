@@ -33,7 +33,7 @@ const codeOnly = (s) => s
  * lại. Đếm `<div`/`</div>` cho ra ranh giới THẬT.
  */
 function splitBody() {
-  const open = PAGE.indexOf('<div class="cl-roster-split">');
+  const open = PAGE.search(/<div class="cl-roster-split"[^>]*>/);
   assert.ok(open !== -1, 'thiếu cha lưới .cl-roster-split');
   let i = open, depth = 0;
   // Chú thích HTML có thể chứa chữ "div" — bỏ chúng trước khi đếm.
@@ -142,30 +142,38 @@ describe('the tab reports failure instead of an empty class', () => {
 });
 
 
-describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
-  // Giáo viên không nghĩ theo tab, họ nghĩ theo HỌC VIÊN: "Sĩ số" và "Tiến độ"
-  // là cùng một danh sách nhìn qua hai ống kính. Hàng đứng yên, chỉ cột đổi.
-  test('có nút ống kính, KHÔNG còn tab riêng', () => {
-    assert.match(PAGE, /data-lens="progress"/);
-    assert.match(PAGE, /data-lens="today"/);
-    assert.doesNotMatch(PAGE, /id="tab-progress"/,
-      'còn tab là còn bốn tầng điều hướng');
-    // Khung bảng 4 kỹ năng vẫn ở lại: ống kính đọc lại dữ liệu đã dựng vào đó.
+describe('Tiến độ là tab cấp một của chi tiết lớp', () => {
+  test('nằm ngang hàng với Sổ điểm danh, Buổi học, Bài tập và Nhận bài', () => {
+    const navStart = PAGE.indexOf('<nav class="adm-subtabs" data-level="section"');
+    const navEnd = PAGE.indexOf('</nav>', navStart);
+    const nav = PAGE.slice(navStart, navEnd);
+    for (const id of ['tab-roster', 'tab-progress', 'tab-lessons', 'tab-homework', 'tab-marking']) {
+      assert.match(nav, new RegExp(`id="${id}"`));
+    }
+    assert.doesNotMatch(PAGE, /data-lens=|class="cl-lens"/);
     assert.match(PAGE, /id="panel-progress"/);
   });
 
-  test('vẫn nạp LÚC CẦN, ở lần đổi ống kính đầu tiên', () => {
-    const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
-                                  SRC.indexOf('function renderDrawer')));
-    assert.match(fn, /'progress'/);
+  test('vẫn nạp LÚC CẦN ở lần mở tab đầu tiên', () => {
+    // Chỉ ghim THÂN showPanel. Một lát cắt tới cuối khu Sub-tabs sẽ xanh giả
+    // nếu loadProgress xuất hiện trong hàm khác ở phía dưới (Claude review
+    // 08/08/2026). Hai mốc phải tồn tại và đúng thứ tự; drift comment cũng phải
+    // làm test đỏ thay vì âm thầm cắt tới cuối file.
+    const start = SRC.indexOf('function showPanel(name) {');
+    const end = SRC.indexOf('\n}\n\n// ── Wiring', start);
+    assert.ok(start !== -1 && end > start, 'không lấy được đúng thân showPanel');
+    const fn = codeOnly(SRC.slice(start, end + 2));
+    assert.match(fn, /name === 'progress'/);
     assert.match(fn, /_progressLoaded/);
     assert.match(fn, /loadProgress\(\)/);
+    assert.match(fn, /loadSpeakingPerf\(\)/);
+    assert.match(fn, /loadDailyBoard\(\)/);
   });
 
   test('bấm một hàng mở NGĂN KÉO, không mở hộp thoại', () => {
     assert.match(PAGE, /id="roster-drawer"/);
     const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
-                                  SRC.indexOf("const lensBar")));
+                                  SRC.indexOf("$('tab-roster').addEventListener")));
     assert.match(fn, /_picked/, 'phải nhớ hàng đang chọn để giữ nó sáng');
     assert.doesNotMatch(fn, /openModal|showModal/, 'hộp thoại làm mất chỗ đứng');
   });
@@ -186,7 +194,7 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
       'ngăn kéo nằm ngoài cha lưới thì nó lại rơi xuống đáy bảng');
   });
 
-  test('hai cột trên màn rộng, và cột bảng CO được', () => {
+  test('bảng chiếm trọn panel; chỉ chia hai cột khi drawer thật sự mở', () => {
     const block = PAGE.match(/@media \(min-width: 1400px\)\s*\{[\s\S]*?\n    \}/);
     // 1400px chứ không 1200px: `main.cl-shell` chốt ở `max-width: 1100px`, nên
     // ở khung nhìn 1200 cột bảng chỉ còn ~524px — một bảng 6 cột trong đó là
@@ -196,6 +204,10 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // `1fr` trần là `minmax(auto, 1fr)`: bảng không co được sẽ đẩy ngăn kéo ra
     // khỏi khung — đúng lỗi đã vá ở bảng nhận bài (#979).
     assert.match(block[0], /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    assert.match(block[0], /data-drawer-open="true"[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) 340px/s);
+    assert.match(PAGE, /class="cl-roster-split" data-drawer-open="false"/);
+    assert.match(SRC, /split\.dataset\.drawerOpen = 'false'/);
+    assert.match(SRC, /split\.dataset\.drawerOpen = 'true'/);
     // Neo DƯỚI thanh tiêu đề `sticky` cao 56px, không neo ở 0 — neo ở 0 là dính
     // vào đúng chỗ bị nó che.
     assert.match(block[0], /top:\s*calc\(var\(--admin-header-h/);
@@ -206,7 +218,7 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // bảng), nên ở đó phải tự cuộn tới — nếu không thì lỗi gốc còn nguyên trên
     // laptop 13".
     const click = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
-                                     SRC.indexOf('const lensBar')));
+                                     SRC.indexOf("$('tab-roster').addEventListener")));
     assert.match(click, /revealDrawer\(\)/, 'vẽ xong mà không đưa vào tầm nhìn');
     // Chú thích doc của `revealDrawer` nhắc đúng chuỗi đang ghim dưới đây, nên
     // chốt này chỉ có nghĩa khi `codeOnly` bỏ cả `/* */` — xem ghi chú ở đó.
@@ -246,7 +258,7 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // được vẽ lại mỗi lần đổi em.
     assert.match(SRC, /id="drawer-work"/);
     const click = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
-                                     SRC.indexOf('const lensBar')));
+                                     SRC.indexOf("$('tab-roster').addEventListener")));
     assert.match(click, /loadStudentWork\(_picked\)/,
       'nạp sẵn cho 14 em là 14 lượt gọi mạng cho ngăn kéo có thể không ai mở');
   });
@@ -621,47 +633,27 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     assert.match(sec[0], /border-bottom:\s*2px/);
     assert.match(sec[0], /border:\s*0/);
 
-    // BỘ CHỌN PHẢI VỚI TỚI ĐƯỢC KHỐI NÓ NHẮM.
-    //
-    // Bản trước bó mọi luật bằng `.cl-shell` — nghe hợp lý, nhưng
-    // `#panel-marking` (nơi chứa tầng 3) nằm NGOÀI shell: shell đóng ở giữa
-    // tài liệu. Bộ chọn không bao giờ khớp, và tầng 3 giữ nguyên hình
-    // viên-có-viền của tầng 1, tức lỗi cần chữa vẫn còn nguyên trong khi mọi
-    // chốt hình-dạng đều xanh (codex #986).
-    //
-    // Nên kiểm ĐIỀU KIỆN THẬT: mỗi khối mang `data-level` phải nằm dưới một tổ
-    // tiên mà bộ chọn của nó đi qua được. Repo không có jsdom, nên chứng minh
-    // bằng cách rẻ nhất và chắc nhất: KHÔNG luật nào của `[data-level]` được
-    // mang tiền tố tổ tiên nào cả.
+    // BỘ CHỌN PHẢI VỚI TỚI ĐƯỢC KHỐI NÓ NHẮM, và Nhận bài phải dùng CHÍNH
+    // shell chi tiết lớp thay vì dựng một container rộng hơn ở ngoài.
     for (const m of PAGE.matchAll(/^\s*([^\n{]*\[data-level="(section|view)"\][^\n{]*)\{/gm)) {
       assert.doesNotMatch(m[1], /\.cl-shell|#view-detail|\.cl-marking/,
-        `luật bó vào một tổ tiên: "${m[1].trim()}" — kiểm nó có với tới cả hai `
-        + 'khối không, #panel-marking nằm NGOÀI .cl-shell');
+        `luật bó vào một tổ tiên không cần thiết: "${m[1].trim()}"`);
     }
-    // Và tầng 3 phải THẬT SỰ ở ngoài shell — nếu ai đó dời nó vào trong thì
-    // lời giải thích trên hết đúng và chốt này phải được viết lại.
-    // Tìm THẺ NAV, không tìm chuỗi `data-level="view"` trần: chuỗi ấy xuất hiện
-    // trong khối CSS ở đầu tài liệu, tức trước shell, nên `indexOf` bắt nhầm
-    // và chốt báo ngược.
+    const shellStart = PAGE.indexOf('<main class="cl-shell" id="view-detail"');
     const shellEnd = PAGE.indexOf('</main>', PAGE.indexOf('id="view-detail"'));
     const navL3 = PAGE.indexOf('<nav class="adm-subtabs" data-level="view"');
     assert.ok(navL3 !== -1, 'không thấy thẻ nav tầng 3');
-    assert.ok(navL3 > shellEnd,
-      'tầng 3 nay nằm trong .cl-shell — xem lại lý do bó bằng thuộc tính');
+    assert.ok(navL3 > shellStart && navL3 < shellEnd,
+      'Nhận bài phải nằm trong cùng shell với các tab chi tiết lớp');
 
-    // Tầng 3 và ỐNG KÍNH cùng trả lời "đổi cách nhìn, không đổi chỗ đứng", nên
-    // dùng CHUNG một hình dạng. Chia theo độ sâu thì hai thứ cùng nghĩa lại
-    // trông khác nhau — ghim chúng ở CÙNG một quy tắc để không trôi khỏi nhau.
     const view = PAGE.match(
-      /\.adm-subtabs\[data-level="view"\], \.cl-lens \{[^}]*\}/);
-    assert.ok(view, 'tầng 3 và ống kính phải dùng chung một quy tắc');
+      /\.adm-subtabs\[data-level="view"\] \{[^}]*\}/);
+    assert.ok(view, 'tầng 3 chưa có hình dạng riêng');
     assert.match(view[0], /background:\s*var\(--av-surface-sunken\)/);
 
-    // Hai bộ đánh dấu "đang mở" bằng hai cách khác nhau. Chỉ bắt một là một
-    // trong hai bộ mất hẳn dấu ấy.
     const on = PAGE.match(
-      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active,\s*\n\s*\.cl-lens button\[aria-current="true"\] \{[^}]*\}/);
-    assert.ok(on, 'thiếu một trong hai cách đánh dấu đang-mở');
+      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active \{[^}]*\}/);
+    assert.ok(on, 'thiếu cách đánh dấu đang-mở');
 
     // Và ô ĐANG MỞ vẫn phải thấy được vầng tiêu điểm. Vầng sáng chung là
     // `body.av-page :focus-visible` — độ đặc hiệu (0,2,1) — còn luật "đang mở"
@@ -669,7 +661,7 @@ describe('Tiến độ là một ỐNG KÍNH, không còn là tab', () => {
     // luật kia vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành VÔ HÌNH
     // hoàn toàn (codex #986). Phải giành lại bằng chính hai bộ chọn ấy.
     const halo = PAGE.match(
-      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active:focus-visible,\s*\n\s*\.cl-lens button\[aria-current="true"\]:focus-visible \{[^}]*\}/);
+      /\.adm-subtabs\[data-level="view"\] \.adm-subtab\.is-active:focus-visible \{[^}]*\}/);
     assert.ok(halo, 'ô đang mở mất vầng tiêu điểm');
     assert.match(halo[0], /box-shadow:\s*var\(--av-shadow-focus\)/);
     // Và nó phải đứng SAU luật "đang mở" — cùng độ đặc hiệu thì thứ tự quyết.
@@ -718,16 +710,13 @@ describe('a roster change invalidates the cached progress (Codex review)', () =>
       'leaving the old rows would flash the previous class on reopen');
   });
 
-  test('ống kính đang mở thì nạp lại NGAY, không đợi lần mở sau', () => {
-    // Câu hỏi đúng nay là "ống kính nào đang bật", không phải "panel-progress
-    // có hiện không" — sau khi Tiến độ thành ống kính, khối ấy chỉ hiện khi
-    // ống kính bật, nên điều kiện cũ trở thành vòng lặp tự nói về mình.
+  test('tab Tiến độ đang mở thì nạp lại NGAY, không đợi lần mở sau', () => {
     const fn = between('function invalidateProgress', 'async function loadProgress');
-    assert.match(fn, /_lens === 'progress'/);
+    assert.match(fn, /!\$\('panel-progress'\)\.hidden/);
     assert.match(fn, /loadProgress\(\)/);
   });
 
-  test('bộ nhớ THỨ HAI của ống kính cũng bị xoá', () => {
+  test('bộ nhớ THỨ HAI của tab tiến độ cũng bị xoá', () => {
     // Quên nó thì thêm một em vào lớp sẽ để những em cũ hiện số cũ trông y như
     // thật, còn em mới thì "chưa đọc được" — một bảng nửa cũ nửa mới, tệ hơn
     // một bảng nói thẳng là chưa đọc (codex #975).
@@ -1005,31 +994,24 @@ describe('trang đọc ĐÚNG TÊN trường máy chủ gửi', () => {
   });
 });
 
-// ── Ống kính Tiến độ KHÔNG được chôn mất các bảng khác ─────────────────────
+// ── Tab Tiến độ phải mở đủ các bảng của nó ─────────────────────────────────
 //
 // `panel-progress` không chỉ chứa bảng 4 kỹ năng: bảng liên tục hằng ngày,
 // danh sách can thiệp Speaking và cờ "chưa đối chiếu được" đều sống trong đó.
 // Giấu cả khối là làm chúng biến mất khỏi sản phẩm (codex #975).
 
-describe('ống kính Tiến độ mở đủ mặt của nó', () => {
-  const fn = codeOnly(SRC.slice(SRC.indexOf('function setLens'),
-                                SRC.indexOf('function renderDrawer')));
+describe('tab Tiến độ mở đủ mặt của nó', () => {
+  const start = SRC.indexOf('function showPanel(name) {');
+  const end = SRC.indexOf('\n}\n\n// ── Wiring', start);
+  assert.ok(start !== -1 && end > start, 'không lấy được đúng thân showPanel');
+  const fn = codeOnly(SRC.slice(start, end + 2));
 
-  test('MỘT nơi quyết việc ẩn/hiện khối phụ trợ', () => {
-    // Ba lỗi liên tiếp sinh ra vì việc ấy nằm rải rác: `setLens` bật nó,
-    // `showPanel` không tắt (khối trôi xuống dưới tab Bài tập), và
-    // `renderProgress` lại mở cái bảng đã bị thay ra (codex #976).
-    for (const caller of ['function setLens', 'function showPanel',
-                          'function renderProgress']) {
-      const body = codeOnly(SRC.slice(SRC.indexOf(caller),
-                                      SRC.indexOf(caller) + 1800));
-      assert.match(body, /syncProgressPanel\(\)/, caller);
-    }
-    const owner = codeOnly(SRC.slice(SRC.indexOf('function syncProgressPanel'),
-                                     SRC.indexOf('function renderDrawer')));
-    assert.match(owner, /_lens === 'progress'/);
-    assert.match(owner, /panel-roster/, 'rời sổ thì khối phụ trợ phải đi theo');
-    assert.match(owner, /progress-table-wrap/);
+  test('showPanel sở hữu cả tab và panel Tiến độ như các khu vực khác', () => {
+    assert.match(fn, /\['roster', 'progress', 'lessons', 'homework', 'marking'\]/);
+    assert.match(SRC, /\$\('tab-progress'\)\.addEventListener\('click', \(\) => showPanel\('progress'\)\)/);
+    const render = codeOnly(SRC.slice(SRC.indexOf('function renderProgress'),
+                                      SRC.indexOf('function invalidateProgress')));
+    assert.match(render, /\$\('progress-table-wrap'\)\.hidden = rows\.length === 0/);
   });
 
   test('KHÔNG tự đặt chốt của loadDailyBoard', () => {
@@ -1052,7 +1034,7 @@ describe('mở ngăn kéo bằng BÀN PHÍM', () => {
   test('vẽ lại bảng xong phải trả TIÊU ĐIỂM về đúng nút vừa bấm', () => {
     // Không trả thì mỗi lần mở ngăn kéo là một lần bị ném về đầu trang.
     const fn = codeOnly(SRC.slice(SRC.indexOf("$('roster-tbody').addEventListener"),
-                                  SRC.indexOf('const lensBar')));
+                                  SRC.indexOf("$('tab-roster').addEventListener")));
     assert.match(fn, /\.focus\(\)/);
   });
 

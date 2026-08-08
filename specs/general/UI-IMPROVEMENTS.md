@@ -272,3 +272,21 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
   frontend/tests/*.test.mjs`). The first sandboxed run failed only where tests
   needed temporary directories; the approved unrestricted rerun passed.
 - `git diff --check`: passing.
+
+### Lớp & Học viên — alignment follow-up (2026-08-08)
+
+- **Root cause:** the roster split reserved a 340px drawer column even while
+  the drawer was hidden; Progress was nested as a second-level lens; and the
+  marking workspace lived outside `#view-detail`, creating a wider independent
+  container with a read-width-capped assignment ledger.
+- **Severity:** Medium — no data loss, but related class workflows appeared to
+  belong to different layout systems and large blank gutters reduced table
+  readability.
+- **Minimal remediation:** keep the roster one-column until a drawer is open,
+  promote Progress to the class section tabs, move marking into the canonical
+  detail shell, and let its ledgers consume the panel width with contained
+  horizontal overflow for genuinely wide tables.
+- **Verification:** confirm all five class tabs share one nav; compare the left
+  and right edges of roster/progress/homework/marking panels at desktop widths;
+  open and close a student drawer; inspect tally/effort views; repeat at 390px
+  and verify there is no page-level horizontal overflow.

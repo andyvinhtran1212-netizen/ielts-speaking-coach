@@ -47,7 +47,7 @@ function rosterHarness(account) {
     'roster-tbody': {},
   };
   const start = JS.indexOf('function renderRoster(members)');
-  const end = JS.indexOf('function setLens');
+  const end = JS.indexOf('function revealDrawer');
   assert.ok(start > -1 && end > start);
   return new Function('nodes', `
     const $ = (id) => nodes[id];
@@ -55,8 +55,7 @@ function rosterHarness(account) {
     const countLabel = String;
     const esc = String;
     let _picked = null;
-    let _lens = 'today';
-    const LENS = { today: { head: ['Học viên'], cells: (m) => '<td>' + m.student_code + '</td>' } };
+    const ROSTER_COLUMNS = { head: ['Học viên'], cells: (m) => '<td>' + m.student_code + '</td>' };
     const renderDrawer = () => {};
     ${JS.slice(start, end)}
     renderRoster([
@@ -263,13 +262,15 @@ describe('Lớp & Học viên handcrafted workspace — roster and progress', ()
   });
 
   test('drawer distinguishes unread progress from not-yet-requested progress', () => {
-    assert.match(JS, /const progressRequested = _lens === 'progress'/);
+    assert.match(JS, /const progressRequested = _progressLoaded/);
     assert.match(JS, /Chưa đọc được tiến độ của học viên này/);
     assert.match(JS, /progressRequested \? punctualityCell\(null\) : '<span class="cl-skill-none">—<\/span>'/);
     assert.match(PAGE, /role="region" aria-labelledby="roster-drawer-title"/);
   });
 
   test('progress insight surface is a full workflow panel', () => {
+    assert.match(PAGE, /id="tab-progress"[^>]*>Tiến độ 4 kỹ năng<\/button>/);
+    assert.doesNotMatch(PAGE, /class="cl-lens"/);
     assert.match(PAGE, /Tín hiệu cần hành động/);
     assert.match(CSS, /#panel-progress\s*\{[^}]*padding:\s*var\(--cl-panel-pad\)/s);
   });
@@ -347,8 +348,26 @@ describe('Lớp & Học viên handcrafted workspace — lessons and assignments'
   test('marking is an in-page workspace, not another modal', () => {
     assert.match(PAGE, /<section class="cl-marking" id="panel-marking"/);
     assert.match(PAGE, /Không gian chấm bài/);
-    assert.match(CSS, /\.cl-marking\s*\{[^}]*width:\s*min\(100%, var\(--cl-shell-width\)\)/s);
+    const detailStart = PAGE.indexOf('<main class="cl-shell" id="view-detail"');
+    const detailEnd = PAGE.indexOf('</main>', detailStart);
+    const marking = PAGE.indexOf('id="panel-marking"');
+    assert.ok(marking > detailStart && marking < detailEnd, 'Nhận bài phải dùng cùng shell chi tiết lớp');
+    const markingRule = CSS.match(/\.cl-marking\s*\{[^}]*\}/s);
+    assert.ok(markingRule, 'thiếu luật bố cục cho Nhận bài');
+    assert.match(markingRule[0], /width:\s*100%/);
+    assert.doesNotMatch(markingRule[0], /max-width:/,
+      'max-width sẽ làm Nhận bài lại hẹp hơn shell chi tiết lớp');
+    assert.doesNotMatch(markingRule[0], /margin-(?:left|right):\s*auto/,
+      'auto margin từng thuộc container độc lập và làm hai lề lệch hệ panel');
+    assert.match(CSS, /\.cl-marking \.av-tally\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/s);
     assert.match(CSS, /\.cl-one__list\s*\{[^}]*overflow-y:\s*auto/s);
+  });
+
+  test('roster uses the full panel until the student drawer actually opens', () => {
+    assert.match(PAGE, /class="cl-roster-split" data-drawer-open="false"/);
+    assert.match(PAGE, /\.cl-roster-split\[data-drawer-open="true"\]\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 340px/s);
+    assert.match(JS, /split\.dataset\.drawerOpen = 'false'/);
+    assert.match(JS, /split\.dataset\.drawerOpen = 'true'/);
   });
 });
 
