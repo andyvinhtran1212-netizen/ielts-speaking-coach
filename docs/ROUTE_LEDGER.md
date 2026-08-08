@@ -66,11 +66,25 @@
   3. `/pages/admin/dashboard/index.html` → `/pages/admin/index.html` (dashboard moved to admin hub)
 - **Resolution:** Both `/admin/access-codes` and `/pages/admin/users.html?tab=codes` are canonical; access-codes view is a tab within users.
 
-### Q3: Vocabulary dual-route issue (two index files)
-- Both `frontend/vocabulary.html` (root) and `frontend/pages/vocabulary.html` exist.
+### Q3: Vocabulary dual-route issue (two index files) — ĐÃ CHỐT 2026-08-08
+- Both `frontend/public/vocabulary.html` (root) and `frontend/public/pages/vocabulary.html` exist.
 - `frontend/pages/my-vocabulary.html` is a legacy path that redirects to `/pages/vocabulary.html` per vercel.json line 35.
-- **Issue:** Root-level `frontend/vocabulary.html` and `frontend/pages/vocabulary.html` may target the same route.
-- **Resolution:** Verify canonical ownership; root-level file should either redirect or one should be retired post-migration.
+- **Chúng KHÔNG phải bản trùng lặp.** Đo 2026-08-08, cả hai đều trả 200 trên production:
+
+  | | `public/vocabulary.html` | `public/pages/vocabulary.html` |
+  |---|---|---|
+  | Tiêu đề | Vocabulary Wiki — Aver Learning | Từ vựng — Aver Learning |
+  | Cần đăng nhập | **không** | **có** |
+  | Nguồn dẫn | tab «Vocabulary» của `aver-chrome.js:324`, `vocab-article.html`, admin | các lối vào trong khu học viên |
+
+- **CHỐT (chủ dự án, 2026-08-08): `/vocabulary` thuộc về WIKI CÔNG KHAI.**
+  Trang Từ vựng của học viên giữ `/vocabulary/hub`.
+  Lý do: tab điều hướng chung ĐANG trỏ vào wiki, nên tên đó khớp với thứ người
+  dùng đã quen; và trang công khai mới là trang cần URL ngắn để chia sẻ.
+  Chi phí bằng 0: không link nào phải sửa.
+- Chốt `vocabulary-route-ownership.test.mjs` ghim quyết định này: route `/vocabulary`
+  (khi wiki được port) KHÔNG được nằm trong nhóm `(authed-*)`, và trang học viên
+  phải ở lại `/vocabulary/hub`.
 
 ### Q4: Grammar routes and dynamic patterns
 - `vercel.json` line 22 has one dynamic rewrite: `/grammar/:category/:slug` → `/pages/grammar-article.html`
@@ -105,10 +119,12 @@
 - `admin.html` is a redirect stub per CLAUDE.md file structure.
 - **Resolution:** `/admin.html` is a legacy redirect; canonical entry is `/pages/admin/index.html` (or via clean URL `/admin` if rewrite added).
 
-### Q10: Root-level vocabulary.html
-- `frontend/vocabulary.html` exists at root level alongside `pages/vocabulary.html`.
-- Need to verify if root-level is (a) legacy redirect, (b) independent route, or (c) accidental duplicate.
-- **Resolution:** Pending verification; likely a legacy alias that should redirect to `pages/vocabulary.html`.
+### Q10: Root-level vocabulary.html — ĐÃ ĐÓNG 2026-08-08
+- Giả thuyết cũ («likely a legacy alias») **SAI**. Nó là một trang ĐỘC LẬP:
+  wiki công khai, không cần đăng nhập, và là đích của tab «Vocabulary» trên
+  thanh điều hướng chung. Bằng chứng + quyết định sở hữu route: xem **Q3**.
+- Không được biến nó thành redirect sang `pages/vocabulary.html`: hai trang phục
+  vụ hai đối tượng khác nhau (khách vs học viên đã đăng nhập).
 
 ---
 
