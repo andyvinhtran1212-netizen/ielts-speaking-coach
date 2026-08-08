@@ -149,6 +149,7 @@ function studentDirectoryHarness(rows) {
     const _selectedIds = new Set();
     const updateBulkBar = () => {};
     const esc = String;
+    const goalCell = () => '';
     const _formatDateShort = String;
     ${STUDENTS_JS.slice(start, end)}
     renderRows(rows);
@@ -226,7 +227,7 @@ describe('Lớp & Học viên handcrafted workspace — class dialog and hierarc
   });
 
   test('detail tabs override the older two-class padding rule', () => {
-    assert.match(CSS, /\.cl-shell \.cl-workspace-tabs\s*\{/);
+    assert.match(CSS, /\.cl-shell \.adm-subtabs\[data-level="section"\]\s*\{/);
   });
 });
 
@@ -405,6 +406,10 @@ describe('Lớp & Học viên handcrafted workspace — student directory', () =
     assert.match(STUDENTS_JS, /finally \{\s*saveBtn\.disabled = false/s);
     assert.match(STUDENTS_JS, /_editorLastFocus/);
     assert.match(STUDENTS_JS, /modal\.querySelectorAll/);
+  });
+
+  test('compact student actions remain on one row after the later workspace stylesheet loads', () => {
+    assert.match(CSS, /\.st-row-actions\s*\{[^}]*flex-wrap:\s*nowrap/s);
   });
 
   test('search responses are sequence-guarded before rendering KPIs and rows', () => {

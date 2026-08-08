@@ -88,5 +88,52 @@
     "legacy": "/pages/vocab-exam.html",
     "next": "/vocabulary/exam",
     "allow": []
+  },
+  {
+    "name": "full-test",
+    "legacy": "/pages/full-test.html",
+    "next": "/full-test",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Tài khoản probe KHÔNG có kỳ thi thử nào, nên vế legacy chỉ render trạng thái RỖNG: tiêu đề + mô tả + câu 'chưa có kỳ thi nào'. Đó là 3 dòng và là nội dung ĐẦY ĐỦ của trạng thái đó, không phải vế tham chiếu hỏng. Cặp này vì thế mới chỉ chứng minh: hai vế khớp TIÊU ĐỀ, khớp từng dòng chữ, không lỗi console, và khớp getComputedStyle ở cả hai bề rộng — cho ĐÚNG trạng thái rỗng. Nó KHÔNG chứng minh gì về danh sách kỳ thi. Muốn phủ nốt: mở một kỳ thi cho tài khoản probe rồi bỏ `minBaselineLines`."
+  },
+  {
+    "name": "vocab-practice",
+    "legacy": "/pages/vocab-practice.html",
+    "next": "/vocabulary/practice",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể KHÔNG có bài luyện nào được mở, khi đó legacy chỉ render tiêu đề + mô tả + câu 'chưa có bài luyện nào' — nội dung ĐẦY ĐỦ của trạng thái rỗng, không phải vế tham chiếu hỏng. Xem ghi chú cặp `full-test`: cặp này khi rỗng chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style, KHÔNG chứng minh gì về danh sách bài luyện."
+  },
+  {
+    "name": "speaking-result",
+    "legacy": "/pages/speaking-result.html",
+    "next": "/speaking/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có tham số `?sitting=` thì trang dừng ở 'Thiếu mã lượt thi' — MỘT dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này vì thế chỉ chứng minh hai vế khớp tiêu đề + dòng chữ + style ở NHÁNH THIẾU THAM SỐ. Muốn phủ nhánh có nhận xét thật: cho tài khoản probe một lượt thi đã chấm rồi thêm `?sitting=` vào cả hai vế."
+  },
+  {
+    "name": "quiz-progress",
+    "legacy": "/pages/quiz-progress.html",
+    "next": "/quiz/progress",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể chưa làm Quick-Check nào, khi đó trang chỉ render tiêu đề + mô tả + các đề mục rỗng. Cặp này khi đó chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style ở trạng thái rỗng."
+  },
+  {
+    "name": "mock-result",
+    "legacy": "/pages/mock-result.html",
+    "next": "/mock/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?sitting=` thì trang dừng ở trạng thái lỗi/chờ — rất ít dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này chỉ chứng minh hai vế khớp ở nhánh THIẾU THAM SỐ; muốn phủ phiếu điểm thật thì cần một lượt thi đã công bố cho tài khoản probe."
+  },
+  {
+    "name": "vocabulary-hub",
+    "legacy": "/pages/vocabulary.html",
+    "next": "/vocabulary/hub",
+    "allow": [],
+    "note": "Route Next CỐ Ý không lấy tên `/vocabulary`: hôm nay tên đó đang được `/vocabulary.html` (Wiki công khai) dùng, và sổ route ghi bản gốc 'cần rà soát'. Khi chủ dự án chốt trang nào sở hữu `/vocabulary` thì đổi `next` ở đây."
   }
 ]

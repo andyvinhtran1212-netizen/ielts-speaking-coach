@@ -206,7 +206,12 @@ def test_a_graded_writing_submission_closes_the_item():
                        "total": 10, "clean": 7}])
     assert _run(db) == 1
     assert db.marked[0]["artifact_kind"] == "course_writing"
-    assert db.marked[0]["score"] == 70.0
+    assert db.marked[0]["submitted_at"].startswith("2026-08-09T11:00")
+    # ĐIỂM thì KHÔNG. Bản trước chốt `score == 70.0` ở đây, và đó chính là lỗi:
+    # bộ đề này có 10 câu trắc nghiệm, nên điểm của mục là kết quả trắc nghiệm
+    # (`course_verdict` ghi, `passed_at` xét trên số ấy) — độ sạch bài viết ghi
+    # đè lên là xoá mất nó. Xem `test_a_graded_essay_leaves_the_quiz_result_alone`.
+    assert "score" not in db.marked[0]
 
 
 def test_an_item_already_in_the_ledger_is_not_touched():
@@ -621,3 +626,177 @@ def test_it_reads_and_writes_through_the_SAME_client_it_was_handed():
              attempts=_covers("s1", ["q0", "q1"]))
     assert qs.reconcile_course_items(db, [ASG]) == 1
     assert db.reads > 0 and len(db.marked) == 1
+
+
+# ── Điểm trắc nghiệm KHÔNG được bị độ sạch bài viết đè lên ──────────────────
+#
+# Cảnh thật, đo trên prod 07/08. Cột `score` có BỐN người ghi mang HAI nghĩa:
+#   · `course_verdict` ghi tỉ lệ đúng trắc nghiệm; `passed_at` xét trên số ấy
+#   · bốn đường tự luận ghi độ sạch bài viết
+# `mark_item_submitted` luỹ đẳng theo `submitted_at`, KHÔNG theo `score`, nên
+# lượt sau xoá lượt trước: 11/11 mục đã nộp mang dấu `course_writing`, 6/11 dòng
+# TỰ MÂU THUẪN. Em Dương Dương hiện "10% · đã đạt" (thật 95%), em Hà Linh "0%"
+# (thật 65%).
+#
+# Luật khoá vào HÌNH DẠNG BỘ ĐỀ, không vào trạng thái dòng — xem
+# `course_hand_in_score`.
+
+
+def test_a_graded_essay_leaves_the_quiz_result_alone():
+    """Đúng dòng của em Hà Linh: bộ đề có trắc nghiệm, bài viết 0/10 sạch."""
+    db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
+             questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
+             writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
+                       "graded_at": "2026-08-07T01:22:00+00:00", "total": 10, "clean": 0}])
+    assert _run(db) == 1
+    assert db.marked[0]["artifact_kind"] == "course_writing", "vẫn chốt sổ như cũ"
+    assert "score" not in db.marked[0], "đã chạm vào cột điểm của bộ chấm trắc nghiệm"
+
+
+def test_a_writing_only_bank_still_takes_the_essay_score():
+    """Không có trắc nghiệm thì độ sạch bài viết ĐÚNG là kết quả duy nhất — bản
+    vá không được vì chữa một hướng mà bịt luôn hướng kia."""
+    db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
+             questions=[{"qid": "w1", "type": "writing"}],
+             writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
+                       "graded_at": "2026-08-07T01:22:00+00:00", "total": 10, "clean": 9}])
+    assert _run(db) == 1
+    assert db.marked[0]["score"] == 90.0
+
+
+def test_an_essay_scored_HIGHER_is_also_refused():
+    """Không phải "giữ số lớn hơn" mà là "cột ấy không thuộc về bài viết"."""
+    db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
+             questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
+             writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
+                       "graded_at": "2026-08-07T01:22:00+00:00", "total": 10, "clean": 10}])
+    assert _run(db) == 1
+    assert "score" not in db.marked[0]
+
+
+def test_the_rule_is_pure_so_every_branch_is_reachable_without_a_database():
+    """Khoá vào hình dạng bộ đề thay vì trạng thái dòng còn xoá luôn một CUỘC
+    ĐUA: lượt nộp đọc dòng TRƯỚC khi gọi model chấm rồi ghi SAU, nên một lượt
+    xét kết quả chạy xen vào giữa (hai tab) sẽ bị ghi đè y như cũ."""
+    f = qs.course_hand_in_score
+    assert f(has_mcq=True,  clean=0,  total=10) is None
+    assert f(has_mcq=True,  clean=10, total=10) is None
+    assert f(has_mcq=False, clean=9,  total=10) == 90.0
+    assert f(has_mcq=False, clean=0,  total=10) == 0.0
+    # Không có câu nào thì không có điểm — chia cho 0 là một lỗi 500 im lặng.
+    assert f(has_mcq=False, clean=0,  total=0) is None
+    assert f(has_mcq=False, clean=None, total=None) is None
+
+
+# ── Đường ghi THẬT lúc nộp tự luận, không phải đường vá ─────────────────────
+
+def test_the_LIVE_submit_path_uses_the_same_rule():
+    """`submit_course_writing` là đường chạy thật trên sản phẩm; ba đường kia
+    chỉ vá sổ hoặc đồng bộ. Vá đường vá mà bỏ đường thật là không chữa gì."""
+    import inspect
+    src = inspect.getsource(qs.submit_course_writing)
+    assert "course_hand_in_score(" in src
+    assert 'row["clean"] / row["total"]' not in src, "vẫn tự tính điểm"
+
+
+def test_the_REGRADE_path_uses_it_too():
+    """Người ghi thứ TƯ. Chốt điểm-danh cũ hụt nó vì nó chia cho `len(graded)`
+    chứ không cho `total` — tôi đã suýt ship với nó còn nguyên."""
+    import inspect
+    src = inspect.getsource(qs.regrade_failed_course_writing)
+    assert "course_hand_in_score(" in src
+    assert "clean / len(graded)" not in src
+
+
+def test_end_session_never_stamps_a_bank_that_has_writing():
+    """Bất biến mà chú thích cũ ở `submit_course_writing` nói NGƯỢC lại — và
+    chính lời nói ngược ấy khiến không ai đi kiểm đường ghi kia."""
+    import inspect
+    src = inspect.getsource(qs._course_work_is_done)
+    i = src.index("if writing:")
+    assert "return False" in src[i:i + 60]
+
+
+def test_an_unreadable_bank_shape_withholds_the_score_but_still_closes_the_item():
+    """Không biết bộ đề có trắc nghiệm hay không thì KHÔNG ĐOÁN.
+
+    Đoán "không có" là ghi độ sạch bài viết đè lên kết quả trắc nghiệm — đúng
+    lỗi gốc, chỉ khác là nó chỉ nổ khi `quiz_questions` đang hỏng. Chiều an toàn
+    là không ghi: để trống một con số mà `course_verdict` sẽ điền, còn ghi nhầm
+    thì xoá mất bằng chứng.
+
+    Nhưng vẫn phải CHỐT SỔ: dòng tự luận đã chấm tự nó đủ, và bắt nó chờ
+    `quiz_questions` là dựng lại ràng buộc mà cả hàm này sinh ra để tránh.
+    """
+    db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
+             questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
+             writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
+                       "graded_at": "2026-08-09T11:00:00+00:00",
+                       "total": 10, "clean": 7}])
+    db.boom = {"quiz_questions"}
+    with pytest.raises(qs.ReconcileIncomplete):
+        _run(db)                       # nói thật là chưa vá xong
+    assert db.marked, "bài viết đã chấm phải vào sổ dù bảng bộ đề đang hỏng"
+    assert db.marked[0]["artifact_kind"] == "course_writing"
+    assert "score" not in db.marked[0], "đã ĐOÁN điểm khi không đọc được bộ đề"
+
+
+# ── Đọc hình dạng bộ đề HỎNG: `_course_bank_shape` KHÔNG ném ────────────────
+
+def test_bank_has_mcq_says_YES_when_it_cannot_tell():
+    """`_course_bank_shape` trả `(set(), 0, False)` khi đọc hỏng, KHÔNG ném.
+
+    Nên `bool(shape[0])` đọc một lượt đọc hỏng thành "bộ đề chỉ có tự luận" — và
+    ghi độ sạch bài viết đè lên kết quả trắc nghiệm, đúng cái hỏng cả bản vá này
+    sinh ra để chặn (codex #994, P1). Ba nơi gọi từng tự bóc `[0]` và cả ba cùng
+    sai một kiểu.
+    """
+    with patch.object(qs, "_course_bank_shape", lambda _b: (set(), 0, False)):
+        assert qs.bank_has_mcq("bank-1") is True, "đọc hỏng mà đoán là không có mcq"
+    with patch.object(qs, "_course_bank_shape", lambda _b: (set(), 3, True)):
+        assert qs.bank_has_mcq("bank-1") is False, "bộ đề chỉ-có-viết bị chặn oan"
+    with patch.object(qs, "_course_bank_shape", lambda _b: ({"q1"}, 3, True)):
+        assert qs.bank_has_mcq("bank-1") is True
+
+
+def test_no_caller_unpacks_the_shape_tuple_by_index():
+    """Chốt ĐIỂM DANH cho đúng lỗi vừa mắc: `[0]` bỏ mất cờ đọc-được, và cả ba
+    nơi gọi cùng bỏ một kiểu. Chiều an toàn phải nằm ở MỘT chỗ."""
+    import ast, inspect, re
+    import routers.admin_class_assignments as adm
+
+    def _code_only(mod):
+        """Bỏ CHÚ THÍCH và DOCSTRING trước khi quét.
+
+        Docstring của `bank_has_mcq` nhắc đúng mẫu đang cấm để giải thích vì sao
+        cấm — nên nó tự làm chốt ĐỎ oan. Cùng họ với bẫy đã gặp ba lần trong
+        ngày: chốt soi chữ mà không tách mã khỏi lời kể thì nó nói về lời kể.
+        """
+        src = inspect.getsource(mod)
+        tree = ast.parse(src)
+        drop = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef, ast.Module)):
+                d = ast.get_docstring(node, clean=False)
+                if d:
+                    drop.add(d)
+        lines = [l for l in src.splitlines() if not l.lstrip().startswith("#")]
+        out = "\n".join(lines)
+        for d in drop:
+            out = out.replace(d, "")
+        return out
+
+    for name, src in (("quiz_service", _code_only(qs)),
+                      ("admin_class_assignments", _code_only(adm))):
+        bad = re.findall(r"_course_bank_shape\([^)]*\)\[\d\]", src)
+        assert not bad, f"{name}: bóc tuple theo chỉ số, mất cờ đọc-được: {bad}"
+
+
+def test_all_three_direct_callers_go_through_the_safe_helper():
+    import inspect
+    import routers.admin_class_assignments as adm
+    for what, fn in (("submit_course_writing", qs.submit_course_writing),
+                     ("regrade_failed_course_writing", qs.regrade_failed_course_writing),
+                     ("assignment_tally", adm.assignment_tally)):
+        assert "bank_has_mcq(" in inspect.getsource(fn), f"{what} không dùng hàm an toàn"

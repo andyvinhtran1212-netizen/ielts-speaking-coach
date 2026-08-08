@@ -43,6 +43,8 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      - 'frontend/public/pages/grammar-exercises.html'
+      - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
       # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
@@ -127,8 +129,34 @@ on:
       - 'frontend/public/css/exercises.css'
       - 'frontend/public/css/flashcards.css'
       - 'frontend/public/css/ds.css'
-      - 'frontend/public/js/vocab-modules/**'
+      - 'frontend/public/frontend/public/js/vocab-modules/**'
       - 'frontend/app/(authed-vocab-exam)/**'
+      # Trang Thi thử Full Test — port sang Next; JS/CSS vừa tách khỏi mã inline
+      # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
+      - 'frontend/app/(authed-full-test)/**'
+      - 'frontend/app/(authed-vocab-practice)/**'
+      - 'frontend/app/(authed-speaking-result)/**'
+      - 'frontend/app/(authed-quiz-progress)/**'
+      - 'frontend/app/(authed-mock-result)/**'
+      - 'frontend/app/(authed-vocabulary-hub)/**'
+      - 'frontend/public/pages/vocabulary.html'
+      - 'frontend/public/js/vocab-landing.js'
+      - 'frontend/public/css/vocabulary.css'
+      - 'frontend/public/pages/mock-result.html'
+      - 'frontend/public/js/mock-result.js'
+      - 'frontend/public/css/mock-result.css'
+      - 'frontend/public/pages/quiz-progress.html'
+      - 'frontend/public/js/quiz-progress.js'
+      - 'frontend/public/css/quiz-progress.css'
+      - 'frontend/public/pages/speaking-result.html'
+      - 'frontend/public/js/speaking-result.js'
+      - 'frontend/public/css/speaking-result.css'
+      - 'frontend/public/pages/vocab-practice.html'
+      - 'frontend/public/js/vocab-practice.js'
+      - 'frontend/public/css/vocab-practice.css'
+      - 'frontend/public/pages/full-test.html'
+      - 'frontend/public/js/full-test.js'
+      - 'frontend/public/css/full-test.css'
       - 'frontend/public/pages/vocab-exam.html'
       - 'frontend/public/css/vocab-exam.css'
       - 'frontend/public/js/vocab-exam.js'
@@ -221,6 +249,29 @@ on:
       - 'frontend/public/js/runtime-config.js'
       - 'frontend/public/css/reading-exam.css'
       - 'frontend/public/css/reading-exam-mockup.css'
+      # ── Trang luyện Speaking ─────────────────────────────────────────────
+      # Cũng chưa có cặp parity, nên nằm cùng khối này. Đây là trang mang đường
+      # ghi ĐẮT GIÁ NHẤT của sản phẩm: bản thu của học viên chỉ tồn tại trong bộ
+      # nhớ trang cho tới khi `POST /sessions/{id}/responses` nhận được. Trước
+      # PR này, sửa `practice.js` KHÔNG chạy cổng ghi lần nào.
+      - 'frontend/public/pages/practice.html'
+      - 'frontend/public/js/practice.js'
+      - 'frontend/public/css/practice.css'
+      - 'frontend/public/css/speaking-assignment.css'
+      # `practice.html` nạp thẳng tệp này (dòng 644) và nó giữ đường THỬ LẠI của
+      # bản nộp mock speaking — sửa riêng nó mà không chạy cổng ghi là bỏ trống
+      # đúng đường cứu bài (codex cục bộ #980).
+      - 'frontend/public/js/speaking-debt.js'
+      # ── Trang chữa bài Đọc ───────────────────────────────────────────────
+      # Cũng chưa có cặp parity. Đường ghi của nó nuôi BẢN ĐỒ THÀNH THẠO, tức
+      # kiểu hỏng duy nhất mà học viên không bao giờ nhìn thấy hậu quả.
+      # `glossary-popover.js` nạp lúc chạy mà `reading-review.js` không import,
+      # nên bộ dò tĩnh mù với nó.
+      - 'frontend/public/pages/reading-review.html'
+      - 'frontend/public/js/reading-review.js'
+      - 'frontend/public/js/components/glossary-popover.js'
+      - 'frontend/public/css/reading-review.css'
+      - 'frontend/public/css/markdown.css'
       # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
       # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
       # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
@@ -235,6 +286,17 @@ on:
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
       - '.github/workflows/parity-gate.yml'
+  # SAU KHI MERGE. Cổng theo PR chỉ chứng minh «nhánh này so với main LÚC ĐÓ»;
+  # nó KHÔNG chứng minh main sau khi hợp nhất. Ngày 2026-08-07 chín PR chồng
+  # nhau lên main liên tiếp, mỗi PR đều xanh, mà trạng thái hợp nhất không cổng
+  # nào chạm tới — phải dispatch tay mới biết main lành. Main deploy thẳng ra
+  # production, nên đó là khoảng trống ngay trước mặt người dùng.
+  #
+  # KHÔNG khai `paths:` ở đây. Bộ lọc đường dẫn hợp lý cho PR (tiết kiệm lượt
+  # chạy khi nhánh không đụng gì liên quan), nhưng ở đây câu hỏi là «main còn
+  # lành không» — và câu đó không phụ thuộc vào việc lần merge NÀY đụng tệp nào.
+  push:
+    branches: [main]
   # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
   # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị
   # GitHub giãn ra trung vị 84 phút (khai 15). Lịch trên GitHub Actions là
@@ -254,7 +316,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: parity-gate-${{ github.ref }}
+  # PHẢI có `event_name` trong group. Trước đây group chỉ theo `github.ref`, mà
+  # push lên main, lịch đêm và dispatch tay đều mang `refs/heads/main` — nên một
+  # lần dispatch `scope=categories` sẽ HUỶ lượt post-merge đang chạy `full +
+  # authed`, rồi báo xanh. Commit đó vĩnh viễn không được lượt nào kiểm đủ, và
+  # bảng check thì trông y hệt lúc kiểm đủ.
+  #
+  # Giữa hai lần PUSH thì vẫn huỷ lượt cũ, và đó là cố ý: chỉ tip hiện tại mới
+  # là thứ đang chạy trên production. Hệ quả phải nói thẳng — trong một chuỗi
+  # merge dày, các commit ở giữa KHÔNG được kiểm riêng; thứ được bảo đảm là
+  # «main lành ở tip mới nhất», không phải «mỗi commit đều lành».
+  group: parity-gate-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -345,9 +417,18 @@ jobs:
           if [ -n "${{ inputs.scope }}" ]; then
             echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0
-          fi
+          # `schedule` và `push` (main) KHÔNG có nhánh gốc để so diff — không suy
+          # ra phạm vi được, nên chạy TẤT CẢ. Cả hai đều phải đặt `authed=true`:
+          # bản cũ `exit 0` ngay sau khi đặt `scope=full`, để cờ authed RỖNG, nên
+          # lịch đêm chưa bao giờ so 21 cặp cần-đăng-nhập — tức phần lớn trang
+          # học viên chỉ được so trong PR chứ chưa lần nào trên main.
+          case "${{ github.event_name }}" in
+            schedule|push)
+              echo "sự kiện ${{ github.event_name }} ⇒ chạy full + authed"
+              echo "scope=full" >> "$GITHUB_OUTPUT"
+              echo "authed=true" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+          esac
           BASE="origin/${{ github.base_ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
           echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
@@ -363,7 +444,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else
@@ -409,6 +490,7 @@ jobs:
           esac
 
           FAIL=0
+          INFRA=0
           for S in $RUNS; do
             case "$S" in
               authed) ARGS="--auth --pairs tooling/parity-pairs-authed.json" ;;
@@ -417,11 +499,45 @@ jobs:
             esac
             for VP in 1280x900 375x812; do
               echo "════════ lượt $S · bề rộng $VP ════════"
+              # `|| RC=$?` thay vì bật/tắt `set -e`: bước này chạy dưới `bash -e`,
+              # và đụng vào trạng thái đó sẽ đổi hành vi của mọi lệnh phía sau.
+              RC=0
               node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || FAIL=1
+                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || RC=$?
+              # PHÂN BIỆT HAI LOẠI ĐỎ. Mã 3 = không gọi được backend, tức bộ so
+              # KHÔNG kết luận gì về parity. Gộp nó vào FAIL sẽ hiện ra như «bản
+              # Next lệch bản legacy» — một lời khẳng định chưa đo được, và vài
+              # lần như thế là người ta bắt đầu bỏ qua cổng này.
+              case "$RC" in
+                0) ;;
+                3) INFRA=1
+                   echo "::warning::lượt $S/$VP KHÔNG kết luận được: backend không gọi được" ;;
+                # 4 = VỪA lệch parity VỪA hỏng hạ tầng. Phải đặt CẢ HAI cờ: gộp
+                # nó vào 3 sẽ in ra thông điệp «không phải phát hiện parity»
+                # trong khi báo cáo đang chứa cặp lệch thật.
+                4) INFRA=1; FAIL=1
+                   echo "::warning::lượt $S/$VP: có cặp lệch THẬT và có cặp không gọi được backend" ;;
+                *) FAIL=1 ;;
+              esac
             done
           done
-          exit $FAIL
+          if [ "$INFRA" = "1" ]; then
+            echo "::error::Cổng parity không chạy xong được vì backend không gọi được (mã 3)."
+            echo "Đây KHÔNG phải phát hiện về parity. Kiểm backend production rồi chạy lại."
+          fi
+          # Vẫn đỏ khi hạ tầng hỏng — bỏ qua trong im lặng thì lần merge kế tiếp
+          # đi qua một cổng chưa từng chạy. Đỏ, nhưng đỏ ĐÚNG LÝ DO.
+          #
+          # Dạng `if` tường minh thay cho `A || B && C`. Đo thật thì dạng kia
+          # KHÔNG sai ở đây (bash không kích hoạt `-e` cho lệnh nằm giữa danh
+          # sách `||`/`&&`), nhưng nó đọc như «hoặc A, hoặc B-rồi-C» trong khi
+          # thực chất là `(A || B) && C`, và trạng thái thoát của nó phụ thuộc
+          # vào lệnh nào được chạy sau cùng. Ở một dòng quyết định cổng đỏ hay
+          # xanh, thứ cần là đọc phát hiểu ngay.
+          if [ "$FAIL" = "1" ] || [ "$INFRA" = "1" ]; then
+            exit 1
+          fi
+          exit 0
 
       # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
       # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong

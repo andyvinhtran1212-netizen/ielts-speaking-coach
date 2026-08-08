@@ -65,6 +65,28 @@
       else showToast(msg, kind === 'success' ? 'success' : 'warn', { timeout: 4000 });
     }
 
+    /**
+     * MỘT ô cho cả mục tiêu, mức hiện tại và hạn đích.
+     *
+     * Ba cột riêng đo được trên prod là RỖNG 44/44 — 237px bề ngang không mang
+     * một chữ nào, trong khi cột Họ tên chỉ có 155px. Nhưng ba trường ấy có
+     * thật: sửa được trong hộp thoại và hiện trong ngăn kéo, chỉ là chưa ai
+     * nhập. Xoá chúng khỏi bảng là bịt luôn đường đọc khi có dữ liệu, nên gộp
+     * chứ không xoá.
+     *
+     * Chưa đặt gì thì một dấu gạch, không phải ba — "—  —  —" đọc ra là ba thứ
+     * đang hỏng, chứ không phải một mục tiêu chưa đặt.
+     */
+    function goalCell(r) {
+      var t = r.target_band, c = r.current_band_estimate, d = r.target_date;
+      if (t == null && c == null && !d) return '<span class="st-none">—</span>';
+      // `c` là mức ước lượng HIỆN TẠI, `t` là đích. Mũi tên đọc được ngay là
+      // "đang ở đây, cần tới đó" — hai con số trần cạnh nhau thì không.
+      var band = (c == null ? '?' : c) + ' → ' + (t == null ? '?' : t);
+      return '<b class="st-goal">' + esc(band) + '</b>'
+        + (d ? '<small class="st-goal-date">' + esc(d) + '</small>' : '');
+    }
+
     function renderRows(rows) {
       var tb = document.getElementById('students-tbody');
       // Each (re)load starts with a clean selection — ids from a prior list
@@ -89,29 +111,31 @@
         ? '200+ học viên — thu hẹp tìm kiếm để đếm chính xác'
         : rows.length + ' học viên trong kết quả';
       if (!rows.length) {
-        tb.innerHTML = '<tr><td colspan="8" class="st-empty">Chưa có học viên.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="st-empty">Chưa có học viên.</td></tr>';
         return;
       }
       tb.innerHTML = rows.map(function (r) {
         var code  = esc(r.student_code);
         var name  = esc(r.full_name);
         var lop   = r.cohort_name ? esc(r.cohort_name) : '—';   // unassigned → "—" (no silent-fail)
-        var tBand = r.target_band == null ? '—' : r.target_band;
-        var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
-        var date  = r.target_date ? esc(_formatDateShort(r.target_date)) : '—';
+        var goal  = goalCell(r);
         var checked = _selectedIds.has(r.id) ? ' checked' : '';
         var cohortAttr = r.cohort_name ? esc(r.cohort_name) : '';
         return '<tr>' +
           '<td class="th-check"><input type="checkbox" class="row-check" aria-label="Chọn ' + name + '" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +
-          '<td><button class="st-namebtn" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">' + name + '</button></td>' +
+          // `aria-label` nói ra VIỆC, không chỉ tên. Nút "Tổng quan" bên phải đã
+          // gỡ (nó trùng nút này), nên với người đọc màn hình cái tên trần là
+          // tất cả những gì còn lại — nghe "Chinh Le, nút" thì không biết bấm
+          // vào sẽ ra gì (codex cục bộ 07/08).
+          '<td><button class="st-namebtn" data-act="summary" aria-label="Xem tổng quan của ' + name + '" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">' + name + '</button></td>' +
           '<td>' + lop + '</td>' +
-          '<td><span class="st-band" data-empty="' + (tBand === '—') + '">' + tBand + '</span></td>' +
-          '<td><span class="st-band" data-empty="' + (cBand === '—') + '">' + cBand + '</span></td>' +
-          '<td>' + date + '</td>' +
+          '<td class="goal-cell">' + goal + '</td>' +
+          // Nút "Tổng quan" đã gỡ: nó mang ĐÚNG `data-act="summary"` với đúng
+          // bộ dữ liệu như nút tên ngay bên trái — hai nút cùng một việc, nhân
+          // lên 44 hàng. Bỏ nó là cột Thao tác hết phải xuống hai dòng.
           '<td><div class="st-row-actions">' +
-            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">Hồ sơ</button>' +
-            '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">Giao Writing</button>' +
+            '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">Giao bài viết</button>' +
             '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Sửa</button>' +
             '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Xoá</button>' +
           '</div></td>' +
@@ -336,7 +360,7 @@
 
       // Lớp comes from the clicked row — the detail endpoint returns cohort_id
       // but not cohort_name.
-      if (_drawerCohortName) { cohBadge.textContent = '🏫 ' + _drawerCohortName; cohBadge.hidden = false; }
+      if (_drawerCohortName) { cohBadge.textContent = _drawerCohortName; cohBadge.hidden = false; }
 
       modal.classList.remove('hidden');
       var closeBtn = document.getElementById('summary-close');
@@ -366,10 +390,11 @@
                 : (stu.target_band != null ? stu.target_band : null);
       var cBand = detail && detail.current_band_estimate != null ? detail.current_band_estimate
                 : (stu.current_band_estimate != null ? stu.current_band_estimate : null);
-      var sub = [(code ? code + ' · ' : '') + 'Mục tiêu ' + _formatBand(tBand) + ' · Hiện tại ' + _formatBand(cBand)];
+      var sub = [(code ? code + ' · ' : '') + 'Mục tiêu: ' + _formatBand(tBand)
+        + ' · Hiện tại: ' + _formatBand(cBand)];
       var tDate = (detail && detail.target_date) || stu.target_date;
       if (tDate) sub.push('Hạn: ' + tDate);
-      if (stu.is_under_review || (detail && detail.is_under_review)) sub.push('🚩 Under review');
+      if (stu.is_under_review || (detail && detail.is_under_review)) sub.push('Đang xem xét lại');
       document.getElementById('summary-subtitle').textContent = sub.join(' · ');
 
       // has_account derived from user_id; absence shows an explicit "chưa kích
@@ -402,8 +427,8 @@
           ? essays.map(function (e) {
               var band = _bandFromEssay(e);
               var bandLabel = band != null ? 'Band ' + band : esc(e.status || '—');
-              var flagged = e.is_flagged ? ' <span class="st-pill st-pill--flagged">⚠ Flagged</span>' : '';
-              var regraded = (e.regrade_count || 0) > 0 ? ' <span class="st-pill">🔄 ×' + e.regrade_count + '</span>' : '';
+              var flagged = e.is_flagged ? ' <span class="st-pill st-pill--flagged">⚠ Đã gắn cờ</span>' : '';
+              var regraded = (e.regrade_count || 0) > 0 ? ' <span class="st-pill">chấm lại ×' + e.regrade_count + '</span>' : '';
               return '<li><a href="/pages/admin/writing/grade.html?essay_id=' + esc(e.id) + '">' +
                 _formatDateShort(e.created_at) + ' · ' + esc(bandLabel) + '</a>' + flagged + regraded + '</li>';
             }).join('')
@@ -441,8 +466,8 @@
             (lis.avg_duration_seconds != null
               ? ' · TB ' + Math.round(lis.avg_duration_seconds / 60) + ' phút/bài' : '') + '</li>');
         }
-        lisRows.push('<li><a href="/pages/admin/listening/attempts.html' + linkQs + '">🎧 Xem lượt làm bài</a>' +
-          ' · <a href="/pages/admin/listening/dictation-reports.html' + linkQs + '">📝 Chép chính tả</a></li>');
+        lisRows.push('<li><a href="/pages/admin/listening/attempts.html' + linkQs + '">Xem lượt làm bài</a>' +
+          ' · <a href="/pages/admin/listening/dictation-reports.html' + linkQs + '">Chép chính tả</a></li>');
         lisList.innerHTML = lisRows.join('');
       } else if (detail && !detail.user_id) {
         lisList.innerHTML = '<li class="st-list-empty">Chưa kích hoạt tài khoản — chưa có dữ liệu listening.</li>';

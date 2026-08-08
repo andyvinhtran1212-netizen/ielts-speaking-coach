@@ -21,8 +21,10 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatFindings, isWrite, judge, validateFlow } from './write-flow-core.mjs';
-import { storageKey } from './supabase-session.mjs';
+import {
+  formatFindings, isWrite, judge, normalizePath, parseMultipart, validateFlow,
+} from './write-flow-core.mjs';
+import { FAKE_USER_ID, storageKey } from './supabase-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FLOW_DIR = path.join(HERE, 'write-flows');
@@ -34,11 +36,33 @@ const fakeSession = JSON.stringify({
   access_token: 'write-flow-not-a-real-token',
   refresh_token: 'x', token_type: 'bearer', expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600,
-  user: { id: '00000000-0000-0000-0000-000000000000', email: 'flow@local' },
+  user: { id: FAKE_USER_ID, email: 'flow@local' },
 });
 
 /** Thực thi một bước khai báo. Giữ tập lệnh NHỎ — bản khai phải đọc được. */
-async function step(page, s) {
+async function step(page, s, observed) {
+  // ĐỒNG BỘ THEO SỐ REQUEST, không theo đồng hồ tường.
+  //
+  // Có nhánh chỉ hoàn tất sau một chuỗi thử-lại giãn dần (`RETRY_DELAYS` của
+  // `speaking-debt.js`: 1s + 3s + 8s). Chờ bằng một con số giây cố định là ghim
+  // vào tốc độ máy: máy CI kẹt nặng chỉ kịp 3 lần trong cửa sổ đủ cho 4, và
+  // luồng đỏ vì CHẬM chứ không phải vì SAI. Chờ tới khi ĐỦ SỐ REQUEST thì cùng
+  // một bản khai đúng trên máy nhanh lẫn máy chậm, mà vẫn có hạn giờ nên "không
+  // bao giờ đủ" vẫn đỏ. (codex cục bộ #982)
+  if (s.waitForWrites) {
+    const [wantPath, n, timeoutMs] = s.waitForWrites;
+    const want = normalizePath(wantPath);
+    const limit = timeoutMs || 30000;
+    const t0 = Date.now();
+    const count = () => observed.filter((r) => normalizePath(r.url) === want).length;
+    while (count() < n) {
+      if (Date.now() - t0 > limit) {
+        throw new Error(`chờ ${n} request tới «${wantPath}» quá ${limit}ms, mới thấy ${count()}`);
+      }
+      await page.waitForTimeout(120);
+    }
+    return undefined;
+  }
   if (s.click) return page.locator(s.click).first().click();
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
@@ -97,6 +121,22 @@ async function step(page, s) {
     }
     return undefined;
   }
+  // Khoá phải KHÔNG CÒN. Tách riêng khỏi `expectStorage` có chủ ý: ở kia
+  // `null` bị cấm vì `getItem` trả `null` cả khi khoá vắng lẫn khi localStorage
+  // hỏng, nên `expectStorage: [k, null]` là phép so luôn đúng. Ở đây "vắng"
+  // CHÍNH LÀ điều cần khẳng định — nợ đã trả xong thì phải được xoá, để lần mở
+  // trang sau không gửi lại lần nữa.
+  if (s.expectStorageAbsent) {
+    const key = s.expectStorageAbsent;
+    const got = await page.evaluate((k) => {
+      try { return localStorage.getItem(k); } catch (e) { return '__LOI_LOCALSTORAGE__'; }
+    }, key);
+    if (got === '__LOI_LOCALSTORAGE__') throw new Error('không đọc được localStorage');
+    if (got !== null) {
+      throw new Error(`localStorage«${key}» vẫn còn: ${String(got).slice(0, 80)}`);
+    }
+    return undefined;
+  }
   if (s.expectText) {
     const [sel, text] = s.expectText;
     const el = page.locator(sel).first();
@@ -113,15 +153,28 @@ async function step(page, s) {
     return undefined;
   }
   if (s.expectVisible) {
-    const v = await page.locator(s.expectVisible).first().isVisible();
-    if (!v) throw new Error(`không thấy «${s.expectVisible}»`);
+    // CHỜ rồi mới khẳng định. Hỏi `isVisible()` một lần là hỏi sai kiểu với giao
+    // diện bất đồng bộ: `getUserMedia` mất một lúc mới cấp thiết bị, màn nhận xét
+    // chờ phản hồi chấm bài — kiểm ngay lập tức thì luồng đỏ vì CHƯA KỊP chứ
+    // không phải vì SAI. Vẫn có hạn giờ, nên "không bao giờ hiện" vẫn đỏ.
+    try {
+      await page.locator(s.expectVisible).first()
+        .waitFor({ state: 'visible', timeout: s.timeoutMs || 8000 });
+    } catch {
+      throw new Error(`không thấy «${s.expectVisible}» sau ${s.timeoutMs || 8000}ms`);
+    }
     return undefined;
   }
   throw new Error(`bước không hiểu được: ${JSON.stringify(s)}`);
 }
 
 async function runFlow(browser, flow) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    // Chỉ cấp quyền micro cho luồng KHAI cần — để một luồng khác lỡ xin quyền
+    // thì vẫn đi đúng nhánh "bị từ chối" như người dùng thật chưa cho phép.
+    ...(flow.fakeMedia ? { permissions: ['microphone'] } : {}),
+  });
   // `anonymous: true` — KHÔNG gieo phiên đăng nhập. Mặc định mọi luồng đều được
   // gieo một phiên giả, nên một luồng tự nhận là "ẩn danh" vẫn gửi kèm
   // `Authorization` và chưa từng chạy đúng cảnh người dùng CHƯA đăng nhập: một
@@ -131,6 +184,18 @@ async function runFlow(browser, flow) {
       try { localStorage.setItem(k, v); } catch (_) {}
     }, [storageKey(SB), fakeSession]);
   }
+  // GIEO SẴN localStorage. Có luồng chỉ tồn tại khi trang mở ra và ĐÃ CÓ trạng
+  // thái cũ: nợ báo-điểm-Speaking được ghi lại ở lần hỏng trước, rồi trang chủ
+  // phát lại lúc mở. Không gieo được thì nhánh cứu bài đó không có cách nào chạm
+  // tới — mà nó chính là nhánh giữ cho một lượt thi thử không mất điểm.
+  if (flow.initStorage) {
+    await ctx.addInitScript((pairs) => {
+      try {
+        for (const [k, v] of pairs) localStorage.setItem(k, v);
+      } catch (_) {}
+    }, Object.entries(flow.initStorage));
+  }
+
   const page = await ctx.newPage();
 
   // ĐỒNG HỒ GIẢ. Có nhánh chỉ mở ra sau một khoảng chờ dài — báo động "máy chủ
@@ -163,6 +228,23 @@ async function runFlow(browser, flow) {
     if (isWrite(req.method())) {
       let body = null;
       try { body = JSON.parse(req.postData() || 'null'); } catch { body = req.postData(); }
+      // MULTIPART: tách thành `{tên trường: giá trị}` để bản khai ghim được.
+      //
+      // Bản thu của học viên đi bằng `FormData` (`practice.js:679-684`), và
+      // chuỗi multipart thô thì không phép so nào đọc nổi — tức đường ghi ĐẮT
+      // GIÁ NHẤT của Speaking là đường duy nhất cổng này không soi được. Với
+      // phần TỆP thì giữ lại siêu dữ liệu (tên tệp, kiểu, SỐ BYTE) chứ không giữ
+      // nội dung: thứ cần ghim là "có tệp và tệp không rỗng", không phải byte.
+      const ct = (req.headers()['content-type'] || '');
+      if (typeof body === 'string' && ct.startsWith('multipart/form-data')) {
+        // Đọc theo BYTE. `postData()` là chuỗi đã diễn giải UTF-8, nên với dữ
+        // liệu nhị phân thì `.length` là số đơn vị UTF-16 chứ KHÔNG phải số byte
+        // tệp — một con số nghe như byte mà không phải byte thì tệ hơn không có
+        // (codex cục bộ #980).
+        const buf = req.postDataBuffer();
+        const parsed = buf ? parseMultipart(buf, ct) : null;
+        if (parsed) body = parsed;
+      }
       // GHI LẠI TIÊU ĐỀ, không chỉ thân. Có hợp đồng mà bằng chứng nằm ở tiêu
       // đề chứ không ở thân: bài Đọc qua liên kết chia sẻ mang danh tính ẩn danh
       // ở `X-Reading-Anon`, và mất nó thì máy chủ từ chối lưu — mất bài của học
@@ -206,7 +288,7 @@ async function runFlow(browser, flow) {
 
   let stepError = null;
   try {
-    for (const s of flow.steps) await step(page, s);
+    for (const s of flow.steps) await step(page, s, observed);
   } catch (e) {
     stepError = e;
   }
@@ -247,7 +329,36 @@ if (!files.length) {
   process.exit(2);
 }
 
+// HAI TRÌNH DUYỆT, không phải một.
+//
+// Đường ghi đắt giá nhất của Speaking là bản THU ÂM, và nó chỉ tồn tại nếu
+// `getUserMedia` + `MediaRecorder` chạy được. Chèn stub vào mã sản phẩm thì bản
+// khai kiểm cái stub chứ không kiểm trang, nên dùng THIẾT BỊ GIẢ của Chrome.
+//
+// Nhưng bật cờ đó cho MỌI luồng là hỏng: `--use-fake-ui-for-media-stream` TỰ
+// ĐỒNG Ý mọi lời xin quyền thu, kể cả ở luồng không khai `fakeMedia` — nó vô
+// hiệu hoá đúng phép cô lập quyền mà `newContext` đang làm, và một trang lỡ xin
+// micro sẽ không bao giờ đi vào nhánh bị-từ-chối. `--autoplay-policy` cũng gỡ
+// luôn ràng buộc phải-có-thao-tác-người-dùng cho mọi luồng Listening.
+// (codex cục bộ #980)
+//
+// Nên: trình duyệt thường cho 16 luồng, trình duyệt có-media dựng LƯỜI, chỉ khi
+// gặp luồng đầu tiên khai `fakeMedia`.
 const browser = await chromium.launch();
+let mediaBrowser = null;
+async function browserFor(flow) {
+  if (!flow.fakeMedia) return browser;
+  if (!mediaBrowser) {
+    mediaBrowser = await chromium.launch({
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        '--autoplay-policy=no-user-gesture-required',
+      ],
+    });
+  }
+  return mediaBrowser;
+}
 let failed = 0;
 for (const f of files) {
   const flow = (await import(path.join(FLOW_DIR, f))).default;
@@ -280,7 +391,8 @@ for (const f of files) {
     continue;
   }
 
-  const { verdict, stepError, pageErrors, dialogs, urlError } = await runFlow(browser, flow);
+  const { verdict, stepError, pageErrors, dialogs, urlError } =
+    await runFlow(await browserFor(flow), flow);
   const bad = !verdict.pass || stepError || pageErrors.length || urlError;
   if (bad) failed += 1;
   console.log(`\n══ ${flow.name} (${flow.route}) · ${verdict.writeCount} request ghi`);
@@ -293,5 +405,6 @@ for (const f of files) {
   console.log(formatFindings(verdict.findings));
 }
 await browser.close();
+if (mediaBrowser) await mediaBrowser.close();
 console.log(`\n  ${files.length - failed}/${files.length} luồng đạt`);
 process.exit(failed ? 1 : 0);

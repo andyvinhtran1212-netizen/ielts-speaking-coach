@@ -99,6 +99,71 @@ export const NO_BODY = Symbol('no-body');
 export const NO_LIST = Symbol('no-list-data');
 export const NO_TEXT = Symbol('no-text-data');
 
+/**
+ * Tách thân `multipart/form-data` từ BUFFER thành `{tên trường: giá trị}`.
+ *
+ * Nhận `Buffer` chứ không nhận chuỗi: `postData()` của Playwright là chuỗi đã
+ * diễn giải UTF-8, nên với dữ liệu nhị phân thì `.length` là số đơn vị UTF-16
+ * chứ KHÔNG phải số byte tệp. Một con số nghe như byte mà không phải byte thì
+ * tệ hơn là không có con số nào (codex cục bộ #980).
+ *
+ * Trường thường → chuỗi. Trường TỆP → `{filename, contentType, size}` với `size`
+ * là SỐ BYTE THẬT; không giữ nội dung.
+ *
+ * ĐỌC ĐÚNG `size` NGHĨA LÀ GÌ: nó chứng minh "có một tệp, đúng tên trường, và
+ * không rỗng". Nó KHÔNG chứng minh trong tệp có tiếng nói — một bản thu 16 giây
+ * toàn im lặng vẫn có phần đầu container và khung Opus, tức vẫn khác 0. Muốn
+ * khẳng định "có tiếng" thì phải giải mã âm thanh, việc đó nằm ngoài cổng này.
+ *
+ * NGHIÊM NGẶT: trả `null` nếu thân dị dạng hoặc thiếu dấu đóng `--boundary--`.
+ * Một thân bị cắt cụt vẫn có thể chứa `question_id` hợp lệ và phần đầu của tệp;
+ * máy chủ thật sẽ từ chối nó, nên cổng cũng phải từ chối thay vì tách được phần
+ * nào hay phần đó.
+ */
+export function parseMultipart(buf, contentType) {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+  const boundary = m && (m[1] || m[2] || '').trim();
+  if (!boundary || !buf || typeof buf.subarray !== 'function') return null;
+
+  const CRLF = '\r\n';
+  const raw = buf.toString('latin1');   // 1 byte ↔ 1 ký tự: giữ đúng độ dài
+  const delim = `--${boundary}`;
+  if (!raw.startsWith(delim)) return null;
+  if (!raw.includes(`${delim}--`)) return null;   // thiếu dấu đóng ⇒ cắt cụt
+
+  const segments = raw.split(delim);
+  const out = {};
+  let found = 0;
+  for (const seg of segments) {
+    if (seg === '' || seg === CRLF) continue;
+    if (seg.startsWith('--')) continue;           // đoạn đóng
+    if (!seg.startsWith(CRLF)) return null;       // dị dạng
+    const part = seg.slice(CRLF.length);
+    const sep = part.indexOf(CRLF + CRLF);
+    if (sep < 0) return null;
+    const head = part.slice(0, sep);
+    const name = /name="([^"]*)"/i.exec(head);
+    if (!name) return null;
+
+    let value = part.slice(sep + 4);
+    if (value.endsWith(CRLF)) value = value.slice(0, -CRLF.length);
+
+    const file = /filename="([^"]*)"/i.exec(head);
+    if (file) {
+      const type = /content-type:\s*([^\r\n]+)/i.exec(head);
+      out[name[1]] = {
+        filename: file[1],
+        contentType: type ? type[1].trim() : null,
+        size: value.length,   // latin1 ⇒ đúng số byte
+      };
+    } else {
+      out[name[1]] = value;
+    }
+    found += 1;
+  }
+  return found ? out : null;
+}
+
 export function bodyMatches(actual, expected) {
   if (expected === NO_BODY) {
     const empty = actual == null || actual === '';
@@ -180,7 +245,23 @@ export function judge(observed, declared, { ignore = [] } = {}) {
   for (const d of declared || []) {
     const wantPath = normalizePath(d.path);
     const wantMethod = String(d.method).toUpperCase();
-    const times = d.times == null ? 1 : d.times;
+    // `atLeast` — SÀN thay cho con số chính xác.
+    //
+    // VÌ SAO CÓ: có trang mà SỐ LẦN ghi là tạo tác của nhịp thao tác, không
+    // phải hợp đồng. `listening-test-player.js:1189-1190` gắn CẢ `input` LẪN
+    // `change` vào cùng một hàm lưu, nên số lần PATCH cho một câu phụ thuộc
+    // người dùng gõ nhanh hay chậm — đo được: chờ 300ms ⇒ 4 lần, chờ 1400ms ⇒
+    // 6 lần, cho cùng 3 câu trả lời. Ghim `times` ở đó là ghim một con số
+    // không có nghĩa, và cổng sẽ chập chờn cho tới khi ai đó nới nó ra.
+    //
+    // Điều CÓ nghĩa ở những trang ấy: mọi đáp án đều tới nơi, đúng hình dạng,
+    // và không có lần ghi nào sau khi nộp. `atLeast` nói đúng chừng đó.
+    //
+    // KHÔNG phải cách viết dễ dãi hơn của `times`: khai được `atLeast` thì
+    // KHÔNG được khai `times`, và `bodyAll` vẫn soi TOÀN BỘ tập đã khớp — nên
+    // một lần ghi thừa mang thân sai vẫn đỏ.
+    const sàn = d.atLeast == null ? null : d.atLeast;
+    const times = sàn == null ? (d.times == null ? 1 : d.times) : Infinity;
     const from = d.unordered ? 0 : cursor;
 
     const matchAt = (i) => !used[i]
@@ -192,7 +273,16 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       if (matchAt(i)) hits.push(i);
     }
 
-    if (hits.length !== times) {
+    if (sàn != null) {
+      // Gom HẾT các request khớp, rồi so với sàn.
+      if (hits.length < sàn) {
+        findings.push({
+          kind: hits.length === 0 ? 'write-missing' : 'write-count',
+          what: `${wantMethod} ${wantPath}`,
+          why: `khai ít nhất ${sàn} lần, thấy ${hits.length}`,
+        });
+      }
+    } else if (hits.length !== times) {
       // Phân biệt "không xảy ra" với "xảy ra SAI THỨ TỰ" — hai lỗi khác nhau,
       // và gộp chúng lại thì người đọc báo cáo đi sai hướng.
       const earlier = [];
@@ -218,7 +308,7 @@ export function judge(observed, declared, { ignore = [] } = {}) {
     // THỪA so với bản khai cũng phải gọi ĐÚNG TÊN. Nếu chỉ để chúng rơi xuống
     // "write-undeclared" thì báo cáo nói "có một đường ghi lạ", trong khi sự
     // thật là "nộp hai lần" — người đọc sẽ đi sai hướng ngay từ đầu.
-    if (hits.length === times) {
+    if (sàn == null && hits.length === times) {
       const extra = [];
       for (let i = 0; i < remaining.length; i += 1) {
         if (!hits.includes(i) && matchAt(i)) extra.push(i);
@@ -240,6 +330,35 @@ export function judge(observed, declared, { ignore = [] } = {}) {
       const m = bodyMatches(remaining[i].body, d.body);
       if (!m.ok) {
         findings.push({ kind: 'write-body', what: `${wantMethod} ${wantPath}`, why: m.why });
+      }
+      // CHUỖI TRUY VẤN là một phần hợp đồng, và trước bản này nó KHÔNG kiểm
+      // được bằng cách nào cả: `normalizePath` cắt bỏ `?...` nên khai
+      // `path: '/x/attempts?class_item=abc'` chuẩn hoá thành `/x/attempts` và
+      // khớp dù tham số có hay không.
+      //
+      // Đó không phải chuyện lý thuyết. Bản khai đầu tiên của
+      // `listening-test-class-item` tự nhận là ghim `class_item`, chạy XANH, và
+      // khi tôi bỏ hẳn tham số đó khỏi URL thì nó VẪN XANH — tức nó chưa từng
+      // kiểm điều nó tuyên bố. Chỉ có đối chứng âm mới lộ ra.
+      //
+      // Với bài giao của lớp, đây đúng là trường quyết định: mất `class_item`
+      // thì bài vẫn chấm ra điểm, chỉ có sổ bài giao là trống và học viên bị ghi
+      // là chưa nộp — không màn hình nào tố cáo.
+      if (d.query) {
+        let sp = null;
+        try { sp = new URL(remaining[i].url, 'https://x.invalid').searchParams; } catch { sp = null; }
+        for (const [k, want] of Object.entries(d.query)) {
+          const have = sp ? sp.get(k) : null;
+          const ok = typeof want === 'function' ? want(have) : have === want;
+          if (!ok) {
+            findings.push({
+              kind: 'write-query',
+              what: `${wantMethod} ${wantPath}`,
+              why: `tham số «${k}»: cần ${typeof want === 'function' ? '(điều kiện)' : JSON.stringify(want)}`
+                + `, thấy ${JSON.stringify(have)}`,
+            });
+          }
+        }
       }
       // TIÊU ĐỀ cũng là một phần hợp đồng. Tên tiêu đề KHÔNG phân biệt hoa
       // thường (RFC 9110 §5.1) nên hạ về chữ thường cả hai vế — so thẳng thì một
@@ -269,7 +388,7 @@ export function judge(observed, declared, { ignore = [] } = {}) {
     // vị từ dạng "là cặp câu 1 HOẶC cặp câu 2" vẫn qua khi trang gửi HAI LẦN
     // CÙNG một câu — tức câu còn lại không được lưu, đúng thứ bản khai tưởng
     // mình đang chặn (bot bắt ở #969). Chỉ nhìn cả tập mới thấy "thiếu một câu".
-    if (typeof d.bodyAll === 'function' && hits.length === times) {
+    if (typeof d.bodyAll === 'function' && (sàn != null ? hits.length >= sàn : hits.length === times)) {
       const bodies = hits.map((i) => remaining[i].body);
       if (!d.bodyAll(bodies)) {
         findings.push({
@@ -325,15 +444,16 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous']);
-const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'times', 'unordered']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage']);
+const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'query', 'times', 'atLeast', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
 const STEP_SHAPES = {
-  click: 'str', expectVisible: 'str',
+  click: 'str', expectVisible: 'str', expectStorageAbsent: 'str',
   fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
   dispatch: 'dispatch',
   wait: 'ms', advance: 'ms',
+  waitForWrites: 'waitForWrites',
 };
 
 function isPlainObject(v) {
@@ -390,7 +510,7 @@ export function validateFlow(flow) {
   for (const k of ['legacyRoute', 'nextPending']) {
     if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
   }
-  for (const k of ['fakeClock', 'anonymous']) {
+  for (const k of ['fakeClock', 'anonymous', 'fakeMedia']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
   }
   for (const k of ['settleMs', 'drainMs']) {
@@ -402,6 +522,12 @@ export function validateFlow(flow) {
     const v = flow.expectFinalUrl;
     const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
     if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
+  }
+  if ('initStorage' in flow) {
+    const v = flow.initStorage;
+    const ok = isPlainObject(v) && Object.keys(v).length
+      && Object.entries(v).every(([k, x]) => isStr(k) && typeof x === 'string');
+    if (!ok) bad('`initStorage` phải là object thường KHÁC RỖNG, giá trị là chuỗi');
   }
   if ('ignoreWrites' in flow
       && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {
@@ -444,6 +570,15 @@ export function validateFlow(flow) {
       if (shape === 'ms' && !(Number.isFinite(v) && v > 0)) {
         bad(`bước ${i}: \`${k}\` phải là số dương`);
       }
+      if (shape === 'waitForWrites') {
+        const ok = Array.isArray(v) && (v.length === 2 || v.length === 3)
+          && isStr(v[0]) && Number.isInteger(v[1]) && v[1] > 0
+          && (v.length === 2 || (Number.isFinite(v[2]) && v[2] > 0));
+        if (!ok) {
+          bad(`bước ${i}: \`waitForWrites\` phải là [đường dẫn, số nguyên dương]`
+            + ' hoặc [đường dẫn, số nguyên dương, hạn giờ]');
+        }
+      }
       if (shape === 'dispatch') {
         const ok = Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(isStr);
         if (!ok) bad(`bước ${i}: \`dispatch\` phải là [chọn tử, sự kiện] hoặc [chọn tử, sự kiện, thuộc tính]`);
@@ -459,7 +594,10 @@ export function validateFlow(flow) {
   // ── writes ───────────────────────────────────────────────────────────────
   if (!Array.isArray(flow.writes) || !flow.writes.length) {
     bad('`writes` phải là mảng khác rỗng — bản khai không ghim đường ghi nào thì '
-      + 'nó chỉ đang chứng minh trang không sập');
+      + 'nó chỉ đang chứng minh trang không sập.\n'
+      + 'Luồng muốn ghim "KHÔNG được ghi gì" vẫn phải có một ĐỐI CHỨNG DƯƠNG — '
+      + 'một đường ghi HỢP LỆ phải xảy ra — nếu không nó cũng xanh khi mã chưa '
+      + 'từng chạy tới nơi (codex cục bộ #982).');
     return errs;
   }
   flow.writes.forEach((w, i) => {
@@ -471,6 +609,36 @@ export function validateFlow(flow) {
     if (!isStr(w.path)) bad(`đường ghi ${i}: \`path\` phải là chuỗi khác rỗng`);
     if ('times' in w && !(Number.isInteger(w.times) && w.times > 0)) {
       bad(`đường ghi ${i}: \`times\` phải là số nguyên dương`);
+    }
+    if ('atLeast' in w && !(Number.isInteger(w.atLeast) && w.atLeast > 0)) {
+      bad(`đường ghi ${i}: \`atLeast\` phải là số nguyên dương`);
+    }
+    // Khai CẢ HAI là mâu thuẫn, và im lặng ưu tiên một cái sẽ làm bản khai đọc
+    // ra một đằng chạy ra một nẻo. `atLeast` là SÀN cho những đường ghi mà số
+    // lần là tạo tác của nhịp thao tác — dùng nó phải là một lựa chọn có ý
+    // thức, không phải cách lách khi `times` báo đỏ.
+    // `typeof x === 'object'` là phép kiểm QUÁ RỘNG: `new Map([['class_item', v]])`
+    // qua được nó, mà `Object.entries(map)` trả MẢNG RỖNG ⇒ `judge()` không
+    // kiểm gì và bản khai XANH dù tham số vắng mặt. `query: {}` cũng vậy. Cả
+    // hai dựng lại đúng cái xanh-giả mà `query` sinh ra để chặn (bot bắt ở
+    // #1001), nên phải là object THƯỜNG và có ÍT NHẤT MỘT khoá.
+    if ('query' in w) {
+      if (!isPlainObject(w.query)) bad(`đường ghi ${i}: \`query\` phải là object thường`);
+      else if (!Object.keys(w.query).length) {
+        bad(`đường ghi ${i}: \`query\` rỗng — không kiểm gì cả, bỏ hẳn đi thì trung thực hơn`);
+      } else {
+        // Vị từ `async`/generator trả về Promise/iterator — LUÔN truthy, nên một
+        // tham số sai vẫn qua. `body` và `headers` đã bị chặn; `query` thì chưa.
+        for (const [k, v] of Object.entries(w.query)) {
+          if (typeof v === 'function' && badPredicate(v)) {
+            bad(`đường ghi ${i}: \`query.${k}\` là hàm async/generator — nó trả `
+              + 'Promise/iterator, mà thứ đó LUÔN truthy, nên tham số sai vẫn qua');
+          }
+        }
+      }
+    }
+    if ('atLeast' in w && 'times' in w) {
+      bad(`đường ghi ${i}: khai CẢ \`times\` lẫn \`atLeast\` — chọn một`);
     }
     // `unordered: 'false'` là chuỗi TRUTHY — nó tắt hẳn việc ép thứ tự trong khi
     // đọc như đang bật. Chuỗi rỗng thì ngược lại. Buộc phải là boolean.

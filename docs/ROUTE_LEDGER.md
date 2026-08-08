@@ -140,7 +140,10 @@
 | `/speaking` | `/pages/speaking.html` (file, bản legacy vẫn phục vụ làm mốc rollback + vế parity), `/pages/dashboard.html` → `/pages/speaking.html` (legacy redirect via vercel.json line 34) | `app/(authed-speaking)/speaking/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (session state), Supabase session | M | Speaking hub; session list & full-test launch |
 | `/practice` | `?session_id=<uuid>` (mandatory; error if missing) | `pages/practice.html` | Student | `session_id` | localStorage (theme), sessionStorage (recording state), MediaRecorder, Whisper API (audio upload), Claude grading API, Supabase session | XL | Core speaking practice; 3167 LOC practice.js; recording + grading + feedback + full-test chaining |
 | `/result` | `?session_id=<uuid>` (from practice complete) | `pages/result.html` | Student | `session_id`, `part` (optional, scroll anchor) | localStorage (theme), sessionStorage (cached result), audio playback | L | Result display; grammar feedback, pronunciation pills, next-question nav |
-| `/full-test` | — | `pages/full-test.html` | Student | `test_id`, `attempt_id`, `session_ids` (array from chaining) | localStorage (theme), sessionStorage (test state, part progress) | L | Full mock test 3-part orchestration; session chaining |
+| `/full-test` | `app/(authed-full-test)/full-test/page.tsx` — CUTOVER 2026-08-07 | `pages/full-test.html` | Student | `test_id`, `attempt_id`, `session_ids` (array from chaining) | localStorage (theme), sessionStorage (test state, part progress) | L | Full mock test 3-part orchestration; session chaining |
+| `/vocabulary/hub` | `app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx` — CUTOVER 2026-08-07 | `pages/vocabulary.html` | Student | none | localStorage (theme), Supabase session | M | Hub từ vựng học viên. CỐ Ý không lấy tên `/vocabulary`: tên đó đang do `/vocabulary.html` (Wiki công khai) dùng và hàng `/vocabulary` bên dưới ghi 'cần rà soát'. Chốt xong ai sở hữu `/vocabulary` thì đổi route + cặp parity. |
+| `/mock/result` | `app/(authed-mock-result)/mock/result/page.tsx` — CUTOVER 2026-08-07 | `pages/mock-result.html` | Student | `sitting` | localStorage (theme), Supabase session | M | Phiếu điểm TRF của một lượt thi thử; JS+CSS tách khỏi inline, hai vế dùng chung |
+| `/speaking/result` | `app/(authed-speaking-result)/speaking/result/page.tsx` — CUTOVER 2026-08-07 | `pages/speaking-result.html` | Student | `sitting` | localStorage (theme), Supabase session | S | Nhận xét Speaking của giáo viên chấm; JS+CSS tách khỏi inline, hai vế dùng chung |
 | `/full-test-result` | — | `pages/full-test-result.html` | Student | `attempt_id` | localStorage (theme), audio playback | L | Aggregated result across 3 parts; band calculation |
 
 ### Writing
@@ -199,19 +202,19 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 |---|---|---|---|---|---|---|---|
 | `/vocabulary` | `/vocabulary.html` (root), `/pages/vocabulary.html`, `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json line 35) | `pages/vocabulary.html` | Student | none | localStorage (theme), sessionStorage (card state), Supabase session | M | Student vocab hub; curated topic words |
 | `/vocabulary/exam` | `/pages/vocab-exam.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-vocab-exam)/vocabulary/exam/page.tsx` — CUTOVER 2026-08-06 | Student | `list_id` (AWL, TOEIC, THPT, or course-specific) | localStorage (theme), sessionStorage (quiz state, score), fetch API | L | Quiz from imported vocabulary list |
-| `/vocabulary/practice` | — | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
+| `/vocabulary/practice` | `app/(authed-vocab-practice)/vocabulary/practice/page.tsx` — CUTOVER 2026-08-07 | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
 | `/vocabulary/article` | — | `pages/vocab-article.html` | Public | `word_id`, `source` (reading, listening, etc.) | localStorage (theme), fetch (word definition + examples) | S | Word detail + etymology + usage |
 
 ### Exercises & Quizzes
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/grammar/exercises` | — | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
+| `/grammar/exercises` | `app/(public-content)/grammar/exercises/page.tsx` — CUTOVER 2026-08-07 | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
 | `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
 | `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
 | `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
 | `/quiz` | — | `pages/quiz.html` | Public | `bank_id` (grammar bank slug), `lesson_id` (optional) | localStorage (theme), sessionStorage (quiz answers), fetch API | L | Quiz player; MCQ/gap-fill/true-false |
-| `/quiz/progress` | — | `pages/quiz-progress.html` | Student | `bank_id` (optional, filter by bank) | localStorage (theme), fetch (progress API) | M | Quiz attempt history + stats |
+| `/quiz/progress` | `app/(authed-quiz-progress)/quiz/progress/page.tsx` — CUTOVER 2026-08-07 | `pages/quiz-progress.html` | Student | `bank_id` (optional, filter by bank) | localStorage (theme), fetch (progress API) | M | Quiz attempt history + stats |
 | `/flashcards` | `/pages/flashcards.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-flashcards)/flashcards/page.tsx` — CUTOVER 2026-08-06 | Student | none | localStorage (theme), sessionStorage (deck order) | M | Flashcard deck browser |
 | `/flashcard-study` | — | `pages/flashcard-study.html` | Student | `deck_id`, `card_index` (optional, resume) | localStorage (theme), sessionStorage (card state, review marks), fetch API | L | Flashcard study player; locked IIFE (not reusable) |
 | `/exam` | — | `pages/exam.html` | Public | `exam_id` (MCQ exam type) | localStorage (theme), sessionStorage (exam state, answers) | L | Exam player (generic MCQ/true-false) |

@@ -8,7 +8,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, validateFlow, bodyMatches, isWrite, judge, normalizePath,
+  NO_BODY, NO_LIST, NO_TEXT, NON_EMPTY, parseMultipart, validateFlow, bodyMatches, isWrite, judge, normalizePath,
 } from '../tooling/write-flow-core.mjs';
 
 const W = (method, url, body) => ({ method, url, body });
@@ -325,5 +325,176 @@ describe('so TIÊU ĐỀ request', () => {
     const d = D({ 'X-Reading-Anon': (v) => v === undefined });
     assert.equal(judge([W({})], d).pass, true);
     assert.equal(judge([W({ 'x-reading-anon': 'tu-bia-ra' })], d).pass, false);
+  });
+});
+
+describe('parseMultipart — thân multipart của bản thu âm', () => {
+  const B = 'X-BOUND';
+  const CT = `multipart/form-data; boundary=${B}`;
+  const CRLF = '\r\n';
+  const body = (parts, closing = true) =>
+    Buffer.from(parts.map((p) => `--${B}${CRLF}${p}${CRLF}`).join('')
+      + (closing ? `--${B}--${CRLF}` : ''), 'latin1');
+
+  const field = (n, v) => `Content-Disposition: form-data; name="${n}"${CRLF}${CRLF}${v}`;
+  const file = (n, fn, type, bytes) =>
+    `Content-Disposition: form-data; name="${n}"; filename="${fn}"${CRLF}`
+    + `Content-Type: ${type}${CRLF}${CRLF}${bytes}`;
+
+  test('tách trường thường và trường TỆP', () => {
+    const out = parseMultipart(body([
+      field('question_id', 'q-1'),
+      file('audio_file', 'response.webm', 'audio/webm', 'abcde'),
+    ]), CT);
+    assert.equal(out.question_id, 'q-1');
+    assert.deepEqual(out.audio_file,
+      { filename: 'response.webm', contentType: 'audio/webm', size: 5 });
+  });
+
+  test('`size` là SỐ BYTE, không phải số ký tự UTF-16', () => {
+    // 4 byte trong latin1; nếu đọc qua chuỗi UTF-8 thì con số sẽ khác.
+    const out = parseMultipart(body([file('f', 'a.bin', 'application/octet-stream',
+      '\xff\xfe\x00\x01')]), CT);
+    assert.equal(out.f.size, 4);
+  });
+
+  test('thân CẮT CỤT (thiếu dấu đóng) ⇒ null, không tách nửa vời', () => {
+    // Máy chủ thật từ chối thân này; cổng cũng phải từ chối, nếu không một thân
+    // hỏng vẫn khớp bản khai nhờ phần đầu còn nguyên (codex cục bộ #980).
+    assert.equal(parseMultipart(body([field('question_id', 'q-1')], false), CT), null);
+  });
+
+  test('phần DỊ DẠNG ⇒ null', () => {
+    assert.equal(parseMultipart(Buffer.from(`--${B}${CRLF}rác không có tên${CRLF}--${B}--${CRLF}`,
+      'latin1'), CT), null);
+    assert.equal(parseMultipart(Buffer.from('không phải multipart', 'latin1'), CT), null);
+  });
+
+  test('thiếu boundary hoặc không phải Buffer ⇒ null', () => {
+    assert.equal(parseMultipart(body([field('a', 'b')]), 'multipart/form-data'), null);
+    assert.equal(parseMultipart('chuỗi chứ không phải buffer', CT), null);
+  });
+});
+
+// ── `query`: chuỗi truy vấn cũng là hợp đồng ────────────────────────────────
+//
+// VÌ SAO CÓ: `normalizePath` cắt bỏ `?...`, nên trước nguyên hàm này KHÔNG cách
+// nào khai được "tham số này phải có mặt". Bản khai đầu tiên của
+// `listening-test-class-item` tưởng đã ghim `class_item` bằng cách nhét nó vào
+// `path`; nó chạy XANH, và khi bỏ hẳn tham số khỏi URL thì VẪN XANH — tức nó
+// chưa từng kiểm điều nó tuyên bố. Chỉ đối chứng âm mới lộ ra.
+//
+// Với bài giao của lớp, mất `class_item` nghĩa là bài vẫn chấm ra điểm nhưng sổ
+// bài giao trống và học viên bị ghi là chưa nộp. Không màn hình nào tố cáo.
+describe('cổng đường-ghi — ghim chuỗi truy vấn', () => {
+  const ATT = '/api/listening/tests/9f1c2b64-5d7a-4e18-9c33-2a7b41e0d5f6/attempts';
+
+  test('tham số đúng ⇒ đạt; thiếu tham số ⇒ đỏ', () => {
+    const khai = [{ method: 'POST', path: '/api/listening/tests/:id/attempts',
+                    query: { class_item: 'abc' } }];
+    assert.ok(judge([W('POST', `${ATT}?class_item=abc`, {})], khai).pass);
+
+    const r = judge([W('POST', ATT, {})], khai);
+    assert.equal(r.pass, false, 'thiếu class_item mà vẫn đạt');
+    assert.equal(r.findings[0].kind, 'write-query');
+  });
+
+  test('tham số SAI GIÁ TRỊ cũng đỏ — không chỉ kiểm sự có mặt', () => {
+    // Gắn nhầm bài giao còn tệ hơn không gắn: nó ghi vào sổ của lần giao KHÁC.
+    const r = judge([W('POST', `${ATT}?class_item=khac`, {})],
+      [{ method: 'POST', path: '/api/listening/tests/:id/attempts',
+         query: { class_item: 'abc' } }]);
+    assert.equal(r.pass, false);
+  });
+
+  test('nhét query vào `path` KHÔNG ghim được gì — lý do nguyên hàm này tồn tại', () => {
+    // Chính là bản khai sai của tôi. Giữ lại làm chốt để không ai viết lại.
+    const r = judge([W('POST', ATT, {})],
+      [{ method: 'POST', path: '/api/listening/tests/:id/attempts?class_item=abc' }]);
+    assert.ok(r.pass, 'nếu ca này đỏ thì normalizePath đã đổi — xem lại chú thích trên');
+  });
+});
+
+// ── `atLeast`: SÀN cho những đường ghi mà SỐ LẦN là tạo tác ─────────────────
+//
+// `listening-test-player.js:1189-1190` gắn CẢ `input` LẪN `change` vào cùng một
+// hàm lưu, nên số lần PATCH cho một câu phụ thuộc nhịp gõ. Đo trên chính trang
+// legacy: chờ 300ms giữa các câu ⇒ 4 lần ghi, chờ 1400ms ⇒ 6 lần, cho cùng ba
+// đáp án. Ghim `times` ở đó là ghim một con số vô nghĩa, và cổng sẽ chập chờn
+// tới khi ai đó nới nó ra cho hết đỏ.
+describe('cổng đường-ghi — `atLeast`', () => {
+  const P = '/api/listening/tests/attempts/c7d81f30-6a24-4b9e-8d17-5f0b3c92e6a8/answers';
+  const khai = (over) => [{ method: 'PATCH', path: '/api/listening/tests/attempts/:id/answers',
+                            atLeast: 3, ...over }];
+
+  test('đủ sàn thì đạt, kể cả khi thừa', () => {
+    const ba = [W('PATCH', P, { q_num: 1 }), W('PATCH', P, { q_num: 2 }), W('PATCH', P, { q_num: 3 })];
+    assert.ok(judge(ba, khai()).pass, 'đúng bằng sàn mà đỏ');
+    assert.ok(judge([...ba, W('PATCH', P, { q_num: 1 })], khai()).pass, 'thừa mà đỏ');
+  });
+
+  test('THIẾU so với sàn thì đỏ — sàn không phải là bỏ kiểm', () => {
+    const r = judge([W('PATCH', P, { q_num: 1 })], khai());
+    assert.equal(r.pass, false, 'mất hai câu mà vẫn đạt');
+  });
+
+  test('`bodyAll` vẫn soi TOÀN BỘ tập, kể cả phần thừa', () => {
+    // Nếu chỉ soi đúng `atLeast` request đầu, một lần ghi thừa mang thân sai sẽ
+    // lọt — mà "lần ghi cuối mang giá trị sai" chính là kiểu hỏng làm mất bài.
+    const r = judge(
+      [W('PATCH', P, { q_num: 1 }), W('PATCH', P, { q_num: 2 }),
+       W('PATCH', P, { q_num: 3 }), W('PATCH', P, { q_num: 99 })],
+      khai({ bodyAll: (bs) => bs.every((b) => b.q_num >= 1 && b.q_num <= 40) }));
+    assert.equal(r.pass, false, 'thân sai ở request thừa mà vẫn đạt');
+  });
+
+  test('khai CẢ `times` lẫn `atLeast` bị từ chối', () => {
+    const v = validateFlow({
+      name: 'x', route: '/x', steps: [{ wait: 1 }],
+      writes: [{ method: 'POST', path: '/x', times: 2, atLeast: 2 }],
+    });
+    assert.ok(v.some((m) => /times.*atLeast|atLeast.*times/.test(m)), JSON.stringify(v));
+  });
+
+  test('`atLeast` phải là số nguyên dương', () => {
+    for (const xấu of [0, -1, 1.5, '3', null]) {
+      const v = validateFlow({
+        name: 'x', route: '/x', steps: [{ wait: 1 }],
+        writes: [{ method: 'POST', path: '/x', atLeast: xấu }],
+      });
+      assert.ok(v.length, `atLeast=${String(xấu)} phải bị từ chối`);
+    }
+  });
+});
+
+// ── `query` phải THẬT SỰ kiểm cái gì đó ─────────────────────────────────────
+//
+// Hai lỗ do bot bắt ở #1001, cả hai đều dựng lại đúng cái XANH-GIẢ mà `query`
+// sinh ra để chặn — tức bản vá tự mở lại chính cái cửa nó vừa đóng.
+describe('cổng đường-ghi — validateFlow chặn `query` vô nghĩa', () => {
+  const khai = (q) => validateFlow({
+    name: 'x', route: '/x', steps: [{ wait: 1 }],
+    writes: [{ method: 'POST', path: '/x', query: q }],
+  });
+
+  test('`query: {}` bị từ chối — không kiểm gì mà vẫn xanh', () => {
+    assert.ok(khai({}).length, '`query` rỗng phải bị từ chối');
+  });
+
+  test('Map bị từ chối — `Object.entries(map)` là mảng RỖNG', () => {
+    // `typeof new Map() === "object"` nên phép kiểm cũ cho qua, rồi `judge()`
+    // không lặp được khoá nào và bản khai xanh dù tham số vắng mặt.
+    assert.ok(khai(new Map([['class_item', 'abc']])).length, 'Map phải bị từ chối');
+    assert.ok(khai(['class_item']).length, 'mảng phải bị từ chối');
+    assert.ok(khai(null).length, 'null phải bị từ chối');
+  });
+
+  test('vị từ async/generator bị từ chối — Promise LUÔN truthy', () => {
+    for (const xấu of [async () => false, function* () { yield false; }]) {
+      assert.ok(khai({ class_item: xấu }).length,
+        'vị từ async/generator phải bị từ chối');
+    }
+    // Vị từ THƯỜNG vẫn phải được nhận.
+    assert.deepEqual(khai({ class_item: (v) => v === 'abc' }), []);
   });
 });

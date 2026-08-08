@@ -249,29 +249,186 @@
        có đúng một vai: con số quan trọng nhất màn hình. */
     /* ── Bộ đổi ống kính ─────────────────────────────────────────────────
        KHÔNG phải tab: tab đổi MÀN HÌNH, ống kính đổi CỘT. */
-    .cl-lens { display: flex; gap: var(--av-space-1); margin-bottom: var(--av-space-4); }
-    .cl-lens button {
+    /* ── BA TẦNG ĐIỀU HƯỚNG, BA HÌNH DẠNG ────────────────────────────────
+       Đo được trên trang: CHÍN phần tử cùng mang lớp `.adm-subtab`, nằm ở ba
+       tầng lồng nhau — `Lớp/Học viên`, rồi `Sổ điểm danh/Buổi học/Bài tập/Nhận
+       bài`, rồi `Ai nộp/Chi tiết làm bài/Bài từng em`. Chúng trông giống hệt
+       nhau, nên nhìn vào không đọc được mình đang đứng ở tầng nào, và bấm nhầm
+       tầng là mất luôn chỗ đang xem.
+
+       Hình dạng mang NGHĨA, không mang độ sâu:
+
+         viên có viền  → đang ở KHU nào của admin        (tầng 1, giữ nguyên)
+         gạch chân     → đang xem PHẦN nào của lớp này   (tầng 2)
+         hộp ghép      → NHÌN thứ đang mở theo cách nào  (tầng 3 và ống kính)
+
+       Ống kính `Sĩ số / Tiến độ` và tầng 3 `Ai nộp / …` cùng trả lời một câu
+       hỏi — "đổi cách nhìn, không đổi chỗ đứng" — nên chúng dùng CHUNG một hình
+       dạng. Nếu chia theo độ sâu thì hai thứ cùng nghĩa lại trông khác nhau.
+
+       Bó bằng THUỘC TÍNH `[data-level]`, không bằng `.cl-shell`. `.adm-subtabs`
+       dùng chung với queue.html và users/index.html nên sửa luật gốc là sửa cả
+       ba trang — nhưng `.cl-shell` là cái bó SAI: `#panel-marking` (tầng 3) nằm
+       NGOÀI shell, shell đóng ở giữa tài liệu, nên tiền tố ấy làm bộ chọn không
+       bao giờ khớp và tầng 3 giữ nguyên hình viên-có-viền của tầng 1 — đúng lỗi
+       cần chữa (codex #986). `data-level` chỉ trang này đặt, nên nó vừa bó đủ
+       chặt vừa không phụ thuộc chỗ đứng của khối trong tài liệu. */
+
+    /* Tầng 2 — gạch chân. */
+    .adm-subtabs[data-level="section"] { gap: var(--av-space-4); }
+    .adm-subtabs[data-level="section"] .adm-subtab {
+      background: transparent; border: 0; border-radius: 0;
+      border-bottom: 2px solid transparent;
+      padding: var(--av-space-2) var(--av-space-1);
+    }
+    .adm-subtabs[data-level="section"] .adm-subtab.is-active {
+      background: transparent; border-bottom-color: var(--av-primary);
+      color: var(--av-text-primary);
+    }
+
+    /* Tầng 3 + ống kính — hộp ghép trên nền chìm. */
+    .adm-subtabs[data-level="view"], .cl-lens {
+      display: inline-flex; gap: 2px; padding: 2px;
+      background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-md);
+    }
+    .cl-lens { margin-bottom: var(--av-space-4); }
+    .adm-subtabs[data-level="view"] .adm-subtab, .cl-lens button {
       font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
-      padding: var(--av-space-2) var(--av-space-4);
-      background: transparent; border: 0; border-bottom: 2px solid transparent;
+      padding: var(--av-space-1) var(--av-space-3);
+      background: transparent; border: 0;
+      border-radius: var(--av-radius-sm);
       color: var(--av-text-muted);
     }
+    /* Hai bộ dùng hai cách đánh dấu khác nhau — `.is-active` và
+       `aria-current="true"` — nên phải bắt CẢ HAI. Chỉ bắt một là một trong hai
+       bộ mất hẳn dấu "đang mở". */
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active,
     .cl-lens button[aria-current="true"] {
+      background: var(--av-surface-card);
       color: var(--av-text-primary); font-weight: var(--av-fw-semibold);
-      border-bottom-color: var(--av-primary);
+      box-shadow: var(--av-shadow-sm);
+    }
+    /* VẦNG TIÊU ĐIỂM PHẢI THẮNG LẠI.
+       Vầng sáng chung là `body.av-page :focus-visible { outline: none;
+       box-shadow: var(--av-shadow-focus) }` — độ đặc hiệu (0,2,1). Luật
+       "đang mở" ở trên là (0,4,0) nên nó thắng ở `box-shadow`, trong khi
+       `outline: none` vẫn áp: ô đang mở khi lấy tiêu điểm bằng bàn phím thành
+       VÔ HÌNH HOÀN TOÀN — không viền, không vầng (codex #986).
+       Nối `:focus-visible` vào chính hai bộ chọn ấy để giành lại. */
+    .adm-subtabs[data-level="view"] .adm-subtab.is-active:focus-visible,
+    .cl-lens button[aria-current="true"]:focus-visible {
+      box-shadow: var(--av-shadow-focus);
     }
 
     /* ── Ngăn kéo ────────────────────────────────────────────────────────
        Bấm một hàng mở nó NGAY TRONG trang. Trang này có 19 chỗ hộp thoại, và
-       mỗi lần đóng là một lần giáo viên phải tìm lại chỗ đang đọc. */
+       mỗi lần đóng là một lần giáo viên phải tìm lại chỗ đang đọc.
+
+       NHƯNG "trong trang" không có nghĩa là "dưới đáy trang". Đo trên prod, màn
+       1920×935: hàng bấm ở y=541, ngăn kéo mở ra ở y=1571 — thấp hơn 1030px và
+       NẰM NGOÀI khung nhìn. Giáo viên bấm một cái tên và màn hình đứng yên; đọc
+       ra là web hỏng. Nguyên nhân: nó là em út của khung bảng trong một cha
+       `display: block`, nên nó xếp XUỐNG DƯỚI cả bảng dài.
+
+       Chữa bằng cách để bảng và ngăn kéo thành HAI CỘT trên màn đủ rộng — hàng
+       vừa bấm và thông tin của nó cùng nằm trong một tầm mắt. Màn hẹp thì vẫn
+       xếp dọc (một cột 340px trên 990px bề ngang là bóp chết cái bảng), và ở đó
+       `openStudent` cuộn ngăn kéo vào tầm nhìn. */
+    .cl-roster-split { display: block; }
+
+    /* NGƯỠNG 1400px, không phải 1200px. `main.cl-shell` chốt ở `max-width:
+       1100px`, nên bề rộng thật của khu này là `min(1100, khung nhìn − thanh
+       bên 264) − 48` — nó KHÔNG giãn theo màn hình. Tính ngược ra:
+
+         khung nhìn 1440+ → cột bảng 688px
+         khung nhìn 1280  → cột bảng 604px
+         khung nhìn 1200  → cột bảng 524px
+
+       Một bảng 6 cột trong 524px là bắt cuộn ngang để đọc, tức đổi một lỗi lấy
+       một lỗi. Từ 1400px trở lên thì cột bảng luôn đủ 688px. Dưới ngưỡng, xếp
+       dọc và `revealDrawer` cuộn tới — đó mới là đường lùi đúng. */
+    @media (min-width: 1400px) {
+      .cl-roster-split {
+        display: grid;
+        /* `minmax(0, …)` chứ không `1fr`: cột bảng phải CO được, nếu không một
+           bảng rộng sẽ đẩy ngăn kéo ra khỏi khung — đúng lỗi đã vá ở bảng nhận
+           bài (#979). */
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: var(--av-space-6);
+        align-items: start;
+      }
+      /* Dính lại khi cuộn: bảng dài hơn ngăn kéo, và cuộn xuống hàng thứ 12 mà
+         mất luôn khối thông tin thì hai cột lại thành hai màn hình.
+
+         Neo DƯỚI thanh tiêu đề, không neo ở 0. Thanh tiêu đề của admin cũng
+         `sticky`, cao 56px, `z-index: 30` — dính ở `var(--av-space-6)` là dính
+         vào chỗ bị nó che. Biến ấy khai trong shadow DOM của `aver-admin-chrome`
+         nhưng biến tuỳ chỉnh thừa kế xuyên qua `<slot>`, nên đọc được ở đây (đo
+         trên prod: 56px). Vẫn để giá trị lùi phòng khi thẻ ấy chưa nâng cấp. */
+      .cl-roster-split .cl-drawer {
+        position: sticky;
+        top: calc(var(--admin-header-h, 56px) + var(--av-space-4));
+        margin-top: 0;
+      }
+    }
+
     .cl-drawer {
       margin-top: var(--av-space-4);
+      /* `scrollIntoView` KHÔNG biết gì về thanh tiêu đề đè lên trên. Khi ngăn
+         kéo nằm ở `0 < top < 56` thì trình duyệt tính rằng nó đã "gần nhất" rồi
+         và KHÔNG cuộn gì — mốc kiểm ở `revealDrawer` báo chưa đủ, nhưng lệnh
+         cuộn lại thành lệnh rỗng và khối vẫn khuất một nửa (codex #983).
+
+         `scroll-margin-top` là chỗ duy nhất trình duyệt chịu nghe: nó nới hộp
+         cuộn của phần tử lên trên đúng bằng chiều cao tiêu đề, nên "gần nhất"
+         được tính trên cái hộp đã nới. Đặt ở quy tắc GỐC, không trong khối
+         `@media`: màn hẹp cũng có đúng thanh tiêu đề ấy. */
+      scroll-margin-top: calc(var(--admin-header-h, 56px) + var(--av-space-4));
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-card);
       padding: var(--av-space-6);
     }
     .cl-drawer[hidden] { display: none; }
+    /* ── Bài của một em, trong ngăn kéo ──────────────────────────────────
+       Cho tới nay bấm vào tên chỉ ra ba dòng dữ kiện và KHÔNG hành động nào,
+       trong khi việc giáo viên mở màn này để làm là "em ấy đã làm gì, cho tôi
+       xem". Danh sách này là đường đi từ một cái tên tới đúng bài. */
+    .cl-work { margin-top: var(--av-space-6); border-top: 1px solid var(--av-border-subtle);
+      padding-top: var(--av-space-4); }
+    .cl-work__head { margin: 0 0 var(--av-space-2); font-size: var(--av-fs-xs);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+    .cl-work__note { margin: 0; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .cl-work__list { list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .cl-work__list li { display: flex; align-items: center; gap: var(--av-space-2); }
+    .cl-work__row {
+      flex: 1; min-width: 0; text-align: left;
+      font: inherit; cursor: pointer; background: none; border: 0;
+      padding: var(--av-space-1) 0;
+      /* Vạch mép trái theo quy ước của cả sản phẩm: MỰC = CHỖ CẦN CHÚ Ý. Đọc
+         dọc là ra ngay em ấy đang thiếu bài nào, không cần đọc chữ. */
+      border-left: 3px solid transparent; padding-left: var(--av-space-3);
+    }
+    .cl-work__list li[data-status="missing"] .cl-work__row { border-left-color: var(--av-accent); }
+    .cl-work__list li[data-status="late"]    .cl-work__row { border-left-color: var(--av-warning); }
+    .cl-work__row:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: 2px; }
+    .cl-work__title { display: block; font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); overflow-wrap: anywhere; }
+    .cl-work__meta { display: block; font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      font-variant-numeric: tabular-nums; }
+    .cl-work__open {
+      flex: none; font: inherit; font-size: var(--av-fs-xs); cursor: pointer;
+      padding: var(--av-space-1) var(--av-space-2);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card); color: var(--av-text-secondary);
+      text-decoration: none; white-space: nowrap;
+    }
+    .cl-work__open:hover { color: var(--av-text-primary); border-color: var(--av-border-strong); }
+
     .cl-drawer h3 { margin: 0 0 var(--av-space-1); font-size: var(--av-fs-lg);
       font-weight: var(--av-fw-semibold); }
     .cl-drawer dt { color: var(--av-text-muted); font-size: var(--av-fs-xs);
@@ -381,7 +538,19 @@
       width: 100%; min-width: 0; max-width: 360px; }
     .st-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .st-empty { padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    /* `nowrap`: ba nút xuống hai dòng là dòng bảng cao 104px, và 44 học viên
+       thành 4576px cuộn — một màn thấy 5 người. Ba nhãn tiếng Việt ngắn xếp
+       vừa một dòng; khung bảng đã tự cuộn ngang nếu thật sự không đủ. */
+    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+
+    /* Ô mục tiêu: con số trên, hạn dưới. Số dùng chữ đơn cách để "6.0 → 7.5"
+       của các hàng thẳng cột nhau. */
+    .goal-cell { white-space: nowrap; }
+    .st-goal { font-variant-numeric: tabular-nums; font-weight: var(--av-fw-semibold); }
+    .st-goal-date { display: block; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    /* Chưa đặt mục tiêu là CHƯA ĐẶT, không phải một số bằng không — để nó mờ
+       hơn chữ thường thì mắt lướt qua được cả cột. */
+    .st-none { color: var(--av-text-faint); }
     /* WF-1 bulk-assign bar + row-select checkbox column */
     .st-bulk-bar { display: flex; align-items: center; gap: var(--av-space-3);
       flex-wrap: wrap; margin: var(--av-space-3) 0;
@@ -580,7 +749,7 @@
 
       <div class="adm-banner" id="detail-banner" hidden></div>
 
-      <nav class="adm-subtabs cl-workspace-tabs" aria-label="Nội dung lớp">
+      <nav class="adm-subtabs" data-level="section" aria-label="Nội dung lớp">
         <!-- SỔ ĐIỂM DANH gộp `Sĩ số` + `Tiến độ`: cả hai đều là HÀNG HỌC VIÊN,
              chỉ khác phần cột. `Bài tập` và `Buổi học` ở lại riêng vì chúng là
              đối tượng KHÁC (bài giao, buổi học), không phải học viên — gộp
@@ -631,24 +800,33 @@
           Không có học viên nào khớp bộ lọc hiện tại.
         </div>
 
-        <div class="adm-table-wrap" id="roster-table-wrap" hidden>
-          <table class="adm-table">
-            <thead>
-              <tr>
-                <th>Học viên</th>
-                <th>Mã HV</th>
-                <th>Phiên nói</th>
-                <th>Hoạt động gần nhất</th>
-                <th>Chi phí AI</th>
-                <th><span class="sr-only">Thao tác</span></th>
-              </tr>
-            </thead>
-            <tbody id="roster-tbody"></tbody>
-          </table>
+        <!-- Bảng và ngăn kéo là HAI CỘT trên màn rộng, nên chúng phải có chung
+             một cha lưới. Để ngăn kéo làm em út của một cha `display: block` là
+             đẩy nó xuống dưới đáy cả bảng — ngoài khung nhìn. -->
+        <div class="cl-roster-split">
+          <div class="adm-table-wrap" id="roster-table-wrap" hidden>
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Học viên</th>
+                  <th>Mã HV</th>
+                  <th>Phiên nói</th>
+                  <th>Hoạt động gần nhất</th>
+                  <th>Chi phí AI</th>
+                  <th><span class="sr-only">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="roster-tbody"></tbody>
+            </table>
+          </div>
+          <!-- Ngăn kéo mở TRONG trang: hàng vẫn sáng, sổ vẫn đó. Hộp thoại che
+               mất sổ và bắt tìm lại chỗ đang đọc sau mỗi lần đóng. -->
+          <!-- `tabindex="-1"`: chuột không tab vào được, nhưng mã đưa được tiêu
+               điểm vào đây khi màn hẹp phải cuộn tới — nếu không thì người dùng
+               bàn phím bị bỏ lại cách đó một nghìn pixel. -->
+          <aside class="cl-drawer" id="roster-drawer" hidden tabindex="-1"
+                 role="region" aria-labelledby="roster-drawer-title" aria-live="polite"></aside>
         </div>
-        <!-- Ngăn kéo mở TRONG trang: hàng vẫn sáng, sổ vẫn đó. Hộp thoại che
-             mất sổ và bắt tìm lại chỗ đang đọc sau mỗi lần đóng. -->
-        <aside class="cl-drawer" id="roster-drawer" hidden role="region" aria-labelledby="roster-drawer-title"></aside>
       </section>
 
       <!-- Buổi học -->
@@ -806,7 +984,7 @@
   </div>
 
   <div id="state-denied" class="st-denied hidden">
-    <h2>🔒 Admin Access Required</h2>
+    <h2>Trang này chỉ dành cho quản trị viên</h2>
     <a href="/home">← Quay lại trang chủ</a>
   </div>
 
@@ -819,7 +997,7 @@
       </div>
       <div class="st-actions">
         <label class="adm-btn-secondary st-file-button">
-          Import CSV
+          Nhập từ CSV
           <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
         </label>
         <button id="btn-new" class="adm-btn-primary">Thêm học viên</button>
@@ -859,14 +1037,16 @@
             <th>Mã HV</th>
             <th>Họ tên</th>
             <th>Lớp</th>
+            <!-- MỘT cột cho cả "hiện tại → mục tiêu" và hạn đích. Ba cột riêng
+                 đo được trên prod là rỗng 44/44 — 237px không mang chữ nào,
+                 trong khi cột Họ tên chỉ có 155px. Ba trường ấy vẫn sửa được
+                 trong hộp thoại nên gộp chứ không xoá. -->
             <th>Mục tiêu</th>
-            <th>Hiện tại</th>
-            <th>Hạn đích</th>
             <th class="th-right">Thao tác</th>
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="8" class="st-empty">Đang tải…</td></tr>
+          <tr><td colspan="6" class="st-empty">Đang tải…</td></tr>
         </tbody>
       </table>
     </div>
@@ -893,7 +1073,7 @@
       <div id="summary-noaccount" class="st-empty-note" hidden></div>
 
       <div class="st-drawer-actions">
-        <a id="summary-assign" class="adm-btn-primary" href="#">Giao bài Writing</a>
+        <a id="summary-assign" class="adm-btn-primary" href="#">Giao bài viết</a>
       </div>
 
       <section class="st-drawer-section">
@@ -1333,7 +1513,7 @@
         </div>
       </div>
 
-      <nav class="adm-subtabs" aria-label="Cách xem bài nộp">
+      <nav class="adm-subtabs" data-level="view" aria-label="Cách xem bài nộp">
         <button class="adm-subtab is-active" id="mtab-tally" type="button" aria-current="page">Ai nộp</button>
         <button class="adm-subtab" id="mtab-effort" type="button">Chi tiết làm bài</button>
         <button class="adm-subtab" id="mtab-one" type="button">Bài từng em</button>

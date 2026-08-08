@@ -13,7 +13,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-result.html'), 'utf8');
+// Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
+// phải chạy CHÍNH mã đó chứ không chép lại. Khẳng định ở đây là "nguồn trang có
+// chứa X", nên nguồn trang nay = HTML + module của nó. Đã kiểm: tệp này không có
+// khẳng định nào phụ thuộc THỨ TỰ trong HTML, nên gộp giữ đúng ý định cũ.
+const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-result.html'), 'utf8')
+  + '\n' + readFileSync(join(__dirname, '..', 'public', 'js', 'mock-result.js'), 'utf8');
 
 describe('mock-result — the broken double-assignment is gone', () => {
   test('no `<string> + <var> += ...` chained-assignment (the old SyntaxError)', () => {

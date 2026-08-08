@@ -308,7 +308,7 @@
 }
 .cl-detail-kpis [data-tone="warning"] strong { color: var(--av-warning); }
 
-.cl-shell .cl-workspace-tabs {
+.cl-shell .adm-subtabs[data-level="section"] {
   position: sticky;
   top: calc(var(--cl-header-h) + var(--cl-section-nav-h));
   z-index: calc(var(--av-z-raised) - 1);
@@ -321,7 +321,7 @@
   backdrop-filter: blur(14px);
 }
 
-.cl-workspace-tabs .adm-subtab {
+.adm-subtabs[data-level="section"] .adm-subtab {
   flex: 0 0 auto;
   min-height: 40px;
   border-color: transparent;
@@ -785,7 +785,7 @@
 .st-bulk-bar .st-input { width: auto; min-width: 220px; max-width: 320px; }
 
 .st-row-actions {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .st-row-actions .adm-btn-secondary,
@@ -1150,7 +1150,7 @@
   }
 
   .cl-filter--search { grid-column: 1 / -1; }
-  .cl-shell .cl-workspace-tabs { overflow-x: auto; }
+  .cl-shell .adm-subtabs[data-level="section"] { overflow-x: auto; }
   .cl-roster-command { grid-template-columns: 1fr; }
   .cl-homework-command { grid-template-columns: 1fr 1fr; }
   .cl-homework-command .cl-filter--search { grid-column: 1 / -1; }
@@ -1244,8 +1244,8 @@
     min-width: 0;
   }
 
-  .cl-shell .cl-workspace-tabs { top: var(--cl-header-h); }
-  .cl-workspace-tabs .adm-subtab { flex: 1 0 auto; }
+  .cl-shell .adm-subtabs[data-level="section"] { top: var(--cl-header-h); }
+  .adm-subtabs[data-level="section"] .adm-subtab { flex: 1 0 auto; }
 
   .cl-lens,
   .cl-lens button {

@@ -1,0 +1,66 @@
+/* Trang "Nhận xét Speaking".
+ *
+ * TÁCH RA TỪ `<style>` inline của `pages/speaking-result.html` khi port sang
+ * Next (không đổi một khai báo nào). Bản Next nạp CHÍNH tệp này — chép là hai
+ * bản trôi khỏi nhau và cổng parity chỉ so được vỏ.
+ */
+/* Trang chi tiết nhận xét Speaking thi TRỰC TIẾP — đích của thẻ số 4 trên
+   trang kết quả (mock-result). Tách trang riêng cho nhất quán với chữa bài
+   L/R/W (mỗi kỹ năng một trang), theo bản duyệt Explorations/trf-result-v2. */
+.spr-wrap { max-width: var(--av-width-read, 760px); margin: 0 auto;
+  padding: var(--av-space-8) var(--av-space-4) var(--av-space-16); }
+.spr-state { padding: var(--av-space-16) 0; text-align: center;
+  color: var(--av-text-secondary); }
+.spr-state--error { color: var(--av-error); }
+.spr-back { display: inline-flex; align-items: center; gap: var(--av-space-1);
+  color: var(--av-text-muted); font-size: var(--av-fs-sm); text-decoration: none;
+  margin-bottom: var(--av-space-4); }
+.spr-back:hover { color: var(--av-text-primary); }
+.spr-eyebrow { font-size: var(--av-fs-xs); text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+  font-weight: var(--av-fw-semibold); }
+.spr-h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+  line-height: var(--av-lh-snug); margin: var(--av-space-1) 0 var(--av-space-1);
+  color: var(--av-text-primary); }
+.spr-meta { color: var(--av-text-muted); font-size: var(--av-fs-sm);
+  margin-bottom: var(--av-space-4); }
+/* Lời giáo viên — trích dẫn mở đầu, đúng nếp bản duyệt */
+.spr-quote { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+  border-left: 4px solid var(--av-primary); border-radius: var(--av-radius-md);
+  padding: var(--av-space-4); line-height: var(--av-lh-relaxed);
+  color: var(--av-text-primary); white-space: pre-wrap; }
+.spr-h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary); margin: var(--av-space-8) 0 var(--av-space-3);
+  padding-left: var(--av-space-3); border-left: 3px solid var(--av-primary); }
+.spr-band-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--av-space-2); }
+.spr-band { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md); padding: var(--av-space-4) var(--av-space-3);
+  text-align: center; }
+.spr-band-label { font-size: var(--av-fs-xs); text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
+  font-weight: var(--av-fw-semibold); }
+.spr-band-val { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary); font-family: var(--av-font-mono);
+  font-variant-numeric: tabular-nums; margin-top: var(--av-space-1); }
+.spr-band-meter { height: 4px; border-radius: var(--av-radius-pill);
+  background: var(--av-border-subtle); margin-top: var(--av-space-2); overflow: hidden; }
+.spr-band-meter > span { display: block; height: 100%;
+  background: var(--av-primary); border-radius: inherit; }
+.spr-metrics { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+.spr-metrics th, .spr-metrics td { text-align: left;
+  padding: var(--av-space-2) var(--av-space-3);
+  border-bottom: 1px solid var(--av-border-subtle); color: var(--av-text-secondary); }
+.spr-metrics th { color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+.spr-metrics td:nth-child(2) { color: var(--av-text-primary);
+  font-family: var(--av-font-mono); }
+.spr-metrics td:nth-child(3) { font-family: var(--av-font-mono); }
+.spr-note { background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md); padding: var(--av-space-4);
+  margin-bottom: var(--av-space-3); }
+.spr-note__title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary);
+  font-size: var(--av-fs-sm); }
+.spr-note__body { color: var(--av-text-secondary); line-height: var(--av-lh-relaxed);
+  white-space: pre-wrap; margin-top: var(--av-space-1); }
+.spr-note__advice { color: var(--av-text-primary); line-height: var(--av-lh-relaxed);
+  white-space: pre-wrap; margin-top: var(--av-space-2); }

@@ -1,0 +1,80 @@
+{
+  "kind": "reading-review",
+  "attempt_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  "kp": {
+    "type": "grammar",
+    "slug": "present-simple",
+    "anchor": "present-simple.overview"
+  },
+  "solution": {
+    "band": 6,
+    "skill_name": "TFNG",
+    "solution_steps": [
+      {
+        "action": "locate",
+        "instruction_vi": "Tìm từ khoá trong đoạn 2.",
+        "kp_refs": [
+          {
+            "type": "grammar",
+            "slug": "present-simple",
+            "anchor": "present-simple.overview"
+          }
+        ],
+        "microcheck": {
+          "prompt": "Câu nào đúng?",
+          "options": [
+            {
+              "text": "Phương án A"
+            },
+            {
+              "text": "Phương án B"
+            }
+          ],
+          "answer": "B"
+        }
+      }
+    ]
+  },
+  "stepper": {
+    "steps": [
+      {
+        "action": "locate",
+        "instruction_vi": "Tìm từ khoá trong đoạn 2.",
+        "kp_refs": [
+          {
+            "type": "grammar",
+            "slug": "present-simple",
+            "anchor": "present-simple.overview"
+          }
+        ],
+        "microcheck": {
+          "prompt": "Câu nào đúng?",
+          "options": [
+            {
+              "text": "Phương án A"
+            },
+            {
+              "text": "Phương án B"
+            }
+          ],
+          "answer": "B"
+        }
+      }
+    ],
+    "distractors": [],
+    "kp_tags": [
+      {
+        "type": "grammar",
+        "slug": "present-simple",
+        "anchor": "present-simple.overview"
+      }
+    ],
+    "source_excerpt": null,
+    "vocab": [],
+    "tips": null,
+    "paraphrase": null,
+    "band": 6,
+    "skill_code": null,
+    "skill_name": "TFNG"
+  }
+}

@@ -155,7 +155,18 @@
    2 — BẢNG TỔNG KẾT NỘP BÀI
    ══════════════════════════════════════════════════════════════════════ */
 
-.av-tally { --tally-gap-w: 3px; }
+/* BỀ RỘNG CÓ TRẦN — đây là phần "xấu" mà bản vá tràn (PR 979) không chạm tới.
+   Khu này rộng 1632px trên màn 1920, mà nội dung chỉ là tên + giờ nộp + điểm +
+   một nút. Cột tên là `1fr` nên nó nuốt trọn phần thừa: đo được 1359px. Kết quả
+   là tên dính mép trái, ba ô dữ liệu dạt mép phải, ở giữa là hơn một nghìn
+   pixel trắng — mắt phải đi hết chiều ngang màn hình để nối một cái tên với
+   điểm của chính nó.
+   Trần đặt trên `.av-tally` chứ không trên `.av-tally__row`, để dòng đầu (số đã
+   nộp, trạng thái) và dòng chân thẳng cột với các hàng. */
+.av-tally {
+  --tally-gap-w: 3px;
+  max-width: var(--av-width-read);
+}
 
 .av-tally__head {
   display: flex;
@@ -215,13 +226,31 @@
    khác biệt giữa "tạm thời" và "chốt". */
 .av-tally[data-state='live'] .av-tally__rows { border-top-style: dashed; }
 
+/* TRÀN RA VIỀN — vì sao và cách chữa.
+   `1fr` thực chất là `minmax(auto, 1fr)`: cột tên KHÔNG co được dưới bề rộng
+   nội dung của nó. Cộng ba cột `auto` (giờ nộp, điểm, nút mở bài) thì một tên
+   dài hoặc một ô điểm dài — bài theo buổi hiện "85% · chưa đạt · KTL×2" — đẩy
+   cả hàng vượt khỏi khung.
+   `minmax(0, 1fr)` cho cột tên co lại — nó ĐÃ có `min-width: 0` và
+   `overflow-wrap: anywhere` nên xuống dòng được, chỉ thiếu quyền co. */
 .av-tally__row {
   display: grid;
-  grid-template-columns: var(--tally-gap-w) 1fr auto auto auto;
+  grid-template-columns: var(--tally-gap-w) minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 0 var(--av-space-4);
   padding: var(--av-space-3) var(--av-space-2);
   border-bottom: 1px solid var(--av-border-subtle);
+}
+
+/* Ô điểm gánh ba việc: con số, đạt/chưa, số lần kiểm tra lại. Xuống dòng phần
+   phụ để cột không phình theo chuỗi dài nhất. */
+.av-tally__band { text-align: right; font-variant-numeric: tabular-nums; }
+.av-tally__band small {
+  display: block;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-regular);
+  color: var(--av-text-muted);
+  white-space: nowrap;
 }
 
 /* CỘT MÉP TRÁI — đọc dọc là ra ngay ai chưa nộp, không cần đọc chữ nào.
@@ -306,9 +335,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* MỘT khối cho màn hẹp, không phải hai.
+   Thêm một `@media` thứ hai ở 720px thì khối 40rem đứng SAU sẽ ghi đè nó dưới
+   640px — bản vá chỉ sống trong dải 641–720px, còn điện thoại thật vẫn nhận
+   `1fr` trần. Đúng bẫy "hai quy tắc triệt tiêu nhau" (codex PR 979). */
 @media (max-width: 40rem) {
-  .av-tally__row { grid-template-columns: var(--tally-gap-w) 1fr auto auto; }
+  .av-tally__row {
+    /* `minmax(0, …)` ở ĐÂY nữa: đây mới là bề rộng thật của điện thoại. */
+    grid-template-columns: var(--tally-gap-w) minmax(0, 1fr) auto;
+    gap: var(--av-space-1) var(--av-space-3);
+  }
   .av-tally__when { display: none; }   /* tên + trạng thái + điểm là đủ trên máy nhỏ */
+  /* Nút mở bài XUỐNG DÒNG riêng: nhét nó vào cùng hàng với tên và điểm là ba
+     thứ tranh nhau một bề ngang 360px. */
+  .av-tally__open,
+  .av-tally__none { grid-column: 2 / -1; justify-self: start; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
