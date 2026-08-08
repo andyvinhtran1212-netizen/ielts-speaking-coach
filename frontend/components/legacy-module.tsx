@@ -26,16 +26,44 @@ import { useEffect } from 'react';
 
 export default function LegacyModule({ src }: { src: string }) {
   useEffect(() => {
+    // CHO `window.api` SAN SANG TRUOC KHI CHEN.
+    //
+    // Tren ban legacy, the <script> nam SAU `api.js` trong tai lieu nen thu tu
+    // duoc bao dam. Chen dong thi khong con bao dam do: do duoc, module boot
+    // luc `readyState=interactive` va `load()` chet ngay o dong dau voi
+    // "Cannot read properties of undefined (reading 'get')" — bi `try/catch`
+    // cua chinh module nuot, nen trang chi hien trang thai loi, KHONG co request
+    // nao, va cong G1 doc ra thanh "thieu noi dung".
+    //
+    // Day KHONG phai van de do tre: `api.js` von tai rat som. Chi la thu tu.
+    let huy = false;
+    let dem = 0;
+    const sanSang = () => typeof window !== 'undefined'
+      && !!(window as unknown as { api?: { get?: unknown } }).api;
     // ES module chỉ thực thi MỘT LẦN cho mỗi URL. Chèn lại cùng `src` sau khi
     // điều hướng mềm sẽ KHÔNG chạy lại thân module — đó là lý do 13 route này
     // phải nằm trong cổng tải-cứng (`legacy-module-routes-need-hard-nav.test.mjs`).
     // Ghi ra ở đây để không ai đọc `useEffect` rồi tưởng điều hướng mềm đã ổn.
-    const s = document.createElement('script');
-    s.type = 'module';
-    s.src = src;
-    document.body.appendChild(s);
+    const chen = () => {
+      if (huy) return;
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = src;
+      document.body.appendChild(s);
+    };
+    if (sanSang()) chen();
+    else {
+      const iv = setInterval(() => {
+        if (huy) { clearInterval(iv); return; }
+        // Het gio thi VAN chen: thieu `api` la loi khac, va module tu bao loi
+        // ro rang hon la mot trang dung im khong dau vet.
+        if (sanSang() || ++dem > 200) { clearInterval(iv); chen(); }
+      }, 20);
+      return () => { huy = true; clearInterval(iv); };
+    }
     // KHÔNG gỡ thẻ khi unmount: module đã chạy rồi, gỡ thẻ không hoàn tác được
     // gì mà chỉ làm người đọc tưởng có dọn dẹp thật.
+    return () => { huy = true; };
   }, [src]);
   return null;
 }
