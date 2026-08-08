@@ -38,7 +38,15 @@ function pages(dir = APP, out = []) {
   return out;
 }
 
-const NẠP_MODULE = pages().filter((f) => /<script\s+type="module"/.test(readFileSync(f, 'utf8')));
+/** Bỏ DÒNG chú thích — marker nằm trong chú thích không phải mã. */
+const khôngChúThích = (f) => readFileSync(f, 'utf8').split('\n')
+  .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+// Dò KHÔNG phụ thuộc thứ tự thuộc tính hay kiểu nháy: bản đầu chỉ khớp đúng
+// `<script type="module"` với `type` đứng đầu và nháy kép, nên `<script defer
+// type='module'>` sẽ lọt khỏi mọi khẳng định bên dưới (codex bắt ở #1003).
+const LÀ_MODULE = /<script[^>]*\stype=["']module["']/;
+const NẠP_MODULE = pages().filter((f) => LÀ_MODULE.test(khôngChúThích(f)));
 
 // NỢ ĐÃ BIẾT — các trang port từ những đợt TRƯỚC, nạp module bằng
 // `<script type="module" src="…">` trần, KHÔNG có chốt nào.
@@ -80,7 +88,9 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
   test('mỗi trang render <HydratedSignal /> và đọc cờ của nó', () => {
     const xấu = [];
     for (const f of ĐÃ_VÁ) {
-      const s = readFileSync(f, 'utf8');
+      // Đọc bản ĐÃ BỎ chú thích: ba marker dưới đây nằm trong chú thích thôi
+      // cũng đủ làm chốt xanh, tức chốt tự lừa mình (codex bắt ở #1003).
+      const s = khôngChúThích(f);
       const tên = rel(f);
       if (!/<HydratedSignal\s*\/>/.test(s)) xấu.push(`${tên}: không render <HydratedSignal />`);
       if (!/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
@@ -111,11 +121,19 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
       '`load` KHÔNG bảo đảm React đã hydrate xong — xem đầu tệp này');
   });
 
-  // Danh sách nợ chỉ được NGẮN ĐI. Một trang mới nạp module mà không có chốt sẽ
-  // làm test này đỏ ngay, thay vì âm thầm thừa hưởng lỗi.
+  // NGÂN SÁCH KHÔNG TĂNG. Không có khẳng định này thì câu "danh sách chỉ ngắn
+  // đi" là SAI — và tôi đã viết đúng câu sai đó trong mô tả PR: thêm một trang
+  // hỏng vào `CHƯA_VÁ` sẽ loại nó khỏi CẢ `ĐÃ_VÁ` LẪN danh sách "trang lạ", nên
+  // toàn bộ suite vẫn xanh. Một allowlist tự nới được thì không phải cổng.
+  test('danh sách nợ KHÔNG được dài thêm', () => {
+    assert.ok(CHƯA_VÁ.size <= 13,
+      `CHƯA_VÁ có ${CHƯA_VÁ.size} mục — chỉ được PHÉP ngắn đi. Vá trang mới, `
+      + 'đừng thêm nó vào danh sách nợ.');
+  });
+
   test('không trang MỚI nào nhập hội danh sách chưa vá', () => {
     const lạ = NẠP_MODULE.map(rel).filter((r) => CHƯA_VÁ.has(r) === false
-      && !/__averHydrated/.test(readFileSync(path.join(APP, r), 'utf8')));
+      && !/__averHydrated/.test(khôngChúThích(path.join(APP, r))));
     assert.deepEqual(lạ.sort(), [], 'trang nạp module mà không chờ tín hiệu hydrate');
 
     const đãBiến = [...CHƯA_VÁ].filter((r) => !NẠP_MODULE.map(rel).includes(r));

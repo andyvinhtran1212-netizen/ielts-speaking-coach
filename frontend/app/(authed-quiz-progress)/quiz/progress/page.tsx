@@ -29,6 +29,16 @@ const afterHydration = (fn) => {
   // mot template literal.
   if (window.__averHydrated) { fn(); return; }
   window.addEventListener("aver:hydrated", fn, { once: true });
+  // CHO CHET (watchdog). Neu chunk React hong han thi useEffect khong bao gio
+  // chay, co khong bat, va trang dung o "Dang tai..." VINH VIEN. Ban cu cho
+  // load nen van chay duoc - tuc ban va nay doi mot loi #418 lay mot loi treo.
+  // KHONG goi thang fn() o day: React chi CHAM thoi thi lam vay la dung lai
+  // cuoc dua vua sua. Thay vao do sang han ban legacy, giu nguyen query/hash.
+  setTimeout(() => {
+    if (window.__averHydrated) return;
+    console.error("[/pages/quiz-progress.html] React khong hydrate sau 12s - sang ban legacy");
+    window.location.replace("/pages/quiz-progress.html" + window.location.search + window.location.hash);
+  }, 12000);
 };
 const ready = () => typeof window.getSupabase === 'function' && !!window.getSupabase();
 if (ready()) afterHydration(mount);
@@ -39,13 +49,18 @@ else {
     else if (++n > 500) {  // 500 x 20ms = 10s
       clearInterval(iv);
       console.error('[quiz-progress] Supabase khong san sang sau 10s');
-      const err = document.getElementById('pg-error');
-      const load = document.getElementById('pg-loading');
-      if (err) {
-        err.textContent = 'Khong tai duoc phien dang nhap. Vui long tai lai trang.';
-        err.classList.remove('hidden');
-      }
-      if (load) load.classList.add('hidden');
+      // Nhanh nay cung DOI DOM, nen no cung phai cho hydrate. Bo sot no thi
+      // mot lan chunk React cham hon 10s se tai tao dung loi #418 vua sua
+      // (codex bat o #1003).
+      afterHydration(() => {
+        const err = document.getElementById('pg-error');
+        const load = document.getElementById('pg-loading');
+        if (err) {
+          err.textContent = 'Khong tai duoc phien dang nhap. Vui long tai lai trang.';
+          err.classList.remove('hidden');
+        }
+        if (load) load.classList.add('hidden');
+      });
     }
   }, 20);
 }
