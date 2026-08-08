@@ -286,6 +286,17 @@ on:
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
       - '.github/workflows/parity-gate.yml'
+  # SAU KHI MERGE. Cổng theo PR chỉ chứng minh «nhánh này so với main LÚC ĐÓ»;
+  # nó KHÔNG chứng minh main sau khi hợp nhất. Ngày 2026-08-07 chín PR chồng
+  # nhau lên main liên tiếp, mỗi PR đều xanh, mà trạng thái hợp nhất không cổng
+  # nào chạm tới — phải dispatch tay mới biết main lành. Main deploy thẳng ra
+  # production, nên đó là khoảng trống ngay trước mặt người dùng.
+  #
+  # KHÔNG khai `paths:` ở đây. Bộ lọc đường dẫn hợp lý cho PR (tiết kiệm lượt
+  # chạy khi nhánh không đụng gì liên quan), nhưng ở đây câu hỏi là «main còn
+  # lành không» — và câu đó không phụ thuộc vào việc lần merge NÀY đụng tệp nào.
+  push:
+    branches: [main]
   # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
   # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị
   # GitHub giãn ra trung vị 84 phút (khai 15). Lịch trên GitHub Actions là
@@ -305,7 +316,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: parity-gate-${{ github.ref }}
+  # PHẢI có `event_name` trong group. Trước đây group chỉ theo `github.ref`, mà
+  # push lên main, lịch đêm và dispatch tay đều mang `refs/heads/main` — nên một
+  # lần dispatch `scope=categories` sẽ HUỶ lượt post-merge đang chạy `full +
+  # authed`, rồi báo xanh. Commit đó vĩnh viễn không được lượt nào kiểm đủ, và
+  # bảng check thì trông y hệt lúc kiểm đủ.
+  #
+  # Giữa hai lần PUSH thì vẫn huỷ lượt cũ, và đó là cố ý: chỉ tip hiện tại mới
+  # là thứ đang chạy trên production. Hệ quả phải nói thẳng — trong một chuỗi
+  # merge dày, các commit ở giữa KHÔNG được kiểm riêng; thứ được bảo đảm là
+  # «main lành ở tip mới nhất», không phải «mỗi commit đều lành».
+  group: parity-gate-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -396,9 +417,18 @@ jobs:
           if [ -n "${{ inputs.scope }}" ]; then
             echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0
-          fi
+          # `schedule` và `push` (main) KHÔNG có nhánh gốc để so diff — không suy
+          # ra phạm vi được, nên chạy TẤT CẢ. Cả hai đều phải đặt `authed=true`:
+          # bản cũ `exit 0` ngay sau khi đặt `scope=full`, để cờ authed RỖNG, nên
+          # lịch đêm chưa bao giờ so 21 cặp cần-đăng-nhập — tức phần lớn trang
+          # học viên chỉ được so trong PR chứ chưa lần nào trên main.
+          case "${{ github.event_name }}" in
+            schedule|push)
+              echo "sự kiện ${{ github.event_name }} ⇒ chạy full + authed"
+              echo "scope=full" >> "$GITHUB_OUTPUT"
+              echo "authed=true" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+          esac
           BASE="origin/${{ github.base_ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
           echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
