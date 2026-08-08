@@ -134,6 +134,6 @@
     "legacy": "/pages/vocabulary.html",
     "next": "/vocabulary/hub",
     "allow": [],
-    "note": "Route Next CỐ Ý không lấy tên `/vocabulary`: hôm nay tên đó đang được `/vocabulary.html` (Wiki công khai) dùng, và sổ route ghi bản gốc 'cần rà soát'. Khi chủ dự án chốt trang nào sở hữu `/vocabulary` thì đổi `next` ở đây."
+    "note": "ĐÃ CHỐT 2026-08-08: `/vocabulary` thuộc về WIKI CÔNG KHAI (`public/vocabulary.html`), nên trang Từ vựng của học viên Ở LẠI `/vocabulary/hub` — đây là tên cuối cùng, không phải chỗ đậu tạm. Lý do và bằng chứng: `docs/ROUTE_LEDGER.md` mục Q3. Chốt `vocabulary-route-ownership.test.mjs` giữ quyết định này."
   }
 ]
