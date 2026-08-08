@@ -402,6 +402,122 @@ def mark_item_submitted(
     return bool(r.data)
 
 
+class DueChangeRefused(Exception):
+    """Đổi hạn KHÔNG làm, và lý do là một dữ kiện đếm được, không phải một lời.
+
+    Mang theo `payload` để tầng router trả nguyên con số ra màn hình: giáo viên
+    cần biết đổi hạn này viết lại hồ sơ của BAO NHIÊU em, trước khi quyết.
+    """
+
+    def __init__(self, message: str, payload: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.payload = {"message": message, **(payload or {})}
+
+
+def _flips(submitted: List[str], old_due, new_due) -> Dict[str, int]:
+    """Đổi hạn này lật trạng thái của bao nhiêu lượt đã nộp.
+
+    "Nộp trễ" là SUY RA lúc đọc (`submitted_at > due_at`), không lưu — quy tắc
+    của migration 177, và nó có mặt trái: dời hạn là VIẾT LẠI hồ sơ đúng-hạn của
+    những người đã nộp. Cả hai chiều đều viết lại, và cả hai đều phải nói ra:
+
+      · dời về SAU  → lượt nộp trễ thành đúng hạn (xoá dấu trễ của họ);
+      · dời về TRƯỚC → lượt nộp đúng hạn thành trễ (buộc tội ngược thời gian).
+
+    Lượt chưa nộp không tính: hạn đổi thì "chưa nộp" vẫn là "chưa nộp".
+    """
+    to_ontime = to_late = 0
+    for raw in submitted:
+        at = _at(raw)
+        if at is None:
+            continue
+        was_late = bool(old_due) and at > old_due
+        now_late = bool(new_due) and at > new_due
+        if was_late and not now_late:
+            to_ontime += 1
+        elif now_late and not was_late:
+            to_late += 1
+    return {"to_ontime": to_ontime, "to_late": to_late}
+
+
+def change_assignment_due_at(
+    db,
+    *,
+    assignment_id: str,
+    cohort_id: str,
+    new_due_at: Optional[str],
+    expected_due_at: Optional[str],
+    confirm_rewrites: bool = False,
+) -> Dict[str, Any]:
+    """Đổi hạn nộp của một bài giao. Ném `DueChangeRefused`.
+
+    Cho tới nay không có đường nào trong sản phẩm làm việc này: ngày 07/08 muốn
+    dời hạn Grammar 1 phải viết SQL rồi chạy tay trên máy chủ thật.
+
+    Hai chốt, và cả hai đều học từ chính lần chạy tay ấy:
+
+    · SO SÁNH RỒI ĐỔI. Người gọi phải nêu hạn mà MÀN HÌNH ĐANG HIỆN. Lệnh
+      `UPDATE` chỉ nêu id thì nó ghi đè bất kể giá trị đang có — và giữa lúc mở
+      trang với lúc bấm, một giáo viên khác (hay chính mình ở tab kia) có thể đã
+      đổi. Khi ấy lệnh này lặng lẽ thay một giá trị MỚI HƠN bằng cái cũ
+      (codex #996).
+
+    · NÓI RA SỐ HỒ SƠ BỊ VIẾT LẠI. Xem `_flips`. Khác 0 thì TỪ CHỐI, kèm con số,
+      cho tới khi người gọi xác nhận tường minh. Kịch bản chạy tay hôm 07/08
+      cũng có đúng chốt này, và nó xanh vì lớp ấy không có ai nộp trễ — chốt
+      đúng không phải vì nó im, mà vì nó đã đếm.
+    """
+    rows = (db.table("class_assignments")
+            .select("id, cohort_id, due_at, status, title")
+            .eq("id", assignment_id).limit(1).execute().data) or []
+    if not rows or rows[0].get("cohort_id") != cohort_id:
+        raise DueChangeRefused("Không tìm thấy bài giao của lớp này.")
+    asg = rows[0]
+    old_raw = asg.get("due_at")
+
+    # So sánh theo THỜI ĐIỂM, không theo chuỗi: cùng một mốc có thể viết bằng
+    # nhiều cách ('+07:00' và 'Z'), và so chuỗi sẽ báo tranh chấp giả.
+    if _at(old_raw) != _at(expected_due_at):
+        raise DueChangeRefused(
+            "Hạn đã đổi từ lúc mở trang. Tải lại bảng rồi xem hạn hiện tại "
+            "trước khi đổi tiếp.",
+            {"current_due_at": old_raw, "conflict": True})
+
+    old_due, new_due = _at(old_raw), _at(new_due_at)
+    if old_due == new_due:
+        raise DueChangeRefused("Hạn mới giống hệt hạn đang có — không có gì để đổi.")
+
+    submitted: List[str] = []
+    for chunk in _paged(db, "class_assignment_items", "id, submitted_at",
+                        lambda q: q.eq("assignment_id", assignment_id)):
+        if chunk.get("submitted_at"):
+            submitted.append(chunk["submitted_at"])
+
+    flips = _flips(submitted, old_due, new_due)
+    if (flips["to_ontime"] or flips["to_late"]) and not confirm_rewrites:
+        raise DueChangeRefused(
+            "Đổi hạn này viết lại hồ sơ đúng-hạn của những em đã nộp.",
+            {"needs_confirm": True, "flips": flips, "current_due_at": old_raw})
+
+    patch = {"due_at": new_due_at, "updated_at": datetime.now(timezone.utc).isoformat()}
+    q = (db.table("class_assignments").update(patch)
+         .eq("id", assignment_id).eq("cohort_id", cohort_id))
+    # Nêu hạn CŨ trong điều kiện — 0 dòng nghĩa là tiền đề sai, và đúng lúc ấy
+    # phải dừng chứ không ghi tiếp.
+    q = q.is_("due_at", "null") if old_raw is None else q.eq("due_at", old_raw)
+    res = q.execute()
+    if not (res.data or []):
+        raise DueChangeRefused(
+            "Hạn vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.",
+            {"conflict": True})
+
+    logger.info("[class] đổi hạn bài giao=%s lớp=%s %s → %s (lật %s)",
+                assignment_id, cohort_id, old_raw, new_due_at, flips)
+    return {"assignment_id": assignment_id, "due_at": new_due_at,
+            "previous_due_at": old_raw, "flips": flips,
+            "submitted_count": len(submitted)}
+
+
 class ReturnNotPossible(Exception):
     """Trả bài KHÔNG làm được, và lý do phải nói ra thành lời.
 
