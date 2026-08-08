@@ -106,11 +106,17 @@ export function CourseBehavior() {
         const el = $('cx-stage'); if (el) el.hidden = false;
         // Bài kiểm tra lại KHÔNG phải "chặng 11": gọi tên nó ra để học viên
         // biết mình đang ở đâu và vì sao chỉ có một chặng.
-        $('cx-stage-label')!.innerHTML = runner.mode === 'retake'
+        const due = runner.mastery && runner.mastery.due_at
+          ? ` · hạn ${new Intl.DateTimeFormat('vi-VN', {
+              timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit',
+              day: '2-digit', month: '2-digit',
+            }).format(new Date(runner.mastery.due_at))}`
+          : '';
+        $('cx-stage-label')!.innerHTML = (runner.mode === 'retake'
           ? `${esc(runner.bank.title)} · <strong>kiểm tra lại · lần ${runner.retakeNo}</strong>`
           : `${esc(runner.bank.title)} · chặng <strong>${runner.stage + 1}/${runner.stageCount}</strong>`
             + (runner.mastery && runner.mastery.passed_at
-              ? ' <span class="cx-passbadge">✓ đã đạt</span>' : '');
+              ? ' <span class="cx-passbadge">✓ đã đạt</span>' : '')) + esc(due);
         $('cx-stage-ticks')!.innerHTML = qs.map((_q: any, i: number) => {
           const s = marks[i] || (i === runner.at ? 'now' : '');
           return `<i${s ? ` data-s="${s}"` : ''}></i>`;
@@ -200,6 +206,8 @@ export function CourseBehavior() {
 
       async function renderDone() {
         const res = await runner.finishStage();
+        const deadlineClosed = !res.persisted
+          && /(?:quá|hết) hạn nộp/i.test(String(res.error || ''));
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = false;
@@ -216,11 +224,15 @@ export function CourseBehavior() {
           // một lỗ không vá được và verdict phủ-đủ-đề sẽ bác cả lượt ở phút
           // chót. Bài làm còn nguyên trong bộ nhớ — gửi lại là một lần thật.
           + (res.persisted ? ''
-            : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — '
-              + 'bài làm vẫn còn nguyên ở đây. Kiểm tra kết nối rồi gửi lại.</p>'
-              + '<div class="cx-next" style="position:static">'
-              + '<button class="av-button av-button-primary" id="cx-resend" type="button">'
-              + 'Gửi lại kết quả chặng</button></div>')
+            : deadlineClosed
+              ? '<p class="cx-empty">Bài này đã hết hạn nộp nên chặng chưa được chốt. '
+                + 'Kết quả vẫn còn trên màn hình; hãy liên hệ giáo viên nếu cần gia hạn.</p>'
+              : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — '
+                + 'bài làm vẫn còn nguyên ở đây. '
+                + esc(res.error || 'Kiểm tra kết nối rồi gửi lại.') + '</p>'
+                + '<div class="cx-next" style="position:static">'
+                + '<button class="av-button av-button-primary" id="cx-resend" type="button">'
+                + 'Gửi lại kết quả chặng</button></div>')
           + (!res.persisted ? ''
             : res.hasMore
               ? '<div class="cx-next" style="position:static">'
@@ -259,7 +271,7 @@ export function CourseBehavior() {
         // Còn phần tự luận thì nói ra — dù đạt hay chưa. Học viên đi hết mười
         // chặng rồi dừng ở đây sẽ không bao giờ biết còn mười câu nữa.
         const more = (writingReady && runner.hasWriting && !writing.submitted)
-          ? '<button class="av-button" id="cx-writing" type="button">'
+          ? '<button class="av-button av-button-primary" id="cx-writing" type="button">'
             + `Làm phần tự luận (${runner.writing.length} câu)</button>`
           : (writingReady && writing.submitted
               ? '<button class="av-button" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
@@ -282,14 +294,25 @@ export function CourseBehavior() {
           + (v.passed ? 'Xem lại toàn bộ bài làm' : 'Xem mình yếu trục nào')
           + '</button>';
         if (v.passed) {
+          const stillWriting = writingReady && runner.hasWriting && !writing.submitted;
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
-            + '<p class="cx-verdict__title">Đã ĐẠT bài tập buổi này</p>'
+            + `<p class="cx-verdict__title">${stillWriting
+              ? 'Đã đạt phần trắc nghiệm — còn phần tự luận để hoàn tất bài'
+              : 'Đã ĐẠT và hoàn tất bài tập buổi này'}</p>`
             + `<p class="cx-verdict__sub">Điểm gộp <strong>${v.pct}%</strong> · ngưỡng ${v.threshold}%`
             + (v.retakes ? ` · chốt ở lần kiểm tra lại thứ ${v.retakes}` : '')
             + '</p>' + seeReport + more + '</div>';
+        } else if (v.next_action === 'retry_full') {
+          box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
+            + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}%</p>`
+            + `<p class="cx-verdict__sub">Mức gần đạt bắt đầu từ ${v.near_threshold}%. `
+            + `Kết quả này chưa đủ để làm bài kiểm tra lại ${v.retake_size} câu — `
+            + `cần làm lại toàn bộ ${runner.stageCount} chặng.</p>`
+            + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">'
+            + 'Làm lại toàn bộ bài</button>' + seeReport + more + '</div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
-            + `<p class="cx-verdict__title">Chưa đạt: ${v.pct}% — cần ${v.threshold}%</p>`
+            + `<p class="cx-verdict__title">Gần đạt: ${v.pct}% — cần ${v.threshold}%</p>`
             + `<p class="cx-verdict__sub">Làm bài kiểm tra lại để chốt buổi này: ${v.retake_size} câu `
             + 'bốc ngẫu nhiên từ bộ đề, thứ tự câu và thứ tự đáp án được trộn lại — '
             + 'thuộc vị trí không giúp gì đâu.</p>'
@@ -405,6 +428,26 @@ export function CourseBehavior() {
         const size = (lastVerdict && lastVerdict.retake_size)
           || (runner.mastery && runner.mastery.retake_size) || 20;
         await runner.startRetake(size);
+        if (runner.sessionFailed) {
+          const box = $('cx-verdict');
+          if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
+            + `<p class="cx-verdict__sub">Không thể mở bài kiểm tra lại: ${esc(
+              runner.persistError || 'vui lòng tải lại trang và thử lại.')}</p></div>`;
+          return;
+        }
+        renderQuestion();
+      }
+
+      async function restartFullFlow() {
+        const rep = $('cx-report');
+        if (rep) { rep.hidden = true; rep.innerHTML = ''; }
+        await runner.restartFull();
+        if (runner.sessionFailed) {
+          const box = $('cx-verdict');
+          if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
+            + '<p class="cx-verdict__sub">Chưa tạo được lượt làm mới. Tải lại trang để thử lại.</p></div>';
+          return;
+        }
         renderQuestion();
       }
 
@@ -435,6 +478,7 @@ export function CourseBehavior() {
         if (t.id === 'cx-reveal') return onSelfCheck();
         if (t.id === 'cx-more') return runner.nextStage().then(renderQuestion);
         if (t.id === 'cx-retake') return void startRetakeFlow();
+        if (t.id === 'cx-retry-full') return void restartFullFlow();
         if (t.id === 'cx-verdict-retry') return void renderVerdict();
         // Gửi lại = chạy lại đúng finishStage: sessionId + hàng đợi còn nguyên,
         // nên đây là một lần đẩy thật chứ không phải vẽ lại màn hình.

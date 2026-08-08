@@ -140,6 +140,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let resumedFinal = false;
   // Kết quả chặng cuối lấy từ máy chủ khi không còn `marks` cục bộ để tính.
   let restored = null;
+  let persistError = '';
   // Lượt đẩy giữa chặng chạy nền. Phải GIỮ lời hứa của nó: chốt chặng trong lúc
   // nó còn bay nghĩa là hàng đợi đang rỗng TẠM THỜI, `flush()` thấy không có gì
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
@@ -326,8 +327,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if (mode === 'retake') body.kind = 'retake';
       const s = await api.post('/api/quiz/sessions', body);
       sessionId = (s && (s.id || s.session_id)) || null;
-    } catch (e) { sessionId = null; }
+    } catch (e) {
+      sessionId = null;
+      persistError = (e && e.message) ? e.message : String(e || 'Không tạo được phiên làm bài.');
+    }
     if (!sessionId) sessionFailed = true;
+    else persistError = '';
     stageStartedAt = now();
     return !sessionFailed;
   }
@@ -376,6 +381,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get at() { return at; },
     get marks() { return marks.slice(); },
     get sessionFailed() { return sessionFailed; },
+    get persistError() { return persistError; },
     get pendingCount() { return pending.length; },
     get stageCount() { return Math.ceil(qs.length / STAGE); },
     get total() { return qs.length; },
@@ -396,7 +402,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     async load(bankId) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
       bank = r.bank;
-      this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, retake_size, retakes}
+      this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
+      retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
       qs = r.questions || [];
       // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
@@ -446,7 +453,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if (pending.length >= BATCH) {
         // Nuốt lỗi Ở ĐÂY là đúng (đang giữa chặng, không có gì để nói với học
         // viên), nhưng phải NHỚ lời hứa để `finishStage` chờ được.
-        inflight = flush().catch(() => { /* lượt làm đã quay lại hàng đợi */ });
+        // NỐI ĐUÔI, không ghi đè promise cũ. Nếu batch 6–10 về trước batch 1–5,
+        // chờ riêng batch mới sẽ đóng phiên trong khi nửa đầu còn đang bay.
+        inflight = inflight.then(() => flush())
+          .catch(() => { /* lượt làm đã quay lại hàng đợi */ });
       }
       return {
         correct: ok,
@@ -486,6 +496,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         axes[q.item_key] = (axes[q.item_key] || 0) + 1;
       });
 
+      // Tạo phiên có thể hỏng lúc mở bài. Nút "Gửi lại" phải thử mở lại thật,
+      // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
+      if (!sessionId && sessionFailed && pending.length) await openSession();
       let persisted = !sessionFailed;
       if (sessionId) {
         try {
@@ -503,7 +516,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
           if (mode === 'run' && runSessions.indexOf(sessionId) === -1) {
             runSessions.push(sessionId);
           }
-        } catch (err) { persisted = false; }
+          persistError = '';
+        } catch (err) {
+          persisted = false;
+          persistError = (err && err.message) ? err.message : String(err || 'Chưa lưu được chặng.');
+        }
       }
       // Chặng chốt hỏng thì KHÔNG đóng dấu done: sessionId + hàng đợi còn
       // nguyên trong bộ nhớ, nên gọi lại finishStage là một lần GỬI LẠI thật
@@ -513,6 +530,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       return {
         right, graded, persisted,
         retryable: !persisted && !!sessionId,
+        error: persisted ? '' : persistError,
         axes: Object.keys(axes).sort((a, b) => axes[b] - axes[a]).map((a) => ({ axis: a, n: axes[a] })),
         hasMore: mode === 'run' && stage + 1 < this.stageCount,
       };
@@ -586,6 +604,19 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       await openSession();
       shownAt = now();
       return retakeQs.length;
+    },
+
+    /** Kết quả dưới vùng gần đạt: bắt đầu một lượt ĐẦY ĐỦ mới từ chặng 1. */
+    async restartFull() {
+      mode = 'run';
+      stage = 0; at = 0; marks = []; answered = false;
+      retakeQs = []; runSessions = []; pending = [];
+      resumedFinal = false; restored = null;
+      sessionId = null; sessionFailed = false; persistError = '';
+      save(false);
+      await openSession();
+      shownAt = now();
+      return !sessionFailed;
     },
 
     /** Đóng tab giữa chừng: đẩy nốt bằng fetch keepalive. */

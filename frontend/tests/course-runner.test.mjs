@@ -264,6 +264,44 @@ describe('vòng đời phiên', () => {
 // ── Không chốt khi bài chưa tới máy chủ ───────────────────────────────────
 
 describe('trung thực về việc đã lưu được hay chưa', () => {
+  test('hai batch nền được gửi tuần tự trước khi chốt phiên', async () => {
+    const questions = Array.from({ length: 10 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions });
+    const originalPost = api.post.bind(api);
+    let releaseFirst;
+    let firstStartedResolve;
+    const firstStarted = new Promise((resolve) => { firstStartedResolve = resolve; });
+    const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+    let progressNo = 0;
+    api.post = async (path, body) => {
+      if (String(path).includes('/progress')) {
+        progressNo += 1;
+        const out = originalPost(path, body);
+        if (progressNo === 1) {
+          firstStartedResolve();
+          await firstGate;
+        }
+        return out;
+      }
+      return originalPost(path, body);
+    };
+    const { r } = await run({ questions, api });
+    for (let i = 0; i < 5; i++) {
+      r.show(); r.answer(questions[i].answer); r.next();
+    }
+    await firstStarted;
+    for (let i = 5; i < questions.length; i++) {
+      r.show(); r.answer(questions[i].answer); r.next();
+    }
+    assert.equal(progressNo, 1, 'batch 2 không được vượt batch 1 đang bay');
+    const finishing = r.finishStage();
+    releaseFirst();
+    const out = await finishing;
+    assert.equal(out.persisted, true);
+    assert.equal(progressNo, 2, 'phải đủ cả hai batch rồi mới PATCH completed');
+    assert.equal(api.calls.patch.length, 1);
+  });
+
   test('đẩy lượt làm hỏng thì KHÔNG chốt phiên', async () => {
     // Chốt trong lúc lượt làm còn kẹt sẽ báo với giáo viên rằng chặng đã xong
     // trong khi chi tiết thì thiếu.
@@ -287,6 +325,26 @@ describe('trung thực về việc đã lưu được hay chưa', () => {
     assert.equal(r.answer(0).correct, true, 'vẫn làm bài được');
     const res = await playStage(r);
     assert.equal(res.persisted, false);
+  });
+
+  test('nút Gửi lại tạo lại session nếu lần mở đầu mất mạng', async () => {
+    const questions = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions });
+    const originalPost = api.post.bind(api);
+    let sessionCalls = 0;
+    api.post = async (path, body) => {
+      if (path === '/api/quiz/sessions' && sessionCalls++ === 0) {
+        api.calls.post.push({ path, body });
+        throw new Error('mạng hỏng lúc mở');
+      }
+      return originalPost(path, body);
+    };
+    const { r } = await run({ questions, api });
+    assert.equal(r.sessionFailed, true);
+    const out = await playStage(r);
+    assert.equal(out.persisted, true, 'finishStage phải thử tạo session lại');
+    assert.equal(sessionCalls, 2);
+    assert.equal(api.calls.patch.length, 1);
   });
 
   test('chốt phiên hỏng cũng phải nói ra', async () => {
@@ -444,6 +502,16 @@ describe('retakeClone — trộn đáp án mà không đổi nghĩa', () => {
 });
 
 describe('bài kiểm tra lại', () => {
+  test('số lần retake khôi phục từ sổ server', async () => {
+    const { r } = await run({
+      questions: Array.from({ length: 6 }, (_, i) => mcq(i)),
+      mastery: { item_id: 'it-1', retakes: 2 },
+    });
+    assert.equal(r.retakeNo, 2);
+    await r.startRetake(5, lcg(3));
+    assert.equal(r.retakeNo, 3);
+  });
+
   test('bốc đúng cỡ mẫu, loại câu tự luận, phiên mang kind=retake', async () => {
     const questions = Array.from({ length: 12 }, (_, i) => mcq(i)).concat([essay(12), essay(13)]);
     const { r, api } = await run({ questions });
@@ -494,6 +562,24 @@ describe('bài kiểm tra lại', () => {
     assert.equal(out.hasMore, false, 'kiểm tra lại chỉ có MỘT chặng');
     assert.equal(store.getItem('cx:b1'), savedBefore,
       'trạng thái lượt chính không được đè trong lúc kiểm tra lại');
+  });
+
+  test('failed attempt khởi động lại một lượt đầy đủ sạch', async () => {
+    const questions = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const { r, api } = await run({ questions });
+    await playStage(r);
+    await r.startRetake(5, lcg(2));
+    assert.equal(r.mode, 'retake');
+    const ok = await r.restartFull();
+    assert.equal(ok, true);
+    assert.equal(r.mode, 'run');
+    assert.equal(r.stage, 0);
+    assert.equal(r.at, 0);
+    assert.equal(r.runSessionCount, 0, 'phiên lượt cũ không được lẫn vào verdict mới');
+    assert.equal(r.current().qid, 'Q0');
+    const opens = api.calls.post.filter((c) => c.path === '/api/quiz/sessions');
+    assert.deepEqual(opens[opens.length - 1].body, { bank_id: 'b1' },
+      'làm lại toàn bài phải mở phiên run, không phải retake');
   });
 });
 

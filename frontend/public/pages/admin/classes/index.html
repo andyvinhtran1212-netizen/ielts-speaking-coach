@@ -1370,8 +1370,8 @@
           <select id="hf-cbank"><option value="">— Chọn buổi —</option></select>
           <p class="av-setnote" id="hf-cbank-note" data-tone="ok"></p>
 
-          <!-- Cổng thuộc bài: dưới ngưỡng thì học viên kiểm tra lại (mẫu nhỏ,
-               trộn câu + trộn đáp án) tới khi đạt. Để trống = mặc định. -->
+          <!-- Cổng thuộc bài: vùng 10 điểm ngay dưới ngưỡng được kiểm tra lại;
+               thấp hơn phải làm lại toàn bộ bài. Để trống = mặc định. -->
           <div class="cl-form-row">
             <div class="adm-field">
               <label for="hf-pass-pct">Ngưỡng đạt (%)
@@ -1386,6 +1386,8 @@
                      inputmode="numeric" placeholder="20" />
             </div>
           </div>
+          <p class="av-setnote" data-tone="ok">Vùng gần đạt = ngưỡng đạt trừ 10 điểm
+            (ví dụ ngưỡng 75% thì 65–74,9% được kiểm tra lại; dưới 65% làm lại toàn bài).</p>
         </div>
 
         <!-- Bài sau buổi học: chọn BỘ ĐỀ của buổi, từ kho của khoá mà lớp thuộc

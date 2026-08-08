@@ -89,7 +89,8 @@ def _db(**tables):
 
 # Bài giao THẬT có đủ ba trường mà cổng đọc. Để thiếu chúng nghĩa là test đang
 # kiểm một thứ KHÁC với thứ chạy trên prod.
-_LIVE_ASG = {"id": "asg-1", "content_id": "bank-course", "status": "published",
+_LIVE_ASG = {"id": "asg-1", "content_id": "bank-course", "skill": "course",
+             "status": "published",
              "publish_at": None, "due_at": None, "cohort_id": "co-1"}
 _STUDENT = {"id": "st-1", "user_id": "u1", "cohort_id": "co-1"}
 
@@ -389,6 +390,11 @@ def _stage_db(*, stages_done, n_mcq=20, has_writing=False, **extra):
     # Mỗi "chặng" là 10 câu, và luật là PHỦ ĐỦ CÂU — nên phiên phải kèm lượt
     # làm thật, không chỉ một dòng phiên.
     return _db(
+        # `end_session` kiểm deadline từ quan hệ item → assignment trước
+        # khi chốt. Fixture thiếu hai dòng này không còn mô phỏng một
+        # quiz session của bài giao thật.
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
+        class_assignments=[_LIVE_ASG],
         quiz_questions=[{"bank_id": "bank-course", "qid": f"q{i}", "type": "mcq",
                          "answer": 0} for i in range(n_mcq)]
         # Phần tự luận đặt bằng DỮ LIỆU, không bằng cách vá hàm: chắn nay đọc
@@ -450,7 +456,12 @@ def test_a_failure_while_marking_does_NOT_break_ending_the_session():
         raise RuntimeError("mất kết nối")
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": "it-1"}
-    with patch.object(mod, "supabase_admin", _db(quiz_sessions=[])), \
+    db = _db(
+        quiz_sessions=[],
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
+        class_assignments=[_LIVE_ASG],
+    )
+    with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
          patch.object(mod, "mark_item_submitted", boom):
         out = mod.end_session(user_id="u1", session_id="sess-1",
