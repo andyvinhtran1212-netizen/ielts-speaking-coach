@@ -38,6 +38,13 @@ export default function ReadingVocabPage() {
       {/* CHÍNH tệp bản legacy dùng, không phải bản chép. `type="module"` nên nó
           hoãn tới sau khi parse xong — cùng thời điểm với bản legacy, vốn đặt
           thẻ này ở cuối <body>. */}
+      {/* TAI SOM, CHAY MUON. Truoc ban va, the <script> tinh nam trong HTML
+          may chu nen trinh duyet tai module SONG SONG voi moi thu khac. Doi
+          sang chen bang useEffect thi luot tai do bi day lui toi tan sau khi
+          hydrate, va noi dung xuat hien muon han - cong parity bat duoc dung
+          dieu do o /listening/skills va /reading/vocab ([unstable-extraction]).
+          modulepreload tra lai luot tai song song ma van giu thu tu THUC THI. */}
+      <link rel="modulepreload" href="/js/reading-vocab.js" />
       <LegacyModule src="/js/reading-vocab.js" />
       {/* Duong lui khi chunk React hong han: useEffect khong chay thi script
           khong duoc chen va trang dung im vinh vien. Script nay chay NGOAI
