@@ -528,13 +528,14 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /new AbortController\(\s*\)/);
   });
 
-  test('VALID_ACTIVE enum lists exactly the 5 skills (Phase B Q2)', () => {
+  test('VALID_ACTIVE enum lists every primary learner destination', () => {
     const m = component.match(/VALID_ACTIVE\s*=\s*\[([^\]]+)\]/);
     assert.ok(m);
     const skills = m[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
-    // Sprint 11.1 — 'listening' added as the 6th skill (DEBT-LISTENING-
-    // MODULE foundation 1/5). VALID_ACTIVE now has 6 entries.
-    assert.deepEqual(skills.sort(), ['grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
+    // `class` is a primary learner destination even though it is not a skill.
+    // Keeping it in this canonical contract lets My Class render a real active
+    // state instead of silently falling back to Home.
+    assert.deepEqual(skills.sort(), ['class', 'grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
   });
 
   test('shadow tree contains canonical brand wordmark with span.dot', () => {

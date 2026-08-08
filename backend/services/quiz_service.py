@@ -256,6 +256,32 @@ def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None
     return None
 
 
+def _course_attempt_history(attempts: list[dict], pass_pct: int) -> list[dict]:
+    """Learner-safe summary of the canonical mastery ledger.
+
+    The UI needs to explain the sequence ``full run → revision → next step``.
+    Returning a small explicit shape here prevents it from inferring history
+    from quiz sessions (which include abandoned/incomplete rows) or exposing the
+    raw mastery JSON contract to the browser.
+    """
+    history = []
+    for number, attempt in enumerate(attempts or [], start=1):
+        sessions = attempt.get("sessions") or []
+        try:
+            pct = round(float(attempt.get("pct") or 0), 1)
+        except (TypeError, ValueError):
+            pct = 0.0
+        history.append({
+            "number": number,
+            "phase": "retake" if attempt.get("phase") == "retake" else "run",
+            "pct": pct,
+            "at": attempt.get("at"),
+            "session_count": len({str(s) for s in sessions if s}),
+            "next_action": _recorded_next_action(attempt, pass_pct),
+        })
+    return history
+
+
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
         "id, topic_id, code, title, skill_area, words_count, updated_at"
@@ -2333,6 +2359,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         "phase": phase,
         "retake_size": cfg["retake_size"],
         "retakes": sum(1 for a in attempts if a.get("phase") == "retake"),
+        "history": _course_attempt_history(attempts, cfg["pass_pct"]),
     }
 
 
@@ -2417,7 +2444,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
     câu trong một chặng, nhưng làm lại chặng (đóng tab giữa chừng) sinh ra lượt
     thứ hai — và cái giáo viên muốn đọc là lần em ấy thật sự nghĩ.
     """
-    out: dict = {"questions": [], "totals": {}, "stale": False}
+    out: dict = {"questions": [], "totals": {}, "history": [], "stale": False}
 
     # ── CỔNG HAI MỨC ────────────────────────────────────────────────────────
     #
@@ -2490,9 +2517,34 @@ def course_answer_report(*, user_id: str, bank_id: str,
         logger.warning("[quiz] answer-report sessions failed: %s", exc)
         out["stale"] = True
         return out
-    sessions = [x for x in sessions
-                if (x.get("kind") or "run") == "run"
-                and x.get("class_assignment_item_id") in item_ids]
+    owned_sessions = [x for x in sessions
+                      if x.get("class_assignment_item_id") in item_ids]
+
+    # Session rows are operational history and may include abandoned work. The
+    # mastery ledger is the canonical list of GRADED full runs/revisions, so the
+    # learner summary comes from that ledger and only uses sessions to identify
+    # the exact assignment item represented by this report.
+    progress_ids = {x.get("class_assignment_item_id") for x in owned_sessions
+                    if x.get("class_assignment_item_id")}
+    if progress_ids:
+        try:
+            progress_rows = _report_pages(
+                "class_assignment_items", "id, mastery",
+                lambda q: q.in_("id", list(progress_ids)))
+            # A learner has one live item for a bank. The teacher path is also
+            # scoped to one user above, so sessions identify that user's item.
+            progress = next((x for x in progress_rows if x.get("mastery")), None)
+            mastery = (progress or {}).get("mastery") or {}
+            threshold = int(mastery.get("threshold")
+                            or ((locked or {}).get("threshold") if locked else 0)
+                            or PASS_PCT_DEFAULT)
+            out["history"] = _course_attempt_history(
+                mastery.get("attempts") or [], threshold)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] answer-report history failed: %s", exc)
+            out["stale"] = True
+
+    sessions = [x for x in owned_sessions if (x.get("kind") or "run") == "run"]
     if not sessions:
         return out
     sids = [x["id"] for x in sessions]

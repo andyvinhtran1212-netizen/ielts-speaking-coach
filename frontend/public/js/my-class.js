@@ -117,9 +117,18 @@ const awaitingWriting = (a) => a.assignment.skill === 'course'
 
 function itemRow(a, { action }) {
   const sub = taskSub(a);
+  const isPartial = awaitingWriting(a);
+  const state = a.submitted_at ? 'done' : a.is_missing ? 'missing' : 'todo';
+  const stateLabel = a.submitted_at ? (a.is_late ? 'Đã nộp trễ' : 'Đã nộp')
+    : a.is_missing ? 'Đã quá hạn'
+      : isPartial ? 'Còn phần tự luận' : 'Cần hoàn thành';
+  // `typeof` keeps the small extracted unit-test harness honest while the real
+  // page still consumes the shared map declared above.
+  const kindLabel = (typeof SKILL_LABEL !== 'undefined' && SKILL_LABEL[a.assignment.skill])
+    || a.assignment.skill || 'Bài tập';
   const meta = a.submitted_at
     ? submittedLabel(a)
-    : awaitingWriting(a)
+    : isPartial
       ? `<span class="mc-partial">Chưa hoàn tất — còn phần tự luận</span>`
         + ` · ${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`
       : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
@@ -137,12 +146,16 @@ function itemRow(a, { action }) {
   const canReview = a.assignment.skill === 'speaking'
     && (a.submitted_at || (a.is_missing && a.state !== 'assigned'));
   const btn = canReview
-    ? `<button class="mc-btn mc-btn-quiet" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
+    ? `<button class="av-button av-button-secondary" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
     : (action && !a.is_missing)
-      ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
+      ? `<button class="av-button av-button-primary" data-action="start" data-item="${esc(a.item_id)}">${isPartial ? 'Tiếp tục bài' : 'Làm bài'}</button>`
       : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
+      <div class="mc-item-meta">
+        <span class="mc-item-kind">${esc(kindLabel)}</span>
+        <span class="mc-item-state" data-state="${state}">${esc(stateLabel)}</span>
+      </div>
       <p class="mc-item-title">${esc(a.assignment.title)}</p>
       ${sub ? `<p class="mc-item-sub">${esc(sub)}</p>` : ''}
       <p class="mc-item-sub${a.is_missing ? ' is-alarm' : ''}">${meta}</p>

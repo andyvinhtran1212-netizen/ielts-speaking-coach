@@ -160,6 +160,11 @@ def test_run_fail_offers_retake_and_keeps_not_passed():
     assert out["passed"] is False and out["pct"] == 70.0
     assert out["retake_size"] == 20 and out["threshold"] == 80
     assert out["near_threshold"] == 70 and out["next_action"] == "retake"
+    assert out["history"] == [{
+        "number": 1, "phase": "run", "pct": 70.0,
+        "at": out["history"][0]["at"], "session_count": 2,
+        "next_action": "retake",
+    }]
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0

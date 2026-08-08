@@ -232,3 +232,104 @@
 }
 /* Đầu trục hết bấm được thì cũng đừng trông như bấm được. */
 .cr-axis__head[disabled] { cursor: default; }
+
+/* ── Canonical mastery trail: full sessions + revisions ─────────────────── */
+.cr-history {
+  overflow: hidden;
+  margin-top: var(--av-space-2);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-card);
+}
+
+.cr-history__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--av-space-6);
+  padding: var(--av-space-4) var(--av-space-6);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.cr-history__eyebrow {
+  margin: 0 0 var(--av-space-1);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-wide);
+  text-transform: uppercase;
+  color: var(--av-primary);
+}
+
+.cr-history__head h2 {
+  margin: 0;
+  font-size: var(--av-fs-lg);
+  line-height: var(--av-lh-snug);
+}
+
+.cr-history__head > p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  text-align: right;
+}
+
+.cr-history__table-wrap { overflow-x: auto; }
+
+.cr-history__table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: var(--av-fs-sm);
+}
+
+.cr-history__table th,
+.cr-history__table td {
+  padding: var(--av-space-3) var(--av-space-4);
+  border-bottom: 1px solid var(--av-border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cr-history__table th {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+}
+
+.cr-history__table tbody tr:last-child td { border-bottom: 0; }
+.cr-history__table tbody tr[data-current='true'] { background: var(--av-primary-soft); }
+.cr-history__table td b,
+.cr-history__table td strong { font-family: var(--av-font-mono); }
+
+.cr-history__state {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+}
+
+.cr-history__state[data-state='pass'] {
+  background: var(--av-success-soft);
+  color: var(--av-success);
+}
+
+.cr-history__state[data-state='retry'] {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}
+
+.cr-history__state[data-state='revise'] {
+  background: var(--av-info-soft);
+  color: var(--av-info);
+}
+
+@media (max-width: 640px) {
+  .cr-history__head { align-items: flex-start; flex-direction: column; gap: var(--av-space-2); padding: var(--av-space-4); }
+  .cr-history__head > p { text-align: left; }
+}

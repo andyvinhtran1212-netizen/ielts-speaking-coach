@@ -57,7 +57,7 @@ import { installPerfResourceHints } from '/js/components/perf-hints.js';
 // and Grammar (DEBT-LISTENING-MODULE foundation 1/5). Page shell lives
 // at /pages/listening.html; user-facing routes (dictation, gist, T/F,
 // MCQ, mini test) land in Sprint 11.2-11.4.
-const VALID_ACTIVE = ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary'];
+const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'grammar', 'vocabulary'];
 
 // Supabase polling — ~3s ceiling matches Sprint 7.8-hotfix bootstrap
 // pattern. 50ms tick × 60 tries.
@@ -317,7 +317,7 @@ const TEMPLATE = /* html */ `
     <div class="nav-links">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
-      <a href="/pages/my-class.html" data-tab="class">Lớp học</a>
+      <a href="/pages/my-class.html" data-tab="class">MY CLASS</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
