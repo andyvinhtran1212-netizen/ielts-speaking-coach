@@ -1434,7 +1434,11 @@ function returnStudentWork(assignmentId, studentId) {
         ? `Đã trả bài. ${n} câu em ấy viết đã được đưa lại vào ô nhập.`
         : 'Đã trả bài, nhưng KHÔNG khôi phục được câu nào — em ấy sẽ phải viết lại.',
         n ? undefined : 'error');
+      if (r && r.audit_logged === false) {
+        toast('Đã trả bài, nhưng KHÔNG ghi được vào nhật ký thao tác.', 'error');
+      }
       openTally(assignmentId);
+      refreshActionLogIfOpen();
     },
   });
 }
@@ -2683,6 +2687,142 @@ async function openEffort(bankId, assignmentId, title) {
  * một em vào bài không dành cho em ấy, mà lệnh bù thì KHÔNG gỡ lại được (nó chỉ
  * thêm, không bao giờ xoá).
  */
+/* ── Nhật ký thao tác ───────────────────────────────────────────────────────
+ *
+ * Đổi hạn và Trả bài đều sửa thứ học viên nhìn thấy, và trước mig 198 không
+ * đường nào để lại dấu ai làm. Màn này để ba tháng sau còn trả lời được "ai
+ * đổi, lúc nào, từ gì sang gì" khi một em hỏi vì sao bài mình thành nộp trễ.
+ *
+ * Nạp KHI MỞ, không nạp sẵn: nó không phải thứ đọc hằng ngày, và một lượt gọi
+ * mạng cho mỗi lần vào tab là trả giá cho thứ hầu như không ai xem.
+ */
+const LOG_WHAT = {
+  due_change: 'đổi hạn nộp',
+  return_work: 'trả bài cho học viên làm lại',
+};
+
+/**
+ * THẾ HỆ của lượt đọc nhật ký.
+ *
+ * Mở khung xong bấm luôn một thao tác: lượt đọc đầu còn đang bay, lượt sau về
+ * trước và vẽ dòng mới — rồi lượt đầu về sau và đè lại bằng bản CŨ, mất đúng
+ * dòng vừa tạo (codex cục bộ 08/08 vòng 2). Cùng bẫy `_mkGen` đã vá ở khu Nhận
+ * bài; chụp thế hệ lúc bắt đầu, chỉ vẽ nếu nó còn khớp.
+ */
+let _logGen = 0;
+
+/** Mốc thời gian → "08/08 19:03" giờ Việt Nam. */
+function logWhen(at) {
+  if (!at) return '';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/**
+ * Hạn nộp trong nhật ký, theo GIỜ VIỆT NAM.
+ *
+ * KHÔNG dùng `dueText()`: nó vẽ theo múi giờ máy đang mở trang, nên với một
+ * giáo viên đang ở nước ngoài, cùng MỘT dòng nhật ký sẽ hiện giờ thao tác theo
+ * giờ Việt Nam (`logWhen`) mà hạn nộp theo giờ bản địa — 19:00 thành 05:00, và
+ * không có nhãn nào nói ra (codex cục bộ 08/08 vòng 2). Hạn nộp là một quy ước
+ * giờ Việt Nam; nhật ký kể lại nó thì phải kể đúng múi giờ ấy.
+ */
+function logDue(at) {
+  if (!at) return 'không hạn';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return 'hạn không đọc được';
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/** Dòng "từ gì sang gì" — thứ khiến nhật ký đọc được mà không phải đoán. */
+function logDetail(a) {
+  const d = a.details || {};
+  if (a.action === 'due_change') {
+    const bits = [logDue(d.previous_due_at) + ' → ' + logDue(d.due_at)];
+    const f = d.flips || {};
+    if (f.to_ontime) bits.push(`${f.to_ontime} lượt nộp trễ thành đúng hạn`);
+    if (f.to_late) bits.push(`${f.to_late} lượt đúng hạn thành nộp trễ`);
+    return bits.join(' · ');
+  }
+  if (a.action === 'return_work') {
+    const bits = [];
+    // Nói rõ em ấy mở ra thấy bài cũ hay trang trắng — đó là điều người đọc
+    // nhật ký muốn biết nhất khi lần lại một ca trả bài.
+    bits.push(d.draft_restored
+      ? `${d.draft_restored} câu được đưa lại vào ô nhập`
+      : 'KHÔNG khôi phục được câu nào');
+    if (d.score_cleared) bits.push('điểm của mục đã xoá');
+    return bits.join(' · ');
+  }
+  return '';
+}
+
+async function loadActionLog(before) {
+  const box = $('action-log-body');
+  if (!box) return;
+  const gen = ++_logGen;
+  // Trang đầu thay cả khung; "Xem thêm" NỐI vào cuối, không vứt phần đang đọc.
+  if (!before) box.innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  let r;
+  try {
+    r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/action-log' + (before ? '?before=' + encodeURIComponent(before) : ''));
+  } catch (err) {
+    if (gen !== _logGen) return;
+    // Danh sách rỗng đọc ra là "chưa ai đụng gì" — một khẳng định mà lượt đọc
+    // hỏng chưa hề chứng minh.
+    box.innerHTML = '<p class="adm-banner">Không đọc được nhật ký: '
+      + esc(err.message || String(err)) + '</p>';
+    return;
+  }
+  if (gen !== _logGen) return;      // một lượt đọc mới hơn đã vẽ rồi
+  const rows = (r && r.actions) || [];
+  if (!rows.length && !before) {
+    box.innerHTML = '<p class="adm-hint">Chưa có thao tác nào được ghi.</p>';
+    return;
+  }
+  const html = rows.map((a) => {
+    const what = LOG_WHAT[a.action] || a.action;
+    const who = a.actor_email || 'không rõ ai';
+    const on = [a.assignment_title, a.student_name].filter(Boolean).map(esc).join(' · ');
+    const detail = logDetail(a);
+    return `<div class="cl-log__row">
+      <span class="cl-log__when">${esc(logWhen(a.created_at))}</span>
+      <span class="cl-log__what"><b>${esc(what)}</b>${on ? ' — ' + on : ''}
+        <span class="cl-log__who">· ${esc(who)}</span></span>
+      ${detail ? `<span class="cl-log__detail">${esc(detail)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  // Còn dòng cũ hơn thì NÓI RA và cho lối đi tiếp. Cắt trong im lặng làm người
+  // đọc tin rằng mình đã thấy hết — đúng lúc họ đang tìm một thao tác cũ.
+  const more = (r && r.has_more && r.next_before)
+    ? '<button class="adm-btn-secondary" type="button" data-log-more="'
+      + esc(r.next_before) + '">Xem thao tác cũ hơn</button>'
+    : '';
+  const old = before ? box.innerHTML.replace(/<button[^>]*data-log-more[\s\S]*?<\/button>/, '') : '';
+  box.innerHTML = old + html + more;
+}
+
+/** Nhật ký ĐANG MỞ thì vẽ lại sau mỗi thao tác ghi.
+ *
+ * `toggle` chỉ bắn khi đóng/mở, nên một khung đang mở sẽ đứng nguyên bản cũ
+ * ngay sau khi vừa đổi hạn — màn hình nói thiếu đúng dòng người ta vừa tạo
+ * (codex cục bộ 08/08). Đóng thì thôi: mở ra sẽ nạp.
+ */
+function refreshActionLogIfOpen() {
+  const box = $('action-log');
+  if (box && box.open) loadActionLog();
+}
+
 /* ── Đổi hạn nộp ────────────────────────────────────────────────────────────
  *
  * Cho tới nay không đổi hạn được từ trong sản phẩm — ngày 07/08 phải viết SQL
@@ -2794,9 +2934,15 @@ async function saveDue() {
     toast(r && r.due_at
       ? 'Đã đổi hạn. Bài giao nhận bài trở lại nếu hạn mới còn ở phía trước.'
       : 'Đã bỏ hạn nộp — bài này nhận bài không giới hạn thời gian.');
+    // Việc đã xong, nhưng nhật ký thủng một lỗ. Nói ra: một nhật ký được tin mà
+    // thiếu dòng còn tệ hơn không có nhật ký.
+    if (r && r.audit_logged === false) {
+      toast('Đã đổi hạn, nhưng KHÔNG ghi được vào nhật ký thao tác.', 'error');
+    }
     closeDueEdit();
     await loadHomework();
     invalidateProgress();
+    refreshActionLogIfOpen();
   } catch (err) {
     const d = (err && err.detail) || {};
     if (d.needs_confirm && d.flips) {
@@ -3679,6 +3825,17 @@ function bindDetail() {
   // `dueConfirmed()`; hai chỗ này chỉ giữ cho mắt và tay khớp nhau.
   $('due-date').addEventListener('input', syncDueWarning);
   $('due-time').addEventListener('input', syncDueWarning);
+
+  // Mở là nạp, và mở LẠI cũng nạp lại: vừa đổi hạn xong mà nhật ký hiện bản cũ
+  // thì nó nói sai về chính thao tác vừa rồi.
+  const logBox = $('action-log');
+  if (logBox) {
+    logBox.addEventListener('toggle', () => { if (logBox.open) loadActionLog(); });
+    logBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-log-more]');
+      if (btn) loadActionLog(btn.dataset.logMore);
+    });
+  }
   bindModalBackdrop('due-modal', closeDueEdit);
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));

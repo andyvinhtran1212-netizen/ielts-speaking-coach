@@ -46,6 +46,8 @@ from services.class_assignment_service import (
     backfill_assignment_items,
     change_assignment_due_at,
     compose_due_at,
+    log_class_action,
+    read_class_actions,
     create_class_assignment,
     is_accepting_submissions,
     mark_item_submitted,
@@ -1401,7 +1403,7 @@ async def return_student_work(
     (`course_hand_in_score`). Bộ đề có trắc nghiệm thì điểm của mục là kết quả
     trắc nghiệm; xoá nó ở đây là xoá đúng thứ em ấy đã làm được (#994).
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     _require_cohort(cohort_id)
 
     rows = (supabase_admin.table("class_assignments")
@@ -1453,7 +1455,25 @@ async def return_student_work(
 
     logger.info("[class] admin trả bài lớp=%s bài giao=%s học viên=%s",
                 cohort_id, assignment_id, student_id)
-    return {"returned": True, **out}
+    # Tên học viên đọc THÊM một lượt chỉ để chép vào nhật ký. Hỏng thì thôi:
+    # thiếu tên còn hơn hỏng cả lượt trả bài đã xong.
+    student_name = None
+    try:
+        st = (supabase_admin.table("students").select("full_name")
+              .eq("id", student_id).limit(1).execute().data) or []
+        student_name = (st[0].get("full_name") if st else None)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] nhật ký: không đọc được tên học viên %s: %s",
+                       student_id, exc)
+    logged = log_class_action(
+        supabase_admin, action="return_work", cohort_id=cohort_id, actor=actor,
+        assignment_id=assignment_id, assignment_title=asg.get("title"),
+        student_id=student_id, student_name=student_name,
+        details={k: out.get(k) for k in
+                 ("artifact_kind", "artifact_id", "score_cleared", "draft_restored")},
+        at=out.get("changed_at"),
+    )
+    return {"returned": True, **out, "audit_logged": logged}
 
 
 def _longest_missing_run(cells: list[dict]) -> int:
@@ -2093,6 +2113,67 @@ async def update_assignment(
     return r.data[0]
 
 
+@router.get("/{cohort_id}/action-log")
+async def class_action_log(
+    cohort_id: str,
+    limit: int = 50,
+    before: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Nhật ký thao tác của giáo viên lên hồ sơ học viên trong lớp này.
+
+    Hai đường ghi (đổi hạn, trả bài) đều sửa thứ học viên nhìn thấy, và trước
+    mig 198 không đường nào để lại dấu ai làm. Mặt đọc này để ba tháng sau còn
+    trả lời được "ai đổi, lúc nào, từ gì sang gì" khi có người hỏi.
+
+    Đọc HỎNG thì 500, không trả danh sách rỗng: một nhật ký rỗng đọc ra là
+    "chưa ai đụng gì" — một khẳng định mà lượt đọc hỏng chưa hề chứng minh.
+    """
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    try:
+        page = read_class_actions(supabase_admin, cohort_id=cohort_id,
+                                  limit=limit, before=before)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi khi đọc nhật ký thao tác: {exc}")
+    rows = page["actions"]
+
+    # Gắn TÊN bài giao và TÊN học viên vào từng dòng: một nhật ký toàn mã uuid
+    # thì đọc được về mặt kỹ thuật mà không dùng được về mặt con người. Hỏng thì
+    # vẫn trả nhật ký — thiếu tên còn hơn không có dòng nào.
+    names: dict = {}
+    students: dict = {}
+    try:
+        aids = [r["assignment_id"] for r in rows if r.get("assignment_id")]
+        if aids:
+            names = {a["id"]: a.get("title") for a in _paged(
+                supabase_admin, "class_assignments", "id, title",
+                lambda q: q.in_("id", list(set(aids))))}
+        sids = [r["student_id"] for r in rows if r.get("student_id")]
+        if sids:
+            students = {s["id"]: s.get("full_name") for s in _paged(
+                supabase_admin, "students", "id, full_name",
+                lambda q: q.in_("id", list(set(sids))))}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] nhật ký: không đọc được tên lớp=%s: %s", cohort_id, exc)
+
+    # Tên SỐNG trước (bài giao có thể đã đổi tên), rơi về BẢN CHÉP khi bài giao
+    # hoặc học viên đã bị xoá — lúc ấy bản chép là thứ duy nhất còn gọi được tên.
+    return {
+        "actions": [{
+            **r,
+            "assignment_title": (names.get(r.get("assignment_id"))
+                                 or r.get("assignment_title")),
+            "student_name": (students.get(r.get("student_id"))
+                             or r.get("student_name")),
+        } for r in rows],
+        # Nói thẳng còn dòng cũ hơn: một nhật ký cắt cụt trong im lặng làm người
+        # đọc tin rằng mình đã thấy hết.
+        "has_more": page["has_more"],
+        "next_before": page["next_before"],
+    }
+
+
 class DuePatch(BaseModel):
     """Đổi hạn nộp.
 
@@ -2134,7 +2215,7 @@ async def update_assignment_due(
     Một đường RIÊNG chứ không nhồi vào `PATCH` cũ: đường cũ đang được sửa ở một
     nhánh khác, và thêm trường vào cùng một khuôn là dựng sẵn một cuộc va.
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     _require_cohort(cohort_id)
 
     try:
@@ -2166,7 +2247,14 @@ async def update_assignment_due(
 
     logger.info("[class] admin đổi hạn lớp=%s bài giao=%s → %s",
                 cohort_id, assignment_id, new_due_at)
-    return out
+    logged = log_class_action(
+        supabase_admin, action="due_change", cohort_id=cohort_id, actor=actor,
+        assignment_id=assignment_id, assignment_title=out.get("assignment_title"),
+        details={k: out.get(k) for k in
+                 ("previous_due_at", "due_at", "flips", "submitted_count")},
+        at=out.get("changed_at"),
+    )
+    return {**out, "audit_logged": logged}
 
 
 @router.delete("/{cohort_id}/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)

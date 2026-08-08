@@ -43,9 +43,14 @@ function load({ postFails = null, postReturns = { returned: true, draft_restored
   const toast = (msg, kind) => seen.toasts.push({ msg, kind });
   const openTally = (id) => seen.tally.push(id);
 
+  // `refreshActionLogIfOpen` là hàng xóm mới của luồng này (nhật ký thao tác):
+  // trả bài xong thì khung nhật ký đang mở phải vẽ lại. Bộ giả phải có nó, và
+  // đếm luôn — thiếu thì lượt trả bài ném ReferenceError giữa chừng.
   const fn = new Function('window', 'api', 'toast', 'openTally', '_cohortId',
+    'refreshActionLogIfOpen',
     `${SRC.slice(start, end)}
-     return returnStudentWork;`)(win, api, toast, openTally, 'coh-1');
+     return returnStudentWork;`)(win, api, toast, openTally, 'coh-1',
+      () => { seen.logRefresh = (seen.logRefresh || 0) + 1; });
   return { fn, seen };
 }
 
@@ -83,6 +88,7 @@ describe('trả bài: hỏi trước, ghi sau, rồi đọc lại', () => {
     await seen.confirms[0].onConfirm();
     assert.deepEqual(seen.tally, ['asg-1']);
     assert.equal(seen.toasts[0].kind, undefined);
+    assert.equal(seen.logRefresh, 1, 'nhật ký đang mở phải thấy ngay dòng vừa tạo');
   });
 
   test('nói luôn em ấy mở ra thấy BÀI CŨ hay TRANG TRẮNG', async () => {
