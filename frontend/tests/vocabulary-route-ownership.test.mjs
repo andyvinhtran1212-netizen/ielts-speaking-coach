@@ -67,6 +67,45 @@ describe('quyền sở hữu route /vocabulary (chốt 2026-08-08)', () => {
       + 'cho wiki công khai (docs/ROUTE_LEDGER.md · Q3); trang học viên ở /vocabulary/hub.');
   });
 
+  // CẢ TÀI LIỆU phải nhất quán, không riêng đoạn ghi quyết định.
+  //
+  // Bản đầu của chốt này chỉ khớp ĐÚNG MỘT CÂU ở mục Q3 — nên nó vẫn xanh trong
+  // khi ba chỗ khác của cùng tài liệu vẫn ghi ngược lại: bảng route chính gán
+  // `/vocabulary` cho trang HỌC VIÊN, hàng `/vocabulary/hub` ghi «chốt xong ai
+  // sở hữu thì đổi», và Phụ lục B vẫn gọi tệp công khai là bí danh cũ. Một tài
+  // liệu tự mâu thuẫn sẽ đẩy lần di trú sau đi đúng vào chỗ cần tránh — mà chốt
+  // thì báo xanh (bot bắt ở #1009).
+  test('không hàng bảng nào trong sổ còn nói ngược lại', () => {
+    const sổ = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
+    const hàng = sổ.split('\n').filter((l) => l.trimStart().startsWith('|'));
+
+    // 1. Hàng có ô route ĐÚNG BẰNG `/vocabulary` phải trỏ tới tệp công khai.
+    const cột = (l) => l.split('|').map((c) => c.trim());
+    const xấu = [];
+    for (const l of hàng) {
+      const c = cột(l);
+      if (c[1] !== '`/vocabulary`') continue;
+      if (!/public\/vocabulary\.html/.test(l)) {
+        xấu.push(`hàng /vocabulary không trỏ tới public/vocabulary.html: ${l.slice(0, 90)}`);
+      }
+      if (/\bStudent\b/.test(l)) {
+        xấu.push(`hàng /vocabulary còn đánh dấu Student: ${l.slice(0, 90)}`);
+      }
+    }
+
+    // 2. Không hàng nào nhắc vocabulary còn mang dấu vết «chưa quyết».
+    const CŨ = [/cần rà soát/i, /needs audit/i, /likely legacy/i, /Chốt xong ai sở hữu/i,
+                /awaiting|pending verification/i];
+    for (const l of hàng) {
+      if (!/vocabulary/i.test(l)) continue;
+      for (const re of CŨ) {
+        if (re.test(l)) xấu.push(`hàng còn dấu vết «chưa quyết» (${re}): ${l.slice(0, 90)}`);
+      }
+    }
+    assert.deepEqual(xấu.sort(), [],
+      'sổ route tự mâu thuẫn về chủ sở hữu `/vocabulary`');
+  });
+
   test('quyết định được ghi ở nơi có thẩm quyền, không chỉ trong chốt này', () => {
     // Một chốt không kèm lý do sẽ bị gỡ bởi người không biết vì sao nó tồn tại.
     const sổ = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');

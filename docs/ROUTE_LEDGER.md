@@ -157,7 +157,7 @@
 | `/practice` | `?session_id=<uuid>` (mandatory; error if missing) | `pages/practice.html` | Student | `session_id` | localStorage (theme), sessionStorage (recording state), MediaRecorder, Whisper API (audio upload), Claude grading API, Supabase session | XL | Core speaking practice; 3167 LOC practice.js; recording + grading + feedback + full-test chaining |
 | `/result` | `?session_id=<uuid>` (from practice complete) | `pages/result.html` | Student | `session_id`, `part` (optional, scroll anchor) | localStorage (theme), sessionStorage (cached result), audio playback | L | Result display; grammar feedback, pronunciation pills, next-question nav |
 | `/full-test` | `app/(authed-full-test)/full-test/page.tsx` — CUTOVER 2026-08-07 | `pages/full-test.html` | Student | `test_id`, `attempt_id`, `session_ids` (array from chaining) | localStorage (theme), sessionStorage (test state, part progress) | L | Full mock test 3-part orchestration; session chaining |
-| `/vocabulary/hub` | `app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx` — CUTOVER 2026-08-07 | `pages/vocabulary.html` | Student | none | localStorage (theme), Supabase session | M | Hub từ vựng học viên. CỐ Ý không lấy tên `/vocabulary`: tên đó đang do `/vocabulary.html` (Wiki công khai) dùng và hàng `/vocabulary` bên dưới ghi 'cần rà soát'. Chốt xong ai sở hữu `/vocabulary` thì đổi route + cặp parity. |
+| `/vocabulary/hub` | `app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx` — CUTOVER 2026-08-07 | `pages/vocabulary.html` | Student | none | localStorage (theme), Supabase session | M | Hub từ vựng học viên. Tên `/vocabulary/hub` là CUỐI CÙNG, không phải chỗ đậu tạm: chủ dự án chốt 2026-08-08 rằng `/vocabulary` thuộc WIKI CÔNG KHAI (xem Q3). Ghim bởi `vocabulary-route-ownership.test.mjs`. |
 | `/mock/result` | `app/(authed-mock-result)/mock/result/page.tsx` — CUTOVER 2026-08-07 | `pages/mock-result.html` | Student | `sitting` | localStorage (theme), Supabase session | M | Phiếu điểm TRF của một lượt thi thử; JS+CSS tách khỏi inline, hai vế dùng chung |
 | `/speaking/result` | `app/(authed-speaking-result)/speaking/result/page.tsx` — CUTOVER 2026-08-07 | `pages/speaking-result.html` | Student | `sitting` | localStorage (theme), Supabase session | S | Nhận xét Speaking của giáo viên chấm; JS+CSS tách khỏi inline, hai vế dùng chung |
 | `/full-test-result` | — | `pages/full-test-result.html` | Student | `attempt_id` | localStorage (theme), audio playback | L | Aggregated result across 3 parts; band calculation |
@@ -216,7 +216,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` (root), `/pages/vocabulary.html`, `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json line 35) | `pages/vocabulary.html` | Student | none | localStorage (theme), sessionStorage (card state), Supabase session | M | Student vocab hub; curated topic words |
+| `/vocabulary` | `/vocabulary.html` (root) | `public/vocabulary.html` | **Public** | none | localStorage (theme) | M | **Wiki từ vựng CÔNG KHAI** — không cần đăng nhập. Là đích của tab «Vocabulary» trên `aver-chrome.js:324` và của link quay lại trong `vocab-article.html`. SỞ HỮU tên `/vocabulary` (chốt 2026-08-08, Q3). KHÔNG phải trang học viên: trang đó là `pages/vocabulary.html` ↔ `/vocabulary/hub`. `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json dòng 35) là redirect của TRANG HỌC VIÊN, không liên quan tới hàng này. |
 | `/vocabulary/exam` | `/pages/vocab-exam.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-vocab-exam)/vocabulary/exam/page.tsx` — CUTOVER 2026-08-06 | Student | `list_id` (AWL, TOEIC, THPT, or course-specific) | localStorage (theme), sessionStorage (quiz state, score), fetch API | L | Quiz from imported vocabulary list |
 | `/vocabulary/practice` | `app/(authed-vocab-practice)/vocabulary/practice/page.tsx` — CUTOVER 2026-08-07 | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
 | `/vocabulary/article` | — | `pages/vocab-article.html` | Public | `word_id`, `source` (reading, listening, etc.) | localStorage (theme), fetch (word definition + examples) | S | Word detail + etymology + usage |
@@ -564,7 +564,7 @@ Some routes are served by the same HTML file but accessible via multiple URL pat
 
 | Pattern 1 | Pattern 2 | Implementation file | Notes |
 |---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` | `pages/vocabulary.html` | Root-level file needs audit; likely legacy |
+| `/vocabulary` | `/vocabulary.html` | `public/vocabulary.html` | Wiki CÔNG KHAI, trang độc lập — SỞ HỮU `/vocabulary` (chốt 2026-08-08, Q3). Không phải bí danh cũ; không được biến thành redirect. |
 | `/writing` | `/writing/dashboard` | `pages/writing-dashboard.html` | Clean URL alias via vercel rewrite |
 | `/writing/result` | (direct path only) | `pages/writing-result.html` | No root-level alias |
 | `/grammar` | `/grammar.html` | `app/(public-content)/grammar/page.tsx` | CUTOVER (pilot 2); legacy giữ làm mốc rollback + vế parity |
