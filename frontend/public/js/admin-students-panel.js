@@ -38,6 +38,8 @@
     var _cohortsLoaded = false;
     var _drawerCohortName = '';     // cohort_name from the clicked row (detail endpoint lacks it)
     var _drawerLastFocus = null;    // element to restore focus to when the drawer closes
+    var _editorLastFocus = null;    // element to restore after create/edit closes
+    var _studentReqSeq = 0;         // stale searches must not overwrite newer results/KPIs
     var _TASK_LABELS = { task1_academic: 'Task 1 (Academic)', task1_general: 'Task 1 (General)', task2: 'Task 2' };
 
     // ── Local helpers (replace the removed WC.* utilities) ──────
@@ -71,7 +73,21 @@
       updateBulkBar();
       var sa = document.getElementById('bulk-select-all');
       if (sa) sa.checked = false;
-      document.getElementById('row-count').textContent = rows.length + ' học viên';
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+      var unassigned = rows.filter(function (r) { return !r.cohort_name; }).length;
+      var upcoming = rows.filter(function (r) {
+        if (!r.target_date) return false;
+        var d = new Date(r.target_date + 'T00:00:00');
+        return !isNaN(d.getTime()) && d >= today && d <= in90Days;
+      }).length;
+      document.getElementById('student-kpi-total').textContent = rows.length;
+      document.getElementById('student-kpi-unassigned').textContent = unassigned;
+      document.getElementById('student-kpi-upcoming').textContent = upcoming;
+      document.getElementById('row-count').textContent = rows.length === 200
+        ? '200+ học viên — thu hẹp tìm kiếm để đếm chính xác'
+        : rows.length + ' học viên trong kết quả';
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="8" class="st-empty">Chưa có học viên.</td></tr>';
         return;
@@ -82,22 +98,22 @@
         var lop   = r.cohort_name ? esc(r.cohort_name) : '—';   // unassigned → "—" (no silent-fail)
         var tBand = r.target_band == null ? '—' : r.target_band;
         var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
-        var date  = r.target_date ? esc(r.target_date) : '—';
+        var date  = r.target_date ? esc(_formatDateShort(r.target_date)) : '—';
         var checked = _selectedIds.has(r.id) ? ' checked' : '';
         var cohortAttr = r.cohort_name ? esc(r.cohort_name) : '';
         return '<tr>' +
-          '<td class="th-check"><input type="checkbox" class="row-check" aria-label="Chọn học viên" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
+          '<td class="th-check"><input type="checkbox" class="row-check" aria-label="Chọn ' + name + '" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +
           '<td><button class="st-namebtn" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">' + name + '</button></td>' +
           '<td>' + lop + '</td>' +
-          '<td>' + tBand + '</td>' +
-          '<td>' + cBand + '</td>' +
+          '<td><span class="st-band" data-empty="' + (tBand === '—') + '">' + tBand + '</span></td>' +
+          '<td><span class="st-band" data-empty="' + (cBand === '—') + '">' + cBand + '</span></td>' +
           '<td>' + date + '</td>' +
           '<td><div class="st-row-actions">' +
-            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">📊 Tổng quan</button>' +
-            '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">📝 New Essay</button>' +
-            '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Edit</button>' +
-            '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Delete</button>' +
+            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">Hồ sơ</button>' +
+            '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">Giao Writing</button>' +
+            '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Sửa</button>' +
+            '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Xoá</button>' +
           '</div></td>' +
         '</tr>';
       }).join('');
@@ -149,17 +165,30 @@
     }
 
     async function loadStudents() {
+      var seq = ++_studentReqSeq;
+      var tb = document.getElementById('students-tbody');
+      tb.innerHTML = '<tr><td colspan="8" class="st-empty">Đang tải danh sách học viên…</td></tr>';
+      document.getElementById('row-count').textContent = 'Đang tải…';
       try {
         var path = '/admin/students?limit=200';
         if (_searchValue) path += '&search=' + encodeURIComponent(_searchValue);
         var rows = await window.api.get(path);
+        if (seq !== _studentReqSeq) return;
         renderRows(rows || []);
       } catch (e) {
+        if (seq !== _studentReqSeq) return;
         setAlert('error', 'Không tải được danh sách: ' + e.message);
+        document.getElementById('student-kpi-total').textContent = '—';
+        document.getElementById('student-kpi-unassigned').textContent = '—';
+        document.getElementById('student-kpi-upcoming').textContent = '—';
+        document.getElementById('row-count').textContent = 'Chưa đọc được dữ liệu';
+        tb.innerHTML = '<tr><td colspan="8" class="st-empty">Không đọc được danh sách học viên. '
+          + '<button class="adm-btn-secondary" type="button" data-act="retry">Thử lại</button></td></tr>';
       }
     }
 
     function openModal(student) {
+      if (!_editorLastFocus) _editorLastFocus = document.activeElement;
       _editingId = student ? student.id : null;
       document.getElementById('modal-title').textContent = student ? 'Sửa học viên' : 'Học viên mới';
       document.getElementById('f-code').value         = student ? student.student_code : '';
@@ -169,14 +198,20 @@
       document.getElementById('f-target-date').value  = student ? (student.target_date  || '') : '';
       document.getElementById('f-notes').value        = student ? (student.persona_notes || '') : '';
       document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('f-code').focus();
     }
     function closeModal() {
       document.getElementById('modal').classList.add('hidden');
       _editingId = null;
+      if (_editorLastFocus && typeof _editorLastFocus.focus === 'function') {
+        try { _editorLastFocus.focus(); } catch (e) { /* opener may have been replaced */ }
+      }
+      _editorLastFocus = null;
     }
 
     async function handleSave(e) {
       e.preventDefault();
+      var saveBtn = document.getElementById('btn-save');
       var payload = {
         student_code: document.getElementById('f-code').value.trim(),
         full_name:    document.getElementById('f-name').value.trim(),
@@ -190,6 +225,7 @@
       if (td)        payload.target_date = td;
       if (notes)     payload.persona_notes = notes;
 
+      saveBtn.disabled = true;
       try {
         if (_editingId) {
           await window.api.patch('/admin/students/' + _editingId, payload);
@@ -202,6 +238,8 @@
         loadStudents();
       } catch (e) {
         setAlert('error', e.message);
+      } finally {
+        saveBtn.disabled = false;
       }
     }
 
@@ -210,6 +248,11 @@
       if (!btn) return;
       var id = btn.dataset.id;
       var act = btn.dataset.act;
+
+      if (act === 'retry') {
+        loadStudents();
+        return;
+      }
 
       if (act === 'summary') {
         _drawerCohortName = btn.dataset.cohort || '';
@@ -245,7 +288,7 @@
     }
     function _formatDateShort(iso) {
       if (!iso) return '—';
-      var d = new Date(iso);
+      var d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + 'T00:00:00' : iso);
       if (isNaN(d.getTime())) return '—';
       return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
     }
@@ -317,13 +360,13 @@
       var stu  = (summary && summary.student) || {};
       var code = (detail && detail.student_code) || stu.student_code || '';
       var name = (detail && detail.full_name) || stu.full_name || fallbackName || '';
-      document.getElementById('summary-title').textContent = (code ? code + ' — ' : '') + name;
+      document.getElementById('summary-title').textContent = name || code || 'Học viên';
 
       var tBand = detail && detail.target_band != null ? detail.target_band
                 : (stu.target_band != null ? stu.target_band : null);
       var cBand = detail && detail.current_band_estimate != null ? detail.current_band_estimate
                 : (stu.current_band_estimate != null ? stu.current_band_estimate : null);
-      var sub = ['🎯 Target: ' + _formatBand(tBand) + ' · Hiện tại: ' + _formatBand(cBand)];
+      var sub = [(code ? code + ' · ' : '') + 'Mục tiêu ' + _formatBand(tBand) + ' · Hiện tại ' + _formatBand(cBand)];
       var tDate = (detail && detail.target_date) || stu.target_date;
       if (tDate) sub.push('Hạn: ' + tDate);
       if (stu.is_under_review || (detail && detail.is_under_review)) sub.push('🚩 Under review');
@@ -455,6 +498,7 @@
     function _wireReady() {
       document.getElementById('btn-new').addEventListener('click', function () { openModal(null); });
       document.getElementById('btn-cancel').addEventListener('click', closeModal);
+      document.getElementById('btn-st-close').addEventListener('click', closeModal);
       document.getElementById('student-form').addEventListener('submit', handleSave);
       document.getElementById('students-tbody').addEventListener('click', handleTableClick);
       document.getElementById('csv-input').addEventListener('change', handleCsvImport);
@@ -477,9 +521,30 @@
         updateBulkBar();
       });
       document.getElementById('bulk-assign').addEventListener('click', doBulkAssign);
+      document.getElementById('bulk-clear').addEventListener('click', function () {
+        _selectedIds.clear();
+        document.querySelectorAll('#students-tbody input.row-check[data-id]').forEach(function (cb) {
+          cb.checked = false;
+        });
+        document.getElementById('bulk-select-all').checked = false;
+        updateBulkBar();
+      });
       populateBulkCohorts();
       document.getElementById('modal').addEventListener('click', function (e) {
         if (e.target.id === 'modal') closeModal();
+      });
+      // Keep keyboard focus inside the editor while it claims aria-modal=true.
+      document.getElementById('modal').addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        var modal = document.getElementById('modal');
+        if (modal.classList.contains('hidden')) return;
+        var focusable = Array.prototype.slice.call(modal.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(function (el) { return el.offsetParent !== null; });
+        if (!focusable.length) return;
+        var first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       });
       // Student summary modal close + ESC dismiss.
       document.getElementById('summary-close').addEventListener('click', closeSummary);
@@ -519,15 +584,20 @@
 
     // ── Auth gate (replaces WC.bootstrap): admin-only, reveals #state-ready ──
     async function _boot() {
+      _hide('state-ready');
+      _hide('state-denied');
+      _show('state-loading');
       try { initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch (e) { /* swallow */ }
       try {
         var me = await window.api.get('/auth/me');
         if (!me || me.role !== 'admin') {
+          _hide('state-loading');
           _hide('state-ready');
           _show('state-denied');
           return;
         }
         _hide('state-loading');
+        _hide('state-denied');
         _show('state-ready');
         _wireReady();
       } catch (e) {

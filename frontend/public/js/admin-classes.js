@@ -45,9 +45,12 @@ const toast = (msg, kind) =>
 
 let _cohorts = [];
 let _courses = [];
+let _rollupFailed = false;
+let _cohortsLoadFailed = false;
 let _cohortId = null;
 let _cohort = null;
 let _lessons = [];
+let _lessonsError = false;
 let _editingLessonId = null;
 let _studentsLoaded = false;
 
@@ -143,6 +146,15 @@ function courseOptionLabel(c) {
   return `${c.code} — ${c.name}` + (c.is_active === false ? ' (đã lưu trữ)' : '');
 }
 
+function foldSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLocaleLowerCase('vi');
+}
+
 /**
  * Options for the edit form's course picker.
  *
@@ -169,21 +181,49 @@ function renderCourseOptions(selectedId) {
 function renderList() {
   const status = $('filter-status').value;
   const courseId = $('filter-course').value;
+  const search = foldSearch(($('filter-search').value || '').trim());
+
+  const activeCohorts = _cohorts.filter((c) => c.is_active !== false);
+  const activeCount = activeCohorts.length;
+  const knownCounts = !_rollupFailed && activeCohorts.every((c) => c.member_count != null);
+  const totalStudents = knownCounts
+    ? activeCohorts.reduce((sum, c) => sum + Number(c.member_count || 0), 0)
+    : null;
+  const unactivated = knownCounts
+    ? activeCohorts.reduce((sum, c) => sum + Number(c.unactivated_count || 0), 0)
+    : null;
+  $('kpi-active-classes').textContent = _cohortsLoadFailed
+    ? 'Chưa đọc được'
+    : `${countLabel(activeCount)} / ${countLabel(_cohorts.length)}`;
+  $('kpi-total-students').textContent = totalStudents == null ? 'Chưa đọc được' : countLabel(totalStudents);
+  $('kpi-unactivated').textContent = unactivated == null ? 'Chưa đọc được' : countLabel(unactivated);
 
   const rows = _cohorts.filter((c) => {
     if (status === 'active' && c.is_active === false) return false;
     if (status === 'archived' && c.is_active !== false) return false;
     if (courseId && c.course_id !== courseId) return false;
+    if (search) {
+      const haystack = foldSearch(`${c.name || ''} ${c.code_prefix || ''}`);
+      if (!haystack.includes(search)) return false;
+    }
     return true;
   });
 
   $('list-loading').hidden = true;
+  $('class-result-summary').textContent = _cohortsLoadFailed ? '—' : `${countLabel(rows.length)} lớp`;
+
+  if (_cohortsLoadFailed) {
+    $('list-empty').textContent = 'Không tải được danh sách lớp. Vui lòng tải lại trang để thử lại.';
+    $('list-empty').hidden = false;
+    $('list-table-wrap').hidden = true;
+    return;
+  }
 
   if (!rows.length) {
     // The empty state names the filter that produced it, so the admin is not
     // left wondering whether there are no classes or none matching.
-    $('list-empty').textContent = (_cohorts.length && (courseId || status !== 'all'))
-      ? 'Không có lớp nào khớp bộ lọc. Đổi khoá học hoặc trạng thái để xem thêm.'
+    $('list-empty').textContent = (_cohorts.length && (search || courseId || status !== 'all'))
+      ? 'Không có lớp nào khớp bộ lọc. Thử đổi từ khoá, khoá học hoặc trạng thái.'
       : 'Chưa có lớp nào. Tạo lớp đầu tiên để bắt đầu.';
     $('list-empty').hidden = false;
     $('list-table-wrap').hidden = true;
@@ -197,13 +237,15 @@ function renderList() {
     const toggle = archived
       ? `<button class="adm-btn-secondary" data-action="restore" data-id="${esc(c.id)}">Khôi phục</button>`
       : `<button class="adm-btn-secondary" data-action="archive" data-id="${esc(c.id)}">Lưu trữ</button>`;
+    const description = c.description
+      ? `<span class="cl-directory-table__sub">${esc(c.description)}</span>` : '';
     return `<tr>
-      <td><a class="cl-link" href="/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(c.id)}">${esc(c.name)}</a></td>
+      <td><a class="cl-link" href="/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(c.id)}">${esc(c.name)}</a>${description}</td>
       <td>${courseLabel(c.course, c.course_id)}</td>
       <td>${rosterCell(c.member_count, c.unactivated_count)}</td>
       <td class="code-cell">${esc(c.code_prefix) || '—'}</td>
       <td>${statusChip(c)}</td>
-      <td>${toggle}</td>
+      <td class="cl-row-end">${toggle}</td>
     </tr>`;
   }).join('');
 }
@@ -228,6 +270,8 @@ async function loadCohorts() {
     // student scan they never render. No is_active filter → archived included.
     const r = await api.get('/admin/cohorts?with_rollup=true');
     _cohorts = (r && r.cohorts) || [];
+    _rollupFailed = !!(r && r.rollup_failed);
+    _cohortsLoadFailed = false;
     // Surfaced, not swallowed: without this the admin reads "Không đọc được sĩ
     // số" on every row with no idea why.
     if (r && r.rollup_failed) {
@@ -235,6 +279,8 @@ async function loadCohorts() {
     }
   } catch (err) {
     _cohorts = [];
+    _rollupFailed = true;
+    _cohortsLoadFailed = true;
     toast('Không tải được danh sách lớp: ' + (err.message || err), 'error');
   }
   renderList();
@@ -326,6 +372,7 @@ async function loadDetail(cohortId) {
   _cohort = data.cohort || {};
   const members = data.members || [];
   const unactivated = members.filter((m) => !m.user_id).length;
+  const activated = members.length - unactivated;
 
   $('detail-title').textContent = _cohort.name || 'Lớp';
   document.title = `${_cohort.name || 'Lớp'} · Lớp & Học viên · Admin`;
@@ -340,6 +387,9 @@ async function loadDetail(cohortId) {
   $('roster-summary').innerHTML = unactivated
     ? `${countLabel(members.length)} học viên · <span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt, sẽ không nhận được bài giao</span>`
     : `${countLabel(members.length)} học viên`;
+  $('detail-kpi-total').textContent = countLabel(members.length);
+  $('detail-kpi-activated').textContent = countLabel(activated);
+  $('detail-kpi-unactivated').textContent = countLabel(unactivated);
 
   // Giữ lại cho hộp thoại giao bài: mở hộp thoại mà phải chờ mạng là chờ đúng
   // lúc người dùng đang vội nhất.
@@ -387,15 +437,27 @@ const LENS = {
 };
 
 function renderRoster(members) {
+  const search = foldSearch(($('roster-search') && $('roster-search').value || '').trim());
+  const account = ($('roster-account-filter') && $('roster-account-filter').value) || 'all';
+  const visible = members.filter((m) => {
+    if (account === 'activated' && !m.user_id) return false;
+    if (account === 'unactivated' && m.user_id) return false;
+    if (search && !foldSearch(`${m.name || ''} ${m.student_code || ''}`).includes(search)) return false;
+    return true;
+  });
+  const hasFilter = !!search || account !== 'all';
   $('roster-empty').hidden = members.length > 0;
-  $('roster-table-wrap').hidden = members.length === 0;
+  $('roster-filter-empty').hidden = !(members.length > 0 && visible.length === 0 && hasFilter);
+  $('roster-table-wrap').hidden = visible.length === 0;
+  $('roster-result-count').textContent = `${countLabel(visible.length)} / ${countLabel(members.length)} học viên`;
+  if (_picked && !visible.some((m) => m.student_id === _picked)) _picked = null;
   const L = LENS[_lens] || LENS.today;
   const head = $('roster-table-wrap').querySelector('thead tr');
   if (head) {
     head.innerHTML = L.head.map((h) => (h
       ? `<th>${esc(h)}</th>` : '<th><span class="sr-only">Thao tác</span></th>')).join('');
   }
-  $('roster-tbody').innerHTML = members.map((m) => {
+  $('roster-tbody').innerHTML = visible.map((m) => {
     const account = m.user_id
       ? '<div class="cl-lesson-sub">Đã kích hoạt</div>'
       : '<div class="cl-roster-gap">Chưa kích hoạt</div>';
@@ -465,16 +527,32 @@ function renderDrawer() {
   if (!m) { _picked = null; d.hidden = true; return; }
   const p = (_progressBy || {})[m.student_id] || null;
   d.hidden = false;
-  d.innerHTML = `<h3>${esc(m.name) || '—'}</h3>
-    <div class="cl-lesson-sub">${esc(m.student_code) || '—'}</div>
-    <dl>
-      <dt>Tài khoản</dt>
-      <dd>${m.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</dd>
-      <dt>Hoạt động gần nhất</dt>
-      <dd>${esc(lastActiveLabel(m.last_active))}</dd>
-      <dt>Nộp đúng hạn</dt>
-      <dd>${p ? punctualityCell(p.homework) : '<span class="cl-skill-none">—</span>'}</dd>
-    </dl>`;
+  const progressRequested = _lens === 'progress';
+  const skills = p && p.skills ? ['speaking', 'writing', 'reading', 'listening']
+    .map((key) => {
+      const label = key.charAt(0).toUpperCase() + key.slice(1);
+      return `<div class="cl-drawer-skill" data-skill="${key}">
+        <span>${label}</span>${skillCell(p.skills[key], key, p.target_band)}
+      </div>`;
+    }).join('') : (progressRequested
+      ? '<p class="cl-skill-unknown">Chưa đọc được tiến độ của học viên này.</p>'
+      : '<p class="cl-muted">Mở ống kính Tiến độ để đọc dữ liệu 4 kỹ năng.</p>');
+  d.innerHTML = `<div class="cl-drawer-head">
+      <div><p class="cl-eyebrow">Hồ sơ trong lớp</p><h3 id="roster-drawer-title" tabindex="-1">${esc(m.name) || '—'}</h3>
+        <div class="cl-lesson-sub code-cell">${esc(m.student_code) || '—'}</div></div>
+      <button class="cl-icon-button" type="button" data-action="close-drawer" aria-label="Đóng hồ sơ học viên">×</button>
+    </div>
+    <div class="cl-drawer-badges">
+      <span class="adm-chip ${m.user_id ? 'is-active' : ''}">${m.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span>
+    </div>
+    <dl class="cl-drawer-stats">
+      <div><dt>Phiên nói</dt><dd>${countLabel(m.sessions)}</dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd>${esc(lastActiveLabel(m.last_active))}</dd></div>
+      <div><dt>Chi phí AI</dt><dd>${esc(usdLabel(m.ai_cost_usd))}</dd></div>
+      <div><dt>Nộp đúng hạn</dt><dd>${p ? punctualityCell(p.homework)
+        : (progressRequested ? punctualityCell(null) : '<span class="cl-skill-none">—</span>')}</dd></div>
+    </dl>
+    <div class="cl-drawer-progress"><h4>Tiến độ 4 kỹ năng</h4>${skills}</div>`;
 }
 
 async function populateStudentPicker() {
@@ -547,19 +625,34 @@ function removeMember(studentId) {
 
 function renderLessons() {
   $('lessons-loading').hidden = true;
+  $('lessons-count').textContent = `${countLabel(_lessons.length)} buổi`;
+  $('lessons-published-count').textContent = `${countLabel(_lessons.filter((l) => l.is_published).length)} đã đăng`;
+  if (_lessonsError) {
+    $('lessons-count').textContent = 'Chưa đọc được';
+    $('lessons-published-count').textContent = 'Trạng thái chưa rõ';
+    $('lessons-empty').hidden = false;
+    $('lessons-empty').innerHTML = 'Không đọc được danh sách buổi học. '
+      + '<button class="adm-btn-secondary" data-action="retry-lessons" type="button">Thử lại</button>';
+    $('lessons-list').innerHTML = '';
+    return;
+  }
+  $('lessons-empty').textContent =
+    'Chưa có buổi học nào. Thêm buổi đầu tiên để học viên có nội dung để xem.';
   $('lessons-empty').hidden = _lessons.length > 0;
   $('lessons-list').innerHTML = _lessons.map((l) => {
     const no = l.lesson_no != null ? `Buổi ${esc(l.lesson_no)}` : '';
     const date = fmtDate(l.lesson_date);
-    const sub = [date, l.is_published ? 'Đã đăng' : 'Chưa đăng'].filter(Boolean).join(' · ');
+    const state = l.is_published
+      ? '<span class="adm-chip is-active">Đã đăng</span>'
+      : '<span class="adm-chip">Bản nháp</span>';
     const files = (Array.isArray(l.attachments) ? l.attachments : []).map((a) =>
       `<a class="adm-chip" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.label)}</a>`
     ).join('');
     return `<article class="cl-lesson">
       <div class="cl-lesson-no">${no}</div>
       <div class="cl-lesson-main">
-        <p class="cl-lesson-title">${esc(l.title)}</p>
-        <p class="cl-lesson-sub">${esc(sub)}</p>
+        <div class="cl-lesson-title-row"><p class="cl-lesson-title">${esc(l.title)}</p>${state}</div>
+        ${date ? `<p class="cl-lesson-sub">${esc(date)}</p>` : ''}
         ${l.body_md ? `<p class="cl-lesson-body">${esc(l.body_md)}</p>` : ''}
         ${files ? `<div class="cl-lesson-files">${files}</div>` : ''}
       </div>
@@ -573,11 +666,15 @@ function renderLessons() {
 
 async function loadLessons() {
   $('lessons-loading').hidden = false;
+  $('lessons-empty').hidden = true;
   try {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/lessons');
     _lessons = (r && r.lessons) || [];
+    _lessonsError = false;
   } catch (err) {
     _lessons = [];
+    _lessonsError = true;
+    _lessonsLoaded = false;
     toast('Không tải được buổi học: ' + (err.message || err), 'error');
   }
   renderLessons();
@@ -753,24 +850,58 @@ function progressCell(p) {
 function renderHomework() {
   $('homework-loading').hidden = true;
 
+  const now = Date.now();
+  const soon = now + (48 * 60 * 60 * 1000);
+  const isDueSoon = (a) => {
+    const at = a.due_at ? new Date(a.due_at).getTime() : NaN;
+    return a.status !== 'archived' && Number.isFinite(at) && at >= now && at <= soon;
+  };
+  const isOverdue = (a) => {
+    const at = a.due_at ? new Date(a.due_at).getTime() : NaN;
+    return a.status !== 'archived' && Number.isFinite(at) && at < now;
+  };
+  const openCount = _homework.filter((a) => a.status !== 'archived' && !isOverdue(a)).length;
+  $('homework-kpi-open').textContent = countLabel(openCount);
+  $('homework-kpi-due').textContent = countLabel(_homework.filter(isDueSoon).length);
+  $('homework-kpi-closed').textContent = countLabel(_homework.filter((a) => a.status === 'archived').length);
+
   // A failed load is NOT an empty class. Rendering the normal "Chưa giao bài
   // nào" for it tells the admin something false about their own data — and the
   // toast that said otherwise has already gone. Say what happened, and offer the
   // retry, because the load latch has been released.
   if (_homeworkError) {
+    $('homework-kpi-open').textContent = '—';
+    $('homework-kpi-due').textContent = '—';
+    $('homework-kpi-closed').textContent = '—';
     $('homework-empty').hidden = false;
     $('homework-empty').innerHTML =
       'Không đọc được danh sách bài giao. '
       + '<button class="adm-btn-secondary" data-action="retry-homework" type="button">Thử lại</button>';
     $('homework-table-wrap').hidden = true;
+    $('homework-filter-empty').hidden = true;
+    $('homework-result-count').textContent = '';
     return;
   }
 
   $('homework-empty').textContent =
     'Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.';
-  $('homework-empty').hidden = _homework.length > 0;
-  $('homework-table-wrap').hidden = _homework.length === 0;
-  $('homework-tbody').innerHTML = _homework.map((a) => {
+  const search = foldSearch(($('homework-search').value || '').trim());
+  const status = $('homework-status-filter').value || 'all';
+  const rows = _homework.filter((a) => {
+    const cfg = a.content_config || {};
+    const haystack = foldSearch(`${a.title || ''} ${a.skill || ''} ${cfg.topic || ''} ${cfg.test_title || ''}`);
+    if (search && !haystack.includes(search)) return false;
+    if (status === 'open' && (a.status === 'archived' || isOverdue(a))) return false;
+    if (status === 'archived' && a.status !== 'archived') return false;
+    if (status === 'due-soon' && !isDueSoon(a)) return false;
+    return true;
+  });
+  const hasHomework = _homework.length > 0;
+  $('homework-empty').hidden = hasHomework;
+  $('homework-filter-empty').hidden = !hasHomework || rows.length > 0;
+  $('homework-table-wrap').hidden = !hasHomework || rows.length === 0;
+  $('homework-result-count').textContent = `${countLabel(rows.length)} / ${countLabel(_homework.length)} bài`;
+  $('homework-tbody').innerHTML = rows.map((a) => {
     const cfg = a.content_config || {};
     const sub = a.skill === 'speaking'
       ? [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ')
@@ -786,7 +917,11 @@ function renderHomework() {
       : (p.submitted
         ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
         : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
-    const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
+    const archivedChip = archived
+      ? ' <span class="adm-chip">Đã đóng</span>'
+      : (isOverdue(a)
+        ? ' <span class="adm-chip">Hết hạn</span>'
+        : (isDueSoon(a) ? ' <span class="adm-chip cl-chip-warning">Sắp đến hạn</span>' : ' <span class="adm-chip is-active">Đang mở</span>'));
     // Chỉ bài tập theo buổi có kho câu hỏi để đọc chi tiết; các kỹ năng khác
     // không có `quiz_attempts` nên nút sẽ mở ra một bảng rỗng.
     const effort = '';
@@ -1695,6 +1830,114 @@ function renderDueResolve() {
   whyEl.textContent = `Giờ Việt Nam — ${days} ngày kể từ hôm nay. Sau mốc này hệ thống không nhận bài nữa.`;
 }
 
+let _hfStep = 1;
+
+function homeworkValidationMessage(step) {
+  if (step === 1) {
+    const title = $('hf-title').value.trim();
+    const lesson = hfKind() === 'lesson';
+    const skill = lesson ? 'speaking' : $('hf-skill').value;
+    if (!title) return 'Nhập tên bài giao để tiếp tục.';
+    if (lesson && !$('hf-set').value) return 'Chọn một buổi để tiếp tục.';
+    if (lesson && !_qpick.picked.length) return 'Chọn ít nhất một câu để giao.';
+    if (skill === 'speaking' && !lesson && !$('hf-topic').value.trim()) {
+      return 'Chọn một chủ đề để tiếp tục.';
+    }
+    if (skill === 'speaking' && !lesson && qmode() === 'manual'
+        && _qpick.picked.length !== _qpick.want) {
+      return `Part ${$('hf-part').value} cần đúng ${_qpick.want} câu — bạn đã chọn ${_qpick.picked.length}.`;
+    }
+    if (skill === 'course' && !$('hf-cbank').value) return 'Chọn một buổi để tiếp tục.';
+    if (skill === 'course') {
+      const passPct = parseInt($('hf-pass-pct').value, 10);
+      const retakeSize = parseInt($('hf-retake-size').value, 10);
+      if ($('hf-pass-pct').value !== '' && (isNaN(passPct) || passPct < 50 || passPct > 100)) {
+        return 'Ngưỡng đạt phải trong khoảng 50–100%.';
+      }
+      if ($('hf-retake-size').value !== '' && (isNaN(retakeSize) || retakeSize < 5 || retakeSize > 100)) {
+        return 'Số câu kiểm tra lại phải trong khoảng 5–100.';
+      }
+    }
+    if (skill !== 'speaking' && skill !== 'course' && !$('hf-test').value) {
+      return 'Chọn một đề để tiếp tục.';
+    }
+  }
+  if (step === 2 && !whoIsAll() && !_who.picked.size) {
+    return 'Chọn ít nhất một học viên hoặc chuyển về “Cả lớp”.';
+  }
+  if (step === 3 && hfKind() === 'lesson') {
+    const days = Number($('hf-due-days').value);
+    if (!days || days < 1 || days > 90) return 'Số ngày được nộp phải từ 1 đến 90.';
+  }
+  return '';
+}
+
+function homeworkContentSummary() {
+  const lesson = hfKind() === 'lesson';
+  const skill = lesson ? 'speaking' : $('hf-skill').value;
+  const source = lesson
+    ? (($('hf-set').selectedOptions[0] || {}).text || 'Bài sau buổi học')
+    : skill === 'speaking'
+      ? (($('hf-topic').selectedOptions[0] || {}).text || 'Speaking')
+      : skill === 'course'
+        ? (($('hf-cbank').selectedOptions[0] || {}).text || 'Bài tập theo buổi')
+        : (($('hf-test').selectedOptions[0] || {}).text || SKILL_LABEL[skill] || skill);
+  return `${$('hf-title').value.trim()} · ${source}`;
+}
+
+function renderHomeworkReview() {
+  $('hf-review-content').textContent = homeworkContentSummary();
+  $('hf-review-recipients').textContent = whoIsAll()
+    ? `Cả lớp (${countLabel(_who.members.length)} học viên)`
+    : `${countLabel(_who.picked.size)} học viên được chọn`;
+  if (hfKind() === 'lesson') {
+    const days = Number($('hf-due-days').value);
+    const d = vietnamDatePlusDays(days);
+    $('hf-review-due').textContent = `${$('hf-due-time').value || '19:00'} · ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()} (giờ VN)`;
+  } else {
+    $('hf-review-due').textContent = $('hf-due').value
+      ? `${$('hf-due').value.split('-').reverse().join('/')} · ${$('hf-due-time').value || '19:00'} (giờ VN)`
+      : 'Không đặt hạn';
+  }
+  $('hf-review-note').textContent = $('hf-instructions').value.trim() || 'Không có';
+}
+
+function showHomeworkStep(step, options = {}) {
+  const nextStep = Math.max(1, Math.min(4, Number(step) || 1));
+  if (!options.skipValidation && nextStep > _hfStep) {
+    const message = homeworkValidationMessage(_hfStep);
+    if (message) {
+      $('hf-error').textContent = message;
+      $('hf-error').hidden = false;
+      $('hf-error').scrollIntoView({ block: 'nearest' });
+      $('hf-error').focus();
+      return false;
+    }
+  }
+  _hfStep = nextStep;
+  document.querySelectorAll('[data-hf-step]').forEach((panel) => {
+    panel.hidden = Number(panel.dataset.hfStep) !== _hfStep;
+  });
+  document.querySelectorAll('[data-step-indicator]').forEach((item) => {
+    const n = Number(item.dataset.stepIndicator);
+    item.classList.toggle('is-active', n === _hfStep);
+    item.classList.toggle('is-complete', n < _hfStep);
+    if (n === _hfStep) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  });
+  $('btn-hf-back').hidden = _hfStep === 1;
+  $('btn-hf-next').hidden = _hfStep === 4;
+  $('btn-hf-submit').hidden = _hfStep !== 4;
+  $('hf-error').hidden = true;
+  if (_hfStep === 4) renderHomeworkReview();
+  const heading = document.querySelector(`[data-hf-step="${_hfStep}"] h3`);
+  if (heading && options.focus !== false) {
+    heading.setAttribute('tabindex', '-1');
+    heading.focus();
+  }
+  return true;
+}
+
 function openHomeworkModal() {
   const daily = document.querySelector('input[name="hf-kind"][value="daily"]');
   if (daily) daily.checked = true;
@@ -1737,6 +1980,7 @@ function openHomeworkModal() {
   $('hf-warning').hidden = true;
   applyHomeworkKind();
   $('homework-modal').hidden = false;
+  showHomeworkStep(1, { skipValidation: true, focus: false });
   $('hf-title').focus();
 }
 
@@ -2722,6 +2966,11 @@ function bindList() {
   $('btn-create-cohort').addEventListener('click', () => openCohortModal(null));
   $('filter-status').addEventListener('change', renderList);
   $('filter-course').addEventListener('change', renderList);
+  let searchTimer = null;
+  $('filter-search').addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(renderList, 180);
+  });
   $('list-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -2744,14 +2993,33 @@ function bindDetail() {
     // bàn phím cũng tới được — Enter/Space trên nút phát ra chính sự kiện này.
     const tr = e.target.closest('tr[data-student]');
     if (!tr) return;
-    _picked = _picked === tr.dataset.student ? null : tr.dataset.student;
+    const opening = _picked !== tr.dataset.student;
+    _picked = opening ? tr.dataset.student : null;
     renderRoster(_who.members || []);
     // Trả tiêu điểm về đúng nút vừa bấm: vẽ lại bảng làm mất tiêu điểm, và một
     // người dùng bàn phím sẽ bị ném về đầu trang sau mỗi lần mở ngăn kéo.
+    const focusTarget = opening
+      ? $('roster-drawer').querySelector('#roster-drawer-title')
+      : $('roster-tbody').querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
+    if (focusTarget) focusTarget.focus();
+  });
+  $('roster-drawer').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-action="close-drawer"]')) return;
+    const previouslyPicked = _picked;
+    _picked = null;
+    renderRoster(_who.members || []);
+    if (!previouslyPicked) return;
     const back = $('roster-tbody')
-      .querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
+      .querySelector(`button[data-student="${CSS.escape(previouslyPicked)}"]`);
     if (back) back.focus();
   });
+
+  let rosterSearchTimer = null;
+  $('roster-search').addEventListener('input', () => {
+    window.clearTimeout(rosterSearchTimer);
+    rosterSearchTimer = window.setTimeout(() => renderRoster(_who.members || []), 180);
+  });
+  $('roster-account-filter').addEventListener('change', () => renderRoster(_who.members || []));
 
   // Đổi ống kính: nghe trên VÙNG CHỨA, không gắn vào từng nút — thêm ống kính
   // thứ ba sau này sẽ tự chạy, không phải nhớ nối tay.
@@ -2771,10 +3039,19 @@ function bindDetail() {
   $('tab-marking').addEventListener('click', () => showPanel('marking'));
 
   $('btn-add-homework').addEventListener('click', openHomeworkModal);
+  let homeworkSearchTimer = null;
+  $('homework-search').addEventListener('input', () => {
+    window.clearTimeout(homeworkSearchTimer);
+    homeworkSearchTimer = window.setTimeout(renderHomework, 180);
+  });
+  $('homework-status-filter').addEventListener('change', renderHomework);
   $('homework-empty').addEventListener('click', (e) => {
     if (e.target.closest('button[data-action="retry-homework"]')) loadHomework();
   });
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-close').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-back').addEventListener('click', () => showHomeworkStep(_hfStep - 1));
+  $('btn-hf-next').addEventListener('click', () => showHomeworkStep(_hfStep + 1));
   $('btn-hf-submit').addEventListener('click', submitHomework);
   $('hf-skill').addEventListener('change', applyHomeworkSkill);
   // Chủ đề thuộc về một PART cụ thể — đổi Part mà giữ danh sách cũ là mời admin
@@ -2885,7 +3162,11 @@ function bindDetail() {
 
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
-  $('btn-lf-submit').addEventListener('click', submitLesson);
+  $('btn-lf-close').addEventListener('click', closeLessonModal);
+  $('lesson-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitLesson();
+  });
   $('btn-lf-add-file').addEventListener('click', () =>
     $('lf-attachments').appendChild(attachmentRow('', '')));
   bindModalBackdrop('lesson-modal', closeLessonModal);
@@ -2899,11 +3180,18 @@ function bindDetail() {
     }
     if (btn.dataset.action === 'delete-lesson') deleteLesson(btn.dataset.id);
   });
+  $('lessons-empty').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-lessons"]')) loadLessons();
+  });
 }
 
 function bindShared() {
   $('btn-cf-cancel').addEventListener('click', closeCohortModal);
-  $('btn-cf-submit').addEventListener('click', submitCohort);
+  $('btn-cf-close').addEventListener('click', closeCohortModal);
+  $('cohort-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitCohort();
+  });
   bindModalBackdrop('cohort-modal', closeCohortModal);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

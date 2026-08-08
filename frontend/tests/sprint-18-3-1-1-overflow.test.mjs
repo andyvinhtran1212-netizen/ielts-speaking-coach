@@ -32,7 +32,7 @@ describe('Sprint 18.3.1.1 — action buttons stay whole', () => {
 
 describe('Sprint 18.3.1.1 — cohorts detail header reflows (root cause)', () => {
   test('header uses the wrapping .co-detail-head class, not a no-wrap inline flex', () => {
-    assert.match(COHORTS, /class="cl-header cl-detail-head"/);
+    assert.match(COHORTS, /class="cl-header cl-detail-head(?:\s[^"]*)?"/);
     assert.doesNotMatch(COHORTS, /style="display:flex;align-items:flex-start;justify-content:space-between/);
   });
   test('.co-detail-head wraps + lets the title side shrink', () => {
