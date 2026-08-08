@@ -466,3 +466,35 @@ describe('cổng đường-ghi — `atLeast`', () => {
     }
   });
 });
+
+// ── `query` phải THẬT SỰ kiểm cái gì đó ─────────────────────────────────────
+//
+// Hai lỗ do bot bắt ở #1001, cả hai đều dựng lại đúng cái XANH-GIẢ mà `query`
+// sinh ra để chặn — tức bản vá tự mở lại chính cái cửa nó vừa đóng.
+describe('cổng đường-ghi — validateFlow chặn `query` vô nghĩa', () => {
+  const khai = (q) => validateFlow({
+    name: 'x', route: '/x', steps: [{ wait: 1 }],
+    writes: [{ method: 'POST', path: '/x', query: q }],
+  });
+
+  test('`query: {}` bị từ chối — không kiểm gì mà vẫn xanh', () => {
+    assert.ok(khai({}).length, '`query` rỗng phải bị từ chối');
+  });
+
+  test('Map bị từ chối — `Object.entries(map)` là mảng RỖNG', () => {
+    // `typeof new Map() === "object"` nên phép kiểm cũ cho qua, rồi `judge()`
+    // không lặp được khoá nào và bản khai xanh dù tham số vắng mặt.
+    assert.ok(khai(new Map([['class_item', 'abc']])).length, 'Map phải bị từ chối');
+    assert.ok(khai(['class_item']).length, 'mảng phải bị từ chối');
+    assert.ok(khai(null).length, 'null phải bị từ chối');
+  });
+
+  test('vị từ async/generator bị từ chối — Promise LUÔN truthy', () => {
+    for (const xấu of [async () => false, function* () { yield false; }]) {
+      assert.ok(khai({ class_item: xấu }).length,
+        'vị từ async/generator phải bị từ chối');
+    }
+    // Vị từ THƯỜNG vẫn phải được nhận.
+    assert.deepEqual(khai({ class_item: (v) => v === 'abc' }), []);
+  });
+});

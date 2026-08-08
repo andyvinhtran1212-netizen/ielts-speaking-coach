@@ -617,8 +617,25 @@ export function validateFlow(flow) {
     // ra một đằng chạy ra một nẻo. `atLeast` là SÀN cho những đường ghi mà số
     // lần là tạo tác của nhịp thao tác — dùng nó phải là một lựa chọn có ý
     // thức, không phải cách lách khi `times` báo đỏ.
-    if ('query' in w && (w.query === null || typeof w.query !== 'object' || Array.isArray(w.query))) {
-      bad(`đường ghi ${i}: \`query\` phải là object thường`);
+    // `typeof x === 'object'` là phép kiểm QUÁ RỘNG: `new Map([['class_item', v]])`
+    // qua được nó, mà `Object.entries(map)` trả MẢNG RỖNG ⇒ `judge()` không
+    // kiểm gì và bản khai XANH dù tham số vắng mặt. `query: {}` cũng vậy. Cả
+    // hai dựng lại đúng cái xanh-giả mà `query` sinh ra để chặn (bot bắt ở
+    // #1001), nên phải là object THƯỜNG và có ÍT NHẤT MỘT khoá.
+    if ('query' in w) {
+      if (!isPlainObject(w.query)) bad(`đường ghi ${i}: \`query\` phải là object thường`);
+      else if (!Object.keys(w.query).length) {
+        bad(`đường ghi ${i}: \`query\` rỗng — không kiểm gì cả, bỏ hẳn đi thì trung thực hơn`);
+      } else {
+        // Vị từ `async`/generator trả về Promise/iterator — LUÔN truthy, nên một
+        // tham số sai vẫn qua. `body` và `headers` đã bị chặn; `query` thì chưa.
+        for (const [k, v] of Object.entries(w.query)) {
+          if (typeof v === 'function' && badPredicate(v)) {
+            bad(`đường ghi ${i}: \`query.${k}\` là hàm async/generator — nó trả `
+              + 'Promise/iterator, mà thứ đó LUÔN truthy, nên tham số sai vẫn qua');
+          }
+        }
+      }
     }
     if ('atLeast' in w && 'times' in w) {
       bad(`đường ghi ${i}: khai CẢ \`times\` lẫn \`atLeast\` — chọn một`);
