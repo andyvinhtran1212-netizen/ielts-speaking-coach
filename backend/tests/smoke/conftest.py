@@ -1,9 +1,12 @@
-"""Marker registration for smoke tests (path-based exclusion per Sprint W1 Q5).
+"""Marker registration for smoke tests.
 
-Smoke tests live under tests/smoke/ and are excluded from the default suite
-via the developer's invocation (e.g. `pytest tests/ --ignore=tests/smoke`).
-This conftest only registers the `smoke` marker so the marker decorators
-in this directory don't generate PytestUnknownMarkWarning.
+LỊCH SỬ: bản đầu ghi rằng smoke bị loại "via the developer's invocation
+(e.g. `pytest tests/ --ignore=tests/smoke`)" — tức là trông vào việc người chạy
+NHỚ gõ thêm cờ. Không ai nhớ, và ngày 08/08 nó chạy ~24 lượt trong một ngày.
+
+Nay cổng thật nằm ở `pytest_collection_modifyitems` trong tests/conftest.py và
+đòi cờ `--run-smoke`; marker vẫn khai báo ở pytest.ini. Tệp này giữ lại phần
+đăng ký marker cho ca chạy thẳng thư mục con.
 """
 
 
