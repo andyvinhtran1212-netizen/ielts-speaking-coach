@@ -35,6 +35,58 @@ export function normalizeText(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 }
 
+// Lỗi TẦNG VẬN CHUYỂN: request không bao giờ tới nơi, nên không có phản hồi để
+// nói lên điều gì về TRANG. Đây là hỏng của DỤNG CỤ ĐO, không phải khuyết tật
+// của thứ đang đo — và phân biệt được hai thứ đó là cả điểm của danh sách này.
+//
+// CA ĐÃ XẢY RA (2026-08-07, lượt `full` của cổng G1): backend production từ chối
+// kết nối giữa chừng. Khi nó từ chối RẢI RÁC, hai lần chụp khác nhau ⇒ báo
+// `unstable-extraction`. Nhưng khi nó từ chối ỔN ĐỊNH trong một quãng, hai lần
+// chụp GIỐNG NHAU (cùng hỏng) ⇒ harness kết luận "ổn định" rồi đem so với vế
+// kia vốn gọi được ⇒ 87/150 cặp báo lệch, 610 phát hiện mức cao. Không cái nào
+// là khuyết tật thật. Một cổng đỏ vì lý do sai vài lần là một cổng người ta bắt
+// đầu bỏ qua, nên đây không phải chuyện thẩm mỹ.
+//
+// `ERR_ABORTED` CỐ Ý ĐỨNG NGOÀI: nó xảy ra bình thường (điều hướng bị huỷ, tải
+// media bị dừng) và gộp vào đây sẽ biến mọi lượt chạy thành "hạ tầng hỏng".
+const TRANSPORT_ERRORS = new Set([
+  'net::ERR_CONNECTION_REFUSED',
+  'net::ERR_CONNECTION_RESET',
+  'net::ERR_CONNECTION_CLOSED',
+  'net::ERR_CONNECTION_TIMED_OUT',
+  'net::ERR_CONNECTION_FAILED',
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_INTERNET_DISCONNECTED',
+  'net::ERR_NETWORK_CHANGED',
+  'net::ERR_ADDRESS_UNREACHABLE',
+  'net::ERR_EMPTY_RESPONSE',
+  'net::ERR_SOCKET_NOT_CONNECTED',
+  'net::ERR_TIMED_OUT',
+  // TCP FIN/dữ liệu không được ACK ⇒ Chromium phát mã này. Thiếu nó là quay lại
+  // đúng hành vi cũ: đem bản chụp hỏng đi so rồi sinh hàng loạt lệch giả.
+  'net::ERR_CONNECTION_ABORTED',
+  // `net::ERR_FAILED` CỐ Ý ĐỨNG NGOÀI, dù nghe rất giống "mất kết nối".
+  // Chromium dùng chính mã này cho LỖI CORS. Đưa vào đây thì một hồi quy CORS
+  // của bản Next — tức đúng loại khuyết tật cổng này sinh ra để bắt — sẽ bị dán
+  // nhãn "hạ tầng hỏng" và biến mất khỏi báo cáo. Một bộ lọc chống-đỏ-giả mà
+  // nuốt luôn lỗi thật thì tệ hơn là không có.
+]);
+
+/**
+ * `errorText` của Playwright có phải lỗi tầng vận chuyển không?
+ *
+ * So BẰNG, không so CHỨA. `includes` sẽ khiến `net::ERR_FAILED` khớp luôn vào
+ * những mã dài hơn có cùng tiền tố, và mọi mã `net::ERR_*` chưa biết cũng dễ
+ * bị kéo vào — mà mở rộng nhầm ở đây nghĩa là giấu một lỗi thật dưới nhãn "hạ
+ * tầng hỏng". Muốn thêm mã nào thì thêm tường minh vào danh sách trên.
+ *
+ * `errorText` đôi khi kèm mô tả sau dấu cách, nên cắt ở khoảng trắng đầu tiên.
+ */
+export function isTransportError(errorText) {
+  if (typeof errorText !== 'string' || !errorText) return false;
+  return TRANSPORT_ERRORS.has(errorText.trim().split(/\s+/)[0]);
+}
+
 // Gốc giả chỉ dùng để phân giải đường dẫn khi caller không đưa `base`.
 const SYNTHETIC_BASE = 'https://parity.invalid/';
 

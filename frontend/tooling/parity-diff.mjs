@@ -16,7 +16,8 @@ import { chromium } from '@playwright/test';
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler }
+import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler,
+         isTransportError }
   from './parity-core.mjs';
 import { signIn, sessionEntry } from './supabase-session.mjs';
 
@@ -165,6 +166,20 @@ async function expandGrammar() {
  * nhau, khác nhau thì thử lại, vẫn khác thì báo `unstable-extraction` — một
  * phát hiện mức cao, chứ không phải một con số trông có vẻ chắc chắn.
  */
+/**
+ * URL này có thuộc hạ tầng của chính phép đo không?
+ *
+ * Đúng hai origin: backend đang gọi, và máy chủ đang phục vụ hai vế. Mọi origin
+ * khác mà hỏng đều là khuyết tật của TRANG, và phải ở lại `resourceFailures` để
+ * bộ so nói ra.
+ */
+function isInfraOrigin(url) {
+  try {
+    const o = new URL(url).origin;
+    return o === API_ORIGIN || o === new URL(BASE).origin;
+  } catch { return false; }
+}
+
 async function extractStable(mkContext, url) {
   let last = null;
   // Mỗi LẦN CHỤP một context sạch, không chỉ mỗi cặp: `grammar.js:844` ghi
@@ -176,15 +191,36 @@ async function extractStable(mkContext, url) {
     const ctx = await mkContext();
     try { return await extractOnce(ctx, url); } finally { await ctx.close(); }
   };
+  let netErrors = [];
   for (let attempt = 0; attempt < 3; attempt++) {
     const a = await shot();
     const b = await shot();
+    // MẤT KẾT NỐI THÌ THỬ LẠI, ĐỪNG KẾT LUẬN. Khi backend từ chối ỔN ĐỊNH,
+    // hai lần chụp giống hệt nhau (cùng hỏng) nên kiểm-ổn-định ở dưới coi là
+    // đạt — rồi bản chụp hỏng đó bị đem so với vế kia vốn gọi được. Đó chính
+    // là đường sinh ra 87/150 "cặp lệch" ngày 2026-08-07. Kiểm mạng phải đứng
+    // TRƯỚC kiểm ổn định, không phải sau.
+    netErrors = [...(a.netErrors || []), ...(b.netErrors || [])];
+    if (netErrors.length) {
+      last = a;
+      // Giãn cách tăng dần: sự cố hay gặp là backend từ chối cả CỤM request
+      // dưới tải, nên thử lại ngay lập tức thường chỉ nện thêm vào đúng chỗ đau.
+      // KHÔNG ngủ sau lần thử CUỐI — không còn lượt nào để chờ cho. Với 150
+      // cặp và backend hỏng liên tục, lần ngủ thừa đó cộng ~225 giây mỗi bề
+      // rộng, tức ~7,5 phút cho hai bề rộng, trong khi job chỉ có 30 phút.
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      continue;
+    }
     const key = (f) => JSON.stringify([f.headings, f.links, f.lines, f.components, f.status]);
     if (key(a) === key(b)) return a;
     last = a;
   }
   return { ...last, consoleErrors: [...(last.consoleErrors || [])],
-           unstable: true };
+           // Hai lý do KHÁC NHAU, phải mang hai nhãn khác nhau: `unstable` là
+           // "trang tự đổi giữa hai lần chụp" (khuyết tật có thể có thật);
+           // `transportFailed` là "không gọi được backend" (dụng cụ đo hỏng).
+           // Gộp chúng lại là quay về đúng chỗ nhầm ban đầu.
+           ...(netErrors.length ? { transportFailed: netErrors } : { unstable: true }) };
 }
 
 /** Một lần trích — đúng hình dạng mà `parity-core` đọc. */
@@ -217,6 +253,12 @@ async function extractOnce(context, url) {
   page.on('pageerror', (e) => consoleErrors.push(normalizeText(String(e)).slice(0, 200)));
   // CSS hay chunk 404 làm trang vỡ bố cục trong khi DOM chữ vẫn khớp y hệt.
   const resourceFailures = [];
+  // CỐ Ý nằm NGOÀI `buildFacts`: đây không phải dữ kiện để SO giữa hai vế, mà
+  // là tình trạng của chính dụng cụ đo. Đưa vào `FACT_KEYS` là biến một sự cố
+  // hạ tầng thành một khác biệt giữa legacy↔Next — đúng cái nhầm cần tránh.
+  const netErrors = [];
+  // Lỗi vận chuyển ở origin KHÔNG thuộc hạ tầng phép đo — giữ riêng để in ra.
+  const foreignNetErrors = [];
   page.on('response', (r) => {
     if (r.status() >= 400) {
       try { resourceFailures.push(`${r.status()} ${new URL(r.url()).pathname}`); } catch { /* bỏ */ }
@@ -224,6 +266,25 @@ async function extractOnce(context, url) {
   });
   page.on('requestfailed', (r) => {
     try { resourceFailures.push(`FAILED ${new URL(r.url()).pathname}`); } catch { /* bỏ */ }
+    // Tách riêng lỗi TẦNG VẬN CHUYỂN. Nó không nói gì về trang — xem chú thích
+    // dài ở `isTransportError` trong `parity-core.mjs`.
+    const err = r.failure() ? r.failure().errorText : '';
+    // CHỈ các origin HẠ TẦNG mới được coi là hỏng hạ tầng. Không giới hạn thì
+    // một bản Next lỡ trỏ `<script src="https://cdn-go-nham.invalid/x.js">` sẽ
+    // cho `ERR_NAME_NOT_RESOLVED` ỔN ĐỊNH — một khuyết tật THẬT của trang — mà
+    // cả cặp lại bị ghi «không kết luận được», rồi báo oan cho backend.
+    if (isTransportError(err)) {
+      let origin = '(không đọc được)';
+      try { origin = new URL(r.url()).origin; } catch { /* giữ nguyên */ }
+      const mã = `${err.trim().split(/\s+/)[0]} ${origin}`;
+      if (isInfraOrigin(r.url())) netErrors.push(mã);
+      // Lỗi vận chuyển ở origin LẠ là khuyết tật của TRANG (ví dụ bản Next trỏ
+      // nhầm một CDN), nên nó ở lại `resourceFailures` để bộ so nói ra. Nhưng
+      // phải GHI RA origin: bản đầu chỉ lưu `pathname`, nên khi lượt chạy CI
+      // đỏ vì `ERR_CONNECTION_REFUSED` tôi KHÔNG có cách nào biết host nào bị
+      // từ chối — và không có dữ kiện đó thì mọi phân tích chỉ là phỏng đoán.
+      else foreignNetErrors.push(mã);
+    }
   });
   page.on('request', (r) => {
     try {
@@ -245,9 +306,10 @@ async function extractOnce(context, url) {
     await page.waitForTimeout(SETTLE_MS);
   } catch (e) {
     await page.close();
-    return buildFacts({}, { url, finalUrl: url, status, apiCalls: [],
-                            resourceFailures,
-                            consoleErrors: [`NAVIGATION: ${e.message}`] });
+    return { ...buildFacts({}, { url, finalUrl: url, status, apiCalls: [],
+                                 resourceFailures,
+                                 consoleErrors: [`NAVIGATION: ${e.message}`] }),
+             netErrors, foreignNetErrors };
   }
 
   const facts = await page.evaluate(() => {
@@ -320,10 +382,10 @@ async function extractOnce(context, url) {
     .map((el) => ({ text: el.text, href: hrefFromInlineHandler(el.onclick) }))
     .filter((l) => l.href);
 
-  return buildFacts(
+  return { ...buildFacts(
     { ...facts, links: [...facts.links, ...inlineLinks] },
     { url, finalUrl, status, apiCalls, resourceFailures, consoleErrors,
-      blockedMutations });
+      blockedMutations }), netErrors, foreignNetErrors };
 }
 
 async function main() {
@@ -377,6 +439,23 @@ async function main() {
         extractStable(mk, BASE + p.legacy),
         extractStable(mk, BASE + p.next),
       ]);
+      // KHÔNG SO khi dụng cụ đo mất kết nối. Chạy `comparePages` trên một bản
+      // chụp hỏng vẫn cho ra findings — chỉ là chúng vô nghĩa, và một khi đã
+      // nằm trong báo cáo thì người đọc không cách nào biết cái nào thật. Cặp
+      // này không có phán quyết; nó làm cả lượt chạy đỏ ở cuối, bằng thông điệp
+      // riêng nói đúng chuyện đã xảy ra.
+      const lạ = [...new Set([...(legacy.foreignNetErrors || []),
+                              ...(next.foreignNetErrors || [])])];
+      const netFail = [...new Set([...(legacy.transportFailed || []),
+                                   ...(next.transportFailed || [])])];
+      if (netFail.length) {
+        results.push({ name: p.name, url: BASE + p.legacy, nextUrl: BASE + p.next,
+                       findings: [], counts: { high: 0, warn: 0 },
+                       pass: true, noVerdict: true, transportFailed: netFail });
+        done += 1;
+        if (done % 10 === 0) console.log(`  … ${done}/${pairs.length}`);
+        continue;
+      }
       const r = comparePages(legacy, next, {
         allow: p.allow || [],
         // Cặp nào cố ý trỏ vào route lỗi thì phải KHAI ra, không mặc định.
@@ -399,6 +478,7 @@ async function main() {
           r.pass = false;
         }
       }
+      if (lạ.length) r.foreignNetErrors = lạ;
       results.push({ name: p.name, ...r });
       done += 1;
       if (done % 10 === 0) console.log(`  … ${done}/${pairs.length}`);
@@ -415,6 +495,16 @@ async function main() {
     }
   }
 
+  // Origin LẠ bị từ chối: không tự làm lượt chạy đỏ (đó là việc của bộ so),
+  // nhưng phải HIỆN RA. Không có dòng này thì một lượt đỏ vì mất kết nối tới
+  // một host ngoài dự kiến sẽ không để lại manh mối nào về host đó.
+  const lạTấtCả = [...new Set(results.flatMap((r) => r.foreignNetErrors || []))];
+  if (lạTấtCả.length) {
+    console.log(`\n⚠ lỗi mạng ở origin NGOÀI hạ tầng phép đo (${lạTấtCả.length} loại) —`
+      + ' được tính là khuyết tật TRANG, không phải hỏng hạ tầng:');
+    for (const m of lạTấtCả) console.log(`  ✗ ${m}`);
+  }
+
   const blocked = [...new Set(results.flatMap((r) => r.blockedMutations || []))];
   if (blocked.length) {
     console.log(`\nđã chặn ${blocked.length} loại request ghi (bộ so không được ghi vào dữ liệu thật):`);
@@ -425,6 +515,30 @@ async function main() {
     mkdirSync(path.dirname(OUT), { recursive: true });
     writeFileSync(OUT, JSON.stringify(results, null, 2));
     console.log(`\nbáo cáo đầy đủ: ${OUT}`);
+  }
+  // KHÔNG GỘP với đường đỏ vì parity. Một lượt chạy mất kết nối tới backend
+  // KHÔNG nói được gì về parity — báo nó thành "cặp lệch" là khẳng định điều
+  // chưa đo được, và đó chính là cách một cổng mất uy tín: đỏ vì lý do sai vài
+  // lần là người ta bắt đầu bỏ qua nó. Mã thoát 3 để phân biệt được từ ngoài.
+  const noVerdict = results.filter((r) => r.noVerdict);
+  const cóLệch = results.some((r) => !r.pass);
+  if (noVerdict.length) {
+    const mã = [...new Set(noVerdict.flatMap((r) => r.transportFailed))].sort();
+    console.log(`\n⚠ KHÔNG KẾT LUẬN ĐƯỢC PARITY cho ${noVerdict.length}/${results.length} cặp:`
+      + ' không gọi được backend sau 3 lượt thử (có giãn cách).');
+    for (const m of mã) console.log(`  ✗ ${m}`);
+    for (const r of noVerdict.slice(0, 10)) console.log(`  · ${r.name}`);
+    if (noVerdict.length > 10) console.log(`  · … và ${noVerdict.length - 10} cặp nữa`);
+    console.log('\nĐây là hỏng HẠ TẦNG, không phải khuyết tật trang. Kiểm backend rồi chạy lại.');
+    // MÃ RIÊNG cho ca VỪA lệch parity VỪA hỏng hạ tầng. Trả 3 ở đây thì
+    // workflow chỉ đặt `INFRA=1` rồi in thông điệp ngụ ý «không phải phát hiện
+    // parity» — trong khi có 5 cặp lệch thật nằm ngay trong báo cáo. Mất một
+    // loại trạng thái là mất đúng loại nguy hiểm hơn.
+    if (cóLệch) {
+      console.log(`\n⚠ NGOÀI RA còn ${results.filter((r) => !r.pass).length} cặp LỆCH THẬT — đọc bảng trên.`);
+      process.exit(4);
+    }
+    process.exit(3);
   }
   process.exit(results.some((r) => !r.pass) ? 1 : 0);
 }
