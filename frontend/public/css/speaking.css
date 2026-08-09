@@ -294,6 +294,290 @@
 .main-tab-panel.active { display: block; }
 
 
+/* ── Speaking mode setup workspaces (2026-08 hand redesign) ─────
+   The three entry modes share one orientation rhythm, then diverge into
+   task-appropriate layouts. JS-coupled IDs stay untouched. */
+
+.speaking-setup-shell {
+  padding-bottom: var(--av-space-16);
+}
+
+.speaking-setup-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(480px, 0.9fr);
+  grid-template-areas:
+    "kicker facts"
+    "lede facts";
+  align-items: start;
+  column-gap: var(--av-space-8);
+  row-gap: var(--av-space-2);
+  margin: var(--av-space-4) 0 var(--av-space-8);
+  padding-bottom: var(--av-space-8);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.speaking-setup-kicker,
+.option-card__step {
+  margin: 0 0 var(--av-space-2);
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-widest);
+  line-height: var(--av-lh-tight);
+  text-transform: uppercase;
+}
+
+.speaking-setup-kicker {
+  grid-area: kicker;
+}
+
+.speaking-setup-lede {
+  grid-area: lede;
+  max-width: 58ch;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-base);
+  line-height: var(--av-lh-relaxed);
+}
+
+.speaking-mode-facts {
+  grid-area: facts;
+  align-self: end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  margin: 0;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.speaking-mode-facts > div {
+  min-width: 0;
+  padding: var(--av-space-4);
+}
+
+.speaking-mode-facts > div + div {
+  border-left: 1px solid var(--av-border-subtle);
+}
+
+.speaking-mode-facts dt {
+  margin-bottom: var(--av-space-1);
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+}
+
+.speaking-mode-facts dd {
+  margin: 0;
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  line-height: var(--av-lh-snug);
+}
+
+.speaking-setup-grid .option-card {
+  min-width: 0;
+  padding: var(--av-space-8);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.speaking-setup-grid .option-card--custom {
+  border-top: 3px solid var(--av-info);
+}
+
+.speaking-setup-grid .option-card--library {
+  border-top: 3px solid var(--av-primary);
+}
+
+.option-card__head {
+  min-height: 56px;
+}
+
+.option-card__icon {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+}
+
+.pbp-part-card {
+  width: 100%;
+  min-height: 184px;
+  padding: var(--av-space-6);
+  appearance: none;
+  color: var(--av-text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.pbp-part-card:focus-visible,
+.part-select-btn:focus-visible,
+.option-card button:focus-visible,
+.fulltest-start-panel button:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+
+.pbp-topic-card {
+  max-width: 880px;
+  margin-inline: auto;
+  padding: var(--av-space-8);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+
+.fulltest-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  align-items: start;
+  gap: var(--av-space-6);
+}
+
+.fulltest-part-list {
+  position: relative;
+}
+
+.fulltest-part-list::before {
+  position: absolute;
+  top: var(--av-space-6);
+  bottom: var(--av-space-6);
+  left: 23px;
+  width: 1px;
+  background: var(--av-primary-border);
+  content: '';
+}
+
+.fulltest-part-list .ft-part-row {
+  position: relative;
+  padding: var(--av-space-6);
+  padding-left: var(--av-space-16);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.ft-part-row--derived {
+  background: var(--av-surface-sunken);
+  border-style: dashed;
+}
+
+.fulltest-start-panel {
+  position: sticky;
+  top: var(--av-chrome-to-content-single);
+  padding: var(--av-space-6);
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  box-shadow: var(--av-shadow-md);
+}
+
+.fulltest-start-panel__title {
+  margin: 0 0 var(--av-space-4);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-tight);
+}
+
+.fulltest-listening-note {
+  margin-bottom: var(--av-space-6);
+  padding: var(--av-space-4);
+  background: var(--av-info-soft);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+}
+
+.fulltest-checklist {
+  display: grid;
+  gap: var(--av-space-3);
+  margin: 0 0 var(--av-space-6);
+  padding: 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-relaxed);
+  list-style: none;
+}
+
+.fulltest-checklist li {
+  position: relative;
+  padding-left: var(--av-space-6);
+}
+
+.fulltest-checklist li::before {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  color: var(--av-primary);
+  font-weight: var(--av-fw-bold);
+  content: '\2713';
+}
+
+.fulltest-start-panel__fineprint {
+  margin: var(--av-space-3) 0 0;
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-relaxed);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .speaking-setup-intro {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "kicker"
+      "lede"
+      "facts";
+    gap: var(--av-space-4);
+  }
+
+  .fulltest-setup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fulltest-start-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .speaking-setup-shell {
+    padding-top: var(--av-space-6);
+  }
+
+  .speaking-mode-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .speaking-mode-facts > div {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: var(--av-space-3);
+    align-items: baseline;
+    padding: var(--av-space-3) var(--av-space-4);
+  }
+
+  .speaking-mode-facts > div + div {
+    border-top: 1px solid var(--av-border-subtle);
+    border-left: 0;
+  }
+
+  .speaking-setup-grid .option-card,
+  .pbp-topic-card,
+  .fulltest-start-panel {
+    padding: var(--av-space-4);
+  }
+
+  .pbp-part-card {
+    min-height: 0;
+  }
+
+  .fulltest-part-list .ft-part-row {
+    padding: var(--av-space-4);
+  }
+
+  .fulltest-part-list::before {
+    display: none;
+  }
+}
+
+
 /* ── Tab panel cards (practice / partbpart / fulltest) ─────────── */
 
 .option-card {
