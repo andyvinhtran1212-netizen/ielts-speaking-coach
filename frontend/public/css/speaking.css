@@ -305,8 +305,12 @@
 .speaking-setup-intro {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(480px, 0.9fr);
-  align-items: end;
-  gap: var(--av-space-8);
+  grid-template-areas:
+    "kicker facts"
+    "lede facts";
+  align-items: start;
+  column-gap: var(--av-space-8);
+  row-gap: var(--av-space-2);
   margin: var(--av-space-4) 0 var(--av-space-8);
   padding-bottom: var(--av-space-8);
   border-bottom: 1px solid var(--av-border-subtle);
@@ -323,7 +327,12 @@
   text-transform: uppercase;
 }
 
+.speaking-setup-kicker {
+  grid-area: kicker;
+}
+
 .speaking-setup-lede {
+  grid-area: lede;
   max-width: 58ch;
   color: var(--av-text-secondary);
   font-size: var(--av-fs-base);
@@ -331,6 +340,8 @@
 }
 
 .speaking-mode-facts {
+  grid-area: facts;
+  align-self: end;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
@@ -509,6 +520,10 @@
 @media (max-width: 960px) {
   .speaking-setup-intro {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "kicker"
+      "lede"
+      "facts";
     gap: var(--av-space-4);
   }
 

@@ -39,8 +39,13 @@ describe('three Speaking setup modes', () => {
 
   test('setup CSS has desktop and mobile layouts plus keyboard focus', () => {
     assert.match(speakingCss, /\.speaking-mode-facts\s*\{/);
+    assert.match(speakingCss, /grid-template-areas:\s*"kicker facts"\s*"lede facts"/);
+    assert.match(speakingCss, /\.speaking-setup-kicker\s*\{\s*grid-area:\s*kicker/);
+    assert.match(speakingCss, /\.speaking-setup-lede\s*\{\s*grid-area:\s*lede/);
+    assert.match(speakingCss, /\.speaking-mode-facts\s*\{[\s\S]*?grid-area:\s*facts/);
     assert.match(speakingCss, /\.fulltest-setup-grid\s*\{[\s\S]*?grid-template-columns:/);
     assert.match(speakingCss, /\.pbp-part-card:focus-visible/);
+    assert.match(speakingCss, /@media\s*\(max-width:\s*960px\)[\s\S]*?grid-template-areas:\s*"kicker"\s*"lede"\s*"facts"/);
     assert.match(speakingCss, /@media\s*\(max-width:\s*640px\)/);
   });
 });
