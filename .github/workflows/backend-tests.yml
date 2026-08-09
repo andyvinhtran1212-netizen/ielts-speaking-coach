@@ -51,6 +51,11 @@ on:
       # `parity-core.test.mjs` đọc tài liệu này để xác nhận mỗi route nằm ngoài
       # parity đều có lý do ghi lại.
       - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
+      # `gate-e-preflight-contract.test.mjs` khóa trạng thái readiness và
+      # boundary resume theo đúng evidence hiện có. Cả hai tài liệu phải tự
+      # kích hoạt chốt này khi bị sửa riêng lẻ.
+      - 'docs/GATE_E_PREFLIGHT_2026-08-09.md'
+      - 'docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md'
       - 'docs/brand/assets/**'
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.

@@ -19,24 +19,31 @@ REST state; đã chứng minh gián tiếp bằng spike 1 (client "Next-shaped" 
 session → ghi âm → upload → chấm trên cùng contract) + spike 4 (client thứ hai
 resume cùng session/question và ghi đè hội tụ).
 
-## Cái KHÔNG tái tạo được từ backend (đúng cho MỌI client, không riêng Next)
+## State ngoài backend và giới hạn handoff
 
 | State | Hệ quả khi đổi stack giữa chừng |
 |---|---|
 | `_recordedBlob` chưa submit | Mất — như refresh thường (audio đã chấm có URL storage riêng) |
-| `_currentIdx` | Không tồn tại server-side — cả hai stack đều về câu 1 (xem SPIKE 2 §1) |
-| `_ftAllSessionIds` (full-test chain) | **MẤT — CRITICAL, giống hệt refresh (f) SPIKE 2.** Cross-stack handoff giữa full-test = vỡ finalize |
-| `_pendingTestAnswers` | Mất (test_part) |
+| `_currentIdx` | Không tồn tại server-side cho practice thường. Riêng `test_part`, client suy ra câu chưa làm đầu tiên từ responses đã persist. |
+| `_ftAllSessionIds` (full-test chain) | Đã mirror vào `sessionStorage` dưới key ổn định `ielts_ft_session_ids`; refresh hoặc legacy↔Next **cùng origin, cùng tab** sẽ restore, kiểm tra membership và truncate đúng part hiện tại. Chain vẫn không tái tạo được trên client hoàn toàn mới, tab mới, origin khác hoặc thiết bị khác vì chưa có canonical backend record cho cả chuỗi. |
+| `_pendingTestAnswers` | **Không còn tồn tại.** `test_part` await upload+grade từng câu trước khi advance; responses persisted là nguồn resume. |
 | `ielts_qmode`, `ielts_ft_p2topic` | sessionStorage CÙNG ORIGIN → **sống qua handoff legacy↔Next trong cùng tab** (coexistence một domain — lợi thế kiến trúc strangler-fig) |
 
 ## Phán quyết
 
-**Exit criteria: ĐẠT có điều kiện.**
+**Exit criteria: ĐẠT trong boundary same-origin/same-tab; chưa đạt cho fresh-client
+full-test handoff.**
 - Practice mode đơn lẻ: cross-stack resume AN TOÀN hôm nay (backend-authoritative,
   upsert idempotent, không state độc quyền client nào cần thiết).
-- Full-test: cross-stack resume KHÔNG an toàn cho tới khi chain được persist
-  (cùng fix với SPIKE 2 §2 — sessionStorage cùng origin nên fix một lần dùng
-  được cho cả refresh lẫn handoff).
-- Điều kiện cutover practice: cutover NGUYÊN CỤM flow (practice + full-test +
-  result) hoặc chặn handoff giữa chừng full-test (không link chéo stack khi
-  `mode=test_full` đang dở).
+- `test_part`: mỗi câu đã xác nhận được persist trước khi chuyển câu; refresh
+  resume ở câu chưa trả lời đầu tiên.
+- Full-test cùng origin/cùng tab: chain đã sống qua refresh và handoff nhờ
+  `ielts_ft_session_ids`; source pins và browser regressions nằm ở
+  `frontend/tests/full-test-chain.test.mjs` và
+  `frontend/tests/e2e/full_test_chain_persistence.spec.js`.
+- Full-test trên fresh client/tab khác/origin khác/thiết bị khác: vẫn KHÔNG an
+  toàn vì backend chưa sở hữu chain. Gate E phải test đúng boundary này; không
+  được dùng bằng chứng same-tab để tuyên bố resume đa thiết bị.
+- Điều kiện cutover practice giữ nguyên: cutover NGUYÊN CỤM flow (practice +
+  full-test + result), hoặc chặn handoff ngoài boundary same-origin/same-tab
+  khi `mode=test_full` đang dở.
