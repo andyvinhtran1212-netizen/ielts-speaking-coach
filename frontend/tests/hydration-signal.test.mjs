@@ -46,12 +46,12 @@ const khôngChúThích = (f) => readFileSync(f, 'utf8').split('\n')
 // `<script type="module"` với `type` đứng đầu và nháy kép, nên `<script defer
 // type='module'>` sẽ lọt khỏi mọi khẳng định bên dưới (codex bắt ở #1003).
 const LÀ_MODULE = /<script[^>]*\stype=["']module["']/;
-// PHẢI bắt CẢ `<LegacyModule>`. Sau khi 11 trang chuyển từ thẻ `<script>` sang
-// component đó, chúng RƠI KHỎI danh sách này và mọi khẳng định bên dưới không
-// còn chạy trên chúng — chốt ngừng canh đúng thứ nó sinh ra để canh, mà vẫn
-// xanh vì `NẠP_MODULE.length >= 5` được thoả bởi các trang khác (codex #1004).
+// PHẢI bắt CẢ `<LegacyModule>`. Trước đây, khi 11 trang chuyển từ thẻ `<script>`
+// sang component đó, chúng từng rơi khỏi inventory và thoát mọi khẳng định bên
+// dưới (codex #1004). Inventory này được phép về 0 khi migration hoàn tất.
 const LÀ_LEGACY_MODULE = /<LegacyModule\s/;
-const NẠP_MODULE = pages().filter((f) => {
+const TẤT_CẢ_TRANG = pages();
+const NẠP_MODULE = TẤT_CẢ_TRANG.filter((f) => {
   const t = khôngChúThích(f);
   return LÀ_MODULE.test(t) || LÀ_LEGACY_MODULE.test(t);
 });
@@ -82,9 +82,11 @@ const rel = (f) => path.relative(APP, f);
 const ĐÃ_VÁ = NẠP_MODULE.filter((f) => !CHƯA_VÁ.has(rel(f)));
 
 describe('trang Next nạp module legacy phải chờ React báo hydrate xong', () => {
-  test('quét được một lượng trang đáng kể', () => {
-    // Bộ dò hỏng ⇒ danh sách rỗng ⇒ mọi khẳng định dưới thành xanh-rỗng.
-    assert.ok(NẠP_MODULE.length >= 5, `chỉ thấy ${NẠP_MODULE.length} trang nạp module`);
+  test('quét được cây App Router thay vì xanh-rỗng vì sai đường dẫn', () => {
+    // Số trang NẠP_MODULE được phép về 0 khi migration hoàn tất. Dùng toàn bộ
+    // page.tsx để bắt lỗi đường dẫn/quét-rỗng, không buộc dự án giữ nợ legacy
+    // chỉ để thoả một ngưỡng lịch sử.
+    assert.ok(TẤT_CẢ_TRANG.length >= 20, `chỉ thấy ${TẤT_CẢ_TRANG.length} trang App Router`);
   });
 
   test('mỗi trang render <HydratedSignal /> và đọc cờ của nó', () => {

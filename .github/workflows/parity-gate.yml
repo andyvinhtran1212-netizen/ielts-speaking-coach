@@ -213,6 +213,7 @@ on:
       - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
       - 'frontend/tooling/verify-listening-tests-flow.mjs'
       - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
+      - 'frontend/tooling/verify-listening-skills-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -594,6 +595,10 @@ jobs:
       # Mini Tests có score không cố định và completion dựa trên submitted.
       - name: Kiểm luồng Listening Mini Test native
         run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Skill Drills có nav 11 dạng, ladder L/T và completion theo submitted.
+      - name: Kiểm luồng Listening Skills native
+        run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
