@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 const PAGE_LIMIT = 100;
@@ -263,7 +264,7 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
                   const attempted = drill.attemptCount > 0;
                   return (
                     <div className="ls-drill" key={drill.key}>
-                      <a className="ls-drill-main" href={`/pages/listening-test.html?id=${encodeURIComponent(drill.id)}`}>
+                      <a className="ls-drill-main" href={admitCorePlayer('listening_test', { id: drill.id })}>
                         {drill.level ? (
                           <span className="ls-drill-level">{drill.level}{drill.task ? <>·{drill.task}</> : null}</span>
                         ) : null}
@@ -277,7 +278,7 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
                       </a>
                       <a
                         className="ls-drill-dict"
-                        href={`/pages/listening-test-dictation.html?test_id=${encodeURIComponent(drill.id)}`}
+                        href={admitCorePlayer('listening_dictation', { test_id: drill.id })}
                         title="Chép chính tả"
                         aria-label="Chép chính tả"
                       >

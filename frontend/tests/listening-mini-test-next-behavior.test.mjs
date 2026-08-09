@@ -63,8 +63,8 @@ describe('/listening/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /test\.attemptCount > 0/);
     assert.match(BEHAVIOR, /Làm lại/);
     assert.match(BEHAVIOR, /Bắt đầu test/);
-    assert.match(BEHAVIOR, /listening-test\.html\?id=\$\{encodeURIComponent\(test\.id\)\}&from=mini/);
-    assert.match(BEHAVIOR, /listening-test-dictation\.html\?test_id=\$\{encodeURIComponent\(test\.id\)\}/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_test', \{ id: test\.id, from: 'mini' \}\)/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_dictation', \{ test_id: test\.id \}\)/);
   });
 
   test('is no longer hard-navigation-only', () => {

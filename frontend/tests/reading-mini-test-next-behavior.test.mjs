@@ -64,7 +64,7 @@ describe('/reading/mini-test — native React behavior', () => {
 
   test('preserves card facts, pill order and mini-exam origin stamp', () => {
     assert.match(BEHAVIOR, /test\.moduleLabel[\s\S]*test\.passageCount[\s\S]*test\.totalQuestions[\s\S]*test\.timeLimitMinutes[\s\S]*test\.bandTarget/);
-    assert.match(BEHAVIOR, /reading-exam\.html\?test_id=\$\{encodeURIComponent\(test\.testId\)\}&from=mini/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('reading_exam', \{ test_id: test\.testId, from: 'mini' \}\)/);
   });
 
   test('is no longer hard-navigation-only', () => {

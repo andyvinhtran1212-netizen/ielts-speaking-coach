@@ -59,8 +59,8 @@ describe('/listening/skills — native React behavior', () => {
     assert.match(BEHAVIOR, /textValue\(raw\.title\) \|\| testId \|\| 'Skill drill'/);
     assert.match(BEHAVIOR, /Tốt nhất/);
     assert.match(BEHAVIOR, /attempted \? 'Làm lại' : 'Luyện'/);
-    assert.match(BEHAVIOR, /listening-test\.html\?id=\$\{encodeURIComponent\(drill\.id\)\}/);
-    assert.match(BEHAVIOR, /listening-test-dictation\.html\?test_id=\$\{encodeURIComponent\(drill\.id\)\}/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_test', \{ id: drill\.id \}\)/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_dictation', \{ test_id: drill\.id \}\)/);
   });
 
   test('uses static SVG icons and declarative escaped content', () => {

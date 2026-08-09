@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 const MODULE_LABEL: Record<string, string> = {
@@ -164,7 +165,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string }) {
           {state.tests.map((test) => (
             <a
               className="rv-card"
-              href={`/pages/reading-exam.html?test_id=${encodeURIComponent(test.testId)}&from=mini`}
+              href={admitCorePlayer('reading_exam', { test_id: test.testId, from: 'mini' })}
               key={test.key}
             >
               <h3>{test.title}</h3>
