@@ -8,6 +8,10 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+const MIC_SPEC = /native-speaking-device-mic\.spec\.js/;
+const WEBKIT_CAPABILITY_SPEC = /native-speaking-webkit-capability\.spec\.js/;
+const IS_LINUX_CI = process.platform === 'linux' && Boolean(process.env.CI);
+
 module.exports = defineConfig({
   testDir: './tests/gate-e',
   timeout: 45_000,
@@ -40,18 +44,23 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'gate-e-chromium-desktop',
+      testIgnore: WEBKIT_CAPABILITY_SPEC,
       // CI and local runs use the lockfile-matched bundled browser. A branded
       // system Chrome is not an implicit prerequisite for the documented run.
       use: { browserName: 'chromium' },
     },
     {
       name: 'gate-e-webkit-desktop',
+      // Playwright WebKit on the pinned Linux CI runner has no MediaRecorder.
+      // Do not project that runner-specific gap onto capable macOS WebKit runs.
+      ...(IS_LINUX_CI ? { testIgnore: MIC_SPEC } : {}),
       use: {
         browserName: 'webkit',
       },
     },
     {
       name: 'gate-e-webkit-iphone13',
+      ...(IS_LINUX_CI ? { testIgnore: MIC_SPEC } : {}),
       use: {
         ...devices['iPhone 13'],
         browserName: 'webkit',

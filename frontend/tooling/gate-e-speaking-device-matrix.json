@@ -30,14 +30,20 @@
       "evidence_class": "synthetic-webkit-not-real-ios"
     }
   ],
-  "automated_scope": [
+  "shared_automated_scope": [
     "native-bootstrap-shapes",
     "upload-retry-resume-finalize",
+    "multipart-form-shape-and-pre-transport-blob-identity",
+    "horizontal-overflow"
+  ],
+  "chromium_media_scope": [
     "permission-denied-copy-and-retry",
     "engine-owned-audio-bytes",
     "parallel-tab-pressure",
-    "route-unmount-track-release",
-    "horizontal-overflow"
+    "route-unmount-track-release"
+  ],
+  "synthetic_webkit_scope": [
+    "mediarecorder-unsupported-capability-guard"
   ],
   "real_device_requirements": [
     {

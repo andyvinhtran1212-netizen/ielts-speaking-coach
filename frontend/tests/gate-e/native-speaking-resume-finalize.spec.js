@@ -66,12 +66,37 @@ function countCalls(calls, method, path) {
   return calls.filter((call) => call === `${method} ${path}`).length;
 }
 
+async function captureOutgoingAudioPayloads(page) {
+  await page.addInitScript(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.__gateEUploadPayloads = [];
+    window.fetch = async (...args) => {
+      const init = args[1];
+      const body = init?.body;
+      if (body instanceof FormData) {
+        const audio = body.get('audio_file');
+        if (audio && typeof audio.arrayBuffer === 'function') {
+          const bytes = await audio.arrayBuffer();
+          window.__gateEUploadPayloads.push(new TextDecoder().decode(bytes));
+        }
+      }
+      return nativeFetch(...args);
+    };
+  });
+}
+
+async function outgoingAudioPayloads(page) {
+  return page.evaluate(() => window.__gateEUploadPayloads || []);
+}
+
 test('sealed upload committed before a network failure reconciles and survives reload', async ({ page }) => {
   let committed = false;
   const uploads = [];
   const session = () => fullSession(1, {
     response_receipts: committed ? [{ id: 'sealed-r1', question_id: 'q1' }] : [],
   });
+
+  await captureOutgoingAudioPayloads(page);
 
   const { calls, pageErrors } = await installHarness(page, {
     session,
@@ -106,7 +131,7 @@ test('sealed upload committed before a network failure reconciles and survives r
   expect(uploads[0].authorization).toBe('Bearer gate-e-fake-token');
   expect(uploads[0].body).toContain('name="question_id"');
   expect(uploads[0].body).toContain('q1');
-  expect(uploads[0].body).toContain('gate-e-original-audio');
+  expect(await outgoingAudioPayloads(page)).toEqual(['gate-e-original-audio']);
   await expect.poll(() => page.evaluate(({ key, sessionId }) => {
     const state = JSON.parse(window.sessionStorage.getItem(key) || 'null');
     return state?.confirmed?.[sessionId] || [];
@@ -132,6 +157,8 @@ test('retry keeps the original failed blob, then finalizes the exact chain', asy
     sitting_id: null,
     response_receipts: receipts(4),
   });
+
+  await captureOutgoingAudioPayloads(page);
 
   const { pageErrors } = await installHarness(page, {
     session,
@@ -192,8 +219,10 @@ test('retry keeps the original failed blob, then finalizes the exact chain', asy
   await expect(page.locator('#completion-ctas')).toBeVisible();
 
   expect(uploadBodies).toHaveLength(2);
-  expect(uploadBodies[0]).toContain('only-copy-audio-q5');
-  expect(uploadBodies[1]).toContain('only-copy-audio-q5');
+  expect(await outgoingAudioPayloads(page)).toEqual([
+    'only-copy-audio-q5',
+    'only-copy-audio-q5',
+  ]);
   expect(finalizeBodies).toEqual([{ p1_id: P1, p2_id: P2, p3_id: P3 }]);
   expect(await page.evaluate((key) => window.sessionStorage.getItem(key), STATE_KEY)).toBeNull();
   expect(pageErrors).toEqual([]);

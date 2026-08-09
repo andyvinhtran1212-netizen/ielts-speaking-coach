@@ -15,6 +15,8 @@ const LOCK = json('frontend/package-lock.json');
 const CONFIG = read('frontend/playwright.gate-e.config.js');
 const WORKFLOW = read('.github/workflows/e2e.yml');
 const SPEC = read('frontend/tests/gate-e/native-speaking-device-mic.spec.js');
+const RECOVERY_SPEC = read('frontend/tests/gate-e/native-speaking-resume-finalize.spec.js');
+const WEBKIT_SPEC = read('frontend/tests/gate-e/native-speaking-webkit-capability.spec.js');
 const DOC = read('docs/GATE_E_SPEAKING_CORE_2026-08-09.md');
 const VERIFIER = read('frontend/tooling/verify-gate-e-speaking-device-matrix.mjs');
 
@@ -53,6 +55,20 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(SPEC, /practice-back-link/);
     assert.doesNotMatch(SPEC, /Object\.defineProperty\(document, ['"]visibilityState/);
     assert.doesNotMatch(SPEC, /dispatchEvent\(new Event\(['"]visibilitychange/);
+    assert.match(CONFIG, /name: 'gate-e-chromium-desktop',[\s\S]*?testIgnore: WEBKIT_CAPABILITY_SPEC/);
+    assert.match(CONFIG, /IS_LINUX_CI = process\.platform === 'linux' && Boolean\(process\.env\.CI\)/);
+    assert.match(CONFIG, /name: 'gate-e-webkit-desktop',[\s\S]*?IS_LINUX_CI \? \{ testIgnore: MIC_SPEC \} : \{\}/);
+    assert.match(CONFIG, /name: 'gate-e-webkit-iphone13',[\s\S]*?IS_LINUX_CI \? \{ testIgnore: MIC_SPEC \} : \{\}/);
+    assert.match(WEBKIT_SPEC, /process\.platform === 'linux' && process\.env\.CI/);
+    assert.match(WEBKIT_SPEC, /testInfo\.annotations\.push/);
+    assert.doesNotMatch(WEBKIT_SPEC, /expect\(await page\.evaluate[\s\S]*?\)\.toBe\('undefined'\)/);
+  });
+
+  test('blob identity is captured before transport without replacing multipart fetch', () => {
+    assert.match(RECOVERY_SPEC, /body instanceof FormData/);
+    assert.match(RECOVERY_SPEC, /body\.get\('audio_file'\)/);
+    assert.match(RECOVERY_SPEC, /return nativeFetch\(\.\.\.args\)/);
+    assert.doesNotMatch(RECOVERY_SPEC, /postDataBuffer\(\)\?\.toString\('utf8'\)[\s\S]*?toContain\('only-copy-audio-q5'\)/);
   });
 });
 
@@ -64,6 +80,6 @@ describe('Synthetic WebKit never becomes real Safari/iOS evidence', () => {
     );
     assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
     assert.match(DOC, /Safari\/iOS thật vẫn PENDING/);
-    assert.match(DOC, /không phải bằng chứng background thật/);
+    assert.match(DOC, /không phải bằng chứng background\/microphone thật/);
   });
 });

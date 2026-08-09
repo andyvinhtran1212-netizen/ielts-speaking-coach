@@ -99,14 +99,18 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    network-after-commit reconcile không POST trùng. Tổng Gate E Chromium hiện
    10/10; đây là runtime evidence, không phải source sentinel.
 3. 🟡 Automated device/microphone matrix đã được version ở
-   `frontend/tooling/gate-e-speaking-device-matrix.json`: cùng 11 browser flows
-   chạy trên Chromium desktop, WebKit desktop và WebKit/iPhone 13; CI luôn tải
-   JSON result artifact. Spec microphone kiểm copy permission denied, retry ngay
-   state hiện tại, MediaRecorder tạo audio bytes từ engine-owned track,
-   multi-tab pressure, responsive overflow và Next soft-navigation thực sự gọi
-   `track.stop()`. Headless tab không phát một `visibilityState=hidden` đáng tin,
-   nên đây không phải bằng chứng background thật. Safari/iOS thật vẫn PENDING và
-   phải chạy đúng `real_device_requirements` trong manifest trước khi đóng mục 3.
+   `frontend/tooling/gate-e-speaking-device-matrix.json`: manifest khai báo 4
+   lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng), còn
+   mỗi project WebKit thêm 1 capability guard (5 lớp tổng). CI luôn tải JSON
+   result artifact. Riêng trên runner Linux CI đã pin, WebKit bỏ qua mic lifecycle
+   và guard xác nhận không có `MediaRecorder`; môi trường WebKit khác không bị
+   gán sẵn hạn chế này. Spec microphone kiểm copy permission denied, retry ngay state
+   hiện tại, audio bytes từ engine-owned track, multi-tab pressure, responsive
+   overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
+   không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
+   Safari shipping, nên đây không phải bằng chứng background/microphone thật.
+   Safari/iOS thật vẫn PENDING và phải chạy đúng `real_device_requirements` trong
+   manifest trước khi đóng mục 3.
 4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
    reload/copy URL/admission rollback với canonical backend assertions.
 5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
