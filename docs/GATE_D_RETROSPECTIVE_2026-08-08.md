@@ -126,17 +126,32 @@ bằng Client Component React:
 
 Sau batch stacked: hard-navigation debt còn **14/29 route**.
 
+## Batch behavior thứ tám: `/vocabulary/exam`
+
+Batch `codex/nextjs-vocabulary-exam` chuyển launcher danh sách AWL/TOEIC/THPT
+sang Client Component React:
+
+- bỏ script tự khởi động `/js/vocab-exam.js` khỏi route Next;
+- giữ nguyên endpoint public, read-only `/api/vocabulary/exam`;
+- request abort khi unmount; loading, empty và transport error là ba trạng thái
+  riêng;
+- family/list rỗng tiếp tục bị loại; slug được URL-encode;
+- title/description do nội dung cung cấp được React escape;
+- legacy HTML/JS chỉ còn phục vụ parity/rollback.
+
+Sau batch stacked: hard-navigation debt còn **13/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.048 pass; 0 skip; 0 fail |
+| Full frontend contract suite | 7.055 pass; 0 skip; 0 fail |
 | TypeScript strict check | pass |
-| Next production build | pass; cả bảy behavior route static prerender |
+| Next production build | pass; cả tám behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 26 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 27 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
