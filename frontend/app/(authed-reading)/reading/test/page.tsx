@@ -1,7 +1,6 @@
 // Trang Full Tests trên Next — `/reading/test`.
 import type { Metadata } from 'next';
 
-import { ReadingTestShell } from './page-shell';
 import { ReadingTestBehavior } from './reading-test-behavior';
 
 export const metadata: Metadata = {
@@ -16,9 +15,7 @@ export default function ReadingTestPage() {
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
       {/* @ts-ignore */}
       <aver-chrome active="reading" />
-      <ReadingTestShell>
-        <ReadingTestBehavior />
-      </ReadingTestShell>
+      <ReadingTestBehavior />
     </>
   );
 }

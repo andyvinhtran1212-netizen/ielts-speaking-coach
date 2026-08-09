@@ -30,6 +30,7 @@
   var TYPE_LABEL = { rating: 'ĐÁNH GIÁ', report: 'BÁO LỖI', flag: 'FLAG GIẢI' };
   var CATEGORY_LABEL = {
     wrong_answer: 'Sai đáp án', audio_issue: 'Lỗi audio',
+    content_issue: 'Lỗi nội dung',
     unclear_typo: 'Đề khó hiểu / lỗi chính tả', other: 'Khác',
   };
   // skill → admin test-management deep-link base (test_id passed as ?test=).
@@ -79,6 +80,12 @@
   }
 
   function deepLink(r) {
+    if (r.skill === 'vocabulary' && r.test_id) {
+      var vocab = /^vocabulary:([^/]+)\/(.+)$/.exec(r.test_id);
+      return vocab
+        ? '/vocabulary.html?cat=' + encodeURIComponent(vocab[1]) + '&slug=' + encodeURIComponent(vocab[2])
+        : null;
+    }
     var base = DEEP_LINK[r.skill];
     if (!base || !r.test_id) return null;
     // Practice/exercise feedback (2026-07-17): test_id mang prefix

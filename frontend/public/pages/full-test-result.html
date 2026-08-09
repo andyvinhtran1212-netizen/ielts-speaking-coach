@@ -94,16 +94,24 @@
 
     <!-- 1. Band score hero -->
     <section class="card ftr-hero p-8 text-center fade-up fade-up-1">
-      <p class="eyebrow mb-3">Overall Band Score</p>
-      <div id="overall-band" class="band-hero mb-2">—</div>
-      <p class="ftr-hero-sub text-sm">Điểm trung bình 4 tiêu chí — toàn bộ 3 phần thi</p>
+      <div class="ftr-hero-grid">
+        <div class="ftr-score-summary">
+          <p class="ftr-score-summary__status">Đã hoàn thành đủ 3 Part</p>
+          <p class="eyebrow mb-3">Overall Band Score</p>
+          <div id="overall-band" class="band-hero mb-2">—</div>
+          <p class="ftr-hero-sub text-sm">Điểm trung bình 4 tiêu chí — toàn bộ 3 phần thi</p>
+        </div>
 
-      <!-- 4 criterion bars -->
-      <div class="mt-8 space-y-4 text-left max-w-md mx-auto">
-        <div id="crit-fc"  class="ftr-crit-row flex items-center gap-3"></div>
-        <div id="crit-lr"  class="ftr-crit-row flex items-center gap-3"></div>
-        <div id="crit-gra" class="ftr-crit-row flex items-center gap-3"></div>
-        <div id="crit-p"   class="ftr-crit-row flex items-center gap-3"></div>
+        <!-- 4 criterion bars -->
+        <div class="ftr-criteria-panel">
+          <p class="ftr-eyebrow text-xs font-semibold uppercase tracking-wider mb-6">Band theo từng tiêu chí</p>
+          <div class="space-y-4">
+            <div id="crit-fc"  class="ftr-crit-row flex items-center gap-3"></div>
+            <div id="crit-lr"  class="ftr-crit-row flex items-center gap-3"></div>
+            <div id="crit-gra" class="ftr-crit-row flex items-center gap-3"></div>
+            <div id="crit-p"   class="ftr-crit-row flex items-center gap-3"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -125,14 +133,16 @@
       </div>
     </section>
 
+    <div class="ftr-analysis-grid fade-up fade-up-4">
     <!-- 4. Grammar issues -->
-    <section id="grammar-section" class="card p-6 fade-up fade-up-4">
+    <section id="grammar-section" class="card p-6">
       <p class="ftr-eyebrow text-xs font-semibold uppercase tracking-wider mb-4">Lỗi ngữ pháp tái diễn</p>
+      <p class="ftr-analysis-hint">Các lỗi xuất hiện nhiều lần trong cả ba Part, nên được ưu tiên trước lượt luyện tiếp theo.</p>
       <div id="grammar-list"></div>
     </section>
 
     <!-- 5. Pronunciation radar -->
-    <section class="card p-6 fade-up fade-up-4">
+    <section class="card p-6">
       <div class="flex items-center justify-between mb-4">
         <p class="ftr-eyebrow text-xs font-semibold uppercase tracking-wider">Phát âm tổng hợp</p>
         <span id="pron-loading-badge" class="ftr-loading-badge text-xs px-2 py-0.5 rounded-full">Đang tải...</span>
@@ -168,10 +178,11 @@
         </div>
       </div>
     </section>
+    </div>
 
     <!-- 6. Actions -->
-    <section class="fade-up fade-up-5">
-      <div class="flex flex-wrap gap-3 justify-center">
+    <section class="ftr-action-bar fade-up fade-up-5">
+      <nav class="flex flex-wrap gap-3 justify-center" aria-label="Hành động sau Full Test">
         <button onclick="retake()" class="btn-primary ftr-icon-btn">
           <i data-lucide="rotate-ccw"></i>
           Luyện lại
@@ -181,7 +192,7 @@
           <i data-lucide="download"></i>
           Tải PDF
         </button>
-      </div>
+      </nav>
     </section>
 
   </div>

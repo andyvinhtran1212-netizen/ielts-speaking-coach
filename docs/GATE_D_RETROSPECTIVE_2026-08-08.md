@@ -238,8 +238,9 @@ legacy khởi động theo `DOMContentLoaded` sang behavior React:
   `user.id`;
 - giữ nguyên GET `/api/reading/test`, filter module, giới hạn 50 và bắt buộc
   `test_type=mini` để full test không lọt sang tab này;
-- giữ nguyên fallback 3 parts / 40 câu / 60 phút, band, catalog code và origin
-  stamp `from=mini` khi mở exam;
+- giữ default Mini Test là 1 passage; số câu và thời lượng không có dữ liệu thì
+  hiện `—` thay vì mượn cấu trúc 3 parts / 40 câu / 60 phút của Full Test;
+  giữ band, catalog code và origin stamp `from=mini` khi mở exam;
 - request bị abort khi đổi filter/account hoặc unmount; response cũ không được
   ghi đè state mới;
 - payload lỗi hình dạng được chuẩn hóa và nội dung authored do React escape;
@@ -258,10 +259,14 @@ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
   và bắt buộc `test_type=full` để mini/drill/practice không lọt vào thư viện;
 - giữ nguyên điểm tốt nhất, số lần làm, CTA bắt đầu/làm lại, tối đa ba theme,
   player origin `from=full` và lối vào chép chính tả;
+- chỉ attempt đã `submitted` mới gắn nhãn `Đã làm`; attempt dang dở vẫn được
+  tính vào số lượt hoạt động nhưng còn nằm đúng trong bộ lọc `Chưa làm`;
 - request bị abort khi đổi account hoặc unmount; response cũ không được ghi đè
   state mới;
 - payload lỗi hình dạng được chuẩn hóa, nội dung authored do React escape và
   overflow phân trang vẫn là lỗi hiển thị thay vì âm thầm cắt dữ liệu;
+- browser-flow 12 chốt kiểm summary, filter, submitted contract, CTA, escaping
+  và thông báo lỗi chung trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **6/29 route**.
@@ -277,10 +282,15 @@ từ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
   và bắt buộc `test_type=mini` để full/drill/practice không lọt vào thư viện;
 - giữ nguyên điểm tốt nhất, số lần làm, CTA bắt đầu/làm lại, tối đa ba theme,
   player origin `from=mini` và lối vào chép chính tả;
+- không bịa mẫu số `/40` cho mini test có số câu biến đổi; chỉ attempt đã
+  `submitted` mới được tính `Đã luyện`, còn tổng attempt vẫn hiển thị như số
+  lượt hoạt động;
 - request bị abort khi đổi account hoặc unmount; response cũ không được ghi đè
   state mới;
 - payload lỗi hình dạng được chuẩn hóa, nội dung authored do React escape và
   overflow phân trang vẫn là lỗi hiển thị thay vì âm thầm cắt dữ liệu;
+- browser-flow kiểm ba số summary, filter submitted, fallback title, score,
+  escaping và hai đích CTA trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **5/29 route**.
@@ -295,11 +305,15 @@ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
 - giữ nguyên GET phân trang `/api/listening/tests`, giới hạn 100, guard 20 trang
   và bắt buộc `test_type=drill`;
 - giữ đủ 11 nhóm kỹ năng, thứ tự ladder L1→L4 rồi T1→T4, fallback tiêu đề,
-  thống kê, CTA player và lối vào chép chính tả;
+  nav theo dạng, bộ lọc trạng thái, thống kê, CTA player và lối vào chép chính tả;
+- chỉ attempt đã `submitted` mới được tính `Đã luyện`; attempt dang dở vẫn nằm
+  trong `Chưa làm`, đồng thời summary vẫn đếm đúng tổng bài và số dạng có bài;
 - icon được nhúng SVG tĩnh thay vì để Lucide đổi loại node trong cây React,
   loại bỏ hydration race đã có regression gate riêng;
 - request bị abort khi đổi account hoặc unmount; payload lỗi hình dạng được
   chuẩn hóa, nội dung authored do React escape và overflow không bị cắt im lặng;
+- browser-flow kiểm summary, nav 11 dạng, ladder L/T, filter submitted, CTA,
+  escaping và thông báo lỗi chung trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **4/29 route**.
@@ -308,9 +322,9 @@ Sau batch stacked: hard-navigation debt còn **4/29 route**.
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 189/189; batch 16: 220/220; batch 17: 194/194 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15 |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.114 pass; 0 skip; 0 fail |
+| Full frontend contract suite | 7.158/7.158 pass |
 | TypeScript strict check | pass |
 | Next production build | pass; cả mười bảy behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
