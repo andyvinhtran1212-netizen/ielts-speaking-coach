@@ -1,8 +1,8 @@
-// Markup only. Behavior is loaded by /js/reading-test.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+// Markup tĩnh của trang Full Tests. `<aver-chrome>` do `page.tsx` dựng;
+// behavior React sở hữu filter, request và các trạng thái động bên dưới.
+import type { ReactNode } from 'react';
 
-export function ReadingTestShell() {
+export function ReadingTestShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <main className="rv-shell">
@@ -20,21 +20,7 @@ export function ReadingTestShell() {
           <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>Mô-đun
-            <select id="filter-module">
-              <option value="">Tất cả</option>
-              <option value="academic">Academic</option>
-              <option value="general_training" disabled>General Training (Phase B)</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có bài thi nào.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        {children}
       </main>
     </div>
   );
