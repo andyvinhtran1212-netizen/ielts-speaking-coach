@@ -19,9 +19,34 @@ function questions() {
   }));
 }
 
+async function captureAudioAcrossNavigations(page) {
+  const payloads = [];
+  await page.exposeFunction('__gateECaptureCrossVersionAudio', (payload) => {
+    payloads.push(payload);
+  });
+  await page.addInitScript(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const body = args[1]?.body;
+      if (body instanceof FormData) {
+        const audio = body.get('audio_file');
+        if (audio && typeof audio.arrayBuffer === 'function') {
+          const bytes = await audio.arrayBuffer();
+          await window.__gateECaptureCrossVersionAudio(
+            new TextDecoder().decode(bytes),
+          );
+        }
+      }
+      return nativeFetch(...args);
+    };
+  });
+  return payloads;
+}
+
 test('Legacy → Next → Legacy resumes the first canonically unanswered question', async ({ page }) => {
   const persisted = [];
   const uploads = [];
+  const audioPayloads = await captureAudioAcrossNavigations(page);
   const session = () => ({
     id: SID,
     session_id: SID,
@@ -42,7 +67,7 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
       if (request.method() !== 'POST' || path !== `/sessions/${SID}/responses`) return false;
       const body = request.postDataBuffer()?.toString('utf8') || '';
       const questionId = body.match(/name="question_id"\r\n\r\n([^\r\n]+)/)?.[1] || 'missing';
-      uploads.push({ questionId, body });
+      uploads.push({ questionId });
       if (!persisted.some((row) => row.question_id === questionId)) {
         persisted.push({ id: `response-${questionId}`, question_id: questionId });
       }
@@ -90,8 +115,7 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 3 / 9');
 
   expect(uploads.map((upload) => upload.questionId)).toEqual(['q1', 'q2']);
-  expect(uploads[0].body).toContain('legacy-q1-audio');
-  expect(uploads[1].body).toContain('next-q2-audio');
+  expect(audioPayloads).toEqual(['legacy-q1-audio', 'next-q2-audio']);
   expect(await page.evaluate((sessionId) => {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
