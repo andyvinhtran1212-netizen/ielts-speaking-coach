@@ -31,9 +31,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const APP = path.join(ROOT, 'frontend', 'app');
 
 /** Route dựa vào module legacy — thêm vào đây mỗi khi port thêm một trang. */
-const LEGACY_MODULE_ROUTES = [
-  '/listening/analytics',
-];
+const LEGACY_MODULE_ROUTES = [];
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

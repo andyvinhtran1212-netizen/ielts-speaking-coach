@@ -217,6 +217,7 @@ on:
       - 'frontend/tooling/verify-listening-practice-flow.mjs'
       - 'frontend/tooling/verify-listening-landing-flow.mjs'
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
+      - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -614,6 +615,11 @@ jobs:
       # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
       - name: Kiểm luồng Listening Browse native
         run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Analytics khóa range contract, weighted denominators và trạng thái
+      # recent/empty/error trên browser thật.
+      - name: Kiểm luồng Listening Analytics native
+        run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

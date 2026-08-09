@@ -384,15 +384,38 @@ khởi động theo `DOMContentLoaded` sang behavior React:
 
 Sau batch stacked: hard-navigation debt còn **1/29 route**.
 
+## Batch behavior thứ hai mươi mốt: `/listening/analytics`
+
+Batch `codex/nextjs-listening-analytics` chuyển Thống kê Listening từ module
+legacy khởi động theo `DOMContentLoaded` sang behavior React:
+
+- route dùng `AuthProvider`, fail-closed khi hết phiên và remount range/result
+  theo `user.id`;
+- ba range 7d/30d/all vẫn gọi endpoint canonical; request bị abort khi đổi
+  range/account hoặc unmount;
+- đủ bốn test type mini/drill/full/practice; điểm tổng weight theo
+  `scored_count`, completion theo `attempts_count`, không dùng count bài đã đụng
+  làm sai mẫu số;
+- weakest mode chỉ hiển thị khi backend trả về key đã biết, giữ nguyên quy tắc
+  tối thiểu ba bài nộp ở nguồn canonical;
+- summary, bảng mode, chart 14 ngày và recent activity giữ đủ trạng thái; authored
+  title do React escape, bỏ `innerHTML`;
+- đổi range ẩn đồng bộ số liệu cũ trước khi fetch, request lỗi dùng copy chung
+  không lộ chi tiết backend; browser-flow khóa range, mẫu số tổng hợp, chart,
+  recent activity, empty/error và escaping trên production build;
+- route cuối cùng được gỡ khỏi hard-navigation gate.
+
+Sau batch stacked: hard-navigation debt còn **0/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15; batch 18: 49/49 pass + browser-flow 15/15; batch 19: 48/48 pass + browser-flow 14/14; batch 20: 47/47 pass + browser-flow 14/14 |
-| Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.191/7.191 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15; batch 18: 49/49 pass + browser-flow 15/15; batch 19: 48/48 pass + browser-flow 14/14; batch 20: 47/47 pass + browser-flow 14/14; batch 21: 12/12 pass + browser-flow 14/14 |
+| Backend result contract | 22/22 pass; analytics focused 7/7 pass |
+| Full frontend contract suite | 7.228/7.228 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; cả hai mươi behavior route static prerender |
+| Next production build | pass; cả hai mươi mốt behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
 | Browser floor scan | 38 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
