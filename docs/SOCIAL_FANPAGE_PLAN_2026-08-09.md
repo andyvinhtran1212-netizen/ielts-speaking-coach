@@ -208,7 +208,10 @@ Cấu phần cần dựng:
 
 ### Giai đoạn 4 — Instagram
 9. Chuyển IG sang Professional, liên kết Facebook Page.
-10. Xin `instagram_content_publish`. Tái dùng scheduler ở GĐ 3 — chỉ khác lớp gọi API.
+10. **Nối tài khoản IG vào `postiz` bằng OAuth**, dùng lại đúng publisher đã dựng ở GĐ 3.
+11. **KHÔNG xin `instagram_content_publish`, không tạo Meta app.** Quyền đó thuộc đường Graph API đã loại ở Quyết định 2026-08-09 — đi lại nó là tự dựng lại rào App Review mình vừa bỏ. Chỉ mở lại khi có ĐKKD.
+
+> Kiểm tra khi đọc lại kế hoạch: **không bước nào** ở GĐ 1–4 cần Meta app riêng hay App Review. Bước nào cần là bước đó lệch khỏi quyết định đã chốt.
 
 ---
 

@@ -4,42 +4,44 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
-// Bản sao chia sẻ (fan page → web). Facebook/Zalo/LinkedIn đọc og:*; thiếu
+// Thẻ chia sẻ (fan page → web). Facebook/Zalo/LinkedIn đọc og:*; thiếu
 // og:image thì thẻ preview về dạng text nhỏ, CTR thấp hơn hẳn thẻ ảnh lớn.
 //
-// Vì sao đặt ở ROOT chứ không ở trang landing: merge metadata của Next là
-// SHALLOW — một segment con khai `openGraph` sẽ THAY THẾ trọn gói object này,
-// và og:title KHÔNG tự suy ra từ `title` của page (docs "Inheriting fields":
-// layout og:title thắng title của page con). Đặt ở root + không segment nào
-// khai openGraph ⇒ mọi route Next dùng đúng một bản sao, xác định được.
+// CHỈ đặt ở đây những gì đúng cho MỌI route. Ba field từng nằm ở đây —
+// `og:url`, `og:title`, `og:description` — đã bị bỏ ra (review #1054 P2):
+// merge metadata của Next là SHALLOW, nên một `openGraph` khai ở root sẽ được
+// các segment KHÔNG tự khai openGraph kế thừa NGUYÊN KHỐI. `grammar/[category]/
+// [slug]` sinh title/description riêng cho từng bài nhưng không khai openGraph
+// ⇒ share một bài ngữ pháp sẽ mang og:url trang chủ và tiêu đề trang chủ, tức
+// mọi bài gộp danh tính xã hội về `/`. Đúng thứ fan page đem đi share nhất.
+//
+// Bỏ `og:url` thay vì khai đúng từng route: không khai thì crawler dùng chính
+// URL nó fetch — đúng cho mọi route mà không phải bảo trì gì. Muốn ghim
+// canonical thì dùng `alternates.canonical` ở TỪNG page.
+//
+// og:title / og:description để Next tự dẫn từ `title` / `description` của mỗi
+// page (đã kiểm bằng curl, xem phần Kiểm chứng của PR) — nhờ vậy mỗi route tự
+// nói về mình, không cần page nào khai openGraph và cũng không đụng bẫy shallow.
 //
 // og:image KHÔNG khai ở đây: `app/opengraph-image.jpg` là file-based metadata,
 // vốn có ưu tiên CAO HƠN object này và tự sinh og:image + twitter:image kèm
 // width/height. Khai tay ở đây chỉ tạo hai nguồn sự thật rồi lệch nhau.
-const SHARE_TITLE = 'Aver Learning — Luyện IELTS toàn diện cùng AI';
-const SHARE_DESCRIPTION =
-  '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.';
-
 export const metadata: Metadata = {
-  // metadataBase: bắt buộc để `opengraph-image.jpg` và og:url nở thành URL
-  // tuyệt đối. Không có nó, Next build lỗi với đường dẫn tương đối, hoặc rơi
-  // về localhost/VERCEL_URL — tức preview trên Facebook trỏ vào deployment
+  // metadataBase: bắt buộc để `opengraph-image.jpg` nở thành URL tuyệt đối.
+  // Không có nó, Next build lỗi với đường dẫn tương đối, hoặc rơi về
+  // localhost/VERCEL_URL — tức preview trên Facebook trỏ vào deployment
   // preview thay vì domain thật.
   metadataBase: new URL('https://averlearning.com'),
   title: 'averlearning',
-  description: SHARE_DESCRIPTION,
+  description:
+    '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
   openGraph: {
     type: 'website',
     siteName: 'Aver Learning',
     locale: 'vi_VN',
-    url: '/',
-    title: SHARE_TITLE,
-    description: SHARE_DESCRIPTION,
   },
   twitter: {
     card: 'summary_large_image',
-    title: SHARE_TITLE,
-    description: SHARE_DESCRIPTION,
   },
 };
 
