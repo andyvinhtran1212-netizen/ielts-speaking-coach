@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
+from services.vocab_content import vocab_service
 
 router = APIRouter(prefix="/api", tags=["feedback"])
 
@@ -147,12 +148,11 @@ def _resolve_vocabulary_ref(category: str | None, slug: str | None) -> str:
     card_slug = (slug or "").strip()
     if not cat or not card_slug:
         raise HTTPException(422, "vocab_category and vocab_slug are required")
-    res = (
-        supabase_admin.table("vocab_cards")
-        .select("id").eq("category", cat).eq("slug", card_slug)
-        .limit(1).execute()
-    )
-    if not res.data:
+    # Match the public article endpoint's canonical runtime source. The service
+    # prefers vocab_cards but intentionally falls back to bundled Markdown when
+    # that table is empty/unavailable, so a visible fallback card must remain
+    # reportable as well.
+    if vocab_service.get_article(cat, card_slug) is None:
         raise HTTPException(404, "Vocabulary card not found")
     return f"vocabulary:{cat}/{card_slug}"
 
