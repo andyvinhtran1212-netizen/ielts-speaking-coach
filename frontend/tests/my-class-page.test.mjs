@@ -759,4 +759,13 @@ describe('nhịp chiều rộng và khoảng cách của khu vực bài tập', 
       /\.mc-item-main\s*\{[^}]*gap:\s*var\(--av-space-2\)/s,
       'nhãn, tiêu đề, mô tả và deadline không được chỉ cách nhau 4px');
   });
+
+  test('hai panel phụ xếp dọc trên mobile 390px', () => {
+    const mobile = MY_CLASS_CSS.slice(MY_CLASS_CSS.indexOf('@media (max-width: 640px)'));
+    assert.match(mobile,
+      /\.mc-aside\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'Nhịp 14 ngày và Buổi học phải nằm một cột khi cùng xuất hiện');
+    assert.doesNotMatch(mobile, /\.mc-aside\s*\{[^}]*display:\s*flex/s,
+      'flex mặc định theo hàng sẽ ép hai panel nằm ngang');
+  });
 });

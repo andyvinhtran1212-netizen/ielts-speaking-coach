@@ -419,7 +419,7 @@
   .mc-section-head > p { text-align: left; }
   .mc-item { grid-template-columns: 1fr; padding: var(--av-space-4); }
   .mc-item .av-button { width: 100%; }
-  .mc-aside { display: flex; }
+  .mc-aside { grid-template-columns: minmax(0, 1fr); }
   .mc-rhythm,
   .mc-lessons-panel { padding: var(--av-space-4); }
 }
