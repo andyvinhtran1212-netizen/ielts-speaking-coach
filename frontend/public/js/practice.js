@@ -39,6 +39,8 @@
   var _currentIdx   = 0;
   var _currentQ     = null;
   var _currentState = null;   // top-level state name
+  var _playerGeneration = 0;  // suppress stale async UI after soft navigation
+  var _playerActive = false;
 
   // ── Recorder state ────────────────────────────────────────────────────────────
 
@@ -55,6 +57,7 @@
 
   // Processing text rotation
   var _processingTimer = null;
+  var _processingRun = 0;
 
   // Part 2 timers
   var _p2PrepTimerId   = null;
@@ -90,6 +93,7 @@
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
   var _feedbackAudioUrl = null;
   var _feedbackAudioIsBlob = false;
+  var _feedbackReplayAudio = null;
 
   // response_id of the most recently graded response (practice mode — used for pron assessment)
   var _currentResponseId = null;
@@ -160,6 +164,80 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function _getNativePlayer() {
+    var controller = window.PracticePlayer;
+    return controller
+      && typeof controller.showState === 'function'
+      && typeof controller.clearEffect === 'function'
+      && typeof controller.startInterval === 'function'
+      && typeof controller.startTimeout === 'function'
+      && typeof controller.startCountdown === 'function'
+      && typeof controller.listen === 'function'
+      && typeof controller.createObjectUrl === 'function'
+      && typeof controller.revokeObjectUrl === 'function'
+      && typeof controller.cancelSpeech === 'function'
+      ? controller
+      : null;
+  }
+
+  function _startManagedInterval(key, callback, milliseconds) {
+    var nativePlayer = _getNativePlayer();
+    return nativePlayer
+      ? nativePlayer.startInterval(key, callback, milliseconds)
+      : setInterval(callback, milliseconds);
+  }
+
+  function _startManagedTimeout(key, callback, milliseconds) {
+    var nativePlayer = _getNativePlayer();
+    return nativePlayer
+      ? nativePlayer.startTimeout(key, callback, milliseconds)
+      : setTimeout(callback, milliseconds);
+  }
+
+  function _clearManagedEffect(key, legacyHandle, kind) {
+    var nativePlayer = _getNativePlayer();
+    if (nativePlayer) return nativePlayer.clearEffect(key);
+    if (!legacyHandle) return false;
+    if (kind === 'timeout') clearTimeout(legacyHandle);
+    else clearInterval(legacyHandle);
+    return true;
+  }
+
+  function _startManagedCountdown(key, options) {
+    var nativePlayer = _getNativePlayer();
+    return nativePlayer ? nativePlayer.startCountdown(key, options) : null;
+  }
+
+  function _listenManaged(key, target, type, listener, options) {
+    var nativePlayer = _getNativePlayer();
+    if (nativePlayer) return nativePlayer.listen(key, target, type, listener, options);
+    if (!target || !target.addEventListener) return false;
+    target.addEventListener(type, listener, options);
+    return true;
+  }
+
+  function _createManagedObjectUrl(key, blob) {
+    var nativePlayer = _getNativePlayer();
+    return nativePlayer ? nativePlayer.createObjectUrl(key, blob) : URL.createObjectURL(blob);
+  }
+
+  function _revokeManagedObjectUrl(key, url) {
+    var nativePlayer = _getNativePlayer();
+    if (nativePlayer) return nativePlayer.revokeObjectUrl(key, url);
+    if (!url) return false;
+    try { URL.revokeObjectURL(url); } catch (_) {}
+    return true;
+  }
+
+  function _cancelSpeech() {
+    var nativePlayer = _getNativePlayer();
+    _browserTtsGeneration++;
+    _clearManagedEffect('tts-browser-sequence-delay', null, 'timeout');
+    _clearManagedEffect('tts-ai-sequence-delay', null, 'timeout');
+    if (nativePlayer) nativePlayer.cancelSpeech();
+    else if (window.speechSynthesis) window.speechSynthesis.cancel();
+  }
+
   // ── Top-level state management ────────────────────────────────────────────────
 
   var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'test-results', 'completion', 'sheet'];
@@ -207,6 +285,13 @@
   }
 
   function showState(name) {
+    if (!_playerActive && _playerGeneration > 0) return;
+    var nativePlayer = _getNativePlayer();
+    if (nativePlayer) {
+      nativePlayer.showState(name);
+      _currentState = name;
+      return;
+    }
     _ALL_STATES.forEach(function (s) {
       var el = $('state-' + s);
       if (!el) return;
@@ -485,6 +570,7 @@
   }
 
   async function _startNativeRecording(nativeRecorder) {
+    var generation = _playerGeneration;
     _audioChunks = [];
     _recordedBlob = null;
     _elapsedSecs = 0;
@@ -498,12 +584,17 @@
         },
         onRecorded: _handleRecordedBlob,
       });
+      if (!_playerActive || generation !== _playerGeneration) {
+        nativeRecorder.reset();
+        return false;
+      }
       if (!started) return false;
       _analyser = nativeRecorder.getAnalyser();
       _startWaveform();
       _showRecSub('recording');
       return true;
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return false;
       _showRecError(err && err.message ? err.message : 'Không thể mở microphone.');
       return false;
     }
@@ -512,7 +603,7 @@
   async function startRecording() {
     if (_recSubState === 'recording') return false;
     _stopAITts();
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    _cancelSpeech();
     _clearRecError();
 
     var nativeRecorder = _getNativeRecorder();
@@ -591,10 +682,10 @@
 
     // Elapsed timer (counts up; hard-stop at MAX_RECORD_SEC)
     // Always clear any previous interval before starting a new one
-    if (_timerId) { clearInterval(_timerId); _timerId = null; }
+    if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
     _elapsedSecs = 0;
     _renderTimer();
-    _timerId = setInterval(function () {
+    _timerId = _startManagedInterval('recording-elapsed', function () {
       _elapsedSecs++;
       _renderTimer();
       var maxSec = MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90;
@@ -624,7 +715,7 @@
 
   function stopRecording() {
     if (_recSubState !== 'recording') return;
-    if (_timerId) { clearInterval(_timerId); _timerId = null; }
+    if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
@@ -646,7 +737,7 @@
   }
 
   function _resetRecorder() {
-    if (_timerId) { clearInterval(_timerId); _timerId = null; }
+    if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
@@ -688,10 +779,10 @@
     var audioEl = $('rec-playback');
     if (!audioEl || !_recordedBlob) return;
     if (_recordedPlaybackUrl) {
-      URL.revokeObjectURL(_recordedPlaybackUrl);
+      _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
-    _recordedPlaybackUrl = URL.createObjectURL(_recordedBlob);
+    _recordedPlaybackUrl = _createManagedObjectUrl('recorded-playback', _recordedBlob);
     audioEl.src = _recordedPlaybackUrl;
     audioEl.style.display = '';
   }
@@ -726,7 +817,7 @@
       audioEl.style.display = 'none';
     }
     if (_recordedPlaybackUrl) {
-      URL.revokeObjectURL(_recordedPlaybackUrl);
+      _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
     var hintEl = $('rec-length-hint');
@@ -770,7 +861,7 @@
     el.textContent = msg;
     el.style.display = '';
     // Auto-hide after 7 s
-    setTimeout(function () { el.style.display = 'none'; }, 7000);
+    _startManagedTimeout('recording-error-hide', function () { el.style.display = 'none'; }, 7000);
   }
 
   function _clearRecError() {
@@ -781,18 +872,23 @@
   // ── STATE: Processing ─────────────────────────────────────────────────────────
 
   function _startProcessing(blob, questionId) {
+    var generation = _playerGeneration;
+    var processingRun = ++_processingRun;
     showState('processing');
     var idx   = 0;
     var textEl = $('processing-text');
     if (textEl) textEl.textContent = PROCESSING_TEXTS[0];
-    _processingTimer = setInterval(function () {
+    if (_processingTimer) {
+      _clearManagedEffect('processing-copy', _processingTimer, 'interval');
+    }
+    _processingTimer = _startManagedInterval('processing-copy', function () {
       idx = (idx + 1) % PROCESSING_TEXTS.length;
       if (textEl) textEl.textContent = PROCESSING_TEXTS[idx];
     }, 2000);
-    _uploadAndGrade(blob, questionId);
+    _uploadAndGrade(blob, questionId, generation, processingRun);
   }
 
-  async function _uploadAndGrade(blob, questionId) {
+  async function _uploadAndGrade(blob, questionId, generation, processingRun) {
     var data = null;
     var nativeSubmission = _getNativeSubmission();
     try {
@@ -800,6 +896,7 @@
         priorResponseId: _knownResponseId(questionId),
       });
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration || processingRun !== _processingRun) return;
       // Sprint 14.2 — audio-too-short is a *recoverable* user error, not
       // a server failure: route back to the recorded sub-state with the
       // backend's structured 422 detail rendered as the rec-error banner.
@@ -807,7 +904,7 @@
       // on the legacy URL; native transport below fails closed.
       var detail = err && err.detail;
       if ((err && err.code === 'audio_too_short') || (detail && detail.code === 'audio_too_short')) {
-        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        if (_processingTimer) { _clearManagedEffect('processing-copy', _processingTimer, 'interval'); _processingTimer = null; }
         _handleAudioTooShort(detail);
         return;
       }
@@ -816,7 +913,7 @@
       // feedback — no silent data loss, and /complete won't see 0 responses.
       if ((err && err.code === 'response_persist_failed')
           || (err && err.status === 500 && detail && detail.error_code === 'response_persist_failed')) {
-        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        if (_processingTimer) { _clearManagedEffect('processing-copy', _processingTimer, 'interval'); _processingTimer = null; }
         _handlePersistFailure(detail);
         return;
       }
@@ -824,7 +921,7 @@
       // Network/5xx/malformed success is first reconciled against canonical
       // session responses; if still unknown, keep the blob and offer retry.
       if (nativeSubmission) {
-        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        if (_processingTimer) { _clearManagedEffect('processing-copy', _processingTimer, 'interval'); _processingTimer = null; }
         var retryMessage = err && err.code === 'ambiguous_commit'
           ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
           : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.';
@@ -838,8 +935,12 @@
       console.error('[practice] grading request failed:', err);
       data = { _stub: true, _error: errMsg };
     } finally {
-      if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+      if (generation === _playerGeneration && processingRun === _processingRun && _processingTimer) {
+        _clearManagedEffect('processing-copy', _processingTimer, 'interval');
+        _processingTimer = null;
+      }
     }
+    if (!_playerActive || generation !== _playerGeneration || processingRun !== _processingRun) return;
     // P0-2 tolerant guard: a server 200 with no response_id means the grade was
     // NOT saved (old silent-fail backend, before this fix deployed). Treat it as
     // a persistence failure → retry, don't enter feedback with empty data.
@@ -864,7 +965,7 @@
   // (the retry), with a loud error banner. Never enter feedback (no silent loss).
   // Mirrors _handleAudioTooShort's recovery shape.
   function _handlePersistFailure(detail) {
-    if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+    if (_processingTimer) { _clearManagedEffect('processing-copy', _processingTimer, 'interval'); _processingTimer = null; }
     var msg = (detail && detail.message)
       || 'Lỗi lưu kết quả chấm — kết quả CHƯA được lưu.';
     msg += ' Hãy bấm “Gửi” để thử lại.';
@@ -1080,7 +1181,9 @@
       // CHỈ thu hồi URL do mình tạo. Gọi revokeObjectURL lên một URL đã ký của
       // máy chủ là vô hại nhưng sai nghĩa; và nếu sau này URL ấy được dùng lại
       // thì đây là chỗ nó chết một cách khó hiểu.
-      if (_feedbackAudioIsBlob) URL.revokeObjectURL(_feedbackAudioUrl);
+      if (_feedbackAudioIsBlob) {
+        _revokeManagedObjectUrl('feedback-audio', _feedbackAudioUrl);
+      }
       _feedbackAudioUrl = null;
     }
     var audioSection = $('feedback-audio-section');
@@ -1096,7 +1199,7 @@
       } else if (data && data._review) {
         audioSection.style.display = 'none';
       } else if (_recordedBlob) {
-        _feedbackAudioUrl = URL.createObjectURL(_recordedBlob);
+        _feedbackAudioUrl = _createManagedObjectUrl('feedback-audio', _recordedBlob);
         _feedbackAudioIsBlob = true;
         audioSection.style.display = '';
       } else {
@@ -1409,8 +1512,20 @@
 
   function _replayAudio() {
     if (!_feedbackAudioUrl) return;
+    if (_feedbackReplayAudio) {
+      try { _feedbackReplayAudio.pause(); } catch (_) {}
+      _feedbackReplayAudio = null;
+    }
     var audio = new Audio(_feedbackAudioUrl);
+    _feedbackReplayAudio = audio;
+    audio.onended = function () {
+      if (_feedbackReplayAudio === audio) _feedbackReplayAudio = null;
+    };
+    audio.onerror = function () {
+      if (_feedbackReplayAudio === audio) _feedbackReplayAudio = null;
+    };
     audio.play().catch(function (e) {
+      if (_feedbackReplayAudio === audio) _feedbackReplayAudio = null;
       console.warn('[audio] replay failed:', e);
     });
   }
@@ -1852,10 +1967,10 @@
     return _ttsVoice;
   }
 
-  // Re-pick if voices load asynchronously (common on Chrome)
-  if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = function () { _ttsVoice = null; };
-  }
+  // Re-pick if voices load asynchronously (common on Chrome). The listener is
+  // bound from init through the Next-owned effect registry so soft navigation
+  // cannot leave an old player callback installed.
+  function _handleVoicesChanged() { _ttsVoice = null; }
 
   function _ttsPreprocess(text) {
     return text
@@ -1886,7 +2001,7 @@
   // Speak a single string (cancel any ongoing speech first)
   function _tts(text) {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    _cancelSpeech();
     if (!text || !text.trim()) return;
     window.speechSynthesis.speak(_makeUtterance(text));
   }
@@ -1895,7 +2010,8 @@
   // pauseMs — gap in milliseconds between segments (default 600 ms).
   function _ttsSequence(segments, pauseMs) {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    _cancelSpeech();
+    var sequenceGeneration = _browserTtsGeneration;
     if (!segments || segments.length === 0) return;
     pauseMs = pauseMs || 600;
 
@@ -1904,12 +2020,12 @@
 
     var idx = 0;
     function speakNext() {
-      if (idx >= filtered.length) return;
+      if (!_playerActive || sequenceGeneration !== _browserTtsGeneration || idx >= filtered.length) return;
       var utt = _makeUtterance(filtered[idx]);
       idx++;
       if (idx < filtered.length) {
         utt.onend = function () {
-          setTimeout(speakNext, pauseMs);
+          _startManagedTimeout('tts-browser-sequence-delay', speakNext, pauseMs);
         };
       }
       window.speechSynthesis.speak(utt);
@@ -1920,7 +2036,10 @@
   // ── AI TTS (OpenAI nova voice, falls back to browser TTS) ────────────────────
 
   var _ttsAudio      = null;   // current HTMLAudioElement for AI TTS playback
+  var _ttsAudioUrlKey = null;
+  var _ttsAudioUrl    = null;
   var _ttsGeneration = 0;      // incremented on every _ttsAI() call; stale fetches abort
+  var _browserTtsGeneration = 0;
 
   // In-memory TTS audio cache (session-scoped, cleared on page unload).
   // Key: 'q:<questionId>' when available, else 't:<djb2hash>'.
@@ -1947,22 +2066,23 @@
   // Browsers block HTMLAudioElement.play() until a gesture occurs.
   // Web Speech API (browser TTS) is not subject to this restriction.
   var _userHasInteracted = false;
-  (function () {
-    function _markInteracted() { _userHasInteracted = true; }
-    document.addEventListener('click',      _markInteracted, { once: true, capture: true });
-    document.addEventListener('keydown',    _markInteracted, { once: true, capture: true });
-    document.addEventListener('touchstart', _markInteracted, { once: true, capture: true });
-  }());
+  function _markInteracted() { _userHasInteracted = true; }
 
-  // Stop playback. Does NOT revoke the blob URL — revoking while the browser
-  // is still buffering causes net::ERR_FILE_NOT_FOUND on the blob: scheme.
-  // URLs are revoked only inside onended (after the browser finishes reading).
+  // Stop playback before revoking the owned blob URL. Removing `src` first
+  // detaches the media element, so a soft navigation cannot leave either a
+  // decoder or an object URL alive after the Next bridge is destroyed.
   function _stopAITts() {
     if (_ttsAudio) {
       _ttsAudio.onended = null;   // prevent ghost callbacks after stop
       _ttsAudio.onerror = null;
       _ttsAudio.pause();
+      try { _ttsAudio.removeAttribute('src'); } catch (_) {}
       _ttsAudio = null;
+    }
+    if (_ttsAudioUrlKey) {
+      _revokeManagedObjectUrl(_ttsAudioUrlKey, _ttsAudioUrl);
+      _ttsAudioUrlKey = null;
+      _ttsAudioUrl = null;
     }
   }
 
@@ -1980,20 +2100,29 @@
 
   // Play a Blob as audio. Guards against stale generation. Falls back to browser TTS.
   function _playTtsBlob(blob, text, gen) {
-    if (gen !== _ttsGeneration || !blob) return;
-    var url = URL.createObjectURL(blob);
+    if (!_playerActive || gen !== _ttsGeneration || !blob) return;
+    var urlKey = 'tts-single-' + gen;
+    var url = _createManagedObjectUrl(urlKey, blob);
+    if (!url) return;
     var audio = new Audio(url);
     _ttsAudio = audio;
+    _ttsAudioUrlKey = urlKey;
+    _ttsAudioUrl = url;
     audio.onended = function () {
-      URL.revokeObjectURL(url);   // safe: browser finished reading
+      _revokeManagedObjectUrl(urlKey, url);
+      _ttsAudioUrlKey = null;
+      _ttsAudioUrl = null;
       _ttsAudio = null;
     };
     audio.onerror = function () {
-      URL.revokeObjectURL(url);
+      _revokeManagedObjectUrl(urlKey, url);
+      _ttsAudioUrlKey = null;
+      _ttsAudioUrl = null;
       _ttsAudio = null;
     };
     audio.play().catch(function (err) {
-      _ttsAudio = null;
+      _stopAITts();
+      if (!_playerActive || gen !== _ttsGeneration) return;
       console.warn('[tts] play() rejected, falling back to browser TTS:', err);
       _tts(text);
     });
@@ -2006,7 +2135,7 @@
   function _ttsAI(text, questionId) {
     if (!text || !text.trim()) return;
     _stopAITts();
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    _cancelSpeech();
 
     var gen = ++_ttsGeneration;
     var cacheKey = _ttsCacheKey(text, questionId);
@@ -2049,6 +2178,7 @@
         _playTtsBlob(blob, text, gen);
       })
       .catch(function (err) {
+        if (!_playerActive || gen !== _ttsGeneration) return;
         console.warn('[tts] AI TTS fetch failed, falling back to browser TTS:', err);
         _tts(text);
       });
@@ -2063,7 +2193,7 @@
     if (filtered.length === 0) return;
 
     _stopAITts();
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    _cancelSpeech();
 
     // Bump generation so any in-flight fetch from a previous call knows it is stale.
     var gen = ++_ttsGeneration;
@@ -2080,13 +2210,13 @@
     var usedFallback = false;
 
     function _fallback(fromIdx) {
-      if (usedFallback) return;
+      if (usedFallback || !_playerActive || gen !== _ttsGeneration) return;
       usedFallback = true;
       _ttsSequence(filtered.slice(fromIdx), pauseMs);
     }
 
     function playNext() {
-      if (usedFallback || idx >= filtered.length) return;
+      if (usedFallback || !_playerActive || gen !== _ttsGeneration || idx >= filtered.length) return;
       var seg = filtered[idx];
       var segIdx = idx;   // capture for fallback slice
       idx++;
@@ -2109,31 +2239,39 @@
             console.debug('[tts] sequence gen=%d stale (current=%d), discarding', gen, _ttsGeneration);
             return;
           }
-          var url = URL.createObjectURL(blob);
+          var urlKey = 'tts-sequence-' + gen;
+          var url = _createManagedObjectUrl(urlKey, blob);
+          if (!url) return;
           var audio = new Audio(url);
           _ttsAudio = audio;
+          _ttsAudioUrlKey = urlKey;
+          _ttsAudioUrl = url;
 
           audio.onended = function () {
-            URL.revokeObjectURL(url);   // safe: browser finished reading
+            _revokeManagedObjectUrl(urlKey, url);
+            _ttsAudioUrlKey = null;
+            _ttsAudioUrl = null;
             _ttsAudio = null;
             if (!usedFallback && gen === _ttsGeneration && idx < filtered.length) {
-              setTimeout(playNext, pauseMs);
+              _startManagedTimeout('tts-ai-sequence-delay', playNext, pauseMs);
             }
           };
           audio.onerror = function () {
-            URL.revokeObjectURL(url);
+            _revokeManagedObjectUrl(urlKey, url);
+            _ttsAudioUrlKey = null;
+            _ttsAudioUrl = null;
             _ttsAudio = null;
             _fallback(idx);   // continue remaining from next segment via browser TTS
           };
           console.debug('[tts] sequence playing gen=%d seg=%d', gen, segIdx);
           audio.play().catch(function (err) {
-            // Don't revoke — browser may still be loading; null ref and fall back.
-            _ttsAudio = null;
+            _stopAITts();
             console.warn('[tts] sequence play() rejected, falling back:', err);
             _fallback(segIdx);   // retry this segment and rest via browser TTS
           });
         })
         .catch(function (err) {
+          if (!_playerActive || gen !== _ttsGeneration) return;
           console.warn('[tts] AI TTS sequence fetch failed, falling back:', err);
           _fallback(segIdx);
         });
@@ -2195,7 +2333,7 @@
     // Switching to visual → stop any playing TTS immediately
     if (mode === 'visual') {
       _stopAITts();
-      window.speechSynthesis && window.speechSynthesis.cancel();
+      _cancelSpeech();
     }
 
     _applyQModeUI();
@@ -2223,7 +2361,7 @@
     try { sessionStorage.setItem('ielts_qmode', mode); } catch (e) {}
     if (mode === 'visual') {
       _stopAITts();
-      window.speechSynthesis && window.speechSynthesis.cancel();
+      _cancelSpeech();
     }
     _applyQModeUI();
     _showPrep();   // _showPrep() auto-plays TTS when _qMode === 'listening'
@@ -2267,7 +2405,7 @@
       audio.removeAttribute('src');
     }
     if (_p2RetryPlaybackUrl) {
-      URL.revokeObjectURL(_p2RetryPlaybackUrl);
+      _revokeManagedObjectUrl('p2-retry-playback', _p2RetryPlaybackUrl);
       _p2RetryPlaybackUrl = null;
     }
     _p2RetryQuestionId = null;
@@ -2286,7 +2424,7 @@
     if (start) start.style.display = 'none';
     if (wrap) wrap.style.display = '';
     if (audio && _recordedBlob) {
-      _p2RetryPlaybackUrl = URL.createObjectURL(_recordedBlob);
+      _p2RetryPlaybackUrl = _createManagedObjectUrl('p2-retry-playback', _recordedBlob);
       audio.src = _p2RetryPlaybackUrl;
     }
     showState('p2a');
@@ -2310,7 +2448,7 @@
   function startP2Prep() {
     _clearP2SubmissionRetry();
     _stopAITts();
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    _cancelSpeech();
 
     var qEl = $('p2b-question');
     if (qEl) qEl.textContent = _currentQ ? (_currentQ.question_text || '') : '';
@@ -2322,16 +2460,33 @@
     _renderP2PrepTimer();
     showState('p2b');
 
-    if (_p2PrepTimerId) clearInterval(_p2PrepTimerId);
-    _p2PrepTimerId = setInterval(function () {
-      _p2PrepSecsLeft--;
-      _renderP2PrepTimer();
-      if (_p2PrepSecsLeft <= 0) {
-        clearInterval(_p2PrepTimerId);
-        _p2PrepTimerId = null;
-        _startP2Speaking();
-      }
-    }, 1000);
+    if (_p2PrepTimerId) {
+      _clearManagedEffect('p2-prep-countdown', _p2PrepTimerId, 'interval');
+    }
+    var nativePlayer = _getNativePlayer();
+    if (nativePlayer) {
+      _p2PrepTimerId = _startManagedCountdown('p2-prep-countdown', {
+        seconds: P2_PREP_SEC,
+        onTick: function (remaining) {
+          _p2PrepSecsLeft = remaining;
+          _renderP2PrepTimer();
+        },
+        onDone: function () {
+          _p2PrepTimerId = null;
+          _startP2Speaking();
+        },
+      });
+    } else {
+      _p2PrepTimerId = _startManagedInterval('p2-prep-countdown', function () {
+        _p2PrepSecsLeft--;
+        _renderP2PrepTimer();
+        if (_p2PrepSecsLeft <= 0) {
+          _clearManagedEffect('p2-prep-countdown', _p2PrepTimerId, 'interval');
+          _p2PrepTimerId = null;
+          _startP2Speaking();
+        }
+      }, 1000);
+    }
   }
 
   function _renderP2PrepTimer() {
@@ -2344,7 +2499,10 @@
   }
 
   function startP2SpeakingEarly() {
-    if (_p2PrepTimerId) { clearInterval(_p2PrepTimerId); _p2PrepTimerId = null; }
+    if (_p2PrepTimerId) {
+      _clearManagedEffect('p2-prep-countdown', _p2PrepTimerId, 'interval');
+      _p2PrepTimerId = null;
+    }
     _startP2Speaking();
   }
 
@@ -2365,6 +2523,7 @@
   }
 
   async function _startP2Speaking() {
+    var generation = _playerGeneration;
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
       try {
@@ -2373,9 +2532,14 @@
           maxSeconds: 0,
           onRecorded: _handleP2RecordedBlob,
         });
+        if (!_playerActive || generation !== _playerGeneration) {
+          nativeRecorder.reset();
+          return;
+        }
         if (!started) return;
         _analyser = nativeRecorder.getAnalyser();
       } catch (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         showError(err && err.message ? err.message : 'Không thể mở microphone.');
         return;
       }
@@ -2438,17 +2602,34 @@
     showState('p2c');
     _startP2Waveform();
 
-    if (_p2SpeakTimerId) clearInterval(_p2SpeakTimerId);
-    _p2SpeakTimerId = setInterval(function () {
-      _p2SpeakSecsLeft--;
-      _renderP2SpeakTimer();
-      if (_p2SpeakSecsLeft <= 0) {
-        clearInterval(_p2SpeakTimerId);
-        _p2SpeakTimerId = null;
-        _tts('Thank you.');
-        setTimeout(function () { _stopP2SpeakingInternal(); }, 1500);
-      }
-    }, 1000);
+    if (_p2SpeakTimerId) {
+      _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval');
+    }
+    var nativePlayer = _getNativePlayer();
+    var onSpeakingDone = function () {
+      _p2SpeakTimerId = null;
+      _tts('Thank you.');
+      _startManagedTimeout('p2-thank-you-delay', _stopP2SpeakingInternal, 1500);
+    };
+    if (nativePlayer) {
+      _p2SpeakTimerId = _startManagedCountdown('p2-speak-countdown', {
+        seconds: P2_SPEAK_SEC,
+        onTick: function (remaining) {
+          _p2SpeakSecsLeft = remaining;
+          _renderP2SpeakTimer();
+        },
+        onDone: onSpeakingDone,
+      });
+    } else {
+      _p2SpeakTimerId = _startManagedInterval('p2-speak-countdown', function () {
+        _p2SpeakSecsLeft--;
+        _renderP2SpeakTimer();
+        if (_p2SpeakSecsLeft <= 0) {
+          _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval');
+          onSpeakingDone();
+        }
+      }, 1000);
+    }
   }
 
   function _renderP2SpeakTimer() {
@@ -2461,7 +2642,11 @@
   }
 
   function stopP2SpeakingEarly() {
-    if (_p2SpeakTimerId) { clearInterval(_p2SpeakTimerId); _p2SpeakTimerId = null; }
+    if (_p2SpeakTimerId) {
+      _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval');
+      _p2SpeakTimerId = null;
+    }
+    _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
     _stopP2SpeakingInternal();
   }
 
@@ -2510,6 +2695,7 @@
   // Fire a single grading request immediately (eager upload for test_full).
   // Returns a Promise that resolves/rejects when the upload completes.
   function _submitGradingEager(sessionId, questionId, blob, opts) {
+    var generation = _playerGeneration;
     var submitOpts = Object.assign({}, opts || {});
     if (!submitOpts.priorResponseId) {
       submitOpts.priorResponseId = _knownResponseId(questionId);
@@ -2526,11 +2712,13 @@
       : _submitResponseTransport(sessionId, questionId, blob, submitOpts);
     return operation
       .then(function (result) {
+        if (!_playerActive || generation !== _playerGeneration) return result;
         var failureIndex = _ftSubmitFailures.indexOf(questionId);
         if (failureIndex !== -1) _ftSubmitFailures.splice(failureIndex, 1);
         return result;
       })
       .catch(function (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         // B1: don't just warn — in a Full Test a failed upload means this
         // answer never reaches the server aggregate. Record it so the
         // completion screen can tell the user, instead of it vanishing silently.
@@ -2613,6 +2801,7 @@
   // Calls the backend finalize endpoint — server handles all aggregation.
   // Browser is free to close immediately after this returns.
   function _fireAndForgetFullTestGrading() {
+    var generation = _playerGeneration;
     _releaseRecorderResources();
     // Show completion screen immediately — no waiting
     showState('completion');
@@ -2623,6 +2812,7 @@
     var p1 = _ftAllSessionIds[0] || _sessionId;
     var p2 = _ftAllSessionIds[1] || null;
     var p3 = _ftAllSessionIds[2] || null;
+    var sittingId = _sittingId;
 
     var body = { p1_id: p1 };
     if (p2) body.p2_id = p2;
@@ -2634,9 +2824,13 @@
       _setFullTestCompletionPhase('sending');
       nativeFullTest.finalizeFullTest()
         .then(function () {
-          _onFullTestFinalizeAccepted(p1, p2, p3);
+          return _onFullTestFinalizeAccepted(
+            p1, p2, p3, sittingId,
+            _playerActive && generation === _playerGeneration,
+          );
         })
         .catch(function (err) {
+          if (!_playerActive || generation !== _playerGeneration) return;
           console.warn('[practice] native full-test finalize paused:', err);
           _setFullTestCompletionPhase('error', err);
         });
@@ -2651,24 +2845,30 @@
         // sessions in_progress for retry) lost the only persisted copy: a
         // Part-3 refresh would rebuild the chain as [p3] and the retried
         // finalize would aggregate WITHOUT Part 1/2.
-        _onFullTestFinalizeAccepted(p1, p2, p3);
+        return _onFullTestFinalizeAccepted(
+          p1, p2, p3, sittingId,
+          _playerActive && generation === _playerGeneration,
+        );
       })
       .catch(function (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
         // Completion screen still shown. Sessions remain in_progress but
         // graded responses are saved — admin can manually complete them.
       });
   }
 
-  function _onFullTestFinalizeAccepted(p1, p2, p3) {
+  function _onFullTestFinalizeAccepted(p1, p2, p3, sittingId, renderUI) {
     _clearFtChain();
-    _setFullTestCompletionPhase('accepted');
+    if (renderUI !== false) _setFullTestCompletionPhase('accepted');
     // 4-skill mock: report the completed speaking sessions to the sitting
     // and hand back to the orchestrator. The durable debt queue owns retries.
-    if (!_sittingId) return Promise.resolve();
-    return _reportSpeakingToSitting(_sittingId, [p1, p2, p3].filter(Boolean))
+    if (!sittingId) return Promise.resolve();
+    return _reportSpeakingToSitting(sittingId, [p1, p2, p3].filter(Boolean))
       .then(function () {
-        window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
+        if (renderUI !== false) {
+          window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(sittingId);
+        }
       });
   }
 
@@ -2729,16 +2929,20 @@
   function retryFullTestSubmissions() {
     var nativeFullTest = _getNativeFullTest();
     if (!nativeFullTest) return;
+    var generation = _playerGeneration;
+    var sittingId = _sittingId;
     var btn = $('completion-retry-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi lại…'; }
     _setFullTestCompletionPhase('sending');
     nativeFullTest.retryFailed()
       .then(function () { return nativeFullTest.finalizeFullTest(); })
       .then(function () {
+        if (!_playerActive || generation !== _playerGeneration) return;
         var ids = nativeFullTest.getSnapshot().sessionIds;
-        _onFullTestFinalizeAccepted(ids[0], ids[1], ids[2]);
+        _onFullTestFinalizeAccepted(ids[0], ids[1], ids[2], sittingId, true);
       })
       .catch(function (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         console.warn('[practice] full-test retry failed:', err);
         _setFullTestCompletionPhase('error', err);
       });
@@ -2786,6 +2990,9 @@
   }
 
   async function _startNextPartInFullTest(part) {
+    var generation = _playerGeneration;
+    var priorChain = _ftAllSessionIds.slice();
+    var nativeFullTest = _getNativeFullTest();
     showState('loading');
     var loadMsg = $('loading-msg');
 
@@ -2810,6 +3017,16 @@
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
+      // Session creation is a mutation and cannot be assumed cancelled by a
+      // soft navigation. Persist the new id through the captured controller
+      // before touching UI state, even when this player has already unmounted.
+      var nextChain = priorChain.concat([newId]);
+      if (nativeFullTest) nativeFullTest.replaceChain(nextChain);
+      else {
+        try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+      }
+      if (!_playerActive || generation !== _playerGeneration) return;
+
       // Commit module, chain and URL state together before the next network
       // mutation. The error screen then also refers to the session that truly
       // needs question generation retried.
@@ -2817,7 +3034,7 @@
       _sessionData   = newSession;
       _ftCurrentPart = part;
       if (!_sessionData.mode) _sessionData.mode = 'test_full';
-      _ftAllSessionIds.push(newId);
+      _ftAllSessionIds = nextChain;
       _saveFtChain(); // spike-2 fix: the chain must survive a refresh
       // Commit the routing source of truth in the SAME transition as the chain.
       // If question generation below fails or the tab reloads mid-request, the
@@ -2830,6 +3047,7 @@
       // Generate questions for this part
       if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi Part ' + part + '...';
       var questions = await window.api.post('/sessions/' + newId + '/questions/generate', {});
+      if (!_playerActive || generation !== _playerGeneration) return;
       if (!questions || questions.length === 0) throw new Error('Không tạo được câu hỏi Part ' + part);
 
       // Slice to full test exam count
@@ -2854,6 +3072,7 @@
       _showPrep();
 
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
       showError('Không thể bắt đầu Part ' + part + ': ' + (err.message || 'Lỗi không xác định'));
     }
   }
@@ -3198,6 +3417,7 @@
    * Non-blocking — shows spinner while loading.
    */
   function _fetchAndRenderFullPron() {
+    var generation = _playerGeneration;
     var el      = $('full-pron-block');
     var section = $('full-pron-section');
     if (!el) return;
@@ -3221,6 +3441,7 @@
     // this module re-implementing the getSession→fetch→r.json() dance.
     window.api.post('/sessions/' + primarySid + '/pronunciation/full', { extra_session_ids: extraSids })
       .then(function (data) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         if (!data) return;  // 401 → api.post redirected to /login and resolved null
         _renderFullPronBlock(el, data);
         // Surface aggregate confidence as a contextual note below the full pron block
@@ -3241,6 +3462,7 @@
         }
       })
       .catch(function (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         console.warn('[practice] full pron fetch failed:', err);
         el.innerHTML =
           '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;">'
@@ -3310,7 +3532,7 @@
     // được. Gắn một lần cho cả vòng đời trang — trang này không unmount.
     if (!_meterTopBound) {
       _meterTopBound = true;
-      window.addEventListener('resize', _syncMeterTop, { passive: true });
+      _listenManaged('sheet-resize', window, 'resize', _syncMeterTop, { passive: true });
     }
     return true;
   }
@@ -3581,6 +3803,7 @@
   var _sheetAudio = null;
 
   async function _sheetToggleRec(i) {
+    var generation = _playerGeneration;
     var s = _sheet && _sheet.slots[i];
     if (!s) return;
     if (_sheet.recIdx === i) { stopRecording(); return; }
@@ -3609,6 +3832,7 @@
     } catch (err) {
       ok = false;
     }
+    if (!_playerActive || generation !== _playerGeneration) return;
     if (!ok) {
       // Trả về ĐÚNG trạng thái trước đó, đừng suy từ `band`. Ô 'ungraded' cố ý
       // không có band, nên suy-từ-band sẽ hạ nó xuống 'idle' — tức là vứt một
@@ -3648,6 +3872,7 @@
   }
 
   function _sheetSubmitBlob(s, blob, hadWork) {
+    var generation = _playerGeneration;
     s.retryBlob = null;
     s.retryHadWork = null;
     s.state = 'grading';
@@ -3659,6 +3884,7 @@
       priorResponseId: s.resp && (s.resp.id || s.resp.response_id),
     })
       .then(function (res) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         var g = (res && res.grading) ? res.grading : res;
         // `_stub` = máy chủ đã LƯU bài nhưng bộ chấm hỏng (200, không phải lỗi
         // mạng — nên `catch` bên dưới không bao giờ chạy). Không đọc cờ này thì
@@ -3684,6 +3910,7 @@
         s.retryHadWork = null;
       })
       .catch(function (err) {
+        if (!_playerActive || generation !== _playerGeneration) return;
         // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
         // là học viên bấm Nộp rồi mất câu trả lời mà không biết.
         //
@@ -3697,7 +3924,9 @@
           ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước vẫn còn. Bạn có thể gửi lại bản mới.'
           : 'Chưa gửi được câu này. Bản ghi vẫn còn trên thiết bị — hãy gửi lại.';
       })
-      .then(function () { _renderSheet(); });
+      .then(function () {
+        if (_playerActive && generation === _playerGeneration) _renderSheet();
+      });
   }
 
   /**
@@ -3707,6 +3936,7 @@
    * vẽ cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
    */
   var _sheetAudioUrls = null;      // question_id → URL đã ký
+  var _sheetReviewRun = 0;
 
   /**
    * URL phát lại của các câu trong phiên. Nạp MỘT lần, lúc cần đầu tiên: bài
@@ -3715,26 +3945,33 @@
    */
   async function _loadSheetAudioUrls() {
     if (_sheetAudioUrls) return _sheetAudioUrls;
+    var generation = _playerGeneration;
+    var sessionId = _sessionId;
     try {
       // Endpoint trả một MẢNG [{question_id, url}], không phải object — dựng
       // bảng tra ở đây thay vì đoán hình dạng.
-      var rows = await window.api.get('/sessions/' + _sessionId + '/audio-urls');
+      var rows = await window.api.get('/sessions/' + sessionId + '/audio-urls');
+      if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return {};
       var map = {};
       (rows || []).forEach(function (x) {
         if (x && x.question_id && x.url) map[x.question_id] = x.url;
       });
       _sheetAudioUrls = map;
     } catch (e) {
+      if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return {};
       _sheetAudioUrls = {};
     }
     return _sheetAudioUrls;
   }
 
   async function _sheetReview(i) {
+    var generation = _playerGeneration;
+    var reviewRun = ++_sheetReviewRun;
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.resp) return;
     _sheetReviewIdx = i;
     var urls = await _loadSheetAudioUrls();
+    if (!_playerActive || generation !== _playerGeneration || reviewRun !== _sheetReviewRun) return;
     // TẮT test-mode trong lúc xem lại. `_showFeedback` mở đầu bằng một nhánh
     // test-mode gom kết quả rồi `_advanceTestMode()` — bài giao lớp HOÀN TOÀN
     // có thể mang mode `test_part` (admin chọn "Luyện từng Part"), nên bấm
@@ -3763,6 +4000,7 @@
   }
 
   function _backToSheet() {
+    _sheetReviewRun++;
     var b = $('btn-back-sheet'); if (b) b.style.display = 'none';
     _sheetReviewIdx = -1;
     _renderSheet();
@@ -3772,18 +4010,22 @@
   var _sheetReviewIdx = -1;
 
   async function _sheetSubmit() {
+    var generation = _playerGeneration;
+    var sessionId = _sessionId;
     var btn = $('btn-sheet-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
     try {
-      await window.api.patch('/sessions/' + _sessionId + '/complete', {});
+      await window.api.patch('/sessions/' + sessionId + '/complete', {});
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
       if (btn) { btn.disabled = false; btn.textContent = 'Nộp bài'; }
       $('sheet-submit-note').textContent =
         'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
       return;
     }
+    if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
     window.location.href = '/pages/result.html'
-      + '?id=' + encodeURIComponent(_sessionId);
+      + '?id=' + encodeURIComponent(sessionId);
   }
 
   function nextQuestion() {
@@ -3797,7 +4039,7 @@
   }
 
   function _releaseRecorderResources() {
-    if (_timerId) { clearInterval(_timerId); _timerId = null; }
+    if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
     _stopWaveform();
     _clearP2SubmissionRetry();
     var nativeRecorder = _getNativeRecorder();
@@ -3819,6 +4061,8 @@
   }
 
   async function finishSession() {
+    var generation = _playerGeneration;
+    var sessionId = _sessionId;
     if (_recSubState === 'recording') {
       _showRecError('Hãy nhấn "Dừng ghi âm" trước khi hoàn thành phiên.');
       return;
@@ -3827,24 +4071,111 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Đang lưu...'; }
 
     // Clean up timers and TTS
-    if (_p2PrepTimerId)  { clearInterval(_p2PrepTimerId);  _p2PrepTimerId  = null; }
-    if (_p2SpeakTimerId) { clearInterval(_p2SpeakTimerId); _p2SpeakTimerId = null; }
+    if (_p2PrepTimerId)  {
+      _clearManagedEffect('p2-prep-countdown', _p2PrepTimerId, 'interval');
+      _p2PrepTimerId = null;
+    }
+    if (_p2SpeakTimerId) {
+      _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval');
+      _p2SpeakTimerId = null;
+    }
+    _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
     _stopAITts();
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    _cancelSpeech();
 
     // Release mic and AudioContext (native route + legacy fallback).
     _releaseRecorderResources();
 
     // Release feedback audio blob URL
-    if (_feedbackAudioUrl) { URL.revokeObjectURL(_feedbackAudioUrl); _feedbackAudioUrl = null; }
+    if (_feedbackAudioUrl && _feedbackAudioIsBlob) {
+      _revokeManagedObjectUrl('feedback-audio', _feedbackAudioUrl);
+    }
+    _feedbackAudioUrl = null;
+    _feedbackAudioIsBlob = false;
 
     try {
-      await window.api.patch('/sessions/' + _sessionId + '/complete', {});
+      await window.api.patch('/sessions/' + sessionId + '/complete', {});
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);
     }
 
-    window.location.href = '/pages/result.html?id=' + encodeURIComponent(_sessionId);
+    if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
+    window.location.href = '/pages/result.html?id=' + encodeURIComponent(sessionId);
+  }
+
+  function destroy() {
+    if (!_playerActive) return;
+    _playerActive = false;
+    _playerGeneration++;
+    _processingRun++;
+    _sheetReviewRun++;
+
+    if (_processingTimer) {
+      _clearManagedEffect('processing-copy', _processingTimer, 'interval');
+      _processingTimer = null;
+    }
+    if (_p2PrepTimerId) {
+      _clearManagedEffect('p2-prep-countdown', _p2PrepTimerId, 'interval');
+      _p2PrepTimerId = null;
+    }
+    if (_p2SpeakTimerId) {
+      _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval');
+      _p2SpeakTimerId = null;
+    }
+    _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+    _clearManagedEffect('recording-error-hide', null, 'timeout');
+    _clearManagedEffect('grammar-entry-flash', null, 'timeout');
+
+    _ttsGeneration++;
+    _stopAITts();
+    _cancelSpeech();
+    _ttsCache.clear();
+    _releaseRecorderResources();
+    _teardownRecordedPlayback();
+    _applyListenOnlyUI(false);
+
+    if (_feedbackReplayAudio) {
+      _feedbackReplayAudio.onended = null;
+      _feedbackReplayAudio.onerror = null;
+      try { _feedbackReplayAudio.pause(); } catch (_) {}
+      _feedbackReplayAudio = null;
+    }
+    if (_feedbackAudioUrl && _feedbackAudioIsBlob) {
+      _revokeManagedObjectUrl('feedback-audio', _feedbackAudioUrl);
+    }
+    _feedbackAudioUrl = null;
+    _feedbackAudioIsBlob = false;
+
+    if (_sheetAudio) {
+      _sheetAudio.onended = null;
+      _sheetAudio.onerror = null;
+      try { _sheetAudio.pause(); } catch (_) {}
+      try { _sheetAudio.removeAttribute('src'); } catch (_) {}
+      _sheetAudio = null;
+    }
+
+    _currentState = null;
+    _recSubState = 'idle';
+    _recordedBlob = null;
+    _sessionId = null;
+    _sessionData = null;
+    _questions = [];
+    _currentQ = null;
+    _currentIdx = 0;
+    _testMode = null;
+    _testResults = [];
+    _ftAllSessionIds = [];
+    _sittingId = null;
+    _sheet = null;
+    _sheetAudioUrls = null;
+    _sheetReviewIdx = -1;
+    _meterTopBound = false;
+    _currentUserId = null;
+    if (_grammarFlashEntry) {
+      _grammarFlashEntry.classList.remove('is-flash');
+      _grammarFlashEntry = null;
+    }
   }
 
   // ── Waveform visualiser ───────────────────────────────────────────────────────
@@ -3903,29 +4234,38 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────────
 
+  function _handleSheetSlotsClick(e) {
+    var listen = e.target.closest('[data-listen]');
+    if (listen) { _sheetListen(Number(listen.dataset.listen)); return; }
+    var rev = e.target.closest('[data-review]');
+    if (rev) { _sheetReview(Number(rev.dataset.review)); return; }
+    var retry = e.target.closest('[data-retry]');
+    if (retry && !retry.disabled) {
+      _sheetRetrySubmission(Number(retry.dataset.retry));
+      return;
+    }
+    var rec = e.target.closest('[data-rec]');
+    if (rec && !rec.disabled) _sheetToggleRec(Number(rec.dataset.rec));
+  }
+
   function _bindSheet() {
     var slots = $('sheet-slots');
     if (!slots) return;
     // Uỷ quyền: phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay
     // sẽ mất ngay ở lần vẽ kế tiếp.
-    slots.addEventListener('click', function (e) {
-      var listen = e.target.closest('[data-listen]');
-      if (listen) { _sheetListen(Number(listen.dataset.listen)); return; }
-      var rev = e.target.closest('[data-review]');
-      if (rev) { _sheetReview(Number(rev.dataset.review)); return; }
-      var retry = e.target.closest('[data-retry]');
-      if (retry && !retry.disabled) {
-        _sheetRetrySubmission(Number(retry.dataset.retry));
-        return;
-      }
-      var rec = e.target.closest('[data-rec]');
-      if (rec && !rec.disabled) _sheetToggleRec(Number(rec.dataset.rec));
-    });
+    _listenManaged('sheet-slots-click', slots, 'click', _handleSheetSlotsClick);
     var btn = $('btn-sheet-submit');
-    if (btn) btn.addEventListener('click', _sheetSubmit);
+    if (btn) _listenManaged('sheet-submit-click', btn, 'click', _sheetSubmit);
   }
 
   async function init(bootstrap) {
+    var generation = ++_playerGeneration;
+    _playerActive = true;
+    _sittingId = null;
+    _ftAllSessionIds = [];
+    _sheet = null;
+    _testMode = null;
+    _bindPlayerEffects();
     _bindSheet();
     showState('loading');
 
@@ -3959,6 +4299,7 @@
       if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
 
       var result = await sb.auth.getSession();
+      if (!_playerActive || generation !== _playerGeneration) return;
       if (!result.data.session) {
         window.location.href = window.api.url('login.html');
         return;
@@ -3996,13 +4337,16 @@
       } else {
         if (loadMsg) loadMsg.textContent = 'Đang tải session...';
         _sessionData = await window.api.get('/sessions/' + _sessionId);
+        if (!_playerActive || generation !== _playerGeneration) return;
 
         if (loadMsg) loadMsg.textContent = 'Đang tải câu hỏi...';
         questions = await window.api.get('/sessions/' + _sessionId + '/questions');
+        if (!_playerActive || generation !== _playerGeneration) return;
 
         if (!questions || questions.length === 0) {
           if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi với AI...';
           questions = await window.api.post('/sessions/' + _sessionId + '/questions/generate', {});
+          if (!_playerActive || generation !== _playerGeneration) return;
         }
       }
 
@@ -4158,6 +4502,7 @@
       }
 
     } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
       showError('Không thể tải session: ' + (err.message || 'Lỗi không xác định'));
     }
   }
@@ -4167,6 +4512,8 @@
   // Download PDF for each session in the test (or just the current session).
   // btn — the button element (disabled during download to prevent double-click).
   async function _downloadPDFs(btn) {
+    var generation = _playerGeneration;
+    _clearManagedEffect('pdf-button-reset', null, 'timeout');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tạo PDF...'; }
 
     var sessionIds = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
@@ -4191,16 +4538,23 @@
         var res = await fetch(base + '/sessions/' + sid + '/export/pdf', {
           headers: token ? { 'Authorization': 'Bearer ' + token } : {},
         });
+        if (!_playerActive || generation !== _playerGeneration) return;
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var blob = await res.blob();
-        var url = URL.createObjectURL(blob);
+        if (!_playerActive || generation !== _playerGeneration) return;
+        var urlKey = 'pdf-download-' + i + '-' + Date.now();
+        var url = _createManagedObjectUrl(urlKey, blob);
         var a = document.createElement('a');
         a.href = url;
         a.download = 'IELTS_Report_Part' + (i + 1) + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+        (function (ownedKey, ownedUrl) {
+          _startManagedTimeout('revoke-' + ownedKey, function () {
+            _revokeManagedObjectUrl(ownedKey, ownedUrl);
+          }, 3000);
+        }(urlKey, url));
       } catch (err) {
         errors.push('Part ' + (i + 1) + ': ' + (err.message || 'Lỗi'));
       }
@@ -4212,7 +4566,7 @@
         btn.textContent = '⚠️ ' + errors.join(', ');
       } else {
         btn.textContent = '✅ Đã tải xuống';
-        setTimeout(function () {
+        _startManagedTimeout('pdf-button-reset', function () {
           if (btn) btn.textContent = '📄 Tải xuống báo cáo PDF';
         }, 3000);
       }
@@ -4223,6 +4577,7 @@
 
   window.PracticeApp = {
     init:                 init,
+    destroy:              destroy,
     goToRecording:        goToRecording,
     startRecording:       startRecording,
     stopRecording:        stopRecording,
@@ -4267,12 +4622,20 @@
       '.ds-grammar-error-item[data-error-id="' + errorId + '"]'
     );
     if (!entry) return;
+    if (_grammarFlashEntry && _grammarFlashEntry !== entry) {
+      _grammarFlashEntry.classList.remove('is-flash');
+    }
+    _grammarFlashEntry = entry;
     entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
     entry.classList.add('is-flash');
-    setTimeout(function () { entry.classList.remove('is-flash'); }, 1500);
+    _startManagedTimeout('grammar-entry-flash', function () {
+      entry.classList.remove('is-flash');
+      if (_grammarFlashEntry === entry) _grammarFlashEntry = null;
+    }, 1500);
   }
+  var _grammarFlashEntry = null;
 
-  document.addEventListener('click', function (e) {
+  function _handleGrammarClick(e) {
     var hl = e.target.closest && e.target.closest('.ds-grammar-highlight');
     if (hl) {
       _scrollToGrammarEntry(hl.getAttribute('data-error-id'));
@@ -4291,14 +4654,31 @@
         mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  });
+  }
 
-  document.addEventListener('keydown', function (e) {
+  function _handleGrammarKeydown(e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     var hl = e.target && e.target.closest && e.target.closest('.ds-grammar-highlight');
     if (!hl) return;
     e.preventDefault();
     _scrollToGrammarEntry(hl.getAttribute('data-error-id'));
-  });
+  }
+
+  function _bindPlayerEffects() {
+    var onceCapture = { once: true, capture: true };
+    _listenManaged('interaction-click', document, 'click', _markInteracted, onceCapture);
+    _listenManaged('interaction-keydown', document, 'keydown', _markInteracted, onceCapture);
+    _listenManaged('interaction-touchstart', document, 'touchstart', _markInteracted, onceCapture);
+    _listenManaged('grammar-click', document, 'click', _handleGrammarClick);
+    _listenManaged('grammar-keydown', document, 'keydown', _handleGrammarKeydown);
+    if (window.speechSynthesis) {
+      _listenManaged(
+        'tts-voiceschanged',
+        window.speechSynthesis,
+        'voiceschanged',
+        _handleVoicesChanged,
+      );
+    }
+  }
 
 })();

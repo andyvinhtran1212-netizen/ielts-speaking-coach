@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 
 import { LegacyPracticeShell } from './legacy-practice-shell';
 import { PracticeFullTestBridge } from './practice-full-test-bridge';
+import { PracticePlayerBridge } from './practice-player-bridge';
 import { PracticeRecorderBridge } from './practice-recorder-bridge';
 import { PracticeSessionBoot } from './practice-session-boot';
 import { PracticeSubmissionBridge } from './practice-submission-bridge';
@@ -19,6 +20,7 @@ export default function PracticeSessionPage() {
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="speaking" />
       <LegacyPracticeShell />
+      <PracticePlayerBridge />
       <PracticeRecorderBridge />
       <PracticeSubmissionBridge />
       <PracticeFullTestBridge />

@@ -47,6 +47,7 @@ async function run(mic) {
     _showRecError: (m) => shown.push(m),
     _clearRecError: () => {},
     _stopAITts: () => {},
+    _cancelSpeech: () => {},
     _showRecSub: () => {},
     _startWaveform: () => {},
     _renderTimer: () => {},
@@ -55,8 +56,8 @@ async function run(mic) {
     _sheetActive: () => false,
     _sheetOnRecorded: () => {},
     stopRecording: () => {},
-    setInterval: () => 1,
-    clearInterval: () => {},
+    _startManagedInterval: () => 1,
+    _clearManagedEffect: () => true,
     MAX_RECORD_SEC: { 1: 90 },
   };
   const names = Object.keys(env);
@@ -111,6 +112,8 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
       _renderSheet: () => {},
       _submitGradingEager: () => { submitted += 1; return Promise.resolve({}); },
       _sessionId: 'sid',
+      _playerGeneration: 1,
+      _playerActive: true,
     };
     const names = Object.keys(env);
     new Function(...names, `${JS.slice(start, end)} _sheetOnRecorded({});`)(
@@ -163,13 +166,13 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
       window: { AudioContext: function () { throw new Error('no ctx'); } },
       $: () => null,
       _showRecError: (m) => { throw new Error('không được hiện lỗi: ' + m); },
-      _clearRecError: () => {}, _stopAITts: () => {},
+      _clearRecError: () => {}, _stopAITts: () => {}, _cancelSpeech: () => {},
       _startWaveform: () => {}, _stopWaveform: () => {},
       _renderTimer: () => {}, _renderRecordedPlayback: () => {},
       _renderRecordedLengthHint: () => {},
       _sheetActive: () => true,
       _sheetOnRecorded: (b) => handed.push(b),
-      setInterval: () => 1, clearInterval: () => {},
+      _startManagedInterval: () => 1, _clearManagedEffect: () => true,
       MAX_RECORD_SEC: { 1: 90 },
       Blob: globalThis.Blob,
     };

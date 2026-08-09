@@ -274,6 +274,9 @@ describe('Next Speaking submission integration', () => {
     const body = PRACTICE.slice(start, end);
     assert.match(body, /_showP2SubmissionRetry\(msg\)/);
     assert.doesNotMatch(body, /part === 2[\s\S]{0,180}?_resetRecorder\(\)/);
-    assert.match(PRACTICE, /_p2RetryPlaybackUrl = URL\.createObjectURL\(_recordedBlob\)/);
+    assert.match(
+      PRACTICE,
+      /_p2RetryPlaybackUrl = _createManagedObjectUrl\('p2-retry-playback', _recordedBlob\)/,
+    );
   });
 });

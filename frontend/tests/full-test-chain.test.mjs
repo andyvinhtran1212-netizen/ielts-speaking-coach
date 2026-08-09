@@ -13,8 +13,12 @@ const SRC = readFileSync(path.join(FRONTEND, 'js', 'practice.js'), 'utf8');
 test('chain persists under the stable sessionStorage key', () => {
   assert.match(SRC, /var FT_CHAIN_KEY = 'ielts_ft_session_ids';/,
     'key is a cross-page/tab contract — renaming breaks in-flight full tests');
-  assert.match(SRC, /_ftAllSessionIds\.push\(newId\);\s*\n\s*_saveFtChain\(\);/,
-    'every part push must persist the chain');
+  assert.match(SRC, /var nextChain = priorChain\.concat\(\[newId\]\);/,
+    'every new part must extend the chain captured before the mutation');
+  assert.match(SRC, /nativeFullTest\.replaceChain\(nextChain\)/,
+    'the chain must persist even if session creation resolves after unmount');
+  assert.match(SRC, /_ftAllSessionIds = nextChain;\s*\n\s*_saveFtChain\(\);/,
+    'the live player and persisted chain must commit the same session ids');
 });
 
 test('init restores with membership check + truncation', () => {

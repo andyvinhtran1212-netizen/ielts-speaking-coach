@@ -15,7 +15,8 @@ nhưng đây là bằng chứng Gate D behavior migration, không chứng minh c
 ready. Các player ghi dữ liệu và resume-sensitive quan trọng vẫn là legacy;
 core suite vẫn chỉ chạy Chromium dù browser seam đã có WebKit synthetic; chưa có
 hồ sơ 20 critical-suite runs liên tiếp; active-session affinity mới có foundation
-và local drill, chưa có live core-player drill. Vì vậy canonical core cutover vẫn
+  và local drill, chưa có live core-player drill. Speaking đã có stable hybrid
+  Next player route nhưng chưa native renderer/browser evidence. Vì vậy canonical core cutover vẫn
 bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
@@ -83,7 +84,9 @@ bị chặn bởi Gate E.
 - **Root cause:** trước batch affinity, coexistence/rollback drill chỉ chứng minh
   deployment recovery, chưa chọn cách xử lý attempt đang làm dở khi ownership
   đổi release. Batch đã chọn stable implementation-specific URL + admission
-  switch và chạy local state drill; player Next thật chưa tồn tại để drill live.
+  switch và chạy local state drill; Speaking đã có `/practice/session` với native
+  bootstrap/recorder/submission/full-test/player lifecycle, nhưng chưa có live
+  drill và các core domain còn lại chưa đủ player Next để drill.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** chưa có canonical Gate E runbook; các core route
