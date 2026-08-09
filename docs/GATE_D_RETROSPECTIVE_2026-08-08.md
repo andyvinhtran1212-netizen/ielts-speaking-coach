@@ -318,17 +318,41 @@ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
 
 Sau batch stacked: hard-navigation debt còn **4/29 route**.
 
+## Batch behavior thứ mười tám: `/listening/practice`
+
+Batch `codex/nextjs-listening-practice` chuyển thư viện Listening Luyện nhanh
+từ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
+
+- route dùng `AuthProvider`, fail-closed khi hết phiên và remount overview/cache
+  theo `user.id`;
+- overview canonical quyết định tab trap/section/curated nào thực sự xuất hiện;
+  thứ tự sư phạm, count và hash tab hiện hành được giữ nguyên;
+- từng tab gọi GET phân trang `/api/listening/tests?test_type=practice`, khóa
+  `practice_group`, cache riêng, giới hạn 100 và guard 20 trang;
+- tab trap vẫn nhóm theo tên bẫy, sort theo số bài giảm dần rồi tên; hai tab
+  còn lại giữ danh sách phẳng;
+- chỉ attempt đã `submitted` mới đổi CTA sang `Làm lại`; attempt dang dở vẫn
+  hiển thị số lượt đã mở nhưng không bị báo sai là hoàn thành;
+- request overview/tab bị abort khi đổi account/tab hoặc unmount; payload lỗi
+  hình dạng được chuẩn hóa, authored content do React escape và overflow không
+  bị cắt im lặng;
+- browser-flow kiểm hash selection, tab count, cache, trap grouping, submitted
+  completion, escaping, CTA và lỗi chung trên production build;
+- route không còn phụ thuộc hard navigation.
+
+Sau batch stacked: hard-navigation debt còn **3/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15 |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15; batch 18: 49/49 pass + browser-flow 15/15 |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.158/7.158 pass |
+| Full frontend contract suite | 7.170/7.170 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; cả mười bảy behavior route static prerender |
+| Next production build | pass; cả mười tám behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 35 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 36 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
