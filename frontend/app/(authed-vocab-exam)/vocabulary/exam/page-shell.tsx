@@ -13,7 +13,7 @@ export function VocabExamShell() {
     <div className="shell">
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href="/pages/vocabulary.html">
+          <a className="subpage-header__back" href="/vocabulary/hub">
             <span aria-hidden="true">←</span><span>Vocabulary</span>
           </a>
           <span className="subpage-header__sep">|</span>

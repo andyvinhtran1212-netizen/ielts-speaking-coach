@@ -60,7 +60,7 @@ const HTML = /* html */ `
       <span class="fc-banner__icon" aria-hidden="true">📍</span>
       <div class="fc-banner__body">
         Flashcards giờ là một tab trong trang
-        <a href="/pages/vocabulary.html#flashcards" class="fc-banner__link">Từ vựng</a>
+        <a href="/vocabulary/hub#flashcards" class="fc-banner__link">Từ vựng</a>
         — quản lý vocab + ôn flashcards trong một nơi.
       </div>
     </div>
@@ -255,7 +255,7 @@ export async function mount(container, opts = {}) {
         <div class="state-msg">
           <p class="text-base mb-2 text-white">Bạn chưa có thẻ flashcard nào.</p>
           <p class="text-sm">Chọn một chủ đề để học flashcards từ vựng theo lịch lặp khoảng cách.</p>
-          <a class="empty-cta" href="/pages/vocabulary.html#vocab-topics">Học theo chủ đề →</a>
+          <a class="empty-cta" href="/vocabulary/hub#vocab-topics">Học theo chủ đề →</a>
         </div>
       `);
       return;
@@ -559,7 +559,7 @@ export async function mount(container, opts = {}) {
 
   // Sprint 9.2 — back-link returns the user to the parent Vocabulary
   // dashboard. Embedded: clear hash, let vocab-landing.js handle the
-  // hashchange. Standalone: hard-navigate to /pages/vocabulary.html.
+  // hashchange. Standalone: hard-navigate to the canonical Next hub.
   function backToDashboard() {
     if (embedded) {
       if (window.location.hash) {
@@ -567,7 +567,7 @@ export async function mount(container, opts = {}) {
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       }
     } else {
-      window.location.href = '/pages/vocabulary.html';
+      window.location.href = '/vocabulary/hub';
     }
   }
 

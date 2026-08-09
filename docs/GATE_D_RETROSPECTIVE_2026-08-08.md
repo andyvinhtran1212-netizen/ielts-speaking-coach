@@ -108,17 +108,35 @@ React, giữ endpoint và nguồn thật phía server:
 
 Sau batch stacked: hard-navigation debt còn **15/29 route**.
 
+## Batch behavior thứ bảy: `/vocabulary/hub`
+
+Batch `codex/nextjs-vocabulary-hub` thay compatibility shell của hub học viên
+bằng Client Component React:
+
+- bỏ `dangerouslySetInnerHTML`, bootstrap `vocab-landing.js` và watchdog legacy;
+- thống kê + feature flags đọc song song, khóa theo `user.id` và abort khi
+  unmount hoặc đổi tài khoản;
+- feature card tiếp tục default-deny khi `/auth/me` lỗi hoặc flag không bật;
+- hash navigation/back-forward giữ ba mode `vocab-topics`, `flashcards`,
+  `exercises` và an toàn khi điều hướng mềm;
+- topic metadata được React escape; slug/topic id được URL-encode;
+- Flashcards/Exercises dùng API `mount()` sẵn có nhưng được React quản lý vòng
+  đời, cleanup khi unmount/account switch;
+- mọi entry point của hub trỏ tới canonical `/vocabulary/hub`.
+
+Sau batch stacked: hard-navigation debt còn **14/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.008 pass; 1 skip; 0 fail |
+| Full frontend contract suite | 7.048 pass; 0 skip; 0 fail |
 | TypeScript strict check | pass |
-| Next production build | pass; cả sáu behavior route static prerender |
+| Next production build | pass; cả bảy behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 24 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 26 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
