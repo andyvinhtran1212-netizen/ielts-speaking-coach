@@ -69,16 +69,18 @@ describe('A — rich glossary (shared GlossaryPopover, both page types)', () => 
 
 describe('B — 2-pane independent scroll (shared layout)', () => {
   test('desktop: passage article + questions aside each scroll independently', () => {
-    assert.match(css, /\.rv-passage-layout\s*\{[\s\S]{0,700}height:\s*calc\(100dvh/);
-    assert.match(css, /\.rv-passage-layout > article,[\s\S]{0,120}overflow-y:\s*auto/);
+    // The viewport budget now belongs to the full detail workspace so the new
+    // orientation header and the two scroll panes fit in one screen together.
+    assert.match(css, /\.rv-detail\s*\{[\s\S]{0,160}height:\s*calc\(100dvh/);
+    assert.match(css, /\.rv-reader,[\s\S]{0,180}overflow-y:\s*auto/);
     // the old sticky aside is replaced by independent scroll
     assert.ok(!/\.rv-questions\s*\{[\s\S]{0,80}position:\s*sticky/.test(css),
       'rv-questions should no longer be position:sticky (independent scroll instead)');
   });
 
   test('mobile: stacks to one column with normal page scroll', () => {
-    assert.match(css, /@media \(max-width: 860px\)[\s\S]{0,400}\.rv-passage-layout \{[\s\S]{0,120}height:\s*auto/);
-    assert.match(css, /@media \(max-width: 860px\)[\s\S]{0,500}overflow-y:\s*visible/);
+    assert.match(css, /@media \(max-width: 860px\)[\s\S]{0,400}\.rv-detail \{[^}]*height:\s*auto/);
+    assert.match(css, /@media \(max-width: 860px\)[\s\S]{0,650}overflow-y:\s*visible/);
   });
 
   test('progress bar tracks the passage pane (both page types)', () => {
