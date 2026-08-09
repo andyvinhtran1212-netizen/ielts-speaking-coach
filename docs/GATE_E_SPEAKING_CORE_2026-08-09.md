@@ -1,28 +1,32 @@
-# Gate E Speaking core — dark route bridge — 2026-08-09
+# Gate E Speaking core — native bootstrap foundation — 2026-08-09
 
-**Trạng thái:** DARK ROUTE BRIDGE ONLY; ADMISSION LEGACY. `/practice/session`
-đã là một stable App Router URL nhưng chưa phải native behavior, chưa ready và
-không nhận attempt mới.
+**Trạng thái:** NATIVE BOOTSTRAP; LEGACY PLAYER; ADMISSION LEGACY.
+`/practice/session` đã là stable App Router URL; React sở hữu auth và tải
+session/câu hỏi, nhưng recorder/grading/state machine vẫn ở `practice.js`.
+Route chưa ready và không nhận attempt mới.
 
 ## Finding
 
-- **Root cause:** player Speaking vẫn là một IIFE 3.848 dòng, giữ MediaRecorder
-  blob, timer, full-test chain và nhiều trạng thái ghi trong bộ nhớ. Port thẳng
-  rồi flip cùng một batch sẽ làm mất vế phân biệt giữa lỗi shell/routing và lỗi
-  recorder/persistence.
+- **Root cause:** dark route trước đây chỉ gọi `PracticeApp.init()` nên legacy
+  IIFE vẫn tự kiểm auth, đọc query, tải session và có thể POST tạo câu hỏi. Next
+  không sở hữu được contract khởi động; StrictMode port ngây thơ còn có thể tạo
+  câu hỏi hai lần. Phần player còn lại vẫn là một IIFE 3.848 dòng, giữ
+  MediaRecorder blob, timer, full-test chain và nhiều trạng thái trong bộ nhớ.
 - **Severity:** Critical — response audio chỉ an toàn sau khi endpoint upload
   xác nhận; reload/renderer flip trước đó có thể làm mất bản thu duy nhất.
 - **Impacted files/functions:** `frontend/public/pages/practice.html`,
   `frontend/public/js/practice.js`, `_uploadAndGrade()`, `_saveFtChain()`,
   `_finishTestAndShowResults()`, recorder/Part 2/sheet state machines và future
   `/practice/session`.
-- **Minimal fix trong batch:** App Router sở hữu stable dark URL và SSR shell;
-  bridge tiếp tục chạy canonical `practice.js`, chỉ boot sau auth/API/Supabase,
-  báo lỗi hữu hình khi dependency không tới. Admission và `route_ready` giữ
-  nguyên Legacy/false.
-- **Verification:** build-time extractor fail closed khi body boundary, chrome,
-  state contract hoặc script boundary drift; contract tests pin asset order,
-  guarded boot, dark-route ownership và parity inventory.
+- **Minimal fix trong batch:** `PracticeSessionBoot` dùng `useAuth()`, đọc
+  `session_id`, gọi loader contract có kiểm tra shape, tải/generate đúng một lần
+  qua promise giữ qua StrictMode replay, rồi handoff payload đã xác thực cho
+  `PracticeApp.init(bootstrap)`. Legacy URL gọi `init()` không tham số nên giữ
+  nguyên bootstrap cũ. Account đổi trong cùng tab hard-reload thay vì tái dùng
+  payload của owner cũ. Admission và `route_ready` vẫn Legacy/false.
+- **Verification:** unit tests pin URL encoding, phase progression, generate
+  fallback một lần và fail-closed payload; source contracts pin Next handoff và
+  legacy fallback; build/typecheck/full frontend suite kiểm integration.
 
 ## Ranh giới bằng chứng
 
@@ -33,13 +37,15 @@ probe không có một session fixture ổn định, không được dùng cặp
 ready.
 
 Shell được trích từ repository HTML tại build time và từ chối mọi `<script>`;
-scripts được layout nạp rõ thứ tự. Đây là bridge hữu hạn để có stable URL cho
-drill, không phải đích kiến trúc. Native migration vẫn phải chuyển state/effect
-ownership ra khỏi IIFE và cung cấp cleanup khi soft navigation/unmount.
+scripts được layout nạp rõ thứ tự. Native bootstrap đã bỏ lần kiểm Supabase và
+hai lần đọc session/question khỏi IIFE trên route Next, nhưng đây vẫn là bridge
+hữu hạn chứ chưa phải đích kiến trúc. Migration tiếp theo phải chuyển
+state/effect ownership, recorder và grading ra khỏi IIFE, đồng thời cung cấp
+cleanup khi soft navigation/unmount.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port behavior sang client modules có cleanup cho stream, MediaRecorder,
+1. Port recorder sang client module có cleanup cho stream, MediaRecorder,
    AudioContext, timers, blob URLs, TTS và document listeners.
 2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
    assignment sheet và mock sitting.
