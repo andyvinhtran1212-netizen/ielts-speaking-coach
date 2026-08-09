@@ -6,17 +6,16 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   type MouseEvent,
   type ReactNode,
 } from 'react';
 
+import { VocabModuleMount } from '@/components/vocab-module-mount';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type HubMode = 'vocab-topics' | 'flashcards' | 'exercises';
-type ModuleName = 'flashcards' | 'exercises';
 
 interface KeyedState<T> {
   key: string;
@@ -55,26 +54,6 @@ interface VocabCategory {
   article_count?: unknown;
   articles?: unknown;
   topic_id?: unknown;
-}
-
-interface VocabModuleHandle {
-  unmount?: () => void;
-}
-
-interface VocabModule {
-  mount: (
-    container: HTMLElement,
-    options: { embedded: boolean },
-  ) => Promise<VocabModuleHandle | null> | VocabModuleHandle | null;
-}
-
-interface LoaderModule {
-  renderSkeleton: (container: HTMLElement) => void;
-  renderError: (
-    container: HTMLElement,
-    error: Error,
-    options: { onRetry: () => void },
-  ) => void;
 }
 
 const VALID_MODES = new Set<HubMode>(['vocab-topics', 'flashcards', 'exercises']);
@@ -337,88 +316,6 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
   );
 }
 
-function renderLoaderFallback(container: HTMLElement, retry: () => void) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'vocab-module-error text-center py-16 empty-state';
-  const message = document.createElement('p');
-  message.className = 'text-sm mb-4';
-  message.textContent = 'Không tải được module. Vui lòng thử lại.';
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'mv-add-btn text-sm font-medium px-4 py-1.5 rounded-lg';
-  button.textContent = 'Thử lại';
-  button.addEventListener('click', retry, { once: true });
-  wrapper.append(message, button);
-  container.replaceChildren(wrapper);
-}
-
-function LegacyModulePanel({ moduleName, accountKey }: { moduleName: ModuleName; accountKey: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let disposed = false;
-    let mounting = false;
-    let handle: VocabModuleHandle | null = null;
-
-    const load = async () => {
-      if (disposed || mounting || handle) return;
-      mounting = true;
-
-      try {
-        const ready = await whenGlobalReady(
-          () => !!window.api?.base && typeof window.getSupabase === 'function' && !!window.getSupabase(),
-          `vocabulary ${moduleName} dependencies`,
-        );
-        if (!ready || disposed) throw new Error('dependencies unavailable');
-
-        const loaderUrl = '/js/vocab-modules/_loader.js';
-        const moduleUrl = `/js/vocab-modules/${moduleName}.js`;
-        const loader = await import(/* webpackIgnore: true */ loaderUrl) as LoaderModule;
-        if (disposed) return;
-        loader.renderSkeleton(container);
-
-        const vocabModule = await import(/* webpackIgnore: true */ moduleUrl) as VocabModule;
-        const mounted = await vocabModule.mount(container, { embedded: true });
-        if (disposed) {
-          mounted?.unmount?.();
-          return;
-        }
-        handle = mounted;
-      } catch {
-        if (disposed) return;
-        try {
-          const loaderUrl = '/js/vocab-modules/_loader.js';
-          const loader = await import(/* webpackIgnore: true */ loaderUrl) as LoaderModule;
-          if (!disposed) {
-            loader.renderError(container, new Error('Vui lòng thử lại.'), { onRetry: load });
-          }
-        } catch {
-          if (!disposed) renderLoaderFallback(container, load);
-        }
-      } finally {
-        mounting = false;
-      }
-    };
-
-    load();
-
-    return () => {
-      disposed = true;
-      handle?.unmount?.();
-      if (!handle) {
-        container.replaceChildren();
-        delete container.dataset.mounted;
-        delete container.dataset.loading;
-      }
-    };
-  }, [accountKey, moduleName]);
-
-  return <div className="tab-mount" id={`mount-${moduleName}`} ref={containerRef} />;
-}
-
 export function VocabularyHubBehavior() {
   const { status, user } = useAuth();
   const requestKey = status === 'signed-in' && user?.id ? user.id : null;
@@ -579,13 +476,27 @@ export function VocabularyHubBehavior() {
 
       <section className="tab-panel" data-panel="flashcards" id="panel-flashcards" role="tabpanel" aria-labelledby="modes-heading" hidden={activeMode !== 'flashcards'}>
         {requestKey && visited.has('flashcards') ? (
-          <LegacyModulePanel key={`${requestKey}:flashcards`} moduleName="flashcards" accountKey={requestKey} />
+          <VocabModuleMount
+            key={`${requestKey}:flashcards`}
+            moduleName="flashcards"
+            embedded
+            accountKey={requestKey}
+            id="mount-flashcards"
+            className="tab-mount"
+          />
         ) : null}
       </section>
 
       <section className="tab-panel" data-panel="exercises" id="panel-exercises" role="tabpanel" aria-labelledby="modes-heading" hidden={activeMode !== 'exercises'}>
         {requestKey && visited.has('exercises') ? (
-          <LegacyModulePanel key={`${requestKey}:exercises`} moduleName="exercises" accountKey={requestKey} />
+          <VocabModuleMount
+            key={`${requestKey}:exercises`}
+            moduleName="exercises"
+            embedded
+            accountKey={requestKey}
+            id="mount-exercises"
+            className="tab-mount"
+          />
         ) : null}
       </section>
 

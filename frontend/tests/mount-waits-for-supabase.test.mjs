@@ -56,7 +56,6 @@ describe('khuôn mount() — phải chờ Supabase', () => {
   // đó là chủ đích, không phải phiền toái.
   const EXPECTED = [
     'frontend/app/(authed-exercises)/exercises/page.tsx',
-    'frontend/app/(authed-flashcards)/flashcards/page.tsx',
   ];
 
   test('bộ dò tìm ĐÚNG các trang dùng khuôn mount()', () => {

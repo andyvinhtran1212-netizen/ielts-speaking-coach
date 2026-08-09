@@ -141,17 +141,34 @@ sang Client Component React:
 
 Sau batch stacked: hard-navigation debt còn **13/29 route**.
 
+## Batch behavior thứ chín: `/flashcards`
+
+Batch `codex/nextjs-flashcards` thay script nội tuyến + interval của route
+Flashcards bằng orchestration React có lifecycle:
+
+- route dùng `AuthProvider`, fail-closed khi hết phiên và khóa mount theo
+  `user.id`;
+- adapter dùng chung chờ `window.api` + Supabase, gọi đúng hợp đồng
+  `mount()/unmount()` của module domain;
+- cleanup gỡ listener/timer và abort toàn bộ fetch còn chạy, không để response
+  của account/route cũ tiếp tục đổi DOM hoặc redirect;
+- legacy HTML và module domain vẫn là mốc parity/rollback; không viết lại logic
+  stack, preview, tạo/xóa stack;
+- route không còn phụ thuộc hard navigation.
+
+Sau batch stacked: hard-navigation debt còn **12/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.055 pass; 0 skip; 0 fail |
+| Full frontend contract suite | 7.060 pass; 0 skip; 0 fail |
 | TypeScript strict check | pass |
-| Next production build | pass; cả tám behavior route static prerender |
+| Next production build | pass; cả chín behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 27 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 28 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và

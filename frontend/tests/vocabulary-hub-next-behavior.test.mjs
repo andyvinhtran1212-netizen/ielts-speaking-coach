@@ -11,6 +11,7 @@ const PAGE = read('app', '(authed-vocabulary-hub)', 'vocabulary', 'hub', 'page.t
 const BEHAVIOR = read(
   'app', '(authed-vocabulary-hub)', 'vocabulary', 'hub', 'vocabulary-hub-behavior.tsx',
 );
+const MOUNT_ADAPTER = read('components', 'vocab-module-mount.tsx');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
 describe('/vocabulary/hub — native React ownership', () => {
@@ -84,9 +85,10 @@ describe('/vocabulary/hub — native React ownership', () => {
   });
 
   test('mounts retained domain modules through a lifecycle-safe adapter', () => {
-    assert.match(BEHAVIOR, /`\/js\/vocab-modules\/\$\{moduleName\}\.js`/);
-    assert.match(BEHAVIOR, /mount\(container, \{ embedded: true \}\)/);
-    assert.match(BEHAVIOR, /handle\?\.unmount\?\.\(\)/);
+    assert.match(BEHAVIOR, /<VocabModuleMount/);
+    assert.match(MOUNT_ADAPTER, /`\/js\/vocab-modules\/\$\{moduleName\}\.js`/);
+    assert.match(MOUNT_ADAPTER, /mount\(container, \{ embedded \}\)/);
+    assert.match(MOUNT_ADAPTER, /handle\?\.unmount\?\.\(\)/);
     assert.match(BEHAVIOR, /key=\{`\$\{requestKey\}:flashcards`\}/);
     assert.match(BEHAVIOR, /key=\{`\$\{requestKey\}:exercises`\}/);
     assert.match(BEHAVIOR, /visited\.has\('flashcards'\)/);
