@@ -572,3 +572,47 @@ None found that require a schema or grading rewrite.
 - **Verification:** render attempted and untouched full tests, validate `/40`
   only on this fixed-length library, switch filters by keyboard, follow both
   actions, and test loading/empty/error states at 390px/768px/1280px.
+
+## Learner Reading libraries — 2026-08-09
+
+### Issue: four libraries look interchangeable despite different learning jobs
+
+- **Root cause:** Vocab, Skill, Full Test, and Mini Test reuse the same large
+  heading, thin underline tabs, detached filter strip, and generic card grid.
+  The cards expose metadata as equal-weight pills but do not name the next
+  action or explain what distinguishes one library from another.
+- **Severity:** Medium.
+- **Impact:** learners must infer whether a card starts assisted reading,
+  targeted practice, a 60-minute exam, or a short test; dense four-column
+  shelves make long titles difficult to scan, while the two-item Full Test
+  shelf leaves most of the page visually empty.
+- **Impacted files:** the four `reading-*.html` library pages, their four Next
+  `page-shell.tsx` counterparts, `reading-vocab.css`, and the four library
+  controllers in `frontend/public/js/`.
+- **Suggested minimal fix:** preserve every endpoint, query filter, and deep
+  link, but give the shared shell a compact summary hero, touch-friendly
+  library switcher, result-aware filter toolbar, three-column editorial cards,
+  and an explicit CTA tailored to each learning job. Only show facts already
+  present in the canonical list response.
+- **Verification:** compare legacy and Next markup for all four routes; exercise
+  every filter and reset action; open a Vocab passage, Skill exercise, Full
+  Test, and Mini Test; verify long titles, empty/error states, keyboard focus,
+  dark/light themes, and 390px/768px/1280px layouts without horizontal page
+  overflow.
+
+### Issue: Mini Test cards silently fall back to full-exam structure
+
+- **Root cause:** `reading-mini-test.js` used the Full Test fallbacks of three
+  passages, 40 questions, and 60 minutes when an optional list field was
+  absent, even though a mini test is defined as one passage with variable
+  question count and duration.
+- **Severity:** Medium.
+- **Impact:** incomplete metadata can make a short practice item appear to be
+  a full exam, undermining trust before the learner starts.
+- **Impacted files:** `reading-mini-test.js` (`render()`).
+- **Suggested minimal fix:** default only the invariant passage count to one;
+  display an em dash for missing variable question/time values and derive the
+  summary duration only from real positive durations.
+- **Verification:** render mini tests with complete and missing list metadata;
+  confirm one passage remains truthful and no `/40` or `60 phút` value is
+  invented when the endpoint omits those fields.
