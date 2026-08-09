@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 const config = readFileSync(new URL('../playwright.gate-e.config.js', import.meta.url), 'utf8');
 const spec = readFileSync(new URL('./gate-e/native-speaking-fixtures.spec.js', import.meta.url), 'utf8');
+const harness = readFileSync(new URL('./gate-e/native-speaking-harness.js', import.meta.url), 'utf8');
 const workflow = readFileSync(new URL('../../.github/workflows/e2e.yml', import.meta.url), 'utf8');
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -27,10 +28,10 @@ test('Gate E failure evidence has a dedicated HTML report plus traces and screen
 });
 
 test('Speaking fixtures mock only pinned dependencies and use canonical attempt identity', () => {
-  assert.match(spec, /page\.route\(SUPABASE_CDN/);
-  assert.match(spec, /page\.route\(LUCIDE_CDN/);
-  assert.doesNotMatch(spec, /cdn\.jsdelivr\.net\/\*\*/);
-  assert.doesNotMatch(spec, /unpkg\.com\/\*\*/);
+  assert.match(harness, /page\.route\(SUPABASE_CDN/);
+  assert.match(harness, /page\.route\(LUCIDE_CDN/);
+  assert.doesNotMatch(harness, /cdn\.jsdelivr\.net\/\*\*/);
+  assert.doesNotMatch(harness, /unpkg\.com\/\*\*/);
   assert.match(spec, /full_test_attempt_id/);
   assert.doesNotMatch(spec, /full_test_chain_id/);
   assert.equal((spec.match(/^test\('/gm) || []).length, 6);

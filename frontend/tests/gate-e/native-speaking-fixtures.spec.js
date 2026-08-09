@@ -2,27 +2,8 @@
 // each supported Speaking shape. Supabase, backend and third-party scripts are
 // deterministic browser fixtures; no request leaves the Playwright process.
 const { test, expect } = require('@playwright/test');
-
-const API = 'http://localhost:8000';
-const ORIGIN = 'http://localhost:3210';
-const OWNER = '00000000-0000-4000-8000-0000000000aa';
-const SID = '11111111-1111-4111-8111-111111111101';
+const { SID, installHarness } = require('./native-speaking-harness');
 const CHAIN_KEY = 'ielts_ft_session_ids';
-const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js';
-const LUCIDE_CDN = 'https://unpkg.com/lucide@1.17.0';
-
-const AUTH_SESSION = {
-  access_token: 'gate-e-fake-token',
-  refresh_token: 'gate-e-refresh',
-  expires_at: 4_102_444_800,
-  user: { id: OWNER, email: 'gate-e@test.local' },
-};
-
-const cors = {
-  'access-control-allow-origin': ORIGIN,
-  'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-  'access-control-allow-headers': 'authorization,content-type,x-request-id',
-};
 
 function question(id, part, text, extra = {}) {
   return {
@@ -41,70 +22,6 @@ function partOneQuestions(count = 3) {
     `Question ${index + 1}?`,
     { subtopic: index < 3 ? 'Home' : index < 6 ? 'Work' : 'Hobbies' },
   ));
-}
-
-async function installHarness(page, { session, questions }) {
-  const calls = [];
-  const pageErrors = [];
-  page.on('pageerror', (error) => pageErrors.push(error.message));
-
-  await page.addInitScript((authSession) => {
-    window.__GATE_E_AUTH_SESSION__ = authSession;
-  }, AUTH_SESSION);
-
-  // The product pins these scripts from CDNs. Replace only their network
-  // transport; api.js and AuthProvider still use the real shared-client path.
-  await page.route(SUPABASE_CDN, (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: `window.supabase = {
-      createClient: function () {
-        var session = window.__GATE_E_AUTH_SESSION__;
-        return { auth: {
-          getSession: async function () { return { data: { session: session } }; },
-          onAuthStateChange: function () {
-            return { data: { subscription: { unsubscribe: function () {} } } };
-          },
-          signOut: async function () { return { error: null }; }
-        } };
-      }
-    };`,
-  }));
-  await page.route(LUCIDE_CDN, (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: 'window.lucide = { createIcons: function () {} };',
-  }));
-  await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
-  await page.route('https://fonts.gstatic.com/**', (route) => route.abort());
-
-  await page.route(`${API}/**`, async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname;
-    calls.push(`${request.method()} ${path}`);
-
-    if (request.method() === 'OPTIONS') {
-      return route.fulfill({ status: 204, headers: cors });
-    }
-    if (request.method() === 'GET' && path === `/sessions/${SID}`) {
-      return route.fulfill({ json: session, headers: cors });
-    }
-    if (request.method() === 'GET' && path === `/sessions/${SID}/questions`) {
-      return route.fulfill({ json: questions, headers: cors });
-    }
-    // Shell telemetry is intentionally non-blocking and unrelated to player
-    // truth. Acknowledge it so fixture logs stay signal-only.
-    if (path === '/api/analytics/events') {
-      return route.fulfill({ status: 204, headers: cors });
-    }
-    return route.fulfill({ status: 404, json: { detail: 'fixture route missing' }, headers: cors });
-  });
-
-  await page.goto(`/practice/session?session_id=${SID}`);
-  await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
-  expect(pageErrors).toEqual([]);
-  expect(calls.filter((call) => call === `GET /sessions/${SID}`)).toHaveLength(1);
-  expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(1);
-  return calls;
 }
 
 function baseSession(overrides = {}) {
