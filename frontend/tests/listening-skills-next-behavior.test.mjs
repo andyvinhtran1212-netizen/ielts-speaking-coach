@@ -48,6 +48,8 @@ describe('/listening/skills — native React behavior', () => {
     assert.match(BEHAVIOR, /drill\.drillType === skill\.key/);
     assert.match(BEHAVIOR, /Sắp có/);
     assert.match(BEHAVIOR, /ls-group-count/);
+    assert.match(BEHAVIOR, /\{' '\}<span className="ls-group-count">/,
+      'badge count needs an explicit text separator for legacy heading parity');
   });
 
   test('preserves the L/T ladder, fallback title, stats and destinations', () => {
