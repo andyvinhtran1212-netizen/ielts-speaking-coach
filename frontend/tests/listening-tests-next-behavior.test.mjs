@@ -13,6 +13,8 @@ const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'tests', 'listening-tests-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const BROWSER_FLOW = read('tooling', 'verify-listening-tests-flow.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening/tests — native React behavior', () => {
   test('removes legacy module injection, hydration sentinel and watchdog', () => {
@@ -20,14 +22,15 @@ describe('/listening/tests — native React behavior', () => {
     assert.doesNotMatch(PAGE, /<script|dangerouslySetInnerHTML|modulepreload/);
     assert.match(PAGE, /<ListeningTestsBehavior\s*\/>/);
     assert.match(SHELL, /\{children\}/);
+    assert.match(BEHAVIOR, /<ListeningTestsShell totalCount=\{totalCount\}>/);
   });
 
   test('uses shared auth, fails closed and keys requests by account', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /status !== 'signed-in' \|\| !user\?\.id/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /\[accountKey\]/);
   });
 
@@ -55,18 +58,46 @@ describe('/listening/tests — native React behavior', () => {
   test('keeps all four states and honest pagination overflow error', () => {
     assert.match(BEHAVIOR, /state\.status === 'loading'/);
     assert.match(BEHAVIOR, /Chưa có test nào sẵn sàng\./);
-    assert.match(BEHAVIOR, /Không tải được danh sách tests:/);
+    assert.match(BEHAVIOR, /Không tải được danh sách bài thi\./);
+    assert.match(BEHAVIOR, /id="state-loading" role="status"/);
+    assert.match(BEHAVIOR, /id="state-empty" role="status"/);
+    assert.match(BEHAVIOR, /id="state-error" role="alert"/);
     assert.match(BEHAVIOR, /Danh sách vượt \$\{MAX_PAGES \* PAGE_LIMIT\} mục/);
-    assert.match(BEHAVIOR, /<section id="lt-grid" className="lt-grid">/);
+    assert.match(BEHAVIOR, /state\.status === 'ready' \? tests\.length : null/);
+    assert.match(BEHAVIOR, /<div id="lt-grid" className="lt-grid">/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 
-  test('preserves stats, CTA modes and both player destinations', () => {
-    assert.match(BEHAVIOR, /test\.bestScore[\s\S]*Điểm tốt nhất:/);
+  test('preserves redesigned cards, truthful completion and both player destinations', () => {
+    assert.match(BEHAVIOR, /test\.bestScore[\s\S]*Điểm tốt nhất/);
     assert.match(BEHAVIOR, /test\.attemptCount > 0/);
+    assert.match(BEHAVIOR, /test\.submittedAttemptCount > 0/);
+    assert.match(BEHAVIOR, /user_submitted_attempt_count/);
+    assert.doesNotMatch(BEHAVIOR, /const attempted = test\.attemptCount > 0/);
+    assert.match(BEHAVIOR, /lt-card__head/);
+    assert.match(BEHAVIOR, /lt-card-facts/);
+    assert.match(BEHAVIOR, /data-status=\{attempted \? 'done' : 'new'\}/);
     assert.match(BEHAVIOR, /Làm lại/);
     assert.match(BEHAVIOR, /Bắt đầu test/);
     assert.match(BEHAVIOR, /listening-test\.html\?id=\$\{encodeURIComponent\(test\.id\)\}&from=full/);
     assert.match(BEHAVIOR, /listening-test-dictation\.html\?test_id=\$\{encodeURIComponent\(test\.id\)\}/);
+  });
+
+  test('owns status filters and live counts in React', () => {
+    assert.match(BEHAVIOR, /useState<'all' \| 'new' \| 'done'>\('all'\)/);
+    assert.match(BEHAVIOR, /if \(filter === 'done'\) return submitted/);
+    assert.match(BEHAVIOR, /if \(filter === 'new'\) return !submitted/);
+    assert.match(BEHAVIOR, /aria-pressed=\{filter === value\}/);
+    assert.match(BEHAVIOR, /\{filteredTests\.length\} đề thi/);
+    assert.match(BEHAVIOR, /Không có đề nào trong nhóm này\./);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(BROWSER_FLOW, /const ROUTE = '\/listening\/tests'/);
+    assert.match(BROWSER_FLOW, /attempt dang dở không bị gắn nhãn Đã làm/);
+    assert.match(BROWSER_FLOW, /authored title được React escape/);
+    assert.match(PARITY_WORKFLOW, /frontend\/tooling\/verify-listening-tests-flow\.mjs/);
+    assert.match(PARITY_WORKFLOW, /run: node tooling\/verify-listening-tests-flow\.mjs/);
   });
 
   test('is no longer hard-navigation-only', () => {

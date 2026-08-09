@@ -30,9 +30,8 @@
       aria-label="Nghe ${esc(say || '')}">${PLAY_SVG}</button>`;
   }
 
-  // Per-card "report an error" control. Quick: tap ⚑ → tap a reason → fire-and-
-  // forget a `vocab_card_flagged` analytics event (reuses /api/analytics/events,
-  // so no new table — admin queries analytics_events, same as vocab_fp_reported).
+  // Per-card "report an error" control. Reports use the canonical user_feedback
+  // inbox so admins see Vocabulary issues beside Reading + Listening reports.
   function flagControl(a) {
     return `<span class="va-flag-wrap" data-slug="${esc(a.slug || '')}"
         data-headword="${esc(a.headword || '')}" data-category="${esc(a.category || '')}">
@@ -42,6 +41,7 @@
         <span class="va-flag-q">Báo lỗi về:</span>
         <button type="button" class="va-flag-opt" data-reason="content" role="menuitem">Nội dung</button>
         <button type="button" class="va-flag-opt" data-reason="audio" role="menuitem">Âm thanh</button>
+        <span class="va-flag-status" role="status" aria-live="polite" hidden></span>
       </span>
     </span>`;
   }
@@ -396,21 +396,23 @@
   function sendFlag(wrap, reason) {
     if (!wrap) return;
     const menu = wrap.querySelector('.va-flag-menu');
-    try {
-      let sessionId = sessionStorage.getItem('vocab_session_id');
-      if (!sessionId) { sessionId = crypto.randomUUID(); sessionStorage.setItem('vocab_session_id', sessionId); }
-      window.api.post('/api/analytics/events', {
-        event_name: 'vocab_card_flagged',
-        event_data: {
-          slug:     wrap.getAttribute('data-slug') || '',
-          headword: wrap.getAttribute('data-headword') || '',
-          category: wrap.getAttribute('data-category') || '',
-          reason:   reason || 'unspecified',
-        },
-        session_id: sessionId,
-      }).catch(() => {});
-    } catch (_) { /* report best-effort — never block the UI */ }
-    if (menu) menu.innerHTML = '<span class="va-flag-done">✓ Đã gửi, cảm ơn!</span>';
+    const payload = {
+      type: 'report',
+      skill: 'vocabulary',
+      vocab_slug: wrap.getAttribute('data-slug') || '',
+      vocab_category: wrap.getAttribute('data-category') || '',
+      category: reason === 'audio' ? 'audio_issue' : 'content_issue',
+    };
+    const buttons = menu ? menu.querySelectorAll('button') : [];
+    const status = menu ? menu.querySelector('.va-flag-status') : null;
+    buttons.forEach((button) => { button.disabled = true; });
+    if (status) status.hidden = true;
+    window.api.post('/api/feedback', payload).then(() => {
+      if (menu) menu.innerHTML = '<span class="va-flag-done">✓ Đã gửi, cảm ơn!</span>';
+    }).catch(() => {
+      buttons.forEach((button) => { button.disabled = false; });
+      if (status) { status.textContent = 'Không gửi được, thử lại.'; status.hidden = false; }
+    });
   }
   document.addEventListener('click', (e) => {
     const opt = e.target.closest('.va-flag-opt');

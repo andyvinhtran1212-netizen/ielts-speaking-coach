@@ -55,7 +55,7 @@ interface AnalyticsData {
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; data: AnalyticsData }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -137,11 +137,6 @@ function normalizeAnalytics(payload: unknown): AnalyticsData {
   };
 }
 
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
-}
-
 function percent(value: number | null): string {
   return value === null ? '—' : `${Math.round(value * 100)}%`;
 }
@@ -171,14 +166,13 @@ function overall(data: AnalyticsData) {
 
 function RangeTabs({ range, onChange }: { range: RangeKey; onChange: (range: RangeKey) => void }) {
   return (
-    <div className="range-tabs" role="tablist" aria-label="Khoảng thời gian">
+    <div className="range-tabs" role="group" aria-label="Khoảng thời gian">
       {RANGES.map(([key, label]) => (
         <button
           className={`range-tab${range === key ? ' is-active' : ''}`}
           data-range={key}
           type="button"
-          role="tab"
-          aria-selected={range === key}
+          aria-pressed={range === key}
           onClick={() => onChange(key)}
           key={key}
         >
@@ -233,7 +227,7 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
             {(Object.keys(MODE_LABELS) as ModeKey[]).map((mode) => {
               const metric = data.byMode[mode];
               return (
-                <tr key={mode}>
+                <tr data-mode={mode} key={mode}>
                   <td>{MODE_LABELS[mode]}</td>
                   <td className="num">{metric.count}</td>
                   <td className="num">{percent(metric.avgScore)}</td>
@@ -296,22 +290,20 @@ export function ListeningAnalyticsBehavior() {
     if (status === 'signed-out') window.location.replace('/login.html');
   }, [status]);
 
-  if (status !== 'signed-in' || !user?.id) {
-    return (
-      <>
-        <RangeTabs range="30d" onChange={() => {}} />
-        <div className="empty-state" id="state-loading">Đang tải…</div>
-      </>
-    );
-  }
-  return <ListeningAnalyticsDashboard accountKey={user.id} key={user.id} />;
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ListeningAnalyticsDashboard accountKey={accountKey} key={accountKey || status} />;
 }
 
-function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string }) {
+function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string | null }) {
   const [range, setRange] = useState<RangeKey>('30d');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
+    if (!accountKey) {
+      setState({ status: 'loading' });
+      return undefined;
+    }
+
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
@@ -322,7 +314,7 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string }) {
         'window.api (listening analytics)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error', message: '' });
+        if (!disposed) setState({ status: 'error' });
         return;
       }
       try {
@@ -334,7 +326,7 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string }) {
         if (!disposed) setState({ status: 'ready', data: normalizeAnalytics(payload) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error', message: errorMessage(caught) });
+        setState({ status: 'error' });
       }
     })();
 
@@ -344,18 +336,30 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string }) {
     };
   }, [accountKey, range]);
 
+  const changeRange = (nextRange: RangeKey) => {
+    if (nextRange === range) return;
+    // Hide the previous range synchronously with the selected tab. Waiting for
+    // the effect would briefly label stale figures as belonging to nextRange.
+    setState({ status: 'loading' });
+    setRange(nextRange);
+  };
+
   return (
     <>
-      <RangeTabs range={range} onChange={setRange} />
-      {state.status === 'loading' && <div className="empty-state" id="state-loading">Đang tải…</div>}
+      <RangeTabs range={range} onChange={changeRange} />
+      {state.status === 'loading' && (
+        <div className="empty-state" id="state-loading" role="status">Đang tải…</div>
+      )}
       {state.status === 'ready' && state.data.totalAttempts === 0 && (
-        <div className="empty-state" id="state-empty">
+        <div className="empty-state" id="state-empty" role="status">
           <p><strong>Chưa có dữ liệu luyện tập trong khoảng này.</strong></p>
           <p>Bắt đầu một bài nghe để thấy thống kê.</p>
         </div>
       )}
       {state.status === 'error' && (
-        <div className="error-banner" id="state-error">Không tải được thống kê. {state.message}</div>
+        <div className="error-banner" id="state-error" role="alert">
+          Không tải được thống kê. Vui lòng thử lại.
+        </div>
       )}
       {state.status === 'ready' && state.data.totalAttempts > 0 && (
         <AnalyticsSurface data={state.data} />
