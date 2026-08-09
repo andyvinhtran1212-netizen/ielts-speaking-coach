@@ -1,7 +1,7 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION RESULT; ADMISSION LEGACY. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION/FULL-TEST RESULTS; ADMISSION LEGACY. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
@@ -121,6 +121,14 @@ tuyên bố route ready khi chưa có browser/live evidence.
   rollback không bị đổi. “Luyện lại” dùng client-minted UUID qua
   `fn_create_session_daily_capped_v2`; network-after-commit và double-click trả
   cùng một session thay vì tạo trùng/ăn thêm daily quota.
+- `/full-test-result` native đọc một snapshot canonical cho cả ba Part. Part 1
+  được trigger gắn `full_test_attempt_id`; Part 2/3 chỉ gửi session liền trước để
+  backend kế thừa identity, còn unique index chặn hai session cùng Part. Endpoint tự resolve
+  chuỗi từ Part 1, kiểm ownership/mode/part/9-1-5 và chỉ trả band khi cả ba
+  session đã có aggregate canonical. Mock đang sealed, analysis_failed và pending
+  là ba state riêng, không bao giờ rơi xuống điểm tạm từ response feedback.
+  Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
+  URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại là unit/source contract và full build/suite; browser/live
   drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
 

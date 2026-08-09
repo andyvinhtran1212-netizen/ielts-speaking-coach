@@ -186,15 +186,13 @@ export interface paths {
         };
         /**
          * Get Full Test Summary
-         * @description Tổng hợp kết quả Full Test từ tối đa 3 part sessions.
-         *     session_id = Part 1 session ID (bắt buộc).
-         *     p2_id, p3_id = Part 2 & 3 session IDs (tuỳ chọn, truyền qua query params).
+         * @description Return one canonical, ownership-checked three-Part Full Test result.
          *
-         *     Tính toán từ responses.feedback JSON:
-         *       - Criterion bands (band_fc/lr/gra/p) → trung bình toàn bộ responses
-         *       - Strengths / improvements → gộp + đếm tần suất
-         *       - Grammar issues → gộp + đếm tần suất (top 5)
-         *       - Per-part summary: band_avg, key_feedback (strength + improvement đầu tiên)
+         *     New sessions are resolved by server-owned ``full_test_attempt_id`` from Part 1, so callers
+         *     only need the Part 1 ID. Explicit p2/p3 remain for pre-migration rows, but
+         *     are validated as distinct owned ``test_full`` Part 2/3 sessions. Scores are
+         *     returned only when all three canonical session aggregates are complete and
+         *     the containing mock sitting is not sealed.
          */
         get: operations["get_full_test_summary_sessions__session_id__full_test_summary_get"];
         put?: never;
@@ -13323,9 +13321,9 @@ export interface operations {
     get_full_test_summary_sessions__session_id__full_test_summary_get: {
         parameters: {
             query?: {
-                /** @description Part 2 session ID */
+                /** @description Legacy Part 2 session ID */
                 p2_id?: string | null;
-                /** @description Part 3 session ID */
+                /** @description Legacy Part 3 session ID */
                 p3_id?: string | null;
             };
             header?: {

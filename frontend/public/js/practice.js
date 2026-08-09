@@ -222,6 +222,14 @@
     return path + '?id=' + encodeURIComponent(sessionId);
   }
 
+  function _fullTestResultUrl(sessionIds) {
+    var path = _getNativeView() ? '/full-test-result' : '/pages/full-test-result.html';
+    var url = path + '?p1=' + encodeURIComponent(sessionIds[0] || '');
+    if (sessionIds[1]) url += '&p2=' + encodeURIComponent(sessionIds[1]);
+    if (sessionIds[2]) url += '&p3=' + encodeURIComponent(sessionIds[2]);
+    return url;
+  }
+
   function _startManagedInterval(key, callback, milliseconds) {
     var nativePlayer = _getNativePlayer();
     return nativePlayer
@@ -3909,13 +3917,7 @@
 
     if (_testMode === 'test_full' && _ftAllSessionIds.length > 0) {
       // Redirect to dedicated full-test result page
-      var p1 = _ftAllSessionIds[0] || '';
-      var p2 = _ftAllSessionIds[1] || '';
-      var p3 = _ftAllSessionIds[2] || '';
-      var url = '/pages/full-test-result.html?p1=' + encodeURIComponent(p1);
-      if (p2) url += '&p2=' + encodeURIComponent(p2);
-      if (p3) url += '&p3=' + encodeURIComponent(p3);
-      window.location.href = url;
+      window.location.href = _fullTestResultUrl(_ftAllSessionIds);
       return;
     }
 
@@ -5435,7 +5437,6 @@
       // opening session was created with sitting_id). Carry it so later parts
       // are created linked too, and so we can complete Speaking at the end.
       if (_sessionData.sitting_id) _sittingId = _sessionData.sitting_id;
-
       // Full Test: initialise multi-part tracking on the opening session.
       // Spike-2 fix: RESTORE the chain persisted by earlier parts so a
       // refresh (or same-tab handoff) mid full-test keeps Part 1's session

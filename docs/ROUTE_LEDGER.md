@@ -105,9 +105,9 @@
 - **Resolution:** All three are distinct routes; drills are a feature gate within skills, not a separate page.
 
 ### Q7: Full-test chaining and session affinity
-- `full-test.html` and `full-test-result.html` use `session_id` query param.
-- Chaining uses `_ftAllSessionIds` in frontend + `extra_session_ids` in pronunciation endpoint (per CLAUDE.md).
-- **Resolution:** Full-test is ONE complex flow across multiple pages; session state is per-session_id, chained via query param array.
+- The player carries `p1/p2/p3` for legacy URL compatibility; new sessions persist one server-owned `sessions.full_test_attempt_id` across all three Parts.
+- `/full-test-result` can resolve the full chain canonically from Part 1. Pre-migration rows still require explicit `p1/p2/p3` and are marked unverified rather than silently treated as a database-backed chain.
+- **Resolution:** Full-test is ONE complex flow across multiple pages; the database chain identity is canonical, while the tab-scoped ID array remains resume/rollback transport only.
 
 ### Q8: Instructor routes (3 vs. expected scope)
 - Only 3 instructor files found: `pages/instructor/index.html` (dashboard), `/grade.html`, `/compare.html`.
@@ -167,7 +167,7 @@
 | `/vocabulary/hub` | `app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/vocabulary.html` (parity/rollback only) | Student | hash: `vocab-topics`, `flashcards`, `exercises` | AuthProvider, `/api/student/home-summary`, `/auth/me`, `/api/vocabulary/categories`; abort on unmount/account switch | M | Hub từ vựng học viên; React sở hữu dashboard/topic picker và lifecycle mount cho hai domain module; default-deny feature flags; soft-navigation safe. Tên `/vocabulary/hub` là CUỐI CÙNG vì `/vocabulary` thuộc WIKI CÔNG KHAI (Q3). |
 | `/mock/result` | `app/(authed-mock-result)/mock/result/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/mock-result.html` (parity/rollback only) | Student | `sitting` | AuthProvider, `/api/mock-exams/sittings/{id}/result`; abort on unmount/account/query change | M | Phiếu điểm TRF; canonical backend seals result until released and owns final bands/gap/retest truth; soft-navigation safe |
 | `/speaking/result` | `app/(authed-speaking-result)/speaking/result/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/speaking-result.html` (parity/rollback only) | Student | `sitting` | AuthProvider, `/api/mock-exams/sittings/{id}/result`; abort on unmount/account switch | S | Nhận xét Speaking của giáo viên chấm; authored content React-escaped; soft-navigation safe |
-| `/full-test-result` | — | `pages/full-test-result.html` | Student | `attempt_id` | localStorage (theme), audio playback | L | Aggregated result across 3 parts; band calculation |
+| `/full-test-result` | `app/(authed-full-test-result)/full-test-result/page.tsx` — native React behavior 2026-08-10; `/pages/full-test-result.html` remains rollback target | `pages/full-test-result.html` (parity/rollback only) | Student | `p1`; `p2/p3` legacy compatibility; `session_id` accepted as Part 1 alias | AuthProvider, canonical `/sessions/{p1}/full-test-summary`, persisted pronunciation, PDF export; request/blob cleanup on unmount | L | Server resolves persisted `full_test_attempt_id`, validates owned Part 1/2/3 + exact 9/1/5 questions, suppresses sealed/pending/failed scores, and never reruns pronunciation AI on page load |
 
 ### Writing
 
