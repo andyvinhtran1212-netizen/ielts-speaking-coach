@@ -5,6 +5,7 @@
   "description": "Playwright browser smoke tests (F4). Bounded to frontend/tests/e2e/ — do NOT import @playwright elsewhere; the rest of the frontend stays zero-dependency.",
   "scripts": {
     "test:e2e": "playwright test",
+    "test:e2e:gate-e": "playwright test -c playwright.gate-e.config.js",
     "build:css:setup": "npm --prefix tooling/css ci",
     "build:css": "npm run build:css:plusjakarta && npm run build:css:inter",
     "build:css:plusjakarta": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify",

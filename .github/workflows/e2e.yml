@@ -48,6 +48,9 @@ jobs:
       - name: Run modal smoke tests
         run: npx playwright test
 
+      - name: Run Speaking Gate E native fixtures
+        run: npm run test:e2e:gate-e
+
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v6

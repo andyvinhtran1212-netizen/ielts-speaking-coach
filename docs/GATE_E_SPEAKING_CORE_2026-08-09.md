@@ -66,10 +66,17 @@ highlight, grammar recommendation, pronunciation drill-down và test cards đề
 điểm thiếu vẫn là dấu gạch chứ không được suy diễn. JSX ownership vẫn chưa đủ để
 tuyên bố route ready khi chưa có browser/live evidence.
 
+Browser baseline đã có fixture cô lập chạy trên chính route Next đã hydrate:
+practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đều
+đã chứng minh state React, canonical bootstrap và request count. Đây mới là exit
+1; chưa thay thế bằng chứng mutation/reload, device matrix hoặc rollback drill.
+
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
-   assignment sheet và mock sitting.
+1. ✅ Browser fixture baseline: practice, `test_part`, `test_full`, Part 2,
+   assignment sheet và sealed mock — 6/6 trên hydrated `/practice/session`,
+   backend/Supabase/CDN đều fixture và không chạm dữ liệu thật. CI chạy cùng
+   workflow E2E advisory qua `npm run test:e2e:gate-e`.
 2. Chạy browser fixture chứng minh native reload/resume + retry/finalize vừa được
    unit-test; gồm sealed mock và network-after-commit, không chỉ source sentinel.
 3. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
@@ -129,11 +136,13 @@ tuyên bố route ready khi chưa có browser/live evidence.
   là ba state riêng, không bao giờ rơi xuống điểm tạm từ response feedback.
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
-- Bằng chứng hiện tại là unit/source contract và full build/suite; browser/live
-  drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
+- Bằng chứng hiện tại gồm unit/source contract, full build/suite và browser
+  baseline sáu shape. Mutation/reload, device matrix và rollback live drill vẫn
+  là exit riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
+- `npm run test:e2e:gate-e` (6 native browser fixtures)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites
