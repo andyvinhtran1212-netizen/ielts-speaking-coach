@@ -2,7 +2,7 @@
 // legacy until the behavior is native and Gate E live drills are complete.
 import type { Metadata } from 'next';
 
-import { LegacyPracticeShell } from './legacy-practice-shell';
+import { PracticePageShell } from './practice-page-shell';
 import { PracticeFullTestBridge } from './practice-full-test-bridge';
 import { PracticePlayerBridge } from './practice-player-bridge';
 import { PracticeRecorderBridge } from './practice-recorder-bridge';
@@ -19,7 +19,7 @@ export default function PracticeSessionPage() {
     <>
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="speaking" />
-      <LegacyPracticeShell />
+      <PracticePageShell />
       <PracticePlayerBridge />
       <PracticeRecorderBridge />
       <PracticeSubmissionBridge />
