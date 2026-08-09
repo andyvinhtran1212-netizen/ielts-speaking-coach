@@ -261,6 +261,113 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ---
 
+# Speaking practice and results UI audit
+
+> Audit date: 2026-08-09
+> Scope: the three Speaking setup modes, shared recording player, immediate
+> feedback state, single-session result, Full Test completion, and Full Test
+> summary.
+
+## Summary
+
+All three practice modes already share correct session and grading contracts,
+but the interface did not make that relationship visible. Setup screens were
+flat collections of fields; the player changed visual structure between
+states; and result screens gave score, evidence, learning resources, and next
+actions nearly equal emphasis. The redesign preserves every JS-coupled ID,
+handler, API path, and canonical persisted score while introducing one coherent
+Speaking workspace hierarchy.
+
+## Critical issues
+
+No new critical backend or schema issue was found in this UI-only audit. The
+session, response, Full Test chaining, and result routes remain canonical and
+unchanged.
+
+## High priority improvements
+
+### Issue: Setup screens do not explain the learning contract of each mode
+
+- **Root cause:** the three panels render a title followed directly by controls;
+  duration, feedback timing, scoring scope, and best-use context are buried in
+  small card copy or absent.
+- **Severity:** Medium.
+- **Impact:** learners must infer the difference between immediate coaching,
+  Part scoring, and a continuous Full Test before committing microphone time.
+- **Impacted files:** `frontend/public/pages/speaking.html` (`#tab-practice`,
+  `#tab-partbpart`, `#tab-fulltest`),
+  `frontend/app/(authed-speaking)/speaking/page-shell.tsx` (matching Next
+  shell), and `frontend/public/css/speaking.css` (mode-panel styles).
+- **Suggested minimal fix:** add a shared orientation strip, keep mode-specific
+  form layouts, expose Full Test readiness separately from optional topics, and
+  preserve the existing session creation handlers.
+- **Verification:** open all three panels at 1440px and 375px; confirm their
+  facts differ truthfully and all existing start actions create the same modes
+  as before.
+
+### Issue: Part selection is pointer-only markup
+
+- **Root cause:** `#pbp-card-1..3` are clickable `div` elements even though they
+  are the primary interactive controls.
+- **Severity:** Medium.
+- **Impact:** keyboard and assistive-technology users cannot reliably select a
+  Part, and focus state is not communicated.
+- **Impacted files:** the same legacy/Next Speaking shells and
+  `frontend/public/css/speaking.css` (`.pbp-part-card`).
+- **Suggested minimal fix:** render semantic `button type="button"` controls,
+  retain the IDs/listeners, and add a token-based `:focus-visible` state.
+- **Verification:** Tab through Part 1–3 and activate each with Enter/Space;
+  confirm the topic panel and selected state match mouse behavior.
+
+### Issue: Recording states feel like unrelated pages
+
+- **Root cause:** every state uses the shared narrow reading width but owns its
+  own spacing and card treatment; the context/progress bars do not establish a
+  stable working surface.
+- **Severity:** Medium.
+- **Impact:** the layout shifts heavily between question, recording, feedback,
+  and summary, increasing cognitive load during a timed speaking task.
+- **Impacted files:** `frontend/public/pages/practice.html` (`#state-mode-choice`,
+  `#state-prep`, Part 2 states, `#state-feedback`, `#state-test-results`,
+  `#state-completion`) and `frontend/public/css/practice.css`.
+- **Suggested minimal fix:** introduce a shared stage frame while preserving
+  the state machine, give Visual/Listening equal scanability, and group score,
+  coaching, transcript/audio, and next actions by task.
+- **Verification:** run a Part 1 answer and Part 2 timer flow; verify waveform,
+  recorder controls, feedback replay/download, next-question, and finish
+  actions across desktop/mobile.
+
+### Issue: Result hierarchy does not answer “what should I do next?”
+
+- **Root cause:** the single-session result is a long sequence of same-weight
+  cards, while the Full Test summary isolates band, Parts, grammar, and
+  pronunciation without a stable overview/action frame.
+- **Severity:** Medium.
+- **Impact:** learners see a large amount of feedback but must assemble the
+  priority order themselves; actions become easy to lose at the bottom.
+- **Impacted files:** `frontend/public/pages/result.html`,
+  `frontend/public/css/result.css`, `frontend/public/pages/full-test-result.html`,
+  and `frontend/public/css/full-test-result.css`.
+- **Suggested minimal fix:** pair canonical score with one coaching focus,
+  separate learning resources from per-question evidence, group Full Test
+  grammar/pronunciation analysis, and keep next actions visible without hiding
+  content.
+- **Verification:** load practice and `test_part` sessions plus a three-Part
+  result; confirm canonical band fields, hidden practice criteria, audio URLs,
+  accordions, PDF, retry, and detail links all remain functional.
+
+## Positive observations to preserve
+
+- The backend/frontend contract already distinguishes coaching-mode feedback
+  from four-criterion Test feedback.
+- Full Test session chaining and canonical `session.overall_band` handling are
+  covered by focused regression tests.
+- Both themes use the mature semantic `--av-*` token system.
+- Legacy/Next Speaking shell fidelity has a dedicated source gate; the redesign
+  updates both sides instead of introducing parity drift.
+
+---
+
 # Learner My Class and course quiz redesign
 
 > Audit date: 2026-08-08
@@ -344,6 +451,27 @@ None found that require a schema or grading rewrite.
   in the importer; its legacy teal hover was replaced with the semantic
   `--av-primary-hover` token. All other reviewed areas passed.
 
+### Assignment geometry follow-up (2026-08-09)
+
+- **Root cause:** `#mc-content` was the single child of `.mc-shell`, so the
+  shell's gap did not space the hero, deadline card, and work area. The work
+  area also permanently reserved a roughly 30% sidebar column, while assignment
+  metadata used only a 4px vertical gap.
+- **Severity:** Medium — no assignment data was wrong, but related cards looked
+  like different layout systems and dense metadata was hard to scan.
+- **Impact:** the assignment cards were visibly shorter than the hero/deadline
+  cards, large empty space appeared on the right when class context was absent,
+  and labels, titles, descriptions, and deadlines read as one compressed block.
+- **Impacted files:** `frontend/public/css/my-class.css`,
+  `frontend/tests/my-class-page.test.mjs`.
+- **Suggested minimal fix:** give `#mc-content` an explicit 24px vertical
+  rhythm, let the worklist consume the canonical page width, place optional
+  context panels below it, and increase card padding/content gaps using existing
+  spacing tokens.
+- **Verification:** compare left/right edges of the hero, deadline, section
+  divider, and assignment cards at 1280px; verify 24px separation between page
+  sections; repeat at 900px and 390px with optional context present and absent.
+
 ### Verification status
 
 - Focused shell/design-system regression: 100/100 passing.
@@ -369,3 +497,258 @@ None found that require a schema or grading rewrite.
   and right edges of roster/progress/homework/marking panels at desktop widths;
   open and close a student drawer; inspect tally/effort views; repeat at 390px
   and verify there is no page-level horizontal overflow.
+
+## Learner Writing workspace and feedback — 2026-08-09
+
+### Issue: the composition surface exposes controls but not the writing flow
+
+- **Root cause:** prompt, timer, file import, textarea, word count, autosave, and
+  submission were rendered as equal-weight utility blocks in a full-screen
+  modal. The learner had no visible minimum-word target or pre-submit sequence.
+- **Severity:** Medium.
+- **Impact:** the main task—reading the prompt and producing a complete response—
+  competes with tooling; learners must remember the Task 1/Task 2 word minimum.
+- **Impacted files:** `writing/dashboard/page-shell.tsx`,
+  `writing/dashboard/writing-behavior.tsx`, `writing-dashboard.html`, and
+  `writing-dashboard.css`.
+- **Minimal fix:** preserve every assignment/draft/submit contract while shaping
+  the modal into a prompt rail and paper-like editor, deriving the 150/250-word
+  guide from the canonical task type and keeping save/submit status adjacent to
+  the final actions.
+- **Verification:** open Task 1 and Task 2 assignments, restore a saved draft,
+  type through the target, import text, save, submit, and repeat at 390px.
+
+### Issue: feedback architecture delays the first actionable insight
+
+- **Root cause:** the complete submitted essay occupied the full content width
+  before any feedback, while five equal-weight tabs and fourteen section cards
+  offered no recommended reading order.
+- **Severity:** Medium.
+- **Impact:** learners must scroll and self-organize a dense report before they
+  can answer “what should I fix in my next essay?”.
+- **Impacted files:** `writing-result.html` and `writing-result.css`.
+- **Minimal fix:** lead with an explicit learning path, rename the first tabs by
+  learner intent, place feedback beside a sticky highlighted source essay on
+  desktop, and put feedback before the source essay on compact screens. Keep all
+  five tab keys, fourteen renderer targets, score-visibility rules, and export /
+  regrade flows unchanged.
+- **Verification:** load delivered feedback with and without optional sections,
+  switch all tabs by keyboard, open an inline highlight, print/download, test a
+  hidden-score essay, and check 390px/768px/1280px layouts.
+
+## Learner Listening mini-test flow — 2026-08-09
+
+### Issue: the mini-test library has no progress hierarchy
+
+- **Root cause:** every test is rendered as an equal three-column card; the
+  persisted attempt count is used only inside each card, and `test_id` plus
+  `title` are both printed even when they are identical. There is no summary or
+  way to separate untouched tests from tests already practised.
+- **Severity:** Medium.
+- **Impact:** the learner scans a long, repetitive catalogue to decide what to
+  do next; start and dictation compete at equal visual weight.
+- **Impacted files:** `listening-mini-test.html`, its Next `page-shell.tsx`,
+  `listening-mini-test.js`, and `listening-mini-test.css`.
+- **Suggested minimal fix:** derive total/new/practised counts from the existing
+  list payload, add client-only status filters, suppress the duplicate display
+  title, and keep the test action primary while dictation remains secondary.
+- **Verification:** compare legacy and Next routes; exercise all filters with
+  mixed attempt data, identical/different title and test ID, empty/error states,
+  keyboard focus, dark mode, and 390px/768px/1280px widths.
+
+### Issue: mini-test best score is shown against a false fixed denominator
+
+- **Root cause:** the list endpoint exposes `user_best_score` but no
+  `max_score`; the card renderer nevertheless appends `/40`, while mini tests
+  have a variable real question count.
+- **Severity:** Medium.
+- **Impact:** a strong score such as 8/10 can be presented as 8/40, materially
+  misrepresenting the learner's result.
+- **Impacted files:** `listening-mini-test.js` (`renderCard()`).
+- **Suggested minimal fix:** do not invent a denominator on the library card;
+  display the raw best points and retain the exact score/max pair on submitted
+  result and answer-review screens where canonical `max_score` is available.
+- **Verification:** render mini tests with different question counts and confirm
+  the library never displays `/40`; submitted result/review must still show the
+  exact denominator returned by the backend.
+
+### Issue: test states feel like separate utilities instead of one exam flow
+
+- **Root cause:** briefing, live player, and result use the same narrow card
+  width and nearly equal visual weights. Result actions are an unlabelled row,
+  so the canonical next step—open answer review—does not dominate.
+- **Severity:** Medium.
+- **Impact:** rules are harder to scan before starting, the question paper is
+  unnecessarily constrained on desktop, and the learner must infer what to do
+  after seeing a score.
+- **Impacted files:** `listening-test.html`, `listening-test-ui.css`, and the
+  display-only mode label in `listening-test-player.js`.
+- **Suggested minimal fix:** retain attempt creation, resume, autosave, audio,
+  and submit contracts; redesign the briefing as a numbered checklist, widen
+  the active paper, and give results an explicit “next step” action hierarchy.
+- **Verification:** GET a full/mini/drill, start and resume each supported mode,
+  verify full-test no-seek versus practice seek, autosave a response, submit,
+  and follow both review and dictation links at desktop/mobile widths.
+
+### Issue: mini-test briefing contradicts the player controls
+
+- **Root cause:** pre-start rules and the start confirmation were static full
+  test copy (“không tua lại”), while `mountAudio()` enables pause, seek, and
+  replay for `mini`, `drill`, and `practice` test types.
+- **Severity:** Medium.
+- **Impact:** learners enter a practice test with the wrong expectation and may
+  avoid a control the product intentionally provides.
+- **Impacted files:** `listening-test.html` and
+  `listening-test-player.js` (`loadTest()`, `startAttempt()`, `mountAudio()`).
+- **Suggested minimal fix:** derive both briefing and confirmation copy from the
+  same `isPracticeTest()` predicate that controls audio scrubbing.
+- **Verification:** load each supported `test_type`; mini/drill/practice must
+  advertise and provide pause/seek/replay, while full remains single-shot.
+
+### Issue: answer review does not prioritize repair work
+
+- **Root cause:** correct and incorrect answer cards are one undifferentiated
+  stream. The transcript gets half the viewport while a sticky player and
+  question palette consume additional space, but there is no wrong/all/correct
+  control or explicit count of what needs review.
+- **Severity:** Medium.
+- **Impact:** learners with long tests repeatedly scan known-correct answers
+  before reaching the mistakes that deserve replay and explanation.
+- **Impacted files:** `listening-review.html`, `listening-review.js`, and
+  `listening-review.css`.
+- **Suggested minimal fix:** default the learner view to incorrect questions
+  when any exist, expose accessible filters and correct/wrong counts, preserve
+  every card, transcript anchor, audio window, palette jump, and feedback flag.
+- **Verification:** load all-correct and mixed attempts; switch filters by
+  keyboard, jump from the palette to a hidden card, replay timestamps across
+  sections, expand explanations, submit a feedback flag, and repeat at 390px.
+
+### Issue: dictation hides the listen–write–compare loop inside one card
+
+- **Root cause:** progress, audio, spelling hints, textarea, actions, and diff
+  are stacked as peers in a 760px monolithic surface. Tiny circular progress
+  dots communicate state but not the current learning step.
+- **Severity:** Medium.
+- **Impact:** the learner has no stable mental model for when to listen, write,
+  or inspect the word diff; audio and composition controls feel buried.
+- **Impacted files:** `listening-test-dictation.html` only; grading and session
+  persistence remain in the existing controller.
+- **Suggested minimal fix:** show the three-step loop in the header, separate
+  listen and write into adjacent desktop stages, make compare span the
+  workspace, and collapse back to one column on mobile without changing IDs.
+- **Verification:** single- and multi-section boot, timed and free-scrub audio,
+  empty answer and grade failures, perfect/partial/wrong diff, next/retry,
+  completion report persistence, error flagging, dark mode, and 390px/1280px.
+
+## Learner Listening libraries — 2026-08-09
+
+### Issue: Skills Practice exposes the whole catalogue before a learning choice
+
+- **Root cause:** all 11 question types and every available drill render in one
+  uninterrupted document. Repeated importer prefixes consume the title line,
+  titles are truncated to one line, and dictation is an emoji-only control.
+- **Severity:** Medium.
+- **Impact:** learners scroll through a very long shelf, cannot quickly isolate
+  untouched work, and lose the real scenario that distinguishes one drill from
+  another.
+- **Impacted files:** `listening-skills.html`, its Next `page-shell.tsx`,
+  `listening-skills.js`, and `listening-skills.css`.
+- **Suggested minimal fix:** keep the canonical 11-type catalogue and list API,
+  but present it as a skill selector that renders one type at a time; derive
+  progress from existing attempt fields, add status filters, preserve full
+  scenario titles, and label both test and dictation actions.
+- **Verification:** compare legacy and Next shells; select every available type,
+  switch all/new/done filters, verify empty types remain disabled, inspect long
+  titles and mixed attempt data, and check keyboard focus plus 390px/1280px
+  layouts in both themes.
+
+### Issue: Full Tests cards under-explain the commitment and next action
+
+- **Root cause:** the page intro owns the only explanation of the exam contract,
+  while each card is a sparse stack of ID, title, themes, attempts, and two
+  similarly styled actions. Completed and untouched tests have no explicit
+  status chip or filter.
+- **Severity:** Medium.
+- **Impact:** learners must remember that every selection means 40 questions,
+  four sections, and one audio play; they also cannot quickly find a fresh test.
+- **Impacted files:** `listening-tests.html`, its Next `page-shell.tsx`,
+  `listening-tests-list.js`, and `listening-tests.css`.
+- **Suggested minimal fix:** repeat the truthful exam structure as compact card
+  facts, show persisted attempt/best-score state, add client-only filters, keep
+  the full-test action dominant, and make dictation a labelled secondary path.
+- **Verification:** render attempted and untouched full tests, validate `/40`
+  only on this fixed-length library, switch filters by keyboard, follow both
+  actions, and test loading/empty/error states at 390px/768px/1280px.
+
+## Learner Reading libraries — 2026-08-09
+
+### Issue: four libraries look interchangeable despite different learning jobs
+
+- **Root cause:** Vocab, Skill, Full Test, and Mini Test reuse the same large
+  heading, thin underline tabs, detached filter strip, and generic card grid.
+  The cards expose metadata as equal-weight pills but do not name the next
+  action or explain what distinguishes one library from another.
+- **Severity:** Medium.
+- **Impact:** learners must infer whether a card starts assisted reading,
+  targeted practice, a 60-minute exam, or a short test; dense four-column
+  shelves make long titles difficult to scan, while the two-item Full Test
+  shelf leaves most of the page visually empty.
+- **Impacted files:** the four `reading-*.html` library pages, their four Next
+  `page-shell.tsx` counterparts, `reading-vocab.css`, and the four library
+  controllers in `frontend/public/js/`.
+- **Suggested minimal fix:** preserve every endpoint, query filter, and deep
+  link, but give the shared shell a compact summary hero, touch-friendly
+  library switcher, result-aware filter toolbar, three-column editorial cards,
+  and an explicit CTA tailored to each learning job. Only show facts already
+  present in the canonical list response.
+- **Verification:** compare legacy and Next markup for all four routes; exercise
+  every filter and reset action; open a Vocab passage, Skill exercise, Full
+  Test, and Mini Test; verify long titles, empty/error states, keyboard focus,
+  dark/light themes, and 390px/768px/1280px layouts without horizontal page
+  overflow.
+
+### Issue: Mini Test cards silently fall back to full-exam structure
+
+- **Root cause:** `reading-mini-test.js` used the Full Test fallbacks of three
+  passages, 40 questions, and 60 minutes when an optional list field was
+  absent, even though a mini test is defined as one passage with variable
+  question count and duration.
+- **Severity:** Medium.
+- **Impact:** incomplete metadata can make a short practice item appear to be
+  a full exam, undermining trust before the learner starts.
+- **Impacted files:** `reading-mini-test.js` (`render()`).
+- **Suggested minimal fix:** default only the invariant passage count to one;
+  display an em dash for missing variable question/time values and derive the
+  summary duration only from real positive durations.
+- **Verification:** render mini tests with complete and missing list metadata;
+  confirm one passage remains truthful and no `/40` or `60 phút` value is
+  invented when the endpoint omits those fields.
+
+## Learner Reading passage workspace — 2026-08-09
+
+### Issue: passage detail pages hide orientation data and fragment the reading flow
+
+- **Root cause:** the Vocab and Skill detail controllers already receive
+  canonical difficulty, duration, word count, topic, and skill-focus fields,
+  but the page shells rendered only a back link and title above two visually
+  unframed scroll columns. The shared question renderer then emitted a generic
+  heading, detached score block, and equal-weight answer rows.
+- **Severity:** Medium.
+- **Impact:** learners start long passages without knowing level or time
+  commitment, cannot quickly distinguish assisted Vocab reading from targeted
+  Skill practice, and must infer that the right rail is the next step. On
+  mobile, the title and three vertically stacked view buttons consumed most of
+  the first viewport before any passage text appeared.
+- **Impacted files:** `reading-vocab-passage.html`,
+  `reading-skill-exercise.html`, their two page controllers,
+  `components/reading-questions.js`, and `reading-vocab.css`.
+- **Suggested minimal fix:** keep both GET and check endpoints, answer-key
+  stripping, glossary, pane toggles, feedback flags, and grading behaviour;
+  organize existing response fields into a compact orientation header, frame
+  the article and question rail as one workspace, and keep the three reading
+  modes in a compact segmented control on narrow screens.
+- **Verification:** open one published item from each library; compare rendered
+  level/time/word/topic/skill values to its detail response, switch all
+  available reading panes, inspect glossary and image lightbox, check every
+  supported question type plus feedback flag, and verify independent desktop
+  pane scrolling versus normal mobile document flow in light and dark themes.

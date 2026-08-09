@@ -131,6 +131,14 @@ describe('test-linked dictation — JS contract', () => {
 
 describe('grading UX — filler leniency + proper-noun hints + redesign', () => {
 
+  it('makes the listen → write → compare loop explicit without changing controller ids', () => {
+    assert.match(HTML, /class="dict-loop"/);
+    assert.match(HTML, /id="dict-listen-title"/);
+    assert.match(HTML, /id="dict-write-title"/);
+    assert.match(HTML, /BƯỚC 3 · ĐỐI CHIẾU TỪNG TỪ/);
+    assert.match(HTML, /grid-template-columns:\s*minmax\(0, 0\.85fr\) minmax\(0, 1\.15fr\)/);
+  });
+
   it('renders proper-noun hints for the current sentence', () => {
     assert.match(HTML, /id="sentence-hint"/);
     assert.match(JS, /function renderSentenceHint\(/);
