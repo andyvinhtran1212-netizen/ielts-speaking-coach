@@ -101,7 +101,7 @@ async function load() {
   try {
     const res = await window.api.get(`/api/reading/test?${qs.toString()}`);
     STATE.items = (res && res.items) || [];
-    renderSummary();
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
@@ -110,10 +110,15 @@ async function load() {
   }
 }
 
-function renderSummary() {
-  const count = STATE.items.length;
-  VIEWS.total.textContent = String(count);
-  VIEWS.result.textContent = `${count} đề thi đầy đủ`;
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+    ? res.total
+    : shown;
+  VIEWS.total.textContent = String(total);
+  VIEWS.result.textContent = total > shown
+    ? `${total} đề thi đầy đủ · đang hiển thị ${shown}`
+    : `${total} đề thi đầy đủ`;
 }
 
 function render() {

@@ -82,6 +82,17 @@ describe('Reading libraries — card and filter behavior', () => {
     assert.match(mini, /total_questions \|\| '—'/);
     assert.match(mini, /time_limit_minutes \|\| '—'/);
   });
+
+  it('uses the API exact total and distinguishes it from the rendered page', () => {
+    for (const [index, js] of CONTROLLERS.entries()) {
+      assert.match(js, /renderSummary\(res\)/,
+        `${PAGE_NAMES[index]} does not pass the canonical response to its summary`);
+      assert.match(js, /typeof res\?\.total === 'number'/,
+        `${PAGE_NAMES[index]} does not prefer the API exact total`);
+      assert.match(js, /total > shown[\s\S]*đang hiển thị/,
+        `${PAGE_NAMES[index]} does not distinguish total matches from rendered cards`);
+    }
+  });
 });
 
 describe('Reading libraries — responsive and accessible styling', () => {

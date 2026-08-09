@@ -102,7 +102,7 @@ async function load() {
   try {
     const res = await window.api.get(`/api/reading/test?${qs.toString()}`);
     STATE.items = (res && res.items) || [];
-    renderSummary();
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
@@ -111,8 +111,11 @@ async function load() {
   }
 }
 
-function renderSummary() {
-  const count = STATE.items.length;
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+    ? res.total
+    : shown;
   const durationCounts = new Map();
   STATE.items.forEach((t) => {
     const duration = Number(t.time_limit_minutes);
@@ -120,9 +123,11 @@ function renderSummary() {
   });
   const popularDuration = [...durationCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
-  VIEWS.total.textContent = String(count);
+  VIEWS.total.textContent = String(total);
   VIEWS.duration.textContent = popularDuration ? `${popularDuration[0]} phút` : '—';
-  VIEWS.result.textContent = `${count} mini test`;
+  VIEWS.result.textContent = total > shown
+    ? `${total} mini test · đang hiển thị ${shown}`
+    : `${total} mini test`;
 }
 
 function render() {

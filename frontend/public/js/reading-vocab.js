@@ -101,7 +101,7 @@ async function load() {
     const res = await window.api.get(`/api/reading/vocab?${qs.toString()}`);
     STATE.items = (res && res.items) || [];
     seedTagFilter();
-    renderSummary();
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
@@ -110,10 +110,15 @@ async function load() {
   }
 }
 
-function renderSummary() {
-  const count = STATE.items.length;
-  VIEWS.total.textContent = String(count);
-  VIEWS.result.textContent = `${count} bài đọc phù hợp`;
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+    ? res.total
+    : shown;
+  VIEWS.total.textContent = String(total);
+  VIEWS.result.textContent = total > shown
+    ? `${total} bài đọc phù hợp · đang hiển thị ${shown}`
+    : `${total} bài đọc phù hợp`;
 }
 
 // Populate the topic-tag dropdown once, from whatever the first load returns.

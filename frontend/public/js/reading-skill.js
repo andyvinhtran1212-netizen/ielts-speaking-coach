@@ -120,7 +120,7 @@ async function load() {
   try {
     const res = await window.api.get(`/api/reading/skill?${qs.toString()}`);
     STATE.items = (res && res.items) || [];
-    renderSummary();
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
@@ -129,12 +129,17 @@ async function load() {
   }
 }
 
-function renderSummary() {
-  const count = STATE.items.length;
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+    ? res.total
+    : shown;
   const focusCount = new Set(STATE.items.map((p) => p.skill_focus).filter(Boolean)).size;
-  VIEWS.total.textContent = String(count);
+  VIEWS.total.textContent = String(total);
   VIEWS.focus.textContent = String(focusCount);
-  VIEWS.result.textContent = `${count} bài luyện · ${focusCount} nhóm kỹ năng`;
+  VIEWS.result.textContent = total > shown
+    ? `${total} bài luyện · đang hiển thị ${shown} bài thuộc ${focusCount} nhóm kỹ năng`
+    : `${total} bài luyện · ${focusCount} nhóm kỹ năng`;
 }
 
 function render() {
