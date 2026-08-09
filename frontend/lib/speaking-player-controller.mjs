@@ -102,6 +102,38 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     infoVisible: false,
     ctasVisible: false,
   }),
+  feedback: Object.freeze({
+    partialVisible: false,
+    overallBand: null,
+    bands: Object.freeze([]),
+    warnings: Object.freeze([]),
+    reliability: null,
+    kind: 'empty',
+    stub: null,
+    criteria: Object.freeze([]),
+    strengths: Object.freeze([]),
+    improvements: Object.freeze([]),
+    grammarIssues: Object.freeze([]),
+    grammarGroups: Object.freeze([]),
+    grammarMoreCount: 0,
+    vocabularyIssues: Object.freeze([]),
+    corrections: Object.freeze([]),
+    sample: null,
+    transcriptVisible: false,
+    transcriptSegments: Object.freeze([]),
+    audioVisible: false,
+    grammarResource: null,
+    pronunciation: Object.freeze({ visible: false, status: 'hidden' }),
+    backToSheetVisible: false,
+    nextVisible: false,
+    finishVisible: false,
+    finishLabel: 'Hoàn thành phiên luyện',
+  }),
+  testResults: Object.freeze({
+    overallBand: '—',
+    cards: Object.freeze([]),
+    fullPronunciation: Object.freeze({ visible: false, status: 'hidden' }),
+  }),
 });
 
 function requiredKey(value) {
@@ -110,10 +142,24 @@ function requiredKey(value) {
   return key;
 }
 
+function freezeViewValue(value) {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(freezeViewValue));
+  }
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const snapshot = {};
+    for (const [key, nested] of Object.entries(value)) {
+      snapshot[key] = freezeViewValue(nested);
+    }
+    return Object.freeze(snapshot);
+  }
+  return value;
+}
+
 function freezeViewSection(section) {
   const snapshot = {};
   for (const [key, value] of Object.entries(section)) {
-    snapshot[key] = Array.isArray(value) ? Object.freeze(value.slice()) : value;
+    snapshot[key] = freezeViewValue(value);
   }
   return Object.freeze(snapshot);
 }
