@@ -24,7 +24,8 @@ const JS = read('public', 'js', 'home-mock-tiles.js');
 describe('home — mock hub (start card + result-tile slot)', () => {
   test('start card + tile grid container present, tile loader wired', () => {
     assert.match(HOME, /id="mock-hub-grid"/);
-    assert.match(HOME, /class="mock-start"[\s\S]*?\/pages\/full-test\.html|\/pages\/full-test\.html[\s\S]*?class="mock-start"/);
+    assert.match(HOME, /class="mock-start"[\s\S]*?\/full-test|\/full-test[\s\S]*?class="mock-start"/);
+    assert.doesNotMatch(HOME, /\/pages\/full-test\.html/);
     assert.match(HOME, /src="\.\.\/js\/home-mock-tiles\.js"/);
   });
   test('tile styles use design tokens (band + hover)', () => {

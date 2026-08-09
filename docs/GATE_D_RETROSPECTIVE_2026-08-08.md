@@ -80,15 +80,29 @@ Client Component React:
 
 Sau batch: hard-navigation debt còn **17/29 route**.
 
+## Batch behavior thứ năm: `/full-test`
+
+Batch `codex/nextjs-full-test` chuyển launcher kỳ thi thử sang Client Component
+React, không thay đổi player hay state machine của bài thi:
+
+- giữ nguyên contract có auth `/api/mock-exams`;
+- backend tiếp tục quyết định kỳ thi được mở, quyền theo lớp và một sitting sống;
+- request khóa theo `user.id`, abort khi unmount hoặc đổi tài khoản;
+- exam title/code được React escape, không dùng `innerHTML`;
+- Home legacy + Next cùng trỏ tới canonical `/full-test`;
+- legacy HTML/JS chỉ còn phục vụ parity/rollback.
+
+Sau batch stacked: hard-navigation debt còn **16/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.025/7.025 pass |
+| Full frontend contract suite | 7.003/7.003 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; cả bốn behavior route static prerender |
+| Next production build | pass; cả năm behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
 | Browser floor scan | 23 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
