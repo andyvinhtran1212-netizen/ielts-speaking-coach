@@ -285,7 +285,7 @@ function PageFrame({ children, skill }: { children: ReactNode; skill: string }) 
     <main className="av-w-read pg-shell">
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href={grammar ? '/grammar' : '/pages/vocab-practice.html'}>
+          <a className="subpage-header__back" href={grammar ? '/grammar' : '/vocabulary/practice'}>
             <span aria-hidden="true">←</span><span>{grammar ? 'Grammar' : 'Luyện tập'}</span>
           </a>
         </div>

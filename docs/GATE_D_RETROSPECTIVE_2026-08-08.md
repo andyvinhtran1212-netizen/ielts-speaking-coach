@@ -67,17 +67,30 @@ sang Client Component React:
 
 Sau batch stacked: hard-navigation debt còn **18/29 route**.
 
+## Batch behavior thứ tư: `/vocabulary/practice`
+
+Batch `codex/nextjs-vocabulary-practice` chuyển bộ chọn bài Vocabulary sang
+Client Component React:
+
+- giữ nguyên contract có auth `/api/quiz/banks?skill_area=vocab`;
+- request được khóa theo `user.id`, abort khi unmount hoặc đổi tài khoản;
+- bank title/code được React escape, không dùng `innerHTML`;
+- Hub, Quiz và Progress quay về canonical `/vocabulary/practice`;
+- legacy HTML/JS chỉ còn phục vụ parity/rollback.
+
+Sau batch: hard-navigation debt còn **17/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.019/7.019 pass |
+| Full frontend contract suite | 7.025/7.025 pass |
 | TypeScript strict check | pass |
-| Next production build | pass; cả ba behavior route static prerender |
+| Next production build | pass; cả bốn behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 22 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 23 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và

@@ -96,7 +96,7 @@ describe('quiz.html resolves a bank from ?skill_area when ?bank is absent', () =
   });
   test('one bank starts directly; multiple hands off to the lesson picker', () => {
     assert.match(PLAYER, /banks\.length > 1/);
-    assert.match(PLAYER, /location\.replace\('\/pages\/vocab-practice\.html'\)/);
+    assert.match(PLAYER, /location\.replace\('\/vocabulary\/practice'\)/);
   });
 });
 

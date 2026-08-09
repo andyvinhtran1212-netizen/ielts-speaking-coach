@@ -58,7 +58,9 @@ describe('/quiz/progress — native React behavior', () => {
 
 describe('/quiz/progress — canonical entry points', () => {
   test('Next vocab practice links to the canonical route', () => {
-    const practice = read('app', '(authed-vocab-practice)', 'vocabulary', 'practice', 'page.tsx');
+    const practice = read(
+      'app', '(authed-vocab-practice)', 'vocabulary', 'practice', 'vocab-practice-behavior.tsx',
+    );
     assert.match(practice, /href="\/quiz\/progress\?skill_area=vocab"/);
     assert.doesNotMatch(practice, /pages\/quiz-progress\.html/);
   });
