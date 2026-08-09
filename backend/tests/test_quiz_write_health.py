@@ -34,10 +34,13 @@ _HAS_LIVE_DB = (
     and _SB_KEY not in ("", "test-service-key")
 )
 
-pytestmark = pytest.mark.skipif(
+# `livenet`: bộ này CỐ Ý ghi thật qua PostgREST. Gộp vào CÙNG phép gán — một
+# `pytestmark` thứ hai ở trên sẽ bị dòng này ghi đè và biến mất không một
+# tiếng động (tôi đã dính đúng bẫy ấy hai lần trong hôm nay).
+pytestmark = [pytest.mark.livenet, pytest.mark.skipif(
     not _HAS_LIVE_DB,
     reason="quiz-write probe needs a live Supabase — set real SUPABASE_URL/SUPABASE_SERVICE_KEY",
-)
+)]
 
 
 def _db_or_skip(fn):
