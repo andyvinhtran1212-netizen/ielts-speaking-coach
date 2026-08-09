@@ -61,6 +61,13 @@ describe('Mini test — learner library hierarchy', () => {
     assert.doesNotMatch(card, /\$\{esc\(best\)\}\/40/);
     assert.match(card, /Điểm tốt nhất:[\s\S]*điểm/);
   });
+
+  it('only submitted attempts count as completed practice', () => {
+    assert.match(MINI_JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(MINI_JS, /t\.user_submitted_attempt_count/);
+    assert.match(MINI_JS, /TESTS\.filter\(hasSubmittedAttempt\)/);
+    assert.doesNotMatch(MINI_JS, /const attempted = \(t\.user_attempt_count/);
+  });
 });
 
 

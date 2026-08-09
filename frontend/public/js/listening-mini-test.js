@@ -75,8 +75,12 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+function hasSubmittedAttempt(t) {
+  return (t.user_submitted_attempt_count || 0) > 0;
+}
+
 function renderCard(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const attempted = hasSubmittedAttempt(t);
   const best      = t.user_best_score;
   const ctaLabel  = attempted ? 'Làm lại' : 'Bắt đầu';
   const ctaClass  = attempted ? 'lt-card-cta secondary' : 'lt-card-cta';
@@ -122,7 +126,7 @@ function renderCard(t) {
 function filteredTests() {
   if (ACTIVE_FILTER === 'all') return TESTS;
   return TESTS.filter((t) => {
-    const attempted = (t.user_attempt_count || 0) > 0;
+    const attempted = hasSubmittedAttempt(t);
     return ACTIVE_FILTER === 'done' ? attempted : !attempted;
   });
 }
@@ -138,7 +142,7 @@ function renderLibrary() {
 }
 
 function renderSummary() {
-  const done = TESTS.filter((t) => (t.user_attempt_count || 0) > 0).length;
+  const done = TESTS.filter(hasSubmittedAttempt).length;
   $('lt-total-count').textContent = String(TESTS.length);
   $('lt-new-count').textContent = String(TESTS.length - done);
   $('lt-done-count').textContent = String(done);
