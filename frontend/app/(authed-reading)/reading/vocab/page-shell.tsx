@@ -12,17 +12,18 @@ export function ReadingVocabShell() {
   return (
     <div className="shell">
       <main className="rv-shell">
-        <header className="rv-header">
-          <p className="eyebrow">
-            <a href="/home" style={{ color: 'var(--av-text-secondary)' }}>← Trang chủ</a>
-          </p>
-          <h1>
-            Vocab Reading <span className="accent">·</span>{' '}
-            <span style={{ color: 'var(--av-text-muted)' }}>Thư viện</span>
-          </h1>
-          <p className="subtitle">
-            Đọc đoạn văn ngắn, tra từ vựng ngay trong bài, và kiểm tra hiểu nhanh.
-          </p>
+        <header className="rv-header rv-header--vocab">
+          <div className="rv-header__copy">
+            <a className="rv-back" href="/home">← Trang chủ</a>
+            <p className="rv-kicker">READING LAB · VOCAB</p>
+            <h1>Đọc để hiểu, <span>nhớ từ trong ngữ cảnh.</span></h1>
+            <p className="subtitle">Bài đọc ngắn có chú giải tại chỗ, giúp bạn gặp từ mới trong câu thật và kiểm tra mức độ hiểu ngay sau khi đọc.</p>
+          </div>
+          <dl className="rv-header__stats" aria-label="Tổng quan thư viện từ vựng">
+            <div><dt id="rv-total-count">—</dt><dd>bài đọc</dd></div>
+            <div><dt>Trong bài</dt><dd>Tra từ tức thì</dd></div>
+            <div><dt>Sau khi đọc</dt><dd>Kiểm tra nhanh</dd></div>
+          </dl>
         </header>
 
         {/* Library switcher: L1 ↔ L2 ↔ L3 (Sprint 20.6 adds the Full Test entry). */}
@@ -33,27 +34,33 @@ export function ReadingVocabShell() {
           <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>
-            Trình độ
-            <select id="filter-difficulty">
-              <option value="">Tất cả</option>
-              <option value="foundation">Foundation</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </label>
-          <label>
-            Chủ đề
-            <select id="filter-tag"><option value="">Tất cả</option></select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có bài đọc nào khớp bộ lọc.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        <section className="rv-library" aria-labelledby="rv-library-title">
+          <header className="rv-library__toolbar">
+            <div>
+              <p className="rv-kicker">THƯ VIỆN BÀI ĐỌC</p>
+              <h2 id="rv-library-title">Chọn một bài để bắt đầu</h2>
+              <p className="rv-result-count" id="rv-result-count" aria-live="polite">Đang tải danh sách…</p>
+            </div>
+            <div className="rv-filters">
+              <label>Trình độ
+                <select id="filter-difficulty">
+                  <option value="">Tất cả</option>
+                  <option value="foundation">Foundation</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </label>
+              <label>Chủ đề
+                <select id="filter-tag"><option value="">Tất cả</option></select>
+              </label>
+              <button className="rv-filter-reset" id="clear-filters" type="button" hidden>Xóa lọc</button>
+            </div>
+          </header>
+          <div className="rv-empty" id="state-loading">Đang chuẩn bị bài đọc…</div>
+          <div className="rv-empty" id="state-empty" hidden>Chưa có bài đọc nào khớp bộ lọc.</div>
+          <div className="rv-error" id="state-error" hidden></div>
+          <div className="rv-grid rv-grid--articles" id="rv-grid" hidden></div>
+        </section>
       </main>
     </div>
   );
