@@ -1,16 +1,6 @@
-// Vỏ tĩnh của trang Listening Skills Practice — chép TRUNG THỰC từ `public/pages/listening-skills.html`.
-//
-// VÌ SAO CHÉP CƠ HỌC THAY VÌ "VIẾT LẠI CHO ĐẸP": bài học pilot 2 (#741) —
-// dựng lại từ đầu làm gãy cascade CSS và chỉ phát hiện được nhờ so ảnh chụp.
-// Ở đây ràng buộc còn mạnh hơn: hành vi KHÔNG được port, `page.tsx` nạp thẳng
-// module legacy `/js/listening-skills.js` — CHÍNH tệp trang legacy dùng — và module đó
-// tìm phần tử theo **id**. Trang này có 4 id (ls-groups, state-empty, state-error, state-loading);
-// đổi tên bất kỳ chỗ nào là hỏng CẢ HAI bản cùng lúc.
-//
-// `<aver-chrome>` do `page.tsx` dựng, KHÔNG dựng ở đây — bản port trang Bài
-// viết từng chép cả thẻ đó từ legacy và ra hai thanh điều hướng (#950).
+import type { ReactNode } from 'react';
 
-export function ListeningSkillsShell() {
+export function ListeningSkillsShell({ children }: { children: ReactNode }) {
   return (
     <>
       <div className="shell">
@@ -25,14 +15,7 @@ export function ListeningSkillsShell() {
             </p>
           </header>
 
-          <div className="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>
-          <div className="empty-state" id="state-empty" hidden>
-            <p><strong>Chưa có bài luyện nào sẵn sàng.</strong></p>
-            <p>Hãy quay lại sau khi admin xuất bản skill drill mới.</p>
-          </div>
-          <div className="error-banner" id="state-error" hidden></div>
-
-          <section id="ls-groups" hidden></section>
+          {children}
         </main>
       </div>
     </>
