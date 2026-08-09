@@ -1,8 +1,8 @@
-// Markup only. Behavior is loaded by /js/reading-skill.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+// Markup tĩnh của trang Skill Practice. `<aver-chrome>` do `page.tsx` dựng;
+// behavior React sở hữu bộ lọc, request và các trạng thái động bên dưới.
+import type { ReactNode } from 'react';
 
-export function ReadingSkillShell() {
+export function ReadingSkillShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <main className="rv-shell">
@@ -20,35 +20,7 @@ export function ReadingSkillShell() {
           <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>Trình độ
-            <select id="filter-difficulty">
-              <option value="">Tất cả</option>
-              <option value="foundation">Foundation</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </label>
-          <label>Kỹ năng
-            <select id="filter-skill">
-              <option value="">Tất cả</option>
-              <option value="skimming">Skimming</option>
-              <option value="scanning">Scanning</option>
-              <option value="detail">Detail</option>
-              <option value="main_idea">Main idea</option>
-              <option value="inference">Inference</option>
-              <option value="vocabulary_in_context">Vocab in context</option>
-              <option value="reference_cohesion">Reference / cohesion</option>
-              <option value="writer_view_TFNG">Writer's view (T/F/NG)</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có bài luyện kỹ năng nào khớp bộ lọc.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        {children}
       </main>
     </div>
   );
