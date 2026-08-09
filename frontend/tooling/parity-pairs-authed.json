@@ -84,6 +84,14 @@
     "allow": []
   },
   {
+    "name": "exercises",
+    "legacy": "/pages/exercises.html",
+    "next": "/exercises",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể bị tắt cả D1 và Flashcards; khi đó module chuẩn render header cùng trạng thái 'Exercises are not enabled' đủ 4 dòng. Cặp này chứng minh hai shell khớp ở trạng thái feature-disabled trên desktop/mobile; muốn phủ các drill card phải bật ít nhất một feature flag cho probe."
+  },
+  {
     "name": "vocab-exam",
     "legacy": "/pages/vocab-exam.html",
     "next": "/vocabulary/exam",

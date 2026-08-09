@@ -43,9 +43,6 @@ const LEGACY_MODULE_ROUTES = [
   '/listening',
   '/listening/browse',
   '/listening/analytics',
-  // Khuôn mount(): interval chờ Supabase không có cleanup khi điều hướng mềm,
-  // nên route còn lại này CÀNG phải giữ tải cứng (review cục bộ #958).
-  '/exercises',
 ];
 
 function walk(dir, out = []) {
