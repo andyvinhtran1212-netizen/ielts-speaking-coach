@@ -32,7 +32,6 @@ const APP = path.join(ROOT, 'frontend', 'app');
 
 /** Route dựa vào module legacy — thêm vào đây mỗi khi port thêm một trang. */
 const LEGACY_MODULE_ROUTES = [
-  '/reading/vocab',
   '/reading/skill',
   '/reading/test',
   '/reading/mini-test',

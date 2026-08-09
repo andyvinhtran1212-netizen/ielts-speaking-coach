@@ -20,6 +20,10 @@ const ROUTES = ['/reading/vocab', '/reading/skill', '/reading/test', '/reading/m
 const ACTIVE_LABELS = ['Vocab Reading', 'Skill Practice', 'Full Tests', 'Mini Tests'];
 const NEXT_SHELLS = ['vocab', 'skill', 'test', 'mini-test'].map((name) =>
   read('app', '(authed-reading)', 'reading', name, 'page-shell.tsx'));
+const READING_VOCAB_BEHAVIOR = read(
+  'app', '(authed-reading)', 'reading', 'vocab', 'reading-vocab-behavior.tsx');
+const NEXT_SURFACES = NEXT_SHELLS.map((shell, index) =>
+  index === 0 ? `${shell}\n${READING_VOCAB_BEHAVIOR}` : shell);
 const CSS = read('css', 'reading-vocab.css');
 
 describe('Reading libraries — shared information hierarchy', () => {
@@ -50,12 +54,12 @@ describe('Reading libraries — shared information hierarchy', () => {
   });
 
   it('keeps the Next shells aligned with the legacy DOM hooks', () => {
-    for (const [index, shell] of NEXT_SHELLS.entries()) {
-      assert.match(shell, /className="rv-header rv-header--/);
-      assert.match(shell, /id="rv-total-count"/);
-      assert.match(shell, /id="rv-result-count"/);
-      assert.match(shell, /id="clear-filters"/);
-      assert.match(shell, new RegExp(`is-active" aria-current="page">${ACTIVE_LABELS[index]}</a>`));
+    for (const [index, surface] of NEXT_SURFACES.entries()) {
+      assert.match(surface, /className="rv-header rv-header--/);
+      assert.match(surface, /id="rv-total-count"/);
+      assert.match(surface, /id="rv-result-count"/);
+      assert.match(surface, /id="clear-filters"/);
+      assert.match(surface, new RegExp(`is-active" aria-current="page">${ACTIVE_LABELS[index]}</a>`));
     }
   });
 });
