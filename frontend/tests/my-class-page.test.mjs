@@ -738,3 +738,25 @@ describe('trang học viên trên điện thoại', () => {
       'touch target của CTA trên trang phải cao tối thiểu 44px');
   });
 });
+
+describe('nhịp chiều rộng và khoảng cách của khu vực bài tập', () => {
+  test('các section cấp trang không chạm viền nhau', () => {
+    assert.match(MY_CLASS_CSS,
+      /#mc-content\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*var\(--av-space-6\)/s,
+      'hero, ưu tiên và việc cần làm phải có cùng nhịp cách 24px');
+  });
+
+  test('danh sách bài dùng trọn chiều rộng như thẻ ưu tiên', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'không giữ một cột sidebar trống làm thẻ bài tập ngắn hơn');
+  });
+
+  test('nội dung trong thẻ có khoảng thở dọc rõ ràng', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item\s*\{[^}]*gap:\s*var\(--av-space-6\);[^}]*padding:\s*var\(--av-space-6\)/s);
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item-main\s*\{[^}]*gap:\s*var\(--av-space-2\)/s,
+      'nhãn, tiêu đề, mô tả và deadline không được chỉ cách nhau 4px');
+  });
+});
