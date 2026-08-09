@@ -155,6 +155,9 @@
       return nativeFullTest.restore({
         ownerId: _currentUserId,
         currentSessionId: _sessionId,
+        responseLookupFailed: !!(
+          _sessionData && _sessionData.response_lookup_failed === true
+        ),
         responses: ((_sessionData && _sessionData.responses) || []).concat(
           (_sessionData && _sessionData.response_receipts) || []
         ),
@@ -5335,6 +5338,17 @@
       && bootstrap.questions.length > 0;
   }
 
+  function _assertFullTestResponseLookup(sessionData) {
+    if (!sessionData
+        || sessionData.mode !== 'test_full'
+        || sessionData.response_lookup_failed !== true) return;
+    var lookupError = /** @type {any} */ (
+      new Error('Không thể đọc tiến độ Full Test. Hãy tải lại trang trước khi ghi âm tiếp.')
+    );
+    lookupError.code = 'response_lookup_failed';
+    throw lookupError;
+  }
+
   async function init(bootstrap) {
     var generation = ++_playerGeneration;
     _playerActive = true;
@@ -5406,11 +5420,13 @@
       var questions;
       if (hasNextBootstrap) {
         _sessionData = bootstrap.sessionData;
+        _assertFullTestResponseLookup(_sessionData);
         questions = bootstrap.questions.slice();
       } else {
         if (loadMsg) loadMsg.textContent = 'Đang tải session...';
         _sessionData = await window.api.get('/sessions/' + _sessionId);
         if (!_playerActive || generation !== _playerGeneration) return;
+        _assertFullTestResponseLookup(_sessionData);
 
         if (loadMsg) loadMsg.textContent = 'Đang tải câu hỏi...';
         questions = await window.api.get('/sessions/' + _sessionId + '/questions');
