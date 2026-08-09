@@ -374,11 +374,74 @@
 
   // ── Recording: start ──────────────────────────────────────────────────────────
 
+  function _getNativeRecorder() {
+    var recorder = window.PracticeRecorder;
+    return recorder
+      && typeof recorder.start === 'function'
+      && typeof recorder.stop === 'function'
+      && typeof recorder.reset === 'function'
+      && typeof recorder.destroy === 'function'
+      ? recorder
+      : null;
+  }
+
+  function _handleRecordedBlob(blob, elapsed) {
+    _recordedBlob = blob;
+    if (typeof elapsed === 'number') _elapsedSecs = elapsed;
+    _stopWaveform();
+
+    // Show recorded sub-state with duration
+    var durEl = $('rec-duration-display');
+    if (durEl) {
+      var m = Math.floor(_elapsedSecs / 60);
+      var s = _elapsedSecs % 60;
+      durEl.textContent = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
+    }
+    // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
+    // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái.
+    if (_sheetActive()) {
+      _showRecSub('idle');
+      _sheetOnRecorded(_recordedBlob);
+      return;
+    }
+    _renderRecordedPlayback();
+    _renderRecordedLengthHint();
+    _showRecSub('recorded');
+  }
+
+  async function _startNativeRecording(nativeRecorder) {
+    _audioChunks = [];
+    _recordedBlob = null;
+    _elapsedSecs = 0;
+    _renderTimer();
+    try {
+      var started = await nativeRecorder.start({
+        maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
+        onTick: function (seconds) {
+          _elapsedSecs = seconds;
+          _renderTimer();
+        },
+        onRecorded: _handleRecordedBlob,
+      });
+      if (!started) return false;
+      _analyser = nativeRecorder.getAnalyser();
+      _startWaveform();
+      _showRecSub('recording');
+      return true;
+    } catch (err) {
+      _showRecError(err && err.message ? err.message : 'Không thể mở microphone.');
+      return false;
+    }
+  }
+
   async function startRecording() {
     if (_recSubState === 'recording') return false;
     _stopAITts();
     window.speechSynthesis && window.speechSynthesis.cancel();
     _clearRecError();
+
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) return _startNativeRecording(nativeRecorder);
 
     // Check API availability
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -446,35 +509,7 @@
 
     _recorder.onstop = function () {
       var type = (_recorder.mimeType && _recorder.mimeType !== '') ? _recorder.mimeType : 'audio/webm';
-      _recordedBlob = new Blob(_audioChunks, { type: type });
-      // Show recorded sub-state with duration
-      var durEl = $('rec-duration-display');
-      if (durEl) {
-        var m = Math.floor(_elapsedSecs / 60);
-        var s = _elapsedSecs % 60;
-        durEl.textContent = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
-      }
-      // Sprint 14.2 — wire the playback widget + length hint before
-      // showing the sub-state. _renderRecorded reads _elapsedSecs and
-      // _sessionData.part to set the threshold the user is being
-      // measured against.
-      // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
-      // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái
-      // của nó và học viên còn ô kia để làm trong lúc câu này đang chấm.
-      if (_sheetActive()) {
-        // Trả bộ ghi về 'idle' TRƯỚC khi giao bản ghi cho phiếu. Nhánh này
-        // return sớm, không đi qua _showRecSub('recorded') của luồng phễu,
-        // nên _recSubState kẹt ở 'recording' — và chốt đầu startRecording
-        // (`if (_recSubState === 'recording') return false`) chặn mọi lần ghi
-        // từ Ô THỨ HAI trở đi: học viên lại thấy "hỏng micro" dù câu đầu vừa
-        // ghi xong ngon lành.
-        _showRecSub('idle');
-        _sheetOnRecorded(_recordedBlob);
-        return;
-      }
-      _renderRecordedPlayback();
-      _renderRecordedLengthHint();
-      _showRecSub('recorded');
+      _handleRecordedBlob(new Blob(_audioChunks, { type: type }), _elapsedSecs);
     };
 
     _recorder.start(250);   // fire ondataavailable every 250ms
@@ -516,6 +551,11 @@
     if (_recSubState !== 'recording') return;
     if (_timerId) { clearInterval(_timerId); _timerId = null; }
     _stopWaveform();
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) {
+      nativeRecorder.stop();
+      return;
+    }
     if (_recorder && _recorder.state !== 'inactive') {
       _recorder.stop();
       // onstop callback → _showRecSub('recorded')
@@ -533,7 +573,11 @@
   function _resetRecorder() {
     if (_timerId) { clearInterval(_timerId); _timerId = null; }
     _stopWaveform();
-    if (_recorder && _recorder.state !== 'inactive') {
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) {
+      nativeRecorder.reset();
+      _analyser = null;
+    } else if (_recorder && _recorder.state !== 'inactive') {
       _recorder.onstop = null;   // prevent stale onstop from firing after reset
       try { _recorder.stop(); } catch (_) {}
     }
@@ -2162,7 +2206,38 @@
     _startP2Speaking();
   }
 
+  function _handleP2RecordedBlob(blob) {
+    _recordedBlob = blob;
+    _stopWaveform();
+    var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
+
+    // Test modes: advance immediately (no grading spinner)
+    if (_testMode === 'test_full') {
+      // Eager upload — fire and forget; backend finalize handles aggregation
+      _submitGradingEager(_sessionId, questionId, _recordedBlob);
+      _advanceTestMode();
+      return;
+    }
+
+    _startProcessing(_recordedBlob, questionId);
+  }
+
   async function _startP2Speaking() {
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) {
+      try {
+        var started = await nativeRecorder.start({
+          // Part 2 owns its 120-second countdown + "Thank you" delay below.
+          maxSeconds: 0,
+          onRecorded: _handleP2RecordedBlob,
+        });
+        if (!started) return;
+        _analyser = nativeRecorder.getAnalyser();
+      } catch (err) {
+        showError(err && err.message ? err.message : 'Không thể mở microphone.');
+        return;
+      }
+    } else {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showError('Trình duyệt không hỗ trợ ghi âm.');
       return;
@@ -2209,23 +2284,12 @@
     };
 
     _recorder.onstop = function () {
-      _stopWaveform();
       var type = (_recorder.mimeType && _recorder.mimeType !== '') ? _recorder.mimeType : 'audio/webm';
-      _recordedBlob = new Blob(_audioChunks, { type: type });
-      var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
-
-      // Test modes: advance immediately (no grading spinner)
-      if (_testMode === 'test_full') {
-        // Eager upload — fire and forget; backend finalize handles aggregation
-        _submitGradingEager(_sessionId, questionId, _recordedBlob);
-        _advanceTestMode();
-        return;
-      }
-
-      _startProcessing(_recordedBlob, questionId);
+      _handleP2RecordedBlob(new Blob(_audioChunks, { type: type }));
     };
 
     _recorder.start(250);
+    }
 
     _p2SpeakSecsLeft = P2_SPEAK_SEC;
     _renderP2SpeakTimer();
@@ -2261,6 +2325,11 @@
 
   function _stopP2SpeakingInternal() {
     _stopWaveform();
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) {
+      nativeRecorder.stop();
+      return;
+    }
     if (_recorder && _recorder.state !== 'inactive') {
       _recorder.stop();
       // onstop → _startProcessing
@@ -2385,6 +2454,7 @@
   // Calls the backend finalize endpoint — server handles all aggregation.
   // Browser is free to close immediately after this returns.
   function _fireAndForgetFullTestGrading() {
+    _releaseRecorderResources();
     // Show completion screen immediately — no waiting
     showState('completion');
     _renderSubmitFailureNotice();
@@ -2530,6 +2600,7 @@
   }
 
   function _finishTestAndShowResults() {
+    _releaseRecorderResources();
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
@@ -2559,7 +2630,7 @@
     // the dashboard-history view diverged enough to be confusing; both now
     // route through result.html?id=<session_id>.
     if (_sessionId) {
-      window.location.href = 'result.html?id=' + encodeURIComponent(_sessionId);
+      window.location.href = '/pages/result.html?id=' + encodeURIComponent(_sessionId);
       return;
     }
 
@@ -3415,7 +3486,7 @@
         'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
       return;
     }
-    window.location.href = window.api.url('pages/result.html')
+    window.location.href = '/pages/result.html'
       + '?id=' + encodeURIComponent(_sessionId);
   }
 
@@ -3427,6 +3498,27 @@
     if (_currentIdx >= _questions.length - 1) return;
     _currentIdx++;
     _showPrep();
+  }
+
+  function _releaseRecorderResources() {
+    if (_timerId) { clearInterval(_timerId); _timerId = null; }
+    _stopWaveform();
+    var nativeRecorder = _getNativeRecorder();
+    if (nativeRecorder) {
+      nativeRecorder.destroy();
+    } else {
+      if (_recorder && _recorder.state !== 'inactive') {
+        _recorder.onstop = null;
+        try { _recorder.stop(); } catch (_) {}
+      }
+      _recorder = null;
+      if (_stream) {
+        _stream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
+        _stream = null;
+      }
+      if (_audioCtx) { try { _audioCtx.close(); } catch (_) {} _audioCtx = null; }
+    }
+    _analyser = null;
   }
 
   async function finishSession() {
@@ -3443,9 +3535,8 @@
     _stopAITts();
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
-    // Release mic and AudioContext
-    if (_stream) { _stream.getTracks().forEach(function (t) { t.stop(); }); _stream = null; }
-    if (_audioCtx) { try { _audioCtx.close(); } catch (_) {} _audioCtx = null; }
+    // Release mic and AudioContext (native route + legacy fallback).
+    _releaseRecorderResources();
 
     // Release feedback audio blob URL
     if (_feedbackAudioUrl) { URL.revokeObjectURL(_feedbackAudioUrl); _feedbackAudioUrl = null; }
@@ -3456,7 +3547,7 @@
       console.warn('[practice] session complete failed:', err.message);
     }
 
-    window.location.href = window.api.url('pages/result.html') + '?id=' + encodeURIComponent(_sessionId);
+    window.location.href = '/pages/result.html?id=' + encodeURIComponent(_sessionId);
   }
 
   // ── Waveform visualiser ───────────────────────────────────────────────────────

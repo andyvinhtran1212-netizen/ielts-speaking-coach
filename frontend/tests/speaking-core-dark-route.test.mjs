@@ -86,8 +86,8 @@ describe('/practice/session transitional dark route', () => {
     assert.equal(speaking.next.path, '/practice/session');
     assert.equal(speaking.next.route_ready, false);
     assert.equal(speaking.admit_new, 'legacy');
-    assert.match(DOC, /NATIVE BOOTSTRAP; LEGACY PLAYER; ADMISSION LEGACY/);
-    assert.match(DOC, /recorder\/grading\/state machine vẫn ở `practice\.js`/);
+    assert.match(DOC, /NATIVE BOOTSTRAP \+ RECORDER; LEGACY ORCHESTRATION; ADMISSION/);
+    assert.match(DOC, /Upload\/grading\/player\s+state machine vẫn ở `practice\.js`/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {

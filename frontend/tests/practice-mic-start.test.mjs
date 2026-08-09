@@ -25,7 +25,7 @@ const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8')
 
 /** Chạy THẬT startRecording với micro giả. `mic` quyết định getUserMedia làm gì. */
 async function run(mic) {
-  const start = JS.indexOf('  async function startRecording() {');
+  const start = JS.indexOf('  function _getNativeRecorder() {');
   const end = JS.indexOf('  // ── Recording: stop ─');
   assert.ok(start !== -1 && end > start, 'không tìm thấy khối startRecording');
 
@@ -144,7 +144,7 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
   async function cycle() {
     const s1 = JS.indexOf('  function _showRecSub(name) {');
     const e1 = JS.indexOf('  // ── Header ─');
-    const s2 = JS.indexOf('  async function startRecording() {');
+    const s2 = JS.indexOf('  function _getNativeRecorder() {');
     const e2 = JS.indexOf('  // ── Recording: reset (re-record)');
     assert.ok(s1 !== -1 && e1 > s1 && s2 !== -1 && e2 > s2, 'không tìm thấy các khối');
 
