@@ -49,6 +49,28 @@ describe('Phase B — review page (listening-review.html) reuses the exam chrome
   });
 });
 
+describe('Answer-review focus controls', () => {
+  test('exposes accessible wrong/all/correct filters with a live count', () => {
+    assert.match(html, /id="lr-review-counts"/);
+    assert.match(html, /data-review-filter="wrong"/);
+    assert.match(html, /data-review-filter="all"/);
+    assert.match(html, /data-review-filter="correct"/);
+    assert.match(js, /function setReviewFilter\(filter\)/);
+  });
+
+  test('defaults to mistakes but palette jumps can reveal a filtered card', () => {
+    assert.match(js, /setReviewFilter\(preview \? 'all' : \(wrong \? 'wrong' : 'all'\)\)/);
+    assert.match(js, /if \(card\.hidden\) setReviewFilter\('all'\)/);
+    assert.match(js, /card\.setAttribute\('data-correct'/);
+  });
+
+  test('admin preview stays neutral instead of labelling synthetic misses as mistakes', () => {
+    assert.match(js, /var preview = SESSION\.data && SESSION\.data\.preview/);
+    assert.match(js, /setReviewFilter\(preview \? 'all'/);
+    assert.match(css, /\.is-exam-preview \.lr-filter\s*\{\s*display:\s*none/);
+  });
+});
+
 
 describe('Phase B — data wiring', () => {
   test('fetches the submitted-only review endpoint', () => {
