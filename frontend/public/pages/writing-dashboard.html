@@ -1171,6 +1171,8 @@
 
       var modal = document.getElementById('submit-modal');
       modal.classList.remove('hidden');
+      var initialFocus = document.getElementById('modal-close');
+      if (initialFocus) initialFocus.focus();
       document.getElementById('modal-loading').classList.remove('hidden');
       document.getElementById('modal-content').classList.add('hidden');
 
@@ -1601,7 +1603,10 @@
       if (!focusable.length) return;
       var first = focusable[0];
       var last = focusable[focusable.length - 1];
-      if (ev.shiftKey && document.activeElement === first) {
+      if (!modal.contains(document.activeElement)) {
+        ev.preventDefault();
+        (ev.shiftKey ? last : first).focus();
+      } else if (ev.shiftKey && document.activeElement === first) {
         ev.preventDefault();
         last.focus();
       } else if (!ev.shiftKey && document.activeElement === last) {

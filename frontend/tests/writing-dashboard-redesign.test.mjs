@@ -27,6 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let html;
 let css;
+let behavior;
 
 before(() => {
   html = readFileSync(
@@ -35,6 +36,10 @@ before(() => {
   );
   css = readFileSync(
     path.join(__dirname, '..', 'css', 'writing-dashboard.css'),
+    'utf8',
+  );
+  behavior = readFileSync(
+    path.join(__dirname, '..', 'app', '(authed-writing)', 'writing', 'dashboard', 'writing-behavior.tsx'),
     'utf8',
   );
 });
@@ -473,6 +478,14 @@ describe('writing-dashboard.html / learner writing workspace', () => {
     assert.match(html, /ev\.key\s*!==\s*['"]Escape['"]/);
     assert.match(html, /modalState\.returnFocus\s*=\s*document\.activeElement/);
     assert.match(html, /returnFocus\.focus\(\)/);
+  });
+
+  test('dialog takes focus while loading and recovers focus that escapes the modal', () => {
+    for (const source of [html, behavior]) {
+      assert.match(source, /initialFocus\??\.focus\(\)/);
+      assert.match(source, /!modal\.contains\(document\.activeElement\)/);
+      assert.match(source, /\(ev\.shiftKey \? last : first\)\.focus\(\)/);
+    }
   });
 
   test('file import remains native-clickable and is keyboard reachable', () => {

@@ -1106,7 +1106,10 @@ function trapSubmitModalFocus(ev: KeyboardEvent) {
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
-  if (ev.shiftKey && document.activeElement === first) {
+  if (!modal.contains(document.activeElement)) {
+    ev.preventDefault();
+    (ev.shiftKey ? last : first).focus();
+  } else if (ev.shiftKey && document.activeElement === first) {
     ev.preventDefault();
     last.focus();
   } else if (!ev.shiftKey && document.activeElement === last) {
@@ -1200,6 +1203,8 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
 
   const modal = $('submit-modal');
   if (modal) modal.classList.remove('hidden');
+  const initialFocus = $('modal-close') as HTMLButtonElement | null;
+  initialFocus?.focus();
   const loadingEl = $('modal-loading');
   if (loadingEl) loadingEl.classList.remove('hidden');
   const contentEl = $('modal-content');

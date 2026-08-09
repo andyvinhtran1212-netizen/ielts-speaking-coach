@@ -232,7 +232,7 @@ body.av-page {
 main.result-content {
   /* Align the learning path and two-column review to the shared gutter. */
   width: 100%;
-  padding: var(--av-space-8) var(--rg) var(--av-space-16);
+  padding: var(--av-space-20) var(--rg) var(--av-space-16);
   position: relative;
   z-index: 1;
 }
