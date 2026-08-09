@@ -252,7 +252,7 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
               <div>
                 <h2 className="ls-group-title">
                   {skill.label}
-                  {available ? <span className="ls-group-count">{drills.length}</span> : null}
+                  {available ? <>{' '}<span className="ls-group-count">{drills.length}</span></> : null}
                 </h2>
                 <p className="ls-group-lede">{skill.lede}</p>
               </div>
