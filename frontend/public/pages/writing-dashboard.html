@@ -645,6 +645,7 @@
       autoSaveTimer:     null,
       countdownInterval: null,
       allowSoftCheck:    false,   // W-SOFTCHECK — per-assignment opt-in flag
+      returnFocus:       null,
     };
     var PASTE_BLOCK_THRESHOLD = 200;
     var PASTE_LOG_THRESHOLD   = 50;
@@ -1164,6 +1165,8 @@
     // returned `time_remaining_seconds` so the banner ticks the
     // second the modal opens — no longer waits for the first save.
     async function openSubmitModal(assignmentId) {
+      modalState.returnFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement : null;
       modalState.assignmentId = assignmentId;
 
       var modal = document.getElementById('submit-modal');
@@ -1265,6 +1268,7 @@
       // Textarea + counters.
       var textarea = document.getElementById('modal-essay-textarea');
       textarea.value = (draft && draft.draft_text) || '';
+      textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
       updateModalWordCount();
     }
 
@@ -1272,6 +1276,21 @@
       var textarea = document.getElementById('modal-essay-textarea');
       var wc = countWords(textarea.value);
       document.getElementById('modal-word-counter').textContent = wc;
+      var target = Number(textarea.dataset.wordTarget || 0);
+      var targetEl = document.getElementById('modal-word-target');
+      var progressEl = document.getElementById('modal-word-progress');
+      if (targetEl && target > 0) {
+        var remaining = Math.max(0, target - wc);
+        targetEl.textContent = remaining > 0
+          ? 'Mục tiêu tối thiểu ' + target + ' từ · còn ' + remaining + ' từ'
+          : 'Đã đạt mục tiêu tối thiểu ' + target + ' từ';
+        targetEl.classList.toggle('is-met', remaining === 0);
+      }
+      if (progressEl) {
+        var progress = target > 0 ? Math.min(100, Math.round((wc / target) * 100)) : 0;
+        progressEl.style.width = progress + '%';
+        progressEl.classList.toggle('is-met', target > 0 && wc >= target);
+      }
     }
 
     // Auto-save: 3-second debounce, identical contract to Phase 2.3b.
@@ -1567,6 +1586,28 @@
       }
       document.getElementById('submit-modal').classList.add('hidden');
       modalState.assignmentId = null;
+      var returnFocus = modalState.returnFocus;
+      modalState.returnFocus = null;
+      if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+    }
+
+    function trapSubmitModalFocus(ev) {
+      if (ev.key !== 'Tab') return;
+      var modal = document.getElementById('submit-modal');
+      if (!modal || modal.classList.contains('hidden')) return;
+      var focusable = Array.from(modal.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(function (el) { return el.offsetParent !== null; });
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (ev.shiftKey && document.activeElement === first) {
+        ev.preventDefault();
+        last.focus();
+      } else if (!ev.shiftKey && document.activeElement === last) {
+        ev.preventDefault();
+        first.focus();
+      }
     }
 
 
@@ -1758,10 +1799,31 @@
         closeModal();
       });
 
+      document.addEventListener('keydown', function (ev) {
+        trapSubmitModalFocus(ev);
+        if (ev.key !== 'Escape') return;
+        if (!document.getElementById('spell-panel').classList.contains('hidden')) {
+          hideSpellPanel();
+          textarea.focus();
+          return;
+        }
+        if (!document.getElementById('submit-modal').classList.contains('hidden')) {
+          if (textarea.value && modalState.assignmentId) saveDraft();
+          closeModal();
+        }
+      });
+
       var saveBtn   = document.getElementById('modal-btn-save');
       var submitBtn = document.getElementById('modal-btn-submit');
+      var fileTrigger = document.getElementById('modal-file-trigger');
       if (saveBtn)   saveBtn.addEventListener('click',   function () { saveDraft(); });
       if (submitBtn) submitBtn.addEventListener('click', function () { submitFromModal(false); });
+      if (fileTrigger) fileTrigger.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        var input = document.getElementById('modal-file-input');
+        if (input) input.click();
+      });
 
       // W-SOFTCHECK panel — "Quay lại sửa" closes it + focuses the editor;
       // "Nộp luôn" submits with force (bypasses the spell gate, soft).
@@ -1850,13 +1912,18 @@
     defence we have against IDE-style "help" leaking into a timed
     IELTS exercise.
   -->
-  <div id="submit-modal" class="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="av-w-page py-6">
-      <header class="flex items-center justify-between mb-6">
-        <h1 class="text-xl font-semibold" id="modal-title">Làm bài</h1>
+  <div id="submit-modal" class="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto"
+       role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="wd-compose-page av-w-page">
+      <header class="wd-compose-header">
+        <div class="wd-compose-heading">
+          <span class="wd-compose-kicker">Writing workspace</span>
+          <h1 id="modal-title">Làm bài</h1>
+          <p>Đọc kỹ đề, viết liền mạch và kiểm tra lại trước khi nộp.</p>
+        </div>
         <button id="modal-close" type="button"
                 class="wd-modal-close leading-none"
-                aria-label="Đóng">
+                aria-label="Đóng bài viết và quay lại danh sách">
           <i data-lucide="x"></i>
         </button>
       </header>
@@ -1871,49 +1938,62 @@
         <div class="wd-modal-2pane">
 
           <!-- ── LEFT — đề bài ───────────────────────────────────────── -->
-          <div class="wd-modal-pane-left">
+          <aside class="wd-modal-pane-left" aria-label="Đề bài">
             <!-- Prompt panel -->
-            <div class="wd-modal-prompt-panel mb-4 p-4 rounded">
-              <div class="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
-              <h2 class="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
+            <div class="wd-modal-prompt-panel">
+              <div class="wd-modal-section-label">Đề bài</div>
+              <div class="wd-modal-prompt__meta" id="modal-prompt-meta">— · —</div>
+              <h2 class="wd-modal-prompt__title" id="modal-prompt-title">—</h2>
               <!-- W-UI follow-up — đề (prompt_text) ABOVE the Task-1 chart so the
                    question reads first, then the chart it refers to. -->
-              <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line mb-3" id="modal-prompt-text">—</p>
-              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded"
+              <p class="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
+              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden"
                    alt="" loading="lazy" />
             </div>
 
             <!-- Optional admin instructions -->
-            <div id="modal-instructions" class="wd-modal-instructions hidden mb-4 p-3 rounded text-xs leading-relaxed">
-              📌 <span id="modal-instructions-text"></span>
+            <div id="modal-instructions" class="wd-modal-instructions hidden">
+              <strong>Lưu ý từ giảng viên</strong>
+              <span id="modal-instructions-text"></span>
             </div>
-          </div>
+            <div class="wd-prompt-checklist" aria-label="Các bước trước khi nộp">
+              <span>1</span><p>Trả lời đúng trọng tâm đề.</p>
+              <span>2</span><p>Kiểm tra bố cục và số từ.</p>
+              <span>3</span><p>Đọc lại một lượt trước khi nộp.</p>
+            </div>
+          </aside>
 
           <!-- ── RIGHT — khung viết ──────────────────────────────────── -->
-          <div class="wd-modal-pane-right">
+          <section class="wd-modal-pane-right" aria-labelledby="wd-editor-heading">
             <!-- Timer banner — only shown for IELTS-mode assignments -->
-            <div id="modal-timer" class="wd-modal-timer hidden p-3 rounded flex items-center justify-between">
+            <div id="modal-timer" class="wd-modal-timer hidden">
               <div>
-                <div class="wd-modal-timer__label text-xs uppercase tracking-wider mb-1">⏱️ IELTS-mode</div>
-                <div class="wd-modal-timer__total text-xs" id="modal-timer-total">Tổng thời gian: — phút</div>
+                <div class="wd-modal-timer__label">Bài viết có giới hạn thời gian</div>
+                <div class="wd-modal-timer__total" id="modal-timer-total">Tổng thời gian: — phút</div>
               </div>
-              <div id="modal-timer-display" class="wd-modal-timer__display text-3xl font-mono font-bold">--:--</div>
+              <div id="modal-timer-display" class="wd-modal-timer__display">--:--</div>
             </div>
 
-            <!-- File upload -->
-            <div class="flex items-center gap-3">
-              <label class="wd-modal-file-label inline-flex items-center gap-1 text-sm cursor-pointer">
-                <span>📎 Tải file (.docx, .txt)</span>
-                <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
-              </label>
-              <span id="modal-upload-status" class="hidden text-xs"></span>
+            <div class="wd-editor-toolbar">
+              <div>
+                <span class="wd-modal-section-label">Bài làm</span>
+                <h2 id="wd-editor-heading">Bài viết của em</h2>
+              </div>
+              <div class="wd-editor-import">
+                <label id="modal-file-trigger" class="wd-modal-file-label" role="button" tabindex="0">
+                  <span>Nhập từ file</span>
+                  <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
+                </label>
+                <span id="modal-upload-status" class="hidden"></span>
+              </div>
             </div>
 
             <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
             <textarea id="modal-essay-textarea"
-                      class="wd-modal-textarea w-full rounded p-3 text-sm"
+                      class="wd-modal-textarea"
                       rows="20"
-                      placeholder="Bắt đầu viết bài…"
+                      placeholder="Bắt đầu bài viết của em tại đây…"
+                      aria-describedby="modal-word-target"
                       autocomplete="off"
                       autocorrect="off"
                       autocapitalize="off"
@@ -1922,25 +2002,35 @@
                       data-gramm_editor="false"
                       data-enable-grammarly="false"></textarea>
 
-            <!-- Footer -->
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="wd-modal-footer-meta text-xs flex items-center gap-3">
-                <span><span id="modal-word-counter">0</span> từ</span>
-                <span id="modal-save-status" class="wd-modal-save-status hidden">✓ Đã lưu draft</span>
-                <span id="modal-save-pending" class="wd-modal-save-pending hidden">💾 Đang lưu…</span>
+            <div class="wd-word-progress">
+              <div class="wd-word-progress__copy">
+                <strong><span id="modal-word-counter">0</span> từ</strong>
+                <span id="modal-word-target">Mục tiêu tối thiểu — từ</span>
               </div>
-              <div class="flex gap-2">
+              <div class="wd-word-progress__track" aria-hidden="true">
+                <span id="modal-word-progress"></span>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="wd-modal-footer">
+              <div class="wd-modal-footer-meta">
+                <span id="modal-save-status" class="wd-modal-save-status hidden">Đã lưu bản nháp</span>
+                <span id="modal-save-pending" class="wd-modal-save-pending hidden">Đang lưu…</span>
+                <span class="wd-modal-autosave-hint">Bản nháp tự lưu khi em viết</span>
+              </div>
+              <div class="wd-modal-actions">
                 <button id="modal-btn-save" type="button"
-                        class="wd-modal-btn-save text-sm rounded px-4 py-2">
+                        class="wd-modal-btn-save">
                   Lưu bản nháp
                 </button>
                 <button id="modal-btn-submit" type="button"
-                        class="wd-modal-btn-submit text-sm font-medium rounded px-4 py-2">
-                  Nộp bài
+                        class="wd-modal-btn-submit">
+                  Kiểm tra và nộp bài
                 </button>
               </div>
-            </div>
-          </div>
+            </footer>
+          </section>
 
         </div>
       </div>

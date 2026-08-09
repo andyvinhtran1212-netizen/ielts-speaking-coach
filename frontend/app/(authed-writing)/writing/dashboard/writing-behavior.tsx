@@ -42,6 +42,7 @@ type ModalState = {
   autoSaveTimer: NodeJS.Timeout | null;
   countdownInterval: NodeJS.Timeout | null;
   allowSoftCheck: boolean;
+  returnFocus: HTMLElement | null;
   dead: boolean;
 };
 
@@ -77,6 +78,7 @@ const modalState: ModalState = {
   autoSaveTimer: null,
   countdownInterval: null,
   allowSoftCheck: false,
+  returnFocus: null,
   dead: false,
 };
 
@@ -809,6 +811,21 @@ function updateModalWordCount() {
   const wc = countWords(textarea ? textarea.value : '');
   const counter = $('modal-word-counter');
   if (counter) counter.textContent = String(wc);
+  const target = Number(textarea?.dataset.wordTarget || 0);
+  const targetEl = $('modal-word-target');
+  const progressEl = $('modal-word-progress') as HTMLElement | null;
+  if (targetEl && target > 0) {
+    const remaining = Math.max(0, target - wc);
+    targetEl.textContent = remaining > 0
+      ? 'Mục tiêu tối thiểu ' + target + ' từ · còn ' + remaining + ' từ'
+      : 'Đã đạt mục tiêu tối thiểu ' + target + ' từ';
+    targetEl.classList.toggle('is-met', remaining === 0);
+  }
+  if (progressEl) {
+    const progress = target > 0 ? Math.min(100, Math.round((wc / target) * 100)) : 0;
+    progressEl.style.width = progress + '%';
+    progressEl.classList.toggle('is-met', target > 0 && wc >= target);
+  }
 }
 
 function scheduleModalAutoSave(ms: ModalState) {
@@ -1074,6 +1091,28 @@ function closeModal(ms: ModalState) {
   const modal = $('submit-modal');
   if (modal) modal.classList.add('hidden');
   ms.assignmentId = null;
+  const returnFocus = ms.returnFocus;
+  ms.returnFocus = null;
+  if (returnFocus?.isConnected) returnFocus.focus();
+}
+
+function trapSubmitModalFocus(ev: KeyboardEvent) {
+  if (ev.key !== 'Tab') return;
+  const modal = $('submit-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  const focusable = Array.from(modal.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((el) => el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (ev.shiftKey && document.activeElement === first) {
+    ev.preventDefault();
+    last.focus();
+  } else if (!ev.shiftKey && document.activeElement === last) {
+    ev.preventDefault();
+    first.focus();
+  }
 }
 
 function renderModal(data: any, ms: ModalState, freshTimer: any) {
@@ -1143,7 +1182,10 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   }
 
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-  if (textarea) textarea.value = (draft && draft.draft_text) || '';
+  if (textarea) {
+    textarea.value = (draft && draft.draft_text) || '';
+    textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
+  }
   updateModalWordCount();
 }
 
@@ -1151,6 +1193,7 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
   // GHI VÀO thực thể dùng chung, không tạo cái mới: mọi listener (Lưu, Nộp, tự
   // lưu, dán) đã đóng gói đúng object này từ lúc mount.
   const ms = modalState;
+  ms.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   ms.assignmentId = assignmentId;
   ms.allowSoftCheck = false;
   ms.dead = false;
@@ -1334,6 +1377,7 @@ export function WritingBehavior() {
       const spellBtnSubmit = $('spell-btn-submit');
       const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
       const fileInput = $('modal-file-input') as HTMLInputElement | null;
+      const fileTrigger = $('modal-file-trigger');
       const saveBtn = $('modal-btn-save') as HTMLButtonElement | null;
       const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
       const modalClose = $('modal-close') as HTMLButtonElement | null;
@@ -1350,8 +1394,19 @@ export function WritingBehavior() {
       on(tipModalClose, 'click', closeTipModal);
       on(tipModalBackdrop, 'click', closeTipModal);
       on(document, 'keydown', (ev: KeyboardEvent) => {
+        trapSubmitModalFocus(ev);
         if (ev.key === 'Escape' && !$('tip-modal')?.classList.contains('hidden')) {
           closeTipModal();
+          return;
+        }
+        if (ev.key === 'Escape' && !$('spell-panel')?.classList.contains('hidden')) {
+          hideSpellPanel();
+          textarea?.focus();
+          return;
+        }
+        if (ev.key === 'Escape' && !$('submit-modal')?.classList.contains('hidden')) {
+          if (textarea?.value) saveDraft(ms);
+          closeModal(ms);
         }
       });
 
@@ -1387,6 +1442,12 @@ export function WritingBehavior() {
       on(spellBtnSubmit, 'click', () => {
         hideSpellPanel();
         submitFromModal(ms, true);
+      });
+
+      on(fileTrigger, 'keydown', (ev: KeyboardEvent) => {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        fileInput?.click();
       });
 
       on(fileInput, 'change', async (ev: any) => {
