@@ -51,6 +51,7 @@ describe('/vocabulary/practice — native React behavior', () => {
 describe('/vocabulary/practice — canonical navigation', () => {
   test('hub, player and progress return to the canonical picker route', () => {
     const legacyHub = read('public', 'pages', 'vocabulary.html');
+    const legacyPractice = read('public', 'pages', 'vocab-practice.html');
     const nextHub = read('app', '(authed-vocabulary-hub)', 'vocabulary', 'hub', 'page.tsx');
     const quiz = read('public', 'pages', 'quiz.html');
     const legacyProgress = read('public', 'pages', 'quiz-progress.html');
@@ -63,6 +64,8 @@ describe('/vocabulary/practice — canonical navigation', () => {
       assert.doesNotMatch(source, /\/pages\/vocab-practice\.html/);
     }
     assert.match(nextHub, /BODY\.replace\('\/pages\/vocab-practice\.html', '\/vocabulary\/practice'\)/);
+    assert.match(legacyPractice, /href="\/vocabulary\/hub"/);
+    assert.doesNotMatch(legacyPractice, /href="\/pages\/vocabulary\.html"/);
     assert.match(PAGE, /href="\/vocabulary\/hub"/);
   });
 });

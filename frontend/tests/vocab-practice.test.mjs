@@ -50,7 +50,8 @@ describe('vocab-practice hub — lists published vocab banks', () => {
   });
 
   test('back link goes UP to the Vocabulary hub, not the public word wiki', () => {
-    assert.match(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
+    assert.match(PAGE, /subpage-header__back" href="\/vocabulary\/hub"/);
+    assert.doesNotMatch(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
     assert.doesNotMatch(PAGE, /subpage-header__back" href="\/vocabulary\.html"/);
   });
 
