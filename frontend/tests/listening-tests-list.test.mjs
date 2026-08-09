@@ -46,10 +46,12 @@ describe('Sprint 13.5 — tests-list page contract', () => {
     assert.match(HTML, /id="state-empty"/);
     assert.match(HTML, /id="state-error"/);
     assert.match(HTML, /id="lt-grid"/);
+    assert.match(HTML, /id="lt-library"/);
+    assert.match(HTML, /id="lt-summary"/);
   });
 
   it('uses canonical design tokens (no unexpected hex literals)', () => {
-    assert.match(PAGE_CSS, /var\(--av-brand-teal-700\)/);
+    assert.match(PAGE_CSS, /var\(--av-primary\)/);
     const hex = (HTML + PAGE_CSS).match(/#[0-9a-fA-F]{3,6}/g) || [];
     const allowed = new Set(['#FEF2F2', '#991B1B', '#FECACA']);
     for (const h of hex) {
@@ -104,5 +106,20 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
     assert.match(JS, /function esc\(/);
     assert.match(JS, /esc\(t\.title/);
     assert.match(JS, /esc\(t\.test_id/);
+  });
+
+  it('adds status filters and renders the truthful full-test structure', () => {
+    assert.match(HTML, /data-filter="new"/);
+    assert.match(HTML, /data-filter="done"/);
+    assert.match(JS, /ACTIVE_FILTER/);
+    assert.match(JS, /4 sections/);
+    assert.match(JS, /40 câu/);
+    assert.match(JS, /~30 phút/);
+  });
+
+  it('keeps the test action primary and uses a labelled dictation action', () => {
+    assert.match(JS, /class="lt-card-cta" href="\/pages\/listening-test\.html/);
+    assert.match(JS, />Chép chính tả<\/a>/);
+    assert.doesNotMatch(JS, /✍️ Chép chính tả/);
   });
 });

@@ -532,3 +532,43 @@ None found that require a schema or grading rewrite.
 - **Verification:** single- and multi-section boot, timed and free-scrub audio,
   empty answer and grade failures, perfect/partial/wrong diff, next/retry,
   completion report persistence, error flagging, dark mode, and 390px/1280px.
+
+## Learner Listening libraries — 2026-08-09
+
+### Issue: Skills Practice exposes the whole catalogue before a learning choice
+
+- **Root cause:** all 11 question types and every available drill render in one
+  uninterrupted document. Repeated importer prefixes consume the title line,
+  titles are truncated to one line, and dictation is an emoji-only control.
+- **Severity:** Medium.
+- **Impact:** learners scroll through a very long shelf, cannot quickly isolate
+  untouched work, and lose the real scenario that distinguishes one drill from
+  another.
+- **Impacted files:** `listening-skills.html`, its Next `page-shell.tsx`,
+  `listening-skills.js`, and `listening-skills.css`.
+- **Suggested minimal fix:** keep the canonical 11-type catalogue and list API,
+  but present it as a skill selector that renders one type at a time; derive
+  progress from existing attempt fields, add status filters, preserve full
+  scenario titles, and label both test and dictation actions.
+- **Verification:** compare legacy and Next shells; select every available type,
+  switch all/new/done filters, verify empty types remain disabled, inspect long
+  titles and mixed attempt data, and check keyboard focus plus 390px/1280px
+  layouts in both themes.
+
+### Issue: Full Tests cards under-explain the commitment and next action
+
+- **Root cause:** the page intro owns the only explanation of the exam contract,
+  while each card is a sparse stack of ID, title, themes, attempts, and two
+  similarly styled actions. Completed and untouched tests have no explicit
+  status chip or filter.
+- **Severity:** Medium.
+- **Impact:** learners must remember that every selection means 40 questions,
+  four sections, and one audio play; they also cannot quickly find a fresh test.
+- **Impacted files:** `listening-tests.html`, its Next `page-shell.tsx`,
+  `listening-tests-list.js`, and `listening-tests.css`.
+- **Suggested minimal fix:** repeat the truthful exam structure as compact card
+  facts, show persisted attempt/best-score state, add client-only filters, keep
+  the full-test action dominant, and make dictation a labelled secondary path.
+- **Verification:** render attempted and untouched full tests, validate `/40`
+  only on this fixed-length library, switch filters by keyboard, follow both
+  actions, and test loading/empty/error states at 390px/768px/1280px.

@@ -49,13 +49,18 @@ const VIEWS = {
   empty:   $('state-empty'),
   error:   $('state-error'),
   grid:    $('lt-grid'),
+  library: $('lt-library'),
+  summary: $('lt-summary'),
 };
+
+let TESTS = [];
+let ACTIVE_FILTER = 'all';
 
 function showState(name) {
   VIEWS.loading.hidden = name !== 'loading';
   VIEWS.empty.hidden   = name !== 'empty';
   VIEWS.error.hidden   = name !== 'error';
-  VIEWS.grid.hidden    = name !== 'grid';
+  VIEWS.library.hidden = name !== 'grid';
 }
 function showError(msg) {
   VIEWS.error.textContent = msg;
@@ -74,33 +79,73 @@ function renderCard(t) {
   const attempted = (t.user_attempt_count || 0) > 0;
   const best      = t.user_best_score;
   const ctaLabel  = attempted ? 'Làm lại' : 'Bắt đầu test';
-  const ctaClass  = attempted ? 'lt-card-cta secondary' : 'lt-card-cta';
   const themes    = (t.themes && typeof t.themes === 'object')
     ? Object.values(t.themes).filter(Boolean).slice(0, 3).join(' · ')
     : '';
-  const bandTarget = t.band_target ? `Band ${esc(t.band_target)}` : '';
-  const meta = [bandTarget, themes].filter(Boolean).join(' · ');
   const statsBits = [];
   if (best != null) {
-    statsBits.push(`<span>Điểm tốt nhất: <strong>${esc(best)}/40</strong></span>`);
+    statsBits.push(`<span>Điểm tốt nhất <strong>${esc(best)}/40</strong></span>`);
   }
   if (attempted) {
-    statsBits.push(`<span>Đã làm: <strong>${esc(t.user_attempt_count)}</strong> lần</span>`);
+    statsBits.push(`<span><strong>${esc(t.user_attempt_count)}</strong> lượt làm</span>`);
   } else {
     statsBits.push('<span>Chưa làm</span>');
   }
   return `
-    <article class="lt-card" data-test-id="${esc(t.id)}">
-      <div class="lt-card-meta">${esc(t.test_id || '')}</div>
-      <div class="lt-card-title">${esc(t.title || 'Untitled test')}</div>
-      ${meta ? `<div class="lt-card-meta" style="text-transform:none;letter-spacing:0;">${esc(meta)}</div>` : ''}
+    <article class="lt-card" data-test-id="${esc(t.id)}" data-status="${attempted ? 'done' : 'new'}">
+      <div class="lt-card__head">
+        <div class="lt-card-code">${esc(t.test_id || 'FULL TEST')}</div>
+        <span class="lt-card-status${attempted ? ' is-done' : ''}">${attempted ? 'Đã làm' : 'Chưa làm'}</span>
+      </div>
+      <h3 class="lt-card-title">${esc(t.title || 'Untitled test')}</h3>
+      <div class="lt-card-facts" aria-label="Cấu trúc đề thi">
+        <span>4 sections</span><span>40 câu</span><span>~30 phút</span>
+        ${t.band_target ? `<span>Band ${esc(t.band_target)}</span>` : ''}
+      </div>
+      ${themes ? `<p class="lt-card-theme">${esc(themes)}</p>` : ''}
       <div class="lt-card-stats">${statsBits.join('')}</div>
-      <div class="lt-card-actions" style="display:flex; gap:var(--av-space-2); flex-wrap:wrap;">
-        <a class="${ctaClass}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}&from=full">${ctaLabel}</a>
-        <a class="lt-card-cta secondary" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}">✍️ Chép chính tả</a>
+      <div class="lt-card-actions">
+        <a class="lt-card-cta" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}&from=full">${ctaLabel} <span aria-hidden="true">→</span></a>
+        <a class="lt-card-cta secondary" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}">Chép chính tả</a>
       </div>
     </article>
   `;
+}
+
+function filteredTests() {
+  if (ACTIVE_FILTER === 'all') return TESTS;
+  return TESTS.filter((t) => {
+    const attempted = (t.user_attempt_count || 0) > 0;
+    return ACTIVE_FILTER === 'done' ? attempted : !attempted;
+  });
+}
+
+function renderLibrary() {
+  const items = filteredTests();
+  VIEWS.grid.innerHTML = items.map(renderCard).join('');
+  $('lt-visible-count').textContent = `${items.length} đề thi`;
+  if (!items.length) {
+    VIEWS.grid.innerHTML = '<p class="lt-filter-empty">Không có đề nào trong nhóm này.</p>';
+  }
+}
+
+function renderSummary() {
+  $('lt-total-count').textContent = String(TESTS.length);
+  VIEWS.summary.hidden = false;
+}
+
+function wireFilters() {
+  document.querySelectorAll('.lt-filter__button').forEach((button) => {
+    button.addEventListener('click', () => {
+      ACTIVE_FILTER = button.dataset.filter || 'all';
+      document.querySelectorAll('.lt-filter__button').forEach((item) => {
+        const selected = item === button;
+        item.classList.toggle('is-active', selected);
+        item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      renderLibrary();
+    });
+  });
 }
 
 async function load() {
@@ -113,11 +158,16 @@ async function load() {
       showState('empty');
       return;
     }
-    VIEWS.grid.innerHTML = items.map(renderCard).join('');
+    TESTS = items;
+    renderSummary();
+    renderLibrary();
     showState('grid');
   } catch (e) {
     showError(`Không tải được danh sách tests: ${(e && e.message) || e}`);
   }
 }
 
-__averOnReady(load);
+__averOnReady(function () {
+  wireFilters();
+  load();
+});
