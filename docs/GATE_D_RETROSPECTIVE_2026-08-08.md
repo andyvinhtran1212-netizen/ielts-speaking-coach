@@ -343,17 +343,36 @@ theo `DOMContentLoaded` sang behavior React:
 
 Sau batch stacked: hard-navigation debt còn **2/29 route**.
 
+## Batch behavior thứ hai mươi: `/listening/browse`
+
+Batch `codex/nextjs-listening-browse` chuyển Kho bài nghe từ module legacy
+khởi động theo `DOMContentLoaded` sang behavior React:
+
+- route dùng `AuthProvider`, fail-closed khi hết phiên và remount filter/result
+  theo `user.id`;
+- ba filter accent/CEFR/section vẫn gọi endpoint canonical, tải đủ các trang với
+  limit 100 và guard 20 trang thay vì cắt im lặng;
+- card chỉ mở bốn mode backend báo trong `available_modes`, đúng thứ tự cũ và
+  luôn encode `content_id`;
+- `available_modes: null` vẫn hiện lookup warning, khác với trạng thái canonical
+  không có mode; list loading/empty/error cũng tách biệt rõ;
+- request bị abort khi đổi filter/account hoặc unmount; authored content do
+  React escape và không còn `innerHTML`;
+- route không còn phụ thuộc hard navigation.
+
+Sau batch stacked: hard-navigation debt còn **1/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 189/189; batch 16: 220/220; batch 17: 194/194; batch 18: 188/188; batch 19: 55/55 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 189/189; batch 16: 220/220; batch 17: 194/194; batch 18: 188/188; batch 19: 55/55; batch 20: 67/67 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.132 pass; 0 skip; 0 fail |
+| Full frontend contract suite | 7.140 pass; 0 skip; 0 fail |
 | TypeScript strict check | pass |
-| Next production build | pass; cả mười chín behavior route static prerender |
+| Next production build | pass; cả hai mươi behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 37 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 38 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và
