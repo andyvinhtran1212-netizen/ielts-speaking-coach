@@ -46,7 +46,8 @@ function walk(dir, out = []) {
 }
 
 const files = walk(APP).map((f) => ({ rel: path.relative(ROOT, f), src: readFileSync(f, 'utf8') }));
-// Trang gọi `mount(` trong một script nội tuyến — đó là dấu hiệu của khuôn này.
+// Trang gọi `mount(` trong một script nội tuyến — đó là dấu hiệu của khuôn cũ.
+// Các route đã chuyển sang adapter React lifecycle-safe không còn xuất hiện.
 const mountPages = files.filter((f) => /mount\(document\.getElementById/.test(f.src));
 
 describe('khuôn mount() — phải chờ Supabase', () => {
@@ -54,9 +55,7 @@ describe('khuôn mount() — phải chờ Supabase', () => {
   // và rơi khỏi bộ dò thì chốt vẫn xanh trong khi trang đó hết được canh
   // (review cục bộ #958 chỉ ra). Thêm route mới thì phải sửa danh sách này —
   // đó là chủ đích, không phải phiền toái.
-  const EXPECTED = [
-    'frontend/app/(authed-exercises)/exercises/page.tsx',
-  ];
+  const EXPECTED = [];
 
   test('bộ dò tìm ĐÚNG các trang dùng khuôn mount()', () => {
     assert.deepEqual(mountPages.map((f) => f.rel).sort(), [...EXPECTED].sort(),

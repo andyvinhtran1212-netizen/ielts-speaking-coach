@@ -7,9 +7,9 @@
  *   mount(container, opts) → Promise<{ unmount }>
  *
  * Smallest of the three vocab modules. The exercises page is a drill-list
- * hub — 3 cards (D1 fill-blank, Flashcards, D3 speak-with-target) gated by
- * per-user feature flags from /auth/me. No interactive handlers, no
- * timers, no audio; cards are plain `<a href>` links to the actual drill
+ * hub — 2 cards (D1 fill-blank and Flashcards) gated by
+ * per-user feature flags from /auth/me. It has one delegated back handler,
+ * no timers or audio; cards are plain `<a href>` links to the actual drill
  * surfaces (which live on separate pages and are out of scope here).
  *
  * Card hrefs are absolute (`/pages/...`) per Sprint 6.15.8-hotfix lesson:
@@ -21,8 +21,8 @@
  *   - Q2 embedded → window.top.location.href for auth redirect.
  *   - Q3 idempotent mount via guardMount (data-mounted attribute).
  *
- * Cleanup: only the container + guard need clearing — no timers, no
- * listeners, no audio subscriptions to release.
+ * Cleanup aborts the feature-flag request, removes the delegated back-button
+ * listener, clears the container and releases the idempotent mount guard.
  */
 
 import { guardMount, redirectToLogin } from './_loader.js';
@@ -102,6 +102,8 @@ const HTML = /* html */ `
 
 export async function mount(container, opts = {}) {
   const { embedded = false } = opts;
+  const requests = new AbortController();
+  let disposed = false;
 
   const guard = guardMount(container);
   if (guard.alreadyMounted) return guard.getHandle();
@@ -111,7 +113,14 @@ export async function mount(container, opts = {}) {
     container.innerHTML =
       '<p style="text-align:center;padding:3rem;color:var(--av-text-muted);">' +
       'window.api not initialized — module cannot bootstrap.</p>';
-    return { unmount: () => {} };
+    return {
+      unmount: () => {
+        disposed = true;
+        requests.abort();
+        container.innerHTML = '';
+        guard.clearHandle();
+      },
+    };
   }
 
   container.innerHTML = HTML;
@@ -129,14 +138,18 @@ export async function mount(container, opts = {}) {
     try {
       const sb = window.getSupabase ? window.getSupabase() : null;
       const { data } = sb ? await sb.auth.getSession() : { data: {} };
+      if (disposed) return;
       const token = data?.session?.access_token;
       if (!token) { redirectToLogin({ embedded }); return; }
 
       const res = await fetch(`${BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: requests.signal,
       });
+      if (disposed) return;
       if (!res.ok) { showState('disabled'); return; }
       const me = await res.json();
+      if (disposed) return;
 
       // Sprint 9.1 — D3 "Speak with target" card retired; the `d3`
       // flag read + the disabled-branch `!d3` clause were dropped
@@ -166,6 +179,7 @@ export async function mount(container, opts = {}) {
 
       showState('hub');
     } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
       console.error('[exercises]', err);
       showState('error');
     }
@@ -185,13 +199,14 @@ export async function mount(container, opts = {}) {
       window.location.href = '/vocabulary/hub';
     }
   }
-  container.addEventListener('click', (e) => {
+  function handleClick(e) {
     const back = e.target.closest('[data-action="back-to-dashboard"]');
     if (back && container.contains(back)) {
       e.preventDefault();
       backToDashboard();
     }
-  });
+  }
+  container.addEventListener('click', handleClick);
 
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
@@ -200,6 +215,9 @@ export async function mount(container, opts = {}) {
   init();
 
   function unmount() {
+    disposed = true;
+    requests.abort();
+    container.removeEventListener('click', handleClick);
     container.innerHTML = '';
     guard.clearHandle();
   }

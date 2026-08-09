@@ -28,8 +28,8 @@
  *
  * Sprint 7.5 — DEBT-2026-05-09-B Phase 3 extends this sentinel for the
  * exercises module migration. Smallest of the three modules — a drill-hub
- * landing with 3 cards gated by feature flags, no interactive handlers,
- * no timers, no audio. Section 7 covers the exercises module + shell.
+ * landing with 2 cards gated by feature flags and one delegated back action,
+ * no timers or audio. Section 7 covers the exercises module + shell.
  *
  * Sprint 7.6 — **DEBT-2026-05-09-B CLOSED**. embedded-mode.css deleted,
  * the legacy iframe branch in vocab-landing.js.activateTab() retired,
@@ -462,7 +462,11 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
     assert.match(src, /flashcardsCard\.parentNode\.removeChild/);
   });
 
-  test('unmount() lifecycle: clears container + clears guard (no timers/listeners to clean)', () => {
+  test('unmount() lifecycle: aborts work, removes back listener, clears container + guard', () => {
+    assert.match(src, /const requests = new AbortController\(\)/);
+    assert.match(src, /signal:\s*requests\.signal/);
+    assert.match(src, /disposed = true;\s*requests\.abort\(\)/);
+    assert.match(src, /container\.removeEventListener\(\s*['"]click['"]\s*,\s*handleClick\s*\)/);
     assert.match(src, /container\.innerHTML\s*=\s*['"]['"]|container\.innerHTML\s*=\s*``/);
     assert.match(src, /guard\.clearHandle\s*\(\s*\)/);
   });
@@ -515,7 +519,7 @@ describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the m
     assert.match(html, /mount\s*\(\s*document\.getElementById\(\s*['"]mount['"]\s*\)\s*,\s*\{\s*embedded:\s*false/);
   });
 
-  test('no inline body markup — context bar + 4 states + 3 cards live in the module', () => {
+  test('no inline body markup — context bar + 4 states + 2 cards live in the module', () => {
     const body = html.match(/<body[\s\S]+?<\/body>/);
     assert.ok(body, '<body> block not extractable');
     assert.ok(
@@ -805,4 +809,3 @@ describe('Sprint 9.3 — .mode-card__badge primitive lives in components.css', (
     assert.match(flashcardsCSS, /^\.delete-btn\s*\{/m);
   });
 });
-

@@ -573,16 +573,16 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
 });
 
 test('route đã cutover mà KHÔNG có cặp parity phải được khai báo', () => {
-  // Bot bắt ở #958: bộ lọc + regex mở lượt authed cho `/exercises`, nhưng
-  // `parity-pairs-authed.json` CỐ Ý không có cặp đó (vế legacy đang hỏng với
-  // tài khoản probe). Hệ quả: một PR chỉ sửa trang đó nhận G1 XANH mà không cặp
-  // nào được mở — đúng kiểu "cổng tự cấp phép" mà đầu `parity-gate.yml` bác bỏ.
+  // Bot bắt ở #958: bộ lọc + regex từng mở lượt authed cho `/exercises`, nhưng
+  // `parity-pairs-authed.json` chưa có cặp đó. Batch lifecycle 2026-08-09 đã
+  // xác nhận 4 dòng là trạng thái feature-disabled đầy đủ và đăng ký lại cặp
+  // với `minBaselineLines: 4`; không được đưa route đó trở lại danh sách này.
   //
   // Không sửa được bằng cách gỡ glob (thì PR đó lại không chạy cổng nào cả).
   // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
   // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
   // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
-  const KNOWN_NO_PAIR = ['/writing/dashboard', '/exercises'];
+  const KNOWN_NO_PAIR = ['/writing/dashboard'];
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
@@ -654,7 +654,7 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
   // chỉ sửa MCQ vẫn mở lượt authed — lượt cần secret PROBE_*, đăng nhập thật,
   // rồi so đúng con số KHÔNG cặp. Không đỏ, chỉ tốn và gây ảo giác đã phủ.
   //
-  // Trang bị loại có chủ ý (`writing-dashboard`, `exercises`) phải được nêu
+  // Trang bị loại có chủ ý (`writing-dashboard`) phải được nêu
   // TRONG tài liệu loại trừ, nếu không thì "chưa có cặp" và "quên mất cặp"
   // trông giống hệt nhau.
   const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
