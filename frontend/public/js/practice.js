@@ -213,6 +213,15 @@
     return view ? view.updateView(section, patch) : false;
   }
 
+  // Legacy and Next players coexist during Gate E. Keep each implementation
+  // on its own stable result URL so a rollback cannot move an active flow to
+  // the other renderer. Controller presence is the ownership signal; pathname
+  // sniffing would make copied URLs and coexistence drills ambiguous.
+  function _singleSessionResultUrl(sessionId) {
+    var path = _getNativeView() ? '/result' : '/pages/result.html';
+    return path + '?id=' + encodeURIComponent(sessionId);
+  }
+
   function _startManagedInterval(key, callback, milliseconds) {
     var nativePlayer = _getNativePlayer();
     return nativePlayer
@@ -3916,7 +3925,7 @@
     // the dashboard-history view diverged enough to be confusing; both now
     // route through result.html?id=<session_id>.
     if (_sessionId) {
-      window.location.href = '/pages/result.html?id=' + encodeURIComponent(_sessionId);
+      window.location.href = _singleSessionResultUrl(_sessionId);
       return;
     }
 
@@ -5070,8 +5079,7 @@
       return;
     }
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
-    window.location.href = '/pages/result.html'
-      + '?id=' + encodeURIComponent(sessionId);
+    window.location.href = _singleSessionResultUrl(sessionId);
   }
 
   function nextQuestion() {
@@ -5147,7 +5155,7 @@
     }
 
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
-    window.location.href = '/pages/result.html?id=' + encodeURIComponent(sessionId);
+    window.location.href = _singleSessionResultUrl(sessionId);
   }
 
   function destroy() {

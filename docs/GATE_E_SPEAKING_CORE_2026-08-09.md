@@ -1,7 +1,7 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION RESULT; ADMISSION LEGACY. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
@@ -113,6 +113,14 @@ tuyên bố route ready khi chưa có browser/live evidence.
   vào route mới.
 - Object URL của recording, feedback, Part 2 retry, TTS và PDF có owner key; URL
   ký của server không bị revoke nhầm.
+- `/result` native đọc một snapshot canonical từ `GET /sessions/{id}` (không
+  gọi lại questions), fail-visible khi `response_lookup_failed=true`, giữ kết
+  quả sealed mock khỏi bị diễn giải thành “chưa trả lời”, và abort read/audio
+  lifecycle khi đổi account/query hoặc unmount. Legacy player vẫn đi
+  `/pages/result.html`; chỉ player Next và history Next đi `/result`, nên target
+  rollback không bị đổi. “Luyện lại” dùng client-minted UUID qua
+  `fn_create_session_daily_capped_v2`; network-after-commit và double-click trả
+  cùng một session thay vì tạo trùng/ăn thêm daily quota.
 - Bằng chứng hiện tại là unit/source contract và full build/suite; browser/live
   drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
 

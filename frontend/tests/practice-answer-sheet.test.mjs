@@ -173,13 +173,17 @@ describe('nút nộp', () => {
       location: { href: '' },
     };
     const create = new Function(
-      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources', `
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
+      '_singleSessionResultUrl', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `);
-    const submit = create(window, () => true, () => null, { slots: [] }, () => {});
+    const submit = create(
+      window, () => true, () => null, { slots: [] }, () => {},
+      (id) => `/result?id=${id}`,
+    );
     const first = submit();
     const second = submit();
     assert.equal(calls, 1, 'click thứ hai không được PATCH /complete lần nữa');
@@ -200,7 +204,8 @@ describe('nút nộp', () => {
     };
     const updates = [];
     const create = new Function(
-      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources', `
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
+      '_singleSessionResultUrl', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
       ${JS.slice(start, end)}
@@ -212,6 +217,7 @@ describe('nút nộp', () => {
       () => null,
       { slots: [{ retryBlob: {} }] },
       () => {},
+      (id) => `/result?id=${id}`,
     );
 
     await submit();

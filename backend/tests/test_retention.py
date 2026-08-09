@@ -221,6 +221,7 @@ def test_get_session_enqueues_touch_and_augments(monkeypatch):
     bt = BackgroundTasks()
     out = _run(sessions_module.get_session("sess-1", bt, authorization="Bearer x"))
     assert "retention" in out and out["session_id"] == "sess-1"
+    assert out["results_sealed"] is False
     assert "days_until_content_purge" in out["retention"]  # v2 shape
     funcs = [t.func for t in bt.tasks]
     assert sessions_module._touch_last_accessed in funcs
@@ -249,6 +250,7 @@ def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):
     assert out["responses"] == []
     assert out["response_receipts"] == [{"id": "resp-1", "question_id": "q-1"}]
     assert out["response_lookup_failed"] is False
+    assert out["results_sealed"] is True
     assert "transcript" not in out["response_receipts"][0]
     assert "overall_band" not in out["response_receipts"][0]
     assert "feedback" not in out["response_receipts"][0]

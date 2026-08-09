@@ -119,7 +119,7 @@ function renderHistory(sessions: any[], total: number | undefined, st: HistorySt
       const viewBtn = s.id
         ? (isPending || isFailed)
           ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-muted);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
-          : `<a href="/pages/result.html?id=${encodeURIComponent(s.id)}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);">Xem lại</a>`
+          : `<a href="/result?id=${encodeURIComponent(s.id)}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);">Xem lại</a>`
         : '—';
       const mode = s.mode || 'practice';
       const badge = (MODE_BADGE as any)[mode] || (MODE_BADGE as any).practice;

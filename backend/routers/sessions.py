@@ -5,6 +5,7 @@ import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
@@ -206,6 +207,12 @@ class CreateSessionBody(BaseModel):
     # creation, exactly like sitting_id, so PATCH /complete can record the
     # hand-in without having to guess from the topic string.
     class_assignment_item_id: str | None = None
+    # Optional idempotency identity for a retryable plain session create. The
+    # UUID becomes sessions.id through the v2 atomic-create RPC, so a
+    # network-after-commit retry returns the same row rather than burning a
+    # second daily slot. Linked class/mock creates keep their established path
+    # until their post-create hooks can report replay state explicitly.
+    client_session_id: UUID | None = None
 
     @field_validator("mode")
     @classmethod
@@ -379,6 +386,12 @@ async def create_session(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
+    if body.client_session_id and (body.sitting_id or body.class_assignment_item_id):
+        raise HTTPException(
+            status_code=400,
+            detail="client_session_id chỉ dùng cho phiên luyện không gắn bài lớp/kỳ thi",
+        )
+
     _require_active(user_id)
 
     # GĐ 2 — validate the class assignment FIRST, for two reasons.
@@ -471,18 +484,24 @@ async def create_session(
     # lock, so concurrent POST /sessions can't both slip under the daily cap.
     # Admins bypass the cap via an effectively-unlimited ceiling.
     max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
+    rpc_name = (
+        "fn_create_session_daily_capped_v2"
+        if body.client_session_id
+        else "fn_create_session_daily_capped"
+    )
+    rpc_params = {
+        "p_user_id":   user_id,
+        "p_mode":      body.mode,
+        "p_part":      body.part,
+        "p_topic":     body.topic,
+        "p_day_start": today_start,
+        "p_max_daily": max_daily,
+    }
+    if body.client_session_id:
+        rpc_params["p_session_id"] = str(body.client_session_id)
+
     try:
-        result = supabase_admin.rpc(
-            "fn_create_session_daily_capped",
-            {
-                "p_user_id":   user_id,
-                "p_mode":      body.mode,
-                "p_part":      body.part,
-                "p_topic":     body.topic,
-                "p_day_start": today_start,
-                "p_max_daily": max_daily,
-            },
-        ).execute()
+        result = supabase_admin.rpc(rpc_name, rpc_params).execute()
     except Exception as e:
         if "daily_quota_exceeded" in str(e):
             raise HTTPException(
@@ -492,6 +511,8 @@ async def create_session(
                     f"sessions hôm nay. Hãy thử lại vào ngày mai."
                 ),
             )
+        if "session_id_conflict" in str(e):
+            raise HTTPException(status_code=409, detail="Mã tạo phiên đã được dùng cho yêu cầu khác")
         raise HTTPException(status_code=500, detail=f"Không thể tạo session: {e}")
 
     rows = result.data or []
@@ -906,10 +927,15 @@ async def get_session(
     ]
 
     # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
-    # the sitting is released. Questions still return so recording works.
+    # the sitting is released. Questions still return so recording works. Return
+    # the seal decision explicitly as well: clients must not infer "sealed" from
+    # an empty response array because a real unanswered session has that same
+    # shape. This is canonical backend truth, not a UI heuristic.
+    results_sealed = False
     if session.get("sitting_id"):
         from services import mock_exam_service
-        if mock_exam_service.is_sealed(session["sitting_id"]):
+        results_sealed = mock_exam_service.is_sealed(session["sitting_id"])
+        if results_sealed:
             responses = []
 
     out = {
@@ -920,6 +946,7 @@ async def get_session(
         "responses":  responses,
         "response_receipts": response_receipts,
         "response_lookup_failed": response_lookup_failed,
+        "results_sealed": results_sealed,
     }
     task = _class_task_state(session)
     if task:

@@ -11010,6 +11010,8 @@ export interface components {
             previous_session_id?: string | null;
             /** Class Assignment Item Id */
             class_assignment_item_id?: string | null;
+            /** Client Session Id */
+            client_session_id?: string | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
