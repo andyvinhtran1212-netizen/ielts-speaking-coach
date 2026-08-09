@@ -1,8 +1,6 @@
-// Markup only. Behavior is loaded by /js/reading-mini-test.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+import type { ReactNode } from 'react';
 
-export function ReadingMiniTestShell() {
+export function ReadingMiniTestShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <main className="rv-shell">
@@ -20,21 +18,7 @@ export function ReadingMiniTestShell() {
           <a className="rv-libnav__link is-active" aria-current="page">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>Mô-đun
-            <select id="filter-module">
-              <option value="">Tất cả</option>
-              <option value="academic">Academic</option>
-              <option value="general_training" disabled>General Training (Phase B)</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có mini test nào.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        {children}
       </main>
     </div>
   );
