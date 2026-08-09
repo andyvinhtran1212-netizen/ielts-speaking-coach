@@ -13,6 +13,10 @@
 #     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
@@ -42,9 +46,33 @@ jobs:
       cancel-in-progress: false
       queue: max
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          # This workflow validates staging. Scheduled workflows execute from
+          # default-branch YAML, but the code under test/evidence must match the
+          # branch Vercel + Railway deploy to staging.
+          ref: staging
+          fetch-depth: 1
+
+      - name: Capture tested source revision
+        id: source_revision
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ref=staging" >> "$GITHUB_OUTPUT"
+
+      - name: Restore previous Gate E streak state
+        id: restore_gate_e_streak
+        uses: actions/cache/restore@v4
+        with:
+          path: frontend/.gate-e-streak-state
+          # Do not partition the logical chain by dispatch ref. GitHub cache
+          # scope can still hide a feature-branch cache from main, so the
+          # updater also verifies global workflow history and resets on gaps.
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gate-e-streak-
 
       - uses: actions/setup-node@v5
         with:
@@ -74,7 +102,30 @@ jobs:
         working-directory: frontend
         env:
           GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome }}
+          EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
+          EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
         run: node tooling/write-gate-e-device-matrix-evidence.mjs
+
+      - name: Capture staging release provenance
+        if: always()
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+        run: node tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Update Gate E streak ledger
+        if: always()
+        working-directory: frontend
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tooling/update-gate-e-streak-ledger.mjs
+
+      - name: Save Gate E streak state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: frontend/.gate-e-streak-state
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -82,6 +133,8 @@ jobs:
           name: gate-e-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             frontend/test-results/gate-e-device-matrix-evidence.json
+            frontend/test-results/gate-e-staging-provenance.json
+            frontend/test-results/gate-e-streak-ledger.json
             frontend/test-results/staging-e2e-results.json
           if-no-files-found: error
           retention-days: 30

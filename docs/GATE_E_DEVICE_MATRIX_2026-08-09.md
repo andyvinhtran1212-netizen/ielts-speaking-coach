@@ -43,6 +43,10 @@ Mỗi workflow run upload artifact
 - `gate-e-device-matrix-evidence.json`: matrix id, SHA/ref, workflow/run/attempt,
   outcome, runner OS, Node/Playwright version, Chromium/WebKit revision và các
   real-device requirement;
+- `gate-e-staging-provenance.json`: Vercel frontend release + git ref và Railway
+  backend release + git branch, đã sanitize;
+- `gate-e-streak-ledger.json`: candidate clean streak, reset reasons và ba cờ
+  threshold/failure-matrix/real-device eligibility;
 - `staging-e2e-results.json`: kết quả Playwright theo project/test.
 
 Metadata step và upload dùng `if: always()`, vì run đỏ/cancelled cũng là evidence

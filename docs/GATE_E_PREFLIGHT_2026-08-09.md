@@ -13,9 +13,9 @@ link, version, run và threshold.
 App Router đã sở hữu 29 route và hard-navigation debt của nhóm đó đã về 0/29,
 nhưng đây là bằng chứng Gate D behavior migration, không chứng minh core-flow
 ready. Các player ghi dữ liệu và resume-sensitive quan trọng vẫn là legacy;
-staging E2E chỉ chạy Chromium; chưa có hồ sơ 20 critical-suite runs liên tiếp;
-và chưa có drill active-session sticky/drain. Vì vậy canonical core cutover vẫn
-bị chặn bởi Gate E.
+core suite vẫn chỉ chạy Chromium dù browser seam đã có WebKit synthetic; chưa có
+hồ sơ 20 critical-suite runs liên tiếp; và chưa có drill active-session
+sticky/drain. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
@@ -24,7 +24,7 @@ bị chặn bởi Gate E.
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Matrix v1 chạy core suite trên Chromium và browser seam trên Chromium desktop + WebKit desktop/iPhone emulation; artifact ghi exact Playwright/browser revision/SHA/outcome | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; Spike 4 pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Có state contract và rollback/coexistence drills ở Gate B | Chưa có drill artifact chứng minh active attempt tiếp tục ở release cũ hoặc được drain an toàn qua cutover/rollback. |
-| Full-stack staging E2E đạt threshold, đủ failure injection, ≥20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
+| Full-stack staging E2E đạt threshold, đủ failure injection, ≥20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v1 freeze 33 tests bằng hashes/counts; ledger reset trên fail/skip/flake/rerun/history gap/release drift; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact và failure-injection matrix còn thiếu bốn nhóm core-player. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -44,11 +44,12 @@ bị chặn bởi Gate E.
 - **Verification:** workflow chạy đủ project + upload JSON evidence; Safari/iOS
   real-device artifact khớp frozen matrix và SHA trước khi đổi tiêu chí sang PASS.
 
-### GE-2 — Resume evidence đang rời rạc và từng mô tả sai hiện trạng
+### GE-2 — Resume evidence vẫn rời rạc
 
-- **Root cause:** `SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md` vẫn ghi full-test
-  chain và `_pendingTestAnswers` bị mất dù Spike 2 remediation đã persist chain
-  vào `ielts_ft_session_ids` và xóa queue blob để await từng upload.
+- **Root cause:** Spike 3 trước đây ghi sai rằng full-test chain và
+  `_pendingTestAnswers` bị mất. Tài liệu đã được sửa theo runtime hiện tại, nhưng
+  evidence vẫn chỉ chứng minh `ielts_ft_session_ids` trong cùng origin/cùng tab;
+  backend chưa sở hữu chain cho fresh client hoặc thiết bị khác.
 - **Severity:** Critical — tài liệu stale có thể dẫn tới quyết định cutover sai,
   hoặc che khuất giới hạn thật: sessionStorage chỉ sống cùng origin/cùng tab.
 - **Impacted files/functions:** `docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md`;
@@ -61,22 +62,20 @@ bị chặn bởi Gate E.
 - **Verification:** source pins + browser regressions speaking xanh; mỗi flow mới
   có canonical server-state assertion sau reload và sau đổi stack.
 
-### GE-3 — Không có auditable 20-run critical streak
+### GE-3 — Có cơ chế ledger, chưa có qualifying 20-run evidence
 
-- **Root cause:** workflow nightly chạy suite staging nhưng không có frozen
-  critical manifest, threshold register hoặc ledger xác thực chuỗi. `retries: 0`
-  đúng contract reset-on-retry, nhưng một thuộc tính config không chứng minh đã
-  có 20 lần chạy sạch.
+- **Root cause:** workflow nightly ban đầu không có frozen critical manifest,
+  provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; phần còn thiếu
+  là 20 executions thật và bốn failure-injection groups của core players.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
   `frontend/tests/staging-e2e/*.spec.js`.
-- **Suggested minimal fix:** PR riêng freeze critical-suite manifest + thresholds,
-  xuất machine-readable run evidence và streak ledger keyed theo matrix version,
-  suite version, environment release và backend release. Fail/cancel/skip hoặc
-  thay matrix phải reset streak; retry vẫn bằng 0.
-- **Verification:** auditor tái dựng đúng 20 run IDs liên tiếp, cùng frozen
-  matrix/manifest, zero retry/skip và đủ failure-injection cases.
+- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA,
+  bắt đầu candidate streak, đồng thời bổ sung failure injection theo từng core
+  migration cluster. Không backfill run trước khi ledger/provenance tồn tại.
+- **Verification:** auditor tái dựng đúng 20 run IDs liên tiếp từ artifacts,
+  cùng frozen matrix/suite/releases, zero retry/skip và failure matrix complete.
 
 ### GE-4 — Chưa drill active-session cutover policy
 

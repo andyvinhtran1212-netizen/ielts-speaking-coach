@@ -42,12 +42,25 @@ def _run(coro):
 # ── /health ──────────────────────────────────────────────────────────────────
 
 
-def test_health_basic_returns_ok():
+def test_health_basic_returns_ok(monkeypatch):
     """GET /health is unconditional — no DB, no env probes."""
+    monkeypatch.setattr(health_module.settings, "RAILWAY_GIT_COMMIT_SHA", "a" * 40)
+    monkeypatch.setattr(health_module.settings, "RAILWAY_GIT_BRANCH", "staging")
     out = _run(health_module.health_basic())
     assert out["status"] == "ok"
     assert "timestamp" in out and out["timestamp"]
     assert "version" in out
+    assert out["release"] == "a" * 40
+    assert out["git_branch"] == "staging"
+
+
+def test_health_basic_release_is_null_outside_railway(monkeypatch):
+    """Local/dev must stay truthful instead of fabricating provenance."""
+    monkeypatch.setattr(health_module.settings, "RAILWAY_GIT_COMMIT_SHA", "")
+    monkeypatch.setattr(health_module.settings, "RAILWAY_GIT_BRANCH", "")
+    out = _run(health_module.health_basic())
+    assert out["release"] is None
+    assert out["git_branch"] is None
 
 
 # ── /health/ready ────────────────────────────────────────────────────────────

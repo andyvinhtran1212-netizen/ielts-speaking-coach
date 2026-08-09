@@ -80,6 +80,11 @@ async def health_basic() -> dict:
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "phase-d-wave-2",
+        # Public deployment provenance for Gate E staging evidence. Railway
+        # provides both values for GitHub-triggered deploys; local/dev returns
+        # null rather than inventing a release id.
+        "release": settings.RAILWAY_GIT_COMMIT_SHA or None,
+        "git_branch": settings.RAILWAY_GIT_BRANCH or None,
     }
 
 
