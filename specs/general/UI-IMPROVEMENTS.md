@@ -344,6 +344,27 @@ None found that require a schema or grading rewrite.
   in the importer; its legacy teal hover was replaced with the semantic
   `--av-primary-hover` token. All other reviewed areas passed.
 
+### Assignment geometry follow-up (2026-08-09)
+
+- **Root cause:** `#mc-content` was the single child of `.mc-shell`, so the
+  shell's gap did not space the hero, deadline card, and work area. The work
+  area also permanently reserved a roughly 30% sidebar column, while assignment
+  metadata used only a 4px vertical gap.
+- **Severity:** Medium — no assignment data was wrong, but related cards looked
+  like different layout systems and dense metadata was hard to scan.
+- **Impact:** the assignment cards were visibly shorter than the hero/deadline
+  cards, large empty space appeared on the right when class context was absent,
+  and labels, titles, descriptions, and deadlines read as one compressed block.
+- **Impacted files:** `frontend/public/css/my-class.css`,
+  `frontend/tests/my-class-page.test.mjs`.
+- **Suggested minimal fix:** give `#mc-content` an explicit 24px vertical
+  rhythm, let the worklist consume the canonical page width, place optional
+  context panels below it, and increase card padding/content gaps using existing
+  spacing tokens.
+- **Verification:** compare left/right edges of the hero, deadline, section
+  divider, and assignment cards at 1280px; verify 24px separation between page
+  sections; repeat at 900px and 390px with optional context present and absent.
+
 ### Verification status
 
 - Focused shell/design-system regression: 100/100 passing.
