@@ -144,6 +144,8 @@ describe('/practice/session transitional dark route', () => {
     assert.match(SHELL, /view\.part2\.prepTimer/);
     assert.match(SHELL, /view\.part2\.speakTimer/);
     assert.match(SHELL, /view\.sheet\.slots\.map/);
+    assert.match(SHELL, /view\.completion\.statusTone/);
+    assert.match(SHELL, /view\.completion\.ctasVisible/);
     assert.match(SHELL, /callPractice\('sheetToggleRecording'/);
     assert.match(SHELL, /callPractice\('submitSheet'/);
   });
@@ -181,7 +183,7 @@ describe('/practice/session transitional dark route', () => {
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
     );
-    assert.match(DOC, /Port feedback\/pronunciation, completion/);
+    assert.match(DOC, /Port feedback\/pronunciation và test results/);
     assert.match(DOC, /JSX ownership không được dùng\s+để tuyên bố native\s+behavior/);
     assert.match(DOC, /`route_ready=false` giữ nguyên/);
   });

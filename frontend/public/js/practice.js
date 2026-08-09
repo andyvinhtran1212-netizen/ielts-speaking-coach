@@ -81,6 +81,7 @@
   var _ftSubmitFailureKeys = {};  // pairs already represented in failures
   var _ftLegacyPending  = {};     // legacy-only upload promises keyed by session/question
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
+  var _fullTestRetryInFlight = false;
 
   // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
   // answers used to queue as in-memory blobs graded only at the end — a
@@ -3208,16 +3209,27 @@
   }
 
   function _setFullTestCompletionPhase(phase, error) {
-    var title = $('completion-title');
-    var desc = $('completion-desc');
-    var status = $('completion-submit-status');
-    var retry = $('completion-retry-btn');
-    var ctas = $('completion-ctas');
-    var info = $('completion-info');
     var nativeFullTest = _getNativeFullTest();
     var snapshot = nativeFullTest ? nativeFullTest.getSnapshot() : null;
 
     if (phase === 'accepted') {
+      if (_updateNativeView('completion', {
+        title: 'Bạn đã nộp Full Test!',
+        description: 'Hệ thống đã nhận đủ bản ghi và đang tổng hợp band score cùng nhận xét chi tiết.',
+        statusTone: 'success',
+        statusText: 'Đã xác nhận toàn bộ bản ghi trên máy chủ.',
+        retryVisible: false,
+        retryDisabled: false,
+        retryLabel: 'Gửi lại và chốt bài',
+        infoVisible: true,
+        ctasVisible: true,
+      })) return;
+      var title = $('completion-title');
+      var desc = $('completion-desc');
+      var status = $('completion-submit-status');
+      var retry = $('completion-retry-btn');
+      var ctas = $('completion-ctas');
+      var info = $('completion-info');
       if (title) title.textContent = 'Bạn đã nộp Full Test!';
       if (desc) desc.textContent = 'Hệ thống đã nhận đủ bản ghi và đang tổng hợp band score cùng nhận xét chi tiết.';
       if (status) {
@@ -3231,6 +3243,12 @@
     }
 
     if (phase === 'legacy-upload-error') {
+      var title = $('completion-title');
+      var desc = $('completion-desc');
+      var status = $('completion-submit-status');
+      var retry = $('completion-retry-btn');
+      var ctas = $('completion-ctas');
+      var info = $('completion-info');
       var failedLegacy = _ftSubmitFailures.length;
       if (title) title.textContent = 'Có bản ghi chưa gửi được';
       if (desc) {
@@ -3248,28 +3266,64 @@
 
     if (phase === 'error') {
       var retryCount = snapshot ? snapshot.retryCount : 0;
-      if (title) title.textContent = retryCount ? 'Còn bản ghi chưa gửi được' : 'Chưa chốt được Full Test';
-      if (desc) {
-        desc.textContent = retryCount
-          ? 'Bản ghi vẫn còn trên thiết bị này. Đừng đóng trang; hãy gửi lại để bài thi đủ câu.'
-          : 'Các bản ghi đã gửi, nhưng máy chủ chưa xác nhận chốt bài. Hãy thử lại.';
-      }
+      var errorTitle = retryCount ? 'Còn bản ghi chưa gửi được' : 'Chưa chốt được Full Test';
+      var errorDescription = retryCount
+        ? 'Bản ghi vẫn còn trên thiết bị này. Đừng đóng trang; hãy gửi lại để bài thi đủ câu.'
+        : 'Các bản ghi đã gửi, nhưng máy chủ chưa xác nhận chốt bài. Hãy thử lại.';
+      var errorStatus = retryCount
+        ? retryCount + ' bản ghi cần gửi lại.'
+        : ((error && error.message) || 'Chưa thể xác nhận yêu cầu chốt bài.');
+      var retryLabel = retryCount ? 'Gửi lại và chốt bài' : 'Thử chốt bài lại';
+      if (_updateNativeView('completion', {
+        title: errorTitle,
+        description: errorDescription,
+        statusTone: 'error',
+        statusText: errorStatus,
+        retryVisible: true,
+        retryDisabled: false,
+        retryLabel: retryLabel,
+        infoVisible: false,
+        ctasVisible: false,
+      })) return;
+      var title = $('completion-title');
+      var desc = $('completion-desc');
+      var status = $('completion-submit-status');
+      var retry = $('completion-retry-btn');
+      var ctas = $('completion-ctas');
+      var info = $('completion-info');
+      if (title) title.textContent = errorTitle;
+      if (desc) desc.textContent = errorDescription;
       if (status) {
         status.className = 'practice-completion-submit-status is-error';
-        status.textContent = retryCount
-          ? retryCount + ' bản ghi cần gửi lại.'
-          : ((error && error.message) || 'Chưa thể xác nhận yêu cầu chốt bài.');
+        status.textContent = errorStatus;
       }
       if (retry) {
         retry.style.display = '';
         retry.disabled = false;
-        retry.textContent = retryCount ? 'Gửi lại và chốt bài' : 'Thử chốt bài lại';
+        retry.textContent = retryLabel;
       }
       if (ctas) ctas.style.display = 'none';
       if (info) info.style.display = 'none';
       return;
     }
 
+    if (_updateNativeView('completion', {
+      title: 'Đang gửi nốt Full Test…',
+      description: 'Hãy giữ trang này mở cho tới khi máy chủ xác nhận đủ tất cả bản ghi.',
+      statusTone: 'pending',
+      statusText: 'Đang kiểm tra và gửi nốt các câu trả lời…',
+      retryVisible: false,
+      retryDisabled: false,
+      retryLabel: 'Gửi lại và chốt bài',
+      infoVisible: false,
+      ctasVisible: false,
+    })) return;
+    var title = $('completion-title');
+    var desc = $('completion-desc');
+    var status = $('completion-submit-status');
+    var retry = $('completion-retry-btn');
+    var ctas = $('completion-ctas');
+    var info = $('completion-info');
     if (title) title.textContent = 'Đang gửi nốt Full Test…';
     if (desc) desc.textContent = 'Hãy giữ trang này mở cho tới khi máy chủ xác nhận đủ tất cả bản ghi.';
     if (status) {
@@ -3282,16 +3336,31 @@
   }
 
   function retryFullTestSubmissions() {
+    if (_fullTestRetryInFlight) return;
     var nativeFullTest = _getNativeFullTest();
     if (!nativeFullTest) return;
+    _fullTestRetryInFlight = true;
     var generation = _playerGeneration;
     var sittingId = _sittingId;
-    var btn = $('completion-retry-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi lại…'; }
     _setFullTestCompletionPhase('sending');
-    nativeFullTest.retryFailed()
+    if (!_updateNativeView('completion', {
+      retryVisible: true,
+      retryDisabled: true,
+      retryLabel: 'Đang gửi lại…',
+    })) {
+      var btn = $('completion-retry-btn');
+      if (btn) {
+        btn.style.display = '';
+        btn.disabled = true;
+        btn.textContent = 'Đang gửi lại…';
+      }
+    }
+    return nativeFullTest.retryFailed()
       .then(function () { return nativeFullTest.finalizeFullTest(); })
       .then(function () {
+        if (_playerActive && generation === _playerGeneration) {
+          _fullTestRetryInFlight = false;
+        }
         var ids = nativeFullTest.getSnapshot().sessionIds;
         return _onFullTestFinalizeAccepted(
           ids[0], ids[1], ids[2], sittingId,
@@ -3301,6 +3370,7 @@
       })
       .catch(function (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
+        _fullTestRetryInFlight = false;
         console.warn('[practice] full-test retry failed:', err);
         _setFullTestCompletionPhase('error', err);
       });
@@ -4649,6 +4719,7 @@
     _sittingId = null;
     _sheet = null;
     _sheetSubmitting = false;
+    _fullTestRetryInFlight = false;
     _sheetAudioUrls = null;
     _sheetReviewIdx = -1;
     _meterTopBound = false;
@@ -4765,6 +4836,7 @@
     _ftAllSessionIds = [];
     _sheet = null;
     _sheetSubmitting = false;
+    _fullTestRetryInFlight = false;
     _testMode = null;
     _bindPlayerEffects();
     _bindSheet();
