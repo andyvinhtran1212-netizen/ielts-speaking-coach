@@ -24,7 +24,9 @@ const READING_VOCAB_BEHAVIOR = read(
   'app', '(authed-reading)', 'reading', 'vocab', 'reading-vocab-behavior.tsx');
 const READING_SKILL_BEHAVIOR = read(
   'app', '(authed-reading)', 'reading', 'skill', 'reading-skill-behavior.tsx');
-const NEXT_BEHAVIORS = [READING_VOCAB_BEHAVIOR, READING_SKILL_BEHAVIOR, '', ''];
+const READING_TEST_BEHAVIOR = read(
+  'app', '(authed-reading)', 'reading', 'test', 'reading-test-behavior.tsx');
+const NEXT_BEHAVIORS = [READING_VOCAB_BEHAVIOR, READING_SKILL_BEHAVIOR, READING_TEST_BEHAVIOR, ''];
 const NEXT_SURFACES = NEXT_SHELLS.map((shell, index) =>
   `${shell}\n${NEXT_BEHAVIORS[index]}`);
 const CSS = read('css', 'reading-vocab.css');

@@ -182,7 +182,7 @@
 | `/reading/vocab/:passage_id` | — | `pages/reading-vocab-passage.html` | Public | `passage_id` | localStorage (theme) | M | Words from single passage |
 | `/reading/review` | — | `pages/reading-review.html` | Student | `attempt_id` | localStorage (theme), fetch (answer review) | M | Post-exam review + analytics |
 | `/reading/mini-test` | `/pages/reading-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/mini-test/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill |
-| `/reading/test` | `/pages/reading-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/test/page.tsx` — CUTOVER 2026-08-06 | Student | (not commonly used; prefer exam or mini-test) | localStorage (theme) | S | Generic reading test page (low traffic) |
+| `/reading/test` | `/pages/reading-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/test/page.tsx` — CUTOVER 2026-08-06; native React behavior 2026-08-09 | Student | filter: `module`; request pins `test_type=full` | AuthProvider; `/api/reading/test`; abort on filter/account switch and unmount | S | Full-test library; account-keyed, React-escaped and soft-navigation safe |
 
 ### Listening
 

@@ -209,6 +209,7 @@ on:
       - 'frontend/tooling/verify-speaking-flow.mjs'
       - 'frontend/tooling/verify-reading-vocab-flow.mjs'
       - 'frontend/tooling/verify-reading-skill-flow.mjs'
+      - 'frontend/tooling/verify-reading-test-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -571,6 +572,11 @@ jobs:
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
       - name: Kiểm luồng Reading Skill native
         run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
+      # total, test_type=full, reset và response cũ ngay trên production build.
+      - name: Kiểm luồng Reading Full Test native
+        run: node tooling/verify-reading-test-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

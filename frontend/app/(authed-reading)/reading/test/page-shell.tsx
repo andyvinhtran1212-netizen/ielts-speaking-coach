@@ -1,8 +1,13 @@
-// Markup only. Behavior is loaded by /js/reading-test.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+// Markup tĩnh của trang Full Tests. `<aver-chrome>` do `page.tsx` dựng;
+// behavior React sở hữu filter, request và các trạng thái động bên dưới.
+import type { ReactNode } from 'react';
 
-export function ReadingTestShell() {
+interface ReadingTestShellProps {
+  children: ReactNode;
+  totalCount?: number | string;
+}
+
+export function ReadingTestShell({ children, totalCount = '—' }: ReadingTestShellProps) {
   return (
     <div className="shell">
       <main className="rv-shell">
@@ -14,7 +19,7 @@ export function ReadingTestShell() {
             <p className="subtitle">Mô phỏng bài Academic Reading đầy đủ với giao diện làm bài, đồng hồ, bảng câu hỏi và phần chữa bài sau khi nộp.</p>
           </div>
           <dl className="rv-header__stats" aria-label="Cấu trúc Full Test">
-            <div><dt id="rv-total-count">—</dt><dd>đề thi</dd></div>
+            <div><dt id="rv-total-count">{totalCount}</dt><dd>đề thi</dd></div>
             <div><dt>3 đoạn</dt><dd>40 câu hỏi</dd></div>
             <div><dt>60 phút</dt><dd>Đúng chuẩn thi</dd></div>
           </dl>
@@ -28,29 +33,7 @@ export function ReadingTestShell() {
           <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
-        <section className="rv-library" aria-labelledby="rv-library-title">
-          <header className="rv-library__toolbar">
-            <div>
-              <p className="rv-kicker">ĐỀ THI ĐẦY ĐỦ</p>
-              <h2 id="rv-library-title">Chọn đề và bắt đầu 60 phút</h2>
-              <p className="rv-result-count" id="rv-result-count" aria-live="polite">Đang tải danh sách…</p>
-            </div>
-            <div className="rv-filters">
-              <label>Mô-đun
-                <select id="filter-module">
-                  <option value="">Tất cả</option>
-                  <option value="academic">Academic</option>
-                  <option value="general_training" disabled>General Training (Phase B)</option>
-                </select>
-              </label>
-              <button className="rv-filter-reset" id="clear-filters" type="button" hidden>Xóa lọc</button>
-            </div>
-          </header>
-          <div className="rv-empty" id="state-loading">Đang chuẩn bị đề thi…</div>
-          <div className="rv-empty" id="state-empty" hidden>Chưa có bài thi nào.</div>
-          <div className="rv-error" id="state-error" hidden></div>
-          <div className="rv-grid rv-grid--tests" id="rv-grid" hidden></div>
-        </section>
+        {children}
       </main>
     </div>
   );
