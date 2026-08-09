@@ -1,4 +1,4 @@
-"""User feedback for Reading + Listening tests (feature: Feedback) — foundation.
+"""User feedback inbox for learner-submitted Reading, Listening, and Vocabulary reports.
 
 Three feedback types, ONE polymorphic table (user_feedback, migration 100):
   • rating — post-review survey: rating_de (1-5) [+ rating_audio (1-5) listening]
@@ -6,7 +6,7 @@ Three feedback types, ONE polymorphic table (user_feedback, migration 100):
   • flag   — per-question "flag bài giải": q_num (+ optional note)
 
 Endpoints:
-  POST  /api/feedback                  — submit (auth OR X-Reading-Anon for reading anon)
+  POST  /api/feedback                  — submit (auth, Reading anon token, or public Vocabulary report)
   GET   /api/admin/feedback            — admin inbox, grouped by test, filter skill/type/status/test_id
   PATCH /api/admin/feedback/{id}       — admin: set status new|resolved
 
@@ -32,7 +32,7 @@ from routers.auth import get_supabase_user
 router = APIRouter(prefix="/api", tags=["feedback"])
 
 _TYPES = {"rating", "report", "flag"}
-_SKILLS = {"reading", "listening"}
+_SKILLS = {"reading", "listening", "vocabulary"}
 _STATUSES = {"new", "resolved"}
 _ATTEMPT_TABLE = {"reading": "reading_test_attempts", "listening": "listening_test_attempts"}
 _TEST_TABLE = {"reading": "reading_tests", "listening": "listening_tests"}
@@ -44,10 +44,13 @@ class FeedbackIn(BaseModel):
     # Anchor 1 — test attempt (full/mini/drill review). Anchor 2 — practice
     # content (2026-07-17 audit: flag mở rộng cho L1/L2 practice + listening
     # exercise lẻ): passage_slug (reading) HOẶC content_id (listening).
+    # Anchor 3 — public Vocabulary Wiki card: vocab_category + vocab_slug.
     # Đúng một anchor phải có mặt.
     attempt_id: Optional[str] = None
     passage_slug: Optional[str] = None
     content_id: Optional[str] = None
+    vocab_category: Optional[str] = None
+    vocab_slug: Optional[str] = None
     q_num: Optional[int] = None
     rating_de: Optional[int] = None
     rating_audio: Optional[int] = None
@@ -132,6 +135,28 @@ def _resolve_practice_ref(skill: str, passage_slug: str | None, content_id: str 
     return f"exercise:{cid}"
 
 
+def _resolve_vocabulary_ref(category: str | None, slug: str | None) -> str:
+    """Validate a public Vocabulary Wiki card and return its admin-inbox key.
+
+    The card identity is the pair ``(category, slug)`` (migration 122), not the
+    slug alone. Keeping that pair in ``test_id`` avoids adding a second content
+    identity column to the polymorphic feedback table and gives admin a stable
+    deep-link target.
+    """
+    cat = (category or "").strip()
+    card_slug = (slug or "").strip()
+    if not cat or not card_slug:
+        raise HTTPException(422, "vocab_category and vocab_slug are required")
+    res = (
+        supabase_admin.table("vocab_cards")
+        .select("id").eq("category", cat).eq("slug", card_slug)
+        .limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Vocabulary card not found")
+    return f"vocabulary:{cat}/{card_slug}"
+
+
 def _resolve_test_id(skill: str, test_uuid: str | None) -> str | None:
     """attempt.test_id (UUID) → the human test_id (TEXT) used for admin grouping."""
     if not test_uuid:
@@ -158,7 +183,17 @@ async def submit_feedback(
     # anon_id only meaningful for reading (listening attempts are always authed)
     anon_id = (x_reading_anon or "").strip() or None if body.skill == "reading" else None
 
-    if body.attempt_id:
+    if body.skill == "vocabulary":
+        # Vocabulary Wiki is public and has no attempt row. Reports therefore
+        # remain available anonymously, while a valid bearer token still adds
+        # created_by through _optional_user above.
+        if body.type != "report":
+            raise HTTPException(422, "vocabulary feedback only supports report")
+        if body.attempt_id or body.passage_slug or body.content_id:
+            raise HTTPException(422, "vocabulary feedback requires a vocabulary anchor")
+        test_id = _resolve_vocabulary_ref(body.vocab_category, body.vocab_slug)
+        anon_id = None
+    elif body.attempt_id:
         # Ownership: you may only give feedback on an attempt you own.
         attempt = _fetch_owned_attempt(body.skill, body.attempt_id, user, anon_id)
         test_id = _resolve_test_id(body.skill, attempt.get("test_id"))
@@ -206,6 +241,8 @@ async def submit_feedback(
         if not category and not note:
             raise HTTPException(422, "report requires a category or a note")
         rating_de = rating_audio = None
+        if body.skill == "vocabulary":
+            q_num = None
     else:  # flag
         # Attempt-anchored flags target one review card → q_num bắt buộc.
         # Practice/exercise flags may be content-level → q_num optional.

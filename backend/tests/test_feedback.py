@@ -7,11 +7,15 @@ PATCH /api/admin/feedback/{id} (status, require_admin). DB mocked.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
 
 from routers import feedback as F
+
+
+_MIGRATION_199 = Path(__file__).parents[1] / "migrations" / "199_user_feedback_vocabulary.sql"
 
 
 def _run(coro):
@@ -43,7 +47,7 @@ class _Q:
 class _DB:
     def __init__(self, attempt=None, test_id="ILR-X", existing_rating=False,
                  feedback_rows=None, update_found=True,
-                 passage_exists=False, content_exists=False):
+                 passage_exists=False, content_exists=False, vocab_exists=False):
         self._attempt = attempt
         self._test_id = test_id
         self._existing = existing_rating
@@ -51,6 +55,7 @@ class _DB:
         self._update_found = update_found
         self._passage_exists = passage_exists
         self._content_exists = content_exists
+        self._vocab_exists = vocab_exists
         self.inserted = []
         self.updated = []
     def table(self, n): return _Q(self, n)
@@ -63,6 +68,8 @@ class _DB:
             return _R([{"id": "p-uuid"}] if self._passage_exists else [])
         if table == "listening_content":
             return _R([{"id": filters.get("id")}] if self._content_exists else [])
+        if table == "vocab_cards":
+            return _R([{"id": "vocab-uuid"}] if self._vocab_exists else [])
         if table == "user_feedback":
             if op == "insert":
                 self.inserted.append(payload); return _R([payload])
@@ -388,3 +395,57 @@ def test_post_exercise_bad_content_id_422(monkeypatch):
     with pytest.raises(HTTPException) as e:
         _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
     assert e.value.status_code == 422
+
+
+# ── POST: public Vocabulary Wiki reports ──────────────────────────────────────
+
+def test_post_vocabulary_audio_report_anonymous(monkeypatch):
+    db = _DB(vocab_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category="work", vocab_slug="career-path",
+                        category="audio_issue")
+    out = _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert out["status"] == "new"
+    row = db.inserted[0]
+    assert row["test_id"] == "vocabulary:work/career-path"
+    assert row["type"] == "report" and row["skill"] == "vocabulary"
+    assert row["category"] == "audio_issue"
+    assert row["created_by"] is None and row["anon_id"] is None
+
+
+def test_post_vocabulary_report_attributes_logged_in_user(monkeypatch):
+    _as_user(monkeypatch)
+    db = _DB(vocab_exists=True)
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category="work", vocab_slug="career-path",
+                        category="content_issue")
+    _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    assert db.inserted[0]["created_by"] == "U1"
+
+
+def test_post_vocabulary_unknown_card_404(monkeypatch):
+    monkeypatch.setattr(F, "supabase_admin", _DB(vocab_exists=False))
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category="work", vocab_slug="missing",
+                        category="content_issue")
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert e.value.status_code == 404
+
+
+def test_post_vocabulary_rejects_non_report(monkeypatch):
+    monkeypatch.setattr(F, "supabase_admin", _DB(vocab_exists=True))
+    body = F.FeedbackIn(type="flag", skill="vocabulary",
+                        vocab_category="work", vocab_slug="career-path")
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert e.value.status_code == 422
+
+
+def test_vocabulary_feedback_schema_and_historical_backfill_exist():
+    sql = _MIGRATION_199.read_text(encoding="utf-8")
+    assert "CHECK (skill IN ('reading', 'listening', 'vocabulary'))" in sql
+    assert "ae.event_name = 'vocab_card_flagged'" in sql
+    assert "ON CONFLICT (id) DO NOTHING" in sql
