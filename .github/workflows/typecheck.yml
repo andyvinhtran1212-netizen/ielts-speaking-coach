@@ -1,12 +1,13 @@
-name: Typecheck (pilot, non-blocking)
+name: Typecheck + OpenAPI drift
 
-# Step-A typecheck pilot. NON-BLOCKING: every job is continue-on-error so it
-# NEVER fails a PR — it reports JSDoc type errors + OpenAPI↔type drift as signal
-# only. Promote to a required check after it's been green & stable (separate step).
+# Gate D hardening: both jobs fail closed. Repository branch protection must
+# require these check names before Gate D can claim they are merge-blocking;
+# the workflow itself no longer swallows either class of failure.
 #
 # Two checks:
-#   1. tsc --noEmit over frontend/ (opt-in `// @ts-check` files only) — catches a
-#      FE call-site using a field the generated api.d.ts no longer has.
+#   1. tsc --noEmit over the strict Next app plus the opt-in legacy
+#      `// @ts-check` surface — catches a FE call-site using a field the
+#      generated api.d.ts no longer has.
 #   2. Regenerate frontend/types/api.d.ts from the LIVE app's /openapi.json and
 #      git-diff it — catches a BE response_model change that wasn't re-committed
 #      (spec↔type drift). Generated from the in-process app (not a deployment) so
@@ -19,9 +20,8 @@ on:
 
 jobs:
   typecheck:
-    name: tsc --noEmit (non-blocking)
+    name: TypeScript strict + legacy JSDoc
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: frontend
@@ -30,17 +30,18 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
-      # Phase 1: tsconfig.json belongs to the Next app (strict, needs the
-      # generated next-env.d.ts — enforced by `next build` on Vercel). This
-      # job keeps its ORIGINAL purpose: the @ts-check field-drift check over
-      # legacy public/js, whose config moved to tsconfig.legacy.json.
-      - name: tsc --noEmit (legacy @ts-check drift)
-        run: npx --yes --package=typescript@5.6.3 tsc --noEmit -p tsconfig.legacy.json
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Next TypeScript strict check
+        run: npx tsc --noEmit
+      - name: Legacy @ts-check drift
+        run: npx tsc --noEmit -p tsconfig.legacy.json
 
   apitype-drift:
-    name: api.d.ts ↔ openapi drift (non-blocking)
+    name: api.d.ts ↔ OpenAPI drift
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -64,5 +65,4 @@ jobs:
           # Pin the EXACT version the committed file was generated with, so the
           # diff reflects spec/model drift — not an openapi-typescript format bump.
           npx --yes openapi-typescript@7.13.0 /tmp/openapi.json -o types/api.d.ts
-          git diff --exit-code types/api.d.ts \
-            || echo "::warning::frontend/types/api.d.ts is stale — run openapi-typescript and commit the regenerated file."
+          git diff --exit-code types/api.d.ts

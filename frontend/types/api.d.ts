@@ -2199,6 +2199,33 @@ export interface paths {
         patch: operations["update_assignment_admin_cohorts__cohort_id__assignments__assignment_id__patch"];
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/action-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Class Action Log
+         * @description Nhật ký thao tác của giáo viên lên hồ sơ học viên trong lớp này.
+         *
+         *     Hai đường ghi (đổi hạn, trả bài) đều sửa thứ học viên nhìn thấy, và trước
+         *     mig 198 không đường nào để lại dấu ai làm. Mặt đọc này để ba tháng sau còn
+         *     trả lời được "ai đổi, lúc nào, từ gì sang gì" khi có người hỏi.
+         *
+         *     Đọc HỎNG thì 500, không trả danh sách rỗng: một nhật ký rỗng đọc ra là
+         *     "chưa ai đụng gì" — một khẳng định mà lượt đọc hỏng chưa hề chứng minh.
+         */
+        get: operations["class_action_log_admin_cohorts__cohort_id__action_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/due": {
         parameters: {
             query?: never;
@@ -16675,6 +16702,42 @@ export interface operations {
                 "application/json": components["schemas"]["AssignmentPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    class_action_log_admin_cohorts__cohort_id__action_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

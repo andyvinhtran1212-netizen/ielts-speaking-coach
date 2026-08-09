@@ -382,6 +382,32 @@ legacy khởi động theo `DOMContentLoaded` sang behavior React:
 
 Sau batch stacked: hard-navigation debt còn **0/29 route**.
 
+## Gate D hardening sau batch behavior
+
+Branch `codex/nextjs-gate-d-hardening` chuyển hai tín hiệu type contract thành
+job fail-closed trong workflow:
+
+- TypeScript chạy cả Next strict config và legacy `@ts-check` sau `npm ci`;
+- OpenAPI types được regenerate bằng `openapi-typescript@7.13.0` rồi
+  `git diff --exit-code`, không còn `continue-on-error` hay nhánh `|| echo`
+  nuốt lỗi.
+
+Việc hai check này có phải **required checks** của `main` vẫn là cấu hình GitHub
+ngoài repo và phải được xác nhận riêng; fail-closed workflow không tự chứng minh
+branch protection.
+
+### Shared primitive inventory
+
+| Primitive | Bằng chứng reuse đã sống | Vai trò ổn định |
+|---|---|---|
+| `AuthedShell` | 15 route-group layout thuộc Home, Speaking, Writing, Reading, Listening, Vocabulary, Quiz và Mock | Cố định auth provider, cascade CSS, runtime config, telemetry và chrome bootstrap |
+| `AuthProvider` / `useAuth` | 25 App Router behavior/layout consumers trên nhiều domain | Một state machine phiên; fail-close và account-keyed remount thống nhất |
+| `whenGlobalReady` | 25 App Router consumers trên Home, Speaking, Writing, Reading, Listening, Vocabulary và Grammar | Chờ browser globals có timeout/telemetry thay cho polling hoặc `DOMContentLoaded` race |
+| `VocabModuleMount` | 3 consumer behavior ở Vocabulary Hub, Flashcards và Exercises | Adapter mount/unmount lifecycle cho domain module được giữ lại |
+
+Inventory này vượt ngưỡng ba implementation và có regression contracts tương
+ứng (`authed-shell`, auth lifecycle, global readiness, vocab module lifecycle).
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
@@ -400,12 +426,13 @@ môi trường Preview của gate đó.
 
 ## Điều kiện Gate D còn mở
 
-- [ ] Chuyển TypeScript/OpenAPI drift thành required blocking checks hoặc ghi
-      waiver có owner và ngày hết hạn.
-- [ ] Chốt inventory shared primitives đã sống qua ít nhất ba implementation.
+- [ ] Xác nhận branch protection của `main` require hai check
+      `TypeScript strict + legacy JSDoc` và `api.d.ts ↔ OpenAPI drift`.
+      Workflow trong repo đã fail-closed; chưa có waiver thay thế.
+- [x] Chốt inventory shared primitives đã sống qua ít nhất ba implementation.
 - [ ] Có authenticated Preview parity cho batch behavior này ở desktop + mobile.
 - [ ] Có post-deploy runtime observation theo implementation tag.
-- [ ] Tiếp tục giảm hard-navigation debt theo từng domain; không tăng thêm
-      compatibility shell nếu chưa có lý do/expiry rõ ràng.
+- [x] Hard-navigation debt = 0/29; không tăng compatibility shell nếu chưa có
+      lý do/expiry rõ ràng.
 
 Gate D chỉ được đổi sang **PASS** khi toàn bộ mục trên có bằng chứng kiểm tra được.
