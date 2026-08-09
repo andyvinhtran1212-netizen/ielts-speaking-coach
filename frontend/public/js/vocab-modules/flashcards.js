@@ -142,6 +142,8 @@ export async function mount(container, opts = {}) {
 
   // Closure-scoped state. Replaces the IIFE-scoped vars in the legacy
   // /js/flashcards.js. Each mount has its own bag.
+  let disposed = false;
+  const requests = new AbortController();
   let _token = null;
   const _state = {
     topics: [],
@@ -168,15 +170,18 @@ export async function mount(container, opts = {}) {
   // The pre-9.3 emoji icons rendered as plain text and didn't need
   // hydration; canonical Lucide outlines do.
   function setFcContainerHtml(html) {
+    if (disposed) return;
     $('[data-fc-container]').innerHTML = html;
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
   }
   function setFcPreviewHtml(html) {
+    if (disposed) return;
     $('[data-fc-preview]').innerHTML = html;
   }
   function setFcTopicsHtml(html) {
+    if (disposed) return;
     $('[data-fc-topics]').innerHTML = html;
   }
   function showLoading() {
@@ -212,21 +217,31 @@ export async function mount(container, opts = {}) {
       const sb = window.getSupabase ? window.getSupabase() : null;
       if (sb) {
         const { data } = await sb.auth.getSession();
+        if (disposed) return;
         _token = data?.session?.access_token || null;
       }
     } catch (_) {}
 
+    if (disposed) return;
     if (!_token) {
       redirectToLogin({ embedded });
       return;
     }
 
     try {
-      const meRes = await fetch(BASE + '/auth/me', { headers: authHeaders() });
+      const meRes = await fetch(BASE + '/auth/me', {
+        headers: authHeaders(), signal: requests.signal,
+      });
+      if (disposed) return;
       if (!meRes.ok) { showDisabled(); return; }
       const me = await meRes.json();
+      if (disposed) return;
       if (me.flashcard_enabled !== true) { showDisabled(); return; }
-    } catch (_) { showDisabled(); return; }
+    } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
+      showDisabled();
+      return;
+    }
 
     await renderStacks();
   }
@@ -236,11 +251,16 @@ export async function mount(container, opts = {}) {
     showLoading();
     let stacks = [];
     try {
-      const res = await fetch(BASE + '/api/flashcards/stacks', { headers: authHeaders() });
+      const res = await fetch(BASE + '/api/flashcards/stacks', {
+        headers: authHeaders(), signal: requests.signal,
+      });
+      if (disposed) return;
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const body = await res.json();
+      if (disposed) return;
       stacks = Array.isArray(body.stacks) ? body.stacks : [];
     } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
       console.error('[flashcards] list_stacks', err);
       showError('Không tải được danh sách stacks. Thử lại sau.');
       return;
@@ -354,15 +374,19 @@ export async function mount(container, opts = {}) {
       const res = await fetch(BASE + '/api/flashcards/stacks/' + encodeURIComponent(stackId), {
         method: 'DELETE',
         headers: authHeaders(),
+        signal: requests.signal,
       });
+      if (disposed) return;
       if (res.status === 204 || res.ok) {
         toast('Đã xoá stack.', 'success');
         renderStacks();
       } else {
         const err = await res.json().catch(() => ({}));
+        if (disposed) return;
         toast(err.detail || 'Không xoá được stack.', 'error');
       }
     } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
       console.error('[flashcards] delete', err);
       toast('Không xoá được stack.', 'error');
     }
@@ -384,11 +408,16 @@ export async function mount(container, opts = {}) {
 
     if (_state.topics.length === 0 && _state.hasUncategorized === false) {
       try {
-        const res = await fetch(BASE + '/api/flashcards/vocab-topics', { headers: authHeaders() });
+        const res = await fetch(BASE + '/api/flashcards/vocab-topics', {
+          headers: authHeaders(), signal: requests.signal,
+        });
+        if (disposed) return;
         const body = await res.json();
+        if (disposed) return;
         _state.topics = Array.isArray(body.topics) ? body.topics : [];
         _state.hasUncategorized = body.has_uncategorized === true;
-      } catch (_) {
+      } catch (err) {
+        if (disposed || err?.name === 'AbortError') return;
         _state.topics = [];
         _state.hasUncategorized = false;
       }
@@ -476,14 +505,18 @@ export async function mount(container, opts = {}) {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ filter_config: cfg }),
+        signal: requests.signal,
       });
+      if (disposed) return;
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (disposed) return;
         setFcPreviewHtml(
           `<span class="text-xs fc-preview-error">${esc(err.detail || 'Bộ lọc không hợp lệ')}</span>`);
         return;
       }
       const body = await res.json();
+      if (disposed) return;
       const count = Number(body.card_count || 0);
       const words = Array.isArray(body.preview_headwords) ? body.preview_headwords : [];
       if (count === 0) {
@@ -496,6 +529,7 @@ export async function mount(container, opts = {}) {
       const name = $('#m-name').value.trim();
       $('[data-fc-save]').disabled = !(name.length >= 3 && name.length <= 50 && count > 0);
     } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
       console.error('[flashcards] preview', err);
       setFcPreviewHtml(
         '<span class="text-xs fc-preview-error">Không thể xem trước. Thử lại sau.</span>');
@@ -511,14 +545,18 @@ export async function mount(container, opts = {}) {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, type: 'manual', filter_config: cfg }),
+        signal: requests.signal,
       });
+      if (disposed) return;
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (disposed) return;
         toast(err.detail || 'Không tạo được stack.', 'error');
         $('[data-fc-save]').disabled = false;
         return;
       }
       const stack = await res.json();
+      if (disposed) return;
       closeModal();
       toast(`Đã tạo "${stack.name}" với ${stack.card_count} thẻ.`, 'success');
       if (stack.card_count > 0 && stack.id) {
@@ -527,6 +565,7 @@ export async function mount(container, opts = {}) {
       }
       renderStacks();
     } catch (err) {
+      if (disposed || err?.name === 'AbortError') return;
       console.error('[flashcards] save', err);
       toast('Không tạo được stack.', 'error');
       $('[data-fc-save]').disabled = false;
@@ -596,6 +635,8 @@ export async function mount(container, opts = {}) {
 
   // ── unmount lifecycle ──────────────────────────────────────────
   function unmount() {
+    disposed = true;
+    requests.abort();
     container.removeEventListener('click', handleClick);
     container.removeEventListener('input', handleInput);
     container.removeEventListener('change', handleChange);
