@@ -35,7 +35,7 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /'\/api\/listening\/overview'/);
     assert.match(BEHAVIOR, /key: 'trap'[\s\S]*key: 'section'[\s\S]*key: 'curated'/);
     assert.match(BEHAVIOR, /TABS\.filter\(\(tab\) => counts\[tab\.key\] > 0\)/);
-    assert.match(BEHAVIOR, /availableTabs\.map/);
+    assert.match(BEHAVIOR, /TABS\.filter\(\(tab\) => counts\[tab\.key\] > 0\)\.map/);
     assert.match(BEHAVIOR, /lp-tab-count/);
   });
 
@@ -78,6 +78,13 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /Không tải được Luyện nhanh:/);
     assert.match(BEHAVIOR, /Không tải được danh sách:/);
     assert.match(BEHAVIOR, /tabState\.status === 'loading'/);
+  });
+
+  test('preserves the empty navigation landmark in every overview state', () => {
+    assert.match(BEHAVIOR, /function PracticeTabs\(/);
+    assert.match(BEHAVIOR, /<nav className="lp-tabs" id="practice-tabs" aria-label="Nhóm bài luyện">/);
+    assert.ok((BEHAVIOR.match(/<PracticeTabs \/>/g) || []).length >= 4);
+    assert.match(BEHAVIOR, /<PracticeTabs counts=\{overview\.counts\} active=\{active\} onSelect=\{setActive\} \/>/);
   });
 
   test('is no longer hard-navigation-only', () => {
