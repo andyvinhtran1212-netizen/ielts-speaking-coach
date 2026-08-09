@@ -76,6 +76,26 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.throws(() => controller.showState('missing'), /unknown-speaking-player-state/);
   });
 
+  test('publishes state changes for a React renderer without mutating legacy classes', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController({
+      ...fixture.environment,
+      domStateActivation: false,
+    });
+    const states = [];
+    const unsubscribe = controller.subscribeState(() => {
+      states.push(controller.getStateSnapshot());
+    });
+    controller.showState('loading');
+    controller.showState('prep');
+    assert.deepEqual(states, ['loading', 'prep']);
+    assert.equal(fixture.elements.get('state-loading').classList.contains('active'), false);
+    assert.equal(fixture.elements.get('state-prep').classList.contains('active'), false);
+    unsubscribe();
+    controller.showState('error');
+    assert.deepEqual(states, ['loading', 'prep']);
+  });
+
   test('replaces keyed listeners and removes them on destroy', () => {
     const fixture = makeEnvironment();
     const target = new FakeTarget();
@@ -192,9 +212,12 @@ describe('Next Speaking player integration', () => {
 
   test('bridge owns lifecycle and asks PracticeApp to release legacy references first', () => {
     assert.match(BRIDGE, /new SpeakingPlayerController/);
+    assert.match(BRIDGE, /const mountedController = createPlayerController\(\)/);
+    assert.match(BRIDGE, /setController\(mountedController\)/);
     assert.match(BRIDGE, /win\.PracticeApp\?\.destroy\?\.\(\)/);
-    assert.match(BRIDGE, /controller\.destroy\(\)/);
-    assert.match(BRIDGE, /win\.PracticePlayer === controller/);
+    assert.match(BRIDGE, /mountedController\.destroy\(\)/);
+    assert.match(BRIDGE, /win\.PracticePlayer === mountedController/);
+    assert.match(BRIDGE, /controller \|\| INERT_PLAYER_STATE/);
   });
 
   test('practice delegates state, timers, listeners, speech and blob URLs to native player', () => {

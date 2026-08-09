@@ -1,6 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
+
+type PlayerStateStore = {
+  getStateSnapshot(): null | string;
+  subscribeState(listener: () => void): () => void;
+};
 
 type PracticeMethod =
   | 'backToSheet'
@@ -96,7 +101,16 @@ function Icon({ name, className = '' }: { name: string; className?: string }) {
   );
 }
 
-export function PracticePageShell() {
+export function PracticePageShell({ player }: { player: PlayerStateStore }) {
+  const subscribe = useCallback(
+    (listener: () => void) => player.subscribeState(listener),
+    [player],
+  );
+  const getSnapshot = useCallback(() => player.getStateSnapshot(), [player]);
+  const activeState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot) || 'loading';
+  const stateClass = (name: string, className: string) =>
+    `${className}${activeState === name ? ' active' : ''}`;
+
   return (
     <>
       <header className="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
@@ -119,19 +133,19 @@ export function PracticePageShell() {
           <div className="practice-progress-rail"><div id="progress-bar-fill" className="practice-progress-fill" style={{ width: '0%' }} /></div>
         </div>
 
-        <div id="state-loading" className="state active flex-1 items-center justify-center flex-col gap-4">
+        <div id="state-loading" className={stateClass('loading', 'state flex-1 items-center justify-center flex-col gap-4')}>
           <div className="spinner" />
           <p id="loading-msg" className="practice-loading-msg text-sm">Đang tải...</p>
         </div>
 
-        <div id="state-error" className="state flex-1 items-center justify-center flex-col gap-4 px-6">
+        <div id="state-error" className={stateClass('error', 'state flex-1 items-center justify-center flex-col gap-4 px-6')}>
           <div className="practice-error-icon"><Icon name="alert-triangle" /></div>
           <h2 className="text-lg font-bold">Đã xảy ra lỗi</h2>
           <p id="error-msg" className="practice-error-msg text-sm text-center max-w-xs" />
           <a href="/speaking" className="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">Quay lại</a>
         </div>
 
-        <div id="state-mode-choice" className="state block-state flex-1 av-w-read py-12 ds-fadein">
+        <div id="state-mode-choice" className={stateClass('mode-choice', 'state block-state flex-1 av-w-read py-12 ds-fadein')}>
           <div className="text-center mb-8">
             <p className="practice-mode-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Câu hỏi sẽ được trình bày như thế nào?</p>
             <h2 className="text-xl font-bold mb-2">Chọn chế độ câu hỏi</h2>
@@ -151,7 +165,7 @@ export function PracticePageShell() {
           </div>
         </div>
 
-        <div id="state-prep" className="state block-state flex-1 av-w-read py-8 ds-fadein">
+        <div id="state-prep" className={stateClass('prep', 'state block-state flex-1 av-w-read py-8 ds-fadein')}>
           <div id="prep-fallback-warning" className="ds-callout practice-warning-callout" style={{ display: 'none' }}>
             <Icon name="alert-triangle" /><span>AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.</span>
           </div>
@@ -208,13 +222,13 @@ export function PracticePageShell() {
           </div>
         </div>
 
-        <div id="state-sheet" className="state block-state flex-1 av-w-read py-8">
+        <div id="state-sheet" className={stateClass('sheet', 'state block-state flex-1 av-w-read py-8')}>
           <div className="av-sheet__meter" id="sheet-meter" hidden><div className="av-sheet__ticks" id="sheet-ticks" aria-hidden="true" /><p className="av-sheet__meter-count" id="sheet-meter-count" role="status" /></div>
           <div className="av-sheet" id="sheet-slots" />
           <div className="av-sheet__submit" id="sheet-submit" data-ready="false"><span className="av-sheet__submit-note" id="sheet-submit-note" /><button className="btn btn-primary" id="btn-sheet-submit" type="button" disabled>Nộp bài</button></div>
         </div>
 
-        <div id="state-p2a" className="state block-state flex-1 av-w-read py-6">
+        <div id="state-p2a" className={stateClass('p2a', 'state block-state flex-1 av-w-read py-6')}>
           <div className="flex items-center gap-2 mb-5"><span className="ds-badge ds-badge-teal">Part 2</span><span id="p2a-topic" className="practice-p2a-topic text-sm" /></div>
           <div className="card practice-card--cue p-5 mb-5"><p className="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p><p id="p2a-question" className="practice-p2a-question text-base font-semibold mb-4" /><ul id="p2a-bullets" className="space-y-2 mb-3" style={{ listStyle: 'none', padding: 0, margin: 0 }} /><p id="p2a-reflection" className="practice-p2a-reflection text-sm" /></div>
           <p className="practice-prep-instruction text-xs text-center mb-5">Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.</p>
@@ -222,22 +236,22 @@ export function PracticePageShell() {
           <button id="p2a-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('startP2Prep')}><Icon name="play" />Bắt đầu 1 phút chuẩn bị</button>
         </div>
 
-        <div id="state-p2b" className="state block-state flex-1 av-w-read py-6">
+        <div id="state-p2b" className={stateClass('p2b', 'state block-state flex-1 av-w-read py-6')}>
           <p className="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p><p id="p2b-timer" className="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
           <div className="card p-4 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p><p id="p2b-question" className="practice-p2b-question text-sm" /></div>
           <div className="card p-4 mb-5"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p><textarea id="p2b-notes" rows={4} className="practice-p2b-notes" placeholder="Ghi nhanh ý chính, từ vựng quan trọng..." /></div>
           <button type="button" className="btn-ghost w-full py-3 text-sm font-semibold" onClick={() => callPractice('startP2SpeakingEarly')}>Bỏ qua → Bắt đầu nói ngay</button>
         </div>
 
-        <div id="state-p2c" className="state block-state flex-1 av-w-read py-6">
+        <div id="state-p2c" className={stateClass('p2c', 'state block-state flex-1 av-w-read py-6')}>
           <div className="text-center mb-6"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="p2c-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums">2:00</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói về chủ đề trên cue card</p></div>
           <canvas id="p2c-canvas" width="600" height="56" className="practice-rec-canvas practice-rec-canvas--p2c" />
           <button type="button" className="btn-danger practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('stopP2SpeakingEarly')}><Icon name="square" />Dừng sớm</button>
         </div>
 
-        <div id="state-processing" className="state flex-1 items-center justify-center flex-col gap-6 px-6 text-center"><div className="spinner" /><div><p id="processing-text" className="practice-processing-text text-base font-semibold" /><p className="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p></div></div>
+        <div id="state-processing" className={stateClass('processing', 'state flex-1 items-center justify-center flex-col gap-6 px-6 text-center')}><div className="spinner" /><div><p id="processing-text" className="practice-processing-text text-base font-semibold" /><p className="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p></div></div>
 
-        <div id="state-feedback" className="state block-state flex-1 av-w-read py-8 ds-fadein">
+        <div id="state-feedback" className={stateClass('feedback', 'state block-state flex-1 av-w-read py-8 ds-fadein')}>
           <h2 className="text-lg font-bold mb-5 text-center">Kết quả câu trả lời</h2>
           <div id="feedback-band-wrapper" style={{ display: 'none', marginBottom: 16 }}><div className="ds-band-hero"><div className="ds-section-head" style={{ marginBottom: 6 }}>Band Score</div><div id="feedback-band" className="ds-band-value" /></div></div>
           <div id="feedback-bands-row" style={{ display: 'none', justifyContent: 'center', gap: 4, marginBottom: 20, flexWrap: 'wrap' }} />
@@ -249,7 +263,7 @@ export function PracticePageShell() {
           <div className="flex flex-col gap-3"><button id="btn-back-sheet" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('backToSheet')}><Icon name="arrow-left" />Quay lại phiếu làm bài</button><button id="btn-next-q" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('nextQuestion')}>Câu tiếp theo<Icon name="arrow-right" /></button><button id="btn-finish" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('finishSession')}><Icon name="check" />Hoàn thành phiên luyện</button></div>
         </div>
 
-        <div id="state-completion" className="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center">
+        <div id="state-completion" className={stateClass('completion', 'state flex-1 items-center justify-center flex-col gap-0 px-6 text-center')}>
           <div className="practice-completion-check"><Icon name="check" /></div><h2 id="completion-title" className="practice-completion-title">Bạn đã hoàn thành Full Test!</h2><p id="completion-desc" className="practice-completion-desc">Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.</p>
           <div id="completion-submit-status" className="practice-completion-submit-status is-pending" role="status" aria-live="polite">Đang kiểm tra và gửi nốt các câu trả lời…</div>
           <button id="completion-retry-btn" type="button" className="btn-primary practice-icon-btn practice-completion-retry" style={{ display: 'none' }} onClick={() => callPractice('retryFullTestSubmissions')}>Gửi lại và chốt bài</button>
@@ -257,7 +271,7 @@ export function PracticePageShell() {
           <div id="completion-ctas" className="practice-completion-ctas"><a href="/speaking" className="practice-completion-cta practice-completion-cta--primary">Quay lại</a><a href="/speaking#history" className="practice-completion-cta practice-completion-cta--ghost">Xem Lịch sử sessions</a></div>
         </div>
 
-        <div id="state-test-results" className="state block-state flex-1 av-w-read py-8">
+        <div id="state-test-results" className={stateClass('test-results', 'state block-state flex-1 av-w-read py-8')}>
           <h2 className="text-xl font-bold mb-2 text-center">Kết quả bài Test</h2><p className="practice-test-results-sub text-xs text-center mb-6">Tổng hợp tất cả câu trả lời trong buổi test</p>
           <div id="test-overall-wrap" className="card practice-overall-wrap p-6 mb-6 text-center"><p className="practice-overall-eyebrow text-xs font-semibold uppercase tracking-wider mb-2">Overall Band (trung bình)</p><div id="test-overall-band" className="practice-overall-band text-6xl font-bold">—</div></div>
           <div id="test-results-list" className="flex flex-col gap-4 mb-6" />

@@ -83,6 +83,12 @@ vào DOM; JSX ownership không được dùng để tuyên bố native behavior.
 - `PracticePlayerBridge` cài một controller theo vòng đời route trước khi boot;
   `PracticeApp.destroy()` giải phóng recorder/audio/reference legacy rồi registry
   xóa toàn bộ effect/object URL và speech còn lại.
+- Trên App Router, `SpeakingPlayerController` phát snapshot state qua subscription
+  và `PracticePageShell` dựng duy nhất lớp `.active` bằng
+  `useSyncExternalStore`; controller chỉ còn mutate class ở đường legacy mặc
+  định. Bridge tạo controller mới cho mỗi effect setup để StrictMode replay
+  không tái sử dụng instance đã dispose; boot failure cũng đi qua cùng
+  `showState('error')` thay vì dựng một state song song ngoài React.
 - Part 2 prep/speaking dùng countdown state có snapshot; timer copy, lỗi, PDF,
   TTS sequence và grammar flash dùng key nên lần mới thay thế lần cũ.
 - Listener sheet/grammar/interaction/voices dùng named handler và bị tháo khi

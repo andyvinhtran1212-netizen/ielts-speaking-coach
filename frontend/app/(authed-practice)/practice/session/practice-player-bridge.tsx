@@ -1,29 +1,45 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { SpeakingPlayerController } from '@/lib/speaking-player-controller.mjs';
+import { PracticePageShell } from './practice-page-shell';
+
+const INERT_PLAYER_STATE = Object.freeze({
+  getStateSnapshot: () => null,
+  subscribeState: () => () => {},
+});
+
+function createPlayerController() {
+  const browser = typeof window === 'undefined' ? globalThis : window;
+  return new SpeakingPlayerController({
+    document: (browser as any).document,
+    urlApi: (browser as any).URL,
+    speechSynthesis: (browser as any).speechSynthesis,
+    setIntervalFn: browser.setInterval.bind(browser),
+    clearIntervalFn: browser.clearInterval.bind(browser),
+    setTimeoutFn: browser.setTimeout.bind(browser),
+    clearTimeoutFn: browser.clearTimeout.bind(browser),
+    // App Router renders the active state from the controller snapshot. The
+    // default controller path still mutates classes for the legacy page.
+    domStateActivation: false,
+  });
+}
 
 export function PracticePlayerBridge() {
+  const [controller, setController] = useState<ReturnType<typeof createPlayerController> | null>(null);
+
   useEffect(() => {
     const win = window as any;
-    const controller = new SpeakingPlayerController({
-      document: win.document,
-      urlApi: win.URL,
-      speechSynthesis: win.speechSynthesis,
-      setIntervalFn: win.setInterval.bind(win),
-      clearIntervalFn: win.clearInterval.bind(win),
-      setTimeoutFn: win.setTimeout.bind(win),
-      clearTimeoutFn: win.clearTimeout.bind(win),
-    });
-
-    win.PracticePlayer = controller;
+    const mountedController = createPlayerController();
+    win.PracticePlayer = mountedController;
+    setController(mountedController);
     return () => {
       win.PracticeApp?.destroy?.();
-      controller.destroy();
-      if (win.PracticePlayer === controller) delete win.PracticePlayer;
+      mountedController.destroy();
+      if (win.PracticePlayer === mountedController) delete win.PracticePlayer;
     };
   }, []);
 
-  return null;
+  return <PracticePageShell player={controller || INERT_PLAYER_STATE} />;
 }
