@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
 type PlayerStateStore = {
@@ -362,7 +363,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
     <>
       <header className="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <a href="/speaking" className="practice-back-link"><Icon name="chevron-left" />Quay lại</a>
+          <Link href="/speaking" className="practice-back-link"><Icon name="chevron-left" />Quay lại</Link>
           <p className="eyebrow" style={{ margin: 0 }}>Speaking</p>
         </div>
         <div className="flex items-center gap-3 min-w-0">

@@ -98,8 +98,15 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    exact-blob retry + finalize barrier, failed-finalize retry, và finalize
    network-after-commit reconcile không POST trùng. Tổng Gate E Chromium hiện
    10/10; đây là runtime evidence, không phải source sentinel.
-3. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
-   matrix; kiểm microphone permission denied/retry/background-tab lifecycle.
+3. 🟡 Automated device/microphone matrix đã được version ở
+   `frontend/tooling/gate-e-speaking-device-matrix.json`: cùng 11 browser flows
+   chạy trên Chromium desktop, WebKit desktop và WebKit/iPhone 13; CI luôn tải
+   JSON result artifact. Spec microphone kiểm copy permission denied, retry ngay
+   state hiện tại, MediaRecorder tạo audio bytes từ engine-owned track,
+   multi-tab pressure, responsive overflow và Next soft-navigation thực sự gọi
+   `track.stop()`. Headless tab không phát một `visibilityState=hidden` đáng tin,
+   nên đây không phải bằng chứng background thật. Safari/iOS thật vẫn PENDING và
+   phải chạy đúng `real_device_requirements` trong manifest trước khi đóng mục 3.
 4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
    reload/copy URL/admission rollback với canonical backend assertions.
 5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
@@ -156,12 +163,13 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
-  baseline sáu shape và bốn mutation/recovery flow. Device matrix và rollback
-  live drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
+  baseline sáu shape, bốn mutation/recovery flow và automated
+  device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
+  riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (10 native browser fixtures)
+- `npm run test:e2e:gate-e` (11 native browser fixtures × 3 projects)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites
