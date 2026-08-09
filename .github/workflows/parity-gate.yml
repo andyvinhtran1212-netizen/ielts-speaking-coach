@@ -215,6 +215,7 @@ on:
       - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
       - 'frontend/tooling/verify-listening-skills-flow.mjs'
       - 'frontend/tooling/verify-listening-practice-flow.mjs'
+      - 'frontend/tooling/verify-listening-landing-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -604,6 +605,10 @@ jobs:
       # Luyện nhanh có overview-driven tabs, cache theo tab và hash selection.
       - name: Kiểm luồng Listening Practice native
         run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Landing dùng overview để quyết định card nào có đích chạy thật.
+      - name: Kiểm luồng Listening Landing native
+        run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

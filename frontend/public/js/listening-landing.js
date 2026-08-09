@@ -146,9 +146,7 @@ async function load() {
     revealExamCardsUnverified(doc);
     const banner = doc.getElementById('landing-error');
     if (banner) {
-      banner.textContent =
-        'Không tải được số lượng bài. Danh sách bên dưới vẫn mở được. '
-        + ((e && e.message) ? e.message : '');
+      banner.textContent = 'Không tải được số lượng bài. Danh sách bên dưới vẫn mở được.';
       banner.hidden = false;
     }
   } finally {
