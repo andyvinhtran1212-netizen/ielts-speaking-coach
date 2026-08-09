@@ -1,7 +1,6 @@
 // Trang Skill Practice trên Next — `/reading/skill`.
 import type { Metadata } from 'next';
 
-import { ReadingSkillShell } from './page-shell';
 import { ReadingSkillBehavior } from './reading-skill-behavior';
 
 export const metadata: Metadata = {
@@ -16,9 +15,7 @@ export default function ReadingSkillPage() {
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
       {/* @ts-ignore */}
       <aver-chrome active="reading" />
-      <ReadingSkillShell>
-        <ReadingSkillBehavior />
-      </ReadingSkillShell>
+      <ReadingSkillBehavior />
     </>
   );
 }

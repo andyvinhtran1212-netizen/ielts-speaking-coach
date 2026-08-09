@@ -16,13 +16,27 @@ export function ListeningSkillsShell() {
       <div className="shell">
         <main className="ls-shell">
           <header className="ls-header">
-            <p className="eyebrow"><a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a></p>
-            <h1>Luyện <span className="accent">kĩ năng</span></h1>
+            <a className="ls-back" href="/listening">← Quay lại Listening</a>
+            <p className="eyebrow">LUYỆN THEO DẠNG CÂU HỎI</p>
+            <h1>Chọn đúng kĩ năng, <span className="accent">luyện sâu hơn</span></h1>
             <p className="subtitle">
-              Chọn dạng câu hỏi bạn muốn luyện riêng (điền form, bản đồ, nối, trắc nghiệm…).
-              Mỗi bài là 1 section ngắn — cùng giao diện làm bài &amp; chữa bài (nghe lại đúng
-              đoạn audio) như Mini Test, chấm điểm sau khi nộp.
+              Tập riêng từng dạng câu hỏi IELTS Listening, nhận điểm ngay sau khi nộp
+              và nghe lại đúng đoạn audio để hiểu mình đã bỏ lỡ chi tiết nào.
             </p>
+            <div className="ls-summary" id="ls-summary" hidden aria-live="polite">
+              <div className="ls-summary__item">
+                <span className="ls-summary__value" id="ls-total-count">0</span>
+                <span className="ls-summary__label">Bài đang mở</span>
+              </div>
+              <div className="ls-summary__item">
+                <span className="ls-summary__value" id="ls-done-count">0</span>
+                <span className="ls-summary__label">Đã luyện</span>
+              </div>
+              <div className="ls-summary__item">
+                <span className="ls-summary__value" id="ls-type-count">0</span>
+                <span className="ls-summary__label">Dạng kĩ năng</span>
+              </div>
+            </div>
           </header>
 
           <div className="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>
@@ -32,7 +46,25 @@ export function ListeningSkillsShell() {
           </div>
           <div className="error-banner" id="state-error" hidden></div>
 
-          <section id="ls-groups" hidden></section>
+          <section className="ls-library" id="ls-library" hidden aria-labelledby="ls-library-title">
+            <div className="ls-toolbar">
+              <div>
+                <p className="eyebrow">LỘ TRÌNH KĨ NĂNG</p>
+                <h2 id="ls-library-title">Chọn dạng bài cần luyện</h2>
+                <p>Mỗi lần chỉ tập trung vào một dạng để danh sách ngắn và dễ theo dõi.</p>
+              </div>
+            </div>
+            <nav className="ls-skill-nav" id="ls-skill-nav" aria-label="Các dạng câu hỏi Listening"></nav>
+            <div className="ls-library-head">
+              <p className="ls-visible-count" id="ls-visible-count" aria-live="polite"></p>
+              <div className="ls-filter" role="group" aria-label="Lọc bài luyện theo trạng thái">
+                <button className="ls-filter__button is-active" type="button" data-status-filter="all" aria-pressed="true">Tất cả</button>
+                <button className="ls-filter__button" type="button" data-status-filter="new" aria-pressed="false">Chưa làm</button>
+                <button className="ls-filter__button" type="button" data-status-filter="done" aria-pressed="false">Đã luyện</button>
+              </div>
+            </div>
+            <section id="ls-groups"></section>
+          </section>
         </main>
       </div>
     </>

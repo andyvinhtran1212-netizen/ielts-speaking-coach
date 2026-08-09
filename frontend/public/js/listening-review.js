@@ -316,6 +316,7 @@
     var card = document.createElement('article');
     card.className = 'lr-card ' + (item.correct ? 'is-correct' : 'is-incorrect');
     card.setAttribute('data-q', String(item.q_num));
+    card.setAttribute('data-correct', item.correct ? 'true' : 'false');
 
     var win = item.audio_window;
     var tsLabel = win
@@ -439,11 +440,45 @@
         });
       });
     }
+    renderReviewControls(items);
+  }
+
+  function setReviewFilter(filter) {
+    var selected = filter === 'wrong' || filter === 'correct' ? filter : 'all';
+    document.querySelectorAll('.lr-filter__button').forEach(function (button) {
+      var active = button.getAttribute('data-review-filter') === selected;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.lr-card').forEach(function (card) {
+      var correct = card.getAttribute('data-correct') === 'true';
+      card.hidden = selected === 'wrong' ? correct : (selected === 'correct' ? !correct : false);
+    });
+    var skills = document.querySelector('.lr-skills-panel');
+    if (skills) skills.hidden = selected === 'correct';
+  }
+
+  function renderReviewControls(items) {
+    var wrong = (items || []).filter(function (item) { return !item.correct; }).length;
+    var correct = (items || []).length - wrong;
+    var counts = $('lr-review-counts');
+    var preview = SESSION.data && SESSION.data.preview;
+    if (counts) {
+      counts.textContent = preview
+        ? (items.length + ' câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.')
+        : (wrong + ' câu cần xem lại · ' + correct + ' câu đúng. ' +
+          (wrong ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'));
+    }
+    document.querySelectorAll('.lr-filter__button').forEach(function (button) {
+      button.onclick = function () { setReviewFilter(button.getAttribute('data-review-filter')); };
+    });
+    setReviewFilter(preview ? 'all' : (wrong ? 'wrong' : 'all'));
   }
 
   function jumpToQ(qNum) {
     var card = document.querySelector('.lr-card[data-q="' + qNum + '"]');
     if (!card) return;
+    if (card.hidden) setReviewFilter('all');
     document.querySelectorAll('.lr-nav-q').forEach(function (b) { b.classList.remove('is-current'); });
     var btn = document.querySelector('.lr-nav-q[data-q="' + qNum + '"]');
     if (btn) btn.classList.add('is-current');
