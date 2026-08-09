@@ -61,10 +61,11 @@ export function PracticeSessionBoot() {
             return typeof win.PracticeApp?.init === 'function'
               && typeof win.PracticeRecorder?.start === 'function'
               && typeof win.PracticeSubmission?.submit === 'function'
+              && typeof win.PracticeFullTest?.restore === 'function'
               && typeof win.api?.get === 'function'
               && typeof win.api?.post === 'function';
           },
-          'PracticeApp + native recorder + native submission + API',
+          'PracticeApp + native recorder + native submission + native full-test state + API',
         );
         if (!ready) {
           throw new PracticeBootstrapError(

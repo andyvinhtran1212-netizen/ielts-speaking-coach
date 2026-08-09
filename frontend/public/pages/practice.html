@@ -572,10 +572,22 @@
         <i data-lucide="check"></i>
       </div>
 
-      <h2 class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
-      <p class="practice-completion-desc">
+      <h2 id="completion-title" class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
+      <p id="completion-desc" class="practice-completion-desc">
         Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
       </p>
+
+      <div id="completion-submit-status"
+           class="practice-completion-submit-status is-pending"
+           role="status" aria-live="polite">
+        Đang kiểm tra và gửi nốt các câu trả lời…
+      </div>
+      <button id="completion-retry-btn" type="button"
+              class="btn-primary practice-icon-btn practice-completion-retry"
+              style="display:none;"
+              onclick="PracticeApp.retryFullTestSubmissions()">
+        Gửi lại và chốt bài
+      </button>
 
       <!-- Info card -->
       <div class="practice-completion-info">
@@ -600,7 +612,7 @@
       </div>
 
       <!-- CTAs -->
-      <div class="practice-completion-ctas">
+      <div id="completion-ctas" class="practice-completion-ctas">
         <a href="/speaking" class="practice-completion-cta practice-completion-cta--primary">
           Quay lại
         </a>

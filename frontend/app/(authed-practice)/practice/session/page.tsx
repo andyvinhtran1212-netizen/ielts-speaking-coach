@@ -3,6 +3,7 @@
 import type { Metadata } from 'next';
 
 import { LegacyPracticeShell } from './legacy-practice-shell';
+import { PracticeFullTestBridge } from './practice-full-test-bridge';
 import { PracticeRecorderBridge } from './practice-recorder-bridge';
 import { PracticeSessionBoot } from './practice-session-boot';
 import { PracticeSubmissionBridge } from './practice-submission-bridge';
@@ -20,6 +21,7 @@ export default function PracticeSessionPage() {
       <LegacyPracticeShell />
       <PracticeRecorderBridge />
       <PracticeSubmissionBridge />
+      <PracticeFullTestBridge />
       <PracticeSessionBoot />
     </>
   );

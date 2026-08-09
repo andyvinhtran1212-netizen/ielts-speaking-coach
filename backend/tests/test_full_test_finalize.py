@@ -21,6 +21,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
+from fastapi import HTTPException
+from pydantic import ValidationError
 
 from routers import sessions as sessions_module
 
@@ -110,3 +112,124 @@ def test_all_graded_completes_without_failed(patched):
 
     assert completed == [_OK, _OK]
     assert _failed_ids(rec) == [], "no session should be analysis_failed when all graded"
+
+
+class _CoverageResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class _CoverageBuilder:
+    def __init__(self, parent, table):
+        self.parent = parent
+        self.table = table
+        self.session_id = None
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, column, value):
+        if column == "session_id":
+            self.session_id = value
+        return self
+
+    def execute(self):
+        return _CoverageResult(self.parent.rows[self.table].get(self.session_id, []))
+
+
+class _CoverageDb:
+    def __init__(self, questions, responses):
+        self.rows = {"questions": questions, "responses": responses}
+
+    def table(self, name):
+        return _CoverageBuilder(self, name)
+
+
+def test_readiness_requires_each_question_id_not_just_equal_response_count(monkeypatch):
+    db = _CoverageDb(
+        questions={"s1": [{"id": "q1"}, {"id": "q2"}]},
+        responses={"s1": [
+            {"id": "r1", "question_id": "q1", "grading_status": "completed", "overall_band": 7},
+            {"id": "r2", "question_id": "q1", "grading_status": "completed", "overall_band": 7.5},
+        ]},
+    )
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    assert sessions_module._check_all_responses_graded(["s1"]) is False
+
+
+def test_readiness_rejects_empty_question_set(monkeypatch):
+    db = _CoverageDb(questions={"s1": []}, responses={"s1": []})
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    assert sessions_module._check_all_responses_graded(["s1"]) is False
+
+
+def test_readiness_accepts_exact_question_coverage(monkeypatch):
+    db = _CoverageDb(
+        questions={"s1": [{"id": "q1"}, {"id": "q2"}]},
+        responses={"s1": [
+            {"id": "r1", "question_id": "q1", "grading_status": "completed", "overall_band": 7},
+            {"id": "r2", "question_id": "q2", "grading_status": "completed", "overall_band": 6.5},
+        ]},
+    )
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    assert sessions_module._check_all_responses_graded(["s1"]) is True
+
+
+def test_finalize_body_requires_all_three_parts():
+    with pytest.raises(ValidationError):
+        sessions_module.FinalizeFullTestBody(p1_id="p1")
+    with pytest.raises(ValidationError):
+        sessions_module.FinalizeFullTestBody(p1_id="p1", p2_id=" ", p3_id="p3")
+
+
+def test_full_test_chain_rejects_duplicates_and_wrong_part_or_mode():
+    with pytest.raises(HTTPException) as duplicate:
+        sessions_module._validate_full_test_chain(["p1", "p1", "p3"], [])
+    assert duplicate.value.status_code == 400
+
+    with pytest.raises(HTTPException) as wrong_mode:
+        sessions_module._validate_full_test_chain(
+            ["p1", "p2", "p3"],
+            [
+                {"id": "p1", "mode": "test_full", "part": 1},
+                {"id": "p2", "mode": "practice", "part": 2},
+                {"id": "p3", "mode": "test_full", "part": 3},
+            ],
+        )
+    assert wrong_mode.value.status_code == 400
+
+    sessions_module._validate_full_test_chain(
+        ["p1", "p2", "p3"],
+        [
+            {"id": "p1", "mode": "test_full", "part": 1},
+            {"id": "p2", "mode": "test_full", "part": 2},
+            {"id": "p3", "mode": "test_full", "part": 3},
+        ],
+    )
+
+    with pytest.raises(HTTPException) as mixed_sitting:
+        sessions_module._validate_full_test_chain(
+            ["p1", "p2", "p3"],
+            [
+                {"id": "p1", "mode": "test_full", "part": 1, "sitting_id": "sit-a"},
+                {"id": "p2", "mode": "test_full", "part": 2, "sitting_id": "sit-b"},
+                {"id": "p3", "mode": "test_full", "part": 3, "sitting_id": "sit-a"},
+            ],
+        )
+    assert mixed_sitting.value.status_code == 400
+
+
+def test_full_test_question_count_contract_is_exact_9_1_5():
+    rows = (
+        [{"id": f"q1-{i}", "session_id": "p1"} for i in range(9)]
+        + [{"id": "q2-1", "session_id": "p2"}]
+        + [{"id": f"q3-{i}", "session_id": "p3"} for i in range(5)]
+    )
+    sessions_module._validate_full_test_question_counts(["p1", "p2", "p3"], rows)
+
+    with pytest.raises(HTTPException) as incomplete:
+        sessions_module._validate_full_test_question_counts(
+            ["p1", "p2", "p3"],
+            rows[:-1],
+        )
+    assert incomplete.value.status_code == 409

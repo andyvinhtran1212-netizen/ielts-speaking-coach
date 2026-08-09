@@ -227,8 +227,16 @@ class CreateSessionBody(BaseModel):
 
 class FinalizeFullTestBody(BaseModel):
     p1_id: str
-    p2_id: Optional[str] = None
-    p3_id: Optional[str] = None
+    p2_id: str
+    p3_id: str
+
+    @field_validator("p1_id", "p2_id", "p3_id")
+    @classmethod
+    def validate_session_id(cls, value: str) -> str:
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("session ID không được để trống")
+        return session_id
 
 
 # ── Shared guards ─────────────────────────────────────────────────────────────
@@ -754,6 +762,7 @@ async def get_session(
         questions = []
 
     # Responses for this session
+    response_lookup_failed = False
     try:
         r_result = (
             supabase_admin.table("responses")
@@ -766,6 +775,18 @@ async def get_session(
     except Exception as exc:
         logger.error("[get_session] responses query FAILED for session=%s: %s", session_id, exc)
         responses = []
+        response_lookup_failed = True
+
+    # Receipt-only ledger: enough for upload reconciliation and reload/resume,
+    # but never enough to reveal a sealed mock's transcript, grading or score.
+    # The response row id is required to distinguish a real persisted row from
+    # an optimistic/pending client state. A retake still has the same row id and
+    # therefore remains ambiguous unless the POST itself confirms it.
+    response_receipts = [
+        {"id": row.get("id"), "question_id": row.get("question_id")}
+        for row in responses
+        if row.get("id") and row.get("question_id")
+    ]
 
     # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
     # the sitting is released. Questions still return so recording works.
@@ -780,6 +801,8 @@ async def get_session(
         "retention":  compute_expiry(session),
         "questions":  questions,
         "responses":  responses,
+        "response_receipts": response_receipts,
+        "response_lookup_failed": response_lookup_failed,
     }
     task = _class_task_state(session)
     if task:
@@ -1180,32 +1203,84 @@ def _check_all_responses_graded(session_ids: list) -> bool:
         try:
             q_res = (
                 supabase_admin.table("questions")
-                .select("id", count="exact")
+                .select("id")
                 .eq("session_id", sid)
                 .execute()
             )
             r_res = (
                 supabase_admin.table("responses")
-                .select("id, grading_status, overall_band")
+                .select("id, question_id, grading_status, overall_band")
                 .eq("session_id", sid)
                 .execute()
             )
-            n_q = q_res.count or 0
+            question_ids = {
+                str(row.get("id")) for row in (q_res.data or []) if row.get("id")
+            }
+            if not question_ids:
+                logger.warning("[finalize_ft] session=%s has no questions", sid)
+                return False
             responses = r_res.data or []
-            graded = [
-                r for r in responses
+            graded_question_ids = {
+                str(r.get("question_id")) for r in responses
                 if r.get("grading_status") == "completed" and r.get("overall_band") is not None
-            ]
-            n_graded = len(graded)
-            if n_graded < n_q:
+                and r.get("question_id")
+            }
+            missing = question_ids - graded_question_ids
+            if missing:
                 logger.info(
-                    "[finalize_ft] session=%s: %d/%d responses graded", sid, n_graded, n_q
+                    "[finalize_ft] session=%s: %d/%d questions graded; missing=%d",
+                    sid,
+                    len(question_ids & graded_question_ids),
+                    len(question_ids),
+                    len(missing),
                 )
                 return False
         except Exception as e:
             logger.warning("[finalize_ft] poll error for session=%s: %s", sid, e)
             return False
     return True
+
+
+def _validate_full_test_chain(session_ids: list[str], session_rows: list[dict]) -> None:
+    """Require one owned test_full session for each canonical Speaking part."""
+    if len(session_ids) != 3 or len(set(session_ids)) != 3:
+        raise HTTPException(400, "Full Test phải có 3 session khác nhau cho Part 1, 2 và 3")
+    sessions_by_id = {row["id"]: row for row in session_rows}
+    for expected_part, sid in enumerate(session_ids, start=1):
+        row = sessions_by_id.get(sid)
+        if not row:
+            continue  # ownership/missing-id check reports this as 404 at the route boundary
+        if row.get("mode") != "test_full" or row.get("part") != expected_part:
+            raise HTTPException(
+                400,
+                f"Session {sid} không phải Full Test Part {expected_part}",
+            )
+    rows = [sessions_by_id.get(sid) for sid in session_ids]
+    if all(rows):
+        sitting_ids = {row.get("sitting_id") for row in rows}
+        if len(sitting_ids) > 1:
+            raise HTTPException(400, "Ba phần Full Test không thuộc cùng một bài thi")
+
+
+def _validate_full_test_question_counts(
+    session_ids: list[str],
+    question_rows: list[dict],
+) -> None:
+    """Fail before finalization when any persisted part is not 9/1/5."""
+    expected_by_session = dict(zip(session_ids, (9, 1, 5)))
+    actual = Counter(
+        row.get("session_id") for row in question_rows if row.get("session_id")
+    )
+    invalid = [
+        f"Part {part}: {actual.get(sid, 0)}/{expected_by_session[sid]}"
+        for part, sid in enumerate(session_ids, start=1)
+        if actual.get(sid, 0) != expected_by_session[sid]
+    ]
+    if invalid:
+        raise HTTPException(
+            409,
+            "Bộ câu hỏi Full Test chưa đầy đủ (" + ", ".join(invalid) + ")",
+        )
 
 
 async def _bg_finalize_full_test(session_ids: list) -> None:
@@ -1314,15 +1389,14 @@ async def finalize_full_test(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    all_ids = [sid for sid in [body.p1_id, body.p2_id, body.p3_id] if sid]
-    if not all_ids:
-        raise HTTPException(400, "Cần ít nhất một session ID (p1_id)")
+    all_ids = [body.p1_id, body.p2_id, body.p3_id]
+    _validate_full_test_chain(all_ids, [])
 
     # Ownership check — all sessions must belong to this user
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id, mode")
+            .select("id, mode, part, sitting_id")
             .in_("id", all_ids)
             .eq("user_id", user_id)
             .execute()
@@ -1334,6 +1408,22 @@ async def finalize_full_test(
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
+
+    _validate_full_test_chain(all_ids, s_res.data or [])
+
+    # Question rows are immutable once answers start. Reject an old/corrupted
+    # short set immediately instead of accepting it, waiting 210 seconds and
+    # silently aggregating a non-canonical 9/1/5 exam.
+    try:
+        q_res = (
+            supabase_admin.table("questions")
+            .select("id, session_id")
+            .in_("session_id", all_ids)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra bộ câu hỏi Full Test: {e}")
+    _validate_full_test_question_counts(all_ids, q_res.data or [])
 
     # Mark all sessions 'submitted' immediately — history shows "Đang phân tích"
     try:

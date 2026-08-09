@@ -94,9 +94,11 @@ policy thật và kiểm:
 ## Evidence còn thiếu trước khi đóng Gate E
 
 - Speaking đã có `/practice/session` dưới App Router và React đã sở hữu auth,
-  bootstrap session/question cùng MediaRecorder lifecycle; upload/grading và
-  state orchestration vẫn ở `practice.js`, `route_ready: false`; cần native
-  player Next hoàn chỉnh cùng canonical backend-state assertions.
+  bootstrap session/question, MediaRecorder, submission cùng Full Test
+  retry/resume/finalize; backend đã pin đủ ba part, cùng sitting, đúng 9/1/5 và
+  exact `question_id` coverage; DOM player/effect orchestration vẫn ở `practice.js`,
+  `route_ready: false`; cần native player Next hoàn chỉnh cùng browser-backed
+  canonical backend-state assertions.
 - Mọi entry point tạo attempt của cluster phải đi theo admission decision hoặc
   được ghi rõ là một cohort legacy có chủ đích; không suy rộng sáu launcher thành
   global coverage.

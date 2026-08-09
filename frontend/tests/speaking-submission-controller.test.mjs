@@ -215,6 +215,14 @@ test('findPersistedSpeakingResponse requires the exact question and a row id', (
   assert.equal(findPersistedSpeakingResponse(session, 'missing'), null);
 });
 
+test('findPersistedSpeakingResponse accepts a sealed-safe response receipt', () => {
+  const session = {
+    responses: [],
+    response_receipts: [{ id: 'sealed-row', question_id: 'q' }],
+  };
+  assert.equal(findPersistedSpeakingResponse(session, 'q').id, 'sealed-row');
+});
+
 describe('Next Speaking submission integration', () => {
   test('bridge owns transport lifecycle and removes only its own global', () => {
     assert.match(BRIDGE, /new SpeakingSubmissionController/);
@@ -234,7 +242,8 @@ describe('Next Speaking submission integration', () => {
   test('practice, test_full and sheet all use the shared transport', () => {
     assert.match(PRACTICE, /function _submitResponseTransport/);
     assert.match(PRACTICE, /data = await _submitResponseTransport\(_sessionId, questionId, blob, \{/);
-    assert.match(PRACTICE, /return _submitResponseTransport\(sessionId, questionId, blob, submitOpts\)/);
+    assert.match(PRACTICE, /: _submitResponseTransport\(sessionId, questionId, blob, submitOpts\)/);
+    assert.match(PRACTICE, /nativeFullTest\.submitAnswer\(\{/);
     assert.match(PRACTICE, /submitOpts\.priorResponseId = _knownResponseId\(questionId\)/);
     assert.match(PRACTICE, /nativeSubmission\.submit\(\{/);
     assert.match(PRACTICE, /priorResponseId: s\.resp && \(s\.resp\.id \|\| s\.resp\.response_id\)/);

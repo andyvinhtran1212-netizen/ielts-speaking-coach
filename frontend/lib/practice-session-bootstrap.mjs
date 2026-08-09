@@ -54,6 +54,12 @@ export async function loadPracticeBootstrap({ api, sessionId, userId, onPhase })
       'Không thể tải session. Hãy kiểm tra kết nối và thử lại.',
     );
   }
+  if (sessionData.mode === 'test_full' && sessionData.response_lookup_failed === true) {
+    throw new PracticeBootstrapError(
+      'response_lookup_failed',
+      'Không thể đọc tiến độ Full Test. Hãy tải lại trang trước khi ghi âm tiếp.',
+    );
+  }
 
   phase('Đang tải câu hỏi...');
   let questions = await api.get('/sessions/' + encodedSessionId + '/questions');
