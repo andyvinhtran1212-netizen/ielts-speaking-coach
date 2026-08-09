@@ -50,15 +50,14 @@ const LEGACY_MODULE_ROUTES = [
   // `/js/vocab-exam.js` nạp bằng `defer`; điều hướng mềm không tái tạo bảo đảm
   // thứ tự của defer nên nó có thể đua với `api.js` (review cục bộ #960).
   '/vocabulary/exam',
-  // BA TRANG PORT 2026-08-07 còn nạp module bằng `<script type="module">`
+  // HAI TRANG PORT 2026-08-07 còn nạp module bằng `<script type="module">`
   // NỘI TUYẾN, và một script do React tạo ra trong lúc điều hướng mềm là script
   // TRƠ — trình duyệt không thực thi nó. Nên vào bằng `<Link>` là vào một trang
   // không bao giờ boot: khung Next hiện ra, phần nội dung đứng ở "Đang tải…".
   //
-  // Danh sách này TRƯỚC ĐÂY không có chúng, nên thêm một `<Link href="/full-test">`
+  // Danh sách này TRƯỚC ĐÂY không có chúng, nên thêm một `<Link>` tới một route
   // vẫn qua được cổng (codex bắt ở #1003). Cùng họ với các lần "chốt có tồn tại
   // nhưng đường kích hoạt không phủ hết thứ nó canh".
-  '/full-test',
   '/mock/result',
   '/vocabulary/hub',
 ];
