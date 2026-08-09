@@ -1,8 +1,6 @@
-// Markup only. Behavior is loaded by /js/listening-tests-list.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+import type { ReactNode } from 'react';
 
-export function ListeningTestsShell() {
+export function ListeningTestsShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <main className="lt-shell">
@@ -16,14 +14,7 @@ export function ListeningTestsShell() {
           </p>
         </header>
 
-        <div className="empty-state" id="state-loading">Đang tải danh sách tests…</div>
-        <div className="empty-state" id="state-empty" hidden>
-          <p><strong>Chưa có test nào sẵn sàng.</strong></p>
-          <p>Hãy quay lại sau khi admin xuất bản test mới.</p>
-        </div>
-        <div className="error-banner" id="state-error" hidden></div>
-
-        <section id="lt-grid" className="lt-grid" hidden></section>
+        {children}
       </main>
     </div>
   );
