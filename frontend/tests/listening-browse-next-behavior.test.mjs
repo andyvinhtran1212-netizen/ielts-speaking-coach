@@ -13,6 +13,8 @@ const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'browse', 'listening-browse-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const LEGACY = read('public', 'js', 'listening-browse.js');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening/browse — native React behavior', () => {
   test('removes legacy injection and delegates filter/list state to React', () => {
@@ -26,7 +28,9 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
     assert.match(BEHAVIOR, /\[accountKey, filters\]/);
   });
 
@@ -62,11 +66,15 @@ describe('/listening/browse — native React behavior', () => {
   });
 
   test('distinguishes lookup failure, genuine no-mode and list failure', () => {
-    assert.match(BEHAVIOR, /raw\.available_modes === null/);
+    assert.match(BEHAVIOR, /Array\.isArray\(raw\.available_modes\)[\s\S]*: null/);
     assert.match(BEHAVIOR, /⚠ Không đọc được danh sách dạng luyện/);
     assert.match(BEHAVIOR, /Chưa có dạng luyện nào cho bài này/);
-    assert.match(BEHAVIOR, /Không tải được danh sách\./);
+    assert.match(BEHAVIOR, /Không tải được danh sách bài nghe\. Vui lòng thử lại\./);
     assert.match(BEHAVIOR, /Chưa có bài nghe nào khớp bộ lọc\./);
+    assert.match(BEHAVIOR, /id="state-loading" role="status"/);
+    assert.match(BEHAVIOR, /id="state-empty" role="status"/);
+    assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 
   test('renders authored fields through React and preserves metadata pills', () => {
@@ -81,5 +89,15 @@ describe('/listening/browse — native React behavior', () => {
   test('is no longer hard-navigation-only', () => {
     const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
     assert.doesNotMatch(list, /['"]\/listening\/browse['"]/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(PARITY_WORKFLOW, /node tooling\/verify-listening-browse-flow\.mjs/);
+  });
+
+  test('keeps rollback behavior honest for malformed modes and backend errors', () => {
+    assert.match(LEGACY, /!item \|\| !Array\.isArray\(item\.available_modes\)/);
+    assert.match(LEGACY, /Không tải được danh sách bài nghe\. Vui lòng thử lại\./);
+    assert.doesNotMatch(LEGACY, /e && e\.message/);
   });
 });

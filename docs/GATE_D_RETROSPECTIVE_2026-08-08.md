@@ -238,8 +238,9 @@ legacy khởi động theo `DOMContentLoaded` sang behavior React:
   `user.id`;
 - giữ nguyên GET `/api/reading/test`, filter module, giới hạn 50 và bắt buộc
   `test_type=mini` để full test không lọt sang tab này;
-- giữ nguyên fallback 3 parts / 40 câu / 60 phút, band, catalog code và origin
-  stamp `from=mini` khi mở exam;
+- giữ default Mini Test là 1 passage; số câu và thời lượng không có dữ liệu thì
+  hiện `—` thay vì mượn cấu trúc 3 parts / 40 câu / 60 phút của Full Test;
+  giữ band, catalog code và origin stamp `from=mini` khi mở exam;
 - request bị abort khi đổi filter/account hoặc unmount; response cũ không được
   ghi đè state mới;
 - payload lỗi hình dạng được chuẩn hóa và nội dung authored do React escape;
@@ -258,10 +259,14 @@ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
   và bắt buộc `test_type=full` để mini/drill/practice không lọt vào thư viện;
 - giữ nguyên điểm tốt nhất, số lần làm, CTA bắt đầu/làm lại, tối đa ba theme,
   player origin `from=full` và lối vào chép chính tả;
+- chỉ attempt đã `submitted` mới gắn nhãn `Đã làm`; attempt dang dở vẫn được
+  tính vào số lượt hoạt động nhưng còn nằm đúng trong bộ lọc `Chưa làm`;
 - request bị abort khi đổi account hoặc unmount; response cũ không được ghi đè
   state mới;
 - payload lỗi hình dạng được chuẩn hóa, nội dung authored do React escape và
   overflow phân trang vẫn là lỗi hiển thị thay vì âm thầm cắt dữ liệu;
+- browser-flow 12 chốt kiểm summary, filter, submitted contract, CTA, escaping
+  và thông báo lỗi chung trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **6/29 route**.
@@ -277,10 +282,15 @@ từ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
   và bắt buộc `test_type=mini` để full/drill/practice không lọt vào thư viện;
 - giữ nguyên điểm tốt nhất, số lần làm, CTA bắt đầu/làm lại, tối đa ba theme,
   player origin `from=mini` và lối vào chép chính tả;
+- không bịa mẫu số `/40` cho mini test có số câu biến đổi; chỉ attempt đã
+  `submitted` mới được tính `Đã luyện`, còn tổng attempt vẫn hiển thị như số
+  lượt hoạt động;
 - request bị abort khi đổi account hoặc unmount; response cũ không được ghi đè
   state mới;
 - payload lỗi hình dạng được chuẩn hóa, nội dung authored do React escape và
   overflow phân trang vẫn là lỗi hiển thị thay vì âm thầm cắt dữ liệu;
+- browser-flow kiểm ba số summary, filter submitted, fallback title, score,
+  escaping và hai đích CTA trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **5/29 route**.
@@ -295,11 +305,15 @@ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
 - giữ nguyên GET phân trang `/api/listening/tests`, giới hạn 100, guard 20 trang
   và bắt buộc `test_type=drill`;
 - giữ đủ 11 nhóm kỹ năng, thứ tự ladder L1→L4 rồi T1→T4, fallback tiêu đề,
-  thống kê, CTA player và lối vào chép chính tả;
+  nav theo dạng, bộ lọc trạng thái, thống kê, CTA player và lối vào chép chính tả;
+- chỉ attempt đã `submitted` mới được tính `Đã luyện`; attempt dang dở vẫn nằm
+  trong `Chưa làm`, đồng thời summary vẫn đếm đúng tổng bài và số dạng có bài;
 - icon được nhúng SVG tĩnh thay vì để Lucide đổi loại node trong cây React,
   loại bỏ hydration race đã có regression gate riêng;
 - request bị abort khi đổi account hoặc unmount; payload lỗi hình dạng được
   chuẩn hóa, nội dung authored do React escape và overflow không bị cắt im lặng;
+- browser-flow kiểm summary, nav 11 dạng, ladder L/T, filter submitted, CTA,
+  escaping và thông báo lỗi chung trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **4/29 route**.
@@ -317,9 +331,13 @@ từ module legacy khởi động theo `DOMContentLoaded` sang behavior React:
   `practice_group`, cache riêng, giới hạn 100 và guard 20 trang;
 - tab trap vẫn nhóm theo tên bẫy, sort theo số bài giảm dần rồi tên; hai tab
   còn lại giữ danh sách phẳng;
+- chỉ attempt đã `submitted` mới đổi CTA sang `Làm lại`; attempt dang dở vẫn
+  hiển thị số lượt đã mở nhưng không bị báo sai là hoàn thành;
 - request overview/tab bị abort khi đổi account/tab hoặc unmount; payload lỗi
   hình dạng được chuẩn hóa, authored content do React escape và overflow không
   bị cắt im lặng;
+- browser-flow kiểm hash selection, tab count, cache, trap grouping, submitted
+  completion, escaping, CTA và lỗi chung trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **3/29 route**.
@@ -336,7 +354,9 @@ theo `DOMContentLoaded` sang behavior React:
 - thư viện chỉ xuất hiện khi vừa có content vừa có mode thực sự chạy được, nên
   không tái tạo các link trần dẫn tới bài cần `content_id`;
 - khi overview lỗi, bốn danh sách đề được mở không kèm count, thư viện chưa xác
-  minh vẫn ẩn và cảnh báo hiện rõ như bản legacy;
+  minh vẫn ẩn và cảnh báo chung hiện rõ mà không lộ chi tiết backend;
+- trạng thái đang tải và rỗng có thông báo accessible riêng; browser-flow khóa
+  count-driven cards, mode allowlist, dead-end guard, CTA và fallback lỗi;
 - request overview bị abort khi đổi account hoặc unmount; nội dung do React
   render và icon SVG tĩnh không còn hydration race;
 - route không còn phụ thuộc hard navigation.
@@ -354,10 +374,12 @@ khởi động theo `DOMContentLoaded` sang behavior React:
   limit 100 và guard 20 trang thay vì cắt im lặng;
 - card chỉ mở bốn mode backend báo trong `available_modes`, đúng thứ tự cũ và
   luôn encode `content_id`;
-- `available_modes: null` vẫn hiện lookup warning, khác với trạng thái canonical
-  không có mode; list loading/empty/error cũng tách biệt rõ;
+- chỉ mảng `available_modes` mới là canonical; null, thiếu hoặc sai kiểu đều
+  hiện lookup warning, khác với mảng rỗng là thật sự không có mode;
 - request bị abort khi đổi filter/account hoặc unmount; authored content do
-  React escape và không còn `innerHTML`;
+  React escape, lỗi backend dùng copy chung và không còn `innerHTML`;
+- browser-flow kiểm ba filter, metadata, mode order/link, lookup-failure truth,
+  empty/error states và paging contract trên production build;
 - route không còn phụ thuộc hard navigation.
 
 Sau batch stacked: hard-navigation debt còn **1/29 route**.
@@ -366,9 +388,9 @@ Sau batch stacked: hard-navigation debt còn **1/29 route**.
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 189/189; batch 16: 220/220; batch 17: 194/194; batch 18: 188/188; batch 19: 55/55; batch 20: 67/67 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15; batch 18: 49/49 pass + browser-flow 15/15; batch 19: 48/48 pass + browser-flow 14/14; batch 20: 47/47 pass + browser-flow 14/14 |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.140 pass; 0 skip; 0 fail |
+| Full frontend contract suite | 7.191/7.191 pass |
 | TypeScript strict check | pass |
 | Next production build | pass; cả hai mươi behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
