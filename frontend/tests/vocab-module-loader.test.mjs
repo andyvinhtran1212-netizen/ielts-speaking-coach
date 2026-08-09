@@ -627,14 +627,14 @@ describe('Sprint 9.2 — vocab modules ship the .subpage-header__back contract',
         /back-to-dashboard/,
         `${modulePath} must reference 'back-to-dashboard' in its handler logic`,
       );
-      // Embedded path clears the hash (vocab-landing.js handles
-      // hashchange → showDashboard); standalone path navigates to
-      // /pages/vocabulary.html.
+      // Embedded path clears the hash (the parent handles hashchange →
+      // dashboard); standalone path navigates to the canonical Next hub.
       assert.match(
         src,
-        /\/pages\/vocabulary\.html/,
-        `${modulePath} must navigate to /pages/vocabulary.html in standalone mode`,
+        /\/vocabulary\/hub/,
+        `${modulePath} must navigate to /vocabulary/hub in standalone mode`,
       );
+      assert.doesNotMatch(src, /\/pages\/vocabulary\.html/);
     });
   }
 });
@@ -805,5 +805,4 @@ describe('Sprint 9.3 — .mode-card__badge primitive lives in components.css', (
     assert.match(flashcardsCSS, /^\.delete-btn\s*\{/m);
   });
 });
-
 

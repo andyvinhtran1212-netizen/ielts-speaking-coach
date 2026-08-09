@@ -599,7 +599,7 @@ export class AverChrome extends HTMLElement {
     const root = this.shadowRoot;
     if (!root) return;
     const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
-    if (link) link.setAttribute('href', loggedIn ? '/pages/vocabulary.html' : '/vocabulary.html');
+    if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary.html');
   }
 
   _applyActive(value) {

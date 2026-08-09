@@ -174,7 +174,7 @@ export async function mount(container, opts = {}) {
   // Sprint 9.2 — back-link click delegation. Returns the user to the
   // parent Vocabulary dashboard. Embedded: clear hash, vocab-landing.js
   // hashchange listener restores the dashboard view. Standalone:
-  // hard-navigate to /pages/vocabulary.html.
+  // hard-navigate to the canonical Next hub.
   function backToDashboard() {
     if (embedded) {
       if (window.location.hash) {
@@ -182,7 +182,7 @@ export async function mount(container, opts = {}) {
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       }
     } else {
-      window.location.href = '/pages/vocabulary.html';
+      window.location.href = '/vocabulary/hub';
     }
   }
   container.addEventListener('click', (e) => {
