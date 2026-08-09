@@ -154,7 +154,7 @@ export function VocabExamBehavior() {
                 <h3>{list.title}</h3>
                 <p className="lede vx-meta">
                   <span className="vx-count">{list.count} từ</span>
-                  {list.description ? <><span aria-hidden="true">·</span>{list.description}</> : null}
+                  {list.description ? <> · {list.description}</> : null}
                 </p>
               </a>
             ))}
