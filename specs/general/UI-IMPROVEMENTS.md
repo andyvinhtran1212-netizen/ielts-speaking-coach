@@ -616,3 +616,32 @@ None found that require a schema or grading rewrite.
 - **Verification:** render mini tests with complete and missing list metadata;
   confirm one passage remains truthful and no `/40` or `60 phút` value is
   invented when the endpoint omits those fields.
+
+## Learner Reading passage workspace — 2026-08-09
+
+### Issue: passage detail pages hide orientation data and fragment the reading flow
+
+- **Root cause:** the Vocab and Skill detail controllers already receive
+  canonical difficulty, duration, word count, topic, and skill-focus fields,
+  but the page shells rendered only a back link and title above two visually
+  unframed scroll columns. The shared question renderer then emitted a generic
+  heading, detached score block, and equal-weight answer rows.
+- **Severity:** Medium.
+- **Impact:** learners start long passages without knowing level or time
+  commitment, cannot quickly distinguish assisted Vocab reading from targeted
+  Skill practice, and must infer that the right rail is the next step. On
+  mobile, the title and three vertically stacked view buttons consumed most of
+  the first viewport before any passage text appeared.
+- **Impacted files:** `reading-vocab-passage.html`,
+  `reading-skill-exercise.html`, their two page controllers,
+  `components/reading-questions.js`, and `reading-vocab.css`.
+- **Suggested minimal fix:** keep both GET and check endpoints, answer-key
+  stripping, glossary, pane toggles, feedback flags, and grading behaviour;
+  organize existing response fields into a compact orientation header, frame
+  the article and question rail as one workspace, and keep the three reading
+  modes in a compact segmented control on narrow screens.
+- **Verification:** open one published item from each library; compare rendered
+  level/time/word/topic/skill values to its detail response, switch all
+  available reading panes, inspect glossary and image lightbox, check every
+  supported question type plus feedback flag, and verify independent desktop
+  pane scrolling versus normal mobile document flow in light and dark themes.
