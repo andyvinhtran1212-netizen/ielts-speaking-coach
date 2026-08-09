@@ -147,39 +147,45 @@
       </div>
     </header>
 
-    <nav class="result-tabs" aria-label="Section tabs">
-      <button class="tab-btn is-active" data-tab="tongquan">
-        <span class="tab-icon">📊</span><span class="tab-label">Tổng quan</span>
-      </button>
-      <button class="tab-btn" data-tab="loi">
-        <span class="tab-icon">❌</span><span class="tab-label">Nhận xét lỗi</span>
-      </button>
-      <button class="tab-btn" data-tab="nangcao">
-        <span class="tab-icon">🔬</span><span class="tab-label">Phân tích nâng cao</span>
-      </button>
-      <button class="tab-btn" data-tab="baimau">
-        <span class="tab-icon">📚</span><span class="tab-label">Bài mẫu</span>
-      </button>
-      <button class="tab-btn hidden" id="tab-btn-note" data-tab="note">
-        <span class="tab-icon">💬</span><span class="tab-label">Note giảng viên</span>
-      </button>
-    </nav>
-
     <main class="result-content">
-      <!-- Always visible: original essay -->
-      <section class="essay-section">
-        <header class="section-header">
-          <h2>📄 Bài viết của em</h2>
-          <span id="word-count" class="word-count">— từ</span>
-        </header>
-        <div id="prompt-box" class="prompt-box"></div>
-        <!-- Sprint 19.3.5 — Task 1 Academic chart (shown only when present). -->
-        <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" />
-        <pre id="essay-text" class="essay-original">—</pre>
+      <section class="review-intro" aria-labelledby="review-intro-title">
+        <div>
+          <p class="review-intro__eyebrow">Lộ trình cải thiện</p>
+          <h2 id="review-intro-title">Tập trung vào điều tạo khác biệt cho bài tiếp theo</h2>
+        </div>
+        <p>Đọc phần ưu tiên trước, đối chiếu trực tiếp với bài viết có đánh dấu lỗi, rồi mới đi sâu vào từng tiêu chí.</p>
       </section>
 
+      <div class="review-workspace">
+        <div class="feedback-column">
+          <div class="feedback-column__heading">
+            <div>
+              <span>Phản hồi học tập</span>
+              <h2>Nhận xét dành cho em</h2>
+            </div>
+            <p>Bắt đầu ở “Ưu tiên”, sau đó chuyển tới lỗi cần sửa.</p>
+          </div>
+
+          <nav class="result-tabs" role="tablist" aria-label="Các phần nhận xét Writing">
+            <button id="tab-tongquan" class="tab-btn is-active" role="tab" data-tab="tongquan" aria-controls="panel-tongquan" aria-selected="true" tabindex="0">
+              <span class="tab-icon">📊</span><span class="tab-label">Ưu tiên</span>
+            </button>
+            <button id="tab-loi" class="tab-btn" role="tab" data-tab="loi" aria-controls="panel-loi" aria-selected="false" tabindex="-1">
+              <span class="tab-icon">❌</span><span class="tab-label">Lỗi cần sửa</span>
+            </button>
+            <button id="tab-nangcao" class="tab-btn" role="tab" data-tab="nangcao" aria-controls="panel-nangcao" aria-selected="false" tabindex="-1">
+              <span class="tab-icon">🔬</span><span class="tab-label">Phân tích sâu</span>
+            </button>
+            <button id="tab-baimau" class="tab-btn" role="tab" data-tab="baimau" aria-controls="panel-baimau" aria-selected="false" tabindex="-1">
+              <span class="tab-icon">📚</span><span class="tab-label">Bài tham khảo</span>
+            </button>
+            <button class="tab-btn hidden" id="tab-btn-note" role="tab" data-tab="note" aria-controls="panel-note" aria-selected="false" tabindex="-1">
+              <span class="tab-icon">💬</span><span class="tab-label">Giảng viên</span>
+            </button>
+          </nav>
+
       <!-- ── Tab 1: Tổng quan (Key Takeaways FIRST per Andy spec) ── -->
-      <div class="tab-panel is-active" data-panel="tongquan">
+      <div id="panel-tongquan" class="tab-panel is-active" role="tabpanel" data-panel="tongquan" aria-labelledby="tab-tongquan">
         <section id="section-key-takeaways" class="grade-section">
           <header class="section-header"><h2>🎓 Key Takeaways</h2></header>
           <div class="section-content" id="content-key-takeaways"></div>
@@ -202,7 +208,7 @@
       </div>
 
       <!-- ── Tab 2: Nhận xét lỗi ── -->
-      <div class="tab-panel" data-panel="loi">
+      <div id="panel-loi" class="tab-panel" role="tabpanel" data-panel="loi" aria-labelledby="tab-loi">
         <section id="section-mistakes" class="grade-section">
           <header class="section-header"><h2>❌ Lỗi sai</h2></header>
           <div class="section-content" id="content-mistakes"></div>
@@ -215,7 +221,7 @@
       </div>
 
       <!-- ── Tab 3: Phân tích nâng cao ── -->
-      <div class="tab-panel" data-panel="nangcao">
+      <div id="panel-nangcao" class="tab-panel" role="tabpanel" data-panel="nangcao" aria-labelledby="tab-nangcao">
         <section id="section-lexical" class="grade-section">
           <header class="section-header"><h2>📚 Từ vựng</h2></header>
           <div class="section-content" id="content-lexical"></div>
@@ -243,7 +249,7 @@
       </div>
 
       <!-- ── Tab 4: Bài mẫu tham khảo ── -->
-      <div class="tab-panel" data-panel="baimau">
+      <div id="panel-baimau" class="tab-panel" role="tabpanel" data-panel="baimau" aria-labelledby="tab-baimau">
         <section id="section-improved" class="grade-section">
           <header class="section-header"><h2>✨ Bài cải thiện (Band 8.0+)</h2></header>
           <div class="section-content" id="content-improved"></div>
@@ -256,11 +262,32 @@
       </div>
 
       <!-- ── Tab 5: Note giảng viên (conditional) ── -->
-      <div class="tab-panel" data-panel="note">
+      <div id="panel-note" class="tab-panel" role="tabpanel" data-panel="note" aria-labelledby="tab-btn-note">
         <section id="section-instructor-note" class="grade-section">
           <header class="section-header"><h2>💬 Note từ giảng viên</h2></header>
           <div class="section-content" id="content-instructor-note"></div>
         </section>
+      </div>
+        </div>
+
+        <!-- The submitted essay stays visible beside feedback on desktop.
+             On compact screens feedback comes first, then the source essay. -->
+        <aside class="essay-column" aria-label="Bài viết đã nộp">
+          <section class="essay-section">
+            <header class="section-header">
+              <div>
+                <span class="essay-section__eyebrow">Đối chiếu bài làm</span>
+                <h2>📄 Bài viết của em</h2>
+              </div>
+              <span id="word-count" class="word-count">— từ</span>
+            </header>
+            <p class="essay-section__hint">Các đoạn gạch chân là vị trí có nhận xét. Chọn vào đoạn để xem cách sửa.</p>
+            <div id="prompt-box" class="prompt-box"></div>
+            <!-- Sprint 19.3.5 — Task 1 Academic chart (shown only when present). -->
+            <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" />
+            <pre id="essay-text" class="essay-original">—</pre>
+          </section>
+        </aside>
       </div>
     </main>
 
@@ -360,16 +387,31 @@
 
     // ── Tab toggle ────────────────────────────────────────────────
     function wireTabs() {
-      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      var tabs = Array.from(document.querySelectorAll('.tab-btn'));
+      tabs.forEach(function (btn) {
         btn.addEventListener('click', function () {
           var key = btn.getAttribute('data-tab');
           document.querySelectorAll('.tab-btn').forEach(function (b) {
             b.classList.toggle('is-active', b === btn);
+            b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+            b.tabIndex = b === btn ? 0 : -1;
           });
           document.querySelectorAll('.tab-panel').forEach(function (p) {
             p.classList.toggle('is-active', p.getAttribute('data-panel') === key);
           });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          var heading = document.querySelector('.feedback-column__heading');
+          var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (heading) heading.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+        });
+        btn.addEventListener('keydown', function (ev) {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(ev.key)) return;
+          var visibleTabs = tabs.filter(function (tab) { return !tab.classList.contains('hidden'); });
+          var current = visibleTabs.indexOf(btn);
+          var next = ev.key === 'Home' ? 0 : ev.key === 'End' ? visibleTabs.length - 1
+            : (current + (ev.key === 'ArrowRight' ? 1 : -1) + visibleTabs.length) % visibleTabs.length;
+          ev.preventDefault();
+          visibleTabs[next].focus();
+          visibleTabs[next].click();
         });
       });
     }
