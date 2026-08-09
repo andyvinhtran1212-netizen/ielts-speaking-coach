@@ -47,9 +47,6 @@ const LEGACY_MODULE_ROUTES = [
   // nên hai route này CÀNG phải giữ tải cứng (review cục bộ #958).
   '/exercises',
   '/flashcards',
-  // `/js/vocab-exam.js` nạp bằng `defer`; điều hướng mềm không tái tạo bảo đảm
-  // thứ tự của defer nên nó có thể đua với `api.js` (review cục bộ #960).
-  '/vocabulary/exam',
 ];
 
 function walk(dir, out = []) {
