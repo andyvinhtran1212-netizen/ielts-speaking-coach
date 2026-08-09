@@ -96,6 +96,30 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.deepEqual(states, ['loading', 'prep']);
   });
 
+  test('publishes immutable section view snapshots without replacing unrelated sections', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController(fixture.environment);
+    const initial = controller.getViewSnapshot();
+    const snapshots = [];
+    const cueBullets = ['first cue'];
+    controller.subscribeView(() => snapshots.push(controller.getViewSnapshot()));
+    assert.equal(controller.updateView('prep', { topic: 'Work', cueBullets }), true);
+    cueBullets.push('mutated after publish');
+    const updated = controller.getViewSnapshot();
+    assert.notEqual(updated, initial);
+    assert.notEqual(updated.prep, initial.prep);
+    assert.equal(updated.header, initial.header);
+    assert.equal(updated.prep.topic, 'Work');
+    assert.deepEqual(updated.prep.cueBullets, ['first cue']);
+    assert.equal(Object.isFrozen(updated), true);
+    assert.equal(Object.isFrozen(updated.prep), true);
+    assert.equal(Object.isFrozen(updated.prep.cueBullets), true);
+    assert.deepEqual(snapshots, [updated]);
+    assert.throws(() => controller.updateView('missing', {}), /unknown-speaking-player-view/);
+    controller.destroy();
+    assert.equal(controller.updateView('prep', { topic: 'stale' }), false);
+  });
+
   test('replaces keyed listeners and removes them on destroy', () => {
     const fixture = makeEnvironment();
     const target = new FakeTarget();
@@ -227,6 +251,11 @@ describe('Next Speaking player integration', () => {
     assert.match(PRACTICE, /nativePlayer\.listen/);
     assert.match(PRACTICE, /nativePlayer\.createObjectUrl/);
     assert.match(PRACTICE, /nativePlayer\.cancelSpeech/);
+    assert.match(PRACTICE, /controller\.updateView/);
+    assert.match(PRACTICE, /_updateNativeView\('header'/);
+    assert.match(PRACTICE, /_updateNativeView\('prep'/);
+    assert.match(PRACTICE, /_updateNativeView\('recording'/);
+    assert.match(PRACTICE, /_updateNativeView\('processing'/);
     assert.match(PRACTICE, /destroy:/);
   });
 

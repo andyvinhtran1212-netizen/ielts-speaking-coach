@@ -61,6 +61,10 @@ describe('/practice/session transitional dark route', () => {
     assert.match(PLAYER_BRIDGE, /domStateActivation: false/);
     assert.match(SHELL, /useSyncExternalStore/);
     assert.match(SHELL, /activeState === name/);
+    assert.match(SHELL, /view\.header\.progressBarPercent/);
+    assert.match(SHELL, /view\.prep\.cueBullets\.map/);
+    assert.match(SHELL, /view\.recording\.playbackUrl/);
+    assert.match(SHELL, /view\.processing\.text/);
   });
 
   test('layout preserves the legacy CSS and script ordering', () => {
@@ -96,8 +100,8 @@ describe('/practice/session transitional dark route', () => {
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
     );
-    assert.match(DOC, /renderer\/copy\/feedback động sang React state\/client components/);
-    assert.match(DOC, /JSX ownership không được dùng để tuyên bố native behavior/);
+    assert.match(DOC, /Port Part 2, assignment sheet, feedback\/pronunciation/);
+    assert.match(DOC, /JSX ownership không được dùng\s+để tuyên bố native behavior/);
     assert.match(DOC, /`route_ready=false` giữ nguyên/);
   });
 

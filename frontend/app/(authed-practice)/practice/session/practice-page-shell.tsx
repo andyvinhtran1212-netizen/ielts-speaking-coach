@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
 type PlayerStateStore = {
   getStateSnapshot(): null | string;
+  getViewSnapshot(): any;
   subscribeState(listener: () => void): () => void;
+  subscribeView(listener: () => void): () => void;
+  updateView(section: string, patch: Record<string, unknown>): boolean;
 };
 
 type PracticeMethod =
@@ -102,14 +105,29 @@ function Icon({ name, className = '' }: { name: string; className?: string }) {
 }
 
 export function PracticePageShell({ player }: { player: PlayerStateStore }) {
+  const listenAudioRef = useRef<HTMLAudioElement>(null);
   const subscribe = useCallback(
     (listener: () => void) => player.subscribeState(listener),
     [player],
   );
   const getSnapshot = useCallback(() => player.getStateSnapshot(), [player]);
   const activeState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot) || 'loading';
+  const subscribeView = useCallback(
+    (listener: () => void) => player.subscribeView(listener),
+    [player],
+  );
+  const getViewSnapshot = useCallback(() => player.getViewSnapshot(), [player]);
+  const view = useSyncExternalStore(subscribeView, getViewSnapshot, getViewSnapshot);
   const stateClass = (name: string, className: string) =>
     `${className}${activeState === name ? ' active' : ''}`;
+
+  useEffect(() => {
+    if (view.prep.listenOnly && view.prep.listenAudioUrl) return;
+    const audio = listenAudioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.load();
+  }, [view.prep.listenAudioUrl, view.prep.listenOnly]);
 
   return (
     <>
@@ -119,29 +137,29 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <p className="eyebrow" style={{ margin: 0 }}>Speaking</p>
         </div>
         <div className="flex items-center gap-3 min-w-0">
-          <span id="hdr-info" className="hidden text-xs font-medium truncate practice-hdr-info" />
-          <span id="hdr-progress" className="hidden ds-badge ds-badge-teal" style={{ whiteSpace: 'nowrap' }} />
+          <span id="hdr-info" className={`${view.header.visible ? '' : 'hidden '}text-xs font-medium truncate practice-hdr-info`}>{view.header.info}</span>
+          <span id="hdr-progress" className={`${view.header.visible ? '' : 'hidden '}ds-badge ds-badge-teal`} style={{ whiteSpace: 'nowrap' }}>{view.header.progress}</span>
         </div>
       </header>
 
       <main className="flex-1 flex flex-col">
-        <div id="test-mode-banner" className="practice-test-banner" style={{ display: 'none' }}>
+        <div id="test-mode-banner" className="practice-test-banner" style={{ display: view.frame.testModeBannerVisible ? '' : 'none' }}>
           <span className="practice-test-banner__label"><Icon name="alert-triangle" />TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG</span>
         </div>
-        <div id="progress-bar-wrap" className="practice-progress-wrap" style={{ display: 'none' }}>
-          <div id="progress-bar-label" className="practice-progress-label" />
-          <div className="practice-progress-rail"><div id="progress-bar-fill" className="practice-progress-fill" style={{ width: '0%' }} /></div>
+        <div id="progress-bar-wrap" className="practice-progress-wrap" style={{ display: view.header.progressBarVisible ? '' : 'none' }}>
+          <div id="progress-bar-label" className="practice-progress-label">{view.header.progressBarLabel}</div>
+          <div className="practice-progress-rail"><div id="progress-bar-fill" className="practice-progress-fill" style={{ width: `${view.header.progressBarPercent}%` }} /></div>
         </div>
 
         <div id="state-loading" className={stateClass('loading', 'state flex-1 items-center justify-center flex-col gap-4')}>
           <div className="spinner" />
-          <p id="loading-msg" className="practice-loading-msg text-sm">Đang tải...</p>
+          <p id="loading-msg" className="practice-loading-msg text-sm">{view.frame.loadingMessage}</p>
         </div>
 
         <div id="state-error" className={stateClass('error', 'state flex-1 items-center justify-center flex-col gap-4 px-6')}>
           <div className="practice-error-icon"><Icon name="alert-triangle" /></div>
           <h2 className="text-lg font-bold">Đã xảy ra lỗi</h2>
-          <p id="error-msg" className="practice-error-msg text-sm text-center max-w-xs" />
+          <p id="error-msg" className="practice-error-msg text-sm text-center max-w-xs">{view.frame.errorMessage}</p>
           <a href="/speaking" className="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">Quay lại</a>
         </div>
 
@@ -166,57 +184,57 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         </div>
 
         <div id="state-prep" className={stateClass('prep', 'state block-state flex-1 av-w-read py-8 ds-fadein')}>
-          <div id="prep-fallback-warning" className="ds-callout practice-warning-callout" style={{ display: 'none' }}>
+          <div id="prep-fallback-warning" className="ds-callout practice-warning-callout" style={{ display: view.prep.fallbackWarningVisible ? '' : 'none' }}>
             <Icon name="alert-triangle" /><span>AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.</span>
           </div>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span id="prep-part-badge" className="ds-badge ds-badge-teal" />
-            <span id="prep-topic" className="practice-prep-topic text-sm font-medium" />
-            <span id="prep-q-counter" className="practice-prep-counter ml-auto text-xs font-semibold" />
+            <span id="prep-part-badge" className="ds-badge ds-badge-teal">{view.prep.partBadge}</span>
+            <span id="prep-topic" className="practice-prep-topic text-sm font-medium">{view.prep.topic}</span>
+            <span id="prep-q-counter" className="practice-prep-counter ml-auto text-xs font-semibold">{view.prep.counter}</span>
           </div>
-          <div id="prep-mode-toggle" className="practice-mode-toggle flex gap-1 mb-4 p-1 rounded-xl">
+          <div id="prep-mode-toggle" className="practice-mode-toggle flex gap-1 mb-4 p-1 rounded-xl" style={{ display: view.prep.modeToggleVisible ? '' : 'none' }}>
             <button id="prep-mode-visual" type="button" className="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg" onClick={() => callPractice('setQMode', 'visual')}><Icon name="eye" />Visual</button>
             <button id="prep-mode-listening" type="button" className="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg" onClick={() => callPractice('setQMode', 'listening')}><Icon name="volume-2" />Listening</button>
           </div>
-          <div id="prep-listen-bar" style={{ display: 'none' }} className="mb-4 flex items-center justify-center">
-            <button id="prep-play-btn" type="button" className="btn-primary practice-icon-btn px-7 py-2.5 text-sm font-bold" onClick={() => callPractice('playQuestion')}><Icon name="volume-2" />Nghe câu hỏi</button>
+          <div id="prep-listen-bar" style={{ display: view.prep.listeningBarVisible ? '' : 'none' }} className="mb-4 flex items-center justify-center">
+            <button id="prep-play-btn" type="button" className="btn-primary practice-icon-btn px-7 py-2.5 text-sm font-bold" onClick={() => callPractice('playQuestion')}>{view.prep.playIsReplay ? '↺ ' : <Icon name="volume-2" />}{view.prep.playLabel}</button>
           </div>
-          <div id="prep-q-card" className="ds-question-card mb-5 ds-fadein" style={{ transition: 'opacity 0.2s' }}>
+          <div id="prep-q-card" className={`${view.prep.listenOnly ? 'hidden ' : ''}ds-question-card mb-5 ds-fadein`} style={{ transition: 'opacity 0.2s', opacity: view.prep.qCardOpacity }}>
             <div className="ds-q-label">Câu hỏi</div>
-            <div id="prep-text-reveal"><p id="prep-q-text" className="ds-q-text" /></div>
-            <button id="prep-reveal-btn" type="button" className="practice-reveal-btn w-full text-xs py-2 px-4 rounded-lg font-medium transition" style={{ display: 'none' }} onClick={() => callPractice('revealQuestionText')}><Icon name="eye" />Hiện câu hỏi</button>
+            <div id="prep-text-reveal" style={{ display: view.prep.revealTextVisible ? '' : 'none' }}><p id="prep-q-text" className="ds-q-text">{view.prep.questionText}</p></div>
+            <button id="prep-reveal-btn" type="button" className="practice-reveal-btn w-full text-xs py-2 px-4 rounded-lg font-medium transition" style={{ display: view.prep.revealButtonVisible ? '' : 'none' }} onClick={() => callPractice('revealQuestionText')}><Icon name="eye" />Hiện câu hỏi</button>
           </div>
-          <div id="prep-listen" className="ds-question-card mb-5 hidden">
+          <div id="prep-listen" className={`${view.prep.listenOnly ? '' : 'hidden '}ds-question-card mb-5`}>
             <div className="ds-q-label">Nghe câu hỏi</div>
             <p className="prep-listen__hint">Nghe rồi trả lời. Không có bản chữ — như trong phòng thi.</p>
-            <audio id="prep-listen-audio" preload="auto" controls className="prep-listen__audio" />
-            <p id="prep-listen-error" className="prep-listen__error hidden">Chưa tải được câu hỏi. Kiểm tra kết nối rồi bấm phát lại.</p>
+            <audio ref={listenAudioRef} id="prep-listen-audio" src={view.prep.listenAudioUrl || undefined} preload="auto" controls className="prep-listen__audio" onError={() => player.updateView('prep', { listenError: 'Chưa tải được câu hỏi. Kiểm tra kết nối rồi bấm phát lại.' })} />
+            <p id="prep-listen-error" className={`${view.prep.listenError ? '' : 'hidden '}prep-listen__error`}>{view.prep.listenError}</p>
           </div>
-          <div id="prep-cue" className="hidden ds-cue-card mb-6">
+          <div id="prep-cue" className={`${view.prep.cueVisible ? '' : 'hidden '}ds-cue-card mb-6`}>
             <p className="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3"><Icon name="clipboard-list" />Cue Card — Hãy nói về:</p>
-            <div id="prep-cue-bullets" className="mb-3" />
-            <p id="prep-cue-reflection" className="practice-cue-card__reflection text-sm italic" />
+            <div id="prep-cue-bullets" className="mb-3">{view.prep.cueBullets.map((bullet: string, index: number) => <div className="ds-cue-bullet" key={`${index}:${bullet}`}>{bullet}</div>)}</div>
+            <p id="prep-cue-reflection" className="practice-cue-card__reflection text-sm italic">{view.prep.cueReflection}</p>
           </div>
-          <p id="prep-instruction" className="practice-prep-instruction text-xs text-center mb-6">Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.</p>
-          <button id="prep-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-base" onClick={() => callPractice('goToRecording')}><Icon name="mic" />Bắt đầu ghi âm</button>
-          <div id="inline-rec-section" style={{ display: 'none', marginTop: 16 }}>
-            <div id="rec-error" className="ds-callout practice-error-callout" style={{ display: 'none' }} />
-            <div id="rec-idle" style={{ display: 'none' }}>
+          <p id="prep-instruction" className="practice-prep-instruction text-xs text-center mb-6">{view.prep.instruction}</p>
+          <button id="prep-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-base" style={{ display: view.prep.startButtonVisible ? '' : 'none' }} onClick={() => callPractice('goToRecording')}><Icon name="mic" />Bắt đầu ghi âm</button>
+          <div id="inline-rec-section" style={{ display: view.prep.inlineRecordingVisible ? '' : 'none', marginTop: 16 }}>
+            <div id="rec-error" className="ds-callout practice-error-callout" style={{ display: view.recording.errorVisible ? '' : 'none' }}>{view.recording.error}</div>
+            <div id="rec-idle" style={{ display: view.recording.substate === 'idle' ? '' : 'none' }}>
               <div className="text-center py-4"><div className="ds-rec-ring practice-rec-ring--idle mb-3"><Icon name="mic" className="practice-rec-ring__icon" /></div><p className="practice-rec-idle-label text-sm font-medium mb-1">Sẵn sàng ghi âm</p></div>
               <button type="button" className="btn-primary practice-icon-btn w-full py-4 text-base" onClick={() => callPractice('startRecording')}><Icon name="mic" />Bắt đầu ghi âm</button>
             </div>
-            <div id="rec-recording" style={{ display: 'none' }}>
-              <div className="text-center mb-4"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="rec-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums">0:00</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói rõ ràng vào microphone</p></div>
+            <div id="rec-recording" style={{ display: view.recording.substate === 'recording' ? '' : 'none' }}>
+              <div className="text-center mb-4"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="rec-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums">{view.recording.timer}</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói rõ ràng vào microphone</p></div>
               <canvas id="rec-canvas" width="600" height="56" className="practice-rec-canvas" />
               <button type="button" className="btn-danger practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('stopRecording')}><Icon name="square" />Dừng ghi âm</button>
             </div>
-            <div id="rec-recorded" style={{ display: 'none' }}>
-              <div className="text-center py-4"><div className="practice-rec-success"><Icon name="check-circle" /></div><p className="practice-rec-success-label text-sm font-semibold mb-1">Đã ghi âm xong!</p><p id="rec-duration-display" className="practice-rec-duration text-xs" /></div>
-              <audio id="rec-playback" controls preload="metadata" className="practice-rec-playback" style={{ display: 'none', width: '100%', margin: '0 0 12px' }} />
-              <p id="rec-length-hint" className="practice-rec-length-hint text-xs" style={{ display: 'none', textAlign: 'center', marginBottom: 12 }} />
+            <div id="rec-recorded" style={{ display: view.recording.substate === 'recorded' ? '' : 'none' }}>
+              <div className="text-center py-4"><div className="practice-rec-success"><Icon name="check-circle" /></div><p className="practice-rec-success-label text-sm font-semibold mb-1">Đã ghi âm xong!</p><p id="rec-duration-display" className="practice-rec-duration text-xs">{view.recording.duration}</p></div>
+              <audio id="rec-playback" src={view.recording.playbackUrl || undefined} controls preload="metadata" className="practice-rec-playback" style={{ display: view.recording.playbackUrl ? '' : 'none', width: '100%', margin: '0 0 12px' }} />
+              <p id="rec-length-hint" className="practice-rec-length-hint text-xs" style={{ display: view.recording.lengthHintVisible ? '' : 'none', textAlign: 'center', marginBottom: 12 }}>{view.recording.lengthHint}</p>
               <div className="flex gap-3">
                 <button type="button" className="btn-ghost practice-icon-btn py-3 text-sm font-semibold" style={{ flex: 1 }} onClick={() => callPractice('resetRecording')}><Icon name="rotate-ccw" />Ghi lại</button>
-                <button id="rec-submit-btn" type="button" className="btn-primary practice-icon-btn py-3 text-sm font-bold" style={{ flex: 2 }} onClick={() => callPractice('submitRecording')}><Icon name="upload" />Nộp để chấm điểm</button>
+                <button id="rec-submit-btn" type="button" disabled={view.recording.submitDisabled} aria-disabled={view.recording.submitDisabled || undefined} className="btn-primary practice-icon-btn py-3 text-sm font-bold" style={{ flex: 2 }} onClick={() => callPractice('submitRecording')}><Icon name="upload" />Nộp để chấm điểm</button>
               </div>
             </div>
           </div>
@@ -249,7 +267,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <button type="button" className="btn-danger practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('stopP2SpeakingEarly')}><Icon name="square" />Dừng sớm</button>
         </div>
 
-        <div id="state-processing" className={stateClass('processing', 'state flex-1 items-center justify-center flex-col gap-6 px-6 text-center')}><div className="spinner" /><div><p id="processing-text" className="practice-processing-text text-base font-semibold" /><p className="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p></div></div>
+        <div id="state-processing" className={stateClass('processing', 'state flex-1 items-center justify-center flex-col gap-6 px-6 text-center')}><div className="spinner" /><div><p id="processing-text" className="practice-processing-text text-base font-semibold">{view.processing.text}</p><p className="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p></div></div>
 
         <div id="state-feedback" className={stateClass('feedback', 'state block-state flex-1 av-w-read py-8 ds-fadein')}>
           <h2 className="text-lg font-bold mb-5 text-center">Kết quả câu trả lời</h2>

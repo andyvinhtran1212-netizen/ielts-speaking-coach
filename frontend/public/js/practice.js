@@ -180,6 +180,20 @@
       : null;
   }
 
+  function _getNativeView() {
+    var controller = _getNativePlayer();
+    return controller
+      && typeof controller.updateView === 'function'
+      && typeof controller.getViewSnapshot === 'function'
+      ? controller
+      : null;
+  }
+
+  function _updateNativeView(section, patch) {
+    var view = _getNativeView();
+    return view ? view.updateView(section, patch) : false;
+  }
+
   function _startManagedInterval(key, callback, milliseconds) {
     var nativePlayer = _getNativePlayer();
     return nativePlayer
@@ -250,6 +264,16 @@
    * lời hứa hỏng — người học sẽ tưởng trang chưa tải xong.
    */
   function _applyListenOnlyUI(on) {
+    var url = on ? ((_currentQ && _currentQ.audio_url) || '') : '';
+    var nativeError = on && !url
+      ? 'Bài này chưa có bản đọc đề. Báo giáo viên giúp nhé.'
+      : '';
+    if (_updateNativeView('prep', {
+      listenOnly: !!on,
+      listenAudioUrl: url,
+      listenError: nativeError,
+    })) return;
+
     var qCard = $('prep-q-card');
     var block = $('prep-listen');
     var audio = $('prep-listen-audio');
@@ -264,7 +288,6 @@
       audio.removeAttribute('src');
       return;
     }
-    var url = (_currentQ && _currentQ.audio_url) || '';
     if (!url) {
       // Không có audio mà cũng không có chữ nghĩa là em ấy không có gì cả. Nói
       // ra, đừng để một ô trình phát rỗng.
@@ -305,8 +328,10 @@
   }
 
   function showError(msg) {
-    var el = $('error-msg');
-    if (el) el.textContent = msg;
+    if (!_updateNativeView('frame', { errorMessage: msg })) {
+      var el = $('error-msg');
+      if (el) el.textContent = msg;
+    }
     showState('error');
   }
 
@@ -314,11 +339,13 @@
 
   function _showRecSub(name) {
     // name: 'idle' | 'recording' | 'recorded'
-    ['idle', 'recording', 'recorded'].forEach(function (s) {
-      var el = $('rec-' + s);
-      if (!el) return;
-      el.style.display = (s === name) ? '' : 'none';
-    });
+    if (!_updateNativeView('recording', { substate: name })) {
+      ['idle', 'recording', 'recorded'].forEach(function (s) {
+        var el = $('rec-' + s);
+        if (!el) return;
+        el.style.display = (s === name) ? '' : 'none';
+      });
+    }
     _recSubState = name;
   }
 
@@ -326,11 +353,38 @@
 
   function _updateHeader() {
     if (!_sessionData) return;
+    // For Full Test Part 1, the topic is a '|||'-joined string — show only the part number.
+    var topicStr = (_sessionData.topic || '');
+    var headerTopic = (topicStr.indexOf('|||') !== -1) ? '' : (' · ' + topicStr);
+    var infoText = 'Part ' + _sessionData.part + headerTopic;
+    var progressText = (_currentIdx + 1) + ' / ' + _questions.length;
+    var pct = 0;
+    var labelText = '';
+    if (_testMode === 'test_full') {
+      // Cumulative questions before each part starts (Part 1: 9q, Part 2: 1q, Part 3: 5q → total 15)
+      var _FT_BEFORE = { 1: 0, 2: 9, 3: 10 };
+      var _FT_TOTAL  = 15;
+      var currentPart        = _ftCurrentPart || _sessionData.part;
+      var doneBeforeThisPart = _FT_BEFORE[currentPart] || 0;
+      var overallDone        = doneBeforeThisPart + (_currentIdx + 1);
+      pct = Math.round((overallDone / _FT_TOTAL) * 100);
+      labelText = 'Part ' + currentPart + ' / 3  ·  Câu ' + (_currentIdx + 1) + ' / ' + _questions.length + '  ·  Tổng: ' + overallDone + ' / ' + _FT_TOTAL;
+    } else if (_testMode) {
+      pct = _questions.length > 0 ? Math.round((_currentIdx + 1) / _questions.length * 100) : 0;
+      labelText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
+    }
+
+    if (_updateNativeView('header', {
+      info: infoText,
+      progress: progressText,
+      visible: true,
+      progressBarVisible: !!_testMode,
+      progressBarLabel: labelText,
+      progressBarPercent: pct,
+    })) return;
+
     var info = $('hdr-info');
     if (info) {
-      // For Full Test Part 1, the topic is a '|||'-joined string — show only the part number.
-      var topicStr = (_sessionData.topic || '');
-      var headerTopic = (topicStr.indexOf('|||') !== -1) ? '' : (' · ' + topicStr);
       info.textContent = 'Part ' + _sessionData.part + headerTopic;
       info.classList.remove('hidden');
     }
@@ -347,21 +401,6 @@
     if (barWrap && barFill && barLabel) {
       if (_testMode) {
         barWrap.style.display = '';
-        var pct, labelText;
-        if (_testMode === 'test_full') {
-          // Cumulative questions before each part starts (Part 1: 9q, Part 2: 1q, Part 3: 5q → total 15)
-          var _FT_BEFORE = { 1: 0, 2: 9, 3: 10 };
-          var _FT_TOTAL  = 15;
-          var currentPart        = _ftCurrentPart || _sessionData.part;
-          var doneBeforeThisPart = _FT_BEFORE[currentPart] || 0;
-          var overallDone        = doneBeforeThisPart + (_currentIdx + 1);
-          pct = Math.round((overallDone / _FT_TOTAL) * 100);
-          labelText = 'Part ' + currentPart + ' / 3  ·  Câu ' + (_currentIdx + 1) + ' / ' + _questions.length + '  ·  Tổng: ' + overallDone + ' / ' + _FT_TOTAL;
-        } else {
-          // test_part
-          pct = _questions.length > 0 ? Math.round((_currentIdx + 1) / _questions.length * 100) : 0;
-          labelText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
-        }
         barFill.style.width = pct + '%';
         barLabel.textContent = labelText;
       } else {
@@ -382,8 +421,8 @@
       return;
     }
 
-    $('prep-q-counter').textContent = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
-    $('prep-part-badge').textContent = 'Part ' + (_sessionData ? _sessionData.part : '');
+    var counterText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
+    var partBadge = 'Part ' + (_sessionData ? _sessionData.part : '');
 
     // Full Test Part 1 — show subtopic group header
     var rawTopic = _sessionData ? (_sessionData.topic || '') : '';
@@ -413,23 +452,42 @@
         displayTopic = 'Nhóm ' + (groupIdx + 1) + '/' + subtopics.length + ' · ' + groupTopic;
       }
     }
-    $('prep-topic').textContent = displayTopic;
-
     // Bài tập lớp Part 1/3: câu hỏi giao BẰNG AUDIO và backend không gửi chữ.
     // Kiểm cờ chứ không kiểm chuỗi rỗng: một câu bình thường cũng có thể rỗng
     // vì lỗi, và khi đó phải hiện lỗi chứ không lặng lẽ chuyển sang chế độ nghe.
     var listenOnly = !!(_currentQ && _currentQ.listen_only);
     _applyListenOnlyUI(listenOnly);
-
-    $('prep-q-text').textContent = listenOnly ? '' : (_currentQ.question_text || '');
-
-    // Issue 2: Reset inline recording section when showing prep
-    var inlineRec = $('inline-rec-section');
-    if (inlineRec) inlineRec.style.display = 'none';
-    var startBtn = $('prep-start-btn');
-    if (startBtn) startBtn.style.display = '';
+    var questionText = listenOnly ? '' : (_currentQ.question_text || '');
 
     // Full Test: hide question text by default (listening/exam mode)
+    var revealTextVisible = !listenOnly && _testMode !== 'test_full';
+    var revealButtonVisible = !listenOnly && _testMode === 'test_full';
+    var nativePrep = _updateNativeView('prep', {
+      partBadge: partBadge,
+      topic: displayTopic,
+      counter: counterText,
+      questionText: questionText,
+      revealTextVisible: revealTextVisible,
+      revealButtonVisible: revealButtonVisible,
+      cueVisible: false,
+      cueBullets: [],
+      cueReflection: '',
+      inlineRecordingVisible: false,
+      startButtonVisible: true,
+    });
+
+    if (!nativePrep) {
+      $('prep-q-counter').textContent = counterText;
+      $('prep-part-badge').textContent = partBadge;
+      $('prep-topic').textContent = displayTopic;
+      $('prep-q-text').textContent = questionText;
+
+      // Issue 2: Reset inline recording section when showing prep
+      var inlineRec = $('inline-rec-section');
+      if (inlineRec) inlineRec.style.display = 'none';
+      var startBtn = $('prep-start-btn');
+      if (startBtn) startBtn.style.display = '';
+
     var revealWrap = $('prep-text-reveal');
     var revealBtn  = $('prep-reveal-btn');
     if (listenOnly) {
@@ -460,6 +518,7 @@
     } else {
       cueBlock && cueBlock.classList.add('hidden');
     }
+    }
 
     showState('prep');
     _applyQModeUI();   // render toggle + controls for current mode
@@ -479,10 +538,15 @@
     _resetRecorder();          // clean slate for this question
 
     // Show inline recording section; hide the start button
-    var inlineRec = $('inline-rec-section');
-    if (inlineRec) inlineRec.style.display = '';
-    var startBtn = $('prep-start-btn');
-    if (startBtn) startBtn.style.display = 'none';
+    if (!_updateNativeView('prep', {
+      inlineRecordingVisible: true,
+      startButtonVisible: false,
+    })) {
+      var inlineRec = $('inline-rec-section');
+      if (inlineRec) inlineRec.style.display = '';
+      var startBtn = $('prep-start-btn');
+      if (startBtn) startBtn.style.display = 'none';
+    }
 
     startRecording();          // begin recording immediately — no extra click needed
   }
@@ -551,11 +615,12 @@
     _stopWaveform();
 
     // Show recorded sub-state with duration
-    var durEl = $('rec-duration-display');
-    if (durEl) {
-      var m = Math.floor(_elapsedSecs / 60);
-      var s = _elapsedSecs % 60;
-      durEl.textContent = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
+    var m = Math.floor(_elapsedSecs / 60);
+    var s = _elapsedSecs % 60;
+    var durationText = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
+    if (!_updateNativeView('recording', { duration: durationText })) {
+      var durEl = $('rec-duration-display');
+      if (durEl) durEl.textContent = durationText;
     }
     // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
     // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái.
@@ -704,11 +769,12 @@
   }
 
   function _renderTimer() {
-    var el = $('rec-timer');
-    if (!el) return;
     var m = Math.floor(_elapsedSecs / 60);
     var s = _elapsedSecs % 60;
-    el.textContent = m + ':' + (s < 10 ? '0' + s : s);
+    var timerText = m + ':' + (s < 10 ? '0' + s : s);
+    if (_updateNativeView('recording', { timer: timerText })) return;
+    var el = $('rec-timer');
+    if (el) el.textContent = timerText;
   }
 
   // ── Recording: stop ───────────────────────────────────────────────────────────
@@ -752,8 +818,10 @@
     _recordedBlob = null;
     _elapsedSecs  = 0;
     // Reset timer display
-    var timerEl = $('rec-timer');
-    if (timerEl) timerEl.textContent = '0:00';
+    if (!_updateNativeView('recording', { timer: '0:00', duration: '' })) {
+      var timerEl = $('rec-timer');
+      if (timerEl) timerEl.textContent = '0:00';
+    }
     // Clear waveform canvas
     var canvas = $('rec-canvas');
     if (canvas) {
@@ -776,13 +844,15 @@
   var _recordedPlaybackUrl = null;
 
   function _renderRecordedPlayback() {
-    var audioEl = $('rec-playback');
-    if (!audioEl || !_recordedBlob) return;
+    if (!_recordedBlob) return;
     if (_recordedPlaybackUrl) {
       _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
     _recordedPlaybackUrl = _createManagedObjectUrl('recorded-playback', _recordedBlob);
+    if (_updateNativeView('recording', { playbackUrl: _recordedPlaybackUrl || '' })) return;
+    var audioEl = $('rec-playback');
+    if (!audioEl) return;
     audioEl.src = _recordedPlaybackUrl;
     audioEl.style.display = '';
   }
@@ -790,11 +860,15 @@
   function _renderRecordedLengthHint() {
     var part   = _sessionData ? _sessionData.part : null;
     var minSec = part ? (MIN_RECORD_SEC[part] || 0) : 0;
-    var hintEl = $('rec-length-hint');
-    var submit = $('rec-submit-btn');
-    if (!hintEl) return;
-
     if (!minSec || _elapsedSecs >= minSec) {
+      if (_updateNativeView('recording', {
+        lengthHint: '',
+        lengthHintVisible: false,
+        submitDisabled: false,
+      })) return;
+      var hintEl = $('rec-length-hint');
+      var submit = $('rec-submit-btn');
+      if (!hintEl) return;
       hintEl.style.display = 'none';
       hintEl.textContent = '';
       if (submit) { submit.disabled = false; submit.removeAttribute('aria-disabled'); }
@@ -802,9 +876,18 @@
     }
 
     var needMore = minSec - _elapsedSecs;
-    hintEl.textContent =
+    var hintText =
       'Quá ngắn cho Part ' + part + ' — cần ít nhất ' + minSec +
       ' giây (còn thiếu ~' + needMore + 's). Hãy ghi lại trước khi nộp.';
+    if (_updateNativeView('recording', {
+      lengthHint: hintText,
+      lengthHintVisible: true,
+      submitDisabled: true,
+    })) return;
+    var hintEl = $('rec-length-hint');
+    var submit = $('rec-submit-btn');
+    if (!hintEl) return;
+    hintEl.textContent = hintText;
     hintEl.style.display = '';
     if (submit) { submit.disabled = true; submit.setAttribute('aria-disabled', 'true'); }
   }
@@ -820,6 +903,12 @@
       _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
+    if (_updateNativeView('recording', {
+      playbackUrl: '',
+      lengthHint: '',
+      lengthHintVisible: false,
+      submitDisabled: false,
+    })) return;
     var hintEl = $('rec-length-hint');
     if (hintEl) { hintEl.style.display = 'none'; hintEl.textContent = ''; }
     var submit = $('rec-submit-btn');
@@ -856,15 +945,23 @@
   // ── Error banner in recording state ──────────────────────────────────────────
 
   function _showRecError(msg) {
-    var el = $('rec-error');
-    if (!el) return;
-    el.textContent = msg;
-    el.style.display = '';
+    if (!_updateNativeView('recording', { error: msg, errorVisible: true })) {
+      var el = $('rec-error');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = '';
+    }
     // Auto-hide after 7 s
-    _startManagedTimeout('recording-error-hide', function () { el.style.display = 'none'; }, 7000);
+    _startManagedTimeout('recording-error-hide', function () {
+      if (!_updateNativeView('recording', { errorVisible: false })) {
+        var current = $('rec-error');
+        if (current) current.style.display = 'none';
+      }
+    }, 7000);
   }
 
   function _clearRecError() {
+    if (_updateNativeView('recording', { error: '', errorVisible: false })) return;
     var el = $('rec-error');
     if (el) el.style.display = 'none';
   }
@@ -876,14 +973,17 @@
     var processingRun = ++_processingRun;
     showState('processing');
     var idx   = 0;
-    var textEl = $('processing-text');
+    var nativeProcessing = _updateNativeView('processing', { text: PROCESSING_TEXTS[0] });
+    var textEl = nativeProcessing ? null : $('processing-text');
     if (textEl) textEl.textContent = PROCESSING_TEXTS[0];
     if (_processingTimer) {
       _clearManagedEffect('processing-copy', _processingTimer, 'interval');
     }
     _processingTimer = _startManagedInterval('processing-copy', function () {
       idx = (idx + 1) % PROCESSING_TEXTS.length;
-      if (textEl) textEl.textContent = PROCESSING_TEXTS[idx];
+      if (!_updateNativeView('processing', { text: PROCESSING_TEXTS[idx] }) && textEl) {
+        textEl.textContent = PROCESSING_TEXTS[idx];
+      }
     }, 2000);
     _uploadAndGrade(blob, questionId, generation, processingRun);
   }
@@ -2287,6 +2387,17 @@
 
   function _applyQModeUI() {
     var isListening = (_qMode === 'listening');
+    var instruction = isListening
+      ? 'Nghe câu hỏi rồi nhấn ghi âm. Nhấn ↺ để nghe lại.'
+      : 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.';
+    if (_updateNativeView('prep', {
+      modeToggleVisible: false,
+      listeningBarVisible: isListening,
+      qCardOpacity: isListening ? 0.35 : 1,
+      instruction: instruction,
+      playLabel: 'Nghe câu hỏi',
+      playIsReplay: false,
+    })) return;
 
     // Mode toggle is never useful — all flows force their mode programmatically
     var toggleWrap = $('prep-mode-toggle');
@@ -2315,9 +2426,7 @@
     // Swap instruction text
     var inst = $('prep-instruction');
     if (inst) {
-      inst.textContent = isListening
-        ? 'Nghe câu hỏi rồi nhấn ghi âm. Nhấn ↺ để nghe lại.'
-        : 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.';
+      inst.textContent = instruction;
     }
 
     // Reset play button label to default
@@ -2347,8 +2456,10 @@
   // Called by the "🔊 Nghe câu hỏi / ↺ Phát lại" button (test_full only).
   function _playQuestion() {
     if (!_currentQ || _testMode !== 'test_full') return;
-    var btn = $('prep-play-btn');
-    if (btn) btn.textContent = '↺ Phát lại';
+    if (!_updateNativeView('prep', { playLabel: 'Phát lại', playIsReplay: true })) {
+      var btn = $('prep-play-btn');
+      if (btn) btn.textContent = '↺ Phát lại';
+    }
     _ttsAI(_currentQ.question_text || '', _currentQ.id);
   }
 
@@ -4214,6 +4325,10 @@
   // ── Reveal question text (Full Test) ─────────────────────────────────────────
 
   function _revealQuestionText() {
+    if (_updateNativeView('prep', {
+      revealTextVisible: true,
+      revealButtonVisible: false,
+    })) return;
     var revealWrap = $('prep-text-reveal');
     var revealBtn  = $('prep-reveal-btn');
     if (revealWrap) revealWrap.style.display = '';
@@ -4387,8 +4502,10 @@
       }
 
       if (_testMode) {
-        var banner = $('test-mode-banner');
-        if (banner) banner.style.display = '';
+        if (!_updateNativeView('frame', { testModeBannerVisible: true })) {
+          var banner = $('test-mode-banner');
+          if (banner) banner.style.display = '';
+        }
         // Slice questions to official exam count for test mode
         var qCountTable = (_testMode === 'test_full') ? FULL_TEST_Q_COUNT : TEST_Q_COUNT;
         var partKey     = (_testMode === 'test_full') ? _ftCurrentPart : _sessionData.part;
@@ -4463,9 +4580,11 @@
 
       // Show a warning banner if Gemini was unavailable and fallback questions are being used
       var isFallback = questions.some(function (q) { return q._fallback; });
-      var fallbackBanner = $('prep-fallback-warning');
-      if (fallbackBanner) {
-        fallbackBanner.style.display = isFallback ? '' : 'none';
+      if (!_updateNativeView('prep', { fallbackWarningVisible: isFallback })) {
+        var fallbackBanner = $('prep-fallback-warning');
+        if (fallbackBanner) {
+          fallbackBanner.style.display = isFallback ? '' : 'none';
+        }
       }
 
       // Routing to first question:
