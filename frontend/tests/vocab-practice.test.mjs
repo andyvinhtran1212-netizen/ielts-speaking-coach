@@ -50,7 +50,8 @@ describe('vocab-practice hub — lists published vocab banks', () => {
   });
 
   test('back link goes UP to the Vocabulary hub, not the public word wiki', () => {
-    assert.match(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
+    assert.match(PAGE, /subpage-header__back" href="\/vocabulary\/hub"/);
+    assert.doesNotMatch(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
     assert.doesNotMatch(PAGE, /subpage-header__back" href="\/vocabulary\.html"/);
   });
 
@@ -96,7 +97,7 @@ describe('quiz.html resolves a bank from ?skill_area when ?bank is absent', () =
   });
   test('one bank starts directly; multiple hands off to the lesson picker', () => {
     assert.match(PLAYER, /banks\.length > 1/);
-    assert.match(PLAYER, /location\.replace\('\/pages\/vocab-practice\.html'\)/);
+    assert.match(PLAYER, /location\.replace\('\/vocabulary\/practice'\)/);
   });
 });
 
