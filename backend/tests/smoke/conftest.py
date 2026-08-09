@@ -1,18 +1,15 @@
-"""Marker registration for smoke tests.
+"""Ghi chú cho thư mục test tốn tiền thật.
 
-LỊCH SỬ: bản đầu ghi rằng smoke bị loại "via the developer's invocation
-(e.g. `pytest tests/ --ignore=tests/smoke`)" — tức là trông vào việc người chạy
-NHỚ gõ thêm cờ. Không ai nhớ, và ngày 08/08 nó chạy ~24 lượt trong một ngày.
+LỊCH SỬ: tệp này từng tự đăng ký marker `smoke` kèm câu chỉ dẫn
+`pytest tests/smoke -m smoke`. Sau khi cổng chuyển sang cờ `--run-smoke`
+(08/08), câu ấy thành SAI theo kiểu nguy hiểm nhất: làm đúng theo nó thì test
+bị bỏ qua và pytest vẫn báo XANH — người chạy tin rằng đã kiểm bộ chấm thật
+trong khi nó chưa từng chạy (codex #1015).
 
-Nay cổng thật nằm ở `pytest_collection_modifyitems` trong tests/conftest.py và
-đòi cờ `--run-smoke`; marker vẫn khai báo ở pytest.ini. Tệp này giữ lại phần
-đăng ký marker cho ca chạy thẳng thư mục con.
+Nên bỏ hẳn bản đăng ký ấy. Marker nay khai báo ở MỘT chỗ duy nhất là
+`backend/pytest.ini`; hai nguồn sự thật cho cùng một câu chỉ dẫn thì kiểu gì
+cũng có một cái trôi.
+
+Cổng thật: `pytest_collection_modifyitems` trong `tests/conftest.py`, đòi cờ
+`--run-smoke`.
 """
-
-
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "smoke: live API tests; cost real money; opt-in via "
-        "`pytest tests/smoke -m smoke`",
-    )

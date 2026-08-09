@@ -109,11 +109,43 @@ def test_livenet_opens_the_network_but_not_the_paid_providers():
     )
 
 
-def test_the_markers_are_declared():
+def test_the_marker_help_advertises_a_command_that_actually_runs():
+    """`pytest --markers` là chỗ người ta ĐỌC để biết cách chạy.
+
+    Bản trước còn một đăng ký thứ hai trong tests/smoke/conftest.py chỉ lệnh
+    `pytest tests/smoke -m smoke` — làm đúng theo nó thì test bị bỏ qua và
+    pytest vẫn báo XANH, tức là tin rằng đã kiểm bộ chấm thật trong khi nó chưa
+    từng chạy (codex #1015).
+    """
+    root = pathlib.Path(__file__).resolve().parents[1]
+    r = subprocess.run([sys.executable, "-m", "pytest", "tests/smoke", "--markers"],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+    smoke_lines = [l for l in r.stdout.splitlines() if l.startswith("@pytest.mark.smoke")]
+    assert len(smoke_lines) == 1, ("marker `smoke` được khai báo ở hai nơi — kiểu "
+                                   f"gì cũng có một cái trôi:\n{smoke_lines}")
+    assert "--run-smoke" in smoke_lines[0], smoke_lines[0]
+    # Nguyên văn câu chỉ dẫn CŨ. Không cấm cụm `-m smoke` nói chung: mô tả hiện
+    # tại cố ý nhắc nó để CẢNH BÁO rằng dùng một mình sẽ báo xanh giả.
+    assert "opt-in via" not in smoke_lines[0], "câu chỉ dẫn cũ đã quay lại"
+
+
+def test_every_marker_description_is_a_single_line():
+    """`markers` trong pytest.ini là danh sách theo DÒNG.
+
+    Một mô tả xuống dòng biến phần đuôi thành một marker riêng — bản trước của
+    tôi làm đúng thế và `pytest --markers` in ra `@pytest.mark.chạy bằng ...`.
+
+    Ghim ở NGUỒN chứ không dò kết xuất của pytest: marker dựng sẵn của pytest có
+    dấu cách trong danh sách tham số (`skipif(condition, ..., *, reason=...)`),
+    nên mọi phép dò trên dòng in ra đều báo nhầm chúng.
+    """
     ini = configparser.ConfigParser()
     ini.read(pathlib.Path(__file__).resolve().parents[1] / "pytest.ini")
-    assert "smoke:" in ini["pytest"]["markers"]
-    assert "livenet:" in ini["pytest"]["markers"]
+    for line in ini["pytest"]["markers"].strip().splitlines():
+        name = line.split(":", 1)[0]
+        assert name and " " not in name.strip(), (
+            f"dòng này không mở đầu bằng `tên_marker:` nên nó thành một marker "
+            f"riêng: {line!r}")
 
 
 def test_the_guard_is_armed_before_any_test_module_is_imported():
