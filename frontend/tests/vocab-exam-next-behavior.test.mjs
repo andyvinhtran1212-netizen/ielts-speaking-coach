@@ -44,7 +44,8 @@ describe('/vocabulary/exam — native React behavior', () => {
   test('renders metadata declaratively and URL-encodes stack slugs', () => {
     assert.match(BEHAVIOR, /encodeURIComponent\(list\.slug\)/);
     assert.match(BEHAVIOR, /list\.title/);
-    assert.match(BEHAVIOR, /list\.description/);
+    assert.match(BEHAVIOR, /<> · \{list\.description\}<\/>/);
+    assert.doesNotMatch(BEHAVIOR, /aria-hidden="true">·<\/span>/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html|eval\(/);
   });
 
