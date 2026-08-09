@@ -428,3 +428,107 @@ None found that require a schema or grading rewrite.
 - **Verification:** load delivered feedback with and without optional sections,
   switch all tabs by keyboard, open an inline highlight, print/download, test a
   hidden-score essay, and check 390px/768px/1280px layouts.
+
+## Learner Listening mini-test flow — 2026-08-09
+
+### Issue: the mini-test library has no progress hierarchy
+
+- **Root cause:** every test is rendered as an equal three-column card; the
+  persisted attempt count is used only inside each card, and `test_id` plus
+  `title` are both printed even when they are identical. There is no summary or
+  way to separate untouched tests from tests already practised.
+- **Severity:** Medium.
+- **Impact:** the learner scans a long, repetitive catalogue to decide what to
+  do next; start and dictation compete at equal visual weight.
+- **Impacted files:** `listening-mini-test.html`, its Next `page-shell.tsx`,
+  `listening-mini-test.js`, and `listening-mini-test.css`.
+- **Suggested minimal fix:** derive total/new/practised counts from the existing
+  list payload, add client-only status filters, suppress the duplicate display
+  title, and keep the test action primary while dictation remains secondary.
+- **Verification:** compare legacy and Next routes; exercise all filters with
+  mixed attempt data, identical/different title and test ID, empty/error states,
+  keyboard focus, dark mode, and 390px/768px/1280px widths.
+
+### Issue: mini-test best score is shown against a false fixed denominator
+
+- **Root cause:** the list endpoint exposes `user_best_score` but no
+  `max_score`; the card renderer nevertheless appends `/40`, while mini tests
+  have a variable real question count.
+- **Severity:** Medium.
+- **Impact:** a strong score such as 8/10 can be presented as 8/40, materially
+  misrepresenting the learner's result.
+- **Impacted files:** `listening-mini-test.js` (`renderCard()`).
+- **Suggested minimal fix:** do not invent a denominator on the library card;
+  display the raw best points and retain the exact score/max pair on submitted
+  result and answer-review screens where canonical `max_score` is available.
+- **Verification:** render mini tests with different question counts and confirm
+  the library never displays `/40`; submitted result/review must still show the
+  exact denominator returned by the backend.
+
+### Issue: test states feel like separate utilities instead of one exam flow
+
+- **Root cause:** briefing, live player, and result use the same narrow card
+  width and nearly equal visual weights. Result actions are an unlabelled row,
+  so the canonical next step—open answer review—does not dominate.
+- **Severity:** Medium.
+- **Impact:** rules are harder to scan before starting, the question paper is
+  unnecessarily constrained on desktop, and the learner must infer what to do
+  after seeing a score.
+- **Impacted files:** `listening-test.html`, `listening-test-ui.css`, and the
+  display-only mode label in `listening-test-player.js`.
+- **Suggested minimal fix:** retain attempt creation, resume, autosave, audio,
+  and submit contracts; redesign the briefing as a numbered checklist, widen
+  the active paper, and give results an explicit “next step” action hierarchy.
+- **Verification:** GET a full/mini/drill, start and resume each supported mode,
+  verify full-test no-seek versus practice seek, autosave a response, submit,
+  and follow both review and dictation links at desktop/mobile widths.
+
+### Issue: mini-test briefing contradicts the player controls
+
+- **Root cause:** pre-start rules and the start confirmation were static full
+  test copy (“không tua lại”), while `mountAudio()` enables pause, seek, and
+  replay for `mini`, `drill`, and `practice` test types.
+- **Severity:** Medium.
+- **Impact:** learners enter a practice test with the wrong expectation and may
+  avoid a control the product intentionally provides.
+- **Impacted files:** `listening-test.html` and
+  `listening-test-player.js` (`loadTest()`, `startAttempt()`, `mountAudio()`).
+- **Suggested minimal fix:** derive both briefing and confirmation copy from the
+  same `isPracticeTest()` predicate that controls audio scrubbing.
+- **Verification:** load each supported `test_type`; mini/drill/practice must
+  advertise and provide pause/seek/replay, while full remains single-shot.
+
+### Issue: answer review does not prioritize repair work
+
+- **Root cause:** correct and incorrect answer cards are one undifferentiated
+  stream. The transcript gets half the viewport while a sticky player and
+  question palette consume additional space, but there is no wrong/all/correct
+  control or explicit count of what needs review.
+- **Severity:** Medium.
+- **Impact:** learners with long tests repeatedly scan known-correct answers
+  before reaching the mistakes that deserve replay and explanation.
+- **Impacted files:** `listening-review.html`, `listening-review.js`, and
+  `listening-review.css`.
+- **Suggested minimal fix:** default the learner view to incorrect questions
+  when any exist, expose accessible filters and correct/wrong counts, preserve
+  every card, transcript anchor, audio window, palette jump, and feedback flag.
+- **Verification:** load all-correct and mixed attempts; switch filters by
+  keyboard, jump from the palette to a hidden card, replay timestamps across
+  sections, expand explanations, submit a feedback flag, and repeat at 390px.
+
+### Issue: dictation hides the listen–write–compare loop inside one card
+
+- **Root cause:** progress, audio, spelling hints, textarea, actions, and diff
+  are stacked as peers in a 760px monolithic surface. Tiny circular progress
+  dots communicate state but not the current learning step.
+- **Severity:** Medium.
+- **Impact:** the learner has no stable mental model for when to listen, write,
+  or inspect the word diff; audio and composition controls feel buried.
+- **Impacted files:** `listening-test-dictation.html` only; grading and session
+  persistence remain in the existing controller.
+- **Suggested minimal fix:** show the three-step loop in the header, separate
+  listen and write into adjacent desktop stages, make compare span the
+  workspace, and collapse back to one column on mobile without changing IDs.
+- **Verification:** single- and multi-section boot, timed and free-scrub audio,
+  empty answer and grade failures, perfect/partial/wrong diff, next/retry,
+  completion report persistence, error flagging, dark mode, and 390px/1280px.
