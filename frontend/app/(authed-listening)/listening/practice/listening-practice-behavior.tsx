@@ -161,6 +161,32 @@ function hashTab(): TabKey | null {
   return TABS.some((tab) => tab.key === wanted) ? wanted as TabKey : null;
 }
 
+function PracticeTabs({
+  counts,
+  active,
+  onSelect,
+}: {
+  counts?: Record<TabKey, number>;
+  active?: TabKey | null;
+  onSelect?: (key: TabKey) => void;
+}) {
+  return (
+    <nav className="lp-tabs" id="practice-tabs" aria-label="Nhóm bài luyện">
+      {counts ? TABS.filter((tab) => counts[tab.key] > 0).map((tab) => (
+        <button
+          className={`lp-tab${tab.key === active ? ' is-active' : ''}`}
+          key={tab.key}
+          type="button"
+          onClick={() => onSelect?.(tab.key)}
+        >
+          {tab.label}
+          <span className="lp-tab-count">{counts[tab.key]}</span>
+        </button>
+      )) : null}
+    </nav>
+  );
+}
+
 export function ListeningPracticeBehavior() {
   const { status, user } = useAuth();
 
@@ -169,7 +195,12 @@ export function ListeningPracticeBehavior() {
   }, [status]);
 
   if (status !== 'signed-in' || !user?.id) {
-    return <div className="empty-state" id="state-loading">Đang tải…</div>;
+    return (
+      <>
+        <PracticeTabs />
+        <div className="empty-state" id="state-loading">Đang tải…</div>
+      </>
+    );
   }
 
   return <ListeningPracticeLibrary accountKey={user.id} key={user.id} />;
@@ -274,44 +305,42 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
   }, [accountKey, active]);
 
   if (overview.status === 'loading') {
-    return <div className="empty-state" id="state-loading">Đang tải…</div>;
+    return (
+      <>
+        <PracticeTabs />
+        <div className="empty-state" id="state-loading">Đang tải…</div>
+      </>
+    );
   }
   if (overview.status === 'empty') {
     return (
-      <div className="empty-state" id="state-empty">
-        <p><strong>Chưa có bài luyện nào.</strong></p>
-        <p>Hãy quay lại sau khi quản trị viên đăng nội dung.</p>
-      </div>
+      <>
+        <PracticeTabs />
+        <div className="empty-state" id="state-empty">
+          <p><strong>Chưa có bài luyện nào.</strong></p>
+          <p>Hãy quay lại sau khi quản trị viên đăng nội dung.</p>
+        </div>
+      </>
     );
   }
   if (overview.status === 'error') {
     return (
-      <div className="error-banner" id="state-error">
-        Không tải được Luyện nhanh: {overview.message}
-      </div>
+      <>
+        <PracticeTabs />
+        <div className="error-banner" id="state-error">
+          Không tải được Luyện nhanh: {overview.message}
+        </div>
+      </>
     );
   }
 
-  const availableTabs = TABS.filter((tab) => overview.counts[tab.key] > 0);
   const activeTab = TABS.find((tab) => tab.key === active) || null;
   const activeItems = active && hasTab(cache, active) ? cache[active] || [] : [];
   const groups = active ? groupTests(active, activeItems) : [];
 
   return (
     <>
-      <nav className="lp-tabs" id="practice-tabs" aria-label="Nhóm bài luyện">
-        {availableTabs.map((tab) => (
-          <button
-            className={`lp-tab${tab.key === active ? ' is-active' : ''}`}
-            key={tab.key}
-            type="button"
-            onClick={() => setActive(tab.key)}
-          >
-            {tab.label}
-            <span className="lp-tab-count">{overview.counts[tab.key]}</span>
-          </button>
-        ))}
-      </nav>
+      <PracticeTabs counts={overview.counts} active={active} onSelect={setActive} />
 
       {tabState.status === 'error' ? (
         <div className="error-banner" id="state-error">
