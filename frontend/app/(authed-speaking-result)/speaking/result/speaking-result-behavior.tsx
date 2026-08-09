@@ -90,7 +90,7 @@ function SpeakingResultContent({ speaking, sittingId }: {
 
   return (
     <>
-      {/* `/mock/result` vẫn là compatibility shell: thẻ a thường cố ý tải cứng. */}
+      {/* Kết quả tổng đã là route native; href thường vẫn dùng được cả hard/soft nav. */}
       <a
         className="spr-back"
         href={`/mock/result?sitting=${encodeURIComponent(sittingId)}`}

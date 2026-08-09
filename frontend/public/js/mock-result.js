@@ -1,8 +1,8 @@
 /**
  * Trang "Kết quả thi thử" — phiếu điểm TRF của một lượt thi.
  *
- * TÁCH RA TỪ MÃ INLINE của `pages/mock-result.html` khi port sang Next (không
- * đổi một dòng logic nào). Bản Next chạy CHÍNH mã này, không chép lại.
+ * TÁCH RA TỪ MÃ INLINE của `pages/mock-result.html`. Từ batch native React
+ * 2026-08-09, module này chỉ còn làm mốc parity/rollback cho bản legacy.
  *
  * KHÔNG tự gọi `initSupabase`: bản legacy gọi ngay trước `mount()`.
  */

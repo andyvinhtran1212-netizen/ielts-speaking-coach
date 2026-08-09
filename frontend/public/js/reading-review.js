@@ -92,7 +92,7 @@
   var BACK_TARGETS = {
     full: { href: '/reading/test', label: '← Thư viện' },
     mini: { href: '/reading/mini-test', label: '← Mini tests' },
-    mock: { href: '/pages/mock-result.html', label: '← Kết quả thi thử' },
+    mock: { href: '/mock/result', label: '← Kết quả thi thử' },
   };
   function wireBack() {
     var q = new URLSearchParams(window.location.search);

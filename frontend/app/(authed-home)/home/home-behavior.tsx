@@ -277,7 +277,7 @@ async function renderMockTiles(api: any, cancelled: () => boolean) {
   // Mới công bố trước (endpoint đã xếp mới-nhất-trước).
   sittings.filter((s: any) => s.released).forEach((s: any) => {
     hub.insertAdjacentHTML('beforeend',
-      '<a class="mock-result-tile" href="/pages/mock-result.html?sitting='
+      '<a class="mock-result-tile" href="/mock/result?sitting='
         + encodeURIComponent(s.sitting_id) + '">'
       + '<span class="mock-result-tile__band">' + fmtBand(s.overall) + '</span>'
       + '<span class="mock-result-tile__body">'
