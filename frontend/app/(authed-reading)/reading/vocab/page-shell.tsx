@@ -1,14 +1,8 @@
-// Markup tĩnh của trang Vocab Reading — chép nguyên vẹn từ
-// `public/pages/reading-vocab.html`.
-//
-// HỢP ĐỒNG: mọi `id` và tên class ở đây là điểm bám của `public/js/reading-vocab.js`
-// — chính TỆP ĐÓ được nạp cho cả hai vế, không có bản sao. Đổi một id ở đây là
-// làm hỏng trang mà build vẫn xanh.
-//
-// `<aver-chrome>` KHÔNG dựng ở đây; `page.tsx` dựng nó. Bản port trang Bài viết
-// từng chép cả thẻ đó từ legacy và ra HAI thanh điều hướng (#950) — phép so
-// markup không thấy được vì component dựng nội dung trong Shadow DOM.
-export function ReadingVocabShell() {
+// Markup tĩnh của trang Vocab Reading. `<aver-chrome>` do `page.tsx` dựng;
+// behavior React sở hữu bộ lọc, request và các trạng thái động bên dưới.
+import type { ReactNode } from 'react';
+
+export function ReadingVocabShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <main className="rv-shell">
@@ -33,27 +27,7 @@ export function ReadingVocabShell() {
           <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>
-            Trình độ
-            <select id="filter-difficulty">
-              <option value="">Tất cả</option>
-              <option value="foundation">Foundation</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </label>
-          <label>
-            Chủ đề
-            <select id="filter-tag"><option value="">Tất cả</option></select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có bài đọc nào khớp bộ lọc.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        {children}
       </main>
     </div>
   );
