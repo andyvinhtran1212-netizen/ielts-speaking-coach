@@ -90,3 +90,6 @@ try {
 mkdirSync(path.dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 console.log(`Gate E staging provenance: ${evidence.ok ? 'OK' : 'INVALID'}`);
+if (process.env.GATE_E_PROVENANCE_REQUIRED === 'true' && !evidence.ok) {
+  process.exitCode = 1;
+}

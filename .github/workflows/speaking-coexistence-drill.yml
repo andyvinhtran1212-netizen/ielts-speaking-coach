@@ -1,0 +1,90 @@
+name: Speaking Gate E coexistence drill
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Deployment phase currently serving staging
+        required: true
+        type: choice
+        options: [floor, cutover, rollback]
+      rollback_floor_sha:
+        description: Exact 40-char coexistence floor SHA (same for all three phases)
+        required: true
+        type: string
+      previous_legacy_session_id:
+        description: Session emitted by floor; required for cutover
+        required: false
+        type: string
+      previous_next_session_id:
+        description: Session emitted by cutover; required for rollback
+        required: false
+        type: string
+
+jobs:
+  speaking-coexistence-drill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: speaking-gate-e-coexistence-staging
+      cancel-in-progress: false
+    steps:
+      - name: Checkout deployed staging source
+        uses: actions/checkout@v5
+        with:
+          ref: staging
+          fetch-depth: 1
+
+      - name: Capture checked-out source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install pinned Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run one live drill phase
+        id: drill
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ inputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
+          GATE_E_PREVIOUS_LEGACY_SESSION_ID: ${{ inputs.previous_legacy_session_id }}
+          GATE_E_PREVIOUS_NEXT_SESSION_ID: ${{ inputs.previous_next_session_id }}
+        run: npx playwright test -c playwright.speaking-coexistence.config.js
+
+      - name: Capture staging release provenance
+        if: always()
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          GATE_E_PROVENANCE_REQUIRED: 'true'
+        run: node tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Upload phase evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-coexistence-${{ inputs.phase }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/tooling/gate-e-speaking-coexistence-drill.json
+            frontend/test-results/gate-e-speaking-coexistence-evidence.json
+            frontend/test-results/gate-e-speaking-coexistence-results.json
+            frontend/test-results/gate-e-staging-provenance.json
+          if-no-files-found: error
+          retention-days: 30

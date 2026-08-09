@@ -124,6 +124,17 @@ policy thật và kiểm:
 
 ## Evidence còn thiếu trước khi đóng Gate E
 
+Speaking đã có versioned **three-phase runner** ở
+`.github/workflows/speaking-coexistence-drill.yml`. Runner checkout đúng nhánh
+`staging`, fail nếu release đang phục vụ khác source SHA, và xuất artifact riêng
+cho `floor → cutover → rollback`. Mỗi phase tạo attempt qua admission thật, mở
+lại implementation URL của attempt cũ, reload/copy URL sang tab mới và đọc cùng
+session từ backend canonical. Đây mới là drill mechanism: trạng thái vẫn
+**LIVE CORE DRILL PENDING** cho tới khi đủ ba artifact thật dùng cùng rollback
+floor SHA và mỗi provenance JSON có `ok:true`; không tuyên bố Gate E PASS từ
+contract/local test của runner. Vì request mang credential staging thật, runner
+tắt trace/screenshot và không upload browser report có thể giữ header bí mật.
+
 - Speaking đã có `/practice/session` dưới App Router và React đã sở hữu auth,
   bootstrap session/question, MediaRecorder, submission cùng Full Test
   retry/resume/finalize; backend đã pin đủ ba part, cùng sitting, đúng 9/1/5 và
