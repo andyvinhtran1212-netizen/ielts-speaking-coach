@@ -374,8 +374,8 @@ None found that require a schema or grading rewrite.
 
 ### Issue: the composition surface exposes controls but not the writing flow
 
-- **Root cause:** prompt, timer, file import, textarea, word count, autosave, and
-  submission were rendered as equal-weight utility blocks in a full-screen
+- **Root cause:** prompt, timer, textarea, word count, autosave, and submission
+  were rendered as equal-weight utility blocks in a full-screen
   modal. The learner had no visible minimum-word target or pre-submit sequence.
 - **Severity:** Medium.
 - **Impact:** the main task—reading the prompt and producing a complete response—
@@ -385,10 +385,43 @@ None found that require a schema or grading rewrite.
   `writing-dashboard.css`.
 - **Minimal fix:** preserve every assignment/draft/submit contract while shaping
   the modal into a prompt rail and paper-like editor, deriving the 150/250-word
-  guide from the canonical task type and keeping save/submit status adjacent to
-  the final actions.
+  guide from the canonical task type, keeping save/submit status adjacent to the
+  final actions, and keeping learner composition as a direct-writing surface.
 - **Verification:** open Task 1 and Task 2 assignments, restore a saved draft,
-  type through the target, import text, save, submit, and repeat at 390px.
+  type through the target, save, submit, and repeat at 390px.
+
+### Follow-up: Task 1 chart is too small beside the editor
+
+- **Current state:** the prompt rail receives 39% of the desktop workspace and
+  every prompt image is capped at `22rem` (352px) high.
+- **Problem:** Task 1 labels, axes, legends, and small values become difficult to
+  read while the learner is drafting; enlarging the browser also enlarges the
+  editor more than the chart.
+- **Severity:** Medium.
+- **Recommendation:** when `prompt_image_url` is present, switch the desktop
+  workspace to a 55/45 prompt/editor split and let the image consume up to 58%
+  of the viewport height. Keep the normal Task 2 ratio unchanged and preserve
+  the stacked, full-width image on compact screens.
+- **Impact:** learners can compare data and write simultaneously without losing
+  editor context or repeatedly opening a separate overlay.
+- **Implementation notes:** toggle a semantic `has-prompt-image` class from the
+  canonical prompt data in both legacy and Next behavior; provide meaningful alt
+  text; preserve a 24rem minimum editor width above the 860px stacking breakpoint
+  so intermediate widths do not overflow.
+
+### Follow-up: file import competes with authentic composition
+
+- **Current state:** the learner editor accepts `.docx` and `.txt`, extracts the
+  file, and appends its contents into the active draft.
+- **Problem:** it adds a secondary path and upload state to a focused writing
+  workspace, while bypassing the direct composition flow the screen is designed
+  to support.
+- **Severity:** Medium.
+- **Recommendation:** remove the learner-facing input, status, keyboard handler,
+  and upload listener from both implementations. Retain the backend extraction
+  endpoint for now because endpoint deletion requires a separate consumer audit.
+- **Impact:** the editor has one clear path—write, autosave, review, submit—and
+  the toolbar no longer competes with the primary task.
 
 ### Issue: feedback architecture delays the first actionable insight
 

@@ -1218,6 +1218,9 @@
       document.getElementById('modal-prompt-text').textContent  = prompt.prompt_text || '';
 
       // Phase 2.3c-1 — Task 1 Academic chart/diagram image, when present.
+      document.getElementById('modal-workspace').classList.toggle(
+        'has-prompt-image', !!prompt.prompt_image_url
+      );
       var imgEl = document.getElementById('modal-prompt-image');
       if (prompt.prompt_image_url) {
         imgEl.src = prompt.prompt_image_url;
@@ -1820,15 +1823,8 @@
 
       var saveBtn   = document.getElementById('modal-btn-save');
       var submitBtn = document.getElementById('modal-btn-submit');
-      var fileTrigger = document.getElementById('modal-file-trigger');
       if (saveBtn)   saveBtn.addEventListener('click',   function () { saveDraft(); });
       if (submitBtn) submitBtn.addEventListener('click', function () { submitFromModal(false); });
-      if (fileTrigger) fileTrigger.addEventListener('keydown', function (ev) {
-        if (ev.key !== 'Enter' && ev.key !== ' ') return;
-        ev.preventDefault();
-        var input = document.getElementById('modal-file-input');
-        if (input) input.click();
-      });
 
       // W-SOFTCHECK panel — "Quay lại sửa" closes it + focuses the editor;
       // "Nộp luôn" submits with force (bypasses the spell gate, soft).
@@ -1842,47 +1838,6 @@
         scheduleModalAutoSave();
       });
       setupAntiPaste(textarea);
-
-      // Phase 2.3c-2 file upload — same contract as before, just
-      // re-wired against the modal's hidden file input.
-      var fileInput = document.getElementById('modal-file-input');
-      if (fileInput) fileInput.addEventListener('change', async function (ev) {
-        var file = ev.target.files && ev.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-          alert('File quá lớn (tối đa 2MB)');
-          ev.target.value = '';
-          return;
-        }
-
-        var status = document.getElementById('modal-upload-status');
-        status.textContent = '📤 Đang xử lý ' + file.name + '…';
-        status.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
-        status.classList.add('text-gray-400');
-
-        try {
-          var fd = new FormData();
-          fd.append('file', file);
-          var result = await window.api.upload('/api/writing/extract-text', fd);
-
-          var current   = textarea.value;
-          var separator = current.trim() ? '\n\n' : '';
-          textarea.value = current + separator + result.text;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-          status.textContent = '✓ Đã thêm ' + result.word_count + ' từ';
-          status.classList.remove('text-gray-400');
-          status.classList.add('text-emerald-400');
-          setTimeout(function () { status.classList.add('hidden'); }, 3000);
-        } catch (err) {
-          status.textContent = '✕ ' + ((err && err.message) || 'Lỗi xử lý file');
-          status.classList.remove('text-gray-400');
-          status.classList.add('text-red-400');
-        } finally {
-          ev.target.value = '';
-        }
-      });
     }
 
     // The modal markup lives below the script block in source order — gate
@@ -1937,10 +1892,9 @@
 
       <div id="modal-content" class="hidden">
         <!-- W-UI 2-pane: đề bài (TRÁI, scrollable) · khung viết (PHẢI).
-             Layout-only — every id + handler below is unchanged; the DOM is
-             just re-nested into two columns (adapts .rv-passage-layout).
+             Task 1 widens the prompt pane when a chart is present.
              Mobile (≤860px) stacks: đề trên / viết dưới. -->
-        <div class="wd-modal-2pane">
+        <div id="modal-workspace" class="wd-modal-2pane">
 
           <!-- ── LEFT — đề bài ───────────────────────────────────────── -->
           <aside class="wd-modal-pane-left" aria-label="Đề bài">
@@ -1953,7 +1907,7 @@
                    question reads first, then the chart it refers to. -->
               <p class="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
               <img id="modal-prompt-image" class="wd-modal-prompt__image hidden"
-                   alt="" loading="lazy" />
+                   alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1" loading="lazy" />
             </div>
 
             <!-- Optional admin instructions -->
@@ -1983,13 +1937,6 @@
               <div>
                 <span class="wd-modal-section-label">Bài làm</span>
                 <h2 id="wd-editor-heading">Bài viết của em</h2>
-              </div>
-              <div class="wd-editor-import">
-                <label id="modal-file-trigger" class="wd-modal-file-label" role="button" tabindex="0">
-                  <span>Nhập từ file</span>
-                  <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
-                </label>
-                <span id="modal-upload-status" class="hidden"></span>
               </div>
             </div>
 
