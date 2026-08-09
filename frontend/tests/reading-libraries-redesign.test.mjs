@@ -22,8 +22,11 @@ const NEXT_SHELLS = ['vocab', 'skill', 'test', 'mini-test'].map((name) =>
   read('app', '(authed-reading)', 'reading', name, 'page-shell.tsx'));
 const READING_VOCAB_BEHAVIOR = read(
   'app', '(authed-reading)', 'reading', 'vocab', 'reading-vocab-behavior.tsx');
+const READING_SKILL_BEHAVIOR = read(
+  'app', '(authed-reading)', 'reading', 'skill', 'reading-skill-behavior.tsx');
+const NEXT_BEHAVIORS = [READING_VOCAB_BEHAVIOR, READING_SKILL_BEHAVIOR, '', ''];
 const NEXT_SURFACES = NEXT_SHELLS.map((shell, index) =>
-  index === 0 ? `${shell}\n${READING_VOCAB_BEHAVIOR}` : shell);
+  `${shell}\n${NEXT_BEHAVIORS[index]}`);
 const CSS = read('css', 'reading-vocab.css');
 
 describe('Reading libraries — shared information hierarchy', () => {
