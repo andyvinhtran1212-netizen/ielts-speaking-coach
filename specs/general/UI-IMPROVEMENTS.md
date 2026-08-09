@@ -261,6 +261,113 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ---
 
+# Speaking practice and results UI audit
+
+> Audit date: 2026-08-09
+> Scope: the three Speaking setup modes, shared recording player, immediate
+> feedback state, single-session result, Full Test completion, and Full Test
+> summary.
+
+## Summary
+
+All three practice modes already share correct session and grading contracts,
+but the interface did not make that relationship visible. Setup screens were
+flat collections of fields; the player changed visual structure between
+states; and result screens gave score, evidence, learning resources, and next
+actions nearly equal emphasis. The redesign preserves every JS-coupled ID,
+handler, API path, and canonical persisted score while introducing one coherent
+Speaking workspace hierarchy.
+
+## Critical issues
+
+No new critical backend or schema issue was found in this UI-only audit. The
+session, response, Full Test chaining, and result routes remain canonical and
+unchanged.
+
+## High priority improvements
+
+### Issue: Setup screens do not explain the learning contract of each mode
+
+- **Root cause:** the three panels render a title followed directly by controls;
+  duration, feedback timing, scoring scope, and best-use context are buried in
+  small card copy or absent.
+- **Severity:** Medium.
+- **Impact:** learners must infer the difference between immediate coaching,
+  Part scoring, and a continuous Full Test before committing microphone time.
+- **Impacted files:** `frontend/public/pages/speaking.html` (`#tab-practice`,
+  `#tab-partbpart`, `#tab-fulltest`),
+  `frontend/app/(authed-speaking)/speaking/page-shell.tsx` (matching Next
+  shell), and `frontend/public/css/speaking.css` (mode-panel styles).
+- **Suggested minimal fix:** add a shared orientation strip, keep mode-specific
+  form layouts, expose Full Test readiness separately from optional topics, and
+  preserve the existing session creation handlers.
+- **Verification:** open all three panels at 1440px and 375px; confirm their
+  facts differ truthfully and all existing start actions create the same modes
+  as before.
+
+### Issue: Part selection is pointer-only markup
+
+- **Root cause:** `#pbp-card-1..3` are clickable `div` elements even though they
+  are the primary interactive controls.
+- **Severity:** Medium.
+- **Impact:** keyboard and assistive-technology users cannot reliably select a
+  Part, and focus state is not communicated.
+- **Impacted files:** the same legacy/Next Speaking shells and
+  `frontend/public/css/speaking.css` (`.pbp-part-card`).
+- **Suggested minimal fix:** render semantic `button type="button"` controls,
+  retain the IDs/listeners, and add a token-based `:focus-visible` state.
+- **Verification:** Tab through Part 1–3 and activate each with Enter/Space;
+  confirm the topic panel and selected state match mouse behavior.
+
+### Issue: Recording states feel like unrelated pages
+
+- **Root cause:** every state uses the shared narrow reading width but owns its
+  own spacing and card treatment; the context/progress bars do not establish a
+  stable working surface.
+- **Severity:** Medium.
+- **Impact:** the layout shifts heavily between question, recording, feedback,
+  and summary, increasing cognitive load during a timed speaking task.
+- **Impacted files:** `frontend/public/pages/practice.html` (`#state-mode-choice`,
+  `#state-prep`, Part 2 states, `#state-feedback`, `#state-test-results`,
+  `#state-completion`) and `frontend/public/css/practice.css`.
+- **Suggested minimal fix:** introduce a shared stage frame while preserving
+  the state machine, give Visual/Listening equal scanability, and group score,
+  coaching, transcript/audio, and next actions by task.
+- **Verification:** run a Part 1 answer and Part 2 timer flow; verify waveform,
+  recorder controls, feedback replay/download, next-question, and finish
+  actions across desktop/mobile.
+
+### Issue: Result hierarchy does not answer “what should I do next?”
+
+- **Root cause:** the single-session result is a long sequence of same-weight
+  cards, while the Full Test summary isolates band, Parts, grammar, and
+  pronunciation without a stable overview/action frame.
+- **Severity:** Medium.
+- **Impact:** learners see a large amount of feedback but must assemble the
+  priority order themselves; actions become easy to lose at the bottom.
+- **Impacted files:** `frontend/public/pages/result.html`,
+  `frontend/public/css/result.css`, `frontend/public/pages/full-test-result.html`,
+  and `frontend/public/css/full-test-result.css`.
+- **Suggested minimal fix:** pair canonical score with one coaching focus,
+  separate learning resources from per-question evidence, group Full Test
+  grammar/pronunciation analysis, and keep next actions visible without hiding
+  content.
+- **Verification:** load practice and `test_part` sessions plus a three-Part
+  result; confirm canonical band fields, hidden practice criteria, audio URLs,
+  accordions, PDF, retry, and detail links all remain functional.
+
+## Positive observations to preserve
+
+- The backend/frontend contract already distinguishes coaching-mode feedback
+  from four-criterion Test feedback.
+- Full Test session chaining and canonical `session.overall_band` handling are
+  covered by focused regression tests.
+- Both themes use the mature semantic `--av-*` token system.
+- Legacy/Next Speaking shell fidelity has a dedicated source gate; the redesign
+  updates both sides instead of introducing parity drift.
+
+---
+
 # Learner My Class and course quiz redesign
 
 > Audit date: 2026-08-08
