@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   SpeakingFullTestController,
-} from '../lib/speaking-full-test-controller.mjs';
+} from '../public/js/speaking-full-test-controller.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const readFrontend = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
@@ -81,19 +81,44 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
     assert.deepEqual(snapshot.confirmed, {});
   });
 
-  test('does not hydrate ownerless restore from a previous account tab', () => {
+  test('does not let an authenticated account adopt ownerless v2 state', () => {
+    const storage = new MemoryStorage({
+      ielts_ft_state_v2: JSON.stringify({
+        version: 2,
+        owner_id: null,
+        session_ids: ['ownerless-p0', 'p1'],
+        confirmed: { p1: ['stale-q'] },
+      }),
+      ielts_ft_session_ids: JSON.stringify(['ownerless-p0', 'p1']),
+    });
+    const { controller } = makeController({ storage });
+    const snapshot = controller.restore({
+      ownerId: 'user-b',
+      currentSessionId: 'p1',
+      responses: [{ id: 'canonical-r', question_id: 'canonical-q' }],
+    });
+    assert.deepEqual(snapshot.sessionIds, ['p1']);
+    assert.deepEqual(snapshot.confirmed, { p1: ['canonical-q'] });
+    assert.equal(JSON.parse(storage.getItem('ielts_ft_state_v2')).owner_id, 'user-b');
+  });
+
+  test('does not let an anonymous restore adopt an authenticated account state', () => {
     const storage = new MemoryStorage({
       ielts_ft_state_v2: JSON.stringify({
         version: 2,
         owner_id: 'user-a',
-        session_ids: ['old-p1', 'shared-current'],
-        confirmed: { 'shared-current': ['old-q'] },
+        session_ids: ['user-a-p0', 'p1'],
+        confirmed: { p1: ['user-a-q'] },
       }),
-      ielts_ft_session_ids: JSON.stringify(['old-p1', 'shared-current']),
+      ielts_ft_session_ids: JSON.stringify(['user-a-p0', 'p1']),
     });
     const { controller } = makeController({ storage });
-    const snapshot = controller.restore({ currentSessionId: 'shared-current' });
-    assert.deepEqual(snapshot.sessionIds, ['shared-current']);
+    const snapshot = controller.restore({
+      ownerId: null,
+      currentSessionId: 'p1',
+      responses: [],
+    });
+    assert.deepEqual(snapshot.sessionIds, ['p1']);
     assert.deepEqual(snapshot.confirmed, {});
   });
 

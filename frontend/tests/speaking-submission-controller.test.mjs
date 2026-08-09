@@ -8,7 +8,7 @@ import {
   findPersistedSpeakingResponse,
   speakingAudioFilename,
   SpeakingSubmissionController,
-} from '../lib/speaking-submission-controller.mjs';
+} from '../public/js/speaking-submission-controller.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const readFrontend = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');

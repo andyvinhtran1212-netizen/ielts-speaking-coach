@@ -22,13 +22,16 @@ nguyên vẹn cho URL legacy rollback. Route chưa ready và không nhận attem
 - **Severity:** Critical — response audio chỉ an toàn sau khi endpoint upload
   xác nhận; reload/renderer flip trước đó có thể làm mất bản thu duy nhất.
 - **Impacted files/functions:** `frontend/public/js/practice.js`,
-  `frontend/lib/speaking-full-test-controller.mjs`, `PracticeFullTestBridge`,
+  `frontend/public/js/speaking-full-test-controller.mjs`,
+  `PracticeFullTestBridge`,
   `_submitGradingEager()`, `_fireAndForgetFullTestGrading()`, Full Test init/resume
   và `GET /sessions/{id}` trong `backend/routers/sessions.py`.
 - **Minimal fix trong batch:** App Router sở hữu
   `SpeakingFullTestController`: owner-scoped chain + confirmed-question ledger,
   coalesced pending map, retry queue giữ blob thật, unload guard, finalize barrier
-  và canonical status reconciliation. Reload tiếp tục ở câu chưa confirm; Part 3
+  và canonical status reconciliation. Cả Legacy lẫn Next import đúng hai
+  controller public này; Legacy chỉ thêm runtime bridge, không fork transport
+  hoặc resume logic. Reload/handoff tiếp tục ở câu chưa confirm; Part 3
   đã đủ câu tự retry finalize. Completion ẩn navigation cho tới khi backend trả
   accepted/reconcile. Sealed session trả receipt tối thiểu `{id, question_id}`
   nhưng vẫn giấu transcript, feedback và band; bootstrap fail closed nếu lookup
@@ -80,7 +83,7 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 - **Severity:** Critical — browser không thể xác nhận upload, retry hoặc finalize;
   bản ghi duy nhất có thể bị kẹt ở trạng thái chưa xác nhận.
 - **Impacted file/function:**
-  `frontend/lib/speaking-full-test-controller.mjs`, constructor và
+  `frontend/public/js/speaking-full-test-controller.mjs`, constructor và
   `#settleWithin()`.
 - **Minimal fix:** bind hai timer mặc định về `globalThis`; giữ nguyên injected
   timer cho unit tests.
@@ -98,18 +101,22 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    partial core-row được giữ là đáp án đã lưu, canonical empty readback thu hồi
    stale local confirmation, lỗi lookup trên URL Legacy giữ nguyên ledger và
    dừng trước khi tải câu hỏi, exact-blob retry + finalize barrier,
-   failed-finalize retry, và finalize network-after-commit reconcile không POST
-   trùng. Đây là runtime evidence, không phải source sentinel; full-stack
+   failed-finalize retry, finalize network-after-commit reconcile không POST
+   trùng, và một hành trình cùng tab Legacy lưu câu 1 → Next resume câu 2 →
+   Next lưu câu 2 → Legacy resume câu 3 từ canonical response ledger. Đây là
+   runtime evidence, không phải source sentinel; full-stack
    staging failure-injection vẫn được theo dõi riêng trong critical suite.
 3. 🟡 Automated device/microphone matrix đã được version ở
-   `frontend/tooling/gate-e-speaking-device-matrix.json`: manifest khai báo 4
-   lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng), còn
-   mỗi project WebKit thêm 1 capability guard (5 lớp tổng). CI luôn tải JSON
+   `frontend/tooling/gate-e-speaking-device-matrix.json`: mỗi project chạy thêm
+   flow coexistence Legacy → Next → Legacy; Chromium desktop có 16 flow, còn
+   Playwright WebKit desktop/iPhone có 15 flow mỗi project. Manifest vẫn khai
+   báo 4 lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng),
+   còn mỗi project WebKit thêm 1 capability guard (5 lớp tổng). CI luôn tải JSON
    result artifact. Hai project WebKit synthetic chỉ chạy shared flows và
    capability guard; trên Linux CI guard xác nhận không có `MediaRecorder`, còn
    môi trường khác ghi đúng capability quan sát được. Cả hai luôn loại mic
-   lifecycle vì không phải bằng chứng Safari/iOS thật. Spec microphone Chromium
-   kiểm copy permission denied, retry ngay state
+   lifecycle vì không phải bằng chứng Safari/iOS thật. Spec Chromium kiểm copy
+   permission denied, retry ngay state
    hiện tại, audio bytes từ engine-owned track, multi-tab pressure, responsive
    overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
    không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
@@ -172,14 +179,15 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
-  baseline sáu shape, bảy mutation/recovery flow và automated
+  baseline sáu shape, bảy mutation/recovery flow, một cross-version
+  coexistence flow và automated
   device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
   riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (15 Chromium + 14 WebKit desktop +
-  14 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
+- `npm run test:e2e:gate-e` (16 Chromium + 15 WebKit desktop +
+  15 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites

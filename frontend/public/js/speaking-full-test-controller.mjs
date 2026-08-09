@@ -113,9 +113,13 @@ export class SpeakingFullTestController {
 
     this.ownerId = owner || null;
     const persisted = this.#readState();
+    // V2 state is account-scoped. A null owner can exist from an older boot
+    // that ran before auth resolved, but it must not be adopted by whichever
+    // signed-in account happens to restore next (and an anonymous restore must
+    // not claim another account's chain either).
     const ownerMatches = persisted
       && !!owner
-      && (!persisted.owner_id || persisted.owner_id === owner);
+      && cleanId(persisted.owner_id) === owner;
     const persistedIds = ownerMatches ? uniqueIds(persisted.session_ids) : [];
     // A legacy-only install has no owner metadata, so keep its migration path.
     // Once v2 state exists and explicitly belongs to another account, however,

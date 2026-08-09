@@ -683,6 +683,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
   <script src="../js/runtime-config.js" defer></script>
   <script src="../js/api.js" defer></script>
+  <!-- Shared canonical upload/retry/resume state for Legacy ↔ Next handoff. -->
+  <script type="module" src="../js/speaking-legacy-runtime.mjs"></script>
   <script src="../js/speaking-debt.js" defer></script>
   <script src="../js/practice.js" defer></script>
   <!-- Sprint 15.1 — pronunciation phoneme drill-down modal (weak-word badge → modal) -->
@@ -698,6 +700,19 @@
       initSupabase(SUPABASE_URL, SUPABASE_ANON);
       document.getElementById('hdr-info').classList.remove('hidden');
       document.getElementById('hdr-progress').classList.remove('hidden');
+      if (!window.PracticeLegacyRuntime ||
+          typeof window.PracticeSubmission?.submit !== 'function' ||
+          typeof window.PracticeFullTest?.restore !== 'function') {
+        var detail = document.getElementById('error-msg');
+        if (detail) detail.textContent = 'Không thể khởi động bộ lưu bài an toàn. Hãy tải lại trang.';
+        document.getElementById('state-loading')?.classList.remove('active');
+        document.getElementById('state-error')?.classList.add('active');
+        window.aver?.reportError?.(
+          'practice legacy persistence runtime unavailable',
+          { type: 'practice_legacy_runtime_unavailable' }
+        );
+        return;
+      }
       PracticeApp.init();
     });
   </script>

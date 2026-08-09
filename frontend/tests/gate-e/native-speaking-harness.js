@@ -25,6 +25,7 @@ async function installHarness(page, {
   session,
   questions,
   sessionId = SID,
+  routePath = '/practice/session',
   initStorage = {},
   handleApi = null,
   expectBootstrapOnce = true,
