@@ -179,7 +179,7 @@
     mini:     { href: '/listening/mini-test', label: '← Mini tests' },
     drill:    { href: '/listening/skills',    label: '← Luyện kĩ năng' },
     practice: { href: '/listening/practice',  label: '← Luyện nhanh' },
-    mock:     { href: '/pages/mock-result.html',         label: '← Kết quả thi thử' },
+    mock:     { href: '/mock/result',                    label: '← Kết quả thi thử' },
   };
   function wireBack() {
     var q = new URLSearchParams(window.location.search);

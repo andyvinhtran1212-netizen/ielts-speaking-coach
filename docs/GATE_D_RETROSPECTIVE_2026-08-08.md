@@ -94,17 +94,31 @@ React, không thay đổi player hay state machine của bài thi:
 
 Sau batch stacked: hard-navigation debt còn **16/29 route**.
 
+## Batch behavior thứ sáu: `/mock/result`
+
+Batch `codex/nextjs-mock-result` chuyển phiếu kết quả TRF sang Client Component
+React, giữ endpoint và nguồn thật phía server:
+
+- `sitting` + `user.id` tạo request key; đổi tài khoản/query hoặc rời trang sẽ abort;
+- 403 từ endpoint released-result vẫn là trạng thái “chờ giám khảo”, không bị đọc thành lỗi;
+- backend tiếp tục khóa ownership/release và cấp final bands, gap states, retest flags;
+- partial retake chỉ hiện kỹ năng thật sự đã chấm; mọi gap Listening/Reading/Writing vẫn nói đúng lý do;
+- nội dung giám khảo được React escape; không dùng `innerHTML`;
+- Home, runner và các trang review đều quay về canonical `/mock/result`.
+
+Sau batch stacked: hard-navigation debt còn **15/29 route**.
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
-| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21 pass |
+| Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91 pass |
 | Backend result contract | 22/22 pass |
-| Full frontend contract suite | 7.003/7.003 pass |
+| Full frontend contract suite | 7.008 pass; 1 skip; 0 fail |
 | TypeScript strict check | pass |
-| Next production build | pass; cả năm behavior route static prerender |
+| Next production build | pass; cả sáu behavior route static prerender |
 | Compiled route ownership | 31 routes; zero drift/collision |
-| Browser floor scan | 23 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
+| Browser floor scan | 24 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
 `frontend/tooling/parity-pairs-authed.json`; local không thay thế được secret và

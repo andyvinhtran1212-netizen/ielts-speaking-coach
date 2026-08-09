@@ -71,7 +71,7 @@ describe('reading-review — back follows the entry point', () => {
   });
   test('mock taker goes back to THEIR sitting, not a test shelf', () => {
     assert.equal(reviewBack('?attempt_id=A&from=mock&sitting=S9').href,
-      '/pages/mock-result.html?sitting=S9');
+      '/mock/result?sitting=S9');
   });
   test('a legacy link with no origin still lands on a page that EXISTS', () => {
     // The bug: this used to be /pages/reading.html, which is a 404.
@@ -150,7 +150,7 @@ describe('listening-review — back follows the entry point', () => {
   });
   test('mock taker goes back to THEIR sitting, not a test shelf', () => {
     assert.equal(lReviewBack('?attempt_id=A&from=mock&sitting=S9').href,
-      '/pages/mock-result.html?sitting=S9');
+      '/mock/result?sitting=S9');
   });
   test('legacy link with no origin → the full library (unchanged behaviour)', () => {
     assert.equal(lReviewBack('?attempt_id=A').href, '/listening/tests');
