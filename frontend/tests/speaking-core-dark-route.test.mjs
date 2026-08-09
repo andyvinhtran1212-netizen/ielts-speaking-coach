@@ -63,7 +63,15 @@ describe('/practice/session transitional dark route', () => {
       .map((match) => match[1]);
     const nativeActions = [...SHELL.matchAll(/callPractice\('([A-Za-z0-9_]+)'/g)]
       .map((match) => match[1]);
-    assert.deepEqual(nativeActions, legacyActions);
+    const nativeSheetActions = new Set([
+      'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',
+      'sheetReview', 'submitSheet',
+    ]);
+    assert.deepEqual(nativeActions.filter((action) => !nativeSheetActions.has(action)), legacyActions);
+    assert.deepEqual(nativeActions.filter((action) => nativeSheetActions.has(action)), [
+      'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',
+      'sheetReview', 'submitSheet',
+    ]);
     assert.match(SHELL, /name="mic" className="practice-rec-ring__icon"/);
     assert.doesNotMatch(SHELL, /dangerouslySetInnerHTML/);
     assert.doesNotMatch(SHELL, /data-lucide/);
@@ -133,6 +141,11 @@ describe('/practice/session transitional dark route', () => {
     assert.match(SHELL, /view\.prep\.cueBullets\.map/);
     assert.match(SHELL, /view\.recording\.playbackUrl/);
     assert.match(SHELL, /view\.processing\.text/);
+    assert.match(SHELL, /view\.part2\.prepTimer/);
+    assert.match(SHELL, /view\.part2\.speakTimer/);
+    assert.match(SHELL, /view\.sheet\.slots\.map/);
+    assert.match(SHELL, /callPractice\('sheetToggleRecording'/);
+    assert.match(SHELL, /callPractice\('submitSheet'/);
   });
 
   test('layout preserves the legacy CSS and script ordering', () => {
@@ -168,8 +181,8 @@ describe('/practice/session transitional dark route', () => {
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
     );
-    assert.match(DOC, /Port Part 2, assignment sheet, feedback\/pronunciation/);
-    assert.match(DOC, /JSX ownership không được dùng\s+để tuyên bố native behavior/);
+    assert.match(DOC, /Port feedback\/pronunciation, completion/);
+    assert.match(DOC, /JSX ownership không được dùng\s+để tuyên bố native\s+behavior/);
     assert.match(DOC, /`route_ready=false` giữ nguyên/);
   });
 

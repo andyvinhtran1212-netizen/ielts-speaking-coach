@@ -64,6 +64,33 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
   processing: Object.freeze({
     text: '',
   }),
+  part2: Object.freeze({
+    topic: '',
+    question: '',
+    bullets: Object.freeze([]),
+    reflection: '',
+    retryVisible: false,
+    retryMessage: '',
+    retryPlaybackUrl: '',
+    startVisible: true,
+    prepQuestion: '',
+    prepTimer: '1:00',
+    prepUrgent: false,
+    notesRevision: 0,
+    speakTimer: '2:00',
+    speakUrgent: false,
+  }),
+  sheet: Object.freeze({
+    slots: Object.freeze([]),
+    meterVisible: false,
+    done: 0,
+    total: 0,
+    ready: false,
+    locked: false,
+    submitNote: '',
+    submitLabel: 'Nộp bài',
+    submitting: false,
+  }),
 });
 
 function requiredKey(value) {

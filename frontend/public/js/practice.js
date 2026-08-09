@@ -2604,34 +2604,44 @@
   function _showP2Cue() {
     _clearP2SubmissionRetry();
     var q = _currentQ;
-    var topicEl = $('p2a-topic');
-    if (topicEl) topicEl.textContent = _sessionData ? (_sessionData.topic || '') : '';
+    var topic = _sessionData ? (_sessionData.topic || '') : '';
+    var question = q.question_text || '';
+    var bullets = q.cue_card_bullets && q.cue_card_bullets.length
+      ? q.cue_card_bullets.slice()
+      : [];
+    var reflection = q.cue_card_reflection || '';
+    if (!_updateNativeView('part2', {
+      topic: topic,
+      question: question,
+      bullets: bullets,
+      reflection: reflection,
+    })) {
+      var topicEl = $('p2a-topic');
+      if (topicEl) topicEl.textContent = topic;
 
-    var qEl = $('p2a-question');
-    if (qEl) qEl.textContent = q.question_text || '';
+      var qEl = $('p2a-question');
+      if (qEl) qEl.textContent = question;
 
-    var bulletsEl = $('p2a-bullets');
-    if (bulletsEl && q.cue_card_bullets && q.cue_card_bullets.length) {
-      bulletsEl.innerHTML = q.cue_card_bullets.map(function (b) {
-        return '<div class="ds-cue-bullet">' + _esc(b) + '</div>';
-      }).join('');
+      var bulletsEl = $('p2a-bullets');
+      if (bulletsEl) {
+        bulletsEl.innerHTML = bullets.map(function (b) {
+          return '<div class="ds-cue-bullet">' + _esc(b) + '</div>';
+        }).join('');
+      }
+
+      var reflEl = $('p2a-reflection');
+      if (reflEl) reflEl.textContent = reflection;
     }
-
-    var reflEl = $('p2a-reflection');
-    if (reflEl) reflEl.textContent = q.cue_card_reflection || '';
 
     showState('p2a');
   }
 
   var _p2RetryPlaybackUrl = null;
   var _p2RetryQuestionId = null;
+  var _p2NotesRevision = 0;
 
   function _clearP2SubmissionRetry() {
-    var wrap = $('p2a-submit-retry');
     var audio = $('p2a-submit-retry-audio');
-    var start = $('p2a-start-btn');
-    if (wrap) wrap.style.display = 'none';
-    if (start) start.style.display = '';
     if (audio) {
       try { audio.pause(); } catch (e) {}
       audio.removeAttribute('src');
@@ -2641,6 +2651,16 @@
       _p2RetryPlaybackUrl = null;
     }
     _p2RetryQuestionId = null;
+    if (_updateNativeView('part2', {
+      retryVisible: false,
+      retryMessage: '',
+      retryPlaybackUrl: '',
+      startVisible: true,
+    })) return;
+    var wrap = $('p2a-submit-retry');
+    var start = $('p2a-start-btn');
+    if (wrap) wrap.style.display = 'none';
+    if (start) start.style.display = '';
   }
 
   function _showP2SubmissionRetry(message) {
@@ -2648,16 +2668,23 @@
     // preserved-take recovery actions.
     _showP2Cue();
     _p2RetryQuestionId = _currentQ && (_currentQ.id || _currentQ.question_id);
-    var wrap = $('p2a-submit-retry');
-    var msg = $('p2a-submit-retry-msg');
     var audio = $('p2a-submit-retry-audio');
-    var start = $('p2a-start-btn');
-    if (msg) msg.textContent = message;
-    if (start) start.style.display = 'none';
-    if (wrap) wrap.style.display = '';
-    if (audio && _recordedBlob) {
+    if (_recordedBlob) {
       _p2RetryPlaybackUrl = _createManagedObjectUrl('p2-retry-playback', _recordedBlob);
-      audio.src = _p2RetryPlaybackUrl;
+    }
+    if (!_updateNativeView('part2', {
+      retryVisible: true,
+      retryMessage: message,
+      retryPlaybackUrl: _p2RetryPlaybackUrl || '',
+      startVisible: false,
+    })) {
+      var wrap = $('p2a-submit-retry');
+      var msg = $('p2a-submit-retry-msg');
+      var start = $('p2a-start-btn');
+      if (msg) msg.textContent = message;
+      if (start) start.style.display = 'none';
+      if (wrap) wrap.style.display = '';
+      if (audio && _p2RetryPlaybackUrl) audio.src = _p2RetryPlaybackUrl;
     }
     showState('p2a');
   }
@@ -2681,11 +2708,17 @@
     _stopAITts();
     _cancelSpeech();
 
-    var qEl = $('p2b-question');
-    if (qEl) qEl.textContent = _currentQ ? (_currentQ.question_text || '') : '';
-
-    var notes = $('p2b-notes');
-    if (notes) notes.value = '';
+    var question = _currentQ ? (_currentQ.question_text || '') : '';
+    _p2NotesRevision++;
+    if (!_updateNativeView('part2', {
+      prepQuestion: question,
+      notesRevision: _p2NotesRevision,
+    })) {
+      var qEl = $('p2b-question');
+      if (qEl) qEl.textContent = question;
+      var notes = $('p2b-notes');
+      if (notes) notes.value = '';
+    }
 
     _p2PrepSecsLeft = P2_PREP_SEC;
     _renderP2PrepTimer();
@@ -2721,11 +2754,16 @@
   }
 
   function _renderP2PrepTimer() {
-    var el = $('p2b-timer');
-    if (!el) return;
     var m = Math.floor(_p2PrepSecsLeft / 60);
     var s = _p2PrepSecsLeft % 60;
-    el.textContent = m + ':' + (s < 10 ? '0' + s : s);
+    var timerText = m + ':' + (s < 10 ? '0' + s : s);
+    if (_updateNativeView('part2', {
+      prepTimer: timerText,
+      prepUrgent: _p2PrepSecsLeft <= 10,
+    })) return;
+    var el = $('p2b-timer');
+    if (!el) return;
+    el.textContent = timerText;
     el.style.color = _p2PrepSecsLeft <= 10 ? '#ef4444' : '#f97316';
   }
 
@@ -2876,11 +2914,16 @@
   }
 
   function _renderP2SpeakTimer() {
-    var el = $('p2c-timer');
-    if (!el) return;
     var m = Math.floor(_p2SpeakSecsLeft / 60);
     var s = _p2SpeakSecsLeft % 60;
-    el.textContent = m + ':' + (s < 10 ? '0' + s : s);
+    var timerText = m + ':' + (s < 10 ? '0' + s : s);
+    if (_updateNativeView('part2', {
+      speakTimer: timerText,
+      speakUrgent: _p2SpeakSecsLeft < 30,
+    })) return;
+    var el = $('p2c-timer');
+    if (!el) return;
+    el.textContent = timerText;
     el.style.color = _p2SpeakSecsLeft < 30 ? '#ef4444' : '#fff';
   }
 
@@ -3814,6 +3857,7 @@
   // song thoải mái.
 
   var _sheet = null;   // { slots: [{q, state, band, error, replays}], recIdx }
+  var _sheetSubmitting = false;
 
   function _sheetActive() {
     return !!_sheet;
@@ -3983,6 +4027,61 @@
 
   function _renderSheet() {
     if (!_sheet) return;
+    var nativeLocked = _sheetLocked();
+    var nativeDone = _sheet.slots.filter(function (s) {
+      return s.state === 'saved' || s.state === 'ungraded';
+    }).length;
+    var nativeTotal = _sheet.slots.length;
+    var nativeReady = nativeDone === nativeTotal;
+    var nativeUngraded = _sheet.slots.filter(function (s) {
+      return s.state === 'ungraded';
+    }).length;
+    var nativeSubmitNote = nativeLocked
+      ? _sheetLockNote(nativeDone, nativeTotal)
+      : (nativeReady
+          ? (nativeUngraded
+              ? 'Đã lưu cả ' + nativeTotal + ' câu, nhưng ' + nativeUngraded + ' câu máy chưa '
+                + 'chấm được. Bạn vẫn nộp được — điểm những câu ấy sẽ để trống.'
+              : 'Đã lưu cả ' + nativeTotal + ' câu. Nộp để chốt bài.')
+          : 'Đã lưu ' + nativeDone + '/' + nativeTotal + ' câu — lưu nốt rồi mới nộp được.');
+    var nativeSlots = _sheet.slots.map(function (s, i) {
+      var recording = s.state === 'recording';
+      var busy = _sheet.recIdx !== -1 && _sheet.recIdx !== i;
+      var recordLabel = recording ? 'Dừng ghi âm'
+        : (s.state === 'retry' ? 'Ghi lại'
+          : ((s.state === 'saved' || s.state === 'ungraded') ? 'Ghi âm lại' : 'Ghi âm'));
+      return Object.freeze({
+        key: (s.q && s.q.id) || String(i),
+        index: i,
+        state: s.state,
+        status: _SHEET_LABEL[s.state] || s.state,
+        audioAvailable: !!(s.q && s.q.audio_url),
+        replays: s.replays || 0,
+        recording: recording,
+        busy: busy,
+        recordLabel: recordLabel,
+        canRetry: !nativeLocked && !!s.retryBlob,
+        canReview: s.state === 'saved' && !!s.resp,
+        band: (s.band === null || s.band === undefined) ? null : Number(s.band),
+        note: s.error || (s.state === 'grading'
+          ? 'Bạn làm câu kia được ngay, không phải chờ.'
+          : ''),
+        noteTone: s.error ? 'error' : '',
+      });
+    });
+    if (_updateNativeView('sheet', {
+      slots: nativeSlots,
+      meterVisible: nativeTotal >= 4,
+      done: nativeDone,
+      total: nativeTotal,
+      ready: nativeReady && !nativeLocked,
+      locked: nativeLocked,
+      submitNote: nativeSubmitNote,
+      submitLabel: nativeLocked ? 'Đã chốt' : 'Nộp bài',
+    })) {
+      _syncMeterTop();
+      return;
+    }
     var wrap = $('sheet-slots');
     if (!wrap) return;
 
@@ -4360,6 +4459,7 @@
   var _sheetReviewIdx = -1;
 
   async function _sheetSubmit() {
+    if (_sheetSubmitting) return;
     var generation = _playerGeneration;
     var sessionId = _sessionId;
     var unsent = _sheet && _sheet.slots
@@ -4367,10 +4467,11 @@
       : 0;
     if (unsent) {
       if (typeof window.confirm !== 'function') {
-        var unavailableNote = $('sheet-submit-note');
-        if (unavailableNote) {
-          unavailableNote.textContent =
-            'Còn bản ghi mới chưa gửi được. Hãy gửi lại bản ghi trước khi nộp bài.';
+        var unavailableMessage =
+          'Còn bản ghi mới chưa gửi được. Hãy gửi lại bản ghi trước khi nộp bài.';
+        if (!_updateNativeView('sheet', { submitNote: unavailableMessage })) {
+          var unavailableNote = $('sheet-submit-note');
+          if (unavailableNote) unavailableNote.textContent = unavailableMessage;
         }
         return;
       }
@@ -4380,7 +4481,9 @@
       );
       if (!confirmSubmit) return;
     }
-    var btn = $('btn-sheet-submit');
+    _sheetSubmitting = true;
+    var nativeSubmit = _updateNativeView('sheet', { submitting: true });
+    var btn = nativeSubmit ? null : $('btn-sheet-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
     // Completion may fail and leave the learner on this page. Release rather
     // than destroy so the microphone indicator always turns off and a retry or
@@ -4390,9 +4493,14 @@
       await window.api.patch('/sessions/' + sessionId + '/complete', {});
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
+      _sheetSubmitting = false;
+      var failureMessage = 'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
+      if (_updateNativeView('sheet', {
+        submitting: false,
+        submitNote: failureMessage,
+      })) return;
       if (btn) { btn.disabled = false; btn.textContent = 'Nộp bài'; }
-      $('sheet-submit-note').textContent =
-        'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
+      $('sheet-submit-note').textContent = failureMessage;
       return;
     }
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
@@ -4540,6 +4648,7 @@
     _ftAllSessionIds = [];
     _sittingId = null;
     _sheet = null;
+    _sheetSubmitting = false;
     _sheetAudioUrls = null;
     _sheetReviewIdx = -1;
     _meterTopBound = false;
@@ -4627,6 +4736,9 @@
   function _bindSheet() {
     var slots = $('sheet-slots');
     if (!slots) return;
+    // React buttons call the public actions directly. Binding this delegated
+    // legacy listener as well would execute listen/record/retry twice.
+    if (_getNativeView()) return;
     // Uỷ quyền: phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay
     // sẽ mất ngay ở lần vẽ kế tiếp.
     _listenManaged('sheet-slots-click', slots, 'click', _handleSheetSlotsClick);
@@ -4652,6 +4764,7 @@
     _sittingId = null;
     _ftAllSessionIds = [];
     _sheet = null;
+    _sheetSubmitting = false;
     _testMode = null;
     _bindPlayerEffects();
     _bindSheet();
@@ -4975,6 +5088,11 @@
     nextQuestion:         nextQuestion,
     finishSession:        finishSession,
     backToSheet:          _backToSheet,
+    sheetListen:          _sheetListen,
+    sheetReview:          _sheetReview,
+    sheetRetrySubmission: _sheetRetrySubmission,
+    sheetToggleRecording: _sheetToggleRec,
+    submitSheet:          _sheetSubmit,
     startP2Prep:          startP2Prep,
     startP2SpeakingEarly: startP2SpeakingEarly,
     stopP2SpeakingEarly:  stopP2SpeakingEarly,

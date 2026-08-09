@@ -54,10 +54,39 @@ function render(slots, session) {
   const _sessionData = session === undefined
     ? { status: 'in_progress', class_task: { accepting: true } }
     : session;
-  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window',
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window', '_updateNativeView',
     `${JS.slice(start, end)} _renderSheet();`)(
-    $, _esc, _sheet, _sessionData, document, { addEventListener() {} });
+    $, _esc, _sheet, _sessionData, document, { addEventListener() {} }, () => false);
   return nodes;
+}
+
+/** Chạy cùng renderer nhưng nhận model native thay vì HTML fallback. */
+function renderNative(slots, session) {
+  const start = JS.indexOf('  var _SHEET_LABEL = {');
+  const end = JS.indexOf('  function _sheetListen(');
+  assert.ok(start !== -1 && end > start, 'render block not found');
+
+  const stateSheet = { style: { setProperty() {} } };
+  const $ = (id) => (id === 'state-sheet' ? stateSheet : null);
+  const document = {
+    querySelector: (selector) => (selector === '.practice-context-bar'
+      ? { offsetHeight: 52 }
+      : null),
+  };
+  const _sheet = { slots, recIdx: slots.findIndex((slot) => slot.state === 'recording') };
+  const _sessionData = session === undefined
+    ? { status: 'in_progress', class_task: { accepting: true } }
+    : session;
+  let model = null;
+  const update = (section, patch) => {
+    assert.equal(section, 'sheet');
+    model = patch;
+    return true;
+  };
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window', '_updateNativeView',
+    `${JS.slice(start, end)} _renderSheet();`)(
+    $, String, _sheet, _sessionData, document, {}, update);
+  return model;
 }
 
 const S = (state, over = {}) => ({
@@ -130,6 +159,100 @@ describe('nút nộp', () => {
     // Tính là lưu thì học viên nộp trước khi câu kịp tới server.
     const n = render([S('saved', { band: 6 }), S('grading')]);
     assert.equal(n['btn-sheet-submit'].disabled, true);
+  });
+
+  test('hai click sát nhau chỉ tạo một mutation complete', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  function nextQuestion()', start);
+    assert.ok(start !== -1 && end > start, '_sheetSubmit not found');
+    let calls = 0;
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const window = {
+      api: { patch: () => { calls += 1; return pending; } },
+      location: { href: '' },
+    };
+    const create = new Function(
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources', `
+      var _sheetSubmitting = false;
+      var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `);
+    const submit = create(window, () => true, () => null, { slots: [] }, () => {});
+    const first = submit();
+    const second = submit();
+    assert.equal(calls, 1, 'click thứ hai không được PATCH /complete lần nữa');
+    release();
+    await Promise.all([first, second]);
+  });
+
+  test('từ chối nộp bản cũ không khóa lần nộp kế tiếp', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  function nextQuestion()', start);
+    assert.ok(start !== -1 && end > start, '_sheetSubmit not found');
+    let calls = 0;
+    let confirmations = 0;
+    const window = {
+      api: { patch: async () => { calls += 1; } },
+      confirm: () => { confirmations += 1; return confirmations > 1; },
+      location: { href: '' },
+    };
+    const updates = [];
+    const create = new Function(
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources', `
+      var _sheetSubmitting = false;
+      var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `);
+    const submit = create(
+      window,
+      (section, patch) => { updates.push([section, patch]); return true; },
+      () => null,
+      { slots: [{ retryBlob: {} }] },
+      () => {},
+    );
+
+    await submit();
+    assert.equal(calls, 0, 'từ chối cảnh báo không được complete session');
+    assert.equal(updates.length, 0, 'chưa xác nhận thì chưa được khóa nút nộp');
+
+    await submit();
+    assert.equal(calls, 1, 'lần nộp kế tiếp vẫn phải hoạt động');
+    assert.deepEqual(updates[0], ['sheet', { submitting: true }]);
+  });
+});
+
+describe('view-model React giữ nguyên sự thật của phiếu', () => {
+  test('xuất từng trạng thái, action và tiến độ mà không cần HTML injection', () => {
+    const model = renderNative([
+      S('saved', { band: 6.5, resp: { feedback: {} } }),
+      S('grading'),
+      S('retry', { retryBlob: {} }),
+      S('ungraded'),
+    ]);
+    assert.deepEqual(model.slots.map((slot) => slot.state), [
+      'saved', 'grading', 'retry', 'ungraded',
+    ]);
+    assert.equal(model.slots[0].canReview, true);
+    assert.equal(model.slots[1].note, 'Bạn làm câu kia được ngay, không phải chờ.');
+    assert.equal(model.slots[2].canRetry, true);
+    assert.equal(model.done, 2, 'saved và ungraded đều đã lên máy chủ');
+    assert.equal(model.ready, false);
+    assert.equal(model.meterVisible, true);
+  });
+
+  test('bài khoá chỉ-đọc nhưng vẫn giữ action xem nhận xét', () => {
+    const model = renderNative([
+      S('saved', { band: 7, resp: { feedback: {} } }),
+      S('saved', { band: 6, resp: { feedback: {} } }),
+    ], { status: 'completed', class_task: { accepting: false, submitted_at: 'now' } });
+    assert.equal(model.locked, true);
+    assert.equal(model.ready, false);
+    assert.equal(model.submitLabel, 'Đã chốt');
+    assert.equal(model.slots.every((slot) => slot.canReview), true);
+    assert.match(model.submitNote, /vẫn xem lại nhận xét/);
   });
 });
 
