@@ -148,6 +148,7 @@ function StatValue({
       ) : (
         value ?? 0
       )}
+      {' '}
       <span className="unit">{unit}</span>
     </span>
   );
@@ -564,13 +565,13 @@ export function VocabularyHubBehavior() {
       <section className="vocab-modes" aria-labelledby="modes-heading" hidden={activeMode !== null}>
         <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
         <div className="modes-grid">
-          <ModeCard mode="vocab-topics" href="#vocab-topics" label="Duyệt từ vựng theo chủ đề" title="Từ vựng" description="Duyệt từ vựng IELTS theo chủ đề." icon={<LibraryIcon />} onOpen={openMode} />
+          <ModeCard mode="vocab-topics" href="#" label="Duyệt từ vựng theo chủ đề" title="Từ vựng" description="Duyệt từ vựng IELTS theo chủ đề." icon={<LibraryIcon />} onOpen={openMode} />
           <ModeCard href="/vocabulary/practice" label="Mở Luyện tập từ vựng" title="Luyện tập" description="Kiểm tra tới khi thuộc trọn cả list từ." icon={<PracticeIcon />} />
           {flags?.flashcardEnabled ? (
-            <ModeCard mode="flashcards" href="#flashcards" label="Mở Flashcards" title="Flashcards" description="Học từ với hệ thống lặp khoảng cách." icon={<LayersIcon />} onOpen={openMode} />
+            <ModeCard mode="flashcards" href="#" label="Mở Flashcards" title="Flashcards" description="Học từ với hệ thống lặp khoảng cách." icon={<LayersIcon />} onOpen={openMode} />
           ) : null}
           {flags && (flags.d1Enabled || flags.flashcardEnabled) ? (
-            <ModeCard mode="exercises" href="#exercises" label="Mở Exercises" title="Exercises" description="Luyện tập đa dạng dạng bài." icon={<ExercisesIcon />} onOpen={openMode} />
+            <ModeCard mode="exercises" href="#" label="Mở Exercises" title="Exercises" description="Luyện tập đa dạng dạng bài." icon={<ExercisesIcon />} onOpen={openMode} />
           ) : null}
           <ModeCard href="/vocabulary/exam" label="Mở Từ vựng luyện thi" title="Luyện thi" description="Từ vựng AWL, TOEIC, THPT theo danh sách đề." icon={<ExamIcon />} />
         </div>

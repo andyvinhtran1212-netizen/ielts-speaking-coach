@@ -61,6 +61,15 @@ describe('/vocabulary/hub — native React ownership', () => {
     assert.match(BEHAVIOR, /addEventListener\('hashchange', syncMode\)/);
     assert.match(BEHAVIOR, /addEventListener\('popstate', syncMode\)/);
     assert.match(BEHAVIOR, /hidden=\{activeMode !== null\}/);
+    assert.equal(
+      (BEHAVIOR.match(/mode="(?:vocab-topics|flashcards|exercises)" href="#"/g) || []).length,
+      3,
+      'mode-card anchors must preserve the legacy # link fact; openMode writes the canonical hash',
+    );
+  });
+
+  test('preserves visible whitespace between each stat value and unit', () => {
+    assert.match(BEHAVIOR, /\{' '\}\s*<span className="unit">\{unit\}<\/span>/);
   });
 
   test('renders topic metadata declaratively and encodes every query value', () => {
