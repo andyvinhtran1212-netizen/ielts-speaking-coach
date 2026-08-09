@@ -3,7 +3,8 @@
  *
  * Student-facing tests-list controller. Calls GET /api/listening/tests
  * (published + audio-ready only) and renders a card grid with per-user
- * stats: best score + attempt count drive the "Bắt đầu" vs "Làm lại" CTA.
+ * stats: submitted attempts drive completion while total attempts remain a
+ * separate activity count.
  *
  * Card click opens /pages/listening-test.html?id=<uuid> — the player
  * page handles attempt creation + run.
@@ -75,8 +76,12 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+function hasSubmittedAttempt(t) {
+  return (t.user_submitted_attempt_count || 0) > 0;
+}
+
 function renderCard(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const attempted = hasSubmittedAttempt(t);
   const best      = t.user_best_score;
   const ctaLabel  = attempted ? 'Làm lại' : 'Bắt đầu test';
   const themes    = (t.themes && typeof t.themes === 'object')
@@ -86,7 +91,7 @@ function renderCard(t) {
   if (best != null) {
     statsBits.push(`<span>Điểm tốt nhất <strong>${esc(best)}/40</strong></span>`);
   }
-  if (attempted) {
+  if ((t.user_attempt_count || 0) > 0) {
     statsBits.push(`<span><strong>${esc(t.user_attempt_count)}</strong> lượt làm</span>`);
   } else {
     statsBits.push('<span>Chưa làm</span>');
@@ -115,7 +120,7 @@ function renderCard(t) {
 function filteredTests() {
   if (ACTIVE_FILTER === 'all') return TESTS;
   return TESTS.filter((t) => {
-    const attempted = (t.user_attempt_count || 0) > 0;
+    const attempted = hasSubmittedAttempt(t);
     return ACTIVE_FILTER === 'done' ? attempted : !attempted;
   });
 }

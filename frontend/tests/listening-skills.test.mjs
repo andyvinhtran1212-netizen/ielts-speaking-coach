@@ -92,6 +92,12 @@ describe('Skills Practice — controller contract', () => {
     assert.match(HTML, /data-status-filter="done"/);
   });
 
+  it('bases completion on submitted attempts, not total attempts', () => {
+    assert.match(JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(JS, /t\.user_submitted_attempt_count/);
+    assert.doesNotMatch(JS, /const attempted = \(t\.user_attempt_count/);
+  });
+
   it('uses labelled drill actions and removes the emoji-only dictation control', () => {
     assert.match(JS, />Chép chính tả<\/a>/);
     assert.doesNotMatch(JS, /aria-label="Chép chính tả">✍️/);

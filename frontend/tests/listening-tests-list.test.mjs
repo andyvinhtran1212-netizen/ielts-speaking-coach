@@ -117,6 +117,12 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
     assert.match(JS, /~30 phút/);
   });
 
+  it('bases completion on submitted attempts, not total attempts', () => {
+    assert.match(JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(JS, /t\.user_submitted_attempt_count/);
+    assert.doesNotMatch(JS, /const attempted = \(t\.user_attempt_count/);
+  });
+
   it('keeps the test action primary and uses a labelled dictation action', () => {
     assert.match(JS, /class="lt-card-cta" href="\/pages\/listening-test\.html/);
     assert.match(JS, />Chép chính tả<\/a>/);

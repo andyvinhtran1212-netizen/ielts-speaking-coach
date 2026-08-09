@@ -111,8 +111,12 @@ function displayDrillTitle(t) {
   return parts.length > 1 ? parts[parts.length - 1] : raw;
 }
 
+function hasSubmittedAttempt(t) {
+  return (t.user_submitted_attempt_count || 0) > 0;
+}
+
 function renderDrill(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const attempted = hasSubmittedAttempt(t);
   const best = t.user_best_score;
   const badge = t.level ? `<span class="ls-drill-level">${esc(t.level)}${t.task ? '·' + esc(t.task) : ''}</span>` : '';
   const stat = (best != null)
@@ -157,7 +161,7 @@ function filteredDrills() {
   const drills = DRILLS_BY_TYPE.get(ACTIVE_SKILL) || [];
   if (ACTIVE_STATUS === 'all') return drills;
   return drills.filter((t) => {
-    const attempted = (t.user_attempt_count || 0) > 0;
+    const attempted = hasSubmittedAttempt(t);
     return ACTIVE_STATUS === 'done' ? attempted : !attempted;
   });
 }
@@ -199,7 +203,7 @@ function renderLibrary() {
 }
 
 function renderSummary(drills) {
-  const done = drills.filter((t) => (t.user_attempt_count || 0) > 0).length;
+  const done = drills.filter(hasSubmittedAttempt).length;
   const types = SKILLS.filter((skill) => (DRILLS_BY_TYPE.get(skill.key) || []).length > 0).length;
   $('ls-total-count').textContent = String(drills.length);
   $('ls-done-count').textContent = String(done);
@@ -250,7 +254,7 @@ async function load() {
     }
     DRILLS_BY_TYPE = byType;
     const firstIncomplete = SKILLS.find((skill) =>
-      (byType.get(skill.key) || []).some((t) => (t.user_attempt_count || 0) === 0));
+      (byType.get(skill.key) || []).some((t) => !hasSubmittedAttempt(t)));
     const firstAvailable = SKILLS.find((skill) => (byType.get(skill.key) || []).length > 0);
     ACTIVE_SKILL = (firstIncomplete || firstAvailable || SKILLS[0]).key;
     renderSummary(drills);
