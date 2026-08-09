@@ -40,13 +40,27 @@
   <div class="shell">
     <main class="ls-shell">
       <header class="ls-header">
-        <p class="eyebrow"><a href="/listening" style="color: var(--av-text-secondary);">← Quay lại Listening</a></p>
-        <h1>Luyện <span class="accent">kĩ năng</span></h1>
+        <a class="ls-back" href="/listening">← Quay lại Listening</a>
+        <p class="eyebrow">LUYỆN THEO DẠNG CÂU HỎI</p>
+        <h1>Chọn đúng kĩ năng, <span class="accent">luyện sâu hơn</span></h1>
         <p class="subtitle">
-          Chọn dạng câu hỏi bạn muốn luyện riêng (điền form, bản đồ, nối, trắc nghiệm…).
-          Mỗi bài là 1 section ngắn — cùng giao diện làm bài &amp; chữa bài (nghe lại đúng
-          đoạn audio) như Mini Test, chấm điểm sau khi nộp.
+          Tập riêng từng dạng câu hỏi IELTS Listening, nhận điểm ngay sau khi nộp
+          và nghe lại đúng đoạn audio để hiểu mình đã bỏ lỡ chi tiết nào.
         </p>
+        <div class="ls-summary" id="ls-summary" hidden aria-live="polite">
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-total-count">0</span>
+            <span class="ls-summary__label">Bài đang mở</span>
+          </div>
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-done-count">0</span>
+            <span class="ls-summary__label">Đã luyện</span>
+          </div>
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-type-count">0</span>
+            <span class="ls-summary__label">Dạng kĩ năng</span>
+          </div>
+        </div>
       </header>
 
       <div class="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>
@@ -56,7 +70,25 @@
       </div>
       <div class="error-banner" id="state-error" hidden></div>
 
-      <section id="ls-groups" hidden></section>
+      <section class="ls-library" id="ls-library" hidden aria-labelledby="ls-library-title">
+        <div class="ls-toolbar">
+          <div>
+            <p class="eyebrow">LỘ TRÌNH KĨ NĂNG</p>
+            <h2 id="ls-library-title">Chọn dạng bài cần luyện</h2>
+            <p>Mỗi lần chỉ tập trung vào một dạng để danh sách ngắn và dễ theo dõi.</p>
+          </div>
+        </div>
+        <nav class="ls-skill-nav" id="ls-skill-nav" aria-label="Các dạng câu hỏi Listening"></nav>
+        <div class="ls-library-head">
+          <p class="ls-visible-count" id="ls-visible-count" aria-live="polite"></p>
+          <div class="ls-filter" role="group" aria-label="Lọc bài luyện theo trạng thái">
+            <button class="ls-filter__button is-active" type="button" data-status-filter="all" aria-pressed="true">Tất cả</button>
+            <button class="ls-filter__button" type="button" data-status-filter="new" aria-pressed="false">Chưa làm</button>
+            <button class="ls-filter__button" type="button" data-status-filter="done" aria-pressed="false">Đã luyện</button>
+          </div>
+        </div>
+        <section id="ls-groups"></section>
+      </section>
     </main>
   </div>
 
