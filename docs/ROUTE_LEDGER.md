@@ -200,7 +200,7 @@
 | `/listening/browse` | `/pages/listening-browse.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/browse/page.tsx` — CUTOVER 2026-08-06 | Student | `level` (elementary, intermediate, advanced) | localStorage (theme), fetch (content list) | S | Listening content catalog |
 | `/listening/review` | — | `pages/listening-review.html` | Student | `attempt_id` | localStorage (theme), fetch (review data), audio playback | M | Post-test review + section breakdown |
 | `/listening/analytics` | `/pages/listening-analytics.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/analytics/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `user_id` (optional, for admin) | localStorage (theme), fetch (analytics API) | M | Performance summary + trend |
-| `/listening/mini-test` | `/pages/listening-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/mini-test/page.tsx` — CUTOVER 2026-08-06 | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state), audio playback | M | 1-section listening drill |
+| `/listening/mini-test` | `/pages/listening-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/mini-test/page.tsx` + `listening-mini-test-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | `test_id`, `attempt_id` | AuthProvider; paged `/api/listening/tests?test_type=mini`; abort on account switch and unmount | M | 1-section listening drill; account-keyed, React-escaped and soft-navigation safe |
 
 ### Tài khoản học viên
 
