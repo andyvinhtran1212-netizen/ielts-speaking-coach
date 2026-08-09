@@ -37,14 +37,17 @@ def _missing_env() -> list[str]:
     return [k for k in _REQUIRED_ENV if not os.environ.get(k)]
 
 
-pytestmark = pytest.mark.skipif(
+# `livenet`: bộ này CỐ Ý gọi Supabase thật, nên chốt chặn mạng trong
+# conftest phải chừa nó ra. Gộp vào CÙNG phép gán — một `pytestmark`
+# thứ hai ở trên sẽ bị dòng này ghi đè và biến mất không một tiếng động.
+pytestmark = [pytest.mark.livenet, pytest.mark.skipif(
     bool(_missing_env()),
     reason=(
         "Live RLS test needs staging creds — set "
         + ", ".join(_REQUIRED_ENV)
         + " (run setup_phase_d_test_env.sh, then 'set -a; source backend/.env.staging.test')."
     ),
-)
+)]
 
 
 @pytest.fixture(scope="module")
