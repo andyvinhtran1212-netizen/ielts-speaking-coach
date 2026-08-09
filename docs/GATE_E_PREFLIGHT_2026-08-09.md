@@ -21,7 +21,7 @@ bị chặn bởi Gate E.
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PENDING** | `package.json` khai báo sàn Safari/iOS 15; static browser-floor scan kiểm syntax/polyfill; spike config có Chromium + WebKit | `playwright.staging.config.js` và workflow staging chỉ chạy Chromium. Chưa có versioned real-device Safari/iOS evidence. Static scan không thay thế runtime matrix. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Matrix v1 chạy core suite trên Chromium và browser seam trên Chromium desktop + WebKit desktop/iPhone emulation; artifact ghi exact Playwright/browser revision/SHA/outcome | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; Spike 4 pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Có state contract và rollback/coexistence drills ở Gate B | Chưa có drill artifact chứng minh active attempt tiếp tục ở release cũ hoặc được drain an toàn qua cutover/rollback. |
 | Full-stack staging E2E đạt threshold, đủ failure injection, ≥20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
@@ -30,19 +30,19 @@ bị chặn bởi Gate E.
 
 ### GE-1 — Runtime device matrix chưa đạt Gate E
 
-- **Root cause:** cấu hình staging chỉ định duy nhất project `chromium`, workflow
-  chỉ cài Chromium. WebKit hiện chỉ nằm trong risk-spike local config; Safari/iOS
-  thật chưa có versioned run artifact.
+- **Root cause:** cấu hình staging ban đầu chỉ có Chromium. Matrix v1 đã thêm
+  Chromium/WebKit desktop + WebKit/iPhone emulation và artifact versioned; phần
+  còn thiếu là Safari/iOS thật cùng core-player coverage.
 - **Severity:** Critical — đây là tiêu chí Gate E bắt buộc và core players phụ
   thuộc MediaRecorder, audio, storage, sticky layout và browser lifecycle.
 - **Impacted files/functions:** `frontend/playwright.staging.config.js` phần
   `projects`; `.github/workflows/staging-e2e.yml` bước cài browser/chạy suite;
   `frontend/playwright.spike.config.js` chỉ là spike evidence.
-- **Suggested minimal fix:** tạo PR riêng thêm versioned Chromium + WebKit
-  staging projects, tách test nào cần capability thật, và thêm manual real-device
-  Safari/iOS runbook/evidence schema thay vì gọi WebKit là Safari thật.
-- **Verification:** workflow chạy đủ từng project; report ghi browser/OS/version,
-  SHA và test manifest; Safari/iOS real-device evidence khớp frozen matrix.
+- **Suggested minimal fix còn lại:** thu real-device Safari/iOS evidence theo
+  `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md`, rồi mở rộng matrix spec bằng core
+  flow của từng migration cluster; không gọi WebKit là Safari thật.
+- **Verification:** workflow chạy đủ project + upload JSON evidence; Safari/iOS
+  real-device artifact khớp frozen matrix và SHA trước khi đổi tiêu chí sang PASS.
 
 ### GE-2 — Resume evidence đang rời rạc và từng mô tả sai hiện trạng
 

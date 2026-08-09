@@ -54,16 +54,37 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright chromium
+      - name: Install Playwright matrix engines
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
+        id: staging_e2e
         working-directory: frontend
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
         run: npm run test:e2e:staging
+
+      # Gate E evidence must remain inspectable even when the suite fails. This
+      # metadata contains only versions/run ids/outcome — never secrets or auth
+      # state — and pairs with Playwright's JSON reporter output.
+      - name: Write versioned device-matrix metadata
+        if: always()
+        working-directory: frontend
+        env:
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome }}
+        run: node tooling/write-gate-e-device-matrix-evidence.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-e-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-device-matrix-evidence.json
+            frontend/test-results/staging-e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
 
       # Synthetic data only + short retention (plan B29).
       - uses: actions/upload-artifact@v4

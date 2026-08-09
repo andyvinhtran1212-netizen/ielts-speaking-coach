@@ -27,11 +27,12 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     }
   });
 
-  test('current staging automation is recorded as Chromium-only, without inventing streak evidence', () => {
-    assert.match(STAGING_CONFIG, /projects:\s*\[\{ name: 'chromium'/);
-    assert.doesNotMatch(STAGING_CONFIG, /name:\s*'webkit'/);
-    assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium/);
-    assert.match(PREFLIGHT, /staging E2E chỉ chạy Chromium/);
+  test('automated matrix is recorded as partial, without inventing real-device or streak evidence', () => {
+    assert.match(STAGING_CONFIG, /name: 'staging-core-chromium'/);
+    assert.match(STAGING_CONFIG, /name: 'matrix-webkit-26\.4-desktop'/);
+    assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium webkit/);
+    assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
     assert.match(PREFLIGHT, /Không tìm thấy frozen Gate E threshold\/register/);
   });
 
