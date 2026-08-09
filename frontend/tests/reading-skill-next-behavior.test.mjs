@@ -13,6 +13,8 @@ const BEHAVIOR = read(
   'app', '(authed-reading)', 'reading', 'skill', 'reading-skill-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const BROWSER_FLOW = read('tooling', 'verify-reading-skill-flow.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/reading/skill — native React behavior', () => {
   test('removes legacy module injection, hydration sentinel and watchdog', () => {
@@ -26,8 +28,9 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /status !== 'signed-in' \|\| !user\?\.id/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
     assert.match(BEHAVIOR, /\[accountKey, difficulty, skill\]/);
   });
 
@@ -46,6 +49,9 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
     assert.match(BEHAVIOR, /if \(!slug\) return \[\]/);
     assert.match(BEHAVIOR, /SKILL_LABEL\[skill\] \|\| skill/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, exercises\.length\)/);
+    assert.match(BEHAVIOR, /new Set\(state\.exercises\.map/);
+    assert.match(BEHAVIOR, /displaySkillTitle\(fullTitle\)/);
     assert.match(BEHAVIOR, /encodeURIComponent\(exercise\.slug\)/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
@@ -62,8 +68,30 @@ describe('/reading/skill — native React behavior', () => {
   });
 
   test('preserves pill order and the skill exercise destination', () => {
-    assert.match(BEHAVIOR, /exercise\.skillLabel[\s\S]*exercise\.difficulty[\s\S]*exercise\.topic[\s\S]*exercise\.estimatedMinutes/);
+    assert.match(BEHAVIOR, /exercise\.skillLabel[\s\S]*\{difficulty \?[\s\S]*exercise\.topic/);
+    assert.match(BEHAVIOR, /exercise\.estimatedMinutes[\s\S]*PHÚT/);
     assert.match(BEHAVIOR, /\/pages\/reading-skill-exercise\.html\?slug=/);
+    assert.match(BEHAVIOR, /className="rv-card__top"/);
+    assert.match(BEHAVIOR, /className="rv-card__footer"/);
+    assert.match(BEHAVIOR, /className="rv-card__cta"/);
+    assert.match(BEHAVIOR, /title=\{exercise\.fullTitle\}/);
+  });
+
+  test('keeps truthful live totals and resets both filters', () => {
+    assert.match(SHELL, /focusCount = '—'/);
+    assert.match(SHELL, /totalCount = '—'/);
+    assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
+    assert.match(BEHAVIOR, /setDifficulty\(''\)[\s\S]*setSkill\(''\)/);
+    assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(BROWSER_FLOW, /const ROUTE = '\/reading\/skill'/);
+    assert.match(BROWSER_FLOW, /response filter cũ không ghi đè response mới/);
+    assert.match(BROWSER_FLOW, /Xóa lọc reset cả hai select/);
+    assert.match(PARITY_WORKFLOW, /frontend\/tooling\/verify-reading-skill-flow\.mjs/);
+    assert.match(PARITY_WORKFLOW, /run: node tooling\/verify-reading-skill-flow\.mjs/);
   });
 
   test('is no longer hard-navigation-only', () => {

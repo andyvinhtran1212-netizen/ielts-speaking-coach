@@ -207,6 +207,8 @@ on:
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
+      - 'frontend/tooling/verify-reading-vocab-flow.mjs'
+      - 'frontend/tooling/verify-reading-skill-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -556,6 +558,19 @@ jobs:
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
+      # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
+      # request filter bị supersede hay nút reset. Runner này dùng browser thật,
+      # phiên + backend giả và chặn toàn bộ request; không cần secret, không ghi
+      # vào dữ liệu nào.
+      - name: Kiểm luồng Reading Vocab native
+        run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
+      # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
+      - name: Kiểm luồng Reading Skill native
+        run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
