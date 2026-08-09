@@ -369,3 +369,41 @@ None found that require a schema or grading rewrite.
   and right edges of roster/progress/homework/marking panels at desktop widths;
   open and close a student drawer; inspect tally/effort views; repeat at 390px
   and verify there is no page-level horizontal overflow.
+
+## Learner Writing workspace and feedback — 2026-08-09
+
+### Issue: the composition surface exposes controls but not the writing flow
+
+- **Root cause:** prompt, timer, file import, textarea, word count, autosave, and
+  submission were rendered as equal-weight utility blocks in a full-screen
+  modal. The learner had no visible minimum-word target or pre-submit sequence.
+- **Severity:** Medium.
+- **Impact:** the main task—reading the prompt and producing a complete response—
+  competes with tooling; learners must remember the Task 1/Task 2 word minimum.
+- **Impacted files:** `writing/dashboard/page-shell.tsx`,
+  `writing/dashboard/writing-behavior.tsx`, `writing-dashboard.html`, and
+  `writing-dashboard.css`.
+- **Minimal fix:** preserve every assignment/draft/submit contract while shaping
+  the modal into a prompt rail and paper-like editor, deriving the 150/250-word
+  guide from the canonical task type and keeping save/submit status adjacent to
+  the final actions.
+- **Verification:** open Task 1 and Task 2 assignments, restore a saved draft,
+  type through the target, import text, save, submit, and repeat at 390px.
+
+### Issue: feedback architecture delays the first actionable insight
+
+- **Root cause:** the complete submitted essay occupied the full content width
+  before any feedback, while five equal-weight tabs and fourteen section cards
+  offered no recommended reading order.
+- **Severity:** Medium.
+- **Impact:** learners must scroll and self-organize a dense report before they
+  can answer “what should I fix in my next essay?”.
+- **Impacted files:** `writing-result.html` and `writing-result.css`.
+- **Minimal fix:** lead with an explicit learning path, rename the first tabs by
+  learner intent, place feedback beside a sticky highlighted source essay on
+  desktop, and put feedback before the source essay on compact screens. Keep all
+  five tab keys, fourteen renderer targets, score-visibility rules, and export /
+  regrade flows unchanged.
+- **Verification:** load delivered feedback with and without optional sections,
+  switch all tabs by keyboard, open an inline highlight, print/download, test a
+  hidden-score essay, and check 390px/768px/1280px layouts.
