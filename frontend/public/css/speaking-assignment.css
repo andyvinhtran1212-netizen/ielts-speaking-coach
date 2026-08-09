@@ -609,6 +609,7 @@
    thứ một cột ghi âm đang chạy muốn nói. Không tự đẻ token mới cho một trạng
    thái tạm. */
 .av-slot[data-state='recording'] .av-slot__spine { background: var(--av-error); }
+.av-slot[data-state='retry']     .av-slot__spine { background: var(--av-warning); }
 .av-slot[data-state='grading']   .av-slot__spine { background: var(--av-accent); }
 .av-slot[data-state='saved']     .av-slot__spine { background: var(--av-success); }
 
@@ -637,6 +638,7 @@
 }
 
 .av-slot[data-state='saved'] .av-slot__status { color: var(--av-success); }
+.av-slot[data-state='retry'] .av-slot__status { color: var(--av-warning); }
 .av-slot[data-state='grading'] .av-slot__status { color: var(--av-accent); }
 
 /* Nút nghe là vật TO NHẤT trong ô — nó là cách duy nhất biết đề hỏi gì. */
@@ -906,6 +908,7 @@
 /* Ba trạng thái, ba màu — cùng bảng với vạch bên trái mỗi ô, để hai chỗ nói
    cùng một thứ tiếng. */
 .av-sheet__ticks i[data-state='recording'] { background: var(--av-error); }
+.av-sheet__ticks i[data-state='retry']     { background: var(--av-warning); }
 .av-sheet__ticks i[data-state='grading']   { background: var(--av-accent); }
 .av-sheet__ticks i[data-state='saved']     { background: var(--av-success); }
 /* Đã lưu nhưng chưa chấm được. Thiếu dòng này thì vạch ấy xám y hệt câu CHƯA

@@ -385,6 +385,51 @@
       : null;
   }
 
+  function _getNativeSubmission() {
+    var submission = window.PracticeSubmission;
+    return submission
+      && typeof submission.submit === 'function'
+      && typeof submission.destroy === 'function'
+      ? submission
+      : null;
+  }
+
+  function _normalizeSubmissionResult(data) {
+    if (!(data && data._reconciled && data._persisted_response)) return data;
+    var recovered = _respToFeedbackData(data._persisted_response);
+    recovered._reconciled = true;
+    return recovered;
+  }
+
+  function _knownResponseId(questionId) {
+    var responses = (_sessionData && _sessionData.responses) || [];
+    for (var i = 0; i < responses.length; i++) {
+      if (String(responses[i].question_id) === String(questionId) && responses[i].id) {
+        return responses[i].id;
+      }
+    }
+    return null;
+  }
+
+  function _submitResponseTransport(sessionId, questionId, blob, opts) {
+    var nativeSubmission = _getNativeSubmission();
+    if (nativeSubmission) {
+      return nativeSubmission.submit({
+        sessionId: sessionId,
+        questionId: questionId,
+        blob: blob,
+        priorResponseId: opts && opts.priorResponseId,
+      }).then(_normalizeSubmissionResult);
+    }
+
+    // Legacy URL fallback. The App Router route always installs the native
+    // transport before PracticeApp.init(), so FormData ownership is native there.
+    var fd = new FormData();
+    fd.append('question_id', questionId);
+    fd.append('audio_file', blob, 'response.webm');
+    return window.api.upload('/sessions/' + sessionId + '/responses', fd);
+  }
+
   function _handleRecordedBlob(blob, elapsed) {
     _recordedBlob = blob;
     if (typeof elapsed === 'number') _elapsedSecs = elapsed;
@@ -719,21 +764,19 @@
 
   async function _uploadAndGrade(blob, questionId) {
     var data = null;
+    var nativeSubmission = _getNativeSubmission();
     try {
-      var fd = new FormData();
-      fd.append('question_id', questionId);            // must match backend Form param
-      fd.append('audio_file',  blob, 'response.webm'); // must match backend File param
-      data = await window.api.upload(
-        '/sessions/' + _sessionId + '/responses',
-        fd
-      );
+      data = await _submitResponseTransport(_sessionId, questionId, blob, {
+        priorResponseId: _knownResponseId(questionId),
+      });
     } catch (err) {
       // Sprint 14.2 — audio-too-short is a *recoverable* user error, not
       // a server failure: route back to the recorded sub-state with the
       // backend's structured 422 detail rendered as the rec-error banner.
-      // Other errors keep the legacy "AI temporarily unavailable" stub.
+      // Other errors keep the legacy "AI temporarily unavailable" stub only
+      // on the legacy URL; native transport below fails closed.
       var detail = err && err.detail;
-      if (detail && detail.code === 'audio_too_short') {
+      if ((err && err.code === 'audio_too_short') || (detail && detail.code === 'audio_too_short')) {
         if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
         _handleAudioTooShort(detail);
         return;
@@ -741,9 +784,21 @@
       // P0-2: the grade was NOT persisted (backend now fails loud with a 500 +
       // error_code instead of the old silent 200/null). Show retry, never enter
       // feedback — no silent data loss, and /complete won't see 0 responses.
-      if (err && err.status === 500 && detail && detail.error_code === 'response_persist_failed') {
+      if ((err && err.code === 'response_persist_failed')
+          || (err && err.status === 500 && detail && detail.error_code === 'response_persist_failed')) {
         if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
         _handlePersistFailure(detail);
+        return;
+      }
+      // Native transport never converts an unconfirmed mutation into feedback.
+      // Network/5xx/malformed success is first reconciled against canonical
+      // session responses; if still unknown, keep the blob and offer retry.
+      if (nativeSubmission) {
+        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        var retryMessage = err && err.code === 'ambiguous_commit'
+          ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
+          : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.';
+        _handlePersistFailure({ message: retryMessage });
         return;
       }
       var errMsg = err.message || 'Lỗi không xác định';
@@ -763,6 +818,7 @@
       _handlePersistFailure(null);
       return;
     }
+    _clearP2SubmissionRetry();
     _showFeedback(data || { _stub: true, _error: 'Không có phản hồi từ server' });
   }
 
@@ -784,10 +840,9 @@
     msg += ' Hãy bấm “Gửi” để thử lại.';
     var part = _sessionData ? _sessionData.part : null;
     if (part === 2) {
-      // P2 has no recorded sub-state to retry from → re-record (mirror P2 short-audio).
-      _resetRecorder();
-      showState('p2a');
-      try { window.alert(msg); } catch (_) {}
+      // Keep the only local copy. Part 2 has no generic "recorded" sub-state,
+      // so its cue-card screen owns an explicit replay / retry choice.
+      _showP2SubmissionRetry(msg);
       return;
     }
     showState('recording');
@@ -835,6 +890,7 @@
     // restarts the full P2 cycle.
     var part = _sessionData ? _sessionData.part : null;
     if (part === 2) {
+      _clearP2SubmissionRetry();
       _resetRecorder();   // discard blob + clear playback URL
       showState('p2a');
       // p2a has no inline error region — surface via alert as a stopgap.
@@ -2146,6 +2202,7 @@
   // ── END Question mode ─────────────────────────────────────────────────────────
 
   function _showP2Cue() {
+    _clearP2SubmissionRetry();
     var q = _currentQ;
     var topicEl = $('p2a-topic');
     if (topicEl) topicEl.textContent = _sessionData ? (_sessionData.topic || '') : '';
@@ -2166,7 +2223,62 @@
     showState('p2a');
   }
 
+  var _p2RetryPlaybackUrl = null;
+  var _p2RetryQuestionId = null;
+
+  function _clearP2SubmissionRetry() {
+    var wrap = $('p2a-submit-retry');
+    var audio = $('p2a-submit-retry-audio');
+    var start = $('p2a-start-btn');
+    if (wrap) wrap.style.display = 'none';
+    if (start) start.style.display = '';
+    if (audio) {
+      try { audio.pause(); } catch (e) {}
+      audio.removeAttribute('src');
+    }
+    if (_p2RetryPlaybackUrl) {
+      URL.revokeObjectURL(_p2RetryPlaybackUrl);
+      _p2RetryPlaybackUrl = null;
+    }
+    _p2RetryQuestionId = null;
+  }
+
+  function _showP2SubmissionRetry(message) {
+    // Render the canonical cue first, then replace its start action with the
+    // preserved-take recovery actions.
+    _showP2Cue();
+    _p2RetryQuestionId = _currentQ && (_currentQ.id || _currentQ.question_id);
+    var wrap = $('p2a-submit-retry');
+    var msg = $('p2a-submit-retry-msg');
+    var audio = $('p2a-submit-retry-audio');
+    var start = $('p2a-start-btn');
+    if (msg) msg.textContent = message;
+    if (start) start.style.display = 'none';
+    if (wrap) wrap.style.display = '';
+    if (audio && _recordedBlob) {
+      _p2RetryPlaybackUrl = URL.createObjectURL(_recordedBlob);
+      audio.src = _p2RetryPlaybackUrl;
+    }
+    showState('p2a');
+  }
+
+  function retryP2Submission() {
+    if (!_recordedBlob || !_p2RetryQuestionId) {
+      discardP2SubmissionRetry();
+      showError('Không còn bản ghi để gửi lại. Hãy ghi âm lại câu trả lời.');
+      return;
+    }
+    _startProcessing(_recordedBlob, _p2RetryQuestionId);
+  }
+
+  function discardP2SubmissionRetry() {
+    _clearP2SubmissionRetry();
+    _resetRecorder();
+    _showP2Cue();
+  }
+
   function startP2Prep() {
+    _clearP2SubmissionRetry();
     _stopAITts();
     window.speechSynthesis && window.speechSynthesis.cancel();
 
@@ -2368,11 +2480,12 @@
   // Fire a single grading request immediately (eager upload for test_full).
   // Returns a Promise that resolves/rejects when the upload completes.
   function _submitGradingEager(sessionId, questionId, blob, opts) {
-    var fd = new FormData();
-    fd.append('question_id', questionId);
-    fd.append('audio_file', blob, 'response.webm');
+    var submitOpts = Object.assign({}, opts || {});
+    if (!submitOpts.priorResponseId) {
+      submitOpts.priorResponseId = _knownResponseId(questionId);
+    }
     if (_testMode === 'test_full') _ftSubmitTotal++;
-    return window.api.upload('/sessions/' + sessionId + '/responses', fd)
+    return _submitResponseTransport(sessionId, questionId, blob, submitOpts)
       .catch(function (err) {
         // B1: don't just warn — in a Full Test a failed upload means this
         // answer never reaches the server aggregate. Record it so the
@@ -2391,7 +2504,7 @@
         // cảnh báo được vẽ riêng. Nhưng phiếu làm bài DỰA VÀO promise này để
         // quyết định ô có "đã lưu" hay không — nuốt ở đó nghĩa là ô hỏng vẫn
         // xanh, học viên bấm Nộp và mất câu trả lời mà không biết.
-        if (opts && opts.rethrow) throw err;
+        if (submitOpts.rethrow) throw err;
       });
   }
 
@@ -3059,6 +3172,7 @@
 
   var _SHEET_LABEL = {
     idle:      'Chưa làm',
+    retry:     'Chưa gửi · có bản ghi',
     recording: 'Đang ghi âm',
     grading:   'Đang chấm…',
     saved:     'Đã lưu',
@@ -3145,7 +3259,11 @@
   /** Dòng đã lưu → đúng object `_showFeedback` nhận lúc vừa chấm xong. */
   function _respToFeedbackData(r) {
     var fb = _respFeedback(r) || {};
-    return Object.assign({}, fb, {
+    var failed = r && (r.grading_status === 'failed' || fb._failed);
+    return Object.assign({}, fb, failed ? {
+      _stub: true,
+      _error: 'AI grading is temporarily unavailable. Your recording and transcript were saved.',
+    } : {}, {
       response_id:      r.id,
       transcript:       r.transcript || fb.transcript || '',
       duration_seconds: r.duration_seconds != null ? r.duration_seconds : fb.duration_seconds,
@@ -3182,7 +3300,8 @@
       // chưa làm, "Dừng" khi đang ghi, "Ghi âm lại" khi đã lưu. Một nhãn dùng
       // chung cho ba việc là bắt người ta đoán.
       var recLabel = recording ? 'Dừng ghi âm'
-        : ((s.state === 'saved' || s.state === 'ungraded') ? 'Ghi âm lại' : 'Ghi âm');
+        : (s.state === 'retry' ? 'Ghi lại'
+          : ((s.state === 'saved' || s.state === 'ungraded') ? 'Ghi âm lại' : 'Ghi âm'));
       // Hết hạn / đã chốt: phiếu thành CHỈ ĐỌC. Bài cũ vẫn xem lại được, chỉ
       // không nhận bài mới — để học viên khỏi nói xong mười câu rồi mới biết
       // là muộn.
@@ -3203,6 +3322,10 @@
       var review = (s.state === 'saved' && s.resp)
         ? '<button type="button" class="btn btn-ghost" data-review="' + i + '">Xem nhận xét</button>'
         : '';
+      var retry = (!locked && s.retryBlob)
+        ? '<button type="button" class="btn btn-primary" data-retry="' + i + '"'
+          + (busy ? ' disabled' : '') + '>Gửi lại bản ghi</button>'
+        : '';
 
       return '<section class="av-slot" data-state="' + s.state + '" data-idx="' + i + '">'
         + '<span class="av-slot__spine" aria-hidden="true"></span>'
@@ -3221,6 +3344,7 @@
         +     (locked ? ''
         :       '<button type="button" class="btn ' + (recording ? 'btn-danger' : 'btn-secondary')
               +   '" data-rec="' + i + '"' + (busy ? ' disabled' : '') + '>' + recLabel + '</button>')
+        +     retry
         +     review
         +     band
         +   '</div>'
@@ -3348,6 +3472,12 @@
       s.error = 'Không ghi âm được. Kiểm tra quyền dùng micro rồi thử lại.';
       _sheet.recIdx = -1;
       _renderSheet();
+    } else {
+      // Starting a fresh take is the learner's explicit decision to replace the
+      // locally retained failed take. Do not discard it before the microphone
+      // actually starts: permission failure must leave the retry option intact.
+      s.retryBlob = null;
+      s.retryHadWork = null;
     }
   }
 
@@ -3362,10 +3492,26 @@
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
     if (!s) return;
     _sheet.recIdx = -1;
+    _sheetSubmitBlob(s, blob, hadWork);
+  }
+
+  function _sheetRetrySubmission(i) {
+    var s = _sheet && _sheet.slots[i];
+    if (!s || !s.retryBlob || s.state === 'grading') return;
+    _sheetSubmitBlob(s, s.retryBlob, s.retryHadWork || null);
+  }
+
+  function _sheetSubmitBlob(s, blob, hadWork) {
+    s.retryBlob = null;
+    s.retryHadWork = null;
     s.state = 'grading';
+    s.error = null;
     _renderSheet();
 
-    _submitGradingEager(_sessionId, s.q.id, blob, { rethrow: true })
+    _submitGradingEager(_sessionId, s.q.id, blob, {
+      rethrow: true,
+      priorResponseId: s.resp && (s.resp.id || s.resp.response_id),
+    })
       .then(function (res) {
         var g = (res && res.grading) ? res.grading : res;
         // `_stub` = máy chủ đã LƯU bài nhưng bộ chấm hỏng (200, không phải lỗi
@@ -3388,6 +3534,8 @@
         // Hình dạng ở đây đã là hình dạng `_showFeedback` nhận, nên đánh dấu
         // để `_sheetReview` khỏi cố dựng lại từ một dòng cơ sở dữ liệu.
         s.resp = g ? Object.assign({}, g, { _live: true }) : null;
+        s.retryBlob = null;
+        s.retryHadWork = null;
       })
       .catch(function (err) {
         // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
@@ -3395,11 +3543,13 @@
         //
         // Nhưng nếu ô ĐÃ CÓ bài từ trước thì bản cũ vẫn còn nguyên trên server:
         // hạ nó về 'chưa làm' là nói sai và khoá luôn nút Nộp. Chỉ lần ghi ĐẦU
-        // TIÊN mới rơi về 'idle'.
-        s.state = hadWork || 'idle';
+        // TIÊN giữ trạng thái retry cùng chính blob ấy.
+        s.state = hadWork || 'retry';
+        s.retryBlob = blob;
+        s.retryHadWork = hadWork;
         s.error = hadWork
-          ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước của bạn vẫn còn.'
-          : 'Chưa lưu được câu này. Ghi âm lại giúp nhé.';
+          ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước vẫn còn. Bạn có thể gửi lại bản mới.'
+          : 'Chưa gửi được câu này. Bản ghi vẫn còn trên thiết bị — hãy gửi lại.';
       })
       .then(function () { _renderSheet(); });
   }
@@ -3503,6 +3653,7 @@
   function _releaseRecorderResources() {
     if (_timerId) { clearInterval(_timerId); _timerId = null; }
     _stopWaveform();
+    _clearP2SubmissionRetry();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
       nativeRecorder.destroy();
@@ -3616,6 +3767,11 @@
       if (listen) { _sheetListen(Number(listen.dataset.listen)); return; }
       var rev = e.target.closest('[data-review]');
       if (rev) { _sheetReview(Number(rev.dataset.review)); return; }
+      var retry = e.target.closest('[data-retry]');
+      if (retry && !retry.disabled) {
+        _sheetRetrySubmission(Number(retry.dataset.retry));
+        return;
+      }
       var rec = e.target.closest('[data-rec]');
       if (rec && !rec.disabled) _sheetToggleRec(Number(rec.dataset.rec));
     });
@@ -3902,6 +4058,8 @@
     startP2Prep:          startP2Prep,
     startP2SpeakingEarly: startP2SpeakingEarly,
     stopP2SpeakingEarly:  stopP2SpeakingEarly,
+    retryP2Submission:    retryP2Submission,
+    discardP2SubmissionRetry: discardP2SubmissionRetry,
     // Question mode (Part 1 & 3)
     setQMode:             _setQMode,
     playQuestion:         _playQuestion,

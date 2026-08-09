@@ -60,10 +60,11 @@ export function PracticeSessionBoot() {
             const win = window as any;
             return typeof win.PracticeApp?.init === 'function'
               && typeof win.PracticeRecorder?.start === 'function'
+              && typeof win.PracticeSubmission?.submit === 'function'
               && typeof win.api?.get === 'function'
               && typeof win.api?.post === 'function';
           },
-          'PracticeApp + native recorder + API',
+          'PracticeApp + native recorder + native submission + API',
         );
         if (!ready) {
           throw new PracticeBootstrapError(

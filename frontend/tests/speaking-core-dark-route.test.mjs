@@ -51,6 +51,8 @@ describe('/practice/session transitional dark route', () => {
   test('App Router owns the URL and renders canonical chrome, shell and guarded boot', () => {
     assert.match(PAGE, /<aver-chrome active="speaking"/);
     assert.match(PAGE, /<LegacyPracticeShell \/>/);
+    assert.match(PAGE, /<PracticeRecorderBridge \/>/);
+    assert.match(PAGE, /<PracticeSubmissionBridge \/>/);
     assert.match(PAGE, /<PracticeSessionBoot \/>/);
     assert.match(SHELL, /extractLegacyPracticeBody\(source\)/);
     assert.match(SHELL, /dangerouslySetInnerHTML/);
@@ -86,8 +88,8 @@ describe('/practice/session transitional dark route', () => {
     assert.equal(speaking.next.path, '/practice/session');
     assert.equal(speaking.next.route_ready, false);
     assert.equal(speaking.admit_new, 'legacy');
-    assert.match(DOC, /NATIVE BOOTSTRAP \+ RECORDER; LEGACY ORCHESTRATION; ADMISSION/);
-    assert.match(DOC, /Upload\/grading\/player\s+state machine vẫn ở `practice\.js`/);
+    assert.match(DOC, /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION; LEGACY STATE; ADMISSION/);
+    assert.match(DOC, /Player state machine, full-test finalize và UI feedback vẫn ở `practice\.js`/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {
