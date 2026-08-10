@@ -26,7 +26,7 @@ interface Overview {
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; overview: Overview }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 function strictPositiveCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
@@ -57,11 +57,6 @@ function normalizeOverview(payload: unknown): Overview {
       .filter(([key]) => coerciblePositiveCount(modes[key]) > 0)
       .map(([, label]) => label),
   };
-}
-
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
 }
 
 interface ModeCardProps {
@@ -150,13 +145,18 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
 
   return (
     <>
+      {state.status === 'loading' ? (
+        <div className="empty-state" id="landing-loading" role="status">
+          Đang tải thư viện Listening…
+        </div>
+      ) : null}
       <section className="vocab-modes" aria-labelledby="exam-heading">
         <h2 id="exam-heading">Luyện theo đề</h2>
         <div className="modes-grid">
           <ExamCards overview={ready} unverified={state.status === 'error'} />
         </div>
         {state.status === 'ready' && examCount === 0 && (
-          <p className="ll-empty" id="exam-empty">
+          <p className="ll-empty" id="exam-empty" role="status">
             Chưa có đề nào được xuất bản. Hãy quay lại sau khi quản trị viên đăng bài mới.
           </p>
         )}
@@ -183,8 +183,8 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
       </section>
 
       {state.status === 'error' && (
-        <div className="error-banner" id="landing-error">
-          Không tải được số lượng bài. Danh sách bên dưới vẫn mở được. {state.message}
+        <div className="error-banner" id="landing-error" role="alert">
+          Không tải được số lượng bài. Danh sách bên dưới vẫn mở được.
         </div>
       )}
     </>
@@ -219,7 +219,7 @@ function ListeningLandingData({ accountKey }: { accountKey: string }) {
         'window.api (listening landing overview)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error', message: '' });
+        if (!disposed) setState({ status: 'error' });
         return;
       }
       try {
@@ -231,7 +231,7 @@ function ListeningLandingData({ accountKey }: { accountKey: string }) {
         if (!disposed) setState({ status: 'ready', overview: normalizeOverview(payload) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error', message: errorMessage(caught) });
+        setState({ status: 'error' });
       }
     })();
 

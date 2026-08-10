@@ -62,7 +62,9 @@ export function PracticeSessionBoot() {
               && typeof win.PracticeRecorder?.start === 'function'
               && typeof win.PracticeSubmission?.submit === 'function'
               && typeof win.api?.get === 'function'
-              && typeof win.api?.post === 'function';
+              && typeof win.api?.post === 'function'
+              && typeof win.api?.getWith === 'function'
+              && typeof win.api?.postWith === 'function';
           },
           'PracticeApp + native recorder + native submission + API',
         );
@@ -90,13 +92,27 @@ export function PracticeSessionBoot() {
       })
       .catch((error) => {
         if (!active) return;
+        if (error instanceof PracticeBootstrapError && error.code === 'auth_required') {
+          window.location.replace('/login.html');
+          return;
+        }
         const message = error instanceof PracticeBootstrapError
           ? error.message
-          : 'Không thể khởi động bài luyện. Hãy tải lại trang.';
+          : ((error as any)?.userMessage
+            || 'Không thể khởi động bài luyện. Hãy tải lại trang.');
         const detail = error instanceof Error ? error.message : String(error);
+        const code = error instanceof PracticeBootstrapError
+          ? error.code
+          : ((error as any)?.code || 'unexpected');
         (window as any).aver?.reportError?.(
           'practice native bootstrap failed: ' + detail,
-          { type: 'practice_native_bootstrap_failed' },
+          {
+            type: 'practice_native_bootstrap_failed',
+            code,
+            status: (error as any)?.status ?? null,
+            request_id: (error as any)?.request_id ?? null,
+            ref: (error as any)?.ref ?? null,
+          },
         );
         showBootFailure(message);
       });

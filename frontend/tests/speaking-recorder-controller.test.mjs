@@ -139,6 +139,17 @@ describe('SpeakingRecorderController', () => {
     assert.equal(h.gumCalls(), 1);
   });
 
+  test('a new take clears the previous blob and buffered chunks immediately', async () => {
+    const h = harness();
+    await h.controller.start();
+    h.controller.stop();
+    assert.ok(h.controller.getBlob() instanceof Blob);
+    assert.ok(h.controller.chunks.length > 0);
+    await h.controller.start();
+    assert.equal(h.controller.getBlob(), null);
+    assert.deepEqual(h.controller.chunks, []);
+  });
+
   test('coalesces concurrent starts while microphone permission is pending', async () => {
     let resolveMedia;
     const media = new Promise((resolve) => { resolveMedia = resolve; });
@@ -148,6 +159,20 @@ describe('SpeakingRecorderController', () => {
     resolveMedia(h.stream);
     assert.equal(await first, true);
     assert.equal(h.gumCalls(), 1);
+  });
+
+  test('reset cancels a pending permission request and stops its late stream', async () => {
+    let resolveMedia;
+    const media = new Promise((resolve) => { resolveMedia = resolve; });
+    const h = harness({ getUserMedia: () => media });
+    const pending = h.controller.start();
+    assert.equal(h.controller.isStarting(), true);
+    h.controller.reset();
+    assert.equal(h.controller.isStarting(), false);
+    resolveMedia(h.stream);
+    assert.equal(await pending, false);
+    assert.equal(h.stream.track.stopCount, 1);
+    assert.equal(FakeMediaRecorder.instances.length, 0);
   });
 
   test('destroy stops a stream that resolves after unmount', async () => {
@@ -175,6 +200,35 @@ describe('SpeakingRecorderController', () => {
     h.controller.destroy();
     assert.equal(h.stream.track.stopCount, 1);
     assert.equal(audioContext.closeCount, 1);
+  });
+
+  test('release closes owned media without permanently disposing the controller', async () => {
+    const streams = [new FakeStream(), new FakeStream()];
+    let index = 0;
+    const h = harness({ getUserMedia: () => streams[index++] });
+    await h.controller.start();
+    h.controller.release();
+    assert.equal(streams[0].track.stopCount, 1);
+    assert.equal(h.controller.isRecording(), false);
+    assert.equal(await h.controller.start(), true);
+    assert.equal(h.gumCalls(), 2);
+  });
+
+  test('stop failure releases the broken recorder and live stream', async () => {
+    class ThrowingStopRecorder extends FakeMediaRecorder {
+      stop() { throw new Error('device stop failed'); }
+    }
+    const stream = new FakeStream();
+    const controller = new SpeakingRecorderController({
+      mediaDevices: { getUserMedia: async () => stream },
+      MediaRecorderCtor: ThrowingStopRecorder,
+      AudioContextCtor: FakeAudioContext,
+      BlobCtor: Blob,
+    });
+    await controller.start();
+    assert.equal(controller.stop(), false);
+    assert.equal(controller.isRecording(), false);
+    assert.equal(stream.track.stopCount, 1);
   });
 
   test('tears down media when a start callback throws after recorder.start', async () => {
@@ -225,11 +279,12 @@ describe('Next Speaking recorder integration', () => {
 
   test('practice routes funnel, Part 2, reset and terminal cleanup through the controller', () => {
     assert.match(PRACTICE, /function _getNativeRecorder\(\)/);
+    assert.match(PRACTICE, /typeof recorder\.getAnalyser === 'function'/);
     assert.match(PRACTICE, /return _startNativeRecording\(nativeRecorder\)/);
     assert.match(PRACTICE, /onRecorded: _handleP2RecordedBlob/);
     assert.match(PRACTICE, /nativeRecorder\.reset\(\)/);
     assert.match(PRACTICE, /function _releaseRecorderResources\(\)/);
-    assert.match(PRACTICE, /nativeRecorder\.destroy\(\)/);
+    assert.match(PRACTICE, /nativeRecorder\.release\(\)/);
     assert.match(PRACTICE, /new MediaRecorder\(_stream/);
   });
 
