@@ -106,9 +106,9 @@ check('attempt dang dở vẫn thuộc nhóm Chưa làm',
     && (await page.locator('[data-test-id="form-draft"] .ls-drill-status').innerText()) === 'Chưa làm');
 check('card giữ đúng player và dictation destination',
   (await page.locator('[data-test-id="form-draft"] .ls-drill-cta').first().getAttribute('href'))
-      === '/pages/listening-test.html?id=form-draft'
+      === '/core-player/launch?surface=listening_test&id=form-draft'
     && (await page.locator('[data-test-id="form-draft"] .ls-drill-cta').nth(1).getAttribute('href'))
-      === '/pages/listening-test-dictation.html?test_id=form-draft');
+      === '/core-player/launch?surface=listening_dictation&test_id=form-draft');
 
 await page.getByRole('button', { name: 'Đã luyện', exact: true }).click();
 check('lọc Đã luyện chỉ giữ attempt đã submitted',

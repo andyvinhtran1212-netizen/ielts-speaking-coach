@@ -157,7 +157,7 @@ check('authored title được escape, không tạo script node',
 check('card có accessible name và origin stamp đúng',
   await page.locator('.rv-card').getAttribute('aria-label') === 'Bắt đầu bài thi Full <script> Test'
     && (await page.locator('.rv-card').getAttribute('href'))
-      === '/pages/reading-exam.html?test_id=FULL-01&from=full');
+      === '/core-player/launch?surface=reading_exam&test_id=FULL-01&from=full');
 const factsText = (await page.locator('.rv-card__facts').innerText()).replace(/\s+/g, ' ');
 const footerText = (await page.locator('.rv-card__footer').innerText()).replace(/\s+/g, ' ');
 check('facts và band target dùng dữ liệu canonical',

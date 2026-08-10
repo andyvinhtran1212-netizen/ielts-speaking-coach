@@ -98,9 +98,9 @@ const doneStats = await page.locator('[data-test-id="mini-done"] .lt-card-stats'
 check('điểm mini không bịa mẫu số /40', doneStats.includes('8 điểm') && !doneStats.includes('/40'));
 check('card giữ đúng player origin và dictation destination',
   (await page.locator('[data-test-id="mini-draft"] .lt-card-cta').first().getAttribute('href'))
-      === '/pages/listening-test.html?id=mini-draft&from=mini'
+      === '/core-player/launch?surface=listening_test&id=mini-draft&from=mini'
     && (await page.locator('[data-test-id="mini-draft"] .lt-card-cta').nth(1).getAttribute('href'))
-      === '/pages/listening-test-dictation.html?test_id=mini-draft');
+      === '/core-player/launch?surface=listening_dictation&test_id=mini-draft');
 
 await page.getByRole('button', { name: 'Đã luyện', exact: true }).click();
 check('lọc Đã luyện chỉ giữ attempt đã submitted',

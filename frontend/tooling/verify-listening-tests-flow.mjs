@@ -99,9 +99,9 @@ check('attempt submitted hiển thị điểm và CTA làm lại',
 check('card giữ cấu trúc đề và hai đích hành động',
   (await page.locator('[data-test-id="draft-attempt"] .lt-card-facts').innerText()).includes('40 câu')
     && (await page.locator('[data-test-id="draft-attempt"] .lt-card-cta').first().getAttribute('href'))
-      === '/pages/listening-test.html?id=draft-attempt&from=full'
+      === '/core-player/launch?surface=listening_test&id=draft-attempt&from=full'
     && (await page.locator('[data-test-id="draft-attempt"] .lt-card-cta').nth(1).getAttribute('href'))
-      === '/pages/listening-test-dictation.html?test_id=draft-attempt');
+      === '/core-player/launch?surface=listening_dictation&test_id=draft-attempt');
 
 await page.getByRole('button', { name: 'Đã làm', exact: true }).click();
 check('lọc Đã làm dựa trên submitted attempt',
