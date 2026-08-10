@@ -165,6 +165,8 @@ class _Builder:
         return self
 
     def execute(self):
+        if isinstance(self._data, Exception):
+            raise self._data
         return _Exec(self._data, self._count)
 
 
@@ -221,10 +223,29 @@ def test_get_session_enqueues_touch_and_augments(monkeypatch):
     bt = BackgroundTasks()
     out = _run(sessions_module.get_session("sess-1", bt, authorization="Bearer x"))
     assert "retention" in out and out["session_id"] == "sess-1"
+    assert out["question_lookup_failed"] is False
     assert out["results_sealed"] is False
     assert "days_until_content_purge" in out["retention"]  # v2 shape
     funcs = [t.func for t in bt.tasks]
     assert sessions_module._touch_last_accessed in funcs
+
+
+def test_get_session_marks_question_lookup_failure_instead_of_claiming_empty(monkeypatch):
+    session = {
+        "id": "sess-question-fail", "user_id": "user-uuid-test",
+        "started_at": _ago(days=1), "last_accessed_at": None,
+    }
+    _patch(monkeypatch, {
+        "sessions": [session],
+        "questions": RuntimeError("questions unavailable"),
+        "responses": [],
+    })
+    out = _run(sessions_module.get_session(
+        "sess-question-fail", BackgroundTasks(), authorization="Bearer x",
+    ))
+    assert out["questions"] == []
+    assert out["question_lookup_failed"] is True
+    assert out["response_lookup_failed"] is False
 
 
 def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):

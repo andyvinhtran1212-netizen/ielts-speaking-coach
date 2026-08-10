@@ -33,6 +33,7 @@ describe('/result — native React ownership', () => {
   test('reads one canonical session snapshot and never races a second questions endpoint', () => {
     assert.match(BEHAVIOR, /window\.api\.getWith<any>\(`\/sessions\/\$\{encodedId\}`/);
     assert.doesNotMatch(BEHAVIOR, /\/sessions\/\$\{encodedId\}\/questions|\/questions`/);
+    assert.match(BEHAVIOR, /session\?\.question_lookup_failed === true/);
     assert.match(BEHAVIOR, /session\?\.response_lookup_failed === true/);
     assert.match(BEHAVIOR, /không hiển thị dữ liệu rỗng để tránh báo sai kết quả/);
   });
@@ -71,6 +72,8 @@ describe('/result — native React ownership', () => {
     assert.match(BEHAVIOR, /admitCorePlayer\('speaking', \{ session_id: nextId \}\)/);
     assert.doesNotMatch(BEHAVIOR, /\/pages\/practice\.html/);
     assert.match(BEHAVIOR, /Bấm lại sẽ kiểm tra cùng một yêu cầu, không tạo trùng/);
+    assert.match(BEHAVIOR, /if \(view\.mode === 'test_full'\) return/);
+    assert.match(BEHAVIOR, /view\.mode === 'test_full'[\s\S]*href="\/full-test"[\s\S]*Làm lại Full Test/);
   });
 
   test('request-key change remounts ResultContent and clears media/accordion state', () => {

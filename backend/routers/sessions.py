@@ -883,7 +883,9 @@ async def get_session(
     # non-blocking). Opening a session keeps it in the 7-day visible window.
     background_tasks.add_task(_touch_last_accessed, session_id, session.get("last_accessed_at"))
 
-    # Questions for this session
+    # Questions for this session. Keep lookup failure distinct from a genuine
+    # empty session so result clients never present missing data as canonical.
+    question_lookup_failed = False
     try:
         q_result = (
             supabase_admin.table("questions")
@@ -896,8 +898,10 @@ async def get_session(
         # trong phản hồi mạng trước khi bất kỳ bộ lọc nào khác kịp chạy — và
         # "phải nghe mới biết đề hỏi gì" chỉ còn là một câu chữ trên giao diện.
         questions = redact_questions(q_result.data, reveal=should_reveal(session))
-    except Exception:
+    except Exception as exc:
+        logger.error("[get_session] questions query FAILED for session=%s: %s", session_id, exc)
         questions = []
+        question_lookup_failed = True
 
     # Responses for this session
     response_lookup_failed = False
@@ -945,6 +949,7 @@ async def get_session(
         "questions":  questions,
         "responses":  responses,
         "response_receipts": response_receipts,
+        "question_lookup_failed": question_lookup_failed,
         "response_lookup_failed": response_lookup_failed,
         "results_sealed": results_sealed,
     }

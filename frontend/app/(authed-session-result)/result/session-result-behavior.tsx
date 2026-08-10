@@ -991,6 +991,7 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
 
   const retry = async () => {
     if (retryInFlight.current) return;
+    if (view.mode === 'test_full') return;
     const part = Number(view.part);
     if (![1, 2, 3].includes(part)) {
       showToast('Phiên cũ thiếu thông tin Part hợp lệ nên chưa thể tạo lại.');
@@ -1118,9 +1119,13 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
           ↓ {pdfBusy ? 'Đang tạo PDF…' : 'Tải báo cáo PDF'}
         </button>
         <a href="/speaking" className="btn-secondary result-icon-btn">▦ Quay lại</a>
-        <button className="btn-secondary result-icon-btn" disabled={retryBusy} onClick={retry} type="button">
-          ↻ {retryBusy ? 'Đang tạo phiên…' : 'Luyện lại chủ đề này'}
-        </button>
+        {view.mode === 'test_full' ? (
+          <a href="/full-test" className="btn-secondary result-icon-btn">↻ Làm lại Full Test</a>
+        ) : (
+          <button className="btn-secondary result-icon-btn" disabled={retryBusy} onClick={retry} type="button">
+            ↻ {retryBusy ? 'Đang tạo phiên…' : 'Luyện lại chủ đề này'}
+          </button>
+        )}
       </div>
 
       {toast ? (
@@ -1203,6 +1208,13 @@ export function SessionResultBehavior() {
             }),
         ]);
         if (disposed) return;
+        if (session?.question_lookup_failed === true) {
+          setErrorState({
+            key: requestKey,
+            value: 'Máy chủ không đọc được câu hỏi đã lưu. Trang không hiển thị dữ liệu rỗng để tránh báo sai kết quả; hãy thử tải lại.',
+          });
+          return;
+        }
         if (session?.response_lookup_failed === true) {
           setErrorState({
             key: requestKey,
