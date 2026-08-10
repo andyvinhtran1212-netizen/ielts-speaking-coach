@@ -49,7 +49,7 @@
     "frontend/tests/staging-e2e"
   ],
   "frozen_files": [
-    { "path": "frontend/package.json", "sha256": "6a02560428f90a0d36815d7fb1e8cdf7f246558c1725661d8fa3a97153ca1345" },
+    { "path": "frontend/package.json", "sha256": "a09ef4a695308396737e0e6f308907518b0e1fd70e2d5dd740ed0a1768b19c12" },
     { "path": "frontend/package-lock.json", "sha256": "3b791d160b66d96a585787c00e3bf589b729287064144d66fa0a87f7d4944eb7" },
     { "path": "frontend/playwright.staging.config.js", "sha256": "a52995691cac9b2bdbf6c0b854284262c8305d1eb04e47969faae4592513372c" },
     { "path": "frontend/tooling/gate-e-device-matrix.json", "sha256": "d7c1682f87d218d7d1b0eb3d176c0c30ea29a4c715e34837903a6adab394e802" },

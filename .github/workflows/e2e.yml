@@ -19,7 +19,7 @@ jobs:
   e2e:
     name: E2E modal smoke (advisory)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -48,10 +48,16 @@ jobs:
       - name: Run modal smoke tests
         run: npx playwright test
 
+      - name: Run Speaking Gate E native fixtures
+        run: npm run test:e2e:gate-e
+
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-report
-          path: frontend/playwright-report
+          name: playwright-e2e-failure-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: error
           retention-days: 7
