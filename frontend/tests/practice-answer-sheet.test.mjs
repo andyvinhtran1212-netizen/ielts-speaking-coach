@@ -183,10 +183,24 @@ describe('lưu hỏng thì nói ra', () => {
     assert.match(first.error, /Bản ghi vẫn còn trên thiết bị/);
   });
 
-  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
-    const start = CODE.indexOf('async function _sheetToggleRec');
-    const end = CODE.indexOf('function _sheetOnRecorded', start);
-    assert.match(CODE.slice(start, end), /if \(!ok\)[\s\S]{0,500}?_sheet\.recIdx = -1;/);
+  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', async () => {
+    const from = JS.indexOf('  async function _sheetToggleRec(');
+    const to = JS.indexOf('  function _sheetOnRecorded(blob) {');
+    const slot = { state: 'idle', error: null, hadWork: null };
+    const sheet = { slots: [slot], recIdx: -1 };
+    const toggle = new Function(
+      '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
+      '_getNativeRecorder', '_analyser', '_playerGeneration', '_playerActive',
+      JS.slice(from, to) + ' return _sheetToggleRec;',
+    )(
+      sheet, () => {}, async () => false, () => {},
+      () => null, null, 1, true,
+    );
+
+    await toggle(0);
+    assert.equal(sheet.recIdx, -1);
+    assert.equal(slot.state, 'idle');
+    assert.match(slot.error, /Không ghi âm được/);
   });
 });
 
@@ -584,7 +598,7 @@ describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex 
     // `_advanceTestMode()`. Admin chọn được "Luyện từng Part" khi giao, nên
     // không tắt thì bấm "Xem nhận xét" đá học viên sang luồng tuần tự cũ.
     const i = CODE.indexOf('function _sheetReview');
-    const body = CODE.slice(i, i + 900);
+    const body = CODE.slice(i, CODE.indexOf('function _backToSheet', i));
     assert.ok(/_testMode = null;/.test(body), 'phải tắt test-mode trước khi vẽ');
     assert.ok(/finally/.test(body) && /_testMode = savedMode;/.test(body),
       'và PHẢI trả lại — vẽ hỏng mà mất test-mode thì cả phiên thi lệch');

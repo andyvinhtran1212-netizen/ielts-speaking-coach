@@ -12,6 +12,7 @@
  *     library:   'vocab' | 'skill',      // routes the /check POST
  *     slug:      'passage-slug',
  *     heading:   'Câu hỏi hiểu bài',     // optional sidebar title
+ *     description: '...',                // optional sidebar guidance
  *   });
  *
  * Server-side grading: POSTs to /api/reading/<library>/<slug>/check. Answer
@@ -165,6 +166,10 @@
     // Clear via the DOM API (XSS-safe and explicit) — never innerHTML in this
     // component, even for empty resets, so the sentinel can guard the whole file.
     host.replaceChildren();
+    host.hidden = !questions.length;
+    if (host.parentElement) {
+      host.parentElement.classList.toggle('rv-passage-layout--reading-only', !questions.length);
+    }
     if (!questions.length) return;
 
     var session = {
@@ -176,12 +181,17 @@
       summaryEl: null,
     };
 
-    var heading = el('h2', null, opts.heading || 'Câu hỏi hiểu bài');
-    heading.style.fontSize = 'var(--av-fs-lg)';
-    host.appendChild(heading);
+    var head = el('div', 'rq-head');
+    var copy = el('div', 'rq-head__copy');
+    copy.appendChild(el('span', 'rq-kicker', 'SAU KHI ĐỌC'));
+    copy.appendChild(el('h2', 'rq-title', opts.heading || 'Câu hỏi hiểu bài'));
+    copy.appendChild(el('p', 'rq-description', opts.description || 'Trả lời từng câu và nhận phản hồi ngay.'));
+    head.appendChild(copy);
 
     session.summaryEl = el('div', 'rq-summary', 'Đúng 0/' + questions.length);
-    host.appendChild(session.summaryEl);
+    session.summaryEl.setAttribute('aria-live', 'polite');
+    head.appendChild(session.summaryEl);
+    host.appendChild(head);
 
     questions.forEach(function (q, i) { host.appendChild(renderCard(q, i, session)); });
   }

@@ -18,7 +18,8 @@ const BRIDGE = readFrontend(
 const BOOT = readFrontend(
   'app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx',
 );
-const PRACTICE = readFrontend('js', 'practice.js');
+const PRACTICE = readFrontend('public', 'js', 'practice.js');
+const API = readFrontend('public', 'js', 'api.js');
 
 class FakeFormData {
   constructor() { this.entries = []; }
@@ -79,12 +80,33 @@ describe('SpeakingSubmissionController', () => {
         return new Promise((resolve) => { release = resolve; });
       },
     });
-    const first = c.submit({ sessionId: 's', questionId: 'q', blob: {} });
-    const second = c.submit({ sessionId: 's', questionId: 'q', blob: {} });
+    const blob = {};
+    const first = c.submit({ sessionId: 's', questionId: 'q', blob });
+    const second = c.submit({ sessionId: 's', questionId: 'q', blob });
     assert.equal(first, second);
     assert.equal(calls, 1);
     release({ response_id: 'r' });
     await first;
+  });
+
+  test('serializes different takes for one question instead of dropping the newer blob', async () => {
+    const calls = [];
+    const c = controller({
+      upload: (_url, body) => new Promise((resolve) => { calls.push({ body, resolve }); }),
+    });
+    const firstBlob = { take: 'A' };
+    const secondBlob = { take: 'B' };
+    const first = c.submit({ sessionId: 's', questionId: 'q', blob: firstBlob });
+    const second = c.submit({ sessionId: 's', questionId: 'q', blob: secondBlob });
+    assert.notEqual(first, second);
+    assert.equal(calls.length, 1);
+    calls[0].resolve({ response_id: 'r-a' });
+    assert.equal((await first).response_id, 'r-a');
+    await Promise.resolve();
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].body.entries[1][1], secondBlob);
+    calls[1].resolve({ response_id: 'r-b' });
+    assert.equal((await second).response_id, 'r-b');
   });
 
   test('preserves structured short-audio and persistence failures', async () => {
@@ -162,7 +184,7 @@ describe('SpeakingSubmissionController', () => {
 
   test('a concrete non-audio 4xx is rejected without an unnecessary readback', async () => {
     let reads = 0;
-    const denied = Object.assign(new Error('denied'), { status: 403 });
+    const denied = Object.assign(new Error('denied'), { status: 400 });
     await assert.rejects(
       controller({
         upload: async () => { throw denied; },
@@ -171,6 +193,30 @@ describe('SpeakingSubmissionController', () => {
       (error) => error.code === 'submission_rejected',
     );
     assert.equal(reads, 0);
+  });
+
+  test('auth, ownership and missing-session failures keep distinct actionable codes', async () => {
+    for (const [status, code] of [
+      [401, 'auth_required'],
+      [403, 'submission_forbidden'],
+      [404, 'session_unavailable'],
+    ]) {
+      const rejected = Object.assign(new Error('rejected'), {
+        status,
+        request_id: `req-${status}`,
+        ref: `ref-${status}`,
+      });
+      await assert.rejects(
+        controller({ upload: async () => { throw rejected; } }).submit({
+          sessionId: 's', questionId: 'q', blob: {},
+        }),
+        (error) => (
+          error.code === code
+          && error.request_id === `req-${status}`
+          && error.ref === `ref-${status}`
+        ),
+      );
+    }
   });
 
   test('timeout, conflict and throttling statuses reconcile because commit may be ambiguous', async () => {
@@ -226,8 +272,10 @@ test('findPersistedSpeakingResponse accepts a sealed-safe response receipt', () 
 describe('Next Speaking submission integration', () => {
   test('bridge owns transport lifecycle and removes only its own global', () => {
     assert.match(BRIDGE, /new SpeakingSubmissionController/);
-    assert.match(BRIDGE, /win\.api\.upload/);
-    assert.match(BRIDGE, /win\.api\.get/);
+    assert.match(BRIDGE, /useAuth\(\)/);
+    assert.match(BRIDGE, /win\.api\.uploadWith/);
+    assert.match(BRIDGE, /win\.api\.getWith/);
+    assert.match(BRIDGE, /\[status, user\?\.id\]/);
     assert.match(BRIDGE, /win\.PracticeSubmission = submission/);
     assert.match(BRIDGE, /submission\.destroy\(\)/);
     assert.match(BRIDGE, /win\.PracticeSubmission === submission/);
@@ -237,6 +285,8 @@ describe('Next Speaking submission integration', () => {
   test('boot requires native submission before starting the legacy orchestrator', () => {
     assert.match(BOOT, /PracticeSubmission\?\.submit/);
     assert.match(BOOT, /native submission/);
+    assert.match(BOOT, /api\?\.uploadWith/);
+    assert.match(API, /uploadWith: function \(path, fd, opts\)/);
   });
 
   test('practice, test_full and sheet all use the shared transport', () => {
@@ -254,18 +304,162 @@ describe('Next Speaking submission integration', () => {
     const end = PRACTICE.indexOf('function _gradeMissingPersist', start);
     const body = PRACTICE.slice(start, end);
     assert.match(body, /err && err\.code === 'ambiguous_commit'/);
+    assert.match(body, /nativeSubmission \|\| \(err && err\.code === 'runtime_unavailable'\)/);
     assert.match(body, /_handlePersistFailure\(\{ message: retryMessage \}\)/);
     assert.match(body, /Bản ghi vẫn còn trên máy này/);
   });
 
   test('positive reconciliation rehydrates canonical feedback before rendering', () => {
     assert.match(PRACTICE, /data\._reconciled && data\._persisted_response/);
-    assert.match(PRACTICE, /_respToFeedbackData\(data\._persisted_response\)/);
+    assert.match(PRACTICE, /var row = data\._persisted_response;[\s\S]{0,80}_respToFeedbackData\(row\)/);
     assert.match(PRACTICE, /r\.grading_status === 'failed' \|\| fb\._failed/);
   });
 
+  test('reconciled rows still being graded never render as completed feedback', () => {
+    const start = PRACTICE.indexOf('  function _normalizeSubmissionResult(data) {');
+    const end = PRACTICE.indexOf('  function _submissionFilename(blob) {', start);
+    const normalize = new Function(
+      '_respToFeedbackData', '_respGraded', '_respFailed',
+      PRACTICE.slice(start, end) + ' return _normalizeSubmissionResult;',
+    )(
+      (row) => ({ response_id: row.id }),
+      () => false,
+      () => false,
+    );
+    const result = normalize({
+      _reconciled: true,
+      _persisted_response: { id: 'r', question_id: 'q', grading_status: 'processing' },
+    });
+    assert.equal(result.response_id, 'r');
+    assert.equal(result._stub, true);
+    assert.equal(result._reason, 'reconciled_pending_grading');
+    assert.match(
+      PRACTICE,
+      /g\._reason === 'reconciled_pending_grading'[\s\S]{0,240}điểm sẽ cập nhật từ bản đã lưu/,
+    );
+  });
+
+  test('native bridge loss fails closed and legacy fallback keeps the audio extension truthful', async () => {
+    const start = PRACTICE.indexOf('  var _nativeSubmissionSeen = false;');
+    const end = PRACTICE.indexOf('  function _handleRecordedBlob(blob, elapsed) {', start);
+    class FakeFormData {
+      constructor() { this.entries = []; }
+      append(...entry) { this.entries.push(entry); }
+    }
+    function build(windowObject) {
+      return new Function(
+        'window', 'FormData', '_respToFeedbackData', '_respGraded', '_respFailed',
+        PRACTICE.slice(start, end) + ' return _submitResponseTransport;',
+      )(windowObject, FakeFormData, () => ({}), () => true, () => false);
+    }
+
+    let legacyCalls = 0;
+    const win = {
+      PracticeSubmission: { submit: async () => ({ response_id: 'r' }), destroy() {} },
+      api: { upload: async () => { legacyCalls += 1; } },
+    };
+    const submit = build(win);
+    await submit('s', 'q', { type: 'audio/webm' }, {});
+    delete win.PracticeSubmission;
+    await assert.rejects(submit('s', 'q2', { type: 'audio/webm' }, {}), /tạm thời chưa sẵn sàng/);
+    assert.equal(legacyCalls, 0);
+
+    let uploaded;
+    const legacy = build({ api: { upload: async (_path, body) => { uploaded = body; return {}; } } });
+    const mp4 = { type: 'audio/mp4;codecs=mp4a.40.2' };
+    await legacy('s', 'q', mp4, {});
+    assert.deepEqual(uploaded.entries[1], ['audio_file', mp4, 'response.m4a']);
+  });
+
+  test('full-test accounting deduplicates duplicate callers for one session/question', async () => {
+    const start = PRACTICE.indexOf('  function _submitGradingEager(sessionId, questionId, blob, opts) {');
+    const end = PRACTICE.indexOf('  function _advanceTestMode() {', start);
+    const run = new Function(
+      '_submitResponseTransport', '_knownResponseId', '_getNativeFullTest',
+      '_renderSubmitFailureNotice', 'console', `
+        var _testMode = 'test_full';
+        var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
+        var _ftSubmitFailureKeys = {};
+        var _ftLegacyPending = {};
+        var _playerGeneration = 1, _playerActive = true;
+        ${PRACTICE.slice(start, end)}
+        return (async () => {
+          await Promise.all([
+            _submitGradingEager('s', 'q', {}, {}),
+            _submitGradingEager('s', 'q', {}, {}),
+          ]);
+          return { total: _ftSubmitTotal, failures: _ftSubmitFailures };
+        })();
+      `,
+    );
+    const result = await run(
+      async () => { throw new Error('offline'); },
+      () => null,
+      () => null,
+      () => {},
+      { warn() {} },
+    );
+    assert.equal(result.total, 1);
+    assert.deepEqual(result.failures, ['q']);
+  });
+
+  test('legacy finalize waits for a delayed upload and blocks acceptance when it rejects', async () => {
+    const eagerStart = PRACTICE.indexOf('  function _submitGradingEager(sessionId, questionId, blob, opts) {');
+    const eagerEnd = PRACTICE.indexOf('  function _advanceTestMode() {', eagerStart);
+    const finalizeStart = PRACTICE.indexOf('  function _fireAndForgetFullTestGrading() {');
+    const finalizeEnd = PRACTICE.indexOf('  function _onFullTestFinalizeAccepted', finalizeStart);
+    const events = [];
+    let rejectUpload;
+    let finalizeCalls = 0;
+    const run = new Function(
+      '_submitResponseTransport', 'window', 'events', 'console', `
+        var _testMode = 'test_full';
+        var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
+        var _ftSubmitFailureKeys = {}, _ftLegacyPending = {};
+        var _ftAllSessionIds = ['p1', 'p2', 'p3'], _sessionId = 'p3', _sittingId = null;
+        var _playerGeneration = 1, _playerActive = true;
+        function _knownResponseId() { return null; }
+        function _getNativeFullTest() { return null; }
+        function _renderSubmitFailureNotice() { events.push('notice'); }
+        function _releaseRecorderResources() {}
+        function showState(state) { events.push('state:' + state); }
+        function _setFullTestCompletionPhase(phase) { events.push('phase:' + phase); }
+        function _onFullTestFinalizeAccepted() { events.push('accepted'); }
+        ${PRACTICE.slice(eagerStart, eagerEnd)}
+        ${PRACTICE.slice(finalizeStart, finalizeEnd)}
+        return {
+          submit: () => _submitGradingEager('p3', 'q-last', {}, {}),
+          finish: _fireAndForgetFullTestGrading,
+        };
+      `,
+    )(
+      () => new Promise((_resolve, reject) => { rejectUpload = reject; }),
+      {
+        api: {
+          postWith: async () => {
+            finalizeCalls += 1;
+            return { accepted: true };
+          },
+        },
+      },
+      events,
+      { warn() {} },
+    );
+
+    const upload = run.submit();
+    const finishing = run.finish();
+    await Promise.resolve();
+    assert.equal(finalizeCalls, 0, 'finalize must not outrun the delayed upload');
+    rejectUpload(new Error('offline'));
+    await upload;
+    await finishing;
+    assert.equal(finalizeCalls, 0, 'a rejected upload blocks finalize entirely');
+    assert.ok(events.includes('phase:legacy-upload-error'));
+    assert.ok(!events.includes('accepted'));
+  });
+
   test('Part 2 keeps the take playable and explicitly offers retry or rerecord', () => {
-    const page = readFrontend('pages', 'practice.html');
+    const page = readFrontend('public', 'pages', 'practice.html');
     assert.match(page, /id="p2a-submit-retry"/);
     assert.match(page, /PracticeApp\.retryP2Submission\(\)/);
     assert.match(page, /PracticeApp\.discardP2SubmissionRetry\(\)/);

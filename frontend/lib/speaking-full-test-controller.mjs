@@ -3,6 +3,7 @@ const STATE_KEY = 'ielts_ft_state_v2';
 const ACCEPTED_SESSION_STATUSES = new Set(['submitted', 'completed', 'analysis_failed']);
 const DEFAULT_SUBMISSION_SETTLE_MS = 180_000;
 const DEFAULT_FINALIZE_SETTLE_MS = 30_000;
+let controllerSequence = 0;
 
 export class SpeakingFullTestError extends Error {
   constructor(code, message, context = {}) {
@@ -31,6 +32,12 @@ function uniqueIds(values) {
   return result;
 }
 
+function sameIds(left, right) {
+  const a = uniqueIds(left);
+  const b = uniqueIds(right);
+  return a.length === b.length && a.every((id, index) => id === b[index]);
+}
+
 function responseQuestionIds(responses) {
   return uniqueIds((Array.isArray(responses) ? responses : []).map((row) => (
     row && row.id ? row.question_id : null
@@ -41,6 +48,17 @@ function safeParse(raw) {
   try { return JSON.parse(raw || 'null'); } catch { return null; }
 }
 
+function defaultStorage() {
+  try { return globalThis.sessionStorage || null; } catch { return null; }
+}
+
+function definitiveFinalizeStatus(error) {
+  const status = error?.status != null ? Number(error.status) : null;
+  return new Set([400, 401, 403, 404, 409, 413, 415, 422]).has(status)
+    ? status
+    : null;
+}
+
 function acceptedFinalizePayload(payload, sessionIds) {
   if (!payload || payload.accepted !== true) return false;
   const returned = uniqueIds(payload.session_ids);
@@ -49,7 +67,9 @@ function acceptedFinalizePayload(payload, sessionIds) {
 
 export class SpeakingFullTestController {
   constructor(environment = {}) {
-    this.storage = environment.storage || globalThis.sessionStorage || null;
+    this.storage = Object.prototype.hasOwnProperty.call(environment, 'storage')
+      ? environment.storage
+      : defaultStorage();
     this.submit = environment.submit;
     this.finalize = environment.finalize;
     this.getSession = environment.getSession;
@@ -62,6 +82,8 @@ export class SpeakingFullTestController {
     this.setTimer = environment.setTimer || globalThis.setTimeout;
     this.clearTimer = environment.clearTimer || globalThis.clearTimeout;
     this.ownerId = null;
+    this.controllerId = cleanId(environment.controllerId)
+      || `speaking-full-test-${Date.now()}-${++controllerSequence}`;
     this.sessionIds = [];
     this.confirmed = new Map();
     this.pending = new Map();
@@ -83,9 +105,14 @@ export class SpeakingFullTestController {
     this.ownerId = owner || null;
     const persisted = this.#readState();
     const ownerMatches = persisted
-      && (!persisted.owner_id || !owner || persisted.owner_id === owner);
+      && !!owner
+      && (!persisted.owner_id || persisted.owner_id === owner);
     const persistedIds = ownerMatches ? uniqueIds(persisted.session_ids) : [];
-    const legacyIds = uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)));
+    // The legacy key has no owner field. Only migrate it after auth supplies a
+    // concrete owner; otherwise a previous account's tab state can be adopted.
+    const legacyIds = owner
+      ? uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)))
+      : [];
     const candidate = persistedIds.includes(current)
       ? persistedIds
       : (legacyIds.includes(current) ? legacyIds : [current]);
@@ -99,7 +126,7 @@ export class SpeakingFullTestController {
       }
     }
     this.confirmCanonical(current, responses);
-    this.#persist();
+    this.#persist(true);
     return this.getSnapshot();
   }
 
@@ -114,6 +141,34 @@ export class SpeakingFullTestController {
     }
     this.#persist();
     return ids.slice();
+  }
+
+  replaceChainIfCurrent(expectedSessionIds, sessionIds) {
+    const expected = uniqueIds(expectedSessionIds);
+    const ids = uniqueIds(sessionIds);
+    if (!this.ownerId || !expected.length || !ids.length) return false;
+
+    // A session-creation request can settle after its route unmounts. Only let
+    // that old controller extend shared storage while the persisted chain is
+    // still exactly the chain it started from. A newer Full Test wins.
+    const persisted = this.#readState();
+    if (
+      !persisted
+      || persisted.owner_id !== this.ownerId
+      || persisted.controller_id !== this.controllerId
+      || !sameIds(persisted.session_ids, expected)
+    ) return false;
+
+    this.sessionIds = ids;
+    this.confirmed.clear();
+    if (persisted.confirmed && typeof persisted.confirmed === 'object') {
+      for (const sid of ids) {
+        const questionIds = uniqueIds(persisted.confirmed[sid]);
+        if (questionIds.length) this.confirmed.set(sid, new Set(questionIds));
+      }
+    }
+    this.#writeState(this.controllerId);
+    return true;
   }
 
   confirmCanonical(sessionId, responses) {
@@ -138,6 +193,12 @@ export class SpeakingFullTestController {
         'Trang Full Test đã đóng. Hãy mở lại bài thi.',
       ));
     }
+    if (this.finalizing) {
+      return Promise.reject(new SpeakingFullTestError(
+        'finalizing',
+        'Full Test đang được chốt. Không thể gửi thêm bản ghi.',
+      ));
+    }
     const sid = cleanId(sessionId);
     const qid = cleanId(questionId);
     if (!sid || !qid || !blob || typeof this.submit !== 'function') {
@@ -149,10 +210,10 @@ export class SpeakingFullTestController {
 
     const key = `${sid}\u0000${qid}`;
     const existing = this.pending.get(key);
-    if (existing) return existing;
+    if (existing && existing.blob === blob) return existing.promise;
 
     const item = { sessionId: sid, questionId: qid, blob, priorResponseId };
-    const operation = Promise.resolve()
+    const run = () => Promise.resolve()
       .then(() => this.#settleWithin(
         this.submit(item),
         this.submissionSettleMs,
@@ -173,9 +234,15 @@ export class SpeakingFullTestController {
         this.retryable.set(key, { ...item, error });
         throw error;
       });
-    this.pending.set(key, operation);
+    // A duplicate caller for the same Blob shares one mutation. A genuinely
+    // newer take must run after the current request, never inherit its result.
+    const operation = existing
+      ? existing.promise.then(run, run)
+      : run();
+    const entry = { blob, promise: operation };
+    this.pending.set(key, entry);
     void operation.finally(() => {
-      if (this.pending.get(key) === operation) this.pending.delete(key);
+      if (this.pending.get(key) === entry) this.pending.delete(key);
     }).catch(() => {});
     return operation;
   }
@@ -206,8 +273,12 @@ export class SpeakingFullTestController {
   }
 
   async #finalizeOnce() {
-    const pending = Array.from(this.pending.values());
-    if (pending.length) await Promise.allSettled(pending);
+    // Drain until stable rather than awaiting one snapshot. A submission that
+    // was already admitted before finalize started must settle too.
+    while (this.pending.size) {
+      const pending = Array.from(this.pending.values(), (entry) => entry.promise);
+      await Promise.allSettled(pending);
+    }
     if (this.retryable.size) {
       throw new SpeakingFullTestError(
         'answers_pending',
@@ -250,6 +321,17 @@ export class SpeakingFullTestController {
       this.clear();
       return payload;
     } catch (error) {
+      const rejectedStatus = definitiveFinalizeStatus(error);
+      if (rejectedStatus) {
+        const code = rejectedStatus === 401
+          ? 'auth_required'
+          : (rejectedStatus === 403 ? 'finalize_forbidden' : 'finalize_rejected');
+        throw new SpeakingFullTestError(
+          code,
+          error?.message || 'Máy chủ từ chối chốt Full Test. Hãy kiểm tra bài thi.',
+          { cause: error },
+        );
+      }
       if (await this.#reconcileFinalize()) {
         const result = {
           accepted: true,
@@ -298,8 +380,16 @@ export class SpeakingFullTestController {
   }
 
   clear() {
-    this.#remove(STATE_KEY);
-    this.#remove(LEGACY_CHAIN_KEY);
+    const persisted = this.#readState();
+    const persistedOwner = cleanId(persisted?.owner_id);
+    const ownsPersisted = !!persisted
+      && sameIds(persisted.session_ids, this.sessionIds)
+      && (!persistedOwner || persistedOwner === this.ownerId);
+    const legacyIds = uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)));
+    const ownsLegacy = sameIds(legacyIds, this.sessionIds);
+    if (ownsPersisted) this.#remove(STATE_KEY);
+    if (ownsLegacy) this.#remove(LEGACY_CHAIN_KEY);
+    return ownsPersisted || ownsLegacy;
   }
 
   destroy() {
@@ -349,8 +439,19 @@ export class SpeakingFullTestController {
     return parsed && parsed.version === 2 ? parsed : null;
   }
 
-  #persist() {
+  #persist(force = false) {
     if (!this.sessionIds.length) return;
+    const current = this.#readState();
+    if (
+      !force
+      && current?.controller_id
+      && current.controller_id !== this.controllerId
+    ) return false;
+    this.#writeState(this.controllerId);
+    return true;
+  }
+
+  #writeState(controllerId) {
     const confirmed = Object.fromEntries(Array.from(this.confirmed, ([sid, ids]) => (
       [sid, Array.from(ids)]
     )));
@@ -358,6 +459,7 @@ export class SpeakingFullTestController {
     this.#set(STATE_KEY, JSON.stringify({
       version: 2,
       owner_id: this.ownerId,
+      controller_id: controllerId,
       session_ids: this.sessionIds,
       confirmed,
     }));

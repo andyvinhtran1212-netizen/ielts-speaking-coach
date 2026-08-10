@@ -18,6 +18,17 @@ import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
+// Static metadata images (Next file conventions) — these are the ones whose
+// compiled route name is the file name itself, so the walk can derive them.
+// DELIBERATELY not extended to the CODE-based conventions (`sitemap.ts` →
+// `/sitemap.xml`, `robots.ts` → `/robots.txt`, `manifest.ts` →
+// `/manifest.webmanifest`): none exist in this tree yet, and guessing their
+// compiled names is exactly the "don't guess" this file's manifest check was
+// built to forbid. Adding the first one will fail loudly here — that is the
+// designed signal to extend this, with the manifest as the evidence.
+const METADATA_IMAGE =
+  /^(favicon\.ico|(icon|apple-icon|opengraph-image|twitter-image)\d?\.(ico|jpg|jpeg|png|gif|svg))$/;
+
 function appRoutes() {
   const routes = [];
   const walk = (dir, urlSegs) => {
@@ -30,6 +41,12 @@ function appRoutes() {
         walk(path.join(dir, e.name), seg ? [...urlSegs, seg] : urlSegs);
       } else if (/^(page|route)\.(tsx|ts)$/.test(e.name)) {
         routes.push('/' + urlSegs.join('/'));
+      } else if (METADATA_IMAGE.test(e.name)) {
+        // Metadata file conventions compile to routes too, and the compiled
+        // path keeps the file name verbatim (`app/opengraph-image.jpg` →
+        // `/opengraph-image.jpg`, verified against routes-manifest.json).
+        // Missing these read as a manifest blind spot in findManifestProblems.
+        routes.push('/' + [...urlSegs, e.name].join('/'));
       }
     }
   };

@@ -60,7 +60,7 @@
   <aver-chrome active="speaking"></aver-chrome>
   <!-- Page context bar (preserves result page title + back affordance). -->
   <header class="result-header px-6 py-4">
-    <div class="av-w-read flex items-center gap-4">
+    <div class="av-w-page flex items-center gap-4">
       <a href="/speaking" class="result-back-link">
         <i data-lucide="chevron-left"></i>
         Quay lại
@@ -88,95 +88,107 @@
   </div>
 
   <!-- Content state -->
-  <div id="state-content" class="hidden av-w-read py-8 space-y-6">
+  <div id="state-content" class="hidden av-w-page py-8 result-workspace">
 
-    <!-- Session meta -->
-    <div class="card p-5">
-      <div class="flex flex-wrap items-center gap-3 mb-1">
-        <span id="meta-part" class="result-meta-part text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"></span>
-        <span id="meta-topic" class="result-meta-topic text-lg font-semibold"></span>
+    <!-- Session orientation -->
+    <header class="result-session-head">
+      <div>
+        <p class="result-session-head__eyebrow">Speaking session review</p>
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span id="meta-part" class="result-meta-part text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"></span>
+          <span id="meta-topic" class="result-meta-topic text-lg font-semibold"></span>
+        </div>
       </div>
       <p id="meta-date" class="result-meta-date text-sm"></p>
-    </div>
+    </header>
 
-    <!-- Overall band + criteria -->
-    <div>
-      <!-- Overall band hero -->
-      <div class="ds-band-hero mb-4 ds-fadein">
-        <div class="ds-section-head" style="margin-bottom:8px;">Band tổng quan</div>
-        <div id="overall-band" class="ds-band-value band-none">—</div>
-        <div class="ds-band-label">Overall Band Score</div>
-      </div>
-      <!-- Criterion grid (hidden for practice sessions — Sprint 14.5.1; practice
-           mode is coaching-format and produces no per-criterion bands). -->
-      <div id="criterion-grid" class="grid grid-cols-2 gap-3">
-        <div class="ds-crit ds-crit-fc">
-          <div id="band-fc" class="ds-crit-score band-none">—</div>
-          <div class="ds-crit-label">Fluency &amp; Coherence</div>
+    <section class="result-overview-grid" aria-label="Tổng quan kết quả">
+      <!-- Score hierarchy -->
+      <div class="result-score-panel">
+        <div class="ds-band-hero ds-fadein">
+          <div class="ds-section-head" style="margin-bottom:8px;">Band tổng quan</div>
+          <div id="overall-band" class="ds-band-value band-none">—</div>
+          <div class="ds-band-label">Overall Band Score</div>
         </div>
-        <div class="ds-crit ds-crit-lr">
-          <div id="band-lr" class="ds-crit-score band-none">—</div>
-          <div class="ds-crit-label">Lexical Resource</div>
+        <!-- Criterion grid (hidden for practice sessions — Sprint 14.5.1; practice
+             mode is coaching-format and produces no per-criterion bands). -->
+        <div id="criterion-grid" class="grid grid-cols-2 gap-3">
+          <div class="ds-crit ds-crit-fc">
+            <div id="band-fc" class="ds-crit-score band-none">—</div>
+            <div class="ds-crit-label">Fluency &amp; Coherence</div>
+          </div>
+          <div class="ds-crit ds-crit-lr">
+            <div id="band-lr" class="ds-crit-score band-none">—</div>
+            <div class="ds-crit-label">Lexical Resource</div>
+          </div>
+          <div class="ds-crit ds-crit-gra">
+            <div id="band-gra" class="ds-crit-score band-none">—</div>
+            <div class="ds-crit-label">Grammatical Range</div>
+          </div>
+          <div class="ds-crit ds-crit-p">
+            <div id="band-p" class="ds-crit-score band-none">—</div>
+            <div class="ds-crit-label">Pronunciation</div>
+          </div>
         </div>
-        <div class="ds-crit ds-crit-gra">
-          <div id="band-gra" class="ds-crit-score band-none">—</div>
-          <div class="ds-crit-label">Grammatical Range</div>
+      </div>
+
+      <!-- Coaching hierarchy -->
+      <div class="result-coaching-panel">
+        <div class="result-section-heading">
+          <p class="result-section-heading__eyebrow">Điều cần mang sang lượt nói tiếp theo</p>
+          <h2>Giữ một điểm tốt, sửa một điểm quan trọng</h2>
         </div>
-        <div class="ds-crit ds-crit-p">
-          <div id="band-p" class="ds-crit-score band-none">—</div>
-          <div class="ds-crit-label">Pronunciation</div>
+        <div class="result-coaching-grid">
+          <div class="card p-5">
+            <h3 class="result-card-eyebrow result-card-eyebrow--strength text-xs font-bold uppercase tracking-wider mb-3">Điểm mạnh</h3>
+            <ul id="strengths-list" class="result-feedback-list space-y-2 text-sm"></ul>
+          </div>
+          <div class="card p-5">
+            <h3 class="result-card-eyebrow result-card-eyebrow--improve text-xs font-bold uppercase tracking-wider mb-3">Cần cải thiện</h3>
+            <ul id="improvements-list" class="result-feedback-list space-y-2 text-sm"></ul>
+          </div>
+        </div>
+        <!-- Practice-mode key takeaway (Sprint 14.5.1). Hidden until populated. -->
+        <div id="practice-takeaway" class="card result-takeaway p-5" style="display:none;">
+          <h3 class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-2">Trọng tâm luyện tập</h3>
+          <p id="practice-takeaway-text" class="text-sm" style="color:var(--av-text-secondary);"></p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Strengths / Improvements -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="card p-5">
-        <h3 class="result-card-eyebrow result-card-eyebrow--strength text-xs font-bold uppercase tracking-wider mb-3">Điểm mạnh</h3>
-        <ul id="strengths-list" class="result-feedback-list space-y-2 text-sm"></ul>
+    <section id="result-learning-section" class="result-learning-section" style="display:none;">
+      <div class="result-section-heading">
+        <p class="result-section-heading__eyebrow">Lộ trình cá nhân</p>
+        <h2>Học tiếp từ chính lỗi trong bài nói</h2>
       </div>
-      <div class="card p-5">
-        <h3 class="result-card-eyebrow result-card-eyebrow--improve text-xs font-bold uppercase tracking-wider mb-3">Cần cải thiện</h3>
-        <ul id="improvements-list" class="result-feedback-list space-y-2 text-sm"></ul>
+      <!-- Grammar Resources -->
+      <div id="grammar-resources" class="result-grammar-section" style="display:none;">
+        <div class="result-grammar-section__inner">
+          <p class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-1">Grammar Resources</p>
+          <p class="result-grammar-sub text-sm mb-4">Bài học ngữ pháp liên quan đến lỗi hoặc điểm cần cải thiện trong bài của bạn</p>
+          <div id="grammar-resources-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        </div>
       </div>
-    </div>
+      <!-- Phase 2: persistent weak Knowledge-Points → personal roadmap funnel. -->
+      <div id="kp-weak-mount" class="hidden"></div>
+    </section>
 
-    <!-- Practice-mode key takeaway (Sprint 14.5.1). Hidden until populated. -->
-    <div id="practice-takeaway" class="card p-5" style="display:none;">
-      <h3 class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-2">Trọng tâm luyện tập</h3>
-      <p id="practice-takeaway-text" class="text-sm" style="color:var(--av-text-secondary);"></p>
-    </div>
-
-    <!-- Grammar Resources -->
-    <div id="grammar-resources" class="result-grammar-section" style="display:none;">
-      <div class="result-grammar-section__inner">
-        <p class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-1">
-          Grammar Resources
-        </p>
-        <p class="result-grammar-sub text-sm mb-4">
-          Bài học ngữ pháp liên quan đến lỗi hoặc điểm cần cải thiện trong bài của bạn
-        </p>
-        <div id="grammar-resources-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+    <section class="result-detail-section">
+      <div class="result-section-heading result-section-heading--row">
+        <div>
+          <p class="result-section-heading__eyebrow">Bằng chứng từ từng câu trả lời</p>
+          <h2 class="result-section-eyebrow">Chi tiết từng câu hỏi</h2>
+        </div>
+        <p>Mở từng câu để nghe lại, đọc transcript và xem cách diễn đạt tốt hơn.</p>
       </div>
-    </div>
-
-    <!-- Phase 2: persistent weak Knowledge-Points → personal roadmap funnel.
-         Mounted by frontend/js/kp-result-widget.js; hidden if none. -->
-    <div id="kp-weak-mount" class="hidden"></div>
-
-    <!-- Per-question accordion -->
-    <div>
-      <h2 class="result-section-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Chi tiết từng câu hỏi</h2>
       <div id="accordion-container" class="space-y-3"></div>
-    </div>
+    </section>
 
-    <!-- Sprint 10.4 — Pending vocab confirmation panel. Mounted by
-         frontend/js/pending-vocab.js after the result data loads.
-         If the user has no pending captures the panel stays hidden. -->
+    <!-- Sprint 10.4 — Pending vocab confirmation panel. -->
     <div id="pending-vocab-mount" class="hidden"></div>
 
     <!-- Action buttons -->
-    <div class="flex flex-wrap gap-3 justify-center pb-8">
+    <nav class="result-action-bar flex flex-wrap gap-3 justify-center" aria-label="Hành động sau phiên luyện tập">
       <button id="btn-pdf" class="btn-primary result-icon-btn">
         <i data-lucide="file-down"></i>
         Tải báo cáo PDF
@@ -189,7 +201,7 @@
         <i data-lucide="rotate-ccw"></i>
         Luyện lại chủ đề này
       </button>
-    </div>
+    </nav>
 
   </div>
 
@@ -1109,6 +1121,7 @@
 
     // Result page: show 1 primary + up to 2 secondary cards
     function showGrammarResources(responses) {
+      var section = document.getElementById('result-learning-section');
       var wrap  = document.getElementById('grammar-resources');
       var cards = document.getElementById('grammar-resources-cards');
       if (!wrap || !cards) return;
@@ -1129,6 +1142,7 @@
       if (recMatches.length) {
         cards.innerHTML = recMatches.slice(0, 3).map(function (m, i) { return _grammarCardHtml(m, i === 0); }).join('');
         wrap.style.display = '';
+        if (section) section.style.display = '';
         return;
       }
 
@@ -1138,6 +1152,7 @@
       if (!matched.length) { wrap.style.display = 'none'; return; }
       cards.innerHTML = matched.map(function (m, i) { return _grammarCardHtml(m, i === 0); }).join('');
       wrap.style.display = '';
+      if (section) section.style.display = '';
     }
 
     // ── Main ───────────────────────────────────────────────────────────────────

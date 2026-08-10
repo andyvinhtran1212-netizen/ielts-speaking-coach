@@ -443,7 +443,7 @@ def test_list_tests_excludes_drafts_and_no_audio(monkeypatch):
     assert test_ids == {"A-1"}
 
 
-def test_list_tests_carries_user_best_score_and_attempt_count(monkeypatch):
+def test_list_tests_carries_total_and_submitted_attempt_counts(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake)
     # Seed 2 attempts: one submitted score 35, one in-progress.
@@ -459,6 +459,26 @@ def test_list_tests_carries_user_best_score_and_attempt_count(monkeypatch):
     item = out["items"][0]
     assert item["user_best_score"] == 35
     assert item["user_attempt_count"] == 2
+    assert item["user_submitted_attempt_count"] == 1
+
+
+def test_list_tests_does_not_mark_unsubmitted_attempts_complete(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].extend([
+        {"id": "a1", "test_id": test["id"], "user_id": "user-1",
+         "status": "in_progress", "score": None},
+        {"id": "a2", "test_id": test["id"], "user_id": "user-1",
+         "status": "abandoned", "score": None},
+    ])
+
+    out = _run(listening_router.list_published_listening_tests(
+        limit=20, offset=0, authorization=authz,
+    ))
+    item = out["items"][0]
+    assert item["user_attempt_count"] == 2
+    assert item["user_submitted_attempt_count"] == 0
+    assert item["user_best_score"] is None
 
 
 # ── GET /api/listening/tests/{id} ──────────────────────────────────────────
