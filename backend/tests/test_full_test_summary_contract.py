@@ -169,6 +169,19 @@ def test_historical_attempts_use_explicit_owned_parts_without_claiming_verified_
     assert [part["session_id"] for part in output["parts"]] == ["p1", "p2", "p3"]
 
 
+def test_historical_mock_sitting_does_not_invent_attempt_affinity(monkeypatch):
+    rows = _sessions(sitting_id="sit-legacy")
+    rows[1]["full_test_attempt_id"] = "00000000-0000-4000-8000-000000000002"
+    rows[2]["full_test_attempt_id"] = "00000000-0000-4000-8000-000000000003"
+    _patch(monkeypatch, sessions=rows)
+    monkeypatch.setattr("services.mock_exam_service.is_sealed", lambda _sitting_id: False)
+    output = _run(sessions_module.get_full_test_summary(
+        "p1", p2_id="p2", p3_id="p3", authorization="Bearer token",
+    ))
+    assert output["result_status"] == "ready"
+    assert output["chain_verified"] is False
+
+
 def test_active_attempt_cannot_fall_back_to_mismatched_explicit_parts(monkeypatch):
     rows = _sessions()
     rows[1]["full_test_attempt_id"] = "00000000-0000-4000-8000-000000000002"

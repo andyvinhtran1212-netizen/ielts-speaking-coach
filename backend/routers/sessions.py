@@ -5,7 +5,7 @@ import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
@@ -1313,7 +1313,7 @@ async def get_full_test_summary(
         "ready" if results_ready else
         "pending"
     )
-    chain_verified = bool(attempt_verified_by_id or sitting_id)
+    chain_verified = bool(attempt_verified_by_id)
 
     response_rows: list[dict] = []
     if results_ready:
