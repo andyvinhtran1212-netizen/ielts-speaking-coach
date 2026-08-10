@@ -3,8 +3,8 @@
 // VÌ SAO CÓ CHỐT NÀY: cổng theo PR chỉ chứng minh «nhánh này so với main LÚC
 // ĐÓ». Nó KHÔNG chứng minh main sau khi hợp nhất. Ngày 2026-08-07, chín PR
 // chồng nhau lên main liên tiếp — mỗi PR đều xanh — mà trạng thái hợp nhất
-// không cổng nào chạm tới: đẩy lên main chỉ kích hoạt `typecheck.yml`, vốn
-// được khai là non-blocking. Phải dispatch tay mới biết main lành.
+// không cổng blocking nào chạm tới: `typecheck.yml` khi đó vẫn được khai là
+// non-blocking. Phải dispatch tay mới biết main lành.
 //
 // Main deploy THẲNG ra production, nên khoảng trống đó nằm ngay trước mặt người
 // dùng. Lịch đêm không lấp được: chú thích trong `parity-gate.yml` ghi rõ cron
@@ -36,6 +36,7 @@ const MUST_RUN_ON_MAIN = [
   { tệp: 'route-manifest.yml', dấuHiệu: /npm run build/ },
   { tệp: 'e2e.yml', dấuHiệu: /playwright test/ },
   { tệp: 'legacy-freeze.yml', dấuHiệu: /--diff-filter=A/ },
+  { tệp: 'typecheck.yml', dấuHiệu: /npx tsc --noEmit/ },
 ];
 
 /**

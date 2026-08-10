@@ -407,16 +407,45 @@ legacy khởi động theo `DOMContentLoaded` sang behavior React:
 
 Sau batch stacked: hard-navigation debt còn **0/29 route**.
 
+## Gate D hardening sau batch behavior
+
+Branch `codex/nextjs-gate-d-hardening` chuyển hai tín hiệu type contract thành
+job fail-closed trong workflow:
+
+- TypeScript chạy cả Next strict config và legacy `@ts-check` sau `npm ci`;
+- OpenAPI types được regenerate bằng `openapi-typescript@7.13.0` từ dependency
+  tree khóa trong `package-lock.json`, phía sinh schema khóa `pydantic==2.12.5`,
+  rồi chạy `git diff --exit-code`; không còn `continue-on-error` hay nhánh
+  `|| echo` nuốt lỗi.
+
+Kiểm tra bằng GitHub API ngày 2026-08-10 trả `Branch not protected` cho `main`.
+Vì vậy hai check đã fail-closed trong workflow nhưng **chưa** là required checks;
+đây vẫn là cấu hình ngoài repo cần đóng trước khi Gate D có thể PASS.
+
+### Shared primitive inventory
+
+| Primitive | Bằng chứng reuse đã sống | Vai trò ổn định |
+|---|---|---|
+| `AuthedShell` | 15 route-group layout thuộc Home, Speaking, Writing, Reading, Listening, Vocabulary, Quiz và Mock | Cố định auth provider, cascade CSS, runtime config, telemetry và chrome bootstrap |
+| `AuthProvider` / `useAuth` | 25 App Router behavior/layout consumers trên nhiều domain | Một state machine phiên; fail-close và account-keyed remount thống nhất |
+| `whenGlobalReady` | 25 App Router consumers trên Home, Speaking, Writing, Reading, Listening, Vocabulary và Grammar | Chờ browser globals có timeout/telemetry thay cho polling hoặc `DOMContentLoaded` race |
+| `VocabModuleMount` | 3 consumer behavior ở Vocabulary Hub, Flashcards và Exercises | Adapter mount/unmount lifecycle cho domain module được giữ lại |
+
+Inventory này vượt ngưỡng ba implementation và có regression contracts tương
+ứng (`authed-shell`, auth lifecycle, global readiness, vocab module lifecycle).
+
 ## Bằng chứng local
 
 | Gate | Kết quả |
 |---|---|
 | Focused route/contract tests | batch 1: 84/84; batch 2: 69/69; batch 3: 9/9; batch 4: 135/135; batch 5: 21/21; batch 6: 91/91; batch 7: 264/264; batch 8: 28/28; batch 9: 102/102; batch 10: 132/132; batch 11: 123/123; batch 12: 143/143; batch 13: 131/131; batch 14: 138/138; batch 15: 25/25 pass + browser-flow 12/12; batch 16: 40/40 pass + browser-flow 12/12; batch 17: 28/28 pass + browser-flow 15/15; batch 18: 49/49 pass + browser-flow 15/15; batch 19: 48/48 pass + browser-flow 14/14; batch 20: 47/47 pass + browser-flow 14/14; batch 21: 12/12 pass + browser-flow 14/14 |
+| Gate D workflow contracts | 16/16 pass |
 | Backend result contract | 22/22 pass; analytics focused 7/7 pass |
-| Full frontend contract suite | 7.228/7.228 pass |
-| TypeScript strict check | pass |
+| Full frontend contract suite | 7.232/7.232 pass |
+| TypeScript strict + legacy JSDoc | pass trong trạng thái tương đương checkout sạch |
+| OpenAPI regeneration | `openapi-typescript@7.13.0` ổn định với backend hiện tại |
 | Next production build | pass; cả hai mươi mốt behavior route static prerender |
-| Compiled route ownership | 31 routes; zero drift/collision |
+| Compiled route ownership | 32 routes; zero drift/collision |
 | Browser floor scan | 38 chunks + 140 static scripts + 230 inline scripts; Safari/iOS 15 clean |
 
 Authenticated parity trên Preview vẫn phải chạy qua pair đã đăng ký trong
@@ -425,12 +454,14 @@ môi trường Preview của gate đó.
 
 ## Điều kiện Gate D còn mở
 
-- [ ] Chuyển TypeScript/OpenAPI drift thành required blocking checks hoặc ghi
-      waiver có owner và ngày hết hạn.
-- [ ] Chốt inventory shared primitives đã sống qua ít nhất ba implementation.
+- [ ] Bật branch protection của `main` và require hai check
+      `TypeScript strict + legacy JSDoc` và `api.d.ts ↔ OpenAPI drift`.
+      GitHub API hiện xác nhận branch chưa được protect; workflow trong repo đã
+      fail-closed nhưng chưa có waiver thay thế.
+- [x] Chốt inventory shared primitives đã sống qua ít nhất ba implementation.
 - [ ] Có authenticated Preview parity cho batch behavior này ở desktop + mobile.
 - [ ] Có post-deploy runtime observation theo implementation tag.
-- [ ] Tiếp tục giảm hard-navigation debt theo từng domain; không tăng thêm
-      compatibility shell nếu chưa có lý do/expiry rõ ràng.
+- [x] Hard-navigation debt = 0/29; không tăng compatibility shell nếu chưa có
+      lý do/expiry rõ ràng.
 
 Gate D chỉ được đổi sang **PASS** khi toàn bộ mục trên có bằng chứng kiểm tra được.
