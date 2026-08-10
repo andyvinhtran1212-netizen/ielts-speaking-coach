@@ -33,7 +33,7 @@ async function captureAudioAcrossNavigations(page) {
         if (audio && typeof audio.arrayBuffer === 'function') {
           const bytes = await audio.arrayBuffer();
           await window.__gateECaptureCrossVersionAudio(
-            new TextDecoder().decode(bytes),
+            Array.from(new Uint8Array(bytes)),
           );
         }
       }
@@ -59,7 +59,7 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
     response_receipts: [],
   });
 
-  const { pageErrors } = await installHarness(page, {
+  const { calls, pageErrors } = await installHarness(page, {
     session,
     questions: questions(),
     routePath: '/pages/practice.html',
@@ -91,7 +91,7 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
     await window.PracticeFullTest.submitAnswer({
       sessionId,
       questionId: 'q1',
-      blob: new Blob(['legacy-q1-audio'], { type: 'audio/webm' }),
+      blob: new Blob([new Uint8Array([0, 255, 128, 1, 2, 254])], { type: 'audio/webm' }),
     });
   }, SID);
 
@@ -105,7 +105,7 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
     await window.PracticeFullTest.submitAnswer({
       sessionId,
       questionId: 'q2',
-      blob: new Blob(['next-q2-audio'], { type: 'audio/webm' }),
+      blob: new Blob([new Uint8Array([254, 2, 1, 128, 255, 0])], { type: 'audio/webm' }),
     });
   }, SID);
 
@@ -115,7 +115,12 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 3 / 9');
 
   expect(uploads.map((upload) => upload.questionId)).toEqual(['q1', 'q2']);
-  expect(audioPayloads).toEqual(['legacy-q1-audio', 'next-q2-audio']);
+  expect(audioPayloads).toEqual([
+    [0, 255, 128, 1, 2, 254],
+    [254, 2, 1, 128, 255, 0],
+  ]);
+  expect(calls.filter((call) => call === `GET /sessions/${SID}`)).toHaveLength(3);
+  expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(3);
   expect(await page.evaluate((sessionId) => {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
