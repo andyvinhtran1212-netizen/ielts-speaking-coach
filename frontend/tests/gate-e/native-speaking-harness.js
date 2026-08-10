@@ -30,7 +30,6 @@ async function installHarness(page, {
   handleApi = null,
   expectBootstrapOnce = true,
   expectQuestionLookup = true,
-  routePath = '/practice/session',
 } = {}) {
   const calls = [];
   const pageErrors = [];
