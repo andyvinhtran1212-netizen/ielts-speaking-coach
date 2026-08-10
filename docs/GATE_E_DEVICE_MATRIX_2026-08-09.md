@@ -56,7 +56,7 @@ real-device còn pending bên dưới.
 
 ## Artifact contract
 
-Mỗi workflow run hoàn tất tới bước evidence sẽ upload artifact
+Mỗi workflow run hoàn tất tới bước matrix evidence sẽ upload artifact
 `gate-e-device-matrix-<run_id>-<run_attempt>` trong 30 ngày, gồm:
 
 - `gate-e-device-matrix-evidence.json`: matrix id, SHA/ref, workflow/run/attempt,
@@ -64,6 +64,19 @@ Mỗi workflow run hoàn tất tới bước evidence sẽ upload artifact
   real-device requirement; kèm số test discovered/executed/passed/failed/skipped
   theo từng project và cờ `matrix_complete`;
 - `staging-e2e-results.json`: kết quả Playwright theo project/test.
+
+Hai artifact độc lập cùng run giữ provenance và streak ngay cả khi matrix writer
+không thể hoàn tất:
+
+- `gate-e-staging-provenance-<run_id>-<run_attempt>` chứa Vercel frontend
+  release/git ref và Railway backend release đọc qua endpoint admin-only;
+- `gate-e-streak-ledger-<run_id>-<run_attempt>` chứa candidate streak, reset
+  reasons, ba cờ threshold/failure-matrix/real-device eligibility và bản raw
+  `staging-e2e-results.json` để audit độc lập với matrix writer. Hai file được
+  kiểm tồn tại rồi mới copy vào bundle; thiếu raw report chỉ tạo artifact
+  `gate-e-streak-reset-*`, không phải candidate evidence. Run có raw report
+  nhưng ledger `clean=false` cũng dùng tên reset; chỉ clean candidate dùng tên
+  `gate-e-streak-ledger-*`.
 
 Metadata step dùng `if: always()` để giữ evidence của run đỏ khi runner còn hoạt
 động. Writer chỉ thành công khi JSON report tồn tại, project set khớp manifest và

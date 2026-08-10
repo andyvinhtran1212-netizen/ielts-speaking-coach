@@ -2,16 +2,20 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const manifestPath = path.join(FRONTEND, 'tooling', 'gate-e-device-matrix.json');
-const lockPath = path.join(FRONTEND, 'package-lock.json');
-const browsersPath = path.join(FRONTEND, 'node_modules', 'playwright-core', 'browsers.json');
+const AUDITOR_FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const TESTED_ROOT = path.resolve(
+  process.env.GATE_E_TESTED_ROOT || path.dirname(AUDITOR_FRONTEND),
+);
+const TESTED_FRONTEND = path.join(TESTED_ROOT, 'frontend');
+const manifestPath = path.join(AUDITOR_FRONTEND, 'tooling', 'gate-e-device-matrix.json');
+const lockPath = path.join(TESTED_FRONTEND, 'package-lock.json');
+const browsersPath = path.join(TESTED_FRONTEND, 'node_modules', 'playwright-core', 'browsers.json');
 const resultPath = path.resolve(
-  FRONTEND,
+  TESTED_FRONTEND,
   process.env.GATE_E_MATRIX_RESULTS || 'test-results/staging-e2e-results.json',
 );
 const outputPath = path.resolve(
-  FRONTEND,
+  TESTED_FRONTEND,
   process.env.GATE_E_MATRIX_OUTPUT || 'test-results/gate-e-device-matrix-evidence.json',
 );
 
@@ -127,10 +131,11 @@ const evidence = {
   matrix_id: manifest.matrix_id,
   generated_at: new Date().toISOString(),
   repository: process.env.GITHUB_REPOSITORY || null,
-  git_sha: process.env.GITHUB_SHA || null,
-  git_ref: process.env.GITHUB_REF || null,
+  git_sha: process.env.EVIDENCE_GIT_SHA || process.env.GITHUB_SHA || null,
+  git_ref: process.env.EVIDENCE_GIT_REF || process.env.GITHUB_REF || null,
   workflow: process.env.GITHUB_WORKFLOW || null,
   run_id: process.env.GITHUB_RUN_ID || null,
+  run_number: process.env.GITHUB_RUN_NUMBER || null,
   run_attempt: process.env.GITHUB_RUN_ATTEMPT || null,
   run_outcome: runOutcome,
   runner_os: process.env.RUNNER_OS || process.platform,

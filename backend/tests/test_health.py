@@ -48,6 +48,8 @@ def test_health_basic_returns_ok():
     assert out["status"] == "ok"
     assert "timestamp" in out and out["timestamp"]
     assert "version" in out
+    assert "release" not in out
+    assert "git_branch" not in out
 
 
 # ── /health/ready ────────────────────────────────────────────────────────────
