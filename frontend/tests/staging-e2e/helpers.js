@@ -9,6 +9,10 @@
 // @ts-check
 
 const BYPASS = process.env.STAGING_BYPASS || '';
+const PRODUCTION_ORIGINS = Object.freeze([
+  'ielts-speaking-coach-production.up.railway.app',
+  'huwsmtubwulikhlmcirx.supabase.co',
+]);
 
 const BYPASS_HEADERS = BYPASS
   ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' }
@@ -21,7 +25,7 @@ async function primeBypassCookie(context, baseURL) {
   if (!res.ok()) throw new Error(`bypass priming failed: HTTP ${res.status()}`);
 }
 
-module.exports = { BYPASS_HEADERS, primeBypassCookie };
+module.exports = { BYPASS_HEADERS, PRODUCTION_ORIGINS, primeBypassCookie };
 
 // ── Shared staging API helpers (Gate A flows) ────────────────────────────
 

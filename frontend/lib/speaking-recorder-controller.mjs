@@ -83,7 +83,8 @@ export class SpeakingRecorderController {
     this.blob = null;
     this.elapsed = 0;
     this.timer = null;
-    this.starting = false;
+    this.generation = 0;
+    this.startingGeneration = null;
     this.disposed = false;
     this.onRecorded = null;
     this.onTick = null;
@@ -91,6 +92,10 @@ export class SpeakingRecorderController {
 
   isRecording() {
     return !!this.recorder && this.recorder.state !== 'inactive';
+  }
+
+  isStarting() {
+    return this.startingGeneration !== null;
   }
 
   getAnalyser() {
@@ -109,7 +114,7 @@ export class SpeakingRecorderController {
     if (this.disposed) {
       throw new SpeakingRecorderError('disposed', 'Bộ ghi âm đã được đóng. Hãy tải lại trang.');
     }
-    if (this.starting || this.isRecording()) return false;
+    if (this.isStarting() || this.isRecording()) return false;
     if (!this.mediaDevices || typeof this.mediaDevices.getUserMedia !== 'function') {
       throw new SpeakingRecorderError(
         'unsupported_media',
@@ -123,21 +128,31 @@ export class SpeakingRecorderController {
       );
     }
 
-    this.starting = true;
+    const generation = ++this.generation;
+    this.startingGeneration = generation;
+    let acquiredThisStart = false;
     try {
       if (!this.stream || !this.stream.active) {
         const acquired = await this.mediaDevices.getUserMedia({ audio: true, video: false });
-        if (this.disposed) {
+        if (this.disposed || generation !== this.generation) {
           stopTracks(acquired);
-          throw new SpeakingRecorderError('disposed', 'Bộ ghi âm đã được đóng. Hãy tải lại trang.');
+          if (this.disposed) {
+            throw new SpeakingRecorderError('disposed', 'Bộ ghi âm đã được đóng. Hãy tải lại trang.');
+          }
+          return false;
         }
         this.stream = acquired;
+        acquiredThisStart = true;
       }
 
       await this.#prepareAnalyser();
-      if (this.disposed) {
-        this.#releaseMedia();
-        throw new SpeakingRecorderError('disposed', 'Bộ ghi âm đã được đóng. Hãy tải lại trang.');
+      if (this.disposed || generation !== this.generation) {
+        if (acquiredThisStart) this.#releaseMedia();
+        else this.#disconnectAnalyser();
+        if (this.disposed) {
+          throw new SpeakingRecorderError('disposed', 'Bộ ghi âm đã được đóng. Hãy tải lại trang.');
+        }
+        return false;
       }
 
       this.#clearTimer();
@@ -191,28 +206,41 @@ export class SpeakingRecorderController {
       }
       return true;
     } catch (error) {
+      // A reset/release while permission or AudioContext setup was pending is
+      // an intentional cancellation, not a microphone failure to show users.
+      if (!this.disposed && generation !== this.generation) return false;
       // Fail closed even if an injected callback throws after recorder.start():
       // no error path may leave the microphone live without a UI owner.
       this.reset();
       this.#releaseMedia();
       throw recorderError(error);
     } finally {
-      this.starting = false;
+      if (this.startingGeneration === generation) this.startingGeneration = null;
     }
   }
 
   stop() {
+    if (this.isStarting()) {
+      this.generation += 1;
+      this.startingGeneration = null;
+      return true;
+    }
     this.#clearTimer();
     if (!this.recorder || this.recorder.state === 'inactive') return false;
     try {
       this.recorder.stop();
       return true;
     } catch {
+      // A recorder that throws from stop() cannot be trusted or reused. Drop
+      // every owned resource so the next start gets a clean device session.
+      this.release();
       return false;
     }
   }
 
   reset() {
+    this.generation += 1;
+    this.startingGeneration = null;
     this.#clearTimer();
     const recorder = this.recorder;
     if (recorder && recorder.state !== 'inactive') {
@@ -226,6 +254,11 @@ export class SpeakingRecorderController {
     this.elapsed = 0;
     this.onRecorded = null;
     this.onTick = null;
+  }
+
+  release() {
+    this.reset();
+    this.#releaseMedia();
   }
 
   destroy() {
@@ -262,10 +295,14 @@ export class SpeakingRecorderController {
     }
   }
 
-  #releaseMedia() {
+  #disconnectAnalyser() {
     try { this.source?.disconnect?.(); } catch { /* optional graph cleanup */ }
     this.source = null;
     this.analyser = null;
+  }
+
+  #releaseMedia() {
+    this.#disconnectAnalyser();
     stopTracks(this.stream);
     this.stream = null;
     if (this.audioContext) {

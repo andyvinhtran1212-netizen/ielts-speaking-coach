@@ -13,71 +13,10 @@ const DEFAULT_STATES = Object.freeze([
   'sheet',
 ]);
 
-export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
-  frame: Object.freeze({
-    loadingMessage: 'Đang tải...',
-    errorMessage: '',
-    testModeBannerVisible: false,
-  }),
-  header: Object.freeze({
-    info: '',
-    progress: '',
-    visible: false,
-    progressBarVisible: false,
-    progressBarLabel: '',
-    progressBarPercent: 0,
-  }),
-  prep: Object.freeze({
-    fallbackWarningVisible: false,
-    partBadge: '',
-    topic: '',
-    counter: '',
-    listenOnly: false,
-    listenAudioUrl: '',
-    listenError: '',
-    questionText: '',
-    modeToggleVisible: true,
-    listeningBarVisible: false,
-    qCardOpacity: 1,
-    instruction: 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.',
-    playLabel: 'Nghe câu hỏi',
-    playIsReplay: false,
-    revealTextVisible: true,
-    revealButtonVisible: false,
-    cueVisible: false,
-    cueBullets: Object.freeze([]),
-    cueReflection: '',
-    inlineRecordingVisible: false,
-    startButtonVisible: true,
-  }),
-  recording: Object.freeze({
-    substate: 'idle',
-    error: '',
-    errorVisible: false,
-    timer: '0:00',
-    duration: '',
-    playbackUrl: '',
-    lengthHint: '',
-    lengthHintVisible: false,
-    submitDisabled: false,
-  }),
-  processing: Object.freeze({
-    text: '',
-  }),
-});
-
 function requiredKey(value) {
   const key = String(value == null ? '' : value).trim();
   if (!key) throw new TypeError('speaking-player-effect-key-required');
   return key;
-}
-
-function freezeViewSection(section) {
-  const snapshot = {};
-  for (const [key, value] of Object.entries(section)) {
-    snapshot[key] = Array.isArray(value) ? Object.freeze(value.slice()) : value;
-  }
-  return Object.freeze(snapshot);
 }
 
 export class SpeakingPlayerController {
@@ -96,11 +35,10 @@ export class SpeakingPlayerController {
       : DEFAULT_STATES.slice();
     this.domStateActivation = environment.domStateActivation !== false;
     this.stateListeners = new Set();
-    this.viewListeners = new Set();
-    this.viewSnapshot = SPEAKING_PLAYER_INITIAL_VIEW;
     this.effects = new Map();
     this.objectUrls = new Map();
     this.countdowns = new Map();
+    this.countdownRuns = new Map();
     this.currentState = null;
     this.disposed = false;
   }
@@ -131,33 +69,6 @@ export class SpeakingPlayerController {
 
   getStateSnapshot() {
     return this.currentState;
-  }
-
-  subscribeView(listener) {
-    if (this.disposed || typeof listener !== 'function') return () => {};
-    this.viewListeners.add(listener);
-    return () => this.viewListeners.delete(listener);
-  }
-
-  getViewSnapshot() {
-    return this.viewSnapshot;
-  }
-
-  updateView(section, patch) {
-    if (this.disposed || !patch || typeof patch !== 'object' || Array.isArray(patch)) {
-      return false;
-    }
-    const key = String(section || '');
-    const previous = this.viewSnapshot[key];
-    if (!previous || typeof previous !== 'object' || Array.isArray(previous)) {
-      throw new RangeError(`unknown-speaking-player-view:${key}`);
-    }
-    this.viewSnapshot = Object.freeze({
-      ...this.viewSnapshot,
-      [key]: freezeViewSection({ ...previous, ...patch }),
-    });
-    for (const listener of this.viewListeners) listener();
-    return true;
   }
 
   listen(key, target, type, listener, options) {
@@ -208,31 +119,34 @@ export class SpeakingPlayerController {
     this.clearEffect(effectKey);
     if (this.disposed) return null;
 
+    const run = Symbol(effectKey);
     let remaining = seconds;
+    this.countdownRuns.set(effectKey, run);
     this.countdowns.set(effectKey, remaining);
     onTick(remaining);
-    if (this.disposed) {
-      this.countdowns.delete(effectKey);
+    if (this.disposed || this.countdownRuns.get(effectKey) !== run) {
       return null;
     }
     if (remaining === 0) {
       this.countdowns.delete(effectKey);
+      this.countdownRuns.delete(effectKey);
       onDone();
       return null;
     }
 
-    const token = this.startInterval(effectKey, () => {
+    const handle = this.setIntervalFn(() => {
+      if (this.disposed || this.countdownRuns.get(effectKey) !== run) return;
       remaining = Math.max(0, remaining - 1);
       this.countdowns.set(effectKey, remaining);
       onTick(remaining);
-      if (this.disposed || !this.effects.has(effectKey)) return;
+      if (this.disposed || this.countdownRuns.get(effectKey) !== run) return;
       if (remaining === 0) {
         this.clearEffect(effectKey);
         onDone();
       }
     }, intervalMs);
-    this.countdowns.set(effectKey, remaining);
-    return token;
+    this.effects.set(effectKey, () => this.clearIntervalFn(handle));
+    return effectKey;
   }
 
   clearEffect(key) {
@@ -241,6 +155,7 @@ export class SpeakingPlayerController {
     const cleanup = this.effects.get(effectKey);
     this.effects.delete(effectKey);
     this.countdowns.delete(effectKey);
+    this.countdownRuns.delete(effectKey);
     if (!cleanup) return false;
     try { cleanup(); } catch { /* cleanup is best-effort */ }
     return true;
@@ -288,7 +203,7 @@ export class SpeakingPlayerController {
     for (const key of Array.from(this.objectUrls.keys())) this.revokeObjectUrl(key);
     this.cancelSpeech();
     this.countdowns.clear();
+    this.countdownRuns.clear();
     this.stateListeners.clear();
-    this.viewListeners.clear();
   }
 }

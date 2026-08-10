@@ -77,6 +77,9 @@
   // the user instead of the answer silently vanishing from the aggregate.
   var _ftSubmitTotal    = 0;      // eager uploads attempted in this full test
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
+  var _ftSubmitKeys     = {};     // session/question pairs already counted
+  var _ftSubmitFailureKeys = {};  // pairs already represented in failures
+  var _ftLegacyPending  = {};     // legacy-only upload promises keyed by session/question
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
   // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
@@ -117,6 +120,7 @@
       && typeof controller.restore === 'function'
       && typeof controller.submitAnswer === 'function'
       && typeof controller.finalizeFullTest === 'function'
+      && typeof controller.replaceChainIfCurrent === 'function'
       ? controller
       : null;
   }
@@ -128,6 +132,20 @@
       return;
     }
     try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(_ftAllSessionIds)); } catch (e) { /* storage not available */ }
+  }
+
+  function _replaceLegacyFtChainIfCurrent(expectedIds, nextIds) {
+    try {
+      var storedIds = JSON.parse(sessionStorage.getItem(FT_CHAIN_KEY) || 'null');
+      var unchanged = Array.isArray(storedIds)
+        && storedIds.length === expectedIds.length
+        && storedIds.every(function (id, index) { return id === expectedIds[index]; });
+      if (!unchanged) return false;
+      sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextIds));
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   function _loadFtChain() {
@@ -178,20 +196,6 @@
       && typeof controller.cancelSpeech === 'function'
       ? controller
       : null;
-  }
-
-  function _getNativeView() {
-    var controller = _getNativePlayer();
-    return controller
-      && typeof controller.updateView === 'function'
-      && typeof controller.getViewSnapshot === 'function'
-      ? controller
-      : null;
-  }
-
-  function _updateNativeView(section, patch) {
-    var view = _getNativeView();
-    return view ? view.updateView(section, patch) : false;
   }
 
   function _startManagedInterval(key, callback, milliseconds) {
@@ -264,16 +268,6 @@
    * lời hứa hỏng — người học sẽ tưởng trang chưa tải xong.
    */
   function _applyListenOnlyUI(on) {
-    var url = on ? ((_currentQ && _currentQ.audio_url) || '') : '';
-    var nativeError = on && !url
-      ? 'Bài này chưa có bản đọc đề. Báo giáo viên giúp nhé.'
-      : '';
-    if (_updateNativeView('prep', {
-      listenOnly: !!on,
-      listenAudioUrl: url,
-      listenError: nativeError,
-    })) return;
-
     var qCard = $('prep-q-card');
     var block = $('prep-listen');
     var audio = $('prep-listen-audio');
@@ -288,6 +282,7 @@
       audio.removeAttribute('src');
       return;
     }
+    var url = (_currentQ && _currentQ.audio_url) || '';
     if (!url) {
       // Không có audio mà cũng không có chữ nghĩa là em ấy không có gì cả. Nói
       // ra, đừng để một ô trình phát rỗng.
@@ -328,10 +323,8 @@
   }
 
   function showError(msg) {
-    if (!_updateNativeView('frame', { errorMessage: msg })) {
-      var el = $('error-msg');
-      if (el) el.textContent = msg;
-    }
+    var el = $('error-msg');
+    if (el) el.textContent = msg;
     showState('error');
   }
 
@@ -339,13 +332,11 @@
 
   function _showRecSub(name) {
     // name: 'idle' | 'recording' | 'recorded'
-    if (!_updateNativeView('recording', { substate: name })) {
-      ['idle', 'recording', 'recorded'].forEach(function (s) {
-        var el = $('rec-' + s);
-        if (!el) return;
-        el.style.display = (s === name) ? '' : 'none';
-      });
-    }
+    ['idle', 'recording', 'recorded'].forEach(function (s) {
+      var el = $('rec-' + s);
+      if (!el) return;
+      el.style.display = (s === name) ? '' : 'none';
+    });
     _recSubState = name;
   }
 
@@ -353,38 +344,11 @@
 
   function _updateHeader() {
     if (!_sessionData) return;
-    // For Full Test Part 1, the topic is a '|||'-joined string — show only the part number.
-    var topicStr = (_sessionData.topic || '');
-    var headerTopic = (topicStr.indexOf('|||') !== -1) ? '' : (' · ' + topicStr);
-    var infoText = 'Part ' + _sessionData.part + headerTopic;
-    var progressText = (_currentIdx + 1) + ' / ' + _questions.length;
-    var pct = 0;
-    var labelText = '';
-    if (_testMode === 'test_full') {
-      // Cumulative questions before each part starts (Part 1: 9q, Part 2: 1q, Part 3: 5q → total 15)
-      var _FT_BEFORE = { 1: 0, 2: 9, 3: 10 };
-      var _FT_TOTAL  = 15;
-      var currentPart        = _ftCurrentPart || _sessionData.part;
-      var doneBeforeThisPart = _FT_BEFORE[currentPart] || 0;
-      var overallDone        = doneBeforeThisPart + (_currentIdx + 1);
-      pct = Math.round((overallDone / _FT_TOTAL) * 100);
-      labelText = 'Part ' + currentPart + ' / 3  ·  Câu ' + (_currentIdx + 1) + ' / ' + _questions.length + '  ·  Tổng: ' + overallDone + ' / ' + _FT_TOTAL;
-    } else if (_testMode) {
-      pct = _questions.length > 0 ? Math.round((_currentIdx + 1) / _questions.length * 100) : 0;
-      labelText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
-    }
-
-    if (_updateNativeView('header', {
-      info: infoText,
-      progress: progressText,
-      visible: true,
-      progressBarVisible: !!_testMode,
-      progressBarLabel: labelText,
-      progressBarPercent: pct,
-    })) return;
-
     var info = $('hdr-info');
     if (info) {
+      // For Full Test Part 1, the topic is a '|||'-joined string — show only the part number.
+      var topicStr = (_sessionData.topic || '');
+      var headerTopic = (topicStr.indexOf('|||') !== -1) ? '' : (' · ' + topicStr);
       info.textContent = 'Part ' + _sessionData.part + headerTopic;
       info.classList.remove('hidden');
     }
@@ -401,6 +365,21 @@
     if (barWrap && barFill && barLabel) {
       if (_testMode) {
         barWrap.style.display = '';
+        var pct, labelText;
+        if (_testMode === 'test_full') {
+          // Cumulative questions before each part starts (Part 1: 9q, Part 2: 1q, Part 3: 5q → total 15)
+          var _FT_BEFORE = { 1: 0, 2: 9, 3: 10 };
+          var _FT_TOTAL  = 15;
+          var currentPart        = _ftCurrentPart || _sessionData.part;
+          var doneBeforeThisPart = _FT_BEFORE[currentPart] || 0;
+          var overallDone        = doneBeforeThisPart + (_currentIdx + 1);
+          pct = Math.round((overallDone / _FT_TOTAL) * 100);
+          labelText = 'Part ' + currentPart + ' / 3  ·  Câu ' + (_currentIdx + 1) + ' / ' + _questions.length + '  ·  Tổng: ' + overallDone + ' / ' + _FT_TOTAL;
+        } else {
+          // test_part
+          pct = _questions.length > 0 ? Math.round((_currentIdx + 1) / _questions.length * 100) : 0;
+          labelText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
+        }
         barFill.style.width = pct + '%';
         barLabel.textContent = labelText;
       } else {
@@ -421,8 +400,8 @@
       return;
     }
 
-    var counterText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
-    var partBadge = 'Part ' + (_sessionData ? _sessionData.part : '');
+    $('prep-q-counter').textContent = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
+    $('prep-part-badge').textContent = 'Part ' + (_sessionData ? _sessionData.part : '');
 
     // Full Test Part 1 — show subtopic group header
     var rawTopic = _sessionData ? (_sessionData.topic || '') : '';
@@ -452,42 +431,23 @@
         displayTopic = 'Nhóm ' + (groupIdx + 1) + '/' + subtopics.length + ' · ' + groupTopic;
       }
     }
+    $('prep-topic').textContent = displayTopic;
+
     // Bài tập lớp Part 1/3: câu hỏi giao BẰNG AUDIO và backend không gửi chữ.
     // Kiểm cờ chứ không kiểm chuỗi rỗng: một câu bình thường cũng có thể rỗng
     // vì lỗi, và khi đó phải hiện lỗi chứ không lặng lẽ chuyển sang chế độ nghe.
     var listenOnly = !!(_currentQ && _currentQ.listen_only);
     _applyListenOnlyUI(listenOnly);
-    var questionText = listenOnly ? '' : (_currentQ.question_text || '');
+
+    $('prep-q-text').textContent = listenOnly ? '' : (_currentQ.question_text || '');
+
+    // Issue 2: Reset inline recording section when showing prep
+    var inlineRec = $('inline-rec-section');
+    if (inlineRec) inlineRec.style.display = 'none';
+    var startBtn = $('prep-start-btn');
+    if (startBtn) startBtn.style.display = '';
 
     // Full Test: hide question text by default (listening/exam mode)
-    var revealTextVisible = !listenOnly && _testMode !== 'test_full';
-    var revealButtonVisible = !listenOnly && _testMode === 'test_full';
-    var nativePrep = _updateNativeView('prep', {
-      partBadge: partBadge,
-      topic: displayTopic,
-      counter: counterText,
-      questionText: questionText,
-      revealTextVisible: revealTextVisible,
-      revealButtonVisible: revealButtonVisible,
-      cueVisible: false,
-      cueBullets: [],
-      cueReflection: '',
-      inlineRecordingVisible: false,
-      startButtonVisible: true,
-    });
-
-    if (!nativePrep) {
-      $('prep-q-counter').textContent = counterText;
-      $('prep-part-badge').textContent = partBadge;
-      $('prep-topic').textContent = displayTopic;
-      $('prep-q-text').textContent = questionText;
-
-      // Issue 2: Reset inline recording section when showing prep
-      var inlineRec = $('inline-rec-section');
-      if (inlineRec) inlineRec.style.display = 'none';
-      var startBtn = $('prep-start-btn');
-      if (startBtn) startBtn.style.display = '';
-
     var revealWrap = $('prep-text-reveal');
     var revealBtn  = $('prep-reveal-btn');
     if (listenOnly) {
@@ -518,7 +478,6 @@
     } else {
       cueBlock && cueBlock.classList.add('hidden');
     }
-    }
 
     showState('prep');
     _applyQModeUI();   // render toggle + controls for current mode
@@ -538,15 +497,10 @@
     _resetRecorder();          // clean slate for this question
 
     // Show inline recording section; hide the start button
-    if (!_updateNativeView('prep', {
-      inlineRecordingVisible: true,
-      startButtonVisible: false,
-    })) {
-      var inlineRec = $('inline-rec-section');
-      if (inlineRec) inlineRec.style.display = '';
-      var startBtn = $('prep-start-btn');
-      if (startBtn) startBtn.style.display = 'none';
-    }
+    var inlineRec = $('inline-rec-section');
+    if (inlineRec) inlineRec.style.display = '';
+    var startBtn = $('prep-start-btn');
+    if (startBtn) startBtn.style.display = 'none';
 
     startRecording();          // begin recording immediately — no extra click needed
   }
@@ -559,10 +513,15 @@
       && typeof recorder.start === 'function'
       && typeof recorder.stop === 'function'
       && typeof recorder.reset === 'function'
+      && typeof recorder.release === 'function'
       && typeof recorder.destroy === 'function'
+      && typeof recorder.isStarting === 'function'
+      && typeof recorder.getAnalyser === 'function'
       ? recorder
       : null;
   }
+
+  var _nativeSubmissionSeen = false;
 
   function _getNativeSubmission() {
     var submission = window.PracticeSubmission;
@@ -575,9 +534,27 @@
 
   function _normalizeSubmissionResult(data) {
     if (!(data && data._reconciled && data._persisted_response)) return data;
-    var recovered = _respToFeedbackData(data._persisted_response);
+    var row = data._persisted_response;
+    var recovered = _respToFeedbackData(row);
+    // Persistence is confirmed, grading is not. Never render an empty feedback
+    // screen or call the slot fully graded merely because the row has an id.
+    if (!_respGraded(row) && !_respFailed(row)) {
+      recovered._stub = true;
+      recovered._error = 'Bản ghi đã lưu, nhưng máy đang hoàn tất chấm câu này.';
+      recovered._reason = 'reconciled_pending_grading';
+    }
     recovered._reconciled = true;
     return recovered;
+  }
+
+  function _submissionFilename(blob) {
+    var mime = String((blob && blob.type) || '').split(';')[0].trim().toLowerCase();
+    var extensions = {
+      'audio/flac': 'flac', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a',
+      'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav',
+      'audio/wave': 'wav', 'audio/webm': 'webm', 'audio/x-m4a': 'm4a',
+    };
+    return 'response.' + (extensions[mime] || 'webm');
   }
 
   function _knownResponseId(questionId) {
@@ -593,6 +570,7 @@
   function _submitResponseTransport(sessionId, questionId, blob, opts) {
     var nativeSubmission = _getNativeSubmission();
     if (nativeSubmission) {
+      _nativeSubmissionSeen = true;
       return nativeSubmission.submit({
         sessionId: sessionId,
         questionId: questionId,
@@ -601,11 +579,25 @@
       }).then(_normalizeSubmissionResult);
     }
 
+    // Once the native route has owned a mutation, losing its bridge must fail
+    // closed. Falling back would silently remove ambiguity reconciliation and
+    // can mislabel Safari MP4 audio while the long-lived legacy IIFE survives.
+    if (_nativeSubmissionSeen) {
+      var unavailable = Object.assign(
+        new Error(
+          'Bộ gửi bài tạm thời chưa sẵn sàng. Bản ghi vẫn còn trên trang này; '
+          + 'hãy đăng nhập lại ở tab khác nếu cần.'
+        ),
+        { code: 'runtime_unavailable' }
+      );
+      return Promise.reject(unavailable);
+    }
+
     // Legacy URL fallback. The App Router route always installs the native
     // transport before PracticeApp.init(), so FormData ownership is native there.
     var fd = new FormData();
     fd.append('question_id', questionId);
-    fd.append('audio_file', blob, 'response.webm');
+    fd.append('audio_file', blob, _submissionFilename(blob));
     return window.api.upload('/sessions/' + sessionId + '/responses', fd);
   }
 
@@ -615,12 +607,11 @@
     _stopWaveform();
 
     // Show recorded sub-state with duration
-    var m = Math.floor(_elapsedSecs / 60);
-    var s = _elapsedSecs % 60;
-    var durationText = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
-    if (!_updateNativeView('recording', { duration: durationText })) {
-      var durEl = $('rec-duration-display');
-      if (durEl) durEl.textContent = durationText;
+    var durEl = $('rec-duration-display');
+    if (durEl) {
+      var m = Math.floor(_elapsedSecs / 60);
+      var s = _elapsedSecs % 60;
+      durEl.textContent = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
     }
     // Phiếu làm bài nộp NGAY câu vừa ghi và trả quyền micro — không đi qua
     // màn "đã ghi / nộp" của luồng phễu, vì ở phiếu mỗi ô tự quản trạng thái.
@@ -653,7 +644,16 @@
         nativeRecorder.reset();
         return false;
       }
-      if (!started) return false;
+      if (!started) {
+        // A concurrent click may still own the pending permission request; a
+        // sheet slot may also deliberately cancel it. Neither is a mic error.
+        var cancelled = nativeRecorder.isStarting()
+          || (_sheetActive() && _sheet.recIdx === -1);
+        if (!cancelled) {
+          _showRecError('Không thể bắt đầu ghi âm. Hãy kiểm tra microphone rồi thử lại.');
+        }
+        return false;
+      }
       _analyser = nativeRecorder.getAnalyser();
       _startWaveform();
       _showRecSub('recording');
@@ -769,29 +769,55 @@
   }
 
   function _renderTimer() {
+    var el = $('rec-timer');
+    if (!el) return;
     var m = Math.floor(_elapsedSecs / 60);
     var s = _elapsedSecs % 60;
-    var timerText = m + ':' + (s < 10 ? '0' + s : s);
-    if (_updateNativeView('recording', { timer: timerText })) return;
-    var el = $('rec-timer');
-    if (el) el.textContent = timerText;
+    el.textContent = m + ':' + (s < 10 ? '0' + s : s);
   }
 
   // ── Recording: stop ───────────────────────────────────────────────────────────
 
   function stopRecording() {
-    if (_recSubState !== 'recording') return;
+    if (_recSubState !== 'recording') return false;
     if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.stop();
-      return;
+      if (nativeRecorder.stop()) return true;
+      return _handleRecordingStopFailure();
     }
     if (_recorder && _recorder.state !== 'inactive') {
-      _recorder.stop();
-      // onstop callback → _showRecSub('recorded')
+      try {
+        _recorder.stop();
+        // onstop callback → _showRecSub('recorded')
+        return true;
+      } catch (_) {
+        return _handleRecordingStopFailure();
+      }
     }
+    return false;
+  }
+
+  function _handleRecordingStopFailure() {
+    // The controller has already failed closed, but legacy MediaRecorder may
+    // still own a stream. Cleanup is idempotent for both implementations.
+    _releaseRecorderResources();
+    _showRecSub('idle');
+    var message = 'Không dừng được ghi âm. Hãy thử ghi lại.';
+    if (_sheetActive() && _sheet.recIdx !== -1) {
+      var slot = _sheet.slots[_sheet.recIdx];
+      if (slot) {
+        slot.state = slot.prevState || slot.hadWork || 'idle';
+        slot.prevState = null;
+        slot.error = message;
+      }
+      _sheet.recIdx = -1;
+      _renderSheet();
+    } else {
+      _showRecError(message);
+    }
+    return false;
   }
 
   // ── Recording: reset (re-record) ──────────────────────────────────────────────
@@ -818,10 +844,8 @@
     _recordedBlob = null;
     _elapsedSecs  = 0;
     // Reset timer display
-    if (!_updateNativeView('recording', { timer: '0:00', duration: '' })) {
-      var timerEl = $('rec-timer');
-      if (timerEl) timerEl.textContent = '0:00';
-    }
+    var timerEl = $('rec-timer');
+    if (timerEl) timerEl.textContent = '0:00';
     // Clear waveform canvas
     var canvas = $('rec-canvas');
     if (canvas) {
@@ -844,15 +868,13 @@
   var _recordedPlaybackUrl = null;
 
   function _renderRecordedPlayback() {
-    if (!_recordedBlob) return;
+    var audioEl = $('rec-playback');
+    if (!audioEl || !_recordedBlob) return;
     if (_recordedPlaybackUrl) {
       _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
     _recordedPlaybackUrl = _createManagedObjectUrl('recorded-playback', _recordedBlob);
-    if (_updateNativeView('recording', { playbackUrl: _recordedPlaybackUrl || '' })) return;
-    var audioEl = $('rec-playback');
-    if (!audioEl) return;
     audioEl.src = _recordedPlaybackUrl;
     audioEl.style.display = '';
   }
@@ -860,15 +882,11 @@
   function _renderRecordedLengthHint() {
     var part   = _sessionData ? _sessionData.part : null;
     var minSec = part ? (MIN_RECORD_SEC[part] || 0) : 0;
+    var hintEl = $('rec-length-hint');
+    var submit = $('rec-submit-btn');
+    if (!hintEl) return;
+
     if (!minSec || _elapsedSecs >= minSec) {
-      if (_updateNativeView('recording', {
-        lengthHint: '',
-        lengthHintVisible: false,
-        submitDisabled: false,
-      })) return;
-      var hintEl = $('rec-length-hint');
-      var submit = $('rec-submit-btn');
-      if (!hintEl) return;
       hintEl.style.display = 'none';
       hintEl.textContent = '';
       if (submit) { submit.disabled = false; submit.removeAttribute('aria-disabled'); }
@@ -876,18 +894,9 @@
     }
 
     var needMore = minSec - _elapsedSecs;
-    var hintText =
+    hintEl.textContent =
       'Quá ngắn cho Part ' + part + ' — cần ít nhất ' + minSec +
       ' giây (còn thiếu ~' + needMore + 's). Hãy ghi lại trước khi nộp.';
-    if (_updateNativeView('recording', {
-      lengthHint: hintText,
-      lengthHintVisible: true,
-      submitDisabled: true,
-    })) return;
-    var hintEl = $('rec-length-hint');
-    var submit = $('rec-submit-btn');
-    if (!hintEl) return;
-    hintEl.textContent = hintText;
     hintEl.style.display = '';
     if (submit) { submit.disabled = true; submit.setAttribute('aria-disabled', 'true'); }
   }
@@ -903,12 +912,6 @@
       _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
-    if (_updateNativeView('recording', {
-      playbackUrl: '',
-      lengthHint: '',
-      lengthHintVisible: false,
-      submitDisabled: false,
-    })) return;
     var hintEl = $('rec-length-hint');
     if (hintEl) { hintEl.style.display = 'none'; hintEl.textContent = ''; }
     var submit = $('rec-submit-btn');
@@ -945,23 +948,15 @@
   // ── Error banner in recording state ──────────────────────────────────────────
 
   function _showRecError(msg) {
-    if (!_updateNativeView('recording', { error: msg, errorVisible: true })) {
-      var el = $('rec-error');
-      if (!el) return;
-      el.textContent = msg;
-      el.style.display = '';
-    }
+    var el = $('rec-error');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = '';
     // Auto-hide after 7 s
-    _startManagedTimeout('recording-error-hide', function () {
-      if (!_updateNativeView('recording', { errorVisible: false })) {
-        var current = $('rec-error');
-        if (current) current.style.display = 'none';
-      }
-    }, 7000);
+    _startManagedTimeout('recording-error-hide', function () { el.style.display = 'none'; }, 7000);
   }
 
   function _clearRecError() {
-    if (_updateNativeView('recording', { error: '', errorVisible: false })) return;
     var el = $('rec-error');
     if (el) el.style.display = 'none';
   }
@@ -973,17 +968,14 @@
     var processingRun = ++_processingRun;
     showState('processing');
     var idx   = 0;
-    var nativeProcessing = _updateNativeView('processing', { text: PROCESSING_TEXTS[0] });
-    var textEl = nativeProcessing ? null : $('processing-text');
+    var textEl = $('processing-text');
     if (textEl) textEl.textContent = PROCESSING_TEXTS[0];
     if (_processingTimer) {
       _clearManagedEffect('processing-copy', _processingTimer, 'interval');
     }
     _processingTimer = _startManagedInterval('processing-copy', function () {
       idx = (idx + 1) % PROCESSING_TEXTS.length;
-      if (!_updateNativeView('processing', { text: PROCESSING_TEXTS[idx] }) && textEl) {
-        textEl.textContent = PROCESSING_TEXTS[idx];
-      }
+      if (textEl) textEl.textContent = PROCESSING_TEXTS[idx];
     }, 2000);
     _uploadAndGrade(blob, questionId, generation, processingRun);
   }
@@ -1020,11 +1012,19 @@
       // Native transport never converts an unconfirmed mutation into feedback.
       // Network/5xx/malformed success is first reconciled against canonical
       // session responses; if still unknown, keep the blob and offer retry.
-      if (nativeSubmission) {
+      if (nativeSubmission || (err && err.code === 'runtime_unavailable')) {
         if (_processingTimer) { _clearManagedEffect('processing-copy', _processingTimer, 'interval'); _processingTimer = null; }
-        var retryMessage = err && err.code === 'ambiguous_commit'
-          ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
-          : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.';
+        var explicitStop = err && (
+          err.code === 'auth_required'
+          || err.code === 'submission_forbidden'
+          || err.code === 'session_unavailable'
+          || err.code === 'runtime_unavailable'
+        );
+        var retryMessage = explicitStop
+          ? err.message
+          : (err && err.code === 'ambiguous_commit'
+               ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
+               : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.');
         _handlePersistFailure({ message: retryMessage });
         return;
       }
@@ -2221,8 +2221,14 @@
       _ttsAudio = null;
     };
     audio.play().catch(function (err) {
+      if (
+        !_playerActive
+        || gen !== _ttsGeneration
+        || _ttsAudio !== audio
+        || _ttsAudioUrlKey !== urlKey
+        || _ttsAudioUrl !== url
+      ) return;
       _stopAITts();
-      if (!_playerActive || gen !== _ttsGeneration) return;
       console.warn('[tts] play() rejected, falling back to browser TTS:', err);
       _tts(text);
     });
@@ -2365,6 +2371,14 @@
           };
           console.debug('[tts] sequence playing gen=%d seg=%d', gen, segIdx);
           audio.play().catch(function (err) {
+            if (
+              usedFallback
+              || !_playerActive
+              || gen !== _ttsGeneration
+              || _ttsAudio !== audio
+              || _ttsAudioUrlKey !== urlKey
+              || _ttsAudioUrl !== url
+            ) return;
             _stopAITts();
             console.warn('[tts] sequence play() rejected, falling back:', err);
             _fallback(segIdx);   // retry this segment and rest via browser TTS
@@ -2387,17 +2401,6 @@
 
   function _applyQModeUI() {
     var isListening = (_qMode === 'listening');
-    var instruction = isListening
-      ? 'Nghe câu hỏi rồi nhấn ghi âm. Nhấn ↺ để nghe lại.'
-      : 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.';
-    if (_updateNativeView('prep', {
-      modeToggleVisible: false,
-      listeningBarVisible: isListening,
-      qCardOpacity: isListening ? 0.35 : 1,
-      instruction: instruction,
-      playLabel: 'Nghe câu hỏi',
-      playIsReplay: false,
-    })) return;
 
     // Mode toggle is never useful — all flows force their mode programmatically
     var toggleWrap = $('prep-mode-toggle');
@@ -2426,7 +2429,9 @@
     // Swap instruction text
     var inst = $('prep-instruction');
     if (inst) {
-      inst.textContent = instruction;
+      inst.textContent = isListening
+        ? 'Nghe câu hỏi rồi nhấn ghi âm. Nhấn ↺ để nghe lại.'
+        : 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.';
     }
 
     // Reset play button label to default
@@ -2456,10 +2461,8 @@
   // Called by the "🔊 Nghe câu hỏi / ↺ Phát lại" button (test_full only).
   function _playQuestion() {
     if (!_currentQ || _testMode !== 'test_full') return;
-    if (!_updateNativeView('prep', { playLabel: 'Phát lại', playIsReplay: true })) {
-      var btn = $('prep-play-btn');
-      if (btn) btn.textContent = '↺ Phát lại';
-    }
+    var btn = $('prep-play-btn');
+    if (btn) btn.textContent = '↺ Phát lại';
     _ttsAI(_currentQ.question_text || '', _currentQ.id);
   }
 
@@ -2555,7 +2558,6 @@
     _resetRecorder();
     _showP2Cue();
   }
-
   function startP2Prep() {
     _clearP2SubmissionRetry();
     _stopAITts();
@@ -2635,6 +2637,11 @@
 
   async function _startP2Speaking() {
     var generation = _playerGeneration;
+    // Part 2 has its own recorder entry point, so clear any previous take even
+    // when the native controller owns the device lifecycle.
+    _audioChunks = [];
+    _recordedBlob = null;
+    _elapsedSecs = 0;
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
       try {
@@ -2647,7 +2654,14 @@
           nativeRecorder.reset();
           return;
         }
-        if (!started) return;
+        if (!started) {
+          // A concurrent start is still in charge and should stay silent. Any
+          // settled false result otherwise needs a visible recovery path.
+          if (!nativeRecorder.isStarting()) {
+            showError('Không thể bắt đầu ghi âm. Hãy kiểm tra microphone rồi thử lại.');
+          }
+          return;
+        }
         _analyser = nativeRecorder.getAnalyser();
       } catch (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
@@ -2765,12 +2779,20 @@
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.stop();
+      if (!nativeRecorder.stop()) {
+        _releaseRecorderResources();
+        showError('Không dừng được ghi âm. Hãy thử lại phần nói này.');
+      }
       return;
     }
     if (_recorder && _recorder.state !== 'inactive') {
-      _recorder.stop();
-      // onstop → _startProcessing
+      try {
+        _recorder.stop();
+        // onstop → _startProcessing
+      } catch (_) {
+        _releaseRecorderResources();
+        showError('Không dừng được ghi âm. Hãy thử lại phần nói này.');
+      }
     }
   }
 
@@ -2811,7 +2833,11 @@
     if (!submitOpts.priorResponseId) {
       submitOpts.priorResponseId = _knownResponseId(questionId);
     }
-    if (_testMode === 'test_full') _ftSubmitTotal++;
+    var submitKey = String(sessionId) + '\u0000' + String(questionId);
+    if (_testMode === 'test_full' && !_ftSubmitKeys[submitKey]) {
+      _ftSubmitKeys[submitKey] = true;
+      _ftSubmitTotal++;
+    }
     var nativeFullTest = _testMode === 'test_full' ? _getNativeFullTest() : null;
     var operation = nativeFullTest
       ? nativeFullTest.submitAnswer({
@@ -2821,11 +2847,14 @@
           priorResponseId: submitOpts.priorResponseId,
         })
       : _submitResponseTransport(sessionId, questionId, blob, submitOpts);
-    return operation
+    var tracked = operation
       .then(function (result) {
         if (!_playerActive || generation !== _playerGeneration) return result;
-        var failureIndex = _ftSubmitFailures.indexOf(questionId);
-        if (failureIndex !== -1) _ftSubmitFailures.splice(failureIndex, 1);
+        if (_testMode === 'test_full' && _ftSubmitFailureKeys[submitKey]) {
+          delete _ftSubmitFailureKeys[submitKey];
+          var failureIndex = _ftSubmitFailures.indexOf(questionId);
+          if (failureIndex !== -1) _ftSubmitFailures.splice(failureIndex, 1);
+        }
         return result;
       })
       .catch(function (err) {
@@ -2835,7 +2864,11 @@
         // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
         if (_testMode === 'test_full') {
-          if (_ftSubmitFailures.indexOf(questionId) === -1) {
+          var failureKey = String(sessionId) + '\u0000' + String(questionId);
+          if (!_ftSubmitFailureKeys[failureKey]) {
+            _ftSubmitFailureKeys[failureKey] = true;
+            // Preserve the historical array contract: consumers receive raw
+            // question ids; the separate map owns session-aware deduplication.
             _ftSubmitFailures.push(questionId);
           }
           // This upload can reject AFTER the completion screen is already shown
@@ -2851,6 +2884,13 @@
         // xanh, học viên bấm Nộp và mất câu trả lời mà không biết.
         if (submitOpts.rethrow) throw err;
       });
+    if (_testMode === 'test_full' && !nativeFullTest) {
+      _ftLegacyPending[submitKey] = tracked;
+      void tracked.finally(function () {
+        if (_ftLegacyPending[submitKey] === tracked) delete _ftLegacyPending[submitKey];
+      }).catch(function () {});
+    }
+    return tracked;
   }
 
   function _advanceTestMode() {
@@ -2933,11 +2973,12 @@
     if (nativeFullTest) {
       nativeFullTest.replaceChain([p1, p2, p3].filter(Boolean));
       _setFullTestCompletionPhase('sending');
-      nativeFullTest.finalizeFullTest()
+      return nativeFullTest.finalizeFullTest()
         .then(function () {
           return _onFullTestFinalizeAccepted(
             p1, p2, p3, sittingId,
             _playerActive && generation === _playerGeneration,
+            nativeFullTest,
           );
         })
         .catch(function (err) {
@@ -2945,11 +2986,28 @@
           console.warn('[practice] native full-test finalize paused:', err);
           _setFullTestCompletionPhase('error', err);
         });
-      return;
     }
 
-    window.api.post('/sessions/finalize-full-test', body)
+    // Legacy transport does not own retry blobs. Wait for every admitted eager
+    // upload before finalizing, so "accepted" can never outrun a late failure.
+    var pendingLegacy = Object.keys(_ftLegacyPending).map(function (key) {
+      return _ftLegacyPending[key];
+    });
+    _setFullTestCompletionPhase('sending');
+    return Promise.allSettled(pendingLegacy)
       .then(function () {
+        if (_ftSubmitFailures.length) {
+          _renderSubmitFailureNotice();
+          _setFullTestCompletionPhase('legacy-upload-error');
+          return null;
+        }
+        // Preserve the chain and completion screen on an expired token.
+        return window.api.postWith(
+          '/sessions/finalize-full-test', body, {}, { noRedirect: true }
+        );
+      })
+      .then(function () {
+        if (_ftSubmitFailures.length) return;
         // Spike-2 fix (review #748): clear the persisted chain only AFTER
         // the backend ACCEPTED finalize. Clearing before the call meant a
         // failed finalize (network/5xx — the catch below deliberately keeps
@@ -2964,13 +3022,18 @@
       .catch(function (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
-        // Completion screen still shown. Sessions remain in_progress but
-        // graded responses are saved — admin can manually complete them.
+        _setFullTestCompletionPhase('error', err);
       });
   }
 
-  function _onFullTestFinalizeAccepted(p1, p2, p3, sittingId, renderUI) {
-    _clearFtChain();
+  function _onFullTestFinalizeAccepted(
+    p1, p2, p3, sittingId, renderUI, acceptedController
+  ) {
+    // Never look up the controller again after an async finalize. The route may
+    // have remounted and installed a newer Full Test while the accepted request
+    // was settling; only the controller captured by that request may clear.
+    if (acceptedController) acceptedController.clear();
+    else _clearFtChain();
     if (renderUI !== false) _setFullTestCompletionPhase('accepted');
     // 4-skill mock: report the completed speaking sessions to the sitting
     // and hand back to the orchestrator. The durable debt queue owns retries.
@@ -2989,6 +3052,7 @@
     var status = $('completion-submit-status');
     var retry = $('completion-retry-btn');
     var ctas = $('completion-ctas');
+    var info = $('completion-info');
     var nativeFullTest = _getNativeFullTest();
     var snapshot = nativeFullTest ? nativeFullTest.getSnapshot() : null;
 
@@ -3001,6 +3065,23 @@
       }
       if (retry) retry.style.display = 'none';
       if (ctas) ctas.style.display = '';
+      if (info) info.style.display = '';
+      return;
+    }
+
+    if (phase === 'legacy-upload-error') {
+      var failedLegacy = _ftSubmitFailures.length;
+      if (title) title.textContent = 'Có bản ghi chưa gửi được';
+      if (desc) {
+        desc.textContent = 'Full Test chưa được chốt. Hãy quay lại Speaking và làm lại bài; các phần đã lưu vẫn có trong lịch sử.';
+      }
+      if (status) {
+        status.className = 'practice-completion-submit-status is-error';
+        status.textContent = failedLegacy + ' bản ghi chưa được máy chủ xác nhận.';
+      }
+      if (retry) retry.style.display = 'none';
+      if (ctas) ctas.style.display = '';
+      if (info) info.style.display = 'none';
       return;
     }
 
@@ -3024,6 +3105,7 @@
         retry.textContent = retryCount ? 'Gửi lại và chốt bài' : 'Thử chốt bài lại';
       }
       if (ctas) ctas.style.display = 'none';
+      if (info) info.style.display = 'none';
       return;
     }
 
@@ -3035,6 +3117,7 @@
     }
     if (retry) retry.style.display = 'none';
     if (ctas) ctas.style.display = 'none';
+    if (info) info.style.display = 'none';
   }
 
   function retryFullTestSubmissions() {
@@ -3048,9 +3131,12 @@
     nativeFullTest.retryFailed()
       .then(function () { return nativeFullTest.finalizeFullTest(); })
       .then(function () {
-        if (!_playerActive || generation !== _playerGeneration) return;
         var ids = nativeFullTest.getSnapshot().sessionIds;
-        _onFullTestFinalizeAccepted(ids[0], ids[1], ids[2], sittingId, true);
+        return _onFullTestFinalizeAccepted(
+          ids[0], ids[1], ids[2], sittingId,
+          _playerActive && generation === _playerGeneration,
+          nativeFullTest,
+        );
       })
       .catch(function (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
@@ -3120,6 +3206,9 @@
 
       if (loadMsg) loadMsg.textContent = 'Đang tạo Part ' + part + '...';
       var _createBody = { mode: 'test_full', part: part, topic: nextTopic };
+      // The server derives the canonical Full Test attempt from the immediately
+      // preceding owned session. Never send or trust a client-chosen attempt id.
+      _createBody.previous_session_id = _sessionId;
       // Mock sitting: link later parts too, so their per-response grading is
       // sealed like the opening session.
       if (_sittingId) _createBody.sitting_id = _sittingId;
@@ -3129,14 +3218,22 @@
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
       // Session creation is a mutation and cannot be assumed cancelled by a
-      // soft navigation. Persist the new id through the captured controller
-      // before touching UI state, even when this player has already unmounted.
+      // soft navigation. A disposed controller may extend shared storage only
+      // when no newer Full Test has replaced the exact chain it started from.
       var nextChain = priorChain.concat([newId]);
-      if (nativeFullTest) nativeFullTest.replaceChain(nextChain);
-      else {
-        try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+      var playerStillOwnsRoute = _playerActive && generation === _playerGeneration;
+      if (nativeFullTest) {
+        if (playerStillOwnsRoute) nativeFullTest.replaceChain(nextChain);
+        else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
       }
-      if (!_playerActive || generation !== _playerGeneration) return;
+      else {
+        if (playerStillOwnsRoute) {
+          try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+        } else {
+          _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
+        }
+      }
+      if (!playerStillOwnsRoute) return;
 
       // Commit module, chain and URL state together before the next network
       // mutation. The error screen then also refers to the session that truly
@@ -3917,7 +4014,21 @@
     var generation = _playerGeneration;
     var s = _sheet && _sheet.slots[i];
     if (!s) return;
-    if (_sheet.recIdx === i) { stopRecording(); return; }
+    if (_sheet.recIdx === i) {
+      var pendingRecorder = _getNativeRecorder();
+      if (pendingRecorder && pendingRecorder.isStarting()) {
+        pendingRecorder.reset();
+        _analyser = null;
+        s.state = s.prevState || s.hadWork || 'idle';
+        s.prevState = null;
+        s.error = null;
+        _sheet.recIdx = -1;
+        _renderSheet();
+        return;
+      }
+      stopRecording();
+      return;
+    }
     if (_sheet.recIdx !== -1) return;      // một micro: ô khác đang ghi
     // Nhớ trạng thái CŨ để trả lại nguyên vẹn nếu micro không mở được.
     var prevState = s.state;
@@ -3929,6 +4040,7 @@
     // ghi lại mà hỏng phải quay về 'saved' — hạ nó xuống 'ungraded' là giấu mất
     // nút "Xem nhận xét" của một bài ĐÃ CHẤM XONG trên máy chủ.
     s.hadWork = (prevState === 'saved' || prevState === 'ungraded') ? prevState : null;
+    s.prevState = prevState;
     s.error = null;
     s.state = 'recording';
     _sheet.recIdx = i;
@@ -3944,12 +4056,16 @@
       ok = false;
     }
     if (!_playerActive || generation !== _playerGeneration) return;
+    // The same button can cancel a native start while getUserMedia is pending.
+    // Its original invocation resumes later and must not overwrite that reset.
+    if (_sheet.recIdx !== i) return;
     if (!ok) {
       // Trả về ĐÚNG trạng thái trước đó, đừng suy từ `band`. Ô 'ungraded' cố ý
       // không có band, nên suy-từ-band sẽ hạ nó xuống 'idle' — tức là vứt một
       // bài ĐÃ LÊN MÁY CHỦ khỏi số đếm và khoá lại nút Nộp, chỉ vì micro không
       // mở được ở lần thử lại (codex #942).
       s.state = prevState;
+      s.prevState = null;
       s.error = 'Không ghi âm được. Kiểm tra quyền dùng micro rồi thử lại.';
       _sheet.recIdx = -1;
       _renderSheet();
@@ -3972,6 +4088,7 @@
     // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
     if (!s) return;
+    s.prevState = null;
     _sheet.recIdx = -1;
     _sheetSubmitBlob(s, blob, hadWork);
   }
@@ -4003,10 +4120,15 @@
         var stub = !!(g && g._stub);
         s.state = stub ? 'ungraded' : 'saved';
         s.band = (g && g.overall_band) || null;
-        s.error = stub
-          ? 'Bài của bạn đã lưu, nhưng máy chưa chấm được câu này. Bạn vẫn nộp '
-            + 'được — hoặc ghi âm lại để thử chấm lần nữa.'
-          : null;
+        if (stub && g._reason === 'reconciled_pending_grading') {
+          s.error = (g._error || 'Bản ghi đã lưu, máy đang hoàn tất chấm câu này.')
+            + ' Bạn vẫn có thể nộp bài; điểm sẽ cập nhật từ bản đã lưu.';
+        } else {
+          s.error = stub
+            ? 'Bài của bạn đã lưu, nhưng máy chưa chấm được câu này. Bạn vẫn nộp '
+              + 'được — hoặc ghi âm lại để thử chấm lần nữa.'
+            : null;
+        }
         // Giữ lý do máy chủ đưa để lượt điều tra sau đọc được từ console, mà
         // KHÔNG bày ra màn hình: học viên không cần đọc lỗi kỹ thuật.
         if (stub && g._reason) {
@@ -4123,8 +4245,30 @@
   async function _sheetSubmit() {
     var generation = _playerGeneration;
     var sessionId = _sessionId;
+    var unsent = _sheet && _sheet.slots
+      ? _sheet.slots.filter(function (s) { return !!s.retryBlob; }).length
+      : 0;
+    if (unsent) {
+      if (typeof window.confirm !== 'function') {
+        var unavailableNote = $('sheet-submit-note');
+        if (unavailableNote) {
+          unavailableNote.textContent =
+            'Còn bản ghi mới chưa gửi được. Hãy gửi lại bản ghi trước khi nộp bài.';
+        }
+        return;
+      }
+      var confirmSubmit = window.confirm(
+          'Còn ' + unsent + ' bản ghi mới chưa gửi được. Nộp bây giờ sẽ dùng '
+          + 'bản cũ trên máy chủ và bỏ các bản ghi mới. Bạn vẫn muốn nộp?'
+      );
+      if (!confirmSubmit) return;
+    }
     var btn = $('btn-sheet-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
+    // Completion may fail and leave the learner on this page. Release rather
+    // than destroy so the microphone indicator always turns off and a retry or
+    // re-record can still acquire a fresh controller session.
+    _releaseRecorderResources();
     try {
       await window.api.patch('/sessions/' + sessionId + '/complete', {});
     } catch (err) {
@@ -4155,7 +4299,7 @@
     _clearP2SubmissionRetry();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.destroy();
+      nativeRecorder.release();
     } else {
       if (_recorder && _recorder.state !== 'inactive') {
         _recorder.onstop = null;
@@ -4325,10 +4469,6 @@
   // ── Reveal question text (Full Test) ─────────────────────────────────────────
 
   function _revealQuestionText() {
-    if (_updateNativeView('prep', {
-      revealTextVisible: true,
-      revealButtonVisible: false,
-    })) return;
     var revealWrap = $('prep-text-reveal');
     var revealBtn  = $('prep-reveal-btn');
     if (revealWrap) revealWrap.style.display = '';
@@ -4373,6 +4513,18 @@
     if (btn) _listenManaged('sheet-submit-click', btn, 'click', _sheetSubmit);
   }
 
+  function _isNextPracticeBootstrap(bootstrap) {
+    return !!bootstrap
+      && bootstrap.source === 'next-native-bootstrap-v1'
+      && typeof bootstrap.sessionId === 'string'
+      && bootstrap.sessionId.length > 0
+      && !!bootstrap.sessionData
+      && typeof bootstrap.sessionData === 'object'
+      && !Array.isArray(bootstrap.sessionData)
+      && Array.isArray(bootstrap.questions)
+      && bootstrap.questions.length > 0;
+  }
+
   async function init(bootstrap) {
     var generation = ++_playerGeneration;
     _playerActive = true;
@@ -4391,19 +4543,13 @@
     // call init() with no argument and retain the exact existing bootstrap.
     // Fail closed if a caller tries to pass a partial/forged handoff: falling
     // back to a second network bootstrap would hide a broken route contract.
-    var hasNextBootstrap = !!bootstrap
-      && bootstrap.source === 'next-native-bootstrap-v1'
-      && typeof bootstrap.sessionId === 'string'
-      && bootstrap.sessionId.length > 0
-      && bootstrap.sessionData
-      && typeof bootstrap.sessionData === 'object'
-      && !Array.isArray(bootstrap.sessionData)
-      && Array.isArray(bootstrap.questions)
-      && bootstrap.questions.length > 0;
+    var hasNextBootstrap = _isNextPracticeBootstrap(bootstrap);
 
     if (bootstrap && !hasNextBootstrap) {
-      showError('Dữ liệu khởi động bài luyện không hợp lệ. Hãy tải lại trang.');
-      return;
+      var handoffError = /** @type {any} */ (new Error('invalid-next-practice-bootstrap'));
+      handoffError.code = 'invalid_handoff';
+      handoffError.userMessage = 'Dữ liệu khởi động bài luyện không hợp lệ. Hãy tải lại trang.';
+      throw handoffError;
     }
 
     if (hasNextBootstrap) {
@@ -4498,14 +4644,15 @@
         // B1: reset submit-failure trackers for a fresh full test.
         _ftSubmitTotal      = 0;
         _ftSubmitFailures   = [];
+        _ftSubmitKeys       = {};
+        _ftSubmitFailureKeys = {};
+        _ftLegacyPending    = {};
         _ftCompleteFailures = 0;
       }
 
       if (_testMode) {
-        if (!_updateNativeView('frame', { testModeBannerVisible: true })) {
-          var banner = $('test-mode-banner');
-          if (banner) banner.style.display = '';
-        }
+        var banner = $('test-mode-banner');
+        if (banner) banner.style.display = '';
         // Slice questions to official exam count for test mode
         var qCountTable = (_testMode === 'test_full') ? FULL_TEST_Q_COUNT : TEST_Q_COUNT;
         var partKey     = (_testMode === 'test_full') ? _ftCurrentPart : _sessionData.part;
@@ -4580,11 +4727,9 @@
 
       // Show a warning banner if Gemini was unavailable and fallback questions are being used
       var isFallback = questions.some(function (q) { return q._fallback; });
-      if (!_updateNativeView('prep', { fallbackWarningVisible: isFallback })) {
-        var fallbackBanner = $('prep-fallback-warning');
-        if (fallbackBanner) {
-          fallbackBanner.style.display = isFallback ? '' : 'none';
-        }
+      var fallbackBanner = $('prep-fallback-warning');
+      if (fallbackBanner) {
+        fallbackBanner.style.display = isFallback ? '' : 'none';
       }
 
       // Routing to first question:

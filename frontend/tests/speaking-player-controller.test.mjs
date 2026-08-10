@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { installPracticePlayerController } from '../lib/practice-player-lifecycle.mjs';
 import { SpeakingPlayerController } from '../lib/speaking-player-controller.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -16,6 +17,20 @@ const BOOT = readFrontend(
   'app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx',
 );
 const PRACTICE = readFrontend('public', 'js', 'practice.js');
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+async function flushUntil(predicate, attempts = 20) {
+  for (let i = 0; i < attempts && !predicate(); i += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(predicate(), true, 'async TTS fixture did not reach the expected state');
+}
 
 class FakeClassList {
   constructor() { this.values = new Set(); }
@@ -96,28 +111,43 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.deepEqual(states, ['loading', 'prep']);
   });
 
-  test('publishes immutable section view snapshots without replacing unrelated sections', () => {
+  test('StrictMode-like cleanup leaves the replacement controller live and observable', () => {
     const fixture = makeEnvironment();
-    const controller = new SpeakingPlayerController(fixture.environment);
-    const initial = controller.getViewSnapshot();
-    const snapshots = [];
-    const cueBullets = ['first cue'];
-    controller.subscribeView(() => snapshots.push(controller.getViewSnapshot()));
-    assert.equal(controller.updateView('prep', { topic: 'Work', cueBullets }), true);
-    cueBullets.push('mutated after publish');
-    const updated = controller.getViewSnapshot();
-    assert.notEqual(updated, initial);
-    assert.notEqual(updated.prep, initial.prep);
-    assert.equal(updated.header, initial.header);
-    assert.equal(updated.prep.topic, 'Work');
-    assert.deepEqual(updated.prep.cueBullets, ['first cue']);
-    assert.equal(Object.isFrozen(updated), true);
-    assert.equal(Object.isFrozen(updated.prep), true);
-    assert.equal(Object.isFrozen(updated.prep.cueBullets), true);
-    assert.deepEqual(snapshots, [updated]);
-    assert.throws(() => controller.updateView('missing', {}), /unknown-speaking-player-view/);
-    controller.destroy();
-    assert.equal(controller.updateView('prep', { topic: 'stale' }), false);
+    let practiceDestroyCalls = 0;
+    const browser = {
+      document: fixture.environment.document,
+      URL: fixture.environment.urlApi,
+      speechSynthesis: fixture.environment.speechSynthesis,
+      setInterval: fixture.environment.setIntervalFn,
+      clearInterval: fixture.environment.clearIntervalFn,
+      setTimeout: fixture.environment.setTimeoutFn,
+      clearTimeout: fixture.environment.clearTimeoutFn,
+      PracticeApp: { destroy() { practiceDestroyCalls += 1; } },
+    };
+
+    const first = installPracticePlayerController(browser);
+    const firstStates = [];
+    first.controller.subscribeState(() => firstStates.push(first.controller.getStateSnapshot()));
+    first.controller.showState('prep');
+    assert.deepEqual(firstStates, ['prep']);
+    first.cleanup();
+
+    const replacement = installPracticePlayerController(browser);
+    const replacementStates = [];
+    replacement.controller.subscribeState(() => {
+      replacementStates.push(replacement.controller.getStateSnapshot());
+    });
+    replacement.controller.showState('error');
+    first.cleanup();
+
+    assert.equal(browser.PracticePlayer, replacement.controller);
+    assert.deepEqual(replacementStates, ['error']);
+    assert.equal(first.controller.showState('loading'), false, 'disposed controller must stay inert');
+    assert.equal(practiceDestroyCalls, 1, 'stale cleanup must be idempotent');
+
+    replacement.cleanup();
+    assert.equal(browser.PracticePlayer, undefined);
+    assert.equal(practiceDestroyCalls, 2);
   });
 
   test('replaces keyed listeners and removes them on destroy', () => {
@@ -222,6 +252,26 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.equal(done, 0);
     assert.deepEqual(controller.getSnapshot().countdowns, {});
   });
+
+  test('a final tick cannot cancel a replacement countdown with the same key', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController(fixture.environment);
+    let staleDone = 0;
+    controller.startCountdown('phase', {
+      seconds: 1,
+      onTick: (remaining) => {
+        if (remaining === 0) {
+          controller.startCountdown('phase', { seconds: 2 });
+        }
+      },
+      onDone: () => { staleDone += 1; },
+    });
+    const staleInterval = fixture.intervals.values().next().value;
+    staleInterval();
+    assert.equal(staleDone, 0);
+    assert.equal(controller.getSnapshot().countdowns.phase, 2);
+    assert.equal(fixture.intervals.size, 1);
+  });
 });
 
 describe('Next Speaking player integration', () => {
@@ -235,12 +285,9 @@ describe('Next Speaking player integration', () => {
   });
 
   test('bridge owns lifecycle and asks PracticeApp to release legacy references first', () => {
-    assert.match(BRIDGE, /new SpeakingPlayerController/);
-    assert.match(BRIDGE, /const mountedController = createPlayerController\(\)/);
-    assert.match(BRIDGE, /setController\(mountedController\)/);
-    assert.match(BRIDGE, /win\.PracticeApp\?\.destroy\?\.\(\)/);
-    assert.match(BRIDGE, /mountedController\.destroy\(\)/);
-    assert.match(BRIDGE, /win\.PracticePlayer === mountedController/);
+    assert.match(BRIDGE, /installPracticePlayerController\(window as any\)/);
+    assert.match(BRIDGE, /setController\(installation\.controller\)/);
+    assert.match(BRIDGE, /return installation\.cleanup/);
     assert.match(BRIDGE, /controller \|\| INERT_PLAYER_STATE/);
   });
 
@@ -251,11 +298,6 @@ describe('Next Speaking player integration', () => {
     assert.match(PRACTICE, /nativePlayer\.listen/);
     assert.match(PRACTICE, /nativePlayer\.createObjectUrl/);
     assert.match(PRACTICE, /nativePlayer\.cancelSpeech/);
-    assert.match(PRACTICE, /controller\.updateView/);
-    assert.match(PRACTICE, /_updateNativeView\('header'/);
-    assert.match(PRACTICE, /_updateNativeView\('prep'/);
-    assert.match(PRACTICE, /_updateNativeView\('recording'/);
-    assert.match(PRACTICE, /_updateNativeView\('processing'/);
     assert.match(PRACTICE, /destroy:/);
   });
 
@@ -295,5 +337,98 @@ describe('Next Speaking player integration', () => {
     );
     assert.match(PRACTICE, /processingRun !== _processingRun/);
     assert.match(PRACTICE, /reviewRun !== _sheetReviewRun/);
+  });
+
+  test('a stale single-audio play rejection cannot stop the replacement audio', async () => {
+    const start = PRACTICE.indexOf('  function _stopAITts() {');
+    const end = PRACTICE.indexOf('  // Speak text using the backend /tts endpoint', start);
+    const instances = [];
+    const fallbacks = [];
+    class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.playDeferred = deferred();
+        this.pauseCount = 0;
+        instances.push(this);
+      }
+      play() { return this.playDeferred.promise; }
+      pause() { this.pauseCount += 1; }
+      removeAttribute() {}
+    }
+    const run = new Function('Audio', 'fallbacks', `
+      var _ttsAudio = null, _ttsAudioUrlKey = null, _ttsAudioUrl = null;
+      var _playerActive = true, _ttsGeneration = 0, nextUrl = 0;
+      function _createManagedObjectUrl() { nextUrl += 1; return 'blob:' + nextUrl; }
+      function _revokeManagedObjectUrl() {}
+      function _tts(text) { fallbacks.push(text); }
+      ${PRACTICE.slice(start, end)}
+      return {
+        start: function (text) {
+          _stopAITts();
+          var gen = ++_ttsGeneration;
+          _playTtsBlob({}, text, gen);
+        },
+        current: function () { return _ttsAudio; },
+      };
+    `)(FakeAudio, fallbacks);
+
+    run.start('old');
+    run.start('new');
+    assert.equal(instances[0].pauseCount, 1, 'replacement should stop the old audio once');
+    instances[0].playDeferred.reject(new Error('old play rejected late'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(run.current(), instances[1]);
+    assert.equal(instances[1].pauseCount, 0);
+    assert.deepEqual(fallbacks, []);
+  });
+
+  test('a stale sequence play rejection cannot stop the replacement sequence', async () => {
+    const start = PRACTICE.indexOf('  function _stopAITts() {');
+    const end = PRACTICE.indexOf('  // ── END AI TTS', start);
+    const instances = [];
+    const fallbacks = [];
+    class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.playDeferred = deferred();
+        this.pauseCount = 0;
+        instances.push(this);
+      }
+      play() { return this.playDeferred.promise; }
+      pause() { this.pauseCount += 1; }
+      removeAttribute() {}
+    }
+    const fakeFetch = async () => ({ ok: true, blob: async () => ({}) });
+    const run = new Function('Audio', 'fetch', 'fallbacks', `
+      var _ttsAudio = null, _ttsAudioUrlKey = null, _ttsAudioUrl = null;
+      var _playerActive = true, _ttsGeneration = 0, nextUrl = 0;
+      var _userHasInteracted = true, _ttsCache = new Map();
+      var window = { api: { base: '' } };
+      function _createManagedObjectUrl() { nextUrl += 1; return 'blob:' + nextUrl; }
+      function _revokeManagedObjectUrl() {}
+      function _tts() {}
+      function _ttsSequence(segments) { fallbacks.push(segments); }
+      function _ttsAuthHeaders() { return Promise.resolve({}); }
+      function _cancelSpeech() {}
+      function _startManagedTimeout() {}
+      ${PRACTICE.slice(start, end)}
+      return {
+        sequence: _ttsAISequence,
+        current: function () { return _ttsAudio; },
+      };
+    `)(FakeAudio, fakeFetch, fallbacks);
+
+    run.sequence(['old'], 1);
+    await flushUntil(() => instances.length === 1);
+    run.sequence(['new'], 1);
+    await flushUntil(() => instances.length === 2);
+    assert.equal(instances[0].pauseCount, 1, 'replacement should stop the old sequence once');
+    instances[0].playDeferred.reject(new Error('old sequence rejected late'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(run.current(), instances[1]);
+    assert.equal(instances[1].pauseCount, 0);
+    assert.deepEqual(fallbacks, []);
   });
 });

@@ -6,10 +6,8 @@ stable App Router URL; React sở hữu auth, session/question bootstrap, vòng 
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
 listener, speech cùng object URL. React dựng trực tiếp toàn bộ static player DOM,
-event handler và SVG, đồng thời render view-model cho header, loading/error,
-test progress, Part 1/3 prep, recording và processing. `practice.js` vẫn dựng
-Part 2, assignment sheet, feedback/pronunciation, completion và test results qua
-các ID tương thích. Route chưa ready và không nhận attempt mới.
+event handler và SVG; `practice.js` vẫn mutate nội dung/feedback động qua các ID
+tương thích. Route chưa ready và không nhận attempt mới.
 
 ## Finding
 
@@ -60,15 +58,13 @@ retry/resume/finalize, top-level state switching và resource cleanup khỏi IIF
 trên route Next. Keyed effects được thay thế atomically và teardown khi unmount;
 async callbacks dùng generation guard, còn mutation tạo Part đã được server nhận
 vẫn ghi chain qua controller captured trước khi ngừng render. Đây vẫn là hybrid
-hữu hạn vì Part 2, assignment sheet, feedback/pronunciation, completion và test
-results còn được `practice.js` ghi thẳng vào DOM; JSX ownership không được dùng
-để tuyên bố native behavior.
+hữu hạn vì dữ liệu renderer/copy/feedback động còn được `practice.js` ghi thẳng
+vào DOM; JSX ownership không được dùng để tuyên bố native behavior.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port Part 2, assignment sheet, feedback/pronunciation, completion và test
-   results sang React state/client components. Static shell, header, Part 1/3
-   prep, recording, processing và event handler đã là JSX/view-model; state activation,
+1. Port renderer/copy/feedback động sang React state/client components. Static
+   player shell và event handler đã là JSX; state activation,
    Part 2 countdown, timer, blob URL, TTS và document-listener lifecycle đã thuộc
    `SpeakingPlayerController`; không gọi phần này là native renderer.
 2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
@@ -93,10 +89,6 @@ results còn được `practice.js` ghi thẳng vào DOM; JSX ownership không �
   định. Bridge tạo controller mới cho mỗi effect setup để StrictMode replay
   không tái sử dụng instance đã dispose; boot failure cũng đi qua cùng
   `showState('error')` thay vì dựng một state song song ngoài React.
-- Controller cũng phát immutable section view snapshots. Header/test progress,
-  loading/error, Part 1/3 prep/listen-only/reveal, recording playback/length gate
-  và processing copy được `PracticePageShell` render; `practice.js` chỉ cập nhật
-  model ở route Next và giữ DOM fallback cho URL legacy.
 - Part 2 prep/speaking dùng countdown state có snapshot; timer copy, lỗi, PDF,
   TTS sequence và grammar flash dùng key nên lần mới thay thế lần cũ.
 - Listener sheet/grammar/interaction/voices dùng named handler và bị tháo khi

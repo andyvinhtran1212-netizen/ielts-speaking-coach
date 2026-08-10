@@ -6,11 +6,6 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "IELTS Speaking Coach"
     ENVIRONMENT: str = "development"
-    # Railway injects these for GitHub-triggered deployments. They are public
-    # provenance identifiers (not credentials) and let staging evidence bind a
-    # browser run to the exact backend release it exercised.
-    RAILWAY_GIT_COMMIT_SHA: str = ""
-    RAILWAY_GIT_BRANCH: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""

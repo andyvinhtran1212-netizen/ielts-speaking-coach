@@ -47,9 +47,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+      - name: Install pinned OpenAPI generator tree
+        working-directory: frontend
+        run: npm ci
       - name: Install backend deps
         working-directory: backend
         run: pip install -r requirements.txt
@@ -62,7 +67,7 @@ jobs:
       - name: Regenerate api.d.ts + diff
         working-directory: frontend
         run: |
-          # Pin the EXACT version the committed file was generated with, so the
-          # diff reflects spec/model drift — not an openapi-typescript format bump.
-          npx --yes openapi-typescript@7.13.0 /tmp/openapi.json -o types/api.d.ts
+          # package-lock.json pins the generator and its transitive tree, while
+          # requirements.txt pins Pydantic on the schema-producing side.
+          ./node_modules/.bin/openapi-typescript /tmp/openapi.json -o types/api.d.ts
           git diff --exit-code types/api.d.ts

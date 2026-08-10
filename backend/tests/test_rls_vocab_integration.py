@@ -26,10 +26,13 @@ _REQUIRED_VARS = [
     "RLS_TEST_USER_B_PASSWORD",
 ]
 
-pytestmark = pytest.mark.skipif(
+# `livenet`: bộ này CỐ Ý gọi Supabase thật, nên chốt chặn mạng trong
+# conftest phải chừa nó ra. Gộp vào CÙNG phép gán — một `pytestmark`
+# thứ hai ở trên sẽ bị dòng này ghi đè và biến mất không một tiếng động.
+pytestmark = [pytest.mark.livenet, pytest.mark.skipif(
     not all(os.getenv(k) for k in _REQUIRED_VARS),
     reason="RLS integration tests require 2 test users — set all RLS_TEST_USER_* env vars",
-)
+)]
 
 
 def _get_user_client(email: str, password: str):
