@@ -318,6 +318,7 @@ describe('native stop lỗi không làm kẹt phễu hoặc phiếu', () => {
       _sheet: sheet,
       _renderSheet: () => {},
       _showRecError: (message) => shown.push(message),
+      _updateNativeView: () => false,
       _releaseRecorderResources: () => controller.release(),
       clearInterval: () => {},
     };
