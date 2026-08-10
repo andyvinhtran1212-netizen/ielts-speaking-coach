@@ -15,6 +15,9 @@ const expectedSupabase = 'https://zjphffoujxkpltixsbzj.supabase.co';
 const adminEmail = 'e2e-admin-smoke@staging-e2e.averlearning.com';
 const bypass = process.env.STAGING_BYPASS || '';
 const password = process.env.E2E_PASSWORD || '';
+const sourceSha = process.env.GATE_E_SOURCE_SHA || '';
+const phase = process.env.GATE_E_DRILL_PHASE || '';
+const rollbackFloorSha = process.env.GATE_E_ROLLBACK_FLOOR_SHA || '';
 const shaPattern = /^[a-f0-9]{40}$/;
 
 const field = (source, name) => {
@@ -26,18 +29,24 @@ const evidence = {
   schema_version: 1,
   captured_at: new Date().toISOString(),
   staging_origin: stagingOrigin,
+  phase: phase || null,
+  source_sha: sourceSha || null,
+  rollback_floor_sha: rollbackFloorSha || null,
   ok: false,
   runtime_environment: null,
   frontend_release: null,
   frontend_git_ref: null,
   api_base: null,
   backend_release: null,
+  backend_git_branch: null,
+  backend_environment_name: null,
   error: null,
 };
 
 try {
   if (!bypass) throw new Error('staging-bypass-missing');
   if (!password) throw new Error('e2e-password-missing');
+  if (!shaPattern.test(sourceSha)) throw new Error('source-sha-invalid');
 
   // The Vercel bypass credential is sent only to the canonical staging
   // origin. The URL is deliberately not configurable by workflow input.
@@ -54,7 +63,8 @@ try {
   const supabaseUrl = field(runtimeSource, 'supabaseUrl');
   const supabaseAnonKey = field(runtimeSource, 'supabaseAnonKey');
 
-  if (evidence.runtime_environment !== 'staging' || evidence.api_base !== expectedApi ||
+  if (evidence.runtime_environment !== 'staging' || evidence.frontend_git_ref !== 'staging' ||
+      evidence.frontend_release !== sourceSha || evidence.api_base !== expectedApi ||
       supabaseUrl !== expectedSupabase || !supabaseAnonKey) {
     throw new Error('runtime-config-environment-or-origin-mismatch');
   }
@@ -75,9 +85,14 @@ try {
   if (!runtimeHealth.ok) throw new Error(`backend-runtime-health-http-${runtimeHealth.status}`);
   const runtimeHealthBody = await runtimeHealth.json();
   evidence.backend_release = runtimeHealthBody.git_sha || null;
+  evidence.backend_git_branch = runtimeHealthBody.git_branch || null;
+  evidence.backend_environment_name = runtimeHealthBody.environment_name || null;
 
-  evidence.ok = shaPattern.test(evidence.frontend_release || '') &&
-    shaPattern.test(evidence.backend_release || '');
+  evidence.ok = evidence.frontend_release === sourceSha &&
+    evidence.frontend_git_ref === 'staging' &&
+    evidence.backend_release === sourceSha &&
+    evidence.backend_git_branch === 'staging' &&
+    evidence.backend_environment_name === 'staging';
   if (!evidence.ok) evidence.error = 'release-provenance-incomplete';
 } catch (error) {
   let message = String(error?.message || error);

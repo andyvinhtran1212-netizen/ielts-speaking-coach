@@ -27,17 +27,27 @@
     "phase",
     "source_sha",
     "deployed_frontend_sha",
+    "deployed_frontend_branch",
     "rollback_floor_sha",
+    "floor_lineage_verified",
+    "previous_phase_handoff_verified",
+    "previous_phase_run_id",
     "backend_release",
+    "backend_git_branch",
+    "backend_environment_name",
     "previous_session_id",
     "created_session_id",
     "created_session_url",
     "previous_session_url",
-    "floor_dark_next_url",
     "canonical_sessions",
     "reload_and_copy_url_passed",
     "captured_at"
   ],
+  "conditional_evidence": {
+    "floor": [
+      "floor_dark_next_url"
+    ]
+  },
   "retention_days": 30,
   "status": "runner-ready-live-three-phase-artifacts-pending"
 }

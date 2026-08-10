@@ -126,10 +126,15 @@ policy thật và kiểm:
 
 Speaking đã có versioned **three-phase runner** ở
 `.github/workflows/speaking-coexistence-drill.yml`. Runner checkout đúng nhánh
-`staging`, fail nếu release đang phục vụ khác source SHA, và xuất artifact riêng
-cho `floor → cutover → rollback`. Mỗi phase tạo attempt qua admission thật, mở
-lại implementation URL của attempt cũ, reload/copy URL sang tab mới và đọc cùng
-session từ backend canonical. Đây mới là drill mechanism: trạng thái vẫn
+`staging`, dùng chung concurrency gate với staging E2E, và xuất artifact riêng
+cho `floor → cutover → rollback`. Floor và rollback bắt buộc checkout đúng
+rollback floor SHA; cutover phải là descendant của floor. Cutover/rollback còn
+phải tải artifact của workflow run ngay trước, kiểm phase, floor SHA, source ↔
+frontend/backend release, nhánh `staging` và session ID handoff trước khi mở
+browser. Mỗi phase tạo attempt qua admission thật, mở lại implementation URL của
+attempt cũ, reload/copy URL sang tab mới và đọc cùng session từ backend canonical.
+`floor_dark_next_url` chỉ bắt buộc ở phase floor; hai phase sau không giả lập
+evidence này bằng `null`. Đây mới là drill mechanism: trạng thái vẫn
 **LIVE CORE DRILL PENDING** cho tới khi đủ ba artifact thật dùng cùng rollback
 floor SHA và mỗi provenance JSON có `ok:true`; không tuyên bố Gate E PASS từ
 contract/local test của runner. Vì request mang credential staging thật, runner
@@ -146,7 +151,8 @@ tắt trace/screenshot và không upload browser report có thể giữ header b
   global coverage.
 - Staging browser drill gồm tab cũ, reload, copy URL sang tab mới, cutover và
   rollback; artifact phải ghi source/backend release, rollback floor SHA và
-  attempt/session ID.
+  attempt/session ID. Khi dispatch cutover/rollback phải truyền cả workflow run
+  ID trước đó và đúng session ID do artifact run đó phát ra.
 - Full-test chain fresh-client boundary; ambiguous commit; partial persistence;
   legacy↔Next bidirectional resume.
 - Quyết định zero-active/TTL cho retirement; batch này chỉ ngăn đổi

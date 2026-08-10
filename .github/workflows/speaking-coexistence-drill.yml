@@ -2,6 +2,7 @@ name: Speaking Gate E coexistence drill
 
 permissions:
   contents: read
+  actions: read
 
 on:
   workflow_dispatch:
@@ -23,20 +24,24 @@ on:
         description: Session emitted by cutover; required for rollback
         required: false
         type: string
+      previous_phase_run_id:
+        description: Successful prior phase workflow run; required for cutover/rollback
+        required: false
+        type: string
 
 jobs:
   speaking-coexistence-drill:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
-      group: speaking-gate-e-coexistence-staging
+      group: staging-e2e-shared-env
       cancel-in-progress: false
     steps:
       - name: Checkout deployed staging source
         uses: actions/checkout@v5
         with:
           ref: staging
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Capture checked-out source SHA
         id: source
@@ -46,6 +51,45 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24'
+
+      - name: Verify rollback floor lineage
+        id: lineage
+        working-directory: frontend
+        env:
+          GATE_E_DRILL_PHASE: ${{ inputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
+        run: node tooling/gate-e-speaking-coexistence-lineage.mjs
+
+      - name: Download previous phase evidence
+        if: inputs.phase != 'floor'
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PHASE: ${{ inputs.phase }}
+          PREVIOUS_PHASE_RUN_ID: ${{ inputs.previous_phase_run_id }}
+        run: |
+          mkdir -p test-results/gate-e-previous-phase
+          case "$PHASE" in
+            cutover) previous_phase=floor ;;
+            rollback) previous_phase=cutover ;;
+            *) echo "unsupported phase for previous evidence: $PHASE" >&2; exit 1 ;;
+          esac
+          previous_attempt="$(gh run view "$PREVIOUS_PHASE_RUN_ID" --json attempt --jq '.attempt')"
+          artifact_name="gate-e-speaking-coexistence-${previous_phase}-${PREVIOUS_PHASE_RUN_ID}-${previous_attempt}"
+          gh run download "$PREVIOUS_PHASE_RUN_ID" --name "$artifact_name" --dir test-results/gate-e-previous-phase
+
+      - name: Verify previous phase handoff
+        id: handoff
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_E_DRILL_PHASE: ${{ inputs.phase }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ inputs.previous_phase_run_id }}
+          GATE_E_PREVIOUS_LEGACY_SESSION_ID: ${{ inputs.previous_legacy_session_id }}
+          GATE_E_PREVIOUS_NEXT_SESSION_ID: ${{ inputs.previous_next_session_id }}
+        run: node tooling/validate-gate-e-speaking-coexistence-handoff.mjs
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -66,6 +110,9 @@ jobs:
           GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
           GATE_E_PREVIOUS_LEGACY_SESSION_ID: ${{ inputs.previous_legacy_session_id }}
           GATE_E_PREVIOUS_NEXT_SESSION_ID: ${{ inputs.previous_next_session_id }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ inputs.previous_phase_run_id }}
+          GATE_E_LINEAGE_VERIFIED: ${{ steps.lineage.outputs.verified }}
+          GATE_E_HANDOFF_VERIFIED: ${{ steps.handoff.outputs.verified }}
         run: npx playwright test -c playwright.speaking-coexistence.config.js
 
       - name: Capture staging release provenance
@@ -73,6 +120,10 @@ jobs:
         working-directory: frontend
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ inputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
           GATE_E_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-gate-e-staging-provenance.mjs
 
@@ -85,6 +136,8 @@ jobs:
             frontend/tooling/gate-e-speaking-coexistence-drill.json
             frontend/test-results/gate-e-speaking-coexistence-evidence.json
             frontend/test-results/gate-e-speaking-coexistence-results.json
+            frontend/test-results/gate-e-speaking-coexistence-lineage.json
+            frontend/test-results/gate-e-speaking-coexistence-handoff.json
             frontend/test-results/gate-e-staging-provenance.json
           if-no-files-found: error
           retention-days: 30

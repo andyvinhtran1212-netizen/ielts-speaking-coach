@@ -5,6 +5,7 @@
 const { test, expect } = require('@playwright/test');
 const { mkdirSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
+const EVIDENCE_MANIFEST = require('../../tooling/gate-e-speaking-coexistence-drill.json');
 const {
   BYPASS_HEADERS,
   primeBypassCookie,
@@ -19,14 +20,27 @@ const SOURCE_SHA = process.env.GATE_E_SOURCE_SHA || '';
 const FLOOR_SHA = process.env.GATE_E_ROLLBACK_FLOOR_SHA || '';
 const PREVIOUS_LEGACY = process.env.GATE_E_PREVIOUS_LEGACY_SESSION_ID || '';
 const PREVIOUS_NEXT = process.env.GATE_E_PREVIOUS_NEXT_SESSION_ID || '';
+const PREVIOUS_RUN_ID = process.env.GATE_E_PREVIOUS_PHASE_RUN_ID || '';
+const LINEAGE_VERIFIED = process.env.GATE_E_LINEAGE_VERIFIED || '';
+const HANDOFF_VERIFIED = process.env.GATE_E_HANDOFF_VERIFIED || '';
 const OUTPUT = path.resolve('test-results/gate-e-speaking-coexistence-evidence.json');
 const SHA = /^[a-f0-9]{40}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
 
+function assertEvidenceContract(evidence) {
+  const required = [
+    ...EVIDENCE_MANIFEST.required_evidence,
+    ...(EVIDENCE_MANIFEST.conditional_evidence[PHASE] || []),
+  ];
+  const missing = required.filter((key) => (
+    !Object.prototype.hasOwnProperty.call(evidence, key) || evidence[key] === undefined
+  ));
+  expect(missing, `evidence manifest fields missing: ${missing.join(', ')}`).toEqual([]);
+}
+
 function writeEvidence(patch) {
-  mkdirSync(path.dirname(OUTPUT), { recursive: true });
-  writeFileSync(OUTPUT, `${JSON.stringify({
+  const evidence = {
     schema_version: 1,
     drill_id: 'gate-e-speaking-coexistence-v1',
     phase: PHASE || null,
@@ -34,7 +48,10 @@ function writeEvidence(patch) {
     rollback_floor_sha: FLOOR_SHA || null,
     captured_at: new Date().toISOString(),
     ...patch,
-  }, null, 2)}\n`, 'utf8');
+  };
+  if (evidence.status === 'passed') assertEvidenceContract(evidence);
+  mkdirSync(path.dirname(OUTPUT), { recursive: true });
+  writeFileSync(OUTPUT, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 }
 
 function runtimeField(source, name) {
@@ -42,14 +59,14 @@ function runtimeField(source, name) {
   return match && match[1] !== 'null' ? match[2] : null;
 }
 
-async function signInSession(request) {
+async function signInSession(request, role = 'student') {
   const password = process.env.E2E_PASSWORD || '';
   if (!password) throw new Error('E2E_PASSWORD is required for the staging drill.');
   const response = await request.post(
     `${STAGING_SUPABASE}/auth/v1/token?grant_type=password`,
     {
       headers: { apikey: STAGING_ANON, 'Content-Type': 'application/json' },
-      data: { email: identityEmail('student'), password },
+      data: { email: identityEmail(role), password },
     },
   );
   expect(response.status(), await response.text()).toBe(200);
@@ -154,29 +171,50 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
   expect(['floor', 'cutover', 'rollback']).toContain(PHASE);
   expect(SOURCE_SHA).toMatch(SHA);
   expect(FLOOR_SHA).toMatch(SHA);
-  if (PHASE === 'floor') expect(SOURCE_SHA).toBe(FLOOR_SHA);
+  expect(LINEAGE_VERIFIED).toBe('true');
+  expect(HANDOFF_VERIFIED).toBe('true');
+  if (PHASE === 'floor') {
+    expect(SOURCE_SHA).toBe(FLOOR_SHA);
+    expect(PREVIOUS_RUN_ID).toBe('');
+    expect(PREVIOUS_LEGACY).toBe('');
+    expect(PREVIOUS_NEXT).toBe('');
+  }
   if (PHASE === 'cutover') {
     expect(SOURCE_SHA).not.toBe(FLOOR_SHA);
     expect(PREVIOUS_LEGACY).toMatch(UUID);
+    expect(PREVIOUS_NEXT).toBe('');
+    expect(PREVIOUS_RUN_ID).toMatch(/^\d+$/);
   }
-  if (PHASE === 'rollback') expect(PREVIOUS_NEXT).toMatch(UUID);
+  if (PHASE === 'rollback') {
+    expect(SOURCE_SHA).toBe(FLOOR_SHA);
+    expect(PREVIOUS_NEXT).toMatch(UUID);
+    expect(PREVIOUS_LEGACY).toBe('');
+    expect(PREVIOUS_RUN_ID).toMatch(/^\d+$/);
+  }
 
   const runtime = await request.get(`${baseURL}/js/runtime-config.js`, { headers: BYPASS_HEADERS });
   expect(runtime.status(), await runtime.text()).toBe(200);
   const runtimeSource = await runtime.text();
   const deployedFrontend = runtimeField(runtimeSource, 'release');
+  const deployedFrontendBranch = runtimeField(runtimeSource, 'gitRef');
   const runtimeEnvironment = runtimeField(runtimeSource, 'environment');
   const runtimeApiBase = runtimeField(runtimeSource, 'apiBase');
   expect(deployedFrontend, 'staging deployment must match checked-out staging SHA').toBe(SOURCE_SHA);
+  expect(deployedFrontendBranch).toBe('staging');
   expect(runtimeEnvironment).toBe('staging');
   expect(runtimeApiBase).toBe(STAGING_API);
 
-  const health = await request.get(`${STAGING_API}/health`);
+  const auth = await installStudent(context, request, baseURL);
+  const adminAuth = await signInSession(request, 'admin');
+  const health = await request.get(`${STAGING_API}/health/runtime`, {
+    headers: { Authorization: `Bearer ${adminAuth.access_token}` },
+  });
   expect(health.status(), await health.text()).toBe(200);
   const backend = await health.json();
-  expect(backend.release).toMatch(SHA);
+  expect(backend.git_sha).toBe(SOURCE_SHA);
+  expect(backend.git_branch).toBe('staging');
+  expect(backend.environment_name).toBe('staging');
 
-  const auth = await installStudent(context, request, baseURL);
   const created = await createThroughAdmission(page);
   const createdCanonical = await canonicalSession(request, auth.access_token, created.sessionId);
 
@@ -203,16 +241,21 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
     status: 'passed',
     ok: true,
     expected_admission: PHASE === 'cutover' ? 'next' : 'legacy',
+    floor_lineage_verified: true,
+    previous_phase_handoff_verified: true,
+    previous_phase_run_id: PREVIOUS_RUN_ID || null,
     runtime_environment: runtimeEnvironment,
     api_base: runtimeApiBase,
     deployed_frontend_sha: deployedFrontend,
-    backend_release: backend.release,
-    backend_git_branch: backend.git_branch || null,
+    deployed_frontend_branch: deployedFrontendBranch,
+    backend_release: backend.git_sha,
+    backend_git_branch: backend.git_branch,
+    backend_environment_name: backend.environment_name,
     previous_session_id: previousSessionId,
     created_session_id: created.sessionId,
     created_session_url: created.url,
     previous_session_url: previousUrl,
-    floor_dark_next_url: floorDarkNextUrl,
+    ...(PHASE === 'floor' ? { floor_dark_next_url: floorDarkNextUrl } : {}),
     canonical_sessions: [createdCanonical, previousCanonical],
     reload_and_copy_url_passed: true,
   });
