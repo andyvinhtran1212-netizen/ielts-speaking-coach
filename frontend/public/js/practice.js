@@ -353,6 +353,13 @@
     showState('error');
   }
 
+  function _setLoadingMessage(message) {
+    if (!_updateNativeView('frame', { loadingMessage: message })) {
+      var el = $('loading-msg');
+      if (el) el.textContent = message;
+    }
+  }
+
   // ── Recording sub-state management ───────────────────────────────────────────
 
   function _showRecSub(name) {
@@ -3302,7 +3309,6 @@
     var priorChain = _ftAllSessionIds.slice();
     var nativeFullTest = _getNativeFullTest();
     showState('loading');
-    var loadMsg = $('loading-msg');
 
     try {
       // NOTE: do NOT complete the current session here.
@@ -3315,7 +3321,7 @@
         ? _ftP2Topic
         : (_sessionData.topic || 'General');
 
-      if (loadMsg) loadMsg.textContent = 'Đang tạo Part ' + part + '...';
+      _setLoadingMessage('Đang tạo Part ' + part + '...');
       var _createBody = { mode: 'test_full', part: part, topic: nextTopic };
       // The server derives the canonical Full Test attempt from the immediately
       // preceding owned session. Never send or trust a client-chosen attempt id.
@@ -3364,7 +3370,7 @@
       } catch (e) { /* older browsers: refresh keeps legacy behavior */ }
 
       // Generate questions for this part
-      if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi Part ' + part + '...';
+      _setLoadingMessage('Đang tạo câu hỏi Part ' + part + '...');
       var questions = await window.api.post('/sessions/' + newId + '/questions/generate', {});
       if (!_playerActive || generation !== _playerGeneration) return;
       if (!questions || questions.length === 0) throw new Error('Không tạo được câu hỏi Part ' + part);
