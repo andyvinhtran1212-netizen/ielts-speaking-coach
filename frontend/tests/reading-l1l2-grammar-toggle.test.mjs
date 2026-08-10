@@ -192,8 +192,13 @@ describe('CSS — token-clean, responsive', () => {
     assert.match(css, /\.rv-pane--grammar\s*\{/);
     assert.match(css, /\.rv-gpoint__example\s+strong\s*\{[\s\S]{0,80}var\(--av-/);
   });
-  test('responsive: buttons stack on narrow screens', () => {
-    assert.match(css, /@media \(max-width: 560px\)[\s\S]{0,120}\.rv-panes__btn/);
+  test('responsive: three view choices stay in one compact mobile row', () => {
+    assert.match(css, /\.rv-panes\s*\{[\s\S]{0,120}grid-template-columns:\s*repeat\(3/);
+    assert.match(css, /@media \(max-width: 620px\)[\s\S]{0,900}\.rv-panes__btn/);
+  });
+  test('two available panes fill the segmented control without an empty column', () => {
+    assert.match(PANES_SRC, /data-count/);
+    assert.match(css, /\.rv-panes\[data-count="2"\][^{]*\{[^}]*repeat\(2/);
   });
   test('no hardcoded hex in the new pane block', () => {
     const block = css.slice(css.indexOf('.rv-panes'), css.indexOf('.rv-questions'));

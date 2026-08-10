@@ -48,18 +48,18 @@
         </p>
       </header>
 
-      <div class="range-tabs" role="tablist" aria-label="Khoảng thời gian">
-        <button class="range-tab" data-range="7d"  type="button">7 ngày</button>
-        <button class="range-tab is-active" data-range="30d" type="button">30 ngày</button>
-        <button class="range-tab" data-range="all" type="button">Tất cả</button>
+      <div class="range-tabs" role="group" aria-label="Khoảng thời gian">
+        <button class="range-tab" data-range="7d" type="button" aria-pressed="false">7 ngày</button>
+        <button class="range-tab is-active" data-range="30d" type="button" aria-pressed="true">30 ngày</button>
+        <button class="range-tab" data-range="all" type="button" aria-pressed="false">Tất cả</button>
       </div>
 
-      <div class="empty-state" id="state-loading">Đang tải…</div>
-      <div class="empty-state" id="state-empty" hidden>
+      <div class="empty-state" id="state-loading" role="status">Đang tải…</div>
+      <div class="empty-state" id="state-empty" role="status" hidden>
         <p><strong>Chưa có dữ liệu luyện tập trong khoảng này.</strong></p>
         <p>Bắt đầu một bài nghe để thấy thống kê.</p>
       </div>
-      <div class="error-banner" id="state-error" hidden></div>
+      <div class="error-banner" id="state-error" role="alert" hidden></div>
 
       <div id="analytics-surface" hidden style="display: flex; flex-direction: column; gap: var(--av-space-6);">
         <div class="weakest-banner" id="weakest-banner" hidden></div>

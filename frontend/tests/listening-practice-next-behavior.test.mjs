@@ -12,7 +12,9 @@ const SHELL = read('app', '(authed-listening)', 'listening', 'practice', 'page-s
 const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'practice', 'listening-practice-behavior.tsx',
 );
+const LEGACY = read('public', 'js', 'listening-practice.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening/practice — native React behavior', () => {
   test('removes legacy injection and delegates the state machine to React', () => {
@@ -26,7 +28,9 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
     assert.match(BEHAVIOR, /\[accountKey\]/);
     assert.match(BEHAVIOR, /\[accountKey, active\]/);
   });
@@ -37,6 +41,7 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /TABS\.filter\(\(tab\) => counts\[tab\.key\] > 0\)/);
     assert.match(BEHAVIOR, /TABS\.filter\(\(tab\) => counts\[tab\.key\] > 0\)\.map/);
     assert.match(BEHAVIOR, /lp-tab-count/);
+    assert.match(BEHAVIOR, /aria-pressed=\{tab\.key === active\}/);
   });
 
   test('honors the hash, replaces it safely and caches per-tab pages', () => {
@@ -63,11 +68,16 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /lp-group-count/);
   });
 
-  test('preserves card stats, CTA and lightweight runner destination', () => {
+  test('preserves activity stats but uses submitted attempts for completion', () => {
     assert.match(BEHAVIOR, /textValue\(raw\.title\) \|\| testId \|\| 'Bài luyện'/);
+    assert.match(BEHAVIOR, /user_submitted_attempt_count/);
+    assert.match(BEHAVIOR, /submittedAttemptCount: positiveCount\(raw\.user_submitted_attempt_count\)/);
     assert.match(BEHAVIOR, /Tốt nhất/);
-    assert.match(BEHAVIOR, /đã làm \{test\.attemptCount\} lần/);
-    assert.match(BEHAVIOR, /attempted \? 'Làm lại' : 'Bắt đầu'/);
+    assert.match(BEHAVIOR, /đã mở \{test\.attemptCount\} lượt/);
+    assert.match(BEHAVIOR, /const completed = test\.submittedAttemptCount > 0/);
+    assert.doesNotMatch(BEHAVIOR, /const (attempted|completed) = test\.attemptCount > 0/);
+    assert.match(BEHAVIOR, /data-status=\{completed \? 'done' : 'new'\}/);
+    assert.match(BEHAVIOR, /completed \? 'Làm lại' : 'Bắt đầu'/);
     assert.match(BEHAVIOR, /listening-practice-run\.html\?id=\$\{encodeURIComponent\(test\.id\)\}/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
@@ -75,20 +85,38 @@ describe('/listening/practice — native React behavior', () => {
   test('keeps overview and tab loading/empty/error states truthful', () => {
     assert.match(BEHAVIOR, /overview\.status === 'loading'/);
     assert.match(BEHAVIOR, /Chưa có bài luyện nào\./);
-    assert.match(BEHAVIOR, /Không tải được Luyện nhanh:/);
-    assert.match(BEHAVIOR, /Không tải được danh sách:/);
+    assert.match(BEHAVIOR, /Không tải được Luyện nhanh\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /Không tải được danh sách bài luyện\. Vui lòng thử lại\./);
     assert.match(BEHAVIOR, /tabState\.status === 'loading'/);
+    assert.match(BEHAVIOR, /Nhóm này hiện chưa có bài luyện khả dụng\./);
+    assert.match(BEHAVIOR, /id="state-loading" role="status"/);
+    assert.match(BEHAVIOR, /id="state-empty" role="status"/);
+    assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 
   test('preserves the empty navigation landmark in every overview state', () => {
     assert.match(BEHAVIOR, /function PracticeTabs\(/);
     assert.match(BEHAVIOR, /<nav className="lp-tabs" id="practice-tabs" aria-label="Nhóm bài luyện">/);
-    assert.ok((BEHAVIOR.match(/<PracticeTabs \/>/g) || []).length >= 4);
+    assert.ok((BEHAVIOR.match(/<PracticeTabs \/>/g) || []).length >= 3);
     assert.match(BEHAVIOR, /<PracticeTabs counts=\{overview\.counts\} active=\{active\} onSelect=\{setActive\} \/>/);
   });
 
   test('is no longer hard-navigation-only', () => {
     const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
     assert.doesNotMatch(list, /['"]\/listening\/practice['"]/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(PARITY_WORKFLOW, /node tooling\/verify-listening-practice-flow\.mjs/);
+  });
+
+  test('keeps rollback behavior aligned with submitted completion and safe errors', () => {
+    assert.match(LEGACY, /t\.user_submitted_attempt_count/);
+    assert.match(LEGACY, /data-status="\$\{completed \? 'done' : 'new'\}"/);
+    assert.match(LEGACY, /đã mở \$\{esc\(attemptCount\)\} lượt/);
+    assert.match(LEGACY, /Không tải được danh sách bài luyện\. Vui lòng thử lại\./);
+    assert.match(LEGACY, /Không tải được Luyện nhanh\. Vui lòng thử lại\./);
+    assert.doesNotMatch(LEGACY, /\$\{\(e && e\.message\) \|\| e\}/);
   });
 });

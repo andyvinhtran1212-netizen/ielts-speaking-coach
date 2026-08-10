@@ -50,19 +50,38 @@
   <aver-chrome active="reading"></aver-chrome>
 
   <div class="shell">
-    <main class="rv-shell">
-      <p class="eyebrow"><a href="/reading/vocab" style="color: var(--av-text-secondary);">← Thư viện Vocab Reading</a></p>
-
+    <main class="rv-shell rv-detail-shell">
       <div class="rv-empty" id="state-loading">Đang tải…</div>
       <div class="rv-empty" id="state-empty" hidden>Không tìm thấy bài đọc.</div>
       <div class="rv-error" id="state-error" hidden></div>
 
-      <div class="rv-passage-layout" id="rv-passage" hidden>
-        <article>
-          <h1 class="rv-passage__title" id="rv-title"></h1>
-          <div class="rv-passage__body md-body" id="rv-body"></div>
-        </article>
-        <aside class="rv-questions" id="rv-questions" aria-label="Câu hỏi hiểu bài"></aside>
+      <div class="rv-detail" id="rv-passage" hidden>
+        <header class="rv-detail__header">
+          <a class="rv-back" href="/reading/vocab"><span aria-hidden="true">←</span> Thư viện Vocab Reading</a>
+          <div class="rv-detail__heading">
+            <div class="rv-detail__copy">
+              <p class="rv-kicker">READING LAB · VOCAB</p>
+              <h1 class="rv-passage__title" id="rv-title"></h1>
+              <div class="rv-detail__topics" id="rv-topic-tags" aria-label="Chủ đề bài đọc"></div>
+            </div>
+            <dl class="rv-detail__facts" aria-label="Thông tin bài đọc">
+              <div><dt id="rv-difficulty">—</dt><dd>Trình độ</dd></div>
+              <div><dt id="rv-estimated-time">—</dt><dd>Phút đọc</dd></div>
+              <div><dt id="rv-word-count">—</dt><dd>Từ</dd></div>
+            </dl>
+          </div>
+        </header>
+
+        <div class="rv-passage-layout">
+          <article class="rv-reader" aria-label="Nội dung bài đọc">
+            <header class="rv-reader__head">
+              <p>Bài đọc</p>
+              <span>Chạm vào từ gạch chân để xem nghĩa trong ngữ cảnh.</span>
+            </header>
+            <div class="rv-passage__body md-body" id="rv-body"></div>
+          </article>
+          <aside class="rv-questions" id="rv-questions" aria-label="Câu hỏi hiểu bài"></aside>
+        </div>
       </div>
     </main>
   </div>
