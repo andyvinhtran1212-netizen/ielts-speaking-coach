@@ -6,7 +6,10 @@
 //
 // Run: npm run test:e2e:gate-e
 // @ts-check
-const { defineConfig } = require('@playwright/test');
+const { defineConfig, devices } = require('@playwright/test');
+
+const MIC_SPEC = /native-speaking-device-mic\.spec\.js/;
+const WEBKIT_CAPABILITY_SPEC = /native-speaking-webkit-capability\.spec\.js/;
 
 module.exports = defineConfig({
   testDir: './tests/gate-e',
@@ -18,6 +21,7 @@ module.exports = defineConfig({
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report/gate-e', open: 'never' }],
+    ['json', { outputFile: 'test-results/gate-e-speaking-device-matrix-results.json' }],
   ],
   webServer: {
     // Build once and exercise the production server. This removes Next dev's
@@ -38,10 +42,30 @@ module.exports = defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'gate-e-chromium-desktop',
+      testIgnore: WEBKIT_CAPABILITY_SPEC,
       // CI and local runs use the lockfile-matched bundled browser. A branded
       // system Chrome is not an implicit prerequisite for the documented run.
       use: { browserName: 'chromium' },
+    },
+    {
+      name: 'gate-e-webkit-desktop',
+      // Synthetic WebKit is useful for shared browser behavior and capability
+      // recording, but it is not shipping Safari microphone evidence.
+      testIgnore: MIC_SPEC,
+      use: {
+        browserName: 'webkit',
+      },
+    },
+    {
+      name: 'gate-e-webkit-iphone13',
+      // Device emulation changes viewport/input shape, not real iOS microphone
+      // behavior. Keep microphone lifecycle in the pending real-device drill.
+      testIgnore: MIC_SPEC,
+      use: {
+        ...devices['iPhone 13'],
+        browserName: 'webkit',
+      },
     },
   ],
 });

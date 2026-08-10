@@ -98,8 +98,21 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    exact-blob retry + finalize barrier, failed-finalize retry, và finalize
    network-after-commit reconcile không POST trùng. Tổng Gate E Chromium hiện
    10/10; đây là runtime evidence, không phải source sentinel.
-3. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
-   matrix; kiểm microphone permission denied/retry/background-tab lifecycle.
+3. 🟡 Automated device/microphone matrix đã được version ở
+   `frontend/tooling/gate-e-speaking-device-matrix.json`: manifest khai báo 4
+   lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng), còn
+   mỗi project WebKit thêm 1 capability guard (5 lớp tổng). CI luôn tải JSON
+   result artifact. Hai project WebKit synthetic chỉ chạy shared flows và
+   capability guard; trên Linux CI guard xác nhận không có `MediaRecorder`, còn
+   môi trường khác ghi đúng capability quan sát được. Cả hai luôn loại mic
+   lifecycle vì không phải bằng chứng Safari/iOS thật. Spec microphone Chromium
+   kiểm copy permission denied, retry ngay state
+   hiện tại, audio bytes từ engine-owned track, multi-tab pressure, responsive
+   overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
+   không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
+   Safari shipping, nên đây không phải bằng chứng background/microphone thật.
+   Safari/iOS thật vẫn PENDING và phải chạy đúng `real_device_requirements` trong
+   manifest trước khi đóng mục 3.
 4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
    reload/copy URL/admission rollback với canonical backend assertions.
 5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
@@ -156,12 +169,14 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
-  baseline sáu shape và bốn mutation/recovery flow. Device matrix và rollback
-  live drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
+  baseline sáu shape, bốn mutation/recovery flow và automated
+  device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
+  riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (10 native browser fixtures)
+- `npm run test:e2e:gate-e` (12 Chromium + 11 WebKit desktop +
+  11 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites
