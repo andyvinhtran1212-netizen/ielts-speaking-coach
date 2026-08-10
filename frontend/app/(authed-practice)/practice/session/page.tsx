@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { LegacyPracticeShell } from './legacy-practice-shell';
 import { PracticeRecorderBridge } from './practice-recorder-bridge';
 import { PracticeSessionBoot } from './practice-session-boot';
+import { PracticeSubmissionBridge } from './practice-submission-bridge';
 
 export const metadata: Metadata = {
   title: 'Luyện tập Ghi âm — Aver Learning',
@@ -18,6 +19,7 @@ export default function PracticeSessionPage() {
       <aver-chrome active="speaking" />
       <LegacyPracticeShell />
       <PracticeRecorderBridge />
+      <PracticeSubmissionBridge />
       <PracticeSessionBoot />
     </>
   );

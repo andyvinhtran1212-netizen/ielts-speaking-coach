@@ -274,7 +274,7 @@ describe('Next Speaking recorder integration', () => {
 
   test('boot requires the native recorder before the player starts', () => {
     assert.match(BOOT, /PracticeRecorder\?\.start/);
-    assert.match(BOOT, /PracticeApp \+ native recorder \+ API/);
+    assert.match(BOOT, /PracticeApp \+ native recorder \+ native submission \+ API/);
   });
 
   test('practice routes funnel, Part 2, reset and terminal cleanup through the controller', () => {

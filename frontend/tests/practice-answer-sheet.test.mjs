@@ -66,15 +66,15 @@ const S = (state, over = {}) => ({
 });
 
 describe('trạng thái nói đúng sự thật', () => {
-  test('bốn trạng thái đều có nhãn tiếng Việt riêng', () => {
+  test('các trạng thái đều có nhãn tiếng Việt riêng', () => {
     const labels = new Set();
-    for (const st of ['idle', 'recording', 'grading', 'saved']) {
+    for (const st of ['idle', 'retry', 'recording', 'grading', 'saved']) {
       const html = render([S(st)])['sheet-slots'].innerHTML;
       const m = html.match(/av-slot__status">([^<]+)</);
       assert.ok(m, st);
       labels.add(m[1]);
     }
-    assert.equal(labels.size, 4, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
+    assert.equal(labels.size, 5, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
   });
 
   test('cột trạng thái mang data-state để liếc dọc là thấy', () => {
@@ -169,16 +169,17 @@ async function recordThenFail(startState) {
 }
 
 describe('lưu hỏng thì nói ra', () => {
-  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', async () => {
-    // Để "đã lưu" nghĩa là học viên bấm Nộp rồi mất câu trả lời mà không biết.
+  test('nộp hỏng giữ blob ở trạng thái CHƯA GỬI — không bắt ghi lại', async () => {
+    // Để "đã lưu" là sai, nhưng hạ về "chưa làm" cũng vứt mất bản ghi còn sống.
     //
     // Chốt này từng ghim NGUYÊN VĂN `s.state = 'idle';` — lại là ghim một dòng
     // mã, không phải một hành vi. Nó đúng khi mọi lần ghi đều là lần đầu, và
     // sai ngay khi có "ghi âm lại": bản cũ vẫn nằm trên server, hạ ô về 'chưa
     // làm' là nói sai VÀ khoá lại nút Nộp. Nay ghim BẤT BIẾN đầy đủ.
     const first = await recordThenFail('idle');
-    assert.equal(first.state, 'idle', 'lần ghi ĐẦU mà hỏng: chưa có gì trên server');
-    assert.match(first.error, /Chưa lưu được câu này/);
+    assert.equal(first.state, 'retry', 'lần ghi đầu hỏng phải giữ trạng thái retry');
+    assert.ok(first.retryBlob, 'blob phải còn trong slot để gửi lại');
+    assert.match(first.error, /Bản ghi vẫn còn trên thiết bị/);
   });
 
   test('micro hỏng không làm ô kẹt ở "đang ghi âm"', async () => {
@@ -229,7 +230,7 @@ describe('DÂY NỐI', () => {
     const i = CODE.indexOf("slots.addEventListener('click'");
     assert.ok(i !== -1, 'phải uỷ quyền trên #sheet-slots');
     const body = CODE.slice(i, i + 600);
-    for (const fn of ['_sheetListen', '_sheetReview', '_sheetToggleRec']) {
+    for (const fn of ['_sheetListen', '_sheetReview', '_sheetRetrySubmission', '_sheetToggleRec']) {
       assert.ok(body.includes(fn), `${fn} phải nằm trong bộ uỷ quyền`);
     }
     assert.match(CODE, /_bindSheet\(\);/);
@@ -244,7 +245,7 @@ describe('DÂY NỐI', () => {
 
 describe('style', () => {
   test('mỗi trạng thái một màu cột riêng', () => {
-    for (const st of ['recording', 'grading', 'saved']) {
+    for (const st of ['retry', 'recording', 'grading', 'saved']) {
       // \s+ chứ không phải một dấu cách: CSS căn lề bằng nhiều dấu cách, và
       // ghim định dạng thay vì ghim hành vi là cách test đỏ vì một lần format.
       assert.match(CSS, new RegExp(`data-state='${st}'\\]\\s+\\.av-slot__spine`), st);
@@ -261,8 +262,9 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     // `_submitGradingEager` cố ý nuốt lỗi cho Full Test (ở đó cảnh báo được vẽ
     // riêng). Phiếu DỰA VÀO promise này để quyết ô có "đã lưu" không — nuốt ở
     // đây nghĩa là ô hỏng vẫn xanh, học viên bấm Nộp và mất câu trả lời.
-    assert.match(CODE, /if \(opts && opts\.rethrow\) throw err;/);
-    assert.match(CODE, /_submitGradingEager\(_sessionId, s\.q\.id, blob, \{ rethrow: true \}\)/);
+    assert.match(CODE, /if \(submitOpts\.rethrow\) throw err;/);
+    assert.match(CODE,
+      /_submitGradingEager\(_sessionId, s\.q\.id, blob, \{[\s\S]{0,180}?rethrow: true,[\s\S]{0,180}?priorResponseId:/);
   });
 
   test('micro hỏng nhận ra qua GIÁ TRỊ TRẢ VỀ, không chỉ qua ngoại lệ', () => {
@@ -772,7 +774,8 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
       const slot = await recordThenFail(before);
       assert.equal(slot.state, before,
         `ô '${before}' ghi lại mà hỏng phải quay về đúng '${before}'`);
-      assert.match(slot.error, /bản ghi trước của bạn vẫn còn/);
+      assert.match(slot.error, /bản ghi trước vẫn còn/);
+      assert.ok(slot.retryBlob, 'bản ghi mới vẫn phải gửi lại được');
     }
   });
 
@@ -781,7 +784,7 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     // bảng tổng quan nói ngược lại chính phiếu ngay bên dưới.
     const ticks = [...CSS.matchAll(/\.av-sheet__ticks i\[data-state='(\w+)'\]/g)]
       .map((m) => m[1]);
-    for (const st of ['recording', 'grading', 'saved', 'ungraded']) {
+    for (const st of ['retry', 'recording', 'grading', 'saved', 'ungraded']) {
       assert.ok(ticks.includes(st), `vạch thiếu màu cho '${st}'`);
     }
   });

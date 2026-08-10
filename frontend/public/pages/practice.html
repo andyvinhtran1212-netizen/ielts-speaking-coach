@@ -390,7 +390,21 @@
       <p class="practice-prep-instruction text-xs text-center mb-5">
         Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.
       </p>
-      <button class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
+      <div id="p2a-submit-retry" class="ds-callout practice-error-callout mb-4" style="display:none;">
+        <p id="p2a-submit-retry-msg" class="text-sm mb-3"></p>
+        <audio id="p2a-submit-retry-audio" controls preload="metadata" style="width:100%;margin-bottom:12px;"></audio>
+        <div class="flex gap-3">
+          <button class="btn-ghost py-3 text-sm font-semibold" style="flex:1;"
+                  onclick="PracticeApp.discardP2SubmissionRetry()">
+            Ghi lại
+          </button>
+          <button class="btn-primary py-3 text-sm font-bold" style="flex:2;"
+                  onclick="PracticeApp.retryP2Submission()">
+            Gửi lại bản ghi
+          </button>
+        </div>
+      </div>
+      <button id="p2a-start-btn" class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
               onclick="PracticeApp.startP2Prep()">
         <i data-lucide="play"></i>
         Bắt đầu 1 phút chuẩn bị

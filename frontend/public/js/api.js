@@ -212,6 +212,8 @@
     delete: function (path)        { return _apiRequest('DELETE', path); },
     /** @template T @param {string} path @param {FormData} fd @returns {Promise<T>} */
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
+    /** @template T @param {string} path @param {FormData} fd @param {*} [opts] @returns {Promise<T>} */
+    uploadWith: function (path, fd, opts) { return _apiRequest('POST', path, fd, true, null, opts); },
     // reading-access-tracking — GET/POST/PATCH with extra request headers
     // (X-Reading-Password / X-Reading-Anon) + optional opts ({noRedirect:true}
     // suppresses the 401→login bounce for the anonymous share-link path).
