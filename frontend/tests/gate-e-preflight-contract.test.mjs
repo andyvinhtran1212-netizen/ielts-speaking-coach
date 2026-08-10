@@ -33,7 +33,7 @@ describe('Gate E preflight reports current evidence truthfully', () => {
 
   test('pins the audited baseline and keeps compiled ownership separate from the behavior cohort', () => {
     assert.match(PREFLIGHT, /main@d292de38919fa5b79854142d4b5053241642cbcd/);
-    assert.match(PREFLIGHT, /Compiled ownership graph có 32 App Router route/);
+    assert.match(PREFLIGHT, /Compiled ownership graph có 33 App Router route/);
     assert.match(PREFLIGHT, /cohort 29 route[\s\S]{0,100}hard-navigation debt về 0\/29/);
     assert.match(PREFLIGHT, /Hai mẫu số này\s+khác nhau[\s\S]{0,80}không được dùng lẫn nhau/);
   });

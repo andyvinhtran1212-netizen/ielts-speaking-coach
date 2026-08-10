@@ -2,8 +2,8 @@
 //
 // An implementation-specific PATH is the affinity key. Query flags are not:
 // they are forgeable, easy to drop and cannot make a same-path deployment
-// sticky. A cutover changes only `admit_new`; existing attempt URLs continue to
-// resolve to the implementation on which they started.
+// sticky. A cutover changes only `admit_new`; after admission, the browser uses
+// the implementation-specific destination URL for the lifetime of the attempt.
 
 export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   schema_version: 1,
@@ -49,9 +49,13 @@ const REQUIRED_SURFACES = Object.freeze([
   'listening_test',
   'listening_dictation',
 ]);
+const RUNTIME_ADMISSION_PATH = '/core-player/launch';
 
 function surfacePolicy(surface, policy) {
-  const found = policy?.surfaces?.[surface];
+  const surfaces = policy?.surfaces;
+  const found = typeof surface === 'string' && Object.hasOwn(surfaces || {}, surface)
+    ? surfaces[surface]
+    : null;
   if (!found) throw new Error(`unknown-core-player-surface:${surface}`);
   return found;
 }
@@ -62,6 +66,20 @@ function scalarQueryValue(value, key) {
     if (normalized) return normalized;
   }
   throw new Error(`invalid-core-player-query:${key}`);
+}
+
+function normalizedQueryEntries(surface, config, query) {
+  const provided = Object.entries(query || {})
+    .filter(([, value]) => value !== null && value !== undefined);
+  const unknown = provided.find(([key]) => !config.allowed_query.includes(key));
+  if (unknown) throw new Error(`unknown-core-player-query:${surface}:${unknown[0]}`);
+  const supplied = provided.filter(([key, value]) => (
+    value !== '' || config.identity_query_any_of.includes(key)
+  ));
+  if (!config.identity_query_any_of.some((key) => supplied.some(([name]) => name === key))) {
+    throw new Error(`missing-core-player-identity:${surface}`);
+  }
+  return supplied.map(([key, value]) => [key, scalarQueryValue(value, key)]);
 }
 
 function isSafeSameOriginPath(value) {
@@ -104,6 +122,7 @@ export function validateCorePlayerAffinityPolicy(policy = CORE_PLAYER_AFFINITY_P
     }
     if (!Array.isArray(allowedKeys) ||
         allowedKeys.some((key) => typeof key !== 'string' || !/^[A-Za-z0-9_]+$/.test(key)) ||
+        allowedKeys.includes('surface') ||
         (Array.isArray(identityKeys) && identityKeys.some((key) => !allowedKeys.includes(key)))) {
       errors.push(`${surface}:query-contract-invalid`);
     }
@@ -128,24 +147,43 @@ export function corePlayerUrl(
   const target = config[implementation];
   if (target?.route_ready !== true) throw new Error(`${surface}:${implementation}-route-not-ready`);
 
-  const supplied = Object.entries(query || {})
-    .filter(([, value]) => value !== null && value !== undefined);
-  const unknown = supplied.find(([key]) => !config.allowed_query.includes(key));
-  if (unknown) throw new Error(`unknown-core-player-query:${surface}:${unknown[0]}`);
-  if (!config.identity_query_any_of.some((key) => supplied.some(([name]) => name === key))) {
-    throw new Error(`missing-core-player-identity:${surface}`);
-  }
-
   const params = new URLSearchParams();
-  for (const [key, value] of supplied) params.set(key, scalarQueryValue(value, key));
+  for (const [key, value] of normalizedQueryEntries(surface, config, query)) {
+    params.set(key, value);
+  }
   return `${target.path}?${params.toString()}`;
 }
 
-export function admitCorePlayer(
+/** Resolve on the server/runtime deployment that receives the navigation. */
+export function resolveCorePlayerAdmission(
   surface,
   query,
   policy = CORE_PLAYER_AFFINITY_POLICY,
 ) {
   const config = surfacePolicy(surface, policy);
   return corePlayerUrl(surface, config.admit_new, query, policy);
+}
+
+/**
+ * Build a stable, same-origin admission URL for launchers.
+ *
+ * Deliberately do not embed `admit_new` in this URL: an already-open launcher
+ * can outlive a cutover or rollback deployment. The no-store route resolves
+ * the current admission policy when the user actually navigates.
+ */
+export function admitCorePlayer(
+  surface,
+  query,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const policyErrors = validateCorePlayerAffinityPolicy(policy);
+  if (policyErrors.length) {
+    throw new Error(`invalid-core-player-policy:${policyErrors.join(',')}`);
+  }
+  const config = surfacePolicy(surface, policy);
+  const params = new URLSearchParams([['surface', surface]]);
+  for (const [key, value] of normalizedQueryEntries(surface, config, query)) {
+    params.set(key, value);
+  }
+  return `${RUNTIME_ADMISSION_PATH}?${params.toString()}`;
 }

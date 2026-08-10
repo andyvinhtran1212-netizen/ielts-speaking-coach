@@ -12,7 +12,8 @@ nhật qua các PR nối tiếp nhưng không tự trở thành bằng chứng P
 
 ## Kết luận
 
-Compiled ownership graph có 32 App Router route; trong đó cohort 29 route của
+Compiled ownership graph có 33 App Router route, gồm runtime admission endpoint;
+trong đó cohort 29 route của
 Gate D behavior migration đã đưa hard-navigation debt về 0/29. Hai mẫu số này
 khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn chỉ là bằng chứng
 Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
@@ -21,7 +22,9 @@ emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifa
 ghi đủ project counts/version/outcome. Critical-suite v2 và ledger đã được
 định nghĩa, nhưng chưa có qualifying 20-run artifact; vẫn chưa có Safari/iOS
 thiết bị thật. Active-session affinity mới có foundation và unit-level contract,
-chưa có live core-player drill. Vì vậy canonical core cutover vẫn bị chặn bởi
+chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
+implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
+contract. Vì vậy canonical core cutover vẫn bị chặn bởi
 Gate E.
 
 ## Ma trận tiêu chí Gate E
@@ -30,7 +33,7 @@ Gate E.
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; artifact ghi `matrix_complete: true`, exact revisions và 0 report error | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
-| Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
+| Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests bằng hashes/counts; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact và failure-injection matrix còn thiếu bốn nhóm core-player. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
@@ -95,16 +98,19 @@ Gate E.
 
 - **Root cause:** trước batch affinity, coexistence/rollback drill chỉ chứng minh
   deployment recovery, chưa chọn cách xử lý attempt đang làm dở khi ownership
-  đổi release. Batch đã chọn stable implementation-specific URL + admission
-  switch và chạy unit-level URL/state-machine contract; chưa có active attempt,
-  browser hoặc player Next thật để gọi là một drill.
+  đổi release. Batch đã chọn stable implementation-specific URL + runtime
+  admission endpoint no-store để bundle launcher cũ hỏi policy tại thời điểm
+  navigation, rồi chạy unit-level URL/state-machine contract; chưa có active
+  attempt, browser hoặc player Next thật để gọi là một drill.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
-- **Impacted files/functions:** chưa có canonical Gate E runbook; các core route
-  và state keys được liệt kê dưới đây.
+- **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
+  `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
+  các core route và state keys được liệt kê dưới đây.
 - **Suggested minimal fix còn lại:** mỗi core cluster phải tạo stable Next player
-  route, pin coexistence rollback floor SHA rồi drill staging cả cutover lẫn
-  rollback, gồm tab cũ, reload, tab mới và canonical state sau handoff.
+  route, pin coexistence rollback floor SHA có cả runtime admission endpoint rồi
+  drill staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab
+  cũ, reload, tab mới và canonical state sau handoff.
 - **Verification:** run artifact ghi release trước/sau, session/attempt ID,
   persisted answers, canonical final state, TTL và recovery time; không có data
   invariant violation.

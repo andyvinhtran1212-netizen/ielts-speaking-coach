@@ -8,6 +8,7 @@ import {
   CORE_PLAYER_AFFINITY_POLICY,
   admitCorePlayer,
   corePlayerUrl,
+  resolveCorePlayerAdmission,
   validateCorePlayerAffinityPolicy,
 } from '../lib/core-player-affinity.mjs';
 
@@ -16,6 +17,7 @@ const ROOT = path.dirname(FRONTEND);
 const read = (relativePath) => readFileSync(path.join(ROOT, relativePath), 'utf8');
 const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
 const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
+const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
 
 const NEXT_LAUNCHERS = [
   'frontend/app/(authed-speaking)/speaking/speaking-behavior.tsx',
@@ -54,35 +56,49 @@ describe('current admission policy preserves behavior', () => {
     }
   });
 
-  test('new attempts still receive legacy player URLs with equivalent query semantics', () => {
+  test('launchers use the runtime endpoint and the current server policy preserves legacy semantics', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
-      '/pages/practice.html?session_id=session+A',
+      '/core-player/launch?surface=speaking&session_id=session+A',
     );
     assert.equal(
       admitCorePlayer('reading_exam', { test_id: 'AVR-1', from: 'full' }),
-      '/pages/reading-exam.html?test_id=AVR-1&from=full',
+      '/core-player/launch?surface=reading_exam&test_id=AVR-1&from=full',
     );
     assert.equal(
       admitCorePlayer('listening_test', { id: 'test-1', from: 'mini' }),
-      '/pages/listening-test.html?id=test-1&from=mini',
+      '/core-player/launch?surface=listening_test&id=test-1&from=mini',
     );
     assert.equal(
       admitCorePlayer('listening_dictation', { test_id: 'test-1' }),
-      '/pages/listening-test-dictation.html?test_id=test-1',
+      '/core-player/launch?surface=listening_dictation&test_id=test-1',
     );
     assert.equal(
-      admitCorePlayer('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
+      resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
       '/pages/reading-exam.html?test_id=AVR-1&class_item=homework-1',
     );
     assert.equal(
-      admitCorePlayer('listening_test', { id: 'test-1', class_item: 'homework-1' }),
+      resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),
       '/pages/listening-test.html?id=test-1&class_item=homework-1',
     );
     assert.equal(
-      admitCorePlayer('listening_dictation', { test_id: 'test-1', section: 3 }),
+      resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),
       '/pages/listening-test-dictation.html?test_id=test-1&section=3',
     );
+  });
+
+  test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
+    assert.match(RUNTIME_ROUTE, /resolveCorePlayerAdmission\(surface, query\)/);
+    assert.match(RUNTIME_ROUTE, /new NextResponse\(null, \{[\s\S]*status: 307/);
+    assert.match(RUNTIME_ROUTE, /headers: \{ Location: destination, \.\.\.NO_STORE_HEADERS \}/);
+    assert.doesNotMatch(RUNTIME_ROUTE, /request\.nextUrl\.origin/);
+    assert.match(RUNTIME_ROUTE, /'Cache-Control': 'private, no-store, max-age=0, must-revalidate'/);
+    assert.match(RUNTIME_ROUTE, /'CDN-Cache-Control': 'no-store'/);
+    assert.match(RUNTIME_ROUTE, /'Vercel-CDN-Cache-Control': 'no-store'/);
+    assert.match(RUNTIME_ROUTE, /key !== 'surface'/);
+    assert.match(RUNTIME_ROUTE, /getAll\('surface'\)/);
+    assert.match(RUNTIME_ROUTE, /hasDuplicate \|\| surfaces\.length !== 1/);
+    assert.match(RUNTIME_ROUTE, /status: 400/);
   });
 
   test('canonical Next launchers use the policy, not scattered player literals', () => {
@@ -113,17 +129,24 @@ describe('current admission policy preserves behavior', () => {
 });
 
 describe('cutover and rollback drill', () => {
-  test('legacy-start stays legacy after cutover; next-start stays Next after admission rollback', () => {
+  test('an already-open launcher asks the current runtime again after rollback', () => {
     const cutover = readyNextPolicy();
     cutover.surfaces.speaking.admit_new = 'next';
 
     const legacyAttempt = corePlayerUrl(
       'speaking', 'legacy', { session_id: 'legacy-attempt' }, cutover,
     );
-    const nextAttempt = admitCorePlayer(
+    const cachedLauncherHref = admitCorePlayer(
+      'speaking', { session_id: 'next-attempt' }, cutover,
+    );
+    const nextAttempt = resolveCorePlayerAdmission(
       'speaking', { session_id: 'next-attempt' }, cutover,
     );
     assert.equal(legacyAttempt, '/pages/practice.html?session_id=legacy-attempt');
+    assert.equal(
+      cachedLauncherHref,
+      '/core-player/launch?surface=speaking&session_id=next-attempt',
+    );
     assert.equal(nextAttempt, '/practice/session?session_id=next-attempt');
 
     const rollback = structuredClone(cutover);
@@ -133,8 +156,12 @@ describe('cutover and rollback drill', () => {
       nextAttempt,
     );
     assert.equal(
-      admitCorePlayer('speaking', { session_id: 'post-rollback' }, rollback),
-      '/pages/practice.html?session_id=post-rollback',
+      admitCorePlayer('speaking', { session_id: 'next-attempt' }, rollback),
+      cachedLauncherHref,
+    );
+    assert.equal(
+      resolveCorePlayerAdmission('speaking', { session_id: 'next-attempt' }, rollback),
+      '/pages/practice.html?session_id=next-attempt',
     );
   });
 
@@ -145,7 +172,7 @@ describe('cutover and rollback drill', () => {
       'speaking:admission-route-not-ready',
     ]);
     assert.throws(
-      () => admitCorePlayer('speaking', { session_id: 'x' }, unsafe),
+      () => resolveCorePlayerAdmission('speaking', { session_id: 'x' }, unsafe),
       /invalid-core-player-policy:speaking:admission-route-not-ready/,
     );
   });
@@ -174,6 +201,11 @@ describe('cutover and rollback drill', () => {
     assert.ok(validateCorePlayerAffinityPolicy(unsafeQuery)
       .includes('speaking:query-contract-invalid'));
 
+    const reservedWireKey = structuredClone(CORE_PLAYER_AFFINITY_POLICY);
+    reservedWireKey.surfaces.speaking.allowed_query.push('surface');
+    assert.ok(validateCorePlayerAffinityPolicy(reservedWireKey)
+      .includes('speaking:query-contract-invalid'));
+
     const incomplete = structuredClone(CORE_PLAYER_AFFINITY_POLICY);
     incomplete.schema_version = 2;
     delete incomplete.surfaces.reading_exam;
@@ -200,6 +232,28 @@ describe('cutover and rollback drill', () => {
     assert.throws(
       () => corePlayerUrl('speaking', 'random', { session_id: 'x' }),
       /invalid-core-player-implementation/,
+    );
+    for (const inheritedKey of ['constructor', '__proto__', 'toString', 'valueOf']) {
+      assert.throws(
+        () => resolveCorePlayerAdmission(inheritedKey, { session_id: 'x' }),
+        /unknown-core-player-surface/,
+        inheritedKey,
+      );
+    }
+  });
+
+  test('empty optional context is omitted without weakening identity or unknown-key checks', () => {
+    assert.equal(
+      admitCorePlayer('reading_exam', { test_id: 'AVR-1', from: '' }),
+      '/core-player/launch?surface=reading_exam&test_id=AVR-1',
+    );
+    assert.throws(
+      () => admitCorePlayer('reading_exam', { test_id: '', from: '' }),
+      /invalid-core-player-query:test_id/,
+    );
+    assert.throws(
+      () => admitCorePlayer('reading_exam', { test_id: 'AVR-1', utm_source: '' }),
+      /unknown-core-player-query/,
     );
   });
 });

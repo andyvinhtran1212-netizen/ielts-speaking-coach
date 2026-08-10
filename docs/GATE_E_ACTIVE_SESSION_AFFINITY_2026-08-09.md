@@ -16,19 +16,26 @@ bố Gate E PASS và không giả lập một player Next chưa tồn tại thà
   Listening; các entry point legacy còn lại; các player legacy dưới
   `frontend/public/pages/`; future player Next; `/writing/dashboard` đã cutover;
   cutover/rollback runbook của từng core cluster.
-- **Minimal fix trong batch:** chọn URL-level implementation affinity và gom nơi
-  nhận attempt mới vào `frontend/lib/core-player-affinity.mjs`. Hiện admission
-  vẫn là `legacy`, nên hành vi production không đổi. Target Next bị fail-closed
-  bằng `route_ready: false` cho tới khi dark route thật và browser tests tồn tại.
-- **Verification:** Node drill chứng minh legacy-start → cutover vẫn legacy,
-  Next-start → rollback vẫn Next; flip sớm, identity thiếu, query lạ đều bị chặn.
-  Live staging drill phải chạy lại trên player thật của từng cluster.
+- **Minimal fix trong batch:** chọn URL-level implementation affinity, gom policy
+  vào `frontend/lib/core-player-affinity.mjs` và buộc launcher đi qua endpoint
+  runtime no-store `frontend/app/core-player/launch/route.ts`. Bundle launcher
+  chỉ giữ surface/query, không giữ quyết định `legacy`/`next`; deployment đang
+  nhận navigation mới là nơi đọc `admit_new`. Hiện admission vẫn là `legacy`,
+  nên hành vi production không đổi. Target Next bị fail-closed bằng
+  `route_ready: false` cho tới khi dark route thật và browser tests tồn tại.
+- **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi
+  qua cutover/rollback nhưng runtime hiện tại đổi được đích Next về legacy;
+  legacy-start và Next-start vẫn giữ URL implementation-specific của chính nó.
+  Flip sớm, identity thiếu, query lạ hoặc query trùng đều bị chặn. Live staging
+  drill phải chạy lại trên player thật của từng cluster.
 
 ## Quyết định kiến trúc
 
 Không dùng Rolling Releases cho core flow và không dùng query flag làm affinity.
 Query flag không phải affinity: nó không ký, dễ mất khi redirect và vẫn để cùng
-một pathname đổi owner khi reload.
+một pathname đổi owner khi reload. Tham số `surface` của `/core-player/launch`
+chỉ định danh contract cần resolve; nó không cho client chọn implementation và
+không được chuyển tiếp sang player.
 
 Mỗi implementation có URL ổn định riêng:
 
@@ -45,8 +52,9 @@ ghi attempt. Biết một URL Next không cấp thêm quyền dữ liệu.
 
 ### Ranh giới coverage hiện tại
 
-`core-player-affinity.mjs` hiện chỉ là nguồn admission của sáu launcher Next cho
-Speaking/Reading/Listening đã liệt kê trong executable test. Các launcher legacy
+`core-player-affinity.mjs` cùng `/core-player/launch` hiện chỉ là nguồn admission
+của sáu launcher Next cho Speaking/Reading/Listening đã liệt kê trong executable
+test. Các launcher legacy
 như mock-exam runner và My Class vẫn cố ý mở player legacy; chúng chưa được gọi
 là đã cutover và phải được chuyển theo cluster tương ứng. Ngoài ra,
 `frontend/public/js/listening-test-player.js` còn mở dictation từ màn kết quả;
@@ -63,17 +71,21 @@ coverage Speaking/Reading/Listening thay cho evidence Writing.
 
 ## State machine cutover/rollback
 
-1. **Foundation:** launcher gọi admission policy; mọi target vẫn legacy.
+1. **Foundation:** launcher luôn sinh URL `/core-player/launch` không chứa quyết
+   định implementation. Request runtime no-store đọc policy của deployment hiện
+   tại và tạm redirect 307; mọi target vẫn legacy.
 2. **Dark route:** xây stable Next player, parity/resume/failure tests xanh, rồi
    đổi riêng `next.route_ready` sang true. Chưa đổi admission. Ghi exact commit
    này làm **rollback floor SHA**: mọi deployment rollback khi còn active Next
    attempt phải mới hơn hoặc bằng floor và còn phục vụ cả hai stable URL.
-3. **Cutover:** đổi `admit_new` sang Next. Attempt mới nhận URL Next; tab legacy
-   đang mở hoặc URL legacy được copy sang tab mới vẫn ở legacy.
+3. **Cutover:** đổi `admit_new` sang Next. Kể cả launcher đã mở trước deployment,
+   click mới vẫn hỏi runtime hiện tại và nhận URL Next. Tab legacy đang mở hoặc
+   URL legacy được copy sang tab mới vẫn ở legacy.
 4. **Rollback:** đổi `admit_new` về legacy, hoặc deployment-rollback về đúng
-   coexistence floor SHA. Attempt Next đang mở vẫn dùng URL Next; không xoá dark
-   route, không rollback về deployment trước floor, không chuyển renderer giữa
-   attempt.
+   coexistence floor SHA. Launcher đã cache từ release cutover vẫn gọi cùng
+   endpoint và request mới quay về legacy; attempt Next đang mở vẫn dùng URL
+   Next. Không xoá dark route, không rollback về deployment trước floor, không
+   chuyển renderer giữa attempt.
 5. **Retirement:** chỉ retire legacy sau Gate F khi telemetry của stable legacy
    URL chứng minh zero legitimate request trong cửa sổ bắt buộc. Vì hiện không
    có finite maximum active-session TTL toàn hệ thống, không được suy diễn rằng
@@ -87,18 +99,25 @@ floor đó, mới được đổi `admit_new` sang `next`. Không được gộp
 coi revert commit là rollback an toàn, vì revert đó sẽ xoá chính route mà active
 Next attempt còn cần.
 
+Endpoint `/core-player/launch` cũng là một phần của rollback floor ngay khi có
+launcher nào phát hành URL đó. Trong thời gian tab/bundle cũ còn hợp lệ, không
+được rollback thấp hơn release đầu tiên phục vụ endpoint; nếu không request từ
+launcher cũ sẽ thành 404 trước khi policy có cơ hội đưa nó về legacy.
+
 ## Unit contract đã chạy trong batch
 
 `frontend/tests/gate-e-active-session-affinity.test.mjs` chạy cùng implementation
 policy thật và kiểm:
 
-- current admission sinh legacy URLs có cùng path và query semantics cho bốn
-  surface;
+- launcher sinh URL runtime implementation-neutral cho bốn surface, còn resolver
+  phía deployment hiện tại sinh legacy URL có cùng path/query semantics;
 - legacy attempt không đổi URL sau cutover;
 - Next attempt không đổi URL sau rollback;
-- attempt mới sau rollback quay về legacy;
+- cùng URL đã cache từ launcher cutover được runtime rollback đưa attempt mới về
+  legacy;
 - target Next chưa ready, thiếu identity, query ngoài allowlist hoặc
-  implementation lạ đều fail closed;
+  implementation lạ đều fail closed; route runtime từ chối key trùng lặp và gửi
+  `Cache-Control`, `CDN-Cache-Control`, `Vercel-CDN-Cache-Control` no-store;
 - sáu canonical Next launcher không còn hardcode player destination rời rạc;
 - recursive guard quét `frontend/app`, `frontend/components` và `frontend/lib`
   (whitelist duy nhất là policy source) để shared helper mới không lách admission.
