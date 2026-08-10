@@ -149,6 +149,12 @@
 | `/grammar/roadmap` | — | `pages/grammar-roadmap.html` | Public | none | localStorage (theme) | S | Learning path graph; static layout |
 | `/grammar/search` | — | `pages/grammar-search.html` | Public | `q` (search term) | localStorage (theme), fetch API | M | Full-text search; real-time results |
 
+### Migration Runtime Infrastructure
+
+| Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
+|---|---|---|---|---|---|---|---|
+| `/core-player/launch` | — | `app/core-player/launch/route.ts` | Public redirect boundary; no data access, destination/backend remains authoritative | `surface` plus the allowlisted identity/context query for that surface | no-store 307 redirect | S | Runtime admission boundary for new core attempts. It never accepts an implementation choice from the client; cached launchers are resolved against the currently deployed policy. This endpoint is part of the coexistence rollback floor while old launcher bundles may call it. |
+
 ### Speaking
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { ListeningTestsShell } from './page-shell';
@@ -247,13 +248,13 @@ function ListeningTestsLibrary({ accountKey }: { accountKey: string | null }) {
                   <div className="lt-card-actions">
                     <a
                       className="lt-card-cta"
-                      href={`/pages/listening-test.html?id=${encodeURIComponent(test.id)}&from=full`}
+                      href={admitCorePlayer('listening_test', { id: test.id, from: 'full' })}
                     >
                       {attempted ? 'Làm lại' : 'Bắt đầu test'} <span aria-hidden="true">→</span>
                     </a>
                     <a
                       className="lt-card-cta secondary"
-                      href={`/pages/listening-test-dictation.html?test_id=${encodeURIComponent(test.id)}`}
+                      href={admitCorePlayer('listening_dictation', { test_id: test.id })}
                     >
                       Chép chính tả
                     </a>

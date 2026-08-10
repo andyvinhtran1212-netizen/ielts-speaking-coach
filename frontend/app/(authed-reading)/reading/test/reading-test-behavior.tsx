@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { ReadingTestShell } from './page-shell';
@@ -203,7 +204,7 @@ function ReadingTestLibrary({ accountKey }: { accountKey: string | null }) {
             <a
               aria-label={`Bắt đầu bài thi ${test.title}`}
               className="rv-card"
-              href={`/pages/reading-exam.html?test_id=${encodeURIComponent(test.testId)}&from=full`}
+              href={admitCorePlayer('reading_exam', { test_id: test.testId, from: 'full' })}
               key={test.key}
             >
               <div className="rv-card__top">

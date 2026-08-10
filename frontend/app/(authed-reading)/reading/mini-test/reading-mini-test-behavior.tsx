@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { ReadingMiniTestShell } from './page-shell';
@@ -214,7 +215,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
             <a
               aria-label={`Bắt đầu mini test ${test.title}`}
               className="rv-card"
-              href={`/pages/reading-exam.html?test_id=${encodeURIComponent(test.testId)}&from=mini`}
+              href={admitCorePlayer('reading_exam', { test_id: test.testId, from: 'mini' })}
               key={test.key}
             >
               <div className="rv-card__top">

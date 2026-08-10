@@ -24,6 +24,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
@@ -32,7 +33,6 @@ import {
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
-const PRACTICE_URL = '/pages/practice.html';
 const LOGIN_URL = '/login.html';
 
 const $ = (id: string) => document.getElementById(id);
@@ -252,7 +252,7 @@ function sessionIdOf(s: any): string | null {
 }
 
 function goToPractice(sessionId: string) {
-  window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+  window.location.href = admitCorePlayer('speaking', { session_id: sessionId });
 }
 
 // ── Modal chủ đề ────────────────────────────────────────────────────────────

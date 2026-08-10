@@ -75,8 +75,8 @@ describe('/listening/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /data-status=\{attempted \? 'done' : 'new'\}/);
     assert.match(BEHAVIOR, /Làm lại/);
     assert.match(BEHAVIOR, /\{attempted \? 'Làm lại' : 'Bắt đầu'\}/);
-    assert.match(BEHAVIOR, /listening-test\.html\?id=\$\{encodeURIComponent\(test\.id\)\}&from=mini/);
-    assert.match(BEHAVIOR, /listening-test-dictation\.html\?test_id=\$\{encodeURIComponent\(test\.id\)\}/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_test', \{ id: test\.id, from: 'mini' \}\)/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_dictation', \{ test_id: test\.id \}\)/);
   });
 
   test('owns progress summary, status filters and live counts in React', () => {

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { ListeningSkillsShell } from './page-shell';
@@ -373,13 +374,13 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string | null }) {
                         <div className="ls-drill-actions">
                           <a
                             className={attempted ? 'ls-drill-cta secondary' : 'ls-drill-cta'}
-                            href={`/pages/listening-test.html?id=${encodeURIComponent(drill.id)}`}
+                            href={admitCorePlayer('listening_test', { id: drill.id })}
                           >
                             {attempted ? 'Làm lại' : 'Bắt đầu'} <span aria-hidden="true">→</span>
                           </a>
                           <a
                             className="ls-drill-cta secondary"
-                            href={`/pages/listening-test-dictation.html?test_id=${encodeURIComponent(drill.id)}`}
+                            href={admitCorePlayer('listening_dictation', { test_id: drill.id })}
                           >
                             Chép chính tả
                           </a>

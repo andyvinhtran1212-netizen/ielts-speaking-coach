@@ -62,8 +62,8 @@ describe('/listening/skills — native React behavior', () => {
     assert.match(BEHAVIOR, /a\.testId\.localeCompare\(b\.testId\)/);
     assert.match(BEHAVIOR, /split\(\/\\s\+\[—·\]\\s\+\//);
     assert.match(BEHAVIOR, /Điểm tốt nhất <strong>\{drill\.bestScore\} điểm<\/strong>/);
-    assert.match(BEHAVIOR, /listening-test\.html\?id=\$\{encodeURIComponent\(drill\.id\)\}/);
-    assert.match(BEHAVIOR, /listening-test-dictation\.html\?test_id=\$\{encodeURIComponent\(drill\.id\)\}/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_test', \{ id: drill\.id \}\)/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('listening_dictation', \{ test_id: drill\.id \}\)/);
   });
 
   test('uses submitted attempts for completion while retaining total activity', () => {
