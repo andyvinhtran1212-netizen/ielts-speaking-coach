@@ -16,7 +16,7 @@ const readRoot = (...parts) => readFileSync(path.join(ROOT, ...parts), 'utf8');
 const LEGACY = readFrontend('public', 'pages', 'practice.html');
 const PAGE = readFrontend('app', '(authed-practice)', 'practice', 'session', 'page.tsx');
 const SHELL = readFrontend('app', '(authed-practice)', 'practice', 'session', 'legacy-practice-shell.tsx');
-const BOOT = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-legacy-boot.tsx');
+const BOOT = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx');
 const LAYOUT = readFrontend('app', '(authed-practice)', 'layout.tsx');
 const PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
 const DOC = readRoot('docs', 'GATE_E_SPEAKING_CORE_2026-08-09.md');
@@ -52,7 +52,7 @@ describe('/practice/session transitional dark route', () => {
   test('App Router owns the URL and renders canonical chrome, shell and guarded boot', () => {
     assert.match(PAGE, /<aver-chrome active="speaking"/);
     assert.match(PAGE, /<LegacyPracticeShell \/>/);
-    assert.match(PAGE, /<PracticeLegacyBoot \/>/);
+    assert.match(PAGE, /<PracticeSessionBoot \/>/);
     assert.match(SHELL, /extractLegacyPracticeBody\(source\)/);
     assert.match(SHELL, /dangerouslySetInnerHTML/);
     assert.match(SHELL, /suppressHydrationWarning/);
@@ -68,16 +68,18 @@ describe('/practice/session transitional dark route', () => {
     assert.match(LAYOUT, /antialiased min-h-screen flex flex-col/);
   });
 
-  test('boot waits for signed-in auth plus all globals and fails visibly', () => {
+  test('boot waits for signed-in auth plus the runtime and fails visibly', () => {
     assert.match(BOOT, /status === 'initial-loading'/);
     assert.match(BOOT, /status === 'signed-out'/);
     assert.match(BOOT, /whenGlobalReady\(/);
     assert.match(BOOT, /PracticeApp\?\.init/);
     assert.match(BOOT, /win\.api\?\.get/);
-    assert.match(BOOT, /win\.getSupabase/);
+    assert.match(BOOT, /loadPracticeBootstrap/);
+    assert.match(BOOT, /createPracticeBootstrapOnce/);
+    assert.doesNotMatch(BOOT, /win\.getSupabase/);
     assert.match(BOOT, /started\.current = true/);
     assert.match(BOOT, /state-error/);
-    assert.match(BOOT, /practice_dark_route_boot_failed/);
+    assert.match(BOOT, /practice_native_bootstrap_failed/);
   });
 
   test('dark route exists but admission remains fail-closed on legacy', () => {
@@ -85,8 +87,8 @@ describe('/practice/session transitional dark route', () => {
     assert.equal(speaking.next.path, '/practice/session');
     assert.equal(speaking.next.route_ready, false);
     assert.equal(speaking.admit_new, 'legacy');
-    assert.match(DOC, /DARK ROUTE BRIDGE ONLY; ADMISSION LEGACY/);
-    assert.match(DOC, /chưa phải native behavior/);
+    assert.match(DOC, /NATIVE BOOTSTRAP; LEGACY PLAYER; ADMISSION LEGACY/);
+    assert.match(DOC, /recorder\/grading\/state machine vẫn ở `practice\.js`/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {

@@ -3532,24 +3532,57 @@
     if (btn) btn.addEventListener('click', _sheetSubmit);
   }
 
-  async function init() {
+  function _isNextPracticeBootstrap(bootstrap) {
+    return !!bootstrap
+      && bootstrap.source === 'next-native-bootstrap-v1'
+      && typeof bootstrap.sessionId === 'string'
+      && bootstrap.sessionId.length > 0
+      && !!bootstrap.sessionData
+      && typeof bootstrap.sessionData === 'object'
+      && !Array.isArray(bootstrap.sessionData)
+      && Array.isArray(bootstrap.questions)
+      && bootstrap.questions.length > 0;
+  }
+
+  async function init(bootstrap) {
     _bindSheet();
     showState('loading');
 
     // Kick off grammar article index fetch in background (ready before feedback shown)
     _fetchGrArticleIndex();
 
-    var sb = window.getSupabase && window.getSupabase();
-    if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
+    // The Next route owns auth + session/question loading. Legacy pages still
+    // call init() with no argument and retain the exact existing bootstrap.
+    // Fail closed if a caller tries to pass a partial/forged handoff: falling
+    // back to a second network bootstrap would hide a broken route contract.
+    var hasNextBootstrap = _isNextPracticeBootstrap(bootstrap);
 
-    var result = await sb.auth.getSession();
-    if (!result.data.session) {
-      window.location.href = window.api.url('login.html');
-      return;
+    if (bootstrap && !hasNextBootstrap) {
+      var handoffError = /** @type {any} */ (new Error('invalid-next-practice-bootstrap'));
+      handoffError.code = 'invalid_handoff';
+      handoffError.userMessage = 'Dữ liệu khởi động bài luyện không hợp lệ. Hãy tải lại trang.';
+      throw handoffError;
     }
-    // Stamp any debt WE create with the owner, so a shared browser cannot let
-    // one account's 403 delete another account's record.
-    _currentUserId = (result.data.session.user && result.data.session.user.id) || null;
+
+    if (hasNextBootstrap) {
+      _currentUserId = bootstrap.userId || null;
+      _sessionId = bootstrap.sessionId;
+    } else {
+      var sb = window.getSupabase && window.getSupabase();
+      if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
+
+      var result = await sb.auth.getSession();
+      if (!result.data.session) {
+        window.location.href = window.api.url('login.html');
+        return;
+      }
+      // Stamp any debt WE create with the owner, so a shared browser cannot let
+      // one account's 403 delete another account's record.
+      _currentUserId = (result.data.session.user && result.data.session.user.id) || null;
+
+      var params = new URLSearchParams(window.location.search);
+      _sessionId = params.get('session_id');
+    }
 
     // Settle an unpaid Speaking report from a previous visit — AFTER the
     // session check, never at top level. practice.js is deferred while
@@ -3557,9 +3590,6 @@
     // no Bearer token: it 401s, api.js redirects to login and resolves null,
     // and the success handler then CLEARS the debt (Codex review, PR #847).
     _retryOwedSpeakingReport();
-
-    var params = new URLSearchParams(window.location.search);
-    _sessionId = params.get('session_id');
 
     if (!_sessionId) {
       showError('Thiếu session_id trong URL. Hãy bắt đầu phiên mới từ Dashboard.');
@@ -3572,15 +3602,21 @@
     var loadMsg = $('loading-msg');
 
     try {
-      if (loadMsg) loadMsg.textContent = 'Đang tải session...';
-      _sessionData = await window.api.get('/sessions/' + _sessionId);
+      var questions;
+      if (hasNextBootstrap) {
+        _sessionData = bootstrap.sessionData;
+        questions = bootstrap.questions.slice();
+      } else {
+        if (loadMsg) loadMsg.textContent = 'Đang tải session...';
+        _sessionData = await window.api.get('/sessions/' + _sessionId);
 
-      if (loadMsg) loadMsg.textContent = 'Đang tải câu hỏi...';
-      var questions = await window.api.get('/sessions/' + _sessionId + '/questions');
+        if (loadMsg) loadMsg.textContent = 'Đang tải câu hỏi...';
+        questions = await window.api.get('/sessions/' + _sessionId + '/questions');
 
-      if (!questions || questions.length === 0) {
-        if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi với AI...';
-        questions = await window.api.post('/sessions/' + _sessionId + '/questions/generate', {});
+        if (!questions || questions.length === 0) {
+          if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi với AI...';
+          questions = await window.api.post('/sessions/' + _sessionId + '/questions/generate', {});
+        }
       }
 
       if (!questions || questions.length === 0) {

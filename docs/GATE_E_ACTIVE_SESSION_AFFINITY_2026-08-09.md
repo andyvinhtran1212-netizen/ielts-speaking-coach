@@ -124,9 +124,10 @@ policy thật và kiểm:
 
 ## Evidence còn thiếu trước khi đóng Gate E
 
-- Speaking đã có `/practice/session` dưới App Router nhưng mới là legacy-behavior
-  bridge và vẫn `route_ready: false`; cần native player Next thật cho từng core
-  cluster cùng canonical backend-state assertions.
+- Speaking đã có `/practice/session` dưới App Router và React đã sở hữu auth +
+  bootstrap session/question, nhưng recorder/grading/state machine vẫn ở
+  `practice.js` và `route_ready: false`; cần native player Next thật cùng
+  canonical backend-state assertions.
 - Mọi entry point tạo attempt của cluster phải đi theo admission decision hoặc
   được ghi rõ là một cohort legacy có chủ đích; không suy rộng sáu launcher thành
   global coverage.

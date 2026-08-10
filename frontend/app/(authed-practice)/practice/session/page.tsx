@@ -3,7 +3,7 @@
 import type { Metadata } from 'next';
 
 import { LegacyPracticeShell } from './legacy-practice-shell';
-import { PracticeLegacyBoot } from './practice-legacy-boot';
+import { PracticeSessionBoot } from './practice-session-boot';
 
 export const metadata: Metadata = {
   title: 'Luyện tập Ghi âm — Aver Learning',
@@ -16,7 +16,7 @@ export default function PracticeSessionPage() {
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="speaking" />
       <LegacyPracticeShell />
-      <PracticeLegacyBoot />
+      <PracticeSessionBoot />
     </>
   );
 }
