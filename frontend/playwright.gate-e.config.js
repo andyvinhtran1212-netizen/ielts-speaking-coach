@@ -13,15 +13,23 @@ module.exports = defineConfig({
   timeout: 45_000,
   expect: { timeout: 15_000 },
   workers: 1,
-  reporter: 'list',
+  retries: 0,
+  outputDir: 'test-results/gate-e',
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report/gate-e', open: 'never' }],
+  ],
   webServer: {
-    command: 'npm run dev',
+    // Build once and exercise the production server. This removes Next dev's
+    // first-request compilation from the evidence path without masking product
+    // failures behind a Playwright retry.
+    command: 'npm run build && npm run start',
     // Dedicated port + no reuse: port 3000 is commonly occupied by another
     // local project, and reusing it would let this suite test the wrong app.
     url: 'http://localhost:3210/practice/session',
     env: { PORT: '3210' },
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 180_000,
   },
   use: {
     baseURL: 'http://localhost:3210',
@@ -31,14 +39,9 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      // CI installs the lockfile-matched Playwright Chromium. Local macOS may
-      // already have stable Chrome while the exact cache revision is absent;
-      // use that signed system browser instead of making a network download a
-      // prerequisite for this deterministic suite.
-      use: {
-        browserName: 'chromium',
-        ...(process.env.CI ? {} : { channel: 'chrome' }),
-      },
+      // CI and local runs use the lockfile-matched bundled browser. A branded
+      // system Chrome is not an implicit prerequisite for the documented run.
+      use: { browserName: 'chromium' },
     },
   ],
 });

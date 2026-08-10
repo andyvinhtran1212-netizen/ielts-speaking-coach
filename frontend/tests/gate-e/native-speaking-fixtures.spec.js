@@ -8,6 +8,8 @@ const ORIGIN = 'http://localhost:3210';
 const OWNER = '00000000-0000-4000-8000-0000000000aa';
 const SID = '11111111-1111-4111-8111-111111111101';
 const CHAIN_KEY = 'ielts_ft_session_ids';
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js';
+const LUCIDE_CDN = 'https://unpkg.com/lucide@1.17.0';
 
 const AUTH_SESSION = {
   access_token: 'gate-e-fake-token',
@@ -52,7 +54,7 @@ async function installHarness(page, { session, questions }) {
 
   // The product pins these scripts from CDNs. Replace only their network
   // transport; api.js and AuthProvider still use the real shared-client path.
-  await page.route('https://cdn.jsdelivr.net/**', (route) => route.fulfill({
+  await page.route(SUPABASE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: `window.supabase = {
       createClient: function () {
@@ -67,7 +69,7 @@ async function installHarness(page, { session, questions }) {
       }
     };`,
   }));
-  await page.route('https://unpkg.com/**', (route) => route.fulfill({
+  await page.route(LUCIDE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: 'window.lucide = { createIcons: function () {} };',
   }));
@@ -143,12 +145,12 @@ test('test_part exposes exam progress but keeps the visual question', async ({ p
   await expect(page.locator('#prep-text-reveal')).toBeVisible();
 });
 
-test('test_full boots in listening mode and persists its canonical chain', async ({ page }) => {
+test('test_full boots in listening mode and persists its canonical attempt identity', async ({ page }) => {
   await installHarness(page, {
     session: baseSession({
       mode: 'test_full',
       topic: 'Home|||Work|||Hobbies',
-      full_test_chain_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      full_test_attempt_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     }),
     questions: partOneQuestions(9),
   });
@@ -208,7 +210,7 @@ test('sealed mock resumes from response receipts without leaking result data', a
       mode: 'test_full',
       topic: 'Home|||Work|||Hobbies',
       sitting_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      full_test_chain_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      full_test_attempt_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       results_sealed: true,
       responses: [],
       response_receipts: [{ id: 'sealed-r1', question_id: 'q1' }],
