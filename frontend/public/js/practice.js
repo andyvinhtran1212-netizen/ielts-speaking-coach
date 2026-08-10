@@ -1251,6 +1251,363 @@
 
   // ── STATE: Feedback ───────────────────────────────────────────────────────────
 
+  function _nativeTextList(value) {
+    return Array.isArray(value)
+      ? value.filter(function (item) { return item != null && String(item).trim(); })
+        .map(function (item) { return String(item); })
+      : [];
+  }
+
+  function _nativeFiniteNumber(value) {
+    var number = parseFloat(value);
+    return isFinite(number) ? number : null;
+  }
+
+  function _nativeBandView(label, value) {
+    var number = _nativeFiniteNumber(value);
+    return {
+      label: label,
+      tone: _pillColorMap[label] || 'fc',
+      value: number == null ? null : Math.round(number * 2) / 2,
+      display: number == null ? '—' : (Math.round(number * 2) / 2).toFixed(1),
+      title: number == null ? 'Chưa đánh giá phát âm' : '',
+    };
+  }
+
+  function _nativeWarningViews(data) {
+    if (!data) return [];
+    var warnings = [];
+    if (data.off_topic_verdict && data.off_topic_verdict.is_on_topic === false) {
+      var reasoning = data.off_topic_verdict.reasoning || '';
+      warnings.push({
+        icon: '⚠️',
+        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề, nên band cho câu này đã bị giới hạn '
+          + '(không phản ánh năng lực thật của bạn).'
+          + (reasoning ? ' Lý do: ' + reasoning : ''),
+      });
+    }
+    if (data.length_warning === true) {
+      var duration = typeof data.audio_duration_seconds === 'number'
+        ? data.audio_duration_seconds.toFixed(1) : '?';
+      var threshold = typeof data.length_soft_threshold === 'number'
+        ? Math.round(data.length_soft_threshold) : '?';
+      warnings.push({
+        icon: '⏱️',
+        message: 'Cảnh báo: Câu trả lời chỉ ' + duration + 's, ngắn hơn ngưỡng '
+          + 'tham khảo ' + threshold + 's. Có thể giới hạn band tối đa.',
+      });
+    }
+    return warnings;
+  }
+
+  function _nativeReliabilityView(data) {
+    var confidence = (data && data.score_confidence)
+      || (data && data.assessment_confidence);
+    if (!confidence || confidence === 'high') return null;
+    var low = confidence === 'low';
+    return {
+      tone: low ? 'low' : 'medium',
+      message: low
+        ? 'Âm thanh ghi âm có chất lượng hạn chế — điểm số và nhận xét lần này chỉ mang tính tham khảo. '
+          + 'Hãy thử ghi âm lại ở nơi yên tĩnh hơn hoặc nói to và rõ hơn để nhận được đánh giá chính xác hơn.'
+        : 'Một số phần nhận xét có thể cần xem như gợi ý tham khảo — chất lượng âm thanh hoặc tốc độ nói '
+          + 'có thể ảnh hưởng nhẹ đến độ chính xác của đánh giá.',
+    };
+  }
+
+  function _nativeGrammarGroups(grammarCheck) {
+    if (!grammarCheck || !Array.isArray(grammarCheck.errors)) {
+      return { groups: [], moreCount: 0 };
+    }
+    var labels = {
+      tense: 'Thì động từ',
+      article: 'Mạo từ',
+      preposition: 'Giới từ',
+      missing_subject: 'Thiếu chủ ngữ',
+      subject_verb_agreement: 'Sự hòa hợp chủ - động',
+      verb_form: 'Dạng động từ',
+      copula: 'Động từ to be',
+      vocabulary: 'Từ vựng',
+      punctuation: 'Dấu câu',
+      spelling: 'Chính tả',
+      style: 'Văn phong',
+      grammar: 'Ngữ pháp',
+      other: 'Khác',
+    };
+    var groups = [];
+    var byCategory = {};
+    grammarCheck.errors.forEach(function (error) {
+      if (!error || typeof error !== 'object') return;
+      var category = error.category || 'other';
+      if (!byCategory[category]) {
+        byCategory[category] = { category: category, label: labels[category] || category, errors: [] };
+        groups.push(byCategory[category]);
+      }
+      var start = error.transcript_offset_start;
+      var end = error.transcript_offset_end;
+      byCategory[category].errors.push({
+        id: String(start) + '-' + String(end),
+        original: String(error.original_text || ''),
+        suggestion: String(error.suggestion || '(?)'),
+        explanation: String(error.explanation_vn || ''),
+      });
+    });
+    var total = typeof grammarCheck.total_count === 'number' ? grammarCheck.total_count : 0;
+    var displayed = typeof grammarCheck.displayed_count === 'number'
+      ? grammarCheck.displayed_count : grammarCheck.errors.length;
+    return { groups: groups, moreCount: Math.max(0, total - displayed) };
+  }
+
+  function _nativeTranscriptSegments(transcript, grammarCheck) {
+    var raw = String(transcript == null ? '' : transcript);
+    if (!raw) return [];
+    var errors = grammarCheck && Array.isArray(grammarCheck.errors)
+      ? grammarCheck.errors : [];
+    var spans = errors.filter(function (error) {
+      return error
+        && typeof error.transcript_offset_start === 'number'
+        && typeof error.transcript_offset_end === 'number'
+        && error.transcript_offset_end > error.transcript_offset_start
+        && error.transcript_offset_start >= 0
+        && error.transcript_offset_end <= raw.length;
+    }).slice().sort(function (a, b) {
+      return a.transcript_offset_start - b.transcript_offset_start;
+    });
+    if (!spans.length) return [{ type: 'text', text: raw }];
+    var segments = [];
+    var cursor = 0;
+    spans.forEach(function (error) {
+      if (error.transcript_offset_start < cursor) return;
+      if (error.transcript_offset_start > cursor) {
+        segments.push({ type: 'text', text: raw.substring(cursor, error.transcript_offset_start) });
+      }
+      var text = raw.substring(error.transcript_offset_start, error.transcript_offset_end);
+      var suggestion = String(error.suggestion || '');
+      var explanation = String(error.explanation_vn || '');
+      segments.push({
+        type: 'error',
+        text: text,
+        id: error.transcript_offset_start + '-' + error.transcript_offset_end,
+        suggestion: suggestion,
+        tooltip: (suggestion || '(?)') + (explanation ? ' • ' + explanation : ''),
+      });
+      cursor = error.transcript_offset_end;
+    });
+    if (cursor < raw.length) segments.push({ type: 'text', text: raw.substring(cursor) });
+    return segments;
+  }
+
+  function _nativeGrammarIssueViews(issues, recommendations) {
+    var recMap = {};
+    (Array.isArray(recommendations) ? recommendations : []).forEach(function (rec) {
+      if (rec && rec.issue) recMap[rec.issue] = rec;
+    });
+    return _nativeTextList(issues).map(function (issue) {
+      var rec = recMap[issue];
+      var href = rec ? _grammarRecHref(rec) : '';
+      return {
+        text: issue,
+        recommendation: href ? {
+          href: href,
+          title: String(rec.title || rec.slug || ''),
+          recId: rec.rec_id || null,
+          slug: rec.slug || null,
+        } : null,
+      };
+    });
+  }
+
+  function _nativePronunciationView(pronunciation, responseId) {
+    if (!pronunciation || pronunciation.status !== 'completed'
+        || _nativeFiniteNumber(pronunciation.pronunciation_score) == null) {
+      return responseId ? {
+        visible: true,
+        status: 'unavailable',
+        message: 'Chưa phân tích được phát âm cho câu này — có thể do sự cố kỹ thuật tạm thời, '
+          + 'không hẳn do cách bạn nói. Nếu tình trạng lặp lại ở câu sau, thử ghi âm nơi yên tĩnh và nói rõ hơn.',
+      } : { visible: false, status: 'hidden' };
+    }
+    var scoreDefs = [
+      ['Tổng thể', pronunciation.pronunciation_score],
+      ['Lưu loát', pronunciation.fluency_score],
+      ['Chính xác', pronunciation.accuracy_score],
+      ['Đầy đủ', pronunciation.completeness_score],
+      ['Ngữ điệu', pronunciation.prosody_score],
+    ];
+    var weakWords = (Array.isArray(pronunciation.words) ? pronunciation.words : [])
+      .filter(function (word) { return word && word.error_type && word.error_type !== 'None'; })
+      .slice(0, 6)
+      .map(function (word) {
+        return {
+          word: String(word.word || ''),
+          phonemes: Array.isArray(word.phonemes) ? word.phonemes.map(function (phoneme) {
+            return {
+              symbol: String(phoneme && phoneme.symbol || ''),
+              score: _nativeFiniteNumber(phoneme && phoneme.score),
+            };
+          }) : [],
+        };
+      });
+    return {
+      visible: true,
+      status: 'completed',
+      scores: scoreDefs.map(function (definition) {
+        var value = _nativeFiniteNumber(definition[1]);
+        return { label: definition[0], value: value == null ? null : Math.round(value) };
+      }),
+      summary: _nativeTextList(pronunciation.short_summary),
+      weakWords: weakWords,
+    };
+  }
+
+  function _nativeFeedbackDetails(data) {
+    var payload = data || {};
+    var grammar = _nativeGrammarGroups(payload.grammar_check);
+    var kind = payload._stub ? 'stub'
+      : payload.grammar_issues ? 'practice'
+      : payload.fc_feedback ? 'formal'
+      : 'empty';
+    var sample = null;
+    if (kind === 'practice') {
+      sample = payload.sample_answer
+        ? { title: 'Sample Answer', text: String(payload.sample_answer), unavailable: false }
+        : payload.sample_answer_status
+          ? { title: 'Sample Answer', text: '', unavailable: true }
+          : null;
+    } else if (kind === 'formal') {
+      sample = payload.improved_response
+        ? { title: 'Câu trả lời mẫu Band 7+', text: String(payload.improved_response), unavailable: false }
+        : payload.improved_response_status
+          ? { title: 'Sample Answer', text: '', unavailable: true }
+          : null;
+    }
+    return {
+      warnings: _nativeWarningViews(payload),
+      reliability: _nativeReliabilityView(payload),
+      kind: kind,
+      stub: kind === 'stub' ? {
+        aiUnavailable: !!(payload._error && String(payload._error).includes('temporarily unavailable')),
+        error: String(payload._error || ''),
+      } : null,
+      criteria: kind === 'formal' ? [
+        { title: 'Fluency & Coherence', text: String(payload.fc_feedback || '') },
+        { title: 'Lexical Resource', text: String(payload.lr_feedback || '') },
+        { title: 'Grammar & Accuracy', text: String(payload.gra_feedback || '') },
+        { title: 'Pronunciation', text: String(payload.p_feedback || '') },
+      ].filter(function (item) { return item.text; }) : [],
+      strengths: _nativeTextList(payload.strengths),
+      improvements: _nativeTextList(payload.improvements),
+      grammarIssues: _nativeGrammarIssueViews(payload.grammar_issues, payload.grammar_recommendations),
+      grammarGroups: grammar.groups,
+      grammarMoreCount: grammar.moreCount,
+      vocabularyIssues: _nativeTextList(payload.vocabulary_issues),
+      corrections: (Array.isArray(payload.corrections) ? payload.corrections : [])
+        .filter(function (item) { return item && typeof item === 'object'; })
+        .map(function (item) {
+          return {
+            original: String(item.original || ''),
+            corrected: String(item.corrected || ''),
+            explanation: String(item.explanation || ''),
+          };
+        }),
+      sample: sample,
+    };
+  }
+
+  function _nativeGrammarResource(data) {
+    var recommendations = data && Array.isArray(data.grammar_recommendations)
+      ? data.grammar_recommendations : [];
+    var match = null;
+    if (recommendations.length) {
+      var rec = recommendations[0];
+      var meta = _grMeta(rec.slug)
+        || { category: rec.category, title: rec.title || rec.slug, summary: '' };
+      match = {
+        slug: rec.slug,
+        meta: meta,
+        topField: 'gi',
+        topic: rec.issue,
+        anchor: rec.anchor || null,
+        rec_id: rec.rec_id || null,
+      };
+    } else {
+      var matched = _matchGrArticles(_grTexts(data), 1);
+      if (matched.length) match = matched[0];
+    }
+    if (!match || !match.meta) return null;
+    var href = _grammarRecHref({
+      category: match.meta.category,
+      slug: match.slug,
+      anchor: match.anchor,
+    });
+    if (!href) return null;
+    _GR_TRACKER.track([match]);
+    return {
+      href: href,
+      title: String(match.meta.title || match.slug || ''),
+      summary: String(match.meta.summary || ''),
+      reason: _grReason(match.topField, match.topic),
+      recId: match.rec_id || null,
+      slug: match.slug || null,
+    };
+  }
+
+  function _prepareNativeFeedbackAudio(data) {
+    if (_feedbackAudioUrl) {
+      if (_feedbackAudioIsBlob) {
+        _revokeManagedObjectUrl('feedback-audio', _feedbackAudioUrl);
+      }
+      _feedbackAudioUrl = null;
+    }
+    if (data && data._reviewAudioUrl) {
+      _feedbackAudioUrl = data._reviewAudioUrl;
+      _feedbackAudioIsBlob = false;
+      return true;
+    }
+    if (data && data._review) return false;
+    if (_recordedBlob) {
+      _feedbackAudioUrl = _createManagedObjectUrl('feedback-audio', _recordedBlob);
+      _feedbackAudioIsBlob = true;
+      return !!_feedbackAudioUrl;
+    }
+    return false;
+  }
+
+  function _showFeedbackNative(data) {
+    if (!_getNativeView()) return false;
+    var payload = data || {};
+    var details = _nativeFeedbackDetails(payload);
+    var overallNumber = _nativeFiniteNumber(payload.overall_band);
+    var isLast = _currentIdx >= _questions.length - 1;
+    var reviewingSheet = _sheetReviewIdx >= 0;
+    var pronunciation = _nativePronunciationView(payload.pronunciation, _currentResponseId);
+    var weakWords = pronunciation.status === 'completed' ? pronunciation.weakWords : [];
+    window.__pronSessionId = _sessionId;
+    window.__pronWeakWords = weakWords;
+    var updated = _updateNativeView('feedback', Object.assign({}, details, {
+      partialVisible: !!payload.partial,
+      overallBand: overallNumber == null ? null : overallNumber.toFixed(1),
+      bands: payload.band_fc != null ? [
+        _nativeBandView('FC', payload.band_fc),
+        _nativeBandView('LR', payload.band_lr),
+        _nativeBandView('GRA', payload.band_gra),
+        _nativeBandView('P', payload.band_p),
+      ] : [],
+      transcriptVisible: !!payload.transcript,
+      transcriptSegments: _nativeTranscriptSegments(payload.transcript, payload.grammar_check),
+      audioVisible: _prepareNativeFeedbackAudio(payload),
+      grammarResource: _nativeGrammarResource(payload),
+      pronunciation: pronunciation,
+      backToSheetVisible: reviewingSheet,
+      nextVisible: !reviewingSheet && !isLast,
+      finishVisible: !reviewingSheet && isLast,
+      finishLabel: isLast ? 'Xem kết quả toàn session →' : 'Hoàn thành phiên luyện',
+    }));
+    if (!updated) return false;
+    showState('feedback');
+    return true;
+  }
+
   function _showFeedback(data) {
     // ── Test mode: skip feedback, accumulate and advance ──────────────────────
     if (_testMode) {
@@ -1266,6 +1623,10 @@
 
     // ── Capture response_id for on-demand pronunciation ───────────────────────
     _currentResponseId = (data && data.response_id) ? data.response_id : null;
+
+    // On the App Router route React owns the complete feedback surface. Keep
+    // the legacy DOM renderer below as the rollback path for practice.html.
+    if (_showFeedbackNative(data)) return;
 
     // P0-2 — partial save (core row only, full metadata lost): show the feedback
     // but with a soft warning. Tolerant: data.partial is absent on old backends.
@@ -1714,6 +2075,15 @@
     _GR_TRACKER.track(matched);
     cards.innerHTML = _grammarCardHtml(matched[0], true);
     wrap.style.display = '';
+  }
+
+  function _trackGrammarResource(recId, slug) {
+    if (slug) _GR_TRACKER.markViewed(slug);
+    if (!recId || !window.api || typeof window.api.patch !== 'function') return;
+    window.api.patch(
+      '/api/grammar/recommendations/' + encodeURIComponent(recId) + '/clicked',
+      {},
+    ).catch(function () { /* recommendation telemetry is best-effort */ });
   }
 
   // ── Audio replay / download (practice feedback screen) ───────────────────────
@@ -3556,11 +3926,65 @@
     showState('test-results');
   }
 
+  function _nativeTestResultsView(results) {
+    var source = Array.isArray(results) ? results : [];
+    var nativeBands = source.map(function (result) {
+      return _nativeFiniteNumber(result && result.response && result.response.overall_band);
+    }).filter(function (band) { return band != null; });
+    var nativeOverall = '—';
+    if (nativeBands.length) {
+      var nativeAverage = nativeBands.reduce(function (sum, band) {
+        return sum + band;
+      }, 0) / nativeBands.length;
+      nativeOverall = (Math.round(nativeAverage * 2) / 2).toFixed(1);
+    }
+    var nativeCards = source.map(function (result, index) {
+      var payload = result.response || {};
+      var band = _nativeFiniteNumber(payload.overall_band);
+      var details = _nativeFeedbackDetails(payload);
+      var errorPrefix = 'test-result-' + index + '-';
+      details.grammarGroups = details.grammarGroups.map(function (group) {
+        return Object.assign({}, group, {
+          errors: group.errors.map(function (error) {
+            return Object.assign({}, error, { id: errorPrefix + error.id });
+          }),
+        });
+      });
+      var transcriptSegments = _nativeTranscriptSegments(payload.transcript, payload.grammar_check)
+        .map(function (segment) {
+          return segment.type === 'error'
+            ? Object.assign({}, segment, { id: errorPrefix + segment.id })
+            : segment;
+        });
+      return Object.assign({}, details, {
+        key: String(result.sessionId || '') + ':' + index,
+        part: result.part,
+        questionNumber: index + 1,
+        questionText: String(result.questionText || ''),
+        overallBand: band == null ? null : band.toFixed(1),
+        bands: payload.band_fc != null ? [
+          _nativeBandView('FC', payload.band_fc),
+          _nativeBandView('LR', payload.band_lr),
+          _nativeBandView('GRA', payload.band_gra),
+          _nativeBandView('P', payload.band_p),
+        ] : [],
+        transcriptVisible: !!payload.transcript,
+        transcriptSegments: transcriptSegments,
+      });
+    });
+    return {
+      overallBand: nativeOverall,
+      cards: nativeCards,
+    };
+  }
+
   function _renderTestResults() {
+    if (_updateNativeView('testResults', _nativeTestResultsView(_testResults))) return;
+
     // Compute overall band from all graded responses
     var bands = _testResults
-      .map(function (r) { return r.response && r.response.overall_band; })
-      .filter(function (b) { return b != null && !isNaN(b); });
+      .map(function (r) { return _nativeFiniteNumber(r.response && r.response.overall_band); })
+      .filter(function (b) { return b != null; });
 
     var overallEl = $('test-overall-band');
     if (overallEl) {
@@ -3742,6 +4166,58 @@
    * Render full-test pronunciation block into #full-pron-block.
    * fullData: response from POST /sessions/{id}/pronunciation/full
    */
+  function _nativeFullPronunciationView(fullData) {
+    var data = fullData || {};
+    var partDefs = [
+      { key: 'part1', label: 'Phần 1' },
+      { key: 'part2', label: 'Phần 2' },
+      { key: 'part3', label: 'Phần 3' },
+    ];
+    var parts = partDefs.map(function (definition) {
+      var sample = data.samples && data.samples[definition.key];
+      if (!sample) return { key: definition.key, label: definition.label, available: false };
+      var words = (Array.isArray(sample.words) ? sample.words : [])
+        .filter(function (word) { return word && word.error_type && word.error_type !== 'None'; })
+        .slice(0, 5)
+        .map(function (word) { return String(word.word || ''); });
+      return {
+        key: definition.key,
+        label: definition.label,
+        available: true,
+        selectionReason: String(sample.selection_reason || ''),
+        segment: definition.key === 'part2'
+          && _nativeFiniteNumber(sample.audio_start_s) != null
+          && _nativeFiniteNumber(sample.audio_end_s) != null
+          ? '⏱ Đoạn phân tích: ' + Math.round(sample.audio_start_s)
+            + 's – ' + Math.round(sample.audio_end_s) + 's'
+          : '',
+        lowConfidence: !!sample.low_confidence_sample,
+        pronunciationScore: _nativeFiniteNumber(sample.pronunciation_score),
+        scores: [
+          ['Lưu loát', sample.fluency_score],
+          ['Chính xác', sample.accuracy_score],
+          ['Đầy đủ', sample.completeness_score],
+          ['Ngữ điệu', sample.prosody_score],
+        ].map(function (score) {
+          var value = _nativeFiniteNumber(score[1]);
+          return { label: score[0], value: value == null ? null : Math.round(value) };
+        }),
+        weakWords: words,
+      };
+    });
+    var assessed = typeof data.samples_assessed === 'number' ? data.samples_assessed : 0;
+    return {
+      visible: true,
+      status: 'ready',
+      overallScore: _nativeFiniteNumber(data.overall_pron_score),
+      subtitle: assessed >= 3 ? '3 mẫu đại diện (Phần 1 + 2 + 3)'
+        : assessed > 0 ? assessed + '/3 phần có dữ liệu'
+        : 'Không đủ dữ liệu',
+      parts: parts,
+      reliability: _nativeReliabilityView({ score_confidence: data.overall_confidence }),
+    };
+  }
+
   function _renderFullPronBlock(el, fullData) {
     if (!el) return;
 
@@ -3858,21 +4334,28 @@
     var generation = _playerGeneration;
     var el      = $('full-pron-block');
     var section = $('full-pron-section');
-    if (!el) return;
+    var nativeView = _getNativeView();
+    if (!el && !nativeView) return;
 
     if (!_ftAllSessionIds.length) return;
 
     var primarySid = _ftAllSessionIds[0];
     var extraSids  = _ftAllSessionIds.slice(1);
 
-    // Show wrapper section + loading state inside the block
-    if (section) { section.style.display = ''; }
-    el.innerHTML =
-      '<div style="border:1px solid rgba(20,184,166,0.15);border-radius:14px;padding:20px 16px;'
-      + 'text-align:center;">'
-      + '<div class="spinner" style="width:22px;height:22px;border-width:2px;margin:0 auto 10px;"></div>'
-      + '<p style="font-size:12px;color:var(--ds-muted);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
-      + '</div>';
+    // Show wrapper section + loading state inside the block.
+    if (nativeView) {
+      _updateNativeView('testResults', {
+        fullPronunciation: { visible: true, status: 'loading' },
+      });
+    } else {
+      if (section) { section.style.display = ''; }
+      el.innerHTML =
+        '<div style="border:1px solid rgba(20,184,166,0.15);border-radius:14px;padding:20px 16px;'
+        + 'text-align:center;">'
+        + '<div class="spinner" style="width:22px;height:22px;border-width:2px;margin:0 auto 10px;"></div>'
+        + '<p style="font-size:12px;color:var(--ds-muted);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
+        + '</div>';
+    }
 
     // F2: route through the canonical window.api.post — it attaches the Bearer
     // token, bounces to /login on 401, and parses 422 detail bodies, instead of
@@ -3881,6 +4364,12 @@
       .then(function (data) {
         if (!_playerActive || generation !== _playerGeneration) return;
         if (!data) return;  // 401 → api.post redirected to /login and resolved null
+        if (_updateNativeView('testResults', {
+          fullPronunciation: _nativeFullPronunciationView(data),
+          overallBand: _nativeFiniteNumber(data.final_overall_band) != null
+            ? _nativeFiniteNumber(data.final_overall_band).toFixed(1)
+            : nativeView.getViewSnapshot().testResults.overallBand,
+        })) return;
         _renderFullPronBlock(el, data);
         // Surface aggregate confidence as a contextual note below the full pron block
         if (data && data.overall_confidence && data.overall_confidence !== 'high') {
@@ -3902,6 +4391,13 @@
       .catch(function (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
         console.warn('[practice] full pron fetch failed:', err);
+        if (_updateNativeView('testResults', {
+          fullPronunciation: {
+            visible: true,
+            status: 'error',
+            message: 'Chưa tổng hợp được phân tích phát âm cho bài này — nếu muốn xem kết quả, bạn thử lại sau nhé.',
+          },
+        })) return;
         el.innerHTML =
           '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;">'
           + '<p style="font-size:12px;color:var(--ds-faint);margin:0;line-height:1.6;font-style:italic;">'
@@ -5179,12 +5675,17 @@
     // Audio replay / download on feedback screen
     replayAudio:          _replayAudio,
     downloadAudio:        _downloadAudio,
+    trackGrammarResource: _trackGrammarResource,
     // PDF export
     downloadPDFs:         _downloadPDFs,
     // Sprint 14.8 — exposed for the cue-card / part-router tests +
     // future re-use. Pure functions, no DOM access.
     _grammarCheckBlock:                _grammarCheckBlock,
     _renderTranscriptWithHighlights:   _renderTranscriptWithHighlights,
+    _nativeFeedbackDetails:            _nativeFeedbackDetails,
+    _nativeTranscriptSegments:         _nativeTranscriptSegments,
+    _nativePronunciationView:          _nativePronunciationView,
+    _nativeTestResultsView:            _nativeTestResultsView,
   };
 
   // Sprint 14.8 — bidirectional linking (Pattern #32) between the

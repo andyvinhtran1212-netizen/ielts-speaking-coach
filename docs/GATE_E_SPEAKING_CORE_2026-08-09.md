@@ -1,15 +1,16 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE + NATIVE JSX SHELL; LEGACY DYNAMIC RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
 listener, speech cùng object URL. React dựng trực tiếp toàn bộ static player DOM,
 event handler và SVG, đồng thời render view-model cho header, loading/error,
-test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet và
-Full Test completion. `practice.js` vẫn dựng feedback/pronunciation và test
-results qua các ID tương thích. Route chưa ready và không nhận attempt mới.
+test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
+Full Test completion, feedback/pronunciation và inline test results. `practice.js`
+chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
+nguyên vẹn cho URL legacy rollback. Route chưa ready và không nhận attempt mới.
 
 ## Finding
 
@@ -59,27 +60,23 @@ Test state và player controller đã bỏ auth/data loading, microphone, multip
 retry/resume/finalize, top-level state switching và resource cleanup khỏi IIFE
 trên route Next. Keyed effects được thay thế atomically và teardown khi unmount;
 async callbacks dùng generation guard, còn mutation tạo Part đã được server nhận
-vẫn ghi chain qua controller captured trước khi ngừng render. Đây vẫn là hybrid
-hữu hạn vì feedback/pronunciation và test results còn được
-`practice.js` ghi thẳng vào DOM; JSX ownership không được dùng để tuyên bố native
-behavior.
+vẫn ghi chain qua controller captured trước khi ngừng render. Feedback, transcript
+highlight, grammar recommendation, pronunciation drill-down và test cards đều
+được React dựng từ dữ liệu có cấu trúc, không dùng `dangerouslySetInnerHTML`;
+điểm thiếu vẫn là dấu gạch chứ không được suy diễn. JSX ownership vẫn chưa đủ để
+tuyên bố route ready khi chưa có browser/live evidence.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port feedback/pronunciation và test results sang React
-   state/client components. Static shell, header, Part 1/3 prep, recording,
-   processing, Part 2, assignment sheet, completion và event handler đã là JSX/view-model; state activation,
-   Part 2 countdown, timer, blob URL, TTS và document-listener lifecycle đã thuộc
-   `SpeakingPlayerController`; không gọi phần này là native renderer.
-2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
+1. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
    assignment sheet và mock sitting.
-3. Chạy browser fixture chứng minh native reload/resume + retry/finalize vừa được
+2. Chạy browser fixture chứng minh native reload/resume + retry/finalize vừa được
    unit-test; gồm sealed mock và network-after-commit, không chỉ source sentinel.
-4. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
+3. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
    matrix; kiểm microphone permission denied/retry/background-tab lifecycle.
-5. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
+4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
    reload/copy URL/admission rollback với canonical backend assertions.
-6. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
+5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
    tiếp tục sống đến Gate F.
 
 ## Batch player lifecycle
@@ -103,6 +100,10 @@ behavior.
 - Completion pending/error/accepted copy, retry action và CTA visibility được
   React render từ canonical Full Test controller snapshot; navigation chỉ hiện
   sau khi máy chủ xác nhận finalize.
+- Feedback, transcript span, grammar card, pronunciation/phoneme accordion và
+  inline test-result fallback được React render từ immutable structured model.
+  Review audio dùng URL đúng câu; review thiếu audio không rơi xuống blob câu mới
+  nhất. Text AI/transcript đi qua React escaping mặc định.
 - Part 2 prep/speaking dùng countdown state có snapshot; timer copy, lỗi, PDF,
   TTS sequence và grammar flash dùng key nên lần mới thay thế lần cũ.
 - Listener sheet/grammar/interaction/voices dùng named handler và bị tháo khi
@@ -118,5 +119,6 @@ behavior.
 Verification trực tiếp của batch:
 
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
+- `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites
 - full frontend contract suite và `next build`

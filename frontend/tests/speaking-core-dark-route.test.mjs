@@ -67,10 +67,14 @@ describe('/practice/session transitional dark route', () => {
       'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',
       'sheetReview', 'submitSheet',
     ]);
-    assert.deepEqual(nativeActions.filter((action) => !nativeSheetActions.has(action)), legacyActions);
+    const nativeOnlyActions = new Set([...nativeSheetActions, 'trackGrammarResource']);
+    assert.deepEqual(nativeActions.filter((action) => !nativeOnlyActions.has(action)), legacyActions);
     assert.deepEqual(nativeActions.filter((action) => nativeSheetActions.has(action)), [
       'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',
       'sheetReview', 'submitSheet',
+    ]);
+    assert.deepEqual(nativeActions.filter((action) => action === 'trackGrammarResource'), [
+      'trackGrammarResource', 'trackGrammarResource',
     ]);
     assert.match(SHELL, /name="mic" className="practice-rec-ring__icon"/);
     assert.doesNotMatch(SHELL, /dangerouslySetInnerHTML/);
@@ -183,8 +187,9 @@ describe('/practice/session transitional dark route', () => {
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
     );
-    assert.match(DOC, /Port feedback\/pronunciation và test results/);
-    assert.match(DOC, /JSX ownership không được dùng\s+để tuyên bố native\s+behavior/);
+    assert.match(DOC, /NATIVE JSX\/FEEDBACK\/PRONUNCIATION RENDERERS/);
+    assert.match(DOC, /không dùng `dangerouslySetInnerHTML`/);
+    assert.match(DOC, /JSX ownership vẫn chưa đủ để\s+tuyên bố route ready/);
     assert.match(DOC, /`route_ready=false` giữ nguyên/);
   });
 

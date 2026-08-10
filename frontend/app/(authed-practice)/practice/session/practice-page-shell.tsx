@@ -36,7 +36,8 @@ type PracticeMethod =
   | 'stopP2SpeakingEarly'
   | 'stopRecording'
   | 'submitSheet'
-  | 'submitRecording';
+  | 'submitRecording'
+  | 'trackGrammarResource';
 
 function callPractice(method: PracticeMethod, ...args: unknown[]) {
   const app = (window as any).PracticeApp;
@@ -109,6 +110,218 @@ function Icon({ name, className = '' }: { name: string; className?: string }) {
       {paths}
     </svg>
   );
+}
+
+function ScorePills({ bands }: { bands: any[] }) {
+  if (!bands?.length) return null;
+  return <>{bands.map((band) => (
+    <div
+      key={band.label}
+      data-criterion={band.label}
+      title={band.title || undefined}
+      className={`ds-band-pill ds-band-pill-${band.tone || 'fc'}`}
+      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', borderRadius: 10, padding: '6px 14px', margin: '0 3px' }}
+    >
+      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2, opacity: .6 }}>{band.label}</span>
+      <span style={{ fontSize: 20, fontWeight: 700 }}>{band.display}</span>
+    </div>
+  ))}</>;
+}
+
+function ReliabilityNote({ note, id }: { note: any; id?: string }) {
+  if (!note) return null;
+  const low = note.tone === 'low';
+  return (
+    <div
+      id={id}
+      style={{
+        background: low ? 'rgba(248,113,113,0.06)' : 'rgba(251,191,36,0.06)',
+        border: `1px solid ${low ? 'rgba(248,113,113,0.22)' : 'rgba(251,191,36,0.22)'}`,
+        borderLeft: `3px solid ${low ? '#f87171' : '#fbbf24'}`,
+        borderRadius: 10,
+        padding: '11px 14px',
+        marginBottom: 14,
+        fontSize: 12.5,
+        lineHeight: 1.6,
+        color: 'var(--ds-muted)',
+      }}
+    >{note.message}</div>
+  );
+}
+
+function FeedbackWarnings({ warnings }: { warnings: any[] }) {
+  if (!warnings?.length) return null;
+  return (
+    <div className="ds-result-warnings">
+      {warnings.map((warning, index) => (
+        <div className="ds-warning-banner" role="alert" aria-label="Cảnh báo kết quả" key={`${index}:${warning.message}`}>
+          <span className="ds-warning-icon" aria-hidden="true">{warning.icon}</span>
+          <p className="ds-warning-message">{warning.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FeedbackList({ title, items, color }: { title: string; items: string[]; color: string }) {
+  if (!items?.length) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 6px' }}>{title}</p>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {items.map((item, index) => <li key={`${index}:${item}`} style={{ fontSize: 13, color: 'var(--ds-text)', marginBottom: 5 }}><span style={{ color, marginRight: 6 }}>›</span>{item}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function GrammarIssues({ issues }: { issues: any[] }) {
+  if (!issues?.length) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 6px' }}>Grammar Issues</p>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {issues.map((issue, index) => (
+          <li key={`${index}:${issue.text}`} style={{ fontSize: 13, color: 'var(--ds-text)', marginBottom: 5 }}>
+            <span style={{ color: '#f87171', marginRight: 6 }}>›</span>{issue.text}
+            {issue.recommendation ? <>{' '}<a
+              href={issue.recommendation.href}
+              target="_blank"
+              rel="noopener"
+              style={{ fontSize: 11, color: '#14b8a6', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              onClick={() => callPractice('trackGrammarResource', issue.recommendation.recId, issue.recommendation.slug)}
+            >→ Học bài: {issue.recommendation.title}</a></> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function GrammarCheck({ groups, moreCount }: { groups: any[]; moreCount: number }) {
+  if (!groups?.length) return null;
+  return (
+    <div className="ds-grammar-section">
+      <p className="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>
+      {groups.map((group) => (
+        <div className="ds-grammar-category" key={group.category}>
+          <p className="ds-grammar-category-title">{group.label}</p>
+          <ul className="ds-grammar-error-list">
+            {group.errors.map((error: any, index: number) => (
+              <li className="ds-grammar-error-item" data-error-id={error.id} key={`${error.id}:${index}`}>
+                <div className="ds-grammar-error-pair"><span className="ds-grammar-error-original">{error.original}</span><span className="ds-grammar-error-arrow" aria-hidden="true">→</span><span className="ds-grammar-error-suggestion">{error.suggestion}</span></div>
+                {error.explanation ? <p className="ds-grammar-error-explanation">{error.explanation}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {moreCount > 0 ? <p className="ds-grammar-more-info">+{moreCount} lỗi khác đã được phát hiện.</p> : null}
+    </div>
+  );
+}
+
+function Corrections({ corrections }: { corrections: any[] }) {
+  if (!corrections?.length) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Corrections</p>
+      {corrections.map((correction, index) => <div key={`${index}:${correction.original}`} style={{ marginBottom: 10, padding: '10px 12px', background: 'var(--ds-surface)', borderRadius: 8 }}><div style={{ fontSize: 12, color: '#f87171', marginBottom: 3 }}><span style={{ opacity: .6 }}>❌ </span>{correction.original}</div><div style={{ fontSize: 12, color: '#4ade80', marginBottom: 4 }}><span style={{ opacity: .6 }}>✓ </span>{correction.corrected}</div><div style={{ fontSize: 12, color: 'var(--ds-muted)', fontStyle: 'italic' }}>{correction.explanation}</div></div>)}
+    </div>
+  );
+}
+
+function SampleBlock({ sample }: { sample: any }) {
+  if (!sample) return null;
+  const unavailable = sample.unavailable;
+  return (
+    <div style={{ marginTop: 16, background: unavailable ? 'rgba(148,163,184,0.10)' : 'rgba(20,184,166,0.08)', borderLeft: `3px solid ${unavailable ? '#94a3b8' : '#14b8a6'}`, borderRadius: '0 6px 6px 0', padding: '12px 14px' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: unavailable ? '#94a3b8' : '#14b8a6', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 7px' }}>{sample.title}</p>
+      <p style={{ fontSize: 13, lineHeight: 1.7, color: unavailable ? 'var(--ds-text-secondary,#94a3b8)' : 'var(--ds-text)', margin: 0 }}>{unavailable ? 'Chưa tạo được mẫu câu trả lời phù hợp cho phần này. Bạn có thể thử lại để nhận mẫu sát với câu trả lời của mình hơn.' : sample.text}</p>
+    </div>
+  );
+}
+
+function FeedbackDetails({ feedback, confidenceId }: { feedback: any; confidenceId?: string }) {
+  return (
+    <>
+      <FeedbackWarnings warnings={feedback.warnings} />
+      {feedback.kind === 'stub' ? feedback.stub?.aiUnavailable ? (
+        <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, padding: '12px 14px' }}><p style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', margin: '0 0 4px' }}>AI chấm điểm tạm thời không khả dụng</p><p style={{ fontSize: 13, color: 'var(--ds-muted)', margin: 0 }}>Bản ghi âm và văn bản của bạn đã được lưu thành công. Chấm điểm sẽ khả dụng khi dịch vụ AI được khôi phục.</p></div>
+      ) : <p style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--ds-faint)' }}>Câu trả lời đã được ghi lại nhưng chưa thể chấm điểm ngay lúc này.{feedback.stub?.error ? ` (${feedback.stub.error})` : ''}</p> : null}
+      {feedback.kind === 'practice' || feedback.kind === 'formal' ? <ReliabilityNote note={feedback.reliability} id={confidenceId} /> : null}
+      {feedback.kind === 'formal' ? feedback.criteria.map((criterion: any) => <div style={{ marginBottom: 14 }} key={criterion.title}><p style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 5px' }}>{criterion.title}</p><p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ds-text)', margin: 0 }}>{criterion.text}</p></div>) : null}
+      {feedback.kind === 'practice' ? <FeedbackList title="Strengths" items={feedback.strengths} color="#4ade80" /> : null}
+      {feedback.kind === 'formal' ? <FeedbackList title="Điểm mạnh" items={feedback.strengths} color="#4ade80" /> : null}
+      <GrammarIssues issues={feedback.grammarIssues} />
+      <GrammarCheck groups={feedback.grammarGroups} moreCount={feedback.grammarMoreCount} />
+      {feedback.kind === 'practice' ? <FeedbackList title="Vocabulary Issues" items={feedback.vocabularyIssues} color="#fb923c" /> : null}
+      {feedback.kind === 'formal' ? <FeedbackList title="Cần cải thiện" items={feedback.improvements} color="#fb923c" /> : null}
+      <Corrections corrections={feedback.corrections} />
+      <SampleBlock sample={feedback.sample} />
+      {feedback.kind === 'empty' ? <p style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--ds-faint)' }}>Không có nhận xét.</p> : null}
+    </>
+  );
+}
+
+function Transcript({ segments }: { segments: any[] }) {
+  return <>{segments.map((segment, index) => segment.type === 'error' ? <mark
+    className="ds-grammar-highlight"
+    data-error-id={segment.id}
+    data-tooltip={segment.tooltip}
+    tabIndex={0}
+    role="button"
+    aria-label={`Lỗi ngữ pháp: ${segment.text} — gợi ý: ${segment.suggestion}`}
+    key={`${segment.id}:${index}`}
+  >{segment.text}</mark> : <span key={`text:${index}`}>{segment.text}</span>)}</>;
+}
+
+function GrammarResource({ resource }: { resource: any }) {
+  if (!resource) return null;
+  return <a href={resource.href} target="_blank" rel="noopener" onClick={() => callPractice('trackGrammarResource', resource.recId, resource.slug)} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', background: 'rgba(20,184,166,0.07)', border: '1px solid rgba(20,184,166,0.28)', borderLeft: '3px solid #14b8a6', borderRadius: 14, textDecoration: 'none' }}><div style={{ flex: 1, minWidth: 0 }}><p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ds-text)', margin: '0 0 3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{resource.title}</p><p style={{ fontSize: 12, color: 'var(--ds-muted)', margin: '0 0 6px', lineHeight: 1.4 }}>{resource.summary}</p><p style={{ fontSize: 11, color: 'rgba(20,184,166,0.7)', margin: 0 }}>{resource.reason}</p></div><span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#14b8a6', background: 'rgba(20,184,166,0.14)', borderRadius: 8, padding: '5px 10px', whiteSpace: 'nowrap', alignSelf: 'center' }}>Học ngay →</span></a>;
+}
+
+function PronScoreChip({ score }: { score: any }) {
+  const value = score.value;
+  const color = value == null ? 'var(--ds-faint)' : value >= 75 ? '#4ade80' : value >= 55 ? '#14b8a6' : '#fb923c';
+  return <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 10, padding: '6px 10px', minWidth: 64 }}><span style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{value == null ? '—' : value}</span><span style={{ fontSize: 9, color: 'var(--ds-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>{score.label}</span></div>;
+}
+
+function PronunciationAccordion({ weakWords }: { weakWords: any[] }) {
+  if (!weakWords?.length) return null;
+  const references = typeof window === 'undefined' ? {} : ((window as any).PronunciationDrilldown?.PHONEME_REF || {});
+  return <div className="ds-accordion" data-drilldown-content><p className="ds-accordion__hint">Bấm vào mỗi từ để xem chi tiết âm cần luyện.</p>{weakWords.map((entry, occurrenceIndex) => {
+    const phonemes = [...(entry.phonemes || [])].sort((a, b) => (a.score ?? 999) - (b.score ?? 999));
+    const weak = phonemes.filter((phoneme) => phoneme.score != null && phoneme.score < 70).length;
+    return <details className="ds-accordion__item" data-drilldown-word={entry.word} data-drilldown-index={occurrenceIndex} open={weakWords.length <= 1 || undefined} key={`${entry.word}:${occurrenceIndex}`}><summary className="ds-accordion__head"><span className="ds-accordion__word">{entry.word}</span><span className="ds-accordion__count">{weak > 0 ? `${weak} âm cần luyện` : `${phonemes.length} âm`}</span></summary><div className="ds-accordion__body">{phonemes.length ? phonemes.map((phoneme: any, index: number) => {
+      const reference = (references as any)[phoneme.symbol];
+      const score = phoneme.score;
+      const tier = score == null || score < 60 ? 'low' : score < 80 ? 'mid' : 'high';
+      const percentage = Math.max(0, Math.min(100, score == null ? 0 : score));
+      return <div className="ds-phoneme" key={`${phoneme.symbol}:${index}`}><div className="ds-phoneme__row"><span className="ds-phoneme__sym">{phoneme.symbol}{reference ? <span className="ds-phoneme__ipa"> /{reference.ipa}/</span> : null}</span><span className={`ds-phoneme__score ds-phoneme__score--${tier}`}>{score == null ? '—' : Math.round(score)}/100</span></div><div className="ds-phoneme__bar"><div className={`ds-phoneme__bar-fill ds-phoneme__bar-fill--${tier}`} style={{ width: `${percentage}%` }} /></div>{reference ? <><p className="ds-phoneme__examples">Ví dụ: {reference.examples.map((example: string, exampleIndex: number) => <span key={example}>{exampleIndex ? ', ' : ''}<b>{example}</b></span>)}</p><p className="ds-phoneme__tip">{reference.tip_vn}</p></> : <p className="ds-phoneme__tip">Hướng dẫn cho âm này đang được cập nhật.</p>}</div>;
+    }) : <p className="ds-phoneme__tip">Không có dữ liệu âm vị cho từ này.</p>}</div></details>;
+  })}</div>;
+}
+
+function PronunciationPanel({ pronunciation }: { pronunciation: any }) {
+  if (!pronunciation?.visible) return null;
+  if (pronunciation.status !== 'completed') return <p style={{ fontSize: 12, color: 'var(--ds-faint)', lineHeight: 1.6, fontStyle: 'italic' }}>{pronunciation.message}</p>;
+  return <div style={{ padding: '14px 16px', background: 'rgba(20,184,166,0.05)', border: '1px solid rgba(20,184,166,0.2)', borderRadius: 12 }}><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>{pronunciation.scores.map((score: any) => <PronScoreChip score={score} key={score.label} />)}</div><p style={{ fontSize: 10, color: 'var(--ds-muted)', margin: '-4px 0 10px' }}>Điểm phát âm theo thang Azure 0–100 (khác thang band 0–9).</p>{pronunciation.summary?.length ? <ul style={{ fontSize: 12, color: 'var(--ds-text)', paddingLeft: 16, margin: '0 0 4px', lineHeight: 1.7 }}>{pronunciation.summary.map((item: string, index: number) => <li style={{ marginBottom: 4 }} key={`${index}:${item}`}>{item}</li>)}</ul> : null}{pronunciation.weakWords?.length ? <><p style={{ fontSize: 11, color: 'var(--ds-muted)', margin: '10px 0 4px' }}>Từ cần chú ý:</p><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{pronunciation.weakWords.map((entry: any, index: number) => entry.phonemes?.length ? <button type="button" className="ds-pron-weak-word" data-pron-idx={index} title="Xem âm cần luyện" style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.3)', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: '#fb923c', cursor: 'pointer' }} key={`${index}:${entry.word}`}>{entry.word} ⓘ</button> : <span style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.3)', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: '#fb923c' }} key={`${index}:${entry.word}`}>{entry.word}</span>)}</div><PronunciationAccordion weakWords={pronunciation.weakWords} /></> : null}</div>;
+}
+
+function TestResultCard({ card }: { card: any }) {
+  const value = card.overallBand == null ? null : Number(card.overallBand);
+  const color = value == null ? 'var(--av-text-muted)' : value >= 7 ? 'var(--av-success)' : value >= 6 ? 'var(--av-primary)' : value >= 5 ? 'var(--av-warning)' : 'var(--av-error)';
+  return <div style={{ background: 'var(--ds-surface)', border: '1px solid var(--ds-border)', borderRadius: 14, padding: '14px 16px' }}><div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}><div style={{ flex: 1, minWidth: 0 }}><p style={{ fontSize: 10, fontWeight: 700, color: 'var(--ds-faint)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '0 0 4px' }}>Part {card.part} · Câu {card.questionNumber}</p><p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ds-text)', margin: 0, lineHeight: 1.45 }}>{card.questionText}</p></div><div style={{ textAlign: 'center', flexShrink: 0 }}><div style={{ fontSize: 28, fontWeight: 800, color }}>{card.overallBand ?? '—'}</div><div style={{ fontSize: 9, color: 'var(--ds-faint)', textTransform: 'uppercase', letterSpacing: '.06em' }}>band</div></div></div>{card.bands?.length ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}><ScorePills bands={card.bands} /></div> : null}<div style={{ marginTop: 12, borderTop: '1px solid var(--ds-border)', paddingTop: 12 }}><FeedbackDetails feedback={card} /></div>{card.transcriptVisible ? <p style={{ fontSize: 12, color: 'var(--ds-muted)', margin: '8px 0 0', borderTop: '1px solid var(--ds-border)', paddingTop: 8, lineHeight: 1.5 }}><Transcript segments={card.transcriptSegments} /></p> : null}</div>;
+}
+
+function FullPronunciationPanel({ model }: { model: any }) {
+  if (!model?.visible) return null;
+  if (model.status === 'loading') return <div style={{ border: '1px solid rgba(20,184,166,0.15)', borderRadius: 14, padding: '20px 16px', textAlign: 'center' }}><div className="spinner" style={{ width: 22, height: 22, borderWidth: 2, margin: '0 auto 10px' }} /><p style={{ fontSize: 12, color: 'var(--ds-muted)', margin: 0 }}>Đang tổng hợp phân tích phát âm cho toàn bài...</p></div>;
+  if (model.status === 'error') return <div style={{ border: '1px solid var(--ds-border)', borderRadius: 14, padding: '14px 16px' }}><p style={{ fontSize: 12, color: 'var(--ds-faint)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>{model.message}</p></div>;
+  const overall = model.overallScore == null ? null : Math.round(model.overallScore);
+  const color = overall == null ? 'var(--ds-muted)' : overall >= 75 ? '#4ade80' : overall >= 55 ? '#14b8a6' : '#fb923c';
+  return <><div style={{ border: '1px solid rgba(20,184,166,0.25)', borderRadius: 14, overflow: 'hidden' }}><div style={{ background: 'rgba(20,184,166,0.08)', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}><div><p style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 2px' }}>Phân tích phát âm chuyên sâu</p><p style={{ fontSize: 10, color: 'var(--ds-muted)', margin: 0 }}>{model.subtitle}</p></div><div style={{ textAlign: 'center' }}><div style={{ fontSize: 32, fontWeight: 900, color, lineHeight: 1 }}>{overall ?? '—'}</div><div style={{ fontSize: 9, color: 'var(--ds-faint)', textTransform: 'uppercase', letterSpacing: '.05em' }}>/100</div></div></div><div style={{ padding: '14px 16px' }}>{model.parts.map((part: any) => part.available ? <div style={{ background: 'var(--ds-surface)', border: '1px solid var(--ds-border)', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }} key={part.key}><div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}><div style={{ flex: 1, minWidth: 0 }}><p style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', margin: '0 0 2px' }}>{part.label}</p><p style={{ fontSize: 10, color: 'var(--ds-muted)', margin: 0, lineHeight: 1.4 }}>{part.selectionReason}</p>{part.segment ? <p style={{ fontSize: 10, color: 'var(--ds-faint)', margin: '2px 0 0' }}>{part.segment}</p> : null}</div><div style={{ textAlign: 'center', flexShrink: 0 }}><div style={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1 }}>{part.pronunciationScore == null ? '—' : Math.round(part.pronunciationScore)}</div><div style={{ fontSize: 8, color: 'var(--ds-faint)', textTransform: 'uppercase' }}>/ 100</div></div></div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>{part.scores.map((score: any) => <PronScoreChip score={score} key={score.label} />)}</div>{part.lowConfidence ? <p style={{ fontSize: 10, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, padding: '4px 8px', color: '#fbbf24', margin: '6px 0 0' }}>⚠ Phần trả lời khá ngắn — nhận xét mang tính tham khảo, bạn nên luyện nói dài hơn để được đánh giá chính xác hơn</p> : null}{part.weakWords?.length ? <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>{part.weakWords.map((word: string) => <span style={{ background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: 5, padding: '1px 7px', fontSize: 10, color: '#fb923c' }} key={word}>{word}</span>)}</div> : null}</div> : <div style={{ background: 'var(--ds-surface)', border: '1px solid var(--ds-border)', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }} key={part.key}><p style={{ fontSize: 11, fontWeight: 700, color: 'var(--ds-muted)', margin: '0 0 4px' }}>{part.label}</p><p style={{ fontSize: 11, color: 'var(--ds-faint)', margin: 0, fontStyle: 'italic' }}>Không có dữ liệu</p></div>)}</div></div><ReliabilityNote note={model.reliability} /></>;
 }
 
 export function PracticePageShell({ player }: { player: PlayerStateStore }) {
@@ -314,15 +527,16 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         <div id="state-processing" className={stateClass('processing', 'state flex-1 items-center justify-center flex-col gap-6 px-6 text-center')}><div className="spinner" /><div><p id="processing-text" className="practice-processing-text text-base font-semibold">{view.processing.text}</p><p className="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p></div></div>
 
         <div id="state-feedback" className={stateClass('feedback', 'state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--feedback')}>
+          {view.feedback.partialVisible ? <div className="ds-warning-banner" role="alert"><span className="ds-warning-icon" aria-hidden="true">⚠️</span><p className="ds-warning-message">Kết quả chỉ lưu được MỘT PHẦN — một số dữ liệu chấm chi tiết đã không lưu. Phần chấm bên dưới vẫn xem được; nếu cần đầy đủ, hãy chấm lại câu này.</p></div> : null}
           <header className="practice-feedback-header"><p className="practice-feedback-header__eyebrow">Phản hồi tức thì</p><h2>Kết quả câu trả lời</h2><p>Ưu tiên một điểm mạnh để giữ lại và một thay đổi nhỏ cho lượt nói tiếp theo.</p></header>
-          <div className="practice-feedback-overview"><div id="feedback-band-wrapper" style={{ display: 'none', marginBottom: 16 }}><div className="ds-band-hero"><div className="ds-section-head" style={{ marginBottom: 6 }}>Band Score</div><div id="feedback-band" className="ds-band-value" /></div></div>
-          <div id="feedback-bands-row" style={{ display: 'none', justifyContent: 'center', gap: 4, marginBottom: 20, flexWrap: 'wrap' }} />
-          <div className="card p-5 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Nhận xét</p><div id="feedback-comments" /></div></div>
-          <div className="practice-feedback-evidence"><div id="feedback-transcript" className="card p-4 mb-4" style={{ display: 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p><p id="feedback-transcript-text" className="practice-transcript-text text-xs leading-relaxed" /></div>
-          <div id="feedback-audio-section" className="practice-feedback-audio" style={{ display: 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p><div className="flex gap-2"><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('replayAudio')}><Icon name="volume-2" />Nghe lại</button><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('downloadAudio')}><Icon name="download" />Tải audio</button></div></div></div>
-          <div id="grammar-resources" className="practice-feedback-divider" style={{ display: 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Quick Grammar Tip</p><p className="practice-feedback-sub text-xs mb-3">Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi</p><div id="grammar-resources-cards" className="flex flex-col gap-2.5" /></div></div>
-          <div id="pronunciation-section" className="practice-feedback-divider" style={{ display: 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p><p className="practice-feedback-sub practice-feedback-sub--xs">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p><div id="pron-loading-block" className="practice-pron-loading" style={{ display: 'none' }}><div className="spinner practice-pron-loading__spinner" /><p className="practice-pron-loading__text">Đang phân tích bài nói của bạn...</p></div><div id="pron-result-block" style={{ display: 'none' }} /></div></div>
-          <div className="practice-feedback-actions flex flex-col gap-3"><button id="btn-back-sheet" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('backToSheet')}><Icon name="arrow-left" />Quay lại phiếu làm bài</button><button id="btn-next-q" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('nextQuestion')}>Câu tiếp theo<Icon name="arrow-right" /></button><button id="btn-finish" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: 'none' }} onClick={() => callPractice('finishSession')}><Icon name="check" />Hoàn thành phiên luyện</button></div>
+          <div className="practice-feedback-overview"><div id="feedback-band-wrapper" style={{ display: view.feedback.overallBand == null ? 'none' : 'block', marginBottom: 16 }}><div className="ds-band-hero"><div className="ds-section-head" style={{ marginBottom: 6 }}>Band Score</div><div id="feedback-band" className="ds-band-value">{view.feedback.overallBand}</div></div></div>
+          <div id="feedback-bands-row" style={{ display: view.feedback.bands.length ? 'flex' : 'none', justifyContent: 'center', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}><ScorePills bands={view.feedback.bands} /></div>
+          <div className="card p-5 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Nhận xét</p><div id="feedback-comments"><FeedbackDetails feedback={view.feedback} confidenceId="score-confidence-note" /></div></div></div>
+          <div className="practice-feedback-evidence"><div id="feedback-transcript" className="card p-4 mb-4" style={{ display: view.feedback.transcriptVisible ? '' : 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p><p id="feedback-transcript-text" className="practice-transcript-text text-xs leading-relaxed"><Transcript segments={view.feedback.transcriptSegments} /></p></div>
+          <div id="feedback-audio-section" className="practice-feedback-audio" style={{ display: view.feedback.audioVisible ? '' : 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p><div className="flex gap-2"><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('replayAudio')}><Icon name="volume-2" />Nghe lại</button><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('downloadAudio')}><Icon name="download" />Tải audio</button></div></div></div>
+          <div id="grammar-resources" className="practice-feedback-divider" style={{ display: view.feedback.grammarResource ? '' : 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Quick Grammar Tip</p><p className="practice-feedback-sub text-xs mb-3">Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi</p><div id="grammar-resources-cards" className="flex flex-col gap-2.5"><GrammarResource resource={view.feedback.grammarResource} /></div></div></div>
+          <div id="pronunciation-section" className="practice-feedback-divider" style={{ display: view.feedback.pronunciation.visible ? '' : 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p><p className="practice-feedback-sub practice-feedback-sub--xs">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p><div id="pron-loading-block" className="practice-pron-loading" style={{ display: 'none' }}><div className="spinner practice-pron-loading__spinner" /><p className="practice-pron-loading__text">Đang phân tích bài nói của bạn...</p></div><div id="pron-result-block" style={{ display: view.feedback.pronunciation.visible ? '' : 'none' }}><PronunciationPanel pronunciation={view.feedback.pronunciation} /></div></div></div>
+          <div className="practice-feedback-actions flex flex-col gap-3"><button id="btn-back-sheet" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.backToSheetVisible ? '' : 'none' }} onClick={() => callPractice('backToSheet')}><Icon name="arrow-left" />Quay lại phiếu làm bài</button><button id="btn-next-q" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.nextVisible ? '' : 'none' }} onClick={() => callPractice('nextQuestion')}>Câu tiếp theo<Icon name="arrow-right" /></button><button id="btn-finish" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.finishVisible ? '' : 'none' }} onClick={() => callPractice('finishSession')}><Icon name="check" />{view.feedback.finishLabel}</button></div>
         </div>
 
         <div id="state-completion" className={stateClass('completion', 'state flex-1 items-center justify-center flex-col gap-0 px-6 text-center practice-stage practice-stage--completion')}>
@@ -335,9 +549,9 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
 
         <div id="state-test-results" className={stateClass('test-results', 'state block-state flex-1 av-w-read py-8 practice-stage practice-stage--summary')}>
           <header className="practice-feedback-header"><p className="practice-feedback-header__eyebrow">Tổng kết phiên</p><h2>Kết quả bài Test</h2><p className="practice-test-results-sub">Tổng hợp tất cả câu trả lời trong buổi test</p></header>
-          <div id="test-overall-wrap" className="card practice-overall-wrap p-6 mb-6 text-center"><p className="practice-overall-eyebrow text-xs font-semibold uppercase tracking-wider mb-2">Overall Band (trung bình)</p><div id="test-overall-band" className="practice-overall-band text-6xl font-bold">—</div></div>
-          <div id="test-results-list" className="flex flex-col gap-4 mb-6" />
-          <div id="full-pron-section" className="practice-full-pron-section" style={{ display: 'none' }}><p className="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p><p className="practice-feedback-sub practice-feedback-sub--xs">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p><div id="full-pron-block" /></div>
+          <div id="test-overall-wrap" className="card practice-overall-wrap p-6 mb-6 text-center"><p className="practice-overall-eyebrow text-xs font-semibold uppercase tracking-wider mb-2">Overall Band (trung bình)</p><div id="test-overall-band" className="practice-overall-band text-6xl font-bold">{view.testResults.overallBand}</div></div>
+          <div id="test-results-list" className="flex flex-col gap-4 mb-6">{view.testResults.cards.map((card: any) => <TestResultCard card={card} key={card.key} />)}</div>
+          <div id="full-pron-section" className="practice-full-pron-section" style={{ display: view.testResults.fullPronunciation.visible ? '' : 'none' }}><p className="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p><p className="practice-feedback-sub practice-feedback-sub--xs">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p><div id="full-pron-block"><FullPronunciationPanel model={view.testResults.fullPronunciation} /></div></div>
           <button id="btn-export-pdf" type="button" onClick={(event) => callPractice('downloadPDFs', event.currentTarget)} className="practice-pdf-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm mb-3"><Icon name="file-down" />Tải xuống báo cáo PDF</button>
           <button type="button" onClick={() => callPractice('finishSession')} className="practice-finish-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm">Quay lại<Icon name="arrow-right" /></button>
         </div>

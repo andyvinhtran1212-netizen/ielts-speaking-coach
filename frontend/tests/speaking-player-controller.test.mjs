@@ -174,6 +174,23 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.equal(controller.updateView('prep', { topic: 'stale' }), false);
   });
 
+  test('deep-freezes structured feedback items instead of retaining mutable AI payload objects', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController(fixture.environment);
+    const grammarGroups = [{
+      category: 'grammar',
+      errors: [{ id: '2-5', suggestion: 'have' }],
+    }];
+    controller.updateView('feedback', { grammarGroups });
+    grammarGroups[0].errors[0].suggestion = 'mutated outside';
+    grammarGroups[0].errors.push({ id: '6-8', suggestion: 'ignored' });
+    const published = controller.getViewSnapshot().feedback.grammarGroups;
+    assert.equal(published[0].errors[0].suggestion, 'have');
+    assert.equal(published[0].errors.length, 1);
+    assert.equal(Object.isFrozen(published[0]), true);
+    assert.equal(Object.isFrozen(published[0].errors[0]), true);
+  });
+
   test('replaces keyed listeners and removes them on destroy', () => {
     const fixture = makeEnvironment();
     const target = new FakeTarget();
