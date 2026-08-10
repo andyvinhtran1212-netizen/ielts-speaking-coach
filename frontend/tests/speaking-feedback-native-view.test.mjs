@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import { JSDOM } from 'jsdom';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -147,21 +146,16 @@ describe('Speaking feedback native structured model', () => {
     assert.equal(completed.scores[1].value, null);
   });
 
-  test('renders and updates repeated weak-word occurrences independently', async () => {
+  test('renders and updates repeated weak-word occurrences independently', () => {
     assert.match(SHELL, /weakWords\.map\(\(entry, occurrenceIndex\) =>/);
     assert.match(SHELL, /data-drilldown-index=\{occurrenceIndex\}/);
     assert.match(SHELL, /key=\{`\$\{entry\.word\}:\$\{occurrenceIndex\}`\}/);
 
-    const dom = new JSDOM('<div id="root"></div>');
     const previousWindow = globalThis.window;
-    const previousDocument = globalThis.document;
-    globalThis.window = dom.window;
-    globalThis.document = dom.window.document;
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    globalThis.window = { PronunciationDrilldown: { PHONEME_REF: {} } };
     const errors = [];
     const previousError = console.error;
     console.error = (...args) => errors.push(args.join(' '));
-    const root = createRoot(document.getElementById('root'));
     const Accordion = compileShellComponent('PronunciationAccordion');
     const first = [
       { word: 'the', phonemes: [{ symbol: 'th', score: 38 }] },
@@ -172,24 +166,21 @@ describe('Speaking feedback native structured model', () => {
       { word: 'the', phonemes: [{ symbol: 'dh', score: 62 }] },
     ];
     try {
-      await act(async () => root.render(React.createElement(Accordion, { weakWords: first })));
-      let occurrences = [...document.querySelectorAll('[data-drilldown-index]')];
-      assert.deepEqual(occurrences.map((node) => node.dataset.drilldownIndex), ['0', '1']);
-      occurrences[0].open = true;
-      await act(async () => root.render(React.createElement(Accordion, { weakWords: updated })));
-      occurrences = [...document.querySelectorAll('[data-drilldown-index]')];
-      assert.equal(occurrences[0].open, true);
-      assert.equal(occurrences[1].open, false);
-      assert.match(occurrences[0].textContent, /58\/100/);
-      assert.match(occurrences[1].textContent, /62\/100/);
+      const initialHtml = renderToStaticMarkup(React.createElement(Accordion, { weakWords: first }));
+      const updatedHtml = renderToStaticMarkup(React.createElement(Accordion, { weakWords: updated }));
+      const sections = (html) => [...html.matchAll(/<details[^>]*data-drilldown-index="(\d+)"[^>]*>([\s\S]*?)<\/details>/g)];
+      const initialSections = sections(initialHtml);
+      const updatedSections = sections(updatedHtml);
+      assert.deepEqual(initialSections.map((match) => match[1]), ['0', '1']);
+      assert.match(initialSections[0][2], /38\/100/);
+      assert.match(initialSections[1][2], /42\/100/);
+      assert.deepEqual(updatedSections.map((match) => match[1]), ['0', '1']);
+      assert.match(updatedSections[0][2], /58\/100/);
+      assert.match(updatedSections[1][2], /62\/100/);
       assert.equal(errors.some((message) => /same key|unique "key"/i.test(message)), false);
     } finally {
-      await act(async () => root.unmount());
       console.error = previousError;
       globalThis.window = previousWindow;
-      globalThis.document = previousDocument;
-      delete globalThis.IS_REACT_ACT_ENVIRONMENT;
-      dom.window.close();
     }
   });
 
