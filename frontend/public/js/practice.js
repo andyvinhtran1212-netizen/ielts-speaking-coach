@@ -3623,6 +3623,18 @@
     if (btn) btn.addEventListener('click', _sheetSubmit);
   }
 
+  function _isNextPracticeBootstrap(bootstrap) {
+    return !!bootstrap
+      && bootstrap.source === 'next-native-bootstrap-v1'
+      && typeof bootstrap.sessionId === 'string'
+      && bootstrap.sessionId.length > 0
+      && !!bootstrap.sessionData
+      && typeof bootstrap.sessionData === 'object'
+      && !Array.isArray(bootstrap.sessionData)
+      && Array.isArray(bootstrap.questions)
+      && bootstrap.questions.length > 0;
+  }
+
   async function init(bootstrap) {
     _bindSheet();
     showState('loading');
@@ -3634,19 +3646,13 @@
     // call init() with no argument and retain the exact existing bootstrap.
     // Fail closed if a caller tries to pass a partial/forged handoff: falling
     // back to a second network bootstrap would hide a broken route contract.
-    var hasNextBootstrap = !!bootstrap
-      && bootstrap.source === 'next-native-bootstrap-v1'
-      && typeof bootstrap.sessionId === 'string'
-      && bootstrap.sessionId.length > 0
-      && bootstrap.sessionData
-      && typeof bootstrap.sessionData === 'object'
-      && !Array.isArray(bootstrap.sessionData)
-      && Array.isArray(bootstrap.questions)
-      && bootstrap.questions.length > 0;
+    var hasNextBootstrap = _isNextPracticeBootstrap(bootstrap);
 
     if (bootstrap && !hasNextBootstrap) {
-      showError('Dữ liệu khởi động bài luyện không hợp lệ. Hãy tải lại trang.');
-      return;
+      var handoffError = /** @type {any} */ (new Error('invalid-next-practice-bootstrap'));
+      handoffError.code = 'invalid_handoff';
+      handoffError.userMessage = 'Dữ liệu khởi động bài luyện không hợp lệ. Hãy tải lại trang.';
+      throw handoffError;
     }
 
     if (hasNextBootstrap) {

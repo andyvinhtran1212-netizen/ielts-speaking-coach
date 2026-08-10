@@ -75,7 +75,10 @@ function showState(name) {
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.surface.hidden = name !== 'ready';
 }
-function showError(msg) { VIEWS.error.textContent = msg; showState('error'); }
+function showError() {
+  VIEWS.error.textContent = 'Không tải được thống kê. Vui lòng thử lại.';
+  showState('error');
+}
 
 
 async function load() {
@@ -87,8 +90,8 @@ async function load() {
     if (!res || res.total_attempts === 0) { showState('empty'); return; }
     render(res);
     showState('ready');
-  } catch (e) {
-    showError('Không tải được thống kê. ' + (e && e.message ? e.message : ''));
+  } catch {
+    showError();
   }
 }
 
@@ -209,6 +212,7 @@ if (typeof document !== 'undefined') {
         STATE.range = btn.dataset.range;
         document.querySelectorAll('.range-tab').forEach((b) => {
           b.classList.toggle('is-active', b === btn);
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
         });
         load();
       });

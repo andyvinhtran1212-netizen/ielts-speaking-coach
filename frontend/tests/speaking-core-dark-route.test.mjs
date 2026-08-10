@@ -20,6 +20,7 @@ const BOOT = readFrontend('app', '(authed-practice)', 'practice', 'session', 'pr
 const LAYOUT = readFrontend('app', '(authed-practice)', 'layout.tsx');
 const PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
 const DOC = readRoot('docs', 'GATE_E_SPEAKING_CORE_2026-08-09.md');
+const PARITY_GATE = readRoot('.github', 'workflows', 'parity-gate.yml');
 
 describe('/practice/session transitional dark route', () => {
   test('extracts the real legacy body but never duplicates chrome or scripts', () => {
@@ -96,5 +97,16 @@ describe('/practice/session transitional dark route', () => {
     assert.equal(pair.next, '/practice/session');
     assert.ok(pair.note.includes('THIẾU session_id'));
     assert.ok(pair.note.includes('không chứng minh'));
+  });
+
+  test('speaking-debt-only changes activate the authed parity pair', () => {
+    const selectors = [...PARITY_GATE.matchAll(/grep -qE '([^']+)'/g)]
+      .map((match) => match[1]);
+    assert.equal(selectors.length, 2, 'expected full and authed scope selectors');
+    const changed = 'frontend/public/js/speaking-debt.js';
+    assert.match(PARITY_GATE, /- 'frontend\/public\/js\/speaking-debt\.js'/,
+      'the workflow must start when only the debt retry path changes');
+    assert.equal(new RegExp(selectors[1]).test(changed), true,
+      'the exact changed filename must set authed=true, not run unrelated public parity only');
   });
 });
