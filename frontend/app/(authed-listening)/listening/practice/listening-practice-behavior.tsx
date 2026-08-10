@@ -35,6 +35,7 @@ interface RawPracticeTest {
   trap?: unknown;
   user_best_score?: unknown;
   user_attempt_count?: unknown;
+  user_submitted_attempt_count?: unknown;
 }
 
 interface PracticeTest {
@@ -44,6 +45,7 @@ interface PracticeTest {
   trap: string | null;
   bestScore: string | null;
   attemptCount: number;
+  submittedAttemptCount: number;
 }
 
 interface PracticeGroup {
@@ -55,13 +57,13 @@ type OverviewState =
   | { status: 'loading' }
   | { status: 'empty' }
   | { status: 'ready'; counts: Record<TabKey, number> }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 type TabState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'ready' }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -105,6 +107,7 @@ function normalizeTests(items: unknown[]): PracticeTest[] {
       trap: textValue(raw.trap) || null,
       bestScore: raw.user_best_score == null ? null : displayValue(raw.user_best_score),
       attemptCount: positiveCount(raw.user_attempt_count),
+      submittedAttemptCount: positiveCount(raw.user_submitted_attempt_count),
     }];
   });
 }
@@ -147,11 +150,6 @@ async function fetchAllTests(groupKey: TabKey, signal: AbortSignal): Promise<unk
   );
 }
 
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
-}
-
 function hasTab(cache: Partial<Record<TabKey, PracticeTest[]>>, key: TabKey): boolean {
   return Object.prototype.hasOwnProperty.call(cache, key);
 }
@@ -175,6 +173,8 @@ function PracticeTabs({
       {counts ? TABS.filter((tab) => counts[tab.key] > 0).map((tab) => (
         <button
           className={`lp-tab${tab.key === active ? ' is-active' : ''}`}
+          aria-pressed={tab.key === active}
+          data-group={tab.key}
           key={tab.key}
           type="button"
           onClick={() => onSelect?.(tab.key)}
@@ -194,25 +194,22 @@ export function ListeningPracticeBehavior() {
     if (status === 'signed-out') window.location.replace('/login.html');
   }, [status]);
 
-  if (status !== 'signed-in' || !user?.id) {
-    return (
-      <>
-        <PracticeTabs />
-        <div className="empty-state" id="state-loading">Đang tải…</div>
-      </>
-    );
-  }
-
-  return <ListeningPracticeLibrary accountKey={user.id} key={user.id} />;
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ListeningPracticeLibrary accountKey={accountKey} key={accountKey || status} />;
 }
 
-function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
+function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null }) {
   const [overview, setOverview] = useState<OverviewState>({ status: 'loading' });
   const [active, setActive] = useState<TabKey | null>(null);
   const [cache, setCache] = useState<Partial<Record<TabKey, PracticeTest[]>>>({});
   const [tabState, setTabState] = useState<TabState>({ status: 'idle' });
 
   useEffect(() => {
+    if (!accountKey) {
+      setOverview({ status: 'loading' });
+      return undefined;
+    }
+
     const controller = new AbortController();
     let disposed = false;
     setOverview({ status: 'loading' });
@@ -223,7 +220,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
         'window.api (listening practice overview)',
       );
       if (!ready || disposed) {
-        if (!disposed) setOverview({ status: 'error', message: '' });
+        if (!disposed) setOverview({ status: 'error' });
         return;
       }
       try {
@@ -246,7 +243,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
         setActive(start.key);
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setOverview({ status: 'error', message: errorMessage(caught) });
+        setOverview({ status: 'error' });
       }
     })();
 
@@ -281,7 +278,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
         'window.api (listening practice tab)',
       );
       if (!ready || disposed) {
-        if (!disposed) setTabState({ status: 'error', message: '' });
+        if (!disposed) setTabState({ status: 'error' });
         return;
       }
       try {
@@ -291,7 +288,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
         setTabState({ status: 'ready' });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setTabState({ status: 'error', message: errorMessage(caught) });
+        setTabState({ status: 'error' });
       }
     })();
 
@@ -308,7 +305,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
     return (
       <>
         <PracticeTabs />
-        <div className="empty-state" id="state-loading">Đang tải…</div>
+        <div className="empty-state" id="state-loading" role="status">Đang tải…</div>
       </>
     );
   }
@@ -316,7 +313,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
     return (
       <>
         <PracticeTabs />
-        <div className="empty-state" id="state-empty">
+        <div className="empty-state" id="state-empty" role="status">
           <p><strong>Chưa có bài luyện nào.</strong></p>
           <p>Hãy quay lại sau khi quản trị viên đăng nội dung.</p>
         </div>
@@ -327,8 +324,8 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
     return (
       <>
         <PracticeTabs />
-        <div className="error-banner" id="state-error">
-          Không tải được Luyện nhanh: {overview.message}
+        <div className="error-banner" id="state-error" role="alert">
+          Không tải được Luyện nhanh. Vui lòng thử lại.
         </div>
       </>
     );
@@ -343,16 +340,21 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
       <PracticeTabs counts={overview.counts} active={active} onSelect={setActive} />
 
       {tabState.status === 'error' ? (
-        <div className="error-banner" id="state-error">
-          Không tải được danh sách: {tabState.message}
+        <div className="error-banner" id="state-error" role="alert">
+          Không tải được danh sách bài luyện. Vui lòng thử lại.
         </div>
       ) : (
         <div id="practice-body">
           <div id="practice-panel">
-            {tabState.status === 'loading' ? <p className="lp-lede">Đang tải…</p> : null}
+            {tabState.status === 'loading' ? <p className="lp-lede" role="status">Đang tải…</p> : null}
             {tabState.status === 'ready' && activeTab ? (
               <>
                 <p className="lp-lede">{activeTab.lede}</p>
+                {!activeItems.length ? (
+                  <div className="empty-state" id="state-tab-empty" role="status">
+                    Nhóm này hiện chưa có bài luyện khả dụng.
+                  </div>
+                ) : null}
                 {groups.map((group, index) => (
                   <section className="lp-group" key={group.title || `${active}-flat-${index}`}>
                     {group.title ? (
@@ -363,21 +365,26 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string }) {
                     ) : null}
                     <div className="lt-grid">
                       {group.items.map((test) => {
-                        const attempted = test.attemptCount > 0;
+                        const completed = test.submittedAttemptCount > 0;
                         return (
-                          <article className="lt-card" data-test-id={test.id} key={test.key}>
+                          <article
+                            className="lt-card"
+                            data-status={completed ? 'done' : 'new'}
+                            data-test-id={test.id}
+                            key={test.key}
+                          >
                             <div className="lt-card-title">{test.title}</div>
                             <div className="lt-card-stats">
                               {test.bestScore != null ? (
                                 <>Tốt nhất <strong>{test.bestScore}</strong> · </>
                               ) : null}
-                              {attempted ? <>đã làm {test.attemptCount} lần</> : 'chưa làm'}
+                              {test.attemptCount > 0 ? <>đã mở {test.attemptCount} lượt</> : 'chưa làm'}
                             </div>
                             <a
-                              className={attempted ? 'lt-card-cta secondary' : 'lt-card-cta'}
+                              className={completed ? 'lt-card-cta secondary' : 'lt-card-cta'}
                               href={`/pages/listening-practice-run.html?id=${encodeURIComponent(test.id)}`}
                             >
-                              {attempted ? 'Làm lại' : 'Bắt đầu'}
+                              {completed ? 'Làm lại' : 'Bắt đầu'}
                             </a>
                           </article>
                         );

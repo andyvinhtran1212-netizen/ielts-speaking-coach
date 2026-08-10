@@ -1,13 +1,31 @@
 import type { ReactNode } from 'react';
 
-export function ReadingMiniTestShell({ children }: { children: ReactNode }) {
+interface ReadingMiniTestShellProps {
+  children: ReactNode;
+  durationCount?: number | string;
+  totalCount?: number | string;
+}
+
+export function ReadingMiniTestShell({
+  children,
+  durationCount = '—',
+  totalCount = '—',
+}: ReadingMiniTestShellProps) {
   return (
     <div className="shell">
       <main className="rv-shell">
-        <header className="rv-header">
-          <p className="eyebrow"><a href="/home" style={{ color: 'var(--av-text-secondary)' }}>← Trang chủ</a></p>
-          <h1>Mini Tests <span className="accent">·</span> <span style={{ color: 'var(--av-text-muted)' }}>1 đoạn văn</span></h1>
-          <p className="subtitle">Bài thi ngắn — 1 đoạn văn, số câu hỏi tùy bài, kèm bảng điểm + band IELTS. Cùng giao diện làm bài &amp; chữa bài như Full Test.</p>
+        <header className="rv-header rv-header--mini">
+          <div className="rv-header__copy">
+            <a className="rv-back" href="/home">← Trang chủ</a>
+            <p className="rv-kicker">READING LAB · MINI TEST</p>
+            <h1>Một đoạn văn, <span>một phiên luyện tập trung.</span></h1>
+            <p className="subtitle">Luyện theo nhịp ngắn với giao diện và phần chữa bài giống Full Test — phù hợp khi bạn chưa có đủ 60 phút.</p>
+          </div>
+          <dl className="rv-header__stats" aria-label="Cấu trúc Mini Test">
+            <div><dt id="rv-total-count">{totalCount}</dt><dd>mini test</dd></div>
+            <div><dt>1 đoạn</dt><dd>Mỗi đề</dd></div>
+            <div><dt id="rv-duration-count">{durationCount}</dt><dd>thời lượng phổ biến</dd></div>
+          </dl>
         </header>
 
         {/* Library switcher: Vocab ↔ Skill ↔ Full Test ↔ Mini Test. Changed /pages/reading-vocab.html → /reading/vocab */}

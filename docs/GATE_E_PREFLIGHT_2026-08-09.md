@@ -4,27 +4,31 @@
 phải waiver hay tuyên bố Gate E đã pass.
 
 **Nguồn chuẩn:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §16,
-`docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại SHA của branch.
-Gate E chỉ được đổi sang PASS khi reviewer độc lập có thể kiểm lại từng evidence
-link, version, run và threshold.
+`docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại baseline
+`main@d292de38919fa5b79854142d4b5053241642cbcd`. Gate E chỉ được đổi sang PASS
+khi reviewer độc lập có thể kiểm lại từng evidence link, version, run và
+threshold. Các số route là snapshot tại baseline này; từng hàng Gate E được cập
+nhật qua các PR nối tiếp nhưng không tự trở thành bằng chứng PASS.
 
 ## Kết luận
 
-App Router đã sở hữu 29 route và hard-navigation debt của nhóm đó đã về 0/29,
-nhưng đây là bằng chứng Gate D behavior migration, không chứng minh core-flow
-ready. Các player ghi dữ liệu và resume-sensitive quan trọng vẫn là legacy;
-staging E2E chỉ chạy Chromium; chưa có hồ sơ 20 critical-suite runs liên tiếp;
-và chưa có drill active-session sticky/drain. Vì vậy canonical core cutover vẫn
-bị chặn bởi Gate E.
+Compiled ownership graph có 32 App Router route; trong đó cohort 29 route của
+Gate D behavior migration đã đưa hard-navigation debt về 0/29. Hai mẫu số này
+khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn chỉ là bằng chứng
+Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
+hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
+emulation; chưa có staging execution artifact, chưa có Safari/iOS thiết bị thật,
+chưa có hồ sơ 20 critical-suite runs liên tiếp, và chưa drill active-session
+sticky/drain. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Matrix v1 chạy core suite trên Chromium và browser seam trên Chromium desktop + WebKit desktop/iPhone emulation; artifact ghi exact Playwright/browser revision/SHA/outcome | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
-| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; Spike 4 pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md` và `frontend/tooling/gate-e-device-matrix.json`: runner đã được cấu hình để chạy core suite một lần trên Chromium và browser seam trên Chromium desktop + WebKit desktop/iPhone emulation; writer sẽ ghi Playwright/browser revision/SHA/outcome | Chưa có staging execution artifact, real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
+| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Có state contract và rollback/coexistence drills ở Gate B | Chưa có drill artifact chứng minh active attempt tiếp tục ở release cũ hoặc được drain an toàn qua cutover/rollback. |
-| Full-stack staging E2E đạt threshold, đủ failure injection, ≥20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
 
 ## Findings và remediation tối thiểu
 
@@ -46,20 +50,26 @@ bị chặn bởi Gate E.
 
 ### GE-2 — Resume evidence đang rời rạc và từng mô tả sai hiện trạng
 
-- **Root cause:** `SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md` vẫn ghi full-test
-  chain và `_pendingTestAnswers` bị mất dù Spike 2 remediation đã persist chain
-  vào `ielts_ft_session_ids` và xóa queue blob để await từng upload.
+- **Root cause:** trước batch này,
+  `docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md` vẫn ghi full-test chain và
+  `_pendingTestAnswers` bị mất dù Spike 2 remediation đã persist chain vào
+  `ielts_ft_session_ids` và xóa queue blob để await từng upload. Bằng chứng hiện
+  có chỉ test refresh trong legacy player, chưa test browser handoff
+  legacy↔Next.
 - **Severity:** Critical — tài liệu stale có thể dẫn tới quyết định cutover sai,
   hoặc che khuất giới hạn thật: sessionStorage chỉ sống cùng origin/cùng tab.
 - **Impacted files/functions:** `docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md`;
   `frontend/public/js/practice.js` `_saveFtChain`, `_loadFtChain`, init resume;
-  `frontend/tests/full-test-chain.test.mjs`, `test-part-eager.test.mjs` và hai
-  browser specs tương ứng.
+  `frontend/tests/full-test-chain.test.mjs`,
+  `frontend/tests/test-part-eager.test.mjs`,
+  `frontend/tests/e2e/full_test_chain_persistence.spec.js` và
+  `frontend/tests/e2e/test_part_resume.spec.js`.
 - **Suggested minimal fix:** đồng bộ Spike 3 với runtime, nói rõ boundary
   same-origin/same-tab; batch test kế tiếp phải lập matrix reload/resume,
   ambiguous commit, partial persistence và legacy↔Next cho từng core flow.
-- **Verification:** source pins + browser regressions speaking xanh; mỗi flow mới
-  có canonical server-state assertion sau reload và sau đổi stack.
+- **Verification:** source pins + browser regressions refresh speaking xanh;
+  không gọi đó là cross-stack evidence. Mỗi flow mới phải có canonical
+  server-state assertion sau reload và sau đổi stack.
 
 ### GE-3 — Không có auditable 20-run critical streak
 
@@ -69,8 +79,8 @@ bị chặn bởi Gate E.
   có 20 lần chạy sạch.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
-  `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
-  `frontend/tests/staging-e2e/*.spec.js`.
+  `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ thư mục
+  `frontend/tests/staging-e2e/`.
 - **Suggested minimal fix:** PR riêng freeze critical-suite manifest + thresholds,
   xuất machine-readable run evidence và streak ledger keyed theo matrix version,
   suite version, environment release và backend release. Fail/cancel/skip hoặc

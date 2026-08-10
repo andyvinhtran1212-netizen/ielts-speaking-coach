@@ -1,7 +1,8 @@
 /** Regression gate for `/listening/analytics` native React behavior. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,7 +13,10 @@ const SHELL = read('app', '(authed-listening)', 'listening', 'analytics', 'page-
 const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'analytics', 'listening-analytics-behavior.tsx',
 );
+const LEGACY_HTML = read('public', 'pages', 'listening-analytics.html');
+const LEGACY_JS = read('public', 'js', 'listening-analytics.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening/analytics — native React behavior', () => {
   test('removes legacy injection and delegates range/data state to React', () => {
@@ -26,15 +30,20 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
     assert.match(BEHAVIOR, /\[accountKey, range\]/);
   });
 
   test('keeps controlled 7d/30d/all tabs and canonical analytics request', () => {
     assert.match(BEHAVIOR, /\['7d', '7 ngày'\][\s\S]*\['30d', '30 ngày'\][\s\S]*\['all', 'Tất cả'\]/);
     assert.match(BEHAVIOR, /useState<RangeKey>\('30d'\)/);
-    assert.match(BEHAVIOR, /aria-selected=\{range === key\}/);
+    assert.match(BEHAVIOR, /role="group" aria-label="Khoảng thời gian"/);
+    assert.match(BEHAVIOR, /aria-pressed=\{range === key\}/);
+    assert.doesNotMatch(BEHAVIOR, /role="tab"|role="tablist"/);
     assert.match(BEHAVIOR, /`\/api\/listening\/analytics\?range=\$\{encodeURIComponent\(range\)\}`/);
+    assert.match(BEHAVIOR, /setState\(\{ status: 'loading' \}\);[\s\S]*setRange\(nextRange\)/);
   });
 
   test('aborts stale range/account requests and ignores aborted results', () => {
@@ -80,11 +89,37 @@ describe('/listening/analytics — native React behavior', () => {
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 
-  test('keeps loading, empty and error states distinct', () => {
+  test('keeps non-leaking accessible loading, empty and error states distinct', () => {
     assert.match(BEHAVIOR, /state\.data\.totalAttempts === 0/);
     assert.match(BEHAVIOR, /Chưa có dữ liệu luyện tập trong khoảng này\./);
-    assert.match(BEHAVIOR, /Không tải được thống kê\./);
+    assert.match(BEHAVIOR, /id="state-loading" role="status"/);
+    assert.match(BEHAVIOR, /id="state-empty" role="status"/);
+    assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.match(BEHAVIOR, /Không tải được thống kê\. Vui lòng thử lại\./);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
     assert.match(BEHAVIOR, /state\.data\.totalAttempts > 0/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    const runner = join(ROOT, 'tooling', 'verify-listening-analytics-flow.mjs');
+    assert.match(PARITY_WORKFLOW, /node tooling\/verify-listening-analytics-flow\.mjs/);
+    assert.ok(existsSync(runner));
+    assert.doesNotThrow(() => execFileSync(
+      'git',
+      ['ls-files', '--error-unmatch', 'frontend/tooling/verify-listening-analytics-flow.mjs'],
+      { cwd: join(ROOT, '..'), stdio: 'ignore' },
+    ));
+  });
+
+  test('keeps the rollback page accessible and prevents raw backend error leakage', () => {
+    assert.match(LEGACY_HTML, /class="range-tabs" role="group" aria-label="Khoảng thời gian"/);
+    assert.match(LEGACY_HTML, /data-range="30d"[^>]*aria-pressed="true"/);
+    assert.doesNotMatch(LEGACY_HTML, /role="tab"|role="tablist"/);
+    assert.match(LEGACY_HTML, /id="state-loading" role="status"/);
+    assert.match(LEGACY_HTML, /id="state-error" role="alert"/);
+    assert.match(LEGACY_JS, /Không tải được thống kê\. Vui lòng thử lại\./);
+    assert.match(LEGACY_JS, /setAttribute\('aria-pressed'/);
+    assert.doesNotMatch(LEGACY_JS, /e && e\.message|e\.message/);
   });
 
   test('closes the final hard-navigation debt entry', () => {

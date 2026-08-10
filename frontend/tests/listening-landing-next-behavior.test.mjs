@@ -13,6 +13,8 @@ const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'listening-landing-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const LEGACY = read('public', 'js', 'listening-landing.js');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening — native React behavior', () => {
   test('removes legacy injection and delegates overview state to React', () => {
@@ -68,10 +70,15 @@ describe('/listening — native React behavior', () => {
   });
 
   test('keeps truthful loading, empty and API-fallback surfaces', () => {
+    assert.match(BEHAVIOR, /id="landing-loading" role="status"/);
+    assert.match(BEHAVIOR, /Đang tải thư viện Listening…/);
     assert.match(BEHAVIOR, /state\.status === 'ready' && examCount === 0/);
     assert.match(BEHAVIOR, /Chưa có đề nào được xuất bản/);
+    assert.match(BEHAVIOR, /id="exam-empty" role="status"/);
     assert.match(BEHAVIOR, /unverified=\{state\.status === 'error'\}/);
     assert.match(BEHAVIOR, /Không tải được số lượng bài\. Danh sách bên dưới vẫn mở được\./);
+    assert.match(BEHAVIOR, /id="landing-error" role="alert"/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
     assert.match(BEHAVIOR, /state=\{\{ status: 'loading' \}\}/);
   });
 
@@ -95,5 +102,14 @@ describe('/listening — native React behavior', () => {
   test('is no longer hard-navigation-only', () => {
     const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
     assert.doesNotMatch(list, /['"]\/listening['"]/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(PARITY_WORKFLOW, /node tooling\/verify-listening-landing-flow\.mjs/);
+  });
+
+  test('keeps the rollback fallback generic too', () => {
+    assert.match(LEGACY, /Không tải được số lượng bài\. Danh sách bên dưới vẫn mở được\./);
+    assert.doesNotMatch(LEGACY, /e && e\.message/);
   });
 });

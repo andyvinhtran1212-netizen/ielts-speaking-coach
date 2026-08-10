@@ -56,6 +56,8 @@
           'Xem lộ trình của bạn →</a>' +
       '</div>';
     el.classList.remove('hidden');
+    var section = document.getElementById('result-learning-section');
+    if (section) section.style.display = '';
   }
 
   document.addEventListener('DOMContentLoaded', mount);

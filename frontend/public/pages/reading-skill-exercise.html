@@ -50,20 +50,39 @@
   <aver-chrome active="reading"></aver-chrome>
 
   <div class="shell">
-    <main class="rv-shell">
-      <p class="eyebrow"><a href="/reading/skill" style="color: var(--av-text-secondary);">← Skill Practice</a></p>
-
+    <main class="rv-shell rv-detail-shell">
       <div class="rv-empty" id="state-loading">Đang tải…</div>
       <div class="rv-empty" id="state-empty" hidden>Không tìm thấy bài luyện.</div>
       <div class="rv-error" id="state-error" hidden></div>
 
-      <div class="rv-passage-layout" id="rv-passage" hidden>
-        <article>
-          <div class="rv-skill-banner" id="rv-skill-banner" hidden></div>
-          <h1 class="rv-passage__title" id="rv-title"></h1>
-          <div class="rv-passage__body md-body" id="rv-body"></div>
-        </article>
-        <aside class="rv-questions" id="rv-questions" aria-label="Câu hỏi luyện kỹ năng"></aside>
+      <div class="rv-detail rv-detail--skill" id="rv-passage" hidden>
+        <header class="rv-detail__header">
+          <a class="rv-back" href="/reading/skill"><span aria-hidden="true">←</span> Skill Practice</a>
+          <div class="rv-detail__heading">
+            <div class="rv-detail__copy">
+              <p class="rv-kicker">READING LAB · SKILL PRACTICE</p>
+              <div class="rv-skill-banner" id="rv-skill-banner" hidden></div>
+              <h1 class="rv-passage__title" id="rv-title"></h1>
+              <div class="rv-detail__topics" id="rv-topic-tags" aria-label="Chủ đề bài luyện"></div>
+            </div>
+            <dl class="rv-detail__facts" aria-label="Thông tin bài luyện">
+              <div><dt id="rv-difficulty">—</dt><dd>Trình độ</dd></div>
+              <div><dt id="rv-estimated-time">—</dt><dd>Phút luyện</dd></div>
+              <div><dt id="rv-word-count">—</dt><dd>Từ</dd></div>
+            </dl>
+          </div>
+        </header>
+
+        <div class="rv-passage-layout">
+          <article class="rv-reader" aria-label="Nội dung bài luyện">
+            <header class="rv-reader__head">
+              <p>Bài đọc</p>
+              <span>Đọc theo mục tiêu kỹ năng, sau đó kiểm tra từng câu.</span>
+            </header>
+            <div class="rv-passage__body md-body" id="rv-body"></div>
+          </article>
+          <aside class="rv-questions" id="rv-questions" aria-label="Câu hỏi luyện kỹ năng"></aside>
+        </div>
       </div>
     </main>
   </div>
