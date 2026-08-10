@@ -178,6 +178,26 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.equal(done, 0);
     assert.deepEqual(controller.getSnapshot().countdowns, {});
   });
+
+  test('a final tick cannot cancel a replacement countdown with the same key', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController(fixture.environment);
+    let staleDone = 0;
+    controller.startCountdown('phase', {
+      seconds: 1,
+      onTick: (remaining) => {
+        if (remaining === 0) {
+          controller.startCountdown('phase', { seconds: 2 });
+        }
+      },
+      onDone: () => { staleDone += 1; },
+    });
+    const staleInterval = fixture.intervals.values().next().value;
+    staleInterval();
+    assert.equal(staleDone, 0);
+    assert.equal(controller.getSnapshot().countdowns.phase, 2);
+    assert.equal(fixture.intervals.size, 1);
+  });
 });
 
 describe('Next Speaking player integration', () => {

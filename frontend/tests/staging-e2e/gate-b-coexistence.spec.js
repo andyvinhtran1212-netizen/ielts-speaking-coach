@@ -7,12 +7,7 @@
 //      production-origin requests across the whole journey.
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { primeBypassCookie, BYPASS_HEADERS } = require('./helpers');
-
-const PRODUCTION_ORIGINS = [
-  'ielts-speaking-coach-production.up.railway.app',
-  'huwsmtubwulikhlmcirx.supabase.co',
-];
+const { primeBypassCookie, BYPASS_HEADERS, PRODUCTION_ORIGINS } = require('./helpers');
 
 test.beforeEach(async ({ context, baseURL }) => {
   await primeBypassCookie(context, baseURL);

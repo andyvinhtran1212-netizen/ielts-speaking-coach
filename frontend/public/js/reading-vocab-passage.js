@@ -19,6 +19,11 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var SESSION = { slug: null };
+  var DIFFICULTY_LABEL = {
+    foundation: 'Foundation',
+    intermediate: 'Intermediate',
+    advanced: 'Advanced',
+  };
 
   function showState(name) {
     $('state-loading').hidden = name !== 'loading';
@@ -51,9 +56,25 @@
   // share it; loaded as a classic defer script in this page's head).
 
   // ── Passage render ──
+  function renderPassageMeta(p) {
+    $('rv-difficulty').textContent = DIFFICULTY_LABEL[p.difficulty_level] || p.difficulty_level || 'Mọi trình độ';
+    $('rv-estimated-time').textContent = p.estimated_minutes || '—';
+    $('rv-word-count').textContent = p.word_count || '—';
+
+    var topics = $('rv-topic-tags');
+    topics.replaceChildren();
+    (Array.isArray(p.topic_tags) ? p.topic_tags : []).slice(0, 3).forEach(function (topic) {
+      var tag = document.createElement('span');
+      tag.textContent = topic;
+      topics.appendChild(tag);
+    });
+    topics.hidden = !topics.childElementCount;
+  }
+
   function renderPassage(p) {
     document.title = (p.title || 'Bài đọc') + ' — Aver Learning';
     $('rv-title').textContent = p.title || 'Bài đọc';
+    renderPassageMeta(p);
 
     var body = $('rv-body');
     // Sprint 20.14d — CommonMark soft-break for prose reflow; see
@@ -91,6 +112,8 @@
         questions: p.questions || [],
         library:   'vocab',
         slug:      SESSION.slug,
+        heading:   'Kiểm tra mức độ hiểu',
+        description: 'Trả lời từng câu và nhận phản hồi ngay.',
       });
     }
   }

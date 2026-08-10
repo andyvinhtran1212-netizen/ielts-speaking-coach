@@ -30,6 +30,8 @@
 //    mới thường là tính năng thêm. Không gộp hai loại vào một con số.
 // 3. Mọi ngoại lệ phải có `reason`. Allowlist không lý do = tự cấp phép.
 
+import { resolveCorePlayerAdmissionFromParams } from '../lib/core-player-affinity.mjs';
+
 /** Chuẩn hoá khoảng trắng; giữ nguyên chữ và dấu. */
 export function normalizeText(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
@@ -137,6 +139,28 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
 
   let path = u.pathname;
   const params = u.searchParams;
+
+  // Launcher của Next cố ý không trỏ thẳng vào một implementation:
+  // deployment nhận navigation mới quyết định legacy/Next để một tab đã
+  // mở không giữ quyết định cutover cũ. Parity phải so đích mà policy
+  // HIỆN TẠI sẽ chọn, không so URL admission trung gian với URL player
+  // legacy. Dùng chính resolver production để không sinh thêm một bảng ánh xạ
+  // có thể trôi khỏi source of truth.
+  //
+  // Tham số không hợp lệ KHÔNG bị nuốt: giữ nguyên launcher trong facts
+  // để parity vẫn báo lệch. Cả route runtime lẫn parity gọi cùng một
+  // parser, nên validation key lặp/surface không thể trôi lệch giữa hai bên.
+  if (path === '/core-player/launch') {
+    let destination;
+    try {
+      destination = resolveCorePlayerAdmissionFromParams(params);
+    } catch {
+      // Cố ý fall through: URL admission hỏng phải hiện trong báo cáo.
+    }
+    // Policy cấm launcher làm player path, nên lời gọi này không thể đệ quy.
+    // Đặt ngoài try để lỗi canonical downstream không bị gán nhầm cho input.
+    if (destination) return canonicalHref(destination, { base });
+  }
 
   // ── Hợp đồng URL: legacy → canonical ───────────────────────────────────
   if (path === '/index.html') path = '/';

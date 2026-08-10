@@ -29,12 +29,17 @@ test('init restores with membership check + truncation', () => {
 });
 
 test('chain is cleared ONLY after finalize is ACCEPTED (review #748)', () => {
-  const finalizeIdx = SRC.indexOf("window.api.post('/sessions/finalize-full-test'");
+  const finalizeIdx = SRC.indexOf("'/sessions/finalize-full-test'");
   const acceptedFn = SRC.slice(
     SRC.indexOf('function _onFullTestFinalizeAccepted'),
     SRC.indexOf('function _setFullTestCompletionPhase'),
   );
   assert.ok(finalizeIdx !== -1);
+  assert.match(
+    SRC.slice(finalizeIdx, finalizeIdx + 180),
+    /noRedirect: true/,
+    'finalize auth expiry must preserve the chain and visible retry state',
+  );
   assert.match(acceptedFn, /_clearFtChain\(\)/,
     'the chain clears in the shared accepted-only callback');
   // Legacy finalization may call the accepted callback only from its success
@@ -42,8 +47,31 @@ test('chain is cleared ONLY after finalize is ACCEPTED (review #748)', () => {
   const thenBlock = SRC.slice(finalizeIdx, SRC.indexOf('.catch', finalizeIdx));
   assert.ok(thenBlock.includes('_onFullTestFinalizeAccepted('),
     'legacy clear belongs behind the success path');
+  const pendingIdx = SRC.indexOf('Promise.allSettled(pendingLegacy)');
+  assert.ok(pendingIdx !== -1 && pendingIdx < finalizeIdx,
+    'legacy finalize must wait for every eager upload to settle first');
+  assert.match(
+    SRC.slice(pendingIdx, finalizeIdx),
+    /_ftSubmitFailures\.length[\s\S]*?legacy-upload-error/,
+    'a rejected eager upload must block finalize and render a truthful error state',
+  );
   assert.match(SRC, /nativeFullTest\.finalizeFullTest\(\)[\s\S]{0,240}?_onFullTestFinalizeAccepted/,
     'native clear belongs behind validated finalize acceptance');
+
+  const retryBlock = SRC.slice(
+    SRC.indexOf('function retryFullTestSubmissions'),
+    SRC.indexOf('function _renderSubmitFailureNotice'),
+  );
+  assert.match(
+    retryBlock,
+    /_onFullTestFinalizeAccepted\([\s\S]*?_playerActive && generation === _playerGeneration/,
+    'retry acceptance must still clear durable state after unmount; only UI is generation-gated',
+  );
+  assert.doesNotMatch(
+    retryBlock,
+    /if \(!_playerActive \|\| generation !== _playerGeneration\) return;[\s\S]*?_onFullTestFinalizeAccepted/,
+    'a stale route must not suppress accepted-only chain cleanup or mock-sitting debt persistence',
+  );
 });
 
 test('part swap keeps the URL as routing source of truth', () => {
