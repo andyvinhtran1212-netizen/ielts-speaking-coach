@@ -3,6 +3,7 @@
 import type { Metadata } from 'next';
 
 import { LegacyPracticeShell } from './legacy-practice-shell';
+import { PracticeRecorderBridge } from './practice-recorder-bridge';
 import { PracticeSessionBoot } from './practice-session-boot';
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function PracticeSessionPage() {
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="speaking" />
       <LegacyPracticeShell />
+      <PracticeRecorderBridge />
       <PracticeSessionBoot />
     </>
   );

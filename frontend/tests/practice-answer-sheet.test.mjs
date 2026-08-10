@@ -181,8 +181,24 @@ describe('lưu hỏng thì nói ra', () => {
     assert.match(first.error, /Chưa lưu được câu này/);
   });
 
-  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
-    assert.match(CODE, /catch \(err\)[\s\S]{0,200}?_sheet\.recIdx = -1;/);
+  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', async () => {
+    const from = JS.indexOf('  async function _sheetToggleRec(');
+    const to = JS.indexOf('  function _sheetOnRecorded(blob) {');
+    const slot = { state: 'idle', error: null, hadWork: null };
+    const sheet = { slots: [slot], recIdx: -1 };
+    const toggle = new Function(
+      '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
+      '_getNativeRecorder', '_analyser',
+      JS.slice(from, to) + ' return _sheetToggleRec;',
+    )(
+      sheet, () => {}, async () => false, () => {},
+      () => null, null,
+    );
+
+    await toggle(0);
+    assert.equal(sheet.recIdx, -1);
+    assert.equal(slot.state, 'idle');
+    assert.match(slot.error, /Không ghi âm được/);
   });
 });
 

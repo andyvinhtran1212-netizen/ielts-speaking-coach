@@ -59,12 +59,13 @@ export function PracticeSessionBoot() {
           () => {
             const win = window as any;
             return typeof win.PracticeApp?.init === 'function'
+              && typeof win.PracticeRecorder?.start === 'function'
               && typeof win.api?.get === 'function'
               && typeof win.api?.post === 'function'
               && typeof win.api?.getWith === 'function'
               && typeof win.api?.postWith === 'function';
           },
-          'PracticeApp + API',
+          'PracticeApp + native recorder + API',
         );
         if (!ready) {
           throw new PracticeBootstrapError(

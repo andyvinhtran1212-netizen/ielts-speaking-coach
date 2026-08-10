@@ -20,54 +20,89 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { SpeakingRecorderController } from '../lib/speaking-recorder-controller.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
 
 /** Chạy THẬT startRecording với micro giả. `mic` quyết định getUserMedia làm gì. */
-async function run(mic) {
-  const start = JS.indexOf('  async function startRecording() {');
+async function run(mic, native = false, cancelPending = false, concurrentPending = false) {
+  const start = JS.indexOf('  function _getNativeRecorder() {');
   const end = JS.indexOf('  // ── Recording: stop ─');
   assert.ok(start !== -1 && end > start, 'không tìm thấy khối startRecording');
 
   const shown = [];
-  const track = { stop() {} };
+  const states = [];
+  const track = { stopCount: 0, stop() { this.stopCount += 1; } };
   const stream = { active: true, getTracks: () => [track] };
+  let resolveMedia;
   const navigator = {
-    mediaDevices: { getUserMedia: async () => { if (mic) throw mic; return stream; } },
+    mediaDevices: {
+      getUserMedia: async () => {
+        if (cancelPending || concurrentPending) {
+          return new Promise((resolve) => { resolveMedia = resolve; });
+        }
+        if (mic) throw mic;
+        return stream;
+      },
+    },
   };
   class MediaRecorder {
     static isTypeSupported() { return true; }
-    constructor() { this.mimeType = 'audio/webm'; }
-    start() {}
+    constructor() { this.mimeType = 'audio/webm'; this.state = 'inactive'; }
+    start() { this.state = 'recording'; }
   }
+  const browserWindow = { AudioContext: function () { throw new Error('no audio ctx'); } };
   const env = {
     navigator, MediaRecorder,
-    window: { AudioContext: function () { throw new Error('no audio ctx'); } },
+    window: browserWindow,
     $: () => null,
     _showRecError: (m) => shown.push(m),
     _clearRecError: () => {},
     _stopAITts: () => {},
-    _showRecSub: () => {},
+    _showRecSub: (state) => states.push(state),
     _startWaveform: () => {},
     _renderTimer: () => {},
     _renderRecordedPlayback: () => {},
     _renderRecordedLengthHint: () => {},
-    _sheetActive: () => false,
+    _sheetActive: () => cancelPending,
+    _sheet: { recIdx: -1 },
     _sheetOnRecorded: () => {},
     stopRecording: () => {},
     setInterval: () => 1,
     clearInterval: () => {},
     MAX_RECORD_SEC: { 1: 90 },
   };
+  if (native) {
+    browserWindow.PracticeRecorder = new SpeakingRecorderController({
+      mediaDevices: navigator.mediaDevices,
+      MediaRecorderCtor: MediaRecorder,
+      AudioContextCtor: browserWindow.AudioContext,
+      BlobCtor: Blob,
+      setIntervalFn: env.setInterval,
+      clearIntervalFn: env.clearInterval,
+    });
+  }
   const names = Object.keys(env);
   const fn = new Function(...names, `
     var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
     var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
     var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };
     ${JS.slice(start, end)}
-    return startRecording();
+    return startRecording;
   `);
-  return { ok: await fn(...names.map((n) => env[n])), shown };
+  const startRecordingForTest = fn(...names.map((n) => env[n]));
+  const pending = startRecordingForTest();
+  if (concurrentPending) {
+    const second = await startRecordingForTest();
+    resolveMedia(stream);
+    return { ok: await pending, second, shown, states, track };
+  }
+  if (cancelPending) {
+    browserWindow.PracticeRecorder.reset();
+    resolveMedia(stream);
+  }
+  return { ok: await pending, shown, states, track };
 }
 
 describe('startRecording báo đúng thành công / thất bại', () => {
@@ -76,6 +111,35 @@ describe('startRecording báo đúng thành công / thất bại', () => {
     assert.deepEqual(shown, [], 'đường thành công không được hiện lỗi nào');
     assert.equal(ok, true,
       `phiếu làm bài đọc giá trị này; ${JSON.stringify(ok)} bị coi là hỏng micro`);
+  });
+
+  test('native controller mở được micro → practice.js cũng trả true', async () => {
+    const { ok, shown } = await run(null, true);
+    assert.equal(ok, true);
+    assert.deepEqual(shown, []);
+  });
+
+  test('native controller từ chối quyền → false và hiện đúng lời nhắc', async () => {
+    const err = new Error('denied'); err.name = 'NotAllowedError';
+    const { ok, shown } = await run(err, true);
+    assert.equal(ok, false);
+    assert.match(shown[0] || '', /từ chối quyền microphone/);
+  });
+
+  test('native start bị huỷ khi đang xin quyền → im lặng và không bật trạng thái ghi', async () => {
+    const { ok, shown, states, track } = await run(null, true, true);
+    assert.equal(ok, false);
+    assert.deepEqual(shown, []);
+    assert.ok(!states.includes('recording'));
+    assert.equal(track.stopCount, 1);
+  });
+
+  test('double-click lúc đang xin quyền → lượt hai im lặng, lượt đầu vẫn ghi', async () => {
+    const { ok, second, shown, states } = await run(null, true, false, true);
+    assert.equal(second, false);
+    assert.equal(ok, true);
+    assert.deepEqual(shown, []);
+    assert.ok(states.includes('recording'));
   });
 
   test('học viên từ chối quyền → false, kèm đúng lời nhắc', async () => {
@@ -90,6 +154,40 @@ describe('startRecording báo đúng thành công / thất bại', () => {
     const { ok, shown } = await run(err);
     assert.equal(ok, false);
     assert.match(shown[0] || '', /Không tìm thấy microphone/);
+  });
+});
+
+describe('Part 2 native start giữ dữ liệu và lỗi ở trạng thái trung thực', () => {
+  test('xoá take cũ trước khi start và báo lỗi khi start trả false', async () => {
+    const start = JS.indexOf('  async function _startP2Speaking() {');
+    const end = JS.indexOf('  function _renderP2SpeakTimer() {');
+    const shown = [];
+    const recorder = {
+      start: async () => false,
+      isStarting: () => false,
+      getAnalyser: () => null,
+    };
+    const runPart2 = new Function(
+      '_getNativeRecorder', 'showError', '_handleP2RecordedBlob', `
+      var _audioChunks = ['old-chunk'];
+      var _recordedBlob = { old: true };
+      var _elapsedSecs = 77;
+      ${JS.slice(start, end)}
+      return (async () => {
+        await _startP2Speaking();
+        return { chunks: _audioChunks, blob: _recordedBlob, elapsed: _elapsedSecs };
+      })();
+    `);
+
+    const result = await runPart2(
+      () => recorder,
+      (message) => shown.push(message),
+      () => {},
+    );
+    assert.deepEqual(result.chunks, []);
+    assert.equal(result.blob, null);
+    assert.equal(result.elapsed, 0);
+    assert.match(shown[0] || '', /Không thể bắt đầu ghi âm/);
   });
 });
 
@@ -130,6 +228,179 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
   });
 });
 
+describe('phiếu: có thể huỷ lúc trình duyệt còn đang xin quyền micro', () => {
+  test('bấm lại cùng ô khôi phục trạng thái và bỏ qua kết quả start trả về muộn', async () => {
+    const start = JS.indexOf('  async function _sheetToggleRec(i) {');
+    const end = JS.indexOf('  function _sheetOnRecorded(blob) {');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy _sheetToggleRec');
+
+    let resolveStart;
+    const pendingStart = new Promise((resolve) => { resolveStart = resolve; });
+    let starting = true;
+    let resets = 0;
+    const recorder = {
+      isStarting: () => starting,
+      reset() { resets += 1; starting = false; },
+    };
+    const _sheet = { recIdx: -1, slots: [{ state: 'saved', error: null, hadWork: 'saved' }] };
+    let renders = 0;
+    const env = {
+      _sheet,
+      _analyser: null,
+      _getNativeRecorder: () => recorder,
+      startRecording: () => pendingStart,
+      stopRecording: () => { throw new Error('pending start must reset, not stop'); },
+      _renderSheet: () => { renders += 1; },
+      resolveStartForTest: resolveStart,
+    };
+    const names = Object.keys(env);
+    const runToggle = new Function(...names, `
+      ${JS.slice(start, end)}
+      return (async () => {
+        const first = _sheetToggleRec(0);
+        await Promise.resolve();
+        await _sheetToggleRec(0);
+        resolveStartForTest(false);
+        await first;
+      })();
+    `);
+
+    await runToggle(...names.map((name) => env[name]));
+    assert.equal(resets, 1);
+    assert.equal(_sheet.recIdx, -1);
+    assert.equal(_sheet.slots[0].state, 'saved');
+    assert.equal(_sheet.slots[0].error, null);
+    assert.ok(renders >= 2);
+  });
+});
+
+describe('native stop lỗi không làm kẹt phễu hoặc phiếu', () => {
+  async function runStopFailure(sheetActive) {
+    const s1 = JS.indexOf('  function _showRecSub(name) {');
+    const e1 = JS.indexOf('  // ── Header ─');
+    const s2 = JS.indexOf('  function _getNativeRecorder() {');
+    const e2 = JS.indexOf('  // ── Recording: reset (re-record)');
+    const track = { stopCount: 0, stop() { this.stopCount += 1; } };
+    const stream = { active: true, getTracks: () => [track] };
+    class ThrowingStopRecorder {
+      static isTypeSupported() { return true; }
+      constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
+      start() { this.state = 'recording'; }
+      stop() { throw new Error('stop failed'); }
+    }
+    const controller = new SpeakingRecorderController({
+      mediaDevices: { getUserMedia: async () => stream },
+      MediaRecorderCtor: ThrowingStopRecorder,
+      BlobCtor: Blob,
+    });
+    await controller.start();
+    const shown = [];
+    const sheet = {
+      recIdx: sheetActive ? 0 : -1,
+      slots: [{ state: 'recording', hadWork: 'saved', prevState: 'saved', error: null }],
+    };
+    const env = {
+      window: { PracticeRecorder: controller },
+      $: () => null,
+      _stopWaveform: () => {},
+      _sheetActive: () => sheetActive,
+      _sheet: sheet,
+      _renderSheet: () => {},
+      _showRecError: (message) => shown.push(message),
+      _releaseRecorderResources: () => controller.release(),
+      clearInterval: () => {},
+    };
+    const names = Object.keys(env);
+    const execute = new Function(...names, `
+      var _recSubState = 'recording', _timerId = null, _recorder = null;
+      ${JS.slice(s1, e1)}
+      ${JS.slice(s2, e2)}
+      return { stopped: stopRecording(), state: _recSubState };
+    `);
+    return {
+      ...execute(...names.map((name) => env[name])),
+      shown,
+      sheet,
+      track,
+      controller,
+    };
+  }
+
+  test('phễu trở về idle, hiện lỗi và nhả micro', async () => {
+    const result = await runStopFailure(false);
+    assert.equal(result.stopped, false);
+    assert.equal(result.state, 'idle');
+    assert.match(result.shown[0] || '', /Không dừng được ghi âm/);
+    assert.equal(result.track.stopCount, 1);
+    assert.equal(result.controller.isRecording(), false);
+  });
+
+  test('phiếu trả ô về trạng thái cũ và mở khoá các ô khác', async () => {
+    const result = await runStopFailure(true);
+    assert.equal(result.sheet.recIdx, -1);
+    assert.equal(result.sheet.slots[0].state, 'saved');
+    assert.match(result.sheet.slots[0].error || '', /Không dừng được ghi âm/);
+    assert.deepEqual(result.shown, []);
+  });
+});
+
+describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () => {
+  test('PATCH lỗi vẫn tắt track và lần ghi tiếp theo mở lại được', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  async function finishSession() {');
+    assert.ok(start !== -1 && end > start, 'không tìm thấy submit + cleanup');
+    const streams = [0, 1].map(() => {
+      const track = { stopCount: 0, stop() { this.stopCount += 1; } };
+      return { active: true, track, getTracks: () => [track] };
+    });
+    let streamIndex = 0;
+    class MediaRecorder {
+      static isTypeSupported() { return true; }
+      constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
+      start() { this.state = 'recording'; }
+      stop() { this.state = 'inactive'; this.onstop?.(); }
+    }
+    const controller = new SpeakingRecorderController({
+      mediaDevices: { getUserMedia: async () => streams[streamIndex++] },
+      MediaRecorderCtor: MediaRecorder,
+      BlobCtor: Blob,
+    });
+    await controller.start();
+
+    const button = { disabled: false, textContent: 'Nộp bài' };
+    const note = { textContent: '' };
+    const env = {
+      window: {
+        api: { patch: async () => { throw new Error('mạng đứt'); } },
+        location: { href: '' },
+      },
+      $: (id) => (id === 'btn-sheet-submit' ? button : note),
+      _sessionId: 'session-1',
+      _timerId: null,
+      clearInterval: () => {},
+      _stopWaveform: () => {},
+      _getNativeRecorder: () => controller,
+      _recorder: null,
+      _stream: null,
+      _audioCtx: null,
+      _analyser: null,
+    };
+    const names = Object.keys(env);
+    const submit = new Function(...names, `
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `)(...names.map((name) => env[name]));
+
+    await submit();
+    assert.equal(streams[0].track.stopCount, 1);
+    assert.equal(controller.disposed, false);
+    assert.equal(button.disabled, false);
+    assert.match(note.textContent, /Chưa nộp được/);
+    assert.equal(await controller.start(), true);
+    assert.equal(streamIndex, 2);
+  });
+});
+
 /**
  * codex #927: một lần ghi THÀNH CÔNG cũng làm hỏng lần sau.
  *
@@ -141,10 +412,10 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
  * không phân biệt được hai hành vi.
  */
 describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đầu', () => {
-  async function cycle() {
+  async function cycle(native = false) {
     const s1 = JS.indexOf('  function _showRecSub(name) {');
     const e1 = JS.indexOf('  // ── Header ─');
-    const s2 = JS.indexOf('  async function startRecording() {');
+    const s2 = JS.indexOf('  function _getNativeRecorder() {');
     const e2 = JS.indexOf('  // ── Recording: reset (re-record)');
     assert.ok(s1 !== -1 && e1 > s1 && s2 !== -1 && e2 > s2, 'không tìm thấy các khối');
 
@@ -152,15 +423,16 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
     const stream = { active: true, getTracks: () => [track] };
     class MediaRecorder {
       static isTypeSupported() { return true; }
-      constructor() { this.mimeType = 'audio/webm'; this.state = 'recording'; }
-      start() {}
+      constructor() { this.mimeType = 'audio/webm'; this.state = 'inactive'; }
+      start() { this.state = 'recording'; }
       stop() { this.state = 'inactive'; this.onstop(); }   // như trình duyệt: stop kích onstop
     }
     const handed = [];
+    const browserWindow = { AudioContext: function () { throw new Error('no ctx'); } };
     const env = {
       navigator: { mediaDevices: { getUserMedia: async () => stream } },
       MediaRecorder,
-      window: { AudioContext: function () { throw new Error('no ctx'); } },
+      window: browserWindow,
       $: () => null,
       _showRecError: (m) => { throw new Error('không được hiện lỗi: ' + m); },
       _clearRecError: () => {}, _stopAITts: () => {},
@@ -173,6 +445,16 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
       MAX_RECORD_SEC: { 1: 90 },
       Blob: globalThis.Blob,
     };
+    if (native) {
+      browserWindow.PracticeRecorder = new SpeakingRecorderController({
+        mediaDevices: env.navigator.mediaDevices,
+        MediaRecorderCtor: MediaRecorder,
+        AudioContextCtor: browserWindow.AudioContext,
+        BlobCtor: Blob,
+        setIntervalFn: env.setInterval,
+        clearIntervalFn: env.clearInterval,
+      });
+    }
     const names = Object.keys(env);
     // _showRecSub THẬT được khai trong scope nên thắng mọi stub cùng tên.
     const fn = new Function(...names, `
@@ -199,5 +481,11 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
     assert.deepEqual(starts, [true, true, true],
       'lần nào false là ô ấy hiện "hỏng micro" dù micro vẫn ngon');
     assert.equal(handed.length, 2, 'hai bản ghi đã dừng phải tới tay phiếu');
+  });
+
+  test('native controller: ba chu trình thật đều đi qua đúng callback phiếu', async () => {
+    const { starts, handed } = await cycle(true);
+    assert.deepEqual(starts, [true, true, true]);
+    assert.equal(handed.length, 2);
   });
 });

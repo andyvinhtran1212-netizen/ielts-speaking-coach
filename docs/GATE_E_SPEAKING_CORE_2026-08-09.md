@@ -1,32 +1,34 @@
-# Gate E Speaking core — native bootstrap foundation — 2026-08-09
+# Gate E Speaking core — native recorder foundation — 2026-08-09
 
-**Trạng thái:** NATIVE BOOTSTRAP; LEGACY PLAYER; ADMISSION LEGACY.
-`/practice/session` đã là stable App Router URL; React sở hữu auth và tải
-session/câu hỏi, nhưng recorder/grading/state machine vẫn ở `practice.js`.
-Route chưa ready và không nhận attempt mới.
+**Trạng thái:** NATIVE BOOTSTRAP + RECORDER; LEGACY ORCHESTRATION; ADMISSION
+LEGACY. `/practice/session` đã là stable App Router URL; React sở hữu auth,
+session/question bootstrap và vòng đời MediaRecorder. Upload/grading/player
+state machine vẫn ở `practice.js`. Route chưa ready và không nhận attempt mới.
 
 ## Finding
 
-- **Root cause:** dark route trước đây chỉ gọi `PracticeApp.init()` nên legacy
-  IIFE vẫn tự kiểm auth, đọc query, tải session và có thể POST tạo câu hỏi. Next
-  không sở hữu được contract khởi động; StrictMode port ngây thơ còn có thể tạo
-  câu hỏi hai lần. Phần player còn lại vẫn là một IIFE 3.848 dòng, giữ
-  MediaRecorder blob, timer, full-test chain và nhiều trạng thái trong bộ nhớ.
+- **Root cause:** recorder bị cài hai lần trong IIFE (luồng thường và Part 2),
+  giữ stream/MediaRecorder/AudioContext/timer ở biến module và chỉ nhả chắc chắn
+  trong `finishSession()`. Test-mode completion hoặc React unmount có thể để
+  microphone/timer sống; permission promise resolve muộn có thể dựng zombie
+  stream sau khi route đã rời. Bootstrap đã native ở batch trước.
 - **Severity:** Critical — response audio chỉ an toàn sau khi endpoint upload
   xác nhận; reload/renderer flip trước đó có thể làm mất bản thu duy nhất.
 - **Impacted files/functions:** `frontend/public/pages/practice.html`,
-  `frontend/public/js/practice.js`, `_uploadAndGrade()`, `_saveFtChain()`,
-  `_finishTestAndShowResults()`, recorder/Part 2/sheet state machines và future
-  `/practice/session`.
-- **Minimal fix trong batch:** `PracticeSessionBoot` dùng `useAuth()`, đọc
-  `session_id`, gọi loader contract có kiểm tra shape, tải/generate đúng một lần
-  qua promise giữ qua StrictMode replay, rồi handoff payload đã xác thực cho
-  `PracticeApp.init(bootstrap)`. Legacy URL gọi `init()` không tham số nên giữ
-  nguyên bootstrap cũ. Account đổi trong cùng tab hard-reload thay vì tái dùng
-  payload của owner cũ. Admission và `route_ready` vẫn Legacy/false.
-- **Verification:** unit tests pin URL encoding, phase progression, generate
-  fallback một lần và fail-closed payload; source contracts pin Next handoff và
-  legacy fallback; build/typecheck/full frontend suite kiểm integration.
+  `frontend/public/js/practice.js`,
+  `frontend/lib/speaking-recorder-controller.mjs`, `PracticeRecorderBridge`,
+  `_uploadAndGrade()`, `_saveFtChain()`, `_finishTestAndShowResults()` và
+  recorder/Part 2/sheet state machines của `/practice/session`.
+- **Minimal fix trong batch:** `PracticeRecorderBridge` sở hữu một
+  `SpeakingRecorderController`; controller coalesce concurrent start, chặn
+  late-async sau unmount, gom MIME/chunk/timer/analyser, reuse stream và có
+  `reset()/destroy()` idempotent. Funnel, Part 2, sheet và terminal completion
+  dùng controller trên route Next; legacy URL vẫn dùng MediaRecorder cũ.
+  Admission và `route_ready` vẫn Legacy/false.
+- **Verification:** controller tests chạy thật với fake MediaRecorder/stream để
+  pin hard cap, blob, permission error, stream reuse, duplicate start, stale
+  callback và late-unmount cleanup; source contracts pin bridge/integration;
+  build/typecheck/full frontend suite kiểm integration.
 
 ## Ranh giới bằng chứng
 
@@ -37,16 +39,15 @@ probe không có một session fixture ổn định, không được dùng cặp
 ready.
 
 Shell được trích từ repository HTML tại build time và từ chối mọi `<script>`;
-scripts được layout nạp rõ thứ tự. Native bootstrap đã bỏ lần kiểm Supabase và
-hai lần đọc session/question khỏi IIFE trên route Next, nhưng đây vẫn là bridge
-hữu hạn chứ chưa phải đích kiến trúc. Migration tiếp theo phải chuyển
-state/effect ownership, recorder và grading ra khỏi IIFE, đồng thời cung cấp
-cleanup khi soft navigation/unmount.
+scripts được layout nạp rõ thứ tự. Native bootstrap và recorder đã bỏ auth/data
+loading cùng tài nguyên microphone khỏi quyền sở hữu của IIFE trên route Next,
+nhưng đây vẫn là hybrid hữu hạn. Migration tiếp theo phải chuyển upload,
+grading, full-test chain và player state/effect ownership ra khỏi IIFE.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port recorder sang client module có cleanup cho stream, MediaRecorder,
-   AudioContext, timers, blob URLs, TTS và document listeners.
+1. Port upload/grading và state orchestration sang client modules; cleanup các
+   timer Part 2, blob URLs, TTS và document listeners còn lại.
 2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
    assignment sheet và mock sitting.
 3. Chứng minh reload/resume ở câu đã persist; failed/ambiguous upload giữ blob
