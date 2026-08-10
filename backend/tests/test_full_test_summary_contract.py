@@ -230,6 +230,50 @@ def test_part_two_requires_owned_immediately_preceding_session(monkeypatch):
     assert caught.value.status_code == 400
 
 
+def test_part_create_retry_returns_existing_session_after_lost_response(monkeypatch):
+    rows = _sessions()[:2]
+    rows[0]["status"] = "in_progress"
+    rows[1]["status"] = "in_progress"
+    db = _patch(monkeypatch, sessions=rows)
+    monkeypatch.setattr(sessions_module, "_require_active", lambda _user_id: None)
+    monkeypatch.setattr(sessions_module, "_require_permission", lambda _user_id, _mode: None)
+
+    output = _run(sessions_module.create_session(
+        sessions_module.CreateSessionBody(
+            mode="test_full",
+            part=2,
+            topic="Topic 2",
+            previous_session_id="p1",
+        ),
+        authorization="Bearer token",
+    ))
+
+    assert output["session_id"] == "p2"
+    assert output["full_test_attempt_id"] == rows[0]["full_test_attempt_id"]
+    assert db.calls == ["sessions", "sessions"]
+
+
+def test_part_create_retry_rejects_conflicting_payload(monkeypatch):
+    rows = _sessions()[:2]
+    rows[0]["status"] = "in_progress"
+    rows[1]["status"] = "in_progress"
+    _patch(monkeypatch, sessions=rows)
+    monkeypatch.setattr(sessions_module, "_require_active", lambda _user_id: None)
+    monkeypatch.setattr(sessions_module, "_require_permission", lambda _user_id, _mode: None)
+
+    with pytest.raises(HTTPException) as caught:
+        _run(sessions_module.create_session(
+            sessions_module.CreateSessionBody(
+                mode="test_full",
+                part=2,
+                topic="Different topic",
+                previous_session_id="p1",
+            ),
+            authorization="Bearer token",
+        ))
+    assert caught.value.status_code == 409
+
+
 def test_summary_validator_allows_historical_mismatch_only_with_explicit_compatibility():
     rows = _sessions()
     rows[1]["full_test_attempt_id"] = "00000000-0000-4000-8000-000000000002"

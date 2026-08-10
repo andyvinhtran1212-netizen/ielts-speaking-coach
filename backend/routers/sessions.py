@@ -370,6 +370,85 @@ def _rollback_unstarted_session(session_id: str) -> None:
         )
 
 
+def _session_create_payload(session: dict) -> dict:
+    return {
+        "session_id": session["id"],
+        "mode": session["mode"],
+        "part": session["part"],
+        "topic": session["topic"],
+        "started_at": session["started_at"],
+        "status": session["status"],
+        "full_test_attempt_id": session.get("full_test_attempt_id"),
+    }
+
+
+def _find_replayable_full_test_part(
+    user_id: str,
+    attempt_id: str | None,
+    body: CreateSessionBody,
+) -> dict | None:
+    """Return the already-created next Part after a lost POST response.
+
+    The client supplies only the immediately preceding session. The canonical
+    attempt id has already been resolved from that owned row, so this lookup
+    cannot be redirected to another attempt by manipulating the request.
+    """
+    if body.mode != "test_full" or body.part == 1 or not attempt_id:
+        return None
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select(
+                "id, mode, part, topic, started_at, status, sitting_id, "
+                "class_assignment_item_id, full_test_attempt_id"
+            )
+            .eq("user_id", user_id)
+            .eq("full_test_attempt_id", attempt_id)
+            .eq("part", body.part)
+            .limit(2)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi kiểm tra Part Full Test đã tạo: {exc}")
+
+    rows = result.data or []
+    if not rows:
+        return None
+    if len(rows) != 1:
+        raise HTTPException(409, "Full Test có nhiều session cho cùng một Part")
+    session = rows[0]
+    sitting_matches = session.get("sitting_id") in {None, body.sitting_id}
+    payload_matches = (
+        session.get("mode") == "test_full"
+        and session.get("part") == body.part
+        and session.get("topic") == body.topic
+        and session.get("status") == "in_progress"
+        and sitting_matches
+        and session.get("class_assignment_item_id") == body.class_assignment_item_id
+    )
+    if not payload_matches:
+        raise HTTPException(409, "Part Full Test đã tồn tại với dữ liệu khác")
+    return session
+
+
+def _bind_session_to_mock_if_requested(
+    session_id: str,
+    user_id: str,
+    sitting_id: str | None,
+) -> None:
+    if not sitting_id:
+        return
+    from services import mock_exam_service
+    try:
+        mock_exam_service.bind_session_to_sitting(session_id, user_id, sitting_id)
+    except (
+        mock_exam_service.NotFoundError,
+        PermissionError,
+        mock_exam_service.SittingConflictError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=f"Không gắn được session vào kỳ thi: {exc}")
+
+
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
 @router.post("")
@@ -426,6 +505,12 @@ async def create_session(
     # only from the immediately preceding owned session; the caller cannot
     # choose or replay a raw attempt identifier.
     full_test_attempt_id = _resolve_full_test_attempt_id(user_id, body)
+    replay_session = _find_replayable_full_test_part(user_id, full_test_attempt_id, body)
+    if replay_session:
+        _bind_session_to_mock_if_requested(
+            replay_session["id"], user_id, body.sitting_id,
+        )
+        return _session_create_payload(replay_session)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -540,6 +625,15 @@ async def create_session(
                     "uq_sessions_full_test_attempt_part" in str(e)
                     or "duplicate key" in str(e).lower()
                 )
+                if conflict:
+                    replay_session = _find_replayable_full_test_part(
+                        user_id, full_test_attempt_id, body,
+                    )
+                    if replay_session:
+                        _bind_session_to_mock_if_requested(
+                            replay_session["id"], user_id, body.sitting_id,
+                        )
+                        return _session_create_payload(replay_session)
                 raise HTTPException(
                     status_code=409 if conflict else 500,
                     detail=(
@@ -581,23 +675,8 @@ async def create_session(
 
     # Mock sitting: link the session AT CREATION (before any response can be
     # graded) so per-response speaking grading is sealed. Validated inside.
-    if body.sitting_id:
-        from services import mock_exam_service
-        try:
-            mock_exam_service.bind_session_to_sitting(s["id"], user_id, body.sitting_id)
-        except (mock_exam_service.NotFoundError, PermissionError,
-                mock_exam_service.SittingConflictError) as e:
-            raise HTTPException(status_code=400, detail=f"Không gắn được session vào kỳ thi: {e}")
-
-    return {
-        "session_id": s["id"],
-        "mode":       s["mode"],
-        "part":       s["part"],
-        "topic":      s["topic"],
-        "started_at": s["started_at"],
-        "status":     s["status"],
-        "full_test_attempt_id": s.get("full_test_attempt_id"),
-    }
+    _bind_session_to_mock_if_requested(s["id"], user_id, body.sitting_id)
+    return _session_create_payload(s)
 
 
 # ── GET /sessions ──────────────────────────────────────────────────────────────
