@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { resolveCorePlayerAdmission } from '@/lib/core-player-affinity.mjs';
+import { resolveCorePlayerAdmissionFromParams } from '@/lib/core-player-affinity.mjs';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
@@ -16,23 +16,8 @@ function invalidAdmission() {
 }
 
 export function GET(request: NextRequest) {
-  const entries = [...request.nextUrl.searchParams.entries()];
-  const seen = new Set<string>();
-  const hasDuplicate = entries.some(([key]) => {
-    if (seen.has(key)) return true;
-    seen.add(key);
-    return false;
-  });
-  const surfaces = request.nextUrl.searchParams.getAll('surface');
-  if (hasDuplicate || surfaces.length !== 1) return invalidAdmission();
-
-  const [surface] = surfaces;
-  const query = Object.fromEntries(
-    entries.filter(([key]) => key !== 'surface'),
-  );
-
   try {
-    const destination = resolveCorePlayerAdmission(surface, query);
+    const destination = resolveCorePlayerAdmissionFromParams(request.nextUrl.searchParams);
     return new NextResponse(null, {
       status: 307,
       headers: { Location: destination, ...NO_STORE_HEADERS },

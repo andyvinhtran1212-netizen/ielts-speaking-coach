@@ -68,6 +68,52 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
     assert.equal(canonicalHref('/x?b=2&a=1'), canonicalHref('/x?a=1&b=2'));
   });
 
+  test('chuẩn hoá launcher runtime theo đúng policy admission hiện tại', () => {
+    const pairs = [
+      [
+        '/core-player/launch?surface=speaking&session_id=session+1',
+        '/pages/practice.html?session_id=session+1',
+      ],
+      [
+        '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
+        '/pages/reading-exam.html?test_id=AVR-1&from=full&class_item=homework-1',
+      ],
+      [
+        '/core-player/launch?surface=listening_test&id=test-1&from=mini',
+        '/pages/listening-test.html?id=test-1&from=mini',
+      ],
+      [
+        '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',
+        '/pages/listening-test-dictation.html?test_id=test-1&section=2',
+      ],
+    ];
+    for (const [launcher, directLegacy] of pairs) {
+      assert.equal(canonicalHref(launcher), canonicalHref(directLegacy), launcher);
+    }
+  });
+
+  test('launcher không hợp lệ vẫn hiện ra để parity báo lệch', () => {
+    const cases = [
+      ['/core-player/launch?session_id=x', '/core-player/launch?session_id=x'],
+      [
+        '/core-player/launch?surface=speaking&surface=reading_exam&session_id=x',
+        '/core-player/launch?session_id=x&surface=reading_exam&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&session_id=y',
+        '/core-player/launch?session_id=x&session_id=y&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&implementation=next',
+        '/core-player/launch?implementation=next&session_id=x&surface=speaking',
+      ],
+    ];
+    for (const [href, expected] of cases) {
+      assert.equal(canonicalHref(href), expected);
+    }
+    assert.equal(new Set(cases.map(([href]) => canonicalHref(href))).size, cases.length);
+  });
+
   test('bỏ origin cùng site, giữ nguyên link ra ngoài', () => {
     assert.equal(canonicalHref('https://s/grammar.html', { base: 'https://s/' }), '/grammar');
     assert.equal(canonicalHref('https://khac/x', { base: 'https://s/' }), 'https://khac/x');

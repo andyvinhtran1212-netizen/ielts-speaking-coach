@@ -9,6 +9,7 @@ import {
   admitCorePlayer,
   corePlayerUrl,
   resolveCorePlayerAdmission,
+  resolveCorePlayerAdmissionFromParams,
   validateCorePlayerAffinityPolicy,
 } from '../lib/core-player-affinity.mjs';
 
@@ -88,16 +89,16 @@ describe('current admission policy preserves behavior', () => {
   });
 
   test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
-    assert.match(RUNTIME_ROUTE, /resolveCorePlayerAdmission\(surface, query\)/);
+    assert.match(RUNTIME_ROUTE,
+      /resolveCorePlayerAdmissionFromParams\(request\.nextUrl\.searchParams\)/);
     assert.match(RUNTIME_ROUTE, /new NextResponse\(null, \{[\s\S]*status: 307/);
     assert.match(RUNTIME_ROUTE, /headers: \{ Location: destination, \.\.\.NO_STORE_HEADERS \}/);
     assert.doesNotMatch(RUNTIME_ROUTE, /request\.nextUrl\.origin/);
     assert.match(RUNTIME_ROUTE, /'Cache-Control': 'private, no-store, max-age=0, must-revalidate'/);
     assert.match(RUNTIME_ROUTE, /'CDN-Cache-Control': 'no-store'/);
     assert.match(RUNTIME_ROUTE, /'Vercel-CDN-Cache-Control': 'no-store'/);
-    assert.match(RUNTIME_ROUTE, /key !== 'surface'/);
-    assert.match(RUNTIME_ROUTE, /getAll\('surface'\)/);
-    assert.match(RUNTIME_ROUTE, /hasDuplicate \|\| surfaces\.length !== 1/);
+    assert.doesNotMatch(RUNTIME_ROUTE, /getAll\('surface'\)|hasDuplicate|key !== 'surface'/,
+      'wire validation must stay centralized in the affinity module');
     assert.match(RUNTIME_ROUTE, /status: 400/);
   });
 
@@ -196,6 +197,11 @@ describe('cutover and rollback drill', () => {
       );
     }
 
+    const recursivePath = structuredClone(CORE_PLAYER_AFFINITY_POLICY);
+    recursivePath.surfaces.speaking.legacy.path = '/core-player/launch';
+    assert.ok(validateCorePlayerAffinityPolicy(recursivePath)
+      .includes('speaking:legacy-path-invalid'));
+
     const unsafeQuery = structuredClone(CORE_PLAYER_AFFINITY_POLICY);
     unsafeQuery.surfaces.speaking.allowed_query = [];
     assert.ok(validateCorePlayerAffinityPolicy(unsafeQuery)
@@ -238,6 +244,26 @@ describe('cutover and rollback drill', () => {
         () => resolveCorePlayerAdmission(inheritedKey, { session_id: 'x' }),
         /unknown-core-player-surface/,
         inheritedKey,
+      );
+    }
+  });
+
+  test('runtime query parser rejects duplicate or ambiguous wire keys', () => {
+    assert.equal(
+      resolveCorePlayerAdmissionFromParams(
+        new URLSearchParams('surface=speaking&session_id=x'),
+      ),
+      '/pages/practice.html?session_id=x',
+    );
+    for (const query of [
+      'session_id=x',
+      'surface=speaking&surface=reading_exam&session_id=x',
+      'surface=speaking&session_id=x&session_id=y',
+    ]) {
+      assert.throws(
+        () => resolveCorePlayerAdmissionFromParams(new URLSearchParams(query)),
+        /invalid-core-player-admission-query/,
+        query,
       );
     }
   });

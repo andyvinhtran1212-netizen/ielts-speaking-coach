@@ -105,7 +105,7 @@ export function validateCorePlayerAffinityPolicy(policy = CORE_PLAYER_AFFINITY_P
     if (!IMPLEMENTATIONS.has(config.admit_new)) errors.push(`${surface}:admission-invalid`);
     for (const implementation of IMPLEMENTATIONS) {
       const target = config[implementation];
-      if (!isSafeSameOriginPath(target?.path)) {
+      if (!isSafeSameOriginPath(target?.path) || target?.path === RUNTIME_ADMISSION_PATH) {
         errors.push(`${surface}:${implementation}-path-invalid`);
       }
       if (typeof target?.route_ready !== 'boolean') {
@@ -162,6 +162,29 @@ export function resolveCorePlayerAdmission(
 ) {
   const config = surfacePolicy(surface, policy);
   return corePlayerUrl(surface, config.admit_new, query, policy);
+}
+
+/** Parse and resolve the exact query-string contract accepted by the runtime route. */
+export function resolveCorePlayerAdmissionFromParams(
+  searchParams,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const entries = [...searchParams.entries()];
+  const seen = new Set();
+  const hasDuplicate = entries.some(([key]) => {
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  });
+  const surfaces = searchParams.getAll('surface');
+  if (hasDuplicate || surfaces.length !== 1) {
+    throw new Error('invalid-core-player-admission-query');
+  }
+  return resolveCorePlayerAdmission(
+    surfaces[0],
+    Object.fromEntries(entries.filter(([key]) => key !== 'surface')),
+    policy,
+  );
 }
 
 /**
