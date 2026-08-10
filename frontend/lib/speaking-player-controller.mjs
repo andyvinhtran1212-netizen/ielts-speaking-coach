@@ -38,6 +38,7 @@ export class SpeakingPlayerController {
     this.effects = new Map();
     this.objectUrls = new Map();
     this.countdowns = new Map();
+    this.countdownRuns = new Map();
     this.currentState = null;
     this.disposed = false;
   }
@@ -118,31 +119,34 @@ export class SpeakingPlayerController {
     this.clearEffect(effectKey);
     if (this.disposed) return null;
 
+    const run = Symbol(effectKey);
     let remaining = seconds;
+    this.countdownRuns.set(effectKey, run);
     this.countdowns.set(effectKey, remaining);
     onTick(remaining);
-    if (this.disposed) {
-      this.countdowns.delete(effectKey);
+    if (this.disposed || this.countdownRuns.get(effectKey) !== run) {
       return null;
     }
     if (remaining === 0) {
       this.countdowns.delete(effectKey);
+      this.countdownRuns.delete(effectKey);
       onDone();
       return null;
     }
 
-    const token = this.startInterval(effectKey, () => {
+    const handle = this.setIntervalFn(() => {
+      if (this.disposed || this.countdownRuns.get(effectKey) !== run) return;
       remaining = Math.max(0, remaining - 1);
       this.countdowns.set(effectKey, remaining);
       onTick(remaining);
-      if (this.disposed || !this.effects.has(effectKey)) return;
+      if (this.disposed || this.countdownRuns.get(effectKey) !== run) return;
       if (remaining === 0) {
         this.clearEffect(effectKey);
         onDone();
       }
     }, intervalMs);
-    this.countdowns.set(effectKey, remaining);
-    return token;
+    this.effects.set(effectKey, () => this.clearIntervalFn(handle));
+    return effectKey;
   }
 
   clearEffect(key) {
@@ -151,6 +155,7 @@ export class SpeakingPlayerController {
     const cleanup = this.effects.get(effectKey);
     this.effects.delete(effectKey);
     this.countdowns.delete(effectKey);
+    this.countdownRuns.delete(effectKey);
     if (!cleanup) return false;
     try { cleanup(); } catch { /* cleanup is best-effort */ }
     return true;
@@ -198,6 +203,7 @@ export class SpeakingPlayerController {
     for (const key of Array.from(this.objectUrls.keys())) this.revokeObjectUrl(key);
     this.cancelSpeech();
     this.countdowns.clear();
+    this.countdownRuns.clear();
     this.stateListeners.clear();
   }
 }

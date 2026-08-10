@@ -7,11 +7,15 @@ PATCH /api/admin/feedback/{id} (status, require_admin). DB mocked.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
 
 from routers import feedback as F
+
+
+_MIGRATION_199 = Path(__file__).parents[1] / "migrations" / "199_user_feedback_vocabulary.sql"
 
 
 def _run(coro):
@@ -388,3 +392,75 @@ def test_post_exercise_bad_content_id_422(monkeypatch):
     with pytest.raises(HTTPException) as e:
         _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
     assert e.value.status_code == 422
+
+
+# ── POST: public Vocabulary Wiki reports ──────────────────────────────────────
+
+def _visible_vocab_card(monkeypatch, exists=True):
+    monkeypatch.setattr(
+        F.vocab_service,
+        "get_article",
+        lambda category, slug: ({"category": category, "slug": slug} if exists else None),
+    )
+
+
+def test_post_vocabulary_audio_report_uses_visible_markdown_fallback(monkeypatch):
+    # No vocab_cards row is present in the fake DB. The runtime service still
+    # exposes the Markdown fallback card, matching GET /api/vocabulary/articles.
+    from services.vocab_content import VocabContentService
+
+    monkeypatch.setattr(VocabContentService, "_load_from_db", lambda _self: None)
+    fallback_service = VocabContentService()
+    visible = fallback_service.get_curated_articles()[0]
+    monkeypatch.setattr(F, "vocab_service", fallback_service)
+    db = _DB()
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category=visible["category"], vocab_slug=visible["slug"],
+                        category="audio_issue")
+    out = _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert out["status"] == "new"
+    row = db.inserted[0]
+    assert row["test_id"] == f"vocabulary:{visible['category']}/{visible['slug']}"
+    assert row["type"] == "report" and row["skill"] == "vocabulary"
+    assert row["category"] == "audio_issue"
+    assert row["created_by"] is None and row["anon_id"] is None
+
+
+def test_post_vocabulary_report_attributes_logged_in_user(monkeypatch):
+    _as_user(monkeypatch)
+    _visible_vocab_card(monkeypatch)
+    db = _DB()
+    monkeypatch.setattr(F, "supabase_admin", db)
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category="work", vocab_slug="career-path",
+                        category="content_issue")
+    _run(F.submit_feedback(body, authorization="x", x_reading_anon=None))
+    assert db.inserted[0]["created_by"] == "U1"
+
+
+def test_post_vocabulary_unknown_card_404(monkeypatch):
+    _visible_vocab_card(monkeypatch, exists=False)
+    monkeypatch.setattr(F, "supabase_admin", _DB())
+    body = F.FeedbackIn(type="report", skill="vocabulary",
+                        vocab_category="work", vocab_slug="missing",
+                        category="content_issue")
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert e.value.status_code == 404
+
+
+def test_post_vocabulary_rejects_non_report(monkeypatch):
+    monkeypatch.setattr(F, "supabase_admin", _DB())
+    body = F.FeedbackIn(type="flag", skill="vocabulary",
+                        vocab_category="work", vocab_slug="career-path")
+    with pytest.raises(HTTPException) as e:
+        _run(F.submit_feedback(body, authorization=None, x_reading_anon=None))
+    assert e.value.status_code == 422
+
+
+def test_vocabulary_feedback_schema_and_historical_backfill_exist():
+    sql = _MIGRATION_199.read_text(encoding="utf-8")
+    assert "CHECK (skill IN ('reading', 'listening', 'vocabulary'))" in sql
+    assert "ae.event_name = 'vocab_card_flagged'" in sql
+    assert "ON CONFLICT (id) DO NOTHING" in sql

@@ -63,6 +63,7 @@
 .fbx-group__skill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--fbx-brand-wash); color: var(--fbx-brand-ink); }
 .fbx-skill--listening { background: var(--fbx-brand-wash); color: var(--fbx-brand-ink); }
 .fbx-skill--reading { background: var(--av-info-soft, var(--fbx-surface)); color: var(--av-info, var(--fbx-ink-soft)); }
+.fbx-skill--vocabulary { background: var(--av-success-soft, var(--fbx-surface)); color: var(--av-success, var(--fbx-ink-soft)); }
 .fbx-group__id { font-weight: 650; font-size: 14px; font-family: var(--av-font-mono, monospace); }
 .fbx-group__stat { font-size: 12.5px; color: var(--fbx-ink-soft); }
 .fbx-group__new { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fbx-flag); display: inline-flex; align-items: center; }

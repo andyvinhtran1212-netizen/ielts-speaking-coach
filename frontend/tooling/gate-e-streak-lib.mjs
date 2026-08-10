@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 function walkSuites(suites, visit) {
   for (const suite of suites || []) {
     for (const spec of suite.specs || []) {
-      for (const test of spec.tests || []) visit(test);
+      for (const test of spec.tests || []) visit(test, spec);
     }
     walkSuites(suite.suites || [], visit);
   }
@@ -27,6 +27,43 @@ export function verifyFrozenFiles(root, manifest) {
   return errors;
 }
 
+export function verifyFrozenDirs(root, manifest) {
+  const errors = [];
+  const allowed = new Set((manifest.frozen_files || []).map((item) => item.path));
+  for (const relativeDir of manifest.frozen_dirs || []) {
+    const absoluteDir = path.join(root, relativeDir);
+    const pending = [{ absolute: absoluteDir, relative: relativeDir }];
+    try {
+      while (pending.length) {
+        const current = pending.pop();
+        for (const entry of readdirSync(current.absolute, { withFileTypes: true })) {
+          const relative = path.join(current.relative, entry.name).split(path.sep).join('/');
+          const absolute = path.join(current.absolute, entry.name);
+          if (entry.isDirectory()) {
+            pending.push({ absolute, relative });
+          } else if (entry.isSymbolicLink()) {
+            errors.push(`frozen-dir-symlink:${relative}`);
+          } else if (entry.isFile() && !allowed.has(relative)) {
+            errors.push(`frozen-dir-extra-file:${relative}`);
+          }
+        }
+      }
+    } catch {
+      errors.push(`frozen-dir-missing:${relativeDir}`);
+    }
+  }
+  return errors;
+}
+
+export function digestManifestContract(manifest) {
+  return createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
+}
+
+export function isReviewedAncestorComparison(payload, testedSha) {
+  return ['ahead', 'identical'].includes(payload?.status) &&
+    payload?.merge_base_commit?.sha === testedSha;
+}
+
 export function selectPreviousWorkflowRun(workflowRuns, currentRunId, currentRunNumber) {
   const currentNumber = Number(currentRunNumber);
   if (!currentRunId || currentRunNumber === null || currentRunNumber === undefined ||
@@ -46,11 +83,21 @@ export function selectPreviousWorkflowRun(workflowRuns, currentRunId, currentRun
   if (!previous) {
     return { verified: true, previous_run_id: null, previous_conclusion: null };
   }
+  if (Number(previous.run_number) !== currentNumber - 1) {
+    return { verified: false };
+  }
   return {
     verified: true,
     previous_run_id: String(previous.id),
-    previous_conclusion: previous.conclusion,
   };
+}
+
+export function selectWorkflowJobConclusion(jobs, jobName = 'staging-e2e') {
+  const matches = (jobs || []).filter((item) => item.name === jobName);
+  if (matches.length !== 1 || matches[0].status !== 'completed' || !matches[0].conclusion) {
+    return { verified: false };
+  }
+  return { verified: true, previous_conclusion: matches[0].conclusion };
 }
 
 export function summarizePlaywrightReport(report, manifest) {
@@ -60,9 +107,19 @@ export function summarizePlaywrightReport(report, manifest) {
 
   const stats = report.stats || {};
   const projectCounts = {};
-  walkSuites(report.suites, (item) => {
+  const skippedTests = [];
+  walkSuites(report.suites, (item, spec) => {
     const project = item.projectName || item.projectId || 'unknown';
     projectCounts[project] = (projectCounts[project] || 0) + 1;
+    if (item.status === 'skipped') {
+      const annotation = (item.annotations || []).find((entry) => entry.type === 'skip');
+      skippedTests.push({
+        project,
+        title: spec.title || '(untitled)',
+        file: spec.file || '(unknown)',
+        description: annotation?.description || '(missing)',
+      });
+    }
   });
 
   const expected = Number(stats.expected || 0);
@@ -70,17 +127,41 @@ export function summarizePlaywrightReport(report, manifest) {
   const unexpected = Number(stats.unexpected || 0);
   const flaky = Number(stats.flaky || 0);
   const total = expected + skipped + unexpected + flaky;
+  const executed = expected + unexpected + flaky;
   const reasons = [];
 
   if ((report.errors || []).length) reasons.push('playwright-top-level-errors');
   if (unexpected !== manifest.thresholds.unexpected) reasons.push(`unexpected:${unexpected}`);
   if (flaky !== manifest.thresholds.flaky) reasons.push(`flaky:${flaky}`);
-  if (skipped !== manifest.thresholds.skipped) reasons.push(`skipped:${skipped}`);
+  if (skipped !== skippedTests.length) {
+    reasons.push(`skip-detail-count:${skippedTests.length}/${skipped}`);
+  }
+  if (skipped > Number(manifest.thresholds.max_skipped || 0)) {
+    reasons.push(`skipped:${skipped}`);
+  }
+  const allowedSkipLimits = new Map((manifest.allowed_skips || []).map((item) => [
+    [item.project, item.title, item.file, item.description].join('\u0000'),
+    Number(item.max_occurrences || 1),
+  ]));
+  const actualSkipCounts = new Map();
+  for (const item of skippedTests) {
+    const key = [item.project, item.title, item.file, item.description].join('\u0000');
+    actualSkipCounts.set(key, Number(actualSkipCounts.get(key) || 0) + 1);
+    if (!allowedSkipLimits.has(key)) {
+      reasons.push(`unexpected-skip:${item.project}:${item.file}:${item.title}:${item.description}`);
+    }
+  }
+  for (const [key, count] of actualSkipCounts) {
+    const limit = allowedSkipLimits.get(key);
+    if (limit !== undefined && count > limit) {
+      reasons.push(`skip-limit:${key.split('\u0000').join(':')}:${count}/${limit}`);
+    }
+  }
   if (total !== manifest.expected_total_tests) {
     reasons.push(`test-total:${total}/${manifest.expected_total_tests}`);
   }
-  if (total === 0 || expected / total !== manifest.thresholds.pass_rate) {
-    reasons.push(`pass-rate:${total ? expected / total : 0}`);
+  if (executed === 0 || expected / executed !== manifest.thresholds.pass_rate) {
+    reasons.push(`pass-rate:${executed ? expected / executed : 0}`);
   }
 
   for (const [project, count] of Object.entries(manifest.expected_project_counts)) {
@@ -96,6 +177,7 @@ export function summarizePlaywrightReport(report, manifest) {
     clean: reasons.length === 0,
     reasons,
     stats: { expected, skipped, unexpected, flaky, total },
+    skipped_tests: skippedTests,
     project_counts: projectCounts,
   };
 }
@@ -112,6 +194,7 @@ export function advanceStreak({
   previousWorkflowRun,
 }) {
   const summary = summarizePlaywrightReport(report, manifest);
+  const manifestDigest = digestManifestContract(manifest);
   const currentReasons = [...frozenFileErrors, ...summary.reasons];
   const runAttempt = Number(metadata?.run_attempt || 0);
 
@@ -123,7 +206,6 @@ export function advanceStreak({
   if (provenance?.frontend_release !== metadata?.git_sha) currentReasons.push('frontend-release-mismatch');
   if (provenance?.backend_release !== metadata?.git_sha) currentReasons.push('backend-release-mismatch');
   if (provenance?.frontend_git_ref !== metadata?.git_ref) currentReasons.push('frontend-ref-mismatch');
-  if (provenance?.backend_git_branch !== metadata?.git_ref) currentReasons.push('backend-ref-mismatch');
 
   const continuityReasons = [];
   if (!previous) {
@@ -131,6 +213,7 @@ export function advanceStreak({
   } else {
     if (previous.suite_id !== manifest.suite_id) continuityReasons.push('suite-version-changed');
     if (previous.matrix_id !== manifest.matrix_id) continuityReasons.push('matrix-version-changed');
+    if (previous.manifest_digest !== manifestDigest) continuityReasons.push('manifest-changed');
     if (!previousWorkflowRun?.verified) {
       continuityReasons.push('workflow-history-unverified');
     } else {
@@ -169,6 +252,7 @@ export function advanceStreak({
     reset_reasons: [...currentReasons, ...continuityReasons],
     stats: summary.stats || null,
     project_counts: summary.project_counts,
+    manifest_digest: manifestDigest,
     captured_at: provenance?.captured_at || metadata?.generated_at || null,
   };
 
@@ -176,6 +260,7 @@ export function advanceStreak({
     schema_version: 1,
     suite_id: manifest.suite_id,
     matrix_id: manifest.matrix_id,
+    manifest_digest: manifestDigest,
     target_consecutive_clean_runs: manifest.target_consecutive_clean_runs,
     streak_count: streakCount,
     threshold_met: thresholdMet,

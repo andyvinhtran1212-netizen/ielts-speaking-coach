@@ -6224,8 +6224,8 @@ export interface paths {
          *
          *     Hard-filters ``status='published'`` AND audio satisfied (full or
          *     assembled present). Each row carries the calling user's best score
-         *     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
-         *     CTAs without a follow-up round-trip.
+         *     + total/submitted attempt counts so the tests list can render truthful
+         *     "Bắt đầu" vs "Làm lại" CTAs without a follow-up round-trip.
          *
          *     test_type segregates the full-test, mini-test and skill-drill libraries,
          *     reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
@@ -11006,6 +11006,8 @@ export interface components {
             topic: string;
             /** Sitting Id */
             sitting_id?: string | null;
+            /** Previous Session Id */
+            previous_session_id?: string | null;
             /** Class Assignment Item Id */
             class_assignment_item_id?: string | null;
         };
@@ -11428,6 +11430,10 @@ export interface components {
             passage_slug?: string | null;
             /** Content Id */
             content_id?: string | null;
+            /** Vocab Category */
+            vocab_category?: string | null;
+            /** Vocab Slug */
+            vocab_slug?: string | null;
             /** Q Num */
             q_num?: number | null;
             /** Rating De */
