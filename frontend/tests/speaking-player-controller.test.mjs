@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { installPracticePlayerController } from '../lib/practice-player-lifecycle.mjs';
 import { SpeakingPlayerController } from '../lib/speaking-player-controller.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -88,6 +89,65 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.equal(fixture.elements.get('state-prep').classList.contains('active'), true);
     assert.equal(controller.getSnapshot().currentState, 'prep');
     assert.throws(() => controller.showState('missing'), /unknown-speaking-player-state/);
+  });
+
+  test('publishes state changes for a React renderer without mutating legacy classes', () => {
+    const fixture = makeEnvironment();
+    const controller = new SpeakingPlayerController({
+      ...fixture.environment,
+      domStateActivation: false,
+    });
+    const states = [];
+    const unsubscribe = controller.subscribeState(() => {
+      states.push(controller.getStateSnapshot());
+    });
+    controller.showState('loading');
+    controller.showState('prep');
+    assert.deepEqual(states, ['loading', 'prep']);
+    assert.equal(fixture.elements.get('state-loading').classList.contains('active'), false);
+    assert.equal(fixture.elements.get('state-prep').classList.contains('active'), false);
+    unsubscribe();
+    controller.showState('error');
+    assert.deepEqual(states, ['loading', 'prep']);
+  });
+
+  test('StrictMode-like cleanup leaves the replacement controller live and observable', () => {
+    const fixture = makeEnvironment();
+    let practiceDestroyCalls = 0;
+    const browser = {
+      document: fixture.environment.document,
+      URL: fixture.environment.urlApi,
+      speechSynthesis: fixture.environment.speechSynthesis,
+      setInterval: fixture.environment.setIntervalFn,
+      clearInterval: fixture.environment.clearIntervalFn,
+      setTimeout: fixture.environment.setTimeoutFn,
+      clearTimeout: fixture.environment.clearTimeoutFn,
+      PracticeApp: { destroy() { practiceDestroyCalls += 1; } },
+    };
+
+    const first = installPracticePlayerController(browser);
+    const firstStates = [];
+    first.controller.subscribeState(() => firstStates.push(first.controller.getStateSnapshot()));
+    first.controller.showState('prep');
+    assert.deepEqual(firstStates, ['prep']);
+    first.cleanup();
+
+    const replacement = installPracticePlayerController(browser);
+    const replacementStates = [];
+    replacement.controller.subscribeState(() => {
+      replacementStates.push(replacement.controller.getStateSnapshot());
+    });
+    replacement.controller.showState('error');
+    first.cleanup();
+
+    assert.equal(browser.PracticePlayer, replacement.controller);
+    assert.deepEqual(replacementStates, ['error']);
+    assert.equal(first.controller.showState('loading'), false, 'disposed controller must stay inert');
+    assert.equal(practiceDestroyCalls, 1, 'stale cleanup must be idempotent');
+
+    replacement.cleanup();
+    assert.equal(browser.PracticePlayer, undefined);
+    assert.equal(practiceDestroyCalls, 2);
   });
 
   test('replaces keyed listeners and removes them on destroy', () => {
@@ -225,10 +285,10 @@ describe('Next Speaking player integration', () => {
   });
 
   test('bridge owns lifecycle and asks PracticeApp to release legacy references first', () => {
-    assert.match(BRIDGE, /new SpeakingPlayerController/);
-    assert.match(BRIDGE, /win\.PracticeApp\?\.destroy\?\.\(\)/);
-    assert.match(BRIDGE, /controller\.destroy\(\)/);
-    assert.match(BRIDGE, /win\.PracticePlayer === controller/);
+    assert.match(BRIDGE, /installPracticePlayerController\(window as any\)/);
+    assert.match(BRIDGE, /setController\(installation\.controller\)/);
+    assert.match(BRIDGE, /return installation\.cleanup/);
+    assert.match(BRIDGE, /controller \|\| INERT_PLAYER_STATE/);
   });
 
   test('practice delegates state, timers, listeners, speech and blob URLs to native player', () => {

@@ -33,6 +33,8 @@ export class SpeakingPlayerController {
     this.states = Array.isArray(environment.states) && environment.states.length
       ? Array.from(new Set(environment.states.map(String)))
       : DEFAULT_STATES.slice();
+    this.domStateActivation = environment.domStateActivation !== false;
+    this.stateListeners = new Set();
     this.effects = new Map();
     this.objectUrls = new Map();
     this.countdowns = new Map();
@@ -47,13 +49,26 @@ export class SpeakingPlayerController {
     if (!this.states.includes(state)) {
       throw new RangeError(`unknown-speaking-player-state:${state}`);
     }
-    for (const candidate of this.states) {
-      const element = this.document?.getElementById?.(`state-${candidate}`);
-      if (!element) continue;
-      element.classList.toggle('active', candidate === state);
+    if (this.domStateActivation) {
+      for (const candidate of this.states) {
+        const element = this.document?.getElementById?.(`state-${candidate}`);
+        if (!element) continue;
+        element.classList.toggle('active', candidate === state);
+      }
     }
     this.currentState = state;
+    for (const listener of this.stateListeners) listener();
     return true;
+  }
+
+  subscribeState(listener) {
+    if (this.disposed || typeof listener !== 'function') return () => {};
+    this.stateListeners.add(listener);
+    return () => this.stateListeners.delete(listener);
+  }
+
+  getStateSnapshot() {
+    return this.currentState;
   }
 
   listen(key, target, type, listener, options) {
@@ -189,5 +204,6 @@ export class SpeakingPlayerController {
     this.cancelSpeech();
     this.countdowns.clear();
     this.countdownRuns.clear();
+    this.stateListeners.clear();
   }
 }

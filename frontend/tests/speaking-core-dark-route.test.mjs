@@ -15,6 +15,8 @@ const readRoot = (...parts) => readFileSync(path.join(ROOT, ...parts), 'utf8');
 const LEGACY = readFrontend('public', 'pages', 'practice.html');
 const PAGE = readFrontend('app', '(authed-practice)', 'practice', 'session', 'page.tsx');
 const SHELL = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-page-shell.tsx');
+const PLAYER_BRIDGE = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-player-bridge.tsx');
+const PLAYER_LIFECYCLE = readFrontend('lib', 'practice-player-lifecycle.mjs');
 const BOOT = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx');
 const LAYOUT = readFrontend('app', '(authed-practice)', 'layout.tsx');
 const PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
@@ -76,6 +78,8 @@ describe('/practice/session transitional dark route', () => {
     ];
     const stateClasses = (source, id) => source.match(
       new RegExp(`id="${id}" class(?:Name)?="([^"]+)"`),
+    )?.[1] || source.match(
+      new RegExp(`id="${id}" className=\\{stateClass\\('[^']+', '([^']+)'\\)\\}`),
     )?.[1];
     for (const id of stagedStates) {
       assert.equal(stateClasses(SHELL, id), stateClasses(LEGACY, id), `${id} class parity`);
@@ -113,13 +117,18 @@ describe('/practice/session transitional dark route', () => {
 
   test('App Router owns the URL and renders canonical chrome, native shell and guarded boot', () => {
     assert.match(PAGE, /<aver-chrome active="speaking"/);
-    assert.match(PAGE, /<PracticePageShell \/>/);
+    assert.match(PAGE, /<PracticePlayerBridge \/>/);
     assert.match(PAGE, /<PracticeRecorderBridge \/>/);
     assert.match(PAGE, /<PracticeSubmissionBridge \/>/);
     assert.match(PAGE, /<PracticeSessionBoot \/>/);
     assert.match(SHELL, /^'use client';/);
     assert.match(SHELL, /function callPractice/);
     assert.match(SHELL, /function Icon/);
+    assert.match(PLAYER_BRIDGE, /<PracticePageShell player=\{controller \|\| INERT_PLAYER_STATE\} \/>/);
+    assert.match(PLAYER_BRIDGE, /installPracticePlayerController\(window as any\)/);
+    assert.match(PLAYER_LIFECYCLE, /domStateActivation: false/);
+    assert.match(SHELL, /useSyncExternalStore/);
+    assert.match(SHELL, /activeState === name/);
   });
 
   test('layout preserves the legacy CSS and script ordering', () => {
@@ -142,6 +151,7 @@ describe('/practice/session transitional dark route', () => {
     assert.doesNotMatch(BOOT, /win\.getSupabase/);
     assert.match(BOOT, /started\.current = true/);
     assert.match(BOOT, /state-error/);
+    assert.match(BOOT, /player\.showState\('error'\)/);
     assert.match(BOOT, /practice_native_bootstrap_failed/);
   });
 

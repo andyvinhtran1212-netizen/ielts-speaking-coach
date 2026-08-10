@@ -17,12 +17,16 @@ function setLoadingMessage(message: string) {
 }
 
 function showBootFailure(message: string) {
-  const loading = document.getElementById('state-loading');
-  const error = document.getElementById('state-error');
   const detail = document.getElementById('error-msg');
-  loading?.classList.remove('active');
-  error?.classList.add('active');
   if (detail) detail.textContent = message;
+  const player = (window as any).PracticePlayer;
+  if (typeof player?.showState === 'function') {
+    player.showState('error');
+    return;
+  }
+  // Fail visibly even if the player bridge itself could not mount.
+  document.getElementById('state-loading')?.classList.remove('active');
+  document.getElementById('state-error')?.classList.add('active');
 }
 
 export function PracticeSessionBoot() {

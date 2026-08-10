@@ -1,29 +1,23 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-import { SpeakingPlayerController } from '@/lib/speaking-player-controller.mjs';
+import { installPracticePlayerController } from '@/lib/practice-player-lifecycle.mjs';
+import { PracticePageShell } from './practice-page-shell';
+
+const INERT_PLAYER_STATE = Object.freeze({
+  getStateSnapshot: () => null,
+  subscribeState: () => () => {},
+});
 
 export function PracticePlayerBridge() {
-  useEffect(() => {
-    const win = window as any;
-    const controller = new SpeakingPlayerController({
-      document: win.document,
-      urlApi: win.URL,
-      speechSynthesis: win.speechSynthesis,
-      setIntervalFn: win.setInterval.bind(win),
-      clearIntervalFn: win.clearInterval.bind(win),
-      setTimeoutFn: win.setTimeout.bind(win),
-      clearTimeoutFn: win.clearTimeout.bind(win),
-    });
+  const [controller, setController] = useState<ReturnType<typeof installPracticePlayerController>['controller'] | null>(null);
 
-    win.PracticePlayer = controller;
-    return () => {
-      win.PracticeApp?.destroy?.();
-      controller.destroy();
-      if (win.PracticePlayer === controller) delete win.PracticePlayer;
-    };
+  useEffect(() => {
+    const installation = installPracticePlayerController(window as any);
+    setController(installation.controller);
+    return installation.cleanup;
   }, []);
 
-  return null;
+  return <PracticePageShell player={controller || INERT_PLAYER_STATE} />;
 }
