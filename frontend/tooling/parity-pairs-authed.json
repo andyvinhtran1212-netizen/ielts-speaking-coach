@@ -12,6 +12,14 @@
     "allow": []
   },
   {
+    "name": "speaking-practice-dark",
+    "legacy": "/pages/practice.html",
+    "next": "/practice/session",
+    "allow": [],
+    "minBaselineLines": 2,
+    "note": "Không có query thì cả hai vế dừng ở nhánh THIẾU session_id. Cặp này chỉ chứng minh stable route + shell/CSS/boot/error state parity; nó không chứng minh recorder, upload, grading, full-test chain hay resume. Player chỉ được gọi ready sau khi có session fixture và live Gate E drills."
+  },
+  {
     "name": "reading-vocab",
     "legacy": "/pages/reading-vocab.html",
     "next": "/reading/vocab",

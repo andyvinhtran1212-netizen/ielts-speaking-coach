@@ -60,6 +60,7 @@ on:
       - 'docs/GATE_E_DEVICE_MATRIX_2026-08-09.md'
       - 'docs/GATE_E_STREAK_LEDGER_2026-08-09.md'
       - 'docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md'
+      - 'docs/GATE_E_SPEAKING_CORE_2026-08-09.md'
       - 'docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md'
       - 'docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md'
       - 'docs/brand/assets/**'
