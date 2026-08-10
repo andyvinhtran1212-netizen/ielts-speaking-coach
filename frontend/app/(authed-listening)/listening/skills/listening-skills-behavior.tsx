@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
+import { ListeningSkillsShell } from './page-shell';
+
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 20;
 
@@ -32,6 +34,7 @@ interface RawDrill {
   task?: unknown;
   user_best_score?: unknown;
   user_attempt_count?: unknown;
+  user_submitted_attempt_count?: unknown;
 }
 
 interface Drill {
@@ -44,12 +47,13 @@ interface Drill {
   task: string | null;
   bestScore: string | null;
   attemptCount: number;
+  submittedAttemptCount: number;
 }
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; drills: Drill[] }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -82,8 +86,14 @@ function normalizeDrills(items: unknown[]): Drill[] {
       task: textValue(raw.task) || null,
       bestScore: raw.user_best_score == null ? null : displayValue(raw.user_best_score),
       attemptCount: nonNegativeInteger(raw.user_attempt_count),
+      submittedAttemptCount: nonNegativeInteger(raw.user_submitted_attempt_count),
     }];
   });
+}
+
+function displayDrillTitle(drill: Drill): string {
+  const parts = drill.title.split(/\s+[—·]\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : drill.title;
 }
 
 function ladderNumber(value: string | null, prefix: 'L' | 'T'): number {
@@ -120,11 +130,6 @@ async function fetchAllDrills(signal: AbortSignal): Promise<unknown[]> {
     `Danh sách vượt ${MAX_PAGES * PAGE_LIMIT} mục — chưa tải hết, `
     + 'cần phân trang trên giao diện thay vì tải một lượt.',
   );
-}
-
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
 }
 
 function SkillIcon({ name }: { name: string }) {
@@ -177,20 +182,26 @@ export function ListeningSkillsBehavior() {
     if (status === 'signed-out') window.location.replace('/login.html');
   }, [status]);
 
-  if (status !== 'signed-in' || !user?.id) {
-    return <div className="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>;
-  }
-
-  return <ListeningSkillsLibrary accountKey={user.id} key={user.id} />;
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ListeningSkillsLibrary accountKey={accountKey} key={accountKey || status} />;
 }
 
-function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
+function ListeningSkillsLibrary({ accountKey }: { accountKey: string | null }) {
+  const [activeSkill, setActiveSkill] = useState('');
+  const [filter, setFilter] = useState<'all' | 'new' | 'done'>('all');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
+    if (!accountKey) {
+      setState({ status: 'loading' });
+      return undefined;
+    }
+
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
+    setActiveSkill('');
+    setFilter('all');
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -198,17 +209,25 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
         'window.api (listening skills)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error', message: '' });
+        if (!disposed) setState({ status: 'error' });
         return;
       }
 
       try {
         const items = await fetchAllDrills(controller.signal);
         if (disposed) return;
-        setState({ status: 'ready', drills: normalizeDrills(items) });
+        const drills = normalizeDrills(items);
+        const firstIncomplete = SKILLS.find((skill) => drills.some(
+          (drill) => drill.drillType === skill.key && drill.submittedAttemptCount === 0,
+        ));
+        const firstAvailable = SKILLS.find((skill) => drills.some(
+          (drill) => drill.drillType === skill.key,
+        ));
+        setActiveSkill((firstIncomplete || firstAvailable || SKILLS[0]).key);
+        setState({ status: 'ready', drills });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error', message: errorMessage(caught) });
+        setState({ status: 'error' });
       }
     })();
 
@@ -218,81 +237,164 @@ function ListeningSkillsLibrary({ accountKey }: { accountKey: string }) {
     };
   }, [accountKey]);
 
-  if (state.status === 'loading') {
-    return <div className="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>;
-  }
-  if (state.status === 'error') {
-    return (
-      <div className="error-banner" id="state-error">
-        Không tải được danh sách bài luyện: {state.message}
-      </div>
-    );
-  }
-  if (!state.drills.length) {
-    return (
-      <div className="empty-state" id="state-empty">
-        <p><strong>Chưa có bài luyện nào sẵn sàng.</strong></p>
-        <p>Hãy quay lại sau khi admin xuất bản skill drill mới.</p>
-      </div>
-    );
-  }
+  const drills = state.status === 'ready' ? state.drills : [];
+  const doneCount = drills.filter((drill) => drill.submittedAttemptCount > 0).length;
+  const typeCount = SKILLS.filter((skill) => drills.some(
+    (drill) => drill.drillType === skill.key,
+  )).length;
+  const selectedSkill = SKILLS.find((skill) => skill.key === activeSkill) || SKILLS[0];
+  const selectedDrills = drills
+    .filter((drill) => drill.drillType === selectedSkill.key)
+    .filter((drill) => {
+      const submitted = drill.submittedAttemptCount > 0;
+      if (filter === 'done') return submitted;
+      if (filter === 'new') return !submitted;
+      return true;
+    })
+    .slice()
+    .sort(drillSort);
+  const selectedTotal = drills.filter((drill) => drill.drillType === selectedSkill.key).length;
+  const ready = state.status === 'ready';
 
   return (
-    <section id="ls-groups">
-      {SKILLS.map((skill) => {
-        const drills = state.drills
-          .filter((drill) => drill.drillType === skill.key)
-          .slice()
-          .sort(drillSort);
-        const available = drills.length > 0;
-        return (
-          <section className={`ls-group${available ? '' : ' is-empty'}`} key={skill.key}>
-            <div className="ls-group-head">
-              <div className="ls-group-icon"><SkillIcon name={skill.icon} /></div>
-              <div>
-                <h2 className="ls-group-title">
-                  {skill.label}
-                  {available ? <>{' '}<span className="ls-group-count">{drills.length}</span></> : null}
-                </h2>
-                <p className="ls-group-lede">{skill.lede}</p>
-              </div>
+    <ListeningSkillsShell
+      doneCount={ready ? doneCount : null}
+      totalCount={ready ? drills.length : null}
+      typeCount={ready ? typeCount : null}
+    >
+      {state.status === 'loading' ? (
+        <div className="empty-state" id="state-loading" role="status">
+          Đang tải danh sách bài luyện…
+        </div>
+      ) : null}
+      {state.status === 'error' ? (
+        <div className="error-banner" id="state-error" role="alert">
+          Không tải được danh sách bài luyện. Vui lòng thử lại.
+        </div>
+      ) : null}
+      {ready && !drills.length ? (
+        <div className="empty-state" id="state-empty" role="status">
+          <p><strong>Chưa có bài luyện nào sẵn sàng.</strong></p>
+          <p>Hãy quay lại sau khi admin xuất bản skill drill mới.</p>
+        </div>
+      ) : null}
+      {ready && drills.length ? (
+        <section className="ls-library" id="ls-library" aria-labelledby="ls-library-title">
+          <div className="ls-toolbar">
+            <div>
+              <p className="eyebrow">LỘ TRÌNH KĨ NĂNG</p>
+              <h2 id="ls-library-title">Chọn dạng bài cần luyện</h2>
+              <p>Mỗi lần chỉ tập trung vào một dạng để danh sách ngắn và dễ theo dõi.</p>
             </div>
-            {available ? (
-              <div className="ls-drill-list">
-                {drills.map((drill) => {
-                  const attempted = drill.attemptCount > 0;
-                  return (
-                    <div className="ls-drill" key={drill.key}>
-                      <a className="ls-drill-main" href={`/pages/listening-test.html?id=${encodeURIComponent(drill.id)}`}>
-                        {drill.level ? (
-                          <span className="ls-drill-level">{drill.level}{drill.task ? <>·{drill.task}</> : null}</span>
-                        ) : null}
-                        <span className="ls-drill-title">{drill.title}</span>
-                        {drill.bestScore != null ? (
-                          <span className="ls-drill-stat">Tốt nhất {drill.bestScore}</span>
-                        ) : attempted ? (
-                          <span className="ls-drill-stat">Đã làm</span>
-                        ) : null}
-                        <span className="ls-drill-cta">{attempted ? 'Làm lại' : 'Luyện'} →</span>
-                      </a>
-                      <a
-                        className="ls-drill-dict"
-                        href={`/pages/listening-test-dictation.html?test_id=${encodeURIComponent(drill.id)}`}
-                        title="Chép chính tả"
-                        aria-label="Chép chính tả"
+          </div>
+          <nav className="ls-skill-nav" id="ls-skill-nav" aria-label="Các dạng câu hỏi Listening">
+            {SKILLS.map((skill) => {
+              const count = drills.filter((drill) => drill.drillType === skill.key).length;
+              const selected = skill.key === selectedSkill.key;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`ls-skill-nav__button${selected ? ' is-active' : ''}`}
+                  data-skill={skill.key}
+                  disabled={!count}
+                  key={skill.key}
+                  onClick={() => setActiveSkill(skill.key)}
+                  type="button"
+                >
+                  <span className="ls-skill-nav__icon"><SkillIcon name={skill.icon} /></span>
+                  <span className="ls-skill-nav__label">{skill.label}</span>
+                  <span className="ls-skill-nav__count">{count || '—'}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="ls-library-head">
+            <p className="ls-visible-count" id="ls-visible-count" aria-live="polite">
+              {selectedDrills.length}/{selectedTotal} bài · {selectedSkill.label}
+            </p>
+            <div className="ls-filter" role="group" aria-label="Lọc bài luyện theo trạng thái">
+              {([
+                ['all', 'Tất cả'],
+                ['new', 'Chưa làm'],
+                ['done', 'Đã luyện'],
+              ] as const).map(([value, label]) => (
+                <button
+                  aria-pressed={filter === value}
+                  className={`ls-filter__button${filter === value ? ' is-active' : ''}`}
+                  data-status-filter={value}
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <section id="ls-groups">
+            {selectedDrills.length ? (
+              <section className="ls-group">
+                <div className="ls-group-head">
+                  <div className="ls-group-icon"><SkillIcon name={selectedSkill.icon} /></div>
+                  <div>
+                    <h2 className="ls-group-title">
+                      {selectedSkill.label}{' '}
+                      <span className="ls-group-count">{selectedDrills.length}</span>
+                    </h2>
+                    <p className="ls-group-lede">{selectedSkill.lede}</p>
+                  </div>
+                </div>
+                <div className="ls-drill-list">
+                  {selectedDrills.map((drill) => {
+                    const attempted = drill.submittedAttemptCount > 0;
+                    return (
+                      <article
+                        className="ls-drill"
+                        data-status={attempted ? 'done' : 'new'}
+                        data-test-id={drill.id}
+                        key={drill.key}
                       >
-                        ✍️
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
+                        <div className="ls-drill-head">
+                          {drill.level ? (
+                            <span className="ls-drill-level">
+                              {drill.level}{drill.task ? <>·{drill.task}</> : null}
+                            </span>
+                          ) : <span />}
+                          <span className={`ls-drill-status${attempted ? ' is-done' : ''}`}>
+                            {attempted ? 'Đã luyện' : 'Chưa làm'}
+                          </span>
+                        </div>
+                        <h3 className="ls-drill-title">{displayDrillTitle(drill)}</h3>
+                        <div className="ls-drill-stat">
+                          {drill.bestScore != null ? (
+                            <span>Điểm tốt nhất <strong>{drill.bestScore} điểm</strong></span>
+                          ) : attempted ? <span>Đã có lượt làm</span> : <span>Chưa làm</span>}
+                        </div>
+                        <div className="ls-drill-actions">
+                          <a
+                            className={attempted ? 'ls-drill-cta secondary' : 'ls-drill-cta'}
+                            href={`/pages/listening-test.html?id=${encodeURIComponent(drill.id)}`}
+                          >
+                            {attempted ? 'Làm lại' : 'Bắt đầu'} <span aria-hidden="true">→</span>
+                          </a>
+                          <a
+                            className="ls-drill-cta secondary"
+                            href={`/pages/listening-test-dictation.html?test_id=${encodeURIComponent(drill.id)}`}
+                          >
+                            Chép chính tả
+                          </a>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
             ) : (
-              <p className="ls-group-soon">Sắp có</p>
+              <div className="ls-filter-empty">Không có bài nào trong nhóm này.</div>
             )}
           </section>
-        );
-      })}
-    </section>
+        </section>
+      ) : null}
+    </ListeningSkillsShell>
   );
 }

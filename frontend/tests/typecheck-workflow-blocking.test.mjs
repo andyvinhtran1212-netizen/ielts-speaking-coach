@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'typecheck.yml'), 'utf8');
+const PACKAGE = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
+const REQUIREMENTS = readFileSync(join(ROOT, 'backend', 'requirements.txt'), 'utf8');
 
 describe('Gate D — TypeScript/OpenAPI workflow fails closed', () => {
   test('does not retain pilot/non-blocking escape hatches', () => {
@@ -23,7 +25,11 @@ describe('Gate D — TypeScript/OpenAPI workflow fails closed', () => {
   });
 
   test('regenerates OpenAPI types with a pinned generator and preserves diff failure', () => {
-    assert.match(WORKFLOW, /openapi-typescript@7\.13\.0/);
+    assert.equal(PACKAGE.devDependencies['openapi-typescript'], '7.13.0');
+    assert.match(REQUIREMENTS, /^pydantic==2\.12\.5$/m);
+    assert.match(WORKFLOW, /Install pinned OpenAPI generator tree[\s\S]*?run:\s*npm ci/);
+    assert.match(WORKFLOW, /\.\/node_modules\/\.bin\/openapi-typescript \/tmp\/openapi\.json/);
+    assert.doesNotMatch(WORKFLOW, /npx\s+--yes\s+openapi-typescript/);
     assert.match(WORKFLOW, /git diff --exit-code types\/api\.d\.ts/);
     assert.doesNotMatch(WORKFLOW, /git diff[\s\S]{0,160}\|\||::warning::frontend\/types\/api\.d\.ts/);
   });

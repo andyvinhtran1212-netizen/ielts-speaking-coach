@@ -207,6 +207,17 @@ on:
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
+      - 'frontend/tooling/verify-reading-vocab-flow.mjs'
+      - 'frontend/tooling/verify-reading-skill-flow.mjs'
+      - 'frontend/tooling/verify-reading-test-flow.mjs'
+      - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
+      - 'frontend/tooling/verify-listening-tests-flow.mjs'
+      - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
+      - 'frontend/tooling/verify-listening-skills-flow.mjs'
+      - 'frontend/tooling/verify-listening-practice-flow.mjs'
+      - 'frontend/tooling/verify-listening-landing-flow.mjs'
+      - 'frontend/tooling/verify-listening-browse-flow.mjs'
+      - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -556,6 +567,59 @@ jobs:
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
+      # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
+      # request filter bị supersede hay nút reset. Runner này dùng browser thật,
+      # phiên + backend giả và chặn toàn bộ request; không cần secret, không ghi
+      # vào dữ liệu nào.
+      - name: Kiểm luồng Reading Vocab native
+        run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
+      # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
+      - name: Kiểm luồng Reading Skill native
+        run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
+      # total, test_type=full, reset và response cũ ngay trên production build.
+      - name: Kiểm luồng Reading Full Test native
+        run: node tooling/verify-reading-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Mini Test có default và thống kê duration riêng; runner này ngăn nó
+      # trượt về default Full Test khi phần behavior được đổi.
+      - name: Kiểm luồng Reading Mini Test native
+        run: node tooling/verify-reading-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/listening/tests` phân biệt activity attempt với submitted attempt.
+      # Runner browser khóa lại filter, trạng thái card, CTA và escaping thật.
+      - name: Kiểm luồng Listening Full Tests native
+        run: node tooling/verify-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Mini Tests có score không cố định và completion dựa trên submitted.
+      - name: Kiểm luồng Listening Mini Test native
+        run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Skill Drills có nav 11 dạng, ladder L/T và completion theo submitted.
+      - name: Kiểm luồng Listening Skills native
+        run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Luyện nhanh có overview-driven tabs, cache theo tab và hash selection.
+      - name: Kiểm luồng Listening Practice native
+        run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Landing dùng overview để quyết định card nào có đích chạy thật.
+      - name: Kiểm luồng Listening Landing native
+        run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
+      - name: Kiểm luồng Listening Browse native
+        run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Analytics khóa range contract, weighted denominators và trạng thái
+      # recent/empty/error trên browser thật.
+      - name: Kiểm luồng Listening Analytics native
+        run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
