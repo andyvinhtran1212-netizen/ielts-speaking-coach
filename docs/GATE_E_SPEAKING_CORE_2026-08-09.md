@@ -71,14 +71,33 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 đã chứng minh state React, canonical bootstrap và request count. Đây mới là exit
 1; chưa thay thế bằng chứng mutation/reload, device matrix hoặc rollback drill.
 
+### Browser exit 2 finding
+
+- **Root cause:** `SpeakingFullTestController` giữ raw `window.setTimeout` và
+  `window.clearTimeout`, rồi gọi chúng qua thuộc tính của controller. Chrome gắn
+  sai receiver và ném `Illegal invocation` ngay khi upload/finalize đi vào settle
+  wrapper; Node unit tests không mô phỏng Web IDL receiver nên đã bỏ lọt.
+- **Severity:** Critical — browser không thể xác nhận upload, retry hoặc finalize;
+  bản ghi duy nhất có thể bị kẹt ở trạng thái chưa xác nhận.
+- **Impacted file/function:**
+  `frontend/lib/speaking-full-test-controller.mjs`, constructor và
+  `#settleWithin()`.
+- **Minimal fix:** bind hai timer mặc định về `globalThis`; giữ nguyên injected
+  timer cho unit tests.
+- **Verification:** browser gửi multipart thật, mô phỏng response bị mất sau
+  commit, reconcile sealed receipt, reload vào câu kế tiếp, retry đúng blob,
+  retry finalize và reconcile finalize đã commit mà không POST lần hai.
+
 ## Exit còn lại trước khi `route_ready: true`
 
 1. ✅ Browser fixture baseline: practice, `test_part`, `test_full`, Part 2,
    assignment sheet và sealed mock — 6/6 trên hydrated `/practice/session`,
    backend/Supabase/CDN đều fixture và không chạm dữ liệu thật. CI chạy cùng
    workflow E2E advisory qua `npm run test:e2e:gate-e`.
-2. Chạy browser fixture chứng minh native reload/resume + retry/finalize vừa được
-   unit-test; gồm sealed mock và network-after-commit, không chỉ source sentinel.
+2. ✅ Browser mutation/recovery: sealed upload network-after-commit + reload,
+   exact-blob retry + finalize barrier, failed-finalize retry, và finalize
+   network-after-commit reconcile không POST trùng. Tổng Gate E Chromium hiện
+   10/10; đây là runtime evidence, không phải source sentinel.
 3. Chạy Chromium/WebKit/iPhone emulation và real Safari/iOS evidence theo device
    matrix; kiểm microphone permission denied/retry/background-tab lifecycle.
 4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
@@ -136,13 +155,13 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   là ba state riêng, không bao giờ rơi xuống điểm tạm từ response feedback.
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
-- Bằng chứng hiện tại gồm unit/source contract, full build/suite và browser
-  baseline sáu shape. Mutation/reload, device matrix và rollback live drill vẫn
-  là exit riêng, nên `route_ready=false` giữ nguyên.
+- Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
+  baseline sáu shape và bốn mutation/recovery flow. Device matrix và rollback
+  live drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (6 native browser fixtures)
+- `npm run test:e2e:gate-e` (10 native browser fixtures)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites

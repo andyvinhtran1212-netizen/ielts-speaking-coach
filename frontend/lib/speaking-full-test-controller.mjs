@@ -79,8 +79,12 @@ export class SpeakingFullTestController {
     this.finalizeSettleMs = Number.isFinite(environment.finalizeSettleMs)
       ? Math.max(1, environment.finalizeSettleMs)
       : DEFAULT_FINALIZE_SETTLE_MS;
-    this.setTimer = environment.setTimer || globalThis.setTimeout;
-    this.clearTimer = environment.clearTimer || globalThis.clearTimeout;
+    // Browser timer functions require Window as their receiver. Keeping the
+    // raw function and later calling `this.setTimer(...)` binds the controller
+    // as `this`, which Chrome rejects with "Illegal invocation" exactly when
+    // the first real upload/finalize reaches its settle deadline wrapper.
+    this.setTimer = environment.setTimer || globalThis.setTimeout?.bind(globalThis);
+    this.clearTimer = environment.clearTimer || globalThis.clearTimeout?.bind(globalThis);
     this.ownerId = null;
     this.controllerId = cleanId(environment.controllerId)
       || `speaking-full-test-${Date.now()}-${++controllerSequence}`;
