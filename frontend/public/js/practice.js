@@ -380,7 +380,10 @@
       && typeof recorder.start === 'function'
       && typeof recorder.stop === 'function'
       && typeof recorder.reset === 'function'
+      && typeof recorder.release === 'function'
       && typeof recorder.destroy === 'function'
+      && typeof recorder.isStarting === 'function'
+      && typeof recorder.getAnalyser === 'function'
       ? recorder
       : null;
   }
@@ -423,7 +426,16 @@
         },
         onRecorded: _handleRecordedBlob,
       });
-      if (!started) return false;
+      if (!started) {
+        // A concurrent click may still own the pending permission request; a
+        // sheet slot may also deliberately cancel it. Neither is a mic error.
+        var cancelled = nativeRecorder.isStarting()
+          || (_sheetActive() && _sheet.recIdx === -1);
+        if (!cancelled) {
+          _showRecError('Không thể bắt đầu ghi âm. Hãy kiểm tra microphone rồi thử lại.');
+        }
+        return false;
+      }
       _analyser = nativeRecorder.getAnalyser();
       _startWaveform();
       _showRecSub('recording');
@@ -548,18 +560,45 @@
   // ── Recording: stop ───────────────────────────────────────────────────────────
 
   function stopRecording() {
-    if (_recSubState !== 'recording') return;
+    if (_recSubState !== 'recording') return false;
     if (_timerId) { clearInterval(_timerId); _timerId = null; }
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.stop();
-      return;
+      if (nativeRecorder.stop()) return true;
+      return _handleRecordingStopFailure();
     }
     if (_recorder && _recorder.state !== 'inactive') {
-      _recorder.stop();
-      // onstop callback → _showRecSub('recorded')
+      try {
+        _recorder.stop();
+        // onstop callback → _showRecSub('recorded')
+        return true;
+      } catch (_) {
+        return _handleRecordingStopFailure();
+      }
     }
+    return false;
+  }
+
+  function _handleRecordingStopFailure() {
+    // The controller has already failed closed, but legacy MediaRecorder may
+    // still own a stream. Cleanup is idempotent for both implementations.
+    _releaseRecorderResources();
+    _showRecSub('idle');
+    var message = 'Không dừng được ghi âm. Hãy thử ghi lại.';
+    if (_sheetActive() && _sheet.recIdx !== -1) {
+      var slot = _sheet.slots[_sheet.recIdx];
+      if (slot) {
+        slot.state = slot.prevState || slot.hadWork || 'idle';
+        slot.prevState = null;
+        slot.error = message;
+      }
+      _sheet.recIdx = -1;
+      _renderSheet();
+    } else {
+      _showRecError(message);
+    }
+    return false;
   }
 
   // ── Recording: reset (re-record) ──────────────────────────────────────────────
@@ -2223,6 +2262,11 @@
   }
 
   async function _startP2Speaking() {
+    // Part 2 has its own recorder entry point, so clear any previous take even
+    // when the native controller owns the device lifecycle.
+    _audioChunks = [];
+    _recordedBlob = null;
+    _elapsedSecs = 0;
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
       try {
@@ -2231,7 +2275,14 @@
           maxSeconds: 0,
           onRecorded: _handleP2RecordedBlob,
         });
-        if (!started) return;
+        if (!started) {
+          // A concurrent start is still in charge and should stay silent. Any
+          // settled false result otherwise needs a visible recovery path.
+          if (!nativeRecorder.isStarting()) {
+            showError('Không thể bắt đầu ghi âm. Hãy kiểm tra microphone rồi thử lại.');
+          }
+          return;
+        }
         _analyser = nativeRecorder.getAnalyser();
       } catch (err) {
         showError(err && err.message ? err.message : 'Không thể mở microphone.');
@@ -2327,12 +2378,20 @@
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.stop();
+      if (!nativeRecorder.stop()) {
+        _releaseRecorderResources();
+        showError('Không dừng được ghi âm. Hãy thử lại phần nói này.');
+      }
       return;
     }
     if (_recorder && _recorder.state !== 'inactive') {
-      _recorder.stop();
-      // onstop → _startProcessing
+      try {
+        _recorder.stop();
+        // onstop → _startProcessing
+      } catch (_) {
+        _releaseRecorderResources();
+        showError('Không dừng được ghi âm. Hãy thử lại phần nói này.');
+      }
     }
   }
 
@@ -3313,7 +3372,21 @@
   async function _sheetToggleRec(i) {
     var s = _sheet && _sheet.slots[i];
     if (!s) return;
-    if (_sheet.recIdx === i) { stopRecording(); return; }
+    if (_sheet.recIdx === i) {
+      var pendingRecorder = _getNativeRecorder();
+      if (pendingRecorder && pendingRecorder.isStarting()) {
+        pendingRecorder.reset();
+        _analyser = null;
+        s.state = s.prevState || s.hadWork || 'idle';
+        s.prevState = null;
+        s.error = null;
+        _sheet.recIdx = -1;
+        _renderSheet();
+        return;
+      }
+      stopRecording();
+      return;
+    }
     if (_sheet.recIdx !== -1) return;      // một micro: ô khác đang ghi
     // Nhớ trạng thái CŨ để trả lại nguyên vẹn nếu micro không mở được.
     var prevState = s.state;
@@ -3325,6 +3398,7 @@
     // ghi lại mà hỏng phải quay về 'saved' — hạ nó xuống 'ungraded' là giấu mất
     // nút "Xem nhận xét" của một bài ĐÃ CHẤM XONG trên máy chủ.
     s.hadWork = (prevState === 'saved' || prevState === 'ungraded') ? prevState : null;
+    s.prevState = prevState;
     s.error = null;
     s.state = 'recording';
     _sheet.recIdx = i;
@@ -3339,12 +3413,16 @@
     } catch (err) {
       ok = false;
     }
+    // The same button can cancel a native start while getUserMedia is pending.
+    // Its original invocation resumes later and must not overwrite that reset.
+    if (_sheet.recIdx !== i) return;
     if (!ok) {
       // Trả về ĐÚNG trạng thái trước đó, đừng suy từ `band`. Ô 'ungraded' cố ý
       // không có band, nên suy-từ-band sẽ hạ nó xuống 'idle' — tức là vứt một
       // bài ĐÃ LÊN MÁY CHỦ khỏi số đếm và khoá lại nút Nộp, chỉ vì micro không
       // mở được ở lần thử lại (codex #942).
       s.state = prevState;
+      s.prevState = null;
       s.error = 'Không ghi âm được. Kiểm tra quyền dùng micro rồi thử lại.';
       _sheet.recIdx = -1;
       _renderSheet();
@@ -3361,6 +3439,7 @@
     // trước đó đã đặt lại recIdx). Không có ô để gắn thì bỏ bản ghi còn hơn
     // `slots[-1].state = …` làm nổ trang giữa lúc học viên đang làm bài.
     if (!s) return;
+    s.prevState = null;
     _sheet.recIdx = -1;
     s.state = 'grading';
     _renderSheet();
@@ -3478,6 +3557,10 @@
   async function _sheetSubmit() {
     var btn = $('btn-sheet-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
+    // Completion may fail and leave the learner on this page. Release rather
+    // than destroy so the microphone indicator always turns off and a retry or
+    // re-record can still acquire a fresh controller session.
+    _releaseRecorderResources();
     try {
       await window.api.patch('/sessions/' + _sessionId + '/complete', {});
     } catch (err) {
@@ -3505,7 +3588,7 @@
     _stopWaveform();
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
-      nativeRecorder.destroy();
+      nativeRecorder.release();
     } else {
       if (_recorder && _recorder.state !== 'inactive') {
         _recorder.onstop = null;
