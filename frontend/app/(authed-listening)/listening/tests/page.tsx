@@ -3,7 +3,6 @@
 // `listening.css` của layout — đúng thứ tự bản legacy.
 import type { Metadata } from 'next';
 
-import { ListeningTestsShell } from './page-shell';
 import { ListeningTestsBehavior } from './listening-tests-behavior';
 
 export const metadata: Metadata = {
@@ -18,9 +17,7 @@ export default function ListeningTestsPage() {
       <link rel="stylesheet" href="/css/listening-tests.css" />
       {/* @ts-ignore */}
       <aver-chrome active="listening" />
-      <ListeningTestsShell>
-        <ListeningTestsBehavior />
-      </ListeningTestsShell>
+      <ListeningTestsBehavior />
     </>
   );
 }

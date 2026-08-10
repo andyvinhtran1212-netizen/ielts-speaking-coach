@@ -19,21 +19,23 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
     reading_exam: Object.freeze({
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['test_id', 'share']),
-      allowed_query: Object.freeze(['test_id', 'share', 'sitting_id', 'mock_embed', 'from']),
+      allowed_query: Object.freeze([
+        'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
+      ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
       next: Object.freeze({ path: '/reading/exam/session', route_ready: false }),
     }),
     listening_test: Object.freeze({
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['id']),
-      allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from']),
+      allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
       next: Object.freeze({ path: '/listening/test/session', route_ready: false }),
     }),
     listening_dictation: Object.freeze({
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['test_id']),
-      allowed_query: Object.freeze(['test_id']),
+      allowed_query: Object.freeze(['test_id', 'section']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
       next: Object.freeze({ path: '/listening/dictation/session', route_ready: false }),
     }),
@@ -62,6 +64,12 @@ function scalarQueryValue(value, key) {
   throw new Error(`invalid-core-player-query:${key}`);
 }
 
+function isSafeSameOriginPath(value) {
+  if (typeof value !== 'string' || !/^\/(?!\/)[A-Za-z0-9._/-]+$/.test(value)) return false;
+  if (value.includes('//')) return false;
+  return value.split('/').every((segment) => segment !== '.' && segment !== '..');
+}
+
 export function validateCorePlayerAffinityPolicy(policy = CORE_PLAYER_AFFINITY_POLICY) {
   const errors = [];
   if (policy?.schema_version !== 1) errors.push('schema-version-invalid');
@@ -72,11 +80,14 @@ export function validateCorePlayerAffinityPolicy(policy = CORE_PLAYER_AFFINITY_P
     if (!policy?.surfaces?.[surface]) errors.push(`${surface}:surface-missing`);
   }
   for (const [surface, config] of Object.entries(policy?.surfaces || {})) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      errors.push(`${surface}:surface-invalid`);
+      continue;
+    }
     if (!IMPLEMENTATIONS.has(config.admit_new)) errors.push(`${surface}:admission-invalid`);
     for (const implementation of IMPLEMENTATIONS) {
       const target = config[implementation];
-      if (!/^\/(?!\/)/.test(target?.path || '') || /[?#]/.test(target?.path || '') ||
-          (target?.path || '').split('/').includes('..')) {
+      if (!isSafeSameOriginPath(target?.path)) {
         errors.push(`${surface}:${implementation}-path-invalid`);
       }
       if (typeof target?.route_ready !== 'boolean') {
@@ -85,11 +96,15 @@ export function validateCorePlayerAffinityPolicy(policy = CORE_PLAYER_AFFINITY_P
     }
     if (config.legacy?.path === config.next?.path) errors.push(`${surface}:paths-not-distinct`);
     if (config[config.admit_new]?.route_ready !== true) errors.push(`${surface}:admission-route-not-ready`);
-    if (!Array.isArray(config.identity_query_any_of) || !config.identity_query_any_of.length) {
+    const identityKeys = config.identity_query_any_of;
+    const allowedKeys = config.allowed_query;
+    if (!Array.isArray(identityKeys) || !identityKeys.length ||
+        identityKeys.some((key) => typeof key !== 'string' || !/^[A-Za-z0-9_]+$/.test(key))) {
       errors.push(`${surface}:identity-query-missing`);
     }
-    if (!Array.isArray(config.allowed_query) ||
-        config.identity_query_any_of?.some((key) => !config.allowed_query.includes(key))) {
+    if (!Array.isArray(allowedKeys) ||
+        allowedKeys.some((key) => typeof key !== 'string' || !/^[A-Za-z0-9_]+$/.test(key)) ||
+        (Array.isArray(identityKeys) && identityKeys.some((key) => !allowedKeys.includes(key)))) {
       errors.push(`${surface}:query-contract-invalid`);
     }
   }

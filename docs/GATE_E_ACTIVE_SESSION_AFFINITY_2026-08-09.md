@@ -48,8 +48,11 @@ ghi attempt. Biết một URL Next không cấp thêm quyền dữ liệu.
 `core-player-affinity.mjs` hiện chỉ là nguồn admission của sáu launcher Next cho
 Speaking/Reading/Listening đã liệt kê trong executable test. Các launcher legacy
 như mock-exam runner và My Class vẫn cố ý mở player legacy; chúng chưa được gọi
-là đã cutover và phải được chuyển theo cluster tương ứng. Vì thế local drill
-không chứng minh “mọi attempt mới của toàn hệ thống” đã qua một global switch.
+là đã cutover và phải được chuyển theo cluster tương ứng. Ngoài ra,
+`frontend/public/js/listening-test-player.js` còn mở dictation từ màn kết quả;
+cross-player entry này cũng phải đi qua admission policy khi migrate Listening.
+Vì thế local unit test không chứng minh “mọi attempt mới của toàn hệ thống” đã
+qua một global switch.
 
 Writing là trường hợp có trước foundation: `/writing/dashboard` đã là Next,
 trong khi `/pages/writing-dashboard.html` vẫn sống làm vế parity/rollback. Nó ở
@@ -77,7 +80,14 @@ coverage Speaking/Reading/Listening thay cho evidence Writing.
    thời gian trôi tự đóng điều kiện này; cần zero-active query hoặc exception có
    owner trước retirement.
 
-## Drill đã chạy trong batch
+**Hard invariant:** dark-route readiness/floor và admission cutover phải ở
+**khác PR và khác commit**. PR/commit A bật `next.route_ready`, merge và deploy
+để xác lập rollback floor; chỉ PR/commit B, là descendant đã được verify của
+floor đó, mới được đổi `admit_new` sang `next`. Không được gộp hai thay đổi rồi
+coi revert commit là rollback an toàn, vì revert đó sẽ xoá chính route mà active
+Next attempt còn cần.
+
+## Unit contract đã chạy trong batch
 
 `frontend/tests/gate-e-active-session-affinity.test.mjs` chạy cùng implementation
 policy thật và kiểm:
@@ -89,7 +99,9 @@ policy thật và kiểm:
 - attempt mới sau rollback quay về legacy;
 - target Next chưa ready, thiếu identity, query ngoài allowlist hoặc
   implementation lạ đều fail closed;
-- sáu canonical Next launcher không còn hardcode player destination rời rạc.
+- sáu canonical Next launcher không còn hardcode player destination rời rạc;
+- recursive guard quét `frontend/app`, `frontend/components` và `frontend/lib`
+  (whitelist duy nhất là policy source) để shared helper mới không lách admission.
 
 ## Evidence còn thiếu trước khi đóng Gate E
 

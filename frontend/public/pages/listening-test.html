@@ -378,6 +378,7 @@
       .ft-mcq-options { padding-left: 0; }
     }
   </style>
+  <link rel="stylesheet" href="/css/listening-test-ui.css" />
 </head>
 <body class="av-page">
 
@@ -387,8 +388,9 @@
     <main class="ft-shell">
 
       <header class="ft-header">
-        <p class="eyebrow"><a href="/listening/tests" style="color: var(--av-text-secondary);">← Danh sách tests</a></p>
-        <h1>Full Test <span class="accent">·</span> <span id="ft-title">…</span></h1>
+        <a class="ft-back" href="/listening/tests">← Danh sách tests</a>
+        <p class="eyebrow" id="ft-kind">LISTENING TEST</p>
+        <h1><span id="ft-title">…</span></h1>
         <p class="subtitle" id="ft-subtitle">Đang tải bài thi…</p>
       </header>
 
@@ -401,14 +403,18 @@
 
       <!-- Pre-start screen -->
       <section id="ft-prestart" class="ft-prestart" hidden>
-        <h2 id="ft-prestart-title">Sẵn sàng bắt đầu</h2>
+        <div class="ft-prestart-intro">
+          <p class="ft-step-label">TRƯỚC KHI BẮT ĐẦU</p>
+          <h2 id="ft-prestart-title">Sẵn sàng bắt đầu</h2>
+          <p class="ft-prestart-copy">Kiểm tra âm lượng, đọc nhanh quy tắc và bắt đầu khi bạn có thể tập trung trọn lượt nghe.</p>
+        </div>
         <div class="ft-rules">
-          <p><strong>Quy tắc thi Cambridge IELTS Listening:</strong></p>
+          <p><strong>Cách bài test hoạt động</strong></p>
           <ul>
             <li><span id="ft-prestart-rule-count">40 câu trên 4 sections</span>, làm trong một lượt nghe.</li>
-            <li>Audio <strong>không tua lại</strong> — bạn chỉ nghe được 1 lần như đề thật.</li>
+            <li id="ft-prestart-audio-rule">Audio <strong>không tua lại</strong> — bạn chỉ nghe được 1 lần như đề thật.</li>
             <li>Đáp án được lưu tự động lên máy chủ — không cần bấm save. Nếu có câu chưa lưu được, hệ thống sẽ báo rõ ở cuối trang.</li>
-            <li>Có thể tạm dừng audio nếu cần nghỉ giữa chừng.</li>
+            <li id="ft-prestart-control-rule">Kiểm tra âm lượng trước khi bắt đầu; trong lúc làm bài bạn chỉ có thể điều chỉnh âm lượng.</li>
             <li>Sau khi nộp bài, bạn sẽ thấy điểm + band ước tính + phân tích bẫy.</li>
           </ul>
         </div>
@@ -417,8 +423,10 @@
              the obvious action, and so the mock embed's auto-click finds it
              first (mock-exam-hook.js prefers #ft-resume-btn). -->
         <p id="ft-resume-note" class="ft-resume-note" hidden></p>
-        <button class="ft-control-btn" id="ft-resume-btn" type="button" hidden>Tiếp tục bài đang làm</button>
-        <button class="ft-control-btn" id="btn-start" type="button">Bắt đầu test</button>
+        <div class="ft-prestart-actions">
+          <button class="ft-control-btn" id="ft-resume-btn" type="button" hidden>Tiếp tục bài đang làm</button>
+          <button class="ft-control-btn" id="btn-start" type="button">Bắt đầu test <span aria-hidden="true">→</span></button>
+        </div>
       </section>
 
       <!-- Player (audio + question paper) -->
@@ -495,9 +503,13 @@
 
       <!-- Result panel -->
       <section id="ft-result" class="ft-result" hidden>
-        <h2>Kết quả</h2>
+        <header class="ft-result-intro">
+          <p class="ft-step-label">HOÀN THÀNH</p>
+          <h2>Kết quả lượt nghe</h2>
+          <p>Đọc nhanh điểm số, sau đó mở phần chữa bài để nghe lại đúng đoạn và hiểu từng lỗi.</p>
+        </header>
         <div class="ft-result-grid">
-          <div class="ft-stat-card">
+          <div class="ft-stat-card ft-stat-card--featured">
             <span class="ft-stat-label">Điểm</span>
             <span class="ft-stat-value" id="res-score">0/40</span>
           </div>
@@ -511,29 +523,37 @@
           </div>
         </div>
 
-        <div>
-          <div class="ft-section-meta">Theo section</div>
-          <div class="ft-section-breakdown" id="res-sections"></div>
+        <div class="ft-result-analysis">
+          <section class="ft-result-block">
+            <div class="ft-section-meta">Theo section</div>
+            <div class="ft-section-breakdown" id="res-sections"></div>
+          </section>
+
+          <section class="ft-result-block" id="res-trap-block" hidden>
+            <div class="ft-section-meta">Phân tích bẫy</div>
+            <div class="ft-trap-list" id="res-trap"></div>
+          </section>
         </div>
 
-        <div id="res-trap-block" hidden>
-          <div class="ft-section-meta">Phân tích bẫy</div>
-          <div class="ft-trap-list" id="res-trap"></div>
-        </div>
-
-        <div>
+        <section class="ft-result-block ft-result-block--questions">
           <div class="ft-section-meta">Chi tiết câu hỏi</div>
           <div class="ft-per-q-list" id="res-per-q"></div>
-        </div>
+        </section>
 
-        <div style="display:flex; gap: var(--av-space-3); flex-wrap: wrap;">
-          <!-- listening-review-ui — full-screen chữa-bài for this attempt -->
-          <a class="ft-control-btn" id="res-chuabai" href="#">📖 Xem chữa bài</a>
-          <!-- Dictation (chép chính tả) for this same test — reuses the
-               test's audio + section transcripts. -->
-          <a class="ft-control-btn ghost" id="res-dictation" href="#">✍️ Chép chính tả</a>
-          <a class="ft-control-btn ghost" href="/listening/tests">Quay lại danh sách</a>
-          <a class="ft-control-btn ghost" href="/listening">Về trang Listening</a>
+        <div class="ft-result-actions">
+          <div class="ft-result-actions__copy">
+            <span class="ft-section-meta">BƯỚC TIẾP THEO</span>
+            <strong>Chữa các câu sai trước khi làm lại.</strong>
+          </div>
+          <div class="ft-result-actions__buttons">
+            <!-- listening-review-ui — full-screen chữa-bài for this attempt -->
+            <a class="ft-control-btn" id="res-chuabai" href="#">Xem chữa bài <span aria-hidden="true">→</span></a>
+            <!-- Dictation (chép chính tả) for this same test — reuses the
+                 test's audio + section transcripts. -->
+            <a class="ft-control-btn ghost" id="res-dictation" href="#">Chép chính tả</a>
+            <a class="ft-text-link" href="/listening/tests">Quay lại danh sách</a>
+            <a class="ft-text-link" href="/listening">Về trang Listening</a>
+          </div>
         </div>
       </section>
     </main>

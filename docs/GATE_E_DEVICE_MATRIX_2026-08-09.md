@@ -1,6 +1,6 @@
 # Gate E device matrix v1 — 2026-08-09
 
-**Trạng thái:** AUTOMATED FOUNDATION READY; REAL SAFARI/iOS PENDING. Artifact
+**Trạng thái:** AUTOMATED MATRIX EXECUTED; REAL SAFARI/iOS PENDING. Tài liệu
 này không tuyên bố Gate E PASS.
 
 ## Root cause và phạm vi sửa
@@ -12,13 +12,15 @@ này không tuyên bố Gate E PASS.
 - **Impacted files/functions:** `frontend/playwright.staging.config.js` projects
   và reporter; `.github/workflows/staging-e2e.yml` install/run/artifact steps;
   `frontend/tests/staging-e2e/device-matrix.spec.js`.
-- **Minimal fix đã làm:** giữ mutation-heavy core suite chạy đúng một lần trên
-  Chromium; chạy browser seam riêng trên Chromium desktop, WebKit desktop và
-  WebKit/iPhone 13 emulation; xuất JSON result + exact matrix metadata sau mọi
-  outcome.
-- **Verification:** contract test khóa project isolation, versions, retry=0,
-  artifact always-upload và real-device pending state; manual/nightly staging
-  workflow phải xanh cả ba matrix projects.
+- **Minimal fix đã làm:** cấu hình mutation-heavy core suite chạy đúng một lần
+  trên Chromium; cấu hình browser seam riêng trên Chromium desktop, WebKit
+  desktop và WebKit/iPhone 13 emulation; thêm writer/upload cho JSON result +
+  exact matrix metadata sau mọi outcome có thể thu artifact.
+- **Verification:** contract test đọc resolved Playwright projects để khóa
+  project isolation, toàn bộ project set, versions, retry=0, timeout 30 phút,
+  fail-closed browser/result metadata, điều kiện upload và real-device pending
+  state. Manual/nightly staging workflow vẫn phải chạy xanh core project và cả
+  ba matrix projects trước khi ghi nhận execution evidence.
 
 ## Matrix versioned
 
@@ -35,23 +37,59 @@ Canonical manifest: `frontend/tooling/gate-e-device-matrix.json`.
 kill switch global. Toàn bộ core suite không được nhân ba: việc đó vừa kéo dài
 quá timeout vừa lặp mutation không tạo thêm browser evidence.
 
+## Automated execution evidence
+
+Manual workflow run
+[`31348712238`](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/31348712238)
+đã xanh trên SHA `bff32975f32681a0bb8411891cec801dc167c469` với artifact
+`gate-e-device-matrix-31348712238-1`:
+
+- core Chromium: 27 discovered, 26 executed/passed, 1 intentional skip;
+- Chromium matrix desktop: 2/2 passed, 0 skip;
+- WebKit matrix desktop: 2/2 passed, 0 skip;
+- WebKit/iPhone 13 emulation: 2/2 passed, 0 skip;
+- `matrix_complete: true`, `report_error_count: 0`,
+  `report_unexpected_count: 0`.
+
+Đây là automated/synthetic evidence cho matrix v1, không thay thế hai evidence
+real-device còn pending bên dưới.
+
 ## Artifact contract
 
-Mỗi workflow run upload artifact
+Mỗi workflow run hoàn tất tới bước matrix evidence sẽ upload artifact
 `gate-e-device-matrix-<run_id>-<run_attempt>` trong 30 ngày, gồm:
 
 - `gate-e-device-matrix-evidence.json`: matrix id, SHA/ref, workflow/run/attempt,
   outcome, runner OS, Node/Playwright version, Chromium/WebKit revision và các
-  real-device requirement;
-- `gate-e-staging-provenance.json`: Vercel frontend release + git ref và Railway
-  backend release + git branch, đã sanitize;
-- `gate-e-streak-ledger.json`: candidate clean streak, reset reasons và ba cờ
-  threshold/failure-matrix/real-device eligibility;
+  real-device requirement; kèm số test discovered/executed/passed/failed/skipped
+  theo từng project và cờ `matrix_complete`;
 - `staging-e2e-results.json`: kết quả Playwright theo project/test.
 
-Metadata step và upload dùng `if: always()`, vì run đỏ/cancelled cũng là evidence
-và phải bẻ streak ở batch sau. Artifact không chứa bypass token, password, JWT,
-storage state hay response body có dữ liệu tài khoản.
+Hai artifact độc lập cùng run giữ provenance và streak ngay cả khi matrix writer
+không thể hoàn tất:
+
+- `gate-e-staging-provenance-<run_id>-<run_attempt>` chứa Vercel frontend
+  release/git ref và Railway backend release đọc qua endpoint admin-only;
+- `gate-e-streak-ledger-<run_id>-<run_attempt>` chứa candidate streak, reset
+  reasons, ba cờ threshold/failure-matrix/real-device eligibility và bản raw
+  `staging-e2e-results.json` để audit độc lập với matrix writer. Hai file được
+  kiểm tồn tại rồi mới copy vào bundle; thiếu raw report chỉ tạo artifact
+  `gate-e-streak-reset-*`, không phải candidate evidence. Run có raw report
+  nhưng ledger `clean=false` cũng dùng tên reset; chỉ clean candidate dùng tên
+  `gate-e-streak-ledger-*`.
+
+Metadata step dùng `if: always()` để giữ evidence của run đỏ khi runner còn hoạt
+động. Writer chỉ thành công khi JSON report tồn tại, project set khớp manifest và
+mỗi project đã thực thi ít nhất một test. Skip có chủ đích của core suite được
+ghi vào counts; riêng ba bounded matrix projects phải chạy đủ, không skip.
+Upload chỉ chạy sau writer thành công, nên artifact không thể chỉ có một trong
+hai file. Run cancelled, report không hoàn tất hoặc thiếu artifact vẫn phải bẻ
+streak ở batch sau dựa trên GitHub run conclusion; không được suy diễn là
+artifact chắc chắn tồn tại sau mọi kiểu hủy.
+Artifact không chứa bypass token, `E2E_PASSWORD`, user session token hay storage
+state. Failure message có thể chứa nội dung public của runtime config (gồm public
+Supabase anon key); không được coi artifact là nơi lưu secret hoặc dữ liệu tài
+khoản.
 
 ## Real-device requirements còn mở
 

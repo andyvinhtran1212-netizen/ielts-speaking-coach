@@ -4,31 +4,38 @@
 // versioned real-device requirements stay pending in the matrix manifest.
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { primeBypassCookie } = require('./helpers');
+const { PRODUCTION_ORIGINS, primeBypassCookie } = require('./helpers');
+const { automated_projects: automatedProjects } = require('../../tooling/gate-e-device-matrix.json');
 
-const MATRIX_PROJECTS = new Set([
-  'matrix-chromium-148-desktop',
-  'matrix-webkit-26.4-desktop',
-  'matrix-webkit-26.4-iphone13',
-]);
-const PRODUCTION_ORIGINS = [
-  'ielts-speaking-coach-production.up.railway.app',
-  'huwsmtubwulikhlmcirx.supabase.co',
-];
+const MATRIX_PROJECTS = new Set(
+  automatedProjects
+    .filter((project) => project.scope === 'device-matrix-spec')
+    .map((project) => project.project),
+);
+/** @type {WeakMap<import('@playwright/test').Page, string[]>} */
+const productionRequestsByPage = new WeakMap();
 
-test.beforeEach(async ({ context, baseURL }, testInfo) => {
+test.beforeEach(async ({ context, baseURL, page }, testInfo) => {
   expect(MATRIX_PROJECTS.has(testInfo.project.name)).toBe(true);
-  await primeBypassCookie(context, baseURL);
-});
-
-test('Next → legacy → Next seam keeps origin storage and never calls production', async ({ page }) => {
-  /** @type {string[]} */ const productionRequests = [];
+  const productionRequests = [];
+  productionRequestsByPage.set(page, productionRequests);
   page.on('request', (request) => {
     if (PRODUCTION_ORIGINS.some((origin) => request.url().includes(origin))) {
       productionRequests.push(request.url());
     }
   });
+  await primeBypassCookie(context, baseURL);
+});
 
+test.afterEach(async ({ page }) => {
+  const productionRequests = productionRequestsByPage.get(page) || [];
+  expect(
+    productionRequests,
+    `production egress during matrix test: ${productionRequests.join(', ')}`,
+  ).toEqual([]);
+});
+
+test('Next → legacy → Next seam keeps origin storage and never calls production', async ({ page }) => {
   await page.goto('/next-probe');
   await expect(page.locator('h1')).toHaveText('next-probe');
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
@@ -43,7 +50,6 @@ test('Next → legacy → Next seam keeps origin storage and never calls product
   await page.evaluate(() => window.location.assign('/next-probe'));
   await page.waitForURL('**/next-probe');
   expect(await page.evaluate(() => localStorage.getItem('av-theme'))).toBe('dark');
-  expect(productionRequests).toEqual([]);
 });
 
 test('signed-out private route fails closed and login has no horizontal overflow', async ({ page }) => {

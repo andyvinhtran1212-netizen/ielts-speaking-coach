@@ -45,6 +45,8 @@ on:
       - 'README.md'
       - 'PHASE_CLOSURE_LEDGER.md'
       - 'docs/SITE_OVERVIEW.md'
+      # Gate E preflight đối chiếu trực tiếp bốn exit criteria từ master plan.
+      - 'docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md'
       # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
       # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
       - 'docs/ROUTE_LEDGER.md'
@@ -52,13 +54,14 @@ on:
       # parity đều có lý do ghi lại.
       - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
       # `gate-e-preflight-contract.test.mjs` khóa trạng thái readiness và
-      # boundary resume theo đúng evidence hiện có. Cả hai tài liệu phải tự
-      # kích hoạt chốt này khi bị sửa riêng lẻ.
+      # boundary resume theo đúng evidence hiện có. Các tài liệu evidence phải
+      # tự kích hoạt chốt này khi bị sửa riêng lẻ.
       - 'docs/GATE_E_PREFLIGHT_2026-08-09.md'
       - 'docs/GATE_E_DEVICE_MATRIX_2026-08-09.md'
       - 'docs/GATE_E_STREAK_LEDGER_2026-08-09.md'
       - 'docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md'
       - 'docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md'
+      - 'docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md'
       - 'docs/brand/assets/**'
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
@@ -135,13 +138,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # The frontend tests are pure node:test files — no transpile, no
-    # bundler. They exercise contracts (HTML structure, CSS token
-    # discipline, theme-toggle exports, IIFE patterns) rather than
-    # rendered behavior, so a single Node setup with no dependencies
-    # is enough. Test files are listed explicitly rather than via glob
-    # so a rogue *.test.js committed to the wrong directory can't
-    # silently break the gate.
+    # Most frontend tests are pure node:test contracts. Gate E also resolves
+    # the checked-in Playwright config and validates playwright-core's pinned
+    # browser metadata, so the main lockfile must be installed fail-closed.
 
     steps:
       - name: Checkout
@@ -151,6 +150,10 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
       # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
       # Rebuild it from the SAME pinned toolchain + config and fail if it differs:

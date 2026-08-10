@@ -13,12 +13,15 @@ const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'skills', 'listening-skills-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 
 describe('/listening/skills — native React behavior', () => {
-  test('removes legacy injection and delegates the dynamic surface to React', () => {
+  test('removes legacy injection and lets React own the complete dynamic surface', () => {
     assert.doesNotMatch(PAGE, /LegacyModule|listening-skills\.js|watchdogScript|HydratedSignal/);
     assert.doesNotMatch(PAGE, /<script|dangerouslySetInnerHTML|modulepreload/);
     assert.match(PAGE, /<ListeningSkillsBehavior\s*\/>/);
+    assert.doesNotMatch(PAGE, /ListeningSkillsShell/);
+    assert.match(BEHAVIOR, /<ListeningSkillsShell/);
     assert.match(SHELL, /\{children\}/);
   });
 
@@ -26,8 +29,9 @@ describe('/listening/skills — native React behavior', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
-    assert.match(BEHAVIOR, /status !== 'signed-in' \|\| !user\?\.id/);
-    assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
     assert.match(BEHAVIOR, /\[accountKey\]/);
   });
 
@@ -36,43 +40,66 @@ describe('/listening/skills — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(pageItems\.length < PAGE_LIMIT\) return all/);
     assert.match(BEHAVIOR, /fetchAllDrills\(controller\.signal\)/);
     assert.match(BEHAVIOR, /\{ signal \}/);
+    assert.match(BEHAVIOR, /if \(disposed\) return/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
     assert.match(BEHAVIOR, /Danh sách vượt \$\{MAX_PAGES \* PAGE_LIMIT\} mục/);
   });
 
-  test('keeps the exact 11-type catalogue and coming-soon groups', () => {
+  test('keeps the exact 11-type catalogue and a disabled state for unavailable types', () => {
     for (const key of ['form', 'note', 'table', 'flowchart', 'sentence', 'summary',
       'short_answer', 'mcq', 'mcq_multi', 'matching', 'map']) {
       assert.match(BEHAVIOR, new RegExp(`key: '${key}'`));
     }
-    assert.match(BEHAVIOR, /drill\.drillType === skill\.key/);
-    assert.match(BEHAVIOR, /Sắp có/);
-    assert.match(BEHAVIOR, /ls-group-count/);
-    assert.match(BEHAVIOR, /\{' '\}<span className="ls-group-count">/,
-      'badge count needs an explicit text separator for legacy heading parity');
+    assert.match(BEHAVIOR, /<nav className="ls-skill-nav"/);
+    assert.match(BEHAVIOR, /disabled=\{!count\}/);
+    assert.match(BEHAVIOR, /\{count \|\| '—'\}/);
+    assert.match(BEHAVIOR, /onClick=\{\(\) => setActiveSkill\(skill\.key\)\}/);
   });
 
-  test('preserves the L/T ladder, fallback title, stats and destinations', () => {
+  test('preserves L/T sorting, title cleanup, scores and destinations', () => {
     assert.match(BEHAVIOR, /ladderNumber\(a\.level, 'L'\)/);
     assert.match(BEHAVIOR, /ladderNumber\(a\.task, 'T'\)/);
     assert.match(BEHAVIOR, /a\.testId\.localeCompare\(b\.testId\)/);
-    assert.match(BEHAVIOR, /textValue\(raw\.title\) \|\| testId \|\| 'Skill drill'/);
-    assert.match(BEHAVIOR, /Tốt nhất/);
-    assert.match(BEHAVIOR, /attempted \? 'Làm lại' : 'Luyện'/);
+    assert.match(BEHAVIOR, /split\(\/\\s\+\[—·\]\\s\+\//);
+    assert.match(BEHAVIOR, /Điểm tốt nhất <strong>\{drill\.bestScore\} điểm<\/strong>/);
     assert.match(BEHAVIOR, /admitCorePlayer\('listening_test', \{ id: drill\.id \}\)/);
     assert.match(BEHAVIOR, /admitCorePlayer\('listening_dictation', \{ test_id: drill\.id \}\)/);
   });
 
-  test('uses static SVG icons and declarative escaped content', () => {
-    assert.match(BEHAVIOR, /<svg[\s\S]*className=\{`lucide lucide-\$\{name\}`\}/);
-    assert.doesNotMatch(BEHAVIOR, /data-lucide|createIcons|innerHTML|dangerouslySetInnerHTML|eval\(/);
+  test('uses submitted attempts for completion while retaining total activity', () => {
+    assert.match(BEHAVIOR, /user_submitted_attempt_count/);
+    assert.match(BEHAVIOR, /attemptCount: nonNegativeInteger\(raw\.user_attempt_count\)/);
+    assert.match(BEHAVIOR, /submittedAttemptCount: nonNegativeInteger\(raw\.user_submitted_attempt_count\)/);
+    assert.match(BEHAVIOR, /const attempted = drill\.submittedAttemptCount > 0/);
+    assert.doesNotMatch(BEHAVIOR, /const attempted = drill\.attemptCount > 0/);
+    assert.match(BEHAVIOR, /data-status=\{attempted \? 'done' : 'new'\}/);
+    assert.match(BEHAVIOR, /\{attempted \? 'Làm lại' : 'Bắt đầu'\}/);
   });
 
-  test('keeps loading, empty, error and populated states distinct', () => {
-    assert.match(BEHAVIOR, /state\.status === 'loading'/);
-    assert.match(BEHAVIOR, /Chưa có bài luyện nào sẵn sàng\./);
-    assert.match(BEHAVIOR, /Không tải được danh sách bài luyện:/);
-    assert.match(BEHAVIOR, /<section id="ls-groups">/);
+  test('owns summary, initial skill choice, status filters and live counts in React', () => {
+    assert.match(BEHAVIOR, /const firstIncomplete = SKILLS\.find/);
+    assert.match(BEHAVIOR, /firstIncomplete \|\| firstAvailable \|\| SKILLS\[0\]/);
+    assert.match(BEHAVIOR, /useState<'all' \| 'new' \| 'done'>\('all'\)/);
+    assert.match(BEHAVIOR, /if \(filter === 'done'\) return submitted/);
+    assert.match(BEHAVIOR, /aria-pressed=\{filter === value\}/);
+    assert.match(BEHAVIOR, /\{selectedDrills\.length\}\/\{selectedTotal\} bài/);
+    assert.match(SHELL, /\{totalCount\}/);
+    assert.match(SHELL, /\{doneCount\}/);
+    assert.match(SHELL, /\{typeCount\}/);
+  });
+
+  test('uses static SVG, React escaping and non-leaking accessible states', () => {
+    assert.match(BEHAVIOR, /<svg[\s\S]*className=\{`lucide lucide-\$\{name\}`\}/);
+    assert.doesNotMatch(BEHAVIOR, /data-lucide|createIcons|innerHTML|dangerouslySetInnerHTML|eval\(/);
+    assert.match(BEHAVIOR, /id="state-loading" role="status"/);
+    assert.match(BEHAVIOR, /id="state-empty" role="status"/);
+    assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.match(BEHAVIOR, /Không tải được danh sách bài luyện\. Vui lòng thử lại\./);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(PARITY_WORKFLOW, /node tooling\/verify-listening-skills-flow\.mjs/);
   });
 
   test('is no longer hard-navigation-only', () => {
