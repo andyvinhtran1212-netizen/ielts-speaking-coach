@@ -120,6 +120,7 @@
       && typeof controller.restore === 'function'
       && typeof controller.submitAnswer === 'function'
       && typeof controller.finalizeFullTest === 'function'
+      && typeof controller.replaceChainIfCurrent === 'function'
       ? controller
       : null;
   }
@@ -131,6 +132,20 @@
       return;
     }
     try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(_ftAllSessionIds)); } catch (e) { /* storage not available */ }
+  }
+
+  function _replaceLegacyFtChainIfCurrent(expectedIds, nextIds) {
+    try {
+      var storedIds = JSON.parse(sessionStorage.getItem(FT_CHAIN_KEY) || 'null');
+      var unchanged = Array.isArray(storedIds)
+        && storedIds.length === expectedIds.length
+        && storedIds.every(function (id, index) { return id === expectedIds[index]; });
+      if (!unchanged) return false;
+      sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextIds));
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   function _loadFtChain() {
@@ -2206,8 +2221,14 @@
       _ttsAudio = null;
     };
     audio.play().catch(function (err) {
+      if (
+        !_playerActive
+        || gen !== _ttsGeneration
+        || _ttsAudio !== audio
+        || _ttsAudioUrlKey !== urlKey
+        || _ttsAudioUrl !== url
+      ) return;
       _stopAITts();
-      if (!_playerActive || gen !== _ttsGeneration) return;
       console.warn('[tts] play() rejected, falling back to browser TTS:', err);
       _tts(text);
     });
@@ -2350,6 +2371,14 @@
           };
           console.debug('[tts] sequence playing gen=%d seg=%d', gen, segIdx);
           audio.play().catch(function (err) {
+            if (
+              usedFallback
+              || !_playerActive
+              || gen !== _ttsGeneration
+              || _ttsAudio !== audio
+              || _ttsAudioUrlKey !== urlKey
+              || _ttsAudioUrl !== url
+            ) return;
             _stopAITts();
             console.warn('[tts] sequence play() rejected, falling back:', err);
             _fallback(segIdx);   // retry this segment and rest via browser TTS
@@ -2949,6 +2978,7 @@
           return _onFullTestFinalizeAccepted(
             p1, p2, p3, sittingId,
             _playerActive && generation === _playerGeneration,
+            nativeFullTest,
           );
         })
         .catch(function (err) {
@@ -2996,8 +3026,14 @@
       });
   }
 
-  function _onFullTestFinalizeAccepted(p1, p2, p3, sittingId, renderUI) {
-    _clearFtChain();
+  function _onFullTestFinalizeAccepted(
+    p1, p2, p3, sittingId, renderUI, acceptedController
+  ) {
+    // Never look up the controller again after an async finalize. The route may
+    // have remounted and installed a newer Full Test while the accepted request
+    // was settling; only the controller captured by that request may clear.
+    if (acceptedController) acceptedController.clear();
+    else _clearFtChain();
     if (renderUI !== false) _setFullTestCompletionPhase('accepted');
     // 4-skill mock: report the completed speaking sessions to the sitting
     // and hand back to the orchestrator. The durable debt queue owns retries.
@@ -3099,6 +3135,7 @@
         return _onFullTestFinalizeAccepted(
           ids[0], ids[1], ids[2], sittingId,
           _playerActive && generation === _playerGeneration,
+          nativeFullTest,
         );
       })
       .catch(function (err) {
@@ -3181,14 +3218,22 @@
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
       // Session creation is a mutation and cannot be assumed cancelled by a
-      // soft navigation. Persist the new id through the captured controller
-      // before touching UI state, even when this player has already unmounted.
+      // soft navigation. A disposed controller may extend shared storage only
+      // when no newer Full Test has replaced the exact chain it started from.
       var nextChain = priorChain.concat([newId]);
-      if (nativeFullTest) nativeFullTest.replaceChain(nextChain);
-      else {
-        try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+      var playerStillOwnsRoute = _playerActive && generation === _playerGeneration;
+      if (nativeFullTest) {
+        if (playerStillOwnsRoute) nativeFullTest.replaceChain(nextChain);
+        else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
       }
-      if (!_playerActive || generation !== _playerGeneration) return;
+      else {
+        if (playerStillOwnsRoute) {
+          try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+        } else {
+          _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
+        }
+      }
+      if (!playerStillOwnsRoute) return;
 
       // Commit module, chain and URL state together before the next network
       // mutation. The error screen then also refers to the session that truly

@@ -17,6 +17,20 @@ const BOOT = readFrontend(
 );
 const PRACTICE = readFrontend('public', 'js', 'practice.js');
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+async function flushUntil(predicate, attempts = 20) {
+  for (let i = 0; i < attempts && !predicate(); i += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(predicate(), true, 'async TTS fixture did not reach the expected state');
+}
+
 class FakeClassList {
   constructor() { this.values = new Set(); }
   toggle(name, on) { if (on) this.values.add(name); else this.values.delete(name); }
@@ -263,5 +277,98 @@ describe('Next Speaking player integration', () => {
     );
     assert.match(PRACTICE, /processingRun !== _processingRun/);
     assert.match(PRACTICE, /reviewRun !== _sheetReviewRun/);
+  });
+
+  test('a stale single-audio play rejection cannot stop the replacement audio', async () => {
+    const start = PRACTICE.indexOf('  function _stopAITts() {');
+    const end = PRACTICE.indexOf('  // Speak text using the backend /tts endpoint', start);
+    const instances = [];
+    const fallbacks = [];
+    class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.playDeferred = deferred();
+        this.pauseCount = 0;
+        instances.push(this);
+      }
+      play() { return this.playDeferred.promise; }
+      pause() { this.pauseCount += 1; }
+      removeAttribute() {}
+    }
+    const run = new Function('Audio', 'fallbacks', `
+      var _ttsAudio = null, _ttsAudioUrlKey = null, _ttsAudioUrl = null;
+      var _playerActive = true, _ttsGeneration = 0, nextUrl = 0;
+      function _createManagedObjectUrl() { nextUrl += 1; return 'blob:' + nextUrl; }
+      function _revokeManagedObjectUrl() {}
+      function _tts(text) { fallbacks.push(text); }
+      ${PRACTICE.slice(start, end)}
+      return {
+        start: function (text) {
+          _stopAITts();
+          var gen = ++_ttsGeneration;
+          _playTtsBlob({}, text, gen);
+        },
+        current: function () { return _ttsAudio; },
+      };
+    `)(FakeAudio, fallbacks);
+
+    run.start('old');
+    run.start('new');
+    assert.equal(instances[0].pauseCount, 1, 'replacement should stop the old audio once');
+    instances[0].playDeferred.reject(new Error('old play rejected late'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(run.current(), instances[1]);
+    assert.equal(instances[1].pauseCount, 0);
+    assert.deepEqual(fallbacks, []);
+  });
+
+  test('a stale sequence play rejection cannot stop the replacement sequence', async () => {
+    const start = PRACTICE.indexOf('  function _stopAITts() {');
+    const end = PRACTICE.indexOf('  // ── END AI TTS', start);
+    const instances = [];
+    const fallbacks = [];
+    class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.playDeferred = deferred();
+        this.pauseCount = 0;
+        instances.push(this);
+      }
+      play() { return this.playDeferred.promise; }
+      pause() { this.pauseCount += 1; }
+      removeAttribute() {}
+    }
+    const fakeFetch = async () => ({ ok: true, blob: async () => ({}) });
+    const run = new Function('Audio', 'fetch', 'fallbacks', `
+      var _ttsAudio = null, _ttsAudioUrlKey = null, _ttsAudioUrl = null;
+      var _playerActive = true, _ttsGeneration = 0, nextUrl = 0;
+      var _userHasInteracted = true, _ttsCache = new Map();
+      var window = { api: { base: '' } };
+      function _createManagedObjectUrl() { nextUrl += 1; return 'blob:' + nextUrl; }
+      function _revokeManagedObjectUrl() {}
+      function _tts() {}
+      function _ttsSequence(segments) { fallbacks.push(segments); }
+      function _ttsAuthHeaders() { return Promise.resolve({}); }
+      function _cancelSpeech() {}
+      function _startManagedTimeout() {}
+      ${PRACTICE.slice(start, end)}
+      return {
+        sequence: _ttsAISequence,
+        current: function () { return _ttsAudio; },
+      };
+    `)(FakeAudio, fakeFetch, fallbacks);
+
+    run.sequence(['old'], 1);
+    await flushUntil(() => instances.length === 1);
+    run.sequence(['new'], 1);
+    await flushUntil(() => instances.length === 2);
+    assert.equal(instances[0].pauseCount, 1, 'replacement should stop the old sequence once');
+    instances[0].playDeferred.reject(new Error('old sequence rejected late'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(run.current(), instances[1]);
+    assert.equal(instances[1].pauseCount, 0);
+    assert.deepEqual(fallbacks, []);
   });
 });
