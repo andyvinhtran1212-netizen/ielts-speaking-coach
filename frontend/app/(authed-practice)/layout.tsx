@@ -1,8 +1,9 @@
 // Route-group riêng cho Speaking core dark route `/practice/session`.
 //
 // Đây là hybrid có chủ đích, chưa phải native player hoàn chỉnh: App Router sở
-// hữu URL, shell, auth, bootstrap session/question và recorder lifecycle;
-// `practice.js` vẫn sở hữu upload/grading/state orchestration. Tách group để
+// hữu URL, JSX shell, auth, bootstrap session/question, recorder, submission và
+// Full Test lifecycle; `practice.js` vẫn sở hữu dynamic DOM rendering và phần
+// orchestration còn lại. Tách group để
 // CSS/script của player XL không tràn sang `/speaking`.
 import type { ReactNode } from 'react';
 

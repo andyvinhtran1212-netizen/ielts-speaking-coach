@@ -1,12 +1,13 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE; LEGACY RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX SHELL; LEGACY DYNAMIC RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
-listener, speech cùng object URL. `practice.js` vẫn dựng nội dung/feedback và gọi
-qua bridge lifecycle; route chưa ready và không nhận attempt mới.
+listener, speech cùng object URL. React dựng trực tiếp toàn bộ static player DOM,
+event handler và SVG; `practice.js` vẫn mutate nội dung/feedback động qua các ID
+tương thích. Route chưa ready và không nhận attempt mới.
 
 ## Finding
 
@@ -47,18 +48,23 @@ chứng minh recorder, upload, grading, full-test chain hoặc resume. Vì tài 
 probe không có một session fixture ổn định, không được dùng cặp này để gọi player
 ready.
 
-Shell được trích từ repository HTML tại build time và từ chối mọi `<script>`;
-scripts được layout nạp rõ thứ tự. Native bootstrap, recorder, submission, Full
+Shell không còn được trích từ `practice.html` hoặc chèn bằng
+`dangerouslySetInnerHTML`: `PracticePageShell` là JSX client component, giữ đúng
+tập ID của legacy và gọi `PracticeApp` qua handler React. Icon được nhúng SVG để
+không đua hydration với Lucide; scripts vẫn được layout nạp rõ thứ tự. Native
+bootstrap, recorder, submission, Full
 Test state và player controller đã bỏ auth/data loading, microphone, multipart,
 retry/resume/finalize, top-level state switching và resource cleanup khỏi IIFE
 trên route Next. Keyed effects được thay thế atomically và teardown khi unmount;
 async callbacks dùng generation guard, còn mutation tạo Part đã được server nhận
 vẫn ghi chain qua controller captured trước khi ngừng render. Đây vẫn là hybrid
-hữu hạn vì renderer/copy/feedback DOM còn ở `practice.js`.
+hữu hạn vì dữ liệu renderer/copy/feedback động còn được `practice.js` ghi thẳng
+vào DOM; JSX ownership không được dùng để tuyên bố native behavior.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port renderer/copy/feedback DOM sang React client components. State activation,
+1. Port renderer/copy/feedback động sang React state/client components. Static
+   player shell và event handler đã là JSX; state activation,
    Part 2 countdown, timer, blob URL, TTS và document-listener lifecycle đã thuộc
    `SpeakingPlayerController`; không gọi phần này là native renderer.
 2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
