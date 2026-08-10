@@ -4,7 +4,8 @@ const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3210';
 const OWNER = '00000000-0000-4000-8000-0000000000aa';
 const SID = '11111111-1111-4111-8111-111111111101';
-const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0**';
+const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js';
+const SUPABASE_LEGACY_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0';
 const LUCIDE_CDN = 'https://unpkg.com/lucide@1.17.0';
 
 const AUTH_SESSION = {
@@ -43,7 +44,7 @@ async function installHarness(page, {
 
   // Replace only CDN transport. AuthProvider and api.js still create and share
   // the same single client that production uses.
-  await page.route(SUPABASE_CDN, (route) => route.fulfill({
+  const fulfillSupabase = (route) => route.fulfill({
     contentType: 'application/javascript',
     body: `window.supabase = {
       createClient: function () {
@@ -57,7 +58,9 @@ async function installHarness(page, {
         } };
       }
     };`,
-  }));
+  });
+  await page.route(SUPABASE_CDN, fulfillSupabase);
+  await page.route(SUPABASE_LEGACY_CDN, fulfillSupabase);
   await page.route(LUCIDE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: 'window.lucide = { createIcons: function () {} };',

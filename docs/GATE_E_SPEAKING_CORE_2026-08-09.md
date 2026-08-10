@@ -96,7 +96,8 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    workflow E2E advisory qua `npm run test:e2e:gate-e`.
 2. ✅ Browser mutation/recovery: sealed upload network-after-commit + reload,
    partial core-row được giữ là đáp án đã lưu, canonical empty readback thu hồi
-   stale local confirmation, exact-blob retry + finalize barrier,
+   stale local confirmation, lỗi lookup trên URL Legacy giữ nguyên ledger và
+   dừng trước khi tải câu hỏi, exact-blob retry + finalize barrier,
    failed-finalize retry, và finalize network-after-commit reconcile không POST
    trùng. Đây là runtime evidence, không phải source sentinel; full-stack
    staging failure-injection vẫn được theo dõi riêng trong critical suite.
@@ -171,7 +172,7 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
-  baseline sáu shape, sáu mutation/recovery flow và automated
+  baseline sáu shape, bảy mutation/recovery flow và automated
   device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
   riêng, nên `route_ready=false` giữ nguyên.
 
