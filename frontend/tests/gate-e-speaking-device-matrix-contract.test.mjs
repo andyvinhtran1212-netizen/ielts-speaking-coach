@@ -51,17 +51,22 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
   test('automated mic scope includes retry/audio/cleanup without faking background state', () => {
     assert.match(SPEC, /NotAllowedError/);
     assert.match(SPEC, /createMediaStreamDestination/);
-    assert.match(SPEC, /gate-e-mic-stop-count/);
+    assert.match(SPEC, /page\.exposeFunction\('__gateETrackStopped'/);
+    assert.match(SPEC, /Object\.defineProperty\(media, 'getUserMedia'/);
+    assert.match(SPEC, /expect\.poll\(stoppedTracks\)/);
     assert.match(SPEC, /practice-back-link/);
+    assert.equal((SPEC.match(/^test\('/gm) || []).length, 2);
     assert.doesNotMatch(SPEC, /Object\.defineProperty\(document, ['"]visibilityState/);
     assert.doesNotMatch(SPEC, /dispatchEvent\(new Event\(['"]visibilitychange/);
     assert.match(CONFIG, /name: 'gate-e-chromium-desktop',[\s\S]*?testIgnore: WEBKIT_CAPABILITY_SPEC/);
-    assert.match(CONFIG, /IS_LINUX_CI = process\.platform === 'linux' && Boolean\(process\.env\.CI\)/);
-    assert.match(CONFIG, /name: 'gate-e-webkit-desktop',[\s\S]*?IS_LINUX_CI \? \{ testIgnore: MIC_SPEC \} : \{\}/);
-    assert.match(CONFIG, /name: 'gate-e-webkit-iphone13',[\s\S]*?IS_LINUX_CI \? \{ testIgnore: MIC_SPEC \} : \{\}/);
+    assert.match(CONFIG, /name: 'gate-e-webkit-desktop',[\s\S]*?testIgnore: MIC_SPEC/);
+    assert.match(CONFIG, /name: 'gate-e-webkit-iphone13',[\s\S]*?testIgnore: MIC_SPEC/);
     assert.match(WEBKIT_SPEC, /process\.platform === 'linux' && process\.env\.CI/);
     assert.match(WEBKIT_SPEC, /testInfo\.annotations\.push/);
     assert.doesNotMatch(WEBKIT_SPEC, /expect\(await page\.evaluate[\s\S]*?\)\.toBe\('undefined'\)/);
+    assert.deepEqual(MANIFEST.synthetic_webkit_exclusions, [
+      'microphone-lifecycle-requires-real-safari-or-ios-device',
+    ]);
   });
 
   test('blob identity is captured before transport without replacing multipart fetch', () => {

@@ -25,7 +25,9 @@ test('Gate E failure evidence has a dedicated HTML report plus traces and screen
   assert.match(config, /outputFolder:\s*'playwright-report\/gate-e'/);
   assert.match(config, /\['html'/);
   assert.match(workflow, /playwright-e2e-failure-\$\{\{ github\.run_id \}\}/);
-  assert.match(workflow, /timeout-minutes:\s*15/);
+  // Three production-browser projects share this job; keep a bounded but
+  // realistic ceiling for the expanded Chromium + WebKit evidence matrix.
+  assert.match(workflow, /timeout-minutes:\s*20/);
   assert.match(workflow, /frontend\/playwright-report/);
   assert.match(workflow, /frontend\/test-results/);
   assert.match(workflow, /if-no-files-found:\s*error/);

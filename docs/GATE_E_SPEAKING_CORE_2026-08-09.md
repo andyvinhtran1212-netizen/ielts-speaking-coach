@@ -102,9 +102,11 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    `frontend/tooling/gate-e-speaking-device-matrix.json`: manifest khai báo 4
    lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng), còn
    mỗi project WebKit thêm 1 capability guard (5 lớp tổng). CI luôn tải JSON
-   result artifact. Riêng trên runner Linux CI đã pin, WebKit bỏ qua mic lifecycle
-   và guard xác nhận không có `MediaRecorder`; môi trường WebKit khác không bị
-   gán sẵn hạn chế này. Spec microphone kiểm copy permission denied, retry ngay state
+   result artifact. Hai project WebKit synthetic chỉ chạy shared flows và
+   capability guard; trên Linux CI guard xác nhận không có `MediaRecorder`, còn
+   môi trường khác ghi đúng capability quan sát được. Cả hai luôn loại mic
+   lifecycle vì không phải bằng chứng Safari/iOS thật. Spec microphone Chromium
+   kiểm copy permission denied, retry ngay state
    hiện tại, audio bytes từ engine-owned track, multi-tab pressure, responsive
    overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
    không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
@@ -173,7 +175,8 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (11 native browser fixtures × 3 projects)
+- `npm run test:e2e:gate-e` (12 Chromium + 11 WebKit desktop +
+  11 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites

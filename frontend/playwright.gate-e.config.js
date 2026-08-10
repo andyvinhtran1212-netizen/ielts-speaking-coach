@@ -10,7 +10,6 @@ const { defineConfig, devices } = require('@playwright/test');
 
 const MIC_SPEC = /native-speaking-device-mic\.spec\.js/;
 const WEBKIT_CAPABILITY_SPEC = /native-speaking-webkit-capability\.spec\.js/;
-const IS_LINUX_CI = process.platform === 'linux' && Boolean(process.env.CI);
 
 module.exports = defineConfig({
   testDir: './tests/gate-e',
@@ -51,16 +50,18 @@ module.exports = defineConfig({
     },
     {
       name: 'gate-e-webkit-desktop',
-      // Playwright WebKit on the pinned Linux CI runner has no MediaRecorder.
-      // Do not project that runner-specific gap onto capable macOS WebKit runs.
-      ...(IS_LINUX_CI ? { testIgnore: MIC_SPEC } : {}),
+      // Synthetic WebKit is useful for shared browser behavior and capability
+      // recording, but it is not shipping Safari microphone evidence.
+      testIgnore: MIC_SPEC,
       use: {
         browserName: 'webkit',
       },
     },
     {
       name: 'gate-e-webkit-iphone13',
-      ...(IS_LINUX_CI ? { testIgnore: MIC_SPEC } : {}),
+      // Device emulation changes viewport/input shape, not real iOS microphone
+      // behavior. Keep microphone lifecycle in the pending real-device drill.
+      testIgnore: MIC_SPEC,
       use: {
         ...devices['iPhone 13'],
         browserName: 'webkit',

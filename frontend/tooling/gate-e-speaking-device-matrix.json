@@ -45,6 +45,9 @@
   "synthetic_webkit_scope": [
     "mediarecorder-unsupported-capability-guard"
   ],
+  "synthetic_webkit_exclusions": [
+    "microphone-lifecycle-requires-real-safari-or-ios-device"
+  ],
   "real_device_requirements": [
     {
       "id": "safari-floor",

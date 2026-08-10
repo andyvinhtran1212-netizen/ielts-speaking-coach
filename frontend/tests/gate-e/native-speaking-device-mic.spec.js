@@ -23,18 +23,18 @@ const questions = [{
   question_text: 'Tell me about your home.',
 }];
 
-test('permission denial can retry, survive parallel-tab pressure, and release mic on route exit', async ({
-  page,
-  context,
-  browserName,
-}, testInfo) => {
-  await page.addInitScript(() => {
-    const media = navigator.mediaDevices;
-    window.__gateEMic = { calls: 0, acquired: 0 };
-    if (!media || typeof media.getUserMedia !== 'function') return;
-    media.getUserMedia = async (constraints) => {
+async function installEngineOwnedMic(page, { denyFirst }) {
+  let stoppedTracks = 0;
+  await page.exposeFunction('__gateETrackStopped', () => {
+    stoppedTracks += 1;
+  });
+
+  await page.addInitScript(({ shouldDenyFirst }) => {
+    window.__gateEMic = { calls: 0, acquired: 0, installed: false };
+    const media = navigator.mediaDevices || {};
+    const fixtureGetUserMedia = async (constraints) => {
       window.__gateEMic.calls += 1;
-      if (window.__gateEMic.calls === 1) {
+      if (shouldDenyFirst && window.__gateEMic.calls === 1) {
         throw new DOMException('fixture denied once', 'NotAllowedError');
       }
       if (!constraints?.audio) throw new TypeError('audio constraint required');
@@ -59,23 +59,53 @@ test('permission denial can retry, survive parallel-tab pressure, and release mi
         track.stop = () => {
           if (stopped) return;
           stopped = true;
-          const count = Number(localStorage.getItem('gate-e-mic-stop-count') || '0');
-          localStorage.setItem('gate-e-mic-stop-count', String(count + 1));
           stop();
+          // Report outside the document so a navigation cannot erase evidence
+          // before the assertion reads it from the destination route.
+          try { void window.__gateETrackStopped(); } catch {}
           try { oscillator.stop(); } catch {}
           try { void audioContext.close(); } catch {}
         };
       }
       return stream;
     };
-  });
 
-  const { pageErrors } = await installHarness(page, {
+    // WebKit exposes getUserMedia through a host object whose direct assignment
+    // can be ignored. An own descriptor makes fixture installation auditable.
+    Object.defineProperty(media, 'getUserMedia', {
+      configurable: true,
+      writable: true,
+      value: fixtureGetUserMedia,
+    });
+    if (navigator.mediaDevices !== media) {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: media,
+      });
+    }
+    window.__gateEMic.installed = navigator.mediaDevices?.getUserMedia === fixtureGetUserMedia;
+  }, { shouldDenyFirst: denyFirst });
+
+  return () => stoppedTracks;
+}
+
+async function bootPractice(page, denyFirst = true) {
+  const stoppedTracks = await installEngineOwnedMic(page, { denyFirst });
+  const harness = await installHarness(page, {
     session: practiceSession(),
     questions,
   });
-
+  expect(await page.evaluate(() => window.__gateEMic?.installed)).toBe(true);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  return { ...harness, stoppedTracks };
+}
+
+test('permission denial can retry and survive parallel-tab pressure', async ({
+  page,
+  context,
+  browserName,
+}, testInfo) => {
+  const { pageErrors, stoppedTracks } = await bootPractice(page);
   const layout = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     content: document.documentElement.scrollWidth,
@@ -114,8 +144,7 @@ test('permission denial can retry, survive parallel-tab pressure, and release mi
   // Start another take and open a competing app tab. Headless browser contexts
   // do not expose a trustworthy OS-level background visibility transition, so
   // this proves only cross-tab pressure. The real background/lock-screen case
-  // remains in the manual Safari/iOS drill. Leaving the route must still stop
-  // every media track.
+  // remains in the manual Safari/iOS drill.
   await page.locator('#rec-recorded button').filter({ hasText: 'Ghi lại' }).click();
   await page.locator('#rec-idle button').click();
   await expect(page.locator('#rec-recording')).toBeVisible();
@@ -127,15 +156,26 @@ test('permission denial can retry, survive parallel-tab pressure, and release mi
   await page.bringToFront();
   expect(await page.evaluate(() => window.PracticeRecorder.isRecording())).toBe(true);
 
+  await page.evaluate(() => window.PracticeRecorder.release());
+  await expect.poll(stoppedTracks).toBeGreaterThanOrEqual(1);
+  expect(pageErrors).toEqual([]);
+  await foreground.close();
+});
+
+test('Next route unmount releases every owned microphone track', async ({ page }) => {
+  const { pageErrors, stoppedTracks } = await bootPractice(page, false);
+  await page.locator('#prep-start-btn').click();
+  await expect(page.locator('#rec-recording')).toBeVisible();
+  expect(await page.evaluate(() => window.PracticeRecorder.isRecording())).toBe(true);
+
   // The native Next link exercises React's unmount cleanup. A hard page.goto
   // would let the browser release hardware by destroying the whole document
   // and could hide a missing route-owned cleanup.
+  await page.evaluate(() => { window.__gateESameDocument = true; });
   await page.locator('.practice-back-link').click();
   await expect(page).toHaveURL(/\/speaking$/);
-  await expect.poll(() => page.evaluate(() => (
-    Number(localStorage.getItem('gate-e-mic-stop-count') || '0')
-  ))).toBeGreaterThanOrEqual(1);
+  expect(await page.evaluate(() => window.__gateESameDocument)).toBe(true);
+  await expect.poll(stoppedTracks).toBeGreaterThanOrEqual(1);
   expect(await page.evaluate(() => typeof window.PracticeRecorder)).toBe('undefined');
   expect(pageErrors).toEqual([]);
-  await foreground.close();
 });
