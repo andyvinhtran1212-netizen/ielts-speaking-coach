@@ -198,6 +198,10 @@ class CreateSessionBody(BaseModel):
     # linked at creation (before any response is graded) so per-response speaking
     # grading is sealed from the first answer.
     sitting_id: str | None = None
+    # For Full Test Part 2/3 the client identifies only the immediately prior
+    # session. The server resolves the canonical attempt id from that owned row;
+    # callers never get to choose an attempt id themselves.
+    previous_session_id: str | None = None
     # GĐ 2 — when set, this session answers a class assignment. Linked at
     # creation, exactly like sitting_id, so PATCH /complete can record the
     # hand-in without having to guess from the topic string.
@@ -223,6 +227,16 @@ class CreateSessionBody(BaseModel):
         if not v.strip():
             raise ValueError("topic không được để trống")
         return v.strip()
+
+    @field_validator("previous_session_id")
+    @classmethod
+    def validate_previous_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("previous_session_id không được để trống")
+        return session_id
 
 
 class FinalizeFullTestBody(BaseModel):
@@ -285,6 +299,72 @@ def _require_active(user_id: str) -> None:
         raise HTTPException(status_code=403, detail="Tài khoản chưa được kích hoạt")
 
 
+def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str | None:
+    """Resolve Part 2/3 membership from the immediately preceding owned row.
+
+    Part 1 receives a fresh id from migration 200's insert trigger. Non-Full-Test
+    modes may not smuggle a predecessor. This keeps chain identity canonical on
+    the server and makes a manipulated client payload harmless.
+    """
+    previous_id = body.previous_session_id
+    if body.mode != "test_full":
+        if previous_id:
+            raise HTTPException(400, "previous_session_id chỉ dùng cho Full Test")
+        return None
+    if body.part == 1:
+        if previous_id:
+            raise HTTPException(400, "Full Test Part 1 không được có session trước đó")
+        return None
+    if not previous_id:
+        raise HTTPException(
+            400,
+            f"Full Test Part {body.part} cần session Part {body.part - 1} liền trước",
+        )
+
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select("id, mode, part, status, full_test_attempt_id")
+            .eq("id", previous_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra chuỗi Full Test: {e}")
+
+    row = (result.data or [None])[0]
+    if (
+        not row
+        or row.get("mode") != "test_full"
+        or row.get("part") != body.part - 1
+        or row.get("status") != "in_progress"
+    ):
+        raise HTTPException(
+            400,
+            f"Session trước đó không phải Full Test Part {body.part - 1} đang làm",
+        )
+    attempt_id = str(row.get("full_test_attempt_id") or "").strip()
+    if not attempt_id:
+        raise HTTPException(
+            409,
+            "Session Full Test cũ chưa có mã chuỗi an toàn. Hãy bắt đầu lại Full Test.",
+        )
+    return attempt_id
+
+
+def _rollback_unstarted_session(session_id: str) -> None:
+    """Best-effort rollback for a session that has not been returned yet."""
+    try:
+        supabase_admin.table("sessions").delete().eq("id", session_id).execute()
+    except Exception as e:
+        logger.critical(
+            "[create_session] failed to roll back unstarted session=%s: %s",
+            session_id,
+            e,
+        )
+
+
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
 @router.post("")
@@ -330,6 +410,11 @@ async def create_session(
 
     if not entitled_by_assignment:
         _require_permission(user_id, body.mode)
+
+    # Resolve this before consuming a daily slot. Part 2/3 membership comes
+    # only from the immediately preceding owned session; the caller cannot
+    # choose or replay a raw attempt identifier.
+    full_test_attempt_id = _resolve_full_test_attempt_id(user_id, body)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -414,6 +499,37 @@ async def create_session(
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
 
+    # Migration 200's trigger creates Part 1's canonical id atomically with the
+    # row. Later parts inherit the id resolved above. The partial unique index on
+    # (attempt, part) closes double-click/replay races at the database boundary.
+    if body.mode == "test_full":
+        if body.part == 1:
+            if not s.get("full_test_attempt_id"):
+                _rollback_unstarted_session(s["id"])
+                raise HTTPException(
+                    status_code=503,
+                    detail="Full Test đang được cập nhật. Vui lòng thử lại sau.",
+                )
+        else:
+            try:
+                supabase_admin.table("sessions").update({
+                    "full_test_attempt_id": full_test_attempt_id,
+                }).eq("id", s["id"]).eq("user_id", user_id).execute()
+            except Exception as e:
+                _rollback_unstarted_session(s["id"])
+                conflict = (
+                    "uq_sessions_full_test_attempt_part" in str(e)
+                    or "duplicate key" in str(e).lower()
+                )
+                raise HTTPException(
+                    status_code=409 if conflict else 500,
+                    detail=(
+                        "Part này của Full Test đã được tạo. Hãy mở lại bài đang làm."
+                        if conflict else "Không nối được phần tiếp theo của Full Test. Hãy thử lại."
+                    ),
+                )
+            s["full_test_attempt_id"] = full_test_attempt_id
+
     # GĐ 2 — class assignment: write the link so PATCH /complete can record the
     # hand-in. Validation already happened BEFORE the session was created (see
     # above), so the only thing that can fail here is the UPDATE itself.
@@ -461,6 +577,7 @@ async def create_session(
         "topic":      s["topic"],
         "started_at": s["started_at"],
         "status":     s["status"],
+        "full_test_attempt_id": s.get("full_test_attempt_id"),
     }
 
 
@@ -1257,6 +1374,11 @@ def _validate_full_test_chain(session_ids: list[str], session_rows: list[dict]) 
             )
     rows = [sessions_by_id.get(sid) for sid in session_ids]
     if all(rows):
+        attempt_ids = {
+            str(row.get("full_test_attempt_id") or "").strip() for row in rows
+        }
+        if "" in attempt_ids or len(attempt_ids) != 1:
+            raise HTTPException(400, "Ba phần Full Test không thuộc cùng một lần làm bài")
         sitting_ids = {row.get("sitting_id") for row in rows}
         if len(sitting_ids) > 1:
             raise HTTPException(400, "Ba phần Full Test không thuộc cùng một bài thi")
@@ -1396,7 +1518,7 @@ async def finalize_full_test(
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id, mode, part, sitting_id")
+            .select("id, mode, part, sitting_id, full_test_attempt_id")
             .in_("id", all_ids)
             .eq("user_id", user_id)
             .execute()

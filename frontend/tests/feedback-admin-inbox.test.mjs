@@ -43,7 +43,7 @@ describe('Admin feedback — page shell (box-sizing-safe)', () => {
   });
   it('has the segmented type filter + skill + status selects + count badge', () => {
     assert.match(HTML, /id="fbx-type"[\s\S]*?data-type=""[\s\S]*?data-type="report"[\s\S]*?data-type="flag"[\s\S]*?data-type="rating"/);
-    assert.match(HTML, /id="fbx-skill"[\s\S]*?value="reading"[\s\S]*?value="listening"/);
+    assert.match(HTML, /id="fbx-skill"[\s\S]*?value="reading"[\s\S]*?value="listening"[\s\S]*?value="vocabulary"/);
     assert.match(HTML, /id="fbx-status"[\s\S]*?value="new"[\s\S]*?value="resolved"/);
     assert.match(HTML, /id="fbx-count-n"/);
   });
@@ -100,6 +100,8 @@ describe('Admin feedback — pure helpers (executed)', () => {
       '/pages/admin/reading/content.html?test=RD-1#q3');
     assert.equal(H.deepLink({ skill: 'listening', test_id: 'LIS-1' }),
       '/pages/admin/listening/tests.html?test=LIS-1');
+    assert.equal(H.deepLink({ skill: 'vocabulary', test_id: 'vocabulary:work/career-path' }),
+      '/vocabulary.html?cat=work&slug=career-path');
     assert.equal(H.deepLink({ skill: 'listening' }), null);   // no test_id → no link
   });
   it('avg ignores nulls', () => {

@@ -47,7 +47,7 @@ interface ListeningContent {
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; items: ListeningContent[] }
-  | { status: 'error'; message: string };
+  | { status: 'error' };
 
 const labelStyle = {
   display: 'flex',
@@ -75,11 +75,9 @@ function normalizeItems(items: unknown[]): ListeningContent[] {
     const id = textValue(raw.id);
     if (!id) return [];
     const duration = Number(raw.audio_duration_seconds || 0);
-    const modes = raw.available_modes === null
-      ? null
-      : Array.isArray(raw.available_modes)
-        ? raw.available_modes.filter((mode): mode is string => typeof mode === 'string')
-        : [];
+    const modes = Array.isArray(raw.available_modes)
+      ? raw.available_modes.filter((mode): mode is string => typeof mode === 'string')
+      : null;
     return [{
       key: `${id}-${index}`,
       id,
@@ -125,11 +123,6 @@ async function fetchAllContent(filters: Filters, signal: AbortSignal): Promise<u
     `Danh sách vượt ${MAX_PAGES * PAGE_LIMIT} mục — chưa tải hết, `
     + 'cần phân trang trên giao diện thay vì tải một lượt.',
   );
-}
-
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
 }
 
 function FiltersBar({ filters, onChange }: {
@@ -191,7 +184,7 @@ function ModeLinks({ item }: { item: ListeningContent }) {
 
 function ContentCard({ item }: { item: ListeningContent }) {
   return (
-    <div className="content-card">
+    <div className="content-card" data-content-id={item.id}>
       <h3>{item.title}</h3>
       <div className="desc">{item.description}</div>
       <div className="meta-row">
@@ -212,17 +205,20 @@ export function ListeningBrowseBehavior() {
     if (status === 'signed-out') window.location.replace('/login.html');
   }, [status]);
 
-  if (status !== 'signed-in' || !user?.id) {
-    return <div className="empty-state" id="state-loading">Đang tải…</div>;
-  }
-  return <ListeningBrowseLibrary accountKey={user.id} key={user.id} />;
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ListeningBrowseLibrary accountKey={accountKey} key={accountKey || status} />;
 }
 
-function ListeningBrowseLibrary({ accountKey }: { accountKey: string }) {
+function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
   const [filters, setFilters] = useState<Filters>({ accent: '', cefr: '', section: '' });
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
+    if (!accountKey) {
+      setState({ status: 'loading' });
+      return undefined;
+    }
+
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
@@ -233,7 +229,7 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string }) {
         'window.api (listening content browse)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error', message: '' });
+        if (!disposed) setState({ status: 'error' });
         return;
       }
       try {
@@ -241,7 +237,7 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string }) {
         if (!disposed) setState({ status: 'ready', items: normalizeItems(items) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error', message: errorMessage(caught) });
+        setState({ status: 'error' });
       }
     })();
 
@@ -258,12 +254,14 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string }) {
   return (
     <>
       <FiltersBar filters={filters} onChange={changeFilter} />
-      {state.status === 'loading' && <div className="empty-state" id="state-loading">Đang tải…</div>}
+      {state.status === 'loading' && <div className="empty-state" id="state-loading" role="status">Đang tải…</div>}
       {state.status === 'ready' && state.items.length === 0 && (
-        <div className="empty-state" id="state-empty">Chưa có bài nghe nào khớp bộ lọc.</div>
+        <div className="empty-state" id="state-empty" role="status">Chưa có bài nghe nào khớp bộ lọc.</div>
       )}
       {state.status === 'error' && (
-        <div className="error-banner" id="state-error">Không tải được danh sách. {state.message}</div>
+        <div className="error-banner" id="state-error" role="alert">
+          Không tải được danh sách bài nghe. Vui lòng thử lại.
+        </div>
       )}
       {state.status === 'ready' && state.items.length > 0 && (
         <div className="content-grid" id="content-grid">

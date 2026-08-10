@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
+import { ListeningTestsShell } from './page-shell';
+
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 20;
 
@@ -17,6 +19,7 @@ interface RawListeningTest {
   themes?: unknown;
   user_best_score?: unknown;
   user_attempt_count?: unknown;
+  user_submitted_attempt_count?: unknown;
 }
 
 interface ListeningTest {
@@ -24,9 +27,11 @@ interface ListeningTest {
   id: string;
   catalogId: string;
   title: string;
-  meta: string | null;
+  bandTarget: string | null;
+  themes: string | null;
   bestScore: string | null;
   attemptCount: number;
+  submittedAttemptCount: number;
 }
 
 type LoadState =
@@ -39,9 +44,8 @@ function textValue(value: unknown): string {
 }
 
 function displayValue(value: unknown): string | null {
-  if (value == null) return null;
-  if (typeof value === 'number' && !Number.isFinite(value)) return null;
-  return String(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return textValue(value) || null;
 }
 
 function nonNegativeInteger(value: unknown): number {
@@ -64,17 +68,16 @@ function normalizeTests(items: unknown[]): ListeningTest[] {
     const raw: RawListeningTest = value && typeof value === 'object' ? value : {};
     const id = textValue(raw?.id);
     if (!id) return [];
-    const band = raw?.band_target ? displayValue(raw.band_target) : null;
-    const themes = themeSummary(raw?.themes);
-    const meta = [band ? `Band ${band}` : '', themes].filter(Boolean).join(' · ');
     return [{
       key: `${id}-${index}`,
       id,
       catalogId: textValue(raw?.test_id),
       title: textValue(raw?.title) || 'Untitled test',
-      meta: meta || null,
+      bandTarget: displayValue(raw?.band_target),
+      themes: themeSummary(raw?.themes) || null,
       bestScore: raw?.user_best_score == null ? null : displayValue(raw.user_best_score),
       attemptCount: nonNegativeInteger(raw?.user_attempt_count),
+      submittedAttemptCount: nonNegativeInteger(raw?.user_submitted_attempt_count),
     }];
   });
 }
@@ -102,11 +105,6 @@ async function fetchAllTests(signal: AbortSignal): Promise<unknown[]> {
   );
 }
 
-function errorMessage(caught: unknown): string {
-  if (caught instanceof Error && caught.message) return caught.message;
-  return caught == null ? '' : String(caught);
-}
-
 export function ListeningTestsBehavior() {
   const { status, user } = useAuth();
 
@@ -114,17 +112,20 @@ export function ListeningTestsBehavior() {
     if (status === 'signed-out') window.location.replace('/login.html');
   }, [status]);
 
-  if (status !== 'signed-in' || !user?.id) {
-    return <div className="empty-state" id="state-loading">Đang tải danh sách tests…</div>;
-  }
-
-  return <ListeningTestsLibrary accountKey={user.id} key={user.id} />;
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ListeningTestsLibrary accountKey={accountKey} key={accountKey || status} />;
 }
 
-function ListeningTestsLibrary({ accountKey }: { accountKey: string }) {
+function ListeningTestsLibrary({ accountKey }: { accountKey: string | null }) {
+  const [filter, setFilter] = useState<'all' | 'new' | 'done'>('all');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
+    if (!accountKey) {
+      setState({ status: 'loading' });
+      return undefined;
+    }
+
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
@@ -135,7 +136,7 @@ function ListeningTestsLibrary({ accountKey }: { accountKey: string }) {
         'window.api (listening full tests)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error', message: '' });
+        if (!disposed) setState({ status: 'error', message: 'Không tải được danh sách bài thi.' });
         return;
       }
 
@@ -145,7 +146,7 @@ function ListeningTestsLibrary({ accountKey }: { accountKey: string }) {
         setState({ status: 'ready', tests: normalizeTests(items) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error', message: errorMessage(caught) });
+        setState({ status: 'error', message: 'Không tải được danh sách bài thi.' });
       }
     })();
 
@@ -155,68 +156,115 @@ function ListeningTestsLibrary({ accountKey }: { accountKey: string }) {
     };
   }, [accountKey]);
 
-  if (state.status === 'loading') {
-    return <div className="empty-state" id="state-loading">Đang tải danh sách tests…</div>;
-  }
-  if (state.status === 'error') {
-    return (
-      <div className="error-banner" id="state-error">
-        Không tải được danh sách tests: {state.message}
-      </div>
-    );
-  }
-  if (!state.tests.length) {
-    return (
-      <div className="empty-state" id="state-empty">
-        <p><strong>Chưa có test nào sẵn sàng.</strong></p>
-        <p>Hãy quay lại sau khi admin xuất bản test mới.</p>
-      </div>
-    );
-  }
+  const tests = state.status === 'ready' ? state.tests : [];
+  const filteredTests = tests.filter((test) => {
+    const submitted = test.submittedAttemptCount > 0;
+    if (filter === 'done') return submitted;
+    if (filter === 'new') return !submitted;
+    return true;
+  });
+  const totalCount = state.status === 'ready' ? tests.length : null;
 
   return (
-    <section id="lt-grid" className="lt-grid">
-      {state.tests.map((test) => {
-        const attempted = test.attemptCount > 0;
-        return (
-          <article className="lt-card" data-test-id={test.id} key={test.key}>
-            <div className="lt-card-meta">{test.catalogId}</div>
-            <div className="lt-card-title">{test.title}</div>
-            {test.meta ? (
-              <div className="lt-card-meta" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                {test.meta}
-              </div>
+    <ListeningTestsShell totalCount={totalCount}>
+      {state.status === 'loading' ? (
+        <div className="empty-state" id="state-loading" role="status">Đang tải danh sách tests…</div>
+      ) : null}
+      {state.status === 'error' ? (
+        <div className="error-banner" id="state-error" role="alert">{state.message}</div>
+      ) : null}
+      {state.status === 'ready' && !tests.length ? (
+        <div className="empty-state" id="state-empty" role="status">
+          <p><strong>Chưa có test nào sẵn sàng.</strong></p>
+          <p>Hãy quay lại sau khi admin xuất bản test mới.</p>
+        </div>
+      ) : null}
+      {state.status === 'ready' && tests.length ? (
+        <section className="lt-library" id="lt-library" aria-labelledby="lt-library-title">
+          <div className="lt-toolbar">
+            <div>
+              <p className="eyebrow">THƯ VIỆN FULL TEST</p>
+              <h2 id="lt-library-title">Chọn đề thi</h2>
+            </div>
+            <div className="lt-filter" role="group" aria-label="Lọc full test">
+              {([
+                ['all', 'Tất cả'],
+                ['new', 'Chưa làm'],
+                ['done', 'Đã làm'],
+              ] as const).map(([value, label]) => (
+                <button
+                  aria-pressed={filter === value}
+                  className={`lt-filter__button${filter === value ? ' is-active' : ''}`}
+                  data-filter={value}
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="lt-visible-count" id="lt-visible-count" aria-live="polite">
+            {filteredTests.length} đề thi
+          </p>
+          <div id="lt-grid" className="lt-grid">
+            {!filteredTests.length ? (
+              <p className="lt-filter-empty">Không có đề nào trong nhóm này.</p>
             ) : null}
-            <div className="lt-card-stats">
-              {test.bestScore != null ? (
-                <span>Điểm tốt nhất: <strong>{test.bestScore}/40</strong></span>
-              ) : null}
-              {attempted ? (
-                <span>Đã làm: <strong>{test.attemptCount}</strong> lần</span>
-              ) : (
-                <span>Chưa làm</span>
-              )}
-            </div>
-            <div
-              className="lt-card-actions"
-              style={{ display: 'flex', gap: 'var(--av-space-2)', flexWrap: 'wrap' }}
-            >
-              <a
-                className={attempted ? 'lt-card-cta secondary' : 'lt-card-cta'}
-                href={admitCorePlayer('listening_test', { id: test.id, from: 'full' })}
-              >
-                {attempted ? 'Làm lại' : 'Bắt đầu test'}
-              </a>
-              <a
-                className="lt-card-cta secondary"
-                href={admitCorePlayer('listening_dictation', { test_id: test.id })}
-              >
-                ✍️ Chép chính tả
-              </a>
-            </div>
-          </article>
-        );
-      })}
-    </section>
+            {filteredTests.map((test) => {
+              const attempted = test.submittedAttemptCount > 0;
+              return (
+                <article
+                  className="lt-card"
+                  data-status={attempted ? 'done' : 'new'}
+                  data-test-id={test.id}
+                  key={test.key}
+                >
+                  <div className="lt-card__head">
+                    <div className="lt-card-code">{test.catalogId || 'FULL TEST'}</div>
+                    <span className={`lt-card-status${attempted ? ' is-done' : ''}`}>
+                      {attempted ? 'Đã làm' : 'Chưa làm'}
+                    </span>
+                  </div>
+                  <h3 className="lt-card-title">{test.title}</h3>
+                  <div className="lt-card-facts" aria-label="Cấu trúc đề thi">
+                    <span>4 sections</span>
+                    <span>40 câu</span>
+                    <span>~30 phút</span>
+                    {test.bandTarget ? <span>Band {test.bandTarget}</span> : null}
+                  </div>
+                  {test.themes ? <p className="lt-card-theme">{test.themes}</p> : null}
+                  <div className="lt-card-stats">
+                    {test.bestScore != null ? (
+                      <span>Điểm tốt nhất <strong>{test.bestScore}/40</strong></span>
+                    ) : null}
+                    {test.attemptCount > 0 ? (
+                      <span><strong>{test.attemptCount}</strong> lượt làm</span>
+                    ) : (
+                      <span>Chưa làm</span>
+                    )}
+                  </div>
+                  <div className="lt-card-actions">
+                    <a
+                      className="lt-card-cta"
+                      href={admitCorePlayer('listening_test', { id: test.id, from: 'full' })}
+                    >
+                      {attempted ? 'Làm lại' : 'Bắt đầu test'} <span aria-hidden="true">→</span>
+                    </a>
+                    <a
+                      className="lt-card-cta secondary"
+                      href={admitCorePlayer('listening_dictation', { test_id: test.id })}
+                    >
+                      Chép chính tả
+                    </a>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+    </ListeningTestsShell>
   );
 }

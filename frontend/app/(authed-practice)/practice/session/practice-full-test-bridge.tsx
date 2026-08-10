@@ -2,13 +2,19 @@
 
 import { useEffect } from 'react';
 
+import { useAuth } from '@/lib/auth/auth-provider';
 import { SpeakingFullTestController } from '@/lib/speaking-full-test-controller.mjs';
 
 export function PracticeFullTestBridge() {
+  const { status, user } = useAuth();
+
   useEffect(() => {
+    if (status !== 'signed-in' || !user?.id) return undefined;
     const win = window as any;
+    let storage = null;
+    try { storage = win.sessionStorage; } catch { /* storage is best-effort */ }
     const controller = new SpeakingFullTestController({
-      storage: win.sessionStorage,
+      storage,
       submit: (request: Record<string, unknown>) => {
         if (typeof win.PracticeSubmission?.submit !== 'function') {
           throw new Error('Speaking submission transport is unavailable');
@@ -16,10 +22,14 @@ export function PracticeFullTestBridge() {
         return win.PracticeSubmission.submit(request);
       },
       finalize: (body: Record<string, unknown>) => (
-        win.api.post('/sessions/finalize-full-test', body)
+        win.api.postWith('/sessions/finalize-full-test', body, {}, { noRedirect: true })
       ),
       getSession: (sessionId: string) => (
-        win.api.get(`/sessions/${encodeURIComponent(sessionId)}`)
+        win.api.getWith(
+          `/sessions/${encodeURIComponent(sessionId)}`,
+          {},
+          { noRedirect: true },
+        )
       ),
     });
 
@@ -36,7 +46,7 @@ export function PracticeFullTestBridge() {
       controller.destroy();
       if (win.PracticeFullTest === controller) delete win.PracticeFullTest;
     };
-  }, []);
+  }, [status, user?.id]);
 
   return null;
 }

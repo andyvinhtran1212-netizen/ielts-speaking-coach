@@ -3,8 +3,7 @@
  *
  * Pins the per-card "report an error" (flag) control on the vocab card:
  *  • cardHTML renders a flag button + a quick content/audio menu
- *  • picking a reason fires a `vocab_card_flagged` analytics event, reusing
- *    POST /api/analytics/events (no new backend table)
+ *  • picking a reason posts a Vocabulary report to the canonical feedback inbox
  *  • the control is styled with theme-aware va-flag* tokens in vocab-wiki.css
  *
  * Source-string assertions (same approach as vocab-article-reskin.test.mjs):
@@ -36,11 +35,14 @@ describe('vocab card — flag / report control', () => {
     assert.match(JS, /data-reason="audio"/);
   });
 
-  test('reports via the analytics events endpoint (no new table)', () => {
-    assert.match(JS, /event_name:\s*'vocab_card_flagged'/);
-    assert.match(JS, /\/api\/analytics\/events/);
-    assert.match(JS, /headword:\s*wrap\.getAttribute\('data-headword'\)/);
-    assert.match(JS, /reason:\s*reason/);
+  test('reports through the canonical user-feedback endpoint', () => {
+    assert.match(JS, /window\.api\.post\('\/api\/feedback',\s*payload\)/);
+    assert.match(JS, /type:\s*'report'/);
+    assert.match(JS, /skill:\s*'vocabulary'/);
+    assert.match(JS, /vocab_slug:\s*wrap\.getAttribute\('data-slug'\)/);
+    assert.match(JS, /vocab_category:\s*wrap\.getAttribute\('data-category'\)/);
+    assert.match(JS, /reason === 'audio' \? 'audio_issue' : 'content_issue'/);
+    assert.doesNotMatch(JS, /event_name:\s*'vocab_card_flagged'/);
   });
 
   test('menu toggles + closes; confirmation shown after sending', () => {
@@ -50,8 +52,10 @@ describe('vocab card — flag / report control', () => {
     assert.match(JS, /aria-expanded/);
   });
 
-  test('report is fire-and-forget (never blocks the UI)', () => {
-    assert.match(JS, /vocab_card_flagged[\s\S]{0,500}\.catch\(/);
+  test('shows success only after persistence and exposes a retryable error', () => {
+    assert.match(JS, /post\('\/api\/feedback',[\s\S]{0,500}\.then\(/);
+    assert.match(JS, /Không gửi được, thử lại/);
+    assert.match(JS, /buttons\.forEach\(\(button\) => \{ button\.disabled = false; \}\)/);
   });
 
   test('flag control is styled, theme-aware, in vocab-wiki.css', () => {

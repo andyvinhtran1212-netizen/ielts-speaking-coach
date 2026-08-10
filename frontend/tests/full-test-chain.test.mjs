@@ -25,12 +25,17 @@ test('init restores with membership check + truncation', () => {
 });
 
 test('chain is cleared ONLY after finalize is ACCEPTED (review #748)', () => {
-  const finalizeIdx = SRC.indexOf("window.api.post('/sessions/finalize-full-test'");
+  const finalizeIdx = SRC.indexOf("window.api.postWith('/sessions/finalize-full-test'");
   const acceptedFn = SRC.slice(
     SRC.indexOf('function _onFullTestFinalizeAccepted'),
     SRC.indexOf('function _setFullTestCompletionPhase'),
   );
   assert.ok(finalizeIdx !== -1);
+  assert.match(
+    SRC.slice(finalizeIdx, finalizeIdx + 180),
+    /noRedirect: true/,
+    'finalize auth expiry must preserve the chain and visible retry state',
+  );
   assert.match(acceptedFn, /_clearFtChain\(\)/,
     'the chain clears in the shared accepted-only callback');
   // Legacy finalization may call the accepted callback only from its success

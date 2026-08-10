@@ -79,6 +79,22 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
     assert.deepEqual(snapshot.confirmed, {});
   });
 
+  test('does not hydrate ownerless restore from a previous account tab', () => {
+    const storage = new MemoryStorage({
+      ielts_ft_state_v2: JSON.stringify({
+        version: 2,
+        owner_id: 'user-a',
+        session_ids: ['old-p1', 'shared-current'],
+        confirmed: { 'shared-current': ['old-q'] },
+      }),
+      ielts_ft_session_ids: JSON.stringify(['old-p1', 'shared-current']),
+    });
+    const { controller } = makeController({ storage });
+    const snapshot = controller.restore({ currentSessionId: 'shared-current' });
+    assert.deepEqual(snapshot.sessionIds, ['shared-current']);
+    assert.deepEqual(snapshot.confirmed, {});
+  });
+
   test('canonical rows confirm only responses that have both row and question ids', () => {
     const { controller } = makeController();
     controller.restore({ currentSessionId: 'p1' });
@@ -102,8 +118,9 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
       },
     });
     controller.restore({ ownerId: 'u', currentSessionId: 'p1' });
-    const first = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob: {} });
-    const second = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob: {} });
+    const blob = {};
+    const first = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob });
+    const second = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob });
     assert.equal(first, second);
     assert.equal(controller.hasUnsavedAudio(), true, 'pending upload is still the only local copy');
     assert.equal(calls, 0, 'submission starts in a microtask');
@@ -114,6 +131,29 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
     assert.equal(controller.hasUnsavedAudio(), false);
     assert.deepEqual(controller.confirmedQuestionIds('p1'), ['q1']);
     assert.deepEqual(JSON.parse(storage.getItem('ielts_ft_state_v2')).confirmed.p1, ['q1']);
+  });
+
+  test('serializes a newer take instead of aliasing the pending blob', async () => {
+    const calls = [];
+    const { controller } = makeController({
+      submit: (item) => new Promise((resolve) => { calls.push({ item, resolve }); }),
+    });
+    controller.restore({ ownerId: 'u', currentSessionId: 'p1' });
+    const firstBlob = { take: 'A' };
+    const secondBlob = { take: 'B' };
+    const first = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob: firstBlob });
+    const second = controller.submitAnswer({ sessionId: 'p1', questionId: 'q1', blob: secondBlob });
+    assert.notEqual(first, second);
+    await Promise.resolve();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].item.blob, firstBlob);
+    calls[0].resolve({ response_id: 'r-a' });
+    await first;
+    await Promise.resolve();
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].item.blob, secondBlob);
+    calls[1].resolve({ response_id: 'r-b' });
+    await second;
   });
 
   test('retains the exact failed blob and retry sends it without rerecording', async () => {
@@ -215,6 +255,31 @@ describe('SpeakingFullTestController — finalize barrier and reconciliation', (
     assert.equal(storage.getItem('ielts_ft_session_ids'), null);
   });
 
+  test('does not admit another upload after the finalize barrier starts', async () => {
+    let release;
+    let finalizeCalls = 0;
+    const { controller } = makeController({
+      submit: () => new Promise((resolve) => { release = resolve; }),
+      finalize: async () => {
+        finalizeCalls += 1;
+        return { accepted: true, session_ids: ['p1', 'p2', 'p3'] };
+      },
+    });
+    controller.restore({ ownerId: 'u', currentSessionId: 'p1' });
+    controller.replaceChain(['p1', 'p2', 'p3']);
+    controller.submitAnswer({ sessionId: 'p3', questionId: 'q1', blob: {} }).catch(() => {});
+    await Promise.resolve();
+    const finalizing = controller.finalizeFullTest();
+    await assert.rejects(
+      controller.submitAnswer({ sessionId: 'p3', questionId: 'q2', blob: {} }),
+      (error) => error.code === 'finalizing',
+    );
+    assert.equal(finalizeCalls, 0);
+    release({ response_id: 'r1' });
+    await finalizing;
+    assert.equal(finalizeCalls, 1);
+  });
+
   test('reconciles an ambiguous finalize only when every canonical session is submitted or terminal', async () => {
     const { controller, storage } = makeController({
       finalize: async () => { throw new TypeError('Failed to fetch'); },
@@ -238,6 +303,23 @@ describe('SpeakingFullTestController — finalize barrier and reconciliation', (
       controller.finalizeFullTest(),
       (error) => error.code === 'ambiguous_finalize',
     );
+    assert.ok(storage.getItem('ielts_ft_state_v2'));
+  });
+
+  test('does not reconcile a definitive 4xx rejection against stale submitted rows', async () => {
+    let reads = 0;
+    const rejected = Object.assign(new Error('question set incomplete'), { status: 409 });
+    const { controller, storage } = makeController({
+      finalize: async () => { throw rejected; },
+      getSession: async () => { reads += 1; return { status: 'submitted' }; },
+    });
+    controller.restore({ currentSessionId: 'p1' });
+    controller.replaceChain(['p1', 'p2', 'p3']);
+    await assert.rejects(
+      controller.finalizeFullTest(),
+      (error) => error.code === 'finalize_rejected',
+    );
+    assert.equal(reads, 0);
     assert.ok(storage.getItem('ielts_ft_state_v2'));
   });
 
@@ -273,9 +355,12 @@ describe('SpeakingFullTestController — finalize barrier and reconciliation', (
 
 describe('Next Speaking Full Test integration', () => {
   test('bridge owns lifecycle, API contracts and unload protection for the only local audio copy', () => {
+    assert.match(BRIDGE, /const \{ status, user \} = useAuth\(\)/);
     assert.match(BRIDGE, /new SpeakingFullTestController/);
     assert.match(BRIDGE, /PracticeSubmission\?\.submit/);
     assert.match(BRIDGE, /\/sessions\/finalize-full-test/);
+    assert.match(BRIDGE, /api\.postWith\([\s\S]*?noRedirect: true/);
+    assert.match(BRIDGE, /api\.getWith\([\s\S]*?noRedirect: true/);
     assert.match(BRIDGE, /encodeURIComponent\(sessionId\)/);
     assert.match(BRIDGE, /controller\.hasUnsavedAudio\(\)/);
     assert.match(BRIDGE, /beforeunload/);
@@ -294,6 +379,7 @@ describe('Next Speaking Full Test integration', () => {
     assert.match(PRACTICE, /nativeFullTest\.retryFailed\(\)/);
     assert.match(PRACTICE, /nativeFullTest\.confirmedQuestionIds\(_sessionId\)/);
     assert.match(PRACTICE, /_sessionData\.response_receipts/);
+    assert.match(PRACTICE, /_createBody\.previous_session_id = _sessionId/);
     assert.match(PRACTICE, /retryFullTestSubmissions: retryFullTestSubmissions/);
   });
 
@@ -310,5 +396,9 @@ describe('Next Speaking Full Test integration', () => {
     assert.match(PRACTICE, /ctas\.style\.display = 'none'/);
     assert.match(PRACTICE, /ctas\.style\.display = ''/);
     assert.match(PRACTICE, /Bản ghi vẫn còn trên thiết bị này/);
+    assert.match(
+      PRACTICE,
+      /api\.postWith\('\/sessions\/finalize-full-test'[\s\S]*?\.catch\(function \(err\) \{[\s\S]*?_setFullTestCompletionPhase\('error', err\)/,
+    );
   });
 });

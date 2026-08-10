@@ -121,7 +121,7 @@
     </div>
 
     <!-- STATE: Mode Choice ──────────────────────────────────────────────────── -->
-    <div id="state-mode-choice" class="state block-state flex-1 av-w-read py-12 ds-fadein">
+    <div id="state-mode-choice" class="state block-state flex-1 av-w-read py-12 ds-fadein practice-stage practice-stage--choice">
       <div class="text-center mb-8">
         <p class="practice-mode-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
           Câu hỏi sẽ được trình bày như thế nào?
@@ -132,6 +132,7 @@
       <div class="flex flex-col gap-4">
         <button onclick="PracticeApp.chooseModeAndStart('visual')"
                 class="practice-mode-card w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Linh hoạt</span>
           <div class="practice-mode-card__icon">
             <i data-lucide="eye"></i>
           </div>
@@ -142,6 +143,7 @@
         </button>
         <button onclick="PracticeApp.chooseModeAndStart('listening')"
                 class="practice-mode-card practice-mode-card--recommended w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Gần phòng thi thật</span>
           <div class="practice-mode-card__icon">
             <i data-lucide="volume-2"></i>
           </div>
@@ -154,7 +156,7 @@
     </div>
 
     <!-- STATE: Preparation ─────────────────────────────────────────────────── -->
-    <div id="state-prep" class="state block-state flex-1 av-w-read py-8 ds-fadein">
+    <div id="state-prep" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--player">
 
       <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
       <div id="prep-fallback-warning" class="ds-callout practice-warning-callout" style="display:none;">
@@ -373,7 +375,7 @@
     </div>
 
     <!-- STATE: P2-A — Cue Card ──────────────────────────────────────────────── -->
-    <div id="state-p2a" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2a" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <div class="flex items-center gap-2 mb-5">
         <span class="ds-badge ds-badge-teal">Part 2</span>
         <span id="p2a-topic" class="practice-p2a-topic text-sm"></span>
@@ -410,7 +412,7 @@
     </div>
 
     <!-- STATE: P2-B — Prep countdown ───────────────────────────────────────── -->
-    <div id="state-p2b" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2b" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <p class="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p>
       <p id="p2b-timer" class="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
       <div class="card p-4 mb-4">
@@ -430,7 +432,7 @@
     </div>
 
     <!-- STATE: P2-C — Speaking (2-min countdown) ────────────────────────────── -->
-    <div id="state-p2c" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2c" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <div class="text-center mb-6">
         <div class="flex items-center justify-center gap-3 mb-2">
           <span class="practice-rec-dot"></span>
@@ -459,9 +461,15 @@
     </div>
 
     <!-- STATE: Feedback ─────────────────────────────────────────────────────── -->
-    <div id="state-feedback" class="state block-state flex-1 av-w-read py-8 ds-fadein">
+    <div id="state-feedback" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--feedback">
 
-      <h2 class="text-lg font-bold mb-5 text-center">Kết quả câu trả lời</h2>
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Phản hồi tức thì</p>
+        <h2>Kết quả câu trả lời</h2>
+        <p>Ưu tiên một điểm mạnh để giữ lại và một thay đổi nhỏ cho lượt nói tiếp theo.</p>
+      </header>
+
+      <div class="practice-feedback-overview">
 
       <!-- Overall band hero -->
       <div id="feedback-band-wrapper"
@@ -483,29 +491,33 @@
         </p>
         <div id="feedback-comments"></div>
       </div>
-
-      <!-- Transcript -->
-      <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
-        <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
-        <p id="feedback-transcript-text"
-           class="practice-transcript-text text-xs leading-relaxed"></p>
       </div>
 
-      <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
-      <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
-        <div class="flex gap-2">
-          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
-                  style="flex:1;"
-                  onclick="PracticeApp.replayAudio()">
-            <i data-lucide="volume-2"></i>
-            Nghe lại
-          </button>
-          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
-                  style="flex:1;"
-                  onclick="PracticeApp.downloadAudio()">
-            <i data-lucide="download"></i>
-            Tải audio
-          </button>
+      <div class="practice-feedback-evidence">
+        <!-- Transcript -->
+        <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
+          <p id="feedback-transcript-text"
+             class="practice-transcript-text text-xs leading-relaxed"></p>
+        </div>
+
+        <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
+        <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p>
+          <div class="flex gap-2">
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.replayAudio()">
+              <i data-lucide="volume-2"></i>
+              Nghe lại
+            </button>
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.downloadAudio()">
+              <i data-lucide="download"></i>
+              Tải audio
+            </button>
+          </div>
         </div>
       </div>
 
@@ -536,7 +548,7 @@
       </div>
 
       <!-- Navigation buttons (JS controls display) -->
-      <div class="flex flex-col gap-3">
+      <div class="practice-feedback-actions flex flex-col gap-3">
         <!-- Xem lại một câu của PHIẾU bài tập lớp. Ở đường ấy không có "câu
              tiếp theo": học viên đang xem lại một ô cụ thể và cần về đúng chỗ
              cũ. Hai nút kia bị ẩn, nút này hiện — xem `_sheetReview`. -->
@@ -565,13 +577,14 @@
     </div>
 
     <!-- STATE: Full Test Completion ─────────────────────────────────────────── -->
-    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center">
+    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center practice-stage practice-stage--completion">
 
       <!-- Check icon -->
       <div class="practice-completion-check">
         <i data-lucide="check"></i>
       </div>
 
+      <p class="practice-completion-eyebrow">Đã ghi nhận đủ 3 Part</p>
       <h2 id="completion-title" class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
       <p id="completion-desc" class="practice-completion-desc">
         Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
@@ -623,9 +636,12 @@
     </div>
 
     <!-- STATE: Test Results ──────────────────────────────────────────────────── -->
-    <div id="state-test-results" class="state block-state flex-1 av-w-read py-8">
-      <h2 class="text-xl font-bold mb-2 text-center">Kết quả bài Test</h2>
-      <p class="practice-test-results-sub text-xs text-center mb-6">Tổng hợp tất cả câu trả lời trong buổi test</p>
+    <div id="state-test-results" class="state block-state flex-1 av-w-read py-8 practice-stage practice-stage--summary">
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Tổng kết phiên</p>
+        <h2>Kết quả bài Test</h2>
+        <p class="practice-test-results-sub">Tổng hợp tất cả câu trả lời trong buổi test</p>
+      </header>
 
       <!-- Overall band -->
       <div id="test-overall-wrap" class="card practice-overall-wrap p-6 mb-6 text-center">

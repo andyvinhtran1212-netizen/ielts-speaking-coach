@@ -41,6 +41,17 @@ function safeParse(raw) {
   try { return JSON.parse(raw || 'null'); } catch { return null; }
 }
 
+function defaultStorage() {
+  try { return globalThis.sessionStorage || null; } catch { return null; }
+}
+
+function definitiveFinalizeStatus(error) {
+  const status = error?.status != null ? Number(error.status) : null;
+  return new Set([400, 401, 403, 404, 409, 413, 415, 422]).has(status)
+    ? status
+    : null;
+}
+
 function acceptedFinalizePayload(payload, sessionIds) {
   if (!payload || payload.accepted !== true) return false;
   const returned = uniqueIds(payload.session_ids);
@@ -49,7 +60,9 @@ function acceptedFinalizePayload(payload, sessionIds) {
 
 export class SpeakingFullTestController {
   constructor(environment = {}) {
-    this.storage = environment.storage || globalThis.sessionStorage || null;
+    this.storage = Object.prototype.hasOwnProperty.call(environment, 'storage')
+      ? environment.storage
+      : defaultStorage();
     this.submit = environment.submit;
     this.finalize = environment.finalize;
     this.getSession = environment.getSession;
@@ -83,9 +96,14 @@ export class SpeakingFullTestController {
     this.ownerId = owner || null;
     const persisted = this.#readState();
     const ownerMatches = persisted
-      && (!persisted.owner_id || !owner || persisted.owner_id === owner);
+      && !!owner
+      && (!persisted.owner_id || persisted.owner_id === owner);
     const persistedIds = ownerMatches ? uniqueIds(persisted.session_ids) : [];
-    const legacyIds = uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)));
+    // The legacy key has no owner field. Only migrate it after auth supplies a
+    // concrete owner; otherwise a previous account's tab state can be adopted.
+    const legacyIds = owner
+      ? uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)))
+      : [];
     const candidate = persistedIds.includes(current)
       ? persistedIds
       : (legacyIds.includes(current) ? legacyIds : [current]);
@@ -138,6 +156,12 @@ export class SpeakingFullTestController {
         'Trang Full Test đã đóng. Hãy mở lại bài thi.',
       ));
     }
+    if (this.finalizing) {
+      return Promise.reject(new SpeakingFullTestError(
+        'finalizing',
+        'Full Test đang được chốt. Không thể gửi thêm bản ghi.',
+      ));
+    }
     const sid = cleanId(sessionId);
     const qid = cleanId(questionId);
     if (!sid || !qid || !blob || typeof this.submit !== 'function') {
@@ -149,10 +173,10 @@ export class SpeakingFullTestController {
 
     const key = `${sid}\u0000${qid}`;
     const existing = this.pending.get(key);
-    if (existing) return existing;
+    if (existing && existing.blob === blob) return existing.promise;
 
     const item = { sessionId: sid, questionId: qid, blob, priorResponseId };
-    const operation = Promise.resolve()
+    const run = () => Promise.resolve()
       .then(() => this.#settleWithin(
         this.submit(item),
         this.submissionSettleMs,
@@ -173,9 +197,15 @@ export class SpeakingFullTestController {
         this.retryable.set(key, { ...item, error });
         throw error;
       });
-    this.pending.set(key, operation);
+    // A duplicate caller for the same Blob shares one mutation. A genuinely
+    // newer take must run after the current request, never inherit its result.
+    const operation = existing
+      ? existing.promise.then(run, run)
+      : run();
+    const entry = { blob, promise: operation };
+    this.pending.set(key, entry);
     void operation.finally(() => {
-      if (this.pending.get(key) === operation) this.pending.delete(key);
+      if (this.pending.get(key) === entry) this.pending.delete(key);
     }).catch(() => {});
     return operation;
   }
@@ -206,8 +236,12 @@ export class SpeakingFullTestController {
   }
 
   async #finalizeOnce() {
-    const pending = Array.from(this.pending.values());
-    if (pending.length) await Promise.allSettled(pending);
+    // Drain until stable rather than awaiting one snapshot. A submission that
+    // was already admitted before finalize started must settle too.
+    while (this.pending.size) {
+      const pending = Array.from(this.pending.values(), (entry) => entry.promise);
+      await Promise.allSettled(pending);
+    }
     if (this.retryable.size) {
       throw new SpeakingFullTestError(
         'answers_pending',
@@ -250,6 +284,17 @@ export class SpeakingFullTestController {
       this.clear();
       return payload;
     } catch (error) {
+      const rejectedStatus = definitiveFinalizeStatus(error);
+      if (rejectedStatus) {
+        const code = rejectedStatus === 401
+          ? 'auth_required'
+          : (rejectedStatus === 403 ? 'finalize_forbidden' : 'finalize_rejected');
+        throw new SpeakingFullTestError(
+          code,
+          error?.message || 'Máy chủ từ chối chốt Full Test. Hãy kiểm tra bài thi.',
+          { cause: error },
+        );
+      }
       if (await this.#reconcileFinalize()) {
         const result = {
           accepted: true,

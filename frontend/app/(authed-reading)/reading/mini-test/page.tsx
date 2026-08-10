@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 
-import { ReadingMiniTestShell } from './page-shell';
 import { ReadingMiniTestBehavior } from './reading-mini-test-behavior';
 
 export const metadata: Metadata = {
@@ -14,9 +13,7 @@ export default function ReadingMiniTestPage() {
     <>
       {/* @ts-ignore */}
       <aver-chrome active="reading" />
-      <ReadingMiniTestShell>
-        <ReadingMiniTestBehavior />
-      </ReadingMiniTestShell>
+      <ReadingMiniTestBehavior />
     </>
   );
 }
