@@ -11006,6 +11006,8 @@ export interface components {
             topic: string;
             /** Sitting Id */
             sitting_id?: string | null;
+            /** Previous Session Id */
+            previous_session_id?: string | null;
             /** Class Assignment Item Id */
             class_assignment_item_id?: string | null;
         };
@@ -11465,9 +11467,9 @@ export interface components {
             /** P1 Id */
             p1_id: string;
             /** P2 Id */
-            p2_id?: string | null;
+            p2_id: string;
             /** P3 Id */
-            p3_id?: string | null;
+            p3_id: string;
         };
         /** FlagUpdate */
         FlagUpdate: {

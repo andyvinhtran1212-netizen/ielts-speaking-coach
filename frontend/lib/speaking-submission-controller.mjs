@@ -61,9 +61,13 @@ function responseId(data) {
 }
 
 export function findPersistedSpeakingResponse(session, questionId) {
-  if (!session || !Array.isArray(session.responses)) return null;
+  if (!session) return null;
+  const rows = [
+    ...(Array.isArray(session.responses) ? session.responses : []),
+    ...(Array.isArray(session.response_receipts) ? session.response_receipts : []),
+  ];
   const wanted = String(questionId);
-  return session.responses.find((row) => (
+  return rows.find((row) => (
     row
     && String(row.question_id == null ? '' : row.question_id) === wanted
     && String(row.id == null ? '' : row.id).trim()

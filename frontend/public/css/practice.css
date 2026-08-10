@@ -766,9 +766,43 @@
 .practice-completion-desc {
   font-size: var(--av-fs-sm);
   color: var(--av-text-muted);
-  margin-bottom: 28px;
+  margin-bottom: var(--av-space-4);
   max-width: 360px;
   line-height: var(--av-lh-relaxed);
+}
+
+.practice-completion-submit-status {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--av-space-3) var(--av-space-4);
+  margin-bottom: var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  line-height: var(--av-lh-relaxed);
+}
+.practice-completion-submit-status.is-pending {
+  color: var(--av-warning);
+  background: var(--av-warning-soft);
+  border-color: var(--av-warning);
+}
+.practice-completion-submit-status.is-success {
+  color: var(--av-success);
+  background: var(--av-success-soft);
+  border-color: var(--av-success);
+}
+.practice-completion-submit-status.is-error {
+  color: var(--av-error);
+  background: var(--av-error-soft);
+  border-color: var(--av-error);
+}
+
+.practice-completion-retry {
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
 }
 
 .practice-completion-info {

@@ -198,6 +198,10 @@ class CreateSessionBody(BaseModel):
     # linked at creation (before any response is graded) so per-response speaking
     # grading is sealed from the first answer.
     sitting_id: str | None = None
+    # For Full Test Part 2/3 the client identifies only the immediately prior
+    # session. The server resolves the canonical attempt id from that owned row;
+    # callers never get to choose an attempt id themselves.
+    previous_session_id: str | None = None
     # GĐ 2 — when set, this session answers a class assignment. Linked at
     # creation, exactly like sitting_id, so PATCH /complete can record the
     # hand-in without having to guess from the topic string.
@@ -224,11 +228,29 @@ class CreateSessionBody(BaseModel):
             raise ValueError("topic không được để trống")
         return v.strip()
 
+    @field_validator("previous_session_id")
+    @classmethod
+    def validate_previous_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("previous_session_id không được để trống")
+        return session_id
+
 
 class FinalizeFullTestBody(BaseModel):
     p1_id: str
-    p2_id: Optional[str] = None
-    p3_id: Optional[str] = None
+    p2_id: str
+    p3_id: str
+
+    @field_validator("p1_id", "p2_id", "p3_id")
+    @classmethod
+    def validate_session_id(cls, value: str) -> str:
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("session ID không được để trống")
+        return session_id
 
 
 # ── Shared guards ─────────────────────────────────────────────────────────────
@@ -277,6 +299,72 @@ def _require_active(user_id: str) -> None:
         raise HTTPException(status_code=403, detail="Tài khoản chưa được kích hoạt")
 
 
+def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str | None:
+    """Resolve Part 2/3 membership from the immediately preceding owned row.
+
+    Part 1 receives a fresh id from migration 200's insert trigger. Non-Full-Test
+    modes may not smuggle a predecessor. This keeps chain identity canonical on
+    the server and makes a manipulated client payload harmless.
+    """
+    previous_id = body.previous_session_id
+    if body.mode != "test_full":
+        if previous_id:
+            raise HTTPException(400, "previous_session_id chỉ dùng cho Full Test")
+        return None
+    if body.part == 1:
+        if previous_id:
+            raise HTTPException(400, "Full Test Part 1 không được có session trước đó")
+        return None
+    if not previous_id:
+        raise HTTPException(
+            400,
+            f"Full Test Part {body.part} cần session Part {body.part - 1} liền trước",
+        )
+
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select("id, mode, part, status, full_test_attempt_id")
+            .eq("id", previous_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra chuỗi Full Test: {e}")
+
+    row = (result.data or [None])[0]
+    if (
+        not row
+        or row.get("mode") != "test_full"
+        or row.get("part") != body.part - 1
+        or row.get("status") != "in_progress"
+    ):
+        raise HTTPException(
+            400,
+            f"Session trước đó không phải Full Test Part {body.part - 1} đang làm",
+        )
+    attempt_id = str(row.get("full_test_attempt_id") or "").strip()
+    if not attempt_id:
+        raise HTTPException(
+            409,
+            "Session Full Test cũ chưa có mã chuỗi an toàn. Hãy bắt đầu lại Full Test.",
+        )
+    return attempt_id
+
+
+def _rollback_unstarted_session(session_id: str) -> None:
+    """Best-effort rollback for a session that has not been returned yet."""
+    try:
+        supabase_admin.table("sessions").delete().eq("id", session_id).execute()
+    except Exception as e:
+        logger.critical(
+            "[create_session] failed to roll back unstarted session=%s: %s",
+            session_id,
+            e,
+        )
+
+
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
 @router.post("")
@@ -322,6 +410,11 @@ async def create_session(
 
     if not entitled_by_assignment:
         _require_permission(user_id, body.mode)
+
+    # Resolve this before consuming a daily slot. Part 2/3 membership comes
+    # only from the immediately preceding owned session; the caller cannot
+    # choose or replay a raw attempt identifier.
+    full_test_attempt_id = _resolve_full_test_attempt_id(user_id, body)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -406,6 +499,37 @@ async def create_session(
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
 
+    # Migration 200's trigger creates Part 1's canonical id atomically with the
+    # row. Later parts inherit the id resolved above. The partial unique index on
+    # (attempt, part) closes double-click/replay races at the database boundary.
+    if body.mode == "test_full":
+        if body.part == 1:
+            if not s.get("full_test_attempt_id"):
+                _rollback_unstarted_session(s["id"])
+                raise HTTPException(
+                    status_code=503,
+                    detail="Full Test đang được cập nhật. Vui lòng thử lại sau.",
+                )
+        else:
+            try:
+                supabase_admin.table("sessions").update({
+                    "full_test_attempt_id": full_test_attempt_id,
+                }).eq("id", s["id"]).eq("user_id", user_id).execute()
+            except Exception as e:
+                _rollback_unstarted_session(s["id"])
+                conflict = (
+                    "uq_sessions_full_test_attempt_part" in str(e)
+                    or "duplicate key" in str(e).lower()
+                )
+                raise HTTPException(
+                    status_code=409 if conflict else 500,
+                    detail=(
+                        "Part này của Full Test đã được tạo. Hãy mở lại bài đang làm."
+                        if conflict else "Không nối được phần tiếp theo của Full Test. Hãy thử lại."
+                    ),
+                )
+            s["full_test_attempt_id"] = full_test_attempt_id
+
     # GĐ 2 — class assignment: write the link so PATCH /complete can record the
     # hand-in. Validation already happened BEFORE the session was created (see
     # above), so the only thing that can fail here is the UPDATE itself.
@@ -453,6 +577,7 @@ async def create_session(
         "topic":      s["topic"],
         "started_at": s["started_at"],
         "status":     s["status"],
+        "full_test_attempt_id": s.get("full_test_attempt_id"),
     }
 
 
@@ -754,6 +879,7 @@ async def get_session(
         questions = []
 
     # Responses for this session
+    response_lookup_failed = False
     try:
         r_result = (
             supabase_admin.table("responses")
@@ -766,6 +892,18 @@ async def get_session(
     except Exception as exc:
         logger.error("[get_session] responses query FAILED for session=%s: %s", session_id, exc)
         responses = []
+        response_lookup_failed = True
+
+    # Receipt-only ledger: enough for upload reconciliation and reload/resume,
+    # but never enough to reveal a sealed mock's transcript, grading or score.
+    # The response row id is required to distinguish a real persisted row from
+    # an optimistic/pending client state. A retake still has the same row id and
+    # therefore remains ambiguous unless the POST itself confirms it.
+    response_receipts = [
+        {"id": row.get("id"), "question_id": row.get("question_id")}
+        for row in responses
+        if row.get("id") and row.get("question_id")
+    ]
 
     # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
     # the sitting is released. Questions still return so recording works.
@@ -780,6 +918,8 @@ async def get_session(
         "retention":  compute_expiry(session),
         "questions":  questions,
         "responses":  responses,
+        "response_receipts": response_receipts,
+        "response_lookup_failed": response_lookup_failed,
     }
     task = _class_task_state(session)
     if task:
@@ -1180,32 +1320,89 @@ def _check_all_responses_graded(session_ids: list) -> bool:
         try:
             q_res = (
                 supabase_admin.table("questions")
-                .select("id", count="exact")
+                .select("id")
                 .eq("session_id", sid)
                 .execute()
             )
             r_res = (
                 supabase_admin.table("responses")
-                .select("id, grading_status, overall_band")
+                .select("id, question_id, grading_status, overall_band")
                 .eq("session_id", sid)
                 .execute()
             )
-            n_q = q_res.count or 0
+            question_ids = {
+                str(row.get("id")) for row in (q_res.data or []) if row.get("id")
+            }
+            if not question_ids:
+                logger.warning("[finalize_ft] session=%s has no questions", sid)
+                return False
             responses = r_res.data or []
-            graded = [
-                r for r in responses
+            graded_question_ids = {
+                str(r.get("question_id")) for r in responses
                 if r.get("grading_status") == "completed" and r.get("overall_band") is not None
-            ]
-            n_graded = len(graded)
-            if n_graded < n_q:
+                and r.get("question_id")
+            }
+            missing = question_ids - graded_question_ids
+            if missing:
                 logger.info(
-                    "[finalize_ft] session=%s: %d/%d responses graded", sid, n_graded, n_q
+                    "[finalize_ft] session=%s: %d/%d questions graded; missing=%d",
+                    sid,
+                    len(question_ids & graded_question_ids),
+                    len(question_ids),
+                    len(missing),
                 )
                 return False
         except Exception as e:
             logger.warning("[finalize_ft] poll error for session=%s: %s", sid, e)
             return False
     return True
+
+
+def _validate_full_test_chain(session_ids: list[str], session_rows: list[dict]) -> None:
+    """Require one owned test_full session for each canonical Speaking part."""
+    if len(session_ids) != 3 or len(set(session_ids)) != 3:
+        raise HTTPException(400, "Full Test phải có 3 session khác nhau cho Part 1, 2 và 3")
+    sessions_by_id = {row["id"]: row for row in session_rows}
+    for expected_part, sid in enumerate(session_ids, start=1):
+        row = sessions_by_id.get(sid)
+        if not row:
+            continue  # ownership/missing-id check reports this as 404 at the route boundary
+        if row.get("mode") != "test_full" or row.get("part") != expected_part:
+            raise HTTPException(
+                400,
+                f"Session {sid} không phải Full Test Part {expected_part}",
+            )
+    rows = [sessions_by_id.get(sid) for sid in session_ids]
+    if all(rows):
+        attempt_ids = {
+            str(row.get("full_test_attempt_id") or "").strip() for row in rows
+        }
+        if "" in attempt_ids or len(attempt_ids) != 1:
+            raise HTTPException(400, "Ba phần Full Test không thuộc cùng một lần làm bài")
+        sitting_ids = {row.get("sitting_id") for row in rows}
+        if len(sitting_ids) > 1:
+            raise HTTPException(400, "Ba phần Full Test không thuộc cùng một bài thi")
+
+
+def _validate_full_test_question_counts(
+    session_ids: list[str],
+    question_rows: list[dict],
+) -> None:
+    """Fail before finalization when any persisted part is not 9/1/5."""
+    expected_by_session = dict(zip(session_ids, (9, 1, 5)))
+    actual = Counter(
+        row.get("session_id") for row in question_rows if row.get("session_id")
+    )
+    invalid = [
+        f"Part {part}: {actual.get(sid, 0)}/{expected_by_session[sid]}"
+        for part, sid in enumerate(session_ids, start=1)
+        if actual.get(sid, 0) != expected_by_session[sid]
+    ]
+    if invalid:
+        raise HTTPException(
+            409,
+            "Bộ câu hỏi Full Test chưa đầy đủ (" + ", ".join(invalid) + ")",
+        )
 
 
 async def _bg_finalize_full_test(session_ids: list) -> None:
@@ -1314,15 +1511,14 @@ async def finalize_full_test(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    all_ids = [sid for sid in [body.p1_id, body.p2_id, body.p3_id] if sid]
-    if not all_ids:
-        raise HTTPException(400, "Cần ít nhất một session ID (p1_id)")
+    all_ids = [body.p1_id, body.p2_id, body.p3_id]
+    _validate_full_test_chain(all_ids, [])
 
     # Ownership check — all sessions must belong to this user
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id, mode")
+            .select("id, mode, part, sitting_id, full_test_attempt_id")
             .in_("id", all_ids)
             .eq("user_id", user_id)
             .execute()
@@ -1334,6 +1530,22 @@ async def finalize_full_test(
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
+
+    _validate_full_test_chain(all_ids, s_res.data or [])
+
+    # Question rows are immutable once answers start. Reject an old/corrupted
+    # short set immediately instead of accepting it, waiting 210 seconds and
+    # silently aggregating a non-canonical 9/1/5 exam.
+    try:
+        q_res = (
+            supabase_admin.table("questions")
+            .select("id, session_id")
+            .in_("session_id", all_ids)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra bộ câu hỏi Full Test: {e}")
+    _validate_full_test_question_counts(all_ids, q_res.data or [])
 
     # Mark all sessions 'submitted' immediately — history shows "Đang phân tích"
     try:

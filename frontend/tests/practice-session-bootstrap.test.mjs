@@ -227,6 +227,18 @@ describe('native Speaking session bootstrap contract', () => {
     );
   });
 
+  test('fails closed when Full Test response receipts could not be read', async () => {
+    const api = fakeApi({
+      session: { id: 's1', mode: 'test_full', response_lookup_failed: true },
+    });
+    await assert.rejects(
+      loadPracticeBootstrap({ api, sessionId: 's1' }),
+      (error) => error instanceof PracticeBootstrapError
+        && error.code === 'response_lookup_failed',
+    );
+    assert.deepEqual(api.calls, [['get', '/sessions/s1', { noRedirect: true }]]);
+  });
+
   test('Next owns auth and data loading while legacy pages retain their bootstrap', () => {
     assert.match(NEXT_BOOT, /const \{ status, user \} = useAuth\(\)/);
     assert.match(NEXT_BOOT, /loadPracticeBootstrap\(/);

@@ -76,6 +76,7 @@
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
   var _ftSubmitKeys     = {};     // session/question pairs already counted
   var _ftSubmitFailureKeys = {};  // pairs already represented in failures
+  var _ftLegacyPending  = {};     // legacy-only upload promises keyed by session/question
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
   // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
@@ -109,11 +110,36 @@
   // sessionStorage — same tab-scoped contract family as ielts_ft_p2topic.
   var FT_CHAIN_KEY = 'ielts_ft_session_ids';
 
+  function _getNativeFullTest() {
+    var controller = window.PracticeFullTest;
+    return controller
+      && typeof controller.restore === 'function'
+      && typeof controller.submitAnswer === 'function'
+      && typeof controller.finalizeFullTest === 'function'
+      ? controller
+      : null;
+  }
+
   function _saveFtChain() {
+    var nativeFullTest = _getNativeFullTest();
+    if (nativeFullTest && _ftAllSessionIds.length) {
+      nativeFullTest.replaceChain(_ftAllSessionIds);
+      return;
+    }
     try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(_ftAllSessionIds)); } catch (e) { /* storage not available */ }
   }
 
   function _loadFtChain() {
+    var nativeFullTest = _getNativeFullTest();
+    if (nativeFullTest && _sessionId) {
+      return nativeFullTest.restore({
+        ownerId: _currentUserId,
+        currentSessionId: _sessionId,
+        responses: ((_sessionData && _sessionData.responses) || []).concat(
+          (_sessionData && _sessionData.response_receipts) || []
+        ),
+      }).sessionIds;
+    }
     try {
       var arr = JSON.parse(sessionStorage.getItem(FT_CHAIN_KEY) || 'null');
       if (!Array.isArray(arr) || arr.length === 0) return null;
@@ -125,6 +151,11 @@
   }
 
   function _clearFtChain() {
+    var nativeFullTest = _getNativeFullTest();
+    if (nativeFullTest) {
+      nativeFullTest.clear();
+      return;
+    }
     try { sessionStorage.removeItem(FT_CHAIN_KEY); } catch (e) { /* storage not available */ }
   }
 
@@ -880,8 +911,8 @@
         var retryMessage = explicitStop
           ? err.message
           : (err && err.code === 'ambiguous_commit'
-              ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
-              : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.');
+               ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
+               : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.');
         _handlePersistFailure({ message: retryMessage });
         return;
       }
@@ -2588,14 +2619,29 @@
     if (!submitOpts.priorResponseId) {
       submitOpts.priorResponseId = _knownResponseId(questionId);
     }
-    if (_testMode === 'test_full') {
-      var submitKey = String(sessionId) + '\u0000' + String(questionId);
-      if (!_ftSubmitKeys[submitKey]) {
-        _ftSubmitKeys[submitKey] = true;
-        _ftSubmitTotal++;
-      }
+    var submitKey = String(sessionId) + '\u0000' + String(questionId);
+    if (_testMode === 'test_full' && !_ftSubmitKeys[submitKey]) {
+      _ftSubmitKeys[submitKey] = true;
+      _ftSubmitTotal++;
     }
-    return _submitResponseTransport(sessionId, questionId, blob, submitOpts)
+    var nativeFullTest = _testMode === 'test_full' ? _getNativeFullTest() : null;
+    var operation = nativeFullTest
+      ? nativeFullTest.submitAnswer({
+          sessionId: sessionId,
+          questionId: questionId,
+          blob: blob,
+          priorResponseId: submitOpts.priorResponseId,
+        })
+      : _submitResponseTransport(sessionId, questionId, blob, submitOpts);
+    var tracked = operation
+      .then(function (result) {
+        if (_testMode === 'test_full' && _ftSubmitFailureKeys[submitKey]) {
+          delete _ftSubmitFailureKeys[submitKey];
+          var failureIndex = _ftSubmitFailures.indexOf(questionId);
+          if (failureIndex !== -1) _ftSubmitFailures.splice(failureIndex, 1);
+        }
+        return result;
+      })
       .catch(function (err) {
         // B1: don't just warn — in a Full Test a failed upload means this
         // answer never reaches the server aggregate. Record it so the
@@ -2622,6 +2668,13 @@
         // xanh, học viên bấm Nộp và mất câu trả lời mà không biết.
         if (submitOpts.rethrow) throw err;
       });
+    if (_testMode === 'test_full' && !nativeFullTest) {
+      _ftLegacyPending[submitKey] = tracked;
+      void tracked.finally(function () {
+        if (_ftLegacyPending[submitKey] === tracked) delete _ftLegacyPending[submitKey];
+      }).catch(function () {});
+    }
+    return tracked;
   }
 
   function _advanceTestMode() {
@@ -2698,29 +2751,155 @@
     if (p2) body.p2_id = p2;
     if (p3) body.p3_id = p3;
 
-    window.api.post('/sessions/finalize-full-test', body)
+    var nativeFullTest = _getNativeFullTest();
+    if (nativeFullTest) {
+      nativeFullTest.replaceChain([p1, p2, p3].filter(Boolean));
+      _setFullTestCompletionPhase('sending');
+      return nativeFullTest.finalizeFullTest()
+        .then(function () {
+          _onFullTestFinalizeAccepted(p1, p2, p3);
+        })
+        .catch(function (err) {
+          console.warn('[practice] native full-test finalize paused:', err);
+          _setFullTestCompletionPhase('error', err);
+        });
+    }
+
+    // Legacy transport does not own retry blobs. Wait for every admitted eager
+    // upload before finalizing, so "accepted" can never outrun a late failure.
+    var pendingLegacy = Object.keys(_ftLegacyPending).map(function (key) {
+      return _ftLegacyPending[key];
+    });
+    _setFullTestCompletionPhase('sending');
+    return Promise.allSettled(pendingLegacy)
       .then(function () {
+        if (_ftSubmitFailures.length) {
+          _renderSubmitFailureNotice();
+          _setFullTestCompletionPhase('legacy-upload-error');
+          return null;
+        }
+        // Preserve the chain and completion screen on an expired token.
+        return window.api.postWith(
+          '/sessions/finalize-full-test', body, {}, { noRedirect: true }
+        );
+      })
+      .then(function () {
+        if (_ftSubmitFailures.length) return;
         // Spike-2 fix (review #748): clear the persisted chain only AFTER
         // the backend ACCEPTED finalize. Clearing before the call meant a
         // failed finalize (network/5xx — the catch below deliberately keeps
         // sessions in_progress for retry) lost the only persisted copy: a
         // Part-3 refresh would rebuild the chain as [p3] and the retried
         // finalize would aggregate WITHOUT Part 1/2.
-        _clearFtChain();
-        // 4-skill mock: report the completed speaking sessions to the sitting
-        // and hand back to the orchestrator. finalize marks the sessions
-        // 'submitted' with their graded responses, so record_speaking accepts
-        // them. Best-effort — the completion screen already shows.
-        if (!_sittingId) return;
-        return _reportSpeakingToSitting(_sittingId, [p1, p2, p3].filter(Boolean))
-          .then(function () {
-            window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
-          });
+        _onFullTestFinalizeAccepted(p1, p2, p3);
       })
       .catch(function (err) {
         console.warn('[practice] finalize-full-test failed (non-fatal):', err);
-        // Completion screen still shown. Sessions remain in_progress but
-        // graded responses are saved — admin can manually complete them.
+        _setFullTestCompletionPhase('error', err);
+      });
+  }
+
+  function _onFullTestFinalizeAccepted(p1, p2, p3) {
+    _clearFtChain();
+    _setFullTestCompletionPhase('accepted');
+    // 4-skill mock: report the completed speaking sessions to the sitting
+    // and hand back to the orchestrator. The durable debt queue owns retries.
+    if (!_sittingId) return Promise.resolve();
+    return _reportSpeakingToSitting(_sittingId, [p1, p2, p3].filter(Boolean))
+      .then(function () {
+        window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(_sittingId);
+      });
+  }
+
+  function _setFullTestCompletionPhase(phase, error) {
+    var title = $('completion-title');
+    var desc = $('completion-desc');
+    var status = $('completion-submit-status');
+    var retry = $('completion-retry-btn');
+    var ctas = $('completion-ctas');
+    var info = $('completion-info');
+    var nativeFullTest = _getNativeFullTest();
+    var snapshot = nativeFullTest ? nativeFullTest.getSnapshot() : null;
+
+    if (phase === 'accepted') {
+      if (title) title.textContent = 'Bạn đã nộp Full Test!';
+      if (desc) desc.textContent = 'Hệ thống đã nhận đủ bản ghi và đang tổng hợp band score cùng nhận xét chi tiết.';
+      if (status) {
+        status.className = 'practice-completion-submit-status is-success';
+        status.textContent = 'Đã xác nhận toàn bộ bản ghi trên máy chủ.';
+      }
+      if (retry) retry.style.display = 'none';
+      if (ctas) ctas.style.display = '';
+      if (info) info.style.display = '';
+      return;
+    }
+
+    if (phase === 'legacy-upload-error') {
+      var failedLegacy = _ftSubmitFailures.length;
+      if (title) title.textContent = 'Có bản ghi chưa gửi được';
+      if (desc) {
+        desc.textContent = 'Full Test chưa được chốt. Hãy quay lại Speaking và làm lại bài; các phần đã lưu vẫn có trong lịch sử.';
+      }
+      if (status) {
+        status.className = 'practice-completion-submit-status is-error';
+        status.textContent = failedLegacy + ' bản ghi chưa được máy chủ xác nhận.';
+      }
+      if (retry) retry.style.display = 'none';
+      if (ctas) ctas.style.display = '';
+      if (info) info.style.display = 'none';
+      return;
+    }
+
+    if (phase === 'error') {
+      var retryCount = snapshot ? snapshot.retryCount : 0;
+      if (title) title.textContent = retryCount ? 'Còn bản ghi chưa gửi được' : 'Chưa chốt được Full Test';
+      if (desc) {
+        desc.textContent = retryCount
+          ? 'Bản ghi vẫn còn trên thiết bị này. Đừng đóng trang; hãy gửi lại để bài thi đủ câu.'
+          : 'Các bản ghi đã gửi, nhưng máy chủ chưa xác nhận chốt bài. Hãy thử lại.';
+      }
+      if (status) {
+        status.className = 'practice-completion-submit-status is-error';
+        status.textContent = retryCount
+          ? retryCount + ' bản ghi cần gửi lại.'
+          : ((error && error.message) || 'Chưa thể xác nhận yêu cầu chốt bài.');
+      }
+      if (retry) {
+        retry.style.display = '';
+        retry.disabled = false;
+        retry.textContent = retryCount ? 'Gửi lại và chốt bài' : 'Thử chốt bài lại';
+      }
+      if (ctas) ctas.style.display = 'none';
+      if (info) info.style.display = 'none';
+      return;
+    }
+
+    if (title) title.textContent = 'Đang gửi nốt Full Test…';
+    if (desc) desc.textContent = 'Hãy giữ trang này mở cho tới khi máy chủ xác nhận đủ tất cả bản ghi.';
+    if (status) {
+      status.className = 'practice-completion-submit-status is-pending';
+      status.textContent = 'Đang kiểm tra và gửi nốt các câu trả lời…';
+    }
+    if (retry) retry.style.display = 'none';
+    if (ctas) ctas.style.display = 'none';
+    if (info) info.style.display = 'none';
+  }
+
+  function retryFullTestSubmissions() {
+    var nativeFullTest = _getNativeFullTest();
+    if (!nativeFullTest) return;
+    var btn = $('completion-retry-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi lại…'; }
+    _setFullTestCompletionPhase('sending');
+    nativeFullTest.retryFailed()
+      .then(function () { return nativeFullTest.finalizeFullTest(); })
+      .then(function () {
+        var ids = nativeFullTest.getSnapshot().sessionIds;
+        _onFullTestFinalizeAccepted(ids[0], ids[1], ids[2]);
+      })
+      .catch(function (err) {
+        console.warn('[practice] full-test retry failed:', err);
+        _setFullTestCompletionPhase('error', err);
       });
   }
 
@@ -2728,6 +2907,10 @@
   // dropped answer isn't silently absent from the aggregate. Idempotent — safe
   // to call whether or not there were failures (removes a stale notice).
   function _renderSubmitFailureNotice() {
+    // Native Full Test has a retryable, blob-owning status card. The legacy
+    // warning below is intentionally informational only and cannot recover a
+    // recording, so never render it over the native state.
+    if (_getNativeFullTest()) return;
     var host = $('state-completion');
     if (!host) return;
     var existing = host.querySelector('.practice-submit-warning');
@@ -2778,6 +2961,9 @@
 
       if (loadMsg) loadMsg.textContent = 'Đang tạo Part ' + part + '...';
       var _createBody = { mode: 'test_full', part: part, topic: nextTopic };
+      // The server derives the canonical Full Test attempt from the immediately
+      // preceding owned session. Never send or trust a client-chosen attempt id.
+      _createBody.previous_session_id = _sessionId;
       // Mock sitting: link later parts too, so their per-response grading is
       // sealed like the opening session.
       if (_sittingId) _createBody.sitting_id = _sittingId;
@@ -2786,9 +2972,22 @@
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
-      // Track this session so we can complete all of them at the end
+      // Commit module, chain and URL state together before the next network
+      // mutation. The error screen then also refers to the session that truly
+      // needs question generation retried.
+      _sessionId     = newId;
+      _sessionData   = newSession;
+      _ftCurrentPart = part;
+      if (!_sessionData.mode) _sessionData.mode = 'test_full';
       _ftAllSessionIds.push(newId);
       _saveFtChain(); // spike-2 fix: the chain must survive a refresh
+      // Commit the routing source of truth in the SAME transition as the chain.
+      // If question generation below fails or the tab reloads mid-request, the
+      // native bootstrap resumes this new session and retries its empty question
+      // set instead of returning to the old part and minting an orphan session.
+      try {
+        history.replaceState(null, '', '?session_id=' + encodeURIComponent(newId));
+      } catch (e) { /* older browsers: refresh keeps legacy behavior */ }
 
       // Generate questions for this part
       if (loadMsg) loadMsg.textContent = 'Đang tạo câu hỏi Part ' + part + '...';
@@ -2799,25 +2998,18 @@
       var maxQ = FULL_TEST_Q_COUNT[part] || questions.length;
       questions = questions.slice(0, maxQ);
 
-      // Validate Part 1 grouping: must have exactly 9 questions for 3×3 structure
-      if (part === 1 && questions.length < 9) {
+      // Never start a persisted short exam. New backend generations are exact;
+      // this also stops historical 3-question Part 3 fallbacks from being
+      // presented as a complete Full Test.
+      if (questions.length < maxQ) {
         throw new Error(
-          'Không tạo đủ câu hỏi cho Full Test Part 1 (cần 9, nhận được ' + questions.length + '). ' +
+          'Không tạo đủ câu hỏi cho Full Test Part ' + part + ' (cần ' + maxQ +
+          ', nhận được ' + questions.length + '). ' +
           'Vui lòng thử lại.'
         );
       }
 
-      // Update module state for new part
-      _sessionId     = newId;
-      _sessionData   = newSession;
-      _ftCurrentPart = part;
-      // Spike-2 fix: keep the URL (the routing source of truth — see init())
-      // pointing at the CURRENT part's session. Without this a refresh in
-      // Part 2/3 reloaded Part 1's session. replaceState = no navigation.
-      try {
-        history.replaceState(null, '', '?session_id=' + encodeURIComponent(newId));
-      } catch (e) { /* older browsers: refresh keeps legacy behavior */ }
-      if (!_sessionData.mode) _sessionData.mode = 'test_full';
+      // Update question state for the already-committed new part.
       _questions   = questions;
       _currentIdx  = 0;
 
@@ -4064,6 +4256,7 @@
         _ftSubmitFailures   = [];
         _ftSubmitKeys       = {};
         _ftSubmitFailureKeys = {};
+        _ftLegacyPending    = {};
         _ftCompleteFailures = 0;
       }
 
@@ -4076,10 +4269,11 @@
         var maxQ = qCountTable[partKey] || questions.length;
         questions = questions.slice(0, maxQ);
 
-        // Validate Full Test Part 1 grouping structure
-        if (_testMode === 'test_full' && _sessionData.part === 1 && questions.length < 9) {
+        // A historical incomplete persisted set must not run as a shorter exam.
+        if (_testMode === 'test_full' && questions.length < maxQ) {
           showError(
-            'Không tạo đủ câu hỏi cho Full Test Part 1 (cần 9, nhận được ' + questions.length + '). ' +
+            'Không tạo đủ câu hỏi cho Full Test Part ' + partKey + ' (cần ' + maxQ +
+            ', nhận được ' + questions.length + '). ' +
             'Vui lòng quay lại Dashboard và thử lại.'
           );
           return;
@@ -4088,6 +4282,35 @@
 
       _questions  = questions;
       _currentIdx = 0;
+
+      // Native Full Test persists confirmed question ids as they upload. This
+      // works even for sealed mock sittings where GET /sessions intentionally
+      // withholds response rows until release. Resume at the first unconfirmed
+      // answer; if this part was already done, continue/finalize idempotently.
+      var nativeFullTest = _testMode === 'test_full' ? _getNativeFullTest() : null;
+      if (nativeFullTest) {
+        nativeFullTest.confirmCanonical(
+          _sessionId,
+          ((_sessionData && _sessionData.responses) || []).concat(
+            (_sessionData && _sessionData.response_receipts) || []
+          )
+        );
+        var confirmedIds = nativeFullTest.confirmedQuestionIds(_sessionId);
+        var confirmedSet = {};
+        confirmedIds.forEach(function (id) { confirmedSet[id] = true; });
+        while (_currentIdx < _questions.length &&
+               confirmedSet[_questions[_currentIdx].id || _questions[_currentIdx].question_id]) {
+          _currentIdx++;
+        }
+        if (_currentIdx >= _questions.length) {
+          if (_ftCurrentPart < 3) {
+            _startNextPartInFullTest(_ftCurrentPart + 1);
+          } else {
+            _fireAndForgetFullTestGrading();
+          }
+          return;
+        }
+      }
 
       // Spike-2 fix (defect g): with eager uploads, answered test_part
       // questions are already graded server-side — resume at the first
@@ -4231,6 +4454,7 @@
     stopP2SpeakingEarly:  stopP2SpeakingEarly,
     retryP2Submission:    retryP2Submission,
     discardP2SubmissionRetry: discardP2SubmissionRetry,
+    retryFullTestSubmissions: retryFullTestSubmissions,
     // Question mode (Part 1 & 3)
     setQMode:             _setQMode,
     playQuestion:         _playQuestion,
