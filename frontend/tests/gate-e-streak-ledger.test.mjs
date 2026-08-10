@@ -1,12 +1,17 @@
 /** Gate E streak ledger: clean means exact, consecutive and release-frozen. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   advanceStreak,
+  digestManifestContract,
+  isReviewedAncestorComparison,
   selectPreviousWorkflowRun,
+  selectWorkflowJobConclusion,
+  verifyFrozenDirs,
   summarizePlaywrightReport,
   verifyFrozenFiles,
 } from '../tooling/gate-e-streak-lib.mjs';
@@ -19,8 +24,8 @@ const MANIFEST = json('frontend/tooling/gate-e-critical-suite.json');
 const WORKFLOW = read('.github/workflows/staging-e2e.yml');
 const UPDATER = read('frontend/tooling/update-gate-e-streak-ledger.mjs');
 const CAPTURE = read('frontend/tooling/capture-gate-e-staging-provenance.mjs');
+const PREFLIGHT = read('frontend/tooling/verify-gate-e-frozen-suite.mjs');
 const HEALTH = read('backend/routers/health.py');
-const SETTINGS = read('backend/config.py');
 const DOC = read('docs/GATE_E_STREAK_LEDGER_2026-08-09.md');
 
 const SHA_A = 'a'.repeat(40);
@@ -28,7 +33,24 @@ const SHA_B = 'b'.repeat(40);
 
 function cleanReport(overrides = {}) {
   const suites = Object.entries(MANIFEST.expected_project_counts).map(([project, count]) => ({
-    specs: [{ tests: Array.from({ length: count }, () => ({ projectName: project })) }],
+    specs: project === 'staging-core-chromium'
+      ? [
+          {
+            title: 'critical core fixtures',
+            file: 'critical-fixtures.spec.js',
+            tests: Array.from({ length: count - 1 }, () => ({ projectName: project, status: 'expected' })),
+          },
+          {
+            title: 'modal chủ đề mở được và nạp danh sách',
+            file: 'speaking-start-flow.spec.js',
+            tests: [{ projectName: project, status: 'expected' }],
+          },
+        ]
+      : [{
+          title: `${project} fixtures`,
+          file: 'device-matrix.spec.js',
+          tests: Array.from({ length: count }, () => ({ projectName: project, status: 'expected' })),
+        }],
   }));
   return {
     suites,
@@ -41,6 +63,17 @@ function cleanReport(overrides = {}) {
       ...overrides,
     },
   };
+}
+
+function reportWithSkip(project, title, description = 'test-only skip') {
+  const report = cleanReport({ expected: MANIFEST.expected_total_tests - 1, skipped: 1 });
+  const spec = report.suites.flatMap((suite) => suite.specs)
+    .find((item) => item.title === title && item.tests.some((item) => item.projectName === project));
+  assert.ok(spec, `missing skip fixture: ${project}/${title}`);
+  const item = spec.tests.find((entry) => entry.projectName === project);
+  item.status = 'skipped';
+  item.annotations = [{ type: 'skip', description }];
+  return report;
 }
 
 const metadata = (runId, sha = SHA_A, attempt = '1') => ({
@@ -64,7 +97,6 @@ const provenance = (sha = SHA_A) => ({
   frontend_release: sha,
   frontend_git_ref: 'staging',
   backend_release: sha,
-  backend_git_branch: 'staging',
 });
 
 const history = (previousRunId, conclusion = 'success') => ({
@@ -91,19 +123,65 @@ describe('frozen suite and clean thresholds', () => {
     const tampered = structuredClone(MANIFEST);
     tampered.frozen_files[0].sha256 = '0'.repeat(64);
     assert.deepEqual(verifyFrozenFiles(ROOT, tampered), [
-      'frozen-file-drift:frontend/playwright.staging.config.js',
+      'frozen-file-drift:frontend/package.json',
     ]);
+    assert.match(digestManifestContract(MANIFEST), /^[a-f0-9]{64}$/);
+    assert.deepEqual(verifyFrozenDirs(ROOT, MANIFEST), []);
   });
 
-  test('exact 33-test/project report is clean; one skip is not', () => {
+  test('frozen staging directory rejects added specs before secrets are exposed', () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'gate-e-frozen-dir-'));
+    try {
+      const relativeDir = 'frontend/tests/staging-e2e';
+      const absoluteDir = path.join(tempRoot, relativeDir);
+      mkdirSync(absoluteDir, { recursive: true });
+      writeFileSync(path.join(absoluteDir, 'unreviewed.spec.js'), 'throw new Error("exfil")');
+      assert.deepEqual(verifyFrozenDirs(tempRoot, {
+        frozen_dirs: [relativeDir],
+        frozen_files: [],
+      }), [
+        'frozen-dir-extra-file:frontend/tests/staging-e2e/unreviewed.spec.js',
+      ]);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('exact suite and the one whitelisted core skip are clean; any other skip is not', () => {
     const clean = summarizePlaywrightReport(cleanReport(), MANIFEST);
     assert.equal(clean.clean, true);
-    const skipped = summarizePlaywrightReport(
-      cleanReport({ expected: 32, skipped: 1 }),
+    const allowed = summarizePlaywrightReport(
+      reportWithSkip(
+        'staging-core-chromium',
+        'modal chủ đề mở được và nạp danh sách',
+        MANIFEST.allowed_skips[0].description,
+      ),
       MANIFEST,
     );
-    assert.equal(skipped.clean, false);
-    assert.ok(skipped.reasons.includes('skipped:1'));
+    assert.equal(allowed.clean, true);
+    assert.deepEqual(allowed.skipped_tests, [{
+      project: 'staging-core-chromium',
+      title: 'modal chủ đề mở được và nạp danh sách',
+      file: 'speaking-start-flow.spec.js',
+      description: MANIFEST.allowed_skips[0].description,
+    }]);
+
+    const wrongReason = summarizePlaywrightReport(
+      reportWithSkip(
+        'staging-core-chromium',
+        'modal chủ đề mở được và nạp danh sách',
+        'staging route unreachable',
+      ),
+      MANIFEST,
+    );
+    assert.equal(wrongReason.clean, false);
+    assert.ok(wrongReason.reasons.some((reason) => reason.startsWith('unexpected-skip:')));
+    const unexpected = summarizePlaywrightReport(
+      reportWithSkip('staging-core-chromium', 'critical core fixtures'),
+      MANIFEST,
+    );
+    assert.equal(unexpected.clean, false);
+    assert.ok(unexpected.reasons.some((reason) => reason.startsWith('unexpected-skip:')));
   });
 });
 
@@ -120,10 +198,12 @@ describe('candidate streak advances and resets fail-closed', () => {
   test('skip or rerun attempt resets the streak to zero', () => {
     const first = advance(null, 201);
     const skipped = advance(first, 202, {
-      report: cleanReport({ expected: 32, skipped: 1 }),
+      report: reportWithSkip('staging-core-chromium', 'critical core fixtures'),
     });
     assert.equal(skipped.streak_count, 0);
-    assert.ok(skipped.entries.at(-1).reset_reasons.includes('skipped:1'));
+    assert.ok(skipped.entries.at(-1).reset_reasons.some(
+      (reason) => reason.startsWith('unexpected-skip:'),
+    ));
 
     const rerun = advance(first, 202, { metadata: metadata(202, SHA_A, '2') });
     assert.equal(rerun.streak_count, 0);
@@ -154,10 +234,6 @@ describe('candidate streak advances and resets fail-closed', () => {
         reason: 'frontend-ref-mismatch',
       },
       {
-        options: { provenance: { ...provenance(), backend_git_branch: 'main' } },
-        reason: 'backend-ref-mismatch',
-      },
-      {
         options: { frozenFileErrors: ['frozen-file-drift:fixture.js'] },
         reason: 'frozen-file-drift:fixture.js',
       },
@@ -183,6 +259,13 @@ describe('candidate streak advances and resets fail-closed', () => {
     assert.equal(changed.streak_count, 1);
     assert.ok(changed.entries.at(-1).reset_reasons.includes('frontend-release-changed'));
     assert.ok(changed.entries.at(-1).reset_reasons.includes('backend-release-changed'));
+
+    const changedManifest = structuredClone(MANIFEST);
+    changedManifest.frozen_files[0].sha256 = '0'.repeat(64);
+    const suiteDrift = advance(first, 302, { manifest: changedManifest });
+    assert.equal(suiteDrift.streak_count, 1);
+    assert.ok(suiteDrift.entries.at(-1).reset_reasons.includes('manifest-changed'));
+    assert.notEqual(suiteDrift.manifest_digest, first.manifest_digest);
   });
 
   test('20 clean runs meet candidate threshold but cannot overclaim Gate E', () => {
@@ -226,8 +309,20 @@ describe('workflow-history continuity', () => {
     ], '103', '103'), {
       verified: true,
       previous_run_id: '102',
-      previous_conclusion: 'failure',
     });
+  });
+
+  test('uses only the staging-e2e job conclusion, not unrelated workflow jobs', () => {
+    assert.deepEqual(selectWorkflowJobConclusion([
+      { name: 'staging-e2e', status: 'completed', conclusion: 'success' },
+      { name: 'production-release-drift', status: 'completed', conclusion: 'failure' },
+    ]), {
+      verified: true,
+      previous_conclusion: 'success',
+    });
+    assert.deepEqual(selectWorkflowJobConclusion([
+      { name: 'production-release-drift', status: 'completed', conclusion: 'success' },
+    ]), { verified: false });
   });
 
   test('fails closed when current run identity is incomplete', () => {
@@ -236,43 +331,108 @@ describe('workflow-history continuity', () => {
   });
 });
 
+describe('trusted-source ancestry', () => {
+  test('allows only identical or reviewed ancestor staging SHAs', () => {
+    assert.equal(isReviewedAncestorComparison({
+      status: 'ahead',
+      merge_base_commit: { sha: SHA_A },
+    }, SHA_A), true);
+    assert.equal(isReviewedAncestorComparison({
+      status: 'identical',
+      merge_base_commit: { sha: SHA_A },
+    }, SHA_A), true);
+    assert.equal(isReviewedAncestorComparison({
+      status: 'diverged',
+      merge_base_commit: { sha: SHA_A },
+    }, SHA_A), false);
+    assert.equal(isReviewedAncestorComparison({
+      status: 'ahead',
+      merge_base_commit: { sha: SHA_B },
+    }, SHA_A), false);
+  });
+});
+
 describe('workflow and provenance contract', () => {
   test('scheduled/manual staging evidence checks out the deployed branch and exact SHA', () => {
     assert.match(WORKFLOW, /ref: staging/);
+    assert.match(WORKFLOW, /name: Checkout trusted Gate E auditor[\s\S]*?ref: main[\s\S]*?path: \.gate-e-auditor/);
     assert.match(WORKFLOW, /id: source_revision/);
+    assert.match(WORKFLOW, /id: auditor_revision/);
     assert.match(WORKFLOW, /EVIDENCE_GIT_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /EVIDENCE_GIT_REF: \$\{\{ steps\.source_revision\.outputs\.ref \}\}/);
+    for (const tool of [
+      'write-gate-e-device-matrix-evidence.mjs',
+      'capture-gate-e-staging-provenance.mjs',
+      'update-gate-e-streak-ledger.mjs',
+    ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
+    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 4);
+    assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
+    assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
+    assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
+    assert.match(PREFLIGHT, /isReviewedAncestorComparison\(payload, testedSha\)/);
   });
 
-  test('cache is transport; ledger and provenance are always-uploaded evidence', () => {
+  test('cache is transport; ledger and provenance have independent validated artifacts', () => {
     const restore = WORKFLOW.indexOf('Restore previous Gate E streak state');
+    const preflight = WORKFLOW.indexOf('Verify frozen Gate E suite before executing staging code');
+    const install = WORKFLOW.indexOf('Install frontend deps');
     const run = WORKFLOW.indexOf('Run staging E2E');
     const update = WORKFLOW.indexOf('Update Gate E streak ledger');
     const save = WORKFLOW.indexOf('Save Gate E streak state');
-    assert.ok(restore < run && run < update && update < save);
+    assert.ok(restore < preflight && preflight < install && install < run && run < update && update < save);
     for (const artifact of [
       'gate-e-staging-provenance.json',
       'gate-e-streak-ledger.json',
       'staging-e2e-results.json',
     ]) assert.ok(WORKFLOW.includes(artifact));
-    assert.match(WORKFLOW, /Update Gate E streak ledger\n\s+if: always\(\)/);
-    assert.match(WORKFLOW, /Save Gate E streak state\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /Update Gate E streak ledger\n\s+id: streak_ledger\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /Save Gate E streak state\n\s+if: always\(\) && steps\.streak_ledger\.outcome == 'success'/);
+    assert.equal((WORKFLOW.match(/path: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/g) || []).length, 2);
+    assert.match(WORKFLOW, /GATE_E_STATE_ROOT: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/);
+    assert.match(UPDATER, /process\.env\.GATE_E_STATE_ROOT/);
+    assert.doesNotMatch(UPDATER, /TESTED_FRONTEND, '\.gate-e-streak-state'/);
+    assert.match(WORKFLOW, /name: Upload staging provenance[\s\S]*?steps\.staging_provenance\.outcome == 'success'[\s\S]*?gate-e-staging-provenance-/);
+    assert.match(WORKFLOW, /name: Package verifiable streak evidence[\s\S]*?test -f frontend\/test-results\/gate-e-streak-ledger\.json[\s\S]*?test -f frontend\/test-results\/staging-e2e-results\.json/);
+    assert.match(WORKFLOW, /name: Upload streak ledger evidence[\s\S]*?steps\.streak_bundle\.outcome == 'success' && steps\.streak_ledger\.outputs\.clean == 'true'[\s\S]*?gate-e-streak-ledger-/);
+    assert.match(WORKFLOW, /name: Upload streak ledger evidence[\s\S]*?path: frontend\/test-results\/gate-e-streak-bundle/);
+    assert.match(WORKFLOW, /name: Upload verifiable streak reset evidence[\s\S]*?steps\.streak_ledger\.outputs\.clean != 'true'/);
+    assert.match(WORKFLOW, /name: Upload incomplete streak reset ledger[\s\S]*?steps\.streak_bundle\.outcome == 'failure'/);
     assert.match(WORKFLOW, /key: gate-e-streak-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.doesNotMatch(WORKFLOW, /gate-e-streak-\$\{\{ github\.ref_name \}\}/);
     assert.doesNotMatch(UPDATER, /searchParams\.set\('branch'/);
+    assert.match(UPDATER, /actions\/runs\/\$\{previous\.previous_run_id\}\/jobs/);
+    assert.match(UPDATER, /selectWorkflowJobConclusion/);
+    assert.equal((UPDATER.match(/AbortSignal\.timeout\(20000\)/g) || []).length, 2);
+    assert.match(PREFLIGHT, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
+    assert.match(PREFLIGHT, /verifyFrozenDirs\(TESTED_ROOT, manifest\)/);
+    assert.match(PREFLIGHT, /'\.npmrc', 'frontend\/\.npmrc'/);
+    assert.match(PREFLIGHT, /'frontend\/\.gate-e-streak-state'/);
+    assert.match(PREFLIGHT, /'frontend\/test-results'/);
   });
 
-  test('backend health exposes Railway SHA/branch, never fabricates them locally', () => {
-    assert.match(SETTINGS, /RAILWAY_GIT_COMMIT_SHA: str = ""/);
-    assert.match(SETTINGS, /RAILWAY_GIT_BRANCH: str = ""/);
-    assert.match(HEALTH, /"release": settings\.RAILWAY_GIT_COMMIT_SHA or None/);
-    assert.match(HEALTH, /"git_branch": settings\.RAILWAY_GIT_BRANCH or None/);
+  test('backend provenance uses the existing authenticated runtime endpoint', () => {
+    assert.match(CAPTURE, /signIn\(\{/);
+    assert.match(CAPTURE, /e2e-admin-smoke@staging-e2e\.averlearning\.com/);
+    assert.match(CAPTURE, /\/health\/runtime/);
+    assert.match(HEALTH, /"git_sha":[\s\S]*if is_admin else _REDACTED/);
+    const publicHealth = HEALTH.slice(HEALTH.indexOf('async def health_basic'), HEALTH.indexOf('@router.get("/health/ready")'));
+    assert.doesNotMatch(publicHealth, /RAILWAY_GIT_COMMIT_SHA|git_branch|"release"/);
+  });
+
+  test('staging secrets can only be sent to canonical allowlisted origins', () => {
+    assert.match(CAPTURE, /const stagingOrigin = 'https:\/\/staging\.averlearning\.com'/);
+    assert.match(CAPTURE, /const expectedSupabase = 'https:\/\/zjphffoujxkpltixsbzj\.supabase\.co'/);
+    assert.doesNotMatch(CAPTURE, /STAGING_BASE_URL/);
+    assert.match(CAPTURE, /supabaseUrl !== expectedSupabase/);
+    assert.equal((CAPTURE.match(/AbortSignal\.timeout\(20000\)/g) || []).length, 2);
   });
 
   test('tokens are input-only and are not serialized into evidence', () => {
     assert.match(WORKFLOW, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+    assert.match(WORKFLOW, /E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
     assert.match(CAPTURE, /STAGING_BYPASS/);
     assert.doesNotMatch(CAPTURE, /writeFileSync\([^\n]*bypass/);
+    assert.doesNotMatch(CAPTURE, /writeFileSync\([^\n]*password/);
     assert.doesNotMatch(UPDATER, /writeFileSync\([^\n]*token/);
     assert.match(DOC, /không được serialize/);
   });

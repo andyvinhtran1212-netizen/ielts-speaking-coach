@@ -1,10 +1,15 @@
 """Smoke test against the live Gemini API.
 
-Opt-in only — costs ~$0.005 per run on gemini-2.5-flash. Excluded from the
-default suite via path (tests/smoke/ skipped in CI invocation).
+Opt-in only — costs ~$0.005 per run on gemini-2.5-flash.
 
-Run manually:
-    pytest tests/smoke -m smoke -s
+Ngày 08/08 câu dặn ở đây từng ghi rằng nó "excluded from the default suite via
+path" — KHÔNG ĐÚNG: chẳng có gì trong mã chặn nó, và nó đã chạy ~24 lượt trong
+một ngày (mỗi lần `pytest tests/`, và mỗi lần `git push` qua hook pre-push).
+Nay cổng nằm ở `pytest_collection_modifyitems` trong tests/conftest.py, độc lập
+với mọi biểu thức `-m`.
+
+Run manually (phải nêu cờ, cố ý):
+    pytest tests/smoke --run-smoke -s
 
 Auto-skips if GEMINI_API_KEY is not set in env / settings.
 """

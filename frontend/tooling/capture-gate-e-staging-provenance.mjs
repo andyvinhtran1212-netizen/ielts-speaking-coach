@@ -1,12 +1,20 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { signIn } from './supabase-session.mjs';
 
-const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const outputPath = path.resolve(FRONTEND, 'test-results/gate-e-staging-provenance.json');
-const stagingBase = process.env.STAGING_BASE_URL || 'https://staging.averlearning.com';
-const bypass = process.env.STAGING_BYPASS || '';
+const AUDITOR_FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const TESTED_ROOT = path.resolve(
+  process.env.GATE_E_TESTED_ROOT || path.dirname(AUDITOR_FRONTEND),
+);
+const TESTED_FRONTEND = path.join(TESTED_ROOT, 'frontend');
+const outputPath = path.join(TESTED_FRONTEND, 'test-results', 'gate-e-staging-provenance.json');
+const stagingOrigin = 'https://staging.averlearning.com';
 const expectedApi = 'https://ielts-speaking-coach-staging.up.railway.app';
+const expectedSupabase = 'https://zjphffoujxkpltixsbzj.supabase.co';
+const adminEmail = 'e2e-admin-smoke@staging-e2e.averlearning.com';
+const bypass = process.env.STAGING_BYPASS || '';
+const password = process.env.E2E_PASSWORD || '';
 const shaPattern = /^[a-f0-9]{40}$/;
 
 const field = (source, name) => {
@@ -17,22 +25,25 @@ const field = (source, name) => {
 const evidence = {
   schema_version: 1,
   captured_at: new Date().toISOString(),
-  staging_origin: stagingBase,
+  staging_origin: stagingOrigin,
   ok: false,
   runtime_environment: null,
   frontend_release: null,
   frontend_git_ref: null,
   api_base: null,
   backend_release: null,
-  backend_git_branch: null,
-  backend_version: null,
   error: null,
 };
 
 try {
   if (!bypass) throw new Error('staging-bypass-missing');
-  const runtime = await fetch(`${stagingBase}/js/runtime-config.js`, {
+  if (!password) throw new Error('e2e-password-missing');
+
+  // The Vercel bypass credential is sent only to the canonical staging
+  // origin. The URL is deliberately not configurable by workflow input.
+  const runtime = await fetch(`${stagingOrigin}/js/runtime-config.js`, {
     headers: { 'x-vercel-protection-bypass': bypass },
+    signal: AbortSignal.timeout(20000),
   });
   if (!runtime.ok) throw new Error(`runtime-config-http-${runtime.status}`);
   const runtimeSource = await runtime.text();
@@ -40,22 +51,40 @@ try {
   evidence.frontend_release = field(runtimeSource, 'release');
   evidence.frontend_git_ref = field(runtimeSource, 'gitRef');
   evidence.api_base = field(runtimeSource, 'apiBase');
+  const supabaseUrl = field(runtimeSource, 'supabaseUrl');
+  const supabaseAnonKey = field(runtimeSource, 'supabaseAnonKey');
 
-  const health = await fetch(`${expectedApi}/health`);
-  if (!health.ok) throw new Error(`backend-health-http-${health.status}`);
-  const healthBody = await health.json();
-  evidence.backend_release = healthBody.release || null;
-  evidence.backend_git_branch = healthBody.git_branch || null;
-  evidence.backend_version = healthBody.version || null;
+  if (evidence.runtime_environment !== 'staging' || evidence.api_base !== expectedApi ||
+      supabaseUrl !== expectedSupabase || !supabaseAnonKey) {
+    throw new Error('runtime-config-environment-or-origin-mismatch');
+  }
 
-  evidence.ok = evidence.runtime_environment === 'staging' &&
-    evidence.api_base === expectedApi &&
-    shaPattern.test(evidence.frontend_release || '') &&
+  // `/health/runtime` preserves the existing admin-only release policy. The
+  // synthetic admin password/token remain process inputs and are never copied
+  // into the evidence artifact.
+  const session = await signIn({
+    supabaseUrl,
+    anonKey: supabaseAnonKey,
+    email: adminEmail,
+    password,
+  });
+  const runtimeHealth = await fetch(`${expectedApi}/health/runtime`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!runtimeHealth.ok) throw new Error(`backend-runtime-health-http-${runtimeHealth.status}`);
+  const runtimeHealthBody = await runtimeHealth.json();
+  evidence.backend_release = runtimeHealthBody.git_sha || null;
+
+  evidence.ok = shaPattern.test(evidence.frontend_release || '') &&
     shaPattern.test(evidence.backend_release || '');
-  if (!evidence.ok) evidence.error = 'release-provenance-incomplete-or-mismatched-environment';
+  if (!evidence.ok) evidence.error = 'release-provenance-incomplete';
 } catch (error) {
-  const message = String(error?.message || error);
-  evidence.error = bypass ? message.replaceAll(bypass, '[redacted]') : message;
+  let message = String(error?.message || error);
+  for (const secret of [bypass, password]) {
+    if (secret) message = message.replaceAll(secret, '[redacted]');
+  }
+  evidence.error = message;
 }
 
 mkdirSync(path.dirname(outputPath), { recursive: true });
