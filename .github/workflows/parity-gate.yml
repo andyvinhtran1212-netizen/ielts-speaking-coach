@@ -67,6 +67,8 @@ on:
       - 'frontend/public/pages/speaking.html'
       - 'frontend/public/css/speaking.css'
       - 'frontend/public/js/cue-card-detector.js'
+      - 'frontend/public/js/format.js'
+      - 'frontend/public/js/retention-warning.js'
       # CẢ hai cây mã dùng chung, không ghim từng tệp. Job này chạy `npm run
       # build`, nên BẤT KỲ component/lib nào cũng có thể lọt vào chunk của trang
       # đang so — thêm một shared component mới mà quên bổ sung glob thì cổng
@@ -77,6 +79,7 @@ on:
       - 'frontend/components/**'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
+      - 'frontend/public/js/home-mock-tiles.js'
       # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
       # khác biệt thật mà chỉ lượt 375 bắt được.
       - 'frontend/public/css/home.css'
@@ -132,7 +135,7 @@ on:
       - 'frontend/public/css/exercises.css'
       - 'frontend/public/css/flashcards.css'
       - 'frontend/public/css/ds.css'
-      - 'frontend/public/frontend/public/js/vocab-modules/**'
+      - 'frontend/public/js/vocab-modules/**'
       - 'frontend/app/(authed-vocab-exam)/**'
       # Trang Thi thử Full Test — port sang Next; JS/CSS vừa tách khỏi mã inline
       # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
@@ -448,7 +451,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/css/(speaking|practice|speaking-assignment)\.css|frontend/public/js/(cue-card-detector|practice|pronunciation-drilldown)\.js|frontend/lib/|frontend/components/|frontend/public/js/(api|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/css/(speaking|practice|speaking-assignment)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt)\.js|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else

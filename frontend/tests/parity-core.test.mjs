@@ -11,7 +11,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -716,6 +716,68 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     assert.ok(yml.includes(`- '${shared}'`),
       `«${shared}» phải có trong \`paths\`, nếu không job không khởi động`);
   }
+
+  // Khối glob theo-trang bên trên không thể thấy các dependency khai
+  // tường minh ở những khối write-flow phía sau. Đã từng lọt liên tiếp
+  // `speaking-debt.js`, `runtime-config.js` và `analytics-beacon.js`: workflow
+  // khởi động nhưng selector cho `authed=false`, nên không mở trang nào
+  // thực sự nạp tệp vừa đổi. Dựng dependency từ chính các legacy page
+  // trong inventory để file mới cùng họ tự động bị chặn, không phải
+  // chờ thêm một hand-pinned sentinel.
+  const pullRequestPaths = yml.slice(
+    yml.indexOf('  pull_request:'),
+    yml.indexOf('\n  push:'),
+  );
+  const configuredPaths = [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)]
+    .map((match) => match[1]);
+  const missingPathPrefixes = configuredPaths.filter((configuredPath) => {
+    const prefix = configuredPath.split(/[*?[]/, 1)[0].replace(/\/$/, '');
+    return !prefix || !existsSync(path.join(ROOT, prefix));
+  });
+  assert.deepEqual(missingPathPrefixes, [],
+    'path filter trỏ vào prefix không tồn tại ⇒ GitHub không bao giờ khởi động gate');
+
+  const exactTrackedPaths = new Set(
+    configuredPaths.filter((configuredPath) => !/[*?[]/.test(configuredPath)),
+  );
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const loadedLocalDependencies = new Set();
+  for (const pair of pairs) {
+    const legacyPage = readFileSync(
+      path.join(ROOT, 'frontend/public', pair.legacy.replace(/^\//, '')),
+      'utf8',
+    );
+    const assetUrls = [];
+    for (const match of legacyPage.matchAll(/<script\b[^>]*>/gi)) {
+      const src = /\bsrc=["']([^"']+)["']/i.exec(match[0]);
+      if (src) assetUrls.push(src[1]);
+    }
+    for (const match of legacyPage.matchAll(/<link\b[^>]*>/gi)) {
+      const rel = /\brel=["']([^"']+)["']/i.exec(match[0]);
+      const href = /\bhref=["']([^"']+)["']/i.exec(match[0]);
+      if (href && rel?.[1].split(/\s+/).includes('stylesheet')) assetUrls.push(href[1]);
+    }
+    for (const raw of assetUrls) {
+      if (/^(?:https?:)?\/\//.test(raw) || /^(?:data|blob|mailto):/.test(raw)) continue;
+      const pathname = new URL(raw, `https://parity.invalid${pair.legacy}`).pathname;
+      const dependency = `frontend/public${pathname}`;
+      if (existsSync(path.join(ROOT, dependency))) loadedLocalDependencies.add(dependency);
+    }
+  }
+  const untrackedDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !exactTrackedPaths.has(dependency))
+    .sort();
+  assert.deepEqual(untrackedDependencies, [],
+    'script/stylesheet local được authed pair nạp nhưng không có trong paths '
+    + '⇒ PR chỉ sửa dependency đó không khởi động parity gate');
+
+  const uncoveredDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !authedRe.test(dependency))
+    .sort();
+  assert.deepEqual(uncoveredDependencies, [],
+    'dependency khai tường minh trong paths và được authed pair nạp, nhưng '
+    + 'selector không bật authed=true ⇒ job xanh mà không so trang chịu ảnh hưởng');
 
   // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
   for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
