@@ -35,8 +35,10 @@ test('Gate E failure evidence has a dedicated HTML report plus traces and screen
 
 test('Speaking fixtures mock only pinned dependencies and use canonical attempt identity', () => {
   assert.match(harness, /const SUPABASE_CDN = 'https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.107\.0\/dist\/umd\/supabase\.min\.js'/);
+  assert.match(harness, /const SUPABASE_LEGACY_CDN = 'https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.107\.0'/);
   assert.match(harness, /const LUCIDE_CDN = 'https:\/\/unpkg\.com\/lucide@1\.17\.0'/);
   assert.match(harness, /page\.route\(SUPABASE_CDN/);
+  assert.match(harness, /page\.route\(SUPABASE_LEGACY_CDN/);
   assert.match(harness, /page\.route\(LUCIDE_CDN/);
   assert.doesNotMatch(harness, /cdn\.jsdelivr\.net\/\*\*/);
   assert.doesNotMatch(harness, /unpkg\.com\/\*\*/);
@@ -45,5 +47,5 @@ test('Speaking fixtures mock only pinned dependencies and use canonical attempt 
   assert.doesNotMatch(spec, /full_test_chain_id/);
   assert.doesNotMatch(recoverySpec, /full_test_chain_id/);
   assert.equal((spec.match(/^test\('/gm) || []).length, 6);
-  assert.equal((recoverySpec.match(/^test\('/gm) || []).length, 4);
+  assert.equal((recoverySpec.match(/^test\('/gm) || []).length, 7);
 });

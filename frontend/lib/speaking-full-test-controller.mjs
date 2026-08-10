@@ -96,7 +96,12 @@ export class SpeakingFullTestController {
     this.disposed = false;
   }
 
-  restore({ ownerId, currentSessionId, responses = [] } = {}) {
+  restore({
+    ownerId,
+    currentSessionId,
+    responses = [],
+    responseLookupFailed = false,
+  } = {}) {
     const owner = cleanId(ownerId);
     const current = cleanId(currentSessionId);
     if (!current) {
@@ -112,9 +117,11 @@ export class SpeakingFullTestController {
       && !!owner
       && (!persisted.owner_id || persisted.owner_id === owner);
     const persistedIds = ownerMatches ? uniqueIds(persisted.session_ids) : [];
-    // The legacy key has no owner field. Only migrate it after auth supplies a
-    // concrete owner; otherwise a previous account's tab state can be adopted.
-    const legacyIds = owner
+    // A legacy-only install has no owner metadata, so keep its migration path.
+    // Once v2 state exists and explicitly belongs to another account, however,
+    // the unscoped legacy mirror must not be used as a fallback chain. Auth is
+    // also required before adopting an ownerless legacy key from a shared tab.
+    const legacyIds = owner && (!persisted || ownerMatches)
       ? uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)))
       : [];
     const candidate = persistedIds.includes(current)
@@ -129,7 +136,9 @@ export class SpeakingFullTestController {
         if (questionIds.length) this.confirmed.set(sid, new Set(questionIds));
       }
     }
-    this.confirmCanonical(current, responses);
+    // An empty response list is authoritative only when its lookup succeeded.
+    // Preserve the local resume ledger on an indeterminate backend read.
+    if (responseLookupFailed !== true) this.confirmCanonical(current, responses);
     this.#persist(true);
     return this.getSnapshot();
   }
@@ -179,10 +188,14 @@ export class SpeakingFullTestController {
     const sid = cleanId(sessionId);
     if (!sid) return;
     const ids = responseQuestionIds(responses);
-    if (!ids.length) return;
-    const set = this.confirmed.get(sid) || new Set();
-    ids.forEach((id) => set.add(id));
-    this.confirmed.set(sid, set);
+    // The session payload is canonical truth for the current part, including
+    // the empty case. Keeping locally-confirmed ids that are absent from this
+    // readback can skip an answer after a failed/partial persistence attempt:
+    // sessionStorage is only a resume cache, never proof that a response row
+    // exists. Sealed sittings remain safe because their read contract returns
+    // response_receipts for every persisted answer.
+    if (ids.length) this.confirmed.set(sid, new Set(ids));
+    else this.confirmed.delete(sid);
     this.#persist();
   }
 

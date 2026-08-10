@@ -148,6 +148,87 @@ test('sealed upload committed before a network failure reconciles and survives r
   expect(pageErrors).toEqual([]);
 });
 
+test('partial core-row persistence is confirmed and resumes from canonical truth', async ({ page }) => {
+  let committed = false;
+  const session = () => fullSession(1, {
+    responses: committed ? [{
+      id: 'partial-r1',
+      question_id: 'q1',
+      grading_status: 'completed',
+      overall_band: 6,
+    }] : [],
+  });
+
+  const { calls, pageErrors } = await installHarness(page, {
+    session,
+    questions: questions(1, 9),
+    handleApi: async ({ route, request, path }) => {
+      if (request.method() !== 'POST' || path !== `/sessions/${P3}/responses`) return false;
+      committed = true;
+      await route.fulfill({
+        json: { response_id: 'partial-r1', partial: true, overall_band: 6 },
+        headers: cors,
+      });
+      return true;
+    },
+  });
+
+  const result = await page.evaluate(async ({ sessionId }) => (
+    window.PracticeFullTest.submitAnswer({
+      sessionId,
+      questionId: 'q1',
+      blob: new Blob(['partial-core-row-audio'], { type: 'audio/webm' }),
+    })
+  ), { sessionId: P3 });
+  expect(result).toMatchObject({ response_id: 'partial-r1', partial: true });
+  expect(await page.evaluate(() => (
+    window.PracticeFullTest.getSnapshot().confirmed
+  ))).toMatchObject({ [P3]: ['q1'] });
+
+  await page.reload();
+  await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
+  expect(countCalls(calls, 'POST', `/sessions/${P3}/responses`)).toBe(1);
+  expect(pageErrors).toEqual([]);
+});
+
+test('canonical empty readback revokes stale local confirmation on reload', async ({ page }) => {
+  const { pageErrors } = await installHarness(page, {
+    session: fullSession(1),
+    questions: questions(1, 9),
+    initStorage: chainStorage({ [P3]: ['q1'] }),
+  });
+
+  await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#prep-q-counter')).toHaveText('Câu 1 / 9');
+  expect(await page.evaluate(({ key, sessionId }) => {
+    const state = JSON.parse(window.sessionStorage.getItem(key) || 'null');
+    return state?.confirmed?.[sessionId] || [];
+  }, { key: STATE_KEY, sessionId: P3 })).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test('legacy lookup failure preserves confirmations and fails closed before questions', async ({ page }) => {
+  const { calls, pageErrors } = await installHarness(page, {
+    session: fullSession(1, { response_lookup_failed: true }),
+    questions: questions(1, 9),
+    initStorage: chainStorage({ [P3]: ['q1'] }),
+    expectQuestionLookup: false,
+    routePath: '/pages/practice.html',
+  });
+
+  await expect(page.locator('#state-error')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#error-msg')).toContainText(
+    'Không thể đọc tiến độ Full Test. Hãy tải lại trang trước khi ghi âm tiếp.',
+  );
+  expect(await page.evaluate(({ key, sessionId }) => {
+    const state = JSON.parse(window.sessionStorage.getItem(key) || 'null');
+    return state?.confirmed?.[sessionId] || [];
+  }, { key: STATE_KEY, sessionId: P3 })).toEqual(['q1']);
+  expect(countCalls(calls, 'GET', `/sessions/${P3}/questions`)).toBe(0);
+  expect(pageErrors).toEqual([]);
+});
+
 test('retry keeps the original failed blob, then finalizes the exact chain', async ({ page }) => {
   let uploadAttempt = 0;
   const uploadBodies = [];

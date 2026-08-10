@@ -95,9 +95,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    backend/Supabase/CDN đều fixture và không chạm dữ liệu thật. CI chạy cùng
    workflow E2E advisory qua `npm run test:e2e:gate-e`.
 2. ✅ Browser mutation/recovery: sealed upload network-after-commit + reload,
-   exact-blob retry + finalize barrier, failed-finalize retry, và finalize
-   network-after-commit reconcile không POST trùng. Tổng Gate E Chromium hiện
-   10/10; đây là runtime evidence, không phải source sentinel.
+   partial core-row được giữ là đáp án đã lưu, canonical empty readback thu hồi
+   stale local confirmation, lỗi lookup trên URL Legacy giữ nguyên ledger và
+   dừng trước khi tải câu hỏi, exact-blob retry + finalize barrier,
+   failed-finalize retry, và finalize network-after-commit reconcile không POST
+   trùng. Đây là runtime evidence, không phải source sentinel; full-stack
+   staging failure-injection vẫn được theo dõi riêng trong critical suite.
 3. 🟡 Automated device/microphone matrix đã được version ở
    `frontend/tooling/gate-e-speaking-device-matrix.json`: manifest khai báo 4
    lớp evidence dùng chung; Chromium thêm 4 lớp microphone (8 lớp tổng), còn
@@ -169,14 +172,14 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   Phát âm đọc các cột Azure đã persist; mở trang không gọi lại provider. Legacy
   URL vẫn nhận `p1/p2/p3` và giữ renderer cũ làm rollback.
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
-  baseline sáu shape, bốn mutation/recovery flow và automated
+  baseline sáu shape, bảy mutation/recovery flow và automated
   device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
   riêng, nên `route_ready=false` giữ nguyên.
 
 Verification trực tiếp của batch:
 
-- `npm run test:e2e:gate-e` (12 Chromium + 11 WebKit desktop +
-  11 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
+- `npm run test:e2e:gate-e` (15 Chromium + 14 WebKit desktop +
+  14 WebKit/iPhone; mic lifecycle chỉ tính ở Chromium)
 - `node --test frontend/tests/speaking-player-controller.test.mjs`
 - `node --test frontend/tests/speaking-feedback-native-view.test.mjs`
 - focused Speaking controller/sheet/chain suites

@@ -5,6 +5,7 @@ const ORIGIN = 'http://localhost:3210';
 const OWNER = '00000000-0000-4000-8000-0000000000aa';
 const SID = '11111111-1111-4111-8111-111111111101';
 const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js';
+const SUPABASE_LEGACY_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0';
 const LUCIDE_CDN = 'https://unpkg.com/lucide@1.17.0';
 
 const AUTH_SESSION = {
@@ -27,6 +28,8 @@ async function installHarness(page, {
   initStorage = {},
   handleApi = null,
   expectBootstrapOnce = true,
+  expectQuestionLookup = true,
+  routePath = '/practice/session',
 } = {}) {
   const calls = [];
   const pageErrors = [];
@@ -41,7 +44,7 @@ async function installHarness(page, {
 
   // Replace only CDN transport. AuthProvider and api.js still create and share
   // the same single client that production uses.
-  await page.route(SUPABASE_CDN, (route) => route.fulfill({
+  const fulfillSupabase = (route) => route.fulfill({
     contentType: 'application/javascript',
     body: `window.supabase = {
       createClient: function () {
@@ -55,7 +58,9 @@ async function installHarness(page, {
         } };
       }
     };`,
-  }));
+  });
+  await page.route(SUPABASE_CDN, fulfillSupabase);
+  await page.route(SUPABASE_LEGACY_CDN, fulfillSupabase);
   await page.route(LUCIDE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: 'window.lucide = { createIcons: function () {} };',
@@ -94,12 +99,14 @@ async function installHarness(page, {
     });
   });
 
-  await page.goto(`/practice/session?session_id=${encodeURIComponent(sessionId)}`);
+  await page.goto(`${routePath}?session_id=${encodeURIComponent(sessionId)}`);
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   expect(pageErrors).toEqual([]);
   if (expectBootstrapOnce) {
     expect(calls.filter((call) => call === `GET /sessions/${sessionId}`)).toHaveLength(1);
-    expect(calls.filter((call) => call === `GET /sessions/${sessionId}/questions`)).toHaveLength(1);
+    expect(calls.filter((call) => call === `GET /sessions/${sessionId}/questions`)).toHaveLength(
+      expectQuestionLookup ? 1 : 0,
+    );
   }
   return { calls, pageErrors };
 }

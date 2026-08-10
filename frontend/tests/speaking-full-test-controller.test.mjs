@@ -68,7 +68,9 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
         session_ids: ['old-p1', 'old-p2'],
         confirmed: { 'old-p2': ['old-q'] },
       }),
-      ielts_ft_session_ids: JSON.stringify(['old-p1', 'old-p2']),
+      // Deliberately include the new account's current id in the unscoped
+      // legacy mirror: owner mismatch must still reject this whole chain.
+      ielts_ft_session_ids: JSON.stringify(['old-p1', 'new-p1']),
     });
     const { controller } = makeController({ storage });
     const snapshot = controller.restore({
@@ -95,9 +97,30 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
     assert.deepEqual(snapshot.confirmed, {});
   });
 
+  test('migrates a legacy-only chain when no owner-scoped v2 state exists', () => {
+    const storage = new MemoryStorage({
+      ielts_ft_session_ids: JSON.stringify(['p1', 'p2']),
+    });
+    const { controller } = makeController({ storage });
+    const snapshot = controller.restore({
+      ownerId: 'user-a',
+      currentSessionId: 'p2',
+      responses: [],
+    });
+    assert.deepEqual(snapshot.sessionIds, ['p1', 'p2']);
+    assert.equal(JSON.parse(storage.getItem('ielts_ft_state_v2')).owner_id, 'user-a');
+  });
+
   test('canonical rows confirm only responses that have both row and question ids', () => {
-    const { controller } = makeController();
-    controller.restore({ currentSessionId: 'p1' });
+    const storage = new MemoryStorage({
+      ielts_ft_state_v2: JSON.stringify({
+        version: 2,
+        session_ids: ['p1'],
+        confirmed: { p1: ['stale-q'] },
+      }),
+    });
+    const { controller } = makeController({ storage });
+    controller.restore({ currentSessionId: 'p1', responses: [] });
     controller.confirmCanonical('p1', [
       { id: 'r1', question_id: 'q1' },
       { id: '', question_id: 'q2' },
@@ -136,6 +159,50 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
     assert.deepEqual(
       JSON.parse(storage.getItem('ielts_ft_state_v2')).session_ids,
       ['p1', 'p2'],
+    );
+  });
+
+  test('empty canonical readback revokes a stale local confirmation', () => {
+    const storage = new MemoryStorage({
+      ielts_ft_state_v2: JSON.stringify({
+        version: 2,
+        owner_id: 'user-a',
+        session_ids: ['p1'],
+        confirmed: { p1: ['q1'] },
+      }),
+      ielts_ft_session_ids: JSON.stringify(['p1']),
+    });
+    const { controller } = makeController({ storage });
+    const snapshot = controller.restore({
+      ownerId: 'user-a',
+      currentSessionId: 'p1',
+      responses: [],
+    });
+    assert.deepEqual(snapshot.confirmed, {});
+    assert.deepEqual(JSON.parse(storage.getItem('ielts_ft_state_v2')).confirmed, {});
+  });
+
+  test('failed canonical readback preserves the local confirmation ledger', () => {
+    const storage = new MemoryStorage({
+      ielts_ft_state_v2: JSON.stringify({
+        version: 2,
+        owner_id: 'user-a',
+        session_ids: ['p1'],
+        confirmed: { p1: ['q1'] },
+      }),
+      ielts_ft_session_ids: JSON.stringify(['p1']),
+    });
+    const { controller } = makeController({ storage });
+    const snapshot = controller.restore({
+      ownerId: 'user-a',
+      currentSessionId: 'p1',
+      responses: [],
+      responseLookupFailed: true,
+    });
+    assert.deepEqual(snapshot.confirmed, { p1: ['q1'] });
+    assert.deepEqual(
+      JSON.parse(storage.getItem('ielts_ft_state_v2')).confirmed,
+      { p1: ['q1'] },
     );
   });
 });
@@ -439,6 +506,8 @@ describe('Next Speaking Full Test integration', () => {
     assert.match(PRACTICE, /nativeFullTest\.retryFailed\(\)/);
     assert.match(PRACTICE, /nativeFullTest\.confirmedQuestionIds\(_sessionId\)/);
     assert.match(PRACTICE, /_sessionData\.response_receipts/);
+    assert.match(PRACTICE, /responseLookupFailed:[\s\S]*?response_lookup_failed === true/);
+    assert.match(PRACTICE, /_assertFullTestResponseLookup\(_sessionData\)/);
     assert.match(PRACTICE, /_createBody\.previous_session_id = _sessionId/);
     assert.match(PRACTICE, /retryFullTestSubmissions: retryFullTestSubmissions/);
   });
