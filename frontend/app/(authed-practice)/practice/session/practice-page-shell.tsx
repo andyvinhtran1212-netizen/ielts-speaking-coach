@@ -290,10 +290,10 @@ function PronScoreChip({ score }: { score: any }) {
 function PronunciationAccordion({ weakWords }: { weakWords: any[] }) {
   if (!weakWords?.length) return null;
   const references = typeof window === 'undefined' ? {} : ((window as any).PronunciationDrilldown?.PHONEME_REF || {});
-  return <div className="ds-accordion" data-drilldown-content><p className="ds-accordion__hint">Bấm vào mỗi từ để xem chi tiết âm cần luyện.</p>{weakWords.map((entry) => {
+  return <div className="ds-accordion" data-drilldown-content><p className="ds-accordion__hint">Bấm vào mỗi từ để xem chi tiết âm cần luyện.</p>{weakWords.map((entry, occurrenceIndex) => {
     const phonemes = [...(entry.phonemes || [])].sort((a, b) => (a.score ?? 999) - (b.score ?? 999));
     const weak = phonemes.filter((phoneme) => phoneme.score != null && phoneme.score < 70).length;
-    return <details className="ds-accordion__item" data-drilldown-word={entry.word} open={weakWords.length <= 1 || undefined} key={entry.word}><summary className="ds-accordion__head"><span className="ds-accordion__word">{entry.word}</span><span className="ds-accordion__count">{weak > 0 ? `${weak} âm cần luyện` : `${phonemes.length} âm`}</span></summary><div className="ds-accordion__body">{phonemes.length ? phonemes.map((phoneme: any, index: number) => {
+    return <details className="ds-accordion__item" data-drilldown-word={entry.word} data-drilldown-index={occurrenceIndex} open={weakWords.length <= 1 || undefined} key={`${entry.word}:${occurrenceIndex}`}><summary className="ds-accordion__head"><span className="ds-accordion__word">{entry.word}</span><span className="ds-accordion__count">{weak > 0 ? `${weak} âm cần luyện` : `${phonemes.length} âm`}</span></summary><div className="ds-accordion__body">{phonemes.length ? phonemes.map((phoneme: any, index: number) => {
       const reference = (references as any)[phoneme.symbol];
       const score = phoneme.score;
       const tier = score == null || score < 60 ? 'low' : score < 80 ? 'mid' : 'high';

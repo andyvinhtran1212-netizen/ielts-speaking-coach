@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import React, { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { JSDOM } from 'jsdom';
+import ts from 'typescript';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
@@ -35,6 +39,41 @@ function extractFunction(name) {
     if (char === '}') {
       depth -= 1;
       if (depth === 0) return JS.slice(start + 2, index + 1);
+    }
+  }
+  throw new Error(`unterminated ${name}`);
+}
+
+function compileShellComponent(name) {
+  const marker = `function ${name}(`;
+  const start = SHELL.indexOf(marker);
+  assert.notEqual(start, -1, `${name} not found`);
+  const brace = SHELL.indexOf(') {', start) + 2;
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = brace; index < SHELL.length; index += 1) {
+    const char = SHELL[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      continue;
+    }
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        const source = SHELL.slice(start, index + 1);
+        const compiled = ts.transpileModule(source, {
+          compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2020 },
+        }).outputText;
+        return new Function('React', `${compiled}\nreturn ${name};`)(React);
+      }
     }
   }
   throw new Error(`unterminated ${name}`);
@@ -106,6 +145,52 @@ describe('Speaking feedback native structured model', () => {
     assert.equal(completed.status, 'completed');
     assert.equal(completed.scores[0].value, 72);
     assert.equal(completed.scores[1].value, null);
+  });
+
+  test('renders and updates repeated weak-word occurrences independently', async () => {
+    assert.match(SHELL, /weakWords\.map\(\(entry, occurrenceIndex\) =>/);
+    assert.match(SHELL, /data-drilldown-index=\{occurrenceIndex\}/);
+    assert.match(SHELL, /key=\{`\$\{entry\.word\}:\$\{occurrenceIndex\}`\}/);
+
+    const dom = new JSDOM('<div id="root"></div>');
+    const previousWindow = globalThis.window;
+    const previousDocument = globalThis.document;
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = [];
+    const previousError = console.error;
+    console.error = (...args) => errors.push(args.join(' '));
+    const root = createRoot(document.getElementById('root'));
+    const Accordion = compileShellComponent('PronunciationAccordion');
+    const first = [
+      { word: 'the', phonemes: [{ symbol: 'th', score: 38 }] },
+      { word: 'the', phonemes: [{ symbol: 'dh', score: 42 }] },
+    ];
+    const updated = [
+      { word: 'the', phonemes: [{ symbol: 'th', score: 58 }] },
+      { word: 'the', phonemes: [{ symbol: 'dh', score: 62 }] },
+    ];
+    try {
+      await act(async () => root.render(React.createElement(Accordion, { weakWords: first })));
+      let occurrences = [...document.querySelectorAll('[data-drilldown-index]')];
+      assert.deepEqual(occurrences.map((node) => node.dataset.drilldownIndex), ['0', '1']);
+      occurrences[0].open = true;
+      await act(async () => root.render(React.createElement(Accordion, { weakWords: updated })));
+      occurrences = [...document.querySelectorAll('[data-drilldown-index]')];
+      assert.equal(occurrences[0].open, true);
+      assert.equal(occurrences[1].open, false);
+      assert.match(occurrences[0].textContent, /58\/100/);
+      assert.match(occurrences[1].textContent, /62\/100/);
+      assert.equal(errors.some((message) => /same key|unique "key"/i.test(message)), false);
+    } finally {
+      await act(async () => root.unmount());
+      console.error = previousError;
+      globalThis.window = previousWindow;
+      globalThis.document = previousDocument;
+      delete globalThis.IS_REACT_ACT_ENVIRONMENT;
+      dom.window.close();
+    }
   });
 
   test('coerces persisted numeric strings before averaging test results', () => {

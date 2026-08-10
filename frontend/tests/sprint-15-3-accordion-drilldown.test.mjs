@@ -50,12 +50,21 @@ describe('Sprint 15.3 — renderPronunciationAccordion', () => {
     assert.match(html, /<details class="ds-accordion__item" data-drilldown-word="this"/);
     assert.match(html, /âm cần luyện/);
     // 2 words → collapsed (no open attribute on the details)
-    assert.doesNotMatch(html, /data-drilldown-word="[^"]*" open/);
+    assert.doesNotMatch(html, /data-drilldown-word="[^"]*"[^>]* open/);
   });
 
   test('single weak word → expanded by default (smart)', () => {
     const html = renderPronunciationAccordion([{ word: 'fish', phonemes: [{ symbol: 'f', score: 38 }] }]);
-    assert.match(html, /data-drilldown-word="fish" open/);
+    assert.match(html, /data-drilldown-word="fish" data-drilldown-index="0" open/);
+  });
+
+  test('assigns a stable occurrence index when the same weak word repeats', () => {
+    const html = renderPronunciationAccordion([
+      { word: 'the', phonemes: [{ symbol: 'th', score: 38 }] },
+      { word: 'the', phonemes: [{ symbol: 'dh', score: 42 }] },
+    ]);
+    assert.match(html, /data-drilldown-word="the" data-drilldown-index="0"/);
+    assert.match(html, /data-drilldown-word="the" data-drilldown-index="1"/);
   });
 
   test('renders IPA + examples + VN tip for known phonemes', () => {
@@ -112,5 +121,10 @@ describe('Sprint 15.3 — practice.js wiring', () => {
     assert.match(PRACTICE, /renderPronunciationAccordion\(window\.__pronWeakWords\)/);
     assert.match(PRACTICE, /class="ds-pron-weak-word"\s+data-pron-idx="/);
     assert.match(PRACTICE, /window\.__pronWeakWords\s*=/);
+  });
+
+  test('badge interaction targets the selected occurrence before falling back to word text', () => {
+    assert.match(DRILL, /data-drilldown-index="' \+ occurrenceIndex/);
+    assert.match(DRILL, /_expandWord\(entry\.word, idx\)/);
   });
 });
