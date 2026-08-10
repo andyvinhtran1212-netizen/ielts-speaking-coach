@@ -7,25 +7,26 @@ phải waiver hay tuyên bố Gate E đã pass.
 `docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại baseline
 `main@d292de38919fa5b79854142d4b5053241642cbcd`. Gate E chỉ được đổi sang PASS
 khi reviewer độc lập có thể kiểm lại từng evidence link, version, run và
-threshold. Con số trong preflight là snapshot tại baseline này, không phải số
-liệu tự cập nhật cho các PR Gate E nối tiếp.
+threshold. Các số route là snapshot tại baseline này; từng hàng Gate E được cập
+nhật qua các PR nối tiếp nhưng không tự trở thành bằng chứng PASS.
 
 ## Kết luận
 
 Compiled ownership graph có 32 App Router route; trong đó cohort 29 route của
 Gate D behavior migration đã đưa hard-navigation debt về 0/29. Hai mẫu số này
 khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn chỉ là bằng chứng
-Gate D behavior migration, không chứng minh core-flow ready. Các player ghi dữ
-liệu và resume-sensitive quan trọng vẫn là legacy; staging E2E chỉ chạy
-Chromium; chưa có hồ sơ 20 critical-suite runs liên tiếp; và chưa có drill
-active-session sticky/drain. Vì vậy canonical core cutover vẫn bị chặn bởi Gate
-E.
+Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
+hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
+emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
+ghi đủ project counts/version/outcome; vẫn chưa có Safari/iOS thiết bị thật,
+hồ sơ 20 critical-suite runs liên tiếp, hoặc active-session sticky/drain drill.
+Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PENDING** | `frontend/package.json` khai báo sàn Safari/iOS 15; static browser-floor scan kiểm syntax/polyfill; spike config có Chromium + WebKit | `frontend/playwright.staging.config.js` và workflow staging chỉ chạy Chromium. Chưa có versioned real-device Safari/iOS evidence. Static scan không thay thế runtime matrix. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; artifact ghi `matrix_complete: true`, exact revisions và 0 report error | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Có state contract và rollback/coexistence drills ở Gate B | Chưa có drill artifact chứng minh active attempt tiếp tục ở release cũ hoặc được drain an toàn qua cutover/rollback. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
@@ -34,19 +35,19 @@ E.
 
 ### GE-1 — Runtime device matrix chưa đạt Gate E
 
-- **Root cause:** cấu hình staging chỉ định duy nhất project `chromium`, workflow
-  chỉ cài Chromium. WebKit hiện chỉ nằm trong risk-spike local config; Safari/iOS
-  thật chưa có versioned run artifact.
+- **Root cause:** cấu hình staging ban đầu chỉ có Chromium. Matrix v1 đã thêm
+  Chromium/WebKit desktop + WebKit/iPhone emulation và artifact versioned; phần
+  còn thiếu là Safari/iOS thật cùng core-player coverage.
 - **Severity:** Critical — đây là tiêu chí Gate E bắt buộc và core players phụ
   thuộc MediaRecorder, audio, storage, sticky layout và browser lifecycle.
 - **Impacted files/functions:** `frontend/playwright.staging.config.js` phần
   `projects`; `.github/workflows/staging-e2e.yml` bước cài browser/chạy suite;
   `frontend/playwright.spike.config.js` chỉ là spike evidence.
-- **Suggested minimal fix:** tạo PR riêng thêm versioned Chromium + WebKit
-  staging projects, tách test nào cần capability thật, và thêm manual real-device
-  Safari/iOS runbook/evidence schema thay vì gọi WebKit là Safari thật.
-- **Verification:** workflow chạy đủ từng project; report ghi browser/OS/version,
-  SHA và test manifest; Safari/iOS real-device evidence khớp frozen matrix.
+- **Suggested minimal fix còn lại:** thu real-device Safari/iOS evidence theo
+  `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md`, rồi mở rộng matrix spec bằng core
+  flow của từng migration cluster; không gọi WebKit là Safari thật.
+- **Verification:** workflow chạy đủ project + upload JSON evidence; Safari/iOS
+  real-device artifact khớp frozen matrix và SHA trước khi đổi tiêu chí sang PASS.
 
 ### GE-2 — Resume evidence đang rời rạc và từng mô tả sai hiện trạng
 

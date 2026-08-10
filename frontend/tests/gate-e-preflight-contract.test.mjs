@@ -62,6 +62,16 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /Không tìm thấy frozen Gate E threshold\/register/);
   });
 
+  test('automated matrix is recorded as partial, without inventing real-device or streak evidence', () => {
+    assert.match(STAGING_CONFIG, /name: 'staging-core-chromium'/);
+    assert.match(STAGING_CONFIG, /name: 'matrix-webkit-26\.4-desktop'/);
+    assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium webkit/);
+    assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /Run `31348712238` trên SHA `bff32975`/);
+    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
+    assert.match(PREFLIGHT, /Không tìm thấy frozen Gate E threshold\/register/);
+  });
+
   test('retry-reset invariant is fail-closed at the staging runner', () => {
     assert.match(STAGING_CONFIG, /^\s*retries:\s*0,\s*$/m);
     assert.match(PREFLIGHT, /retry vẫn bằng 0/);
