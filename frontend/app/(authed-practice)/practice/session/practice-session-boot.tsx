@@ -12,14 +12,21 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 function setLoadingMessage(message: string) {
+  const player = (window as any).PracticePlayer;
+  if (typeof player?.updateView === 'function'
+      && player.updateView('frame', { loadingMessage: message })) return;
   const loading = document.getElementById('loading-msg');
   if (loading) loading.textContent = message;
 }
 
 function showBootFailure(message: string) {
-  const detail = document.getElementById('error-msg');
-  if (detail) detail.textContent = message;
   const player = (window as any).PracticePlayer;
+  const renderedByPlayer = typeof player?.updateView === 'function'
+    && player.updateView('frame', { errorMessage: message });
+  if (!renderedByPlayer) {
+    const detail = document.getElementById('error-msg');
+    if (detail) detail.textContent = message;
+  }
   if (typeof player?.showState === 'function') {
     player.showState('error');
     return;

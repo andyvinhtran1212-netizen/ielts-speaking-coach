@@ -66,6 +66,7 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
     _renderTimer: () => {},
     _renderRecordedPlayback: () => {},
     _renderRecordedLengthHint: () => {},
+    _updateNativeView: () => false,
     _sheetActive: () => cancelPending,
     _sheet: { recIdx: -1 },
     _sheetOnRecorded: () => {},
@@ -317,6 +318,7 @@ describe('native stop lỗi không làm kẹt phễu hoặc phiếu', () => {
       _sheet: sheet,
       _renderSheet: () => {},
       _showRecError: (message) => shown.push(message),
+      _updateNativeView: () => false,
       _releaseRecorderResources: () => controller.release(),
       clearInterval: () => {},
     };
@@ -511,6 +513,7 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
       _startWaveform: () => {}, _stopWaveform: () => {},
       _renderTimer: () => {}, _renderRecordedPlayback: () => {},
       _renderRecordedLengthHint: () => {},
+      _updateNativeView: () => false,
       _sheetActive: () => true,
       _sheetOnRecorded: (b) => handed.push(b),
       _startManagedInterval: () => 1, _clearManagedEffect: () => true,

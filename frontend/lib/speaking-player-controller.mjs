@@ -13,10 +13,71 @@ const DEFAULT_STATES = Object.freeze([
   'sheet',
 ]);
 
+export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
+  frame: Object.freeze({
+    loadingMessage: 'Đang tải...',
+    errorMessage: '',
+    testModeBannerVisible: false,
+  }),
+  header: Object.freeze({
+    info: '',
+    progress: '',
+    visible: false,
+    progressBarVisible: false,
+    progressBarLabel: '',
+    progressBarPercent: 0,
+  }),
+  prep: Object.freeze({
+    fallbackWarningVisible: false,
+    partBadge: '',
+    topic: '',
+    counter: '',
+    listenOnly: false,
+    listenAudioUrl: '',
+    listenError: '',
+    questionText: '',
+    modeToggleVisible: true,
+    listeningBarVisible: false,
+    qCardOpacity: 1,
+    instruction: 'Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.',
+    playLabel: 'Nghe câu hỏi',
+    playIsReplay: false,
+    revealTextVisible: true,
+    revealButtonVisible: false,
+    cueVisible: false,
+    cueBullets: Object.freeze([]),
+    cueReflection: '',
+    inlineRecordingVisible: false,
+    startButtonVisible: true,
+  }),
+  recording: Object.freeze({
+    substate: 'idle',
+    error: '',
+    errorVisible: false,
+    timer: '0:00',
+    duration: '',
+    playbackUrl: '',
+    lengthHint: '',
+    lengthHintVisible: false,
+    submitDisabled: false,
+  }),
+  processing: Object.freeze({
+    text: '',
+  }),
+});
+
 function requiredKey(value) {
   const key = String(value == null ? '' : value).trim();
   if (!key) throw new TypeError('speaking-player-effect-key-required');
   return key;
+}
+
+function freezeViewSection(section) {
+  const snapshot = {};
+  for (const [key, value] of Object.entries(section)) {
+    snapshot[key] = Array.isArray(value) ? Object.freeze(value.slice()) : value;
+  }
+  return Object.freeze(snapshot);
 }
 
 export class SpeakingPlayerController {
@@ -35,6 +96,8 @@ export class SpeakingPlayerController {
       : DEFAULT_STATES.slice();
     this.domStateActivation = environment.domStateActivation !== false;
     this.stateListeners = new Set();
+    this.viewListeners = new Set();
+    this.viewSnapshot = SPEAKING_PLAYER_INITIAL_VIEW;
     this.effects = new Map();
     this.objectUrls = new Map();
     this.countdowns = new Map();
@@ -69,6 +132,33 @@ export class SpeakingPlayerController {
 
   getStateSnapshot() {
     return this.currentState;
+  }
+
+  subscribeView(listener) {
+    if (this.disposed || typeof listener !== 'function') return () => {};
+    this.viewListeners.add(listener);
+    return () => this.viewListeners.delete(listener);
+  }
+
+  getViewSnapshot() {
+    return this.viewSnapshot;
+  }
+
+  updateView(section, patch) {
+    if (this.disposed || !patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return false;
+    }
+    const key = String(section || '');
+    const previous = this.viewSnapshot[key];
+    if (!previous || typeof previous !== 'object' || Array.isArray(previous)) {
+      throw new RangeError(`unknown-speaking-player-view:${key}`);
+    }
+    this.viewSnapshot = Object.freeze({
+      ...this.viewSnapshot,
+      [key]: freezeViewSection({ ...previous, ...patch }),
+    });
+    for (const listener of this.viewListeners) listener();
+    return true;
   }
 
   listen(key, target, type, listener, options) {
@@ -205,5 +295,6 @@ export class SpeakingPlayerController {
     this.countdowns.clear();
     this.countdownRuns.clear();
     this.stateListeners.clear();
+    this.viewListeners.clear();
   }
 }

@@ -10,6 +10,20 @@ import { fileURLToPath } from 'node:url';
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const SRC = readFileSync(path.join(FRONTEND, 'js', 'practice.js'), 'utf8');
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+async function flushUntil(predicate, attempts = 20) {
+  for (let index = 0; index < attempts && !predicate(); index += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(predicate(), true, 'transition did not reach the expected async phase');
+}
+
 test('chain persists under the stable sessionStorage key', () => {
   assert.match(SRC, /var FT_CHAIN_KEY = 'ielts_ft_session_ids';/,
     'key is a cross-page/tab contract — renaming breaks in-flight full tests');
@@ -117,6 +131,83 @@ test('part swap keeps the URL as routing source of truth', () => {
   const generate = SRC.indexOf("'/questions/generate'", push);
   assert.ok(push < replace && replace < generate,
     'chain + URL must commit before question generation so reload resumes the new session');
+});
+
+test('Part 1→2 and Part 2→3 loading copy stays in the React view during delayed requests', async () => {
+  const helperStart = SRC.indexOf('  function _setLoadingMessage(message) {');
+  const helperEnd = SRC.indexOf('  // ── Recording sub-state management', helperStart);
+  const transitionStart = SRC.indexOf('  async function _startNextPartInFullTest(part) {');
+  const transitionEnd = SRC.indexOf('  function _finishTestAndShowResults()', transitionStart);
+  assert.ok(helperStart !== -1 && helperEnd > helperStart);
+  assert.ok(transitionStart !== -1 && transitionEnd > transitionStart);
+
+  for (const part of [2, 3]) {
+    const createRequest = deferred();
+    const questionRequest = deferred();
+    const messages = [];
+    const states = [];
+    const errors = [];
+    let prepCalls = 0;
+    const environment = {
+      _playerGeneration: 1,
+      _ftAllSessionIds: [`p${part - 1}`],
+      _getNativeFullTest: () => null,
+      showState: (state) => states.push(state),
+      _ftP2Topic: 'Part 2 topic',
+      _sessionData: { topic: 'General', mode: 'test_full' },
+      _sessionId: `p${part - 1}`,
+      _sittingId: null,
+      window: {
+        api: {
+          post(url) {
+            if (url === '/sessions') return createRequest.promise;
+            if (url.endsWith('/questions/generate')) return questionRequest.promise;
+            throw new Error(`unexpected request: ${url}`);
+          },
+        },
+      },
+      _playerActive: true,
+      _replaceLegacyFtChainIfCurrent: () => false,
+      sessionStorage: { setItem() {} },
+      FT_CHAIN_KEY: 'ielts_ft_session_ids',
+      _ftCurrentPart: part - 1,
+      _saveFtChain: () => {},
+      history: { replaceState() {} },
+      FULL_TEST_Q_COUNT: { 2: 1, 3: 5 },
+      _questions: [],
+      _currentIdx: 0,
+      _showPrep: () => { prepCalls += 1; },
+      showError: (message) => errors.push(message),
+      _updateNativeView(section, patch) {
+        assert.equal(section, 'frame');
+        messages.push(patch.loadingMessage);
+        return true;
+      },
+      $: () => { throw new Error('React-owned loading copy must not touch legacy DOM'); },
+    };
+    const names = Object.keys(environment);
+    const makeTransition = new Function(...names, `
+      ${SRC.slice(helperStart, helperEnd)}
+      ${SRC.slice(transitionStart, transitionEnd)}
+      return _startNextPartInFullTest;
+    `);
+    const transition = makeTransition(...names.map((name) => environment[name]));
+
+    const pending = transition(part);
+    assert.deepEqual(states, ['loading']);
+    assert.equal(messages.at(-1), `Đang tạo Part ${part}...`);
+
+    createRequest.resolve({ id: `p${part}`, part, topic: 'General', mode: 'test_full' });
+    await flushUntil(() => messages.at(-1) === `Đang tạo câu hỏi Part ${part}...`);
+
+    questionRequest.resolve(Array.from(
+      { length: environment.FULL_TEST_Q_COUNT[part] },
+      (_, index) => ({ id: `${part}-${index + 1}` }),
+    ));
+    await pending;
+    assert.equal(prepCalls, 1);
+    assert.deepEqual(errors, []);
+  }
 });
 
 test('all Full Test parts reject a persisted short question set', () => {
