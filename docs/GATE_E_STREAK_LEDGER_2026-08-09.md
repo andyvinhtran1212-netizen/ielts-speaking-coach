@@ -66,9 +66,10 @@ Một run chỉ được cộng streak khi đồng thời:
    `git_sha` từ endpoint admin-only `/health/runtime` đều bằng exact checkout
    SHA; Vercel git ref là `staging`;
 6. GitHub API xác nhận ledger cache đến từ đúng workflow run number ngay trước
-   trên toàn workflow, và riêng job `staging-e2e` của run trước kết luận
-   `success`; job `production-release-drift` độc lập không được phép làm sai
-   continuity của staging;
+   trên toàn workflow; run number phải chính xác bằng `current - 1`, không chỉ là
+   run cũ gần nhất API còn trả về. Riêng job `staging-e2e` của run trước phải kết
+   luận `success`; job `production-release-drift` độc lập không được phép làm
+   sai continuity của staging;
 7. frontend/backend release không đổi giữa hai run.
 
 Fail, cancel, unexpected skip, retry, history API không kiểm được, cache gap,
@@ -100,6 +101,9 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
 - Ledger giữ tối đa 50 entries, đủ thấy chuỗi 20 và lần reset gần nhất.
 - Nếu một run chết trước khi save cache/artifact, run kế tiếp không khớp GitHub
   history với `last_run_id` và reset fail-closed.
+- E2E step có timeout riêng 20 phút trong job 30 phút; `npm ci` và browser install
+  có timeout 5 phút. Như vậy timeout ở phần thực thi vẫn nhường ngân sách cho
+  provenance, reset ledger, cache save và artifact uploads.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
   lúc query/capture; không được serialize vào artifact hoặc log. Bypass chỉ gửi
   tới canonical Vercel staging origin; password grant chỉ gửi tới canonical

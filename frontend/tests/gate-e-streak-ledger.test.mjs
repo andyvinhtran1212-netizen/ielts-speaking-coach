@@ -312,6 +312,12 @@ describe('workflow-history continuity', () => {
     });
   });
 
+  test('fails closed when the immediately preceding run is absent', () => {
+    assert.deepEqual(selectPreviousWorkflowRun([
+      { id: 101, run_number: 101, conclusion: 'success' },
+    ], '103', '103'), { verified: false });
+  });
+
   test('uses only the staging-e2e job conclusion, not unrelated workflow jobs', () => {
     assert.deepEqual(selectWorkflowJobConclusion([
       { name: 'staging-e2e', status: 'completed', conclusion: 'success' },
@@ -366,6 +372,7 @@ describe('workflow and provenance contract', () => {
       'update-gate-e-streak-ledger.mjs',
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
     assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 4);
+    assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);

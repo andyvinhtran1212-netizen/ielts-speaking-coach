@@ -83,6 +83,9 @@ export function selectPreviousWorkflowRun(workflowRuns, currentRunId, currentRun
   if (!previous) {
     return { verified: true, previous_run_id: null, previous_conclusion: null };
   }
+  if (Number(previous.run_number) !== currentNumber - 1) {
+    return { verified: false };
+  }
   return {
     verified: true,
     previous_run_id: String(previous.id),

@@ -99,15 +99,20 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
+        timeout-minutes: 5
         run: npm ci
 
       - name: Install Playwright matrix engines
         working-directory: frontend
+        timeout-minutes: 5
         run: npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
         id: staging_e2e
         working-directory: frontend
+        # Reserve at least ten minutes of the 30-minute job budget for
+        # provenance, ledger/cache finalization and artifact uploads.
+        timeout-minutes: 20
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
