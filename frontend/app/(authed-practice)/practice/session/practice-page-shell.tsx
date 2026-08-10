@@ -26,11 +26,16 @@ type PracticeMethod =
   | 'retryP2Submission'
   | 'revealQuestionText'
   | 'setQMode'
+  | 'sheetListen'
+  | 'sheetReview'
+  | 'sheetRetrySubmission'
+  | 'sheetToggleRecording'
   | 'startP2Prep'
   | 'startP2SpeakingEarly'
   | 'startRecording'
   | 'stopP2SpeakingEarly'
   | 'stopRecording'
+  | 'submitSheet'
   | 'submitRecording';
 
 function callPractice(method: PracticeMethod, ...args: unknown[]) {
@@ -108,6 +113,7 @@ function Icon({ name, className = '' }: { name: string; className?: string }) {
 
 export function PracticePageShell({ player }: { player: PlayerStateStore }) {
   const listenAudioRef = useRef<HTMLAudioElement>(null);
+  const p2RetryAudioRef = useRef<HTMLAudioElement>(null);
   const subscribe = useCallback(
     (listener: () => void) => player.subscribeState(listener),
     [player],
@@ -130,6 +136,14 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
     audio.pause();
     audio.load();
   }, [view.prep.listenAudioUrl, view.prep.listenOnly]);
+
+  useEffect(() => {
+    if (view.part2.retryPlaybackUrl) return;
+    const audio = p2RetryAudioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.load();
+  }, [view.part2.retryPlaybackUrl]);
 
   return (
     <>
@@ -245,28 +259,54 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         </div>
 
         <div id="state-sheet" className={stateClass('sheet', 'state block-state flex-1 av-w-read py-8')}>
-          <div className="av-sheet__meter" id="sheet-meter" hidden><div className="av-sheet__ticks" id="sheet-ticks" aria-hidden="true" /><p className="av-sheet__meter-count" id="sheet-meter-count" role="status" /></div>
-          <div className="av-sheet" id="sheet-slots" />
-          <div className="av-sheet__submit" id="sheet-submit" data-ready="false"><span className="av-sheet__submit-note" id="sheet-submit-note" /><button className="btn btn-primary" id="btn-sheet-submit" type="button" disabled>Nộp bài</button></div>
+          <div className="av-sheet__meter" id="sheet-meter" hidden={!view.sheet.meterVisible}>
+            <div className="av-sheet__ticks" id="sheet-ticks" aria-hidden="true">
+              {view.sheet.slots.map((slot: any) => <i data-state={slot.state} key={`meter:${slot.key}`} />)}
+            </div>
+            <p className="av-sheet__meter-count" id="sheet-meter-count" role="status">Đã lưu <strong>{view.sheet.done}/{view.sheet.total}</strong></p>
+          </div>
+          <div className="av-sheet" id="sheet-slots">
+            {view.sheet.slots.map((slot: any) => (
+              <section className="av-slot" data-state={slot.state} data-idx={slot.index} key={slot.key}>
+                <span className="av-slot__spine" aria-hidden="true" />
+                <div className="av-slot__body">
+                  <div className="av-slot__head"><span className="av-slot__no">Câu {slot.index + 1}</span><span className="av-slot__status">{slot.status}</span></div>
+                  <button type="button" className="av-slot__listen" disabled={!slot.audioAvailable} onClick={() => callPractice('sheetListen', slot.index)}>
+                    <span className="av-slot__listen-icon" aria-hidden="true">▶</span>
+                    <span>{slot.audioAvailable ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề'}</span>
+                    {slot.replays > 0 ? <span className="av-slot__replays">đã nghe {slot.replays} lần</span> : null}
+                  </button>
+                  <div className="av-slot__actions">
+                    {!view.sheet.locked ? <button type="button" className={`btn ${slot.recording ? 'btn-danger' : 'btn-secondary'}`} disabled={slot.busy} onClick={() => callPractice('sheetToggleRecording', slot.index)}>{slot.recordLabel}</button> : null}
+                    {slot.canRetry ? <button type="button" className="btn btn-primary" disabled={slot.busy} onClick={() => callPractice('sheetRetrySubmission', slot.index)}>Gửi lại bản ghi</button> : null}
+                    {slot.canReview ? <button type="button" className="btn btn-ghost" onClick={() => callPractice('sheetReview', slot.index)}>Xem nhận xét</button> : null}
+                    {slot.band !== null ? <span className="av-slot__band">{Number(slot.band).toFixed(1)}</span> : null}
+                  </div>
+                  {slot.note ? <p className="av-slot__note" data-tone={slot.noteTone || undefined}>{slot.note}</p> : null}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="av-sheet__submit" id="sheet-submit" data-ready={String(view.sheet.ready)}><span className="av-sheet__submit-note" id="sheet-submit-note">{view.sheet.submitNote}</span><button className="btn btn-primary" id="btn-sheet-submit" type="button" disabled={!view.sheet.ready || view.sheet.submitting} onClick={() => callPractice('submitSheet')}>{view.sheet.submitting ? 'Đang nộp…' : view.sheet.submitLabel}</button></div>
         </div>
 
         <div id="state-p2a" className={stateClass('p2a', 'state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2')}>
-          <div className="flex items-center gap-2 mb-5"><span className="ds-badge ds-badge-teal">Part 2</span><span id="p2a-topic" className="practice-p2a-topic text-sm" /></div>
-          <div className="card practice-card--cue p-5 mb-5"><p className="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p><p id="p2a-question" className="practice-p2a-question text-base font-semibold mb-4" /><ul id="p2a-bullets" className="space-y-2 mb-3" style={{ listStyle: 'none', padding: 0, margin: 0 }} /><p id="p2a-reflection" className="practice-p2a-reflection text-sm" /></div>
+          <div className="flex items-center gap-2 mb-5"><span className="ds-badge ds-badge-teal">Part 2</span><span id="p2a-topic" className="practice-p2a-topic text-sm">{view.part2.topic}</span></div>
+          <div className="card practice-card--cue p-5 mb-5"><p className="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p><p id="p2a-question" className="practice-p2a-question text-base font-semibold mb-4">{view.part2.question}</p><ul id="p2a-bullets" className="space-y-2 mb-3" style={{ listStyle: 'none', padding: 0, margin: 0 }}>{view.part2.bullets.map((bullet: string, index: number) => <li className="ds-cue-bullet" key={`${index}:${bullet}`}>{bullet}</li>)}</ul><p id="p2a-reflection" className="practice-p2a-reflection text-sm">{view.part2.reflection}</p></div>
           <p className="practice-prep-instruction text-xs text-center mb-5">Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.</p>
-          <div id="p2a-submit-retry" className="ds-callout practice-error-callout mb-4" style={{ display: 'none' }}><p id="p2a-submit-retry-msg" className="text-sm mb-3" /><audio id="p2a-submit-retry-audio" controls preload="metadata" style={{ width: '100%', marginBottom: 12 }} /><div className="flex gap-3"><button type="button" className="btn-ghost py-3 text-sm font-semibold" style={{ flex: 1 }} onClick={() => callPractice('discardP2SubmissionRetry')}>Ghi lại</button><button type="button" className="btn-primary py-3 text-sm font-bold" style={{ flex: 2 }} onClick={() => callPractice('retryP2Submission')}>Gửi lại bản ghi</button></div></div>
-          <button id="p2a-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('startP2Prep')}><Icon name="play" />Bắt đầu 1 phút chuẩn bị</button>
+          <div id="p2a-submit-retry" className="ds-callout practice-error-callout mb-4" style={{ display: view.part2.retryVisible ? '' : 'none' }}><p id="p2a-submit-retry-msg" className="text-sm mb-3">{view.part2.retryMessage}</p><audio ref={p2RetryAudioRef} id="p2a-submit-retry-audio" src={view.part2.retryPlaybackUrl || undefined} controls preload="metadata" style={{ width: '100%', marginBottom: 12 }} /><div className="flex gap-3"><button type="button" className="btn-ghost py-3 text-sm font-semibold" style={{ flex: 1 }} onClick={() => callPractice('discardP2SubmissionRetry')}>Ghi lại</button><button type="button" className="btn-primary py-3 text-sm font-bold" style={{ flex: 2 }} onClick={() => callPractice('retryP2Submission')}>Gửi lại bản ghi</button></div></div>
+          <button id="p2a-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-sm font-bold" style={{ display: view.part2.startVisible ? '' : 'none' }} onClick={() => callPractice('startP2Prep')}><Icon name="play" />Bắt đầu 1 phút chuẩn bị</button>
         </div>
 
         <div id="state-p2b" className={stateClass('p2b', 'state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2')}>
-          <p className="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p><p id="p2b-timer" className="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
-          <div className="card p-4 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p><p id="p2b-question" className="practice-p2b-question text-sm" /></div>
-          <div className="card p-4 mb-5"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p><textarea id="p2b-notes" rows={4} className="practice-p2b-notes" placeholder="Ghi nhanh ý chính, từ vựng quan trọng..." /></div>
+          <p className="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p><p id="p2b-timer" className="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6" style={{ color: view.part2.prepUrgent ? '#ef4444' : '#f97316' }}>{view.part2.prepTimer}</p>
+          <div className="card p-4 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p><p id="p2b-question" className="practice-p2b-question text-sm">{view.part2.prepQuestion}</p></div>
+          <div className="card p-4 mb-5"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p><textarea key={view.part2.notesRevision} id="p2b-notes" rows={4} className="practice-p2b-notes" placeholder="Ghi nhanh ý chính, từ vựng quan trọng..." /></div>
           <button type="button" className="btn-ghost w-full py-3 text-sm font-semibold" onClick={() => callPractice('startP2SpeakingEarly')}>Bỏ qua → Bắt đầu nói ngay</button>
         </div>
 
         <div id="state-p2c" className={stateClass('p2c', 'state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2')}>
-          <div className="text-center mb-6"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="p2c-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums">2:00</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói về chủ đề trên cue card</p></div>
+          <div className="text-center mb-6"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="p2c-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums" style={{ color: view.part2.speakUrgent ? '#ef4444' : '#fff' }}>{view.part2.speakTimer}</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói về chủ đề trên cue card</p></div>
           <canvas id="p2c-canvas" width="600" height="56" className="practice-rec-canvas practice-rec-canvas--p2c" />
           <button type="button" className="btn-danger practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('stopP2SpeakingEarly')}><Icon name="square" />Dừng sớm</button>
         </div>
