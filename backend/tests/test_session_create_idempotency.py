@@ -35,3 +35,14 @@ def test_router_selects_v2_only_when_client_session_id_is_present():
     assert '"fn_create_session_daily_capped_v2"' in ROUTER
     assert 'rpc_params["p_session_id"] = str(body.client_session_id)' in ROUTER
     assert 'if "session_id_conflict" in str(e):' in ROUTER
+
+
+def test_full_test_part_replay_is_resolved_before_quota_and_after_unique_race():
+    initial_lookup = ROUTER.index(
+        "replay_session = _find_replayable_full_test_part(user_id, full_test_attempt_id, body)"
+    )
+    quota_lookup = ROUTER.index("quota = get_user_session_quota(user_id)")
+    conflict_reconcile = ROUTER.index(
+        "replay_session = _find_replayable_full_test_part(\n                        user_id, full_test_attempt_id, body,"
+    )
+    assert initial_lookup < quota_lookup < conflict_reconcile

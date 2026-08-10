@@ -100,6 +100,42 @@
 .ftr-error-title { color: var(--av-error); }
 .ftr-error-msg   { color: var(--av-text-muted); }
 
+.ftr-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto var(--av-space-4);
+  border-radius: var(--av-radius-pill);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-bold);
+}
+.ftr-state-icon--error {
+  background: var(--av-error-soft);
+  color: var(--av-error);
+}
+.ftr-state-icon--warning {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}
+.ftr-state-icon--neutral {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+.ftr-state-title { color: var(--av-text-primary); }
+
+.ftr-chain-notice {
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-warning-soft);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  line-height: 1.6;
+}
+
 
 /* ── Spinner ─────────────────────────────────────────────────────── */
 
@@ -356,6 +392,43 @@
   line-height: var(--av-lh-relaxed);
 }
 
+.ftr-pron-score {
+  display: flex;
+  align-items: baseline;
+  color: var(--av-primary);
+  font-family: var(--av-font-mono);
+}
+.ftr-pron-score strong {
+  font-size: var(--av-fs-3xl);
+  line-height: 1;
+}
+.ftr-pron-score span {
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+}
+.ftr-pron-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--av-space-4);
+}
+.ftr-pron-metric {
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-elevated);
+}
+.ftr-pron-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-border-subtle);
+}
+.ftr-pron-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--av-primary), var(--av-info));
+}
+
 
 /* ── Empty placeholders ──────────────────────────────────────────── */
 
@@ -446,6 +519,29 @@
 .fade-up-3 { animation-delay: 0.20s; }
 .fade-up-4 { animation-delay: 0.28s; }
 .fade-up-5 { animation-delay: 0.36s; }
+
+.ftr-toast {
+  position: fixed;
+  right: var(--av-space-4);
+  bottom: var(--av-space-4);
+  z-index: 60;
+  max-width: min(420px, calc(100vw - var(--av-space-8)));
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-primary-border);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-elevated);
+  box-shadow: var(--av-shadow-lg);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+}
+
+@media (max-width: 640px) {
+  .ftr-header__sep,
+  .ftr-header .eyebrow,
+  .ftr-header__date { display: none; }
+  .band-hero { font-size: 68px; }
+  .ftr-pron-grid { grid-template-columns: 1fr; }
+}
 
 
 /* ── Sprint 6.5.1 — ds.css legacy-class overrides ─────────────────
