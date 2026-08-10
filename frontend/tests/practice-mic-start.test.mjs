@@ -372,6 +372,7 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
     const env = {
       window: {
         api: { patch: async () => { throw new Error('mạng đứt'); } },
+        confirm: () => true,
         location: { href: '' },
       },
       $: (id) => (id === 'btn-sheet-submit' ? button : note),
@@ -379,6 +380,8 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _timerId: null,
       clearInterval: () => {},
       _stopWaveform: () => {},
+      _clearP2SubmissionRetry: () => {},
+      _sheet: { slots: [] },
       _getNativeRecorder: () => controller,
       _recorder: null,
       _stream: null,
@@ -398,6 +401,59 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
     assert.match(note.textContent, /Chưa nộp được/);
     assert.equal(await controller.start(), true);
     assert.equal(streamIndex, 2);
+  });
+
+  test('không hoàn tất phiên khi còn bản ghi retry mà học viên chưa xác nhận', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  async function finishSession() {');
+    let patches = 0;
+    let releases = 0;
+    const env = {
+      window: {
+        api: { patch: async () => { patches += 1; } },
+        confirm: () => false,
+        location: { href: '' },
+      },
+      $: () => null,
+      _sheet: { slots: [{ retryBlob: { type: 'audio/webm' } }] },
+      _sessionId: 'session-1',
+      _releaseRecorderResources: () => { releases += 1; },
+    };
+    const names = Object.keys(env);
+    const submit = new Function(...names, `
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `)(...names.map((name) => env[name]));
+
+    await submit();
+    assert.equal(patches, 0);
+    assert.equal(releases, 0);
+  });
+
+  test('trình duyệt thiếu confirm thì giải thích thay vì im lặng', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  async function finishSession() {');
+    const note = { textContent: '' };
+    let patches = 0;
+    const env = {
+      window: {
+        api: { patch: async () => { patches += 1; } },
+        location: { href: '' },
+      },
+      $: (id) => (id === 'sheet-submit-note' ? note : null),
+      _sheet: { slots: [{ retryBlob: { type: 'audio/webm' } }] },
+      _sessionId: 'session-1',
+      _releaseRecorderResources: () => {},
+    };
+    const names = Object.keys(env);
+    const submit = new Function(...names, `
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `)(...names.map((name) => env[name]));
+
+    await submit();
+    assert.equal(patches, 0);
+    assert.match(note.textContent, /Hãy gửi lại bản ghi trước khi nộp bài/);
   });
 });
 

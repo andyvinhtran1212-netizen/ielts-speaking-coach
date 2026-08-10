@@ -74,6 +74,8 @@
   // the user instead of the answer silently vanishing from the aggregate.
   var _ftSubmitTotal    = 0;      // eager uploads attempted in this full test
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
+  var _ftSubmitKeys     = {};     // session/question pairs already counted
+  var _ftSubmitFailureKeys = {};  // pairs already represented in failures
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
   // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
@@ -388,6 +390,8 @@
       : null;
   }
 
+  var _nativeSubmissionSeen = false;
+
   function _getNativeSubmission() {
     var submission = window.PracticeSubmission;
     return submission
@@ -399,9 +403,27 @@
 
   function _normalizeSubmissionResult(data) {
     if (!(data && data._reconciled && data._persisted_response)) return data;
-    var recovered = _respToFeedbackData(data._persisted_response);
+    var row = data._persisted_response;
+    var recovered = _respToFeedbackData(row);
+    // Persistence is confirmed, grading is not. Never render an empty feedback
+    // screen or call the slot fully graded merely because the row has an id.
+    if (!_respGraded(row) && !_respFailed(row)) {
+      recovered._stub = true;
+      recovered._error = 'Bản ghi đã lưu, nhưng máy đang hoàn tất chấm câu này.';
+      recovered._reason = 'reconciled_pending_grading';
+    }
     recovered._reconciled = true;
     return recovered;
+  }
+
+  function _submissionFilename(blob) {
+    var mime = String((blob && blob.type) || '').split(';')[0].trim().toLowerCase();
+    var extensions = {
+      'audio/flac': 'flac', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a',
+      'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav',
+      'audio/wave': 'wav', 'audio/webm': 'webm', 'audio/x-m4a': 'm4a',
+    };
+    return 'response.' + (extensions[mime] || 'webm');
   }
 
   function _knownResponseId(questionId) {
@@ -417,6 +439,7 @@
   function _submitResponseTransport(sessionId, questionId, blob, opts) {
     var nativeSubmission = _getNativeSubmission();
     if (nativeSubmission) {
+      _nativeSubmissionSeen = true;
       return nativeSubmission.submit({
         sessionId: sessionId,
         questionId: questionId,
@@ -425,11 +448,25 @@
       }).then(_normalizeSubmissionResult);
     }
 
+    // Once the native route has owned a mutation, losing its bridge must fail
+    // closed. Falling back would silently remove ambiguity reconciliation and
+    // can mislabel Safari MP4 audio while the long-lived legacy IIFE survives.
+    if (_nativeSubmissionSeen) {
+      var unavailable = Object.assign(
+        new Error(
+          'Bộ gửi bài tạm thời chưa sẵn sàng. Bản ghi vẫn còn trên trang này; '
+          + 'hãy đăng nhập lại ở tab khác nếu cần.'
+        ),
+        { code: 'runtime_unavailable' }
+      );
+      return Promise.reject(unavailable);
+    }
+
     // Legacy URL fallback. The App Router route always installs the native
     // transport before PracticeApp.init(), so FormData ownership is native there.
     var fd = new FormData();
     fd.append('question_id', questionId);
-    fd.append('audio_file', blob, 'response.webm');
+    fd.append('audio_file', blob, _submissionFilename(blob));
     return window.api.upload('/sessions/' + sessionId + '/responses', fd);
   }
 
@@ -832,11 +869,19 @@
       // Native transport never converts an unconfirmed mutation into feedback.
       // Network/5xx/malformed success is first reconciled against canonical
       // session responses; if still unknown, keep the blob and offer retry.
-      if (nativeSubmission) {
+      if (nativeSubmission || (err && err.code === 'runtime_unavailable')) {
         if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
-        var retryMessage = err && err.code === 'ambiguous_commit'
-          ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
-          : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.';
+        var explicitStop = err && (
+          err.code === 'auth_required'
+          || err.code === 'submission_forbidden'
+          || err.code === 'session_unavailable'
+          || err.code === 'runtime_unavailable'
+        );
+        var retryMessage = explicitStop
+          ? err.message
+          : (err && err.code === 'ambiguous_commit'
+              ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
+              : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.');
         _handlePersistFailure({ message: retryMessage });
         return;
       }
@@ -2543,7 +2588,13 @@
     if (!submitOpts.priorResponseId) {
       submitOpts.priorResponseId = _knownResponseId(questionId);
     }
-    if (_testMode === 'test_full') _ftSubmitTotal++;
+    if (_testMode === 'test_full') {
+      var submitKey = String(sessionId) + '\u0000' + String(questionId);
+      if (!_ftSubmitKeys[submitKey]) {
+        _ftSubmitKeys[submitKey] = true;
+        _ftSubmitTotal++;
+      }
+    }
     return _submitResponseTransport(sessionId, questionId, blob, submitOpts)
       .catch(function (err) {
         // B1: don't just warn — in a Full Test a failed upload means this
@@ -2551,7 +2602,13 @@
         // completion screen can tell the user, instead of it vanishing silently.
         console.warn('[practice] eager grading failed for q', questionId, err);
         if (_testMode === 'test_full') {
-          _ftSubmitFailures.push(questionId);
+          var failureKey = String(sessionId) + '\u0000' + String(questionId);
+          if (!_ftSubmitFailureKeys[failureKey]) {
+            _ftSubmitFailureKeys[failureKey] = true;
+            // Preserve the historical array contract: consumers receive raw
+            // question ids; the separate map owns session-aware deduplication.
+            _ftSubmitFailures.push(questionId);
+          }
           // This upload can reject AFTER the completion screen is already shown
           // (the final Part 3 answer starts uploading, then _fireAndForget…
           // renders immediately). Re-render the notice so the warning actually
@@ -3599,10 +3656,15 @@
         var stub = !!(g && g._stub);
         s.state = stub ? 'ungraded' : 'saved';
         s.band = (g && g.overall_band) || null;
-        s.error = stub
-          ? 'Bài của bạn đã lưu, nhưng máy chưa chấm được câu này. Bạn vẫn nộp '
-            + 'được — hoặc ghi âm lại để thử chấm lần nữa.'
-          : null;
+        if (stub && g._reason === 'reconciled_pending_grading') {
+          s.error = (g._error || 'Bản ghi đã lưu, máy đang hoàn tất chấm câu này.')
+            + ' Bạn vẫn có thể nộp bài; điểm sẽ cập nhật từ bản đã lưu.';
+        } else {
+          s.error = stub
+            ? 'Bài của bạn đã lưu, nhưng máy chưa chấm được câu này. Bạn vẫn nộp '
+              + 'được — hoặc ghi âm lại để thử chấm lần nữa.'
+            : null;
+        }
         // Giữ lý do máy chủ đưa để lượt điều tra sau đọc được từ console, mà
         // KHÔNG bày ra màn hình: học viên không cần đọc lỗi kỹ thuật.
         if (stub && g._reason) {
@@ -3705,6 +3767,24 @@
   var _sheetReviewIdx = -1;
 
   async function _sheetSubmit() {
+    var unsent = _sheet && _sheet.slots
+      ? _sheet.slots.filter(function (s) { return !!s.retryBlob; }).length
+      : 0;
+    if (unsent) {
+      if (typeof window.confirm !== 'function') {
+        var unavailableNote = $('sheet-submit-note');
+        if (unavailableNote) {
+          unavailableNote.textContent =
+            'Còn bản ghi mới chưa gửi được. Hãy gửi lại bản ghi trước khi nộp bài.';
+        }
+        return;
+      }
+      var confirmSubmit = window.confirm(
+          'Còn ' + unsent + ' bản ghi mới chưa gửi được. Nộp bây giờ sẽ dùng '
+          + 'bản cũ trên máy chủ và bỏ các bản ghi mới. Bạn vẫn muốn nộp?'
+        );
+      if (!confirmSubmit) return;
+    }
     var btn = $('btn-sheet-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Đang nộp…'; }
     // Completion may fail and leave the learner on this page. Release rather
@@ -3982,6 +4062,8 @@
         // B1: reset submit-failure trackers for a fresh full test.
         _ftSubmitTotal      = 0;
         _ftSubmitFailures   = [];
+        _ftSubmitKeys       = {};
+        _ftSubmitFailureKeys = {};
         _ftCompleteFailures = 0;
       }
 

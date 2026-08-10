@@ -23,6 +23,7 @@ export class SpeakingSubmissionError extends Error {
     this.status = context.status ?? null;
     this.detail = context.detail ?? null;
     this.request_id = context.requestId ?? null;
+    this.ref = context.ref ?? null;
     this.session_id = context.sessionId ?? null;
     this.question_id = context.questionId ?? null;
   }
@@ -47,6 +48,7 @@ function errorContext(error, sessionId, questionId) {
       : null,
     detail: error?.detail ?? null,
     requestId: error?.request_id ?? null,
+    ref: error?.ref ?? null,
     sessionId,
     questionId,
   };
@@ -92,10 +94,32 @@ function classifySubmissionError(error, sessionId, questionId) {
     );
   }
 
+  if (context.status === 401) {
+    return new SpeakingSubmissionError(
+      'auth_required',
+      'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại ở tab khác rồi gửi lại bản ghi.',
+      context,
+    );
+  }
+  if (context.status === 403) {
+    return new SpeakingSubmissionError(
+      'submission_forbidden',
+      'Tài khoản hiện tại không có quyền gửi vào phiên này. Hãy đăng nhập đúng tài khoản.',
+      context,
+    );
+  }
+  if (context.status === 404) {
+    return new SpeakingSubmissionError(
+      'session_unavailable',
+      'Phiên học này đã kết thúc hoặc không còn tồn tại. Hãy mở lại phiên học.',
+      context,
+    );
+  }
+
   // A concrete 4xx response means the server rejected this request before it
   // could be accepted. Network errors, malformed 2xx responses and 5xx errors
   // are ambiguous: the response row may already be canonical.
-  const definitelyRejected = new Set([400, 401, 403, 404, 413, 415, 422]);
+  const definitelyRejected = new Set([400, 413, 415, 422]);
   if (definitelyRejected.has(context.status)) {
     return new SpeakingSubmissionError(
       'submission_rejected',
@@ -163,18 +187,26 @@ export class SpeakingSubmissionController {
 
     const key = `${sid}\u0000${qid}`;
     const existing = this.pending.get(key);
-    if (existing) return existing;
+    if (existing && existing.blob === blob) return existing.promise;
 
-    const operation = this.#submitOnce({
+    const submission = {
       sessionId: sid,
       questionId: qid,
       blob,
       filename: String(filename || '').trim() || speakingAudioFilename(blob),
       priorResponseId: String(priorResponseId == null ? '' : priorResponseId).trim() || null,
-    });
-    this.pending.set(key, operation);
+    };
+    const run = () => this.#submitOnce(submission);
+    // Same question + same blob is one idempotent caller. A genuinely new take
+    // must never alias the old promise: serialize it so the canonical upsert's
+    // last take wins and no recording is silently discarded.
+    const operation = existing
+      ? existing.promise.then(run, run)
+      : run();
+    const entry = { blob, promise: operation };
+    this.pending.set(key, entry);
     void operation.finally(() => {
-      if (this.pending.get(key) === operation) this.pending.delete(key);
+      if (this.pending.get(key) === entry) this.pending.delete(key);
     }).catch(() => {});
     return operation;
   }
