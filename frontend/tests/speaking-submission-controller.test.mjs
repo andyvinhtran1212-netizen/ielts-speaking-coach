@@ -380,6 +380,7 @@ describe('Next Speaking submission integration', () => {
         var _testMode = 'test_full';
         var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
         var _ftSubmitFailureKeys = {};
+        var _ftLegacyPending = {};
         ${PRACTICE.slice(start, end)}
         return (async () => {
           await Promise.all([
@@ -399,6 +400,60 @@ describe('Next Speaking submission integration', () => {
     );
     assert.equal(result.total, 1);
     assert.deepEqual(result.failures, ['q']);
+  });
+
+  test('legacy finalize waits for a delayed upload and blocks acceptance when it rejects', async () => {
+    const eagerStart = PRACTICE.indexOf('  function _submitGradingEager(sessionId, questionId, blob, opts) {');
+    const eagerEnd = PRACTICE.indexOf('  function _advanceTestMode() {', eagerStart);
+    const finalizeStart = PRACTICE.indexOf('  function _fireAndForgetFullTestGrading() {');
+    const finalizeEnd = PRACTICE.indexOf('  function _onFullTestFinalizeAccepted', finalizeStart);
+    const events = [];
+    let rejectUpload;
+    let finalizeCalls = 0;
+    const run = new Function(
+      '_submitResponseTransport', 'window', 'events', 'console', `
+        var _testMode = 'test_full';
+        var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
+        var _ftSubmitFailureKeys = {}, _ftLegacyPending = {};
+        var _ftAllSessionIds = ['p1', 'p2', 'p3'], _sessionId = 'p3', _sittingId = null;
+        function _knownResponseId() { return null; }
+        function _getNativeFullTest() { return null; }
+        function _renderSubmitFailureNotice() { events.push('notice'); }
+        function _releaseRecorderResources() {}
+        function showState(state) { events.push('state:' + state); }
+        function _setFullTestCompletionPhase(phase) { events.push('phase:' + phase); }
+        function _onFullTestFinalizeAccepted() { events.push('accepted'); }
+        ${PRACTICE.slice(eagerStart, eagerEnd)}
+        ${PRACTICE.slice(finalizeStart, finalizeEnd)}
+        return {
+          submit: () => _submitGradingEager('p3', 'q-last', {}, {}),
+          finish: _fireAndForgetFullTestGrading,
+        };
+      `,
+    )(
+      () => new Promise((_resolve, reject) => { rejectUpload = reject; }),
+      {
+        api: {
+          postWith: async () => {
+            finalizeCalls += 1;
+            return { accepted: true };
+          },
+        },
+      },
+      events,
+      { warn() {} },
+    );
+
+    const upload = run.submit();
+    const finishing = run.finish();
+    await Promise.resolve();
+    assert.equal(finalizeCalls, 0, 'finalize must not outrun the delayed upload');
+    rejectUpload(new Error('offline'));
+    await upload;
+    await finishing;
+    assert.equal(finalizeCalls, 0, 'a rejected upload blocks finalize entirely');
+    assert.ok(events.includes('phase:legacy-upload-error'));
+    assert.ok(!events.includes('accepted'));
   });
 
   test('Part 2 keeps the take playable and explicitly offers retry or rerecord', () => {

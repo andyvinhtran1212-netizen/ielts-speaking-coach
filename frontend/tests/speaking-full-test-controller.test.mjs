@@ -389,6 +389,7 @@ describe('Next Speaking Full Test integration', () => {
       'completion-desc',
       'completion-submit-status',
       'completion-retry-btn',
+      'completion-info',
       'completion-ctas',
     ]) {
       assert.match(PAGE, new RegExp(`id="${id}"`));
@@ -398,7 +399,9 @@ describe('Next Speaking Full Test integration', () => {
     assert.match(PRACTICE, /Bản ghi vẫn còn trên thiết bị này/);
     assert.match(
       PRACTICE,
-      /api\.postWith\('\/sessions\/finalize-full-test'[\s\S]*?\.catch\(function \(err\) \{[\s\S]*?_setFullTestCompletionPhase\('error', err\)/,
+      /Promise\.allSettled\(pendingLegacy\)[\s\S]*?api\.postWith\([\s\S]*?'\/sessions\/finalize-full-test'[\s\S]*?\.catch\(function \(err\) \{[\s\S]*?_setFullTestCompletionPhase\('error', err\)/,
     );
+    assert.match(PRACTICE, /_setFullTestCompletionPhase\('legacy-upload-error'\)/);
+    assert.match(PRACTICE, /if \(info\) info\.style\.display = 'none'/);
   });
 });

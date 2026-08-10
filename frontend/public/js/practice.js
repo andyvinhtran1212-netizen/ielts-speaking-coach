@@ -76,6 +76,7 @@
   var _ftSubmitFailures = [];     // questionIds whose eager upload failed
   var _ftSubmitKeys     = {};     // session/question pairs already counted
   var _ftSubmitFailureKeys = {};  // pairs already represented in failures
+  var _ftLegacyPending  = {};     // legacy-only upload promises keyed by session/question
   var _ftCompleteFailures = 0;    // sessions whose /complete call failed
 
   // Spike-2 fix (defect g, 2026-07-14, hardened per review #749): test_part
@@ -2632,7 +2633,7 @@
           priorResponseId: submitOpts.priorResponseId,
         })
       : _submitResponseTransport(sessionId, questionId, blob, submitOpts);
-    return operation
+    var tracked = operation
       .then(function (result) {
         if (_testMode === 'test_full' && _ftSubmitFailureKeys[submitKey]) {
           delete _ftSubmitFailureKeys[submitKey];
@@ -2667,6 +2668,13 @@
         // xanh, học viên bấm Nộp và mất câu trả lời mà không biết.
         if (submitOpts.rethrow) throw err;
       });
+    if (_testMode === 'test_full' && !nativeFullTest) {
+      _ftLegacyPending[submitKey] = tracked;
+      void tracked.finally(function () {
+        if (_ftLegacyPending[submitKey] === tracked) delete _ftLegacyPending[submitKey];
+      }).catch(function () {});
+    }
+    return tracked;
   }
 
   function _advanceTestMode() {
@@ -2747,7 +2755,7 @@
     if (nativeFullTest) {
       nativeFullTest.replaceChain([p1, p2, p3].filter(Boolean));
       _setFullTestCompletionPhase('sending');
-      nativeFullTest.finalizeFullTest()
+      return nativeFullTest.finalizeFullTest()
         .then(function () {
           _onFullTestFinalizeAccepted(p1, p2, p3);
         })
@@ -2755,13 +2763,28 @@
           console.warn('[practice] native full-test finalize paused:', err);
           _setFullTestCompletionPhase('error', err);
         });
-      return;
     }
 
-    // Preserve the chain and completion screen on an expired token. Redirecting
-    // here would hide the retry path and make an ambiguous finalize look done.
-    window.api.postWith('/sessions/finalize-full-test', body, {}, { noRedirect: true })
+    // Legacy transport does not own retry blobs. Wait for every admitted eager
+    // upload before finalizing, so "accepted" can never outrun a late failure.
+    var pendingLegacy = Object.keys(_ftLegacyPending).map(function (key) {
+      return _ftLegacyPending[key];
+    });
+    _setFullTestCompletionPhase('sending');
+    return Promise.allSettled(pendingLegacy)
       .then(function () {
+        if (_ftSubmitFailures.length) {
+          _renderSubmitFailureNotice();
+          _setFullTestCompletionPhase('legacy-upload-error');
+          return null;
+        }
+        // Preserve the chain and completion screen on an expired token.
+        return window.api.postWith(
+          '/sessions/finalize-full-test', body, {}, { noRedirect: true }
+        );
+      })
+      .then(function () {
+        if (_ftSubmitFailures.length) return;
         // Spike-2 fix (review #748): clear the persisted chain only AFTER
         // the backend ACCEPTED finalize. Clearing before the call meant a
         // failed finalize (network/5xx — the catch below deliberately keeps
@@ -2794,6 +2817,7 @@
     var status = $('completion-submit-status');
     var retry = $('completion-retry-btn');
     var ctas = $('completion-ctas');
+    var info = $('completion-info');
     var nativeFullTest = _getNativeFullTest();
     var snapshot = nativeFullTest ? nativeFullTest.getSnapshot() : null;
 
@@ -2806,6 +2830,23 @@
       }
       if (retry) retry.style.display = 'none';
       if (ctas) ctas.style.display = '';
+      if (info) info.style.display = '';
+      return;
+    }
+
+    if (phase === 'legacy-upload-error') {
+      var failedLegacy = _ftSubmitFailures.length;
+      if (title) title.textContent = 'Có bản ghi chưa gửi được';
+      if (desc) {
+        desc.textContent = 'Full Test chưa được chốt. Hãy quay lại Speaking và làm lại bài; các phần đã lưu vẫn có trong lịch sử.';
+      }
+      if (status) {
+        status.className = 'practice-completion-submit-status is-error';
+        status.textContent = failedLegacy + ' bản ghi chưa được máy chủ xác nhận.';
+      }
+      if (retry) retry.style.display = 'none';
+      if (ctas) ctas.style.display = '';
+      if (info) info.style.display = 'none';
       return;
     }
 
@@ -2829,6 +2870,7 @@
         retry.textContent = retryCount ? 'Gửi lại và chốt bài' : 'Thử chốt bài lại';
       }
       if (ctas) ctas.style.display = 'none';
+      if (info) info.style.display = 'none';
       return;
     }
 
@@ -2840,6 +2882,7 @@
     }
     if (retry) retry.style.display = 'none';
     if (ctas) ctas.style.display = 'none';
+    if (info) info.style.display = 'none';
   }
 
   function retryFullTestSubmissions() {
@@ -4213,6 +4256,7 @@
         _ftSubmitFailures   = [];
         _ftSubmitKeys       = {};
         _ftSubmitFailureKeys = {};
+        _ftLegacyPending    = {};
         _ftCompleteFailures = 0;
       }
 

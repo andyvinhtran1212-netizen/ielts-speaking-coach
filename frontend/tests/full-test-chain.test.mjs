@@ -25,7 +25,7 @@ test('init restores with membership check + truncation', () => {
 });
 
 test('chain is cleared ONLY after finalize is ACCEPTED (review #748)', () => {
-  const finalizeIdx = SRC.indexOf("window.api.postWith('/sessions/finalize-full-test'");
+  const finalizeIdx = SRC.indexOf("'/sessions/finalize-full-test'");
   const acceptedFn = SRC.slice(
     SRC.indexOf('function _onFullTestFinalizeAccepted'),
     SRC.indexOf('function _setFullTestCompletionPhase'),
@@ -43,6 +43,14 @@ test('chain is cleared ONLY after finalize is ACCEPTED (review #748)', () => {
   const thenBlock = SRC.slice(finalizeIdx, SRC.indexOf('.catch', finalizeIdx));
   assert.ok(thenBlock.includes('_onFullTestFinalizeAccepted('),
     'legacy clear belongs behind the success path');
+  const pendingIdx = SRC.indexOf('Promise.allSettled(pendingLegacy)');
+  assert.ok(pendingIdx !== -1 && pendingIdx < finalizeIdx,
+    'legacy finalize must wait for every eager upload to settle first');
+  assert.match(
+    SRC.slice(pendingIdx, finalizeIdx),
+    /_ftSubmitFailures\.length[\s\S]*?legacy-upload-error/,
+    'a rejected eager upload must block finalize and render a truthful error state',
+  );
   assert.match(SRC, /nativeFullTest\.finalizeFullTest\(\)[\s\S]{0,240}?_onFullTestFinalizeAccepted/,
     'native clear belongs behind validated finalize acceptance');
 });
