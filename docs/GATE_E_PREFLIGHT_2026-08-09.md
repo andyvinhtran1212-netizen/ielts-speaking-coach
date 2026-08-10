@@ -24,8 +24,9 @@ ghi đủ project counts/version/outcome. Critical-suite v2 và ledger đã đư
 thiết bị thật. Active-session affinity mới có foundation và unit-level contract,
 chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
 implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
-contract. Vì vậy canonical core cutover vẫn bị chặn bởi
-Gate E.
+contract. Speaking đã có stable hybrid Next player route với native bootstrap,
+recorder, submission, Full Test state và player lifecycle; renderer cùng browser
+evidence vẫn chưa hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
@@ -100,17 +101,20 @@ Gate E.
   deployment recovery, chưa chọn cách xử lý attempt đang làm dở khi ownership
   đổi release. Batch đã chọn stable implementation-specific URL + runtime
   admission endpoint no-store để bundle launcher cũ hỏi policy tại thời điểm
-  navigation, rồi chạy unit-level URL/state-machine contract; chưa có active
-  attempt, browser hoặc player Next thật để gọi là một drill.
+  navigation, rồi chạy unit-level URL/state-machine contract. Speaking đã có
+  `/practice/session` với native bootstrap/recorder/submission/Full Test/player
+  lifecycle, nhưng chưa có live drill; các core domain còn lại chưa đủ player
+  Next để drill.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
   `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
   các core route và state keys được liệt kê dưới đây.
-- **Suggested minimal fix còn lại:** mỗi core cluster phải tạo stable Next player
-  route, pin coexistence rollback floor SHA có cả runtime admission endpoint rồi
-  drill staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab
-  cũ, reload, tab mới và canonical state sau handoff.
+- **Suggested minimal fix còn lại:** hoàn tất native renderer và browser evidence
+  cho Speaking; mỗi core cluster phải tạo stable Next player route, pin
+  coexistence rollback floor SHA có cả runtime admission endpoint rồi drill
+  staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab cũ,
+  reload, tab mới và canonical state sau handoff.
 - **Verification:** run artifact ghi release trước/sau, session/attempt ID,
   persisted answers, canonical final state, TTL và recovery time; không có data
   invariant violation.

@@ -59,6 +59,7 @@ export function PracticeSessionBoot() {
           () => {
             const win = window as any;
             return typeof win.PracticeApp?.init === 'function'
+              && typeof win.PracticePlayer?.showState === 'function'
               && typeof win.PracticeRecorder?.start === 'function'
               && typeof win.PracticeSubmission?.submit === 'function'
               && typeof win.PracticeFullTest?.restore === 'function'
@@ -68,7 +69,7 @@ export function PracticeSessionBoot() {
               && typeof win.api?.postWith === 'function'
               && typeof win.api?.uploadWith === 'function';
           },
-          'PracticeApp + native recorder + native submission + native full-test state + API',
+          'PracticeApp + native player + native recorder + native submission + native full-test state + API',
         );
         if (!ready) {
           throw new PracticeBootstrapError(

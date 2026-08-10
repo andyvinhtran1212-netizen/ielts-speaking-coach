@@ -1,12 +1,12 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
-**Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE;
-LEGACY PLAYER UI; ADMISSION
-LEGACY. `/practice/session` đã là stable App Router URL; React sở hữu auth,
-session/question bootstrap, vòng đời MediaRecorder, transport upload/grading và
-chain/retry/resume/finalize của Full Test. Player UI, Part 2 timers, TTS và
-feedback rendering vẫn ở `practice.js`. Route chưa ready và không nhận attempt
-mới.
+**Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
+PLAYER LIFECYCLE; LEGACY RENDERERS; ADMISSION LEGACY. `/practice/session` đã là
+stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
+MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
+Test, top-level state activation và registry cleanup cho timer/countdown,
+listener, speech cùng object URL. `practice.js` vẫn dựng nội dung/feedback và gọi
+qua bridge lifecycle; route chưa ready và không nhận attempt mới.
 
 ## Finding
 
@@ -48,15 +48,19 @@ probe không có một session fixture ổn định, không được dùng cặp
 ready.
 
 Shell được trích từ repository HTML tại build time và từ chối mọi `<script>`;
-scripts được layout nạp rõ thứ tự. Native bootstrap, recorder, submission và
-Full Test state đã bỏ auth/data loading, microphone, multipart, retry/resume và
-finalize ownership khỏi IIFE trên route Next. Đây vẫn là hybrid hữu hạn vì DOM
-state/effects và feedback player còn ở `practice.js`.
+scripts được layout nạp rõ thứ tự. Native bootstrap, recorder, submission, Full
+Test state và player controller đã bỏ auth/data loading, microphone, multipart,
+retry/resume/finalize, top-level state switching và resource cleanup khỏi IIFE
+trên route Next. Keyed effects được thay thế atomically và teardown khi unmount;
+async callbacks dùng generation guard, còn mutation tạo Part đã được server nhận
+vẫn ghi chain qua controller captured trước khi ngừng render. Đây vẫn là hybrid
+hữu hạn vì renderer/copy/feedback DOM còn ở `practice.js`.
 
 ## Exit còn lại trước khi `route_ready: true`
 
-1. Port DOM/player state orchestration sang client modules; cleanup các timer
-   Part 2, blob URLs, TTS và document listeners còn lại.
+1. Port renderer/copy/feedback DOM sang React client components. State activation,
+   Part 2 countdown, timer, blob URL, TTS và document-listener lifecycle đã thuộc
+   `SpeakingPlayerController`; không gọi phần này là native renderer.
 2. Chạy browser tests với fixture cho practice, `test_part`, `test_full`, Part 2,
    assignment sheet và mock sitting.
 3. Chạy browser fixture chứng minh native reload/resume + retry/finalize vừa được
@@ -67,3 +71,26 @@ state/effects và feedback player còn ở `practice.js`.
    reload/copy URL/admission rollback với canonical backend assertions.
 6. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
    tiếp tục sống đến Gate F.
+
+## Batch player lifecycle
+
+- `PracticePlayerBridge` cài một controller theo vòng đời route trước khi boot;
+  `PracticeApp.destroy()` giải phóng recorder/audio/reference legacy rồi registry
+  xóa toàn bộ effect/object URL và speech còn lại.
+- Part 2 prep/speaking dùng countdown state có snapshot; timer copy, lỗi, PDF,
+  TTS sequence và grammar flash dùng key nên lần mới thay thế lần cũ.
+- Listener sheet/grammar/interaction/voices dùng named handler và bị tháo khi
+  unmount; không còn gán `speechSynthesis.onvoiceschanged` toàn cục.
+- Permission prompt, TTS fetch, sheet review/submit, pronunciation fetch và tạo
+  Part kế tiếp đều generation-gated; callback cũ không được render hoặc redirect
+  vào route mới.
+- Object URL của recording, feedback, Part 2 retry, TTS và PDF có owner key; URL
+  ký của server không bị revoke nhầm.
+- Bằng chứng hiện tại là unit/source contract và full build/suite; browser/live
+  drill vẫn là exit riêng, nên `route_ready=false` giữ nguyên.
+
+Verification trực tiếp của batch:
+
+- `node --test frontend/tests/speaking-player-controller.test.mjs`
+- focused Speaking controller/sheet/chain suites
+- full frontend contract suite và `next build`

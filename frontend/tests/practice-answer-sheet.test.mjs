@@ -154,11 +154,12 @@ async function recordThenFail(startState) {
   const api = new Function(
     '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
     '_submitGradingEager', '_sessionId', 'console', 'window', '$', '_testMode',
-    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx', body)(
+    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx',
+    '_playerGeneration', '_playerActive', body)(
       _sheet, () => {}, async () => true, () => {},
       () => Promise.reject(new Error('mạng đứt')), 'sess', console,
       { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
-      () => {}, (x) => x, 0);
+      () => {}, (x) => x, 0, 1, true);
 
   await api.toggle(0);
   assert.equal(slot.state, 'recording', 'bấm nút xong ô phải đang ghi âm');
@@ -189,11 +190,11 @@ describe('lưu hỏng thì nói ra', () => {
     const sheet = { slots: [slot], recIdx: -1 };
     const toggle = new Function(
       '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
-      '_getNativeRecorder', '_analyser',
+      '_getNativeRecorder', '_analyser', '_playerGeneration', '_playerActive',
       JS.slice(from, to) + ' return _sheetToggleRec;',
     )(
       sheet, () => {}, async () => false, () => {},
-      () => null, null,
+      () => null, null, 1, true,
     );
 
     await toggle(0);
@@ -227,9 +228,12 @@ describe('DÂY NỐI', () => {
   test('sự kiện dùng uỷ quyền và có gọi _bindSheet', () => {
     // Phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay mất ngay ở
     // lần vẽ kế tiếp. Cả BA nút của một ô đều phải đi qua uỷ quyền.
-    const i = CODE.indexOf("slots.addEventListener('click'");
+    const i = CODE.indexOf("_listenManaged('sheet-slots-click', slots, 'click'");
     assert.ok(i !== -1, 'phải uỷ quyền trên #sheet-slots');
-    const body = CODE.slice(i, i + 600);
+    const body = CODE.slice(
+      CODE.indexOf('function _handleSheetSlotsClick'),
+      CODE.indexOf('function _bindSheet'),
+    );
     for (const fn of ['_sheetListen', '_sheetReview', '_sheetRetrySubmission', '_sheetToggleRec']) {
       assert.ok(body.includes(fn), `${fn} phải nằm trong bộ uỷ quyền`);
     }
@@ -488,6 +492,7 @@ describe('dựng lại phiếu từ bài đã nộp', () => {
       _renderSheet: () => {},
       showState: () => {},
       _syncMeterTop: () => {},
+      _listenManaged: () => true,
       window: { addEventListener() {} },
     };
     const names = Object.keys(env);
@@ -546,7 +551,7 @@ describe('nút Xem nhận xét', () => {
     // Một bộ vẽ rút gọn riêng là chỗ thứ hai để trôi khỏi bộ vẽ thật.
     const i = CODE.indexOf('function _sheetReview');
     assert.ok(i !== -1);
-    const body = CODE.slice(i, i + 900);
+    const body = CODE.slice(i, CODE.indexOf('function _backToSheet', i));
     assert.ok(body.includes('_showFeedback'), 'phải gọi đúng _showFeedback');
     assert.ok(body.includes("btn-back-sheet"), 'phải có đường quay lại phiếu');
     assert.match(HTML, /id="btn-back-sheet"/);
@@ -593,7 +598,7 @@ describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex 
     // `_advanceTestMode()`. Admin chọn được "Luyện từng Part" khi giao, nên
     // không tắt thì bấm "Xem nhận xét" đá học viên sang luồng tuần tự cũ.
     const i = CODE.indexOf('function _sheetReview');
-    const body = CODE.slice(i, i + 900);
+    const body = CODE.slice(i, CODE.indexOf('function _backToSheet', i));
     assert.ok(/_testMode = null;/.test(body), 'phải tắt test-mode trước khi vẽ');
     assert.ok(/finally/.test(body) && /_testMode = savedMode;/.test(body),
       'và PHẢI trả lại — vẽ hỏng mà mất test-mode thì cả phiên thi lệch');
@@ -654,7 +659,10 @@ describe('xem lại phát ĐÚNG audio của câu ấy (codex #931 vòng 3)', ()
   test('URL đã ký không bị revokeObjectURL', () => {
     // Nó không phải blob URL; thu hồi là sai nghĩa và là chỗ sau này chết khó hiểu.
     const i = CODE.indexOf('if (_feedbackAudioUrl) {');
-    assert.match(CODE.slice(i, i + 260), /_feedbackAudioIsBlob\) URL\.revokeObjectURL/);
+    assert.match(
+      CODE.slice(i, i + 320),
+      /if \(_feedbackAudioIsBlob\) \{[\s\S]*?_revokeManagedObjectUrl\('feedback-audio'/,
+    );
   });
 
   test('bảng URL dựng từ MẢNG mà endpoint thật trả về', () => {

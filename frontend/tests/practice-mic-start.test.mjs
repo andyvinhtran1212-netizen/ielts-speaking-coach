@@ -60,6 +60,7 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
     _showRecError: (m) => shown.push(m),
     _clearRecError: () => {},
     _stopAITts: () => {},
+    _cancelSpeech: () => {},
     _showRecSub: (state) => states.push(state),
     _startWaveform: () => {},
     _renderTimer: () => {},
@@ -69,8 +70,10 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
     _sheet: { recIdx: -1 },
     _sheetOnRecorded: () => {},
     stopRecording: () => {},
-    setInterval: () => 1,
-    clearInterval: () => {},
+    _startManagedInterval: () => 1,
+    _clearManagedEffect: () => true,
+    _playerGeneration: 1,
+    _playerActive: true,
     MAX_RECORD_SEC: { 1: 90 },
   };
   if (native) {
@@ -79,8 +82,8 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
       MediaRecorderCtor: MediaRecorder,
       AudioContextCtor: browserWindow.AudioContext,
       BlobCtor: Blob,
-      setIntervalFn: env.setInterval,
-      clearIntervalFn: env.clearInterval,
+      setIntervalFn: () => 1,
+      clearIntervalFn: () => {},
     });
   }
   const names = Object.keys(env);
@@ -168,7 +171,8 @@ describe('Part 2 native start giữ dữ liệu và lỗi ở trạng thái trun
       getAnalyser: () => null,
     };
     const runPart2 = new Function(
-      '_getNativeRecorder', 'showError', '_handleP2RecordedBlob', `
+      '_getNativeRecorder', 'showError', '_handleP2RecordedBlob',
+      '_playerGeneration', '_playerActive', `
       var _audioChunks = ['old-chunk'];
       var _recordedBlob = { old: true };
       var _elapsedSecs = 77;
@@ -183,6 +187,8 @@ describe('Part 2 native start giữ dữ liệu và lỗi ở trạng thái trun
       () => recorder,
       (message) => shown.push(message),
       () => {},
+      1,
+      true,
     );
     assert.deepEqual(result.chunks, []);
     assert.equal(result.blob, null);
@@ -209,6 +215,8 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
       _renderSheet: () => {},
       _submitGradingEager: () => { submitted += 1; return Promise.resolve({}); },
       _sessionId: 'sid',
+      _playerGeneration: 1,
+      _playerActive: true,
     };
     const names = Object.keys(env);
     new Function(...names, `${JS.slice(start, end)} _sheetOnRecorded({});`)(
@@ -251,6 +259,8 @@ describe('phiếu: có thể huỷ lúc trình duyệt còn đang xin quyền mi
       startRecording: () => pendingStart,
       stopRecording: () => { throw new Error('pending start must reset, not stop'); },
       _renderSheet: () => { renders += 1; },
+      _playerGeneration: 1,
+      _playerActive: true,
       resolveStartForTest: resolveStart,
     };
     const names = Object.keys(env);
@@ -387,6 +397,8 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _stream: null,
       _audioCtx: null,
       _analyser: null,
+      _playerGeneration: 1,
+      _playerActive: true,
     };
     const names = Object.keys(env);
     const submit = new Function(...names, `
@@ -418,6 +430,8 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _sheet: { slots: [{ retryBlob: { type: 'audio/webm' } }] },
       _sessionId: 'session-1',
       _releaseRecorderResources: () => { releases += 1; },
+      _playerGeneration: 1,
+      _playerActive: true,
     };
     const names = Object.keys(env);
     const submit = new Function(...names, `
@@ -444,6 +458,8 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _sheet: { slots: [{ retryBlob: { type: 'audio/webm' } }] },
       _sessionId: 'session-1',
       _releaseRecorderResources: () => {},
+      _playerGeneration: 1,
+      _playerActive: true,
     };
     const names = Object.keys(env);
     const submit = new Function(...names, `
@@ -491,13 +507,15 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
       window: browserWindow,
       $: () => null,
       _showRecError: (m) => { throw new Error('không được hiện lỗi: ' + m); },
-      _clearRecError: () => {}, _stopAITts: () => {},
+      _clearRecError: () => {}, _stopAITts: () => {}, _cancelSpeech: () => {},
       _startWaveform: () => {}, _stopWaveform: () => {},
       _renderTimer: () => {}, _renderRecordedPlayback: () => {},
       _renderRecordedLengthHint: () => {},
       _sheetActive: () => true,
       _sheetOnRecorded: (b) => handed.push(b),
-      setInterval: () => 1, clearInterval: () => {},
+      _startManagedInterval: () => 1, _clearManagedEffect: () => true,
+      _playerGeneration: 1,
+      _playerActive: true,
       MAX_RECORD_SEC: { 1: 90 },
       Blob: globalThis.Blob,
     };
@@ -507,8 +525,8 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
         MediaRecorderCtor: MediaRecorder,
         AudioContextCtor: browserWindow.AudioContext,
         BlobCtor: Blob,
-        setIntervalFn: env.setInterval,
-        clearIntervalFn: env.clearInterval,
+        setIntervalFn: () => 1,
+        clearIntervalFn: () => {},
       });
     }
     const names = Object.keys(env);

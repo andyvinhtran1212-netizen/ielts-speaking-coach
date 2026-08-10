@@ -192,7 +192,7 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
     // And the teardown actually revokes the URL.
     assert.match(
       PRACTICE_JS,
-      /function\s+_teardownRecordedPlayback[\s\S]{0,800}URL\.revokeObjectURL\(_recordedPlaybackUrl\)/,
+      /function\s+_teardownRecordedPlayback[\s\S]{0,800}_revokeManagedObjectUrl\('recorded-playback', _recordedPlaybackUrl\)/,
     );
   });
 

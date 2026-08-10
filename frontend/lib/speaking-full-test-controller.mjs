@@ -3,6 +3,7 @@ const STATE_KEY = 'ielts_ft_state_v2';
 const ACCEPTED_SESSION_STATUSES = new Set(['submitted', 'completed', 'analysis_failed']);
 const DEFAULT_SUBMISSION_SETTLE_MS = 180_000;
 const DEFAULT_FINALIZE_SETTLE_MS = 30_000;
+let controllerSequence = 0;
 
 export class SpeakingFullTestError extends Error {
   constructor(code, message, context = {}) {
@@ -29,6 +30,12 @@ function uniqueIds(values) {
     }
   }
   return result;
+}
+
+function sameIds(left, right) {
+  const a = uniqueIds(left);
+  const b = uniqueIds(right);
+  return a.length === b.length && a.every((id, index) => id === b[index]);
 }
 
 function responseQuestionIds(responses) {
@@ -75,6 +82,8 @@ export class SpeakingFullTestController {
     this.setTimer = environment.setTimer || globalThis.setTimeout;
     this.clearTimer = environment.clearTimer || globalThis.clearTimeout;
     this.ownerId = null;
+    this.controllerId = cleanId(environment.controllerId)
+      || `speaking-full-test-${Date.now()}-${++controllerSequence}`;
     this.sessionIds = [];
     this.confirmed = new Map();
     this.pending = new Map();
@@ -117,7 +126,7 @@ export class SpeakingFullTestController {
       }
     }
     this.confirmCanonical(current, responses);
-    this.#persist();
+    this.#persist(true);
     return this.getSnapshot();
   }
 
@@ -132,6 +141,34 @@ export class SpeakingFullTestController {
     }
     this.#persist();
     return ids.slice();
+  }
+
+  replaceChainIfCurrent(expectedSessionIds, sessionIds) {
+    const expected = uniqueIds(expectedSessionIds);
+    const ids = uniqueIds(sessionIds);
+    if (!this.ownerId || !expected.length || !ids.length) return false;
+
+    // A session-creation request can settle after its route unmounts. Only let
+    // that old controller extend shared storage while the persisted chain is
+    // still exactly the chain it started from. A newer Full Test wins.
+    const persisted = this.#readState();
+    if (
+      !persisted
+      || persisted.owner_id !== this.ownerId
+      || persisted.controller_id !== this.controllerId
+      || !sameIds(persisted.session_ids, expected)
+    ) return false;
+
+    this.sessionIds = ids;
+    this.confirmed.clear();
+    if (persisted.confirmed && typeof persisted.confirmed === 'object') {
+      for (const sid of ids) {
+        const questionIds = uniqueIds(persisted.confirmed[sid]);
+        if (questionIds.length) this.confirmed.set(sid, new Set(questionIds));
+      }
+    }
+    this.#writeState(this.controllerId);
+    return true;
   }
 
   confirmCanonical(sessionId, responses) {
@@ -343,8 +380,16 @@ export class SpeakingFullTestController {
   }
 
   clear() {
-    this.#remove(STATE_KEY);
-    this.#remove(LEGACY_CHAIN_KEY);
+    const persisted = this.#readState();
+    const persistedOwner = cleanId(persisted?.owner_id);
+    const ownsPersisted = !!persisted
+      && sameIds(persisted.session_ids, this.sessionIds)
+      && (!persistedOwner || persistedOwner === this.ownerId);
+    const legacyIds = uniqueIds(safeParse(this.#get(LEGACY_CHAIN_KEY)));
+    const ownsLegacy = sameIds(legacyIds, this.sessionIds);
+    if (ownsPersisted) this.#remove(STATE_KEY);
+    if (ownsLegacy) this.#remove(LEGACY_CHAIN_KEY);
+    return ownsPersisted || ownsLegacy;
   }
 
   destroy() {
@@ -394,8 +439,19 @@ export class SpeakingFullTestController {
     return parsed && parsed.version === 2 ? parsed : null;
   }
 
-  #persist() {
+  #persist(force = false) {
     if (!this.sessionIds.length) return;
+    const current = this.#readState();
+    if (
+      !force
+      && current?.controller_id
+      && current.controller_id !== this.controllerId
+    ) return false;
+    this.#writeState(this.controllerId);
+    return true;
+  }
+
+  #writeState(controllerId) {
     const confirmed = Object.fromEntries(Array.from(this.confirmed, ([sid, ids]) => (
       [sid, Array.from(ids)]
     )));
@@ -403,6 +459,7 @@ export class SpeakingFullTestController {
     this.#set(STATE_KEY, JSON.stringify({
       version: 2,
       owner_id: this.ownerId,
+      controller_id: controllerId,
       session_ids: this.sessionIds,
       confirmed,
     }));

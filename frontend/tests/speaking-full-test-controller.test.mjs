@@ -105,6 +105,39 @@ describe('SpeakingFullTestController — durable chain and resume ledger', () =>
     ]);
     assert.deepEqual(controller.confirmedQuestionIds('p1'), ['q1']);
   });
+
+  test('a delayed disposed controller cannot overwrite a newer Full Test chain', () => {
+    const storage = new MemoryStorage();
+    const oldController = makeController({ storage }).controller;
+    oldController.restore({ ownerId: 'user-1', currentSessionId: 'old-p1' });
+    oldController.destroy();
+
+    const newController = makeController({ storage }).controller;
+    newController.restore({ ownerId: 'user-1', currentSessionId: 'new-p1' });
+
+    assert.equal(
+      oldController.replaceChainIfCurrent(['old-p1'], ['old-p1', 'old-p2']),
+      false,
+    );
+    assert.deepEqual(newController.getSnapshot().sessionIds, ['new-p1']);
+    assert.deepEqual(
+      JSON.parse(storage.getItem('ielts_ft_state_v2')).session_ids,
+      ['new-p1'],
+    );
+  });
+
+  test('a delayed mutation may extend its unchanged chain after unmount', () => {
+    const storage = new MemoryStorage();
+    const controller = makeController({ storage }).controller;
+    controller.restore({ ownerId: 'user-1', currentSessionId: 'p1' });
+    controller.destroy();
+
+    assert.equal(controller.replaceChainIfCurrent(['p1'], ['p1', 'p2']), true);
+    assert.deepEqual(
+      JSON.parse(storage.getItem('ielts_ft_state_v2')).session_ids,
+      ['p1', 'p2'],
+    );
+  });
 });
 
 describe('SpeakingFullTestController — submission and retry ownership', () => {
@@ -193,6 +226,33 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
       controller.submitAnswer({ sessionId: 'p1', questionId: 'q2', blob: {} }),
       (error) => error.code === 'disposed',
     );
+  });
+
+  test('a submission settling after remount cannot overwrite the newer chain', async () => {
+    const storage = new MemoryStorage();
+    let release;
+    const oldController = makeController({
+      storage,
+      submit: () => new Promise((resolve) => { release = resolve; }),
+    }).controller;
+    oldController.restore({ ownerId: 'u', currentSessionId: 'old-p1' });
+    const pending = oldController.submitAnswer({
+      sessionId: 'old-p1',
+      questionId: 'old-q1',
+      blob: {},
+    });
+    await Promise.resolve();
+    oldController.destroy();
+
+    const newController = makeController({ storage }).controller;
+    newController.restore({ ownerId: 'u', currentSessionId: 'new-p1' });
+    release({ response_id: 'old-r1' });
+    await pending;
+
+    const persisted = JSON.parse(storage.getItem('ielts_ft_state_v2'));
+    assert.deepEqual(persisted.session_ids, ['new-p1']);
+    assert.deepEqual(persisted.confirmed, {});
+    assert.deepEqual(newController.getSnapshot().sessionIds, ['new-p1']);
   });
 
   test('turns a stalled upload into a retryable local recording instead of hanging forever', async () => {

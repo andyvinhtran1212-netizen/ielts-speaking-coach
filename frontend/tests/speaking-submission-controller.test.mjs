@@ -381,6 +381,7 @@ describe('Next Speaking submission integration', () => {
         var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
         var _ftSubmitFailureKeys = {};
         var _ftLegacyPending = {};
+        var _playerGeneration = 1, _playerActive = true;
         ${PRACTICE.slice(start, end)}
         return (async () => {
           await Promise.all([
@@ -416,6 +417,7 @@ describe('Next Speaking submission integration', () => {
         var _ftSubmitTotal = 0, _ftSubmitFailures = [], _ftSubmitKeys = {};
         var _ftSubmitFailureKeys = {}, _ftLegacyPending = {};
         var _ftAllSessionIds = ['p1', 'p2', 'p3'], _sessionId = 'p3', _sittingId = null;
+        var _playerGeneration = 1, _playerActive = true;
         function _knownResponseId() { return null; }
         function _getNativeFullTest() { return null; }
         function _renderSubmitFailureNotice() { events.push('notice'); }
@@ -466,6 +468,9 @@ describe('Next Speaking submission integration', () => {
     const body = PRACTICE.slice(start, end);
     assert.match(body, /_showP2SubmissionRetry\(msg\)/);
     assert.doesNotMatch(body, /part === 2[\s\S]{0,180}?_resetRecorder\(\)/);
-    assert.match(PRACTICE, /_p2RetryPlaybackUrl = URL\.createObjectURL\(_recordedBlob\)/);
+    assert.match(
+      PRACTICE,
+      /_p2RetryPlaybackUrl = _createManagedObjectUrl\('p2-retry-playback', _recordedBlob\)/,
+    );
   });
 });
