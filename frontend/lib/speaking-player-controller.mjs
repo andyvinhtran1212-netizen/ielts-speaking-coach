@@ -91,6 +91,17 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     submitLabel: 'Nộp bài',
     submitting: false,
   }),
+  completion: Object.freeze({
+    title: 'Bạn đã hoàn thành Full Test!',
+    description: 'Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.',
+    statusTone: 'pending',
+    statusText: 'Đang kiểm tra và gửi nốt các câu trả lời…',
+    retryVisible: false,
+    retryDisabled: false,
+    retryLabel: 'Gửi lại và chốt bài',
+    infoVisible: false,
+    ctasVisible: false,
+  }),
 });
 
 function requiredKey(value) {
