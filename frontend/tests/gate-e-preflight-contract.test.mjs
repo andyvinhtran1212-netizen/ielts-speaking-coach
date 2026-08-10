@@ -67,7 +67,8 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(STAGING_CONFIG, /name: 'matrix-webkit-26\.4-desktop'/);
     assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium webkit/);
     assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PARTIAL\*\*/);
-    assert.match(PREFLIGHT, /Chưa có staging execution artifact, real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
+    assert.match(PREFLIGHT, /Run `31348712238` trên SHA `bff32975`/);
+    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
     assert.match(PREFLIGHT, /Không tìm thấy frozen Gate E threshold\/register/);
   });
 

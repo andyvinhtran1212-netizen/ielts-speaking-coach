@@ -222,7 +222,9 @@ describe('Synthetic WebKit is never reported as real Safari/iOS', () => {
       ['safari-floor', 'ios-safari-floor'],
     );
     assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
-    assert.match(DOC, /EXECUTION \+ REAL SAFARI\/iOS\s+PENDING/);
+    assert.match(DOC, /AUTOMATED MATRIX EXECUTED; REAL SAFARI\/iOS PENDING/);
+    assert.match(DOC, /31348712238/);
+    assert.match(DOC, /`matrix_complete: true`/);
     assert.match(DOC, /WebKit không phải Safari shipping/);
   });
 

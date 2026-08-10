@@ -1,7 +1,7 @@
 # Gate E device matrix v1 — 2026-08-09
 
-**Trạng thái:** AUTOMATED FOUNDATION IMPLEMENTED; EXECUTION + REAL SAFARI/iOS
-PENDING. Tài liệu này không tuyên bố staging matrix đã chạy hoặc Gate E PASS.
+**Trạng thái:** AUTOMATED MATRIX EXECUTED; REAL SAFARI/iOS PENDING. Tài liệu
+này không tuyên bố Gate E PASS.
 
 ## Root cause và phạm vi sửa
 
@@ -36,6 +36,23 @@ Canonical manifest: `frontend/tooling/gate-e-device-matrix.json`.
 `workers: 1` và `retries: 0` giữ nguyên vì staging dùng shared identities và
 kill switch global. Toàn bộ core suite không được nhân ba: việc đó vừa kéo dài
 quá timeout vừa lặp mutation không tạo thêm browser evidence.
+
+## Automated execution evidence
+
+Manual workflow run
+[`31348712238`](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/31348712238)
+đã xanh trên SHA `bff32975f32681a0bb8411891cec801dc167c469` với artifact
+`gate-e-device-matrix-31348712238-1`:
+
+- core Chromium: 27 discovered, 26 executed/passed, 1 intentional skip;
+- Chromium matrix desktop: 2/2 passed, 0 skip;
+- WebKit matrix desktop: 2/2 passed, 0 skip;
+- WebKit/iPhone 13 emulation: 2/2 passed, 0 skip;
+- `matrix_complete: true`, `report_error_count: 0`,
+  `report_unexpected_count: 0`.
+
+Đây là automated/synthetic evidence cho matrix v1, không thay thế hai evidence
+real-device còn pending bên dưới.
 
 ## Artifact contract
 

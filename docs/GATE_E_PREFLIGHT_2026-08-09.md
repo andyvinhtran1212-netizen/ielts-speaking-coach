@@ -17,15 +17,16 @@ Gate D behavior migration đã đưa hard-navigation debt về 0/29. Hai mẫu s
 khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn chỉ là bằng chứng
 Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
 hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
-emulation; chưa có staging execution artifact, chưa có Safari/iOS thiết bị thật,
-chưa có hồ sơ 20 critical-suite runs liên tiếp, và chưa drill active-session
-sticky/drain. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
+emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
+ghi đủ project counts/version/outcome; vẫn chưa có Safari/iOS thiết bị thật,
+hồ sơ 20 critical-suite runs liên tiếp, hoặc active-session sticky/drain drill.
+Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md` và `frontend/tooling/gate-e-device-matrix.json`: runner đã được cấu hình để chạy core suite một lần trên Chromium và browser seam trên Chromium desktop + WebKit desktop/iPhone emulation; writer sẽ ghi Playwright/browser revision/SHA/outcome | Chưa có staging execution artifact, real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; artifact ghi `matrix_complete: true`, exact revisions và 0 report error | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Có state contract và rollback/coexistence drills ở Gate B | Chưa có drill artifact chứng minh active attempt tiếp tục ở release cũ hoặc được drain an toàn qua cutover/rollback. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **MISSING** | Staging suite chạy shared environment với `workers: 1`, `retries: 0`; workflow queue không cancel run | Không tìm thấy frozen Gate E threshold/register, versioned critical-suite manifest hay run ledger chứng minh 20 lần liên tiếp. Nightly hiện tại không tự biến GitHub run history thành auditable streak. |
