@@ -175,7 +175,7 @@
 |---|---|---|---|---|---|---|---|
 | `/writing` | — | `pages/writing-dashboard.html` | Student | none | localStorage (theme), sessionStorage (state), Supabase session | M | Writing hub; assignment list + status + cohort view |
 | `/writing/dashboard` | rewrite ĐÃ GỠ ở #950; `/pages/writing-dashboard.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-writing)/writing/dashboard/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (state) | M | Rewrite target; assignment overview |
-| `/writing/result` | Clean URL alias via vercel.json line 24 | `pages/writing-result.html` | Student | `submission_id` | localStorage (theme), sessionStorage (cached result), fetch (Rails images from legacy Supabase project) | L | Task 1/Task 2 result + instructor feedback |
+| `/writing/result` | rewrite ĐÃ GỠ; `/pages/writing-result.html` giữ làm rollback + parity | `app/(authed-writing-result)/writing/result/page.tsx` — CUTOVER 2026-08-12 | Student | `id`, legacy `essay_id` | localStorage (theme), Supabase session, Writing API | L | Task 1/Task 2 result + instructor feedback + regrade request + DOCX export |
 
 ### Reading
 
