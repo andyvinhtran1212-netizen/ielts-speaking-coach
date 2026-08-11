@@ -63,7 +63,8 @@
         "status",
         "started_at",
         "persisted_response_count",
-        "evidence_response_id"
+        "evidence_response_id",
+        "evidence_response_persisted_at"
       ],
       "properties": {
         "id": { "type": "string", "format": "uuid" },
@@ -72,7 +73,8 @@
         "status": { "type": "string", "minLength": 1 },
         "started_at": { "type": "string", "format": "date-time" },
         "persisted_response_count": { "type": "integer", "minimum": 1 },
-        "evidence_response_id": { "type": "string", "format": "uuid" }
+        "evidence_response_id": { "type": "string", "format": "uuid" },
+        "evidence_response_persisted_at": { "type": "string", "format": "date-time" }
       }
     },
     "scope_results": {

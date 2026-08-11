@@ -81,6 +81,7 @@ async function canonicalSession(sessionId, responseId) {
     started_at: body.started_at || null,
     persisted_response_count: Math.max(responses.length, receipts.length),
     evidence_response_id: matched ? responseId : null,
+    evidence_response_persisted_at: matched?.persisted_at || null,
   };
 }
 

@@ -65,6 +65,7 @@ function fixture(requirementId, runId = '501') {
       started_at: '2026-08-11T00:15:00Z',
       persisted_response_count: 1,
       evidence_response_id: RESPONSE,
+      evidence_response_persisted_at: '2026-08-11T00:20:00Z',
     },
     workflow: {
       actor: 'release-operator',
@@ -91,6 +92,10 @@ describe('Speaking Gate E real-device evidence validator', () => {
       assert.equal(result.evidence.observed_backend_release_sha, SHA);
       assert.equal(result.evidence.canonical_session.persisted_response_count, 1);
       assert.equal(result.evidence.canonical_session.evidence_response_id, RESPONSE);
+      assert.equal(
+        result.evidence.canonical_session.evidence_response_persisted_at,
+        '2026-08-11T00:20:00Z',
+      );
       assert.deepEqual(result.evidence.console_errors, []);
       assert.doesNotMatch(JSON.stringify(result.evidence), /token|password|transcript|feedback/i);
     }
@@ -112,6 +117,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
       'scope-set-mismatch',
       'console-errors-present',
       'network-failures-present',
+      'canonical-response-time-mismatch',
       'canonical-session-time-mismatch',
     ]);
   });
@@ -149,6 +155,20 @@ describe('Speaking Gate E real-device evidence validator', () => {
     assert.equal(result.ok, false);
     assert.ok(result.errors.includes('canonical-session-time-mismatch'));
     assert.ok(result.errors.includes('canonical-response-id-mismatch'));
+  });
+
+  test('rejects a canonical response persisted after the attested journey ended', () => {
+    const late = fixture('safari-floor');
+    late.canonicalSession.evidence_response_persisted_at = '2026-08-11T00:30:00.001Z';
+    const result = validateSpeakingRealDeviceEvidence(late);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.includes('canonical-response-time-mismatch'));
+
+    const early = fixture('safari-floor');
+    early.canonicalSession.evidence_response_persisted_at = '2026-08-11T00:09:59.999Z';
+    const earlyResult = validateSpeakingRealDeviceEvidence(early);
+    assert.equal(earlyResult.ok, false);
+    assert.ok(earlyResult.errors.includes('canonical-response-time-mismatch'));
   });
 
   test('rejects a canonical session outside Practice Part 2', () => {

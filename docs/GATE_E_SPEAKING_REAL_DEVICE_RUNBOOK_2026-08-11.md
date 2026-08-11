@@ -48,9 +48,12 @@ Ghi UUID session, submit tối thiểu một bản ghi và lấy `response_id` t
 của request POST làm `canonical_response_id`. Cùng response đó phải có
 `backend_release_sha` 40 ký tự; ghi exact giá trị làm
 `observed_backend_release_sha`. Đây là marker của backend thực sự đã persist
-recording, không được thay bằng giá trị đọc từ một request chạy sau. Chỉ phát lại
-blob cục bộ hoặc chỉ đếm một response cũ không chứng minh persistence của journey
-này. Ghi `observed_at` sau khi hoàn tất toàn bộ scope.
+recording, không được thay bằng giá trị đọc từ một request chạy sau. Backend lưu
+`responses.persisted_at` bằng đồng hồ server và endpoint canonical trả timestamp
+này trong response/receipt; workflow sẽ từ chối nếu exact response được persist
+trước `journey_started_at` hoặc sau `observed_at`. Vì vậy phải ghi `observed_at`
+sau khi POST thành công và hoàn tất toàn bộ scope. Chỉ phát lại blob cục bộ hoặc
+chỉ đếm một response cũ không chứng minh persistence của journey này.
 
 Ngay trong journey, mở `/js/runtime-config.js` trên cùng staging origin và ghi
 exact giá trị 40 ký tự của trường `release` làm `observed_release_sha`. Nếu

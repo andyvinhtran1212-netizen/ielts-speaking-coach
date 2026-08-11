@@ -126,6 +126,15 @@ export function validateSpeakingRealDeviceEvidence({
   if (canonicalSession?.evidence_response_id !== responseId) {
     errors.push('canonical-response-id-mismatch');
   }
+  const responsePersistedAtMs = Date.parse(
+    cleanText(canonicalSession?.evidence_response_persisted_at),
+  );
+  if (!Number.isFinite(responsePersistedAtMs)) {
+    errors.push('canonical-response-persisted-at-invalid');
+  } else if (Number.isFinite(observedAtMs) && Number.isFinite(journeyStartedAtMs) &&
+      (responsePersistedAtMs < journeyStartedAtMs || responsePersistedAtMs > observedAtMs)) {
+    errors.push('canonical-response-time-mismatch');
+  }
   const sessionStartedAtMs = Date.parse(cleanText(canonicalSession?.started_at));
   if (!Number.isFinite(sessionStartedAtMs)) {
     errors.push('canonical-session-start-invalid');
@@ -218,7 +227,7 @@ const COMPLETE_EVIDENCE_KEYS = [
 ];
 const CANONICAL_SESSION_KEYS = [
   'id', 'mode', 'part', 'status', 'started_at', 'persisted_response_count',
-  'evidence_response_id',
+  'evidence_response_id', 'evidence_response_persisted_at',
 ];
 const PROVENANCE_KEYS = [
   'frontend_release', 'frontend_git_ref', 'runtime_environment', 'backend_release',
