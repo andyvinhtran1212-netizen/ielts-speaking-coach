@@ -309,8 +309,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Một lượt mở phiên ĐANG BAY thì lượt gọi sau dùng chung nó.
   //
   // Không có chốt này thì hai lời gọi gần nhau tạo HAI phiên, một cái bị bỏ
-  // ngay lập tức. Dữ liệu thật 06/08: em Lê Ngọc Hà Linh có hai phiên mở đúng
-  // cùng một giây (16:14:49), một cái 0 câu và một cái 8 câu không lối về.
+  // ngay lập tức. Một incident production có hai phiên mở đúng cùng một giây,
+  // một cái 0 câu và một cái 8 câu không lối về.
   let opening = null;
 
   function openSession() {
@@ -323,7 +323,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Nếu chỉ khoá `openSession`, một lần bấm thứ hai có thể chạy sau khi lần đầu
   // đã đổi `stage` nhưng trước khi màn hình kịp bỏ nút cũ. Nó cộng thêm một lần,
   // dùng chung request mở phiên đang bay, rồi để lại nguyên một chặng không hề
-  // được hỏi. Dữ liệu thật 11/08: em Diem Duong bị bỏ đúng 10 câu chặng 3.
+  // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
   let advancing = null;
 
   function advanceStage() {
@@ -584,8 +584,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * "đếm thay vì suy từ độ phủ": em ấy có thể vừa lấp một LỖ ở giữa bài (một
      * chặng cũ chưa xong), và chặng liền sau nó thì đã làm rồi.
      *
-     * Chuyện thật (em Lê Ngọc Hà Linh, 06/08): làm chặng 3→8, quay lại lấp
-     * chặng 2, rồi bị đẩy sang chặng 3 — làm lại nguyên một chặng đã xong.
+     * Incident production: làm chặng 3→8, quay lại lấp chặng 2, rồi bị đẩy
+     * sang chặng 3 — làm lại nguyên một chặng đã xong.
      *
      * Hỏi hỏng thì cộng một như cũ: một lượt gọi mạng hỏng không được chặn em
      * ấy học tiếp.

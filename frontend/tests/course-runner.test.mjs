@@ -984,7 +984,7 @@ describe('mở lại khi ĐÃ XONG cả bài', () => {
 // phiên MỚI — bỏ rơi luôn những câu vừa làm. Lần sau lại lệch thêm.
 //
 // Đo được: 29 phiên mồ côi mang 90 câu đã trả lời, đúng bằng số câu được tính.
-// Em Lê Ngọc Hà Linh đang làm câu của chặng 3 trong khi sổ đếm được 2 phiên.
+// Học viên đang làm câu của chặng 3 trong khi sổ đếm được 2 phiên.
 
 describe('chặng lấy từ máy chủ', () => {
   test('nhận lại bài dở khi số phiên KHÔNG khớp chặng thật', async () => {
@@ -1026,8 +1026,8 @@ describe('chặng lấy từ máy chủ', () => {
 
 describe('không mở hai phiên cùng lúc', () => {
   test('hai lần sang chặng gần nhau chỉ tạo MỘT phiên', async () => {
-    // Dữ liệu thật: em Lê Ngọc Hà Linh có hai phiên mở đúng cùng một giây
-    // (16:14:49) — một cái 0 câu, một cái 8 câu không lối về. Bấm hai lần, hay
+    // Một incident production có hai phiên mở đúng cùng một giây: một phiên 0
+    // câu và một phiên 8 câu không lối về. Bấm hai lần, hay
     // một lần bấm đi kèm một lượt tự động, là đủ để sinh ra cảnh ấy.
     //
     // Đi qua ĐƯỜNG CÔNG KHAI (`nextStage`), không gọi hàm riêng: ghim hàm mà
@@ -1043,7 +1043,7 @@ describe('không mở hai phiên cùng lúc', () => {
     // Race thật khác hai promise bắt đầu đúng cùng một nhịp: lần đầu đã đổi
     // `stage`, nhưng request mở phiên còn bay và nút cũ vẫn có thể nhận một
     // double-tap. Khoá riêng `openSession` giữ số phiên đúng nhưng vẫn để stage
-    // tăng hai lần — chính là 10 câu bị thiếu trong lượt của Diem Duong 11/08.
+    // tăng hai lần — chính là mẫu 10 câu bị thiếu trong incident production.
     const questions = Array.from({ length: 40 }, (_, i) => mcq(i));
     const api = fakeApi({ questions });
     const originalPost = api.post.bind(api);
@@ -1081,7 +1081,7 @@ describe('không mở hai phiên cùng lúc', () => {
 
 // ── Sang chặng sau: HỎI máy chủ, đừng cộng một ─────────────────────────────
 //
-// Chuyện thật (em Lê Ngọc Hà Linh, 06/08): làm chặng 3→8, quay lại lấp chặng 2
+// Incident production: làm chặng 3→8, quay lại lấp chặng 2
 // còn thiếu, rồi bị đẩy sang chặng 3 — làm lại nguyên một chặng đã xong. Cộng
 // một là quay lại đúng bệnh "đếm thay vì suy từ độ phủ".
 
