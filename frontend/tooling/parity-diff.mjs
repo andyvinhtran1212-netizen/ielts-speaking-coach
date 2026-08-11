@@ -17,7 +17,7 @@ import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler,
-         isTransportError }
+         isTransportError, externalPresentationFixture }
   from './parity-core.mjs';
 import { signIn, sessionEntry } from './supabase-session.mjs';
 
@@ -242,6 +242,8 @@ async function extractOnce(context, url) {
         try { return new URL(r.url()).pathname; } catch { return r.url(); } })()}`);
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     }
+    const externalFixture = externalPresentationFixture(r.url());
+    if (externalFixture) return route.fulfill(externalFixture);
     return route.continue();
   });
   const consoleErrors = [];

@@ -37,6 +37,23 @@ export function normalizeText(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Keep DOM/API parity deterministic without masking executable third-party
+ * dependencies. Google Fonts is presentation-only for this text/contract
+ * extractor; its CSS has repeatedly returned WOFF2 URLs that later 404 in CI
+ * (runs 31439749380 and 31440757513), making an unchanged Legacy baseline red.
+ * Stub only the exact stylesheet host. Scripts, CDNs, and even direct gstatic
+ * font URLs remain visible failures, so a real broken dependency is not hidden.
+ */
+export function externalPresentationFixture(url) {
+  try {
+    if (new URL(url).hostname === 'fonts.googleapis.com') {
+      return { status: 200, contentType: 'text/css', body: '' };
+    }
+  } catch { /* malformed URL is not eligible for a fixture */ }
+  return null;
+}
+
 // Lỗi TẦNG VẬN CHUYỂN: request không bao giờ tới nơi, nên không có phản hồi để
 // nói lên điều gì về TRANG. Đây là hỏng của DỤNG CỤ ĐO, không phải khuyết tật
 // của thứ đang đo — và phân biệt được hai thứ đó là cả điểm của danh sách này.
