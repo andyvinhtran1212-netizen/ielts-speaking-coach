@@ -164,6 +164,26 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- The audit log's append-only guarantee must survive service_role bypassing
+    -- RLS. A same-named disabled, statement-level, one-event, AFTER, or
+    -- wrong-function trigger is not migration 198's contract. PostgreSQL tgtype
+    -- 27 = ROW(1) | BEFORE(2) | DELETE(8) | UPDATE(16).
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger
+         WHERE tgname = 'trg_class_action_log_append_only'
+           AND tgrelid = 'public.class_action_log'::regclass
+           AND NOT tgisinternal
+           AND tgenabled = 'O'
+           AND tgtype = 27
+           AND tgfoid = to_regprocedure('public.fn_class_action_log_append_only()')
+    ) THEN
+        missing := array_append(
+            missing,
+            'trigger-contract:class_action_log.append-only'
+        );
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
          FROM pg_constraint
@@ -347,6 +367,29 @@ BEGIN
         HAVING count(*) > 1
     ) THEN
         missing := array_append(missing, 'data:course-writing-duplicate-item');
+    END IF;
+
+    -- Migration 192 replaces the old one-submission-per-bank/user rule with
+    -- one-submission-per-assignment-item. Detect the obsolete key by columns,
+    -- not only by its historical name, so a renamed copy cannot pass.
+    IF EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.course_writing_submissions'::regclass
+           AND con.contype = 'u'
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['bank_id', 'user_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'obsolete-constraint:course_writing_submissions(bank_id,user_id)'
+        );
     END IF;
     IF EXISTS (
         SELECT 1 FROM sessions

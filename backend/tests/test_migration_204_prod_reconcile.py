@@ -224,4 +224,10 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
         "TRIGGER",
     ):
         assert f"'service_role', 'public.course_writing_drafts', '{privilege}'" in verify_sql
+    assert "trigger-contract:class_action_log.append-only" in verify_sql
+    assert "tgenabled = 'O'" in verify_sql
+    assert "tgtype = 27" in verify_sql
+    assert "tgfoid = to_regprocedure('public.fn_class_action_log_append_only()')" in verify_sql
+    assert "obsolete-constraint:course_writing_submissions(bank_id,user_id)" in verify_sql
+    assert "ARRAY['bank_id', 'user_id']::name[]" in verify_sql
     assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql
