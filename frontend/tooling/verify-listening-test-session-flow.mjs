@@ -6,13 +6,16 @@ import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const PRODUCTION_BACKEND = 'https://ielts-speaking-coach-production.up.railway.app';
+const FORCE_PRODUCTION_RUNTIME = process.env.VERIFY_PRODUCTION_RUNTIME === '1';
 const TEST_ID = 'listening-native-flow';
 const ATTEMPT_ID = '11111111-1111-4111-8111-111111111112';
+const FAKE_USER_ID = '00000000-0000-0000-0000-000000000038';
 const fakeSession = JSON.stringify({
   access_token: 'listening-player-flow-not-a-real-token', refresh_token: 'x',
   token_type: 'bearer', expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600,
-  user: { id: '00000000-0000-0000-0000-000000000038', email: 'listening-player@local' },
+  user: { id: FAKE_USER_ID, email: 'listening-player@local' },
 });
 const testPayload = {
   id: TEST_ID, test_id: 'LIS-NATIVE-01', title: 'Native Listening fixture',
@@ -63,20 +66,40 @@ await context.addInitScript(([key, value]) => {
 }, [storageKey(SB), fakeSession]);
 const page = await context.newPage();
 const pageErrors = [];
-const productionRequests = [];
+const unhandledProductionRequests = [];
 let interceptedApiRequests = 0;
 page.on('pageerror', (error) => pageErrors.push(String(error)));
-page.on('request', (request) => {
-  if (request.url().startsWith('https://ielts-speaking-coach-production.up.railway.app')) productionRequests.push(request.url());
-});
 page.on('dialog', async (dialog) => dialog.accept());
 
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
+  if (FORCE_PRODUCTION_RUNTIME && request.method() === 'GET' && url.pathname === '/js/runtime-config.js') {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `window.__AVER_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({
+        environment: 'production', apiBase: PRODUCTION_BACKEND,
+        supabaseUrl: SB, supabaseAnonKey: null, release: null, gitRef: null,
+      })});`,
+    });
+  }
   if (request.url().startsWith(BASE) || request.url().startsWith('data:')) return route.continue();
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(request.url())) return route.continue();
+  // Shared chrome emits read-only page telemetry during boot. Stub the exact
+  // endpoint so the fixture remains hermetic; every other production-shaped
+  // URL still falls through to the fail-closed branch below.
+  if (request.method() === 'POST' && url.pathname === '/api/analytics/events') {
+    return route.fulfill({ status: 204, headers: cors });
+  }
+  if (request.method() === 'GET' && url.pathname === '/auth/me') {
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ id: FAKE_USER_ID, display_name: 'Listening fixture' }),
+      headers: cors,
+    });
+  }
   if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}`) {
     interceptedApiRequests += 1;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testPayload), headers: cors });
@@ -118,6 +141,14 @@ await page.route('**/*', async (route) => {
       trap_analytics: {}, per_question: perQuestion,
     }), headers: cors });
   }
+  // CI deliberately builds runtime-config with the production API origin. A
+  // canonical fixture request above is still fulfilled locally and therefore
+  // never leaves Playwright. Only an UNHANDLED production-shaped request is
+  // real egress risk; fail closed and keep its URL for the assertion below.
+  if (request.url().startsWith(PRODUCTION_BACKEND)) {
+    unhandledProductionRequests.push(request.url());
+    return route.abort('blockedbyclient');
+  }
   return route.fulfill({ status: 200, contentType: 'application/json', body: '{}', headers: cors });
 });
 
@@ -152,7 +183,11 @@ await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click
 await page.getByText('2/2', { exact: true }).waitFor();
 check('clean submit renders canonical result once', state.submits === 1);
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
-check('fixture handles APIs with zero production-backend egress', interceptedApiRequests > 0 && productionRequests.length === 0);
+check(
+  'fixture handles APIs with zero production-backend egress',
+  interceptedApiRequests > 0 && unhandledProductionRequests.length === 0,
+  unhandledProductionRequests[0] || '',
+);
 
 await browser.close();
 const failed = results.filter((result) => !result.ok);
