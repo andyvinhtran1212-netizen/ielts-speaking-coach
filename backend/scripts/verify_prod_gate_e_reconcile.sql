@@ -150,6 +150,31 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Migration 174's signature and ACL are not enough: the router depends on
+    -- this exact SECURITY DEFINER implementation to preserve the first answer,
+    -- distinguish TRUE/FALSE/NULL, and close concurrent retry races. Both
+    -- audited environments carry this canonical body hash.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_proc p
+          JOIN pg_language l ON l.oid = p.prolang
+         WHERE p.oid = to_regprocedure(
+                   'public.fn_insert_listening_answer_once(uuid,integer,text)'
+               )
+           AND l.lanname = 'plpgsql'
+           AND p.prorettype = 'boolean'::regtype
+           AND p.prosecdef
+           AND p.provolatile = 'v'
+           AND p.proparallel = 'u'
+           AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
+           AND md5(p.prosrc) = '856941cccd7f1e4a4df130f9286a189f'
+    ) THEN
+        missing := array_append(
+            missing,
+            'function-contract:fn_insert_listening_answer_once'
+        );
+    END IF;
+
     -- These RPCs either bypass RLS (SECURITY DEFINER) or perform destructive
     -- bulk replacement. Function existence is not proof that a manual provision
     -- also applied the mandatory REVOKE. A PUBLIC grant is inherited by both

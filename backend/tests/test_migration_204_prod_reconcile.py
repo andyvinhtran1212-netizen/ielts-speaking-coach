@@ -202,6 +202,12 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "con.convalidated" in verify_sql
     assert "score <= (100)::numeric" in verify_sql
     assert "function-body:delete-course-evidence" in verify_sql
+    assert "function-contract:fn_insert_listening_answer_once" in verify_sql
+    assert "l.lanname = 'plpgsql'" in verify_sql
+    assert "p.prorettype = 'boolean'::regtype" in verify_sql
+    assert "p.prosecdef" in verify_sql
+    assert "p.proconfig = ARRAY['search_path=public, pg_temp']::text[]" in verify_sql
+    assert "md5(p.prosrc) = '856941cccd7f1e4a4df130f9286a189f'" in verify_sql
     assert "service-only-acl:" in verify_sql
     assert "has_function_privilege('anon'" in verify_sql
     assert "has_function_privilege('authenticated'" in verify_sql
