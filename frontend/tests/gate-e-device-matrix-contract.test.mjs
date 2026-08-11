@@ -41,6 +41,9 @@ const speakingEvidenceVerifier = read(
 const readingEvidenceVerifier = read(
   'frontend/tooling/verify-gate-e-reading-failure-evidence.mjs',
 );
+const listeningEvidenceVerifier = read(
+  'frontend/tooling/verify-gate-e-listening-failure-evidence.mjs',
+);
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
   const tests = includedProjects.map((project) => ({
@@ -141,12 +144,14 @@ describe('Gate E device matrix is pinned and bounded', () => {
     );
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(speakingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
     assert.match(speakingEvidenceVerifier, /HTML embedded ZIP is truncated/);
     assert.match(readingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
     assert.match(readingEvidenceVerifier, /did not execute each required Reading failure path exactly once/);
+    assert.match(listeningEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
+    assert.match(listeningEvidenceVerifier, /did not execute each required Listening failure path exactly once/);
   });
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {
