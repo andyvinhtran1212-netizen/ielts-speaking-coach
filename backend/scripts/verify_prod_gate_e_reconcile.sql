@@ -14,6 +14,7 @@ DECLARE
     fn_result text;
     fn_retset boolean;
     fn_arguments text;
+    expected_evidence_fk record;
     expected_index record;
 BEGIN
     -- Tables created by the audited history.
@@ -67,6 +68,59 @@ BEGIN
                AND column_name = col
         ) THEN
             missing := array_append(missing, 'column:' || tbl || '.' || col);
+        END IF;
+    END LOOP;
+
+    -- The completed learner artifact must outlive deletion of an unsubmitted
+    -- assignment. Migrations 177/181/188/190 therefore link every evidence
+    -- table to the per-student ledger with ON DELETE SET NULL. Pin the complete
+    -- FK shape: a missing FK can leave a dangling id, while CASCADE can destroy
+    -- the canonical session/attempt/submission together with the assignment.
+    FOR expected_evidence_fk IN
+        SELECT * FROM (VALUES
+            ('sessions', 'sessions_class_assignment_item_id_fkey'),
+            ('reading_test_attempts', 'reading_test_attempts_class_assignment_item_id_fkey'),
+            ('listening_test_attempts', 'listening_test_attempts_class_assignment_item_id_fkey'),
+            ('quiz_sessions', 'quiz_sessions_class_assignment_item_id_fkey'),
+            ('course_writing_submissions', 'course_writing_submissions_class_assignment_item_id_fkey')
+        ) AS expected(table_name, constraint_name)
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint con
+             WHERE con.conrelid = to_regclass(
+                       format('public.%I', expected_evidence_fk.table_name)
+                   )
+               AND con.conname = expected_evidence_fk.constraint_name
+               AND con.contype = 'f'
+               AND con.convalidated
+               AND con.confrelid = 'public.class_assignment_items'::regclass
+               AND con.confupdtype = 'a'
+               AND con.confdeltype = 'n'
+               AND con.confmatchtype = 's'
+               AND con.confdelsetcols IS NULL
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = con.conrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = ARRAY['class_assignment_item_id']::name[]
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(con.confkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = con.confrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = ARRAY['id']::name[]
+        ) THEN
+            missing := array_append(
+                missing,
+                'constraint-contract:' || expected_evidence_fk.table_name
+                    || '.class_assignment_item'
+            );
         END IF;
     END LOOP;
 

@@ -253,6 +253,14 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "column-contract:class_assignments.content_config" in verify_sql
     assert "format_type(a.atttypid, a.atttypmod) = 'jsonb'" in verify_sql
     assert "pg_get_expr(d.adbin, d.adrelid) = '''{}''::jsonb'" in verify_sql
+    assert "constraint-contract:' || expected_evidence_fk.table_name" in verify_sql
+    assert "sessions_class_assignment_item_id_fkey" in verify_sql
+    assert "reading_test_attempts_class_assignment_item_id_fkey" in verify_sql
+    assert "listening_test_attempts_class_assignment_item_id_fkey" in verify_sql
+    assert "quiz_sessions_class_assignment_item_id_fkey" in verify_sql
+    assert "course_writing_submissions_class_assignment_item_id_fkey" in verify_sql
+    assert "con.confdeltype = 'n'" in verify_sql
+    assert "ARRAY['class_assignment_item_id']::name[]" in verify_sql
     assert "constraint-contract:class_assignments.recipient_scope" in verify_sql
     assert "constraint-contract:listening_tests.test_type" in verify_sql
     assert "constraint-contract:class_assignments.skill" in verify_sql
