@@ -213,14 +213,14 @@ describe('Sprint 12.8 — admin.html is a pure redirect (cluster closure)', () =
       `Expected zero panel-* IDs; found: ${panels.join(', ')}`);
   });
 
-  it('meta refresh + JS replace() both target /pages/admin/index.html', () => {
+  it('meta refresh + JS replace() both target canonical /admin', () => {
     assert.match(
       ADMIN_LEGACY,
-      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/pages\/admin\/index\.html/,
+      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/admin/,
     );
     assert.match(
       ADMIN_LEGACY,
-      /window\.location\.replace\(\s*['"]\/pages\/admin\/index\.html['"]\s*\)/,
+      /window\.location\.replace\(\s*['"]\/admin['"]\s*\)/,
     );
   });
 });

@@ -207,7 +207,7 @@ describe('Sprint 12.7 regression — admin.html closure (post Sprint 12.8)', () 
     // The previously-pinned "still-monolith" panels (vocab_exercises,
     // alerts, ai_usage) all carved out in Sprint 12.8. The redirect now
     // owns admin.html.
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-alerts["']/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-ai_usage["']/);

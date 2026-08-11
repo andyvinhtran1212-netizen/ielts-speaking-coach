@@ -110,7 +110,9 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
       { source: '/admin/access-codes', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
       { source: '/pages/admin/access-codes/index.html', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
-      { source: '/pages/admin/dashboard/index.html', destination: '/pages/admin/index.html', permanent: true },
+      // Temporary during the `/admin` native pilot: a cached permanent redirect
+      // would strand old dashboard bookmarks if the pilot is rolled back.
+      { source: '/pages/admin/dashboard/index.html', destination: '/admin', permanent: false },
     ];
   },
 

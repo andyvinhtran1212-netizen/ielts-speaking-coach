@@ -10,7 +10,7 @@
  *
  * Post-closure assertions:
  *   - admin.html is < 120 LOC (was ~3,151)
- *   - meta refresh + JS replace() both point at /pages/admin/index.html
+ *   - meta refresh + JS replace() both point at canonical /admin
  *   - anti-flash IIFE preserved so the redirect doesn't flash the wrong
  *     theme (DESIGN_SYSTEM § 13)
  *   - NO monolith markup remains (no tab-btn-*, panel-*, switchTab,
@@ -40,24 +40,24 @@ describe('Sprint 12.8 — admin.html cluster closure (pure redirect)', () => {
     );
   });
 
-  test('meta refresh points at /pages/admin/index.html', () => {
+  test('meta refresh points at canonical /admin', () => {
     assert.match(
       html,
-      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/pages\/admin\/index\.html/,
+      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/admin/,
     );
   });
 
   test('JS redirect uses location.replace (no history entry)', () => {
     assert.match(
       html,
-      /window\.location\.replace\(\s*['"]\/pages\/admin\/index\.html['"]\s*\)/,
+      /window\.location\.replace\(\s*['"]\/admin['"]\s*\)/,
     );
   });
 
   test('canonical link tag points at the new IA landing', () => {
     assert.match(
       html,
-      /<link\s+rel=["']canonical["']\s+href=["']\/pages\/admin\/index\.html["']/,
+      /<link\s+rel=["']canonical["']\s+href=["']\/admin["']/,
     );
   });
 
@@ -78,7 +78,7 @@ describe('Sprint 12.8 — admin.html cluster closure (pure redirect)', () => {
   });
 
   test('visible CTA links to the new admin landing', () => {
-    assert.match(html, /href=["']\/pages\/admin\/index\.html["']/);
+    assert.match(html, /href=["']\/admin["']/);
   });
 });
 

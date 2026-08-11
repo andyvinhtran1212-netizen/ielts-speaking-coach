@@ -229,6 +229,11 @@ on:
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
+      # Admin Overview không có cặp parity đáng tin cậy: cả hai vế cần role
+      # admin. Nó có browser read-flow với phiên/backend giả ở dưới, nên group
+      # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
+      - 'frontend/app/(authed-admin-overview)/**'
+      - 'frontend/public/css/admin-overview.css'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -255,6 +260,7 @@ on:
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
+      - 'frontend/tooling/verify-admin-overview-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -669,6 +675,12 @@ jobs:
       # liệu thật và fail nếu partial save vẫn cho phép finalization.
       - name: Kiểm luồng Listening Test native
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
+      # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
+      # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
+      - name: Kiểm luồng Admin Overview native
+        run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

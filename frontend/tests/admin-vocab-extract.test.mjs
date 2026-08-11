@@ -221,6 +221,6 @@ describe('Sprint 12.6 — vocab carve survives Sprint 12.8 closure', () => {
   });
 
   it('admin.html redirects to the unified IA', () => {
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
   });
 });
