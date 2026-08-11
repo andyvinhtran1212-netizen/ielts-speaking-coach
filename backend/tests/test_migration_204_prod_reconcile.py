@@ -380,6 +380,14 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "removed-column:course_writing_drafts.seq" in verify_sql
     assert "public.fn_save_course_writing_draft(uuid,uuid,uuid,jsonb,bigint)" in verify_sql
     assert "removed-function:fn_save_course_writing_draft" in verify_sql
+    assert "removed-function:' || item" in verify_sql
+    for retired_signature in (
+        "public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,"
+        "timestamp with time zone,timestamp with time zone,text,uuid)",
+        "public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,"
+        "timestamp with time zone,timestamp with time zone,text,uuid,text)",
+    ):
+        assert retired_signature in verify_sql
     assert "constraint-contract:class_assignments.recipient_scope" in verify_sql
     assert "constraint-contract:listening_tests.test_type" in verify_sql
     assert "constraint-contract:class_assignments.skill" in verify_sql

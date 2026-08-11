@@ -471,6 +471,19 @@ BEGIN
         );
     END IF;
 
+    -- Migrations 184 and 193 replace the assignment-creation signature by
+    -- adding kind and then recipient ids. CREATE OR REPLACE cannot change an
+    -- argument list, so either retired overload surviving makes PostgREST RPC
+    -- resolution ambiguous even when the final 13-argument body is correct.
+    FOREACH item IN ARRAY ARRAY[
+        'public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,timestamp with time zone,timestamp with time zone,text,uuid)',
+        'public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,timestamp with time zone,timestamp with time zone,text,uuid,text)'
+    ] LOOP
+        IF to_regprocedure(item) IS NOT NULL THEN
+            missing := array_append(missing, 'removed-function:' || item);
+        END IF;
+    END LOOP;
+
     -- Migration 202 is a receipt/evidence contract, not just a column name.
     -- ADD COLUMN IF NOT EXISTS cannot repair a manually-created weaker column,
     -- so refuse to baseline unless type, nullability and server default match.
