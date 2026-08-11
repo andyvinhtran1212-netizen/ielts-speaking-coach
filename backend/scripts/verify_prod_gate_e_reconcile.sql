@@ -814,6 +814,33 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- SECURITY DEFINER changes authorization to the function owner. The body,
+    -- search_path and caller ACL can all be canonical while an incorrectly
+    -- owned hand-provisioned function either loses the table access it needs or
+    -- executes with unintended authority. Both audited environments use the
+    -- trusted postgres owner for every SECURITY DEFINER RPC in this range.
+    FOREACH item IN ARRAY ARRAY[
+        'public.fn_insert_listening_answer_once(uuid,integer,text)',
+        'public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,timestamp with time zone,timestamp with time zone,text,uuid,text,uuid[])',
+        'public.fn_backfill_assignment_items(uuid,uuid[])',
+        'public.fn_delete_class_assignment_if_unsubmitted(uuid,uuid)',
+        'public.fn_bind_session_to_class_item(uuid,uuid,uuid)'
+    ] LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_proc p
+              JOIN pg_roles owner_role ON owner_role.oid = p.proowner
+             WHERE p.oid = to_regprocedure(item)
+               AND p.prosecdef
+               AND owner_role.rolname = 'postgres'
+        ) THEN
+            missing := array_append(
+                missing,
+                'security-definer-owner:' || item
+            );
+        END IF;
+    END LOOP;
+
     -- Migration 174's signature and ACL are not enough: the router depends on
     -- this exact SECURITY DEFINER implementation to preserve the first answer,
     -- distinguish TRUE/FALSE/NULL, and close concurrent retry races. Both

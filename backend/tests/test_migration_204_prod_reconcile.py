@@ -421,6 +421,17 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
         "quiz_replace_questions",
     ):
         assert verify_sql.count(function_name) >= 2
+    assert "security-definer-owner:' || item" in verify_sql
+    assert "JOIN pg_roles owner_role ON owner_role.oid = p.proowner" in verify_sql
+    assert "owner_role.rolname = 'postgres'" in verify_sql
+    for security_definer_function in (
+        "fn_insert_listening_answer_once",
+        "fn_create_class_assignment",
+        "fn_backfill_assignment_items",
+        "fn_delete_class_assignment_if_unsubmitted",
+        "fn_bind_session_to_class_item",
+    ):
+        assert verify_sql.count(security_definer_function) >= 3
     assert "service-only-table-acl:course_writing_drafts" in verify_sql
     assert "service-role-table-acl:' || item" in verify_sql
     for table_name in (
