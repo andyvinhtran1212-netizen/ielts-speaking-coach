@@ -65,6 +65,12 @@ describe('lược đồ bản khai', () => {
     }
   });
 
+  test('`clickIfPresent` là bước selector hợp lệ cho khác biệt xác nhận legacy/Next', () => {
+    assert.deepEqual(validateFlow({ name: 'x', route: '/r',
+      steps: [{ clickIfPresent: '.confirm-modal button' }],
+      writes: [{ method: 'POST', path: '/submit' }] }), []);
+  });
+
   test('xoá trắng một ô là HỢP LỆ — `fill` được phép giá trị rỗng', () => {
     // Chiều ngược của mọi chốt ở trên: bộ kiểm chặt quá thì nó CHẶN việc đúng.
     // Ghi đè bản nháp bằng chuỗi rỗng chính là thứ `NON_EMPTY` sinh ra để bắt,
@@ -100,6 +106,7 @@ describe('lược đồ bản khai', () => {
       [{ ...base, steps: [{ expectStorage: ['k', null] }] }, /expectStorage/],
       [{ ...base, ignoreWrite: [] }, /khoá lạ/],
       [{ ...base, steps: [{ clickk: '#a' }] }, /ĐÚNG MỘT hành động/],
+      [{ ...base, steps: [{ clickIfPresent: '' }] }, /clickIfPresent/],
       // Vòng 3 codex: hình dạng BÊN TRONG mỗi hành động.
       [{ ...base, steps: [{ fill: ['#a'] }] }, /fill/],
       [{ ...base, steps: [{ dispatch: ['#a'] }] }, /dispatch/],
@@ -133,6 +140,10 @@ describe('lược đồ bản khai', () => {
       [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: async () => false }] }, /async/],
       [{ ...base, writes: [{ method: 'POST', path: '/a',
         headers: { A: async () => false } }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', query: new Map([['x', 'y']]) }] }, /query/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', query: {} }] }, /query.*rỗng/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        query: { class_item: async () => false } }] }, /query\.class_item.*async/],
       // · vị từ LỒNG SÂU bị `JSON.stringify` xoá mất — khai rồi mà không chạy;
       [{ ...base, writes: [{ method: 'POST', path: '/a',
         body: { extra: { id: (v) => v === 1 } } }] }, /LỒNG SÂU/],

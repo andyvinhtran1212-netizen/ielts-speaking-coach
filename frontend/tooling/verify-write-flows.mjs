@@ -64,6 +64,15 @@ async function step(page, s, observed) {
     return undefined;
   }
   if (s.click) return page.locator(s.click).first().click();
+  // Một số implementations có thêm một bước xác nhận nội tuyến trong khi vế
+  // legacy dùng `window.confirm()`. Bước tùy chọn chỉ dùng cho lớp UI đó; hợp
+  // đồng `writes` vẫn bắt buộc request cuối phải thật sự xảy ra, nên thiếu nút
+  // xác nhận ở vế cần nó vẫn làm luồng đỏ thay vì bị bỏ qua âm thầm.
+  if (s.clickIfPresent) {
+    const target = page.locator(s.clickIfPresent).first();
+    if (await target.count()) return target.click();
+    return undefined;
+  }
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
   // Tua đồng hồ của TRANG (cần `fakeClock: true`). Khác `wait`: `wait` để trang

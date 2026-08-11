@@ -32,7 +32,9 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       identity_query_any_of: Object.freeze(['id']),
       allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
-      next: Object.freeze({ path: '/listening/test/session', route_ready: false }),
+      // Native App Router player is dark-ready. Admission stays legacy until
+      // the Listening Gate E failure matrix and coexistence drill pass.
+      next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
       admit_new: 'legacy',

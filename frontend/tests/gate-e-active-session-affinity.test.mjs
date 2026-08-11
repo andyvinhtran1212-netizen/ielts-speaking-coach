@@ -52,12 +52,16 @@ describe('current admission policy preserves behavior', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
       assert.equal(config.admit_new, 'legacy');
-      assert.equal(config.next.route_ready, surface === 'reading_exam');
+      assert.equal(config.next.route_ready, ['reading_exam', 'listening_test'].includes(surface));
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
     assert.ok(existsSync(path.join(
       FRONTEND,
       'app/(authed-reading-player)/reading/exam/session/page.tsx',
+    )));
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-listening-player)/listening/test/session/page.tsx',
     )));
   });
 
