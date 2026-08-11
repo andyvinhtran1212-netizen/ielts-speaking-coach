@@ -422,6 +422,22 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     ):
         assert verify_sql.count(function_name) >= 2
     assert "service-only-table-acl:course_writing_drafts" in verify_sql
+    assert "service-role-table-acl:' || item" in verify_sql
+    for table_name in (
+        "courses",
+        "class_lessons",
+        "class_assignments",
+        "class_assignment_items",
+        "speaking_lesson_sets",
+        "speaking_lesson_set_questions",
+        "speaking_progress_marks",
+        "course_writing_submissions",
+        "course_writing_drafts",
+        "class_action_log",
+    ):
+        assert f"'{table_name}'" in verify_sql
+    assert "format('public.%I', item)" in verify_sql
+    assert "required_privilege.name" in verify_sql
     assert "has_table_privilege('anon'" in verify_sql
     assert "has_table_privilege('authenticated'" in verify_sql
     assert "has_table_privilege('service_role'" in verify_sql

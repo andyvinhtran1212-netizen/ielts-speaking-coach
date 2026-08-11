@@ -1793,6 +1793,43 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Supabase's default grants currently give service_role ALL table
+    -- privileges on every table created by this audited range. RLS bypass does
+    -- not imply table privileges: a hand-created target can otherwise pass the
+    -- structural/policy audit and still make canonical backend reads or writes
+    -- fail with permission denied. Pin the complete effective grant so the
+    -- ledger is recorded only for an operationally usable schema.
+    FOREACH item IN ARRAY ARRAY[
+        'courses',
+        'class_lessons',
+        'class_assignments',
+        'class_assignment_items',
+        'speaking_lesson_sets',
+        'speaking_lesson_set_questions',
+        'speaking_progress_marks',
+        'course_writing_submissions',
+        'course_writing_drafts',
+        'class_action_log'
+    ] LOOP
+        IF EXISTS (
+            SELECT 1
+              FROM unnest(ARRAY[
+                       'SELECT', 'INSERT', 'UPDATE', 'DELETE',
+                       'TRUNCATE', 'REFERENCES', 'TRIGGER'
+                   ]) AS required_privilege(name)
+             WHERE NOT has_table_privilege(
+                       'service_role',
+                       format('public.%I', item),
+                       required_privilege.name
+                   )
+        ) THEN
+            missing := array_append(
+                missing,
+                'service-role-table-acl:' || item
+            );
+        END IF;
+    END LOOP;
+
     -- Migration 194 makes drafts backend-only at the table privilege layer in
     -- addition to RLS. RLS alone is insufficient proof because service_role
     -- bypasses it and still needs explicit ALL privileges to save/load drafts.
