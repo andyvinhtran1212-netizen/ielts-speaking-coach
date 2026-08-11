@@ -175,6 +175,31 @@ BEGIN
         );
     END IF;
 
+    -- Migration 180 deliberately replaced migration 179's same-signature body
+    -- to lock both the assignment item and its parent assignment. Signature and
+    -- ACL checks cannot distinguish the stale one-row-lock implementation, so
+    -- pin the audited final body and execution properties before baselining it.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_proc p
+          JOIN pg_language l ON l.oid = p.prolang
+         WHERE p.oid = to_regprocedure(
+                   'public.fn_bind_session_to_class_item(uuid,uuid,uuid)'
+               )
+           AND l.lanname = 'plpgsql'
+           AND p.prorettype = 'boolean'::regtype
+           AND p.prosecdef
+           AND p.provolatile = 'v'
+           AND p.proparallel = 'u'
+           AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
+           AND md5(p.prosrc) = '804aff9dc563a6d6361efd8d1a511f4c'
+    ) THEN
+        missing := array_append(
+            missing,
+            'function-contract:fn_bind_session_to_class_item'
+        );
+    END IF;
+
     -- The trigger OID only proves which function is called, not that the
     -- function still raises. Pin migration 198's canonical append-only body so
     -- service_role cannot bypass the audit guarantee through a RETURN OLD body.

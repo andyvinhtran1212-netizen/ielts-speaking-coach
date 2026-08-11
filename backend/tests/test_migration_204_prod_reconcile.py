@@ -208,6 +208,8 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "p.prosecdef" in verify_sql
     assert "p.proconfig = ARRAY['search_path=public, pg_temp']::text[]" in verify_sql
     assert "md5(p.prosrc) = '856941cccd7f1e4a4df130f9286a189f'" in verify_sql
+    assert "function-contract:fn_bind_session_to_class_item" in verify_sql
+    assert "md5(p.prosrc) = '804aff9dc563a6d6361efd8d1a511f4c'" in verify_sql
     assert "function-contract:fn_class_action_log_append_only" in verify_sql
     assert "p.prorettype = 'trigger'::regtype" in verify_sql
     assert "md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'" in verify_sql
