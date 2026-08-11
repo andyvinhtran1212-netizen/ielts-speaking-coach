@@ -1,0 +1,27 @@
+.listening-next-player-page { min-height: 100vh; background: var(--av-surface-page); }
+.listening-next-shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 64px; display: grid; gap: 24px; }
+.listening-next-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.listening-next-shell .ft-sticky { top: 12px; }
+.listening-next-shell .ielts-test-paper { width: 100%; }
+.listening-next-shell .ielts-section { display: grid; gap: 18px; }
+.listening-next-gap { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.listening-next-exercise-save { display: block; margin-top: 12px; color: var(--av-error); font-weight: 700; }
+.listening-next-submit-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+.listening-next-score { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.listening-next-score strong { font-size: clamp(2rem, 6vw, 4rem); color: var(--av-brand-teal-700); }
+.listening-next-score span { font-weight: 700; color: var(--av-text-secondary); }
+.listening-next-result-table { display: grid; }
+.listening-next-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; }
+.listening-next-modal-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(15, 23, 42, .62); }
+.listening-next-modal-panel { position: relative; width: min(520px, 100%); padding: 28px; border-radius: var(--av-radius-lg); background: var(--av-surface-card); box-shadow: var(--av-shadow-lg); }
+.listening-next-modal-panel h2 { margin-top: 0; }
+.listening-next-shell audio { display: none; }
+.listening-next-shell .ft-audio-controls input[type="range"] { accent-color: var(--av-brand-teal-700); }
+.listening-next-shell .progress-square.is-unsaved { border-color: var(--av-warning); background: var(--av-warning-soft); }
+.listening-next-shell .progress-square.is-save-failed { border-color: var(--av-error); background: var(--av-error-soft); }
+@media (max-width: 640px) {
+  .listening-next-shell { width: min(100% - 20px, 1120px); padding-top: 16px; }
+  .listening-next-shell .ft-prestart, .listening-next-shell .ielts-section { padding: 18px; }
+  .listening-next-shell .ielts-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .listening-next-submit-row .btn-submit-final { width: 100%; }
+}
