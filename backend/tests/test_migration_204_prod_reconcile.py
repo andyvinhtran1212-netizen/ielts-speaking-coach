@@ -23,6 +23,8 @@ SQL = (
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = BACKEND_ROOT / "scripts" / "reconcile_prod_gate_e_migrations.py"
 VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_gate_e_reconcile.sql"
+GRADING_PATH = BACKEND_ROOT / "routers" / "grading.py"
+PROGRESS_BACKFILL_PATH = BACKEND_ROOT / "scripts" / "backfill_speaking_progress.py"
 
 _SPEC = importlib.util.spec_from_file_location("prod_gate_e_reconcile", SCRIPT_PATH)
 assert _SPEC and _SPEC.loader
@@ -258,6 +260,25 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "constraint-contract:class_assignment_items.state" in verify_sql
     assert "class_assignment_items_state_check" in verify_sql
     assert "data:class_assignment_items.state" in verify_sql
+    assert "column-contract:speaking_progress_marks.response_id" in verify_sql
+    assert "speaking_progress_marks_response_id_key" in verify_sql
+    assert "constraint-contract:speaking_progress_marks.response-id-unique" in verify_sql
+    assert "speaking_progress_marks_response_id_fkey" in verify_sql
+    assert "constraint-contract:speaking_progress_marks.response-parent" in verify_sql
+    assert "data:speaking_progress_marks.response-id-duplicate" in verify_sql
+    assert "ARRAY['response_id']::name[]" in verify_sql
+    assert "expected_check.definition" in verify_sql
+    assert "class_assignments_kind_check" in verify_sql
+    assert "class_assignment_items_artifact_pairing" in verify_sql
+    assert "class_assignment_items_submitted_at_required" in verify_sql
+    assert "topic_questions_level_check" in verify_sql
+    assert "quiz_banks_lesson_no_check" in verify_sql
+    assert "quiz_sessions_kind_check" in verify_sql
+    assert "sessions_full_test_attempt_required" in verify_sql
+    assert "expected_trigger.definition" in verify_sql
+    assert "trg.tgfoid = to_regprocedure" in verify_sql
+    assert "trg.tgenabled = 'O'" in verify_sql
+    assert "trigger-contract:' || expected_trigger.table_name" in verify_sql
     assert "constraint-contract:' || expected_evidence_fk.table_name" in verify_sql
     assert "sessions_class_assignment_item_id_fkey" in verify_sql
     assert "reading_test_attempts_class_assignment_item_id_fkey" in verify_sql
@@ -385,3 +406,11 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     ):
         assert policy_name in verify_sql
     assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql
+
+
+def test_both_progress_mark_writers_use_the_verified_response_conflict_key():
+    grading_source = GRADING_PATH.read_text(encoding="utf-8")
+    backfill_source = PROGRESS_BACKFILL_PATH.read_text(encoding="utf-8")
+
+    assert '.upsert(mark, on_conflict="response_id")' in grading_source
+    assert '.upsert(batch, on_conflict="response_id")' in backfill_source

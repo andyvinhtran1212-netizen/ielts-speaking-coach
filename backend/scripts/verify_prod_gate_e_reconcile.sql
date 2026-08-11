@@ -14,8 +14,10 @@ DECLARE
     fn_result text;
     fn_retset boolean;
     fn_arguments text;
+    expected_check record;
     expected_evidence_fk record;
     expected_index record;
+    expected_trigger record;
 BEGIN
     -- Tables created by the audited history.
     FOREACH item IN ARRAY ARRAY[
@@ -247,6 +249,108 @@ BEGIN
             OR state NOT IN ('assigned', 'opened', 'submitted', 'graded')
     ) THEN
         missing := array_append(missing, 'data:class_assignment_items.state');
+    END IF;
+
+    -- Both the live grader and the repair backfill upsert progress marks on
+    -- response_id. Pin the complete conflict-target contract; UNIQUE alone
+    -- permits NULL, and a same-named ordinary index cannot service ON CONFLICT.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+         WHERE a.attrelid = 'public.speaking_progress_marks'::regclass
+           AND a.attname = 'response_id'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'uuid'
+           AND a.attnotnull
+           AND NOT EXISTS (
+                SELECT 1
+                  FROM pg_attrdef d
+                 WHERE d.adrelid = a.attrelid
+                   AND d.adnum = a.attnum
+           )
+    ) THEN
+        missing := array_append(
+            missing,
+            'column-contract:speaking_progress_marks.response_id'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+          JOIN pg_index idx ON idx.indexrelid = con.conindid
+         WHERE con.conrelid = 'public.speaking_progress_marks'::regclass
+           AND con.conname = 'speaking_progress_marks_response_id_key'
+           AND con.contype = 'u'
+           AND con.convalidated
+           AND idx.indrelid = con.conrelid
+           AND idx.indisunique
+           AND idx.indisvalid
+           AND idx.indisready
+           AND idx.indnkeyatts = 1
+           AND idx.indnatts = 1
+           AND idx.indexprs IS NULL
+           AND idx.indpred IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['response_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:speaking_progress_marks.response-id-unique'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.speaking_progress_marks'::regclass
+           AND con.conname = 'speaking_progress_marks_response_id_fkey'
+           AND con.contype = 'f'
+           AND con.convalidated
+           AND con.confrelid = 'public.responses'::regclass
+           AND con.confupdtype = 'a'
+           AND con.confdeltype = 'c'
+           AND con.confmatchtype = 's'
+           AND con.confdelsetcols IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['response_id']::name[]
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.confkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.confrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:speaking_progress_marks.response-parent'
+        );
+    END IF;
+
+    IF EXISTS (
+        SELECT response_id
+          FROM public.speaking_progress_marks
+         GROUP BY response_id
+        HAVING response_id IS NULL OR count(*) > 1
+    ) THEN
+        missing := array_append(
+            missing,
+            'data:speaking_progress_marks.response-id-duplicate'
+        );
     END IF;
 
     -- Migration 189 widened score specifically so a perfect quiz percentage
@@ -514,32 +618,65 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Named constraints encode the cross-table and state invariants that mere
-    -- column existence cannot prove.
-    FOR tbl, item IN
+    -- Pin the remaining CHECK constraints that are not covered by the focused
+    -- contracts below. Name-only checks are unsafe here because every source
+    -- migration uses IF NOT EXISTS or manual provisioning may have reused the
+    -- canonical name with a weaker expression.
+    FOR expected_check IN
         SELECT * FROM (VALUES
-            ('listening_tests', 'listening_tests_test_type_check'),
-            ('class_lessons', 'class_lessons_id_cohort_key'),
-            ('class_assignments', 'class_assignments_lesson_cohort_fkey'),
-            ('class_assignments', 'class_assignments_skill_check'),
-            ('class_assignments', 'class_assignments_kind_check'),
-            ('class_assignment_items', 'class_assignment_items_artifact_kind_check'),
-            ('class_assignment_items', 'class_assignment_items_artifact_pairing'),
-            ('class_assignment_items', 'class_assignment_items_submitted_at_required'),
-            ('class_assignment_items', 'class_assignment_items_score_check'),
-            ('topic_questions', 'topic_questions_level_check'),
-            ('quiz_banks', 'quiz_banks_lesson_no_check'),
-            ('quiz_sessions', 'quiz_sessions_kind_check'),
-            ('sessions', 'sessions_full_test_attempt_required')
-        ) AS expected(table_name, constraint_name)
+            (
+                'class_assignments',
+                'class_assignments_kind_check',
+                $check$CHECK ((kind = ANY (ARRAY['daily'::text, 'lesson'::text])))$check$
+            ),
+            (
+                'class_assignment_items',
+                'class_assignment_items_artifact_pairing',
+                $check$CHECK ((((artifact_kind IS NULL) AND (artifact_id IS NULL)) OR ((artifact_kind IS NOT NULL) AND (artifact_id IS NOT NULL))))$check$
+            ),
+            (
+                'class_assignment_items',
+                'class_assignment_items_submitted_at_required',
+                $check$CHECK (((state <> ALL (ARRAY['submitted'::text, 'graded'::text])) OR (submitted_at IS NOT NULL)))$check$
+            ),
+            (
+                'topic_questions',
+                'topic_questions_level_check',
+                $check$CHECK (((level IS NULL) OR (level = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text]))))$check$
+            ),
+            (
+                'quiz_banks',
+                'quiz_banks_lesson_no_check',
+                $check$CHECK (((lesson_no IS NULL) OR (lesson_no >= 1)))$check$
+            ),
+            (
+                'quiz_sessions',
+                'quiz_sessions_kind_check',
+                $check$CHECK ((kind = ANY (ARRAY['run'::text, 'retake'::text])))$check$
+            ),
+            (
+                'sessions',
+                'sessions_full_test_attempt_required',
+                $check$CHECK (((mode <> 'test_full'::text) OR (full_test_attempt_id IS NOT NULL)))$check$
+            )
+        ) AS expected(table_name, constraint_name, definition)
     LOOP
         IF NOT EXISTS (
             SELECT 1
-              FROM pg_constraint
-             WHERE conname = item
-               AND conrelid = to_regclass('public.' || tbl)
+              FROM pg_constraint con
+             WHERE con.conname = expected_check.constraint_name
+               AND con.conrelid = to_regclass(
+                       format('public.%I', expected_check.table_name)
+                   )
+               AND con.contype = 'c'
+               AND con.convalidated
+               AND pg_get_constraintdef(con.oid) = expected_check.definition
         ) THEN
-            missing := array_append(missing, 'constraint:' || tbl || '.' || item);
+            missing := array_append(
+                missing,
+                'constraint-contract:' || expected_check.table_name || '.'
+                    || expected_check.constraint_name
+            );
         END IF;
     END LOOP;
 
@@ -994,26 +1131,72 @@ BEGIN
         );
     END IF;
 
-    FOR tbl, item IN
+    -- Trigger names alone cannot prove timing, event set, target function or
+    -- enabled state. Pin every trigger introduced/recreated by the reconciled
+    -- history so a disabled or same-named no-op trigger cannot be baselined.
+    FOR expected_trigger IN
         SELECT * FROM (VALUES
-            ('courses', 'update_courses_updated_at'),
-            ('class_lessons', 'update_class_lessons_updated_at'),
-            ('class_assignments', 'update_class_assignments_updated_at'),
-            ('class_assignment_items', 'update_class_assignment_items_updated_at'),
-            ('speaking_lesson_sets', 'update_speaking_lesson_sets_updated_at'),
-            ('speaking_lesson_set_questions', 'update_slsq_updated_at'),
-            ('class_action_log', 'trg_class_action_log_append_only'),
-            ('sessions', 'trg_sessions_full_test_attempt_id')
-        ) AS expected(table_name, trigger_name)
+            (
+                'courses', 'update_courses_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'class_lessons', 'update_class_lessons_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_class_lessons_updated_at BEFORE UPDATE ON public.class_lessons FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'class_assignments', 'update_class_assignments_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_class_assignments_updated_at BEFORE UPDATE ON public.class_assignments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'class_assignment_items', 'update_class_assignment_items_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_class_assignment_items_updated_at BEFORE UPDATE ON public.class_assignment_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'speaking_lesson_sets', 'update_speaking_lesson_sets_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_speaking_lesson_sets_updated_at BEFORE UPDATE ON public.speaking_lesson_sets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'speaking_lesson_set_questions', 'update_slsq_updated_at',
+                'public.update_updated_at_column()',
+                $trigger$CREATE TRIGGER update_slsq_updated_at BEFORE UPDATE ON public.speaking_lesson_set_questions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()$trigger$
+            ),
+            (
+                'class_action_log', 'trg_class_action_log_append_only',
+                'public.fn_class_action_log_append_only()',
+                $trigger$CREATE TRIGGER trg_class_action_log_append_only BEFORE DELETE OR UPDATE ON public.class_action_log FOR EACH ROW EXECUTE FUNCTION fn_class_action_log_append_only()$trigger$
+            ),
+            (
+                'sessions', 'trg_sessions_full_test_attempt_id',
+                'public.set_speaking_full_test_attempt_id()',
+                $trigger$CREATE TRIGGER trg_sessions_full_test_attempt_id BEFORE INSERT OR UPDATE OF mode, full_test_attempt_id ON public.sessions FOR EACH ROW EXECUTE FUNCTION set_speaking_full_test_attempt_id()$trigger$
+            )
+        ) AS expected(table_name, trigger_name, function_signature, definition)
     LOOP
         IF NOT EXISTS (
             SELECT 1
-              FROM pg_trigger
-             WHERE tgname = item
-               AND tgrelid = to_regclass('public.' || tbl)
-               AND NOT tgisinternal
+              FROM pg_trigger trg
+             WHERE trg.tgname = expected_trigger.trigger_name
+               AND trg.tgrelid = to_regclass(
+                       format('public.%I', expected_trigger.table_name)
+                   )
+               AND trg.tgfoid = to_regprocedure(
+                       expected_trigger.function_signature
+                   )
+               AND trg.tgenabled = 'O'
+               AND NOT trg.tgisinternal
+               AND pg_get_triggerdef(trg.oid) = expected_trigger.definition
         ) THEN
-            missing := array_append(missing, 'trigger:' || tbl || '.' || item);
+            missing := array_append(
+                missing,
+                'trigger-contract:' || expected_trigger.table_name || '.'
+                    || expected_trigger.trigger_name
+            );
         END IF;
     END LOOP;
 
