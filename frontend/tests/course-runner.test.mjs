@@ -1038,6 +1038,45 @@ describe('không mở hai phiên cùng lúc', () => {
     const after = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
     assert.equal(after - before, 1, 'mỗi phiên thừa là một chỗ bài học viên rơi vào');
   });
+
+  test('lần chuyển thứ hai đang bay không được bỏ qua nguyên một chặng', async () => {
+    // Race thật khác hai promise bắt đầu đúng cùng một nhịp: lần đầu đã đổi
+    // `stage`, nhưng request mở phiên còn bay và nút cũ vẫn có thể nhận một
+    // double-tap. Khoá riêng `openSession` giữ số phiên đúng nhưng vẫn để stage
+    // tăng hai lần — chính là 10 câu bị thiếu trong lượt của Diem Duong 11/08.
+    const questions = Array.from({ length: 40 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions });
+    const originalPost = api.post.bind(api);
+    let opened = 0;
+    let releaseOpen;
+    let markOpenStarted;
+    const openGate = new Promise((resolve) => { releaseOpen = resolve; });
+    const openStarted = new Promise((resolve) => { markOpenStarted = resolve; });
+    api.post = async (path, body) => {
+      if (path === '/api/quiz/sessions' && ++opened === 2) {
+        markOpenStarted();
+        await openGate;
+      }
+      return originalPost(path, body);
+    };
+
+    const { r } = await run({ questions, api });
+    const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    const first = r.nextStage();
+    await openStarted;                 // stage đã là 1, phiên chặng 2 còn bay
+    const second = r.nextStage();      // mô phỏng double-tap tới trễ
+
+    assert.strictEqual(second, first, 'mọi kích hoạt trong cùng lượt phải dùng chung promise');
+    await Promise.resolve();
+    assert.equal(r.stage, 1, 'không được tăng tiếp sang chặng 3');
+
+    releaseOpen();
+    await Promise.all([first, second]);
+    const after = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    assert.equal(after - before, 1);
+    assert.deepEqual(r.stageQuestions().map((q) => q.qid),
+      questions.slice(10, 20).map((q) => q.qid), 'phải hiện đủ câu 11–20');
+  });
 });
 
 // ── Sang chặng sau: HỎI máy chủ, đừng cộng một ─────────────────────────────

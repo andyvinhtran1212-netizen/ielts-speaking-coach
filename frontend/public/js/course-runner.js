@@ -318,6 +318,19 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     return opening;
   }
 
+  // Khoá CẢ lượt chuyển chặng, không chỉ request mở phiên ở cuối lượt.
+  //
+  // Nếu chỉ khoá `openSession`, một lần bấm thứ hai có thể chạy sau khi lần đầu
+  // đã đổi `stage` nhưng trước khi màn hình kịp bỏ nút cũ. Nó cộng thêm một lần,
+  // dùng chung request mở phiên đang bay, rồi để lại nguyên một chặng không hề
+  // được hỏi. Dữ liệu thật 11/08: em Diem Duong bị bỏ đúng 10 câu chặng 3.
+  let advancing = null;
+
+  function advanceStage() {
+    if (!advancing) advancing = _advanceStage().finally(function () { advancing = null; });
+    return advancing;
+  }
+
   async function _openSession() {
     sessionId = null;
     sessionFailed = false;
@@ -335,6 +348,34 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     else persistError = '';
     stageStartedAt = now();
     return !sessionFailed;
+  }
+
+  async function _advanceStage() {
+    let next = stage + 1;
+    if (mode === 'run') {
+      try {
+        const sv = await api.get('/api/quiz/banks/'
+          + encodeURIComponent(bank.id) + '/course-resume');
+        if (sv && Number.isInteger(sv.stage) && sv.stage > stage) next = sv.stage;
+      } catch (e) { /* giữ nguyên cộng một */ }
+    }
+    // XONG HẾT thì KHÔNG mở phiên mới.
+    //
+    // Lấp nốt lỗ cuối cùng của một bài gần xong thì máy chủ trả `stage` bằng
+    // số chặng. Mở phiên nữa là mở một chặng KHÔNG TỒN TẠI: trang không có
+    // câu nào để vẽ, phiên rỗng ấy bị chốt 0/0 rồi đi vào lượt xét, và học
+    // viên thấy thoáng qua "chặng 10/9" (codex #970).
+    const stages = Math.ceil(qs.length / STAGE);
+    if (mode === 'run' && next >= stages) {
+      stage = stages - 1; at = STAGE; marks = [];
+      resumedFinal = true; sessionId = null; sessionFailed = false;
+      save(false);
+      return;
+    }
+    stage = next; at = 0; marks = []; restored = null;
+    save(false);
+    await openSession();
+    shownAt = now();
   }
 
   /**
@@ -549,32 +590,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * Hỏi hỏng thì cộng một như cũ: một lượt gọi mạng hỏng không được chặn em
      * ấy học tiếp.
      */
-    async nextStage() {
-      let next = stage + 1;
-      if (mode === 'run') {
-        try {
-          const sv = await api.get('/api/quiz/banks/'
-            + encodeURIComponent(bank.id) + '/course-resume');
-          if (sv && Number.isInteger(sv.stage) && sv.stage > stage) next = sv.stage;
-        } catch (e) { /* giữ nguyên cộng một */ }
-      }
-      // XONG HẾT thì KHÔNG mở phiên mới.
-      //
-      // Lấp nốt lỗ cuối cùng của một bài gần xong thì máy chủ trả `stage` bằng
-      // số chặng. Mở phiên nữa là mở một chặng KHÔNG TỒN TẠI: trang không có
-      // câu nào để vẽ, phiên rỗng ấy bị chốt 0/0 rồi đi vào lượt xét, và học
-      // viên thấy thoáng qua "chặng 10/9" (codex #970).
-      const stages = Math.ceil(qs.length / STAGE);
-      if (mode === 'run' && next >= stages) {
-        stage = stages - 1; at = STAGE; marks = [];
-        resumedFinal = true; sessionId = null; sessionFailed = false;
-        save(false);
-        return;
-      }
-      stage = next; at = 0; marks = []; restored = null;
-      save(false);
-      await openSession();
-      shownAt = now();
+    nextStage() {
+      return advanceStage();
     },
 
     /**
