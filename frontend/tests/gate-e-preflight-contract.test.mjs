@@ -93,9 +93,11 @@ describe('Spike 3 reflects the remediated speaking resume contract', () => {
     assert.match(SPIKE_3, /backend chưa sở hữu chain/);
   });
 
-  test('labels full-test cross-stack handoff as inference until a browser transition exists', () => {
-    assert.match(SPIKE_3, /full-test cross-stack handoff chưa được test/);
-    assert.match(SPIKE_3, /Handoff\s+legacy↔Next là inference/);
-    assert.doesNotMatch(SPIKE_3, /chain đã sống qua refresh và handoff/);
+  test('records direct browser evidence for the bounded cross-stack handoff', () => {
+    assert.match(SPIKE_3, /ĐẠT bằng browser runtime trong boundary same-origin\/same-tab/);
+    assert.match(SPIKE_3, /Legacy lưu câu 1 → Next[\s\S]*Legacy resume câu 3/);
+    assert.match(SPIKE_3, /native-speaking-cross-version-resume\.spec\.js/);
+    assert.doesNotMatch(SPIKE_3, /Handoff\s+legacy↔Next là inference/);
+    assert.match(SPIKE_3, /fresh-client full-test handoff/);
   });
 });

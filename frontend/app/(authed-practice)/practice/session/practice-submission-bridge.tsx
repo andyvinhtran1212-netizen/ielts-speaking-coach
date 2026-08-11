@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { SpeakingSubmissionController } from '@/lib/speaking-submission-controller.mjs';
+import { SpeakingSubmissionController } from '../../../../public/js/speaking-submission-controller.mjs';
 
 export function PracticeSubmissionBridge() {
   const { status, user } = useAuth();

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { SpeakingFullTestController } from '@/lib/speaking-full-test-controller.mjs';
+import { SpeakingFullTestController } from '../../../../public/js/speaking-full-test-controller.mjs';
 
 export function PracticeFullTestBridge() {
   const { status, user } = useAuth();
