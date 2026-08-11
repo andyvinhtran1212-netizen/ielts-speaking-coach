@@ -290,6 +290,26 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "expected_column.not_null" in verify_sql
     assert "expected_column.default_expression" in verify_sql
     assert "column-contract:' || expected_column.table_name" in verify_sql
+    for contract in (
+        "('cohorts', 'course_id', 'uuid', false, NULL::text)",
+        "('sessions', 'class_assignment_item_id', 'uuid', false, NULL::text)",
+        "('sessions', 'full_test_attempt_id', 'uuid', false, NULL::text)",
+        "('reading_test_attempts', 'class_assignment_item_id', 'uuid', false, NULL::text)",
+        "('listening_test_attempts', 'class_assignment_item_id', 'uuid', false, NULL::text)",
+        "('topic_questions', 'audio_url', 'text', false, NULL::text)",
+        "('topic_questions', 'audio_path', 'text', false, NULL::text)",
+        "('topic_questions', 'level', 'text', false, NULL::text)",
+        "('questions', 'audio_url', 'text', false, NULL::text)",
+        "('questions', 'listen_only', 'boolean', true, 'false')",
+        "('quiz_questions', 'why_wrong', 'jsonb', false, NULL::text)",
+        "('quiz_banks', 'course_id', 'uuid', false, NULL::text)",
+        "('quiz_banks', 'lesson_no', 'integer', false, NULL::text)",
+        "('quiz_sessions', 'class_assignment_item_id', 'uuid', false, NULL::text)",
+        "('quiz_sessions', 'kind', 'text', true, '''run''::text')",
+        "('responses', 'persisted_at', 'timestamp with time zone', true, 'now()')",
+        "('user_feedback', 'anonymous_dedupe_key', 'text', false, NULL::text)",
+    ):
+        assert contract in verify_sql
     assert "course_writing_submissions_total_check" in verify_sql
     assert "course_writing_submissions_clean_check" in verify_sql
     assert "course_writing_clean_within_total" in verify_sql
@@ -339,6 +359,9 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "quiz_banks_lesson_no_check" in verify_sql
     assert "quiz_sessions_kind_check" in verify_sql
     assert "sessions_full_test_attempt_required" in verify_sql
+    assert "user_feedback_skill_check" in verify_sql
+    assert "user_feedback_anonymous_dedupe_scope" in verify_sql
+    assert "uq_feedback_anon_vocab_daily" in verify_sql
     assert "expected_trigger.definition" in verify_sql
     assert "trg.tgfoid = to_regprocedure" in verify_sql
     assert "trg.tgenabled = 'O'" in verify_sql
@@ -442,6 +465,48 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "i.indpred IS NULL" in verify_sql
     assert "ARRAY['class_assignment_item_id']::name[]" in verify_sql
     assert "'index-contract:' || expected_index.index_name" in verify_sql
+    assert "'index-fingerprint:' || expected_index.index_name" in verify_sql
+    assert "md5(pg_get_indexdef(i.indexrelid))" in verify_sql
+    for index_name, definition_hash in (
+        ("idx_class_action_log_assignment", "815e78dc0ac92856c3ada07bd8d2e7d4"),
+        ("idx_class_action_log_cohort", "edcb99ab1c31f8b2a12055a496678aaf"),
+        ("idx_class_assignment_items_artifact", "6fbea9a8007be2ad62b36fd5bb494e8f"),
+        ("idx_class_assignment_items_outstanding", "bdaed6e860d6eab0a979b903ade65f27"),
+        ("idx_class_assignment_items_student", "c41263f3d1569fe8d9a9235b51f57177"),
+        ("idx_class_assignments_cohort_due", "a7c6dc611b76de0add93dd2a0d83474f"),
+        ("idx_class_assignments_due_open", "1b97b4b8caf47e36eb233c728da5b6cf"),
+        ("idx_class_assignments_lesson", "b6018f69a8c6abe0ad4931ad98f12138"),
+        ("idx_class_lessons_cohort_order", "1618e7135a89aa123fe6287d79f886f9"),
+        ("idx_class_lessons_published", "fc17f01d6b702e591f02b29598bbcff2"),
+        ("idx_cohorts_course_id", "90be787c20a40e5e573e95d1ec71d09c"),
+        ("idx_course_writing_item", "7b61ae0cc23a14b240afcb2d63b9490e"),
+        ("idx_course_writing_user", "9b5f42b2175f1df9f89925eab3eecfc7"),
+        ("idx_courses_active_order", "277bfc29b9347bb5d9d4e79ac5295d47"),
+        ("idx_listening_attempts_class_item", "254e99bf578e0c039942fae2bd6a6e4f"),
+        ("idx_listening_tests_practice_group", "314c62782bd1da4eb7e3021134dd2612"),
+        ("idx_quiz_banks_course", "327690b27408e6d67ae9ab84a69007a1"),
+        ("idx_quiz_sessions_class_item", "952f6bc0b982fe486f8c8c4abe3873b3"),
+        ("idx_reading_attempts_class_item", "efeb7eff3bc757fa4cd7af5e5d7db5c4"),
+        ("idx_sessions_class_assignment_item", "f9b6a14ec35a9e2701fe5fa1ac7a6bdd"),
+        ("idx_sessions_full_test_attempt_id", "37c15557265bf149da6460c80cbefcf7"),
+        ("idx_slsq_set", "92f035413fafee826a2cdd055f018c57"),
+        ("idx_speaking_lesson_sets_course", "1d42516a5ecde255bf9f0af589f09a62"),
+        ("idx_spm_class_item", "0a37bb27d2fb49108ecc6caac83a32ef"),
+        ("idx_spm_session", "23496cd7e9df65c466604c402f47f565"),
+        ("idx_spm_user_time", "d8c78ef7490fd06a97d9ed8b82548899"),
+        ("idx_topic_questions_part_level", "0c9a31ecb25e52110255a0f97d4f5e2a"),
+        ("ix_course_writing_draft_user", "31305d32e251c539b771c9ba8c4a0286"),
+        ("uq_class_assignment_speaking_topic_per_cohort", "26c0e6bcf0ef2c972e95036c63b24c36"),
+        ("uq_course_writing_draft_per_item", "e7453741b4a98bcce9309cfc6cb66157"),
+        ("uq_course_writing_per_item", "06ffdbe62180b738ba79d2a37cf76cbc"),
+        ("uq_feedback_anon_vocab_daily", "7656914d48c7625080646060e6b8757f"),
+        ("uq_quiz_bank_course_lesson", "a97b80e35d4ceb19be581acd4ca1c515"),
+        ("uq_sessions_full_test_attempt_part", "6601e72ee9d3ef2e4520c45c445287f7"),
+        ("uq_slsq_order_active", "609dc5ab83cf5358114fd574f9a62448"),
+        ("uq_speaking_lesson_set", "52787ee6a9e416cec50f85a8c05d9b59"),
+    ):
+        assert index_name in verify_sql
+        assert definition_hash in verify_sql
     for index_name in (
         "uq_class_assignment_speaking_topic_per_cohort",
         "uq_speaking_lesson_set",

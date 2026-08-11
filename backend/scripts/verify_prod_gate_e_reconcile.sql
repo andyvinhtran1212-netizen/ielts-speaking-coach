@@ -284,12 +284,31 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Payloads written by submit_course_writing() and the cross-device draft
-    -- path must keep their exact types, nullability and server defaults. Table
-    -- and index existence alone can accept a hand-provisioned shell that every
-    -- real insert immediately rejects.
+    -- Every column introduced on a pre-existing relation in the audited range,
+    -- plus the payload columns on newly-created writing/audit relations, must
+    -- keep its exact type, nullability and server default. ADD COLUMN IF NOT
+    -- EXISTS cannot repair a hand-provisioned column with a different default;
+    -- existence-only checks can therefore baseline a schema that silently
+    -- changes ordinary inserts.
     FOR expected_column IN
         SELECT * FROM (VALUES
+            ('cohorts', 'course_id', 'uuid', false, NULL::text),
+            ('sessions', 'class_assignment_item_id', 'uuid', false, NULL::text),
+            ('sessions', 'full_test_attempt_id', 'uuid', false, NULL::text),
+            ('reading_test_attempts', 'class_assignment_item_id', 'uuid', false, NULL::text),
+            ('listening_test_attempts', 'class_assignment_item_id', 'uuid', false, NULL::text),
+            ('topic_questions', 'audio_url', 'text', false, NULL::text),
+            ('topic_questions', 'audio_path', 'text', false, NULL::text),
+            ('topic_questions', 'level', 'text', false, NULL::text),
+            ('questions', 'audio_url', 'text', false, NULL::text),
+            ('questions', 'listen_only', 'boolean', true, 'false'),
+            ('quiz_questions', 'why_wrong', 'jsonb', false, NULL::text),
+            ('quiz_banks', 'course_id', 'uuid', false, NULL::text),
+            ('quiz_banks', 'lesson_no', 'integer', false, NULL::text),
+            ('quiz_sessions', 'class_assignment_item_id', 'uuid', false, NULL::text),
+            ('quiz_sessions', 'kind', 'text', true, '''run''::text'),
+            ('responses', 'persisted_at', 'timestamp with time zone', true, 'now()'),
+            ('user_feedback', 'anonymous_dedupe_key', 'text', false, NULL::text),
             ('class_assignments', 'status', 'text', true, '''published''::text'),
             ('course_writing_submissions', 'bank_id', 'uuid', true, NULL::text),
             ('course_writing_submissions', 'user_id', 'uuid', true, NULL::text),
@@ -1060,6 +1079,16 @@ BEGIN
                 'class_action_log',
                 'class_action_log_action_check',
                 $check$CHECK ((action = ANY (ARRAY['due_change'::text, 'return_work'::text])))$check$
+            ),
+            (
+                'user_feedback',
+                'user_feedback_skill_check',
+                $check$CHECK ((skill = ANY (ARRAY['reading'::text, 'listening'::text, 'vocabulary'::text])))$check$
+            ),
+            (
+                'user_feedback',
+                'user_feedback_anonymous_dedupe_scope',
+                $check$CHECK (((anonymous_dedupe_key IS NULL) OR ((skill = 'vocabulary'::text) AND (type = 'report'::text) AND (created_by IS NULL))))$check$
             )
         ) AS expected(table_name, constraint_name, definition)
     LOOP
@@ -1385,6 +1414,74 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Every index created by the audited range is part of the final contract,
+    -- including non-unique query-path indexes. CREATE INDEX IF NOT EXISTS can
+    -- silently preserve a same-named index with wrong keys, order or predicate;
+    -- pin the complete normalized definition observed identically on staging
+    -- and production instead of accepting the name alone.
+    FOR expected_index IN
+        SELECT * FROM (VALUES
+            ('idx_class_action_log_assignment', 'class_action_log', '815e78dc0ac92856c3ada07bd8d2e7d4'),
+            ('idx_class_action_log_cohort', 'class_action_log', 'edcb99ab1c31f8b2a12055a496678aaf'),
+            ('idx_class_assignment_items_artifact', 'class_assignment_items', '6fbea9a8007be2ad62b36fd5bb494e8f'),
+            ('idx_class_assignment_items_outstanding', 'class_assignment_items', 'bdaed6e860d6eab0a979b903ade65f27'),
+            ('idx_class_assignment_items_student', 'class_assignment_items', 'c41263f3d1569fe8d9a9235b51f57177'),
+            ('idx_class_assignments_cohort_due', 'class_assignments', 'a7c6dc611b76de0add93dd2a0d83474f'),
+            ('idx_class_assignments_due_open', 'class_assignments', '1b97b4b8caf47e36eb233c728da5b6cf'),
+            ('idx_class_assignments_lesson', 'class_assignments', 'b6018f69a8c6abe0ad4931ad98f12138'),
+            ('idx_class_lessons_cohort_order', 'class_lessons', '1618e7135a89aa123fe6287d79f886f9'),
+            ('idx_class_lessons_published', 'class_lessons', 'fc17f01d6b702e591f02b29598bbcff2'),
+            ('idx_cohorts_course_id', 'cohorts', '90be787c20a40e5e573e95d1ec71d09c'),
+            ('idx_course_writing_item', 'course_writing_submissions', '7b61ae0cc23a14b240afcb2d63b9490e'),
+            ('idx_course_writing_user', 'course_writing_submissions', '9b5f42b2175f1df9f89925eab3eecfc7'),
+            ('idx_courses_active_order', 'courses', '277bfc29b9347bb5d9d4e79ac5295d47'),
+            ('idx_listening_attempts_class_item', 'listening_test_attempts', '254e99bf578e0c039942fae2bd6a6e4f'),
+            ('idx_listening_tests_practice_group', 'listening_tests', '314c62782bd1da4eb7e3021134dd2612'),
+            ('idx_quiz_banks_course', 'quiz_banks', '327690b27408e6d67ae9ab84a69007a1'),
+            ('idx_quiz_sessions_class_item', 'quiz_sessions', '952f6bc0b982fe486f8c8c4abe3873b3'),
+            ('idx_reading_attempts_class_item', 'reading_test_attempts', 'efeb7eff3bc757fa4cd7af5e5d7db5c4'),
+            ('idx_sessions_class_assignment_item', 'sessions', 'f9b6a14ec35a9e2701fe5fa1ac7a6bdd'),
+            ('idx_sessions_full_test_attempt_id', 'sessions', '37c15557265bf149da6460c80cbefcf7'),
+            ('idx_slsq_set', 'speaking_lesson_set_questions', '92f035413fafee826a2cdd055f018c57'),
+            ('idx_speaking_lesson_sets_course', 'speaking_lesson_sets', '1d42516a5ecde255bf9f0af589f09a62'),
+            ('idx_spm_class_item', 'speaking_progress_marks', '0a37bb27d2fb49108ecc6caac83a32ef'),
+            ('idx_spm_session', 'speaking_progress_marks', '23496cd7e9df65c466604c402f47f565'),
+            ('idx_spm_user_time', 'speaking_progress_marks', 'd8c78ef7490fd06a97d9ed8b82548899'),
+            ('idx_topic_questions_part_level', 'topic_questions', '0c9a31ecb25e52110255a0f97d4f5e2a'),
+            ('ix_course_writing_draft_user', 'course_writing_drafts', '31305d32e251c539b771c9ba8c4a0286'),
+            ('uq_class_assignment_speaking_topic_per_cohort', 'class_assignments', '26c0e6bcf0ef2c972e95036c63b24c36'),
+            ('uq_course_writing_draft_per_item', 'course_writing_drafts', 'e7453741b4a98bcce9309cfc6cb66157'),
+            ('uq_course_writing_per_item', 'course_writing_submissions', '06ffdbe62180b738ba79d2a37cf76cbc'),
+            ('uq_feedback_anon_vocab_daily', 'user_feedback', '7656914d48c7625080646060e6b8757f'),
+            ('uq_quiz_bank_course_lesson', 'quiz_banks', 'a97b80e35d4ceb19be581acd4ca1c515'),
+            ('uq_sessions_full_test_attempt_part', 'sessions', '6601e72ee9d3ef2e4520c45c445287f7'),
+            ('uq_slsq_order_active', 'speaking_lesson_set_questions', '609dc5ab83cf5358114fd574f9a62448'),
+            ('uq_speaking_lesson_set', 'speaking_lesson_sets', '52787ee6a9e416cec50f85a8c05d9b59')
+        ) AS expected(index_name, table_name, definition_hash)
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_index i
+              JOIN pg_class idx ON idx.oid = i.indexrelid
+             WHERE i.indexrelid = to_regclass(
+                       format('public.%I', expected_index.index_name)
+                   )
+               AND i.indrelid = to_regclass(
+                       format('public.%I', expected_index.table_name)
+                   )
+               AND idx.relnamespace = 'public'::regnamespace
+               AND i.indisvalid
+               AND i.indisready
+               AND md5(pg_get_indexdef(i.indexrelid)) =
+                   expected_index.definition_hash
+        ) THEN
+            missing := array_append(
+                missing,
+                'index-fingerprint:' || expected_index.index_name
+            );
+        END IF;
+    END LOOP;
+
     -- These standalone unique indexes are correctness/serialization contracts,
     -- not optional query accelerators. Every source migration uses IF NOT
     -- EXISTS, so a same-named ordinary, invalid, wrong-key or wrong-predicate
@@ -1414,6 +1511,12 @@ BEGIN
                 'quiz_banks',
                 ARRAY['course_id', 'lesson_no']::name[],
                 '((course_id IS NOT NULL) AND (lesson_no IS NOT NULL))'
+            ),
+            (
+                'uq_feedback_anon_vocab_daily',
+                'user_feedback',
+                ARRAY['anonymous_dedupe_key']::name[],
+                '(anonymous_dedupe_key IS NOT NULL)'
             )
         ) AS expected(index_name, table_name, key_columns, predicate)
     LOOP
