@@ -250,6 +250,9 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'" in verify_sql
     assert "column-contract:class_assignments.recipient_scope" in verify_sql
     assert "pg_get_expr(d.adbin, d.adrelid) = '''class''::text'" in verify_sql
+    assert "column-contract:class_assignments.content_config" in verify_sql
+    assert "format_type(a.atttypid, a.atttypmod) = 'jsonb'" in verify_sql
+    assert "pg_get_expr(d.adbin, d.adrelid) = '''{}''::jsonb'" in verify_sql
     assert "constraint-contract:class_assignments.recipient_scope" in verify_sql
     assert "constraint-contract:listening_tests.test_type" in verify_sql
     assert "constraint-contract:class_assignments.skill" in verify_sql
@@ -260,6 +263,11 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "idx.indisvalid" in verify_sql
     assert "idx.indisready" in verify_sql
     assert "ARRAY['assignment_id', 'student_id']::name[]" in verify_sql
+    assert "constraint-contract:class_assignment_items.assignment-parent" in verify_sql
+    assert "class_assignment_items_assignment_id_fkey" in verify_sql
+    assert "con.confrelid = 'public.class_assignments'::regclass" in verify_sql
+    assert "con.confdeltype = 'c'" in verify_sql
+    assert "ARRAY['assignment_id']::name[]" in verify_sql
     assert "data:class_assignments.recipient_scope" in verify_sql
     assert "data:listening_tests.test_type" in verify_sql
     assert "data:class_assignment_items.assignment-student-duplicate" in verify_sql

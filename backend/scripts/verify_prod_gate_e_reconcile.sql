@@ -125,6 +125,28 @@ BEGIN
         );
     END IF;
 
+    -- Migration 177's assignment payload is a required JSON object consumed by
+    -- every skill route and the atomic creation RPC. A surviving table with a
+    -- missing, nullable or default-less column is not the migration contract.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+          JOIN pg_attrdef d
+            ON d.adrelid = a.attrelid
+           AND d.adnum = a.attnum
+         WHERE a.attrelid = 'public.class_assignments'::regclass
+           AND a.attname = 'content_config'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'jsonb'
+           AND a.attnotnull
+           AND pg_get_expr(d.adbin, d.adrelid) = '''{}''::jsonb'
+    ) THEN
+        missing := array_append(
+            missing,
+            'column-contract:class_assignments.content_config'
+        );
+    END IF;
+
     -- Migration 189 widened score specifically so a perfect quiz percentage
     -- (100.0) remains representable. Constraint-name existence cannot prove
     -- either that typmod change or the validated canonical 0..100 domain.
@@ -449,6 +471,43 @@ BEGIN
         missing := array_append(
             missing,
             'constraint-contract:class_assignment_items.assignment-student'
+        );
+    END IF;
+
+    -- Deleting an eligible assignment must remove its per-student ledger rows.
+    -- Pin migration 177's parent FK rather than trusting the conventional name.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_assignment_items'::regclass
+           AND con.conname = 'class_assignment_items_assignment_id_fkey'
+           AND con.contype = 'f'
+           AND con.convalidated
+           AND con.confrelid = 'public.class_assignments'::regclass
+           AND con.confupdtype = 'a'
+           AND con.confdeltype = 'c'
+           AND con.confmatchtype = 's'
+           AND con.confdelsetcols IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['assignment_id']::name[]
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.confkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.confrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignment_items.assignment-parent'
         );
     END IF;
 
