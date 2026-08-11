@@ -15,7 +15,13 @@
     "name": "speaking-practice-dark",
     "legacy": "/pages/practice.html",
     "next": "/practice/session",
-    "allow": [],
+    "allow": [
+      {
+        "kind": "api-missing",
+        "value": "GET /api/grammar/categories",
+        "reason": "Cặp này cố ý không có session_id. Next fail trước PracticeApp.init nên không tải metadata Grammar vô ích; với bootstrap hợp lệ, init vẫn gọi _fetchGrArticleIndex trước khi dựng feedback."
+      }
+    ],
     "minBaselineLines": 2,
     "note": "Không có query thì cả hai vế dừng ở nhánh THIẾU session_id. Cặp này chỉ chứng minh stable route + shell/CSS/boot/error state parity; nó không chứng minh recorder, upload, grading, full-test chain hay resume. Player chỉ được gọi ready sau khi có session fixture và live Gate E drills."
   },
