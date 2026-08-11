@@ -31,6 +31,7 @@ export function validateSpeakingRealDeviceEvidence({
   const requirement = (manifest.real_device_requirements || [])
     .find((item) => item.id === requirementId);
   const sourceSha = cleanText(input.source_sha);
+  const observedReleaseSha = cleanText(input.observed_release_sha);
   const sessionId = cleanText(input.canonical_session_id);
   const observedAt = cleanText(input.observed_at);
   const observedAtMs = Date.parse(observedAt);
@@ -39,6 +40,11 @@ export function validateSpeakingRealDeviceEvidence({
 
   if (!requirement) errors.push('requirement-unknown');
   if (!SHA.test(sourceSha)) errors.push('source-sha-invalid');
+  if (!SHA.test(observedReleaseSha)) {
+    errors.push('observed-release-sha-invalid');
+  } else if (observedReleaseSha !== sourceSha) {
+    errors.push('observed-release-mismatch');
+  }
   if (cleanText(input.observed_platform) !== cleanText(requirement?.platform)) {
     errors.push('platform-mismatch');
   }
@@ -131,6 +137,7 @@ export function validateSpeakingRealDeviceEvidence({
       status: 'complete',
       evidence_class: 'manual-real-device',
       source_sha: sourceSha,
+      observed_release_sha: observedReleaseSha,
       source_branch: 'staging',
       staging_origin: provenance.staging_origin,
       route: manifest.route,
@@ -169,7 +176,8 @@ export function validateSpeakingRealDeviceEvidence({
 
 const COMPLETE_EVIDENCE_KEYS = [
   'schema_version', 'matrix_id', 'requirement_id', 'status', 'evidence_class',
-  'source_sha', 'source_branch', 'staging_origin', 'route', 'coexistence_route',
+  'source_sha', 'observed_release_sha', 'source_branch', 'staging_origin', 'route',
+  'coexistence_route',
   'observed_platform', 'observed_browser', 'device_model', 'operator', 'attested_by',
   'observed_at', 'captured_at', 'canonical_session', 'scope_results', 'console_errors',
   'network_failures', 'provenance', 'workflow',
@@ -215,6 +223,7 @@ export function validateCompleteSpeakingRealDeviceArtifact(manifest, evidence) {
       input: {
         requirement_id: evidence.requirement_id,
         source_sha: evidence.source_sha,
+        observed_release_sha: evidence.observed_release_sha,
         observed_platform: evidence.observed_platform,
         observed_browser: evidence.observed_browser,
         device_model: evidence.device_model,

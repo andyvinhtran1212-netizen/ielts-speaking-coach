@@ -32,6 +32,7 @@ function fixture(requirementId, runId = '501') {
     input: {
       requirement_id: requirementId,
       source_sha: SHA,
+      observed_release_sha: SHA,
       observed_platform: requirement.platform,
       observed_browser: requirement.browser,
       device_model: requirementId === 'safari-floor' ? 'MacBook Air M1' : 'iPhone 6s',
@@ -81,6 +82,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
       assert.equal(result.evidence.requirement_id, id);
       assert.equal(result.evidence.status, 'complete');
       assert.equal(result.evidence.source_sha, SHA);
+      assert.equal(result.evidence.observed_release_sha, SHA);
       assert.equal(result.evidence.canonical_session.persisted_response_count, 1);
       assert.deepEqual(result.evidence.console_errors, []);
       assert.doesNotMatch(JSON.stringify(result.evidence), /token|password|transcript|feedback/i);
@@ -109,12 +111,14 @@ describe('Speaking Gate E real-device evidence validator', () => {
   test('rejects release drift, a session without persisted truth and rerun cherry-picking', () => {
     const unsafe = fixture('ios-safari-floor');
     unsafe.provenance.backend_release = 'b'.repeat(40);
+    unsafe.input.observed_release_sha = 'b'.repeat(40);
     unsafe.canonicalSession.started_at = '2026-08-10T00:00:00Z';
     unsafe.canonicalSession.persisted_response_count = 0;
     unsafe.workflow.run_attempt = '2';
     const result = validateSpeakingRealDeviceEvidence(unsafe);
     assert.equal(result.ok, false);
     assert.ok(result.errors.includes('backend-release-mismatch'));
+    assert.ok(result.errors.includes('observed-release-mismatch'));
     assert.ok(result.errors.includes('canonical-session-time-mismatch'));
     assert.ok(result.errors.includes('canonical-response-missing'));
     assert.ok(result.errors.includes('workflow-rerun-not-eligible'));
@@ -222,17 +226,19 @@ describe('Speaking real-device workflow contract', () => {
     assert.match(WORKFLOW, /Require trusted main workflow revision/);
     assert.match(WORKFLOW, /test "\$GITHUB_REF" = refs\/heads\/main/);
     assert.match(WORKFLOW, /ref: staging/);
-    assert.match(WORKFLOW, /ref: main/);
+    assert.match(WORKFLOW, /ref: \$\{\{ github\.sha \}\}/);
     assert.match(WORKFLOW, /path: \.gate-e-auditor/);
     assert.match(WORKFLOW, /group: staging-e2e-shared-env/);
     assert.match(WORKFLOW, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_AUDITOR_SHA: \$\{\{ steps\.auditor\.outputs\.sha \}\}/);
+    assert.match(WORKFLOW, /GATE_E_OBSERVED_RELEASE_SHA: \$\{\{ inputs\.observed_release_sha \}\}/);
     assert.match(WORKFLOW, /node \.gate-e-auditor\/frontend\/tooling\/capture-gate-e-staging-provenance\.mjs/);
     assert.match(WORKFLOW, /node \.gate-e-auditor\/frontend\/tooling\/capture-gate-e-speaking-real-device-evidence\.mjs/);
     assert.match(WORKFLOW, /GATE_E_REAL_DEVICE_REQUIRED: 'true'/);
     assert.match(WORKFLOW, /Validate real-device attestation[\s\S]*if: always\(\)/);
     assert.match(WORKFLOW, /Upload validated evidence[\s\S]*if: always\(\)[\s\S]*retention-days: 90/);
     assert.match(PAIR_WORKFLOW, /Require trusted main workflow revision/);
+    assert.match(PAIR_WORKFLOW, /ref: \$\{\{ github\.sha \}\}/);
     assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v5[\s\S]*run-id: \$\{\{ inputs\.safari_run_id \}\}/);
     assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v5[\s\S]*run-id: \$\{\{ inputs\.ios_run_id \}\}/);
     assert.match(PAIR_WORKFLOW, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);

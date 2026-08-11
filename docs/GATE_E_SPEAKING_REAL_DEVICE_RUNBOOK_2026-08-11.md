@@ -46,6 +46,11 @@ stable URL `/practice/session?session_id=...`. Ghi lại UTC timestamp và UUID
 session. Phải submit tối thiểu một bản ghi để canonical API có ít nhất một
 response/receipt; chỉ phát lại blob cục bộ không chứng minh persistence.
 
+Ngay trong journey, mở `/js/runtime-config.js` trên cùng staging origin và ghi
+exact giá trị 40 ký tự của trường `release` làm `observed_release_sha`. Nếu
+release marker đổi trước khi hoàn tất các scope, bỏ journey đó và chạy lại trên
+một release ổn định; không dùng marker đọc sau journey để chứng nhận thao tác cũ.
+
 ### Safari 15.6
 
 Hoàn tất đủ năm scope sau:
@@ -77,7 +82,8 @@ Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** t
 branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout candidate
 `staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
 Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
-`observed_at`, operator và JSON scope. Ví dụ Safari:
+`observed_at`, `observed_release_sha` đã ghi trong journey, operator và JSON
+scope. Ví dụ Safari:
 
 ```json
 {
@@ -92,7 +98,8 @@ Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
 `console_errors_json` và `network_failures_json` phải là `[]`. Attestation phải
 được phát hành trong 12 giờ sau journey; canonical session phải bắt đầu không
 quá 3 giờ trước `observed_at`, nên không thể tái dùng một session cũ. Workflow
-rerun không đủ điều kiện;
+chỉ nhận artifact khi `observed_release_sha` đúng bằng candidate SHA mà cả
+Vercel staging và Railway staging đang phục vụ. Workflow rerun không đủ điều kiện;
 sửa input bằng một workflow run mới để không cherry-pick lần chạy lại thành PASS.
 
 Workflow luôn upload artifact, kể cả khi fail. Artifact hợp lệ phải có

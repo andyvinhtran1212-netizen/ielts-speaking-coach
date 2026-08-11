@@ -31,6 +31,10 @@ on:
         description: UTC ISO timestamp; must be within the last 12 hours
         required: true
         type: string
+      observed_release_sha:
+        description: Exact runtime-config release SHA recorded during the device journey
+        required: true
+        type: string
       canonical_session_id:
         description: Session created by e2e-student-smoke during the journey
         required: true
@@ -70,7 +74,7 @@ jobs:
       - name: Checkout trusted Gate E auditor
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.sha }}
           path: .gate-e-auditor
           fetch-depth: 1
 
@@ -112,6 +116,7 @@ jobs:
           GATE_E_DEVICE_MODEL: ${{ inputs.device_model }}
           GATE_E_OPERATOR: ${{ inputs.operator }}
           GATE_E_OBSERVED_AT: ${{ inputs.observed_at }}
+          GATE_E_OBSERVED_RELEASE_SHA: ${{ inputs.observed_release_sha }}
           GATE_E_CANONICAL_SESSION_ID: ${{ inputs.canonical_session_id }}
           GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
           GATE_E_CONSOLE_ERRORS_JSON: ${{ inputs.console_errors_json }}

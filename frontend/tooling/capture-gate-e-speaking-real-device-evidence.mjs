@@ -93,6 +93,7 @@ try {
     device_model: process.env.GATE_E_DEVICE_MODEL,
     operator: process.env.GATE_E_OPERATOR,
     observed_at: process.env.GATE_E_OBSERVED_AT,
+    observed_release_sha: process.env.GATE_E_OBSERVED_RELEASE_SHA,
     canonical_session_id: process.env.GATE_E_CANONICAL_SESSION_ID,
     scope_results: parseJsonInput(process.env.GATE_E_SCOPE_RESULTS_JSON, 'scope-results'),
     console_errors: parseJsonInput(process.env.GATE_E_CONSOLE_ERRORS_JSON, 'console-errors'),
