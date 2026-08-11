@@ -204,6 +204,16 @@ async function runFlow(browser, flow) {
       } catch (_) {}
     }, Object.entries(flow.initStorage));
   }
+  // Queue context của admin Writing sống trong sessionStorage, không phải
+  // localStorage. Gieo trước navigation để kiểm đúng đường "Lưu & bài kế"
+  // và vẫn giữ mỗi browser context cô lập như một tab thật.
+  if (flow.initSessionStorage) {
+    await ctx.addInitScript((pairs) => {
+      try {
+        for (const [k, v] of pairs) sessionStorage.setItem(k, v);
+      } catch (_) {}
+    }, Object.entries(flow.initSessionStorage));
+  }
 
   const page = await ctx.newPage();
 

@@ -112,6 +112,6 @@ describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () =
     for (const css of ['profile.css', 'home.css', 'speaking.css']) {
       assert.ok(!SHELL.includes(css), `${css} không được hardcode trong AuthedShell`);
     }
-    assert.match(SHELL, /pageStylesheets: string\[\]/);
+    assert.match(SHELL, /pageStylesheets: PageStylesheet\[\]/);
   });
 });

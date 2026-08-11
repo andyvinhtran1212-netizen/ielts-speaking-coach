@@ -509,6 +509,47 @@
 .edit-error   { color: var(--av-error); font-size: var(--av-fs-xs); margin-left: 0.5rem; }
 
 
+/* ── Grading-quality rating ──────────────────────────────────────── */
+
+#gr-stars {
+  display: flex;
+  gap: 0.25rem;
+  color: var(--av-warning);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.gr-star {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  padding: 0;
+}
+
+#gr-note {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  font: inherit;
+  resize: vertical;
+}
+
+#gr-note:focus {
+  outline: none;
+  border-color: var(--av-primary);
+  box-shadow: var(--av-shadow-focus);
+}
+
+
 /* ── Sprint 2.5.2 design-token components ─────────────────────────── */
 
 .prose-block {

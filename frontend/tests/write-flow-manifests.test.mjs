@@ -127,6 +127,8 @@ describe('lược đồ bản khai', () => {
       [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /mảng khác rỗng/],
       [{ ...base, initStorage: {} }, /initStorage/],
       [{ ...base, initStorage: { k: 1 } }, /initStorage/],
+      [{ ...base, initSessionStorage: {} }, /initSessionStorage/],
+      [{ ...base, initSessionStorage: { k: 1 } }, /initSessionStorage/],
       // `waitForWrites` — đồng bộ theo SỐ REQUEST thay cho đồng hồ tường.
       [{ ...base, steps: [{ waitForWrites: ['/a'] }] }, /waitForWrites/],
       [{ ...base, steps: [{ waitForWrites: ['/a', 0] }] }, /waitForWrites/],
