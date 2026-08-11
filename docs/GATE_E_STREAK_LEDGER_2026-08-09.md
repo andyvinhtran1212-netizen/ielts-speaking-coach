@@ -103,8 +103,9 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
 - Ledger giữ tối đa 50 entries, đủ thấy chuỗi 20 và lần reset gần nhất.
 - Nếu một run chết trước khi save cache/artifact, run kế tiếp không khớp GitHub
   history với `last_run_id` và reset fail-closed.
-- E2E step có timeout riêng 20 phút trong job 30 phút; `npm ci` và browser install
-  có timeout 5 phút. Như vậy timeout ở phần thực thi vẫn nhường ngân sách cho
+- Job có timeout 60 phút: live staging E2E có timeout 20 phút, Speaking failure
+  matrix có timeout 10 phút, còn `npm ci` và browser install có timeout 5 phút
+  mỗi bước. Phần ngân sách còn lại dành cho semantic evidence verification,
   provenance, reset ledger, cache save và artifact uploads.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
   lúc query/capture; không được serialize vào artifact hoặc log. Bypass chỉ gửi
@@ -113,12 +114,26 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   đều có timeout 20 giây để ledger/reset artifact còn đủ thời gian hoàn tất
   trước job timeout.
 
-## Failure-injection status vẫn PARTIAL
+## Failure-injection: Speaking COMPLETE, Gate E toàn cục vẫn PARTIAL
 
-Suite v2 đã phủ 401/400, double-submit, kill switch, fixture grade + persistence,
-N/N−1 replay, two-user isolation và zero production egress. Chưa phủ bốn nhóm
-core-player: ambiguous commit, partial persistence, reload/resume và
-bidirectional cross-version.
+Suite v2 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
+N/N−1 replay, two-user isolation và zero production egress. Bốn nhánh
+core-player từng còn thiếu — ambiguous commit, partial persistence,
+reload/resume và bidirectional cross-version — chạy bằng production Next build
+trong `npm run test:e2e:gate-e`: 16 Chromium + 15 WebKit desktop + 15
+WebKit/iPhone synthetic. Workflow critical chạy suite này sau live staging E2E.
+Trước khi tạo metadata hay cập nhật ledger, trusted auditor parse JSON để bắt
+đúng 46 test/3 project, zero skip/fail/flake và kiểm ZIP report nhúng trong HTML
+đã flush hoàn chỉnh. Một trong hai suite đỏ hoặc semantic verifier đỏ đều làm
+`GATE_E_RUN_OUTCOME=failure` và reset streak; clean streak không được save/upload
+trước bước này. JSON + HTML report được upload thành artifact riêng, còn toàn bộ
+config/harness/spec/verifier được frozen bằng hash và directory allowlist.
+
+Đây chỉ là completion của slice Speaking, không phải global failure matrix hay
+real-device completion: Reading/Listening/Writing còn đủ bốn nhánh tương ứng;
+WebKit synthetic không thay Safari/iOS thật và hai requirement đó vẫn
+`pending`. Vì vậy `failure_injection.status` vẫn là `partial` và tooling không
+thể tuyên bố Gate E đủ evidence.
 
 Vì vậy ledger tách ba cờ:
 
@@ -136,5 +151,5 @@ vẫn không được phép tuyên bố Gate E đủ evidence.
    provenance `ok=true`, 33/33 và `streak_count=1`.
 3. Để nightly/manual runs tiếp tục; bất kỳ reset nào phải được điều tra từ
    `reset_reasons`, không chỉnh ledger bằng tay.
-4. Mở PR riêng cho failure-injection/core-player coverage và real-device
-   evidence; chỉ sau đó mới đánh giá Gate E.
+4. Thu hai real-device artifact và hoàn tất failure matrix của ba core cluster
+   còn lại; chỉ sau đó mới đánh giá Gate E.
