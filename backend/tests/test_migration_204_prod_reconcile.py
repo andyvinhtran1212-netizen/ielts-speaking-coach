@@ -9,6 +9,7 @@ unledgered historical files before reaching 204.
 
 import importlib.util
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -186,6 +187,27 @@ def test_production_dry_run_needs_no_write_authorization(monkeypatch, capsys):
     assert f"would apply first: {RECONCILE.REPAIR_MIGRATION}" in output
 
 
+def test_main_does_not_log_database_url_from_failed_subprocess(monkeypatch, capsys):
+    sentinel = "never-print-this-password"
+    database_url = f"postgresql://postgres:{sentinel}@db.example.test/postgres"
+
+    def fail(_url, *, dry_run):
+        assert dry_run is False
+        raise subprocess.CalledProcessError(
+            17,
+            ["psql", database_url, "-c", "SELECT 1"],
+        )
+
+    monkeypatch.delenv("DRY_RUN", raising=False)
+    monkeypatch.setattr(RECONCILE, "reconcile", fail)
+
+    assert RECONCILE.main(["reconcile_prod_gate_e_migrations.py", database_url]) == 1
+    stderr = capsys.readouterr().err
+    assert sentinel not in stderr
+    assert database_url not in stderr
+    assert "database command exited with status 17" in stderr
+
+
 def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     verify_sql = VERIFY_PATH.read_text(encoding="utf-8")
     assert "seed:courses.C1-C5" in verify_sql
@@ -201,7 +223,6 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "constraint-contract:class_assignment_items.score" in verify_sql
     assert "con.convalidated" in verify_sql
     assert "score <= (100)::numeric" in verify_sql
-    assert "function-body:delete-course-evidence" in verify_sql
     assert "function-contract:fn_insert_listening_answer_once" in verify_sql
     assert "l.lanname = 'plpgsql'" in verify_sql
     assert "p.prorettype = 'boolean'::regtype" in verify_sql
@@ -213,6 +234,17 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "function-contract:fn_backfill_assignment_items" in verify_sql
     assert "p.prorettype = 'record'::regtype" in verify_sql
     assert "md5(p.prosrc) = '578c2592304f1866bd26931384af8513'" in verify_sql
+    for function_name, body_md5 in (
+        ("fn_create_class_assignment", "ee2d9cb823b7bee3d953608ff9b8466b"),
+        ("fn_delete_class_assignment_if_unsubmitted", "93753c50092f72543734884464d2f7ef"),
+        ("quiz_replace_questions", "c8098f0e3198f841ef1dc81124edbeb6"),
+        ("set_speaking_full_test_attempt_id", "118d4c2e7c69140ab7c5657f9f9cefd0"),
+        ("fn_create_session_daily_capped_v2", "ddb02c330107b985d6a5facfda95ffa9"),
+    ):
+        assert function_name in verify_sql
+        assert body_md5 in verify_sql
+    assert "p.prorettype = to_regtype(tbl)" in verify_sql
+    assert "p.prosecdef = fn_security" in verify_sql
     assert "function-contract:fn_class_action_log_append_only" in verify_sql
     assert "p.prorettype = 'trigger'::regtype" in verify_sql
     assert "md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'" in verify_sql

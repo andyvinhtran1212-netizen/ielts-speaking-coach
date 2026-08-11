@@ -249,8 +249,18 @@ def main(argv: list[str]) -> int:
         return 2
     try:
         reconcile(argv[1], dry_run=os.environ.get("DRY_RUN") == "1")
-    except (ReconciliationError, subprocess.CalledProcessError) as exc:
+    except ReconciliationError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as exc:
+        # CalledProcessError.__str__ includes the complete argv. Every psql and
+        # migration-runner command carries DATABASE_URL in argv, so rendering
+        # the exception would leak the production password into CI/operator
+        # logs on the exact fail-closed paths this tool is designed to exercise.
+        print(
+            f"REFUSED: database command exited with status {exc.returncode}",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

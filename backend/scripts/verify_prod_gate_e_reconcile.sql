@@ -10,7 +10,10 @@ DECLARE
     item      text;
     tbl       text;
     col       text;
-    fn_source text;
+    fn_security boolean;
+    fn_result text;
+    fn_retset boolean;
+    fn_arguments text;
 BEGIN
     -- Tables created by the audited history.
     FOREACH item IN ARRAY ARRAY[
@@ -186,6 +189,9 @@ BEGIN
                )
            AND l.lanname = 'plpgsql'
            AND p.prorettype = 'boolean'::regtype
+           AND NOT p.proretset
+           AND p.prokind = 'f'
+           AND NOT p.proisstrict
            AND p.prosecdef
            AND p.provolatile = 'v'
            AND p.proparallel = 'u'
@@ -211,6 +217,9 @@ BEGIN
                )
            AND l.lanname = 'plpgsql'
            AND p.prorettype = 'boolean'::regtype
+           AND NOT p.proretset
+           AND p.prokind = 'f'
+           AND NOT p.proisstrict
            AND p.prosecdef
            AND p.provolatile = 'v'
            AND p.proparallel = 'u'
@@ -236,6 +245,13 @@ BEGIN
                )
            AND l.lanname = 'plpgsql'
            AND p.prorettype = 'record'::regtype
+           AND p.proretset
+           AND p.prokind = 'f'
+           AND NOT p.proisstrict
+           AND pg_get_function_result(p.oid) =
+               'TABLE(added integer, student_count integer)'
+           AND pg_get_function_arguments(p.oid) =
+               'p_assignment_id uuid, p_student_ids uuid[] DEFAULT NULL::uuid[]'
            AND p.prosecdef
            AND p.provolatile = 'v'
            AND p.proparallel = 'u'
@@ -247,6 +263,85 @@ BEGIN
             'function-contract:fn_backfill_assignment_items'
         );
     END IF;
+
+    -- These remaining RPCs are final-body replacements or atomicity/security
+    -- boundaries. A signature, object name and ACL can all survive an older or
+    -- hand-written implementation, so pin their canonical audited bodies and
+    -- execution properties as a single exhaustive contract table.
+    FOR item, col, tbl, fn_security, fn_result, fn_retset, fn_arguments IN
+        SELECT * FROM (VALUES
+            (
+                'public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,timestamp with time zone,timestamp with time zone,text,uuid,text,uuid[])',
+                'ee2d9cb823b7bee3d953608ff9b8466b',
+                'pg_catalog.record', true,
+                'TABLE(assignment jsonb, student_count integer, unactivated_count integer)',
+                true,
+                'p_cohort_id uuid, p_skill text, p_title text, '
+                'p_lesson_id uuid DEFAULT NULL::uuid, '
+                'p_content_config jsonb DEFAULT ''{}''::jsonb, '
+                'p_content_id uuid DEFAULT NULL::uuid, '
+                'p_instructions text DEFAULT NULL::text, '
+                'p_due_at timestamp with time zone DEFAULT NULL::timestamp with time zone, '
+                'p_publish_at timestamp with time zone DEFAULT NULL::timestamp with time zone, '
+                'p_status text DEFAULT ''published''::text, '
+                'p_assigned_by uuid DEFAULT NULL::uuid, '
+                'p_kind text DEFAULT ''daily''::text, '
+                'p_student_ids uuid[] DEFAULT NULL::uuid[]'
+            ),
+            (
+                'public.fn_delete_class_assignment_if_unsubmitted(uuid,uuid)',
+                '93753c50092f72543734884464d2f7ef',
+                'boolean', true, 'boolean', false,
+                'p_assignment_id uuid, p_cohort_id uuid'
+            ),
+            (
+                'public.quiz_replace_questions(uuid,jsonb)',
+                'c8098f0e3198f841ef1dc81124edbeb6',
+                'integer', false, 'integer', false,
+                'p_bank_id uuid, p_rows jsonb'
+            ),
+            (
+                'public.set_speaking_full_test_attempt_id()',
+                '118d4c2e7c69140ab7c5657f9f9cefd0',
+                'pg_catalog.trigger', false, 'trigger', false, ''
+            ),
+            (
+                'public.fn_create_session_daily_capped_v2(uuid,uuid,text,integer,text,timestamp with time zone,integer)',
+                'ddb02c330107b985d6a5facfda95ffa9',
+                'public.sessions', false, 'SETOF sessions', true,
+                'p_session_id uuid, p_user_id uuid, p_mode text, '
+                'p_part integer, p_topic text, '
+                'p_day_start timestamp with time zone, p_max_daily integer'
+            )
+        ) AS expected(
+            signature, body_md5, return_type, security_definer,
+            result_shape, returns_set, arguments
+        )
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_proc p
+              JOIN pg_language l ON l.oid = p.prolang
+             WHERE p.oid = to_regprocedure(item)
+               AND l.lanname = 'plpgsql'
+               AND p.prorettype = to_regtype(tbl)
+               AND p.proretset = fn_retset
+               AND p.prokind = 'f'
+               AND NOT p.proisstrict
+               AND pg_get_function_result(p.oid) = fn_result
+               AND pg_get_function_arguments(p.oid) = fn_arguments
+               AND p.prosecdef = fn_security
+               AND p.provolatile = 'v'
+               AND p.proparallel = 'u'
+               AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
+               AND md5(p.prosrc) = col
+        ) THEN
+            missing := array_append(
+                missing,
+                'function-contract:' || split_part(split_part(item, '(', 1), '.', 2)
+            );
+        END IF;
+    END LOOP;
 
     -- The trigger OID only proves which function is called, not that the
     -- function still raises. Pin migration 198's canonical append-only body so
@@ -260,6 +355,9 @@ BEGIN
                )
            AND l.lanname = 'plpgsql'
            AND p.prorettype = 'trigger'::regtype
+           AND NOT p.proretset
+           AND p.prokind = 'f'
+           AND NOT p.proisstrict
            AND NOT p.prosecdef
            AND p.provolatile = 'v'
            AND p.proparallel = 'u'
@@ -925,19 +1023,6 @@ BEGIN
          WHERE mode = 'test_full' AND full_test_attempt_id IS NULL
     ) THEN
         missing := array_append(missing, 'data:full-test-attempt-id');
-    END IF;
-
-    -- Migration 196 is a final-body replacement.  Existence alone could leave
-    -- the older three-evidence implementation in place, so pin both additions.
-    SELECT prosrc INTO fn_source
-      FROM pg_proc
-     WHERE oid = to_regprocedure(
-        'public.fn_delete_class_assignment_if_unsubmitted(uuid,uuid)'
-     );
-    IF fn_source IS NULL
-       OR fn_source NOT LIKE '%quiz_sessions q%'
-       OR fn_source NOT LIKE '%course_writing_submissions w%' THEN
-        missing := array_append(missing, 'function-body:delete-course-evidence');
     END IF;
 
     IF cardinality(missing) > 0 THEN
