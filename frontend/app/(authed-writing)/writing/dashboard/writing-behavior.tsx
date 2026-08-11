@@ -1137,6 +1137,8 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   const promptTextEl = $('modal-prompt-text');
   if (promptTextEl) promptTextEl.textContent = prompt.prompt_text || '';
 
+  const workspaceEl = $('modal-workspace');
+  if (workspaceEl) workspaceEl.classList.toggle('has-prompt-image', !!prompt.prompt_image_url);
   const imgEl = $('modal-prompt-image') as HTMLImageElement | null;
   if (imgEl) {
     if (prompt.prompt_image_url) {
@@ -1381,8 +1383,6 @@ export function WritingBehavior() {
       const spellBtnBack = $('spell-btn-back');
       const spellBtnSubmit = $('spell-btn-submit');
       const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-      const fileInput = $('modal-file-input') as HTMLInputElement | null;
-      const fileTrigger = $('modal-file-trigger');
       const saveBtn = $('modal-btn-save') as HTMLButtonElement | null;
       const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
       const modalClose = $('modal-close') as HTMLButtonElement | null;
@@ -1447,58 +1447,6 @@ export function WritingBehavior() {
       on(spellBtnSubmit, 'click', () => {
         hideSpellPanel();
         submitFromModal(ms, true);
-      });
-
-      on(fileTrigger, 'keydown', (ev: KeyboardEvent) => {
-        if (ev.key !== 'Enter' && ev.key !== ' ') return;
-        ev.preventDefault();
-        fileInput?.click();
-      });
-
-      on(fileInput, 'change', async (ev: any) => {
-        const file = ev.target.files && ev.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-          alert('File quá lớn (tối đa 2MB)');
-          ev.target.value = '';
-          return;
-        }
-
-        const status = $('modal-upload-status');
-        if (status) {
-          status.textContent = '📤 Đang xử lý ' + file.name + '…';
-          status.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
-          status.classList.add('text-gray-400');
-        }
-
-        try {
-          const fd = new FormData();
-          fd.append('file', file);
-          const result = await api.upload('/api/writing/extract-text', fd);
-
-          if (textarea) {
-            const current = textarea.value;
-            const separator = current.trim() ? '\n\n' : '';
-            textarea.value = current + separator + result.text;
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-
-          if (status) {
-            status.textContent = '✓ Đã thêm ' + result.word_count + ' từ';
-            status.classList.remove('text-gray-400');
-            status.classList.add('text-emerald-400');
-            setTimeout(() => { if (status) status.classList.add('hidden'); }, 3000);
-          }
-        } catch (err: any) {
-          if (status) {
-            status.textContent = '✕ ' + ((err && err.message) || 'Lỗi xử lý file');
-            status.classList.remove('text-gray-400');
-            status.classList.add('text-red-400');
-          }
-        } finally {
-          ev.target.value = '';
-        }
       });
 
       // ASYNC LOADS (now that listeners are attached)

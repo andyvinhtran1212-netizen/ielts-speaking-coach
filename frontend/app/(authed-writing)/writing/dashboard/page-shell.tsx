@@ -277,10 +277,9 @@ export function WritingShell() {
 
           <div id="modal-content" className="hidden">
             {/* W-UI 2-pane: đề bài (TRÁI, scrollable) · khung viết (PHẢI).
-                 Layout-only — every id + handler below is unchanged; the DOM is
-                 just re-nested into two columns (adapts .rv-passage-layout).
+                 Task 1 widens the prompt pane when a chart is present.
                  Mobile (≤860px) stacks: đề trên / viết dưới. */}
-            <div className="wd-modal-2pane">
+            <div id="modal-workspace" className="wd-modal-2pane">
 
               {/* ── LEFT — đề bài ───────────────────────────────────────── */}
               <aside className="wd-modal-pane-left" aria-label="Đề bài">
@@ -293,7 +292,7 @@ export function WritingShell() {
                        question reads first, then the chart it refers to. */}
                   <p className="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
                   <img id="modal-prompt-image" className="wd-modal-prompt__image hidden"
-                       alt="" loading="lazy" />
+                       alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1" loading="lazy" />
                 </div>
 
                 {/* Optional admin instructions */}
@@ -323,13 +322,6 @@ export function WritingShell() {
                   <div>
                     <span className="wd-modal-section-label">Bài làm</span>
                     <h2 id="wd-editor-heading">Bài viết của em</h2>
-                  </div>
-                  <div className="wd-editor-import">
-                    <label id="modal-file-trigger" className="wd-modal-file-label" role="button" tabIndex={0}>
-                      <span>Nhập từ file</span>
-                      <input id="modal-file-input" type="file" className="hidden" accept=".docx,.txt" />
-                    </label>
-                    <span id="modal-upload-status" className="hidden"></span>
                   </div>
                 </div>
 

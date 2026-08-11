@@ -28,6 +28,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let html;
 let css;
 let behavior;
+let shell;
 
 before(() => {
   html = readFileSync(
@@ -40,6 +41,10 @@ before(() => {
   );
   behavior = readFileSync(
     path.join(__dirname, '..', 'app', '(authed-writing)', 'writing', 'dashboard', 'writing-behavior.tsx'),
+    'utf8',
+  );
+  shell = readFileSync(
+    path.join(__dirname, '..', 'app', '(authed-writing)', 'writing', 'dashboard', 'page-shell.tsx'),
     'utf8',
   );
 });
@@ -301,6 +306,7 @@ describe('writing-dashboard.html / submit modal IDs (Sprint 2.6.1)', () => {
       'modal-close',
       'modal-loading',
       'modal-content',
+      'modal-workspace',
       'modal-timer',
       'modal-timer-total',
       'modal-timer-display',
@@ -310,9 +316,6 @@ describe('writing-dashboard.html / submit modal IDs (Sprint 2.6.1)', () => {
       'modal-prompt-text',
       'modal-instructions',
       'modal-instructions-text',
-      'modal-file-trigger',
-      'modal-file-input',
-      'modal-upload-status',
       'modal-essay-textarea',
       'modal-word-counter',
       'modal-save-status',
@@ -488,12 +491,13 @@ describe('writing-dashboard.html / learner writing workspace', () => {
     }
   });
 
-  test('file import remains native-clickable and is keyboard reachable', () => {
-    const trigger = html.match(/<label\b[^>]*id="modal-file-trigger"[^>]*>/);
-    assert.ok(trigger);
-    assert.match(trigger[0], /role="button"/);
-    assert.match(trigger[0], /tabindex="0"/);
-    assert.match(html, /fileTrigger\.addEventListener\('keydown'/);
+  test('learner composition no longer exposes file import UI or upload behavior', () => {
+    for (const source of [html, behavior, shell, css]) {
+      assert.doesNotMatch(source, /modal-file-(?:trigger|input)/);
+      assert.doesNotMatch(source, /modal-upload-status/);
+      assert.doesNotMatch(source, /wd-(?:editor-import|modal-file-label)/);
+      assert.doesNotMatch(source, /\/api\/writing\/extract-text/);
+    }
   });
 
   test('word guide describes the editor without announcing every keystroke', () => {
@@ -877,13 +881,24 @@ describe('writing-dashboard.html / W-UI 2-pane submit modal', () => {
     assert.match(left[0], /id="modal-instructions"/);
   });
 
-  test('khung viết (textarea + timer + upload + submit) on the RIGHT pane', () => {
+  test('khung viết (textarea + timer + progress + submit) on the RIGHT pane', () => {
     const right = html.match(/wd-modal-pane-right[\s\S]*?<\/textarea>[\s\S]*?modal-btn-submit[\s\S]*?<\/div>\s*<\/div>/);
     assert.ok(right, 'right pane not found');
     assert.match(right[0], /id="modal-essay-textarea"/);
     assert.match(right[0], /id="modal-timer"/);
-    assert.match(right[0], /id="modal-file-input"/);
+    assert.doesNotMatch(right[0], /id="modal-file-input"/);
     assert.match(right[0], /id="modal-word-counter"/);
+  });
+
+  test('Task 1 image expands the prompt pane and viewport-bounds the chart', () => {
+    for (const source of [html, behavior]) {
+      assert.match(source, /modal-workspace/);
+      assert.match(source, /has-prompt-image/);
+    }
+    assert.match(shell, /alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1"/);
+    assert.match(html, /alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1"/);
+    assert.match(css, /\.wd-modal-2pane\.has-prompt-image\s*\{[\s\S]*?1\.1fr[\s\S]*?0\.9fr/);
+    assert.match(css, /\.has-prompt-image \.wd-modal-prompt__image\s*\{[\s\S]*?max-height:\s*min\(58dvh, 40rem\)/);
   });
 
   test('layout-only: 7 anti-spellcheck attrs preserved on the textarea', () => {

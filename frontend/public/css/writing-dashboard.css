@@ -441,7 +441,6 @@ main { position: relative; z-index: 1; }
   border-color: var(--av-border-default);
 }
 .wd-modal-close:focus-visible,
-.wd-modal-file-label:focus-within,
 .wd-modal-btn-save:focus-visible,
 .wd-modal-btn-submit:focus-visible {
   outline: 2px solid var(--av-primary);
@@ -561,35 +560,24 @@ main { position: relative; z-index: 1; }
   font-size: var(--av-fs-xs);
 }
 
-.wd-modal-file-label {
-  min-height: 2.5rem;
-  display: inline-flex;
-  align-items: center;
-  padding: var(--av-space-2) var(--av-space-3);
-  border: 1px solid var(--av-border-default);
-  border-radius: var(--av-radius-md);
-  background: var(--av-surface-card);
-  color: var(--av-primary);
-  cursor: pointer;
-  font-size: var(--av-fs-sm);
-  font-weight: var(--av-fw-semibold);
-}
-.wd-modal-file-label:hover {
-  color: var(--av-primary-hover, var(--av-primary));
-  border-color: var(--av-primary-border);
-  background: var(--av-primary-soft);
-}
-
 /* W-UI — 2-pane làm bài: đề (TRÁI, scrollable) · khung viết (PHẢI).
    Adapts .rv-passage-layout (reading-vocab): viewport-bounded, each pane
    scrolls independently so the prompt stays readable while writing.
-   Layout-only — no JS/handler touched. Mobile (≤860px) stacks. */
+   Task 1 widens the prompt pane when a chart is present. Mobile stacks. */
 .wd-modal-2pane {
   display: grid;
   gap: var(--av-space-6);
   grid-template-columns: minmax(19rem, 0.78fr) minmax(0, 1.22fr);
   align-items: stretch;
   height: calc(100dvh - 7.25rem);
+}
+@media (min-width: 861px) {
+  .wd-modal-2pane.has-prompt-image {
+    grid-template-columns: minmax(21rem, 1.1fr) minmax(24rem, 0.9fr);
+  }
+  .wd-modal-2pane.has-prompt-image .wd-modal-prompt__image {
+    max-height: min(58dvh, 40rem);
+  }
 }
 .wd-modal-2pane > .wd-modal-pane-left {
   min-height: 0;
@@ -629,16 +617,6 @@ main { position: relative; z-index: 1; }
   font-size: var(--av-fs-lg);
   font-weight: var(--av-fw-semibold);
 }
-.wd-editor-import {
-  display: flex;
-  align-items: center;
-  gap: var(--av-space-2);
-}
-#modal-upload-status {
-  color: var(--av-text-muted);
-  font-size: var(--av-fs-xs);
-}
-
 @media (max-width: 860px) {
   .wd-compose-page { padding-inline: var(--av-space-4); }
   .wd-modal-2pane {
@@ -754,9 +732,7 @@ main { position: relative; z-index: 1; }
   .wd-editor-toolbar,
   .wd-modal-footer { align-items: stretch; flex-direction: column; }
   .wd-editor-toolbar > div,
-  .wd-editor-import,
   .wd-modal-actions { width: 100%; }
-  .wd-modal-file-label,
   .wd-modal-actions button { justify-content: center; flex: 1; }
   .wd-modal-footer-meta { width: 100%; }
 }
