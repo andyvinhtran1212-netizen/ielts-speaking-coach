@@ -33,6 +33,9 @@ export function validateSpeakingRealDeviceEvidence({
   const sourceSha = cleanText(input.source_sha);
   const observedReleaseSha = cleanText(input.observed_release_sha);
   const sessionId = cleanText(input.canonical_session_id);
+  const responseId = cleanText(input.canonical_response_id);
+  const journeyStartedAt = cleanText(input.journey_started_at);
+  const journeyStartedAtMs = Date.parse(journeyStartedAt);
   const observedAt = cleanText(input.observed_at);
   const observedAtMs = Date.parse(observedAt);
   const maxAgeHours = Number(manifest.real_device_evidence?.max_attestation_age_hours || 12);
@@ -62,6 +65,18 @@ export function validateSpeakingRealDeviceEvidence({
   } else {
     if (observedAtMs > now + MAX_FUTURE_DRIFT_MS) errors.push('observed-at-in-future');
     if (observedAtMs < now - maxAgeHours * 60 * 60 * 1000) errors.push('observed-at-stale');
+  }
+  if (!Number.isFinite(journeyStartedAtMs)) {
+    errors.push('journey-started-at-invalid');
+  } else {
+    if (journeyStartedAtMs > now + MAX_FUTURE_DRIFT_MS) {
+      errors.push('journey-started-at-in-future');
+    }
+    if (Number.isFinite(observedAtMs) &&
+        (journeyStartedAtMs > observedAtMs ||
+         journeyStartedAtMs < observedAtMs - maxSessionAgeHours * 60 * 60 * 1000)) {
+      errors.push('journey-window-invalid');
+    }
   }
 
   const requiredScopes = requirement?.required_scope || [];
@@ -95,13 +110,17 @@ export function validateSpeakingRealDeviceEvidence({
   }
 
   if (!UUID.test(sessionId)) errors.push('canonical-session-id-invalid');
+  if (!UUID.test(responseId)) errors.push('canonical-response-id-invalid');
   if (canonicalSession?.id !== sessionId) errors.push('canonical-session-id-mismatch');
+  if (canonicalSession?.evidence_response_id !== responseId) {
+    errors.push('canonical-response-id-mismatch');
+  }
   const sessionStartedAtMs = Date.parse(cleanText(canonicalSession?.started_at));
   if (!Number.isFinite(sessionStartedAtMs)) {
     errors.push('canonical-session-start-invalid');
-  } else if (Number.isFinite(observedAtMs) &&
+  } else if (Number.isFinite(observedAtMs) && Number.isFinite(journeyStartedAtMs) &&
       (sessionStartedAtMs > observedAtMs + MAX_FUTURE_DRIFT_MS ||
-       sessionStartedAtMs < observedAtMs - maxSessionAgeHours * 60 * 60 * 1000)) {
+       sessionStartedAtMs < journeyStartedAtMs)) {
     errors.push('canonical-session-time-mismatch');
   }
   if (!Number.isInteger(canonicalSession?.persisted_response_count) ||
@@ -147,6 +166,7 @@ export function validateSpeakingRealDeviceEvidence({
       device_model: cleanText(input.device_model),
       operator: cleanText(input.operator),
       attested_by: cleanText(workflow.actor),
+      journey_started_at: new Date(journeyStartedAtMs).toISOString(),
       observed_at: new Date(observedAtMs).toISOString(),
       captured_at: new Date(now).toISOString(),
       canonical_session: canonicalSession,
@@ -179,11 +199,13 @@ const COMPLETE_EVIDENCE_KEYS = [
   'source_sha', 'observed_release_sha', 'source_branch', 'staging_origin', 'route',
   'coexistence_route',
   'observed_platform', 'observed_browser', 'device_model', 'operator', 'attested_by',
-  'observed_at', 'captured_at', 'canonical_session', 'scope_results', 'console_errors',
+  'journey_started_at', 'observed_at', 'captured_at', 'canonical_session',
+  'scope_results', 'console_errors',
   'network_failures', 'provenance', 'workflow',
 ];
 const CANONICAL_SESSION_KEYS = [
   'id', 'mode', 'part', 'status', 'started_at', 'persisted_response_count',
+  'evidence_response_id',
 ];
 const PROVENANCE_KEYS = [
   'frontend_release', 'frontend_git_ref', 'runtime_environment', 'backend_release',
@@ -228,8 +250,10 @@ export function validateCompleteSpeakingRealDeviceArtifact(manifest, evidence) {
         observed_browser: evidence.observed_browser,
         device_model: evidence.device_model,
         operator: evidence.operator,
+        journey_started_at: evidence.journey_started_at,
         observed_at: evidence.observed_at,
         canonical_session_id: evidence.canonical_session?.id,
+        canonical_response_id: evidence.canonical_session?.evidence_response_id,
         scope_results: evidence.scope_results,
         console_errors: evidence.console_errors,
         network_failures: evidence.network_failures,

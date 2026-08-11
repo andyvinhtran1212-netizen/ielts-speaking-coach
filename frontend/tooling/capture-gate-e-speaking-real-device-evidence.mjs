@@ -41,7 +41,7 @@ function errorCode(error) {
   return http ? http[1] : 'real-device-evidence-capture-failed';
 }
 
-async function canonicalSession(sessionId) {
+async function canonicalSession(sessionId, responseId) {
   if (!bypass) throw new Error('staging-bypass-missing');
   if (!password) throw new Error('e2e-password-missing');
   const runtime = await fetch(`${stagingOrigin}/js/runtime-config.js`, {
@@ -69,15 +69,18 @@ async function canonicalSession(sessionId) {
   });
   if (!response.ok) throw new Error(`canonical-session-http-${response.status}`);
   const body = await response.json();
-  const responseCount = Array.isArray(body.responses) ? body.responses.length : 0;
-  const receiptCount = Array.isArray(body.response_receipts) ? body.response_receipts.length : 0;
+  const responses = Array.isArray(body.responses) ? body.responses : [];
+  const receipts = Array.isArray(body.response_receipts) ? body.response_receipts : [];
+  const persisted = [...responses, ...receipts];
+  const matched = persisted.find((row) => String(row?.id || row?.response_id || '') === responseId);
   return {
     id: body.id || body.session_id || null,
     mode: body.mode || null,
     part: body.part ?? null,
     status: body.status || null,
     started_at: body.started_at || null,
-    persisted_response_count: Math.max(responseCount, receiptCount),
+    persisted_response_count: Math.max(responses.length, receipts.length),
+    evidence_response_id: matched ? responseId : null,
   };
 }
 
@@ -92,14 +95,19 @@ try {
     observed_browser: process.env.GATE_E_OBSERVED_BROWSER,
     device_model: process.env.GATE_E_DEVICE_MODEL,
     operator: process.env.GATE_E_OPERATOR,
+    journey_started_at: process.env.GATE_E_JOURNEY_STARTED_AT,
     observed_at: process.env.GATE_E_OBSERVED_AT,
     observed_release_sha: process.env.GATE_E_OBSERVED_RELEASE_SHA,
     canonical_session_id: process.env.GATE_E_CANONICAL_SESSION_ID,
+    canonical_response_id: process.env.GATE_E_CANONICAL_RESPONSE_ID,
     scope_results: parseJsonInput(process.env.GATE_E_SCOPE_RESULTS_JSON, 'scope-results'),
     console_errors: parseJsonInput(process.env.GATE_E_CONSOLE_ERRORS_JSON, 'console-errors'),
     network_failures: parseJsonInput(process.env.GATE_E_NETWORK_FAILURES_JSON, 'network-failures'),
   };
-  const canonical = await canonicalSession(input.canonical_session_id);
+  const canonical = await canonicalSession(
+    input.canonical_session_id,
+    input.canonical_response_id,
+  );
   const result = validateSpeakingRealDeviceEvidence({
     manifest,
     input,

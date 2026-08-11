@@ -21,6 +21,7 @@
     "device_model",
     "operator",
     "attested_by",
+    "journey_started_at",
     "observed_at",
     "captured_at",
     "canonical_session",
@@ -47,19 +48,29 @@
     "device_model": { "type": "string", "minLength": 1, "maxLength": 120 },
     "operator": { "type": "string", "minLength": 1, "maxLength": 80 },
     "attested_by": { "type": "string", "minLength": 1 },
+    "journey_started_at": { "type": "string", "format": "date-time" },
     "observed_at": { "type": "string", "format": "date-time" },
     "captured_at": { "type": "string", "format": "date-time" },
     "canonical_session": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "mode", "part", "status", "started_at", "persisted_response_count"],
+      "required": [
+        "id",
+        "mode",
+        "part",
+        "status",
+        "started_at",
+        "persisted_response_count",
+        "evidence_response_id"
+      ],
       "properties": {
         "id": { "type": "string", "format": "uuid" },
         "mode": { "const": "practice" },
         "part": { "const": 2 },
         "status": { "type": "string", "minLength": 1 },
         "started_at": { "type": "string", "format": "date-time" },
-        "persisted_response_count": { "type": "integer", "minimum": 1 }
+        "persisted_response_count": { "type": "integer", "minimum": 1 },
+        "evidence_response_id": { "type": "string", "format": "uuid" }
       }
     },
     "scope_results": {

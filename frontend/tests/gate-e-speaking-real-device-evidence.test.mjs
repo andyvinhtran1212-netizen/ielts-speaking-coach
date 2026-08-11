@@ -22,6 +22,7 @@ const PAIR_WORKFLOW = read('.github/workflows/speaking-real-device-pair.yml');
 const DOC = read('docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md');
 const SHA = 'a'.repeat(40);
 const SESSION = '123e4567-e89b-42d3-a456-426614174000';
+const RESPONSE = '223e4567-e89b-42d3-a456-426614174001';
 const NOW = Date.parse('2026-08-11T01:00:00Z');
 
 function fixture(requirementId, runId = '501') {
@@ -37,8 +38,10 @@ function fixture(requirementId, runId = '501') {
       observed_browser: requirement.browser,
       device_model: requirementId === 'safari-floor' ? 'MacBook Air M1' : 'iPhone 6s',
       operator: 'Gate E operator',
+      journey_started_at: '2026-08-11T00:10:00Z',
       observed_at: '2026-08-11T00:30:00Z',
       canonical_session_id: SESSION,
+      canonical_response_id: RESPONSE,
       scope_results: Object.fromEntries(requirement.required_scope.map((scope) => [scope, 'passed'])),
       console_errors: [],
       network_failures: [],
@@ -60,6 +63,7 @@ function fixture(requirementId, runId = '501') {
       status: 'in_progress',
       started_at: '2026-08-11T00:15:00Z',
       persisted_response_count: 1,
+      evidence_response_id: RESPONSE,
     },
     workflow: {
       actor: 'release-operator',
@@ -84,6 +88,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
       assert.equal(result.evidence.source_sha, SHA);
       assert.equal(result.evidence.observed_release_sha, SHA);
       assert.equal(result.evidence.canonical_session.persisted_response_count, 1);
+      assert.equal(result.evidence.canonical_session.evidence_response_id, RESPONSE);
       assert.deepEqual(result.evidence.console_errors, []);
       assert.doesNotMatch(JSON.stringify(result.evidence), /token|password|transcript|feedback/i);
     }
@@ -101,6 +106,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
     assert.deepEqual(result.errors, [
       'platform-mismatch',
       'observed-at-stale',
+      'journey-window-invalid',
       'scope-set-mismatch',
       'console-errors-present',
       'network-failures-present',
@@ -122,6 +128,16 @@ describe('Speaking Gate E real-device evidence validator', () => {
     assert.ok(result.errors.includes('canonical-session-time-mismatch'));
     assert.ok(result.errors.includes('canonical-response-missing'));
     assert.ok(result.errors.includes('workflow-rerun-not-eligible'));
+  });
+
+  test('rejects a pre-existing session or a response not submitted in the journey', () => {
+    const reused = fixture('safari-floor');
+    reused.canonicalSession.started_at = '2026-08-11T00:09:59Z';
+    reused.canonicalSession.evidence_response_id = '323e4567-e89b-42d3-a456-426614174002';
+    const result = validateSpeakingRealDeviceEvidence(reused);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.includes('canonical-session-time-mismatch'));
+    assert.ok(result.errors.includes('canonical-response-id-mismatch'));
   });
 
   test('rejects a canonical session outside Practice Part 2', () => {
@@ -232,6 +248,8 @@ describe('Speaking real-device workflow contract', () => {
     assert.match(WORKFLOW, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_AUDITOR_SHA: \$\{\{ steps\.auditor\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_OBSERVED_RELEASE_SHA: \$\{\{ inputs\.observed_release_sha \}\}/);
+    assert.match(WORKFLOW, /GATE_E_JOURNEY_STARTED_AT: \$\{\{ inputs\.journey_started_at \}\}/);
+    assert.match(WORKFLOW, /GATE_E_CANONICAL_RESPONSE_ID: \$\{\{ inputs\.canonical_response_id \}\}/);
     assert.match(WORKFLOW, /node \.gate-e-auditor\/frontend\/tooling\/capture-gate-e-staging-provenance\.mjs/);
     assert.match(WORKFLOW, /node \.gate-e-auditor\/frontend\/tooling\/capture-gate-e-speaking-real-device-evidence\.mjs/);
     assert.match(WORKFLOW, /GATE_E_REAL_DEVICE_REQUIRED: 'true'/);

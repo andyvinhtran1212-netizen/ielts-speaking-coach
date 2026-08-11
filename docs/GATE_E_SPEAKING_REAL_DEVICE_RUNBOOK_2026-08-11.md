@@ -41,10 +41,13 @@
 
 ## 2. Journey trên thiết bị thật
 
-Từ `/speaking`, tạo một phiên Practice Part 2 bằng tài khoản synthetic, rồi mở
-stable URL `/practice/session?session_id=...`. Ghi lại UTC timestamp và UUID
-session. Phải submit tối thiểu một bản ghi để canonical API có ít nhất một
-response/receipt; chỉ phát lại blob cục bộ không chứng minh persistence.
+Trước khi bấm tạo phiên, ghi UTC timestamp làm `journey_started_at`. Từ
+`/speaking`, tạo một phiên Practice Part 2 **mới** bằng tài khoản synthetic, rồi
+mở stable URL `/practice/session?session_id=...`. Không tái dùng session có sẵn.
+Ghi UUID session, submit tối thiểu một bản ghi và lấy `response_id` trong response
+của request POST làm `canonical_response_id`; chỉ phát lại blob cục bộ hoặc chỉ
+đếm một response cũ không chứng minh persistence của journey này. Ghi
+`observed_at` sau khi hoàn tất toàn bộ scope.
 
 Ngay trong journey, mở `/js/runtime-config.js` trên cùng staging origin và ghi
 exact giá trị 40 ký tự của trường `release` làm `observed_release_sha`. Nếu
@@ -82,8 +85,8 @@ Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** t
 branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout candidate
 `staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
 Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
-`observed_at`, `observed_release_sha` đã ghi trong journey, operator và JSON
-scope. Ví dụ Safari:
+`journey_started_at`, `observed_at`, `canonical_response_id`,
+`observed_release_sha` đã ghi trong journey, operator và JSON scope. Ví dụ Safari:
 
 ```json
 {

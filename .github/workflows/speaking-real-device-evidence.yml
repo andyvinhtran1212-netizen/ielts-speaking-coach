@@ -27,8 +27,12 @@ on:
         description: Person who performed the real-device journey
         required: true
         type: string
+      journey_started_at:
+        description: UTC ISO timestamp recorded before creating the fresh Practice Part 2 session
+        required: true
+        type: string
       observed_at:
-        description: UTC ISO timestamp; must be within the last 12 hours
+        description: UTC ISO timestamp recorded after completing the journey; must be within 12 hours
         required: true
         type: string
       observed_release_sha:
@@ -37,6 +41,10 @@ on:
         type: string
       canonical_session_id:
         description: Session created by e2e-student-smoke during the journey
+        required: true
+        type: string
+      canonical_response_id:
+        description: response_id returned by the persisted response submitted during the journey
         required: true
         type: string
       scope_results_json:
@@ -115,9 +123,11 @@ jobs:
           GATE_E_OBSERVED_BROWSER: ${{ inputs.observed_browser }}
           GATE_E_DEVICE_MODEL: ${{ inputs.device_model }}
           GATE_E_OPERATOR: ${{ inputs.operator }}
+          GATE_E_JOURNEY_STARTED_AT: ${{ inputs.journey_started_at }}
           GATE_E_OBSERVED_AT: ${{ inputs.observed_at }}
           GATE_E_OBSERVED_RELEASE_SHA: ${{ inputs.observed_release_sha }}
           GATE_E_CANONICAL_SESSION_ID: ${{ inputs.canonical_session_id }}
+          GATE_E_CANONICAL_RESPONSE_ID: ${{ inputs.canonical_response_id }}
           GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
           GATE_E_CONSOLE_ERRORS_JSON: ${{ inputs.console_errors_json }}
           GATE_E_NETWORK_FAILURES_JSON: ${{ inputs.network_failures_json }}
