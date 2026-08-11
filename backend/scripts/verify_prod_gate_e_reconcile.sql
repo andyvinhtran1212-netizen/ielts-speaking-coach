@@ -14,6 +14,7 @@ DECLARE
     fn_result text;
     fn_retset boolean;
     fn_arguments text;
+    expected_index record;
 BEGIN
     -- Tables created by the audited history.
     FOREACH item IN ARRAY ARRAY[
@@ -663,6 +664,74 @@ BEGIN
     ] LOOP
         IF to_regclass('public.' || item) IS NULL THEN
             missing := array_append(missing, 'index:' || item);
+        END IF;
+    END LOOP;
+
+    -- These standalone unique indexes are correctness/serialization contracts,
+    -- not optional query accelerators. Every source migration uses IF NOT
+    -- EXISTS, so a same-named ordinary, invalid, wrong-key or wrong-predicate
+    -- index would otherwise survive while its migration is recorded.
+    FOR expected_index IN
+        SELECT * FROM (VALUES
+            (
+                'uq_class_assignment_speaking_topic_per_cohort',
+                'class_assignments',
+                ARRAY['cohort_id', 'content_id']::name[],
+                '((skill = ''speaking''::text) AND (content_id IS NOT NULL))'
+            ),
+            (
+                'uq_speaking_lesson_set',
+                'speaking_lesson_sets',
+                ARRAY['course_id', 'lesson_no', 'part']::name[],
+                NULL::text
+            ),
+            (
+                'uq_slsq_order_active',
+                'speaking_lesson_set_questions',
+                ARRAY['set_id', 'order_num']::name[],
+                'is_active'
+            ),
+            (
+                'uq_quiz_bank_course_lesson',
+                'quiz_banks',
+                ARRAY['course_id', 'lesson_no']::name[],
+                '((course_id IS NOT NULL) AND (lesson_no IS NOT NULL))'
+            )
+        ) AS expected(index_name, table_name, key_columns, predicate)
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_index i
+              JOIN pg_class idx ON idx.oid = i.indexrelid
+              JOIN pg_am am ON am.oid = idx.relam
+             WHERE i.indexrelid = to_regclass(
+                       'public.' || expected_index.index_name
+                   )
+               AND i.indrelid = to_regclass(
+                       'public.' || expected_index.table_name
+                   )
+               AND am.amname = 'btree'
+               AND i.indisunique
+               AND i.indisvalid
+               AND i.indisready
+               AND i.indnkeyatts = cardinality(expected_index.key_columns)
+               AND i.indnatts = cardinality(expected_index.key_columns)
+               AND i.indexprs IS NULL
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = i.indrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = expected_index.key_columns
+               AND pg_get_expr(i.indpred, i.indrelid)
+                   IS NOT DISTINCT FROM expected_index.predicate
+        ) THEN
+            missing := array_append(
+                missing,
+                'index-contract:' || expected_index.index_name
+            );
         END IF;
     END LOOP;
 

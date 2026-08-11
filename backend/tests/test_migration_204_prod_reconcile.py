@@ -332,6 +332,18 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "'public.course_writing_drafts'::regclass" in verify_sql
     assert "i.indpred IS NULL" in verify_sql
     assert "ARRAY['class_assignment_item_id']::name[]" in verify_sql
+    assert "'index-contract:' || expected_index.index_name" in verify_sql
+    for index_name in (
+        "uq_class_assignment_speaking_topic_per_cohort",
+        "uq_speaking_lesson_set",
+        "uq_slsq_order_active",
+        "uq_quiz_bank_course_lesson",
+    ):
+        assert index_name in verify_sql
+    assert "am.amname = 'btree'" in verify_sql
+    assert "i.indnkeyatts = cardinality(expected_index.key_columns)" in verify_sql
+    assert "i.indnatts = cardinality(expected_index.key_columns)" in verify_sql
+    assert "IS NOT DISTINCT FROM expected_index.predicate" in verify_sql
     assert "policy-contract:reconciled-tables" in verify_sql
     assert "FROM pg_policies p" in verify_sql
     assert "policy_difference" in verify_sql
