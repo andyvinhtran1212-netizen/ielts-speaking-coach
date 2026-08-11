@@ -101,6 +101,8 @@ Hai hàng sau vẫn **PENDING** và bắt buộc trước Gate E PASS:
 | `safari-floor` | macOS 12.5 · Safari 15.6 | device/browser version, SHA, matrix id, route journey, console/network, reload/resume result, operator + timestamp |
 | `ios-safari-floor` | iOS 15.8.5 · bundled Mobile Safari | device model, OS/browser version, SHA, matrix id, touch/audio/storage/reload result, operator + timestamp |
 
-Không được đổi `status: pending` trong manifest chỉ vì CI WebKit xanh. PR sau sẽ
-định nghĩa evidence schema/runbook và thu bằng chứng thật; core player coverage
-sẽ mở rộng theo từng migration cluster.
+Không được đổi `status: pending` trong manifest chỉ vì CI WebKit xanh. Schema,
+validator và workflow attestation cho Speaking được định nghĩa tại
+`docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`; hai artifact thiết bị
+thật vẫn chưa được thu. Core player coverage tiếp tục mở rộng theo từng migration
+cluster.

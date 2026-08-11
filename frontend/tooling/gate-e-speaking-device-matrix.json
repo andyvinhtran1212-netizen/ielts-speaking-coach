@@ -50,6 +50,13 @@
   "synthetic_webkit_exclusions": [
     "microphone-lifecycle-requires-real-safari-or-ios-device"
   ],
+  "real_device_evidence": {
+    "schema": "tooling/gate-e-speaking-real-device-evidence.schema.json",
+    "workflow": ".github/workflows/speaking-real-device-evidence.yml",
+    "max_attestation_age_hours": 12,
+    "max_session_age_hours": 3,
+    "retention_days": 90
+  },
   "real_device_requirements": [
     {
       "id": "safari-floor",

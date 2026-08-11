@@ -1,0 +1,116 @@
+name: Speaking Gate E real-device evidence
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      requirement_id:
+        description: Exact real-device matrix row
+        required: true
+        type: choice
+        options: [safari-floor, ios-safari-floor]
+      observed_platform:
+        description: Exact observed platform (for example macOS 12.5)
+        required: true
+        type: string
+      observed_browser:
+        description: Exact observed browser string from the matrix
+        required: true
+        type: string
+      device_model:
+        description: Physical device model
+        required: true
+        type: string
+      operator:
+        description: Person who performed the real-device journey
+        required: true
+        type: string
+      observed_at:
+        description: UTC ISO timestamp; must be within the last 12 hours
+        required: true
+        type: string
+      canonical_session_id:
+        description: Session created by e2e-student-smoke during the journey
+        required: true
+        type: string
+      scope_results_json:
+        description: Exact required-scope keys with every value set to passed
+        required: true
+        type: string
+      console_errors_json:
+        description: JSON array; must be empty for eligible evidence
+        required: true
+        default: '[]'
+        type: string
+      network_failures_json:
+        description: JSON array; must be empty for eligible evidence
+        required: true
+        default: '[]'
+        type: string
+
+jobs:
+  speaking-real-device-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+    steps:
+      - name: Checkout deployed staging source
+        uses: actions/checkout@v5
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Capture checked-out source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Capture exact staging release provenance
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_PROVENANCE_REQUIRED: 'true'
+        run: node tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Validate real-device attestation against canonical state
+        id: evidence
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_REAL_DEVICE_REQUIRED: 'true'
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_REQUIREMENT_ID: ${{ inputs.requirement_id }}
+          GATE_E_OBSERVED_PLATFORM: ${{ inputs.observed_platform }}
+          GATE_E_OBSERVED_BROWSER: ${{ inputs.observed_browser }}
+          GATE_E_DEVICE_MODEL: ${{ inputs.device_model }}
+          GATE_E_OPERATOR: ${{ inputs.operator }}
+          GATE_E_OBSERVED_AT: ${{ inputs.observed_at }}
+          GATE_E_CANONICAL_SESSION_ID: ${{ inputs.canonical_session_id }}
+          GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
+          GATE_E_CONSOLE_ERRORS_JSON: ${{ inputs.console_errors_json }}
+          GATE_E_NETWORK_FAILURES_JSON: ${{ inputs.network_failures_json }}
+        run: node tooling/capture-gate-e-speaking-real-device-evidence.mjs
+
+      - name: Upload validated evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-real-device-${{ inputs.requirement_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/tooling/gate-e-speaking-device-matrix.json
+            frontend/tooling/gate-e-speaking-real-device-evidence.schema.json
+            frontend/test-results/gate-e-staging-provenance.json
+            frontend/test-results/gate-e-speaking-real-device-evidence.json
+          if-no-files-found: error
+          retention-days: 90

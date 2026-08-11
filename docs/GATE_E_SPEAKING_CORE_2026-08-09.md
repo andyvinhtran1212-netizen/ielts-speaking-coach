@@ -122,7 +122,9 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
    Safari shipping, nên đây không phải bằng chứng background/microphone thật.
    Safari/iOS thật vẫn PENDING và phải chạy đúng `real_device_requirements` trong
-   manifest trước khi đóng mục 3.
+   manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
+   `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
+   không được tính thay hai artifact thật.
 4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
    reload/copy URL/admission rollback với canonical backend assertions.
 5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL

@@ -1,0 +1,121 @@
+# Gate E Speaking — real-device evidence runbook — 2026-08-11
+
+**Trạng thái:** RUNNER READY; SAFARI/iOS ARTIFACTS PENDING. Batch này không đổi
+`route_ready` hoặc `admit_new`, và không coi Playwright WebKit là Safari/iOS thật.
+
+## Finding
+
+- **Root cause:** matrix đã liệt kê Safari 15.6 và iOS 15.8.5 nhưng chỉ có hai
+  dòng `pending`; chưa có schema, validator hay workflow buộc một attestation
+  thủ công vào đúng release staging và dữ liệu phiên canonical.
+- **Severity:** Critical — một ghi chú hoặc ảnh chụp rời rạc có thể bị gắn nhầm
+  SHA, bỏ sót scope microphone/reload, hoặc được dùng để mở Gate E dù response
+  chưa bao giờ persist.
+- **Impacted files/functions:**
+  `frontend/tooling/gate-e-speaking-device-matrix.json` phần
+  `real_device_requirements`; cổng Gate E đọc `real_devices_complete` trong
+  `frontend/tooling/gate-e-streak-lib.mjs`; trước batch không có artifact thật
+  để chuyển hai dòng này sang `complete`.
+- **Minimal fix:** workflow manual checkout đúng `staging`, đối chiếu frontend và
+  backend cùng SHA đang phục vụ, đọc lại session của tài khoản synthetic từ API,
+  yêu cầu đủ exact scope/zero console-network failure, rồi xuất artifact theo
+  JSON schema. Hai artifact chỉ hợp lệ khi cùng một `source_sha` và hai workflow
+  run khác nhau.
+- **Verification:** unit test fail-closed cho version/scope/time/release/session,
+  source contract cho workflow và schema; sau khi chạy thật, dùng pair verifier
+  ở bước 4. Không sửa status manifest trước khi cả hai artifact đều xanh.
+
+## 1. Điều kiện trước khi thao tác thiết bị
+
+1. Candidate đã merge vào branch `staging`; Vercel staging và Railway staging
+   phải cùng phục vụ exact SHA đó. Workflow sẽ kiểm lại, không nhận khai báo tay.
+2. Dùng tài khoản synthetic `e2e-student-smoke@staging-e2e.averlearning.com`.
+   Không ghi password, token, transcript hoặc feedback vào input/artifact.
+3. Thiết bị phải đúng một trong hai hàng versioned:
+   - `safari-floor`: macOS 12.5, Safari 15.6;
+   - `ios-safari-floor`: iOS 15.8.5, Mobile Safari đi kèm.
+4. Bật Safari Web Inspector để theo dõi console và network. Một lỗi console hay
+   request thất bại liên quan journey làm artifact không đủ điều kiện; sửa lỗi
+   rồi chạy journey mới, không sửa attestation cũ.
+
+## 2. Journey trên thiết bị thật
+
+Từ `/speaking`, tạo một phiên Practice Part 2 bằng tài khoản synthetic, rồi mở
+stable URL `/practice/session?session_id=...`. Ghi lại UTC timestamp và UUID
+session. Phải submit tối thiểu một bản ghi để canonical API có ít nhất một
+response/receipt; chỉ phát lại blob cục bộ không chứng minh persistence.
+
+### Safari 15.6
+
+Hoàn tất đủ năm scope sau:
+
+1. `real-microphone-permission-denied-and-retry` — từ chối quyền, thấy copy lỗi,
+   cho phép lại và retry ngay trong state hiện tại.
+2. `record-stop-playback` — record, stop và phát lại đúng audio vừa thu.
+3. `background-tab-and-return` — đưa tab xuống nền rồi quay lại, state không tự
+   hoàn thành hoặc mất take.
+4. `reload-resume` — submit một response, reload stable URL và đọc lại đúng
+   phiên/câu từ backend.
+5. `route-exit-microphone-release` — rời route và xác nhận chỉ báo microphone
+   tắt/track đã được giải phóng.
+
+### iOS 15.8.5 Mobile Safari
+
+Hoàn tất đủ sáu scope:
+
+1. `touch-record-stop-playback`;
+2. `real-microphone-permission-denied-and-retry`;
+3. `home-screen-background-and-return`;
+4. `orientation-and-horizontal-overflow` ở portrait và landscape;
+5. `reload-resume` sau khi response đã persist;
+6. `route-exit-microphone-release`.
+
+## 3. Phát hành artifact
+
+Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** từ
+branch `staging`. Nhập platform/browser đúng nguyên văn trong matrix, session ID,
+UTC `observed_at`, operator và JSON scope. Ví dụ Safari:
+
+```json
+{
+  "real-microphone-permission-denied-and-retry": "passed",
+  "record-stop-playback": "passed",
+  "background-tab-and-return": "passed",
+  "reload-resume": "passed",
+  "route-exit-microphone-release": "passed"
+}
+```
+
+`console_errors_json` và `network_failures_json` phải là `[]`. Attestation phải
+được phát hành trong 12 giờ sau journey; canonical session phải bắt đầu không
+quá 3 giờ trước `observed_at`, nên không thể tái dùng một session cũ. Workflow
+rerun không đủ điều kiện;
+sửa input bằng một workflow run mới để không cherry-pick lần chạy lại thành PASS.
+
+Workflow luôn upload artifact, kể cả khi fail. Artifact hợp lệ phải có
+`status: "complete"`; `status: "invalid"` chỉ phục vụ chẩn đoán và không được
+dùng để đổi manifest.
+
+## 4. Ghép cặp và handoff
+
+Tải hai file `gate-e-speaking-real-device-evidence.json` từ hai workflow run vào
+hai thư mục riêng rồi chạy:
+
+```bash
+GATE_E_EXPECTED_SOURCE_SHA=<40-char-staging-sha> node \
+  frontend/tooling/verify-gate-e-speaking-real-device-pair.mjs \
+  /path/to/safari/gate-e-speaking-real-device-evidence.json \
+  /path/to/ios/gate-e-speaking-real-device-evidence.json
+```
+
+Pair chỉ PASS khi đủ đúng hai requirement, hai run ID khác nhau, cùng matrix và
+cùng một `source_sha` trên `staging`. Sau đó mới mở PR evidence-only cập nhật hai
+dòng manifest sang `complete` kèm run ID/SHA; thay đổi manifest sẽ reset streak,
+vì vậy chuỗi 20 critical-suite run bắt đầu sau PR đó.
+
+## 5. Ranh giới quyết định
+
+Hai artifact thật chỉ đóng mục device matrix. Chúng không thay thế live
+`floor → cutover → rollback` drill, failure-injection coverage hay chuỗi 20 run.
+Không bật `route_ready`, không đổi `admit_new`, và không retire Legacy từ riêng
+batch evidence này.
