@@ -9,6 +9,7 @@ import {
   countWritingWords,
   essayTaskToTipTask,
   regradeStatusText,
+  selectWritingResultView,
   selectWritingTips,
   writingBandLabel,
 } from '../lib/writing-result-model.mjs';
@@ -47,13 +48,21 @@ describe('/writing/result — native Next ownership', () => {
     assert.match(BEHAVIOR, /status === 'signed-out'/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id/);
-    assert.match(BEHAVIOR, /`\$\{accountKey\}:\$\{essayId\}`/);
-    assert.match(BEHAVIOR, /loadedKeyRef\.current === requestKey/);
+    assert.match(BEHAVIOR, /accountKey \? `\$\{accountKey\}:\$\{essayId\}` : ''/);
+    assert.match(BEHAVIOR, /selectWritingResultView\(resultState, requestKey\)/);
+    assert.doesNotMatch(BEHAVIOR, /loadedKeyRef|ranRef/);
     assert.match(BEHAVIOR, /if \(!accountKey \|\| view\.kind === 'loading'\)/);
     assert.match(BEHAVIOR, /whenGlobalReady/);
     assert.match(BEHAVIOR, /WritingRenderers/);
     assert.match(BEHAVIOR, /\/api\/writing\/my-essays\/\$\{encodeURIComponent\(essayId\)\}/);
     assert.match(BEHAVIOR, /params\?\.get\('essay_id'\).*params\?\.get\('id'\)/s);
+  });
+
+  test('StrictMode replay remains live and failed globals become an actionable error', () => {
+    assert.match(BEHAVIOR, /setResultState\(\{ key: requestKey, value: \{ kind: 'loading' \} \}\)/);
+    assert.match(BEHAVIOR, /if \(dead\) return;[\s\S]*if \(!globalsReady\)/);
+    assert.match(BEHAVIOR, /Không tải được công cụ hiển thị bài viết\. Vui lòng tải lại trang\./);
+    assert.match(BEHAVIOR, /return \(\) => \{ dead = true; \}/);
   });
 
   test('preserves renderer, highlight, optional-section and hidden-score contracts', () => {
@@ -118,5 +127,13 @@ describe('writing-result pure state contract', () => {
       { id: 'a', task_type: 'task_2' }, { id: 'b', task_type: 'both' }, { id: 'c', task_type: 'task_1' },
     ], 'task2').map((tip) => tip.id), ['a', 'b']);
     assert.match(regradeStatusText({ status: 'rejected', admin_response: 'Thiếu căn cứ' }), /Thiếu căn cứ/);
+  });
+
+  test('hides the previous account synchronously when the request key changes', () => {
+    const privateView = { kind: 'ready', essay: { essay_text: 'private A' } };
+    const state = { key: 'user-a:essay-1', value: privateView };
+    assert.equal(selectWritingResultView(state, 'user-a:essay-1'), privateView);
+    assert.deepEqual(selectWritingResultView(state, 'user-b:essay-1'), { kind: 'loading' });
+    assert.deepEqual(selectWritingResultView(state, ''), { kind: 'loading' });
   });
 });

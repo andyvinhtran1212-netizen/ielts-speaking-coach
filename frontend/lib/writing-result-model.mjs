@@ -75,3 +75,8 @@ export function regradeStatusText(request) {
   }
   return '';
 }
+
+export function selectWritingResultView(resultState, requestKey) {
+  if (resultState?.key === requestKey && resultState.value) return resultState.value;
+  return { kind: 'loading' };
+}

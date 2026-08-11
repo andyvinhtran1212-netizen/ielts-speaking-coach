@@ -10,6 +10,7 @@ import {
   countWritingWords,
   formatWritingDate,
   regradeStatusText,
+  selectWritingResultView,
   selectWritingTips,
   writingBandLabel,
   writingTipPreview,
@@ -22,6 +23,8 @@ type ResultView =
   | { kind: 'flagged'; essay: any }
   | { kind: 'not-delivered'; essay: any }
   | { kind: 'ready'; essay: any; feedback: any; instructorNote: string; feedbackJson: any };
+
+type KeyedResultView = { key: string; value: ResultView };
 
 type Tip = { id: string; title?: string; body_markdown?: string; task_type?: string };
 type TabKey = 'tongquan' | 'loi' | 'nangcao' | 'baimau' | 'note';
@@ -404,10 +407,12 @@ export function WritingResultBehavior() {
   const params = useSearchParams();
   const essayId = params?.get('essay_id') || params?.get('id') || '';
   const { status, user } = useAuth();
-  const [view, setView] = useState<ResultView>({ kind: 'loading' });
-  const loadedKeyRef = useRef('');
+  const [resultState, setResultState] = useState<KeyedResultView>({
+    key: '', value: { kind: 'loading' },
+  });
 
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
+  const requestKey = accountKey ? `${accountKey}:${essayId}` : '';
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login.html');
@@ -415,12 +420,15 @@ export function WritingResultBehavior() {
 
   useEffect(() => {
     if (!accountKey) return;
-    const requestKey = `${accountKey}:${essayId}`;
-    if (loadedKeyRef.current === requestKey) return;
-    loadedKeyRef.current = requestKey;
-    setView({ kind: 'loading' });
+    // Keep state keyed by account + essay. React StrictMode deliberately
+    // replays this effect in development; no one-shot ref may suppress the
+    // replacement request after the first setup has been cleaned up.
+    setResultState({ key: requestKey, value: { kind: 'loading' } });
     if (!essayId) {
-      setView({ kind: 'error', message: 'Thiếu mã bài viết trong URL.' });
+      setResultState({
+        key: requestKey,
+        value: { kind: 'error', message: 'Thiếu mã bài viết trong URL.' },
+      });
       return;
     }
     let dead = false;
@@ -429,17 +437,35 @@ export function WritingResultBehavior() {
         () => typeof window.api?.get === 'function' && Boolean((window as any).WritingRenderers),
         'window.api + WritingRenderers (writing result)',
       );
-      if (!globalsReady || dead) return;
+      if (dead) return;
+      if (!globalsReady) {
+        setResultState({
+          key: requestKey,
+          value: {
+            kind: 'error',
+            message: 'Không tải được công cụ hiển thị bài viết. Vui lòng tải lại trang.',
+          },
+        });
+        return;
+      }
       try {
         const payload = await window.api.get(`/api/writing/my-essays/${encodeURIComponent(essayId)}`);
         if (dead || !payload) return;
-        setView(classifyWritingResult(payload) as ResultView);
+        setResultState({ key: requestKey, value: classifyWritingResult(payload) as ResultView });
       } catch (caught) {
-        if (!dead) setView({ kind: 'error', message: messageOf(caught) });
+        if (!dead) setResultState({
+          key: requestKey,
+          value: { kind: 'error', message: messageOf(caught) },
+        });
       }
     })();
     return () => { dead = true; };
-  }, [accountKey, essayId]);
+  }, [accountKey, essayId, requestKey]);
+
+  // A direct signed-in A → signed-in B transition can happen through a
+  // cross-tab Supabase auth event without an intermediate signed-out render.
+  // The old account's result must disappear during render, before effects run.
+  const view = selectWritingResultView(resultState, requestKey) as ResultView;
 
   // Never keep the previous account's essay visible while auth is refreshing
   // or after sign-out. The redirect effect handles navigation; this guard
