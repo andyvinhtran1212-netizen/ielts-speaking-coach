@@ -201,6 +201,54 @@ BEGIN
         );
     END IF;
 
+    -- Both assignment fan-out RPCs omit `state` deliberately and depend on
+    -- migration 177's server-authored initial value. A nullable/default-less
+    -- column either rejects every assignment or creates invisible ledger rows.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+          JOIN pg_attrdef d
+            ON d.adrelid = a.attrelid
+           AND d.adnum = a.attnum
+         WHERE a.attrelid = 'public.class_assignment_items'::regclass
+           AND a.attname = 'state'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'text'
+           AND a.attnotnull
+           AND pg_get_expr(d.adbin, d.adrelid) = '''assigned''::text'
+    ) THEN
+        missing := array_append(
+            missing,
+            'column-contract:class_assignment_items.state'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_assignment_items'::regclass
+           AND con.conname = 'class_assignment_items_state_check'
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK ((state = ANY (ARRAY[''assigned''::text, '
+               '''opened''::text, ''submitted''::text, ''graded''::text])))'
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignment_items.state'
+        );
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM public.class_assignment_items
+         WHERE state IS NULL
+            OR state NOT IN ('assigned', 'opened', 'submitted', 'graded')
+    ) THEN
+        missing := array_append(missing, 'data:class_assignment_items.state');
+    END IF;
+
     -- Migration 189 widened score specifically so a perfect quiz percentage
     -- (100.0) remains representable. Constraint-name existence cannot prove
     -- either that typmod change or the validated canonical 0..100 domain.

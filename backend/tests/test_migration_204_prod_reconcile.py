@@ -253,6 +253,11 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "column-contract:class_assignments.content_config" in verify_sql
     assert "format_type(a.atttypid, a.atttypmod) = 'jsonb'" in verify_sql
     assert "pg_get_expr(d.adbin, d.adrelid) = '''{}''::jsonb'" in verify_sql
+    assert "column-contract:class_assignment_items.state" in verify_sql
+    assert "pg_get_expr(d.adbin, d.adrelid) = '''assigned''::text'" in verify_sql
+    assert "constraint-contract:class_assignment_items.state" in verify_sql
+    assert "class_assignment_items_state_check" in verify_sql
+    assert "data:class_assignment_items.state" in verify_sql
     assert "constraint-contract:' || expected_evidence_fk.table_name" in verify_sql
     assert "sessions_class_assignment_item_id_fkey" in verify_sql
     assert "reading_test_attempts_class_assignment_item_id_fkey" in verify_sql
