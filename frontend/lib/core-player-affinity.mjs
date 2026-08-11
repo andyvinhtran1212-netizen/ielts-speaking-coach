@@ -23,7 +23,9 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
         'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
-      next: Object.freeze({ path: '/reading/exam/session', route_ready: false }),
+      // Native App Router player exists as a dark route. Admission stays
+      // legacy until Gate E's Reading failure matrix and coexistence drill pass.
+      next: Object.freeze({ path: '/reading/exam/session', route_ready: true }),
     }),
     listening_test: Object.freeze({
       admit_new: 'legacy',
