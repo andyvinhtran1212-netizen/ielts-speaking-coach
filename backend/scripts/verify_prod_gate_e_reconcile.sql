@@ -218,6 +218,22 @@ BEGIN
         );
     END IF;
 
+    -- Migration 198 deliberately keeps the append-only audit log detached from
+    -- mutable entities. Any FK action would either erase/history-edit rows or
+    -- collide with the trigger and make ordinary class/assignment deletion
+    -- fail, so reject even an unvalidated foreign key.
+    IF EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_action_log'::regclass
+           AND con.contype = 'f'
+    ) THEN
+        missing := array_append(
+            missing,
+            'forbidden-foreign-key:class_action_log'
+        );
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
          FROM pg_constraint
@@ -238,12 +254,21 @@ BEGIN
     END IF;
     IF NOT EXISTS (
         SELECT 1
-         FROM pg_constraint
-         WHERE conname = 'class_assignment_items_artifact_kind_check'
-           AND conrelid = 'public.class_assignment_items'::regclass
-           AND pg_get_constraintdef(oid) LIKE '%course_writing%'
+          FROM pg_constraint con
+         WHERE con.conname = 'class_assignment_items_artifact_kind_check'
+           AND con.conrelid = 'public.class_assignment_items'::regclass
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK ((artifact_kind = ANY (ARRAY[''session''::text, '
+               '''writing_assignment''::text, ''reading_attempt''::text, '
+               '''listening_attempt''::text, ''quiz_session''::text, '
+               '''course_writing''::text])))'
     ) THEN
-        missing := array_append(missing, 'constraint-value:artifact.course_writing');
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignment_items.artifact_kind'
+        );
     END IF;
 
     -- Query-path indexes used by the admin/student assignment surfaces.

@@ -233,6 +233,18 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "tgenabled = 'O'" in verify_sql
     assert "tgtype = 27" in verify_sql
     assert "tgfoid = to_regprocedure('public.fn_class_action_log_append_only()')" in verify_sql
+    assert "forbidden-foreign-key:class_action_log" in verify_sql
+    assert "con.contype = 'f'" in verify_sql
+    assert "constraint-contract:class_assignment_items.artifact_kind" in verify_sql
+    for artifact_kind in (
+        "session",
+        "writing_assignment",
+        "reading_attempt",
+        "listening_attempt",
+        "quiz_session",
+        "course_writing",
+    ):
+        assert f"''{artifact_kind}''::text" in verify_sql
     assert "obsolete-constraint:course_writing_submissions(bank_id,user_id)" in verify_sql
     assert "ARRAY['bank_id', 'user_id']::name[]" in verify_sql
     assert "index-contract:uq_sessions_full_test_attempt_part" in verify_sql
