@@ -139,7 +139,7 @@ def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
-              writing_memo: Dict[str, bool] | None = None) -> Dict[str, Any]:
+              writing_memo: Dict[str, bool | None] | None = None) -> Dict[str, Any]:
     """Attach the two derived states the UI needs. Both come from timestamps, so
     they stay correct without any job keeping them so."""
     due_raw = assignment.get("due_at")
@@ -271,9 +271,15 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
 
     # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
     # và một lượt đọc là đủ cho cả trang.
-    writing_memo: Dict[str, bool] = {}
+    writing_memo: Dict[str, bool | None] = {}
     out = [_decorate(i, by_id[i["assignment_id"]], now, writing_memo)
            for i in items if i["assignment_id"] in by_id]
+    # ``None`` khác hẳn ``False``: truy vấn hình dạng bộ đề hỏng, chứ không phải
+    # đã chứng minh bộ đề không có phần viết. Giữ danh sách dùng được nhưng bật
+    # cùng cờ stale mà hai đường vá sổ dùng, để học viên không coi nhãn tạm thời
+    # "Cần hoàn thành" là trạng thái chính thức.
+    if any(row.get("writing_expected") is None for row in out):
+        stale = True
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
     # be at the top. A give with no deadline is never urgent, so it sorts last
     # via its own key rather than by abusing the empty string.

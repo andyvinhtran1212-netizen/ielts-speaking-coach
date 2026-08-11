@@ -127,6 +127,52 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     assert e.value.status_code == 409
 
 
+@pytest.mark.asyncio
+async def test_the_losing_retry_cas_keeps_its_actionable_409():
+    """Hai tab cùng chấm lại dòng hỏng: tab thua CAS phải tải lại, không phải
+    nhận một lỗi máy chủ 500 do chính ``HTTPException`` bị bắt lại."""
+    broken = [{
+        "id": "sub1", "bank_id": "b1", "user_id": "u1",
+        "class_assignment_item_id": "it1",
+        "items": [{"qid": "E1", "ok": None}],
+        "graded_at": "2026-08-05T00:00:00Z",
+    }]
+
+    class _CasLoser(_Table):
+        def update(self, row):
+            self._log.append((self._name, "update", row))
+            # Tab kia đã đổi ``graded_at`` sau lượt đọc ban đầu, nên điều kiện
+            # CAS không còn khớp và Supabase trả danh sách rỗng.
+            self._rows = []
+            return self
+
+        def is_(self, *_a):
+            return self
+
+    log = []
+    tables = {"quiz_questions": _QS, "course_writing_submissions": broken}
+    db = type("DB", (), {})()
+    db.table = lambda n: _CasLoser(n, tables.get(n, []), log)
+
+    async def g(items):
+        return ([{"qid": i["qid"], "prompt": i["prompt"],
+                  "answer": i["answer"], "corrected": i["answer"],
+                  "issues": [], "ok": True} for i in items], "m")
+
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_bank_meta_or_404",
+                      lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs.course_writing_grader, "grade", g):
+        with pytest.raises(HTTPException) as e:
+            await qs.submit_course_writing(
+                user_id="u1", bank_id="b1", answers={"E1": "x", "E2": "y"})
+
+    assert e.value.status_code == 409
+    assert "Tải lại trang" in str(e.value.detail)
+    assert not str(e.value.detail).startswith("Lỗi lưu bài tự luận")
+
+
 # ── Đủ câu mới nhận ──────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

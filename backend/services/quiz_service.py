@@ -2014,6 +2014,11 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
                                          "Tải lại trang để xem kết quả.")
         else:
             res = supabase_admin.table("course_writing_submissions").insert(row).execute()
+    except HTTPException:
+        # Giữ nguyên lỗi nghiệp vụ của compare-and-swap. Nếu hai tab cùng chấm
+        # lại một dòng hỏng, tab thua phải nhận 409 để tải lại kết quả của tab
+        # thắng — không được bị khối bắt lỗi DB bên dưới đổi thành 500.
+        raise
     except Exception as exc:  # noqa: BLE001
         # 23505 = va UNIQUE: hai tab cùng bấm Nộp. Đó là "đã nộp rồi", không
         # phải lỗi máy chủ — và bản chấm vừa tốn tiền gọi model thì bỏ, vì bản
@@ -2066,8 +2071,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     }
 
 
-def bank_has_writing(bank_id: str | None, *, memo: dict | None = None) -> bool:
-    """Bộ đề này có câu TỰ LUẬN không.
+def bank_has_writing(bank_id: str | None, *, memo: dict | None = None) -> bool | None:
+    """Bộ đề này có câu TỰ LUẬN không; ``None`` khi chưa đọc được.
 
     KHÔNG có cache dài hạn. Bộ nhập bài tập theo buổi cập nhật lại ĐÚNG
     `bank_id` rồi thay bộ câu hỏi, nên một giá trị nhớ từ trước re-import sẽ sai
@@ -2076,7 +2081,8 @@ def bank_has_writing(bank_id: str | None, *, memo: dict | None = None) -> bool:
     06/08). Bộ nhập chạy ở tiến trình khác nên không xoá cache hộ được.
 
     `memo` là chỗ nhớ trong MỘT lượt gọi — trang lớp hỏi cùng một bank cho nhiều
-    mục, và một lượt đọc là đủ cho cả trang.
+    mục, và một lượt đọc là đủ cho cả trang. Cả trạng thái ``None`` cũng được
+    nhớ trong lượt ấy: một truy vấn hỏng không nên bị lặp lại cho từng học viên.
     """
     if not bank_id:
         return False
@@ -2087,9 +2093,11 @@ def bank_has_writing(bank_id: str | None, *, memo: dict | None = None) -> bool:
                     .eq("bank_id", bank_id).eq("type", "writing")
                     .limit(1).execute()).count or 0)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — coi như "
-                       "KHÔNG có, để bài giao không kẹt vĩnh viễn", bank_id, exc)
-        return False
+        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — giữ "
+                       "trạng thái CHƯA BIẾT", bank_id, exc)
+        if memo is not None:
+            memo[bank_id] = None
+        return None
     if memo is not None:
         memo[bank_id] = has
     return has

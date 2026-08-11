@@ -495,3 +495,49 @@ async def test_my_assignments_is_quiet_when_the_repair_worked():
          patch.object(mod, "supabase_admin", _db(set())):
         out = await mod.my_assignments(None)
     assert "homework_stale" not in out
+
+
+def _course_homework_db():
+    tables = {
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+             "submitted_at": None, "state": "assigned", "score": None},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": "course",
+             "status": "published", "content_id": "bank-1",
+             "content_config": {}, "due_at": None, "title": "Grammar 2"},
+        ],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(tables.get(name, []), False)
+    return db
+
+
+async def _course_homework_with_shape(shape):
+    student = {"id": "s1", "cohort_id": "c1"}
+    reread = [{"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+               "submitted_at": None, "state": "assigned", "score": None}]
+    with patch.object(mod, "get_supabase_user",
+                      AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _course_homework_db()), \
+         patch.object(mod, "reconcile_test_attempts", return_value=0), \
+         patch.object(mod, "reconcile_course_items", return_value=0), \
+         patch.object(mod, "_reread_items", return_value=reread), \
+         patch.object(mod, "bank_has_writing", return_value=shape):
+        return await mod.my_assignments(None)
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_writing_shape_marks_learner_homework_stale():
+    out = await _course_homework_with_shape(None)
+    assert out["assignments"][0]["writing_expected"] is None
+    assert out["homework_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_real_zero_writing_shape_does_not_mark_homework_stale():
+    out = await _course_homework_with_shape(False)
+    assert out["assignments"][0]["writing_expected"] is False
+    assert "homework_stale" not in out

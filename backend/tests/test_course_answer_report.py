@@ -8,6 +8,7 @@ một nội dung là hai chỗ để trôi khỏi nhau.
 from __future__ import annotations
 
 import inspect
+from unittest.mock import patch
 
 from services import quiz_service as qs
 
@@ -114,21 +115,34 @@ def test_finishing_a_stage_does_not_close_an_assignment_that_has_writing():
     assert "if writing:" in gate, "phải hỏi phần tự luận TỪ CÙNG lượt đọc bộ đề"
 
 
-def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
-    """Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
-    nhịp thôi". Lý lẽ ấy SAI — với bộ đề KHÔNG có tự luận thì không có nhịp nào
-    sau cả: `end_session` là đường chốt sổ duy nhất, và
-    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking), không
-    đọc `quiz_sessions`. Một lần đọc hỏng để lại bài giao KẸT VĨNH VIỄN.
+def test_an_unreadable_bank_is_unknown_not_a_false_no_writing_claim():
+    """Trang lớp dùng cờ này để nói học viên còn phần tự luận hay không. Một
+    lượt đếm hỏng không chứng minh được số câu là 0, nên phải giữ trạng thái
+    thứ ba để route bật ``homework_stale``."""
+    class _Broken:
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): raise RuntimeError("count unavailable")
 
-    Hỏng chiều ngược lại thì có giới hạn: một bài bị đóng dấu sớm MỘT lần, và
-    bảng "Chi tiết làm bài" vẫn nói đúng vì nó đọc thẳng
-    `course_writing_submissions` (codex PR 952).
-    """
-    src = inspect.getsource(qs.bank_has_writing)
-    j = src.index("except Exception")
-    assert "return False" in src[j:]
-    assert "return True" not in src[j:]
+    db = type("DB", (), {"table": lambda self, _name: _Broken()})()
+    memo = {}
+    with patch.object(qs, "supabase_admin", db):
+        assert qs.bank_has_writing("b1", memo=memo) is None
+        assert memo["b1"] is None, "đừng lặp một truy vấn hỏng cho từng dòng"
+
+
+def test_a_real_zero_writing_count_stays_false():
+    """Không có câu viết thật là dữ liệu chính thức, không được bật cảnh báo."""
+    class _Empty:
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): return type("Resp", (), {"count": 0})()
+
+    db = type("DB", (), {"table": lambda self, _name: _Empty()})()
+    with patch.object(qs, "supabase_admin", db):
+        assert qs.bank_has_writing("b1") is False
 
 
 def test_the_writing_flag_is_NOT_cached_across_calls():
