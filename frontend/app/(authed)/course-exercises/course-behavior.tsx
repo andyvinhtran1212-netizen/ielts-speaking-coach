@@ -509,6 +509,33 @@ export function CourseBehavior() {
         renderWriting();
       }
 
+      // Nút nằm lại trên màn hình trong lúc runner đang hỏi server chặng kế
+      // tiếp. Khoá ngay từ lần kích hoạt đầu để double-tap trên thiết bị cảm
+      // ứng không xếp thêm một lượt chuyển chặng trước khi DOM được vẽ lại.
+      let stageAdvance: Promise<void> | null = null;
+      function advanceStageFlow(): Promise<void> {
+        if (stageAdvance) return stageAdvance;
+        const button = $('cx-more');
+        if (button) {
+          button.setAttribute('disabled', '');
+          button.setAttribute('aria-busy', 'true');
+        }
+        stageAdvance = Promise.resolve()
+          .then(() => runner.nextStage())
+          .then(() => { renderQuestion(); })
+          .catch(() => {
+            // Runner tự xử lý lỗi mạng dự kiến. Nhánh này giữ đường lui cho lỗi
+            // bất ngờ: không để nút bị khoá vĩnh viễn và không dùng alert().
+            if (button?.isConnected) {
+              button.removeAttribute('disabled');
+              button.removeAttribute('aria-busy');
+            }
+            setSaveState('error', 'Chưa chuyển được chặng — hãy thử lại');
+          })
+          .finally(() => { stageAdvance = null; });
+        return stageAdvance;
+      }
+
       async function startRetakeFlow() {
         // DỌN báo cáo cũ trước khi làm lại.
         //
@@ -575,7 +602,7 @@ export function CourseBehavior() {
         if (opt && !opt.disabled) return onAnswered(Number(opt.dataset.i));
         if (t.id === 'cx-go') { runner.next(); return renderQuestion(); }
         if (t.id === 'cx-reveal') return onSelfCheck();
-        if (t.id === 'cx-more') return runner.nextStage().then(renderQuestion);
+        if (t.id === 'cx-more') return void advanceStageFlow();
         if (t.id === 'cx-retake') return void startRetakeFlow();
         if (t.id === 'cx-retry-full') return void restartFullFlow();
         if (t.id === 'cx-verdict-retry') return void renderVerdict();

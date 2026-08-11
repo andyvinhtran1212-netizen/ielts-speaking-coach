@@ -35,7 +35,7 @@ evidence vẫn chưa hoàn tất. Vì vậy canonical core cutover vẫn bị ch
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; artifact ghi `matrix_complete: true`, exact revisions và 0 report error | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
-| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests bằng hashes/counts; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact và failure-injection matrix còn thiếu bốn nhóm core-player. Cơ chế đếm không thay thế các lần chạy thật. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests live-staging; cùng workflow chạy thêm Speaking failure matrix 46 browser cases trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift và fail của bất kỳ suite nào; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact; Reading/Listening/Writing còn bốn failure paths mỗi cluster. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -82,15 +82,17 @@ evidence vẫn chưa hoàn tất. Vì vậy canonical core cutover vẫn bị ch
 ### GE-3 — Có cơ chế ledger, chưa có qualifying 20-run evidence
 
 - **Root cause:** workflow nightly ban đầu không có frozen critical manifest,
-  provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; phần còn thiếu
-  là 20 executions thật và bốn failure-injection groups của core players.
+  provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; Speaking
+  failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Phần
+  còn thiếu là 20 executions thật cùng ba failure-matrix slice của các core
+  cluster tiếp theo.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
   thư mục `frontend/tests/staging-e2e/`.
-- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA,
-  bắt đầu candidate streak, đồng thời bổ sung failure injection theo từng core
-  migration cluster. Không backfill run trước khi ledger/provenance tồn tại.
+- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA để
+  bắt đầu candidate streak, rồi thêm từng failure slice trong PR core cluster
+  tương ứng. Không backfill run trước khi ledger/provenance tồn tại.
 - **Verification:** auditor tái dựng đúng 20 run IDs liên tiếp từ artifacts,
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.

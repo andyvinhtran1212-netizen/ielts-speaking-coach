@@ -2,7 +2,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -29,6 +29,15 @@ const stagingJobCode = workflowCode.match(/^  staging-e2e:\n[\s\S]*?(?=^  produc
 const evidenceUploadCode = workflowCode.match(
   /^      - name: Upload device-matrix evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
+const speakingEvidenceCheckCode = workflowCode.match(
+  /^      - name: Verify Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+const speakingEvidenceUploadCode = workflowCode.match(
+  /^      - name: Upload Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+const speakingEvidenceVerifier = read(
+  'frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs',
+);
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
   const tests = includedProjects.map((project) => ({
@@ -99,7 +108,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(evidenceUploadCode, /^      - name: Upload device-matrix evidence\n\s+if: always\(\) && steps\.matrix_evidence\.outcome == 'success'\n\s+uses: actions\/upload-artifact@v4/);
     assert.match(evidenceUploadCode, /gate-e-device-matrix-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(evidenceUploadCode, /^\s*if-no-files-found:\s*error\s*$/m);
-    assert.match(stagingJobCode, /^\s*timeout-minutes:\s*30\s*$/m);
+    assert.match(stagingJobCode, /^\s*timeout-minutes:\s*60\s*$/m);
     assert.match(WRITER, /GATE_E_RUN_OUTCOME/);
     assert.match(WRITER, /if \(!existsSync\(browsersPath\)\) \{[\s\S]*?throw new Error/);
     assert.match(WRITER, /if \(!existsSync\(resultPath\)\) \{[\s\S]*?throw new Error/);
@@ -109,6 +118,30 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(WRITER, /target\.version !== project\.browser_version/);
     assert.ok(WRITER.includes('!= installed target'));
     assert.doesNotMatch(WRITER, /STAGING_BYPASS|E2E_PASSWORD|access_token|refresh_token/);
+  });
+
+  test('Speaking failure evidence is semantically verified before any streak state advances', () => {
+    assert.match(speakingEvidenceCheckCode, /id: speaking_failure_evidence/);
+    assert.match(speakingEvidenceCheckCode, /GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/);
+    assert.match(
+      speakingEvidenceCheckCode,
+      /node \.gate-e-auditor\/frontend\/tooling\/verify-gate-e-speaking-failure-evidence\.mjs/,
+    );
+    assert.match(
+      speakingEvidenceUploadCode,
+      /if: always\(\) && steps\.speaking_failure_evidence\.outcome == 'success'/,
+    );
+    assert.ok(
+      WORKFLOW.indexOf('Verify Speaking failure-matrix evidence')
+      < WORKFLOW.indexOf('Write versioned device-matrix metadata'),
+      'runtime evidence must be verified before metadata and ledger generation',
+    );
+    assert.match(
+      WORKFLOW,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+    );
+    assert.match(speakingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
+    assert.match(speakingEvidenceVerifier, /HTML embedded ZIP is truncated/);
   });
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {

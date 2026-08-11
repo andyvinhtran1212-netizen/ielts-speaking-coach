@@ -150,3 +150,44 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
     assert.match(SRC, /runner\.sessionFailed \? 'error'/);
   });
 });
+
+describe('chuyển chặng trên giao diện', () => {
+  function loadAdvanceStageFlow(env) {
+    const body = functionBody('advanceStageFlow');
+    const factory = new Function('$', 'runner', 'renderQuestion', 'setSaveState', `
+      let stageAdvance = null;
+      return function advanceStageFlow() {${body}};
+    `);
+    return factory(env.$, env.runner, env.renderQuestion, env.setSaveState || (() => {}));
+  }
+
+  test('double-tap dùng chung một lượt và chỉ render chặng mới một lần', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let advanced = 0;
+    let rendered = 0;
+    const attrs = new Set();
+    const button = {
+      isConnected: true,
+      setAttribute: (name) => attrs.add(name),
+      removeAttribute: (name) => attrs.delete(name),
+    };
+    const advance = loadAdvanceStageFlow({
+      $: (id) => id === 'cx-more' ? button : null,
+      runner: { nextStage: () => { advanced += 1; return gate; } },
+      renderQuestion: () => { rendered += 1; button.isConnected = false; },
+    });
+
+    const first = advance();
+    const second = advance();
+    assert.strictEqual(second, first);
+    assert.equal(advanced, 0, 'promise phải được giữ trước khi gọi runner');
+    assert.ok(attrs.has('disabled') && attrs.has('aria-busy'));
+
+    await Promise.resolve();
+    assert.equal(advanced, 1);
+    release();
+    await Promise.all([first, second]);
+    assert.equal(rendered, 1, 'render hai lần vẫn để lại cửa cho event cũ chạy lại');
+  });
+});

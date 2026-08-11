@@ -2,6 +2,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +20,15 @@ const RECOVERY_SPEC = read('frontend/tests/gate-e/native-speaking-resume-finaliz
 const WEBKIT_SPEC = read('frontend/tests/gate-e/native-speaking-webkit-capability.spec.js');
 const DOC = read('docs/GATE_E_SPEAKING_CORE_2026-08-09.md');
 const VERIFIER = read('frontend/tooling/verify-gate-e-speaking-device-matrix.mjs');
+const runVerifier = (runnerImage) => spawnSync(
+  process.execPath,
+  ['tooling/verify-gate-e-speaking-device-matrix.mjs'],
+  {
+    cwd: FRONTEND,
+    encoding: 'utf8',
+    env: { ...process.env, GATE_E_RUNNER_IMAGE: runnerImage },
+  },
+);
 
 describe('Speaking Gate E device matrix is pinned and auditable', () => {
   test('manifest matches the lockfile and all configured projects', () => {
@@ -44,8 +54,18 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(WORKFLOW, /if-no-files-found: error/);
     assert.match(VERIFIER, /node_modules\/playwright-core\/browsers\.json/);
     assert.match(VERIFIER, /revisionOverrides\?\.\[runnerImage\] \|\| item\.revision/);
+    assert.match(VERIFIER, /configuredRunnerImage !== manifest\.ci_runner/);
     assert.match(VERIFIER, /target\.version !== project\.browser_version/);
     assert.match(VERIFIER, /target\.revision !== project\.browser_revision/);
+  });
+
+  test('runner pin rejects a typo instead of silently using the default browser revision', () => {
+    const pinned = runVerifier(MANIFEST.ci_runner);
+    assert.equal(pinned.status, 0, pinned.stderr);
+
+    const typo = runVerifier('ubuntu24.04-typo');
+    assert.notEqual(typo.status, 0);
+    assert.match(typo.stderr, /Speaking matrix runner ubuntu24\.04-typo != manifest ubuntu24\.04-x64/);
   });
 
   test('automated mic scope includes retry/audio/cleanup without faking background state', () => {
