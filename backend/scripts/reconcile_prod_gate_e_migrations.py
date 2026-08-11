@@ -25,6 +25,7 @@ MIGRATIONS_ROOT = BACKEND_ROOT / "migrations"
 APPLY_MIGRATIONS = BACKEND_ROOT / "scripts" / "apply_migrations.sh"
 VERIFY_SQL = BACKEND_ROOT / "scripts" / "verify_prod_gate_e_reconcile.sql"
 PRODUCTION_PROJECT_REF = "huwsmtubwulikhlmcirx"
+MIGRATION_ADVISORY_LOCK = (173204, 1)
 
 # Production already records these three files.  They are intentionally not
 # synthesized by this procedure: if one is absent, the audited target no longer
@@ -119,27 +120,51 @@ def _read_ledger(database_url: str) -> set[str]:
     return {line.strip() for line in result.stdout.splitlines() if line.strip()}
 
 
-def _apply_repair(database_url: str) -> None:
-    _psql(database_url, "-q", "-f", str(MIGRATIONS_ROOT / REPAIR_MIGRATION))
-
-
-def _verify_audited_postconditions(database_url: str) -> None:
-    _psql(database_url, "-q", "-f", str(VERIFY_SQL))
-
-
-def _record_ledger(database_url: str, filenames: Iterable[str]) -> None:
+def _ledger_insert_sql(filenames: Iterable[str]) -> str:
     rows = tuple(filenames)
     if not rows:
-        return
+        raise ReconciliationError("refusing an empty locked ledger write")
     values = ", ".join(f"('{filename}')" for filename in rows)
-    _psql(
-        database_url,
-        "-q",
-        "-c",
+    return (
         "INSERT INTO _schema_migrations (filename) "
         f"SELECT filename FROM (VALUES {values}) AS audited(filename) "
-        "ON CONFLICT (filename) DO NOTHING",
+        "ON CONFLICT (filename) DO NOTHING"
     )
+
+
+def _reconcile_locked(
+    database_url: str,
+    *,
+    apply_repair: bool,
+    filenames: Iterable[str],
+) -> None:
+    """Repair, verify and acknowledge history under one database lock/session.
+
+    The standard forward runner takes the same session-level advisory lock and
+    re-reads each ledger row only after acquiring it. Keeping this entire
+    sequence in one ``psql`` process prevents a runner that took an earlier
+    snapshot from replaying superseded history between verification and the
+    ledger write. Session close releases the lock on every error path.
+    """
+    lock_class, lock_object = MIGRATION_ADVISORY_LOCK
+    arguments = [
+        "-q",
+        "-c",
+        f"SELECT pg_advisory_lock({lock_class}, {lock_object})",
+    ]
+    if apply_repair:
+        arguments.extend(("-f", str(MIGRATIONS_ROOT / REPAIR_MIGRATION)))
+    arguments.extend(
+        (
+            "-f",
+            str(VERIFY_SQL),
+            "-c",
+            _ledger_insert_sql(filenames),
+            "-c",
+            f"SELECT pg_advisory_unlock({lock_class}, {lock_object})",
+        )
+    )
+    _psql(database_url, *arguments)
 
 
 def _standard_forward_dry_run(database_url: str) -> str:
@@ -216,15 +241,15 @@ def reconcile(database_url: str, *, dry_run: bool) -> None:
     # This ordering is the safety property the normal forward runner cannot
     # provide on the drifted production ledger: repair the final schema first,
     # prove the audited final state, and only then acknowledge historical files.
+    to_record = (*missing_history, *((REPAIR_MIGRATION,) if repair_missing else ()))
     if repair_missing:
         print(f"applying repair first: {REPAIR_MIGRATION}")
-        _apply_repair(database_url)
-
     print("verifying audited production postconditions")
-    _verify_audited_postconditions(database_url)
-
-    to_record = (*missing_history, *((REPAIR_MIGRATION,) if repair_missing else ()))
-    _record_ledger(database_url, to_record)
+    _reconcile_locked(
+        database_url,
+        apply_repair=repair_missing,
+        filenames=to_record,
+    )
 
     post_ledger = _read_ledger(database_url)
     still_missing = sorted(set(RECONCILED_SCOPE) - post_ledger)

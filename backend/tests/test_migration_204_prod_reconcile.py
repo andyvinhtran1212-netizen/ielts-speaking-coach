@@ -22,6 +22,8 @@ SQL = (
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = BACKEND_ROOT / "scripts" / "reconcile_prod_gate_e_migrations.py"
+APPLY_PATH = BACKEND_ROOT / "scripts" / "apply_migrations.sh"
+LOCKED_APPLIER_PATH = BACKEND_ROOT / "scripts" / "apply_migration_locked.sql"
 VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_gate_e_reconcile.sql"
 GRADING_PATH = BACKEND_ROOT / "routers" / "grading.py"
 PROGRESS_BACKFILL_PATH = BACKEND_ROOT / "scripts" / "backfill_speaking_progress.py"
@@ -94,17 +96,11 @@ def test_procedure_applies_204_then_verifies_before_recording(monkeypatch, capsy
 
     monkeypatch.setattr(RECONCILE, "_ensure_ledger", lambda _url: events.append("ensure"))
     monkeypatch.setattr(RECONCILE, "_read_ledger", lambda _url: next(ledger_reads))
-    monkeypatch.setattr(RECONCILE, "_apply_repair", lambda _url: events.append("repair-204"))
-    monkeypatch.setattr(
-        RECONCILE,
-        "_verify_audited_postconditions",
-        lambda _url: events.append("verify"),
-    )
 
-    def record(_url, filenames):
-        events.append(("record", tuple(filenames)))
+    def reconcile_locked(_url, *, apply_repair, filenames):
+        events.append(("locked", apply_repair, tuple(filenames)))
 
-    monkeypatch.setattr(RECONCILE, "_record_ledger", record)
+    monkeypatch.setattr(RECONCILE, "_reconcile_locked", reconcile_locked)
     monkeypatch.setattr(
         RECONCILE,
         "_standard_forward_dry_run",
@@ -113,11 +109,14 @@ def test_procedure_applies_204_then_verifies_before_recording(monkeypatch, capsy
 
     RECONCILE.reconcile("postgresql://staging.example/test", dry_run=False)
 
-    assert events[:3] == ["ensure", "repair-204", "verify"]
-    assert events[3] == (
-        "record",
-        (*RECONCILE.AUDITED_HISTORY, RECONCILE.REPAIR_MIGRATION),
-    )
+    assert events[:2] == [
+        "ensure",
+        (
+            "locked",
+            True,
+            (*RECONCILE.AUDITED_HISTORY, RECONCILE.REPAIR_MIGRATION),
+        ),
+    ]
     output = capsys.readouterr().out
     assert "standard forward dry-run lists no migration from 173-204" in output
 
@@ -130,16 +129,10 @@ def test_second_procedure_run_is_a_schema_and_ledger_noop(monkeypatch, capsys):
         "_read_ledger",
         lambda _url: set(RECONCILE.RECONCILED_SCOPE),
     )
-    monkeypatch.setattr(RECONCILE, "_apply_repair", lambda _url: events.append("repair"))
     monkeypatch.setattr(
         RECONCILE,
-        "_verify_audited_postconditions",
-        lambda _url: events.append("verify"),
-    )
-    monkeypatch.setattr(
-        RECONCILE,
-        "_record_ledger",
-        lambda _url, _files: events.append("record"),
+        "_reconcile_locked",
+        lambda _url, **_kwargs: events.append("locked-reconcile"),
     )
     monkeypatch.setattr(
         RECONCILE,
@@ -165,8 +158,10 @@ def test_procedure_refuses_if_the_preexisting_ledger_no_longer_matches(monkeypat
     monkeypatch.setattr(RECONCILE, "_read_ledger", lambda _url: set())
     monkeypatch.setattr(
         RECONCILE,
-        "_apply_repair",
-        lambda _url: pytest.fail("must refuse before applying migration 204"),
+        "_reconcile_locked",
+        lambda _url, **_kwargs: pytest.fail(
+            "must refuse before applying migration 204"
+        ),
     )
 
     with pytest.raises(RECONCILE.ReconciliationError, match="required existing"):
@@ -188,6 +183,70 @@ def test_production_dry_run_needs_no_write_authorization(monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert f"would apply first: {RECONCILE.REPAIR_MIGRATION}" in output
+
+
+def test_repair_verify_and_ledger_write_share_one_locked_psql_session(monkeypatch):
+    calls = []
+
+    def capture(url, *arguments, capture_output=False):
+        calls.append((url, arguments, capture_output))
+
+    monkeypatch.setattr(RECONCILE, "_psql", capture)
+    rows = (RECONCILE.AUDITED_HISTORY[0], RECONCILE.REPAIR_MIGRATION)
+    RECONCILE._reconcile_locked(
+        "postgresql://staging.example/test",
+        apply_repair=True,
+        filenames=rows,
+    )
+
+    assert len(calls) == 1
+    arguments = calls[0][1]
+    lock = "SELECT pg_advisory_lock(173204, 1)"
+    unlock = "SELECT pg_advisory_unlock(173204, 1)"
+    assert lock in arguments
+    assert unlock in arguments
+    repair_index = arguments.index(
+        str(BACKEND_ROOT / "migrations" / RECONCILE.REPAIR_MIGRATION)
+    )
+    verify_index = arguments.index(str(VERIFY_PATH))
+    ledger_index = next(
+        index
+        for index, value in enumerate(arguments)
+        if isinstance(value, str) and value.startswith("INSERT INTO _schema_migrations")
+    )
+    assert (
+        arguments.index(lock)
+        < repair_index
+        < verify_index
+        < ledger_index
+        < arguments.index(unlock)
+    )
+    assert all(row in arguments[ledger_index] for row in rows)
+
+
+def test_forward_runner_rechecks_each_ledger_row_inside_the_shared_lock():
+    runner = APPLY_PATH.read_text(encoding="utf-8")
+    helper = LOCKED_APPLIER_PATH.read_text(encoding="utf-8")
+
+    assert "applied_list=" in runner
+    assert "if is_applied" in runner
+    assert '-f "$LOCKED_APPLIER"' in runner
+    for variable in ("MIGRATION_NAME", "MIGRATION_PATH", "BASELINE", "DRY_RUN"):
+        assert f'-v {variable}=' in runner
+    lock_index = helper.index("pg_advisory_lock(173204, 1)")
+    recheck_index = helper.index("FROM public._schema_migrations")
+    include_index = helper.index("\\i :MIGRATION_PATH")
+    baseline_ledger_index = helper.index("INSERT INTO public._schema_migrations")
+    apply_ledger_index = helper.index(
+        "INSERT INTO public._schema_migrations", include_index
+    )
+    unlock_index = helper.rindex("pg_advisory_unlock(173204, 1)")
+    assert lock_index < recheck_index < baseline_ledger_index < unlock_index
+    assert lock_index < recheck_index < include_index < apply_ledger_index < unlock_index
+    assert "\\if :migration_already_applied" in helper
+    for status in ("skipped", "would-apply", "processed"):
+        assert f"__apply_migration_status__={status}" in helper
+        assert f'__apply_migration_status__={status}' in runner
 
 
 def test_main_does_not_log_database_url_from_failed_subprocess(monkeypatch, capsys):

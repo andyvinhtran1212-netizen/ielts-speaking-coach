@@ -52,3 +52,6 @@ The procedure has a fixed audited manifest; it applies migration 204 first,
 runs `verify_prod_gate_e_reconcile.sql`, records only the audited missing rows,
 and then invokes the normal runner in dry-run mode. It refuses to finish if any
 file in 173–204 would still replay. A second invocation is a read-only no-op.
+The reconciler and `apply_migrations.sh` share a PostgreSQL advisory lock;
+the forward runner re-checks every previously missing ledger row after it owns
+that lock, so a stale pre-lock snapshot cannot replay reconciled history.
