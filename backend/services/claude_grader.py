@@ -754,7 +754,7 @@ def _fix_json_strings(text: str) -> str:
 
 
 def _close_unterminated_json(text: str) -> str | None:
-    """Đóng nốt một JSON bị bỏ dở: chuỗi chưa đóng, mảng và đối tượng còn mở.
+    """Đóng nốt mảng/đối tượng của JSON bị bỏ dở tại ranh giới token an toàn.
 
     Trả `None` khi không có gì để đóng (đã cân bằng — hỏng vì lý do khác).
 
@@ -764,9 +764,11 @@ def _close_unterminated_json(text: str) -> str | None:
     được trên một bài Part 2 thật: 2/14 lượt hỏng đúng kiểu này, và đó chính là
     3,8% lượt chấm hỏng trên prod.
 
-    KHÔNG đoán phần nội dung bị mất: trường bắt buộc nằm sau chỗ đứt thì bộ kiểm
-    cấu trúc vẫn từ chối — bịa một điểm số cho phần chưa được viết mới là thứ
-    không được phép.
+    KHÔNG đoán phần nội dung bị mất: nếu output dừng giữa một chuỗi, không thể
+    biết câu đã hoàn chỉnh hay mới viết được một phần. Trường hợp đó phải trả
+    ``None`` để pipeline đổi provider/thử lại, thay vì thêm dấu nháy rồi chấp
+    nhận feedback bị cụt. Trường bắt buộc nằm sau chỗ đứt cũng vẫn bị bộ kiểm
+    cấu trúc từ chối.
     """
     stack: list[str] = []
     in_string = False
@@ -792,9 +794,13 @@ def _close_unterminated_json(text: str) -> str | None:
     if not in_string and not stack:
         return None
 
-    out = text
+    # A string cut at the response boundary is semantically unrecoverable: its
+    # text may be only a prefix of the intended feedback/sample answer. Closing
+    # the quote would turn a partial learner-facing sentence into valid JSON.
     if in_string:
-        out += '"'
+        return None
+
+    out = text
     out = out.rstrip()
     # Dấu phẩy treo: `["a",` phải đóng thành `["a"]`, không phải `["a",]`.
     if out.endswith(","):
