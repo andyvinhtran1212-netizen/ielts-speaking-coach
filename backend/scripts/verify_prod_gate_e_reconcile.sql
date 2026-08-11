@@ -255,6 +255,41 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Migration 200 relies on this partial UNIQUE index to serialize one Part
+    -- per full-test attempt. CREATE UNIQUE INDEX IF NOT EXISTS cannot repair a
+    -- manually-created same-name ordinary/wrong index, so pin the complete
+    -- contract before acknowledging the historical migration in the ledger.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_index i
+         WHERE i.indexrelid = to_regclass(
+                   'public.uq_sessions_full_test_attempt_part'
+               )
+           AND i.indrelid = 'public.sessions'::regclass
+           AND i.indisunique
+           AND i.indisvalid
+           AND i.indisready
+           AND i.indnatts = 2
+           AND i.indnkeyatts = 2
+           AND i.indexprs IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = i.indrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['full_test_attempt_id', 'part']::name[]
+           AND pg_get_expr(i.indpred, i.indrelid) =
+               '((mode = ''test_full''::text) AND '
+               '(full_test_attempt_id IS NOT NULL))'
+    ) THEN
+        missing := array_append(
+            missing,
+            'index-contract:uq_sessions_full_test_attempt_part'
+        );
+    END IF;
+
     FOR tbl, item IN
         SELECT * FROM (VALUES
             ('courses', 'update_courses_updated_at'),
@@ -325,29 +360,106 @@ BEGIN
         missing := array_append(missing, 'service-only-table-acl:course_writing_drafts');
     END IF;
 
-    FOR tbl, item IN
-        SELECT * FROM (VALUES
-            ('courses', 'courses_admin_all'),
-            ('class_lessons', 'class_lessons_admin_all'),
-            ('class_assignments', 'class_assignments_admin_all'),
-            ('class_assignment_items', 'class_assignment_items_admin_all'),
-            ('speaking_lesson_sets', 'speaking_lesson_sets_admin_all'),
-            ('speaking_lesson_set_questions', 'slsq_admin_all'),
-            ('speaking_progress_marks', 'spm_admin_all'),
-            ('class_action_log', 'cal_admin_read'),
-            ('class_action_log', 'cal_admin_append')
-        ) AS expected(table_name, policy_name)
-    LOOP
-        IF NOT EXISTS (
-            SELECT 1
-              FROM pg_policies
-             WHERE schemaname = 'public'
-               AND tablename = tbl
-               AND policyname = item
-        ) THEN
-            missing := array_append(missing, 'policy:' || tbl || '.' || item);
-        END IF;
-    END LOOP;
+    -- A policy name is not an authorization contract. Compare the complete
+    -- effective set for every table created by the reconciled migrations,
+    -- including command, role, permissiveness, USING and WITH CHECK. The two
+    -- course-writing tables intentionally have no policies, so any extra policy
+    -- on them also appears in the symmetric difference and fails closed.
+    IF EXISTS (
+        WITH expected(
+            tablename, policyname, permissive, roles, cmd, qual, with_check
+        ) AS (
+            VALUES
+                (
+                    'courses'::name, 'courses_admin_all'::name,
+                    'PERMISSIVE'::text, ARRAY['authenticated']::name[],
+                    'ALL'::text, 'is_current_user_admin()'::text,
+                    'is_current_user_admin()'::text
+                ),
+                (
+                    'class_lessons', 'class_lessons_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'class_assignments', 'class_assignments_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'class_assignment_items',
+                    'class_assignment_items_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'speaking_lesson_sets',
+                    'speaking_lesson_sets_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'speaking_lesson_set_questions', 'slsq_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'speaking_progress_marks', 'spm_admin_all',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'ALL', 'is_current_user_admin()',
+                    'is_current_user_admin()'
+                ),
+                (
+                    'class_action_log', 'cal_admin_read',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'SELECT', 'is_current_user_admin()', NULL
+                ),
+                (
+                    'class_action_log', 'cal_admin_append',
+                    'PERMISSIVE', ARRAY['authenticated']::name[],
+                    'INSERT', NULL, 'is_current_user_admin()'
+                )
+        ),
+        actual AS (
+            SELECT p.tablename,
+                   p.policyname,
+                   p.permissive,
+                   p.roles,
+                   p.cmd,
+                   p.qual,
+                   p.with_check
+              FROM pg_policies p
+             WHERE p.schemaname = 'public'
+               AND p.tablename = ANY (ARRAY[
+                    'courses',
+                    'class_lessons',
+                    'class_assignments',
+                    'class_assignment_items',
+                    'speaking_lesson_sets',
+                    'speaking_lesson_set_questions',
+                    'speaking_progress_marks',
+                    'course_writing_submissions',
+                    'course_writing_drafts',
+                    'class_action_log'
+               ]::name[])
+        ),
+        policy_difference AS (
+            (SELECT * FROM expected EXCEPT SELECT * FROM actual)
+            UNION ALL
+            (SELECT * FROM actual EXCEPT SELECT * FROM expected)
+        )
+        SELECT 1 FROM policy_difference
+    ) THEN
+        missing := array_append(
+            missing,
+            'policy-contract:reconciled-tables'
+        );
+    END IF;
 
     -- Durable seed/data invariants audited before the repair.
     IF (SELECT count(DISTINCT code) FROM courses WHERE code IN ('C1','C2','C3','C4','C5')) <> 5 THEN

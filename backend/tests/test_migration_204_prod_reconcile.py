@@ -230,4 +230,32 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "tgfoid = to_regprocedure('public.fn_class_action_log_append_only()')" in verify_sql
     assert "obsolete-constraint:course_writing_submissions(bank_id,user_id)" in verify_sql
     assert "ARRAY['bank_id', 'user_id']::name[]" in verify_sql
+    assert "index-contract:uq_sessions_full_test_attempt_part" in verify_sql
+    assert "FROM pg_index i" in verify_sql
+    assert "i.indisunique" in verify_sql
+    assert "i.indisvalid" in verify_sql
+    assert "i.indisready" in verify_sql
+    assert "i.indnatts = 2" in verify_sql
+    assert "i.indnkeyatts = 2" in verify_sql
+    assert "ARRAY['full_test_attempt_id', 'part']::name[]" in verify_sql
+    assert "pg_get_expr(i.indpred, i.indrelid)" in verify_sql
+    assert "policy-contract:reconciled-tables" in verify_sql
+    assert "FROM pg_policies p" in verify_sql
+    assert "policy_difference" in verify_sql
+    assert "SELECT * FROM expected EXCEPT SELECT * FROM actual" in verify_sql
+    assert "SELECT * FROM actual EXCEPT SELECT * FROM expected" in verify_sql
+    assert "course_writing_submissions" in verify_sql
+    assert "course_writing_drafts" in verify_sql
+    for policy_name in (
+        "courses_admin_all",
+        "class_lessons_admin_all",
+        "class_assignments_admin_all",
+        "class_assignment_items_admin_all",
+        "speaking_lesson_sets_admin_all",
+        "slsq_admin_all",
+        "spm_admin_all",
+        "cal_admin_read",
+        "cal_admin_append",
+    ):
+        assert policy_name in verify_sql
     assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql
