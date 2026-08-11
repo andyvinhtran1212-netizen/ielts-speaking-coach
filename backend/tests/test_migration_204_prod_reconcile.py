@@ -208,6 +208,9 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "p.prosecdef" in verify_sql
     assert "p.proconfig = ARRAY['search_path=public, pg_temp']::text[]" in verify_sql
     assert "md5(p.prosrc) = '856941cccd7f1e4a4df130f9286a189f'" in verify_sql
+    assert "function-contract:fn_class_action_log_append_only" in verify_sql
+    assert "p.prorettype = 'trigger'::regtype" in verify_sql
+    assert "md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'" in verify_sql
     assert "service-only-acl:" in verify_sql
     assert "has_function_privilege('anon'" in verify_sql
     assert "has_function_privilege('authenticated'" in verify_sql
@@ -241,6 +244,14 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "tgfoid = to_regprocedure('public.fn_class_action_log_append_only()')" in verify_sql
     assert "forbidden-foreign-key:class_action_log" in verify_sql
     assert "con.contype = 'f'" in verify_sql
+    assert "constraint-contract:class_lessons.id-cohort" in verify_sql
+    assert "ARRAY['id', 'cohort_id']::name[]" in verify_sql
+    assert "constraint-contract:class_assignments.lesson-cohort" in verify_sql
+    assert "con.confrelid = 'public.class_lessons'::regclass" in verify_sql
+    assert "con.confdeltype = 'n'" in verify_sql
+    assert "ARRAY['lesson_id', 'cohort_id']::name[]" in verify_sql
+    assert "unnest(con.confdelsetcols)" in verify_sql
+    assert "ARRAY['lesson_id']::name[]" in verify_sql
     assert "constraint-contract:class_assignment_items.artifact_kind" in verify_sql
     for artifact_kind in (
         "session",

@@ -175,6 +175,30 @@ BEGIN
         );
     END IF;
 
+    -- The trigger OID only proves which function is called, not that the
+    -- function still raises. Pin migration 198's canonical append-only body so
+    -- service_role cannot bypass the audit guarantee through a RETURN OLD body.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_proc p
+          JOIN pg_language l ON l.oid = p.prolang
+         WHERE p.oid = to_regprocedure(
+                   'public.fn_class_action_log_append_only()'
+               )
+           AND l.lanname = 'plpgsql'
+           AND p.prorettype = 'trigger'::regtype
+           AND NOT p.prosecdef
+           AND p.provolatile = 'v'
+           AND p.proparallel = 'u'
+           AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
+           AND md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'
+    ) THEN
+        missing := array_append(
+            missing,
+            'function-contract:fn_class_action_log_append_only'
+        );
+    END IF;
+
     -- These RPCs either bypass RLS (SECURITY DEFINER) or perform destructive
     -- bulk replacement. Function existence is not proof that a manual provision
     -- also applied the mandatory REVOKE. A PUBLIC grant is inherited by both
@@ -222,6 +246,74 @@ BEGIN
             missing := array_append(missing, 'constraint:' || tbl || '.' || item);
         END IF;
     END LOOP;
+
+    -- Migration 178 replaces the unsafe independent lesson FK with a composite
+    -- same-cohort relationship. Pin both sides and the PG15+ SET NULL column
+    -- list; names alone could hide the old single-column constraint.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_lessons'::regclass
+           AND con.conname = 'class_lessons_id_cohort_key'
+           AND con.contype = 'u'
+           AND con.convalidated
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['id', 'cohort_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_lessons.id-cohort'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_assignments'::regclass
+           AND con.conname = 'class_assignments_lesson_cohort_fkey'
+           AND con.contype = 'f'
+           AND con.convalidated
+           AND con.confrelid = 'public.class_lessons'::regclass
+           AND con.confupdtype = 'a'
+           AND con.confdeltype = 'n'
+           AND con.confmatchtype = 's'
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['lesson_id', 'cohort_id']::name[]
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.confkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.confrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['id', 'cohort_id']::name[]
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.confdelsetcols) WITH ORDINALITY
+                       AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['lesson_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignments.lesson-cohort'
+        );
+    END IF;
 
     -- The audit log's append-only guarantee must survive service_role bypassing
     -- RLS. A same-named disabled, statement-level, one-event, AFTER, or
