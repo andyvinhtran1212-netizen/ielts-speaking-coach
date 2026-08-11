@@ -92,6 +92,11 @@ describe('/writing/result — native Next ownership', () => {
   test('registers parity and makes route-specific changes trigger the gate', () => {
     const pair = PAIRS.find((candidate) => candidate.name === 'writing-result');
     assert.deepEqual([pair?.legacy, pair?.next], ['/pages/writing-result.html', '/writing/result']);
+    assert.deepEqual(
+      pair.allow.map((entry) => `${entry.kind}:${entry.value}`).sort(),
+      ['component-missing:header', 'component-missing:main', 'component-missing:nav'],
+    );
+    assert.ok(pair.allow.every((entry) => entry.reason.length > 40));
     assert.match(WORKFLOW, /frontend\/app\/\(authed-writing-result\)\/\*\*/);
     assert.match(WORKFLOW, /writing-result/);
   });
