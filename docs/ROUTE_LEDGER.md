@@ -257,7 +257,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/admin` | `/admin.html` (stub redirect), `/pages/admin.html` (legacy), `/pages/admin/dashboard/index.html` (legacy redirect via vercel.json line 50) | `pages/admin/index.html` | Admin | `tab` (optional, section filter) | localStorage (theme), sessionStorage (filter state), Supabase session (verify admin) | M | Admin hub; 8-domain dashboard |
-| `/admin/system` | — | `pages/admin/system/index.html` | Admin | none | localStorage (theme), fetch (system stats) | S | System status + feature flags |
+| `/admin/system` | `/pages/admin/system/index.html` remains rollback target | `app/(authed-admin-system)/admin/system/page.tsx` — native React ownership 2026-08-12 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; localStorage (theme) | S | Read-only hub linking AI usage + alerts; account-keyed fail-closed admin state |
 | `/admin/system/alerts` | — | `pages/admin/system/alerts.html` | Admin | `severity` (critical, warning, info) | localStorage (theme), fetch (alert API) | M | Alert triage + dismissal |
 | `/admin/system/ai-usage` | — | `pages/admin/system/ai-usage.html` | Admin | `model`, `date_range` (filters) | localStorage (theme), fetch (usage API), chart library (recharts) | M | AI model usage + cost tracking |
 | `/admin/students` | — | `pages/admin/students/index.html` | Admin | `search`, `role`, `status` (filters) | localStorage (theme), sessionStorage (filter state), fetch (user list) | M | User list + cohort assignment |
