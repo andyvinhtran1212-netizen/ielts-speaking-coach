@@ -81,6 +81,20 @@ _AUDIO_BUCKET  = "audio-responses"
 _MAX_BYTES     = 50 * 1024 * 1024   # 50 MB hard limit before upload
 
 
+def _backend_release_sha() -> str | None:
+    """Return the exact Railway source SHA when the runtime exposes one.
+
+    The value is safe release provenance (not a credential) and is attached to
+    the persisted-response receipt so real-device evidence is bound to the
+    backend that actually accepted the recording. Local/dev runtimes without a
+    canonical 40-character SHA return ``None`` instead of an ambiguous marker.
+    """
+    value = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "").strip().lower()
+    if len(value) == 40 and all(char in "0123456789abcdef" for char in value):
+        return value
+    return None
+
+
 def _mark_session_error(
     session_id: str,
     error_code: str,
@@ -1117,6 +1131,7 @@ async def grade_response_endpoint(
                 # câu chung chung — và để lượt điều tra sau không phải đoán.
                 "_reason":             grading_error,
                 "response_id":         response_id,
+                "backend_release_sha": _backend_release_sha(),
                 "partial":             partial,
                 "transcript":          transcript,
                 "duration_seconds":    round(duration_sec, 2),
@@ -1133,6 +1148,7 @@ async def grade_response_endpoint(
             from services import mock_exam_service
             if mock_exam_service.is_sealed(session["sitting_id"]):
                 return {"received": True, "response_id": response_id,
+                        "backend_release_sha": _backend_release_sha(),
                         "sitting_id": session["sitting_id"], "sealed": True}
 
         return _build_response_payload(
@@ -1141,6 +1157,7 @@ async def grade_response_endpoint(
             duration_sec=duration_sec, confidence=confidence,
             assessment_confidence=assessment_confidence,
             score_confidence=score_confidence, grading=grading, signals=signals,
+            backend_release_sha=_backend_release_sha(),
         )
 
     except HTTPException:
@@ -1198,7 +1215,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
 
 def _build_response_payload(is_practice, *, response_id, partial, transcript,
                             duration_sec, confidence, assessment_confidence,
-                            score_confidence, grading, signals):
+                            score_confidence, grading, signals,
+                            backend_release_sha=None):
     """Build the /responses success payload. Extracted from the endpoint so the
     grading-dict access is unit-testable (mirrors the _persist_response_with_fallback
     extraction).
@@ -1212,6 +1230,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
     if is_practice:
         return {
             "response_id":              response_id,
+            "backend_release_sha":      backend_release_sha,
             "partial":                  partial,
             "transcript":               transcript,
             "duration_seconds":         round(duration_sec, 2),
@@ -1232,6 +1251,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
 
     return {
         "response_id":           response_id,
+        "backend_release_sha":   backend_release_sha,
         "partial":               partial,
         "transcript":            transcript,
         "duration_seconds":      round(duration_sec, 2),

@@ -45,9 +45,12 @@ Trước khi bấm tạo phiên, ghi UTC timestamp làm `journey_started_at`. T�
 `/speaking`, tạo một phiên Practice Part 2 **mới** bằng tài khoản synthetic, rồi
 mở stable URL `/practice/session?session_id=...`. Không tái dùng session có sẵn.
 Ghi UUID session, submit tối thiểu một bản ghi và lấy `response_id` trong response
-của request POST làm `canonical_response_id`; chỉ phát lại blob cục bộ hoặc chỉ
-đếm một response cũ không chứng minh persistence của journey này. Ghi
-`observed_at` sau khi hoàn tất toàn bộ scope.
+của request POST làm `canonical_response_id`. Cùng response đó phải có
+`backend_release_sha` 40 ký tự; ghi exact giá trị làm
+`observed_backend_release_sha`. Đây là marker của backend thực sự đã persist
+recording, không được thay bằng giá trị đọc từ một request chạy sau. Chỉ phát lại
+blob cục bộ hoặc chỉ đếm một response cũ không chứng minh persistence của journey
+này. Ghi `observed_at` sau khi hoàn tất toàn bộ scope.
 
 Ngay trong journey, mở `/js/runtime-config.js` trên cùng staging origin và ghi
 exact giá trị 40 ký tự của trường `release` làm `observed_release_sha`. Nếu
@@ -86,7 +89,8 @@ branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout cand
 `staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
 Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
 `journey_started_at`, `observed_at`, `canonical_response_id`,
-`observed_release_sha` đã ghi trong journey, operator và JSON scope. Ví dụ Safari:
+`observed_release_sha`, `observed_backend_release_sha` đã ghi trong journey,
+operator và JSON scope. Ví dụ Safari:
 
 ```json
 {
@@ -101,8 +105,11 @@ Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
 `console_errors_json` và `network_failures_json` phải là `[]`. Attestation phải
 được phát hành trong 12 giờ sau journey; canonical session phải bắt đầu không
 quá 3 giờ trước `observed_at`, nên không thể tái dùng một session cũ. Workflow
-chỉ nhận artifact khi `observed_release_sha` đúng bằng candidate SHA mà cả
-Vercel staging và Railway staging đang phục vụ. Workflow rerun không đủ điều kiện;
+chỉ nhận artifact khi `observed_release_sha` và
+`observed_backend_release_sha` đều đúng bằng candidate SHA mà Vercel staging và
+Railway staging đang phục vụ. Marker backend trong response journey cũng phải
+khớp provenance backend workflow đọc sau đó, nên deploy lệch nhịp sẽ fail thay
+vì ghép hai runtime khác nhau. Workflow rerun không đủ điều kiện;
 sửa input bằng một workflow run mới để không cherry-pick lần chạy lại thành PASS.
 
 Workflow luôn upload artifact, kể cả khi fail. Artifact hợp lệ phải có

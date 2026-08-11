@@ -98,6 +98,7 @@ try {
     journey_started_at: process.env.GATE_E_JOURNEY_STARTED_AT,
     observed_at: process.env.GATE_E_OBSERVED_AT,
     observed_release_sha: process.env.GATE_E_OBSERVED_RELEASE_SHA,
+    observed_backend_release_sha: process.env.GATE_E_OBSERVED_BACKEND_RELEASE_SHA,
     canonical_session_id: process.env.GATE_E_CANONICAL_SESSION_ID,
     canonical_response_id: process.env.GATE_E_CANONICAL_RESPONSE_ID,
     scope_results: parseJsonInput(process.env.GATE_E_SCOPE_RESULTS_JSON, 'scope-results'),

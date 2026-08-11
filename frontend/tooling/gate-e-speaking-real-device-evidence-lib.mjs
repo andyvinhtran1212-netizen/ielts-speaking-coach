@@ -32,6 +32,7 @@ export function validateSpeakingRealDeviceEvidence({
     .find((item) => item.id === requirementId);
   const sourceSha = cleanText(input.source_sha);
   const observedReleaseSha = cleanText(input.observed_release_sha);
+  const observedBackendReleaseSha = cleanText(input.observed_backend_release_sha);
   const sessionId = cleanText(input.canonical_session_id);
   const responseId = cleanText(input.canonical_response_id);
   const journeyStartedAt = cleanText(input.journey_started_at);
@@ -47,6 +48,16 @@ export function validateSpeakingRealDeviceEvidence({
     errors.push('observed-release-sha-invalid');
   } else if (observedReleaseSha !== sourceSha) {
     errors.push('observed-release-mismatch');
+  }
+  if (!SHA.test(observedBackendReleaseSha)) {
+    errors.push('observed-backend-release-sha-invalid');
+  } else {
+    if (observedBackendReleaseSha !== sourceSha) {
+      errors.push('observed-backend-release-mismatch');
+    }
+    if (observedBackendReleaseSha !== provenance?.backend_release) {
+      errors.push('observed-backend-provenance-mismatch');
+    }
   }
   if (cleanText(input.observed_platform) !== cleanText(requirement?.platform)) {
     errors.push('platform-mismatch');
@@ -157,6 +168,7 @@ export function validateSpeakingRealDeviceEvidence({
       evidence_class: 'manual-real-device',
       source_sha: sourceSha,
       observed_release_sha: observedReleaseSha,
+      observed_backend_release_sha: observedBackendReleaseSha,
       source_branch: 'staging',
       staging_origin: provenance.staging_origin,
       route: manifest.route,
@@ -196,7 +208,8 @@ export function validateSpeakingRealDeviceEvidence({
 
 const COMPLETE_EVIDENCE_KEYS = [
   'schema_version', 'matrix_id', 'requirement_id', 'status', 'evidence_class',
-  'source_sha', 'observed_release_sha', 'source_branch', 'staging_origin', 'route',
+  'source_sha', 'observed_release_sha', 'observed_backend_release_sha',
+  'source_branch', 'staging_origin', 'route',
   'coexistence_route',
   'observed_platform', 'observed_browser', 'device_model', 'operator', 'attested_by',
   'journey_started_at', 'observed_at', 'captured_at', 'canonical_session',
@@ -246,6 +259,7 @@ export function validateCompleteSpeakingRealDeviceArtifact(manifest, evidence) {
         requirement_id: evidence.requirement_id,
         source_sha: evidence.source_sha,
         observed_release_sha: evidence.observed_release_sha,
+        observed_backend_release_sha: evidence.observed_backend_release_sha,
         observed_platform: evidence.observed_platform,
         observed_browser: evidence.observed_browser,
         device_model: evidence.device_model,
@@ -327,7 +341,8 @@ export function validateSpeakingRealDeviceEvidencePair(
     errors.push('staging-ref-mismatch');
   }
   if (items.some((item) => item?.provenance?.frontend_release !== item?.source_sha ||
-      item?.provenance?.backend_release !== item?.source_sha)) {
+      item?.provenance?.backend_release !== item?.source_sha ||
+      item?.observed_backend_release_sha !== item?.source_sha)) {
     errors.push('artifact-provenance-mismatch');
   }
   const runIds = new Set(items.map((item) => item?.workflow?.run_id));

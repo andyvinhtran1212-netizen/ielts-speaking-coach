@@ -34,6 +34,7 @@ function fixture(requirementId, runId = '501') {
       requirement_id: requirementId,
       source_sha: SHA,
       observed_release_sha: SHA,
+      observed_backend_release_sha: SHA,
       observed_platform: requirement.platform,
       observed_browser: requirement.browser,
       device_model: requirementId === 'safari-floor' ? 'MacBook Air M1' : 'iPhone 6s',
@@ -87,6 +88,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
       assert.equal(result.evidence.status, 'complete');
       assert.equal(result.evidence.source_sha, SHA);
       assert.equal(result.evidence.observed_release_sha, SHA);
+      assert.equal(result.evidence.observed_backend_release_sha, SHA);
       assert.equal(result.evidence.canonical_session.persisted_response_count, 1);
       assert.equal(result.evidence.canonical_session.evidence_response_id, RESPONSE);
       assert.deepEqual(result.evidence.console_errors, []);
@@ -128,6 +130,15 @@ describe('Speaking Gate E real-device evidence validator', () => {
     assert.ok(result.errors.includes('canonical-session-time-mismatch'));
     assert.ok(result.errors.includes('canonical-response-missing'));
     assert.ok(result.errors.includes('workflow-rerun-not-eligible'));
+  });
+
+  test('rejects backend deployment drift between the persisted journey and later provenance', () => {
+    const drifted = fixture('safari-floor');
+    drifted.input.observed_backend_release_sha = 'b'.repeat(40);
+    const result = validateSpeakingRealDeviceEvidence(drifted);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.includes('observed-backend-release-mismatch'));
+    assert.ok(result.errors.includes('observed-backend-provenance-mismatch'));
   });
 
   test('rejects a pre-existing session or a response not submitted in the journey', () => {
@@ -248,6 +259,7 @@ describe('Speaking real-device workflow contract', () => {
     assert.match(WORKFLOW, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_AUDITOR_SHA: \$\{\{ steps\.auditor\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_OBSERVED_RELEASE_SHA: \$\{\{ inputs\.observed_release_sha \}\}/);
+    assert.match(WORKFLOW, /GATE_E_OBSERVED_BACKEND_RELEASE_SHA: \$\{\{ inputs\.observed_backend_release_sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_JOURNEY_STARTED_AT: \$\{\{ inputs\.journey_started_at \}\}/);
     assert.match(WORKFLOW, /GATE_E_CANONICAL_RESPONSE_ID: \$\{\{ inputs\.canonical_response_id \}\}/);
     assert.match(WORKFLOW, /node \.gate-e-auditor\/frontend\/tooling\/capture-gate-e-staging-provenance\.mjs/);

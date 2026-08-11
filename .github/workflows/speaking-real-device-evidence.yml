@@ -39,6 +39,10 @@ on:
         description: Exact runtime-config release SHA recorded during the device journey
         required: true
         type: string
+      observed_backend_release_sha:
+        description: Exact backend_release_sha returned by the persisted response request
+        required: true
+        type: string
       canonical_session_id:
         description: Session created by e2e-student-smoke during the journey
         required: true
@@ -126,6 +130,7 @@ jobs:
           GATE_E_JOURNEY_STARTED_AT: ${{ inputs.journey_started_at }}
           GATE_E_OBSERVED_AT: ${{ inputs.observed_at }}
           GATE_E_OBSERVED_RELEASE_SHA: ${{ inputs.observed_release_sha }}
+          GATE_E_OBSERVED_BACKEND_RELEASE_SHA: ${{ inputs.observed_backend_release_sha }}
           GATE_E_CANONICAL_SESSION_ID: ${{ inputs.canonical_session_id }}
           GATE_E_CANONICAL_RESPONSE_ID: ${{ inputs.canonical_response_id }}
           GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
