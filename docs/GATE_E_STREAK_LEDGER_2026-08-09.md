@@ -138,8 +138,15 @@ và answer ledger. Trusted verifier bắt exact title/project counts, zero
 skip/fail/flake và HTML ZIP hoàn chỉnh. Reading suite hoặc verifier đỏ cũng làm
 `GATE_E_RUN_OUTCOME=failure` trước khi ledger được cập nhật.
 
-Đây là completion của hai slice Speaking + Reading, không phải global failure
-matrix hay real-device completion: Listening/Writing còn đủ bốn nhánh tương ứng;
+Listening nay có slice thứ ba `npm run test:e2e:gate-e:listening`, cũng gồm 12
+case trên ba project. Partial persistence cố ý khác Reading: Listening submit
+chỉ gửi `{}`, nên test bắt buộc client chặn submit khi PATCH 422 và chỉ cho nộp
+sau khi `Thử lại` đã đưa đủ answer lên canonical state. Reload/resume còn kiểm
+full-test audio bám `started_at`; Legacy → Next → Legacy dùng chung attempt.
+Verifier semantic và artifact upload chạy trước ledger như hai slice trước.
+
+Đây là completion của ba slice Speaking + Reading + Listening, không phải global
+failure matrix hay real-device completion: Writing còn đủ bốn nhánh tương ứng;
 WebKit synthetic không thay Safari/iOS thật và hai requirement đó vẫn
 `pending`. Vì vậy `failure_injection.status` vẫn là `partial` và tooling không
 thể tuyên bố Gate E đủ evidence.
