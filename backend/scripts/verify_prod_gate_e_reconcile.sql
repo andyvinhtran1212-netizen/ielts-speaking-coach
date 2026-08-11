@@ -98,6 +98,40 @@ BEGIN
         missing := array_append(missing, 'column-contract:responses.persisted_at');
     END IF;
 
+    -- Migration 189 widened score specifically so a perfect quiz percentage
+    -- (100.0) remains representable. Constraint-name existence cannot prove
+    -- either that typmod change or the validated canonical 0..100 domain.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+         WHERE a.attrelid = 'public.class_assignment_items'::regclass
+           AND a.attname = 'score'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'numeric(4,1)'
+    ) THEN
+        missing := array_append(
+            missing,
+            'column-contract:class_assignment_items.score'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conrelid = 'public.class_assignment_items'::regclass
+           AND con.conname = 'class_assignment_items_score_check'
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK (((score IS NULL) OR ((score >= (0)::numeric) '
+               'AND (score <= (100)::numeric))))'
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignment_items.score'
+        );
+    END IF;
+
     -- Final function signatures.  Intermediate overloads are intentionally not
     -- accepted as proof: the current callers depend on these exact signatures.
     FOREACH item IN ARRAY ARRAY[

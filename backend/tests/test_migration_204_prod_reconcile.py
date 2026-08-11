@@ -196,6 +196,11 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "format_type(a.atttypid, a.atttypmod) = 'timestamp with time zone'" in verify_sql
     assert "a.attnotnull" in verify_sql
     assert "pg_get_expr(d.adbin, d.adrelid) = 'now()'" in verify_sql
+    assert "column-contract:class_assignment_items.score" in verify_sql
+    assert "format_type(a.atttypid, a.atttypmod) = 'numeric(4,1)'" in verify_sql
+    assert "constraint-contract:class_assignment_items.score" in verify_sql
+    assert "con.convalidated" in verify_sql
+    assert "score <= (100)::numeric" in verify_sql
     assert "function-body:delete-course-evidence" in verify_sql
     assert "service-only-acl:" in verify_sql
     assert "has_function_privilege('anon'" in verify_sql
