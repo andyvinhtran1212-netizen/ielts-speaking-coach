@@ -137,6 +137,7 @@ jobs:
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
         run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
 
