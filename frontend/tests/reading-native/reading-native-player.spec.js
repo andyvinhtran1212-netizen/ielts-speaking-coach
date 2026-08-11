@@ -117,6 +117,42 @@ test('anonymous share boot and save carry the minted capability token', async ({
   );
 });
 
+test('shared attempt survives cross-tab sign-in and sign-out without rebooting', async ({ page }) => {
+  const inProgress = {
+    attempt_id: ATTEMPT,
+    anon_id: 'anon-capability',
+    started_at: new Date().toISOString(),
+    time_limit_minutes: 60,
+    answers: [{ q_num: 1, user_answer: 'server answer' }],
+  };
+  const { calls } = await installReadingHarness(page, {
+    signedIn: false,
+    route: '/reading/exam/session?share=share-token&from=mini',
+    handleApi: async ({ route, request, url }) => {
+      if (request.method() === 'GET' && url.pathname === '/api/reading/test/share/share-token/boot') {
+        await route.fulfill({ json: { test: testBundle(), in_progress: inProgress }, headers: cors });
+        return true;
+      }
+      if (request.method() === 'PATCH' && url.pathname.endsWith('/answers')) {
+        await route.fulfill({ json: { attempt_id: ATTEMPT, answered: 1 }, headers: cors });
+        return true;
+      }
+      return false;
+    },
+  });
+  await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+  await page.getByLabel('Answer 1').fill('pending guest answer');
+
+  await page.evaluate(() => window.__emitReadingNativeAuth({
+    access_token: 'cross-tab-token',
+    user: { id: 'cross-tab-user', email: 'cross-tab@test.local' },
+  }));
+  await expect(page.getByLabel('Answer 1')).toHaveValue('pending guest answer');
+  await page.evaluate(() => window.__emitReadingNativeAuth(null));
+  await expect(page.getByLabel('Answer 1')).toHaveValue('pending guest answer');
+  expect(calls.filter((call) => call.path.endsWith('/boot'))).toHaveLength(1);
+});
+
 test('renders and restores every shared completion format as one consecutive run', async ({ page }) => {
   const bundle = completionBundle();
   const restored = bundle.questions.map((question) => ({
@@ -184,4 +220,31 @@ test('pagehide flushes an answer that is still inside the debounce window', asyn
   await page.getByLabel('Answer 1').fill('leave safely');
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   await expect.poll(() => saved).toEqual({ q_num: 1, user_answer: 'leave safely' });
+});
+
+test('pagehide re-sends the latest answer while a normal save is still in flight', async ({ page }) => {
+  let patchCalls = 0;
+  let releaseFirst;
+  const firstPending = new Promise((resolve) => { releaseFirst = resolve; });
+  await installReadingHarness(page, {
+    handleApi: async ({ route, request, url }) => {
+      if (request.method() === 'POST' && url.pathname.endsWith('/attempts')) {
+        await route.fulfill({ json: { attempt_id: ATTEMPT, started_at: new Date().toISOString(), time_limit_minutes: 60 }, headers: cors });
+        return true;
+      }
+      if (request.method() === 'PATCH' && url.pathname.endsWith('/answers')) {
+        patchCalls += 1;
+        if (patchCalls === 1) await firstPending;
+        await route.fulfill({ json: { attempt_id: ATTEMPT, answered: 1 }, headers: cors });
+        return true;
+      }
+      return false;
+    },
+  });
+  await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+  await page.getByLabel('Answer 1').fill('keepalive replacement');
+  await expect.poll(() => patchCalls).toBe(1);
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await expect.poll(() => patchCalls).toBe(2);
+  releaseFirst();
 });

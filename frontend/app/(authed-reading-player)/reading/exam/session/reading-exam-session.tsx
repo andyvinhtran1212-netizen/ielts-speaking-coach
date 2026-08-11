@@ -626,7 +626,11 @@ export function ReadingExamSession() {
       ownerRef.current = user.id;
     }
     if (!params.share && status !== 'signed-in') return;
-    const key = `${params.share || params.testId}:${params.classItem || ''}:${user?.id || 'anon'}`;
+    // Shared attempts are owned by the anonymous capability, not the current
+    // Supabase account. Keep their boot identity stable across cross-tab auth
+    // changes so an active answer map cannot be replaced by a stale re-boot.
+    const ownerKey = params.share ? 'share-capability' : user?.id || 'anon';
+    const key = `${params.share || params.testId}:${params.classItem || ''}:${ownerKey}`;
     if (bootKeyRef.current === key) return;
     bootKeyRef.current = key;
     void bootWithRecovery();

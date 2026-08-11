@@ -70,15 +70,21 @@ async function installReadingHarness(page, {
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.addInitScript(({ owner, signedIn }) => {
+    window.__READING_NATIVE_AUTH_LISTENERS__ = [];
     window.__READING_NATIVE_SESSION__ = signedIn ? {
       access_token: 'reading-native-token', refresh_token: 'refresh', expires_at: 4_102_444_800,
       user: { id: owner, email: 'reading-native@test.local' },
     } : null;
+    window.__emitReadingNativeAuth = (session) => {
+      window.__READING_NATIVE_SESSION__ = session;
+      const event = session ? 'SIGNED_IN' : 'SIGNED_OUT';
+      for (const listener of [...window.__READING_NATIVE_AUTH_LISTENERS__]) listener(event, session);
+    };
   }, { owner: OWNER, signedIn });
 
   await page.route(SUPABASE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript',
-    body: `window.supabase={createClient:function(){var session=window.__READING_NATIVE_SESSION__;return{auth:{getSession:async function(){return{data:{session:session}}},onAuthStateChange:function(){return{data:{subscription:{unsubscribe:function(){}}}}},signOut:async function(){return{error:null}}}}}};`,
+    body: `window.supabase={createClient:function(){return{auth:{getSession:async function(){return{data:{session:window.__READING_NATIVE_SESSION__}}},onAuthStateChange:function(callback){var listeners=window.__READING_NATIVE_AUTH_LISTENERS__;listeners.push(callback);return{data:{subscription:{unsubscribe:function(){var index=listeners.indexOf(callback);if(index>=0)listeners.splice(index,1)}}}}},signOut:async function(){return{error:null}}}}}};`,
   }));
   await page.route(LUCIDE_CDN, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.lucide={createIcons:function(){}};',

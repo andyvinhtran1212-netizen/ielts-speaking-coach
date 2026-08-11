@@ -242,7 +242,10 @@ export function createReadingSaveCoordinator({
     }
     const writes = [...due].map((qNum) => {
       const active = inflight.get(qNum);
-      if (active && !queuedBeforeFlush.has(qNum)) return active;
+      // A normal fetch can be cancelled by navigation. During an unload flush,
+      // re-send the latest value with keepalive even when the same generation
+      // already has a request in flight. Non-unload flushes still reuse it.
+      if (active && !queuedBeforeFlush.has(qNum) && !keepalive) return active;
       const generation = generations.get(qNum) || 1;
       generations.set(qNum, generation);
       return persist(qNum, generation, 0, keepalive);

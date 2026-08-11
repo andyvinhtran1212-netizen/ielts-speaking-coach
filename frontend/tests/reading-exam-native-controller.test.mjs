@@ -163,6 +163,35 @@ describe('native Reading exam controller', () => {
     coordinator.dispose();
   });
 
+  test('keepalive flush re-sends an in-flight save before unload', async () => {
+    const timers = [];
+    const writes = [];
+    let releaseFirst;
+    const coordinator = createReadingSaveCoordinator({
+      save: (qNum, value, options) => {
+        writes.push([qNum, value, options.keepalive]);
+        if (writes.length === 1) {
+          return new Promise((resolve) => { releaseFirst = resolve; });
+        }
+        return Promise.resolve({ ok: true });
+      },
+      setTimer: (callback) => { timers.push(callback); return callbacksId(callback); },
+      clearTimer: () => {},
+    });
+    coordinator.update(4, 'latest before navigation');
+    timers.shift()();
+    await Promise.resolve();
+    await coordinator.flush({ keepalive: true });
+    await Promise.resolve();
+    assert.deepEqual(writes, [
+      [4, 'latest before navigation', false],
+      [4, 'latest before navigation', true],
+    ]);
+    releaseFirst({ ok: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    coordinator.dispose();
+  });
+
   test('retryFailed resends a terminally failed answer', async () => {
     const timers = [];
     let writes = 0;
