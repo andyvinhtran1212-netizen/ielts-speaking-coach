@@ -96,7 +96,7 @@ aver-admin-chrome[data-collapsed="1"] > .overview-shell {
 .db-card__scope { display: block; margin-top: 2px; text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular); color: var(--av-text-faint); }
 .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
 .db-card__split:empty { display: none; }
-.db-card.is-loading .db-card__value, .db-card.is-loading .db-delta, .db-card.is-loading .db-card__spark, .db-trends.is-loading .db-trends__chart { position: relative; color: transparent !important; border-radius: var(--av-radius-sm); background: linear-gradient(90deg, var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%); background-size: 400% 100%; animation: db-shimmer 1.2s ease-in-out infinite; }
+.db-card.is-loading .db-card__value, .db-card.is-loading .db-delta, .db-card.is-loading .db-card__spark, .db-card.is-series-loading .db-delta, .db-card.is-series-loading .db-card__spark, .db-trends.is-loading .db-trends__chart { position: relative; color: transparent !important; border-radius: var(--av-radius-sm); background: linear-gradient(90deg, var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%); background-size: 400% 100%; animation: db-shimmer 1.2s ease-in-out infinite; }
 .db-trends.is-loading .db-trends__chart { min-height: 160px; }
 @keyframes db-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 .db-refresh:disabled { opacity: 0.6; cursor: progress; }
@@ -153,7 +153,7 @@ aver-admin-chrome[data-collapsed="1"] > .overview-shell {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .db-card.is-loading .db-card__value, .db-card.is-loading .db-card__spark, .db-trends.is-loading .db-trends__chart { animation: none; }
+  .db-card.is-loading .db-card__value, .db-card.is-loading .db-delta, .db-card.is-loading .db-card__spark, .db-card.is-series-loading .db-delta, .db-card.is-series-loading .db-card__spark, .db-trends.is-loading .db-trends__chart { animation: none; }
   .stat-tile { transition: none; }
   .stat-tile.is-clickable:hover { transform: none; }
 }

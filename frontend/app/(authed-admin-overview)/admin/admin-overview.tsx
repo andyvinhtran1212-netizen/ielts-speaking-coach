@@ -130,6 +130,7 @@ function MetricCard({
   href,
   series,
   loading,
+  seriesLoading,
   children,
 }: {
   label: string;
@@ -139,10 +140,15 @@ function MetricCard({
   href: string;
   series?: unknown[];
   loading?: boolean;
+  seriesLoading?: boolean;
   children?: React.ReactNode;
 }) {
+  const busy = Boolean(loading || seriesLoading);
   return (
-    <article className={`db-card${loading ? ' is-loading' : ''}`} aria-busy={loading || undefined}>
+    <article
+      className={`db-card${loading ? ' is-loading' : ''}${seriesLoading ? ' is-series-loading' : ''}`}
+      aria-busy={busy || undefined}
+    >
       <div className="db-card__label">{label}{scope && <span className="db-card__scope">{scope}</span>}</div>
       <div className="db-card__valrow">
         <span className="db-card__value">{value}</span>
@@ -175,12 +181,20 @@ function SkillCard({ name, children }: { name: keyof typeof SKILL_LINKS; childre
   );
 }
 
-function SkillStat({ label, value }: { label: string; value: unknown }) {
+function SkillStat({
+  label,
+  value,
+  format,
+}: {
+  label: string;
+  value: unknown;
+  format?: (value: number) => string;
+}) {
   const normalized = finiteNumber(value);
   return (
     <div>
       <span className="stat-label">{label}</span>
-      <span className="stat-num">{normalized == null ? '—' : String(value)}</span>
+      <span className="stat-num">{normalized == null ? '—' : format ? format(normalized) : String(value)}</span>
     </div>
   );
 }
@@ -231,6 +245,7 @@ export function AdminOverview() {
   const [opsError, setOpsError] = useState<string | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loadingScope, setLoadingScope] = useState<LoadingScope>('all');
+  const [trendsLoading, setTrendsLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(true);
   const [clock, setClock] = useState(() => Date.now());
   const opsSequence = useRef(0);
@@ -244,24 +259,34 @@ export function AdminOverview() {
     const requestId = ++opsSequence.current;
     setLoadingScope(scope);
     setOpsError(null);
+    setTrendsLoading(true);
     if (scope === 'windowed') setTrends(null);
-    const [opsResult, trendsResult] = await Promise.allSettled([
-      window.api.get<unknown>(`/admin/dashboard/overview?visitors_window=${days}`),
-      window.api.get<unknown>(`/admin/dashboard/trends?days=${days}`),
-    ]);
-    if (requestId !== opsSequence.current) return;
-    if (opsResult.status === 'fulfilled') {
-      setOps(normalizeOpsPayload(opsResult.value, days));
-    } else {
-      setOpsError(`Không tải được số liệu: ${messageOf(opsResult.reason)}`);
+    const opsRequest = window.api.get<unknown>(`/admin/dashboard/overview?visitors_window=${days}`);
+    const trendsRequest = window.api.get<unknown>(`/admin/dashboard/trends?days=${days}`);
+
+    void trendsRequest
+      .then((value) => {
+        if (requestId === opsSequence.current) setTrends(normalizeTrendsPayload(value));
+      })
+      .catch((caught) => {
+        if (requestId !== opsSequence.current) return;
+        console.error('[admin-overview] trends fetch failed:', caught);
+        setTrends(null);
+      })
+      .finally(() => {
+        if (requestId === opsSequence.current) setTrendsLoading(false);
+      });
+
+    try {
+      const value = await opsRequest;
+      if (requestId !== opsSequence.current) return;
+      setOps(normalizeOpsPayload(value, days));
+    } catch (caught) {
+      if (requestId !== opsSequence.current) return;
+      setOpsError(`Không tải được số liệu: ${messageOf(caught)}`);
+    } finally {
+      if (requestId === opsSequence.current) setLoadingScope(null);
     }
-    if (trendsResult.status === 'fulfilled') {
-      setTrends(normalizeTrendsPayload(trendsResult.value));
-    } else {
-      console.error('[admin-overview] trends fetch failed:', trendsResult.reason);
-      setTrends(null);
-    }
-    setLoadingScope(null);
   }, []);
 
   const loadContent = useCallback(async () => {
@@ -441,6 +466,7 @@ export function AdminOverview() {
             href="/pages/admin/foot-traffic/index.html"
             series={trends?.visitors || []}
             loading={loadingScope != null}
+            seriesLoading={trendsLoading}
           >
             <div className="db-card__split">
               {ops?.visitors?.authenticated == null && ops?.visitors?.anonymous == null
@@ -448,12 +474,12 @@ export function AdminOverview() {
                 : `${formatInteger(ops?.visitors?.authenticated)} đăng nhập · ${formatInteger(ops?.visitors?.anonymous)} lượt ẩn danh`}
             </div>
           </MetricCard>
-          <MetricCard label="Bài practice đã hoàn thành" scope="toàn thời gian" value={formatInteger(ops?.totalPractices)} href="/pages/admin/usage/index.html" series={trends?.practices || []} loading={loadingScope === 'all'} />
+          <MetricCard label="Bài practice đã hoàn thành" scope="toàn thời gian" value={formatInteger(ops?.totalPractices)} href="/pages/admin/usage/index.html" series={trends?.practices || []} loading={loadingScope === 'all'} seriesLoading={trendsLoading} />
           <MetricCard label="Phút chấm" scope="tích lũy" value={formatInteger(ops?.gradingMinutes)} unit="phút" href="/pages/admin/usage/index.html" loading={loadingScope === 'all'} />
-          <MetricCard label={`Token đã gọi (${ops?.tokens?.windowDays ?? windowDays} ngày)`} value={formatTokens(ops?.tokens?.count)} href="/pages/admin/system/ai-usage.html" series={trends?.tokens || []} loading={loadingScope != null} />
+          <MetricCard label={`Token đã gọi (${ops?.tokens?.windowDays ?? windowDays} ngày)`} value={formatTokens(ops?.tokens?.count)} href="/pages/admin/system/ai-usage.html" series={trends?.tokens || []} loading={loadingScope != null} seriesLoading={trendsLoading} />
         </section>
 
-        <section className={`db-trends${loadingScope ? ' is-loading' : ''}`} aria-label="Xu hướng theo ngày" aria-busy={loadingScope != null || undefined}>
+        <section className={`db-trends${trendsLoading ? ' is-loading' : ''}`} aria-label="Xu hướng theo ngày" aria-busy={trendsLoading || undefined}>
           <div className="db-trends__head">
             <h2 className="db-trends__title">Xu hướng theo ngày</h2>
             <div className="db-trends__tabs" role="tablist" aria-label="Chỉ số xu hướng">
@@ -543,7 +569,7 @@ export function AdminOverview() {
             <SkillCard name="listening">
               <SkillStat label="7 ngày" value={skills.listening?.attempts_7d} />
               <SkillStat label="Tổng" value={skills.listening?.attempts_total} />
-              <SkillStat label="Đúng TB" value={finiteNumber(skills.listening?.avg_score_7d) == null ? '—' : `${Math.round(Number(skills.listening.avg_score_7d) * 100)}%`} />
+              <SkillStat label="Đúng TB" value={skills.listening?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} />
               <SkillStat label="Chép ch.tả 7d" value={skills.listening?.dictation_7d} />
             </SkillCard>
             <SkillCard name="vocab">

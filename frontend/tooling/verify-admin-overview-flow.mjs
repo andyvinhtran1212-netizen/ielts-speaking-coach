@@ -107,6 +107,10 @@ let releaseSeven;
 let sevenStartedResolve;
 const sevenStarted = new Promise((resolve) => { sevenStartedResolve = resolve; });
 const sevenRelease = new Promise((resolve) => { releaseSeven = resolve; });
+let holdThirtyTrends = false;
+let thirtyTrendsStartedResolve;
+const thirtyTrendsStarted = new Promise((resolve) => { thirtyTrendsStartedResolve = resolve; });
+const neverResolve = new Promise(() => {});
 
 await page.route('**/*', async (route) => {
   const request = route.request();
@@ -137,6 +141,10 @@ await page.route('**/*', async (route) => {
   }
   if (parsed.pathname === '/admin/dashboard/trends') {
     const days = Number(parsed.searchParams.get('days')) || 30;
+    if (days === 30 && holdThirtyTrends) {
+      thirtyTrendsStartedResolve();
+      await neverResolve;
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trendsPayload(days)) });
   }
   return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -179,6 +187,8 @@ check('link không an toàn bị hạ thành row tĩnh',
     && await page.locator('.activity-row[href^="javascript:"]').count() === 0);
 check('đường dẫn nội bộ hợp lệ vẫn là link',
   await page.locator('a.activity-row[href="/pages/result.html?session_id=fixture"]').count() === 1);
+check('Listening hiển thị đúng tỷ lệ từ canonical payload',
+  await page.getByText('75%', { exact: true }).count() === 1);
 
 await page.getByRole('tab', { name: 'Vận hành' }).click();
 const contentReadsBeforeWindowChange = requests.filter((request) => request.path === '/admin/overview').length;
@@ -195,6 +205,23 @@ check('response 7 ngày đến trễ không ghi đè lựa chọn 90 ngày',
 check('đổi cửa sổ không gọi thừa aggregate Nội dung',
   requests.filter((request) => request.path === '/admin/overview').length === contentReadsBeforeWindowChange);
 
+holdThirtyTrends = true;
+await page.locator('#db-window').selectOption('30');
+await thirtyTrendsStarted;
+await page.getByText('300', { exact: true }).waitFor({ state: 'visible' });
+check('trends treo không chặn KPI canonical hiển thị',
+  await page.locator('#db-window').inputValue() === '30'
+    && await page.getByText('300', { exact: true }).count() >= 1
+    && await page.locator('.db-trends').getAttribute('aria-busy') === 'true');
+const visitorsCard = page.locator('.db-card').filter({ hasText: 'Người xem' }).first();
+const tokensCard = page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first();
+check('KPI hiện ngay nhưng phần series vẫn báo đang tải',
+  await visitorsCard.getAttribute('aria-busy') === 'true'
+    && await tokensCard.getAttribute('aria-busy') === 'true'
+    && await visitorsCard.evaluate((element) => element.classList.contains('is-series-loading') && !element.classList.contains('is-loading'))
+    && await tokensCard.evaluate((element) => element.classList.contains('is-series-loading') && !element.classList.contains('is-loading')));
+
+overviewPayload.skills.listening.avg_score_7d = null;
 const beforeRefresh = requests.length;
 await page.getByRole('button', { name: /Tải lại/ }).click();
 await page.getByRole('button', { name: /Tải lại/ }).waitFor({ state: 'visible' });
@@ -207,6 +234,9 @@ check('một lần Tải lại gọi lại đủ ba endpoint',
   refreshRequests.some((request) => request.path === '/admin/dashboard/overview')
     && refreshRequests.some((request) => request.path === '/admin/dashboard/trends')
     && refreshRequests.some((request) => request.path === '/admin/overview'));
+await page.getByRole('tab', { name: 'Nội dung' }).click();
+check('Listening thiếu tỷ lệ hiển thị dấu gạch, không bịa 0%',
+  await page.locator('.admin-hub-card[data-skill="listening"] .stat-num').nth(2).textContent() === '—');
 
 const desktopGeometry = await page.evaluate(() => ({
   client: document.documentElement.clientWidth,

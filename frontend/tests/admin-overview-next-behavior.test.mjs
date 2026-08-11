@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   chartPoints,
+  finiteNumber,
   formatTokens,
   normalizeOpsPayload,
   normalizeOverviewPayload,
@@ -67,7 +68,9 @@ describe('/admin — lifecycle and contract behavior', () => {
     assert.match(BEHAVIOR, /\/admin\/dashboard\/overview\?visitors_window=/);
     assert.match(BEHAVIOR, /\/admin\/dashboard\/trends\?days=/);
     assert.match(BEHAVIOR, /window\.api\.get<unknown>\('\/admin\/overview'\)/);
-    assert.match(BEHAVIOR, /Promise\.allSettled/);
+    assert.doesNotMatch(BEHAVIOR, /Promise\.allSettled/);
+    assert.match(BEHAVIOR, /const opsRequest = window\.api\.get/);
+    assert.match(BEHAVIOR, /void trendsRequest\s*\.then/);
     assert.match(BEHAVIOR, /requestId !== opsSequence\.current/);
     assert.match(BEHAVIOR, /requestId !== contentSequence\.current/);
     assert.match(BEHAVIOR, /loadedWindow\.current === windowDays/);
@@ -84,6 +87,8 @@ describe('/admin — lifecycle and contract behavior', () => {
 
   test('keeps trends best-effort and failures visible without unsafe HTML injection', () => {
     assert.match(BEHAVIOR, /trends fetch failed/);
+    assert.match(BEHAVIOR, /setTrendsLoading\(false\)/);
+    assert.match(BEHAVIOR, /seriesLoading=\{trendsLoading\}/);
     assert.match(BEHAVIOR, /setOpsError\(/);
     assert.match(BEHAVIOR, /role="alert"/);
     assert.doesNotMatch(BEHAVIOR, /dangerouslySetInnerHTML|\.innerHTML/);
@@ -110,6 +115,8 @@ describe('/admin — lifecycle and contract behavior', () => {
     assert.match(BROWSER_FLOW, /parsed\.pathname === '\/auth\/me'/);
     assert.match(BROWSER_FLOW, /unexpectedWrites/);
     assert.match(BROWSER_FLOW, /response 7 ngày đến trễ không ghi đè/);
+    assert.match(BROWSER_FLOW, /trends treo không chặn KPI/);
+    assert.match(BROWSER_FLOW, /Listening hiển thị đúng tỷ lệ/);
   });
 });
 
@@ -126,6 +133,12 @@ describe('admin overview model — hostile/partial payloads', () => {
     assert.equal(value.tokens.windowDays, 7);
     assert.equal(value.attention.writingPending, null);
     assert.equal(formatTokens(value.tokens.count), '1.3K');
+  });
+
+  test('rejects missing and malformed skill averages before formatting', () => {
+    assert.equal(finiteNumber(null), null);
+    assert.equal(finiteNumber('not-a-score'), null);
+    assert.equal(finiteNumber(0.75), 0.75);
   });
 
   test('normalizes trend points without letting malformed values poison SVG math', () => {
