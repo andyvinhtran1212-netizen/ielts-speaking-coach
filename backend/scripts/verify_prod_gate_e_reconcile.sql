@@ -15,8 +15,11 @@ DECLARE
     fn_retset boolean;
     fn_arguments text;
     expected_check record;
+    expected_column record;
     expected_evidence_fk record;
+    expected_fk record;
     expected_index record;
+    expected_pk record;
     expected_trigger record;
 BEGIN
     -- Tables created by the audited history.
@@ -34,6 +37,208 @@ BEGIN
     ] LOOP
         IF to_regclass('public.' || item) IS NULL THEN
             missing := array_append(missing, 'table:' || item);
+        END IF;
+    END LOOP;
+
+    -- A relation name is not enough proof for tables created by the audited
+    -- history. Every canonical table uses a server-authored UUID identity and
+    -- a validated single-column primary key; pin both the column and its ready
+    -- backing index before acknowledging the migrations in the ledger.
+    FOR expected_pk IN
+        SELECT table_name FROM (VALUES
+            ('courses'),
+            ('class_lessons'),
+            ('class_assignments'),
+            ('class_assignment_items'),
+            ('speaking_lesson_sets'),
+            ('speaking_lesson_set_questions'),
+            ('speaking_progress_marks'),
+            ('course_writing_submissions'),
+            ('course_writing_drafts'),
+            ('class_action_log')
+        ) AS expected(table_name)
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_attribute a
+              JOIN pg_attrdef d
+                ON d.adrelid = a.attrelid
+               AND d.adnum = a.attnum
+             WHERE a.attrelid = to_regclass(
+                       format('public.%I', expected_pk.table_name)
+                   )
+               AND a.attname = 'id'
+               AND NOT a.attisdropped
+               AND format_type(a.atttypid, a.atttypmod) = 'uuid'
+               AND a.attnotnull
+               AND pg_get_expr(d.adbin, d.adrelid) = 'gen_random_uuid()'
+        ) THEN
+            missing := array_append(
+                missing,
+                'column-contract:' || expected_pk.table_name || '.id'
+            );
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint con
+              JOIN pg_index idx ON idx.indexrelid = con.conindid
+             WHERE con.conrelid = to_regclass(
+                       format('public.%I', expected_pk.table_name)
+                   )
+               AND con.conname = expected_pk.table_name || '_pkey'
+               AND con.contype = 'p'
+               AND con.convalidated
+               AND idx.indrelid = con.conrelid
+               AND idx.indisunique
+               AND idx.indisvalid
+               AND idx.indisready
+               AND idx.indnkeyatts = 1
+               AND idx.indnatts = 1
+               AND idx.indexprs IS NULL
+               AND idx.indpred IS NULL
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = con.conrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = ARRAY['id']::name[]
+        ) THEN
+            missing := array_append(
+                missing,
+                'constraint-contract:' || expected_pk.table_name || '.primary-key'
+            );
+        END IF;
+    END LOOP;
+
+    -- Pin every direct FK introduced on the new course/assignment tables.
+    -- Inline REFERENCES combined with ADD COLUMN IF NOT EXISTS cannot repair a
+    -- hand-created column that omitted the relationship or chose CASCADE where
+    -- canonical history preservation requires SET NULL.
+    FOR expected_fk IN
+        SELECT * FROM (VALUES
+            ('courses', 'courses_created_by_fkey', ARRAY['created_by']::name[],
+             'public.users', ARRAY['id']::name[], 'n'),
+            ('cohorts', 'cohorts_course_id_fkey', ARRAY['course_id']::name[],
+             'public.courses', ARRAY['id']::name[], 'n'),
+            ('class_lessons', 'class_lessons_cohort_id_fkey', ARRAY['cohort_id']::name[],
+             'public.cohorts', ARRAY['id']::name[], 'c'),
+            ('class_lessons', 'class_lessons_created_by_fkey', ARRAY['created_by']::name[],
+             'public.users', ARRAY['id']::name[], 'n'),
+            ('class_assignments', 'class_assignments_cohort_id_fkey', ARRAY['cohort_id']::name[],
+             'public.cohorts', ARRAY['id']::name[], 'c'),
+            ('class_assignments', 'class_assignments_assigned_by_fkey', ARRAY['assigned_by']::name[],
+             'public.users', ARRAY['id']::name[], 'n'),
+            ('class_assignment_items', 'class_assignment_items_student_id_fkey', ARRAY['student_id']::name[],
+             'public.students', ARRAY['id']::name[], 'c'),
+            ('speaking_lesson_sets', 'speaking_lesson_sets_course_id_fkey', ARRAY['course_id']::name[],
+             'public.courses', ARRAY['id']::name[], 'c'),
+            ('speaking_lesson_sets', 'speaking_lesson_sets_created_by_fkey', ARRAY['created_by']::name[],
+             'public.users', ARRAY['id']::name[], 'n'),
+            ('speaking_lesson_set_questions', 'speaking_lesson_set_questions_set_id_fkey', ARRAY['set_id']::name[],
+             'public.speaking_lesson_sets', ARRAY['id']::name[], 'c'),
+            ('quiz_banks', 'quiz_banks_course_id_fkey', ARRAY['course_id']::name[],
+             'public.courses', ARRAY['id']::name[], 'n'),
+            ('course_writing_submissions', 'course_writing_submissions_bank_id_fkey', ARRAY['bank_id']::name[],
+             'public.quiz_banks', ARRAY['id']::name[], 'c'),
+            ('course_writing_submissions', 'course_writing_submissions_user_id_fkey', ARRAY['user_id']::name[],
+             'auth.users', ARRAY['id']::name[], 'c'),
+            ('course_writing_drafts', 'course_writing_drafts_class_assignment_item_id_fkey', ARRAY['class_assignment_item_id']::name[],
+             'public.class_assignment_items', ARRAY['id']::name[], 'c'),
+            ('course_writing_drafts', 'course_writing_drafts_user_id_fkey', ARRAY['user_id']::name[],
+             'public.users', ARRAY['id']::name[], 'c')
+        ) AS expected(
+            table_name, constraint_name, local_columns,
+            referenced_table, referenced_columns, delete_action
+        )
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint con
+             WHERE con.conrelid = to_regclass(
+                       format('public.%I', expected_fk.table_name)
+                   )
+               AND con.conname = expected_fk.constraint_name
+               AND con.contype = 'f'
+               AND con.convalidated
+               AND con.confrelid = to_regclass(expected_fk.referenced_table)
+               AND con.confupdtype = 'a'
+               AND con.confdeltype::text = expected_fk.delete_action
+               AND con.confmatchtype = 's'
+               AND con.confdelsetcols IS NULL
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = con.conrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = expected_fk.local_columns
+               AND ARRAY(
+                    SELECT att.attname
+                      FROM unnest(con.confkey) WITH ORDINALITY AS key(attnum, ord)
+                      JOIN pg_attribute att
+                        ON att.attrelid = con.confrelid
+                       AND att.attnum = key.attnum
+                     ORDER BY key.ord
+               ) = expected_fk.referenced_columns
+        ) THEN
+            missing := array_append(
+                missing,
+                'constraint-contract:' || expected_fk.table_name || '.'
+                    || expected_fk.constraint_name
+            );
+        END IF;
+    END LOOP;
+
+    -- Payloads written by submit_course_writing() and the cross-device draft
+    -- path must keep their exact types, nullability and server defaults. Table
+    -- and index existence alone can accept a hand-provisioned shell that every
+    -- real insert immediately rejects.
+    FOR expected_column IN
+        SELECT * FROM (VALUES
+            ('course_writing_submissions', 'bank_id', 'uuid', true, NULL::text),
+            ('course_writing_submissions', 'user_id', 'uuid', true, NULL::text),
+            ('course_writing_submissions', 'class_assignment_item_id', 'uuid', false, NULL::text),
+            ('course_writing_submissions', 'items', 'jsonb', true, NULL::text),
+            ('course_writing_submissions', 'total', 'integer', true, NULL::text),
+            ('course_writing_submissions', 'clean', 'integer', true, NULL::text),
+            ('course_writing_submissions', 'graded_at', 'timestamp with time zone', true, 'now()'),
+            ('course_writing_submissions', 'created_at', 'timestamp with time zone', true, 'now()'),
+            ('course_writing_drafts', 'class_assignment_item_id', 'uuid', true, NULL::text),
+            ('course_writing_drafts', 'user_id', 'uuid', true, NULL::text),
+            ('course_writing_drafts', 'bank_id', 'uuid', true, NULL::text),
+            ('course_writing_drafts', 'answers', 'jsonb', true, '''{}''::jsonb'),
+            ('course_writing_drafts', 'updated_at', 'timestamp with time zone', true, 'now()'),
+            ('course_writing_drafts', 'created_at', 'timestamp with time zone', true, 'now()')
+        ) AS expected(
+            table_name, column_name, formatted_type, not_null, default_expression
+        )
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_attribute a
+              LEFT JOIN pg_attrdef d
+                ON d.adrelid = a.attrelid
+               AND d.adnum = a.attnum
+             WHERE a.attrelid = to_regclass(
+                       format('public.%I', expected_column.table_name)
+                   )
+               AND a.attname = expected_column.column_name
+               AND NOT a.attisdropped
+               AND format_type(a.atttypid, a.atttypmod) =
+                   expected_column.formatted_type
+               AND a.attnotnull = expected_column.not_null
+               AND pg_get_expr(d.adbin, d.adrelid) IS NOT DISTINCT FROM
+                   expected_column.default_expression
+        ) THEN
+            missing := array_append(
+                missing,
+                'column-contract:' || expected_column.table_name || '.'
+                    || expected_column.column_name
+            );
         END IF;
     END LOOP;
 
@@ -719,6 +924,21 @@ BEGIN
                 'sessions',
                 'sessions_full_test_attempt_required',
                 $check$CHECK (((mode <> 'test_full'::text) OR (full_test_attempt_id IS NOT NULL)))$check$
+            ),
+            (
+                'course_writing_submissions',
+                'course_writing_submissions_total_check',
+                $check$CHECK ((total >= 0))$check$
+            ),
+            (
+                'course_writing_submissions',
+                'course_writing_submissions_clean_check',
+                $check$CHECK ((clean >= 0))$check$
+            ),
+            (
+                'course_writing_submissions',
+                'course_writing_clean_within_total',
+                $check$CHECK ((clean <= total))$check$
             )
         ) AS expected(table_name, constraint_name, definition)
     LOOP

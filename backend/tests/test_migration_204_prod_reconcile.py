@@ -273,6 +273,27 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "constraint-contract:courses.code-unique" in verify_sql
     assert "data:courses.code-duplicate" in verify_sql
     assert "ARRAY['code']::name[]" in verify_sql
+    assert "column-contract:' || expected_pk.table_name || '.id'" in verify_sql
+    assert "constraint-contract:' || expected_pk.table_name || '.primary-key'" in verify_sql
+    assert "pg_get_expr(d.adbin, d.adrelid) = 'gen_random_uuid()'" in verify_sql
+    assert "con.conname = expected_pk.table_name || '_pkey'" in verify_sql
+    assert "expected_fk.referenced_table" in verify_sql
+    assert "expected_fk.local_columns" in verify_sql
+    assert "expected_fk.referenced_columns" in verify_sql
+    assert "expected_fk.delete_action" in verify_sql
+    assert "cohorts_course_id_fkey" in verify_sql
+    assert "class_assignment_items_student_id_fkey" in verify_sql
+    assert "speaking_lesson_sets_course_id_fkey" in verify_sql
+    assert "quiz_banks_course_id_fkey" in verify_sql
+    assert "course_writing_drafts_class_assignment_item_id_fkey" in verify_sql
+    assert "expected_column.formatted_type" in verify_sql
+    assert "expected_column.not_null" in verify_sql
+    assert "expected_column.default_expression" in verify_sql
+    assert "column-contract:' || expected_column.table_name" in verify_sql
+    assert "course_writing_submissions_total_check" in verify_sql
+    assert "course_writing_submissions_clean_check" in verify_sql
+    assert "course_writing_clean_within_total" in verify_sql
+    assert "CHECK ((clean <= total))" in verify_sql
     assert "expected_check.definition" in verify_sql
     assert "class_assignments_kind_check" in verify_sql
     assert "class_assignment_items_artifact_pairing" in verify_sql
