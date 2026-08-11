@@ -98,6 +98,29 @@ BEGIN
         missing := array_append(missing, 'column-contract:responses.persisted_at');
     END IF;
 
+    -- Migration 193's recipient scope controls whether a backfill may expand an
+    -- assignment to the whole class. A nullable/default-less text column can
+    -- make SQL's NULL comparison bypass the subset guard, so pin the complete
+    -- column contract rather than accepting the surviving column name.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+          JOIN pg_attrdef d
+            ON d.adrelid = a.attrelid
+           AND d.adnum = a.attnum
+         WHERE a.attrelid = 'public.class_assignments'::regclass
+           AND a.attname = 'recipient_scope'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'text'
+           AND a.attnotnull
+           AND pg_get_expr(d.adbin, d.adrelid) = '''class''::text'
+    ) THEN
+        missing := array_append(
+            missing,
+            'column-contract:class_assignments.recipient_scope'
+        );
+    END IF;
+
     -- Migration 189 widened score specifically so a perfect quiz percentage
     -- (100.0) remains representable. Constraint-name existence cannot prove
     -- either that typmod change or the validated canonical 0..100 domain.
@@ -272,6 +295,39 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Migration 177 establishes the one-ledger-item-per-student invariant used
+    -- by every assignment reader and by concurrent migration-193 backfills.
+    -- Pin the constraint and its ready backing index, not merely an index name.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+          JOIN pg_index idx ON idx.indexrelid = con.conindid
+         WHERE con.conrelid = 'public.class_assignment_items'::regclass
+           AND con.conname =
+               'class_assignment_items_assignment_id_student_id_key'
+           AND con.contype = 'u'
+           AND con.convalidated
+           AND idx.indrelid = con.conrelid
+           AND idx.indisunique
+           AND idx.indisvalid
+           AND idx.indisready
+           AND idx.indnkeyatts = 2
+           AND idx.indnatts = 2
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['assignment_id', 'student_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignment_items.assignment-student'
+        );
+    END IF;
+
     -- Migration 178 replaces the unsafe independent lesson FK with a composite
     -- same-cohort relationship. Pin both sides and the PG15+ SET NULL column
     -- list; names alone could hide the old single-column constraint.
@@ -378,12 +434,35 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
-         FROM pg_constraint
-         WHERE conname = 'listening_tests_test_type_check'
-           AND conrelid = 'public.listening_tests'::regclass
-           AND pg_get_constraintdef(oid) LIKE '%practice%'
+          FROM pg_constraint con
+         WHERE con.conname = 'listening_tests_test_type_check'
+           AND con.conrelid = 'public.listening_tests'::regclass
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK ((test_type = ANY (ARRAY[''full''::text, ''mini''::text, '
+               '''drill''::text, ''practice''::text])))'
     ) THEN
-        missing := array_append(missing, 'constraint-value:listening.practice');
+        missing := array_append(
+            missing,
+            'constraint-contract:listening_tests.test_type'
+        );
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+         WHERE con.conname = 'class_assignments_recipient_scope_check'
+           AND con.conrelid = 'public.class_assignments'::regclass
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK ((recipient_scope = ANY (ARRAY[''class''::text, '
+               '''subset''::text])))'
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignments.recipient_scope'
+        );
     END IF;
     IF NOT EXISTS (
         SELECT 1
@@ -728,6 +807,36 @@ BEGIN
     -- Durable seed/data invariants audited before the repair.
     IF (SELECT count(DISTINCT code) FROM courses WHERE code IN ('C1','C2','C3','C4','C5')) <> 5 THEN
         missing := array_append(missing, 'seed:courses.C1-C5');
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM class_assignments
+         WHERE recipient_scope IS NULL
+            OR recipient_scope NOT IN ('class', 'subset')
+    ) THEN
+        missing := array_append(
+            missing,
+            'data:class_assignments.recipient_scope'
+        );
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM listening_tests
+         WHERE test_type IS NULL
+            OR test_type NOT IN ('full', 'mini', 'drill', 'practice')
+    ) THEN
+        missing := array_append(missing, 'data:listening_tests.test_type');
+    END IF;
+    IF EXISTS (
+        SELECT assignment_id, student_id
+          FROM class_assignment_items
+         GROUP BY assignment_id, student_id
+        HAVING count(*) > 1
+    ) THEN
+        missing := array_append(
+            missing,
+            'data:class_assignment_items.assignment-student-duplicate'
+        );
     END IF;
     IF EXISTS (
         SELECT 1 FROM class_assignment_items

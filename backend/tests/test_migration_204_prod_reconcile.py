@@ -213,6 +213,19 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "function-contract:fn_class_action_log_append_only" in verify_sql
     assert "p.prorettype = 'trigger'::regtype" in verify_sql
     assert "md5(p.prosrc) = '3c0a0fbc7f3f6da45c1e47bda5d4e10d'" in verify_sql
+    assert "column-contract:class_assignments.recipient_scope" in verify_sql
+    assert "pg_get_expr(d.adbin, d.adrelid) = '''class''::text'" in verify_sql
+    assert "constraint-contract:class_assignments.recipient_scope" in verify_sql
+    assert "constraint-contract:listening_tests.test_type" in verify_sql
+    assert "constraint-contract:class_assignment_items.assignment-student" in verify_sql
+    assert "class_assignment_items_assignment_id_student_id_key" in verify_sql
+    assert "idx.indisunique" in verify_sql
+    assert "idx.indisvalid" in verify_sql
+    assert "idx.indisready" in verify_sql
+    assert "ARRAY['assignment_id', 'student_id']::name[]" in verify_sql
+    assert "data:class_assignments.recipient_scope" in verify_sql
+    assert "data:listening_tests.test_type" in verify_sql
+    assert "data:class_assignment_items.assignment-student-duplicate" in verify_sql
     assert "service-only-acl:" in verify_sql
     assert "has_function_privilege('anon'" in verify_sql
     assert "has_function_privilege('authenticated'" in verify_sql
