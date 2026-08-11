@@ -6,6 +6,13 @@
 -- idempotent. Trên môi trường đã chạy đủ 173–203, nó là no-op về dữ liệu. Trên
 -- production lệch ledger, nó chỉ bổ sung constraint pairing còn thiếu và ba
 -- contract Gate E chưa tồn tại. Không migration lịch sử nào được replay mù.
+--
+-- QUAN TRỌNG: production không được chạy file này qua forward runner thông
+-- thường khi ledger 173–203 còn lệch. Dùng procedure fail-closed:
+--   DRY_RUN=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
+--   ALLOW_PROD=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
+-- Procedure chạy 204 trước, audit final state, rồi mới ghi đúng manifest lịch
+-- sử đã kiểm; tuyệt đối không dùng `apply_migrations.sh --baseline` ở đây.
 
 BEGIN;
 

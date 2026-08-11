@@ -1,11 +1,16 @@
-"""Source contract for production schema reconciliation migration 204.
+"""Contracts for production schema reconciliation migration 204.
 
 The production audit found a partially provisioned 173–203 range.  This guard
 keeps the repair additive/idempotent and pins the four final contracts that must
-exist before the historical ledger can be reconciled.
+exist before the historical ledger can be reconciled.  It also exercises the
+dedicated deployment procedure so the normal forward runner never replays the
+unledgered historical files before reaching 204.
 """
 
+import importlib.util
 from pathlib import Path
+
+import pytest
 
 
 SQL = (
@@ -13,6 +18,15 @@ SQL = (
     / "migrations"
     / "204_reconcile_course_and_gate_e_schema.sql"
 ).read_text(encoding="utf-8")
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_PATH = BACKEND_ROOT / "scripts" / "reconcile_prod_gate_e_migrations.py"
+VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_gate_e_reconcile.sql"
+
+_SPEC = importlib.util.spec_from_file_location("prod_gate_e_reconcile", SCRIPT_PATH)
+assert _SPEC and _SPEC.loader
+RECONCILE = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(RECONCILE)
 
 
 def test_pairing_constraint_fails_closed_before_validation():
@@ -51,3 +65,132 @@ def test_reconciliation_is_atomic_and_does_not_drop_schema():
     assert SQL.count("COMMIT;") == 1
     assert "DROP TABLE" not in SQL
     assert "DROP COLUMN" not in SQL
+
+
+def test_procedure_has_an_explicit_audited_manifest_not_a_directory_baseline():
+    assert RECONCILE.AUDITED_HISTORY[0] == "173_listening_tests_practice_type.sql"
+    assert RECONCILE.AUDITED_HISTORY[-1] == "202_response_persisted_at.sql"
+    assert len(RECONCILE.AUDITED_HISTORY) == 28
+    assert RECONCILE.REQUIRED_EXISTING == (
+        "197_rls_explicit_on_public_tables.sql",
+        "199_user_feedback_vocabulary.sql",
+        "203_anonymous_vocabulary_feedback_dedupe.sql",
+    )
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+    assert "apply_migrations.sh --baseline" in source  # warning/docstring only
+    assert "glob(" not in source
+    assert "iterdir(" not in source
+
+
+def test_procedure_applies_204_then_verifies_before_recording(monkeypatch, capsys):
+    events = []
+    before = set(RECONCILE.REQUIRED_EXISTING)
+    after = set(RECONCILE.RECONCILED_SCOPE)
+    ledger_reads = iter((before, after))
+
+    monkeypatch.setattr(RECONCILE, "_ensure_ledger", lambda _url: events.append("ensure"))
+    monkeypatch.setattr(RECONCILE, "_read_ledger", lambda _url: next(ledger_reads))
+    monkeypatch.setattr(RECONCILE, "_apply_repair", lambda _url: events.append("repair-204"))
+    monkeypatch.setattr(
+        RECONCILE,
+        "_verify_audited_postconditions",
+        lambda _url: events.append("verify"),
+    )
+
+    def record(_url, filenames):
+        events.append(("record", tuple(filenames)))
+
+    monkeypatch.setattr(RECONCILE, "_record_ledger", record)
+    monkeypatch.setattr(
+        RECONCILE,
+        "_standard_forward_dry_run",
+        lambda _url: "----\nwould apply: 205_future.sql\n",
+    )
+
+    RECONCILE.reconcile("postgresql://staging.example/test", dry_run=False)
+
+    assert events[:3] == ["ensure", "repair-204", "verify"]
+    assert events[3] == (
+        "record",
+        (*RECONCILE.AUDITED_HISTORY, RECONCILE.REPAIR_MIGRATION),
+    )
+    output = capsys.readouterr().out
+    assert "standard forward dry-run lists no migration from 173-204" in output
+
+
+def test_second_procedure_run_is_a_schema_and_ledger_noop(monkeypatch, capsys):
+    events = []
+    monkeypatch.setattr(RECONCILE, "_ensure_ledger", lambda _url: events.append("ensure"))
+    monkeypatch.setattr(
+        RECONCILE,
+        "_read_ledger",
+        lambda _url: set(RECONCILE.RECONCILED_SCOPE),
+    )
+    monkeypatch.setattr(RECONCILE, "_apply_repair", lambda _url: events.append("repair"))
+    monkeypatch.setattr(
+        RECONCILE,
+        "_verify_audited_postconditions",
+        lambda _url: events.append("verify"),
+    )
+    monkeypatch.setattr(
+        RECONCILE,
+        "_record_ledger",
+        lambda _url, _files: events.append("record"),
+    )
+    monkeypatch.setattr(
+        RECONCILE,
+        "_standard_forward_dry_run",
+        lambda _url: "----\nwould apply: 205_future.sql\n",
+    )
+
+    RECONCILE.reconcile("postgresql://staging.example/test", dry_run=False)
+
+    assert events == ["ensure"]
+    assert "no-op: audited 173-204 ledger scope is already reconciled" in capsys.readouterr().out
+
+
+def test_post_reconcile_forward_dry_run_rejects_any_historical_replay():
+    with pytest.raises(RECONCILE.ReconciliationError, match="would replay"):
+        RECONCILE._assert_no_historical_replay(
+            "would apply: 173_listening_tests_practice_type.sql\n"
+        )
+
+
+def test_procedure_refuses_if_the_preexisting_ledger_no_longer_matches(monkeypatch):
+    monkeypatch.setattr(RECONCILE, "_ensure_ledger", lambda _url: None)
+    monkeypatch.setattr(RECONCILE, "_read_ledger", lambda _url: set())
+    monkeypatch.setattr(
+        RECONCILE,
+        "_apply_repair",
+        lambda _url: pytest.fail("must refuse before applying migration 204"),
+    )
+
+    with pytest.raises(RECONCILE.ReconciliationError, match="required existing"):
+        RECONCILE.reconcile("postgresql://staging.example/test", dry_run=False)
+
+
+def test_production_dry_run_needs_no_write_authorization(monkeypatch, capsys):
+    monkeypatch.delenv("ALLOW_PROD", raising=False)
+    monkeypatch.setattr(
+        RECONCILE,
+        "_read_ledger",
+        lambda _url: set(RECONCILE.REQUIRED_EXISTING),
+    )
+
+    RECONCILE.reconcile(
+        f"postgresql://db.{RECONCILE.PRODUCTION_PROJECT_REF}.supabase.co/postgres",
+        dry_run=True,
+    )
+
+    output = capsys.readouterr().out
+    assert f"would apply first: {RECONCILE.REPAIR_MIGRATION}" in output
+
+
+def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
+    verify_sql = VERIFY_PATH.read_text(encoding="utf-8")
+    assert "seed:courses.C1-C5" in verify_sql
+    assert "data:artifact-pairing" in verify_sql
+    assert "data:course-writing-duplicate-item" in verify_sql
+    assert "data:full-test-attempt-id" in verify_sql
+    assert "function-body:delete-course-evidence" in verify_sql
+    assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql
