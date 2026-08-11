@@ -31,6 +31,14 @@
     "status": "partial",
     "runner": "npm run test:e2e:gate-e",
     "result": "frontend/test-results/gate-e-speaking-device-matrix-results.json",
+    "runners": [
+      "npm run test:e2e:gate-e",
+      "npm run test:e2e:gate-e:reading"
+    ],
+    "results": [
+      "frontend/test-results/gate-e-speaking-device-matrix-results.json",
+      "frontend/test-results/gate-e-reading-device-matrix-results.json"
+    ],
     "covered": [
       "auth-401-and-invalid-profile-400",
       "double-submit-single-patch",
@@ -42,13 +50,13 @@
       "speaking-core-player-ambiguous-commit",
       "speaking-core-player-partial-persistence",
       "speaking-core-player-reload-resume",
-      "speaking-bidirectional-cross-version-core-player"
-    ],
-    "missing": [
+      "speaking-bidirectional-cross-version-core-player",
       "reading-core-player-ambiguous-commit",
       "reading-core-player-partial-persistence",
       "reading-core-player-reload-resume",
-      "reading-bidirectional-cross-version-core-player",
+      "reading-bidirectional-cross-version-core-player"
+    ],
+    "missing": [
       "listening-core-player-ambiguous-commit",
       "listening-core-player-partial-persistence",
       "listening-core-player-reload-resume",
@@ -61,10 +69,11 @@
   },
   "frozen_dirs": [
     "frontend/tests/staging-e2e",
-    "frontend/tests/gate-e"
+    "frontend/tests/gate-e",
+    "frontend/tests/gate-e-reading"
   ],
   "frozen_files": [
-    { "path": "frontend/package.json", "sha256": "a09ef4a695308396737e0e6f308907518b0e1fd70e2d5dd740ed0a1768b19c12" },
+    { "path": "frontend/package.json", "sha256": "3cd6690c33ebfe3d2ac3e9194a39ca84ccba9b777c487f5d01b45d36dbd7a739" },
     { "path": "frontend/package-lock.json", "sha256": "3b791d160b66d96a585787c00e3bf589b729287064144d66fa0a87f7d4944eb7" },
     { "path": "frontend/playwright.staging.config.js", "sha256": "a52995691cac9b2bdbf6c0b854284262c8305d1eb04e47969faae4592513372c" },
     { "path": "frontend/tooling/gate-e-device-matrix.json", "sha256": "d7c1682f87d218d7d1b0eb3d176c0c30ea29a4c715e34837903a6adab394e802" },
@@ -81,12 +90,18 @@
     { "path": "frontend/playwright.gate-e.config.js", "sha256": "bbafe0f8547aceb85cca9cf4ecdebf4b2d23acf708f2bb3ec80edbccea75f828" },
     { "path": "frontend/tooling/gate-e-speaking-device-matrix.json", "sha256": "b5880a088dea16a6a5b636af7d25373e45a5ad5173000811ebbac9c65bfdab7d" },
     { "path": "frontend/tooling/verify-gate-e-speaking-device-matrix.mjs", "sha256": "64c34d5e35681cfe5d793ae9619ca606d0946c833f5ebf5627d154e059c0133b" },
-    { "path": "frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs", "sha256": "c5170755a46f07415fb3bce339a2c3d0458ddf95cfa69b5aeb84fe236d0738aa" },
+    { "path": "frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs", "sha256": "158911ffaf036f39fb7573d38231deb54075f0d094481320e6ab3848f94757d6" },
     { "path": "frontend/tests/gate-e/native-speaking-cross-version-resume.spec.js", "sha256": "957921376b57e36ad1b8855ed9f23d7a91efb075a0d84815debeb4521381ecf0" },
     { "path": "frontend/tests/gate-e/native-speaking-device-mic.spec.js", "sha256": "d2fa881a8cf97465e65441d74d01e803f92e2bd34ba39372f41cf805ac233678" },
     { "path": "frontend/tests/gate-e/native-speaking-fixtures.spec.js", "sha256": "cee829544ea7bae61855b1dbd0d8b1dbbf4191a4a971769e63ab0ee7c30a074f" },
     { "path": "frontend/tests/gate-e/native-speaking-harness.js", "sha256": "d4a2ef5b52b066078284faff6543a5c7a4c659ee6a584388853605dde7827886" },
     { "path": "frontend/tests/gate-e/native-speaking-resume-finalize.spec.js", "sha256": "2ebbccf137665dc2a269c84681bb21bf498f9a73a04f0c7f8941c40b1b20e3dc" },
-    { "path": "frontend/tests/gate-e/native-speaking-webkit-capability.spec.js", "sha256": "469d4228382c28e06c40884305492d503b7106a7bc6394f7cf5e3cc06a86086f" }
+    { "path": "frontend/tests/gate-e/native-speaking-webkit-capability.spec.js", "sha256": "469d4228382c28e06c40884305492d503b7106a7bc6394f7cf5e3cc06a86086f" },
+    { "path": "frontend/playwright.gate-e-reading.config.js", "sha256": "a74722c304659735fd8220862b04719f0527717d89d01b024cf5fd57a9583191" },
+    { "path": "frontend/tooling/gate-e-reading-device-matrix.json", "sha256": "526c167d8f1bd08ab086285588665e4233491b2eee2a795bfe44bdc8de21d011" },
+    { "path": "frontend/tooling/verify-gate-e-reading-device-matrix.mjs", "sha256": "633ce3e408527ffda09153972311e407c3b5847c58c576d63d620dfd133def4d" },
+    { "path": "frontend/tooling/verify-gate-e-reading-failure-evidence.mjs", "sha256": "2097b883b77e3d8f52b3ce7b68409fd2aafd55664f76a1c4c2a9ea32bbf40097" },
+    { "path": "frontend/tests/gate-e-reading/reading-gate-e-harness.js", "sha256": "aac78e0b2a688f9c77576af5463b1b0dcbb117fa56145241049d5e24489d8326" },
+    { "path": "frontend/tests/gate-e-reading/reading-failure-matrix.spec.js", "sha256": "28f4c40f6a71a58419dd199341aba5e30555787744ceda908f37176df4fa8542" }
   ]
 }
