@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import {
   canonicalHref, normalizeText, comparePages, formatReport,
   buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl, isTransportError,
+  externalPresentationFixture,
 } from '../tooling/parity-core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -51,6 +52,29 @@ const base = () => ({
  */
 const nextSide = (over = {}) => ({
   ...base(), url: 'https://x/grammar', finalUrl: 'https://x/grammar', ...over,
+});
+
+describe('externalPresentationFixture — font CDN không làm phép đo chớp đỏ', () => {
+  test('chỉ fixture đúng stylesheet host Google Fonts', () => {
+    assert.deepEqual(
+      externalPresentationFixture('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans'),
+      { status: 200, contentType: 'text/css', body: '' },
+    );
+    assert.equal(externalPresentationFixture('https://fonts.gstatic.com/s/font.woff2'), null);
+    assert.equal(externalPresentationFixture('https://fonts.googleapis.com.evil.test/css2'), null);
+    assert.equal(externalPresentationFixture('https://cdn.jsdelivr.net/npm/x.js'), null);
+    assert.equal(externalPresentationFixture('not a url'), null);
+  });
+
+  test('runner áp fixture trước khi request ra mạng', () => {
+    assert.match(RUNNER, /externalPresentationFixture\(r\.url\(\)\)/);
+    assert.match(RUNNER, /if \(externalFixture\) return route\.fulfill\(externalFixture\)/);
+    assert.ok(
+      RUNNER.indexOf("if (!['GET', 'HEAD', 'OPTIONS'].includes(r.method()))")
+        < RUNNER.indexOf('externalPresentationFixture(r.url())'),
+      'mọi mutation phải bị block/log trước khi áp fixture chỉ-đọc',
+    );
+  });
 });
 
 describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
