@@ -300,6 +300,37 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "class_action_log_action_check" in verify_sql
     assert "data:class_action_log.action" in verify_sql
     assert "'class_action_log', 'details', 'jsonb', true, '''{}''::jsonb'" in verify_sql
+    assert "table-column-fingerprint:' || expected_table.table_name" in verify_sql
+    assert "table-constraint-fingerprint:' || expected_table.table_name" in verify_sql
+    assert "expected_table.column_hash" in verify_sql
+    assert "expected_table.constraint_hash" in verify_sql
+    assert "expected_table.column_count" in verify_sql
+    assert "expected_table.constraint_count" in verify_sql
+    assert "COALESCE(pg_get_expr(d.adbin, d.adrelid), '<null>')" in verify_sql
+    for table_name, column_hash, column_count, constraint_hash, constraint_count in (
+        ("class_action_log", "e7f091fe1b1fd0dbf842576d5a1f5709", 11,
+         "66055ecab39b450e11fc2a529c776c8d", 2),
+        ("class_assignment_items", "ce6ece6aed5694e124c88efe47de1319", 13,
+         "2da9d3e9b38d7d709fd1469b54076154", 9),
+        ("class_assignments", "93c0789e69084e8be087426f68136afa", 16,
+         "c13ca7cf656bf783c7aa5cbed99486a1", 8),
+        ("class_lessons", "bafa54d302d3670c4ae2a39df210b8e8", 11,
+         "bc7bcc611ae1fe97b1226a7d88fba7e9", 5),
+        ("course_writing_drafts", "f363a6f0056498516d4f061f2d9fccea", 7,
+         "5f8960c8dc58ca5c830822799c9936cc", 3),
+        ("course_writing_submissions", "1cd7c19eae1156745db96780cee2b3ec", 10,
+         "576541f9ca975ff301f58643c0fd4411", 7),
+        ("courses", "697a741779d2050d2607a78256c79298", 9,
+         "ff83396dc07906bf6be243b42cec1fb0", 3),
+        ("speaking_lesson_set_questions", "dc84cd18618b95a7e5538b867fef71d3", 14,
+         "dd0b5308ef38df8e821cfaf92c35930d", 5),
+        ("speaking_lesson_sets", "6e7fc9c45565df4d477ced675e11b6bc", 10,
+         "16c37494c9ef10bfaf5b6e0713f1c8d0", 6),
+        ("speaking_progress_marks", "5938715f0be38ef6c7e8ac05ecadf099", 16,
+         "6e538f05d20eceecc3b21c308dbd19bb", 3),
+    ):
+        assert f"('{table_name}', '{column_hash}', {column_count}," in verify_sql
+        assert f"'{constraint_hash}', {constraint_count})" in verify_sql
     assert "expected_check.definition" in verify_sql
     assert "class_assignments_kind_check" in verify_sql
     assert "class_assignment_items_artifact_pairing" in verify_sql

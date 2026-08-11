@@ -20,6 +20,7 @@ DECLARE
     expected_fk record;
     expected_index record;
     expected_pk record;
+    expected_table record;
     expected_trigger record;
 BEGIN
     -- Tables created by the audited history.
@@ -37,6 +38,96 @@ BEGIN
     ] LOOP
         IF to_regclass('public.' || item) IS NULL THEN
             missing := array_append(missing, 'table:' || item);
+        END IF;
+    END LOOP;
+
+    -- Complete structural fingerprints for every table created by the audited
+    -- range. Focused checks below provide readable diagnostics for operational
+    -- contracts; these hashes close the residual gap by covering every column
+    -- (order/name/type/nullability/default) and every table constraint. Both
+    -- audited environments independently match this final 173-204 shape.
+    FOR expected_table IN
+        SELECT * FROM (VALUES
+            ('class_action_log', 'e7f091fe1b1fd0dbf842576d5a1f5709', 11,
+             '66055ecab39b450e11fc2a529c776c8d', 2),
+            ('class_assignment_items', 'ce6ece6aed5694e124c88efe47de1319', 13,
+             '2da9d3e9b38d7d709fd1469b54076154', 9),
+            ('class_assignments', '93c0789e69084e8be087426f68136afa', 16,
+             'c13ca7cf656bf783c7aa5cbed99486a1', 8),
+            ('class_lessons', 'bafa54d302d3670c4ae2a39df210b8e8', 11,
+             'bc7bcc611ae1fe97b1226a7d88fba7e9', 5),
+            ('course_writing_drafts', 'f363a6f0056498516d4f061f2d9fccea', 7,
+             '5f8960c8dc58ca5c830822799c9936cc', 3),
+            ('course_writing_submissions', '1cd7c19eae1156745db96780cee2b3ec', 10,
+             '576541f9ca975ff301f58643c0fd4411', 7),
+            ('courses', '697a741779d2050d2607a78256c79298', 9,
+             'ff83396dc07906bf6be243b42cec1fb0', 3),
+            ('speaking_lesson_set_questions', 'dc84cd18618b95a7e5538b867fef71d3', 14,
+             'dd0b5308ef38df8e821cfaf92c35930d', 5),
+            ('speaking_lesson_sets', '6e7fc9c45565df4d477ced675e11b6bc', 10,
+             '16c37494c9ef10bfaf5b6e0713f1c8d0', 6),
+            ('speaking_progress_marks', '5938715f0be38ef6c7e8ac05ecadf099', 16,
+             '6e538f05d20eceecc3b21c308dbd19bb', 3)
+        ) AS expected(
+            table_name, column_hash, column_count,
+            constraint_hash, constraint_count
+        )
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1
+              FROM (
+                    SELECT md5(string_agg(
+                               format('%s|%s|%s|%s',
+                                      a.attname,
+                                      format_type(a.atttypid, a.atttypmod),
+                                      a.attnotnull,
+                                      COALESCE(pg_get_expr(d.adbin, d.adrelid), '<null>')),
+                               E'\n' ORDER BY a.attnum
+                           )) AS fingerprint,
+                           count(*) AS item_count
+                      FROM pg_attribute a
+                      LEFT JOIN pg_attrdef d
+                        ON d.adrelid = a.attrelid
+                       AND d.adnum = a.attnum
+                     WHERE a.attrelid = to_regclass(
+                               format('public.%I', expected_table.table_name)
+                           )
+                       AND a.attnum > 0
+                       AND NOT a.attisdropped
+              ) actual
+             WHERE actual.fingerprint = expected_table.column_hash
+               AND actual.item_count = expected_table.column_count
+        ) THEN
+            missing := array_append(
+                missing,
+                'table-column-fingerprint:' || expected_table.table_name
+            );
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM (
+                    SELECT md5(string_agg(
+                               format('%s|%s|%s|%s',
+                                      con.conname,
+                                      con.contype,
+                                      con.convalidated,
+                                      pg_get_constraintdef(con.oid)),
+                               E'\n' ORDER BY con.conname
+                           )) AS fingerprint,
+                           count(*) AS item_count
+                      FROM pg_constraint con
+                     WHERE con.conrelid = to_regclass(
+                               format('public.%I', expected_table.table_name)
+                           )
+              ) actual
+             WHERE actual.fingerprint = expected_table.constraint_hash
+               AND actual.item_count = expected_table.constraint_count
+        ) THEN
+            missing := array_append(
+                missing,
+                'table-constraint-fingerprint:' || expected_table.table_name
+            );
         END IF;
     END LOOP;
 
