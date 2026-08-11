@@ -192,6 +192,10 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "data:artifact-pairing" in verify_sql
     assert "data:course-writing-duplicate-item" in verify_sql
     assert "data:full-test-attempt-id" in verify_sql
+    assert "column-contract:responses.persisted_at" in verify_sql
+    assert "format_type(a.atttypid, a.atttypmod) = 'timestamp with time zone'" in verify_sql
+    assert "a.attnotnull" in verify_sql
+    assert "pg_get_expr(d.adbin, d.adrelid) = 'now()'" in verify_sql
     assert "function-body:delete-course-evidence" in verify_sql
     assert "service-only-acl:" in verify_sql
     assert "has_function_privilege('anon'" in verify_sql
@@ -206,4 +210,18 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
         "quiz_replace_questions",
     ):
         assert verify_sql.count(function_name) >= 2
+    assert "service-only-table-acl:course_writing_drafts" in verify_sql
+    assert "has_table_privilege('anon'" in verify_sql
+    assert "has_table_privilege('authenticated'" in verify_sql
+    assert "has_table_privilege('service_role'" in verify_sql
+    for privilege in (
+        "SELECT",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "TRUNCATE",
+        "REFERENCES",
+        "TRIGGER",
+    ):
+        assert f"'service_role', 'public.course_writing_drafts', '{privilege}'" in verify_sql
     assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql

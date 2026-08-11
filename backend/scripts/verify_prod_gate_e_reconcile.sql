@@ -76,6 +76,28 @@ BEGIN
         missing := array_append(missing, 'removed-column:course_writing_drafts.seq');
     END IF;
 
+    -- Migration 202 is a receipt/evidence contract, not just a column name.
+    -- ADD COLUMN IF NOT EXISTS cannot repair a manually-created weaker column,
+    -- so refuse to baseline unless type, nullability and server default match.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+          JOIN pg_class c ON c.oid = a.attrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          JOIN pg_attrdef d
+            ON d.adrelid = a.attrelid
+           AND d.adnum = a.attnum
+         WHERE n.nspname = 'public'
+           AND c.relname = 'responses'
+           AND a.attname = 'persisted_at'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'timestamp with time zone'
+           AND a.attnotnull
+           AND pg_get_expr(d.adbin, d.adrelid) = 'now()'
+    ) THEN
+        missing := array_append(missing, 'column-contract:responses.persisted_at');
+    END IF;
+
     -- Final function signatures.  Intermediate overloads are intentionally not
     -- accepted as proof: the current callers depend on these exact signatures.
     FOREACH item IN ARRAY ARRAY[
@@ -261,6 +283,27 @@ BEGIN
             missing := array_append(missing, 'rls:' || item);
         END IF;
     END LOOP;
+
+    -- Migration 194 makes drafts backend-only at the table privilege layer in
+    -- addition to RLS. RLS alone is insufficient proof because service_role
+    -- bypasses it and still needs explicit ALL privileges to save/load drafts.
+    IF has_table_privilege('anon', 'public.course_writing_drafts', 'SELECT')
+       OR has_table_privilege('anon', 'public.course_writing_drafts', 'INSERT')
+       OR has_table_privilege('anon', 'public.course_writing_drafts', 'UPDATE')
+       OR has_table_privilege('anon', 'public.course_writing_drafts', 'DELETE')
+       OR has_table_privilege('authenticated', 'public.course_writing_drafts', 'SELECT')
+       OR has_table_privilege('authenticated', 'public.course_writing_drafts', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.course_writing_drafts', 'UPDATE')
+       OR has_table_privilege('authenticated', 'public.course_writing_drafts', 'DELETE')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'SELECT')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'INSERT')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'UPDATE')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'DELETE')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'TRUNCATE')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'REFERENCES')
+       OR NOT has_table_privilege('service_role', 'public.course_writing_drafts', 'TRIGGER') THEN
+        missing := array_append(missing, 'service-only-table-acl:course_writing_drafts');
+    END IF;
 
     FOR tbl, item IN
         SELECT * FROM (VALUES
