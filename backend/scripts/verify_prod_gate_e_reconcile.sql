@@ -94,6 +94,25 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- These RPCs either bypass RLS (SECURITY DEFINER) or perform destructive
+    -- bulk replacement. Function existence is not proof that a manual provision
+    -- also applied the mandatory REVOKE. A PUBLIC grant is inherited by both
+    -- roles, so effective privilege checks catch direct and PUBLIC grants.
+    FOREACH item IN ARRAY ARRAY[
+        'public.fn_insert_listening_answer_once(uuid,integer,text)',
+        'public.fn_create_class_assignment(uuid,text,text,uuid,jsonb,uuid,text,timestamp with time zone,timestamp with time zone,text,uuid,text,uuid[])',
+        'public.fn_backfill_assignment_items(uuid,uuid[])',
+        'public.fn_delete_class_assignment_if_unsubmitted(uuid,uuid)',
+        'public.fn_bind_session_to_class_item(uuid,uuid,uuid)',
+        'public.quiz_replace_questions(uuid,jsonb)'
+    ] LOOP
+        IF has_function_privilege('anon', item, 'EXECUTE')
+           OR has_function_privilege('authenticated', item, 'EXECUTE')
+           OR NOT has_function_privilege('service_role', item, 'EXECUTE') THEN
+            missing := array_append(missing, 'service-only-acl:' || item);
+        END IF;
+    END LOOP;
+
     -- Named constraints encode the cross-table and state invariants that mere
     -- column existence cannot prove.
     FOR tbl, item IN

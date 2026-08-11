@@ -193,4 +193,17 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "data:course-writing-duplicate-item" in verify_sql
     assert "data:full-test-attempt-id" in verify_sql
     assert "function-body:delete-course-evidence" in verify_sql
+    assert "service-only-acl:" in verify_sql
+    assert "has_function_privilege('anon'" in verify_sql
+    assert "has_function_privilege('authenticated'" in verify_sql
+    assert "has_function_privilege('service_role'" in verify_sql
+    for function_name in (
+        "fn_insert_listening_answer_once",
+        "fn_create_class_assignment",
+        "fn_backfill_assignment_items",
+        "fn_delete_class_assignment_if_unsubmitted",
+        "fn_bind_session_to_class_item",
+        "quiz_replace_questions",
+    ):
+        assert verify_sql.count(function_name) >= 2
     assert "prod_gate_e_reconcile_postconditions_failed" in verify_sql
