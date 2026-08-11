@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.averlearning.com/schemas/gate-e-speaking-real-device-evidence-v1.json",
+  "title": "Gate E Speaking real-device evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "matrix_id",
+    "requirement_id",
+    "status",
+    "evidence_class",
+    "source_sha",
+    "observed_release_sha",
+    "observed_backend_release_sha",
+    "source_branch",
+    "staging_origin",
+    "route",
+    "coexistence_route",
+    "observed_platform",
+    "observed_browser",
+    "device_model",
+    "operator",
+    "attested_by",
+    "journey_started_at",
+    "observed_at",
+    "captured_at",
+    "canonical_session",
+    "scope_results",
+    "console_errors",
+    "network_failures",
+    "provenance",
+    "workflow"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "matrix_id": { "const": "gate-e-speaking-device-matrix-v1" },
+    "requirement_id": { "enum": ["safari-floor", "ios-safari-floor"] },
+    "status": { "const": "complete" },
+    "evidence_class": { "const": "manual-real-device" },
+    "source_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "observed_release_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "observed_backend_release_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "source_branch": { "const": "staging" },
+    "staging_origin": { "const": "https://staging.averlearning.com" },
+    "route": { "const": "/practice/session" },
+    "coexistence_route": { "const": "/pages/practice.html" },
+    "observed_platform": { "type": "string", "minLength": 1 },
+    "observed_browser": { "type": "string", "minLength": 1 },
+    "device_model": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "operator": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "attested_by": { "type": "string", "minLength": 1 },
+    "journey_started_at": { "type": "string", "format": "date-time" },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "captured_at": { "type": "string", "format": "date-time" },
+    "canonical_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "mode",
+        "part",
+        "status",
+        "started_at",
+        "persisted_response_count",
+        "evidence_response_id",
+        "evidence_response_persisted_at"
+      ],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "mode": { "const": "practice" },
+        "part": { "const": 2 },
+        "status": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "persisted_response_count": { "type": "integer", "minimum": 1 },
+        "evidence_response_id": { "type": "string", "format": "uuid" },
+        "evidence_response_persisted_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "scope_results": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "const": "passed" }
+    },
+    "console_errors": { "type": "array", "maxItems": 0 },
+    "network_failures": { "type": "array", "maxItems": 0 },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frontend_release",
+        "frontend_git_ref",
+        "runtime_environment",
+        "backend_release",
+        "backend_git_branch",
+        "backend_environment_name"
+      ],
+      "properties": {
+        "frontend_release": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "frontend_git_ref": { "const": "staging" },
+        "runtime_environment": { "const": "staging" },
+        "backend_release": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "backend_git_branch": { "const": "staging" },
+        "backend_environment_name": { "const": "staging" }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor",
+        "repository",
+        "name",
+        "auditor_sha",
+        "run_id",
+        "run_attempt",
+        "git_ref"
+      ],
+      "properties": {
+        "actor": { "type": "string", "minLength": 1 },
+        "repository": { "const": "andyvinhtran1212-netizen/ielts-speaking-coach" },
+        "name": { "const": "Speaking Gate E real-device evidence" },
+        "auditor_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "run_id": { "type": "string", "pattern": "^[0-9]+$" },
+        "run_attempt": { "const": 1 },
+        "git_ref": { "const": "refs/heads/main" }
+      }
+    }
+  }
+}

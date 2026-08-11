@@ -999,10 +999,16 @@ async def get_session(
     # Receipt-only ledger: enough for upload reconciliation and reload/resume,
     # but never enough to reveal a sealed mock's transcript, grading or score.
     # The response row id is required to distinguish a real persisted row from
-    # an optimistic/pending client state. A retake still has the same row id and
-    # therefore remains ambiguous unless the POST itself confirms it.
+    # an optimistic/pending client state. persisted_at is server-authored and
+    # lets release evidence prove that exact row existed inside its journey
+    # window. A retake still has the same row id and therefore remains ambiguous
+    # unless the POST itself confirms it.
     response_receipts = [
-        {"id": row.get("id"), "question_id": row.get("question_id")}
+        {
+            "id": row.get("id"),
+            "question_id": row.get("question_id"),
+            "persisted_at": row.get("persisted_at"),
+        }
         for row in responses
         if row.get("id") and row.get("question_id")
     ]

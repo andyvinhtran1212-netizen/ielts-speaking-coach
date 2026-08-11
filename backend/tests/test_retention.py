@@ -257,6 +257,7 @@ def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):
     responses = [{
         "id": "resp-1", "question_id": "q-1", "transcript": "secret answer",
         "overall_band": 7.5, "feedback": {"strengths": ["secret"]},
+        "persisted_at": "2026-08-11T00:20:00+00:00",
     }]
     _patch(monkeypatch, {
         "sessions": [session], "questions": [], "responses": responses,
@@ -269,7 +270,11 @@ def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):
         "sess-sealed", BackgroundTasks(), authorization="Bearer x",
     ))
     assert out["responses"] == []
-    assert out["response_receipts"] == [{"id": "resp-1", "question_id": "q-1"}]
+    assert out["response_receipts"] == [{
+        "id": "resp-1",
+        "question_id": "q-1",
+        "persisted_at": "2026-08-11T00:20:00+00:00",
+    }]
     assert out["response_lookup_failed"] is False
     assert out["results_sealed"] is True
     assert "transcript" not in out["response_receipts"][0]
