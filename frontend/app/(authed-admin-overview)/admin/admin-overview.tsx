@@ -411,7 +411,7 @@ export function AdminOverview() {
       <section className="db-block" aria-labelledby="attention-title">
         <h2 className="db-section-title" id="attention-title">Cần chú ý</h2>
         <div className="db-attention">
-          <a className="db-attn-card" href="/pages/admin/error-logs/index.html">
+          <a className="db-attn-card" href="/admin/error-logs">
             <span className="db-attn-card__count">{formatInteger(ops?.attention?.errorsUndismissed)}</span>
             <span className="db-attn-card__body">
               <span className="db-attn-card__label">Lỗi chưa xử lý</span>
@@ -541,7 +541,7 @@ export function AdminOverview() {
             <span className="value">{formatInteger(students.active_7d)}</span>
             <span className="delta">{finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} trong 30 ngày`}</span>
           </div>
-          <a className={`stat-tile is-clickable${Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/pages/admin/error-logs/index.html">
+          <a className={`stat-tile is-clickable${Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/admin/error-logs">
             <span className="label">Lỗi chưa xử lý</span>
             <span className="value">{formatInteger(errors.undismissed)}</span>
             <span className="delta">{finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
