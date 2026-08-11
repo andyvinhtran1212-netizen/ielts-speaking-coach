@@ -2014,6 +2014,11 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
                                          "Tải lại trang để xem kết quả.")
         else:
             res = supabase_admin.table("course_writing_submissions").insert(row).execute()
+    except HTTPException:
+        # Giữ nguyên lỗi nghiệp vụ của compare-and-swap. Nếu hai tab cùng chấm
+        # lại một dòng hỏng, tab thua phải nhận 409 để tải lại kết quả của tab
+        # thắng — không được bị khối bắt lỗi DB bên dưới đổi thành 500.
+        raise
     except Exception as exc:  # noqa: BLE001
         # 23505 = va UNIQUE: hai tab cùng bấm Nộp. Đó là "đã nộp rồi", không
         # phải lỗi máy chủ — và bản chấm vừa tốn tiền gọi model thì bỏ, vì bản
