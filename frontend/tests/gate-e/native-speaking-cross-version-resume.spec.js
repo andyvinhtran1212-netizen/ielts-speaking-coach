@@ -109,6 +109,11 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
     });
   }, SID);
 
+  // Let App Router finish same-origin link prefetches before the deliberate
+  // full-document handoff. WebKit reports a navigation-cancelled RSC prefetch
+  // as a pageerror even though canonical state and the destination are intact.
+  // Waiting preserves the strict zero-pageerror assertion instead of hiding it.
+  await page.waitForLoadState('networkidle');
   await page.goto(`/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
