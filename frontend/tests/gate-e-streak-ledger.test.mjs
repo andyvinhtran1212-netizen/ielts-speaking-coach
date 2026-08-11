@@ -281,6 +281,7 @@ describe('candidate streak advances and resets fail-closed', () => {
   test('eligibility becomes true only when all three independent gates pass', () => {
     const completeManifest = structuredClone(MANIFEST);
     completeManifest.failure_injection.status = 'complete';
+    completeManifest.failure_injection.missing = [];
     const completeMetadata = (runId) => ({
       ...metadata(runId),
       real_device_requirements: metadata(runId).real_device_requirements
@@ -297,6 +298,14 @@ describe('candidate streak advances and resets fail-closed', () => {
     assert.equal(ledger.failure_matrix_complete, true);
     assert.equal(ledger.real_devices_complete, true);
     assert.equal(ledger.gate_e_evidence_eligible, true);
+  });
+
+  test('failure status cannot overclaim completion while required paths remain', () => {
+    const inconsistentManifest = structuredClone(MANIFEST);
+    inconsistentManifest.failure_injection.status = 'complete';
+    const ledger = advance(null, 1, { manifest: inconsistentManifest });
+    assert.equal(ledger.failure_matrix_complete, false);
+    assert.equal(ledger.gate_e_evidence_eligible, false);
   });
 });
 
@@ -389,15 +398,29 @@ describe('workflow and provenance contract', () => {
     const preflight = WORKFLOW.indexOf('Verify frozen Gate E suite before executing staging code');
     const install = WORKFLOW.indexOf('Install frontend deps');
     const run = WORKFLOW.indexOf('Run staging E2E');
+    const failureMatrix = WORKFLOW.indexOf('Run Gate E Speaking failure matrix');
     const update = WORKFLOW.indexOf('Update Gate E streak ledger');
     const save = WORKFLOW.indexOf('Save Gate E streak state');
-    assert.ok(restore < preflight && preflight < install && install < run && run < update && update < save);
+    assert.ok(
+      restore < preflight && preflight < install && install < run &&
+      run < failureMatrix && failureMatrix < update && update < save,
+    );
     for (const artifact of [
       'gate-e-staging-provenance.json',
       'gate-e-streak-ledger.json',
       'staging-e2e-results.json',
     ]) assert.ok(WORKFLOW.includes(artifact));
     assert.match(WORKFLOW, /Update Gate E streak ledger\n\s+id: streak_ledger\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /Verify frozen Gate E suite before executing staging code\n\s+id: frozen_preflight/);
+    assert.match(
+      WORKFLOW,
+      /Run Gate E Speaking failure matrix[\s\S]*?id: speaking_failure_matrix[\s\S]*?if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'[\s\S]*?npm run test:e2e:gate-e/,
+    );
+    assert.match(
+      WORKFLOW,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+    );
+    assert.match(WORKFLOW, /Upload Speaking failure-matrix evidence[\s\S]*?gate-e-speaking-failure-matrix-/);
     assert.match(WORKFLOW, /Save Gate E streak state\n\s+if: always\(\) && steps\.streak_ledger\.outcome == 'success'/);
     assert.equal((WORKFLOW.match(/path: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/g) || []).length, 2);
     assert.match(WORKFLOW, /GATE_E_STATE_ROOT: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/);

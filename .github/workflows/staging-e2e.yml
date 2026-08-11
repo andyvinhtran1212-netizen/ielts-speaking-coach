@@ -46,7 +46,7 @@ jobs:
       cancel-in-progress: false
       queue: max
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -90,6 +90,7 @@ jobs:
           node-version: "24"
 
       - name: Verify frozen Gate E suite before executing staging code
+        id: frozen_preflight
         env:
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
           GATE_E_TESTED_SHA: ${{ steps.source_revision.outputs.sha }}
@@ -110,13 +111,26 @@ jobs:
       - name: Run staging E2E
         id: staging_e2e
         working-directory: frontend
-        # Reserve at least ten minutes of the 30-minute job budget for
-        # provenance, ledger/cache finalization and artifact uploads.
+        # Leave enough of the 60-minute job budget for the frozen Speaking
+        # failure matrix plus provenance/ledger/artifact finalization.
         timeout-minutes: 20
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
         run: npm run test:e2e:staging
+
+      # The four core-player failure paths use deterministic network faults
+      # against the production Next build. Keeping this as a separate step
+      # preserves the live-staging report while making either suite failure
+      # reset the same critical streak.
+      - name: Run Gate E Speaking failure matrix
+        id: speaking_failure_matrix
+        # Never execute tested-branch package scripts when trusted preflight
+        # rejected the checkout or dependency setup skipped this suite.
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        run: npm run test:e2e:gate-e
 
       # Gate E evidence must remain inspectable even when the suite fails. This
       # metadata contains only versions/run ids/outcome — never secrets or auth
@@ -125,7 +139,7 @@ jobs:
         id: matrix_evidence
         if: always()
         env:
-          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome }}
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && 'success' || 'failure' }}
           EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
           EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
@@ -175,6 +189,18 @@ jobs:
           path: |
             frontend/test-results/gate-e-device-matrix-evidence.json
             frontend/test-results/staging-e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Speaking failure-matrix evidence
+        if: always() && steps.speaking_failure_matrix.outcome != 'skipped'
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-speaking-device-matrix-results.json
+            frontend/tooling/gate-e-speaking-device-matrix.json
+            frontend/playwright-report/gate-e
           if-no-files-found: error
           retention-days: 30
 

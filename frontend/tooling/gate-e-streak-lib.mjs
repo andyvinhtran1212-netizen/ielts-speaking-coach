@@ -238,7 +238,16 @@ export function advanceStreak({
   const thresholdMet = streakCount >= manifest.target_consecutive_clean_runs;
   const realDevicesComplete = (metadata?.real_device_requirements || []).length > 0 &&
     metadata.real_device_requirements.every((item) => item.status === 'complete');
-  const failureMatrixComplete = manifest.failure_injection.status === 'complete';
+  const failureInjection = manifest.failure_injection || {};
+  const coveredFailurePaths = Array.isArray(failureInjection.covered)
+    ? failureInjection.covered
+    : [];
+  const missingFailurePaths = Array.isArray(failureInjection.missing)
+    ? failureInjection.missing
+    : null;
+  const failureMatrixComplete = failureInjection.status === 'complete' &&
+    coveredFailurePaths.length > 0 &&
+    missingFailurePaths?.length === 0;
 
   const entry = {
     run_id: metadata?.run_id || null,
