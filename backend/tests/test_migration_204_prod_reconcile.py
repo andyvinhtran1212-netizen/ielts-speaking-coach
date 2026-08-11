@@ -294,6 +294,12 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "course_writing_submissions_clean_check" in verify_sql
     assert "course_writing_clean_within_total" in verify_sql
     assert "CHECK ((clean <= total))" in verify_sql
+    assert "class_assignments_status_check" in verify_sql
+    assert "'''published''::text'" in verify_sql
+    assert "data:class_assignments.status" in verify_sql
+    assert "class_action_log_action_check" in verify_sql
+    assert "data:class_action_log.action" in verify_sql
+    assert "'class_action_log', 'details', 'jsonb', true, '''{}''::jsonb'" in verify_sql
     assert "expected_check.definition" in verify_sql
     assert "class_assignments_kind_check" in verify_sql
     assert "class_assignment_items_artifact_pairing" in verify_sql

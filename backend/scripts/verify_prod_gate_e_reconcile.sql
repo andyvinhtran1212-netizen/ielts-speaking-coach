@@ -199,6 +199,7 @@ BEGIN
     -- real insert immediately rejects.
     FOR expected_column IN
         SELECT * FROM (VALUES
+            ('class_assignments', 'status', 'text', true, '''published''::text'),
             ('course_writing_submissions', 'bank_id', 'uuid', true, NULL::text),
             ('course_writing_submissions', 'user_id', 'uuid', true, NULL::text),
             ('course_writing_submissions', 'class_assignment_item_id', 'uuid', false, NULL::text),
@@ -212,7 +213,17 @@ BEGIN
             ('course_writing_drafts', 'bank_id', 'uuid', true, NULL::text),
             ('course_writing_drafts', 'answers', 'jsonb', true, '''{}''::jsonb'),
             ('course_writing_drafts', 'updated_at', 'timestamp with time zone', true, 'now()'),
-            ('course_writing_drafts', 'created_at', 'timestamp with time zone', true, 'now()')
+            ('course_writing_drafts', 'created_at', 'timestamp with time zone', true, 'now()'),
+            ('class_action_log', 'action', 'text', true, NULL::text),
+            ('class_action_log', 'cohort_id', 'uuid', true, NULL::text),
+            ('class_action_log', 'assignment_id', 'uuid', false, NULL::text),
+            ('class_action_log', 'student_id', 'uuid', false, NULL::text),
+            ('class_action_log', 'assignment_title', 'text', false, NULL::text),
+            ('class_action_log', 'student_name', 'text', false, NULL::text),
+            ('class_action_log', 'actor_user_id', 'uuid', false, NULL::text),
+            ('class_action_log', 'actor_email', 'text', false, NULL::text),
+            ('class_action_log', 'details', 'jsonb', true, '''{}''::jsonb'),
+            ('class_action_log', 'created_at', 'timestamp with time zone', true, 'now()')
         ) AS expected(
             table_name, column_name, formatted_type, not_null, default_expression
         )
@@ -896,6 +907,11 @@ BEGIN
                 $check$CHECK ((kind = ANY (ARRAY['daily'::text, 'lesson'::text])))$check$
             ),
             (
+                'class_assignments',
+                'class_assignments_status_check',
+                $check$CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])))$check$
+            ),
+            (
                 'class_assignment_items',
                 'class_assignment_items_artifact_pairing',
                 $check$CHECK ((((artifact_kind IS NULL) AND (artifact_id IS NULL)) OR ((artifact_kind IS NOT NULL) AND (artifact_id IS NOT NULL))))$check$
@@ -939,6 +955,11 @@ BEGIN
                 'course_writing_submissions',
                 'course_writing_clean_within_total',
                 $check$CHECK ((clean <= total))$check$
+            ),
+            (
+                'class_action_log',
+                'class_action_log_action_check',
+                $check$CHECK ((action = ANY (ARRAY['due_change'::text, 'return_work'::text])))$check$
             )
         ) AS expected(table_name, constraint_name, definition)
     LOOP
@@ -960,6 +981,24 @@ BEGIN
             );
         END IF;
     END LOOP;
+
+    IF EXISTS (
+        SELECT 1
+          FROM public.class_assignments
+         WHERE status IS NULL
+            OR status NOT IN ('draft', 'published', 'archived')
+    ) THEN
+        missing := array_append(missing, 'data:class_assignments.status');
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM public.class_action_log
+         WHERE action IS NULL
+            OR action NOT IN ('due_change', 'return_work')
+    ) THEN
+        missing := array_append(missing, 'data:class_action_log.action');
+    END IF;
 
     -- Migration 177 establishes the one-ledger-item-per-student invariant used
     -- by every assignment reader and by concurrent migration-193 backfills.
