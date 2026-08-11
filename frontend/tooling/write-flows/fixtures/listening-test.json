@@ -12,6 +12,9 @@
     "id": "9f1c2b64-5d7a-4e18-9c33-2a7b41e0d5f6",
     "test_id": "ILR-LIS-WF-001",
     "title": "Bài nghe kiểm cổng ghi",
+    "test_type": "full",
+    "audio_url": "data:audio/wav;base64,UklGRg==",
+    "audio_duration_seconds": 120,
     "sections": [
       {
         "section_num": 1,

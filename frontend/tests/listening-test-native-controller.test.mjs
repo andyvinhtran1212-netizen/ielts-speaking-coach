@@ -10,13 +10,16 @@ import {
   isRetriableListeningSave,
   listeningAnswersFromRows,
   listeningDictationHref,
+  listeningInlineTokens,
   listeningLibraryHref,
   listeningQuestions,
   listeningResumeOffsetSeconds,
   listeningReviewHref,
+  listeningTableCellLines,
   listeningTestParams,
   normalizeListeningResume,
   normalizeListeningTest,
+  splitListeningGapPrompt,
 } from '../lib/listening-test-controller.mjs';
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
 
@@ -72,6 +75,57 @@ describe('native Listening test controller', () => {
     assert.equal(listeningReviewHref('a 1', 'mini'), '/pages/listening-review.html?attempt_id=a+1&from=mini');
     assert.equal(listeningReviewHref('a1', 'https://evil.test'), '/pages/listening-review.html?attempt_id=a1&from=full');
     assert.equal(listeningDictationHref('t/1'), '/core-player/launch?surface=listening_dictation&test_id=t%2F1');
+  });
+
+  test('places the answer control at the first authored blank token', () => {
+    assert.deepEqual(splitListeningGapPrompt('Meet at the ____ after class'), {
+      before: 'Meet at the ', after: ' after class',
+    });
+    assert.deepEqual(splitListeningGapPrompt('Room …… upstairs'), {
+      before: 'Room ', after: ' upstairs',
+    });
+    assert.deepEqual(splitListeningGapPrompt('Starts .... sharp'), {
+      before: 'Starts ', after: ' sharp',
+    });
+    assert.equal(splitListeningGapPrompt('No authored blank'), null);
+  });
+
+  test('parses legacy inline emphasis safely and keeps a styled gap in place', () => {
+    assert.deepEqual(listeningInlineTokens('Write **NO MORE** than *ONE WORD*.'), [
+      { type: 'text', text: 'Write ', emphasis: null },
+      { type: 'text', text: 'NO MORE', emphasis: 'strong' },
+      { type: 'text', text: ' than ', emphasis: null },
+      { type: 'text', text: 'ONE WORD', emphasis: 'em' },
+      { type: 'text', text: '.', emphasis: null },
+    ]);
+    assert.deepEqual(listeningInlineTokens('Choose **the ____ answer**', { insertGap: true }), [
+      { type: 'text', text: 'Choose ', emphasis: null },
+      { type: 'text', text: 'the ', emphasis: 'strong' },
+      { type: 'gap', emphasis: 'strong' },
+      { type: 'text', text: ' answer', emphasis: 'strong' },
+    ]);
+    assert.deepEqual(listeningInlineTokens('*italic **bold** text*'), [
+      { type: 'text', text: 'italic ', emphasis: 'em' },
+      { type: 'text', text: 'bold', emphasis: 'strong-em' },
+      { type: 'text', text: ' text', emphasis: 'em' },
+    ]);
+    assert.deepEqual(listeningInlineTokens('<img src=x onerror=alert(1)>'), [
+      { type: 'text', text: '<img src=x onerror=alert(1)>', emphasis: null },
+    ]);
+  });
+
+  test('preserves table cell statements without splitting one sentence around a bare gap', () => {
+    const sentence = ['Good for people keen on', { q_num: 1 }, 'activities'];
+    assert.deepEqual(listeningTableCellLines(sentence), [sentence]);
+
+    const multiLine = [
+      { q_num: 9, prefix: 'Starting salary £', suffix: 'per hour' },
+      'Start work at 5.30 a.m.',
+      { q_num: 10, prefix: 'Bring', suffix: 'on day one' },
+    ];
+    assert.deepEqual(listeningTableCellLines(multiLine), [
+      [multiLine[0]], [multiLine[1]], [multiLine[2]],
+    ]);
   });
 
   test('retries transient errors but fails validation errors immediately', () => {
@@ -159,6 +213,9 @@ describe('native Listening test route contract', () => {
     assert.match(page, /export function ListeningTestSession/);
     assert.match(page, /useState<ListeningPhase>/);
     assert.match(page, /<audio/);
+    assert.match(page, /<InlineText text=\{prompt\} gap=\{<GapInput/);
+    assert.doesNotMatch(page, /dangerouslySetInnerHTML/);
+    assert.match(page, /listeningTableCellLines\(cell\)/);
   });
 
   test('uses canonical load, resume, start, answer and submit endpoints', () => {

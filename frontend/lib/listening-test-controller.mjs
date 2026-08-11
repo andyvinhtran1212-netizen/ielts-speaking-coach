@@ -1,5 +1,114 @@
 const RETRY_DELAYS = Object.freeze([400, 1200, 3000]);
 const LISTENING_ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock']);
+const LISTENING_GAP_TOKEN_RE = /_{2,}|…+|\.{4,}/;
+const LISTENING_BOLD_RE = /\*\*([^*]+)\*\*/g;
+const LISTENING_ITALIC_RE = /\*([^*\n]+)\*/g;
+
+/**
+ * Split the first authored blank token without interpreting the surrounding
+ * prompt as HTML. React can then place the real input between both text halves
+ * while preserving the legacy player's semantic position.
+ */
+export function splitListeningGapPrompt(prompt) {
+  const text = String(prompt ?? '');
+  const match = LISTENING_GAP_TOKEN_RE.exec(text);
+  if (!match) return null;
+  return Object.freeze({
+    before: text.slice(0, match.index),
+    after: text.slice(match.index + match[0].length),
+  });
+}
+
+/**
+ * Parse the deliberately small markdown subset supported by the legacy test
+ * player. Tokens remain plain text for React to escape; no authored HTML is
+ * ever injected. When `insertGap` is true, the first blank becomes a typed gap
+ * token (including when the blank sits inside bold/italic emphasis), otherwise
+ * a gap is appended after one space just like legacy `renderGapPrompt()`.
+ */
+export function listeningInlineTokens(raw, { insertGap = false } = {}) {
+  const text = String(raw ?? '');
+  const tokens = [];
+  const boldValues = [];
+  // Legacy runs bold replacement first, then italic over that output. Replace
+  // bold spans with collision-free sentinels so an outer italic span can cross
+  // them, then expand into typed React tokens instead of trusting HTML.
+  let sentinelCode = 0xe000;
+  while (sentinelCode < 0xf8fe
+      && (text.includes(String.fromCharCode(sentinelCode))
+        || text.includes(String.fromCharCode(sentinelCode + 1)))) sentinelCode += 2;
+  const sentinelOpen = String.fromCharCode(sentinelCode);
+  const sentinelClose = String.fromCharCode(sentinelCode + 1);
+  const staged = text.replace(LISTENING_BOLD_RE, (_whole, value) => {
+    const index = boldValues.push(value) - 1;
+    return `${sentinelOpen}${index}${sentinelClose}`;
+  });
+  const sentinelRe = new RegExp(`${sentinelOpen}(\\d+)${sentinelClose}`, 'g');
+  const expand = (chunk, em) => {
+    let at = 0;
+    for (const match of chunk.matchAll(sentinelRe)) {
+      if (match.index > at) {
+        tokens.push({ type: 'text', text: chunk.slice(at, match.index), emphasis: em ? 'em' : null });
+      }
+      tokens.push({ type: 'text', text: boldValues[Number(match[1])], emphasis: em ? 'strong-em' : 'strong' });
+      at = match.index + match[0].length;
+    }
+    if (at < chunk.length || (!chunk.length && !tokens.length)) {
+      tokens.push({ type: 'text', text: chunk.slice(at), emphasis: em ? 'em' : null });
+    }
+  };
+  let cursor = 0;
+  for (const match of staged.matchAll(LISTENING_ITALIC_RE)) {
+    if (match.index > cursor) expand(staged.slice(cursor, match.index), false);
+    expand(match[1], true);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < staged.length || !tokens.length) expand(staged.slice(cursor), false);
+  if (!insertGap) return tokens;
+
+  const withGap = [];
+  let inserted = false;
+  for (const token of tokens) {
+    const split = inserted ? null : splitListeningGapPrompt(token.text);
+    if (!split) {
+      withGap.push(token);
+      continue;
+    }
+    if (split.before) withGap.push({ ...token, text: split.before });
+    withGap.push({ type: 'gap', emphasis: token.emphasis });
+    if (split.after) withGap.push({ ...token, text: split.after });
+    inserted = true;
+  }
+  if (!inserted) {
+    withGap.push({ type: 'text', text: ' ', emphasis: null });
+    withGap.push({ type: 'gap', emphasis: null });
+  }
+  return withGap;
+}
+
+/**
+ * Preserve the converter's mixed representation for table cells: bare gap
+ * segments continue the current sentence, while a gap that owns its prefix or
+ * prose after a gap with a suffix starts a new logical statement.
+ */
+export function listeningTableCellLines(segments) {
+  const lines = [];
+  let current = null;
+  let previous = null;
+  for (const segment of Array.isArray(segments) ? segments : []) {
+    const isGap = !!segment && typeof segment === 'object' && segment.q_num != null;
+    const ownsItsLead = isGap && String(segment.prefix || '').trim();
+    const followsClosedGap = !isGap && previous && typeof previous === 'object'
+      && previous.q_num != null && String(previous.suffix || '').trim();
+    if (current === null || ownsItsLead || followsClosedGap) {
+      current = [];
+      lines.push(current);
+    }
+    current.push(segment);
+    previous = segment;
+  }
+  return lines;
+}
 
 export function listeningTestParams(search) {
   const params = new URLSearchParams(search || '');

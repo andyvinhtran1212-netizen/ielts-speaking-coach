@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -8,10 +8,12 @@ import {
   isPracticeListeningTest,
   listeningAnswersFromRows,
   listeningDictationHref,
+  listeningInlineTokens,
   listeningLibraryHref,
   listeningQuestions,
   listeningResumeOffsetSeconds,
   listeningReviewHref,
+  listeningTableCellLines,
   listeningTestParams,
   normalizeListeningResume,
   normalizeListeningTest,
@@ -63,6 +65,15 @@ function optionText(option: any) {
   return String(option?.text ?? option?.label ?? option?.letter ?? '');
 }
 
+function InlineText({ text, gap }: { text: any; gap?: ReactNode }) {
+  return <>{listeningInlineTokens(text, { insertGap: gap !== undefined }).map((token: any, index: number) => {
+    let content = token.type === 'gap' ? gap : token.text;
+    if (token.emphasis === 'strong' || token.emphasis === 'strong-em') content = <strong>{content}</strong>;
+    if (token.emphasis === 'em' || token.emphasis === 'strong-em') content = <em>{content}</em>;
+    return <Fragment key={index}>{content}</Fragment>;
+  })}</>;
+}
+
 function GapInput({ qNum, value, onAnswer, ariaLabel }: {
   qNum: number; value: string; onAnswer(qNum: number, value: string): void; ariaLabel?: string;
 }) {
@@ -81,17 +92,17 @@ function GapWithNumber({ qNum, value, onAnswer, prefix = '', suffix = '' }: {
   qNum: number; value: string; onAnswer(qNum: number, value: string): void; prefix?: string; suffix?: string;
 }) {
   return <span className="listening-next-gap">
-    {prefix ? <span>{prefix} </span> : null}
+    {prefix ? <span><InlineText text={prefix} /> </span> : null}
     <span className="ielts-question-num">{qNum}</span>
     <GapInput qNum={qNum} value={value} onAnswer={onAnswer} />
-    {suffix ? <span> {suffix}</span> : null}
+    {suffix ? <span> <InlineText text={suffix} /></span> : null}
   </span>;
 }
 
 function Segment({ segment, answers, onAnswer }: { segment: any; answers: AnswerMap; onAnswer(q: number, v: string): void }) {
   if (segment == null) return null;
-  if (typeof segment !== 'object') return <>{String(segment)}</>;
-  if (segment.q_num == null) return <>{String(segment.text || '')}</>;
+  if (typeof segment !== 'object') return <InlineText text={String(segment)} />;
+  if (segment.q_num == null) return <InlineText text={String(segment.text || '')} />;
   const qNum = Number(segment.q_num);
   return <GapWithNumber qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} prefix={segment.prefix || ''} suffix={segment.suffix || ''} />;
 }
@@ -99,13 +110,13 @@ function Segment({ segment, answers, onAnswer }: { segment: any; answers: Answer
 function FormTemplate({ template, answers, onAnswer }: { template: any; answers: AnswerMap; onAnswer(q: number, v: string): void }) {
   const rows = Array.isArray(template?.rows) ? template.rows : [];
   return <div className="ielts-form-container">
-    {template?.heading ? <div className="ielts-form-heading">{template.heading}</div> : null}
+    {template?.heading ? <div className="ielts-form-heading"><InlineText text={template.heading} /></div> : null}
     <div className="ielts-form-grid">{rows.map((row: any, index: number) => <div className="ielts-form-row" key={index}>
-      {row.label ? <span className="ielts-form-label">{row.label}:</span> : null}
-      {row.example != null ? <span className="ielts-form-example">{row.example} (Example)</span>
+      {row.label ? <span className="ielts-form-label"><InlineText text={row.label} />:</span> : null}
+      {row.example != null ? <span className="ielts-form-example"><InlineText text={row.example} /> (Example)</span>
         : Array.isArray(row.segments) ? row.segments.map((segment: any, part: number) => <Segment key={part} segment={segment} answers={answers} onAnswer={onAnswer} />)
           : row.q_num != null ? <GapWithNumber qNum={Number(row.q_num)} value={answers.get(Number(row.q_num)) || ''} onAnswer={onAnswer} prefix={row.prefix || ''} suffix={row.suffix || ''} />
-            : <span>{row.text || ''}</span>}
+            : <span><InlineText text={row.text || ''} /></span>}
     </div>)}</div>
   </div>;
 }
@@ -114,10 +125,12 @@ function TableTemplate({ template, answers, onAnswer }: { template: any; answers
   const headers = Array.isArray(template?.headers) ? template.headers : [];
   const rows = Array.isArray(template?.rows) ? template.rows : [];
   return <div className="ielts-table-container">
-    {template?.heading ? <div className="ielts-table-heading">{template.heading}</div> : null}
-    <table className="ielts-table"><thead><tr>{headers.map((header: any, index: number) => <th key={index}>{String(header ?? '')}</th>)}</tr></thead>
+    {template?.heading ? <div className="ielts-table-heading"><InlineText text={template.heading} /></div> : null}
+    <table className="ielts-table"><thead><tr>{headers.map((header: any, index: number) => <th key={index}><InlineText text={String(header ?? '')} /></th>)}</tr></thead>
       <tbody>{rows.map((row: any[], rowIndex: number) => <tr key={rowIndex}>{(row || []).map((cell: any, cellIndex: number) => <td key={cellIndex}>
-        {Array.isArray(cell) ? cell.map((segment, part) => <Segment key={part} segment={segment} answers={answers} onAnswer={onAnswer} />)
+        {Array.isArray(cell) ? listeningTableCellLines(cell).map((line: any[], lineIndex: number) => <div className="ielts-table-line" key={lineIndex}>
+          {line.map((segment, part) => <Fragment key={part}>{part ? ' ' : null}<Segment segment={segment} answers={answers} onAnswer={onAnswer} /></Fragment>)}
+        </div>)
           : <Segment segment={cell} answers={answers} onAnswer={onAnswer} />}
       </td>)}</tr>)}</tbody>
     </table>
@@ -127,11 +140,11 @@ function TableTemplate({ template, answers, onAnswer }: { template: any; answers
 function NotesTemplate({ template, answers, onAnswer }: { template: any; answers: AnswerMap; onAnswer(q: number, v: string): void }) {
   const groups = Array.isArray(template?.groups) ? template.groups : [];
   return <div className="ielts-notes-container">
-    {template?.heading ? <div className="ielts-notes-heading">{template.heading}</div> : null}
+    {template?.heading ? <div className="ielts-notes-heading"><InlineText text={template.heading} /></div> : null}
     {groups.map((group: any, index: number) => <div className="ielts-notes-group" key={index}>
-      {group.heading ? <div className="ielts-notes-group-heading">{group.heading}</div> : null}
+      {group.heading ? <div className="ielts-notes-group-heading"><InlineText text={group.heading} /></div> : null}
       <ul className="ielts-notes-list">{(group.items || []).map((item: any, itemIndex: number) => <li key={itemIndex}>
-        {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : String(item?.text || '')}
+        {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : <InlineText text={String(item?.text || '')} />}
       </li>)}</ul>
     </div>)}
   </div>;
@@ -145,7 +158,7 @@ function SummaryTemplate({ template, questions, answers, onAnswer }: {
   if (!paragraph) return <QuestionRows questions={questions} answers={answers} onAnswer={onAnswer} />;
   return <div className="ielts-summary-paragraph">{pieces.map((piece, index) => {
     const match = /^\{\{Q(\d+)\}\}$/.exec(piece);
-    if (!match) return <span key={index}>{piece}</span>;
+    if (!match) return <span key={index}><InlineText text={piece} /></span>;
     const qNum = Number(match[1]);
     return <GapWithNumber key={index} qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} />;
   })}</div>;
@@ -165,9 +178,11 @@ function SentenceTemplate({ template, questions, answers, onAnswer }: {
 function QuestionRows({ questions, answers, onAnswer }: { questions: any[]; answers: AnswerMap; onAnswer(q: number, v: string): void }) {
   return <>{questions.map((question) => {
     const qNum = Number(question.q_num);
+    const prompt = String(question.prompt || '');
     return <div className="ielts-short-row" id={`q-${qNum}`} key={qNum}>
-      <span className="ielts-question-num">{qNum}</span><span className="ielts-gap-prompt">{question.prompt || ''}</span>
-      <GapInput qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} />
+      <span className="ielts-question-num">{qNum}</span><span className="ielts-gap-prompt">
+        <InlineText text={prompt} gap={<GapInput qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} />} />
+      </span>
     </div>;
   })}</>;
 }
@@ -178,12 +193,12 @@ function McqTemplate({ questions, answers, onAnswer }: { questions: any[]; answe
     const options = Array.isArray(question.options) ? question.options : [];
     if (!options.length) return <QuestionRows key={qNum} questions={[question]} answers={answers} onAnswer={onAnswer} />;
     return <div className="ielts-mcq-question" id={`q-${qNum}`} key={qNum}>
-      <div className="ielts-mcq-stem"><span className="ielts-question-num">{qNum}</span>{question.prompt || ''}</div>
+      <div className="ielts-mcq-stem"><span className="ielts-question-num">{qNum}</span><InlineText text={question.prompt || ''} /></div>
       <div className="ielts-mcq-options">{options.map((option: any) => {
         const value = optionValue(option);
         return <label className="ielts-mcq-option" key={value}>
           <input className="ft-q-input" type="radio" name={`q-${qNum}`} value={value} checked={answers.get(qNum) === value} onChange={() => onAnswer(qNum, value)} />
-          <strong>{value}</strong><span className="ielts-mcq-option-text">{optionText(option)}</span>
+          <strong>{value}</strong><span className="ielts-mcq-option-text"><InlineText text={optionText(option)} /></span>
         </label>;
       })}</div>
     </div>;
@@ -203,11 +218,11 @@ function SelectTemplate({ payload, questions, answers, onAnswer, plan }: {
     : payload?.map_image_url || '';
   return <div className={plan ? 'ielts-plan-container' : 'ielts-matching'}>
     {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt="Floor plan map" /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
-    {!plan && bank.length ? <div className="ielts-match-bank"><ul className="ielts-match-bank__list">{bank.map((item: any) => <li key={optionValue(item)}><strong>{optionValue(item)}</strong> {optionText(item)}</li>)}</ul></div> : null}
+    {!plan && bank.length ? <div className="ielts-match-bank"><ul className="ielts-match-bank__list">{bank.map((item: any) => <li key={optionValue(item)}><strong>{optionValue(item)}</strong> <InlineText text={optionText(item)} /></li>)}</ul></div> : null}
     <div className={plan ? 'ielts-plan-labels' : 'ielts-match-rows'}>{questions.map((question) => {
       const qNum = Number(question.q_num);
       return <div className={plan ? 'ielts-plan-row' : 'ielts-match-row'} id={`q-${qNum}`} key={qNum}>
-        <span className="ielts-question-num">{qNum}</span><span>{question.prompt || ''}</span>
+        <span className="ielts-question-num">{qNum}</span><span><InlineText text={question.prompt || ''} /></span>
         <select className="ft-q-input ielts-gap-input" aria-label={`Answer ${qNum}`} value={answers.get(qNum) || ''} onChange={(event) => onAnswer(qNum, event.target.value)}>
           <option value="">—</option>{letters.map((letter: string) => <option value={letter} key={letter}>{letter}</option>)}
         </select>
@@ -232,7 +247,7 @@ function MultiSelectTemplate({ payload, questions, answers, onAnswer }: {
           const next = event.target.checked ? [...selected, value] : selected.filter((item) => item !== value);
           slots.forEach((slot, index) => onAnswer(slot, next[index] || ''));
         }} />
-        <span><strong>{value}</strong> {optionText(option)}</span>
+        <span><strong>{value}</strong> <InlineText text={optionText(option)} /></span>
       </label>;
     })}
   </div>;
@@ -261,7 +276,7 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   const affected = questions.map((question: any) => Number(question.q_num)).filter((qNum: number) => saveStates.has(qNum));
   return <section className="ielts-question-block" data-template-kind={kind}>
     {questions.length ? <div className="ielts-block-header">{first === last ? `Question ${first}` : `Questions ${first}–${last}`}</div> : null}
-    {payload.instruction || payload.instructions ? <div className="ielts-instruction"><p>{payload.instruction || payload.instructions}</p></div> : null}
+    {payload.instruction || payload.instructions ? <div className="ielts-instruction"><p><InlineText text={payload.instruction || payload.instructions} /></p></div> : null}
     {content}
     {affected.length ? <small className="listening-next-exercise-save" role="status">Câu {affected.join(', ')} chưa lưu xong.</small> : null}
   </section>;
@@ -543,7 +558,7 @@ export function ListeningTestSession() {
         {resumeAvailable ? <p className="ft-resume-note">Bạn có bài đang làm dở với {answers.size} câu đã lưu. Tiếp tục để giữ attempt và mốc audio hiện tại.</p> : null}
         <div className="listening-next-actions"><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a>
           {resumeAvailable ? <button className="ft-control-btn" type="button" onClick={resume}>Tiếp tục bài đang làm</button> : null}
-          <button className="ft-control-btn ghost" type="button" onClick={() => {
+          <button className="ft-control-btn ghost" id="btn-start" type="button" onClick={() => {
             if (!resumeAvailable) {
               const message = practice
                 ? 'Bắt đầu luyện nghe? Bạn có thể tạm dừng, tua và nghe lại audio trước khi nộp bài.'
@@ -593,7 +608,7 @@ export function ListeningTestSession() {
           })}</div>
           {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi cảnh báo biến mất.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
           {submitBlocked ? <p className="ft-nothing-saved" role="alert">{submitBlocked}</p> : null}
-          <div className="listening-next-submit-row"><span>Đã trả lời <strong>{answers.size}</strong> / {total} câu</span>{!params?.mockEmbed ? <button className="btn-submit-final" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Nộp bài'}</button> : null}</div>
+          <div className="listening-next-submit-row"><span>Đã trả lời <strong>{answers.size}</strong> / {total} câu</span>{!params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Nộp bài'}</button> : null}</div>
         </footer>
       </> : null}
       {phase === 'sealed' ? <section className="ft-prestart"><p>Đã thu bài Listening. Đang chờ kỳ thi chuyển bước tiếp theo…</p></section> : null}

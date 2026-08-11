@@ -449,7 +449,7 @@ const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'que
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
 const STEP_SHAPES = {
-  click: 'str', expectVisible: 'str', expectStorageAbsent: 'str',
+  click: 'str', clickIfPresent: 'str', expectVisible: 'str', expectStorageAbsent: 'str',
   fill: 'pair', paste: 'pair', expectText: 'pair', expectStorage: 'pair',
   dispatch: 'dispatch',
   wait: 'ms', advance: 'ms',
