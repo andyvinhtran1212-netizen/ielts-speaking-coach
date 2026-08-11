@@ -87,13 +87,13 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
 
   const access = selectKeyedAdminState(accessState, accountKey) as AccessValue;
   if (!accountKey || access.phase === 'loading') {
-    return <div id="state-loading" className="flex items-center justify-center py-32" role="status"><p className="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p></div>;
+    return <div id="state-loading" className="adm-access-state adm-access-state--loading" role="status"><p className="adm-access-state__message aw-state-loading__text">Đang kiểm tra quyền truy cập…</p></div>;
   }
   if (access.phase === 'denied') {
-    return <div id="state-denied" className="max-w-xl mx-auto px-6 py-20 text-center" role="alert"><h2 className="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2><a href="/home" className="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại trang chủ</a></div>;
+    return <div id="state-denied" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">🔒 Admin Access Required</h2><a href="/home" className="adm-access-state__action aw-state-denied__back">← Quay lại trang chủ</a></div>;
   }
   if (access.phase === 'error') {
-    return <div id="state-error" className="max-w-xl mx-auto px-6 py-20 text-center" role="alert"><h2 className="aw-state-denied__title text-xl font-bold">Không xác minh được quyền</h2><p>{access.message}</p><button className="btn mt-4" type="button" onClick={() => window.location.reload()}>Tải lại</button></div>;
+    return <div id="state-error" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">Không xác minh được quyền</h2><p className="adm-access-state__message">{access.message}</p><button className="adm-access-state__action adm-access-state__button" type="button" onClick={() => window.location.reload()}>Tải lại</button></div>;
   }
   return <AdminProfileContext.Provider value={access.profile}>{children}</AdminProfileContext.Provider>;
 }

@@ -1,0 +1,37 @@
+/* System admin landing — shared by Next ownership and the rollback HTML. */
+.sys-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-6);
+  /* Slotted light-DOM percentages resolve against the chrome host, not the
+     shadow `.content` grid cell. Subtract the expanded sidebar + its two
+     content paddings so the second card cannot overflow the viewport. */
+  width: min(1080px, calc(100vw - 328px));
+  margin: 0 auto;
+  padding: var(--av-space-6);
+}
+
+aver-admin-chrome[data-collapsed="1"] > .sys-shell {
+  width: min(1080px, calc(100vw - 136px));
+}
+
+.sys-header h1 {
+  margin: 0 0 var(--av-space-1);
+  font-size: var(--av-fs-2xl);
+  font-weight: var(--av-fw-semibold);
+}
+
+.sys-header .subtitle {
+  margin: 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+
+/* The admin chrome turns its sidebar into an overlay at this same breakpoint,
+   so the slotted page can reclaim the full content width on tablets too. */
+@media (max-width: 768px) {
+  .sys-shell {
+    width: calc(100vw - 32px);
+    padding: var(--av-space-4);
+  }
+}
