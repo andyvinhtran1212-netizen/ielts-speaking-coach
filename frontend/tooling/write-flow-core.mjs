@@ -444,7 +444,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'initSessionStorage']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'query', 'times', 'atLeast', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -523,11 +523,12 @@ export function validateFlow(flow) {
     const isRe = Object.prototype.toString.call(v) === '[object RegExp]';
     if (!isRe && !isStr(v)) bad('`expectFinalUrl` phải là RegExp hoặc chuỗi khác rỗng');
   }
-  if ('initStorage' in flow) {
-    const v = flow.initStorage;
+  for (const storageKey of ['initStorage', 'initSessionStorage']) {
+    if (!(storageKey in flow)) continue;
+    const v = flow[storageKey];
     const ok = isPlainObject(v) && Object.keys(v).length
       && Object.entries(v).every(([k, x]) => isStr(k) && typeof x === 'string');
-    if (!ok) bad('`initStorage` phải là object thường KHÁC RỖNG, giá trị là chuỗi');
+    if (!ok) bad(`\`${storageKey}\` phải là object thường KHÁC RỖNG, giá trị là chuỗi`);
   }
   if ('ignoreWrites' in flow
       && !(Array.isArray(flow.ignoreWrites) && flow.ignoreWrites.every(isStr))) {

@@ -1821,7 +1821,7 @@
       var status      = review.status;
       var isMine      = !!_currentAdminId && review.claimed_by === _currentAdminId;
 
-      panel.classList.remove('locked', 'delivered');
+      panel.classList.remove('hidden', 'locked', 'delivered');
       panel.style.display = '';
 
       if (status === 'delivered') {

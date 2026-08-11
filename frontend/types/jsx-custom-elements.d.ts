@@ -10,6 +10,8 @@ declare module 'react' {
       };
       'aver-admin-chrome': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
         active?: string;
+        subsection?: string;
+        embed?: string;
       };
     }
   }

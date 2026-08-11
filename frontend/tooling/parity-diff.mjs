@@ -365,7 +365,7 @@ async function extractOnce(context, url) {
     // ngoài, có thể `display:contents` ⇒ lọc sẽ giấu mất chính lỗi mất chrome
     // mà nó sinh ra để bắt. Ở đây hợp đồng là CÓ MẶT, không phải nhìn thấy.
     const components = [];
-    for (const tag of ['aver-chrome', 'main', 'header', 'footer', 'nav']) {
+    for (const tag of ['aver-chrome', 'aver-admin-chrome', 'main', 'header', 'footer', 'nav']) {
       const n = deepAll(tag).length;
       for (let i = 0; i < n; i++) components.push(tag);
     }

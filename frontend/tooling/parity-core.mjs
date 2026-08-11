@@ -199,6 +199,7 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
   // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.
   else if (path === '/pages/speaking.html') path = '/speaking';
+  else if (path === '/pages/admin/writing/grade.html') path = '/admin/writing/grade';
   else if (path === '/pages/grammar-article.html') {
     const c = params.get('category');
     const s = params.get('slug');

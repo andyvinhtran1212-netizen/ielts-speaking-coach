@@ -175,5 +175,29 @@
     ],
     "minBaselineLines": 3,
     "note": "Không có `?id=`/`?essay_id=` thì cả hai vế hiển thị trạng thái lỗi thiếu mã. Cặp G1 này ghim shell, nội dung lỗi và style ở nhánh thiếu tham số; fixture trình duyệt `writing-regrade-request` mới phủ trạng thái delivered và mutation chấm lại trên cả Legacy lẫn Next."
+  },
+  {
+    "name": "admin-writing-grade-denied",
+    "legacy": "/pages/admin/writing/grade.html",
+    "next": "/admin/writing/grade",
+    "allow": [
+      {
+        "kind": "component-missing",
+        "value": "header",
+        "reason": "Tài khoản parity không có role admin; legacy pre-render header workspace bên trong state-ready ẩn, còn React chỉ mount nhánh denied đang hiển thị."
+      },
+      {
+        "kind": "component-missing",
+        "value": "main",
+        "reason": "Legacy giữ main chấm bài trong DOM dù auth gate đang denied; React không mount dữ liệu admin khi role backend không hợp lệ."
+      },
+      {
+        "kind": "component-missing",
+        "value": "nav",
+        "reason": "Legacy pre-render tab navigation ẩn dưới state-ready; React fail-closed chỉ render denied state. Ngoại lệ không miễn text, link, API hay admin chrome."
+      }
+    ],
+    "minBaselineLines": 2,
+    "note": "G1 dùng probe không có role admin nên cặp này chứng minh fail-closed role guard, admin chrome, denied copy và style desktop/mobile. Full workspace + mutations được phủ bằng browser write-flow có fixture admin; không được dùng cặp denied làm bằng chứng grading flow."
   }
 ]
