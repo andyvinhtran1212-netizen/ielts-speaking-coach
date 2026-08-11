@@ -205,7 +205,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
             "essays_count": 0,
             "essays_in_progress": 0,
             "primary_cta": "Submit new essay",
-            "primary_cta_url": "/pages/writing-dashboard.html",
+            "primary_cta_url": "/writing/dashboard",
         }
 
     student_id = student_rows[0]["id"]
@@ -276,7 +276,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
         "essays_in_progress": in_progress,
         "new_feedback_count": new_feedback,
         "primary_cta": "Submit new essay",
-        "primary_cta_url": "/pages/writing-dashboard.html",
+        "primary_cta_url": "/writing/dashboard",
     }
 
 
@@ -489,7 +489,7 @@ def _build_reading(sb, user_id: str) -> Dict[str, Any]:
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
         "primary_cta": "Continue reading" if total else "Start reading",
-        "primary_cta_url": "/pages/reading-vocab.html",
+        "primary_cta_url": "/reading/vocab",
     }
 
 
@@ -533,7 +533,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
         "primary_cta": "Continue listening" if total else "Start listening",
-        "primary_cta_url": "/pages/listening.html",
+        "primary_cta_url": "/listening",
     }
 
 

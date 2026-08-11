@@ -45,9 +45,12 @@ const toast = (msg, kind) =>
 
 let _cohorts = [];
 let _courses = [];
+let _rollupFailed = false;
+let _cohortsLoadFailed = false;
 let _cohortId = null;
 let _cohort = null;
 let _lessons = [];
+let _lessonsError = false;
 let _editingLessonId = null;
 let _studentsLoaded = false;
 
@@ -143,6 +146,15 @@ function courseOptionLabel(c) {
   return `${c.code} — ${c.name}` + (c.is_active === false ? ' (đã lưu trữ)' : '');
 }
 
+function foldSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLocaleLowerCase('vi');
+}
+
 /**
  * Options for the edit form's course picker.
  *
@@ -169,21 +181,49 @@ function renderCourseOptions(selectedId) {
 function renderList() {
   const status = $('filter-status').value;
   const courseId = $('filter-course').value;
+  const search = foldSearch(($('filter-search').value || '').trim());
+
+  const activeCohorts = _cohorts.filter((c) => c.is_active !== false);
+  const activeCount = activeCohorts.length;
+  const knownCounts = !_rollupFailed && activeCohorts.every((c) => c.member_count != null);
+  const totalStudents = knownCounts
+    ? activeCohorts.reduce((sum, c) => sum + Number(c.member_count || 0), 0)
+    : null;
+  const unactivated = knownCounts
+    ? activeCohorts.reduce((sum, c) => sum + Number(c.unactivated_count || 0), 0)
+    : null;
+  $('kpi-active-classes').textContent = _cohortsLoadFailed
+    ? 'Chưa đọc được'
+    : `${countLabel(activeCount)} / ${countLabel(_cohorts.length)}`;
+  $('kpi-total-students').textContent = totalStudents == null ? 'Chưa đọc được' : countLabel(totalStudents);
+  $('kpi-unactivated').textContent = unactivated == null ? 'Chưa đọc được' : countLabel(unactivated);
 
   const rows = _cohorts.filter((c) => {
     if (status === 'active' && c.is_active === false) return false;
     if (status === 'archived' && c.is_active !== false) return false;
     if (courseId && c.course_id !== courseId) return false;
+    if (search) {
+      const haystack = foldSearch(`${c.name || ''} ${c.code_prefix || ''}`);
+      if (!haystack.includes(search)) return false;
+    }
     return true;
   });
 
   $('list-loading').hidden = true;
+  $('class-result-summary').textContent = _cohortsLoadFailed ? '—' : `${countLabel(rows.length)} lớp`;
+
+  if (_cohortsLoadFailed) {
+    $('list-empty').textContent = 'Không tải được danh sách lớp. Vui lòng tải lại trang để thử lại.';
+    $('list-empty').hidden = false;
+    $('list-table-wrap').hidden = true;
+    return;
+  }
 
   if (!rows.length) {
     // The empty state names the filter that produced it, so the admin is not
     // left wondering whether there are no classes or none matching.
-    $('list-empty').textContent = (_cohorts.length && (courseId || status !== 'all'))
-      ? 'Không có lớp nào khớp bộ lọc. Đổi khoá học hoặc trạng thái để xem thêm.'
+    $('list-empty').textContent = (_cohorts.length && (search || courseId || status !== 'all'))
+      ? 'Không có lớp nào khớp bộ lọc. Thử đổi từ khoá, khoá học hoặc trạng thái.'
       : 'Chưa có lớp nào. Tạo lớp đầu tiên để bắt đầu.';
     $('list-empty').hidden = false;
     $('list-table-wrap').hidden = true;
@@ -197,13 +237,15 @@ function renderList() {
     const toggle = archived
       ? `<button class="adm-btn-secondary" data-action="restore" data-id="${esc(c.id)}">Khôi phục</button>`
       : `<button class="adm-btn-secondary" data-action="archive" data-id="${esc(c.id)}">Lưu trữ</button>`;
+    const description = c.description
+      ? `<span class="cl-directory-table__sub">${esc(c.description)}</span>` : '';
     return `<tr>
-      <td><a class="cl-link" href="/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(c.id)}">${esc(c.name)}</a></td>
+      <td><a class="cl-link" href="/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(c.id)}">${esc(c.name)}</a>${description}</td>
       <td>${courseLabel(c.course, c.course_id)}</td>
       <td>${rosterCell(c.member_count, c.unactivated_count)}</td>
       <td class="code-cell">${esc(c.code_prefix) || '—'}</td>
       <td>${statusChip(c)}</td>
-      <td>${toggle}</td>
+      <td class="cl-row-end">${toggle}</td>
     </tr>`;
   }).join('');
 }
@@ -228,6 +270,8 @@ async function loadCohorts() {
     // student scan they never render. No is_active filter → archived included.
     const r = await api.get('/admin/cohorts?with_rollup=true');
     _cohorts = (r && r.cohorts) || [];
+    _rollupFailed = !!(r && r.rollup_failed);
+    _cohortsLoadFailed = false;
     // Surfaced, not swallowed: without this the admin reads "Không đọc được sĩ
     // số" on every row with no idea why.
     if (r && r.rollup_failed) {
@@ -235,6 +279,8 @@ async function loadCohorts() {
     }
   } catch (err) {
     _cohorts = [];
+    _rollupFailed = true;
+    _cohortsLoadFailed = true;
     toast('Không tải được danh sách lớp: ' + (err.message || err), 'error');
   }
   renderList();
@@ -326,6 +372,7 @@ async function loadDetail(cohortId) {
   _cohort = data.cohort || {};
   const members = data.members || [];
   const unactivated = members.filter((m) => !m.user_id).length;
+  const activated = members.length - unactivated;
 
   $('detail-title').textContent = _cohort.name || 'Lớp';
   document.title = `${_cohort.name || 'Lớp'} · Lớp & Học viên · Admin`;
@@ -340,22 +387,368 @@ async function loadDetail(cohortId) {
   $('roster-summary').innerHTML = unactivated
     ? `${countLabel(members.length)} học viên · <span class="cl-roster-gap">${countLabel(unactivated)} chưa kích hoạt, sẽ không nhận được bài giao</span>`
     : `${countLabel(members.length)} học viên`;
+  $('detail-kpi-total').textContent = countLabel(members.length);
+  $('detail-kpi-activated').textContent = countLabel(activated);
+  $('detail-kpi-unactivated').textContent = countLabel(unactivated);
 
+  // Giữ lại cho hộp thoại giao bài: mở hộp thoại mà phải chờ mạng là chờ đúng
+  // lúc người dùng đang vội nhất.
+  _who.members = members;
+  renderRoster(members);
+}
+
+
+/** SỔ ĐIỂM DANH — danh sách vận hành và hồ sơ nhanh của từng học viên. */
+let _picked = null;
+/** Tiến độ theo MÃ HỌC VIÊN, dùng lại trong ngăn hồ sơ mà không gọi lại mạng. */
+let _progressBy = null;
+
+const ROSTER_COLUMNS = {
+  head: ['Học viên', 'Mã HV', 'Phiên nói', 'Hoạt động gần nhất', 'Chi phí AI', ''],
+  cells: (m) => `<td class="code-cell">${esc(m.student_code) || '—'}</td>
+    <td>${countLabel(m.sessions)}</td>
+    <td>${esc(lastActiveLabel(m.last_active))}</td>
+    <td>${esc(usdLabel(m.ai_cost_usd))}</td>
+    <td><button class="adm-btn-secondary" data-action="remove-member"
+          data-student="${esc(m.student_id)}">Gỡ khỏi lớp</button></td>`,
+};
+
+function renderRoster(members) {
+  const search = foldSearch(($('roster-search') && $('roster-search').value || '').trim());
+  const account = ($('roster-account-filter') && $('roster-account-filter').value) || 'all';
+  const visible = members.filter((m) => {
+    if (account === 'activated' && !m.user_id) return false;
+    if (account === 'unactivated' && m.user_id) return false;
+    if (search && !foldSearch(`${m.name || ''} ${m.student_code || ''}`).includes(search)) return false;
+    return true;
+  });
+  const hasFilter = !!search || account !== 'all';
   $('roster-empty').hidden = members.length > 0;
-  $('roster-table-wrap').hidden = members.length === 0;
-  $('roster-tbody').innerHTML = members.map((m) => {
+  $('roster-filter-empty').hidden = !(members.length > 0 && visible.length === 0 && hasFilter);
+  $('roster-table-wrap').hidden = visible.length === 0;
+  $('roster-result-count').textContent = `${countLabel(visible.length)} / ${countLabel(members.length)} học viên`;
+  if (_picked && !visible.some((m) => m.student_id === _picked)) _picked = null;
+  const head = $('roster-table-wrap').querySelector('thead tr');
+  if (head) {
+    head.innerHTML = ROSTER_COLUMNS.head.map((h) => (h
+      ? `<th>${esc(h)}</th>` : '<th><span class="sr-only">Thao tác</span></th>')).join('');
+  }
+  $('roster-tbody').innerHTML = visible.map((m) => {
     const account = m.user_id
       ? '<div class="cl-lesson-sub">Đã kích hoạt</div>'
       : '<div class="cl-roster-gap">Chưa kích hoạt</div>';
-    return `<tr>
-      <td><div>${esc(m.name) || '—'}</div>${account}</td>
-      <td class="code-cell">${esc(m.student_code) || '—'}</td>
-      <td>${countLabel(m.sessions)}</td>
-      <td>${esc(lastActiveLabel(m.last_active))}</td>
-      <td>${esc(usdLabel(m.ai_cost_usd))}</td>
-      <td><button class="adm-btn-secondary" data-action="remove-member" data-student="${esc(m.student_id)}">Gỡ khỏi lớp</button></td>
+    // TÊN là một NÚT THẬT, không phải một hàng bấm được.
+    //
+    // Cả hàng vẫn mở được bằng chuột (mục tiêu bấm rộng), nhưng người dùng bàn
+    // phím cần một thứ tab tới được và Enter/Space chạy — một `<tr>` nghe click
+    // thì họ không bao giờ mở được ngăn kéo nào (codex #975).
+    return `<tr data-student="${esc(m.student_id)}"
+        aria-selected="${_picked === m.student_id}">
+      <td><button type="button" class="cl-rowbtn" data-action="open-student"
+            aria-expanded="${_picked === m.student_id}"
+            data-student="${esc(m.student_id)}">${esc(m.name) || '—'}</button>${account}</td>
+      ${ROSTER_COLUMNS.cells(m)}
     </tr>`;
   }).join('');
+  renderDrawer();
+}
+
+/**
+ * Đưa ngăn kéo vào tầm nhìn khi nó xếp DƯỚI bảng.
+ *
+ * Trên màn ≥1200px bảng và ngăn kéo là hai cột, nên nó đã nằm cạnh hàng vừa bấm
+ * và không cần cuộn gì. Dưới ngưỡng ấy nó xếp xuống dưới cả bảng — với lớp 14
+ * em thì đo được là thấp hơn chỗ bấm 1030px, ngoài hẳn khung nhìn 935px, nên
+ * bấm một cái tên trông y như không có gì xảy ra.
+ *
+ * `block: 'nearest'` chứ không `'start'`: khi ngăn kéo ĐÃ hiện đủ thì đứng yên.
+ * Cuộn một trang đang đọc được là tự tay làm mất chỗ giáo viên đang nhìn.
+ */
+function revealDrawer() {
+  const d = $('roster-drawer');
+  if (!d || d.hidden) return;
+  const r = d.getBoundingClientRect();
+  // Mốc trên KHÔNG phải 0: thanh tiêu đề admin `sticky`, cao `--admin-header-h`,
+  // nằm đè lên đầu trang. Lấy 0 làm mốc nghĩa là coi phần nằm KHUẤT SAU nó là
+  // "đã thấy". Và phải đòi thấy ĐỦ, chứ `r.top < innerHeight && r.bottom > 0`
+  // chỉ đòi giao nhau — hở đúng một pixel là hàm thoát sớm và không cuộn gì
+  // (codex cục bộ 07/08).
+  const headH = parseFloat(
+    getComputedStyle(d).getPropertyValue('--admin-header-h')) || 56;
+  if (r.top >= headH && r.bottom <= window.innerHeight) return;   // đã thấy đủ
+  // `scrollIntoView` KHÔNG tự tôn trọng prefers-reduced-motion — nó nhận đúng
+  // chuỗi mình truyền. Hỏi rồi mới quyết.
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  d.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' });
+  // TIÊU ĐIỂM ĐI THEO MÀN HÌNH.
+  //
+  // Nơi gọi vừa trả tiêu điểm về đúng nút vừa bấm (đúng, cho lượt vẽ lại). Nhưng
+  // khi xếp dọc thì ta vừa cuộn đi khoảng một nghìn pixel khỏi cái nút ấy: người
+  // dùng bàn phím mất luôn vòng sáng, và phím Tab tiếp theo nhảy về giữa bảng.
+  // Đưa tiêu điểm vào chính khối vừa mở — đóng lại thì nơi gọi trả nó về hàng.
+  d.focus({ preventScroll: true });
+}
+
+/** Ngăn kéo: mở TRONG trang, hàng vẫn sáng. */
+function renderDrawer() {
+  const d = $('roster-drawer');
+  if (!d) return;
+  const split = d.closest('.cl-roster-split');
+  const m = (_who.members || []).find((x) => x.student_id === _picked);
+  if (!m) {
+    _picked = null;
+    d.hidden = true;
+    if (split) split.dataset.drawerOpen = 'false';
+    return;
+  }
+  const p = (_progressBy || {})[m.student_id] || null;
+  d.hidden = false;
+  if (split) split.dataset.drawerOpen = 'true';
+  const progressRequested = _progressLoaded;
+  const skills = p && p.skills ? ['speaking', 'writing', 'reading', 'listening']
+    .map((key) => {
+      const label = key.charAt(0).toUpperCase() + key.slice(1);
+      return `<div class="cl-drawer-skill" data-skill="${key}">
+        <span>${label}</span>${skillCell(p.skills[key], key, p.target_band)}
+      </div>`;
+    }).join('') : (progressRequested
+      ? '<p class="cl-skill-unknown">Chưa đọc được tiến độ của học viên này.</p>'
+      : '<p class="cl-muted">Mở thẻ Tiến độ 4 kỹ năng để đọc dữ liệu này.</p>');
+  d.innerHTML = `<div class="cl-drawer-head">
+      <div><p class="cl-eyebrow">Hồ sơ trong lớp</p><h3 id="roster-drawer-title" tabindex="-1">${esc(m.name) || '—'}</h3>
+        <div class="cl-lesson-sub code-cell">${esc(m.student_code) || '—'}</div></div>
+      <button class="cl-icon-button" type="button" data-action="close-drawer" aria-label="Đóng hồ sơ học viên">×</button>
+    </div>
+    <div class="cl-drawer-badges">
+      <span class="adm-chip ${m.user_id ? 'is-active' : ''}">${m.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span>
+    </div>
+    <dl class="cl-drawer-stats">
+      <div><dt>Phiên nói</dt><dd>${countLabel(m.sessions)}</dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd>${esc(lastActiveLabel(m.last_active))}</dd></div>
+      <div><dt>Chi phí AI</dt><dd>${esc(usdLabel(m.ai_cost_usd))}</dd></div>
+      <div><dt>Nộp đúng hạn</dt><dd>${p ? punctualityCell(p.homework)
+        : (progressRequested ? punctualityCell(null) : '<span class="cl-skill-none">—</span>')}</dd></div>
+    </dl>
+    <div class="cl-drawer-progress"><h4>Tiến độ 4 kỹ năng</h4>${skills}</div>
+    <div class="cl-work" id="drawer-work">${renderWork(m)}</div>`;
+}
+
+// ── Bài của MỘT em ──────────────────────────────────────────────────────────
+//
+// Cho tới nay bấm vào tên một em chỉ ra ba dòng dữ kiện và KHÔNG hành động nào.
+// Nhưng việc giáo viên mở màn này để làm là "em ấy đã làm gì, cho tôi xem" —
+// nên ngăn kéo phải dẫn được tới đúng bài, chứ không chỉ mô tả em ấy.
+//
+// Nó KHÔNG tự vẽ lại bài làm. Mỗi loại bài đã có một chỗ đọc chạy được rồi
+// (trang phiên Speaking, tab "Bài từng em", màn bài tự luận); dựng bản vẽ thứ
+// hai ở đây là dựng chỗ để trôi khỏi bản gốc. Ngăn kéo chỉ đưa giáo viên TỚI
+// đúng chỗ ấy.
+// MỘT SỐ THẾ HỆ, không phải ba cờ rời.
+//
+// Ba vòng review liên tiếp bắt cùng một họ lỗi ở đây — số lượt toàn cục gây
+// kẹt, HTML không vẽ lại, lượt đang bay ghi đè bản trước-khi-đổi. Đó không
+// phải ba lỗi rời mà là một lỗi thiết kế: tôi tự dựng bộ nhớ đệm, gộp-lượt và
+// vô-hiệu-hoá bằng ba cờ không biết gì về nhau, nên mỗi lần vá lại hở một khe
+// mới (codex #989 vòng 2, 3, 4).
+//
+// Nay một quy tắc: mỗi lượt đọc chụp `epoch` lúc bắt đầu và CHỈ GHI được nếu
+// `epoch` ấy còn là hiện tại. Mọi thay đổi dữ liệu tăng `epoch` lên một.
+//   · lượt cũ về sau khi dữ liệu đã đổi → không ghi được, tự rụng
+//   · `inflight[sid]` giữ epoch của lượt đang bay, nên một lượt của epoch cũ
+//     KHÔNG chặn được lượt mới — đúng khe mà bản trước để hở
+//   · trong cùng một epoch thì vẫn gộp, không gọi mạng hai lần
+const _work = { by: {}, inflight: {}, error: {}, epoch: 0 };
+
+// 30 giây. Đủ ngắn để một bài vừa nộp ở tab khác hiện ra gần như ngay, đủ dài
+// để bấm qua lại vài em không kéo theo vài lượt quét cả lớp — máy chủ chạy ba
+// bộ đối chiếu trên toàn bộ bài giao của lớp cho MỖI lượt gọi.
+const WORK_TTL_MS = 30_000;
+
+/** Trạng thái một lượt nộp — CÙNG bộ chữ với bảng tổng kết. */
+const WORK_STATUS = {
+  submitted: 'đã nộp', late: 'nộp trễ', missing: 'không nộp',
+  pending: 'chưa nộp', 'no-account': 'chưa kích hoạt',
+};
+
+function renderWork(m) {
+  const sid = m.student_id;
+  if (_work.error[sid]) {
+    return `<p class="cl-work__note">Không đọc được bài của em này: ${esc(_work.error[sid])}
+      <button class="adm-btn-secondary" type="button" data-work-retry="${esc(sid)}">Thử lại</button></p>`;
+  }
+  const w = _work.by[sid];
+  if (!w) return '<p class="cl-work__note">Đang tải bài đã giao…</p>';
+  if (!w.items.length) {
+    return '<p class="cl-work__note">Em này chưa được giao bài nào trong lớp.</p>';
+  }
+  // Cờ "chưa đối chiếu được" hiện RA, không nuốt: một danh sách trông đầy đủ mà
+  // thiếu bài là lời nói dối tệ hơn một lời cảnh báo.
+  const stale = w.homework_stale
+    ? '<p class="cl-work__note">Sổ chưa đối chiếu được — vài bài có thể thiếu.</p>' : '';
+  return `<h4 class="cl-work__head">Bài đã giao</h4>${stale}<ul class="cl-work__list">`
+    + w.items.map((it) => `<li data-status="${esc(it.status)}">
+        <button type="button" class="cl-work__row" data-open-work="${esc(it.assignment_id)}"
+                ${workCtx(it)}>
+          <span class="cl-work__title">${esc(it.title || '(Không tên)')}</span>
+          <span class="cl-work__meta">${esc(SKILL_LABEL[it.skill] || it.skill)}
+            · ${esc(WORK_STATUS[it.status] || it.status)}${
+              it.score == null ? '' : ` · ${esc(it.score)}`}${
+              // ĐÃ ĐÓNG là chuyện của giáo viên, không phải lỗi của em ấy. Một
+              // bài đã đóng mà hiện "chưa nộp" đọc ra như em ấy bỏ bài, trong
+              // khi chính giáo viên đã ngừng nhận (codex #989 vòng 2).
+              it.archived ? ' · đã đóng' : ''}</span>
+        </button>
+        ${workOpen(it)}
+      </li>`).join('')
+    + '</ul>';
+}
+
+/**
+ * Đường mở thẳng, CHỈ khi có bài thật để mở.
+ *
+ * Đúng luật đã dùng ở bảng tổng kết: một liên kết dẫn tới trang trống tệ hơn
+ * không có liên kết. Nên chỗ này hỏi `artifact_id`/`has_writing` chứ không hỏi
+ * "em ấy đã nộp chưa" — sổ có thể ghi đã nộp trong khi khoá nối chưa có.
+ */
+/**
+ * NGỮ CẢNH của một dòng, sinh ở MỘT chỗ.
+ *
+ * `_homework` chỉ nạp khi mở tab Bài tập, còn ngăn kéo mở từ Sổ điểm danh —
+ * tức đường CHÍNH là đường `_homework` còn rỗng. Nên mọi nút phải tự mang tên
+ * bài và kho câu hỏi; thiếu chúng thì khu Nhận bài mở ra không tiêu đề và
+ * `openMarking` ẩn luôn hai tab chỉ-bài-theo-buổi.
+ *
+ * Sinh ở một chỗ chứ không chép vào từng nút: hai vòng review liên tiếp đều bắt
+ * đúng lỗi này ở một nút KHÁC (#989) — vá từng cái là hẹn gặp lại ở nút thứ tư.
+ */
+function workCtx(it) {
+  return `data-bank="${esc(it.bank_id || '')}" data-title="${esc(it.title || '')}"`;
+}
+
+function workOpen(it) {
+  if (it.artifact_kind === 'session' && it.artifact_id) {
+    return `<a class="cl-work__open" target="_blank" rel="noopener"
+      href="/pages/admin/speaking/sessions.html?session=${esc(it.artifact_id)}"
+      >Nghe bài</a>`;
+  }
+  if (it.has_writing) {
+    return `<button class="cl-work__open" type="button"
+      data-open-writing="${esc(it.assignment_id)}" ${workCtx(it)}>Xem tự luận</button>`;
+  }
+  if (it.bank_id && it.artifact_id) {
+    return `<button class="cl-work__open" type="button"
+      data-open-one="${esc(it.assignment_id)}" ${workCtx(it)}>Xem từng câu</button>`;
+  }
+  return '';
+}
+
+/**
+ * Nạp bài của một em. Một lượt cho mỗi em, giữ lại để bấm qua bấm lại không gọi
+ * mạng thêm.
+ *
+ * `seq` chống đua: bấm An rồi Bình lúc mạng chậm thì bài của An về sau và ghi
+ * đè ngăn kéo của Bình — giáo viên đọc bài một em dưới tên một em khác. Cùng
+ * cái bẫy đã vá ở `openOneReport`.
+ */
+async function loadStudentWork(sid) {
+  if (!sid) return;
+  const epoch = _work.epoch;
+  // Gộp trong CÙNG epoch, không gộp xuyên epoch: một lượt bắt đầu trước khi dữ
+  // liệu đổi không được phép chặn lượt đọc lại sau khi đổi.
+  if (_work.inflight[sid] === epoch) return;
+  // HẠN DÙNG, không phải "dùng mãi" cũng không phải "đọc lại mọi lần".
+  //
+  // Hai vòng review nói ngược nhau ở đây, và cả hai đều đúng một nửa. Dùng lại
+  // kho vô hạn thì nó sai vô thời hạn: em ấy nộp bài ở tab khác, hạn trôi qua
+  // biến "chưa nộp" thành "không nộp", giáo viên chấm ở trang mở bằng tab
+  // mới — không lần nào trong số đó chạm tới trang này, nên `epoch` không thấy.
+  // Đọc lại MỌI lần thì bấm An → Bình → An là ba lượt quét CẢ LỚP, vì máy chủ
+  // chạy ba bộ đối chiếu trên toàn bộ bài giao của lớp mỗi lần gọi.
+  //
+  // Hạn dùng giải cả hai: điều hướng qua lại không tốn gì, còn cái sai thì có
+  // trần thời gian thay vì kéo dài tới khi đóng tab.
+  const hit = _work.by[sid];
+  if (hit && hit.epoch === epoch && Date.now() - hit.at < WORK_TTL_MS) return;
+  _work.inflight[sid] = epoch;
+  delete _work.error[sid];
+  try {
+    const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/students/' + encodeURIComponent(sid) + '/work');
+    // Dữ liệu đã đổi trong lúc đọc ⇒ bản này là ảnh chụp TRƯỚC khi đổi. Rụng
+    // nó đi; lượt của epoch mới đang bay hoặc sắp bay.
+    if (epoch !== _work.epoch) return;
+    _work.by[sid] = { items: d.items || [], homework_stale: !!d.homework_stale,
+                      at: Date.now(), epoch };
+    delete _work.error[sid];
+  } catch (err) {
+    if (epoch !== _work.epoch) return;
+    _work.error[sid] = err.message || String(err);
+  } finally {
+    if (_work.inflight[sid] === epoch) delete _work.inflight[sid];
+  }
+  // Vẽ khi em đang chọn vẫn là em này. Kho lưu theo TỪNG EM nên không cần thêm
+  // số lượt nào nữa — và một số lượt toàn cục ở đây từng gây kẹt: An → Bình →
+  // An thì lượt của An mang số cũ hơn nên không vẽ được, trong khi chốt gộp đã
+  // chặn lượt thứ hai (codex #989 vòng 2).
+  if (_picked === sid) {
+    const box = $('drawer-work');
+    const m = (_who.members || []).find((x) => x.student_id === sid);
+    if (box && m) box.innerHTML = renderWork(m);
+  }
+}
+
+/**
+ * MỘT nơi làm chủ việc làm mới danh sách bài trong ngăn kéo.
+ *
+ * Xoá bộ nhớ đệm là CHƯA ĐỦ: phần HTML đã vẽ vẫn đứng nguyên trên màn hình.
+ * Giao thêm một bài, đóng một bài, hay chấm xong rồi quay lại — ngăn kéo vẫn
+ * hiện danh sách của trước đó, và nó chỉ đúng lại khi giáo viên đóng em ấy ra
+ * mở lại. Tức là màn hình mâu thuẫn với chính nó sau một lần tải lại trang
+ * (codex #989 vòng 3).
+ *
+ * Gọi từ HAI chỗ vì có hai đường tới: đổi dữ liệu (`invalidateProgress`) và
+ * quay về sổ điểm danh (`showPanel`). Một hàm để hai đường không trôi khỏi nhau.
+ */
+function refreshDrawerWork() {
+  if (!_picked) return;
+  renderDrawer();               // vẽ lại bằng kho đã xoá → "Đang tải…"
+  loadStudentWork(_picked);
+}
+
+/**
+ * Đưa giáo viên VÀO khu Nhận bài của đúng bài giao, rồi tới đúng mặt đọc.
+ *
+ * `_homework` có thể CHƯA nạp — ngăn kéo mở được từ tab Sổ điểm danh, còn danh
+ * sách bài giao chỉ nạp khi mở tab Bài tập. Nên tên bài và kho câu hỏi đi kèm
+ * theo từng dòng thay vì tra ngược từ đó; tra ngược sẽ cho một khu Nhận bài
+ * không tiêu đề và tab "Bài từng em" bị ẩn.
+ */
+async function openWorkItem(assignmentId, opts = {}) {
+  const a = (_homework || []).find((x) => x.id === assignmentId) || {};
+  const bank = opts.bank || (a.skill === 'course' ? a.content_id : null) || null;
+  const m = (_who.members || []).find((x) => x.student_id === _picked);
+  const sid = _picked;
+  // BỎ bộ nhớ đệm của đúng em này TRƯỚC khi rời đi. Giáo viên vào khu Nhận bài
+  // để CHẤM; quay lại ngăn kéo mà vẫn thấy "chưa nộp · chưa chấm" của lần đọc
+  // trước là màn này nói sai về việc giáo viên vừa tự tay làm.
+  if (sid) delete _work.by[sid];
+  const done = openMarking(assignmentId, opts.title || a.title || '', bank);
+  if (opts.one && bank) {
+    showMarkTab('one');
+    // `openMarking` đặt `_mk` ĐỒNG BỘ ngay đầu hàm, nên lời gọi dưới đây đọc
+    // đúng bài vừa mở, không phải bài trước đó.
+    if (m && m.user_id) openOneReport(m.user_id, m.name || '');
+  } else if (opts.writing && sid) {
+    // Đợi bảng tổng kết vẽ xong rồi mới ghi đè: cả hai viết vào `#tally-body`,
+    // và màn tự luận chụp lại nội dung đang có để làm đường "quay lại".
+    const gen = _mkGen;
+    try { await done; } catch { /* lỗi bảng đã tự nói ra ở đó */ }
+    // Trong lúc chờ, giáo viên có thể đã mở một bài giao khác. `openStudentWriting`
+    // tự chụp thế hệ ở ĐẦU nó, tức là sẽ chụp thế hệ MỚI và ghi bài của bài giao
+    // cũ vào khung của bài giao mới — chốt của nó không cứu được ca này.
+    if (gen !== _mkGen) return;
+    openStudentWriting(assignmentId, sid);
+  }
 }
 
 async function populateStudentPicker() {
@@ -428,19 +821,34 @@ function removeMember(studentId) {
 
 function renderLessons() {
   $('lessons-loading').hidden = true;
+  $('lessons-count').textContent = `${countLabel(_lessons.length)} buổi`;
+  $('lessons-published-count').textContent = `${countLabel(_lessons.filter((l) => l.is_published).length)} đã đăng`;
+  if (_lessonsError) {
+    $('lessons-count').textContent = 'Chưa đọc được';
+    $('lessons-published-count').textContent = 'Trạng thái chưa rõ';
+    $('lessons-empty').hidden = false;
+    $('lessons-empty').innerHTML = 'Không đọc được danh sách buổi học. '
+      + '<button class="adm-btn-secondary" data-action="retry-lessons" type="button">Thử lại</button>';
+    $('lessons-list').innerHTML = '';
+    return;
+  }
+  $('lessons-empty').textContent =
+    'Chưa có buổi học nào. Thêm buổi đầu tiên để học viên có nội dung để xem.';
   $('lessons-empty').hidden = _lessons.length > 0;
   $('lessons-list').innerHTML = _lessons.map((l) => {
     const no = l.lesson_no != null ? `Buổi ${esc(l.lesson_no)}` : '';
     const date = fmtDate(l.lesson_date);
-    const sub = [date, l.is_published ? 'Đã đăng' : 'Chưa đăng'].filter(Boolean).join(' · ');
+    const state = l.is_published
+      ? '<span class="adm-chip is-active">Đã đăng</span>'
+      : '<span class="adm-chip">Bản nháp</span>';
     const files = (Array.isArray(l.attachments) ? l.attachments : []).map((a) =>
       `<a class="adm-chip" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.label)}</a>`
     ).join('');
     return `<article class="cl-lesson">
       <div class="cl-lesson-no">${no}</div>
       <div class="cl-lesson-main">
-        <p class="cl-lesson-title">${esc(l.title)}</p>
-        <p class="cl-lesson-sub">${esc(sub)}</p>
+        <div class="cl-lesson-title-row"><p class="cl-lesson-title">${esc(l.title)}</p>${state}</div>
+        ${date ? `<p class="cl-lesson-sub">${esc(date)}</p>` : ''}
         ${l.body_md ? `<p class="cl-lesson-body">${esc(l.body_md)}</p>` : ''}
         ${files ? `<div class="cl-lesson-files">${files}</div>` : ''}
       </div>
@@ -454,11 +862,15 @@ function renderLessons() {
 
 async function loadLessons() {
   $('lessons-loading').hidden = false;
+  $('lessons-empty').hidden = true;
   try {
     const r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/lessons');
     _lessons = (r && r.lessons) || [];
+    _lessonsError = false;
   } catch (err) {
     _lessons = [];
+    _lessonsError = true;
+    _lessonsLoaded = false;
     toast('Không tải được buổi học: ' + (err.message || err), 'error');
   }
   renderLessons();
@@ -634,24 +1046,58 @@ function progressCell(p) {
 function renderHomework() {
   $('homework-loading').hidden = true;
 
+  const now = Date.now();
+  const soon = now + (48 * 60 * 60 * 1000);
+  const isDueSoon = (a) => {
+    const at = a.due_at ? new Date(a.due_at).getTime() : NaN;
+    return a.status !== 'archived' && Number.isFinite(at) && at >= now && at <= soon;
+  };
+  const isOverdue = (a) => {
+    const at = a.due_at ? new Date(a.due_at).getTime() : NaN;
+    return a.status !== 'archived' && Number.isFinite(at) && at < now;
+  };
+  const openCount = _homework.filter((a) => a.status !== 'archived' && !isOverdue(a)).length;
+  $('homework-kpi-open').textContent = countLabel(openCount);
+  $('homework-kpi-due').textContent = countLabel(_homework.filter(isDueSoon).length);
+  $('homework-kpi-closed').textContent = countLabel(_homework.filter((a) => a.status === 'archived').length);
+
   // A failed load is NOT an empty class. Rendering the normal "Chưa giao bài
   // nào" for it tells the admin something false about their own data — and the
   // toast that said otherwise has already gone. Say what happened, and offer the
   // retry, because the load latch has been released.
   if (_homeworkError) {
+    $('homework-kpi-open').textContent = '—';
+    $('homework-kpi-due').textContent = '—';
+    $('homework-kpi-closed').textContent = '—';
     $('homework-empty').hidden = false;
     $('homework-empty').innerHTML =
       'Không đọc được danh sách bài giao. '
       + '<button class="adm-btn-secondary" data-action="retry-homework" type="button">Thử lại</button>';
     $('homework-table-wrap').hidden = true;
+    $('homework-filter-empty').hidden = true;
+    $('homework-result-count').textContent = '';
     return;
   }
 
   $('homework-empty').textContent =
     'Chưa giao bài nào. Giao bài Speaking đầu tiên để học viên có việc làm hôm nay.';
-  $('homework-empty').hidden = _homework.length > 0;
-  $('homework-table-wrap').hidden = _homework.length === 0;
-  $('homework-tbody').innerHTML = _homework.map((a) => {
+  const search = foldSearch(($('homework-search').value || '').trim());
+  const status = $('homework-status-filter').value || 'all';
+  const rows = _homework.filter((a) => {
+    const cfg = a.content_config || {};
+    const haystack = foldSearch(`${a.title || ''} ${a.skill || ''} ${cfg.topic || ''} ${cfg.test_title || ''}`);
+    if (search && !haystack.includes(search)) return false;
+    if (status === 'open' && (a.status === 'archived' || isOverdue(a))) return false;
+    if (status === 'archived' && a.status !== 'archived') return false;
+    if (status === 'due-soon' && !isDueSoon(a)) return false;
+    return true;
+  });
+  const hasHomework = _homework.length > 0;
+  $('homework-empty').hidden = hasHomework;
+  $('homework-filter-empty').hidden = !hasHomework || rows.length > 0;
+  $('homework-table-wrap').hidden = !hasHomework || rows.length === 0;
+  $('homework-result-count').textContent = `${countLabel(rows.length)} / ${countLabel(_homework.length)} bài`;
+  $('homework-tbody').innerHTML = rows.map((a) => {
     const cfg = a.content_config || {};
     const sub = a.skill === 'speaking'
       ? [cfg.topic, cfg.mode, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ')
@@ -667,13 +1113,31 @@ function renderHomework() {
       : (p.submitted
         ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
         : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
-    const archivedChip = archived ? ' <span class="adm-chip">Đã đóng</span>' : '';
+    const archivedChip = archived
+      ? ' <span class="adm-chip">Đã đóng</span>'
+      : (isOverdue(a)
+        ? ' <span class="adm-chip">Hết hạn</span>'
+        : (isDueSoon(a) ? ' <span class="adm-chip cl-chip-warning">Sắp đến hạn</span>' : ' <span class="adm-chip is-active">Đang mở</span>'));
+    // Chỉ bài tập theo buổi có kho câu hỏi để đọc chi tiết; các kỹ năng khác
+    // không có `quiz_attempts` nên nút sẽ mở ra một bảng rỗng.
+    const effort = '';
     return `<tr>
       <td><div>${esc(a.title)}${archivedChip}</div><div class="cl-lesson-sub">${esc(sub)}</div></td>
       <td>${dueLabel(a.due_at)}</td>
       <td>${progressCell(a.progress)}</td>
       <td><button class="adm-btn-secondary" data-action="tally"
-                  data-id="${esc(a.id)}">Xem ai nộp</button> ${action}</td>
+                  data-id="${esc(a.id)}" data-title="${esc(a.title)}"
+                  data-bank="${a.skill === 'course' && a.content_id ? esc(a.content_id) : ''}"
+                  >Nhận bài</button>
+          <button class="adm-btn-secondary" data-action="backfill"
+                  data-id="${esc(a.id)}" data-scope="${esc(a.recipient_scope || 'class')}"
+                  title="${a.recipient_scope === 'subset'
+                    ? 'Bài giao theo nhóm — chọn đích danh học viên cần thêm'
+                    : 'Thêm học viên mới vào lớp vào bài này'}">Bù học viên</button>
+          <button class="adm-btn-secondary" data-action="edit-due"
+                  data-id="${esc(a.id)}" data-due="${esc(a.due_at || '')}"
+                  data-title="${esc(a.title)}"
+                  title="Dời hạn nộp — bài quá hạn sẽ nhận bài lại">Đổi hạn</button>${effort} ${action}</td>
     </tr>`;
   }).join('');
 }
@@ -702,16 +1166,20 @@ function tallyRow(r, skill) {
   // là nói dối. Kèm đạt/chưa từ cổng thuộc bài; số lần kiểm tra lại chỉ hiện
   // khi >0 vì đó mới là tín hiệu cần kèm cặp.
   let band;
-  if (empty) band = '—';
+  if (empty) band = '—';   // `band` có thể chứa thẻ; mọi giá trị từ máy chủ
+                           // bên trong nó ĐỀU đã qua `esc`.
   else if (skill === 'course') {
     // "Chưa đạt" chỉ khi ĐÃ có lượt xét trượt. Mới xong chặng 1 thì submitted_at
     // đã đóng dấu nhưng chưa ai xét gì — nói "chưa đạt" lúc ấy là kết tội một
     // bài đang làm dở.
     const state = r.passed_at ? ' ✓'
       : (r.verdicts ? ' · chưa đạt' : ' · đang làm');
-    band = Math.round(Number(r.score)) + '%' + state
-      + (r.retakes ? ` · KTL×${r.retakes}` : '');
-  } else band = Number(r.score).toFixed(1);
+    // Con số ĐỨNG RIÊNG, phần phụ xuống dòng: gộp cả ba vào một dòng làm cột
+    // phình theo chuỗi dài nhất và đẩy cả hàng tràn khỏi khung.
+    band = `${Math.round(Number(r.score))}%`
+      + `<small>${esc(state.replace(/^ · /, '').replace(/^ /, ''))}`
+      + `${r.retakes ? ` · KTL×${r.retakes}` : ''}</small>`;
+  } else band = esc(Number(r.score).toFixed(1));
   // Cờ nằm NGAY DƯỚI TÊN, không ở một bảng thứ hai: giáo viên mở danh sách này
   // để biết ai cần mình, nên "bài của em này có vấn đề" phải ở cạnh tên em ấy.
   // Mỗi cờ nói đủ ba thứ — chuyện gì, vì sao, làm gì tiếp; một chấm đỏ không
@@ -733,13 +1201,18 @@ function tallyRow(r, skill) {
     : (r.has_writing
         ? `<button class="av-tally__open" type="button" data-writing="${esc(r.student_id)}"
              title="Đọc bài tự luận và bản sửa">Xem tự luận</button>`
-        : '');
+        // Bộ đề CÓ phần tự luận mà em ấy chưa nộp: nói ra. Một ô trống ở đây
+        // đọc như "tính năng hỏng" chứ không đọc ra "em ấy chưa làm" — và đó
+        // đúng là chuyện đã xảy ra khi tìm bài của em Phương Anh Nguyễn.
+        : (r.writing_expected
+            ? '<span class="av-tally__none">chưa nộp tự luận</span>'
+            : ''));
   return `<div class="av-tally__row" data-status="${esc(r.status)}"
        ${r.flag_level ? `data-flag="${esc(r.flag_level)}"` : ''}>
     <span class="av-tally__mark" aria-hidden="true"></span>
     <span class="av-tally__name">${esc(r.name || r.student_code || '—')}</span>
     <span class="av-tally__when">${esc(when)}</span>
-    <span class="av-tally__band" data-empty="${empty}">${esc(band)}</span>
+    <span class="av-tally__band" data-empty="${empty}">${band}</span>
     ${open}
   </div>${flags ? `<ul class="av-flags">${flags}</ul>` : ''}`;
 }
@@ -799,7 +1272,17 @@ function renderTally(d) {
  * lỗi, đáp án mẫu): giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai
  * bên nói về hai thứ khác nhau khi ngồi lại với nhau.
  */
-const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả' };
+const CW_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' };
+
+/**
+ * Câu ĐÚNG ngữ pháp mà còn lỗi hình thức (viết hoa đầu câu, dấu chấm cuối).
+ *
+ * GIỐNG HỆT `isFormOnly` phía học viên, và phải giữ giống: hai bên ngồi lại với
+ * nhau trên cùng một bản chấm, nên một câu không được là "đúng" ở màn này và
+ * "sai" ở màn kia.
+ */
+const cwFormOnly = (g) => g && g.ok === true
+  && Array.isArray(g.issues) && g.issues.length > 0;
 
 /**
  * `**đậm**` → <mark>, GIỐNG HỆT `md()` phía học viên.
@@ -838,22 +1321,28 @@ function renderStudentWriting(d) {
   if (!sub) {
     return '<p class="adm-hint">Học viên này chưa nộp phần tự luận.</p>';
   }
+  const cwList = (g) => `<ul class="cw-issues">${(g.issues || []).map((x) => `
+      <li class="cw-issue">
+        <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
+        <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
+        ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
+      </li>`).join('')}</ul>`;
+
   const items = (sub.items || []).map((g, i) => {
     const ok = g.ok;
+    const formOnly = cwFormOnly(g);
     const body = ok === null
       ? `<p class="cw-diff">${esc(g.answer)}</p>`
         + `<p class="cw-unknown">${esc(g.error || 'Chưa chấm được câu này.')}</p>`
-      : ok
-        ? `<p class="cw-diff">${esc(g.answer)}</p>`
-          + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
-        : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
-          + `<ul class="cw-issues">${(g.issues || []).map((x) => `
-              <li class="cw-issue">
-                <span class="cw-issue__kind">${esc(CW_KIND[x.type] || x.type || 'lỗi')}</span>
-                <span><del>${esc(x.before || '')}</del> → <b>${esc(x.after || '')}</b></span>
-                ${x.note ? `<span class="cw-issue__note">${esc(x.note)}</span>` : ''}
-              </li>`).join('')}</ul>`;
-    return `<article class="cw-item" data-ok="${String(ok)}">
+      : formOnly
+        ? `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>`
+          + '<p class="cw-unknown">Đúng ngữ pháp, còn lỗi trình bày — tính là đúng.</p>'
+          + cwList(g)
+        : ok
+          ? `<p class="cw-diff">${esc(g.answer)}</p>`
+            + '<p class="cw-unknown">Không có lỗi ngữ pháp hay chính tả.</p>'
+          : `<p class="cw-diff">${cwDiff(g.answer, g.corrected)}</p>` + cwList(g);
+    return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>
       <span class="cw-item__no">Câu ${i + 1}</span>
       <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
@@ -862,13 +1351,21 @@ function renderStudentWriting(d) {
   }).join('');
 
   const when = sub.graded_at ? hhmm(sub.graded_at) : '';
-  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu không lỗi</small></div>
+  const forms = (sub.items || []).filter(cwFormOnly).length;
+  return `<div class="cw-done">${sub.clean}<small>/ ${sub.total} câu đúng ngữ pháp</small></div>
     <p class="adm-hint">Chấm lúc ${esc(when)}${sub.model ? ' · ' + esc(sub.model) : ''}.
-       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.</p>
+       Máy chỉ soát ngữ pháp và chính tả, không sửa cách viết.
+       ${forms ? `Có <strong>${forms}</strong> câu đúng ngữ pháp nhưng còn lỗi trình bày.` : ''}</p>
     <div class="cw-list">${items}</div>`;
 }
 
 async function openStudentWriting(assignmentId, studentId) {
+  // THẾ HỆ, chặn ngay tại chỗ ghi. Mở bài giao A (mạng chậm) rồi mở bài giao B:
+  // bài tự luận của A về sau và ghi đè `#tally-body` của B — giáo viên đọc bài
+  // một em ở một bài giao khác với tiêu đề đang hiện. Cùng bẫy `openOneReport`
+  // đã vá, và nó có SẴN ở đường cũ từ bảng tổng kết chứ không phải chỉ ở đường
+  // mới từ ngăn kéo — nên chặn ở đây, không chặn ở nơi gọi (codex cục bộ 07/08).
+  const gen = _mkGen;
   const body = $('tally-body');
   const back = body.innerHTML;          // để quay lại đúng bảng đang mở
   body.innerHTML = '<p class="adm-hint">Đang tải bài tự luận…</p>';
@@ -876,18 +1373,25 @@ async function openStudentWriting(assignmentId, studentId) {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId)
       + '/writing/' + encodeURIComponent(studentId));
-    $('tally-modal-title').textContent =
-      'Tự luận — ' + (d.student.name || d.student.code || '');
+    if (gen !== _mkGen) return;
+    // Nút TRẢ BÀI chỉ hiện khi CÓ bài để trả. Một nút mờ cạnh chỗ trống nói
+    // rằng ở đây có việc làm được, trong khi không.
+    const canReturn = !!(d && d.submission);
     body.innerHTML = '<button class="adm-btn-secondary" type="button" id="cw-back">'
-      + '← Về bảng tổng kết</button>' + renderStudentWriting(d);
+      + '← Về bảng tổng kết</button>'
+      + (canReturn
+          ? ' <button class="adm-btn-secondary" type="button" id="cw-return">'
+            + 'Trả bài cho em làm lại</button>'
+          : '')
+      + renderStudentWriting(d);
     const b = $('cw-back');
     if (b) {
-      b.onclick = () => {
-        body.innerHTML = back;
-        $('tally-modal-title').textContent = _tallyTitle;
-      };
+      b.onclick = () => { body.innerHTML = back; };
     }
+    const r = $('cw-return');
+    if (r) r.onclick = () => returnStudentWork(assignmentId, studentId);
   } catch (err) {
+    if (gen !== _mkGen) return;
     // Rỗng đọc ra là "em ấy chưa viết gì" — một khẳng định mà truy vấn hỏng
     // không chứng minh được.
     body.innerHTML = '<p class="adm-banner">Không đọc được bài tự luận: '
@@ -895,25 +1399,209 @@ async function openStudentWriting(assignmentId, studentId) {
   }
 }
 
+/**
+ * TRẢ BÀI — mở lại một mục đã nộp để em ấy làm tiếp.
+ *
+ * Hỏi trước, vì nó vứt lượt nộp hiện tại khỏi sổ (bài viết và bản chấm vẫn còn
+ * trong kho, nhưng bảng tổng kết sẽ đọc là "chưa nộp"). Sau khi ghi thì ĐỌC LẠI
+ * bảng từ máy chủ, không tự sửa dòng đang cầm trên tay: máy chủ có thể đã từ
+ * chối một phần, và một bảng tự vẽ theo ý mình là một bảng nói dối.
+ */
+function returnStudentWork(assignmentId, studentId) {
+  window.confirmDanger({
+    title: 'Trả bài cho em làm lại?',
+    body: 'Lượt nộp hiện tại sẽ không còn tính là đã nộp. Chính những câu em ấy '
+      + 'đã nộp được đưa lại vào ô nhập để sửa tiếp — không phải gõ lại từ đầu. '
+      + 'Bản chấm cũ vẫn được giữ để tra lại. '
+      + 'Chỉ trả được khi bài giao còn hạn nhận bài.',
+    confirmLabel: 'Trả bài',
+    onConfirm: async () => {
+      let r;
+      try {
+        r = await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId)
+          + '/assignments/' + encodeURIComponent(assignmentId)
+          + '/return/' + encodeURIComponent(studentId), {});
+      } catch (err) {
+        // Nguyên câu của máy chủ: nó nói rõ PHẢI LÀM GÌ (dời hạn trước, tải lại
+        // bảng). Đắp một câu chung chung lên trên là lấy mất chỉ dẫn ấy.
+        toast('Chưa trả được bài: ' + (err.message || String(err)), 'error');
+        return;
+      }
+      // Nói luôn em ấy mở ra sẽ thấy BÀI CŨ hay TRANG TRẮNG. Giáo viên nhắn cho
+      // học viên ngay sau khi bấm, nên đây là thứ họ cần biết lúc này.
+      const n = (r && r.draft_restored) || 0;
+      toast(n
+        ? `Đã trả bài. ${n} câu em ấy viết đã được đưa lại vào ô nhập.`
+        : 'Đã trả bài, nhưng KHÔNG khôi phục được câu nào — em ấy sẽ phải viết lại.',
+        n ? undefined : 'error');
+      if (r && r.audit_logged === false) {
+        toast('Đã trả bài, nhưng KHÔNG ghi được vào nhật ký thao tác.', 'error');
+      }
+      openTally(assignmentId);
+      refreshActionLogIfOpen();
+    },
+  });
+}
+
 let _tallyAsg = null;
 let _tallyTitle = '';
 
+/* ── NHẬN BÀI: ba tab, chiếm trọn trang ─────────────────────────────────────
+ *
+ * Trước đây là hai popup chật. Bảng 14 học viên × 7 cột không sống nổi trong
+ * một hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
+ */
+let _mk = { asg: null, bank: null, title: '', scope: 'class' };
+// Mỗi lần mở một bài giao khác (hoặc rời khu) là một THẾ HỆ mới. Mọi lượt gọi
+// mạng của khu này chụp thế hệ lúc bắt đầu và chỉ vẽ nếu nó còn khớp — nếu
+// không, mở bài A (mạng chậm) rồi mở bài B sẽ để bảng của A ghi đè lên B, với
+// tiêu đề vẫn là B (codex cục bộ 06/08).
+let _mkGen = 0;
+let _CR = null;      // bộ vẽ báo cáo, nạp lúc cần
+
+function showMarkTab(name) {
+  for (const t of ['tally', 'effort', 'one']) {
+    const on = t === name;
+    $('mtab-' + t).classList.toggle('is-active', on);
+    $('mtab-' + t).setAttribute('aria-current', on ? 'page' : 'false');
+    $('mpanel-' + t).hidden = !on;
+  }
+  // Mỗi tab nạp ở lần mở ĐẦU TIÊN. Nạp cả ba lúc vào là ba lượt gọi mạng cho
+  // hai tab giáo viên có thể không bao giờ nhìn.
+  if (name === 'effort' && _mk.bank && !$('effort-body').dataset.loaded) {
+    $('effort-body').dataset.loaded = '1';
+    openEffort(_mk.bank, _mk.asg, _mk.title);
+  }
+  if (name === 'one' && !$('one-list').dataset.loaded) {
+    $('one-list').dataset.loaded = '1';
+    renderOneList();
+  }
+}
+
+function openMarking(assignmentId, title, bankId) {
+  _mkGen += 1;
+  _mk = { asg: assignmentId, bank: bankId || null, title: title || '' };
+  $('marking-title').textContent = title || 'Nhận bài';
+  $('marking-sub').textContent = bankId ? 'Bài tập theo buổi' : '';
+  // Tab "Bài từng em" chỉ có nghĩa với bài theo buổi — kỹ năng khác không có
+  // lượt làm từng câu để đọc.
+  $('mtab-one').hidden = !bankId;
+  $('mtab-effort').hidden = !bankId;
+  delete $('effort-body').dataset.loaded;
+  delete $('one-list').dataset.loaded;
+  $('one-body').innerHTML = '<p class="adm-hint">Chọn một học viên ở danh sách bên trái.</p>';
+  $('tab-marking').hidden = false;
+  showPanel('marking');
+  showMarkTab('tally');
+  // TRẢ promise ra. Nơi gọi nào muốn ghi tiếp vào `#tally-body` — ví dụ mở
+  // thẳng bài tự luận của một em từ ngăn kéo — phải đợi bảng tổng kết vẽ xong,
+  // nếu không hai lượt ghi đua nhau trên cùng một khung và bản chụp "quay lại"
+  // của màn tự luận chụp nhầm dòng "Đang tải…". Các nơi gọi cũ bỏ qua giá trị
+  // này nên hành vi của chúng không đổi.
+  return openTally(assignmentId);
+}
+
+/** Danh sách em để chọn — lấy từ chính bảng "Chi tiết làm bài". */
+async function renderOneList() {
+  const gen = _mkGen;
+  const list = $('one-list');
+  list.innerHTML = '<li class="adm-hint">Đang tải…</li>';
+  let r;
+  try {
+    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
+      + '/attempt-report?assignment_id=' + encodeURIComponent(_mk.asg));
+  } catch (err) {
+    list.innerHTML = '<li class="adm-banner">Không tải được danh sách: '
+      + esc(err.message || String(err)) + '</li>';
+    return;
+  }
+  if (gen !== _mkGen) return;
+  const nameOf = {};
+  (_who.members || []).forEach((m) => { if (m.student_id) nameOf[m.student_id] = m.name; });
+  list.innerHTML = (r.students || []).map((x) => `<li>
+    <button type="button" data-one="${esc(x.user_id || '')}"
+            ${x.user_id ? '' : 'disabled'}>
+      <span>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}</span>
+      <em class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</em>
+    </button></li>`).join('');
+}
+
+/** Báo cáo của MỘT em — dùng lại đúng bộ vẽ học viên đang thấy. */
+let _oneSeq = 0;
+
+async function openOneReport(userId, name) {
+  const box = $('one-body');
+  // Chỉ vẽ nếu lượt này VẪN là lượt mới nhất. Bấm An rồi Bình lúc mạng chậm:
+  // bài của An về sau và ghi đè bài của Bình, trong khi tên Bình vẫn sáng —
+  // giáo viên đọc bài của một em dưới tên một em khác (codex cục bộ).
+  //
+  // Đếm SỐ LƯỢT chứ không nhớ `userId`: mở bài giao A, sang bài giao B rồi chọn
+  // ĐÚNG em ấy thì hai lượt mang cùng một userId, và lượt của A vẫn ghi đè
+  // được lên bảng của B (codex PR 952).
+  const seq = ++_oneSeq;
+  const gen = _mkGen;
+  box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
+  try {
+    if (!_CR) _CR = await import('/js/course-report.js');
+    const d = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
+      + '/students/' + encodeURIComponent(userId)
+      + '/report?assignment_id=' + encodeURIComponent(_mk.asg));
+    if (seq !== _oneSeq || gen !== _mkGen) return;
+    box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
+      + _CR.renderReport(d);
+    _CR.bindReport(box);
+  } catch (err) {
+    if (seq !== _oneSeq || gen !== _mkGen) return;
+    box.innerHTML = '<p class="adm-banner">Không đọc được bài của em này: '
+      + esc(err.message || String(err)) + '</p>';
+  }
+}
+
+/**
+ * Lỗi này có phải chuyện thoáng qua không?
+ *
+ * `Failed to fetch` (Chrome) / `NetworkError` (Firefox) / `Load failed`
+ * (Safari) đều nghĩa là yêu cầu KHÔNG tới nơi — hầu hết là backend đang khởi
+ * động lại sau một lượt phát hành. Vài giây sau bấm lại là được, nên nói ra.
+ *
+ * Một 404 hay 500 thì KHÔNG: bấm lại chỉ hỏng y hệt, và mời bấm lại là mời
+ * người ta phí thời gian.
+ */
+function isTransientNetworkError(msg) {
+  return /failed to fetch|networkerror|load failed/i.test(String(msg || ''));
+}
+
 async function openTally(assignmentId) {
+  const gen = _mkGen;
   const body = $('tally-body');
-  $('tally-modal').hidden = false;
   body.innerHTML = '<p class="adm-hint">Đang tải…</p>';
   try {
     const d = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
       + '/assignments/' + encodeURIComponent(assignmentId) + '/tally');
+    if (gen !== _mkGen) return;
     _tallyAsg = assignmentId;
     _tallyTitle = d.assignment.title || 'Bảng tổng kết';
-    $('tally-modal-title').textContent = _tallyTitle;
     body.innerHTML = renderTally(d);
   } catch (err) {
     // Bảng rỗng đọc ra là "cả lớp chưa ai nộp" — một khẳng định mà truy vấn hỏng
     // không hề chứng minh được.
-    body.innerHTML = '<p class="adm-banner">Không đọc được bảng tổng kết: '
-      + esc(err.message || String(err)) + '</p>';
+    //
+    // Và một màn hỏng phải là LỜI MỜI LÀM VIỆC, không phải ngõ cụt: trước đây
+    // giáo viên gặp lỗi này chỉ còn cách tải lại cả trang, mất luôn chỗ đang
+    // đứng. `Failed to fetch` hầu hết là backend đang khởi động lại sau một lượt
+    // phát hành — vài giây sau bấm lại là được.
+    const why = String(err && (err.message || err) || '');
+    const transient = isTransientNetworkError(why);
+    // Nút Thử lại CHỈ hiện với lỗi thoáng qua. Mời bấm lại một 404/500 là mời
+    // phí thời gian — và làm chính lời phân loại ở trên thành vô nghĩa
+    // (codex #979).
+    body.innerHTML = `<p class="adm-banner">Không đọc được bảng tổng kết: ${esc(why)}`
+      + (transient ? ' Thường là máy chủ đang khởi động lại — thử lại sau vài giây.' : '')
+      + '</p>'
+      + (transient
+          ? `<button class="adm-btn-secondary" type="button"
+               data-action="retry-tally">Thử lại</button>`
+          : '');
   }
 }
 
@@ -1460,9 +2148,122 @@ function renderDueResolve() {
   whyEl.textContent = `Giờ Việt Nam — ${days} ngày kể từ hôm nay. Sau mốc này hệ thống không nhận bài nữa.`;
 }
 
+let _hfStep = 1;
+
+function homeworkValidationMessage(step) {
+  if (step === 1) {
+    const title = $('hf-title').value.trim();
+    const lesson = hfKind() === 'lesson';
+    const skill = lesson ? 'speaking' : $('hf-skill').value;
+    if (!title) return 'Nhập tên bài giao để tiếp tục.';
+    if (lesson && !$('hf-set').value) return 'Chọn một buổi để tiếp tục.';
+    if (lesson && !_qpick.picked.length) return 'Chọn ít nhất một câu để giao.';
+    if (skill === 'speaking' && !lesson && !$('hf-topic').value.trim()) {
+      return 'Chọn một chủ đề để tiếp tục.';
+    }
+    if (skill === 'speaking' && !lesson && qmode() === 'manual'
+        && _qpick.picked.length !== _qpick.want) {
+      return `Part ${$('hf-part').value} cần đúng ${_qpick.want} câu — bạn đã chọn ${_qpick.picked.length}.`;
+    }
+    if (skill === 'course' && !$('hf-cbank').value) return 'Chọn một buổi để tiếp tục.';
+    if (skill === 'course') {
+      const passPct = parseInt($('hf-pass-pct').value, 10);
+      const retakeSize = parseInt($('hf-retake-size').value, 10);
+      if ($('hf-pass-pct').value !== '' && (isNaN(passPct) || passPct < 50 || passPct > 100)) {
+        return 'Ngưỡng đạt phải trong khoảng 50–100%.';
+      }
+      if ($('hf-retake-size').value !== '' && (isNaN(retakeSize) || retakeSize < 5 || retakeSize > 100)) {
+        return 'Số câu kiểm tra lại phải trong khoảng 5–100.';
+      }
+    }
+    if (skill !== 'speaking' && skill !== 'course' && !$('hf-test').value) {
+      return 'Chọn một đề để tiếp tục.';
+    }
+  }
+  if (step === 2 && !whoIsAll() && !_who.picked.size) {
+    return 'Chọn ít nhất một học viên hoặc chuyển về “Cả lớp”.';
+  }
+  if (step === 3 && hfKind() === 'lesson') {
+    const days = Number($('hf-due-days').value);
+    if (!days || days < 1 || days > 90) return 'Số ngày được nộp phải từ 1 đến 90.';
+  }
+  return '';
+}
+
+function homeworkContentSummary() {
+  const lesson = hfKind() === 'lesson';
+  const skill = lesson ? 'speaking' : $('hf-skill').value;
+  const source = lesson
+    ? (($('hf-set').selectedOptions[0] || {}).text || 'Bài sau buổi học')
+    : skill === 'speaking'
+      ? (($('hf-topic').selectedOptions[0] || {}).text || 'Speaking')
+      : skill === 'course'
+        ? (($('hf-cbank').selectedOptions[0] || {}).text || 'Bài tập theo buổi')
+        : (($('hf-test').selectedOptions[0] || {}).text || SKILL_LABEL[skill] || skill);
+  return `${$('hf-title').value.trim()} · ${source}`;
+}
+
+function renderHomeworkReview() {
+  $('hf-review-content').textContent = homeworkContentSummary();
+  $('hf-review-recipients').textContent = whoIsAll()
+    ? `Cả lớp (${countLabel(_who.members.length)} học viên)`
+    : `${countLabel(_who.picked.size)} học viên được chọn`;
+  if (hfKind() === 'lesson') {
+    const days = Number($('hf-due-days').value);
+    const d = vietnamDatePlusDays(days);
+    $('hf-review-due').textContent = `${$('hf-due-time').value || '19:00'} · ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()} (giờ VN)`;
+  } else {
+    $('hf-review-due').textContent = $('hf-due').value
+      ? `${$('hf-due').value.split('-').reverse().join('/')} · ${$('hf-due-time').value || '19:00'} (giờ VN)`
+      : 'Không đặt hạn';
+  }
+  $('hf-review-note').textContent = $('hf-instructions').value.trim() || 'Không có';
+}
+
+function showHomeworkStep(step, options = {}) {
+  const nextStep = Math.max(1, Math.min(4, Number(step) || 1));
+  if (!options.skipValidation && nextStep > _hfStep) {
+    const message = homeworkValidationMessage(_hfStep);
+    if (message) {
+      $('hf-error').textContent = message;
+      $('hf-error').hidden = false;
+      $('hf-error').scrollIntoView({ block: 'nearest' });
+      $('hf-error').focus();
+      return false;
+    }
+  }
+  _hfStep = nextStep;
+  document.querySelectorAll('[data-hf-step]').forEach((panel) => {
+    panel.hidden = Number(panel.dataset.hfStep) !== _hfStep;
+  });
+  document.querySelectorAll('[data-step-indicator]').forEach((item) => {
+    const n = Number(item.dataset.stepIndicator);
+    item.classList.toggle('is-active', n === _hfStep);
+    item.classList.toggle('is-complete', n < _hfStep);
+    if (n === _hfStep) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  });
+  $('btn-hf-back').hidden = _hfStep === 1;
+  $('btn-hf-next').hidden = _hfStep === 4;
+  $('btn-hf-submit').hidden = _hfStep !== 4;
+  $('hf-error').hidden = true;
+  if (_hfStep === 4) renderHomeworkReview();
+  const heading = document.querySelector(`[data-hf-step="${_hfStep}"] h3`);
+  if (heading && options.focus !== false) {
+    heading.setAttribute('tabindex', '-1');
+    heading.focus();
+  }
+  return true;
+}
+
 function openHomeworkModal() {
   const daily = document.querySelector('input[name="hf-kind"][value="daily"]');
   if (daily) daily.checked = true;
+  // Luôn quay về CẢ LỚP. Giữ lựa chọn của lần trước là để giáo viên giao nhầm
+  // cho ba em rồi tưởng cả lớp đã nhận.
+  if ($('hf-who')) $('hf-who').value = 'all';
+  _who.picked = new Set();
+  syncWho();
   $('hf-set').value = '';
   $('hf-cbank').value = '';
   $('hf-pass-pct').value = '';
@@ -1497,6 +2298,7 @@ function openHomeworkModal() {
   $('hf-warning').hidden = true;
   applyHomeworkKind();
   $('homework-modal').hidden = false;
+  showHomeworkStep(1, { skipValidation: true, focus: false });
   $('hf-title').focus();
 }
 
@@ -1553,6 +2355,7 @@ async function submitHomework() {
           due_date: $('hf-due').value || null,
           due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
+          student_ids: whoRecipients(),
         }
         : {
           skill, title,
@@ -1560,6 +2363,7 @@ async function submitHomework() {
           due_date: $('hf-due').value || null,
           due_time: $('hf-due-time').value || null,
           instructions: $('hf-instructions').value.trim() || null,
+          student_ids: whoRecipients(),
         },
     );
 
@@ -1633,6 +2437,7 @@ async function submitLessonHomework(title) {
         due_days: days,
         due_time: $('hf-due-time').value || null,
         instructions: $('hf-instructions').value.trim() || null,
+        student_ids: whoRecipients(),
       },
     );
     closeHomeworkModal();
@@ -1657,6 +2462,55 @@ async function submitLessonHomework(title) {
 }
 
 /** Giao một bộ bài tập theo buổi. Payload gọn: bộ đề quyết định tất cả. */
+/* ── Chọn người nhận ────────────────────────────────────────────────────────
+ *
+ * Mặc định là CẢ LỚP. Đổi mặc định là đổi ý nghĩa của mọi thao tác quen tay,
+ * nên "chọn học viên" phải là một hành động có chủ đích.
+ *
+ * Sĩ số lấy từ `loadRoster()` đã nạp sẵn — không gọi lại: mở hộp thoại giao bài
+ * mà phải chờ mạng là chờ ở đúng lúc người dùng đang vội nhất.
+ */
+var _who = { members: [], picked: new Set() };
+
+function whoIsAll() { return !$('hf-who') || $('hf-who').value === 'all'; }
+
+/** Người nhận cho payload. `null` = cả lớp — KHÔNG phải mảng rỗng. */
+function whoRecipients() {
+  if (whoIsAll()) return null;
+  return _who.picked.size ? Array.from(_who.picked) : [];
+}
+
+function renderWho() {
+  var list = $('hf-who-list');
+  if (!list) return;
+  list.innerHTML = _who.members.map(function (m) {
+    var on = _who.picked.has(m.student_id) ? ' checked' : '';
+    return '<label class="cl-pick-row">'
+      + '<input type="checkbox" data-who="' + esc(m.student_id) + '"' + on + ' />'
+      + '<span>' + esc(m.name || m.student_code || 'Chưa có tên') + '</span>'
+      + (m.user_id ? '' : '<em>chưa kích hoạt</em>')
+      + '</label>';
+  }).join('');
+  var n = _who.picked.size;
+  $('hf-who-count').textContent = n ? ('Đã chọn ' + n + '/' + _who.members.length) : 'Chưa chọn ai';
+}
+
+function syncWho() {
+  var pick = $('hf-who-pick');
+  if (pick) pick.hidden = whoIsAll();
+  var btn = $('btn-hf-submit');
+  if (btn) {
+    btn.textContent = whoIsAll()
+      ? 'Giao cho cả lớp'
+      : ('Giao cho ' + _who.picked.size + ' học viên');
+    // Chọn "một nhóm" rồi không chọn ai là một bài giao không tới đâu. Chặn ở
+    // đây thay vì để backend trả empty_roster — lỗi ấy đúng nhưng tới muộn.
+    btn.disabled = !whoIsAll() && _who.picked.size === 0;
+  }
+  if (!whoIsAll()) renderWho();
+}
+
+
 async function submitCourseHomework(title) {
   const bankId = $('hf-cbank').value;
   if (!bankId) {
@@ -1693,6 +2547,7 @@ async function submitCourseHomework(title) {
         // hợp đồng đã ghim, và vắng mặt mới đúng nghĩa "theo mặc định".
         ...(isNaN(passPct) ? {} : { pass_pct: passPct }),
         ...(isNaN(retakeSize) ? {} : { retake_size: retakeSize }),
+        student_ids: whoRecipients(),
       },
     );
     closeHomeworkModal();
@@ -1713,6 +2568,469 @@ async function submitCourseHomework(title) {
     $('hf-error').hidden = false;
   } finally {
     $('btn-hf-submit').disabled = false;
+  }
+}
+
+/* ── Chi tiết làm bài (bài tập theo buổi) ───────────────────────────────────
+ *
+ * Ba câu hỏi của giáo viên mà tới nay không mặt đọc nào trả lời được: em ấy
+ * ngồi bao lâu, đang đứng ở đâu, và cả lớp vướng chỗ nào.
+ *
+ * Điều quan trọng nhất bảng này làm được là TÁCH "bỏ dở" ra khỏi "chưa nộp".
+ * Gộp chung thì một em đã làm 8 chặng rồi tắc trông y hệt một em chưa mở bài —
+ * mà hai em ấy cần hai cách xử lý hoàn toàn khác nhau.
+ */
+
+const EFFORT_STATE = {
+  stalled:          'Bỏ dở',
+  // Xong CHẶNG chưa phải xong BÀI: phần tự luận nằm ngoài vòng chặng, nên gộp
+  // hai chuyện lại là báo rằng em ấy đã hoàn thành trong khi còn mười câu chưa
+  // động tới (ca thật: em Phương Anh Nguyễn, 9/9 chặng, 0 câu viết).
+  awaiting_writing: 'Chưa nộp tự luận',
+  doing:            'Đang làm',
+  done:             'Xong',
+  untouched:        'Chưa mở',
+};
+
+async function openEffort(bankId, assignmentId, title) {
+  const gen = _mkGen;
+  $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  let r;
+  try {
+    // Neo vào BÀI GIAO: cùng một bộ đề giao được cho nhiều lớp, nên hỏi theo
+    // bank sẽ trộn lượt làm của lớp khác vào bảng.
+    r = await api.get('/admin/quiz/banks/' + encodeURIComponent(bankId)
+      + '/attempt-report?assignment_id=' + encodeURIComponent(assignmentId));
+  } catch (err) {
+    $('effort-body').innerHTML =
+      '<div class="adm-banner">Không tải được: ' + esc(err.message || String(err)) + '</div>';
+    return;
+  }
+  // Báo cáo chỉ biết `user_id`. Tên nằm ở sĩ số đã nạp — ghép ở đây thay vì bắt
+  // backend biết về lớp, vì cùng một bank giao được cho nhiều lớp.
+  // Ghép theo HỌC VIÊN, không theo tài khoản: em chưa kích hoạt có `user_id`
+  // NULL nhưng vẫn được giao bài và vẫn phải đọc được tên (codex PR 945 vòng 3).
+  const nameOf = {};
+  const noAcct = {};
+  (_who.members || []).forEach((m) => {
+    if (m.student_id) { nameOf[m.student_id] = m.name; noAcct[m.student_id] = !m.user_id; }
+  });
+
+  // Đọc hỏng ở lượt ĐẦU TIÊN thì `students` rỗng — và "chưa có ai mở bài" là
+  // một câu khẳng định, không phải một chỗ trống. Nói ra sự thiếu TRƯỚC, đừng
+  // để nhánh rỗng nói hộ (codex PR 945 vòng 4).
+  const rows = (r.students || []);
+  if (!rows.length) {
+    $('effort-body').innerHTML = r.stale
+      ? '<div class="adm-banner">Chưa đọc được dữ liệu bài làm — chưa kết luận '
+        + 'được gì về lớp này. Mở lại để thử lại.</div>'
+      : '<p class="adm-hint">Chưa có ai mở bài này.</p>';
+    return;
+  }
+  const body = rows.map((x) => {
+    const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
+    return `<tr>
+      <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
+        noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
+      <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
+      <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
+      <td class="cl-effort-num">${r.writing_total
+        ? (x.wrote ? 'đã nộp' : '—') : ''}</td>
+      <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
+      <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
+      <td class="cl-effort-num">${acc}</td>
+    </tr>`;
+  }).join('');
+
+  const axes = (r.axes || []);
+  const top = axes.length ? axes[0].wrong : 1;
+  const axesHtml = axes.length
+    ? '<h4>Cả lớp vướng ở đâu</h4><table class="adm-table"><thead><tr>'
+      + '<th>Trục</th><th>Sai</th><th>Trung vị thời gian</th><th></th></tr></thead><tbody>'
+      + axes.map((a) => `<tr>
+          <td>${esc(a.axis)}</td>
+          <td class="cl-effort-num">${a.wrong}</td>
+          <td class="cl-effort-num">${a.median_sec == null ? '—' : a.median_sec + 's'}</td>
+          <td><div class="cl-axis-bar" style="width:${Math.round(100 * a.wrong / top)}%"></div></td>
+        </tr>`).join('')
+      + '</tbody></table>'
+    : '';
+
+  // Đọc hỏng ở máy chủ thì NÓI RA. Im lặng là vẽ một bảng trông bình thường mà
+  // sai — và giáo viên sẽ nhắc nhầm một em đang làm dở.
+  const warn = r.stale
+    ? '<div class="adm-banner">Chưa đọc được đầy đủ dữ liệu — vài dòng có thể '
+      + 'thiếu bài đã làm. Mở lại để thử lại.</div>'
+    : '';
+
+  $('effort-body').innerHTML = warn
+    + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
+    + '<th>Chặng</th>'
+    + (r.writing_total ? `<th>Tự luận (${r.writing_total} câu)</th>` : '<th></th>')
+    + '<th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
+    + '<tbody>' + body + '</tbody></table>'
+    + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '
+    + 'từ lúc mở tới lúc đóng — đóng tab rồi mở lại hôm sau không thành “một ngày rưỡi”.</p>'
+    + axesHtml;
+}
+
+/**
+ * Bù học viên mới vào một bài ĐÃ GIAO.
+ *
+ * Em vào lớp sau ngày giao không có dòng nào trong sổ bài giao, nên bài ấy vô
+ * hình với em — còn bảng của giáo viên vẫn đếm em vào mẫu số. Chỉ THÊM, không
+ * bao giờ xoá, và bấm bao nhiêu lần cũng vô hại.
+ */
+/* Bảng tick cho lệnh bù người nhận.
+ *
+ * Trước đây là `window.prompt` bắt gõ số thứ tự — gõ nhầm một số là thêm nhầm
+ * một em vào bài không dành cho em ấy, mà lệnh bù thì KHÔNG gỡ lại được (nó chỉ
+ * thêm, không bao giờ xoá).
+ */
+/* ── Nhật ký thao tác ───────────────────────────────────────────────────────
+ *
+ * Đổi hạn và Trả bài đều sửa thứ học viên nhìn thấy, và trước mig 198 không
+ * đường nào để lại dấu ai làm. Màn này để ba tháng sau còn trả lời được "ai
+ * đổi, lúc nào, từ gì sang gì" khi một em hỏi vì sao bài mình thành nộp trễ.
+ *
+ * Nạp KHI MỞ, không nạp sẵn: nó không phải thứ đọc hằng ngày, và một lượt gọi
+ * mạng cho mỗi lần vào tab là trả giá cho thứ hầu như không ai xem.
+ */
+const LOG_WHAT = {
+  due_change: 'đổi hạn nộp',
+  return_work: 'trả bài cho học viên làm lại',
+};
+
+/**
+ * THẾ HỆ của lượt đọc nhật ký.
+ *
+ * Mở khung xong bấm luôn một thao tác: lượt đọc đầu còn đang bay, lượt sau về
+ * trước và vẽ dòng mới — rồi lượt đầu về sau và đè lại bằng bản CŨ, mất đúng
+ * dòng vừa tạo (codex cục bộ 08/08 vòng 2). Cùng bẫy `_mkGen` đã vá ở khu Nhận
+ * bài; chụp thế hệ lúc bắt đầu, chỉ vẽ nếu nó còn khớp.
+ */
+let _logGen = 0;
+
+/** Mốc thời gian → "08/08 19:03" giờ Việt Nam. */
+function logWhen(at) {
+  if (!at) return '';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/**
+ * Hạn nộp trong nhật ký, theo GIỜ VIỆT NAM.
+ *
+ * KHÔNG dùng `dueText()`: nó vẽ theo múi giờ máy đang mở trang, nên với một
+ * giáo viên đang ở nước ngoài, cùng MỘT dòng nhật ký sẽ hiện giờ thao tác theo
+ * giờ Việt Nam (`logWhen`) mà hạn nộp theo giờ bản địa — 19:00 thành 05:00, và
+ * không có nhãn nào nói ra (codex cục bộ 08/08 vòng 2). Hạn nộp là một quy ước
+ * giờ Việt Nam; nhật ký kể lại nó thì phải kể đúng múi giờ ấy.
+ */
+function logDue(at) {
+  if (!at) return 'không hạn';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return 'hạn không đọc được';
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/** Dòng "từ gì sang gì" — thứ khiến nhật ký đọc được mà không phải đoán. */
+function logDetail(a) {
+  const d = a.details || {};
+  if (a.action === 'due_change') {
+    const bits = [logDue(d.previous_due_at) + ' → ' + logDue(d.due_at)];
+    const f = d.flips || {};
+    if (f.to_ontime) bits.push(`${f.to_ontime} lượt nộp trễ thành đúng hạn`);
+    if (f.to_late) bits.push(`${f.to_late} lượt đúng hạn thành nộp trễ`);
+    return bits.join(' · ');
+  }
+  if (a.action === 'return_work') {
+    const bits = [];
+    // Nói rõ em ấy mở ra thấy bài cũ hay trang trắng — đó là điều người đọc
+    // nhật ký muốn biết nhất khi lần lại một ca trả bài.
+    bits.push(d.draft_restored
+      ? `${d.draft_restored} câu được đưa lại vào ô nhập`
+      : 'KHÔNG khôi phục được câu nào');
+    if (d.score_cleared) bits.push('điểm của mục đã xoá');
+    return bits.join(' · ');
+  }
+  return '';
+}
+
+async function loadActionLog(before) {
+  const box = $('action-log-body');
+  if (!box) return;
+  const gen = ++_logGen;
+  // Trang đầu thay cả khung; "Xem thêm" NỐI vào cuối, không vứt phần đang đọc.
+  if (!before) box.innerHTML = '<p class="adm-hint">Đang tải…</p>';
+  let r;
+  try {
+    r = await api.get('/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/action-log' + (before ? '?before=' + encodeURIComponent(before) : ''));
+  } catch (err) {
+    if (gen !== _logGen) return;
+    // Danh sách rỗng đọc ra là "chưa ai đụng gì" — một khẳng định mà lượt đọc
+    // hỏng chưa hề chứng minh.
+    box.innerHTML = '<p class="adm-banner">Không đọc được nhật ký: '
+      + esc(err.message || String(err)) + '</p>';
+    return;
+  }
+  if (gen !== _logGen) return;      // một lượt đọc mới hơn đã vẽ rồi
+  const rows = (r && r.actions) || [];
+  if (!rows.length && !before) {
+    box.innerHTML = '<p class="adm-hint">Chưa có thao tác nào được ghi.</p>';
+    return;
+  }
+  const html = rows.map((a) => {
+    const what = LOG_WHAT[a.action] || a.action;
+    const who = a.actor_email || 'không rõ ai';
+    const on = [a.assignment_title, a.student_name].filter(Boolean).map(esc).join(' · ');
+    const detail = logDetail(a);
+    return `<div class="cl-log__row">
+      <span class="cl-log__when">${esc(logWhen(a.created_at))}</span>
+      <span class="cl-log__what"><b>${esc(what)}</b>${on ? ' — ' + on : ''}
+        <span class="cl-log__who">· ${esc(who)}</span></span>
+      ${detail ? `<span class="cl-log__detail">${esc(detail)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  // Còn dòng cũ hơn thì NÓI RA và cho lối đi tiếp. Cắt trong im lặng làm người
+  // đọc tin rằng mình đã thấy hết — đúng lúc họ đang tìm một thao tác cũ.
+  const more = (r && r.has_more && r.next_before)
+    ? '<button class="adm-btn-secondary" type="button" data-log-more="'
+      + esc(r.next_before) + '">Xem thao tác cũ hơn</button>'
+    : '';
+  const old = before ? box.innerHTML.replace(/<button[^>]*data-log-more[\s\S]*?<\/button>/, '') : '';
+  box.innerHTML = old + html + more;
+}
+
+/** Nhật ký ĐANG MỞ thì vẽ lại sau mỗi thao tác ghi.
+ *
+ * `toggle` chỉ bắn khi đóng/mở, nên một khung đang mở sẽ đứng nguyên bản cũ
+ * ngay sau khi vừa đổi hạn — màn hình nói thiếu đúng dòng người ta vừa tạo
+ * (codex cục bộ 08/08). Đóng thì thôi: mở ra sẽ nạp.
+ */
+function refreshActionLogIfOpen() {
+  const box = $('action-log');
+  if (box && box.open) loadActionLog();
+}
+
+/* ── Đổi hạn nộp ────────────────────────────────────────────────────────────
+ *
+ * Cho tới nay không đổi hạn được từ trong sản phẩm — ngày 07/08 phải viết SQL
+ * rồi chạy tay trên máy chủ thật. Và cái thiếu ấy còn khoá luôn nút Trả bài,
+ * vì trả bài đòi bài giao còn nhận bài.
+ *
+ * Hai điều màn này phải làm đúng, cả hai đều dễ làm sai mà không kêu:
+ *
+ *   · Đọc và ghi hạn theo GIỜ VIỆT NAM, không theo múi giờ của máy đang mở
+ *     trang. Máy chủ dựng hạn bằng `compose_due_at` ở múi giờ Việt Nam; nếu ô
+ *     nhập ở đây đọc theo giờ máy thì một giáo viên đang ở nước ngoài mở ra sẽ
+ *     thấy 19:00 thành 15:00, sửa một thứ khác rồi bấm lưu — và vừa dời hạn mà
+ *     không hề biết.
+ *   · Nêu hạn màn hình ĐANG HIỆN khi gửi lệnh, để máy chủ từ chối nếu người
+ *     khác vừa đổi (codex #996).
+ */
+let _dueAsg = null;          // { id, title, expected } — hạn lúc mở hộp
+/**
+ * Lời cảnh báo máy chủ vừa trả về, GẮN VỚI ĐÚNG ngày/giờ đã hiện ra cùng nó:
+ * `{ flips, date, time }`.
+ *
+ * Giữ mỗi con số thì sau khi đọc cảnh báo cho ngày 09/08, giáo viên đổi sang
+ * 12/08 (hoặc bấm "Bỏ hạn") rồi bấm lưu — và lệnh đi kèm cờ xác nhận cho một đề
+ * nghị mà con số của nó chưa ai từng nhìn thấy (codex #1005). Xác nhận là xác
+ * nhận cho MỘT đề nghị cụ thể, nên nó phải mang theo đề nghị ấy.
+ */
+let _dueFlips = null;
+
+/** Đề nghị hiện đang nằm trong hộp. Dùng để so với thứ đã được cảnh báo. */
+const dueProposal = () => ({
+  date: $('due-date').value || null,
+  time: ($('due-date').value ? ($('due-time').value || '19:00') : null),
+});
+
+/** Cảnh báo đang cầm có đúng là cảnh báo CHO đề nghị đang nằm trong hộp không. */
+function dueConfirmed() {
+  if (!_dueFlips) return false;
+  const p = dueProposal();
+  return _dueFlips.date === p.date && _dueFlips.time === p.time;
+}
+
+/** Sửa ô nhập là đề nghị đã khác — lời cảnh báo cũ hết hiệu lực, cất nó đi. */
+function syncDueWarning() {
+  if (dueConfirmed()) return;
+  _dueFlips = null;
+  const w = $('due-warn');
+  if (w) { w.hidden = true; w.innerHTML = ''; }
+  const ok = $('btn-due-ok');
+  if (ok) ok.textContent = 'Đổi hạn';
+}
+
+/** Mốc thời gian → { date: 'YYYY-MM-DD', time: 'HH:MM' } theo GIỜ VIỆT NAM. */
+function dueParts(dueAt) {
+  if (!dueAt) return { date: '', time: '19:00' };
+  const d = new Date(dueAt);
+  if (Number.isNaN(d.getTime())) return { date: '', time: '19:00' };
+  const opt = { timeZone: 'Asia/Ho_Chi_Minh' };
+  // 'en-CA' cho ra đúng dạng YYYY-MM-DD; 'en-GB' cho giờ 24h.
+  const date = new Intl.DateTimeFormat('en-CA', {
+    ...opt, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', {
+    ...opt, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return { date, time };
+}
+
+function openDueEdit(id, dueAt, title) {
+  const a = _homework.find((x) => x.id === id);
+  _dueAsg = { id, title, expected: (a ? a.due_at : dueAt) || null };
+  _dueFlips = null;
+  const p = dueParts(_dueAsg.expected);
+  $('due-date').value = p.date;
+  $('due-time').value = p.time;
+  $('due-title').textContent = title || 'bài giao này';
+  $('due-current').textContent = dueText(_dueAsg.expected);
+  $('due-warn').hidden = true;
+  $('due-warn').innerHTML = '';
+  $('btn-due-ok').textContent = 'Đổi hạn';
+  $('due-modal').hidden = false;
+  $('due-date').focus();
+}
+
+function closeDueEdit() {
+  $('due-modal').hidden = true;
+  _dueAsg = null;
+  _dueFlips = null;
+}
+
+async function saveDue() {
+  if (!_dueAsg) return;
+  const p = dueProposal();
+  // Xác nhận CHỈ có hiệu lực cho đúng đề nghị đã được cảnh báo. Đổi ngày/giờ
+  // xong mới bấm thì đây là một đề nghị khác, và nó phải đi qua vòng đếm lại.
+  const confirmed = dueConfirmed();
+  try {
+    const r = await api.patch(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(_dueAsg.id) + '/due',
+      {
+        due_date: p.date,
+        due_time: p.time,
+        expected_due_at: _dueAsg.expected,
+        // Chỉ gửi cờ xác nhận sau khi máy chủ ĐÃ nói ra con số và người dùng
+        // bấm lần thứ hai. Gửi sẵn từ đầu là bỏ qua chính cái chốt ấy.
+        confirm_rewrites: confirmed,
+        // Và nêu lại CHÍNH con số đã hiện ra: máy chủ đếm lại rồi so, vì giữa
+        // hai lần bấm có thể có em nộp xen vào.
+        confirmed_flips: confirmed ? _dueFlips.flips : null,
+      });
+    toast(r && r.due_at
+      ? 'Đã đổi hạn. Bài giao nhận bài trở lại nếu hạn mới còn ở phía trước.'
+      : 'Đã bỏ hạn nộp — bài này nhận bài không giới hạn thời gian.');
+    // Việc đã xong, nhưng nhật ký thủng một lỗ. Nói ra: một nhật ký được tin mà
+    // thiếu dòng còn tệ hơn không có nhật ký.
+    if (r && r.audit_logged === false) {
+      toast('Đã đổi hạn, nhưng KHÔNG ghi được vào nhật ký thao tác.', 'error');
+    }
+    closeDueEdit();
+    await loadHomework();
+    invalidateProgress();
+    refreshActionLogIfOpen();
+  } catch (err) {
+    const d = (err && err.detail) || {};
+    if (d.needs_confirm && d.flips) {
+      // Nói ra CON SỐ rồi mới hỏi lại. "Đổi hạn này viết lại hồ sơ của ai đó" mà
+      // không kèm số thì giáo viên không có gì để cân nhắc.
+      // Gắn con số vào ĐÚNG đề nghị vừa gửi, không phải vào ô nhập lúc đọc lại.
+      _dueFlips = { flips: d.flips, date: p.date, time: p.time };
+      const bits = [];
+      if (d.flips.to_ontime) {
+        bits.push(`<strong>${d.flips.to_ontime}</strong> lượt đang tính là NỘP TRỄ `
+          + 'sẽ thành đúng hạn');
+      }
+      if (d.flips.to_late) {
+        bits.push(`<strong>${d.flips.to_late}</strong> lượt đang tính là ĐÚNG HẠN `
+          + 'sẽ thành nộp trễ');
+      }
+      const w = $('due-warn');
+      w.hidden = false;
+      w.innerHTML = (d.stale_confirmation
+          ? 'Số lượt bị ảnh hưởng vừa đổi (có em nộp xen vào). Nay là: '
+          : 'Hạn mới viết lại hồ sơ đã có: ')
+        + (bits.join(', ') || 'không lượt nào')
+        + '. Đây là hồ sơ của học viên, không phải một con số hiển thị — '
+        + 'bấm lần nữa nếu vẫn muốn đổi.';
+      $('btn-due-ok').textContent = 'Vẫn đổi hạn';
+      return;
+    }
+    toast('Không đổi được hạn: ' + (d.message || err.message || err), 'error');
+    if (d.conflict) { closeDueEdit(); loadHomework(); }
+  }
+}
+
+let _bfPick = new Set();
+let _bfAsg = null;
+
+function renderBackfillPick() {
+  const list = $('backfill-list');
+  if (!list) return;
+  list.innerHTML = (_who.members || []).map((m) => {
+    const on = _bfPick.has(m.student_id) ? ' checked' : '';
+    return '<label class="cl-pick-row">'
+      + '<input type="checkbox" data-bf="' + esc(m.student_id) + '"' + on + ' />'
+      + '<span>' + esc(m.name || m.student_code || 'Chưa có tên') + '</span>'
+      + (m.user_id ? '' : '<em>chưa kích hoạt</em>')
+      + '</label>';
+  }).join('');
+  const n = _bfPick.size;
+  $('backfill-count').textContent = n
+    ? ('Đã chọn ' + n + '/' + (_who.members || []).length) : 'Chưa chọn ai';
+  $('btn-backfill-ok').disabled = n === 0;
+  $('btn-backfill-ok').textContent = n ? ('Thêm ' + n + ' học viên') : 'Thêm';
+}
+
+function openBackfillPick(assignmentId) {
+  _bfAsg = assignmentId;
+  _bfPick = new Set();
+  $('backfill-modal').hidden = false;
+  renderBackfillPick();
+}
+
+async function backfillHomework(assignmentId, scope) {
+  // Bài giao cho một NHÓM: "bù cả lớp" ở đây là thêm đúng những em cố ý không
+  // được chọn, và nó đổi phạm vi chính thức của bài giao (codex PR 945 vòng 5).
+  // Nên hỏi đích danh — bằng BẢNG TICK, không phải một ô gõ số thứ tự.
+  if (scope === 'subset' && assignmentId) { openBackfillPick(assignmentId); return; }
+  return doBackfill(assignmentId, null);
+}
+
+/**
+ * Gửi lệnh bù. `ids = null` nghĩa là CẢ LỚP — chỉ dùng cho bài giao cả lớp.
+ *
+ * Tách khỏi `backfillHomework` vì hai đường tới đây khác nhau: bài cả lớp đi
+ * thẳng, bài theo nhóm phải qua bảng chọn trước.
+ */
+async function doBackfill(assignmentId, ids) {
+  try {
+    const r = await api.post(
+      '/admin/cohorts/' + encodeURIComponent(_cohortId)
+      + '/assignments/' + encodeURIComponent(assignmentId) + '/backfill',
+      ids ? { student_ids: ids } : {});
+    // Nói rõ KHÔNG CÓ AI để bù, thay vì im lặng như thể vừa làm gì đó.
+    toast(r && r.added
+      ? `Đã thêm ${r.added} học viên vào bài này (tổng ${r.student_count}).`
+      : 'Mọi học viên trong lớp đều đã có bài này rồi.');
+    await loadHomework();
+    invalidateProgress();
+  } catch (err) {
+    toast('Không bù được: ' + (err.message || err), 'error');
   }
 }
 
@@ -1763,14 +3081,48 @@ let _progressLoaded = false;
  *   attempts === 0  → genuinely nothing yet.
  *   otherwise       → the count, with the most recent band under it.
  */
-function skillCell(cell) {
+/**
+ * Một ô kỹ năng. `skill` đi kèm để ô mang MÀU CỦA KỸ NĂNG ấy.
+ *
+ * Bốn cột trước đây chỉ phân biệt bằng VỊ TRÍ, nên đọc chéo một hàng phải đếm
+ * cột. Nhãn màu mảnh ở mép trái cho mắt bám cột mà không cần đếm.
+ */
+/**
+ * Dải ô cho một kỹ năng: mỗi lượt gần đây là một ô, ô tô kín = CHƯA ĐẠT.
+ *
+ * Bốn cột band số (`6.5 · 6.0 · — · 5.5`) bắt mắt đọc bốn con số rồi tự so.
+ * Một vệt đậm thì thấy ngay, không phải đọc chữ nào — cùng quy ước
+ * `course-report.js` đã dựng, nên chỉ phải học một lần.
+ *
+ * Không có dữ liệu lượt gần đây thì KHÔNG vẽ gì: một dải rỗng trông như "toàn
+ * đạt", và đó là một khẳng định mà chúng ta không có bằng chứng.
+ */
+function strip(bands, target) {
+  if (!Array.isArray(bands) || !bands.length) return '';
+  // "Yếu" là DƯỚI MỤC TIÊU CỦA CHÍNH EM ẤY. Một ngưỡng chung cho cả lớp sẽ gọi
+  // một em mục tiêu 5.5 đạt 6.0 là yếu.
+  //
+  // Chưa đặt mục tiêu thì KHÔNG tô ô nào: đoán một ngưỡng rồi vẽ ra như sự thật
+  // còn tệ hơn vẽ một dải phẳng.
+  const t = typeof target === 'number' ? target : null;
+  return '<span class="cl-strip" aria-hidden="true">'
+    + bands.slice(-8).map((b) => {
+      const weak = t !== null && typeof b === 'number' && b < t;
+      return `<i data-w="${weak ? '1' : '0'}"></i>`;
+    }).join('')
+    + '</span>';
+}
+
+function skillCell(cell, skill, target) {
   if (cell === null || cell === undefined) {
     return '<span class="cl-skill-unknown">không đọc được</span>';
   }
   if (!cell.attempts) return '<span class="cl-skill-none">—</span>';
   const band = cell.last_band != null
     ? `<span class="cl-skill-band">band ${esc(cell.last_band)}</span>` : '';
-  return `<div class="cl-skill"><span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}</div>`;
+  return `<div class="cl-skill" data-skill="${esc(skill || '')}">`
+    + `<span class="cl-skill-count">${countLabel(cell.attempts)} lượt</span>${band}`
+    + strip(cell.recent_bands, target) + '</div>';
 }
 
 /**
@@ -1828,7 +3180,11 @@ function renderProgress() {
       + unread.map((d) => DEGRADED_LABEL[d] || d).join(', ') + '. Tải lại để thử lại.');
   }
   if (stale) {
-    notes.push('Cột bài tập có thể chưa cập nhật bài nộp Reading/Listening mới nhất.');
+    // KHÔNG nêu tên kỹ năng. Cờ này nay bật cho cả ba đường vá sổ — Speaking,
+    // Reading/Listening, và bài tập theo buổi — nên câu chữ chỉ nhắc hai kỹ
+    // năng là một lời cảnh báo SAI: giáo viên đọc xong vẫn yên tâm tin con số
+    // của Speaking và bài theo buổi, đúng hai chỗ có thể đang cũ.
+    notes.push('Cột bài tập có thể chưa cập nhật một số bài nộp mới nhất.');
   }
   _progressNotes = notes;
   renderProgressBanner();
@@ -1837,6 +3193,10 @@ function renderProgress() {
   $('progress-table-wrap').hidden = rows.length === 0;
   if (!rows.length) return;
 
+  // Giữ theo MÃ HỌC VIÊN để ngăn hồ sơ có thể dùng lại mà không gọi mạng.
+  _progressBy = {};
+  rows.forEach((r) => { _progressBy[r.student_id] = r; });
+  if (_picked) renderDrawer();
   $('progress-tbody').innerHTML = rows.map((r) => {
     // A student with no account has genuinely done nothing in the three
     // user-keyed skills — that is the activation gap, not inactivity.
@@ -1846,10 +3206,10 @@ function renderProgress() {
     const last = lastAcrossSkills(r.skills);
     return `<tr>
       <td><div>${esc(r.name) || '—'}</div>${sub}</td>
-      <td>${skillCell(r.skills.speaking)}</td>
-      <td>${skillCell(r.skills.writing)}</td>
-      <td>${skillCell(r.skills.reading)}</td>
-      <td>${skillCell(r.skills.listening)}</td>
+      <td>${skillCell(r.skills.speaking, 'speaking', r.target_band)}</td>
+      <td>${skillCell(r.skills.writing, 'writing', r.target_band)}</td>
+      <td>${skillCell(r.skills.reading, 'reading', r.target_band)}</td>
+      <td>${skillCell(r.skills.listening, 'listening', r.target_band)}</td>
       <td>${punctualityCell(r.homework)}</td>
       <td>${last ? esc(lastActiveLabel(last)) : '<span class="cl-skill-none">—</span>'}</td>
     </tr>`;
@@ -1868,7 +3228,23 @@ function invalidateProgress() {
   // ngày làm nó cũ ngay — kể cả khi thẻ Tiến độ đang đóng. Cờ này là thứ khiến
   // lần mở sau nạp lại (codex #931).
   _dailyBoardLoaded = false;
-  // If the tab is currently open, refresh it now rather than on next open.
+  // Bộ nhớ THỨ HAI của tab tiến độ. Quên nó thì thêm một em vào lớp sẽ để những
+  // em cũ hiện số cũ trông y như thật, còn em mới thì "chưa đọc được" — một
+  // bảng nửa cũ nửa mới, tệ hơn một bảng nói thẳng là chưa đọc (codex #975).
+  _progressBy = null;
+  // Bộ nhớ THỨ BA: danh sách bài trong ngăn kéo. Giao thêm hay đóng một bài
+  // giao làm nó cũ ngay, và một ngăn kéo thiếu bài vừa giao đọc ra "em này chưa
+  // được giao gì" — cùng loại lỗi với hai dòng trên, ở một chỗ mới.
+  _work.by = {};
+  _work.error = {};
+  // TĂNG THẾ HỆ, không chỉ xoá kho. Một lượt đọc bắt đầu trước lúc này đang bay
+  // và sẽ về sau — nó mang ảnh chụp TRƯỚC khi đổi, và nếu chỉ xoá kho thì nó
+  // ghi đè bản trước-khi-đổi ấy vào chỗ vừa dọn (codex #989 vòng 4).
+  _work.epoch += 1;
+  // Và VẼ LẠI ngay: phần HTML đã vẽ đứng nguyên trên màn hình cho tới khi giáo
+  // viên đóng em ấy ra mở lại.
+  refreshDrawerWork();
+  // Thẻ Tiến độ đang mở thì nạp lại NGAY, không đợi lần mở sau.
   if (!$('panel-progress').hidden) {
     _progressLoaded = true;
     loadProgress();
@@ -1935,12 +3311,19 @@ async function loadDailyBoard() {
   }
 }
 
+/* Ô nói bằng HÌNH DẠNG, không bằng ký tự.
+ *
+ * Bản trước dùng ✓ ◐ ✕ · — bốn ký tự có khối lượng thị giác gần bằng nhau, nên
+ * một cột trộn lẫn chỉ ra nhiễu. Ở đây ô đã nộp gần như không có mực (hiện luôn
+ * band, vừa nhẹ vừa có ích) còn ô bỏ bài tô kín và NỐI LIỀN khi liên tiếp:
+ * độ dài vệt chính là độ dài quãng đứt.
+ */
 const BOARD_MARK = {
-  done:    { ch: '✓', label: 'đã nộp' },
-  late:    { ch: '◐', label: 'nộp trễ' },
-  missing: { ch: '✕', label: 'không nộp' },
-  pending: { ch: '·', label: 'chưa tới hạn' },
-  none:    { ch: '',  label: 'không được giao' },
+  done:    'đã nộp',
+  late:    'nộp trễ',
+  missing: 'không nộp',
+  pending: 'chưa tới hạn',
+  none:    'không được giao cho em này',
 };
 
 /** '2026-08-05' → '05/08'. Cột hẹp, và năm thì cả bảng dùng chung. */
@@ -1949,53 +3332,98 @@ function boardDay(iso) {
   return m ? `${m[3]}/${m[2]}` : esc(iso || '');
 }
 
+/** Nội dung ô. Đã chấm thì hiện band — im lặng mà vẫn nói được điều gì đó. */
+function boardCellText(c) {
+  if (c.state === 'missing') return '';
+  if (c.state === 'none') return '';
+  if (c.state === 'pending') return '·';
+  return c.score != null ? String(c.score) : '○';
+}
+
 function renderDailyBoard(d) {
   const box = $('daily-board');
-  const days = (d && d.days) || [];
+  const tasks = (d && d.tasks) || [];
   const rows = (d && d.students) || [];
-  if (!days.length || !rows.length) { box.hidden = true; return; }
+  if (!tasks.length || !rows.length) { box.hidden = true; return; }
   box.hidden = false;
 
-  $('board-scope').textContent =
-    `${d.assignment_count} bài · ${days.length} ngày gần nhất`;
+  const dayCount = new Set(tasks.map((t) => t.day)).size;
+  $('board-scope').textContent = `${tasks.length} bài · ${dayCount} ngày gần nhất`;
 
-  $('board-head').innerHTML = '<th class="av-board__name-h">Học viên</th>'
-    + days.map((x) => `<th><span>${esc(boardDay(x))}</span></th>`).join('')
-    + '<th class="av-board__sum-h">Đã nộp</th>';
+  // Ranh giới NGÀY: cột đầu tiên của mỗi ngày kẻ đậm hơn. Đường kẻ mang thông
+  // tin, không trang trí.
+  const isBreak = tasks.map((t, i) => i > 0 && t.day !== tasks[i - 1].day);
+
+  // Dải ngày: gộp các bài cùng ngày dưới một ô. `colSpan` chứ không lặp ngày ở
+  // mỗi cột — lặp thì mắt phải tự nhóm lại.
+  const groups = [];
+  tasks.forEach((t, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.day === t.day) last.n += 1;
+    else groups.push({ day: t.day, n: 1, at: i });
+  });
+
+  $('board-head').innerHTML =
+    '<tr>'
+    + '<th class="av-board__name-h" rowspan="2">Học viên</th>'
+    + '<th class="av-board__sum-h" rowspan="2" title="Số bài đã thực hiện và số bài không nộp">'
+    + 'làm / thiếu</th>'
+    + groups.map((g) => `<th class="av-board__daygrp${g.at ? ' av-board__daybreak' : ''}"
+          colspan="${g.n}">${esc(boardDay(g.day))}</th>`).join('')
+    + '</tr><tr>'
+    + tasks.map((t, i) => `<th class="av-board__task${isBreak[i] ? ' av-board__daybreak' : ''}"
+          title="${esc(t.title || '')}"><b>${esc(boardDay(t.day))}</b>
+          <span>${esc(t.title || '')}</span></th>`).join('')
+    + '</tr>';
 
   $('board-body').innerHTML = rows.map((r) => {
     const cells = (r.cells || []).map((c, i) => {
-      const mk = BOARD_MARK[c.state] || BOARD_MARK.none;
-      const day = boardDay(days[i]);
       const band = c.score != null ? ` · band ${c.score}` : '';
-      const title = `${r.name || ''} · ${day} · ${mk.label}${band}`;
-      // Bấm vào ô là nghe bài của ĐÚNG em ấy ĐÚNG ngày ấy — đường ngắn nhất
-      // từ "hôm ấy em này trễ" tới "em ấy đã nói gì".
+      const task = tasks[i] || {};
+      const label = BOARD_MARK[c.state] || c.state;
+      const title = `${r.name || ''} · ${boardDay(task.day)} · ${task.title || ''} — ${label}${band}`;
+      const text = boardCellText(c);
+      // Bấm vào ô là nghe bài của ĐÚNG em ấy ở ĐÚNG bài ấy — đường ngắn nhất từ
+      // "chỗ này trống" tới "em ấy đã nói gì".
       const inner = c.session_id
         ? `<a href="/pages/admin/speaking/sessions.html?session=${esc(c.session_id)}"
-              target="_blank" rel="noopener">${mk.ch}</a>`
-        : mk.ch;
-      return `<td class="av-board__cell" data-state="${esc(c.state)}"
-                  title="${esc(title)}">${inner}</td>`;
+              target="_blank" rel="noopener">${text || '·'}</a>`
+        : text;
+      return `<td class="av-board__cell${isBreak[i] ? ' av-board__daybreak' : ''}"
+                  data-state="${esc(c.state)}" title="${esc(title)}">${inner}</td>`;
     }).join('');
     // Chưa kích hoạt tài khoản thì em ấy CHƯA TỪNG thấy bài nào — đánh dấu để
     // khỏi bị đọc thành lười.
     const name = esc(r.name || r.student_code || '—')
       + (r.activated ? '' : ' <span class="av-board__na">chưa kích hoạt</span>');
-    return `<tr${r.missing ? ' data-alarm="true"' : ''}>
+    // Báo động theo QUÃNG ĐỨT, không theo tổng số bài bỏ: bỏ 3 bài rải rác là
+    // quên, bỏ 3 bài liên tiếp là em ấy đã rời đi.
+    const alarm = (r.streak || 0) >= 2;
+    return `<tr${alarm ? ' data-alarm="true"' : ''}>
       <th scope="row" class="av-board__name">${name}</th>
+      <td class="av-board__sum"><span class="av-board__did">${r.done}</span>
+        <span class="av-board__miss" data-any="${r.missing ? 'true' : 'false'}"
+              title="Số bài không nộp">${r.missing}</span></td>
       ${cells}
-      <td class="av-board__sum">${r.done}/${days.length}</td>
     </tr>`;
   }).join('');
 
+  $('board-key').innerHTML = [
+    ['<i>6.5</i>', 'đã nộp (số là band)'],
+    ['<i>○</i>', 'đã nộp, chưa chấm'],
+    ['<i style="text-decoration:underline dotted">6.0</i>', 'nộp trễ'],
+    ['<i data-k="missing"></i>', 'không nộp — ô liền nhau là quãng đứt'],
+    ['<i>·</i>', 'chưa tới hạn'],
+    ['<i data-k="none"></i>', 'không được giao cho em này'],
+  ].map(([i, t]) => `<span>${i}${esc(t)}</span>`).join('');
+
   // Nói RA khi sổ chưa đối chiếu được: im lặng ở đây là để giáo viên nhắc nhầm
   // một em đã nộp.
-  $('board-foot').textContent =
-    (d.stale ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu. ' : '')
-    + 'Ô: ✓ đã nộp · ◐ nộp trễ · ✕ không nộp · · chưa tới hạn · trống = không được giao. '
-    + 'Bấm vào ô có bài để nghe và đọc nhận xét.';
+  $('board-foot').textContent = d.stale
+    ? 'Chưa đối chiếu được bài nộp mới nhất — vài ô có thể còn thiếu.'
+    : 'Bấm vào ô có bài để nghe và đọc nhận xét.';
 }
+
 
 async function loadSpeakingPerf() {
   const box = $('speaking-perf');
@@ -2098,15 +3526,20 @@ async function loadProgress() {
 let _lessonsLoaded = false;
 
 function showPanel(name) {
-  const PANELS = ['roster', 'lessons', 'homework', 'progress'];
+  const PANELS = ['roster', 'progress', 'lessons', 'homework', 'marking'];
   for (const p of PANELS) {
     const on = p === name;
-    $('tab-' + p).classList.toggle('is-active', on);
+    const tab = $('tab-' + p);
+    if (!tab) continue;
+    tab.classList.toggle('is-active', on);
     // aria-current marks the active tab for assistive tech; the class alone is
     // only a colour change.
-    $('tab-' + p).setAttribute('aria-current', on ? 'page' : 'false');
+    tab.setAttribute('aria-current', on ? 'page' : 'false');
     $('panel-' + p).hidden = !on;
   }
+  // Về sổ điểm danh thì ngăn kéo đang mở phải nói lại cho đúng: giáo viên vừa
+  // ở khu Nhận bài về, có thể vừa chấm hoặc vừa đóng một bài.
+  if (name === 'roster') refreshDrawerWork();
   // Each panel fetches on first open only — opening the class must not fire
   // three requests for two tabs the admin may never look at.
   if (name === 'lessons' && !_lessonsLoaded) {
@@ -2144,6 +3577,11 @@ function bindList() {
   $('btn-create-cohort').addEventListener('click', () => openCohortModal(null));
   $('filter-status').addEventListener('change', renderList);
   $('filter-course').addEventListener('change', renderList);
+  let searchTimer = null;
+  $('filter-search').addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(renderList, 180);
+  });
   $('list-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -2159,21 +3597,110 @@ function bindDetail() {
   $('btn-mf-submit').addEventListener('click', submitMember);
   bindModalBackdrop('member-modal', closeMemberModal);
 
-  $('roster-tbody').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-action="remove-member"]');
-    if (btn) removeMember(btn.dataset.student);
+  // Thử lại bảng tổng kết. Nghe trên VÙNG CHỨA vì nút chỉ tồn tại lúc có lỗi.
+  $('tally-body').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-tally"]') && _mk && _mk.asg) {
+      openTally(_mk.asg);
+    }
   });
 
+  $('roster-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action="remove-member"]');
+    if (btn) { removeMember(btn.dataset.student); return; }
+    // Bấm CẢ HÀNG mở ngăn kéo (mục tiêu bấm rộng), và tên là một nút thật nên
+    // bàn phím cũng tới được — Enter/Space trên nút phát ra chính sự kiện này.
+    const tr = e.target.closest('tr[data-student]');
+    if (!tr) return;
+    const opening = _picked !== tr.dataset.student;
+    _picked = opening ? tr.dataset.student : null;
+    renderRoster(_who.members || []);
+    // Trả tiêu điểm về đúng nút vừa bấm: vẽ lại bảng làm mất tiêu điểm, và một
+    // người dùng bàn phím sẽ bị ném về đầu trang sau mỗi lần mở ngăn kéo.
+    const focusTarget = opening
+      ? $('roster-drawer').querySelector('#roster-drawer-title')
+      : $('roster-tbody').querySelector(`button[data-student="${CSS.escape(tr.dataset.student)}"]`);
+    if (focusTarget) focusTarget.focus();
+    revealDrawer();
+    // Nạp LÚC MỞ, không nạp sẵn cho cả lớp: 14 em là 14 lượt gọi mạng cho một
+    // ngăn kéo giáo viên có thể không mở cái nào.
+    if (_picked) loadStudentWork(_picked);
+  });
+  $('roster-drawer').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-action="close-drawer"]')) return;
+    const previouslyPicked = _picked;
+    _picked = null;
+    renderRoster(_who.members || []);
+    if (!previouslyPicked) return;
+    const back = $('roster-tbody')
+      .querySelector(`button[data-student="${CSS.escape(previouslyPicked)}"]`);
+    if (back) back.focus();
+  });
+
+  let rosterSearchTimer = null;
+  $('roster-search').addEventListener('input', () => {
+    window.clearTimeout(rosterSearchTimer);
+    rosterSearchTimer = window.setTimeout(() => renderRoster(_who.members || []), 180);
+  });
+  $('roster-account-filter').addEventListener('change', () => renderRoster(_who.members || []));
+
+  // Ngăn kéo được vẽ lại mỗi lần đổi em, nên uỷ quyền trên chính nó.
+  const drawer = $('roster-drawer');
+  if (drawer) {
+    drawer.addEventListener('click', (e) => {
+      const retry = e.target.closest('button[data-work-retry]');
+      if (retry) {
+        // Tăng thế hệ để lượt hỏng (nếu còn đang bay) không ghi đè lượt mới.
+        _work.epoch += 1;
+        delete _work.error[retry.dataset.workRetry];
+        renderDrawer();
+        loadStudentWork(retry.dataset.workRetry);
+        return;
+      }
+      const one = e.target.closest('button[data-open-one]');
+      if (one) {
+        openWorkItem(one.dataset.openOne,
+          { one: true, bank: one.dataset.bank, title: one.dataset.title });
+        return;
+      }
+      const w = e.target.closest('button[data-open-writing]');
+      if (w) {
+        openWorkItem(w.dataset.openWriting,
+          { writing: true, bank: w.dataset.bank, title: w.dataset.title });
+        return;
+      }
+      // Bấm vào chính dòng: mở khu Nhận bài của bài ấy. Đây là đường lùi cho
+      // Reading/Listening và cho bài chưa nộp — không có mặt đọc riêng, nhưng
+      // bảng tổng kết của bài ấy là câu trả lời gần nhất.
+      const row = e.target.closest('button[data-open-work]');
+      if (row) {
+        openWorkItem(row.dataset.openWork,
+          { bank: row.dataset.bank, title: row.dataset.title });
+      }
+    });
+  }
+
   $('tab-roster').addEventListener('click', () => showPanel('roster'));
+  $('tab-progress').addEventListener('click', () => showPanel('progress'));
   $('tab-lessons').addEventListener('click', () => showPanel('lessons'));
   $('tab-homework').addEventListener('click', () => showPanel('homework'));
-  $('tab-progress').addEventListener('click', () => showPanel('progress'));
+  // Thiếu dòng này thì tab hiện ra nhưng bấm KHÔNG có gì xảy ra: giáo viên rời
+  // sang Bài tập rồi muốn quay lại khu đang mở là kẹt (codex cục bộ 06/08).
+  $('tab-marking').addEventListener('click', () => showPanel('marking'));
 
   $('btn-add-homework').addEventListener('click', openHomeworkModal);
+  let homeworkSearchTimer = null;
+  $('homework-search').addEventListener('input', () => {
+    window.clearTimeout(homeworkSearchTimer);
+    homeworkSearchTimer = window.setTimeout(renderHomework, 180);
+  });
+  $('homework-status-filter').addEventListener('change', renderHomework);
   $('homework-empty').addEventListener('click', (e) => {
     if (e.target.closest('button[data-action="retry-homework"]')) loadHomework();
   });
   $('btn-hf-cancel').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-close').addEventListener('click', closeHomeworkModal);
+  $('btn-hf-back').addEventListener('click', () => showHomeworkStep(_hfStep - 1));
+  $('btn-hf-next').addEventListener('click', () => showHomeworkStep(_hfStep + 1));
   $('btn-hf-submit').addEventListener('click', submitHomework);
   $('hf-skill').addEventListener('change', applyHomeworkSkill);
   // Chủ đề thuộc về một PART cụ thể — đổi Part mà giữ danh sách cũ là mời admin
@@ -2203,7 +3730,65 @@ function bindDetail() {
     const row = e.target.closest('.av-qpick__row');
     if (row && !row.disabled) toggleQpick(row.dataset.id);
   });
+  // Chọn người nhận. Uỷ quyền cho cả danh sách: nó được vẽ lại mỗi lần chọn.
+  $('hf-who').addEventListener('change', syncWho);
+  $('hf-who-list').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-who]');
+    if (!box) return;
+    if (box.checked) _who.picked.add(box.dataset.who);
+    else _who.picked.delete(box.dataset.who);
+    syncWho();
+  });
+  $('btn-hf-who-all').addEventListener('click', () => {
+    _who.picked = new Set(_who.members.map((m) => m.student_id));
+    syncWho();
+  });
+  $('btn-hf-who-none').addEventListener('click', () => {
+    _who.picked = new Set();
+    syncWho();
+  });
+  const closeBf = () => { $('backfill-modal').hidden = true; };
+  $('btn-backfill-cancel').addEventListener('click', closeBf);
+  bindModalBackdrop('backfill-modal', closeBf);
+  $('backfill-list').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-bf]');
+    if (!box) return;
+    if (box.checked) _bfPick.add(box.dataset.bf); else _bfPick.delete(box.dataset.bf);
+    renderBackfillPick();
+  });
+  $('btn-backfill-all').addEventListener('click', () => {
+    _bfPick = new Set((_who.members || []).map((m) => m.student_id));
+    renderBackfillPick();
+  });
+  $('btn-backfill-none').addEventListener('click', () => { _bfPick = new Set(); renderBackfillPick(); });
+  $('btn-backfill-ok').addEventListener('click', () => {
+    if (!_bfPick.size || !_bfAsg) return;
+    const ids = Array.from(_bfPick);
+    closeBf();
+    // Gửi thẳng danh sách: `backfillHomework` chỉ mở bảng chọn khi CHƯA có ids,
+    // nên truyền scope 'class' ở đây là nói "danh sách đã chốt rồi".
+    doBackfill(_bfAsg, ids);
+  });
   bindModalBackdrop('homework-modal', closeHomeworkModal);
+
+  // ── Nhận bài: ba tab ──────────────────────────────────────────────────
+  $('mtab-tally').addEventListener('click', () => showMarkTab('tally'));
+  $('mtab-effort').addEventListener('click', () => showMarkTab('effort'));
+  $('mtab-one').addEventListener('click', () => showMarkTab('one'));
+  $('btn-marking-back').addEventListener('click', () => {
+    _mkGen += 1;                       // rời khu: mọi lượt đang bay hết hiệu lực
+    // Rời khu nhận bài thì GIẤU cả tab của nó: nó là chỗ đứng tạm của một bài
+    // giao, không phải một mục thường trực của lớp.
+    $('tab-marking').hidden = true;
+    showPanel('homework');
+  });
+  $('one-list').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-one]');
+    if (!b || b.disabled) return;
+    [...$('one-list').querySelectorAll('button')].forEach((x) =>
+      x.classList.toggle('is-active', x === b));
+    openOneReport(b.dataset.one, (b.querySelector('span') || {}).textContent);
+  });
   // Nút "Xem tự luận" nằm TRONG bảng tổng kết, vốn được vẽ lại mỗi lần mở —
   // nên uỷ quyền trên khung modal thay vì gắn tay từng nút.
   $('tally-body').addEventListener('click', (e) => {
@@ -2214,21 +3799,52 @@ function bindDetail() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'delete-homework') deleteHomework(btn.dataset.id);
-    if (btn.dataset.action === 'tally') openTally(btn.dataset.id);
+    if (btn.dataset.action === 'tally') {
+      openMarking(btn.dataset.id, btn.dataset.title, btn.dataset.bank);
+    }
     if (btn.dataset.action === 'archive-homework') setHomeworkStatus(btn.dataset.id, 'archived');
     if (btn.dataset.action === 'publish-homework') setHomeworkStatus(btn.dataset.id, 'published');
+    if (btn.dataset.action === 'backfill') {
+      backfillHomework(btn.dataset.id, btn.dataset.scope);
+    }
+    if (btn.dataset.action === 'edit-due') {
+      openDueEdit(btn.dataset.id, btn.dataset.due || null, btn.dataset.title);
+    }
   });
 
-  const closeTally = () => { $('tally-modal').hidden = true; };
-  $('btn-tally-close').addEventListener('click', closeTally);
-  // Bấm ra nền để đóng, như mọi modal khác. Chỉ khi bấm ĐÚNG lớp nền — bấm bên
-  // trong thẻ cũng nổi bọt lên đây và sẽ đóng modal giữa lúc đang đọc.
-  $('tally-modal').addEventListener('click', (e) => {
-    if (e.target === $('tally-modal')) closeTally();
+  $('btn-due-cancel').addEventListener('click', closeDueEdit);
+  $('btn-due-ok').addEventListener('click', saveDue);
+  $('btn-due-clear').addEventListener('click', () => {
+    // Bỏ hạn là một trạng thái hợp lệ ("không hạn"), nên nó phải bấm được chứ
+    // không phải xoá tay ô ngày rồi đoán xem có ăn không.
+    $('due-date').value = '';
+    syncDueWarning();
   });
+  // Sửa ô nhập là đổi đề nghị — cất lời cảnh báo của đề nghị cũ đi ngay, để
+  // màn hình không đứng đó nói về một con số của thứ khác. Chốt thật nằm ở
+  // `dueConfirmed()`; hai chỗ này chỉ giữ cho mắt và tay khớp nhau.
+  $('due-date').addEventListener('input', syncDueWarning);
+  $('due-time').addEventListener('input', syncDueWarning);
+
+  // Mở là nạp, và mở LẠI cũng nạp lại: vừa đổi hạn xong mà nhật ký hiện bản cũ
+  // thì nó nói sai về chính thao tác vừa rồi.
+  const logBox = $('action-log');
+  if (logBox) {
+    logBox.addEventListener('toggle', () => { if (logBox.open) loadActionLog(); });
+    logBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-log-more]');
+      if (btn) loadActionLog(btn.dataset.logMore);
+    });
+  }
+  bindModalBackdrop('due-modal', closeDueEdit);
+
   $('btn-add-lesson').addEventListener('click', () => openLessonModal(null));
   $('btn-lf-cancel').addEventListener('click', closeLessonModal);
-  $('btn-lf-submit').addEventListener('click', submitLesson);
+  $('btn-lf-close').addEventListener('click', closeLessonModal);
+  $('lesson-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitLesson();
+  });
   $('btn-lf-add-file').addEventListener('click', () =>
     $('lf-attachments').appendChild(attachmentRow('', '')));
   bindModalBackdrop('lesson-modal', closeLessonModal);
@@ -2242,11 +3858,18 @@ function bindDetail() {
     }
     if (btn.dataset.action === 'delete-lesson') deleteLesson(btn.dataset.id);
   });
+  $('lessons-empty').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-action="retry-lessons"]')) loadLessons();
+  });
 }
 
 function bindShared() {
   $('btn-cf-cancel').addEventListener('click', closeCohortModal);
-  $('btn-cf-submit').addEventListener('click', submitCohort);
+  $('btn-cf-close').addEventListener('click', closeCohortModal);
+  $('cohort-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitCohort();
+  });
   bindModalBackdrop('cohort-modal', closeCohortModal);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

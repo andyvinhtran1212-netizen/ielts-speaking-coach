@@ -120,11 +120,11 @@
     var items = weakWords || [];
     if (!items.length) return '';
     var openByDefault = smartDefaultOpen(items.length);
-    var body = items.map(function (w) {
+    var body = items.map(function (w, occurrenceIndex) {
       var phs = w.phonemes || [];
       var weak = phs.filter(function (p) { return p.score != null && p.score < 70; }).length;
       var count = weak > 0 ? (weak + ' âm cần luyện') : (phs.length + ' âm');
-      return '<details class="ds-accordion__item" data-drilldown-word="' + _esc(w.word) + '"' + (openByDefault ? ' open' : '') + '>'
+      return '<details class="ds-accordion__item" data-drilldown-word="' + _esc(w.word) + '" data-drilldown-index="' + occurrenceIndex + '"' + (openByDefault ? ' open' : '') + '>'
         + '<summary class="ds-accordion__head">'
         +   '<span class="ds-accordion__word">' + _esc(w.word) + '</span>'
         +   '<span class="ds-accordion__count">' + _esc(count) + '</span>'
@@ -183,9 +183,12 @@
   }
 
   // Expand + scroll to + briefly highlight a word's accordion sub-section.
-  function _expandWord(word) {
-    var sel = (window.CSS && CSS.escape) ? CSS.escape(word) : word;
-    var details = document.querySelector('details.ds-accordion__item[data-drilldown-word="' + sel + '"]');
+  function _expandWord(word, occurrenceIndex) {
+    var details = document.querySelector('details.ds-accordion__item[data-drilldown-index="' + occurrenceIndex + '"]');
+    if (!details) {
+      var sel = (window.CSS && CSS.escape) ? CSS.escape(word) : word;
+      details = document.querySelector('details.ds-accordion__item[data-drilldown-word="' + sel + '"]');
+    }
     if (!details) return false;
     details.open = true;
     if (typeof details.scrollIntoView === 'function') {
@@ -204,7 +207,7 @@
     var idx = parseInt(el.getAttribute('data-pron-idx'), 10);
     var entry = (window.__pronWeakWords || [])[idx];
     if (!entry) return;
-    if (_expandWord(entry.word)) _emitTelemetry(entry.word, entry.phonemes);
+    if (_expandWord(entry.word, idx)) _emitTelemetry(entry.word, entry.phonemes);
   });
 
   // Expose for practice.js + sentinels (+ Sprint 15.3.1 result.html reuse).

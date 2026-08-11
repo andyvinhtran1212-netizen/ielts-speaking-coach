@@ -32,7 +32,7 @@ import { HomeBehavior } from './home-behavior';
 import { HomeShell } from './page-shell';
 
 export const metadata: Metadata = {
-  title: 'Trang chủ — AverLearning',
+  title: 'Trang chủ — Aver Learning',
   robots: { index: false, follow: false },
 };
 

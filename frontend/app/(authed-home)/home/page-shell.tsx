@@ -189,7 +189,7 @@ export function HomeShell() {
         {/* Thẻ bắt đầu + các ô kết quả nằm cạnh nhau; ô kết quả đã trả điểm do
             `home-mock-tiles.js` chèn vào bên cạnh thẻ bắt đầu. */}
         <div className="mock-hub__grid" id="mock-hub-grid">
-          <a href="/pages/full-test.html" className="mock-start">
+          <a href="/full-test" className="mock-start">
             <div className="mock-start__title">🎯 Thi thử Full Test 4 kỹ năng →</div>
             <div className="mock-start__sub">
               Listening + Reading + Writing (một đồng hồ tổng) + Speaking — thu bài kín,

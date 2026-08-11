@@ -53,12 +53,12 @@ function loadFn() {
 
   const $ = (id) => els[id] || null;
   let _currentQ = null;
-  const fn = new Function('$', '_currentQ_ref', `
+  const fn = new Function('$', '_currentQ_ref', '_updateNativeView', `
     let _currentQ = _currentQ_ref.q;
     ${JS.slice(start, end)}
     return _applyListenOnlyUI;`);
   const ref = { q: null };
-  return { run: (on, q) => { ref.q = q; fn($, ref)(on); }, els, ref };
+  return { run: (on, q) => { ref.q = q; fn($, ref, () => false)(on); }, els, ref };
 }
 
 describe('chuyển sang chế độ nghe', () => {

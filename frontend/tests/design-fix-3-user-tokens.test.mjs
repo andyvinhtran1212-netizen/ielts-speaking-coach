@@ -29,8 +29,14 @@ let mcq, tf, browse, analytics, adminReading, tokens;
 before(() => {
   mcq          = read('frontend/pages/listening-mcq.html');
   tf           = read('frontend/pages/listening-tf.html');
-  browse       = read('frontend/pages/listening-browse.html');
-  analytics    = read('frontend/pages/listening-analytics.html');
+// [2026-08-06] CSS của hai trang này đã TÁCH khỏi khối <style> nội tuyến sang
+// `public/css/<trang>.css` để route Next và bản legacy dùng CHUNG một nguồn.
+// Chốt token phải đọc từ chỗ CSS đang ở; để nguyên đọc HTML thì nó chỉ còn
+// chứng minh "HTML không còn CSS" — đúng nhưng vô nghĩa.
+  browse       = read('frontend/pages/listening-browse.html')
+               + read('frontend/public/css/listening-browse.css'),
+  analytics    = read('frontend/pages/listening-analytics.html')
+               + read('frontend/public/css/listening-analytics.css');
   adminReading = read('frontend/css/admin-reading.css');
   tokens       = read('frontend/css/aver-design/tokens.css');
 });

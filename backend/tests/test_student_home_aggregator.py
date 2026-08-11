@@ -327,9 +327,9 @@ def test_reading_and_listening_are_active(fake_db, aggregator):
         fake_db, user_id, name="X", email="x@x.com",
     )
     assert payload["skills"]["reading"]["status"] == "active"
-    assert payload["skills"]["reading"]["primary_cta_url"] == "/pages/reading-vocab.html"
+    assert payload["skills"]["reading"]["primary_cta_url"] == "/reading/vocab"
     assert payload["skills"]["listening"]["status"] == "active"
-    assert payload["skills"]["listening"]["primary_cta_url"] == "/pages/listening.html"
+    assert payload["skills"]["listening"]["primary_cta_url"] == "/listening"
 
 
 def test_writing_card_returns_empty_when_no_students_row(fake_db, aggregator):

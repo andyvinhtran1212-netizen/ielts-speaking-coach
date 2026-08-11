@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Cổng DoD: bộ test backend phải xanh trước MỌI lần push.
+#
+# "KHÔNG CHẠY ĐƯỢC" khác "CHẠY RỒI VÀ ĐỎ" — và đây là toàn bộ lý do hook này
+# thận trọng đến vậy. Bản đầu gọi thẳng `python3`; khi PATH không có venv thì
+# `python3` rơi về bản hệ thống (không có pytest), exit code khác 0, và hook báo
+# "backend tests red" y hệt test hỏng thật. Đã mất một lần chẩn đoán nhầm vì thế.
+# Nguy hiểm hơn: cùng cơ chế đó khiến một phép "thử phá xem test có đỏ không"
+# báo 0 lỗi trong khi pytest chưa hề chạy.
+set -uo pipefail
+
+# PHẢI đi hết chuỗi symlink. `install.sh` cài hook bằng `ln -s`, và với một
+# symlink thì `BASH_SOURCE[0]` trỏ về CHỖ ĐẶT LINK (`.git/hooks/pre-push`),
+# không phải tệp gốc trong repo — nên `$HOOK_DIR/lib/...` sẽ không tồn tại.
+# Đã dính đúng vậy ngay lần cài đầu tiên. Không dùng `readlink -f`: bản BSD
+# trên macOS cũ không có cờ đó.
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir="$(cd -P "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+HOOK_DIR="$(cd -P "$(dirname "$src")" && pwd)"
+
+RESOLVER="$HOOK_DIR/lib/resolve-python.sh"
+
+# Khe cho test: in đường đã giải rồi thoát, KHÔNG chạy pytest. Cần vì ca hỏng
+# thật (cài bằng symlink) chỉ tái tạo được khi gọi hook QUA symlink, mà chạy
+# nguyên hook thì mất 45 giây pytest. Không ảnh hưởng đường chạy thật.
+if [ -n "${PREPUSH_PRINT_RESOLVER:-}" ]; then
+  echo "$RESOLVER"
+  exit 0
+fi
+if [ ! -x "$RESOLVER" ]; then
+  # Phân biệt với ca "không có pytest": ở đây chính hook bị cài hỏng.
+  echo "DỪNG: không thấy $RESOLVER"
+  echo "      Hook được cài sai — chạy lại: ./scripts/hooks/install.sh"
+  exit 1
+fi
+
+PY="$("$RESOLVER")" || {
+  echo "DỪNG: không tìm thấy pytest."
+  echo "      Đây KHÔNG phải test đỏ — bộ test chưa chạy lần nào."
+  echo "      Cài venv ở backend/, hoặc: PATH=\"\$(git rev-parse --show-toplevel)/backend/venv/bin:\$PATH\" git push …"
+  exit 1
+}
+
+PROJ=$(git rev-parse --show-toplevel)
+echo "pre-push: running backend pytest ($PY)..."
+# `cd` vào backend của CÂY LÀM VIỆC hiện tại (worktree hay clone chính): test
+# phải chạy trên MÃ SẮP ĐẨY, không phải mã của clone chính.
+cd "$PROJ/backend" || { echo "DỪNG: không vào được $PROJ/backend"; exit 1; }
+"$PY" -m pytest tests/ -q --ignore=tests/test_d1_e2e.py 2>&1
+rc=$?
+
+if [ $rc -eq 5 ]; then
+  echo "DỪNG: pytest không thu thập được test nào (exit 5) — không phải 'xanh'."
+  exit 1
+fi
+if [ $rc -ne 0 ]; then
+  echo "BLOCKED: backend tests red — fix before pushing."
+  exit 1
+fi

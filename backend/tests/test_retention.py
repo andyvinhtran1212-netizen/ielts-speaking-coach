@@ -165,6 +165,8 @@ class _Builder:
         return self
 
     def execute(self):
+        if isinstance(self._data, Exception):
+            raise self._data
         return _Exec(self._data, self._count)
 
 
@@ -221,9 +223,63 @@ def test_get_session_enqueues_touch_and_augments(monkeypatch):
     bt = BackgroundTasks()
     out = _run(sessions_module.get_session("sess-1", bt, authorization="Bearer x"))
     assert "retention" in out and out["session_id"] == "sess-1"
+    assert out["question_lookup_failed"] is False
+    assert out["results_sealed"] is False
     assert "days_until_content_purge" in out["retention"]  # v2 shape
     funcs = [t.func for t in bt.tasks]
     assert sessions_module._touch_last_accessed in funcs
+
+
+def test_get_session_marks_question_lookup_failure_instead_of_claiming_empty(monkeypatch):
+    session = {
+        "id": "sess-question-fail", "user_id": "user-uuid-test",
+        "started_at": _ago(days=1), "last_accessed_at": None,
+    }
+    _patch(monkeypatch, {
+        "sessions": [session],
+        "questions": RuntimeError("questions unavailable"),
+        "responses": [],
+    })
+    out = _run(sessions_module.get_session(
+        "sess-question-fail", BackgroundTasks(), authorization="Bearer x",
+    ))
+    assert out["questions"] == []
+    assert out["question_lookup_failed"] is True
+    assert out["response_lookup_failed"] is False
+
+
+def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):
+    session = {
+        "id": "sess-sealed", "user_id": "user-uuid-test",
+        "started_at": _ago(days=1), "last_accessed_at": None,
+        "sitting_id": "sitting-1",
+    }
+    responses = [{
+        "id": "resp-1", "question_id": "q-1", "transcript": "secret answer",
+        "overall_band": 7.5, "feedback": {"strengths": ["secret"]},
+        "persisted_at": "2026-08-11T00:20:00+00:00",
+    }]
+    _patch(monkeypatch, {
+        "sessions": [session], "questions": [], "responses": responses,
+    })
+    monkeypatch.setattr(
+        "services.mock_exam_service.is_sealed",
+        lambda sitting_id: sitting_id == "sitting-1",
+    )
+    out = _run(sessions_module.get_session(
+        "sess-sealed", BackgroundTasks(), authorization="Bearer x",
+    ))
+    assert out["responses"] == []
+    assert out["response_receipts"] == [{
+        "id": "resp-1",
+        "question_id": "q-1",
+        "persisted_at": "2026-08-11T00:20:00+00:00",
+    }]
+    assert out["response_lookup_failed"] is False
+    assert out["results_sealed"] is True
+    assert "transcript" not in out["response_receipts"][0]
+    assert "overall_band" not in out["response_receipts"][0]
+    assert "feedback" not in out["response_receipts"][0]
 
 
 def test_touch_writes_when_stale_and_skips_when_recent(monkeypatch):

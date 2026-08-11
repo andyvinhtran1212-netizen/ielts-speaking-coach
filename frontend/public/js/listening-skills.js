@@ -1,3 +1,25 @@
+
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+    return;
+  }
+  fn();
+}
 /**
  * frontend/js/listening-skills.js — Listening Skills Practice
  *
@@ -43,13 +65,20 @@ const VIEWS = {
   empty:   $('state-empty'),
   error:   $('state-error'),
   grid:    $('ls-groups'),
+  library: $('ls-library'),
+  nav:     $('ls-skill-nav'),
+  summary: $('ls-summary'),
 };
+
+let DRILLS_BY_TYPE = new Map();
+let ACTIVE_SKILL = '';
+let ACTIVE_STATUS = 'all';
 
 function showState(name) {
   if (VIEWS.loading) VIEWS.loading.hidden = name !== 'loading';
   if (VIEWS.empty)   VIEWS.empty.hidden   = name !== 'empty';
   if (VIEWS.error)   VIEWS.error.hidden   = name !== 'error';
-  if (VIEWS.grid)    VIEWS.grid.hidden    = name !== 'grid';
+  if (VIEWS.library) VIEWS.library.hidden = name !== 'grid';
 }
 function showError(msg) {
   if (VIEWS.error) VIEWS.error.textContent = msg;
@@ -76,24 +105,37 @@ function drillSort(a, b) {
   return String(a.test_id || '').localeCompare(String(b.test_id || ''));
 }
 
+function displayDrillTitle(t) {
+  const raw = String(t.title || t.test_id || 'Skill drill').trim();
+  const parts = raw.split(/\s+[—·]\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : raw;
+}
+
+function hasSubmittedAttempt(t) {
+  return (t.user_submitted_attempt_count || 0) > 0;
+}
+
 function renderDrill(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const attempted = hasSubmittedAttempt(t);
   const best = t.user_best_score;
   const badge = t.level ? `<span class="ls-drill-level">${esc(t.level)}${t.task ? '·' + esc(t.task) : ''}</span>` : '';
   const stat = (best != null)
-    ? `<span class="ls-drill-stat">Tốt nhất ${esc(best)}</span>`
-    : (attempted ? '<span class="ls-drill-stat">Đã làm</span>' : '');
-  const cta = attempted ? 'Làm lại' : 'Luyện';
+    ? `<span>Điểm tốt nhất <strong>${esc(best)} điểm</strong></span>`
+    : (attempted ? '<span>Đã có lượt làm</span>' : '<span>Chưa làm</span>');
+  const cta = attempted ? 'Làm lại' : 'Bắt đầu';
   return `
-    <div class="ls-drill">
-      <a class="ls-drill-main" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">
+    <article class="ls-drill" data-status="${attempted ? 'done' : 'new'}">
+      <div class="ls-drill-head">
         ${badge}
-        <span class="ls-drill-title">${esc(t.title || t.test_id || 'Skill drill')}</span>
-        ${stat}
-        <span class="ls-drill-cta">${cta} →</span>
-      </a>
-      <a class="ls-drill-dict" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}" title="Chép chính tả" aria-label="Chép chính tả">✍️</a>
-    </div>`;
+        <span class="ls-drill-status${attempted ? ' is-done' : ''}">${attempted ? 'Đã luyện' : 'Chưa làm'}</span>
+      </div>
+      <h3 class="ls-drill-title">${esc(displayDrillTitle(t))}</h3>
+      <div class="ls-drill-stat">${stat}</div>
+      <div class="ls-drill-actions">
+        <a class="ls-drill-cta${attempted ? ' secondary' : ''}" href="/pages/listening-test.html?id=${encodeURIComponent(t.id)}">${cta} <span aria-hidden="true">→</span></a>
+        <a class="ls-drill-cta secondary" href="/pages/listening-test-dictation.html?test_id=${encodeURIComponent(t.id)}">Chép chính tả</a>
+      </div>
+    </article>`;
 }
 
 function renderGroup(skill, drills) {
@@ -113,6 +155,74 @@ function renderGroup(skill, drills) {
       </div>
       ${body}
     </section>`;
+}
+
+function filteredDrills() {
+  const drills = DRILLS_BY_TYPE.get(ACTIVE_SKILL) || [];
+  if (ACTIVE_STATUS === 'all') return drills;
+  return drills.filter((t) => {
+    const attempted = hasSubmittedAttempt(t);
+    return ACTIVE_STATUS === 'done' ? attempted : !attempted;
+  });
+}
+
+function renderSkillNav() {
+  VIEWS.nav.innerHTML = SKILLS.map((skill) => {
+    const count = (DRILLS_BY_TYPE.get(skill.key) || []).length;
+    const selected = skill.key === ACTIVE_SKILL;
+    return `
+      <button class="ls-skill-nav__button${selected ? ' is-active' : ''}" type="button"
+        data-skill="${esc(skill.key)}" aria-pressed="${selected ? 'true' : 'false'}"
+        ${count ? '' : 'disabled'}>
+        <span class="ls-skill-nav__icon"><i data-lucide="${esc(skill.icon)}"></i></span>
+        <span class="ls-skill-nav__label">${esc(skill.label)}</span>
+        <span class="ls-skill-nav__count">${count || '—'}</span>
+      </button>`;
+  }).join('');
+  VIEWS.nav.querySelectorAll('.ls-skill-nav__button:not([disabled])').forEach((button) => {
+    button.addEventListener('click', () => {
+      ACTIVE_SKILL = button.dataset.skill || ACTIVE_SKILL;
+      renderLibrary();
+    });
+  });
+}
+
+function renderLibrary() {
+  const skill = SKILLS.find((item) => item.key === ACTIVE_SKILL);
+  if (!skill) return;
+  const allForSkill = (DRILLS_BY_TYPE.get(ACTIVE_SKILL) || []).slice().sort(drillSort);
+  const visible = filteredDrills().slice().sort(drillSort);
+  renderSkillNav();
+  VIEWS.grid.innerHTML = visible.length
+    ? renderGroup(skill, visible)
+    : '<div class="ls-filter-empty">Không có bài nào trong nhóm này.</div>';
+  $('ls-visible-count').textContent = `${visible.length}/${allForSkill.length} bài · ${skill.label}`;
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function renderSummary(drills) {
+  const done = drills.filter(hasSubmittedAttempt).length;
+  const types = SKILLS.filter((skill) => (DRILLS_BY_TYPE.get(skill.key) || []).length > 0).length;
+  $('ls-total-count').textContent = String(drills.length);
+  $('ls-done-count').textContent = String(done);
+  $('ls-type-count').textContent = String(types);
+  VIEWS.summary.hidden = false;
+}
+
+function wireStatusFilters() {
+  document.querySelectorAll('.ls-filter__button').forEach((button) => {
+    button.addEventListener('click', () => {
+      ACTIVE_STATUS = button.dataset.statusFilter || 'all';
+      document.querySelectorAll('.ls-filter__button').forEach((item) => {
+        const selected = item === button;
+        item.classList.toggle('is-active', selected);
+        item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      renderLibrary();
+    });
+  });
 }
 
 // The list endpoint caps limit at 100; drills can exceed that, so page through.
@@ -142,14 +252,20 @@ async function load() {
       showState('empty');
       return;
     }
-    VIEWS.grid.innerHTML = SKILLS.map((s) => renderGroup(s, byType.get(s.key) || [])).join('');
+    DRILLS_BY_TYPE = byType;
+    const firstIncomplete = SKILLS.find((skill) =>
+      (byType.get(skill.key) || []).some((t) => !hasSubmittedAttempt(t)));
+    const firstAvailable = SKILLS.find((skill) => (byType.get(skill.key) || []).length > 0);
+    ACTIVE_SKILL = (firstIncomplete || firstAvailable || SKILLS[0]).key;
+    renderSummary(drills);
+    renderLibrary();
     showState('grid');
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
   } catch (e) {
     showError(`Không tải được danh sách bài luyện: ${(e && e.message) || e}`);
   }
 }
 
-document.addEventListener('DOMContentLoaded', load);
+__averOnReady(function () {
+  wireStatusFilters();
+  load();
+});

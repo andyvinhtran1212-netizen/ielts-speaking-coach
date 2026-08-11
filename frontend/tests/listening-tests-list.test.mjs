@@ -23,6 +23,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const HTML_PATH = join(__dirname, '..', 'pages', 'listening-tests.html');
 const JS_PATH   = join(__dirname, '..', 'js', 'listening-tests-list.js');
 const HTML = readFileSync(HTML_PATH, 'utf8');
+// CSS của trang đã TÁCH khỏi khối <style> nội tuyến sang `css/listening-tests.css`
+// (2026-08-05) để route Next `/listening/tests` và bản legacy dùng CHUNG một
+// nguồn thay vì mỗi bên một bản. Chốt token dưới đây phải đọc từ chỗ CSS đang ở,
+// nếu không nó chỉ chứng minh "HTML không còn CSS" — đúng nhưng vô nghĩa.
+const PAGE_CSS = readFileSync(
+  join(__dirname, '..', 'public', 'css', 'listening-tests.css'), 'utf8');
 const JS   = readFileSync(JS_PATH, 'utf8');
 
 
@@ -40,11 +46,13 @@ describe('Sprint 13.5 — tests-list page contract', () => {
     assert.match(HTML, /id="state-empty"/);
     assert.match(HTML, /id="state-error"/);
     assert.match(HTML, /id="lt-grid"/);
+    assert.match(HTML, /id="lt-library"/);
+    assert.match(HTML, /id="lt-summary"/);
   });
 
   it('uses canonical design tokens (no unexpected hex literals)', () => {
-    assert.match(HTML, /var\(--av-brand-teal-700\)/);
-    const hex = HTML.match(/#[0-9a-fA-F]{3,6}/g) || [];
+    assert.match(PAGE_CSS, /var\(--av-primary\)/);
+    const hex = (HTML + PAGE_CSS).match(/#[0-9a-fA-F]{3,6}/g) || [];
     const allowed = new Set(['#FEF2F2', '#991B1B', '#FECACA']);
     for (const h of hex) {
       assert.ok(allowed.has(h),
@@ -57,7 +65,7 @@ describe('Sprint 13.5 — tests-list page contract', () => {
   });
 
   it('back-link points at /pages/listening.html', () => {
-    assert.match(HTML, /href=["']\/pages\/listening\.html["']/);
+    assert.match(HTML, /href=["']\/listening["']/);
   });
 });
 
@@ -98,5 +106,26 @@ describe('Sprint 13.5 — tests-list JS contract', () => {
     assert.match(JS, /function esc\(/);
     assert.match(JS, /esc\(t\.title/);
     assert.match(JS, /esc\(t\.test_id/);
+  });
+
+  it('adds status filters and renders the truthful full-test structure', () => {
+    assert.match(HTML, /data-filter="new"/);
+    assert.match(HTML, /data-filter="done"/);
+    assert.match(JS, /ACTIVE_FILTER/);
+    assert.match(JS, /4 sections/);
+    assert.match(JS, /40 câu/);
+    assert.match(JS, /~30 phút/);
+  });
+
+  it('bases completion on submitted attempts, not total attempts', () => {
+    assert.match(JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(JS, /t\.user_submitted_attempt_count/);
+    assert.doesNotMatch(JS, /const attempted = \(t\.user_attempt_count/);
+  });
+
+  it('keeps the test action primary and uses a labelled dictation action', () => {
+    assert.match(JS, /class="lt-card-cta" href="\/pages\/listening-test\.html/);
+    assert.match(JS, />Chép chính tả<\/a>/);
+    assert.doesNotMatch(JS, /✍️ Chép chính tả/);
   });
 });

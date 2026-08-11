@@ -5,6 +5,7 @@ import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
@@ -198,11 +199,20 @@ class CreateSessionBody(BaseModel):
     # linked at creation (before any response is graded) so per-response speaking
     # grading is sealed from the first answer.
     sitting_id: str | None = None
+    # For Full Test Part 2/3 the client identifies only the immediately prior
+    # session. The server resolves the canonical attempt id from that owned row;
+    # callers never get to choose an attempt id themselves.
+    previous_session_id: str | None = None
     # GĐ 2 — when set, this session answers a class assignment. Linked at
     # creation, exactly like sitting_id, so PATCH /complete can record the
     # hand-in without having to guess from the topic string.
     class_assignment_item_id: str | None = None
-
+    # Optional idempotency identity for a retryable plain session create. The
+    # UUID becomes sessions.id through the v2 atomic-create RPC, so a
+    # network-after-commit retry returns the same row rather than burning a
+    # second daily slot. Linked class/mock creates keep their established path
+    # until their post-create hooks can report replay state explicitly.
+    client_session_id: UUID | None = None
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v):
@@ -224,11 +234,29 @@ class CreateSessionBody(BaseModel):
             raise ValueError("topic không được để trống")
         return v.strip()
 
+    @field_validator("previous_session_id")
+    @classmethod
+    def validate_previous_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("previous_session_id không được để trống")
+        return session_id
+
 
 class FinalizeFullTestBody(BaseModel):
     p1_id: str
-    p2_id: Optional[str] = None
-    p3_id: Optional[str] = None
+    p2_id: str
+    p3_id: str
+
+    @field_validator("p1_id", "p2_id", "p3_id")
+    @classmethod
+    def validate_session_id(cls, value: str) -> str:
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("session ID không được để trống")
+        return session_id
 
 
 # ── Shared guards ─────────────────────────────────────────────────────────────
@@ -277,6 +305,150 @@ def _require_active(user_id: str) -> None:
         raise HTTPException(status_code=403, detail="Tài khoản chưa được kích hoạt")
 
 
+def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str | None:
+    """Resolve Part 2/3 membership from the immediately preceding owned row.
+
+    Part 1 receives a fresh id from migration 200's insert trigger. Non-Full-Test
+    modes may not smuggle a predecessor. This keeps chain identity canonical on
+    the server and makes a manipulated client payload harmless.
+    """
+    previous_id = body.previous_session_id
+    if body.mode != "test_full":
+        if previous_id:
+            raise HTTPException(400, "previous_session_id chỉ dùng cho Full Test")
+        return None
+    if body.part == 1:
+        if previous_id:
+            raise HTTPException(400, "Full Test Part 1 không được có session trước đó")
+        return None
+    if not previous_id:
+        raise HTTPException(
+            400,
+            f"Full Test Part {body.part} cần session Part {body.part - 1} liền trước",
+        )
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select("id, mode, part, status, full_test_attempt_id")
+            .eq("id", previous_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra chuỗi Full Test: {e}")
+
+    row = (result.data or [None])[0]
+    if (
+        not row
+        or row.get("mode") != "test_full"
+        or row.get("part") != body.part - 1
+        or row.get("status") != "in_progress"
+    ):
+        raise HTTPException(
+            400,
+            f"Session trước đó không phải Full Test Part {body.part - 1} đang làm",
+        )
+    attempt_id = str(row.get("full_test_attempt_id") or "").strip()
+    if not attempt_id:
+        raise HTTPException(
+            409,
+            "Session Full Test cũ chưa có mã chuỗi an toàn. Hãy bắt đầu lại Full Test.",
+        )
+    return attempt_id
+
+
+def _rollback_unstarted_session(session_id: str) -> None:
+    """Best-effort rollback for a session that has not been returned yet."""
+    try:
+        supabase_admin.table("sessions").delete().eq("id", session_id).execute()
+    except Exception as e:
+        logger.critical(
+            "[create_session] failed to roll back unstarted session=%s: %s",
+            session_id,
+            e,
+        )
+
+
+def _session_create_payload(session: dict) -> dict:
+    return {
+        "session_id": session["id"],
+        "mode": session["mode"],
+        "part": session["part"],
+        "topic": session["topic"],
+        "started_at": session["started_at"],
+        "status": session["status"],
+        "full_test_attempt_id": session.get("full_test_attempt_id"),
+    }
+
+
+def _find_replayable_full_test_part(
+    user_id: str,
+    attempt_id: str | None,
+    body: CreateSessionBody,
+) -> dict | None:
+    """Return the already-created next Part after a lost POST response.
+
+    The client supplies only the immediately preceding session. The canonical
+    attempt id has already been resolved from that owned row, so this lookup
+    cannot be redirected to another attempt by manipulating the request.
+    """
+    if body.mode != "test_full" or body.part == 1 or not attempt_id:
+        return None
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select(
+                "id, mode, part, topic, started_at, status, sitting_id, "
+                "class_assignment_item_id, full_test_attempt_id"
+            )
+            .eq("user_id", user_id)
+            .eq("full_test_attempt_id", attempt_id)
+            .eq("part", body.part)
+            .limit(2)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi kiểm tra Part Full Test đã tạo: {exc}")
+
+    rows = result.data or []
+    if not rows:
+        return None
+    if len(rows) != 1:
+        raise HTTPException(409, "Full Test có nhiều session cho cùng một Part")
+    session = rows[0]
+    sitting_matches = session.get("sitting_id") in {None, body.sitting_id}
+    payload_matches = (
+        session.get("mode") == "test_full"
+        and session.get("part") == body.part
+        and session.get("topic") == body.topic
+        and session.get("status") == "in_progress"
+        and sitting_matches
+        and session.get("class_assignment_item_id") == body.class_assignment_item_id
+    )
+    if not payload_matches:
+        raise HTTPException(409, "Part Full Test đã tồn tại với dữ liệu khác")
+    return session
+
+
+def _bind_session_to_mock_if_requested(
+    session_id: str,
+    user_id: str,
+    sitting_id: str | None,
+) -> None:
+    if not sitting_id:
+        return
+    from services import mock_exam_service
+    try:
+        mock_exam_service.bind_session_to_sitting(session_id, user_id, sitting_id)
+    except (
+        mock_exam_service.NotFoundError,
+        PermissionError,
+        mock_exam_service.SittingConflictError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=f"Không gắn được session vào kỳ thi: {exc}")
+
+
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
 @router.post("")
@@ -290,6 +462,12 @@ async def create_session(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+
+    if body.client_session_id and (body.sitting_id or body.class_assignment_item_id):
+        raise HTTPException(
+            status_code=400,
+            detail="client_session_id chỉ dùng cho phiên luyện không gắn bài lớp/kỳ thi",
+        )
 
     _require_active(user_id)
 
@@ -322,6 +500,17 @@ async def create_session(
 
     if not entitled_by_assignment:
         _require_permission(user_id, body.mode)
+
+    # Resolve this before consuming a daily slot. Part 2/3 membership comes
+    # only from the immediately preceding owned session; the caller cannot
+    # choose or replay a raw attempt identifier.
+    full_test_attempt_id = _resolve_full_test_attempt_id(user_id, body)
+    replay_session = _find_replayable_full_test_part(user_id, full_test_attempt_id, body)
+    if replay_session:
+        _bind_session_to_mock_if_requested(
+            replay_session["id"], user_id, body.sitting_id,
+        )
+        return _session_create_payload(replay_session)
 
     # Admin bypass — admins không bị giới hạn quota
     try:
@@ -378,18 +567,24 @@ async def create_session(
     # lock, so concurrent POST /sessions can't both slip under the daily cap.
     # Admins bypass the cap via an effectively-unlimited ceiling.
     max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
+    rpc_name = (
+        "fn_create_session_daily_capped_v2"
+        if body.client_session_id
+        else "fn_create_session_daily_capped"
+    )
+    rpc_params = {
+        "p_user_id":   user_id,
+        "p_mode":      body.mode,
+        "p_part":      body.part,
+        "p_topic":     body.topic,
+        "p_day_start": today_start,
+        "p_max_daily": max_daily,
+    }
+    if body.client_session_id:
+        rpc_params["p_session_id"] = str(body.client_session_id)
+
     try:
-        result = supabase_admin.rpc(
-            "fn_create_session_daily_capped",
-            {
-                "p_user_id":   user_id,
-                "p_mode":      body.mode,
-                "p_part":      body.part,
-                "p_topic":     body.topic,
-                "p_day_start": today_start,
-                "p_max_daily": max_daily,
-            },
-        ).execute()
+        result = supabase_admin.rpc(rpc_name, rpc_params).execute()
     except Exception as e:
         if "daily_quota_exceeded" in str(e):
             raise HTTPException(
@@ -399,12 +594,54 @@ async def create_session(
                     f"sessions hôm nay. Hãy thử lại vào ngày mai."
                 ),
             )
+        if "session_id_conflict" in str(e):
+            raise HTTPException(status_code=409, detail="Mã tạo phiên đã được dùng cho yêu cầu khác")
         raise HTTPException(status_code=500, detail=f"Không thể tạo session: {e}")
 
     rows = result.data or []
     if not rows:
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
+
+    # Migration 200's trigger creates Part 1's canonical id atomically with the
+    # row. Later parts inherit the id resolved above. The partial unique index on
+    # (attempt, part) closes double-click/replay races at the database boundary.
+    if body.mode == "test_full":
+        if body.part == 1:
+            if not s.get("full_test_attempt_id"):
+                _rollback_unstarted_session(s["id"])
+                raise HTTPException(
+                    status_code=503,
+                    detail="Full Test đang được cập nhật. Vui lòng thử lại sau.",
+                )
+        else:
+            try:
+                supabase_admin.table("sessions").update({
+                    "full_test_attempt_id": full_test_attempt_id,
+                }).eq("id", s["id"]).eq("user_id", user_id).execute()
+            except Exception as e:
+                _rollback_unstarted_session(s["id"])
+                conflict = (
+                    "uq_sessions_full_test_attempt_part" in str(e)
+                    or "duplicate key" in str(e).lower()
+                )
+                if conflict:
+                    replay_session = _find_replayable_full_test_part(
+                        user_id, full_test_attempt_id, body,
+                    )
+                    if replay_session:
+                        _bind_session_to_mock_if_requested(
+                            replay_session["id"], user_id, body.sitting_id,
+                        )
+                        return _session_create_payload(replay_session)
+                raise HTTPException(
+                    status_code=409 if conflict else 500,
+                    detail=(
+                        "Part này của Full Test đã được tạo. Hãy mở lại bài đang làm."
+                        if conflict else "Không nối được phần tiếp theo của Full Test. Hãy thử lại."
+                    ),
+                )
+            s["full_test_attempt_id"] = full_test_attempt_id
 
     # GĐ 2 — class assignment: write the link so PATCH /complete can record the
     # hand-in. Validation already happened BEFORE the session was created (see
@@ -438,22 +675,8 @@ async def create_session(
 
     # Mock sitting: link the session AT CREATION (before any response can be
     # graded) so per-response speaking grading is sealed. Validated inside.
-    if body.sitting_id:
-        from services import mock_exam_service
-        try:
-            mock_exam_service.bind_session_to_sitting(s["id"], user_id, body.sitting_id)
-        except (mock_exam_service.NotFoundError, PermissionError,
-                mock_exam_service.SittingConflictError) as e:
-            raise HTTPException(status_code=400, detail=f"Không gắn được session vào kỳ thi: {e}")
-
-    return {
-        "session_id": s["id"],
-        "mode":       s["mode"],
-        "part":       s["part"],
-        "topic":      s["topic"],
-        "started_at": s["started_at"],
-        "status":     s["status"],
-    }
+    _bind_session_to_mock_if_requested(s["id"], user_id, body.sitting_id)
+    return _session_create_payload(s)
 
 
 # ── GET /sessions ──────────────────────────────────────────────────────────────
@@ -737,7 +960,9 @@ async def get_session(
     # non-blocking). Opening a session keeps it in the 7-day visible window.
     background_tasks.add_task(_touch_last_accessed, session_id, session.get("last_accessed_at"))
 
-    # Questions for this session
+    # Questions for this session. Keep lookup failure distinct from a genuine
+    # empty session so result clients never present missing data as canonical.
+    question_lookup_failed = False
     try:
         q_result = (
             supabase_admin.table("questions")
@@ -750,10 +975,13 @@ async def get_session(
         # trong phản hồi mạng trước khi bất kỳ bộ lọc nào khác kịp chạy — và
         # "phải nghe mới biết đề hỏi gì" chỉ còn là một câu chữ trên giao diện.
         questions = redact_questions(q_result.data, reveal=should_reveal(session))
-    except Exception:
+    except Exception as exc:
+        logger.error("[get_session] questions query FAILED for session=%s: %s", session_id, exc)
         questions = []
+        question_lookup_failed = True
 
     # Responses for this session
+    response_lookup_failed = False
     try:
         r_result = (
             supabase_admin.table("responses")
@@ -766,12 +994,35 @@ async def get_session(
     except Exception as exc:
         logger.error("[get_session] responses query FAILED for session=%s: %s", session_id, exc)
         responses = []
+        response_lookup_failed = True
+
+    # Receipt-only ledger: enough for upload reconciliation and reload/resume,
+    # but never enough to reveal a sealed mock's transcript, grading or score.
+    # The response row id is required to distinguish a real persisted row from
+    # an optimistic/pending client state. persisted_at is server-authored and
+    # lets release evidence prove that exact row existed inside its journey
+    # window. A retake still has the same row id and therefore remains ambiguous
+    # unless the POST itself confirms it.
+    response_receipts = [
+        {
+            "id": row.get("id"),
+            "question_id": row.get("question_id"),
+            "persisted_at": row.get("persisted_at"),
+        }
+        for row in responses
+        if row.get("id") and row.get("question_id")
+    ]
 
     # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
-    # the sitting is released. Questions still return so recording works.
+    # the sitting is released. Questions still return so recording works. Return
+    # the seal decision explicitly as well: clients must not infer "sealed" from
+    # an empty response array because a real unanswered session has that same
+    # shape. This is canonical backend truth, not a UI heuristic.
+    results_sealed = False
     if session.get("sitting_id"):
         from services import mock_exam_service
-        if mock_exam_service.is_sealed(session["sitting_id"]):
+        results_sealed = mock_exam_service.is_sealed(session["sitting_id"])
+        if results_sealed:
             responses = []
 
     out = {
@@ -780,6 +1031,10 @@ async def get_session(
         "retention":  compute_expiry(session),
         "questions":  questions,
         "responses":  responses,
+        "response_receipts": response_receipts,
+        "question_lookup_failed": question_lookup_failed,
+        "response_lookup_failed": response_lookup_failed,
+        "results_sealed": results_sealed,
     }
     task = _class_task_state(session)
     if task:
@@ -915,209 +1170,320 @@ async def get_session_audio_urls(
 
 # ── GET /sessions/{session_id}/full-test-summary ───────────────────────────────
 
+_FULL_TEST_SESSION_COLUMNS = (
+    "id, mode, part, topic, started_at, status, sitting_id, full_test_attempt_id, "
+    "band_fc, band_lr, band_gra, band_p, overall_band"
+)
+
+
+def _feedback_strings(value) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _grammar_issue_strings(value) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    output: list[str] = []
+    for item in value:
+        if isinstance(item, str) and item.strip():
+            output.append(item.strip())
+            continue
+        if not isinstance(item, dict):
+            continue
+        original = item.get("original") or item.get("error") or item.get("issue")
+        correction = item.get("correction") or item.get("corrected")
+        if isinstance(original, str) and original.strip():
+            text = original.strip()
+            if isinstance(correction, str) and correction.strip():
+                text += " → " + correction.strip()
+            output.append(text)
+    return output
+
+
+def _pronunciation_prosody(payload) -> float | None:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    if not isinstance(payload, dict):
+        return None
+    direct = payload.get("prosody_score")
+    if direct is None:
+        direct = payload.get("ProsodyScore")
+    if direct is None:
+        nbest = payload.get("NBest")
+        assessment = nbest[0].get("PronunciationAssessment", {}) if isinstance(nbest, list) and nbest else {}
+        direct = assessment.get("ProsodyScore") if isinstance(assessment, dict) else None
+    try:
+        return float(direct) if direct is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _persisted_pronunciation_summary(responses: list[dict]) -> dict | None:
+    completed = [row for row in responses if row.get("pronunciation_status") == "completed"]
+
+    def average(column: str, *, payload: bool = False) -> float | None:
+        values: list[float] = []
+        for row in completed:
+            raw = _pronunciation_prosody(row.get("pronunciation_payload")) if payload else row.get(column)
+            try:
+                if raw is not None:
+                    values.append(float(raw))
+            except (TypeError, ValueError):
+                continue
+        return round(sum(values) / len(values), 1) if values else None
+
+    result = {
+        "response_count": len(completed),
+        "overall": average("pronunciation_score"),
+        "accuracy": average("pronunciation_accuracy"),
+        "fluency": average("pronunciation_fluency"),
+        "completeness": average("pronunciation_completeness"),
+        "prosody": average("pronunciation_payload", payload=True),
+    }
+    return result if any(value is not None for key, value in result.items() if key != "response_count") else None
+
+
 @router.get("/{session_id}/full-test-summary")
 async def get_full_test_summary(
     session_id: str,
-    p2_id: Optional[str] = Query(default=None, description="Part 2 session ID"),
-    p3_id: Optional[str] = Query(default=None, description="Part 3 session ID"),
+    p2_id: Optional[str] = Query(default=None, description="Legacy Part 2 session ID"),
+    p3_id: Optional[str] = Query(default=None, description="Legacy Part 3 session ID"),
     authorization: str | None = Header(default=None),
 ):
-    """
-    Tổng hợp kết quả Full Test từ tối đa 3 part sessions.
-    session_id = Part 1 session ID (bắt buộc).
-    p2_id, p3_id = Part 2 & 3 session IDs (tuỳ chọn, truyền qua query params).
+    """Return one canonical, ownership-checked three-Part Full Test result.
 
-    Tính toán từ responses.feedback JSON:
-      - Criterion bands (band_fc/lr/gra/p) → trung bình toàn bộ responses
-      - Strengths / improvements → gộp + đếm tần suất
-      - Grammar issues → gộp + đếm tần suất (top 5)
-      - Per-part summary: band_avg, key_feedback (strength + improvement đầu tiên)
+    New sessions are resolved by server-owned ``full_test_attempt_id`` from Part 1, so callers
+    only need the Part 1 ID. Explicit p2/p3 remain for pre-migration rows, but
+    are validated as distinct owned ``test_full`` Part 2/3 sessions. Scores are
+    returned only when all three canonical session aggregates are complete and
+    the containing mock sitting is not sealed.
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    all_ids = [sid for sid in [session_id, p2_id, p3_id] if sid]
-
-    # Ownership check — load all sessions at once
     try:
-        s_res = (
+        p1_res = (
             supabase_admin.table("sessions")
-            .select("id, part, topic, started_at, band_fc, band_lr, band_gra, band_p, overall_band, status")
-            .in_("id", all_ids)
+            .select(_FULL_TEST_SESSION_COLUMNS)
+            .eq("id", session_id)
             .eq("user_id", user_id)
+            .limit(1)
             .execute()
         )
-    except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải sessions: {e}")
+    except Exception as exc:
+        logger.error("[full_test_summary] Part 1 lookup failed session=%s: %s", session_id, exc)
+        raise HTTPException(500, "Không tải được Full Test. Hãy thử lại.")
+    if not p1_res.data:
+        raise HTTPException(404, "Full Test không tồn tại hoặc không có quyền truy cập")
 
-    sessions_by_id = {s["id"]: s for s in (s_res.data or [])}
-    if session_id not in sessions_by_id:
-        raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
+    p1 = p1_res.data[0]
+    if p1.get("mode") != "test_full" or p1.get("part") != 1:
+        raise HTTPException(400, "Session mở kết quả phải là Speaking Full Test Part 1")
 
-    # Question counts per session
+    attempt_id = p1.get("full_test_attempt_id")
+    session_rows: list[dict]
+    all_ids: list[str]
+    attempt_verified_by_id = False
+    if attempt_id:
+        try:
+            attempt_res = (
+                supabase_admin.table("sessions")
+                .select(_FULL_TEST_SESSION_COLUMNS)
+                .eq("user_id", user_id)
+                .eq("full_test_attempt_id", attempt_id)
+                .execute()
+            )
+        except Exception as exc:
+            logger.error("[full_test_summary] attempt lookup failed attempt=%s: %s", attempt_id, exc)
+            raise HTTPException(500, "Không tải được chuỗi Full Test. Hãy thử lại.")
+        session_rows = attempt_res.data or []
+        rows_by_part = {row.get("part"): row for row in session_rows}
+        if len(session_rows) == 3 and set(rows_by_part) == {1, 2, 3}:
+            all_ids = [rows_by_part[part]["id"] for part in (1, 2, 3)]
+            if (p2_id and p2_id != all_ids[1]) or (p3_id and p3_id != all_ids[2]):
+                raise HTTPException(400, "Các session trong URL không khớp chuỗi Full Test đã lưu")
+            attempt_verified_by_id = True
+        elif len(session_rows) < 3 and p2_id and p3_id:
+            # Migration 200 backfilled historical rows independently because it
+            # could not reconstruct affinity safely. Explicit terminal Part ids
+            # remain readable after the same ownership/mode/part/sitting checks,
+            # but the response stays unverified instead of inventing affinity.
+            all_ids = [session_id, p2_id, p3_id]
+            _validate_full_test_chain(all_ids, [])
+            try:
+                fallback_res = (
+                    supabase_admin.table("sessions")
+                    .select(_FULL_TEST_SESSION_COLUMNS)
+                    .in_("id", all_ids)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+            except Exception as exc:
+                logger.error("[full_test_summary] rollout fallback failed p1=%s: %s", session_id, exc)
+                raise HTTPException(500, "Không tải được các Part Full Test. Hãy thử lại.")
+            session_rows = fallback_res.data or []
+            if {row.get("id") for row in session_rows} != set(all_ids):
+                raise HTTPException(404, "Một hoặc nhiều Part không tồn tại hoặc không có quyền truy cập")
+            if any(row.get("status") not in {"completed", "analysis_failed"} for row in session_rows):
+                raise HTTPException(409, "Full Test đang làm phải dùng cùng mã lần thi đã lưu")
+        else:
+            raise HTTPException(409, "Full Test chưa có đủ ba Part để tổng kết")
+    else:
+        if not p2_id or not p3_id:
+            raise HTTPException(400, "Dữ liệu Full Test cũ cần đủ p1, p2 và p3")
+        all_ids = [session_id, p2_id, p3_id]
+        _validate_full_test_chain(all_ids, [])
+        try:
+            sessions_res = (
+                supabase_admin.table("sessions")
+                .select(_FULL_TEST_SESSION_COLUMNS)
+                .in_("id", all_ids)
+                .eq("user_id", user_id)
+                .execute()
+            )
+        except Exception as exc:
+            logger.error("[full_test_summary] legacy Part lookup failed p1=%s: %s", session_id, exc)
+            raise HTTPException(500, "Không tải được các Part Full Test. Hãy thử lại.")
+        session_rows = sessions_res.data or []
+        if {row.get("id") for row in session_rows} != set(all_ids):
+            raise HTTPException(404, "Một hoặc nhiều Part không tồn tại hoặc không có quyền truy cập")
+        if any(row.get("status") not in {"completed", "analysis_failed"} for row in session_rows):
+            raise HTTPException(409, "Full Test đang làm phải dùng cùng mã lần thi đã lưu")
+
+    _validate_full_test_chain(
+        all_ids,
+        session_rows,
+        allow_legacy_attempt_mismatch=not attempt_verified_by_id,
+    )
+    sessions_by_id = {row["id"]: row for row in session_rows}
+    ordered_sessions = [sessions_by_id[sid] for sid in all_ids]
+
     try:
-        q_res = (
+        question_res = (
             supabase_admin.table("questions")
             .select("id, session_id")
             .in_("session_id", all_ids)
             .execute()
         )
-        qcount = Counter(q["session_id"] for q in (q_res.data or []))
-    except Exception:
-        qcount = Counter()
+    except Exception as exc:
+        logger.error("[full_test_summary] question lookup failed p1=%s: %s", session_id, exc)
+        raise HTTPException(500, "Không kiểm tra được câu hỏi Full Test. Hãy thử lại.")
+    question_rows = question_res.data or []
+    _validate_full_test_question_counts(all_ids, question_rows)
+    question_counts = Counter(row["session_id"] for row in question_rows)
 
-    # Responses for all sessions
-    try:
-        resp_res = (
-            supabase_admin.table("responses")
-            .select("id, session_id, question_id, overall_band, feedback")
-            .in_("session_id", all_ids)
-            .execute()
+    sitting_id = ordered_sessions[0].get("sitting_id")
+    results_sealed = False
+    if sitting_id:
+        from services import mock_exam_service
+        results_sealed = mock_exam_service.is_sealed(sitting_id)
+
+    analysis_failed = any(row.get("status") == "analysis_failed" for row in ordered_sessions)
+    results_ready = (
+        not results_sealed
+        and not analysis_failed
+        and all(
+            row.get("status") == "completed" and row.get("overall_band") is not None
+            for row in ordered_sessions
         )
-        all_responses = resp_res.data or []
-    except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải responses: {e}")
+    )
+    result_status = (
+        "sealed" if results_sealed else
+        "failed" if analysis_failed else
+        "ready" if results_ready else
+        "pending"
+    )
+    chain_verified = bool(attempt_verified_by_id)
 
-    # ── Canonical band fast-path ──────────────────────────────────────────────
-    # When ALL requested sessions are completed with a non-null overall_band,
-    # use the persisted session-level canonical bands (which reflect any
-    # pronunciation adjustments written by update_session_bands).  This avoids
-    # re-reading raw responses.feedback which would ignore final_band_p/final_overall_band.
-    completed_sessions = [
-        s for s in sessions_by_id.values()
-        if s.get("status") == "completed" and s.get("overall_band") is not None
-    ]
-    use_persisted_bands = len(completed_sessions) == len(all_ids)
+    response_rows: list[dict] = []
+    if results_ready:
+        try:
+            response_res = (
+                supabase_admin.table("responses")
+                .select(
+                    "id, session_id, question_id, feedback, grading_status, "
+                    "pronunciation_status, pronunciation_score, pronunciation_accuracy, "
+                    "pronunciation_fluency, pronunciation_completeness, pronunciation_payload"
+                )
+                .in_("session_id", all_ids)
+                .execute()
+            )
+            response_rows = response_res.data or []
+        except Exception as exc:
+            logger.error("[full_test_summary] response lookup failed p1=%s: %s", session_id, exc)
+            raise HTTPException(500, "Không tải được nhận xét Full Test. Hãy thử lại.")
 
-    if use_persisted_bands:
-        # Aggregate criterion bands from persisted session rows (already canonical).
-        fc_vals_s  = [float(s["band_fc"])  for s in completed_sessions if s.get("band_fc")  is not None]
-        lr_vals_s  = [float(s["band_lr"])  for s in completed_sessions if s.get("band_lr")  is not None]
-        gra_vals_s = [float(s["band_gra"]) for s in completed_sessions if s.get("band_gra") is not None]
-        p_vals_s   = [float(s["band_p"])   for s in completed_sessions if s.get("band_p")   is not None]
-
-        band_fc  = _round_band(sum(fc_vals_s)  / len(fc_vals_s))  if fc_vals_s  else None
-        band_lr  = _round_band(sum(lr_vals_s)  / len(lr_vals_s))  if lr_vals_s  else None
-        band_gra = _round_band(sum(gra_vals_s) / len(gra_vals_s)) if gra_vals_s else None
-        band_p   = _round_band(sum(p_vals_s)   / len(p_vals_s))   if p_vals_s   else None
-
-        scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
-        overall_band = _round_band(sum(scored) / len(scored)) if scored else None
-
-    # Always compute qualitative data (strengths/improvements/grammar) from responses,
-    # and per-part band_avg using the canonical per-session overall_band when available.
     all_strengths: list[str] = []
     all_improvements: list[str] = []
     all_grammar: list[str] = []
     per_session_first_feedback: dict[str, dict] = {}
-
-    # For criterion-band computation when NOT using persisted path
-    fc_vals: list[float] = []
-    lr_vals: list[float] = []
-    gra_vals: list[float] = []
-    p_vals: list[float] = []
-
-    for r in all_responses:
-        sid = r.get("session_id")
-
-        raw_fb = r.get("feedback")
-        fb: dict = {}
-        if raw_fb:
-            try:
-                fb = json.loads(raw_fb) if isinstance(raw_fb, str) else raw_fb
-                if not isinstance(fb, dict):
-                    fb = {}
-            except (json.JSONDecodeError, TypeError):
-                fb = {}
-
-        if not use_persisted_bands:
-            # Criterion bands from raw feedback (pre-pronunciation values)
-            for vals, key in [
-                (fc_vals,  "band_fc"),
-                (lr_vals,  "band_lr"),
-                (gra_vals, "band_gra"),
-                (p_vals,   "band_p"),
-            ]:
-                v = fb.get(key)
-                if v is not None:
-                    try:
-                        vals.append(float(v))
-                    except (TypeError, ValueError):
-                        pass
-
-        all_strengths.extend(fb.get("strengths") or [])
-        all_improvements.extend(fb.get("improvements") or [])
-        all_grammar.extend(fb.get("grammar_issues") or [])
-
-        # Keep first response-with-feedback per session for key_feedback
-        if sid and sid not in per_session_first_feedback and fb:
-            strs = fb.get("strengths") or []
-            imps = fb.get("improvements") or []
-            if strs or imps:
-                per_session_first_feedback[sid] = {
-                    "strength":    strs[0] if strs else None,
-                    "improvement": imps[0] if imps else None,
-                }
-
-    if not use_persisted_bands:
-        # Compute criterion bands from raw feedback fallback
-        band_fc  = _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None
-        band_lr  = _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None
-        band_gra = _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None
-        band_p   = _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None
-
-        scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
-        overall_band = _round_band(sum(scored) / len(scored)) if scored else None
-
-    # Top strengths / improvements (most frequent, max 3 each)
-    top_strengths    = [s for s, _ in Counter(all_strengths).most_common(3)]
-    top_improvements = [s for s, _ in Counter(all_improvements).most_common(3)]
-    top_grammar      = [s for s, _ in Counter(all_grammar).most_common(5)]
-
-    # Per-part breakdown
-    part_map = {1: session_id, 2: p2_id, 3: p3_id}
-    parts = []
-    for part_num in (1, 2, 3):
-        sid = part_map[part_num]
-        if not sid or sid not in sessions_by_id:
+    for response in response_rows:
+        if response.get("grading_status") != "completed":
             continue
-        sess = sessions_by_id[sid]
-        # Use persisted session overall_band for per-part avg when available (canonical truth),
-        # otherwise fall back to the mean of raw response overall_band values.
-        if use_persisted_bands and sess.get("overall_band") is not None:
-            band_avg = float(sess["overall_band"])
-        else:
-            resp_bands = [
-                float(r["overall_band"])
-                for r in all_responses
-                if r.get("session_id") == sid and r.get("overall_band") is not None
-            ]
-            band_avg = round(sum(resp_bands) / len(resp_bands), 1) if resp_bands else None
-        parts.append({
-            "part":            part_num,
-            "session_id":      sid,
-            "topic":           sess.get("topic"),
-            "questions_count": qcount.get(sid, 0),
-            "band_avg":        band_avg,
-            "key_feedback":    per_session_first_feedback.get(sid),
-        })
+        raw_feedback = response.get("feedback")
+        try:
+            feedback = json.loads(raw_feedback) if isinstance(raw_feedback, str) else raw_feedback
+        except (json.JSONDecodeError, TypeError):
+            feedback = None
+        if not isinstance(feedback, dict):
+            continue
+        strengths = _feedback_strings(feedback.get("strengths"))
+        improvements = _feedback_strings(feedback.get("improvements"))
+        all_strengths.extend(strengths)
+        all_improvements.extend(improvements)
+        all_grammar.extend(_grammar_issue_strings(feedback.get("grammar_issues")))
+        sid = response.get("session_id")
+        if sid and sid not in per_session_first_feedback and (strengths or improvements):
+            per_session_first_feedback[sid] = {
+                "strength": strengths[0] if strengths else None,
+                "improvement": improvements[0] if improvements else None,
+            }
 
-    # started_at from Part 1 session
-    started_at = sessions_by_id.get(session_id, {}).get("started_at")
+    def canonical_average(column: str) -> float | None:
+        values = [row.get(column) for row in ordered_sessions]
+        if any(value is None for value in values):
+            return None
+        try:
+            return _round_band(sum(float(value) for value in values) / len(values))
+        except (TypeError, ValueError):
+            return None
+
+    parts = [
+        {
+            "part": part,
+            "session_id": sid,
+            "topic": sessions_by_id[sid].get("topic"),
+            "status": sessions_by_id[sid].get("status"),
+            "questions_count": question_counts.get(sid, 0),
+            "band_avg": float(sessions_by_id[sid]["overall_band"])
+            if results_ready and sessions_by_id[sid].get("overall_band") is not None else None,
+            "key_feedback": per_session_first_feedback.get(sid) if results_ready else None,
+        }
+        for part, sid in enumerate(all_ids, start=1)
+    ]
 
     return {
-        "overall_band":       overall_band,
-        "band_fc":            band_fc,
-        "band_lr":            band_lr,
-        "band_gra":           band_gra,
-        "band_p":             band_p,
-        "parts":              parts,
-        "top_strengths":      top_strengths,
-        "top_improvements":   top_improvements,
-        "top_grammar_issues": top_grammar,
-        "pron_overall":       None,   # fetch separately via POST /pronunciation/full
-        "pron_breakdown":     None,
-        "started_at":         started_at,
+        "result_status": result_status,
+        "results_ready": results_ready,
+        "results_sealed": results_sealed,
+        "chain_verified": chain_verified,
+        "full_test_attempt_id": str(attempt_id) if attempt_id else None,
+        "overall_band": canonical_average("overall_band") if results_ready else None,
+        "band_fc": canonical_average("band_fc") if results_ready else None,
+        "band_lr": canonical_average("band_lr") if results_ready else None,
+        "band_gra": canonical_average("band_gra") if results_ready else None,
+        "band_p": canonical_average("band_p") if results_ready else None,
+        "parts": parts,
+        "top_strengths": [item for item, _ in Counter(all_strengths).most_common(3)],
+        "top_improvements": [item for item, _ in Counter(all_improvements).most_common(3)],
+        "top_grammar_issues": [item for item, _ in Counter(all_grammar).most_common(5)],
+        "pronunciation": _persisted_pronunciation_summary(response_rows) if results_ready else None,
+        "started_at": p1.get("started_at"),
     }
 
 
@@ -1180,32 +1546,95 @@ def _check_all_responses_graded(session_ids: list) -> bool:
         try:
             q_res = (
                 supabase_admin.table("questions")
-                .select("id", count="exact")
+                .select("id")
                 .eq("session_id", sid)
                 .execute()
             )
             r_res = (
                 supabase_admin.table("responses")
-                .select("id, grading_status, overall_band")
+                .select("id, question_id, grading_status, overall_band")
                 .eq("session_id", sid)
                 .execute()
             )
-            n_q = q_res.count or 0
+            question_ids = {
+                str(row.get("id")) for row in (q_res.data or []) if row.get("id")
+            }
+            if not question_ids:
+                logger.warning("[finalize_ft] session=%s has no questions", sid)
+                return False
             responses = r_res.data or []
-            graded = [
-                r for r in responses
+            graded_question_ids = {
+                str(r.get("question_id")) for r in responses
                 if r.get("grading_status") == "completed" and r.get("overall_band") is not None
-            ]
-            n_graded = len(graded)
-            if n_graded < n_q:
+                and r.get("question_id")
+            }
+            missing = question_ids - graded_question_ids
+            if missing:
                 logger.info(
-                    "[finalize_ft] session=%s: %d/%d responses graded", sid, n_graded, n_q
+                    "[finalize_ft] session=%s: %d/%d questions graded; missing=%d",
+                    sid,
+                    len(question_ids & graded_question_ids),
+                    len(question_ids),
+                    len(missing),
                 )
                 return False
         except Exception as e:
             logger.warning("[finalize_ft] poll error for session=%s: %s", sid, e)
             return False
     return True
+
+
+def _validate_full_test_chain(
+    session_ids: list[str],
+    session_rows: list[dict],
+    *,
+    allow_legacy_attempt_mismatch: bool = False,
+) -> None:
+    """Require one owned test_full session for each canonical Speaking part."""
+    if len(session_ids) != 3 or len(set(session_ids)) != 3:
+        raise HTTPException(400, "Full Test phải có 3 session khác nhau cho Part 1, 2 và 3")
+    sessions_by_id = {row["id"]: row for row in session_rows}
+    for expected_part, sid in enumerate(session_ids, start=1):
+        row = sessions_by_id.get(sid)
+        if not row:
+            continue  # ownership/missing-id check reports this as 404 at the route boundary
+        if row.get("mode") != "test_full" or row.get("part") != expected_part:
+            raise HTTPException(
+                400,
+                f"Session {sid} không phải Full Test Part {expected_part}",
+            )
+    rows = [sessions_by_id.get(sid) for sid in session_ids]
+    if all(rows):
+        if not allow_legacy_attempt_mismatch:
+            attempt_ids = {
+                str(row.get("full_test_attempt_id") or "").strip() for row in rows
+            }
+            if "" in attempt_ids or len(attempt_ids) != 1:
+                raise HTTPException(400, "Ba phần Full Test không thuộc cùng một lần làm bài")
+        sitting_ids = {row.get("sitting_id") for row in rows}
+        if len(sitting_ids) > 1:
+            raise HTTPException(400, "Ba phần Full Test không thuộc cùng một bài thi")
+
+
+def _validate_full_test_question_counts(
+    session_ids: list[str],
+    question_rows: list[dict],
+) -> None:
+    """Fail before finalization when any persisted part is not 9/1/5."""
+    expected_by_session = dict(zip(session_ids, (9, 1, 5)))
+    actual = Counter(
+        row.get("session_id") for row in question_rows if row.get("session_id")
+    )
+    invalid = [
+        f"Part {part}: {actual.get(sid, 0)}/{expected_by_session[sid]}"
+        for part, sid in enumerate(session_ids, start=1)
+        if actual.get(sid, 0) != expected_by_session[sid]
+    ]
+    if invalid:
+        raise HTTPException(
+            409,
+            "Bộ câu hỏi Full Test chưa đầy đủ (" + ", ".join(invalid) + ")",
+        )
 
 
 async def _bg_finalize_full_test(session_ids: list) -> None:
@@ -1314,15 +1743,14 @@ async def finalize_full_test(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    all_ids = [sid for sid in [body.p1_id, body.p2_id, body.p3_id] if sid]
-    if not all_ids:
-        raise HTTPException(400, "Cần ít nhất một session ID (p1_id)")
+    all_ids = [body.p1_id, body.p2_id, body.p3_id]
+    _validate_full_test_chain(all_ids, [])
 
     # Ownership check — all sessions must belong to this user
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id, mode")
+            .select("id, mode, part, sitting_id, full_test_attempt_id")
             .in_("id", all_ids)
             .eq("user_id", user_id)
             .execute()
@@ -1334,6 +1762,22 @@ async def finalize_full_test(
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
+
+    _validate_full_test_chain(all_ids, s_res.data or [])
+
+    # Question rows are immutable once answers start. Reject an old/corrupted
+    # short set immediately instead of accepting it, waiting 210 seconds and
+    # silently aggregating a non-canonical 9/1/5 exam.
+    try:
+        q_res = (
+            supabase_admin.table("questions")
+            .select("id, session_id")
+            .in_("session_id", all_ids)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra bộ câu hỏi Full Test: {e}")
+    _validate_full_test_question_counts(all_ids, q_res.data or [])
 
     # Mark all sessions 'submitted' immediately — history shows "Đang phân tích"
     try:

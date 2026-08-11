@@ -43,7 +43,7 @@ describe('Sprint 18.3 — shared component library', () => {
   });
   test('library is token-driven, both themes (Pattern #25): av-* tokens, no hex literals', () => {
     assert.match(CSS, /--av-surface-card/);
-    assert.match(CSS, /--av-brand-teal-50/);
+    assert.match(CSS, /--av-primary-soft/);
     assert.doesNotMatch(CSS, /:\s*#[0-9a-fA-F]{3,6}\b/);
   });
 });

@@ -7,6 +7,9 @@ name: E2E modal smoke (advisory)
 # Runs in parallel with the Backend + Frontend (node --test) jobs.
 
 on:
+  # Sau khi merge — xem chú thích cùng chủ đề ở `parity-gate.yml`.
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'frontend/**'
@@ -15,8 +18,8 @@ on:
 jobs:
   e2e:
     name: E2E modal smoke (advisory)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -33,22 +36,46 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Verify Speaking Gate E matrix pins
+        run: node tooling/verify-gate-e-speaking-device-matrix.mjs
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+
       - name: Cache Playwright browsers
         uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
-      - name: Install chromium (cached after first run)
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium + WebKit (cached after first run)
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run modal smoke tests
         run: npx playwright test
+
+      - name: Run Speaking Gate E native fixtures
+        id: speaking_gate_e
+        if: always()
+        run: npm run test:e2e:gate-e
+
+      - name: Upload Speaking Gate E device-matrix evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-speaking-device-matrix-results.json
+            frontend/tooling/gate-e-speaking-device-matrix.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-report
-          path: frontend/playwright-report
+          name: playwright-e2e-failure-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: error
           retention-days: 7

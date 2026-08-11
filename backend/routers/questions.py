@@ -67,9 +67,9 @@ _FULL_TEST_PART1_COUNT = 9
 _FULL_TEST_PART3_COUNT = 5
 
 # ── Fallback questions ─────────────────────────────────────────────────────────
-# Used when Gemini is unavailable.  Intentionally NOT stored in the database so
-# that the next page-load retries Gemini rather than caching stale fallbacks.
-# The frontend detects `_fallback: True` and shows a warning banner.
+# Used when Gemini is unavailable or returns an incomplete exam set. Fallbacks
+# are persisted so every stored Full Test session has the exact canonical
+# question count; the response payload is tagged `_fallback` for the warning UI.
 
 _FALLBACK_PART1 = [
     {"question_text": "Do you enjoy spending time outdoors?",               "question_type": "personal"},
@@ -93,6 +93,8 @@ _FALLBACK_PART3 = [
     {"question_text": "Do you think tourism has a positive impact on local communities?", "question_type": "opinion"},
     {"question_text": "How has the way people travel changed over the past few decades?", "question_type": "comparison"},
     {"question_text": "What could governments do to make tourism more sustainable?",      "question_type": "solution"},
+    {"question_text": "Why do some destinations become more popular than others?",        "question_type": "analysis"},
+    {"question_text": "How might tourism change in the future?",                           "question_type": "prediction"},
 ]
 
 
@@ -138,12 +140,29 @@ def _make_fallback_rows(session_id: str, part: int, is_full_test: bool = False) 
         }]
 
     # part == 3
+    count = _FULL_TEST_PART3_COUNT if is_full_test else _PART3_COUNT
     return [
         {**base, "order_num": i + 1,
          "question_text": q["question_text"], "question_type": q["question_type"],
          "cue_card_bullets": None, "cue_card_reflection": None}
-        for i, q in enumerate(_FALLBACK_PART3)
+        for i, q in enumerate(_FALLBACK_PART3[:count])
     ]
+
+
+def _normalize_full_test_rows(
+    session_id: str,
+    part: int,
+    rows: list[dict],
+) -> tuple[list[dict], bool]:
+    """Return an exact-size Full Test set and whether fallback replaced it."""
+    expected = {1: _FULL_TEST_PART1_COUNT, 2: 1, 3: _FULL_TEST_PART3_COUNT}[part]
+    if len(rows) < expected:
+        logger.warning(
+            "[warn] Gemini returned incomplete Full Test part=%s: %d/%d — using fallback",
+            part, len(rows), expected,
+        )
+        return _make_fallback_rows(session_id, part, is_full_test=True), True
+    return rows[:expected], False
 
 
 # ── Library helper ────────────────────────────────────────────────────────────
@@ -402,6 +421,15 @@ async def generate_questions(
         logger.warning("[warn] Gemini returned empty list (part=%s, topic=%r) — using fallback", part, topic)
         rows = _make_fallback_rows(session_id, part, is_full_test=is_full_test)
         is_fallback = True
+
+    # A partial Gemini response must never become the persisted Full Test set.
+    # Once any rows exist, /generate returns them forever; persisting 7/9 or 3/5
+    # therefore strands the learner and makes finalization aggregate a shorter
+    # exam. Keep an over-complete answer by trimming it, but replace an
+    # incomplete set atomically with the known-complete fallback.
+    if is_full_test:
+        rows, normalized_with_fallback = _normalize_full_test_rows(session_id, part, rows)
+        is_fallback = is_fallback or normalized_with_fallback
 
     # ── Persist to DB (always — fallbacks also need real IDs for grading) ──────
     try:

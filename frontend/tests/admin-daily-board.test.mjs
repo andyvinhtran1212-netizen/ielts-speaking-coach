@@ -33,7 +33,8 @@ function load() {
 
   const nodes = {};
   const mk = () => ({ innerHTML: '', textContent: '', hidden: false });
-  for (const id of ['daily-board', 'board-scope', 'board-head', 'board-body', 'board-foot'])
+  for (const id of ['daily-board', 'board-scope', 'board-head', 'board-body',
+                    'board-foot', 'board-key'])
     nodes[id] = mk();
   const esc = (x) => String(x == null ? '' : x)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -50,40 +51,68 @@ function load() {
 const { renderDailyBoard, boardDay, tallyRow, nodes } = load();
 
 const cell = (state, over = {}) => ({ state, score: null, session_id: null, ...over });
+const task = (day, title, id) => ({ id, day, title, due_at: day + 'T12:00:00Z' });
 const board = (over = {}) => ({
-  days: ['2026-08-01', '2026-08-02'],
+  tasks: [task('2026-08-01', 'Sở thích', 't1'), task('2026-08-02', 'Quê nhà', 't2')],
   assignment_count: 2,
   students: [{ student_id: 's1', name: 'An', student_code: 'A1', activated: true,
                cells: [cell('done'), cell('missing')], done: 1, missing: 1,
-               avg_band: 6.5 }],
+               streak: 1, avg_band: 6.5 }],
   ...over,
 });
 
 describe('lưới ngày', () => {
-  test('một cột một ngày, kèm cột tên và cột tổng', () => {
+  test('một cột một BÀI GIAO, kèm cột tên và cột làm/thiếu', () => {
+    // Trục cũ là NGÀY, nên một ngày giao hai bài chỉ hiện được một — và một em
+    // nộp bài A mà bỏ bài B đọc thành "ngày ấy có làm".
     renderDailyBoard(board());
     const head = nodes['board-head'].innerHTML;
     assert.match(head, /Học viên/);
     assert.match(head, /01\/08/);
     assert.match(head, /02\/08/);
-    assert.match(head, /Đã nộp/);
+    assert.match(head, /làm \/ thiếu/);
+    assert.match(head, /Sở thích/, 'tên bài phải có ở đầu cột');
   });
 
-  test('mỗi trạng thái một KÝ TỰ riêng, không chỉ khác màu', () => {
-    // Lưới phân biệt bằng xanh/đỏ là lưới người mù màu không đọc được.
+  test('hai bài CÙNG NGÀY thành hai cột dưới một dải ngày', () => {
+    renderDailyBoard(board({
+      tasks: [task('2026-08-01', 'Sáng', 't1'), task('2026-08-01', 'Chiều', 't2'),
+              task('2026-08-02', 'Hôm sau', 't3')],
+      students: [{ ...board().students[0],
+                   cells: [cell('done'), cell('missing'), cell('done')] }],
+    }));
+    const head = nodes['board-head'].innerHTML;
+    assert.match(head, /colspan="2"/, 'hai bài cùng ngày gộp dưới MỘT ô ngày');
+    assert.match(head, /Sáng/);
+    assert.match(head, /Chiều/, 'bài thứ hai trong ngày KHÔNG được biến mất');
+  });
+
+  test('mỗi trạng thái phân biệt được KHÔNG cần màu', () => {
+    // Lưới phân biệt bằng xanh/đỏ là lưới người mù màu không đọc được. Ở đây
+    // dấu hiệu là hình dạng: band/○ cho đã nộp, gạch chân chấm cho nộp trễ,
+    // nền kín cho không nộp, gạch chéo cho không được giao, chấm cho chưa hạn.
     renderDailyBoard(board({
       students: [{ ...board().students[0],
                    cells: [cell('done'), cell('late'), cell('missing'),
                            cell('pending'), cell('none')] }],
-      days: ['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05'],
+      tasks: [task('2026-08-01', 'Bài 1', 't1'), task('2026-08-02', 'Bài 2', 't2'), task('2026-08-03', 'Bài 3', 't3'), task('2026-08-04', 'Bài 4', 't4'), task('2026-08-05', 'Bài 5', 't5')],
     }));
     const body = nodes['board-body'].innerHTML;
     const marks = [...body.matchAll(/data-state="(\w+)"[^>]*>([^<]*)</g)]
       .map((m) => [m[1], m[2].trim()]);
     const seen = new Map(marks);
-    assert.equal(new Set([...seen.values()].filter(Boolean)).size, 4,
-      'bốn trạng thái có thật phải có bốn ký tự khác nhau');
+    assert.equal(seen.get('pending'), '·');
+    assert.equal(seen.get('missing'), '', 'không nộp nói bằng NỀN, không bằng chữ');
     assert.equal(seen.get('none'), '', 'không được giao thì để trống');
+    // "đã nộp" và "nộp trễ" cùng hiện band, nên chỗ phân biệt phải nằm ở CSS và
+    // phải là thứ không phải màu.
+    const late = CSS.slice(CSS.indexOf("[data-state='late']"),
+                           CSS.indexOf("[data-state='late']") + 260);
+    assert.match(late, /text-decoration:\s*underline dotted/,
+      'nộp trễ chỉ khác đã-nộp bằng màu là người mù màu không đọc được');
+    // Hai trạng thái nói bằng nền phải là HAI nền khác nhau.
+    assert.match(CSS, /\[data-state='missing'\][\s\S]{0,120}background:\s*var\(--av-error-soft\)/);
+    assert.match(CSS, /\[data-state='none'\][\s\S]{0,160}repeating-linear-gradient/);
   });
 
   test('ô có bài thì bấm được để nghe', () => {
@@ -103,7 +132,8 @@ describe('lưới ngày', () => {
       students: [{ ...board().students[0],
                    cells: [cell('late', { score: 5.5 }), cell('missing')] }],
     }));
-    assert.match(nodes['board-body'].innerHTML, /title="An · 01\/08 · nộp trễ · band 5\.5"/);
+    assert.match(nodes['board-body'].innerHTML,
+      /title="An · 01\/08 · [^"]* — nộp trễ · band 5\.5"/);
   });
 
   test('học viên chưa kích hoạt được ĐÁNH DẤU, không đọc thành lười', () => {
@@ -113,27 +143,55 @@ describe('lưới ngày', () => {
     assert.match(nodes['board-body'].innerHTML, /chưa kích hoạt/);
   });
 
-  test('hàng có buổi bỏ bài được gắn cờ để liếc là thấy', () => {
-    renderDailyBoard(board());
-    assert.match(nodes['board-body'].innerHTML, /data-alarm="true"/);
+  test('cờ báo động theo QUÃNG ĐỨT, không theo tổng số bài bỏ', () => {
+    // Bỏ 3 bài rải rác là quên; bỏ 3 bài liên tiếp là em ấy đã rời đi. Gắn cờ
+    // theo tổng thì hai em ấy trông y hệt nhau.
     renderDailyBoard(board({
-      students: [{ ...board().students[0], cells: [cell('done'), cell('done')], missing: 0 }],
+      students: [{ ...board().students[0],
+                   cells: [cell('missing'), cell('done'), cell('missing')],
+                   missing: 2, streak: 1 }],
+      tasks: [task('2026-08-01', 'A', 't1'), task('2026-08-02', 'B', 't2'),
+              task('2026-08-03', 'C', 't3')],
     }));
-    assert.doesNotMatch(nodes['board-body'].innerHTML, /data-alarm/);
+    assert.doesNotMatch(nodes['board-body'].innerHTML, /data-alarm/,
+      'bỏ rải rác chưa phải đứt quãng');
+    renderDailyBoard(board({
+      students: [{ ...board().students[0],
+                   cells: [cell('missing'), cell('missing'), cell('done')],
+                   missing: 2, streak: 2 }],
+      tasks: [task('2026-08-01', 'A', 't1'), task('2026-08-02', 'B', 't2'),
+              task('2026-08-03', 'C', 't3')],
+    }));
+    assert.match(nodes['board-body'].innerHTML, /data-alarm="true"/);
+  });
+
+  test('cột tổng: số THIẾU được tô nhấn, số 0 thì không', () => {
+    // Một số 0 màu cảnh báo là báo động giả, và sau vài lần thì màu ấy hết nghĩa.
+    renderDailyBoard(board());
+    assert.match(nodes['board-body'].innerHTML, /av-board__miss" data-any="true"/);
+    renderDailyBoard(board({
+      students: [{ ...board().students[0],
+                   cells: [cell('done'), cell('done')], done: 2, missing: 0, streak: 0 }],
+    }));
+    assert.match(nodes['board-body'].innerHTML, /av-board__miss" data-any="false"/);
   });
 
   test('không có ngày nào thì ẨN hẳn, không hiện lưới rỗng', () => {
     // Lưới rỗng đọc như "lớp chưa có bài hằng ngày", mà sự thật có thể là chưa
     // đọc được.
-    renderDailyBoard({ days: [], students: [], assignment_count: 0 });
+    renderDailyBoard({ tasks: [], students: [], assignment_count: 0 });
     assert.equal(nodes['daily-board'].hidden, true);
   });
 
   test('chú giải nói đủ năm trạng thái', () => {
+    // Bảng nói bằng HÌNH DẠNG, nên phải có chỗ nói hình dạng nghĩa là gì —
+    // không thì mỗi giáo viên tự đoán một kiểu.
     renderDailyBoard(board());
+    const key = nodes['board-key'].innerHTML;
     for (const w of ['đã nộp', 'nộp trễ', 'không nộp', 'chưa tới hạn', 'không được giao']) {
-      assert.ok(nodes['board-foot'].textContent.includes(w), w);
+      assert.ok(key.includes(w), w);
     }
+    assert.match(key, /quãng đứt/, 'phải nói ra ý nghĩa của các ô liền nhau');
   });
 
   test('ngày rút gọn còn ngày/tháng — cột hẹp, năm dùng chung', () => {
@@ -348,5 +406,33 @@ describe('admin và học viên nhìn CÙNG một bản chấm (codex #940)', ()
     // Đây là bài do NGƯỜI KHÁC viết, đang vẽ trong trình duyệt của admin.
     const i = SRC2.indexOf('function cwMd');
     assert.match(SRC2.slice(i, i + 200), /esc\(x\)\.replace/);
+  });
+});
+
+describe('cuộn ngang không làm mất chỗ đứng', () => {
+  test('cột tên VÀ cột tổng đều dính, và không chồng lên nhau', () => {
+    // Cột tổng là câu trả lời; đọc nó mà phải cuộn ngược về là hỏng mất việc.
+    // Nhưng dính mà không biết bề ngang cột tên thì hai cột chồng lên nhau ở
+    // một sĩ số có tên dài.
+    assert.match(CSS, /--board-name-w:\s*\d+px/, 'phải KHAI bề ngang cột tên');
+    const name = CSS.slice(CSS.indexOf('.av-board__name,'),
+                           CSS.indexOf('.av-board__name,') + 420);
+    assert.match(name, /position: sticky/);
+    assert.match(name, /width: var\(--board-name-w\)/,
+      'cột tên phải ĐÚNG bề ngang đã khai, không co giãn theo tên');
+    const sum = CSS.slice(CSS.indexOf('.av-board__sum,'),
+                          CSS.indexOf('.av-board__sum,') + 420);
+    assert.match(sum, /position: sticky/);
+    assert.match(sum, /left: var\(--board-name-w/,
+      'cột tổng phải dính SAU cột tên, không dính chồng lên');
+  });
+
+  test('ô không nộp KHÔNG có đệm ngang — hai ô liền nhau phải nối liền', () => {
+    // Độ dài vệt chính là độ dài quãng đứt. Có đệm là vệt đứt đoạn, và cái
+    // bảng này mất đúng thứ nó sinh ra để nói.
+    const cell = CSS.slice(CSS.indexOf('.av-board__cell {'),
+                           CSS.indexOf('.av-board__cell {') + 220);
+    assert.match(cell, /padding:\s*0;/,
+      'đệm ngang dù chỉ 1px cũng làm vệt đứt đoạn — phải là 0 tuyệt đối');
   });
 });

@@ -29,7 +29,7 @@ import { SpeakingShell } from './page-shell';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
-  title: 'Speaking — AverLearning',
+  title: 'Speaking — Aver Learning',
   robots: { index: false, follow: false },
 };
 

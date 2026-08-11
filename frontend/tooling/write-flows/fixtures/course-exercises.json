@@ -1,0 +1,372 @@
+{
+  "kind": "course-exercises",
+  "bank_id": "3a7d1e94-6c28-4b51-9f83-0d62a4c7e5b1",
+  "item_id": "9c5e0b73-84a1-4d29-b6f0-3e17d8ca25f4",
+  "session_stage1": "11111111-1111-4111-8111-111111111111",
+  "session_new": "22222222-2222-4222-8222-222222222222",
+  "stage_size": 10,
+  "bank": {
+    "id": "3a7d1e94-6c28-4b51-9f83-0d62a4c7e5b1",
+    "title": "Buổi 1 — Ngữ pháp nền",
+    "skill_area": "course"
+  },
+  "questions": [
+    {
+      "qid": "C1-B01-001",
+      "item_key": "word01",
+      "prompt": "Chọn từ đúng cho chỗ trống số 1.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A1",
+        "đáp án B1",
+        "đáp án C1",
+        "đáp án D1"
+      ],
+      "answer": 1,
+      "explanation": "Giải thích ngắn cho câu 1."
+    },
+    {
+      "qid": "C1-B01-002",
+      "item_key": "word02",
+      "prompt": "Chọn từ đúng cho chỗ trống số 2.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A2",
+        "đáp án B2",
+        "đáp án C2",
+        "đáp án D2"
+      ],
+      "answer": 2,
+      "explanation": "Giải thích ngắn cho câu 2."
+    },
+    {
+      "qid": "C1-B01-003",
+      "item_key": "word03",
+      "prompt": "Chọn từ đúng cho chỗ trống số 3.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A3",
+        "đáp án B3",
+        "đáp án C3",
+        "đáp án D3"
+      ],
+      "answer": 3,
+      "explanation": "Giải thích ngắn cho câu 3."
+    },
+    {
+      "qid": "C1-B01-004",
+      "item_key": "word04",
+      "prompt": "Chọn từ đúng cho chỗ trống số 4.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A4",
+        "đáp án B4",
+        "đáp án C4",
+        "đáp án D4"
+      ],
+      "answer": 0,
+      "explanation": "Giải thích ngắn cho câu 4."
+    },
+    {
+      "qid": "C1-B01-005",
+      "item_key": "word05",
+      "prompt": "Chọn từ đúng cho chỗ trống số 5.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A5",
+        "đáp án B5",
+        "đáp án C5",
+        "đáp án D5"
+      ],
+      "answer": 1,
+      "explanation": "Giải thích ngắn cho câu 5."
+    },
+    {
+      "qid": "C1-B01-006",
+      "item_key": "word06",
+      "prompt": "Chọn từ đúng cho chỗ trống số 6.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A6",
+        "đáp án B6",
+        "đáp án C6",
+        "đáp án D6"
+      ],
+      "answer": 2,
+      "explanation": "Giải thích ngắn cho câu 6."
+    },
+    {
+      "qid": "C1-B01-007",
+      "item_key": "word07",
+      "prompt": "Chọn từ đúng cho chỗ trống số 7.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A7",
+        "đáp án B7",
+        "đáp án C7",
+        "đáp án D7"
+      ],
+      "answer": 3,
+      "explanation": "Giải thích ngắn cho câu 7."
+    },
+    {
+      "qid": "C1-B01-008",
+      "item_key": "word08",
+      "prompt": "Chọn từ đúng cho chỗ trống số 8.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A8",
+        "đáp án B8",
+        "đáp án C8",
+        "đáp án D8"
+      ],
+      "answer": 0,
+      "explanation": "Giải thích ngắn cho câu 8."
+    },
+    {
+      "qid": "C1-B01-009",
+      "item_key": "word09",
+      "prompt": "Chọn từ đúng cho chỗ trống số 9.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A9",
+        "đáp án B9",
+        "đáp án C9",
+        "đáp án D9"
+      ],
+      "answer": 1,
+      "explanation": "Giải thích ngắn cho câu 9."
+    },
+    {
+      "qid": "C1-B01-010",
+      "item_key": "word10",
+      "prompt": "Chọn từ đúng cho chỗ trống số 10.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A10",
+        "đáp án B10",
+        "đáp án C10",
+        "đáp án D10"
+      ],
+      "answer": 2,
+      "explanation": "Giải thích ngắn cho câu 10."
+    },
+    {
+      "qid": "C1-B01-011",
+      "item_key": "word11",
+      "prompt": "Chọn từ đúng cho chỗ trống số 11.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A11",
+        "đáp án B11",
+        "đáp án C11",
+        "đáp án D11"
+      ],
+      "answer": 3,
+      "explanation": "Giải thích ngắn cho câu 11."
+    },
+    {
+      "qid": "C1-B01-012",
+      "item_key": "word12",
+      "prompt": "Chọn từ đúng cho chỗ trống số 12.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A12",
+        "đáp án B12",
+        "đáp án C12",
+        "đáp án D12"
+      ],
+      "answer": 0,
+      "explanation": "Giải thích ngắn cho câu 12."
+    },
+    {
+      "qid": "C1-B01-013",
+      "item_key": "word13",
+      "prompt": "Chọn từ đúng cho chỗ trống số 13.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A13",
+        "đáp án B13",
+        "đáp án C13",
+        "đáp án D13"
+      ],
+      "answer": 1,
+      "explanation": "Giải thích ngắn cho câu 13."
+    },
+    {
+      "qid": "C1-B01-014",
+      "item_key": "word14",
+      "prompt": "Chọn từ đúng cho chỗ trống số 14.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A14",
+        "đáp án B14",
+        "đáp án C14",
+        "đáp án D14"
+      ],
+      "answer": 2,
+      "explanation": "Giải thích ngắn cho câu 14."
+    },
+    {
+      "qid": "C1-B01-015",
+      "item_key": "word15",
+      "prompt": "Chọn từ đúng cho chỗ trống số 15.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A15",
+        "đáp án B15",
+        "đáp án C15",
+        "đáp án D15"
+      ],
+      "answer": 3,
+      "explanation": "Giải thích ngắn cho câu 15."
+    },
+    {
+      "qid": "C1-B01-016",
+      "item_key": "word16",
+      "prompt": "Chọn từ đúng cho chỗ trống số 16.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A16",
+        "đáp án B16",
+        "đáp án C16",
+        "đáp án D16"
+      ],
+      "answer": 0,
+      "explanation": "Giải thích ngắn cho câu 16."
+    },
+    {
+      "qid": "C1-B01-017",
+      "item_key": "word17",
+      "prompt": "Chọn từ đúng cho chỗ trống số 17.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A17",
+        "đáp án B17",
+        "đáp án C17",
+        "đáp án D17"
+      ],
+      "answer": 1,
+      "explanation": "Giải thích ngắn cho câu 17."
+    },
+    {
+      "qid": "C1-B01-018",
+      "item_key": "word18",
+      "prompt": "Chọn từ đúng cho chỗ trống số 18.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A18",
+        "đáp án B18",
+        "đáp án C18",
+        "đáp án D18"
+      ],
+      "answer": 2,
+      "explanation": "Giải thích ngắn cho câu 18."
+    },
+    {
+      "qid": "C1-B01-019",
+      "item_key": "word19",
+      "prompt": "Chọn từ đúng cho chỗ trống số 19.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A19",
+        "đáp án B19",
+        "đáp án C19",
+        "đáp án D19"
+      ],
+      "answer": 3,
+      "explanation": "Giải thích ngắn cho câu 19."
+    },
+    {
+      "qid": "C1-B01-020",
+      "item_key": "word20",
+      "prompt": "Chọn từ đúng cho chỗ trống số 20.",
+      "type": "mcq",
+      "input": "choice",
+      "skill": "grammar",
+      "subtype": "collocation",
+      "options": [
+        "đáp án A20",
+        "đáp án B20",
+        "đáp án C20",
+        "đáp án D20"
+      ],
+      "answer": 0,
+      "explanation": "Giải thích ngắn cho câu 20."
+    }
+  ],
+  "mastery": {
+    "item_id": "9c5e0b73-84a1-4d29-b6f0-3e17d8ca25f4",
+    "passed_at": null,
+    "threshold": 0.8,
+    "retake_size": 10,
+    "retakes": 0
+  },
+  "resume": {
+    "session_id": null,
+    "answered": [],
+    "completed": [
+      "11111111-1111-4111-8111-111111111111"
+    ],
+    "stage": 1,
+    "last_stage": 0,
+    "item_id": "9c5e0b73-84a1-4d29-b6f0-3e17d8ca25f4"
+  }
+}

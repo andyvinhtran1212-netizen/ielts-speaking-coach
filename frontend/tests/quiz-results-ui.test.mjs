@@ -15,7 +15,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const QUIZ = read('pages', 'quiz.html');
-const PROG = read('pages', 'quiz-progress.html');
+// Logic của trang đã TÁCH sang `/js/quiz-progress.js` khi port sang Next: bản
+// Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định ở đây là
+// "nguồn trang có chứa X", nên nguồn trang nay = HTML + module của nó. Gộp
+// giữ ĐÚNG ý định cũ; ở tệp này không có khẳng định nào phụ thuộc THỨ TỰ
+// trong HTML (đã kiểm), nên gộp là an toàn.
+const PROG = read('pages', 'quiz-progress.html') + '\n' + read('js', 'quiz-progress.js');
 
 describe('quiz.html — option order is shuffled per (session, qid), grading by original index', () => {
   test('shuffles MCQ options (choice) but keeps syllable segments in authored order', () => {
@@ -93,14 +98,14 @@ describe('quiz.html — typo-tolerant accept shows the canonical spelling', () =
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.
-    assert.match(QUIZ, /back\.href = '\/pages\/vocab-practice\.html'/);
-    assert.match(QUIZ, /topBack\.href = '\/pages\/vocab-practice\.html'/);
+    assert.match(QUIZ, /back\.href = '\/vocabulary\/practice'/);
+    assert.match(QUIZ, /topBack\.href = '\/vocabulary\/practice'/);
     // The old ambiguous "back to /vocabulary.html (public wiki)" is gone.
     assert.doesNotMatch(QUIZ, /href="\/vocabulary\.html"/);
     assert.doesNotMatch(QUIZ, /\.href = '\/vocabulary\.html'/);
   });
   test('quiz-progress.html back → the picker (not the public wiki)', () => {
-    assert.match(PROG, /subpage-header__back" href="\/pages\/vocab-practice\.html"/);
+    assert.match(PROG, /subpage-header__back" href="\/vocabulary\/practice"/);
     assert.doesNotMatch(PROG, /subpage-header__back" href="\/vocabulary\.html"/);
   });
 });
@@ -128,7 +133,7 @@ describe('quiz.html — end-of-session result screen', () => {
     assert.match(QUIZ, /openCard\(key, el\)/);
   });
   test('actions still link to the stats page; old summary-body id retired', () => {
-    assert.match(QUIZ, /\/pages\/quiz-progress\.html/);
+    assert.match(QUIZ, /\/quiz\/progress/);
     assert.doesNotMatch(QUIZ, /id="qz-summary-body"/);
   });
 });

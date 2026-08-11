@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Lớp của tôi · Aver Learning</title>
+  <title>My Class · Aver Learning</title>
 
   <script>
     (function () {
@@ -92,23 +92,38 @@
     }
     .mc-rhythm__note { font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
 
+    /* HAI cột trên điện thoại, BỐN từ 640px.
+       Bản trước khai `repeat(4, 1fr)` ở cả hai nơi — câu lệnh @media đặt lại
+       đúng giá trị cũ nên nó không làm gì cả, và bốn ô số bị nhồi vào 360px:
+       mỗi ô còn ~80px sau khi trừ đệm, đủ để nhãn "Nộp đúng hạn" gãy làm ba
+       dòng và đẩy danh sách bài xuống dưới màn hình. */
     .mc-stats {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(2, 1fr);
+      row-gap: var(--av-space-4);
       margin: var(--av-space-6) 0;
       padding: var(--av-space-4) 0;
       border-top: 1px solid var(--av-border-subtle);
       border-bottom: 1px solid var(--av-border-subtle);
     }
-    @media (min-width: 640px) { .mc-stats { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 640px) {
+      .mc-stats { grid-template-columns: repeat(4, 1fr); row-gap: 0; }
+    }
     .mc-stat {
       display: flex;
       flex-direction: column;
       gap: 2px;
       padding: 0 var(--av-space-3);
       border-inline-end: 1px solid var(--av-border-subtle);
+      min-width: 0;                 /* nhãn dài co được, không đẩy giãn cột */
     }
-    .mc-stat:last-child { border-inline-end: 0; }
+    /* Kẻ dọc chỉ nằm GIỮA hai cột. Ở lưới 2 cột, `:last-child` không đủ: ô số
+       2 của mỗi hàng cũng là ô cuối hàng, và nó sẽ để lại một vạch cụt ở mép. */
+    .mc-stat:nth-child(2n) { border-inline-end: 0; }
+    @media (min-width: 640px) {
+      .mc-stat:nth-child(2n) { border-inline-end: 1px solid var(--av-border-subtle); }
+      .mc-stat:last-child    { border-inline-end: 0; }
+    }
     .mc-stat-num { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold);
       font-variant-numeric: tabular-nums; line-height: 1.1; }
     .mc-stat-label { color: var(--av-text-muted); font-size: var(--av-fs-xs);
@@ -154,14 +169,16 @@
     .mc-item-sub.is-alarm { color: var(--av-warning); }
     .mc-band { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
 
-    .mc-btn { display: inline-flex; align-items: center; justify-content: center;
-      padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700); color: var(--av-text-on-primary);
-      border: none; font: inherit; font-size: var(--av-fs-sm);
-      font-weight: var(--av-fw-semibold); text-decoration: none; cursor: pointer; }
-    .mc-btn:disabled { opacity: .6; cursor: default; }
-    .mc-btn-quiet { background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default); }
+    /* "Chưa hoàn tất" — em ấy đã làm chín chặng và chỉ còn một bước, nên nó
+       phải đọc ra khác hẳn một bài chưa mở. Mang mực, nhưng không phải màu lỗi:
+       em ấy không làm sai gì cả. */
+    .mc-partial {
+      font-weight: var(--av-fw-semibold);
+      /* KHÔNG dùng --av-accent: màu nhấn để dành cho ĐÚNG MỘT con số quan
+         trọng nhất trên mỗi màn. Đây là một nhãn trạng thái, không phải con
+         số — và tô nhấn hai chỗ là không tô nhấn chỗ nào. */
+      color: var(--av-warning);
+    }
 
     /* ── Lessons ─────────────────────────────────────────────────────── */
     .mc-lesson { border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
@@ -201,6 +218,9 @@
     [hidden] { display: none !important; }
     body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   </style>
+  <!-- Redesign layer: kept separate from the behavioural DOM contract so the
+       class page can evolve without turning its HTML into another CSS bundle. -->
+  <link rel="stylesheet" href="/css/my-class.css" />
 </head>
 <body class="av-page">
   <aver-chrome active="class"></aver-chrome>
@@ -210,8 +230,10 @@
 
     <!-- Không thuộc lớp nào: một trạng thái bình thường, không phải lỗi. -->
     <section id="mc-noclass" hidden>
-      <header class="mc-head">
-        <h1>Lớp của tôi</h1>
+      <header class="mc-head mc-head--empty">
+        <p class="mc-eyebrow">MY CLASS</p>
+        <h1>Không gian lớp học của bạn</h1>
+        <p class="mc-lead">Bài tập, deadline và nội dung từng buổi sẽ được gom về một nơi.</p>
       </header>
       <div class="mc-empty">
         Bạn chưa được xếp vào lớp nào. Khi giảng viên thêm bạn vào lớp, bài tập và
@@ -220,62 +242,80 @@
     </section>
 
     <div id="mc-content" hidden>
-      <header class="mc-head">
-        <h1 id="mc-class-name">Lớp của tôi</h1>
-        <div class="mc-course" id="mc-course"></div>
+      <header class="mc-hero">
+        <div class="mc-head">
+          <p class="mc-eyebrow">MY CLASS</p>
+          <h1 id="mc-class-name">Lớp của tôi</h1>
+          <div class="mc-course" id="mc-course"></div>
+          <p class="mc-lead">Theo dõi việc cần làm, nhịp nộp bài và nội dung mới nhất từ lớp.</p>
+        </div>
+        <section class="mc-stats" id="mc-stats" aria-label="Tổng quan bài tập"></section>
       </header>
 
       <div class="mc-warn" id="mc-degraded" hidden></div>
 
       <!-- Đếm ngược tới hạn gần nhất — chỉ hiện khi thật sự còn bài chưa nộp. -->
       <section class="mc-due-now" id="mc-due-now" hidden>
-        <div>
+        <div class="mc-due-now__task">
+          <p class="mc-kicker">Ưu tiên tiếp theo</p>
           <h2 id="mc-due-title">—</h2>
           <p class="mc-item-sub" id="mc-due-sub"></p>
         </div>
-        <div>
+        <div class="mc-due-now__clock">
           <div class="mc-countdown" id="mc-countdown" role="timer" aria-live="polite">—</div>
           <div class="mc-countdown-label" id="mc-countdown-label"></div>
         </div>
-        <button class="mc-btn" id="mc-due-start" type="button">Làm bài</button>
+        <button class="av-button av-button-primary" id="mc-due-start" type="button">Làm bài</button>
       </section>
 
-      <!-- NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một vạch.
-           Lớp giao bài gần như mỗi ngày, nên câu hỏi thật của học viên không
-           phải "hạn hôm nay là mấy giờ" mà là "mình có đang đều không". Bốn ô
-           thống kê trả lời được câu đầu, không trả lời được câu sau. -->
-      <section class="mc-rhythm" id="mc-rhythm" hidden aria-label="Nhịp nộp bài 14 ngày gần nhất">
-        <span class="mc-rhythm__label">Nhịp 14 ngày</span>
-        <span class="mc-rhythm__row" id="mc-rhythm-row"></span>
-        <span class="mc-rhythm__note" id="mc-rhythm-note"></span>
-      </section>
+      <div class="mc-layout">
+        <div class="mc-worklist">
+          <div class="mc-section-head">
+            <div>
+              <p class="mc-kicker">Bài tập của bạn</p>
+              <h2>Việc cần làm</h2>
+            </div>
+            <p>Ưu tiên theo deadline, sau đó mới tới lịch sử đã nộp.</p>
+          </div>
 
-      <section class="mc-stats" id="mc-stats"></section>
+          <section class="mc-group" id="mc-group-missing" hidden>
+            <h2>Quá hạn chưa nộp</h2>
+            <div class="mc-list" id="mc-missing"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-missing" hidden>
-        <h2>Quá hạn chưa nộp</h2>
-        <div class="mc-list" id="mc-missing"></div>
-      </section>
+          <section class="mc-group" id="mc-group-todo" hidden>
+            <h2>Cần nộp</h2>
+            <div class="mc-list" id="mc-todo"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-todo" hidden>
-        <h2>Cần nộp</h2>
-        <div class="mc-list" id="mc-todo"></div>
-      </section>
+          <section class="mc-group" id="mc-group-done" hidden>
+            <h2>Đã nộp</h2>
+            <div class="mc-list" id="mc-done"></div>
+          </section>
 
-      <section class="mc-group" id="mc-group-done" hidden>
-        <h2>Đã nộp</h2>
-        <div class="mc-list" id="mc-done"></div>
-      </section>
+          <section class="mc-group" id="mc-group-empty" hidden>
+            <h2>Bài tập</h2>
+            <div class="mc-empty">Chưa có bài tập nào. Khi giảng viên giao bài, bài sẽ hiện ở đây.</div>
+          </section>
+        </div>
 
-      <section class="mc-group" id="mc-group-empty" hidden>
-        <h2>Bài tập</h2>
-        <div class="mc-empty">Chưa có bài tập nào. Khi giảng viên giao bài, bài sẽ hiện ở đây.</div>
-      </section>
+        <aside class="mc-aside" aria-label="Nhịp học và nội dung buổi học">
+          <!-- NHỊP LỚP — 14 ngày gần nhất, mỗi ngày một vạch. -->
+          <section class="mc-rhythm" id="mc-rhythm" hidden aria-label="Nhịp nộp bài 14 ngày gần nhất">
+            <span class="mc-rhythm__label">Nhịp 14 ngày</span>
+            <span class="mc-rhythm__row" id="mc-rhythm-row"></span>
+            <span class="mc-rhythm__note" id="mc-rhythm-note"></span>
+          </section>
 
-      <section class="mc-group" id="mc-group-lessons" hidden>
-        <h2>Buổi học</h2>
-        <div class="mc-list" id="mc-lessons"></div>
-      </section>
+          <section class="mc-group mc-lessons-panel" id="mc-group-lessons" hidden>
+            <div class="mc-lessons-head">
+              <p class="mc-kicker">Từ giảng viên</p>
+              <h2>Buổi học</h2>
+            </div>
+            <div class="mc-list" id="mc-lessons"></div>
+          </section>
+        </aside>
+      </div>
     </div>
   </main>
 

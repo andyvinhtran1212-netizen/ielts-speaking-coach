@@ -100,6 +100,42 @@
 .ftr-error-title { color: var(--av-error); }
 .ftr-error-msg   { color: var(--av-text-muted); }
 
+.ftr-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto var(--av-space-4);
+  border-radius: var(--av-radius-pill);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-bold);
+}
+.ftr-state-icon--error {
+  background: var(--av-error-soft);
+  color: var(--av-error);
+}
+.ftr-state-icon--warning {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}
+.ftr-state-icon--neutral {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+.ftr-state-title { color: var(--av-text-primary); }
+
+.ftr-chain-notice {
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-warning-soft);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  line-height: 1.6;
+}
+
 
 /* ── Spinner ─────────────────────────────────────────────────────── */
 
@@ -131,12 +167,53 @@
 .ftr-hero-sub           { color: var(--av-text-muted); }
 .ftr-section-title      { color: var(--av-text-primary); }
 
+.ftr-hero {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 10%, var(--av-primary-soft), transparent 40%),
+    var(--av-surface-card);
+  box-shadow: var(--av-shadow-md);
+}
+
+.ftr-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.75fr) minmax(340px, 1.25fr);
+  align-items: center;
+  gap: var(--av-space-12);
+}
+
+.ftr-score-summary {
+  min-width: 0;
+  text-align: left;
+}
+
+.ftr-score-summary__status {
+  display: inline-flex;
+  margin: 0 0 var(--av-space-6);
+  padding: var(--av-space-1) var(--av-space-3);
+  color: var(--av-success);
+  background: var(--av-success-soft);
+  border: 1px solid var(--av-success);
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+}
+
+.ftr-criteria-panel {
+  min-width: 0;
+  padding: var(--av-space-6);
+  text-align: left;
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+}
+
 /* Band hero numeric — gradient between primary and info so the value
    pops in both light + dark. background-clip: text means the text color
    IS the gradient, so the Sprint 6.7.1 inverse-on-brand concern does not
    apply (no solid CTA bg behind it). */
 .band-hero {
-  font-size: 88px;
+  font-size: clamp(64px, 7vw, 88px);
   font-weight: 900;
   font-family: var(--av-font-mono);
   line-height: 1;
@@ -296,6 +373,62 @@
 .ftr-pron-total-label { color: var(--av-text-primary); }
 .ftr-pron-total-value { color: var(--av-primary); }
 
+.ftr-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: stretch;
+  gap: var(--av-space-4);
+}
+
+.ftr-analysis-grid > .card {
+  min-width: 0;
+  height: 100%;
+}
+
+.ftr-analysis-hint {
+  margin: calc(-1 * var(--av-space-2)) 0 var(--av-space-4);
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-relaxed);
+}
+
+.ftr-pron-score {
+  display: flex;
+  align-items: baseline;
+  color: var(--av-primary);
+  font-family: var(--av-font-mono);
+}
+.ftr-pron-score strong {
+  font-size: var(--av-fs-3xl);
+  line-height: 1;
+}
+.ftr-pron-score span {
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+}
+.ftr-pron-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--av-space-4);
+}
+.ftr-pron-metric {
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-elevated);
+}
+.ftr-pron-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-border-subtle);
+}
+.ftr-pron-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--av-primary), var(--av-info));
+}
+
 
 /* ── Empty placeholders ──────────────────────────────────────────── */
 
@@ -314,6 +447,65 @@
   font-size: var(--av-fs-xs);
 }
 
+.ftr-action-bar {
+  position: sticky;
+  bottom: var(--av-space-4);
+  z-index: 10;
+  padding: var(--av-space-4);
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  box-shadow: var(--av-shadow-lg);
+}
+
+.ftr-action-bar .ftr-icon-btn,
+.ftr-action-bar .ftr-detail-link {
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .ftr-hero-grid,
+  .ftr-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ftr-score-summary {
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .ftr-hero {
+    padding: var(--av-space-6);
+  }
+
+  .ftr-hero-grid {
+    gap: var(--av-space-6);
+  }
+
+  .ftr-criteria-panel {
+    padding: var(--av-space-4);
+  }
+
+  .ftr-analysis-grid > .card {
+    padding: var(--av-space-4);
+  }
+
+  .ftr-action-bar {
+    position: static;
+  }
+
+  .ftr-action-bar nav {
+    display: grid;
+  }
+
+  .ftr-action-bar .ftr-icon-btn,
+  .ftr-action-bar .ftr-detail-link,
+  .ftr-action-bar #detail-links {
+    width: 100%;
+  }
+}
+
 
 /* ── Fade-in animation ───────────────────────────────────────────── */
 
@@ -327,6 +519,29 @@
 .fade-up-3 { animation-delay: 0.20s; }
 .fade-up-4 { animation-delay: 0.28s; }
 .fade-up-5 { animation-delay: 0.36s; }
+
+.ftr-toast {
+  position: fixed;
+  right: var(--av-space-4);
+  bottom: var(--av-space-4);
+  z-index: 60;
+  max-width: min(420px, calc(100vw - var(--av-space-8)));
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-primary-border);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-elevated);
+  box-shadow: var(--av-shadow-lg);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+}
+
+@media (max-width: 640px) {
+  .ftr-header__sep,
+  .ftr-header .eyebrow,
+  .ftr-header__date { display: none; }
+  .band-hero { font-size: 68px; }
+  .ftr-pron-grid { grid-template-columns: 1fr; }
+}
 
 
 /* ── Sprint 6.5.1 — ds.css legacy-class overrides ─────────────────

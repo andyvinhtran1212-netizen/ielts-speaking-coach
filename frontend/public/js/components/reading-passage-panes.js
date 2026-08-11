@@ -121,6 +121,7 @@
     var order = [['original', 'Văn bản gốc']];
     if (hasVi) order.push(['translation', 'Bài dịch']);
     if (hasGrammar) order.push(['grammar', 'Phân tích grammar']);
+    bar.setAttribute('data-count', String(order.length));
     order.forEach(function (pair) {
       var b = _btn(pair[1], pair[0]);
       buttons[pair[0]] = b;

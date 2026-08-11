@@ -30,85 +30,7 @@
   <script src="/js/api.js"></script>
   <script type="module" src="/js/components/aver-chrome.js"></script>
 
-  <style>
-    .lt-shell {
-      max-width: 960px; margin: 0 auto;
-      padding: 0 var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
-    }
-    .lt-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
-    .lt-header .accent { color: var(--av-brand-teal-700); }
-    .lt-header .subtitle {
-      color: var(--av-text-secondary);
-      font-size: var(--av-fs-base);
-      line-height: var(--av-lh-normal);
-    }
-    .lt-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--av-space-4);
-    }
-    .lt-card {
-      padding: var(--av-space-6);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card);
-      display: flex; flex-direction: column; gap: var(--av-space-3);
-      min-width: 0;
-    }
-    .lt-card-title {
-      font-size: var(--av-fs-lg);
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary);
-      word-break: break-word;
-    }
-    .lt-card-meta {
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-widest);
-    }
-    .lt-card-stats {
-      display: flex; gap: var(--av-space-4);
-      font-size: var(--av-fs-sm);
-      color: var(--av-text-secondary);
-    }
-    .lt-card-stats strong {
-      color: var(--av-brand-teal-700);
-      font-weight: var(--av-fw-semibold);
-    }
-    .lt-card-cta {
-      display: inline-block;
-      margin-top: var(--av-space-2);
-      padding: var(--av-space-3) var(--av-space-6);
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      text-align: center;
-      font-weight: var(--av-fw-semibold);
-      text-decoration: none;
-    }
-    .lt-card-cta:hover { background: var(--av-brand-teal-800); }
-    .lt-card-cta.secondary {
-      background: transparent;
-      color: var(--av-brand-teal-700);
-      border: 1px solid var(--av-brand-teal-200);
-    }
-    .empty-state, .error-banner {
-      padding: var(--av-space-8); text-align: center;
-      border: 1px dashed var(--av-border-default);
-      border-radius: var(--av-radius-lg);
-      color: var(--av-text-secondary);
-    }
-    .error-banner {
-      padding: var(--av-space-3) var(--av-space-4);
-      background: var(--av-error-soft); color: var(--av-error);
-      border: 1px solid var(--av-error); font-size: var(--av-fs-sm);
-      text-align: left;
-    }
-    [hidden] { display: none !important; }
-  </style>
+  <link rel="stylesheet" href="/css/listening-mini-test.css" />
 </head>
 <body class="av-page">
 
@@ -117,13 +39,27 @@
   <div class="shell">
     <main class="lt-shell">
       <header class="lt-header">
-        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại Listening</a></p>
-        <h1>Listening <span class="accent">Mini Tests</span></h1>
+        <a class="lt-back" href="/listening">← Quay lại Listening</a>
+        <p class="eyebrow">LUYỆN NGHE THEO CHẶNG NGẮN</p>
+        <h1>Mini test, <span class="accent">một section mỗi lượt</span></h1>
         <p class="subtitle">
-          Bài thi ngắn — 1 section, số câu tùy bài, sát đề thật. Cùng giao diện
-          làm bài &amp; chữa bài (kèm nghe lại đúng đoạn audio) như Full Test,
-          chấm điểm + band ước tính sau khi nộp.
+          Tập trung trọn vẹn vào một section, nhận điểm ngay sau khi nộp rồi
+          quay lại đúng đoạn audio để hiểu vì sao mình nghe sai.
         </p>
+        <div class="lt-summary" id="lt-summary" hidden aria-live="polite">
+          <div class="lt-summary__item">
+            <span class="lt-summary__value" id="lt-total-count">0</span>
+            <span class="lt-summary__label">Bài đang mở</span>
+          </div>
+          <div class="lt-summary__item">
+            <span class="lt-summary__value" id="lt-new-count">0</span>
+            <span class="lt-summary__label">Chưa làm</span>
+          </div>
+          <div class="lt-summary__item">
+            <span class="lt-summary__value" id="lt-done-count">0</span>
+            <span class="lt-summary__label">Đã luyện</span>
+          </div>
+        </div>
       </header>
 
       <div class="empty-state" id="state-loading">Đang tải danh sách mini tests…</div>
@@ -133,7 +69,21 @@
       </div>
       <div class="error-banner" id="state-error" hidden></div>
 
-      <section id="lt-grid" class="lt-grid" hidden></section>
+      <section class="lt-library" id="lt-library" hidden aria-labelledby="lt-library-title">
+        <div class="lt-toolbar">
+          <div>
+            <p class="eyebrow">THƯ VIỆN MINI TEST</p>
+            <h2 id="lt-library-title">Chọn bài để bắt đầu</h2>
+          </div>
+          <div class="lt-filter" role="group" aria-label="Lọc mini test">
+            <button class="lt-filter__button is-active" type="button" data-filter="all" aria-pressed="true">Tất cả</button>
+            <button class="lt-filter__button" type="button" data-filter="new" aria-pressed="false">Chưa làm</button>
+            <button class="lt-filter__button" type="button" data-filter="done" aria-pressed="false">Đã luyện</button>
+          </div>
+        </div>
+        <p class="lt-visible-count" id="lt-visible-count" aria-live="polite"></p>
+        <div id="lt-grid" class="lt-grid"></div>
+      </section>
     </main>
   </div>
 

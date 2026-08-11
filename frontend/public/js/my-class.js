@@ -97,11 +97,41 @@ function taskSub(a) {
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
+/**
+ * Xong phần trắc nghiệm nhưng CHƯA nộp tự luận.
+ *
+ * `passed_at` do cổng thuộc-bài ghi khi em ấy qua phần trắc nghiệm; `submitted_at`
+ * nay CHỈ được ghi khi nộp phần tự luận (bộ đề nào có phần ấy). Hai cờ lệch nhau
+ * đúng bằng khoảng "còn mười câu chưa động tới".
+ *
+ * Không nói ra thì bài nằm im ở "Cần nộp" y như một bài chưa mở — mà em ấy đã
+ * làm chín chặng rồi, và chỉ còn một bước.
+ */
+const awaitingWriting = (a) => a.assignment.skill === 'course'
+  // Máy chủ nói bộ đề này CÓ phần tự luận hay không — không suy từ hai cờ kia.
+  // Một lượt ghi sổ hỏng (best-effort) ở bộ đề KHÔNG có tự luận cũng cho ra
+  // đúng hình dạng `passed_at && !submitted_at`, và học viên đọc thành "còn
+  // phần tự luận" cho một phần không tồn tại (codex cục bộ 06/08).
+  && !!a.writing_expected
+  && !!a.passed_at && !a.submitted_at;
+
 function itemRow(a, { action }) {
   const sub = taskSub(a);
+  const isPartial = awaitingWriting(a);
+  const state = a.submitted_at ? 'done' : a.is_missing ? 'missing' : 'todo';
+  const stateLabel = a.submitted_at ? (a.is_late ? 'Đã nộp trễ' : 'Đã nộp')
+    : a.is_missing ? 'Đã quá hạn'
+      : isPartial ? 'Còn phần tự luận' : 'Cần hoàn thành';
+  // `typeof` keeps the small extracted unit-test harness honest while the real
+  // page still consumes the shared map declared above.
+  const kindLabel = (typeof SKILL_LABEL !== 'undefined' && SKILL_LABEL[a.assignment.skill])
+    || a.assignment.skill || 'Bài tập';
   const meta = a.submitted_at
     ? submittedLabel(a)
-    : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
+    : isPartial
+      ? `<span class="mc-partial">Chưa hoàn tất — còn phần tự luận</span>`
+        + ` · ${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`
+      : `${esc(dueLabel(a.assignment.due_at))}${a.is_missing ? ' · quá hạn' : ''}`;
   // Quá hạn thì KHÔNG có nút. Hạn nộp nay là tuyệt đối — bấm vào chỉ để nhận
   // 409 sau một vòng gọi mạng, và một nút chỉ-để-thất-bại tệ hơn không có nút:
   // học viên bấm mấy lần rồi tưởng lỗi ở máy mình.
@@ -116,12 +146,16 @@ function itemRow(a, { action }) {
   const canReview = a.assignment.skill === 'speaking'
     && (a.submitted_at || (a.is_missing && a.state !== 'assigned'));
   const btn = canReview
-    ? `<button class="mc-btn mc-btn-quiet" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
+    ? `<button class="av-button av-button-secondary" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
     : (action && !a.is_missing)
-      ? `<button class="mc-btn" data-action="start" data-item="${esc(a.item_id)}">Làm bài</button>`
+      ? `<button class="av-button av-button-primary" data-action="start" data-item="${esc(a.item_id)}">${isPartial ? 'Tiếp tục bài' : 'Làm bài'}</button>`
       : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
+      <div class="mc-item-meta">
+        <span class="mc-item-kind">${esc(kindLabel)}</span>
+        <span class="mc-item-state" data-state="${state}">${esc(stateLabel)}</span>
+      </div>
       <p class="mc-item-title">${esc(a.assignment.title)}</p>
       ${sub ? `<p class="mc-item-sub">${esc(sub)}</p>` : ''}
       <p class="mc-item-sub${a.is_missing ? ' is-alarm' : ''}">${meta}</p>
@@ -487,8 +521,8 @@ function render() {
   //
   // Two different problems, two different sentences. A block that did not load
   // shows nothing and reloading is the fix. `homework_stale` is the opposite:
-  // the list IS here and looks complete, but a Reading/Listening hand-in may
-  // not be folded in yet — so a task the student has already done can still be
+  // the list IS here and looks complete, but a hand-in of ANY skill may not be
+  // folded in yet — so a task the student has already done can still be
   // sitting under "Cần nộp", and telling them to reload would send them to
   // retake work they finished.
   const degraded = d.degraded || [];
@@ -501,7 +535,9 @@ function render() {
       + '. Tải lại trang để thử lại.');
   }
   if (stale) {
-    notes.push('Bài Reading/Listening bạn vừa nộp có thể chưa hiện ở đây. '
+    // Không nêu tên kỹ năng: cờ này bật cho mọi đường vá sổ, nên nhắc riêng
+    // hai kỹ năng sẽ khiến em ấy yên tâm về đúng những kỹ năng đang cũ.
+    notes.push('Bài bạn vừa nộp có thể chưa hiện ở đây. '
       + 'Nếu đã làm xong, không cần làm lại.');
   }
   $('mc-degraded').hidden = notes.length === 0;

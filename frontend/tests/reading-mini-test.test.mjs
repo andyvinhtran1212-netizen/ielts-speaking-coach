@@ -44,7 +44,7 @@ describe('Mini test — 2-way library segregation in the UI', () => {
   it('all four library tabs link to the mini page', () => {
     for (const f of ['reading-vocab.html', 'reading-skill.html', 'reading-test.html']) {
       const html = read('pages', f);
-      assert.match(html, /href="\/pages\/reading-mini-test\.html">Mini Tests<\/a>/,
+      assert.match(html, /href="\/reading\/mini-test">Mini Tests<\/a>/,
         `${f} missing Mini Tests tab`);
     }
     // The mini page marks its own tab active.

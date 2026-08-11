@@ -76,12 +76,29 @@ const LUCIDE_HYDRATE = `
     hydrateIcons();
   }
   window.addEventListener('load', hydrateIcons);
+  // Ve lai icon khi DOI THEME. Bo doi theme thay icon theo [data-theme], va
+  // module cua trang co the chen [data-lucide] moi sau do — khong co dong nay
+  // thi icon dung nguyen o theme cu.
+  //
+  // 6/9 trang legacy co lucide deu co doan nay; khung dung chung thi KHONG, nen
+  // /speaking MAT hanh vi do tu luc port ma khong cong nao bat (parity so DOM
+  // TINH — chuyen nay chi xay ra luc nguoi dung bam nut doi theme).
+  //
+  // KHONG dung dau backtick trong khoi nay: no nam TRONG template literal, mot
+  // dau backtick se dong chuoi som va lam vo ca tep (da xay ra).
+  //
+  // An toan cho trang khac: createIcons() chi quet [data-lucide], ma cay React
+  // cua ta nhung thang SVG nen khong con the nao — no thanh no-op.
+  new MutationObserver(hydrateIcons)
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 })();
 `.trim();
 
 export function AuthedShell({
   pageStylesheets,
   extraScripts,
+  utilityLayer = true,
+  bodyClass = 'av-page font-sans min-h-screen',
   children,
 }: {
   /**
@@ -97,6 +114,26 @@ export function AuthedShell({
    * #930). Loại đó phải port vào tầng behavior, chạy sau khi xác nhận đăng nhập.
    */
   extraScripts?: ReactNode;
+  /**
+   * Nạp `ds.css` + `tailwind.build.css` hay không. MẶC ĐỊNH có, vì ba trang
+   * port trước đều cần utilities.
+   *
+   * ĐẶT `false` cho trang legacy KHÔNG nạp hai tệp đó. Không phải chuyện gọn
+   * gàng — lớp reset của Tailwind ĐỔI GIAO DIỆN: `h1 { font-weight: inherit }`,
+   * `a { text-decoration: inherit }`, `h1,p { margin: 0 }`. Đo trên
+   * `/reading/vocab`: tiêu đề thành 400 thay vì 700, link mất gạch chân, và 2
+   * chỗ lề khác đi — 5 phần tử lệch tổng cộng. Không phép so DOM nào bắt được
+   * vì cấu trúc y hệt, chỉ style tính ra khác (Codex nêu h1 ở #951; bốn cái
+   * còn lại tìm ra khi quét toàn trang bằng `getComputedStyle`).
+   */
+  utilityLayer?: boolean;
+  /**
+   * Class gắn vào `<body>`. Mặc định giữ nguyên chuỗi cũ để ba trang đã port
+   * không đổi. Trang legacy có body class KHÁC NHAU (`reading-vocab` chỉ có
+   * `av-page`, `speaking` có tận sáu class) nên nó phải là tham số; ghi cứng
+   * một chuỗi là ép mọi trang giống nhau bất kể bản gốc.
+   */
+  bodyClass?: string;
   children: ReactNode;
 }) {
   return (
@@ -116,11 +153,11 @@ export function AuthedShell({
           trang; Tailwind tĩnh CUỐI CÙNG để utilities/.hidden thắng — P0-3 C-3.4) */}
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
-      <link rel="stylesheet" href="/css/ds.css" />
+      {utilityLayer && <link rel="stylesheet" href="/css/ds.css" />}
       {pageStylesheets.map((href) => (
         <link key={href} rel="stylesheet" href={href} />
       ))}
-      <link rel="stylesheet" href="/css/tailwind.build.css" />
+      {utilityLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
 
       {/* Cùng CDN pin với legacy (lucide@1.17.0, supabase-js@2.107.0) */}
       <script src="https://unpkg.com/lucide@1.17.0" defer />
@@ -156,7 +193,7 @@ export function AuthedShell({
           trang legacy: `<body class="av-page font-sans min-h-screen">`. */}
       <script
         dangerouslySetInnerHTML={{
-          __html: "document.body.className += ' av-page font-sans min-h-screen';",
+          __html: `document.body.className += ' ${bodyClass}';`,
         }}
       />
       <AuthProvider>{children}</AuthProvider>

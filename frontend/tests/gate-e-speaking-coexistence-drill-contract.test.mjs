@@ -1,0 +1,177 @@
+/** Gate E live Speaking drill must remain phased, fail-closed and evidence-honest. */
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { validatePhaseLineage } from '../tooling/gate-e-speaking-coexistence-lineage.mjs';
+import { validatePreviousPhaseHandoff } from '../tooling/validate-gate-e-speaking-coexistence-handoff.mjs';
+
+const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const ROOT = path.dirname(FRONTEND);
+const read = (relativePath) => readFileSync(path.join(ROOT, relativePath), 'utf8');
+const json = (relativePath) => JSON.parse(read(relativePath));
+
+const MANIFEST = json('frontend/tooling/gate-e-speaking-coexistence-drill.json');
+const CONFIG = read('frontend/playwright.speaking-coexistence.config.js');
+const SPEC = read('frontend/tests/speaking-coexistence-drill/staging-speaking-coexistence.spec.js');
+const WORKFLOW = read('.github/workflows/speaking-coexistence-drill.yml');
+const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
+const PROVENANCE = read('frontend/tooling/capture-gate-e-staging-provenance.mjs');
+const LINEAGE = read('frontend/tooling/gate-e-speaking-coexistence-lineage.mjs');
+const HANDOFF = read('frontend/tooling/validate-gate-e-speaking-coexistence-handoff.mjs');
+const HEALTH = read('backend/routers/health.py');
+const FLOOR = '1'.repeat(40);
+const CUTOVER = '2'.repeat(40);
+const OTHER = '3'.repeat(40);
+const LEGACY_SESSION = '11111111-1111-4111-8111-111111111111';
+
+describe('Speaking coexistence drill contract', () => {
+  test('manifest pins the three ordered phases and required handoff identities', () => {
+    assert.equal(MANIFEST.drill_id, 'gate-e-speaking-coexistence-v1');
+    assert.deepEqual(MANIFEST.phases.map((item) => item.phase), ['floor', 'cutover', 'rollback']);
+    assert.deepEqual(MANIFEST.phases.map((item) => item.expected_admission), ['legacy', 'next', 'legacy']);
+    assert.equal(MANIFEST.phases[1].required_previous_session, 'legacy_session_id');
+    assert.equal(MANIFEST.phases[2].required_previous_session, 'next_session_id');
+    assert.ok(!MANIFEST.required_evidence.includes('floor_dark_next_url'));
+    assert.deepEqual(MANIFEST.conditional_evidence.floor, ['floor_dark_next_url']);
+    assert.match(MANIFEST.status, /artifacts-pending/);
+  });
+
+  test('runner is serial, retry-free and checks deployed SHA before browser evidence', () => {
+    assert.match(CONFIG, /workers:\s*1/);
+    assert.match(CONFIG, /retries:\s*0/);
+    assert.match(CONFIG, /screenshot: 'off'/);
+    assert.match(CONFIG, /trace: 'off'/);
+    assert.match(SPEC, /deployedFrontend[\s\S]*?toBe\(SOURCE_SHA\)/);
+    assert.match(SPEC, /PHASE === 'floor'[\s\S]*?SOURCE_SHA\)\.toBe\(FLOOR_SHA\)/);
+    assert.match(SPEC, /PHASE === 'cutover'[\s\S]*?SOURCE_SHA\)\.not\.toBe\(FLOOR_SHA\)/);
+    assert.match(SPEC, /PHASE === 'rollback'[\s\S]*?SOURCE_SHA\)\.toBe\(FLOOR_SHA\)/);
+    assert.match(SPEC, /LINEAGE_VERIFIED\)\.toBe\('true'\)/);
+    assert.match(SPEC, /HANDOFF_VERIFIED\)\.toBe\('true'\)/);
+    assert.match(SPEC, /assertEvidenceContract\(evidence\)/);
+    assert.match(SPEC, /EVIDENCE_MANIFEST\.required_evidence/);
+    assert.match(SPEC, /EVIDENCE_MANIFEST\.conditional_evidence\[PHASE\]/);
+    assert.match(SPEC, /PREVIOUS_LEGACY\)\.toMatch\(UUID\)/);
+    assert.match(SPEC, /PREVIOUS_NEXT\)\.toMatch\(UUID\)/);
+    assert.doesNotMatch(SPEC, /test\.skip/);
+  });
+
+  test('each phase proves admission, old URL reload/copy and canonical backend truth', () => {
+    assert.match(SPEC, /createThroughAdmission/);
+    assert.match(SPEC, /probeStableUrl/);
+    assert.match(SPEC, /PHASE === 'floor'[\s\S]*?previousPath = created\.expectedPath/);
+    assert.match(SPEC, /probeStableUrl\(context, '\/practice\/session', created\.sessionId\)/);
+    assert.match(SPEC, /await tab\.reload\(\)/);
+    assert.match(SPEC, /await copied\.goto\(exactUrl\)/);
+    assert.match(SPEC, /canonicalSession/);
+    assert.match(SPEC, /expect\(runtimeEnvironment\)\.toBe\('staging'\)/);
+    assert.match(SPEC, /expect\(runtimeApiBase\)\.toBe\(STAGING_API\)/);
+    assert.match(SPEC, /backend\.git_sha\)\.toBe\(SOURCE_SHA\)/);
+    assert.match(SPEC, /backend\.git_branch\)\.toBe\('staging'\)/);
+    assert.match(SPEC, /PHASE === 'floor' \? \{ floor_dark_next_url: floorDarkNextUrl \} : \{\}/);
+    assert.match(SPEC, /\/health\/runtime/);
+    assert.match(SPEC, /reload_and_copy_url_passed:\s*true/);
+  });
+
+  test('manual workflow binds staging source, secrets and always-uploaded evidence', () => {
+    assert.match(WORKFLOW, /ref: staging/);
+    assert.match(WORKFLOW, /fetch-depth: 0/);
+    assert.match(WORKFLOW, /group: staging-e2e-shared-env/);
+    assert.match(WORKFLOW, /cancel-in-progress: false/);
+    assert.doesNotMatch(WORKFLOW, /\bqueue:/);
+    assert.match(WORKFLOW, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
+    assert.match(WORKFLOW, /Verify rollback floor lineage/);
+    assert.match(WORKFLOW, /Download previous phase evidence/);
+    assert.match(WORKFLOW, /gh run view "\$PREVIOUS_PHASE_RUN_ID" --json attempt/);
+    assert.match(WORKFLOW, /gh run download "\$PREVIOUS_PHASE_RUN_ID" --name "\$artifact_name"/);
+    assert.doesNotMatch(WORKFLOW, /gh run download[\s\S]*?--pattern/);
+    assert.match(WORKFLOW, /Verify previous phase handoff/);
+    assert.match(WORKFLOW, /GATE_E_LINEAGE_VERIFIED: \$\{\{ steps\.lineage\.outputs\.verified \}\}/);
+    assert.match(WORKFLOW, /GATE_E_HANDOFF_VERIFIED: \$\{\{ steps\.handoff\.outputs\.verified \}\}/);
+    assert.match(WORKFLOW, /STAGING_BYPASS: \$\{\{ secrets\.STAGING_PROTECTION_BYPASS \}\}/);
+    assert.match(WORKFLOW, /E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
+    assert.match(WORKFLOW, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
+    assert.match(WORKFLOW, /Capture staging release provenance[\s\S]*?E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
+    assert.match(WORKFLOW, /Upload phase evidence\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /if-no-files-found: error/);
+    assert.doesNotMatch(WORKFLOW, /playwright-report/);
+    assert.match(PROVENANCE, /GATE_E_PROVENANCE_REQUIRED === 'true'[\s\S]*?process\.exitCode = 1/);
+    assert.match(PROVENANCE, /evidence\.frontend_release === sourceSha/);
+    assert.match(PROVENANCE, /evidence\.backend_release === sourceSha/);
+    assert.match(PROVENANCE, /evidence\.backend_git_branch === 'staging'/);
+    assert.match(HEALTH, /"git_branch":[\s\S]*?if is_admin else _REDACTED/);
+    assert.doesNotMatch(SPEC, /access_token:\s*auth\.access_token/);
+  });
+
+  test('lineage rejects pre-floor, unrelated and non-floor rollback sources', () => {
+    const isAncestor = (ancestor, descendant) => ancestor === FLOOR && descendant === CUTOVER;
+    assert.equal(validatePhaseLineage({
+      phase: 'floor', sourceSha: FLOOR, floorSha: FLOOR, isAncestor,
+    }).verified, true);
+    assert.equal(validatePhaseLineage({
+      phase: 'cutover', sourceSha: CUTOVER, floorSha: FLOOR, isAncestor,
+    }).verified, true);
+    assert.equal(validatePhaseLineage({
+      phase: 'rollback', sourceSha: FLOOR, floorSha: FLOOR, isAncestor,
+    }).verified, true);
+    assert.throws(() => validatePhaseLineage({
+      phase: 'cutover', sourceSha: OTHER, floorSha: FLOOR, isAncestor,
+    }), /not-floor-descendant/);
+    assert.throws(() => validatePhaseLineage({
+      phase: 'cutover', sourceSha: FLOOR, floorSha: CUTOVER, isAncestor,
+    }), /not-floor-descendant/);
+    assert.throws(() => validatePhaseLineage({
+      phase: 'rollback', sourceSha: CUTOVER, floorSha: FLOOR, isAncestor,
+    }), /must-equal-rollback-floor/);
+    assert.match(LINEAGE, /git', \['merge-base', '--is-ancestor'/);
+  });
+
+  test('handoff binds the prior successful workflow artifact and canonical release', () => {
+    const runMetadata = {
+      workflowName: 'Speaking Gate E coexistence drill',
+      event: 'workflow_dispatch',
+      headBranch: 'main',
+      conclusion: 'success',
+    };
+    const previousEvidence = {
+      schema_version: 1,
+      drill_id: 'gate-e-speaking-coexistence-v1',
+      phase: 'floor',
+      status: 'passed',
+      ok: true,
+      expected_admission: 'legacy',
+      rollback_floor_sha: FLOOR,
+      source_sha: FLOOR,
+      floor_lineage_verified: true,
+      deployed_frontend_sha: FLOOR,
+      deployed_frontend_branch: 'staging',
+      backend_release: FLOOR,
+      backend_git_branch: 'staging',
+      backend_environment_name: 'staging',
+      created_session_id: LEGACY_SESSION,
+    };
+    const input = {
+      phase: 'cutover', floorSha: FLOOR, previousRunId: '12345',
+      previousLegacySessionId: LEGACY_SESSION, previousNextSessionId: '',
+      runMetadata, previousEvidence,
+    };
+    assert.equal(validatePreviousPhaseHandoff(input).verified, true);
+    assert.throws(() => validatePreviousPhaseHandoff({
+      ...input, previousEvidence: { ...previousEvidence, backend_release: OTHER },
+    }), /previous-phase-evidence-invalid/);
+    assert.throws(() => validatePreviousPhaseHandoff({
+      ...input, previousEvidence: { ...previousEvidence, backend_git_branch: 'main' },
+    }), /previous-phase-evidence-invalid/);
+    assert.throws(() => validatePreviousPhaseHandoff({
+      ...input, runMetadata: { ...runMetadata, headBranch: 'feature' },
+    }), /previous-run-provenance-invalid/);
+    assert.match(HANDOFF, /gh', \[[\s\S]*?'run', 'view'/);
+  });
+
+  test('docs keep the live drill pending until all real phase artifacts exist', () => {
+    assert.match(DOC, /three-phase runner/i);
+    assert.match(DOC, /LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
+  });
+});

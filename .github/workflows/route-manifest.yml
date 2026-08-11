@@ -18,6 +18,11 @@
 name: Build checks (route manifest + sàn trình duyệt)
 
 on:
+  # Sau khi merge — xem chú thích cùng chủ đề ở `parity-gate.yml`. Job này DỰNG
+  # bản build, nên nó là chỗ duy nhất bắt được ca «hai PR cùng xanh, hợp lại thì
+  # build hỏng».
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'frontend/app/**'
@@ -26,12 +31,21 @@ on:
       # (client component, được layout (authed) import) vẫn đổi chunk mà trước
       # đây không kích hoạt job nào có build ⇒ cú pháp/API vượt sàn lọt thẳng.
       - 'frontend/lib/**'
+      # Cùng lý do với `lib/**`, cho cây còn lại của mã dùng chung:
+      # `app/(authed)/layout.tsx` import `@/components/authed-shell`, nên đổi
+      # component đó là đổi chunk đã dựng và đổi kết quả quét — mà glob cũ không
+      # kích hoạt job (Codex bắt ở #946 vòng 3).
+      - 'frontend/components/**'
       # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
       # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
       # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong
       # listening-test-player.js — file học viên nạp khi làm bài nghe.
-      - 'frontend/public/js/**'
-      - 'frontend/public/assets/**'
+      # CẢ cây `public/`, không riêng `js/` và `assets/`: `route-ownership-check.mjs`
+      # đi toàn bộ `path.join(FRONTEND, 'public')` để suy ra route công khai, nên
+      # thêm một tệp như `frontend/public/foo.html` LÀ tạo route mới — mà với hai
+      # glob hẹp cũ thì đúng PR đó không chạy cổng kiểm sở hữu route.
+      # (Codex bắt ở #946; `workflow-path-coverage.test.mjs` giữ nó khỏi hẹp lại.)
+      - 'frontend/public/**'
       - 'frontend/instrumentation-client.ts'
       - 'frontend/next.config.ts'
       - 'frontend/tsconfig.json'

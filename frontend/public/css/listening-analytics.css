@@ -1,0 +1,141 @@
+/* Tách khỏi khối <style> nội tuyến của `pages/listening-analytics.html` (2026-08-06).
+ *
+ * CẢ HAI vế cùng link tệp này — một nguồn duy nhất, giống cách đã làm với JS.
+ *
+ * THỨ TỰ: nạp SAU `tailwind.build.css`, đúng vị trí cũ của khối <style>
+ * (tokens → components → listening.css → tailwind → CSS trang). Đảo lại là
+ * lớp reset của Tailwind đè lên luật của trang.
+ */
+  .analytics-shell {
+    max-width: 980px; margin: 0 auto;
+    padding: 0 var(--av-space-6);
+    display: flex; flex-direction: column; gap: var(--av-space-6);
+  }
+  .analytics-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
+  .analytics-header .accent { color: var(--av-brand-teal-700); }
+  .analytics-header .subtitle {
+    color: var(--av-text-secondary); font-size: var(--av-fs-base);
+    line-height: var(--av-lh-normal);
+  }
+  .range-tabs {
+    display: flex; gap: var(--av-space-2);
+  }
+  .range-tab {
+    padding: var(--av-space-2) var(--av-space-4);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md);
+    background: var(--av-surface-card);
+    color: var(--av-text-secondary);
+    cursor: pointer; font-size: var(--av-fs-sm);
+  }
+  .range-tab.is-active {
+    border-color: var(--av-brand-teal-700);
+    color: var(--av-brand-teal-700);
+    font-weight: var(--av-fw-semibold);
+  }
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--av-space-3);
+  }
+  .stat-card {
+    padding: var(--av-space-4);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md);
+    background: var(--av-surface-card);
+    display: flex; flex-direction: column; gap: var(--av-space-2);
+  }
+  .stat-label {
+    font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
+  }
+  .stat-value {
+    font-family: var(--av-font-mono);
+    font-size: var(--av-fs-2xl);
+    font-weight: var(--av-fw-semibold);
+    color: var(--av-brand-teal-700);
+  }
+  .stat-sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+  .section-card {
+    padding: var(--av-space-4);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md);
+    background: var(--av-surface-card);
+    display: flex; flex-direction: column; gap: var(--av-space-3);
+  }
+  .section-card h2 { font-size: var(--av-fs-lg); }
+  .mode-table {
+    width: 100%; border-collapse: collapse;
+  }
+  .mode-table th, .mode-table td {
+    text-align: left;
+    padding: var(--av-space-2) var(--av-space-3);
+    border-bottom: 1px solid var(--av-border-default);
+    font-size: var(--av-fs-sm);
+  }
+  .mode-table th {
+    font-size: var(--av-fs-xs);
+    color: var(--av-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--av-tracking-widest);
+  }
+  .mode-table .num { font-family: var(--av-font-mono); }
+  .day-chart {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 4px; align-items: end;
+    min-height: 120px;
+  }
+  .day-bar {
+    background: var(--av-brand-teal-50);
+    border: 1px solid var(--av-brand-teal-200);
+    border-radius: 2px;
+    min-height: 4px;
+    position: relative;
+  }
+  .day-bar[data-has-data="1"] { background: var(--av-brand-teal-200); }
+  .day-bar[title]:hover { background: var(--av-brand-teal-700); }
+  .day-labels {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 4px;
+    font-family: var(--av-font-mono);
+    font-size: 10px;
+    color: var(--av-text-muted);
+    text-align: center;
+  }
+  .weakest-banner {
+    padding: var(--av-space-3) var(--av-space-4);
+    background: var(--av-warning-soft);
+    border: 1px solid var(--av-warning);
+    color: var(--av-warning);
+    border-radius: var(--av-radius-md);
+    font-size: var(--av-fs-sm);
+  }
+  .recent-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: var(--av-space-2);
+  }
+  .recent-list li {
+    display: flex; gap: var(--av-space-3); align-items: center;
+    padding: var(--av-space-2) var(--av-space-3);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-sm);
+    font-size: var(--av-fs-sm);
+  }
+  .recent-mode { font-family: var(--av-font-mono); color: var(--av-text-muted); min-width: 90px; }
+  .recent-score { font-family: var(--av-font-mono); margin-left: auto; }
+  .recent-score.is-perfect { color: var(--av-brand-teal-700); font-weight: var(--av-fw-semibold); }
+  .empty-state, .error-banner {
+    padding: var(--av-space-8); text-align: center;
+    border: 1px dashed var(--av-border-default);
+    border-radius: var(--av-radius-lg);
+    color: var(--av-text-secondary);
+  }
+  .error-banner {
+    padding: var(--av-space-3) var(--av-space-4);
+    /* design-fix-3 B5: theme-aware error tokens (was hardcoded red). */
+    background: var(--av-error-soft); color: var(--av-error);
+    border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); font-size: var(--av-fs-sm);
+    text-align: left;
+  }
+  [hidden] { display: none !important; }

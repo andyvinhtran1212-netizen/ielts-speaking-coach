@@ -15,7 +15,7 @@
 
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,11 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 const CHROME_JS    = read('js', 'components', 'aver-admin-chrome.js');
 const ADMIN_INDEX  = read('pages', 'admin', 'index.html');
 const ADMIN_LEGACY = read('admin.html');
+const VALID_ACTIVE_SOURCE = CHROME_JS.match(/const VALID_ACTIVE\s*=\s*\[([\s\S]*?)\];/)?.[1] || '';
+const adminHtmlFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const abs = join(dir, entry.name);
+  return entry.isDirectory() ? adminHtmlFiles(abs) : (entry.name.endsWith('.html') ? [abs] : []);
+});
 // ADR-002 (Phase 1): routing rules live in next.config.ts. Parse its
 // single-line entries into the same {source, destination, permanent} shape.
 const NEXT_CONFIG = read('next.config.ts');
@@ -53,10 +58,11 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     assert.match(CHROME_JS, /attachShadow\(\s*\{\s*mode:\s*['"]open['"]/);
   });
 
-  it('roster contains all 13 valid sections', () => {
+  it('roster contains every routed admin section, including Reading and instructors', () => {
     const sections = [
       'overview',
-      'speaking', 'writing', 'listening', 'vocab', 'grammar',
+      'speaking', 'writing', 'listening', 'reading', 'vocab', 'grammar',
+      'instructors', 'mock-tests',
       'students', 'users', 'classes',
       'access-codes', 'usage',
       'error-logs',
@@ -64,7 +70,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     ];
     for (const s of sections) {
       assert.match(
-        CHROME_JS,
+        VALID_ACTIVE_SOURCE,
         new RegExp(`['"]${s}['"]`),
         `VALID_ACTIVE missing section "${s}"`,
       );
@@ -108,6 +114,82 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     assert.match(CHROME_JS, /id="hamburger"/);
     assert.match(CHROME_JS, /id="backdrop"/);
     assert.match(CHROME_JS, /@media\s*\(\s*max-width:\s*768px/);
+  });
+
+  it('desktop collapse rules are gated away from the mobile drawer', () => {
+    const desktopBlock = CHROME_JS.slice(
+      CHROME_JS.indexOf('@media (min-width: 769px) {'),
+      CHROME_JS.indexOf('/* ── Sub-items'),
+    );
+    assert.match(
+      desktopBlock,
+      /:host\(\[data-collapsed="1"\]\)\s+\.admin-body/,
+    );
+    assert.match(
+      desktopBlock,
+      /:host\(\[data-collapsed="1"\]\)\s+\.nav-subgroup/,
+    );
+  });
+
+  it('loads the shared admin surface baseline once', () => {
+    assert.match(CHROME_JS, /ADMIN_SURFACE_STYLES\s*=\s*['"]\/css\/aver-design\/admin-surface\.css['"]/);
+    assert.match(CHROME_JS, /data-aver-admin-surface/);
+    assert.match(CHROME_JS, /classList\.add\(['"]av-admin-surface['"]\)/);
+    assert.ok(
+      existsSync(join(__dirname, '..', 'css', 'aver-design', 'admin-surface.css')),
+      'admin-surface.css must exist at the runtime path',
+    );
+  });
+
+  it('all admin HTML pages link and scope the surface baseline before chrome mounts', () => {
+    const files = adminHtmlFiles(join(__dirname, '..', 'pages', 'admin'));
+    assert.equal(files.length, 66, 'expected the audited 66-page admin inventory');
+    for (const file of files) {
+      const html = readFileSync(file, 'utf8');
+      assert.match(html, /href="\/css\/aver-design\/admin-surface\.css"/,
+        `${file} must statically link admin-surface.css`);
+      assert.match(html, /<body class="[^"]*\bav-admin-surface\b/,
+        `${file} must scope the shared admin surface`);
+    }
+    const surfaceCss = read('css', 'aver-design', 'admin-surface.css');
+    assert.match(surfaceCss, /:where\(\.av-admin-surface h1\)/,
+      'baseline must apply directly to non-chrome admin pages');
+    assert.doesNotMatch(surfaceCss, /\.av-admin-surface aver-admin-chrome/,
+      'baseline scope must not require aver-admin-chrome');
+  });
+
+  it('exposes current, collapsed, and mobile navigation state accessibly', () => {
+    assert.match(CHROME_JS, /aria-current=\"page\"/);
+    assert.match(CHROME_JS, /isActive && !subsection \? 'page' : null/);
+    assert.match(CHROME_JS, /aria-controls=\"sidebar\"/);
+    assert.match(CHROME_JS, /aria-expanded=\"false\"/);
+    assert.match(CHROME_JS, /event\.key === 'Escape'/);
+  });
+
+  it('shadow controls use border-box and the closed mobile drawer is not focusable', () => {
+    assert.match(CHROME_JS, /\*, \*::before, \*::after\s*\{\s*box-sizing:\s*border-box/);
+    assert.match(CHROME_JS, /transform:\s*translateX\(-100%\)[\s\S]*?visibility:\s*hidden[\s\S]*?pointer-events:\s*none/);
+    assert.match(CHROME_JS, /data-mobile-open="1"[\s\S]*?visibility:\s*visible/);
+  });
+
+  it('reconnects rebind interaction and polling observes the abort signal', () => {
+    const reconnectBlock = CHROME_JS.slice(
+      CHROME_JS.indexOf('if (this._mounted) {'),
+      CHROME_JS.indexOf('this._mounted = true;'),
+    );
+    assert.match(reconnectBlock, /if \(!this\.hasAttribute\('embed'\)\) this\._bindInteractiveChrome\(\)/);
+    const postAwaitBlock = CHROME_JS.slice(
+      CHROME_JS.indexOf('await sb.auth.getSession()'),
+      CHROME_JS.indexOf('const session = data && data.session;'),
+    );
+    assert.match(postAwaitBlock, /signal\.aborted \|\| !this\.isConnected/);
+  });
+
+  it('focuses the active mobile route and traps tab focus inside the open drawer', () => {
+    assert.match(CHROME_JS, /querySelector\('\.nav-item\.active'\)[\s\S]*?\|\|[\s\S]*?querySelector\('\.nav-item'\)/);
+    assert.match(CHROME_JS, /event\.key !== 'Tab'/);
+    assert.match(CHROME_JS, /event\.preventDefault\(\)[\s\S]*?last\.focus\(\)/);
+    assert.match(CHROME_JS, /event\.preventDefault\(\)[\s\S]*?first\.focus\(\)/);
   });
 });
 
@@ -449,21 +531,21 @@ describe('Sprint 12.2 F3 — mobile sidebar scroll-lock', () => {
     assert.match(CHROME_JS, /_setBodyScrollLock\s*\(\s*locked\s*\)/);
   });
 
-  it('hamburger open toggles body overflow to hidden', () => {
-    // Body lock invoked from the hamburger handler so the background
-    // can't scroll behind the overlay.
+  it('one state helper keeps the mobile attribute, ARIA and body lock in sync', () => {
+    assert.match(CHROME_JS, /_setMobileOpen\s*\(\s*open\s*\)/);
     assert.match(
       CHROME_JS,
-      /setAttribute\(['"]data-mobile-open['"],\s*['"]1['"]\)[\s\S]*?_setBodyScrollLock\(true\)/,
+      /_setMobileOpen\s*\(\s*open\s*\)[\s\S]*?setAttribute\(['"]data-mobile-open['"],\s*['"]1['"]\)[\s\S]*?aria-expanded[\s\S]*?_setBodyScrollLock\(open\)/,
     );
   });
 
   it('hamburger close + backdrop click release the lock', () => {
-    // Both close paths must call _setBodyScrollLock(false).
-    const matches = CHROME_JS.match(/_setBodyScrollLock\(false\)/g) || [];
+    // Both close paths route through the state helper; disconnect still
+    // releases the body lock directly as a defensive fallback.
+    const matches = CHROME_JS.match(/_setMobileOpen\(false\)/g) || [];
     assert.ok(
       matches.length >= 3,
-      `Expected ≥3 _setBodyScrollLock(false) call sites (hamburger close + backdrop + disconnect), found ${matches.length}`,
+      `Expected navigation click + backdrop + Escape to call _setMobileOpen(false), found ${matches.length}`,
     );
   });
 
@@ -472,7 +554,7 @@ describe('Sprint 12.2 F3 — mobile sidebar scroll-lock', () => {
     // leave document.body.style.overflow stuck on "hidden".
     assert.match(
       CHROME_JS,
-      /disconnectedCallback\(\)\s*\{[\s\S]*?_setBodyScrollLock\(false\)/,
+      /disconnectedCallback\(\)\s*\{[\s\S]*?_setMobileOpen\(false\)/,
     );
   });
 });

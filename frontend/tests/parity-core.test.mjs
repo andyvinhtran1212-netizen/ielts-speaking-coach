@@ -11,13 +11,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   canonicalHref, normalizeText, comparePages, formatReport,
-  buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl,
+  buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl, isTransportError,
+  externalPresentationFixture,
 } from '../tooling/parity-core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -53,6 +54,29 @@ const nextSide = (over = {}) => ({
   ...base(), url: 'https://x/grammar', finalUrl: 'https://x/grammar', ...over,
 });
 
+describe('externalPresentationFixture — font CDN không làm phép đo chớp đỏ', () => {
+  test('chỉ fixture đúng stylesheet host Google Fonts', () => {
+    assert.deepEqual(
+      externalPresentationFixture('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans'),
+      { status: 200, contentType: 'text/css', body: '' },
+    );
+    assert.equal(externalPresentationFixture('https://fonts.gstatic.com/s/font.woff2'), null);
+    assert.equal(externalPresentationFixture('https://fonts.googleapis.com.evil.test/css2'), null);
+    assert.equal(externalPresentationFixture('https://cdn.jsdelivr.net/npm/x.js'), null);
+    assert.equal(externalPresentationFixture('not a url'), null);
+  });
+
+  test('runner áp fixture trước khi request ra mạng', () => {
+    assert.match(RUNNER, /externalPresentationFixture\(r\.url\(\)\)/);
+    assert.match(RUNNER, /if \(externalFixture\) return route\.fulfill\(externalFixture\)/);
+    assert.ok(
+      RUNNER.indexOf("if (!['GET', 'HEAD', 'OPTIONS'].includes(r.method()))")
+        < RUNNER.indexOf('externalPresentationFixture(r.url())'),
+      'mọi mutation phải bị block/log trước khi áp fixture chỉ-đọc',
+    );
+  });
+});
+
 describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('đưa link legacy về dạng canonical', () => {
     assert.equal(canonicalHref('/grammar.html'), '/grammar');
@@ -66,6 +90,52 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('giữ tham số truy vấn nhưng sắp xếp ổn định', () => {
     assert.equal(canonicalHref('/grammar.html?category=tenses'), '/grammar?category=tenses');
     assert.equal(canonicalHref('/x?b=2&a=1'), canonicalHref('/x?a=1&b=2'));
+  });
+
+  test('chuẩn hoá launcher runtime theo đúng policy admission hiện tại', () => {
+    const pairs = [
+      [
+        '/core-player/launch?surface=speaking&session_id=session+1',
+        '/pages/practice.html?session_id=session+1',
+      ],
+      [
+        '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
+        '/pages/reading-exam.html?test_id=AVR-1&from=full&class_item=homework-1',
+      ],
+      [
+        '/core-player/launch?surface=listening_test&id=test-1&from=mini',
+        '/pages/listening-test.html?id=test-1&from=mini',
+      ],
+      [
+        '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',
+        '/pages/listening-test-dictation.html?test_id=test-1&section=2',
+      ],
+    ];
+    for (const [launcher, directLegacy] of pairs) {
+      assert.equal(canonicalHref(launcher), canonicalHref(directLegacy), launcher);
+    }
+  });
+
+  test('launcher không hợp lệ vẫn hiện ra để parity báo lệch', () => {
+    const cases = [
+      ['/core-player/launch?session_id=x', '/core-player/launch?session_id=x'],
+      [
+        '/core-player/launch?surface=speaking&surface=reading_exam&session_id=x',
+        '/core-player/launch?session_id=x&surface=reading_exam&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&session_id=y',
+        '/core-player/launch?session_id=x&session_id=y&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&implementation=next',
+        '/core-player/launch?implementation=next&session_id=x&surface=speaking',
+      ],
+    ];
+    for (const [href, expected] of cases) {
+      assert.equal(canonicalHref(href), expected);
+    }
+    assert.equal(new Set(cases.map(([href]) => canonicalHref(href))).size, cases.length);
   });
 
   test('bỏ origin cùng site, giữ nguyên link ra ngoài', () => {
@@ -447,8 +517,42 @@ describe('cổng parity trong CI (review #914)', () => {
     assert.match(GATE_ACTIVE, /for VP in 1280x900 375x812/,
       'phải chạy cả hai bề rộng');
     assert.match(GATE_ACTIVE, /--viewport "\$VP"/);
+
     // Và phải chạy HẾT rồi mới thoát, không dừng ở cái đỏ đầu tiên.
-    assert.match(GATE_ACTIVE, /\|\| FAIL=1[\s\S]*exit \$FAIL/);
+    //
+    // Ghim TÍNH CHẤT, không ghim nguyên văn. Bản trước khẳng định
+    // `/\|\| FAIL=1[\s\S]*exit \$FAIL/` — tức ghim đúng một cách viết. Khi
+    // thân vòng lặp đổi (thêm phân loại mã thoát 3 cho ca hạ tầng), chốt đỏ dù
+    // tính chất nó canh vẫn nguyên vẹn. Chốt ghim cách viết thì mỗi lần sửa mã
+    // là một lần phải sửa chốt, và người ta học cách nới chốt cho hết đỏ.
+    const lines = GATE_ACTIVE.split('\n');
+    const i = lines.findIndex((l) => /for VP in 1280x900 375x812/.test(l));
+    assert.ok(i > 0, 'không tìm thấy vòng lặp bề rộng');
+    // Đếm `for`/`done` để tìm ĐÚNG điểm đóng, không tin thụt lề: bash không coi
+    // thụt lề có nghĩa, nên một vòng lặp LỒNG đóng bằng `done` thụt 12 dấu cách
+    // sẽ bị chọn nhầm, và phần thân sau đó — kể cả một `exit` nằm trong vòng
+    // `VP` — không được quét (codex bắt ở #999).
+    let sâu = 1;
+    let j = -1;
+    for (let k = i + 1; k < lines.length; k += 1) {
+      if (/^\s*(for|while|until)\b/.test(lines[k])) sâu += 1;
+      else if (/^\s*done\b/.test(lines[k])) {
+        sâu -= 1;
+        if (sâu === 0) { j = k; break; }
+      }
+    }
+    assert.ok(j > i, 'không tìm thấy điểm kết thúc vòng lặp bề rộng');
+
+    const thân = lines.slice(i + 1, j);
+    assert.deepEqual(thân.filter((l) => /^\s*exit\b/.test(l)), [],
+      'không được thoát GIỮA vòng lặp — làm thế là bỏ các bề rộng còn lại');
+
+    // Sau vòng lặp phải có đường thoát đỏ, và nó phải phụ thuộc vào cờ tích luỹ
+    // chứ không phải mã thoát của lần chạy cuối cùng.
+    const sau = lines.slice(j).join('\n');
+    assert.match(sau, /exit 1/, 'phải có đường thoát đỏ sau khi chạy hết');
+    assert.match(sau, /\$FAIL|\$INFRA/,
+      'đường thoát phải đọc cờ tích luỹ, không phải mã của lượt cuối');
   });
 
   test('có chốt CORS chạy TRƯỚC khi so', () => {
@@ -538,6 +642,112 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
   assert.equal(canonicalHref('/home', { base: 'http://x/a' }), '/home');
 });
 
+test('route đã cutover mà KHÔNG có cặp parity phải được khai báo', () => {
+  // Bot bắt ở #958: bộ lọc + regex từng mở lượt authed cho `/exercises`, nhưng
+  // `parity-pairs-authed.json` chưa có cặp đó. Batch lifecycle 2026-08-09 đã
+  // xác nhận 4 dòng là trạng thái feature-disabled đầy đủ và đăng ký lại cặp
+  // với `minBaselineLines: 4`; không được đưa route đó trở lại danh sách này.
+  //
+  // Không sửa được bằng cách gỡ glob (thì PR đó lại không chạy cổng nào cả).
+  // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
+  // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
+  // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
+  const KNOWN_NO_PAIR = ['/writing/dashboard'];
+
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const paired = new Set(pairs.map((p) => p.next));
+
+  // CẶP CÔNG KHAI khai ở chỗ KHÁC: `DEFAULT_PAIRS` trong `parity-diff.mjs`.
+  // Chốt này ban đầu chỉ đọc tệp authed, nên một trang công khai vừa port sẽ bị
+  // báo "cutover mà không có cặp" DÙ nó có cặp — và thông báo lỗi lại đẩy người
+  // đọc đi thêm một tên vào `KNOWN_NO_PAIR`, tức tự tay tạo ra đúng lỗ mà chốt
+  // sinh ra để chặn. Mô hình của chốt phải phủ CẢ HAI nơi khai cặp.
+  const diffSrc = readFileSync(path.join(ROOT, 'frontend/tooling/parity-diff.mjs'), 'utf8');
+  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(publicPairs.length >= 1, 'không đọc được cặp công khai nào — bộ dò hỏng?');
+  for (const r of publicPairs) paired.add(r);
+
+  // Route Next "đã cutover" = có hàng CUTOVER trong sổ route.
+  const ledger = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
+  const cutover = [...ledger.matchAll(/^\| `(\/[^`]*)` \|.*CUTOVER/gm)]
+    .map((m) => m[1])
+    // `/` và `/grammar` thuộc khu công khai, không nằm trong bộ authed.
+    .filter((r) => r !== '/' && r !== '/grammar' && r !== '/profile');
+
+  const missing = cutover.filter((r) => !paired.has(r)).sort();
+  assert.deepEqual(missing, [...KNOWN_NO_PAIR].sort(),
+    'route đã cutover mà thiếu cặp parity phải nằm trong KNOWN_NO_PAIR và có lý do '
+    + 'ghi ở docs/PARITY_WRITING_PAIR_2026-08-05.md — nếu không, G1 xanh mà không so gì');
+
+  const doc = readFileSync(path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
+  for (const r of KNOWN_NO_PAIR) {
+    assert.ok(doc.includes(r.split('/').pop()),
+      `${r} nằm ngoài parity mà tài liệu không giải thích vì sao`);
+  }
+});
+
+test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
+  // Codex bắt ở PR #946 vòng 5, và đó là hệ quả của chính việc nới glob ở PR
+  // đó: `paths` có `frontend/lib/**` nên job KHỞI ĐỘNG khi đổi
+  // `lib/when-global-ready.mjs`, nhưng bộ chọn phạm vi lúc ấy chỉ leo lên
+  // `full` cho hai tệp lib cụ thể ⇒ job chạy `--categories-only`, mà chế độ đó
+  // bỏ hẳn các cặp trang BÀI VIẾT. Cổng xanh trong khi thứ vừa đổi không hề
+  // được so.
+  //
+  // Cùng họ với #937 (glob có, regex không bắt) và #930 (thiếu glob). Ba lần
+  // cùng một hình dạng nên chốt bằng máy, đừng chốt bằng trí nhớ.
+  const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+  const fullRe = new RegExp(rxs[0]);
+
+  // Mã dùng chung có thể nuôi BẤT KỲ trang nào đang so, kể cả trang bài viết.
+  for (const shared of ['frontend/lib/when-global-ready.mjs',
+                        'frontend/lib/backend.ts',
+                        'frontend/components/authed-shell.tsx']) {
+    assert.ok(fullRe.test(shared),
+      `«${shared}» là mã dùng chung mà không leo lên full ⇒ cặp bài viết bị bỏ qua`);
+  }
+
+  // Chiều ngược: đổi một trang riêng lẻ KHÔNG được kéo cả bộ full lên vô cớ —
+  // nếu không thì việc khoanh phạm vi mất hết ý nghĩa và mọi PR đều chạy full.
+  assert.ok(!fullRe.test('frontend/app/(authed-speaking)/speaking/page.tsx'),
+    'trang riêng lẻ không được tự leo lên full');
+});
+
+test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () => {
+  // CHIỀU NGƯỢC của chốt ngay dưới. Chốt kia hỏi "glob có trong paths mà regex
+  // bỏ sót không"; chốt này hỏi "regex có bắt trang mà KHÔNG cặp nào so không".
+  //
+  // Bot bắt ở #962: tôi đưa `listening-mcq` (và 4 tệp nó nạp) vào regex authed,
+  // trong khi `parity-pairs-authed.json` không có cặp MCQ nào. Hệ quả: một PR
+  // chỉ sửa MCQ vẫn mở lượt authed — lượt cần secret PROBE_*, đăng nhập thật,
+  // rồi so đúng con số KHÔNG cặp. Không đỏ, chỉ tốn và gây ảo giác đã phủ.
+  //
+  // Trang bị loại có chủ ý (`writing-dashboard`) phải được nêu
+  // TRONG tài liệu loại trừ, nếu không thì "chưa có cặp" và "quên mất cặp"
+  // trông giống hệt nhau.
+  const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
+
+  // Rút danh sách tên trang từ nhánh `pages/(a|b|c)\.html` của regex authed.
+  const group = /public\/pages\/\(([^)]+)\)\\\.html/.exec(rxs[1]);
+  assert.ok(group, 'không đọc được nhánh pages/(…).html trong regex authed');
+  const names = group[1].split('|');
+  assert.ok(names.length >= 5, `chỉ thấy ${names.length} trang — bộ dò hỏng?`);
+
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const paired = new Set(pairs.map((x) => path.basename(x.legacy, '.html')));
+  const documented = readFileSync(
+    path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
+
+  const orphan = names.filter((n) => !paired.has(n) && !documented.includes(`${n}.html`));
+  assert.deepEqual(orphan, [],
+    'regex authed mở lượt cần secret cho trang KHÔNG có cặp nào để so — hoặc thêm cặp, '
+    + 'hoặc bỏ trang khỏi regex, hoặc ghi lý do loại trừ vào tài liệu');
+});
+
 test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
   // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
   // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng
@@ -561,9 +771,141 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
   assert.deepEqual(missed, [],
     'glob nằm trong paths mà regex không bắt ⇒ job chạy nhưng KHÔNG mở cặp authed');
 
+  // Phép cắt ở trên CHỈ phủ khối glob theo-trang. Mã DÙNG CHUNG (api.js, chrome
+  // và các tệp chrome import) nằm ngoài khối đó, nên `missed` không bao giờ thấy
+  // chúng — và đúng chỗ mù ấy đã để lọt: cả hai có trong `paths` nhưng regex
+  // authed KHÔNG bắt, tức PR sửa chúng chạy job mà không mở CẶP NÀO (review cục
+  // bộ bắt ở #955). Chúng có mặt trên MỌI trang được so nên phải mở lượt authed.
+  for (const shared of ['frontend/public/js/api.js',
+                        'frontend/public/js/components/aver-chrome.js',
+                        'frontend/public/js/theme-toggle.js',
+                        'frontend/public/js/user-pill.js',
+                        'frontend/public/js/components/perf-hints.js']) {
+    assert.ok(authedRe.test(shared),
+      `«${shared}» là mã dùng chung của mọi trang authed — phải mở lượt authed`);
+    assert.ok(yml.includes(`- '${shared}'`),
+      `«${shared}» phải có trong \`paths\`, nếu không job không khởi động`);
+  }
+
+  // Khối glob theo-trang bên trên không thể thấy các dependency khai
+  // tường minh ở những khối write-flow phía sau. Đã từng lọt liên tiếp
+  // `speaking-debt.js`, `runtime-config.js` và `analytics-beacon.js`: workflow
+  // khởi động nhưng selector cho `authed=false`, nên không mở trang nào
+  // thực sự nạp tệp vừa đổi. Dựng dependency từ chính các legacy page
+  // trong inventory để file mới cùng họ tự động bị chặn, không phải
+  // chờ thêm một hand-pinned sentinel.
+  const pullRequestPaths = yml.slice(
+    yml.indexOf('  pull_request:'),
+    yml.indexOf('\n  push:'),
+  );
+  const configuredPaths = [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)]
+    .map((match) => match[1]);
+  const missingPathPrefixes = configuredPaths.filter((configuredPath) => {
+    const prefix = configuredPath.split(/[*?[]/, 1)[0].replace(/\/$/, '');
+    return !prefix || !existsSync(path.join(ROOT, prefix));
+  });
+  assert.deepEqual(missingPathPrefixes, [],
+    'path filter trỏ vào prefix không tồn tại ⇒ GitHub không bao giờ khởi động gate');
+
+  const exactTrackedPaths = new Set(
+    configuredPaths.filter((configuredPath) => !/[*?[]/.test(configuredPath)),
+  );
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const loadedLocalDependencies = new Set();
+  for (const pair of pairs) {
+    const legacyPage = readFileSync(
+      path.join(ROOT, 'frontend/public', pair.legacy.replace(/^\//, '')),
+      'utf8',
+    );
+    const assetUrls = [];
+    for (const match of legacyPage.matchAll(/<script\b[^>]*>/gi)) {
+      const src = /\bsrc=["']([^"']+)["']/i.exec(match[0]);
+      if (src) assetUrls.push(src[1]);
+    }
+    for (const match of legacyPage.matchAll(/<link\b[^>]*>/gi)) {
+      const rel = /\brel=["']([^"']+)["']/i.exec(match[0]);
+      const href = /\bhref=["']([^"']+)["']/i.exec(match[0]);
+      if (href && rel?.[1].split(/\s+/).includes('stylesheet')) assetUrls.push(href[1]);
+    }
+    for (const raw of assetUrls) {
+      if (/^(?:https?:)?\/\//.test(raw) || /^(?:data|blob|mailto):/.test(raw)) continue;
+      const pathname = new URL(raw, `https://parity.invalid${pair.legacy}`).pathname;
+      const dependency = `frontend/public${pathname}`;
+      if (existsSync(path.join(ROOT, dependency))) loadedLocalDependencies.add(dependency);
+    }
+  }
+  const untrackedDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !exactTrackedPaths.has(dependency))
+    .sort();
+  assert.deepEqual(untrackedDependencies, [],
+    'script/stylesheet local được authed pair nạp nhưng không có trong paths '
+    + '⇒ PR chỉ sửa dependency đó không khởi động parity gate');
+
+  const uncoveredDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !authedRe.test(dependency))
+    .sort();
+  assert.deepEqual(uncoveredDependencies, [],
+    'dependency khai tường minh trong paths và được authed pair nạp, nhưng '
+    + 'selector không bật authed=true ⇒ job xanh mà không so trang chịu ảnh hưởng');
+
   // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
   for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
                      'frontend/public/js/grammar.js']) {
     assert.ok(!authedRe.test(neg), `«${neg}» không được kích hoạt lượt authed`);
   }
+});
+
+// ── Phân biệt "trang hỏng" với "dụng cụ đo mất kết nối" ──────────────────────
+//
+// Ngày 2026-08-07, lượt `full` của cổng G1 báo 87/150 cặp lệch và 610 phát hiện
+// mức cao. Không phát hiện nào là thật: backend production từ chối kết nối giữa
+// chừng, và bản chụp HỎNG bị đem so với vế kia vốn gọi được.
+//
+// Kiểm-ổn-định sẵn có KHÔNG bắt được ca này, và lý do đáng nhớ: khi backend từ
+// chối RẢI RÁC thì hai lần chụp khác nhau ⇒ báo `unstable-extraction`; nhưng khi
+// nó từ chối ỔN ĐỊNH trong một quãng thì hai lần chụp GIỐNG HỆT NHAU (cùng
+// hỏng) ⇒ harness kết luận "ổn định". Một bộ kiểm tính lặp lại sẽ coi hỏng-ổn
+// -định là đạt. Nên phép kiểm mạng phải đứng TRƯỚC phép kiểm ổn định.
+describe('isTransportError — lỗi hạ tầng không phải khuyết tật trang', () => {
+  test('nhận đúng các mã tầng vận chuyển', () => {
+    for (const mã of ['net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_RESET',
+                      'net::ERR_NAME_NOT_RESOLVED', 'net::ERR_TIMED_OUT',
+                      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_CONNECTION_ABORTED']) {
+      assert.equal(isTransportError(mã), true, `«${mã}» phải được nhận là lỗi vận chuyển`);
+    }
+  });
+
+  // ĐỐI CHỨNG ÂM QUAN TRỌNG NHẤT. `ERR_ABORTED` xảy ra bình thường (điều hướng
+  // bị huỷ, tải media bị dừng). Gộp nó vào sẽ khiến gần như MỌI lượt chạy tự
+  // tuyên bố "hạ tầng hỏng" ⇒ cổng không bao giờ kết luận được gì nữa. Đó là
+  // cách một bản vá chống-đỏ-giả tự biến thành cách tắt cổng.
+  test('KHÔNG nhận ERR_ABORTED — nó xảy ra trong lượt chạy bình thường', () => {
+    assert.equal(isTransportError('net::ERR_ABORTED'), false);
+  });
+
+  // `net::ERR_FAILED` nghe RẤT giống "mất kết nối", và bản đầu của tôi đã xếp
+  // nó vào nhóm hạ tầng. Chromium dùng chính mã này cho LỖI CORS — nên xếp vào
+  // đó là để một hồi quy CORS của bản Next, tức đúng loại khuyết tật cổng này
+  // sinh ra để bắt, bị dán nhãn "hạ tầng" rồi biến mất khỏi báo cáo.
+  test('KHÔNG nhận ERR_FAILED — Chromium dùng nó cho lỗi CORS', () => {
+    assert.equal(isTransportError('net::ERR_FAILED'), false);
+  });
+
+  test('KHÔNG nhận lỗi tầng ứng dụng hay đầu vào rác', () => {
+    // Đây là lỗi THẬT của trang, phải để cổng bắt chứ không được dán nhãn hạ tầng.
+    assert.equal(isTransportError('net::ERR_BLOCKED_BY_CLIENT'), false);
+    assert.equal(isTransportError('net::ERR_CERT_AUTHORITY_INVALID'), false);
+    for (const rác of ['', null, undefined, 0, {}, [], 'ERR_CONNECTION_REFUSED']) {
+      assert.equal(isTransportError(rác), false, `«${String(rác)}» không được tính là lỗi vận chuyển`);
+    }
+  });
+
+  test('so BẰNG chứ không so CHỨA', () => {
+    // Nếu cài bằng `includes`, chuỗi dưới sẽ khớp và một lỗi lạ bị giấu dưới
+    // nhãn hạ tầng.
+    assert.equal(isTransportError('net::ERR_FAILED_SOMETHING_ELSE'), false);
+    // Nhưng hậu tố mô tả sau DẤU CÁCH là hình dạng Playwright thật sự phát ra.
+    assert.equal(isTransportError('net::ERR_CONNECTION_REFUSED at http://x/y'), true);
+  });
 });

@@ -1,0 +1,21 @@
+/* Trang "Luyện tập từ vựng".
+ *
+ * TÁCH RA TỪ `<style>` inline của `pages/vocab-practice.html` khi port sang Next
+ * (không đổi một khai báo nào). Cùng lý do đã tách ở `/full-test`: bản Next phải
+ * dùng CHÍNH tệp này, không chép — chép là hai bản trôi khỏi nhau và cổng parity
+ * chỉ so được vỏ.
+ */
+/* Hub intro — mirrors the exercises drill-hub (.ex-hub-*). */
+.vp-hub-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary);
+  margin: var(--av-space-2) 0 var(--av-space-1); }
+.vp-hub-sub { font-size: var(--av-fs-sm); color: var(--av-text-muted);
+  line-height: var(--av-lh-relaxed); margin: 0 0 var(--av-space-6); max-width: 56ch; }
+.vp-status { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-8) 0; }
+.vp-status.is-error { color: var(--av-error); }
+/* mode-card lede meta row */
+.vp-meta { display: flex; align-items: center; gap: var(--av-space-2); }
+.vp-code { font-weight: var(--av-fw-semibold); color: var(--av-primary); letter-spacing: .03em; }
+.vp-progress-link { display: inline-block; margin-top: var(--av-space-8);
+  color: var(--av-primary); font-size: var(--av-fs-sm); text-decoration: none; font-weight: var(--av-fw-semibold); }
+.vp-progress-link:hover { color: var(--av-primary-hover); }

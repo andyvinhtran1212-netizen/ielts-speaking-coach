@@ -23,22 +23,7 @@
   <link rel="stylesheet" href="/css/tailwind.build.css" />
   <!-- Canonical site chrome (brand + skill tabs + theme + user pill). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
-  <style>
-    /* Hub intro — mirrors the exercises drill-hub (.ex-hub-*). */
-    .vp-hub-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold);
-      letter-spacing: var(--av-tracking-tight); color: var(--av-text-primary);
-      margin: var(--av-space-2) 0 var(--av-space-1); }
-    .vp-hub-sub { font-size: var(--av-fs-sm); color: var(--av-text-muted);
-      line-height: var(--av-lh-relaxed); margin: 0 0 var(--av-space-6); max-width: 56ch; }
-    .vp-status { color: var(--av-text-muted); font-size: var(--av-fs-sm); padding: var(--av-space-8) 0; }
-    .vp-status.is-error { color: var(--av-error); }
-    /* mode-card lede meta row */
-    .vp-meta { display: flex; align-items: center; gap: var(--av-space-2); }
-    .vp-code { font-weight: var(--av-fw-semibold); color: var(--av-primary); letter-spacing: .03em; }
-    .vp-progress-link { display: inline-block; margin-top: var(--av-space-8);
-      color: var(--av-primary); font-size: var(--av-fs-sm); text-decoration: none; font-weight: var(--av-fw-semibold); }
-    .vp-progress-link:hover { color: var(--av-primary-hover); }
-  </style>
+  <link rel="stylesheet" href="/css/vocab-practice.css" />
 </head>
 <body class="av-page font-sans antialiased">
   <aver-chrome active="vocabulary"></aver-chrome>
@@ -49,7 +34,7 @@
         <!-- Back UP to the Vocabulary hub (where the picker is launched from) —
              the same page the chrome "Vocabulary" tab opens for a logged-in user.
              NOT /vocabulary.html (the public word wiki), which is a different page. -->
-        <a class="subpage-header__back" href="/pages/vocabulary.html">
+        <a class="subpage-header__back" href="/vocabulary/hub">
           <span aria-hidden="true">←</span><span>Vocabulary</span>
         </a>
         <span class="subpage-header__sep">|</span>
@@ -68,48 +53,21 @@
     <p id="vp-empty" class="vp-status hidden">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
     <p id="vp-error" class="vp-status is-error hidden"></p>
 
-    <a id="vp-progress" class="vp-progress-link hidden" href="/pages/quiz-progress.html?skill_area=vocab">📊 Xem tiến độ của tôi →</a>
+    <a id="vp-progress" class="vp-progress-link hidden" href="/quiz/progress?skill_area=vocab">📊 Xem tiến độ của tôi →</a>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script>
-    'use strict';
+    // Khởi tạo Supabase TRƯỚC khi gọi `mount()` — giữ nguyên thứ tự bản inline cũ.
     initSupabase('https://huwsmtubwulikhlmcirx.supabase.co',
                  'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
-    const $ = (id) => document.getElementById(id);
-    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
-      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-
-    async function boot() {
-      let banks;
-      try { banks = await window.api.get('/api/quiz/banks?skill_area=vocab'); }
-      catch (e) {
-        $('vp-loading').classList.add('hidden');
-        $('vp-error').textContent = 'Không tải được danh sách bài luyện: ' + e.message;
-        $('vp-error').classList.remove('hidden');
-        return;
-      }
-      $('vp-loading').classList.add('hidden');
-      $('vp-progress').classList.remove('hidden');
-
-      banks = Array.isArray(banks) ? banks : [];
-      if (!banks.length) { $('vp-empty').classList.remove('hidden'); return; }
-
-      $('vp-list').innerHTML = banks.map((b) => {
-        const n = b.words_count || 0;
-        return '<a class="mode-card" href="/pages/quiz.html?bank=' + encodeURIComponent(b.id) + '">'
-          + '<div class="head"><div class="icon">📚</div><span class="arrow">→</span></div>'
-          + '<h3>' + esc(b.title || b.code || 'Bài luyện') + '</h3>'
-          + '<p class="lede vp-meta">'
-          + (b.code ? '<span class="vp-code">' + esc(b.code) + '</span> · ' : '')
-          + n + ' từ · học tới khi thuộc</p>'
-          + '</a>';
-      }).join('');
-      $('vp-list').classList.remove('hidden');
-    }
-    boot();
+  </script>
+  <script type="module">
+    // Logic đã tách sang `/js/vocab-practice.js` để bản Next chạy CHÍNH mã này.
+    import { mount } from '/js/vocab-practice.js';
+    mount();
   </script>
 </body>
 </html>

@@ -18,7 +18,12 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const PROGRESS = read('pages', 'quiz-progress.html');
+// Logic của trang đã TÁCH sang `/js/quiz-progress.js` khi port sang Next: bản
+// Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định ở đây là
+// "nguồn trang có chứa X", nên nguồn trang nay = HTML + module của nó. Gộp
+// giữ ĐÚNG ý định cũ; ở tệp này không có khẳng định nào phụ thuộc THỨ TỰ
+// trong HTML (đã kiểm), nên gộp là an toàn.
+const PROGRESS = read('pages', 'quiz-progress.html') + '\n' + read('js', 'quiz-progress.js');
 const QUIZ = read('pages', 'quiz.html');
 const PRACTICE = read('pages', 'vocab-practice.html');
 const LANDING = read('js', 'vocab-landing.js');
@@ -69,12 +74,12 @@ describe('skill_area scoping (audit §C3)', () => {
   });
 
   test('every vocab entry point passes skill_area=vocab', () => {
-    assert.match(LANDING, /quiz-progress\.html\?skill_area=vocab/);
-    assert.match(PRACTICE, /quiz-progress\.html\?skill_area=vocab/);
+    assert.match(LANDING, /\/quiz\/progress\?skill_area=vocab/);
+    assert.match(PRACTICE, /\/quiz\/progress\?skill_area=vocab/);
   });
 
   test('the player stamps the skill it just practised onto its stats link', () => {
     assert.match(QUIZ, /id=["']qz-stats["']/);
-    assert.match(QUIZ, /quiz-progress\.html\?skill_area=' \+ encodeURIComponent\(area\)/);
+    assert.match(QUIZ, /\/quiz\/progress\?skill_area=' \+ encodeURIComponent\(area\)/);
   });
 });

@@ -66,11 +66,25 @@
   3. `/pages/admin/dashboard/index.html` → `/pages/admin/index.html` (dashboard moved to admin hub)
 - **Resolution:** Both `/admin/access-codes` and `/pages/admin/users.html?tab=codes` are canonical; access-codes view is a tab within users.
 
-### Q3: Vocabulary dual-route issue (two index files)
-- Both `frontend/vocabulary.html` (root) and `frontend/pages/vocabulary.html` exist.
+### Q3: Vocabulary dual-route issue (two index files) — ĐÃ CHỐT 2026-08-08
+- Both `frontend/public/vocabulary.html` (root) and `frontend/public/pages/vocabulary.html` exist.
 - `frontend/pages/my-vocabulary.html` is a legacy path that redirects to `/pages/vocabulary.html` per vercel.json line 35.
-- **Issue:** Root-level `frontend/vocabulary.html` and `frontend/pages/vocabulary.html` may target the same route.
-- **Resolution:** Verify canonical ownership; root-level file should either redirect or one should be retired post-migration.
+- **Chúng KHÔNG phải bản trùng lặp.** Đo 2026-08-08, cả hai đều trả 200 trên production:
+
+  | | `public/vocabulary.html` | `public/pages/vocabulary.html` |
+  |---|---|---|
+  | Tiêu đề | Vocabulary Wiki — Aver Learning | Từ vựng — Aver Learning |
+  | Cần đăng nhập | **không** | **có** |
+  | Nguồn dẫn | tab «Vocabulary» của `aver-chrome.js:324`, `vocab-article.html`, admin | các lối vào trong khu học viên |
+
+- **CHỐT (chủ dự án, 2026-08-08): `/vocabulary` thuộc về WIKI CÔNG KHAI.**
+  Trang Từ vựng của học viên giữ `/vocabulary/hub`.
+  Lý do: tab điều hướng chung ĐANG trỏ vào wiki, nên tên đó khớp với thứ người
+  dùng đã quen; và trang công khai mới là trang cần URL ngắn để chia sẻ.
+  Chi phí bằng 0: không link nào phải sửa.
+- Chốt `vocabulary-route-ownership.test.mjs` ghim quyết định này: route `/vocabulary`
+  (khi wiki được port) KHÔNG được nằm trong nhóm `(authed-*)`, và trang học viên
+  phải ở lại `/vocabulary/hub`.
 
 ### Q4: Grammar routes and dynamic patterns
 - `vercel.json` line 22 has one dynamic rewrite: `/grammar/:category/:slug` → `/pages/grammar-article.html`
@@ -91,9 +105,9 @@
 - **Resolution:** All three are distinct routes; drills are a feature gate within skills, not a separate page.
 
 ### Q7: Full-test chaining and session affinity
-- `full-test.html` and `full-test-result.html` use `session_id` query param.
-- Chaining uses `_ftAllSessionIds` in frontend + `extra_session_ids` in pronunciation endpoint (per CLAUDE.md).
-- **Resolution:** Full-test is ONE complex flow across multiple pages; session state is per-session_id, chained via query param array.
+- The player carries `p1/p2/p3` for legacy URL compatibility; new sessions persist one server-owned `sessions.full_test_attempt_id` across all three Parts.
+- `/full-test-result` can resolve the full chain canonically from Part 1. Pre-migration rows still require explicit `p1/p2/p3` and are marked unverified rather than silently treated as a database-backed chain.
+- **Resolution:** Full-test is ONE complex flow across multiple pages; the database chain identity is canonical, while the tab-scoped ID array remains resume/rollback transport only.
 
 ### Q8: Instructor routes (3 vs. expected scope)
 - Only 3 instructor files found: `pages/instructor/index.html` (dashboard), `/grade.html`, `/compare.html`.
@@ -105,10 +119,12 @@
 - `admin.html` is a redirect stub per CLAUDE.md file structure.
 - **Resolution:** `/admin.html` is a legacy redirect; canonical entry is `/pages/admin/index.html` (or via clean URL `/admin` if rewrite added).
 
-### Q10: Root-level vocabulary.html
-- `frontend/vocabulary.html` exists at root level alongside `pages/vocabulary.html`.
-- Need to verify if root-level is (a) legacy redirect, (b) independent route, or (c) accidental duplicate.
-- **Resolution:** Pending verification; likely a legacy alias that should redirect to `pages/vocabulary.html`.
+### Q10: Root-level vocabulary.html — ĐÃ ĐÓNG 2026-08-08
+- Giả thuyết cũ («likely a legacy alias») **SAI**. Nó là một trang ĐỘC LẬP:
+  wiki công khai, không cần đăng nhập, và là đích của tab «Vocabulary» trên
+  thanh điều hướng chung. Bằng chứng + quyết định sở hữu route: xem **Q3**.
+- Không được biến nó thành redirect sang `pages/vocabulary.html`: hai trang phục
+  vụ hai đối tượng khác nhau (khách vs học viên đã đăng nhập).
 
 ---
 
@@ -127,28 +143,38 @@
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/grammar` | `/grammar.html` | `grammar.html` | Public | none | localStorage (theme) | M | Grammar hub; category browser |
+| `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
 | `/grammar/:category/:slug` | `/:category/:slug` (clean URL alias via vercel rewrite) | `pages/grammar-article.html` | Public | `anchor` (scroll to section) | localStorage (theme), fetch (public API) | M | Article view; ~150 articles served by single page; server-side SEO metadata |
 | `/grammar/compare` | — | `pages/grammar-compare.html` | Public | `a`, `b` (article slugs to compare) | localStorage (theme), fetch API | M | Side-by-side article comparison |
 | `/grammar/roadmap` | — | `pages/grammar-roadmap.html` | Public | none | localStorage (theme) | S | Learning path graph; static layout |
 | `/grammar/search` | — | `pages/grammar-search.html` | Public | `q` (search term) | localStorage (theme), fetch API | M | Full-text search; real-time results |
 
+### Migration Runtime Infrastructure
+
+| Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
+|---|---|---|---|---|---|---|---|
+| `/core-player/launch` | — | `app/core-player/launch/route.ts` | Public redirect boundary; no data access, destination/backend remains authoritative | `surface` plus the allowlisted identity/context query for that surface | no-store 307 redirect | S | Runtime admission boundary for new core attempts. It never accepts an implementation choice from the client; cached launchers are resolved against the currently deployed policy. This endpoint is part of the coexistence rollback floor while old launcher bundles may call it. |
+
 ### Speaking
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/speaking` | `/pages/speaking.html` (file), `/pages/dashboard.html` → `/pages/speaking.html` (legacy redirect via vercel.json line 34) | `pages/speaking.html` | Student | none | localStorage (theme), sessionStorage (session state), Supabase session | M | Speaking hub; session list & full-test launch |
+| `/speaking` | `/pages/speaking.html` (file, bản legacy vẫn phục vụ làm mốc rollback + vế parity), `/pages/dashboard.html` → `/pages/speaking.html` (legacy redirect via vercel.json line 34) | `app/(authed-speaking)/speaking/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (session state), Supabase session | M | Speaking hub; session list & full-test launch |
 | `/practice` | `?session_id=<uuid>` (mandatory; error if missing) | `pages/practice.html` | Student | `session_id` | localStorage (theme), sessionStorage (recording state), MediaRecorder, Whisper API (audio upload), Claude grading API, Supabase session | XL | Core speaking practice; 3167 LOC practice.js; recording + grading + feedback + full-test chaining |
-| `/result` | `?session_id=<uuid>` (from practice complete) | `pages/result.html` | Student | `session_id`, `part` (optional, scroll anchor) | localStorage (theme), sessionStorage (cached result), audio playback | L | Result display; grammar feedback, pronunciation pills, next-question nav |
-| `/full-test` | — | `pages/full-test.html` | Student | `test_id`, `attempt_id`, `session_ids` (array from chaining) | localStorage (theme), sessionStorage (test state, part progress) | L | Full mock test 3-part orchestration; session chaining |
-| `/full-test-result` | — | `pages/full-test-result.html` | Student | `attempt_id` | localStorage (theme), audio playback | L | Aggregated result across 3 parts; band calculation |
+| `/practice/session` | NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE + PLAYER LIFECYCLE + JSX SHELL + PREP-PART2-SHEET-COMPLETION VIEW / FEEDBACK LEGACY; admission vẫn `/pages/practice.html`, `route_ready=false` | `app/(authed-practice)/practice/session/page.tsx`; React sở hữu auth, session/question bootstrap, MediaRecorder, multipart/reconciliation, Full Test chain/retry/resume/finalize, state activation, cleanup timer/countdown/listener/speech/object URL, static player DOM/handlers/SVG và view-model của header/loading/error/test progress/Part 1-3 prep/recording/processing/Part 2/assignment sheet/completion; backend pin chain đúng part/cùng sitting, 9/1/5 câu và exact response coverage; feedback/pronunciation và test-results vẫn do `practice.js` ghi qua ID tương thích | Student | `session_id` | AuthProvider + checked bootstrap + native player/recorder/submission/full-test controllers; receipt-safe canonical backend readback | XL | Stable implementation URL cho Gate E drill; dynamic renderer mới port một phần, chưa browser/live drill hay cutover, không được dùng parity nhánh thiếu query làm player-ready evidence |
+| `/result` | `app/(authed-session-result)/result/page.tsx` — native React behavior 2026-08-09; `/pages/result.html` remains rollback target | `pages/result.html` (parity/rollback only) | Student | `id` (`session_id` accepted as compatibility alias) | AuthProvider, `/sessions/{id}`, signed audio, PDF export; requests/audio/blob URLs cleaned on unmount | L | Canonical persisted session result; fail-visible response lookup, sealed-mock state, grammar/pronunciation detail, pending-vocab + KP widgets; Next player/history use canonical route while Legacy player stays on stable file URL |
+| `/full-test` | `app/(authed-full-test)/full-test/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/full-test.html` (parity/rollback only) | Student | none | AuthProvider, `/api/mock-exams`; abort on unmount/account switch | S | Authenticated mock-exam launcher; canonical backend enforces published/window/cohort and one-live-sitting rules; soft-navigation safe |
+| `/vocabulary/hub` | `app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/vocabulary.html` (parity/rollback only) | Student | hash: `vocab-topics`, `flashcards`, `exercises` | AuthProvider, `/api/student/home-summary`, `/auth/me`, `/api/vocabulary/categories`; abort on unmount/account switch | M | Hub từ vựng học viên; React sở hữu dashboard/topic picker và lifecycle mount cho hai domain module; default-deny feature flags; soft-navigation safe. Tên `/vocabulary/hub` là CUỐI CÙNG vì `/vocabulary` thuộc WIKI CÔNG KHAI (Q3). |
+| `/mock/result` | `app/(authed-mock-result)/mock/result/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/mock-result.html` (parity/rollback only) | Student | `sitting` | AuthProvider, `/api/mock-exams/sittings/{id}/result`; abort on unmount/account/query change | M | Phiếu điểm TRF; canonical backend seals result until released and owns final bands/gap/retest truth; soft-navigation safe |
+| `/speaking/result` | `app/(authed-speaking-result)/speaking/result/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/speaking-result.html` (parity/rollback only) | Student | `sitting` | AuthProvider, `/api/mock-exams/sittings/{id}/result`; abort on unmount/account switch | S | Nhận xét Speaking của giáo viên chấm; authored content React-escaped; soft-navigation safe |
+| `/full-test-result` | `app/(authed-full-test-result)/full-test-result/page.tsx` — native React behavior 2026-08-10; `/pages/full-test-result.html` remains rollback target | `pages/full-test-result.html` (parity/rollback only) | Student | `p1`; `p2/p3` legacy compatibility; `session_id` accepted as Part 1 alias | AuthProvider, canonical `/sessions/{p1}/full-test-summary`, persisted pronunciation, PDF export; request/blob cleanup on unmount | L | Server resolves persisted `full_test_attempt_id`, validates owned Part 1/2/3 + exact 9/1/5 questions, suppresses sealed/pending/failed scores, and never reruns pronunciation AI on page load |
 
 ### Writing
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/writing` | — | `pages/writing-dashboard.html` | Student | none | localStorage (theme), sessionStorage (state), Supabase session | M | Writing hub; assignment list + status + cohort view |
-| `/writing/dashboard` | Clean URL alias via vercel.json line 23 | `pages/writing-dashboard.html` | Student | none | localStorage (theme), sessionStorage (state) | M | Rewrite target; assignment overview |
+| `/writing/dashboard` | rewrite ĐÃ GỠ ở #950; `/pages/writing-dashboard.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-writing)/writing/dashboard/page.tsx` — CUTOVER 2026-08-05 | Student | none | localStorage (theme), sessionStorage (state) | M | Rewrite target; assignment overview |
 | `/writing/result` | Clean URL alias via vercel.json line 24 | `pages/writing-result.html` | Student | `submission_id` | localStorage (theme), sessionStorage (cached result), fetch (Rails images from legacy Supabase project) | L | Task 1/Task 2 result + instructor feedback |
 
 ### Reading
@@ -157,49 +183,62 @@
 |---|---|---|---|---|---|---|---|
 | `/reading` | — | `pages/reading.html` | Public (can practice without login; auth optional for progress save) | none | localStorage (theme) | S | Reading hub; passage browser |
 | `/reading/exam` | — | `pages/reading-exam.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (exam state, answers, timing), fetch API | XL | Full 3-passage IELTS reading; 2613 LOC reading-exam.js; local/session storage for persistence |
-| `/reading/skill` | — | `pages/reading-skill.html` | Student | `skill_id` (comprehension, vocab, skim, scan) | localStorage (theme), sessionStorage (answers) | L | Skill-specific passage drills |
+| `/reading/skill` | `/pages/reading-skill.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/skill/page.tsx` — CUTOVER 2026-08-06; native React behavior 2026-08-09 | Student | filters: `difficulty`, `skill` | AuthProvider; `/api/reading/skill`; abort on filter/account switch and unmount | L | Filterable L2 skill library; account-keyed, React-escaped and soft-navigation safe |
 | `/reading/skill/:exercise_id` | — | `pages/reading-skill-exercise.html` | Student | `exercise_id`, `passage_id` | localStorage (theme), sessionStorage (state) | M | Single exercise within skill drill |
-| `/reading/vocab` | — | `pages/reading-vocab.html` | Public | none | localStorage (theme), fetch (vocab list) | M | Vocabulary extraction from reading content |
+| `/reading/vocab` | `/pages/reading-vocab.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/vocab/page.tsx` — CUTOVER 2026-08-05; native React behavior 2026-08-09 | Student | none | AuthProvider; `/api/reading/vocab`; abort on filter/account switch and unmount | M | Filterable L1 reading library; account-keyed, React-escaped and soft-navigation safe |
 | `/reading/vocab/:passage_id` | — | `pages/reading-vocab-passage.html` | Public | `passage_id` | localStorage (theme) | M | Words from single passage |
 | `/reading/review` | — | `pages/reading-review.html` | Student | `attempt_id` | localStorage (theme), fetch (answer review) | M | Post-exam review + analytics |
-| `/reading/mini-test` | — | `pages/reading-mini-test.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill |
-| `/reading/test` | — | `pages/reading-test.html` | Student | (not commonly used; prefer exam or mini-test) | localStorage (theme) | S | Generic reading test page (low traffic) |
+| `/reading/mini-test` | `/pages/reading-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/mini-test/page.tsx` + `reading-mini-test-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state) | M | 1-passage reading drill; authenticated fail-close; aborts stale filter/account requests; explicit `test_type=mini` |
+| `/reading/test` | `/pages/reading-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-reading)/reading/test/page.tsx` — CUTOVER 2026-08-06; native React behavior 2026-08-09 | Student | filter: `module`; request pins `test_type=full` | AuthProvider; `/api/reading/test`; abort on filter/account switch and unmount | S | Full-test library; account-keyed, React-escaped and soft-navigation safe |
 
 ### Listening
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/listening` | — | `pages/listening.html` | Public | none | localStorage (theme) | S | Listening hub; content browser |
+| `/listening` | `/pages/listening.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/page.tsx` + `listening-landing-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | none | AuthProvider; `/api/listening/overview`; abort on account switch and unmount | S | Count-driven Listening hub; runnable-mode library guard; explicit loading and generic API fallback; React-escaped và soft-navigation safe |
+| `/listening/tests` | `/pages/listening-tests.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/tests/page.tsx` + `listening-tests-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | none | AuthProvider; paged `/api/listening/tests?test_type=full`; abort on account switch and unmount | S | Cambridge full tests shelf; `submitted` mới là đã làm, total attempts chỉ là activity; account-keyed, React-escaped và soft-navigation safe |
+| `/listening/practice` | `/pages/listening-practice.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/practice/page.tsx` + `listening-practice-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | hash `trap` / `section` / `curated` | AuthProvider; overview + paged practice-group reads; per-tab cache; abort on account/tab switch and unmount | M | Luyện nhanh; canonical count-driven tabs; trap grouping; `submitted` mới là hoàn thành, total attempts chỉ là activity; React-escaped và soft-navigation safe |
 | `/listening/mcq` | — | `pages/listening-mcq.html` | Student | `test_id`, `attempt_id`, `section` (optional) | localStorage (theme), sessionStorage (mcq state, answers), audio playback, free-scrub timing | L | Multiple-choice questions with linked audio |
 | `/listening/gist` | — | `pages/listening-gist.html` | Student | `test_id`, `attempt_id`, `section` | localStorage (theme), sessionStorage (gist state), audio playback | M | Main idea comprehension task |
 | `/listening/tf` | — | `pages/listening-tf.html` | Student | `test_id`, `attempt_id`, `section` | localStorage (theme), sessionStorage (tf state, answers), audio playback | M | True/False/Not Given task |
 | `/listening/dictation` | — | `pages/listening-dictation.html` | Student | `test_id`, `attempt_id`, `section` (if linked to test) | localStorage (theme), sessionStorage (transcribed text), audio playback (free-scrub), clipboard (paste submit) | L | Free-text transcription from audio |
 | `/listening/test-dictation` | — | `pages/listening-test-dictation.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (dictation state), audio playback | M | Linked dictation from test sections |
-| `/listening/skills` | — | `pages/listening-skills.html` | Student | `skill_id` (drill type: mcq, gist, tf, dictation) | localStorage (theme), sessionStorage (skill drill state) | M | Skill-specific drill selector + launcher |
-| `/listening/browse` | — | `pages/listening-browse.html` | Public | `level` (elementary, intermediate, advanced) | localStorage (theme), fetch (content list) | S | Listening content catalog |
+| `/listening/skills` | `/pages/listening-skills.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/skills/page.tsx` + `listening-skills-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | `skill_id` (drill type) | AuthProvider; paged `/api/listening/tests?test_type=drill`; abort on account switch and unmount | M | Eleven skill ladders; L/T sorting; nav/filter/summary native; `submitted` mới là đã luyện; static SVG, React-escaped và soft-navigation safe |
+| `/listening/browse` | `/pages/listening-browse.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/browse/page.tsx` + `listening-browse-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | filters: `accent_tag`, `cefr_level`, `ielts_section` | AuthProvider; paged `/api/listening/content`; abort on filter/account switch and unmount | S | Listening content catalog; backend-gated exercise modes; missing/malformed lookup is visible, not no-data; React-escaped và soft-navigation safe |
 | `/listening/review` | — | `pages/listening-review.html` | Student | `attempt_id` | localStorage (theme), fetch (review data), audio playback | M | Post-test review + section breakdown |
-| `/listening/analytics` | — | `pages/listening-analytics.html` | Student | `test_id`, `user_id` (optional, for admin) | localStorage (theme), fetch (analytics API) | M | Performance summary + trend |
-| `/listening/mini-test` | — | `pages/listening-mini-test.html` | Student | `test_id`, `attempt_id` | localStorage (theme), sessionStorage (mini test state), audio playback | M | 1-section listening drill |
+| `/listening/analytics` | `/pages/listening-analytics.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/analytics/page.tsx` + `listening-analytics-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | filter: `range` (`7d`, `30d`, `all`) | AuthProvider; `/api/listening/analytics`; abort on range/account switch and unmount | M | Performance summary + 14-day trend; canonical weighted aggregates, backend-owned weakest mode, generic errors, React-escaped and soft-navigation safe |
+| `/listening/mini-test` | `/pages/listening-mini-test.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-listening)/listening/mini-test/page.tsx` + `listening-mini-test-behavior.tsx` — native React behavior, legacy page retained for parity/rollback | Student | `test_id`, `attempt_id` | AuthProvider; paged `/api/listening/tests?test_type=mini`; abort on account switch and unmount | M | 1-section listening drill; variable score không gắn `/40`; `submitted` mới là đã luyện, total attempts chỉ là activity; account-keyed, React-escaped và soft-navigation safe |
+
+### Tài khoản học viên
+
+Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi theo MIỀN:
+để `/profile` nằm trong "Exercises & Quizzes" chỉ vì nó được chèn cạnh
+`/exercises` là làm lệch đúng lượt rà đó (bot bắt ở #958).
+
+| Route | Alias / redirect | Tệp sở hữu | Ai xem được | Tham số | Trạng thái phía client | Kích thước | Ghi chú |
+|---|---|---|---|---|---|---|---|
+| `/profile` | `/pages/profile.html` → 307 sang `/profile` (bản legacy ĐÃ gỡ khi cutover pilot 3) | `app/(authed)/profile/page.tsx` — CUTOVER (pilot 3) | Student | none | localStorage (theme), Supabase session | M | Hồ sơ học viên |
 
 ### Vocabulary
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` (root), `/pages/vocabulary.html`, `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json line 35) | `pages/vocabulary.html` | Student | none | localStorage (theme), sessionStorage (card state), Supabase session | M | Student vocab hub; curated topic words |
-| `/vocabulary/exam` | — | `pages/vocab-exam.html` | Student | `list_id` (AWL, TOEIC, THPT, or course-specific) | localStorage (theme), sessionStorage (quiz state, score), fetch API | L | Quiz from imported vocabulary list |
-| `/vocabulary/practice` | — | `pages/vocab-practice.html` | Student | `list_id`, `card_id` (optional, resume) | localStorage (theme), sessionStorage (card progress, deck order) | M | Flashcard study (not locked in IIFE; reusable via quiz-vocab) |
+| `/vocabulary` | `/vocabulary.html` (root) | `public/vocabulary.html` | **Public** | none | localStorage (theme) | M | **Wiki từ vựng CÔNG KHAI** — không cần đăng nhập. Là đích của tab «Vocabulary» trên `aver-chrome.js:324` và của link quay lại trong `vocab-article.html`. SỞ HỮU tên `/vocabulary` (chốt 2026-08-08, Q3). KHÔNG phải trang học viên: trang đó là `pages/vocabulary.html` ↔ `/vocabulary/hub`. `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json dòng 35) là redirect của TRANG HỌC VIÊN, không liên quan tới hàng này. |
+| `/vocabulary/exam` | `/pages/vocab-exam.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-vocab-exam)/vocabulary/exam/page.tsx` — CUTOVER 2026-08-06; native React behavior 2026-08-09 | Student shell; endpoint public | none | `/api/vocabulary/exam`; abort on unmount | S | Read-only AWL/TOEIC/THPT list launcher; authored metadata React-escaped; opens shared flashcard player; soft-navigation safe |
+| `/vocabulary/practice` | `app/(authed-vocab-practice)/vocabulary/practice/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/vocab-practice.html` (parity/rollback only) | Student | none | AuthProvider, `/api/quiz/banks?skill_area=vocab`; abort on unmount/account switch | S | Vocabulary Quick-Check bank picker; authored metadata React-escaped; soft-navigation safe |
 | `/vocabulary/article` | — | `pages/vocab-article.html` | Public | `word_id`, `source` (reading, listening, etc.) | localStorage (theme), fetch (word definition + examples) | S | Word detail + etymology + usage |
 
 ### Exercises & Quizzes
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/grammar/exercises` | — | `pages/grammar-exercises.html` | Public | none | localStorage (theme), fetch (grammar quiz banks) | M | Grammar quiz launcher; multiple banks |
+| `/grammar/exercises` | `app/(public-content)/grammar/exercises/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/grammar-exercises.html` (parity/rollback only) | Public | none | `/api/grammar/exercises`; abort on unmount | M | Grammar quiz launcher; authored bank metadata React-escaped; soft-navigation safe |
 | `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
-| `/exercises` | — | `pages/exercises.html` | Student | none | localStorage (theme), fetch (exercise list) | M | Exercise hub; all types |
+| `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
+| `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06; lifecycle-safe Next orchestration 2026-08-09 | Student | none | AuthProvider; `/auth/me`; retained `vocab-modules/exercises.js` through shared mount/unmount adapter; abort on unmount | M | Feature-gated exercise hub; account-keyed and soft-navigation safe |
 | `/quiz` | — | `pages/quiz.html` | Public | `bank_id` (grammar bank slug), `lesson_id` (optional) | localStorage (theme), sessionStorage (quiz answers), fetch API | L | Quiz player; MCQ/gap-fill/true-false |
-| `/quiz/progress` | — | `pages/quiz-progress.html` | Student | `bank_id` (optional, filter by bank) | localStorage (theme), fetch (progress API) | M | Quiz attempt history + stats |
-| `/flashcards` | — | `pages/flashcards.html` | Student | none | localStorage (theme), sessionStorage (deck order) | M | Flashcard deck browser |
+| `/quiz/progress` | `app/(authed-quiz-progress)/quiz/progress/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/quiz-progress.html` (parity/rollback only) | Student | `skill_area` (optional: `vocab` or `grammar`) | AuthProvider, `/api/quiz/progress`, `/api/quiz/mistakes`; abort on unmount/account switch | M | Quiz attempt history + stats; soft-navigation safe |
+| `/flashcards` | `/pages/flashcards.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-flashcards)/flashcards/page.tsx` — CUTOVER 2026-08-06; lifecycle-safe Next orchestration 2026-08-09 | Student | none | AuthProvider; retained `vocab-modules/flashcards.js` through shared mount/unmount adapter; abort on unmount | M | Flashcard stack browser/create/delete; account-keyed and soft-navigation safe |
 | `/flashcard-study` | — | `pages/flashcard-study.html` | Student | `deck_id`, `card_index` (optional, resume) | localStorage (theme), sessionStorage (card state, review marks), fetch API | L | Flashcard study player; locked IIFE (not reusable) |
 | `/exam` | — | `pages/exam.html` | Public | `exam_id` (MCQ exam type) | localStorage (theme), sessionStorage (exam state, answers) | L | Exam player (generic MCQ/true-false) |
 
@@ -532,13 +571,13 @@ Some routes are served by the same HTML file but accessible via multiple URL pat
 
 | Pattern 1 | Pattern 2 | Implementation file | Notes |
 |---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` | `pages/vocabulary.html` | Root-level file needs audit; likely legacy |
+| `/vocabulary` | `/vocabulary.html` | `public/vocabulary.html` | Wiki CÔNG KHAI, trang độc lập — SỞ HỮU `/vocabulary` (chốt 2026-08-08, Q3). Không phải bí danh cũ; không được biến thành redirect. |
 | `/writing` | `/writing/dashboard` | `pages/writing-dashboard.html` | Clean URL alias via vercel rewrite |
 | `/writing/result` | (direct path only) | `pages/writing-result.html` | No root-level alias |
-| `/grammar` | `/grammar.html` | `grammar.html` | Root-level file |
+| `/grammar` | `/grammar.html` | `app/(public-content)/grammar/page.tsx` | CUTOVER (pilot 2); legacy giữ làm mốc rollback + vế parity |
 | `/grammar/:category/:slug` | `/pages/grammar-article.html` | `pages/grammar-article.html` | Dynamic pattern via rewrite |
-| `/speaking` | `/pages/speaking.html` | `pages/speaking.html` | Clean URL alias via verwrite; legacy dashboard redirect also here |
-| `/home` | `/pages/home.html` | `pages/home.html` | Clean URL alias via verwrite |
+| `/speaking` | `/pages/speaking.html` | `app/(authed-speaking)/speaking/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
+| `/home` | `/pages/home.html` | `app/(authed-home)/home/page.tsx` | CUTOVER 2026-08-05; legacy giữ làm mốc rollback + vế parity |
 
 ---
 

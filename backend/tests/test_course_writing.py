@@ -12,6 +12,7 @@ Và một luật của chính bộ chấm: sửa NGỮ PHÁP + CHÍNH TẢ, khô
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -126,6 +127,52 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     assert e.value.status_code == 409
 
 
+@pytest.mark.asyncio
+async def test_the_losing_retry_cas_keeps_its_actionable_409():
+    """Hai tab cùng chấm lại dòng hỏng: tab thua CAS phải tải lại, không phải
+    nhận một lỗi máy chủ 500 do chính ``HTTPException`` bị bắt lại."""
+    broken = [{
+        "id": "sub1", "bank_id": "b1", "user_id": "u1",
+        "class_assignment_item_id": "it1",
+        "items": [{"qid": "E1", "ok": None}],
+        "graded_at": "2026-08-05T00:00:00Z",
+    }]
+
+    class _CasLoser(_Table):
+        def update(self, row):
+            self._log.append((self._name, "update", row))
+            # Tab kia đã đổi ``graded_at`` sau lượt đọc ban đầu, nên điều kiện
+            # CAS không còn khớp và Supabase trả danh sách rỗng.
+            self._rows = []
+            return self
+
+        def is_(self, *_a):
+            return self
+
+    log = []
+    tables = {"quiz_questions": _QS, "course_writing_submissions": broken}
+    db = type("DB", (), {})()
+    db.table = lambda n: _CasLoser(n, tables.get(n, []), log)
+
+    async def g(items):
+        return ([{"qid": i["qid"], "prompt": i["prompt"],
+                  "answer": i["answer"], "corrected": i["answer"],
+                  "issues": [], "ok": True} for i in items], "m")
+
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_bank_meta_or_404",
+                      lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs.course_writing_grader, "grade", g):
+        with pytest.raises(HTTPException) as e:
+            await qs.submit_course_writing(
+                user_id="u1", bank_id="b1", answers={"E1": "x", "E2": "y"})
+
+    assert e.value.status_code == 409
+    assert "Tải lại trang" in str(e.value.detail)
+    assert not str(e.value.detail).startswith("Lỗi lưu bài tự luận")
+
+
 # ── Đủ câu mới nhận ──────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -216,6 +263,94 @@ async def test_ok_is_derived_from_issues_not_from_the_models_own_flag():
     assert out[0]["ok"] is False
 
 
+# ── Lỗi HÌNH THỨC không đánh rớt một câu ngữ pháp đúng ──────────────────────
+#
+# Dữ liệu thật, 07/08: em Lê Ngọc Hà Linh nộp 10 câu, nhận 0/10. Tám câu bị trừ
+# vì viết thường đầu câu, NĂM trong số đó không có lỗi nào khác.
+
+async def _one(issues, answer="the audience found the documentary shocking",
+               corrected="The audience found the documentary shocking."):
+    class _R:
+        text = json.dumps({"results": [{"qid": "E1", "corrected": corrected,
+                                        "ok": False, "issues": issues}]})
+    fake = type("M", (), {"generate_content_async": AsyncMock(return_value=_R())})()
+    with patch.object(cw, "_model", return_value=("m", fake)):
+        out, _ = await cw.grade([{"qid": "E1", "prompt": "p", "answer": answer}])
+    return out[0]
+
+
+@pytest.mark.asyncio
+async def test_a_lowercase_first_letter_does_not_fail_a_correct_sentence():
+    g = await _one([{"type": "grammar", "before": "the", "after": "The",
+                     "note": "Câu cần bắt đầu bằng chữ cái viết hoa."}])
+    assert g["ok"] is True, "câu dựng đúng khung không được rớt vì một chữ hoa"
+    assert g["issues"][0]["type"] == cw.MECHANICS, "vẫn phải BÁO, chỉ là không tính"
+
+
+@pytest.mark.asyncio
+async def test_the_pronoun_I_and_a_missing_full_stop_are_form_not_grammar():
+    for issue in ({"type": "grammar", "before": "i", "after": "I"},
+                  {"type": "grammar", "before": "autumn", "after": "autumn."},
+                  {"type": "grammar", "before": "found  the", "after": "found the"}):
+        g = await _one([issue])
+        assert g["ok"] is True, issue
+        assert g["issues"][0]["type"] == cw.MECHANICS, issue
+
+
+@pytest.mark.asyncio
+async def test_a_real_grammar_error_still_fails_even_beside_a_form_error():
+    g = await _one([{"type": "grammar", "before": "air", "after": "Air"},
+                    {"type": "grammar", "before": "make", "after": "makes"}],
+                   answer="air pollution make him tired")
+    assert g["ok"] is False, "chia sai động từ vẫn là sai, dù đứng cạnh lỗi hình thức"
+    assert [x["type"] for x in g["issues"]] == [cw.MECHANICS, "grammar"]
+
+
+@pytest.mark.parametrize("before,after", [
+    ("its", "it's"),            # dấu lược MANG NGHĨA
+    ("students", "student's"),  # sở hữu cách
+    ("alot", "a lot"),          # tách từ
+    ("in to", "into"),          # dính từ
+    ("hes", "he's"),
+])
+@pytest.mark.asyncio
+async def test_apostrophes_and_word_boundaries_stay_countable(before, after):
+    """Bản đầu cắt sạch mọi ký tự không-phải-chữ rồi so, nên bốn lỗi thật này
+    cho hai lõi giống hệt nhau và được ghi lại là câu ĐÚNG (codex #1000, P1).
+
+    Dấu lược và ranh giới từ đổi mặt chữ; khoảng trắng thừa với dấu chấm cuối
+    câu thì không. Chỉ ba thứ sau mới là hình thức."""
+    g = await _one([{"type": "spelling", "before": before, "after": after}])
+    assert g["issues"][0]["type"] != cw.MECHANICS, f"{before!r}→{after!r} là lỗi thật"
+    assert g["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_model_cannot_hide_a_word_change_by_calling_it_mechanics():
+    """Nhãn `mechanics` do PHÉP SO đặt, không do model đặt.
+
+    Tin nhãn của model là mở một đường cho mọi lỗi ngữ pháp trốn khỏi ô đúng/sai
+    — chỉ cần model gọi tên nó khác đi.
+    """
+    g = await _one([{"type": "mechanics", "before": "rise", "after": "are"}])
+    assert g["ok"] is False
+    assert g["issues"][0]["type"] == "grammar"
+
+
+@pytest.mark.asyncio
+async def test_an_issue_with_nothing_to_compare_stays_countable():
+    """`before`/`after` cùng rỗng thì không so được — và đoán rằng nó vô hại là
+    âm thầm nâng điểm."""
+    g = await _one([{"type": "grammar", "note": "Thiếu ô V."}])
+    assert g["ok"] is False
+    assert g["issues"][0]["type"] == "grammar"
+
+
+def test_the_prompt_tells_the_model_that_form_errors_are_their_own_kind():
+    for phrase in ["mechanics", "viết hoa đầu câu", "KHÔNG"]:
+        assert phrase in cw._PROMPT, phrase
+
+
 @pytest.mark.asyncio
 async def test_a_question_the_model_skipped_is_reported_alone():
     class _R:
@@ -268,11 +403,36 @@ async def test_submitting_writing_stamps_the_assignment_ledger():
     def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
         seen.update(item_id=item_id, kind=artifact_kind, score=score)
         return True
-    with patch.object(qs, "mark_item_submitted", fake_mark):
+    # Khai HÌNH DẠNG BỘ ĐỀ tường minh, đúng tiền đề của chính chốt này ("bank
+    # CHỈ có tự luận"). Bộ giả ở tệp này không phục vụ `quiz_questions`, nên
+    # `bank_has_mcq` sẽ trả True theo chiều an toàn và chốt đỏ vì một lý do
+    # không liên quan tới thứ nó kiểm.
+    with patch.object(qs, "mark_item_submitted", fake_mark), \
+         patch.object(qs, "bank_has_mcq", lambda _b: False):
         await _submit({"E1": "a", "E2": "b"})
     assert seen["item_id"] == "it1"
     assert seen["kind"] == "course_writing", "mượn 'quiz_session' là trỏ vào bảng không có dòng ấy"
     assert seen["score"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_a_MIXED_bank_is_stamped_WITHOUT_touching_the_quiz_score():
+    """Bộ đề có trắc nghiệm ⇒ vẫn chốt sổ, nhưng KHÔNG ghi điểm.
+
+    Điểm của mục là kết quả trắc nghiệm mà `course_verdict` đã ghi và `passed_at`
+    được xét trên. Đây là đường chạy THẬT trên sản phẩm, và nó đã xoá điểm của
+    11/11 mục trên prod.
+    """
+    seen = {}
+    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
+        seen.update(item_id=item_id, kind=artifact_kind, score=score)
+        return True
+    with patch.object(qs, "mark_item_submitted", fake_mark), \
+         patch.object(qs, "bank_has_mcq", lambda _b: True):
+        await _submit({"E1": "a", "E2": "b"})
+    assert seen["item_id"] == "it1", "vẫn phải chốt sổ"
+    assert seen["kind"] == "course_writing"
+    assert seen["score"] is None, "đã ghi đè lên kết quả trắc nghiệm"
 
 
 @pytest.mark.asyncio
