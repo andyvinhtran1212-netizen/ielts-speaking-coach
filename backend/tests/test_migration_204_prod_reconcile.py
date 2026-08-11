@@ -366,6 +366,9 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "trg.tgfoid = to_regprocedure" in verify_sql
     assert "trg.tgenabled = 'O'" in verify_sql
     assert "trigger-contract:' || expected_trigger.table_name" in verify_sql
+    assert "c.relkind IN ('r', 'p')" in verify_sql
+    assert "AND NOT c.relrowsecurity" in verify_sql
+    assert "rls:all-public-tables" in verify_sql
     assert "constraint-contract:' || expected_evidence_fk.table_name" in verify_sql
     assert "sessions_class_assignment_item_id_fkey" in verify_sql
     assert "reading_test_attempts_class_assignment_item_id_fkey" in verify_sql
@@ -399,6 +402,8 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "has_function_privilege('anon'" in verify_sql
     assert "has_function_privilege('authenticated'" in verify_sql
     assert "has_function_privilege('service_role'" in verify_sql
+    assert "required-service-acl:fn_create_session_daily_capped_v2" in verify_sql
+    assert "'service_role',\n        'public.fn_create_session_daily_capped_v2" in verify_sql
     for function_name in (
         "fn_insert_listening_answer_once",
         "fn_create_class_assignment",

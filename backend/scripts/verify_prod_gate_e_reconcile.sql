@@ -1014,6 +1014,22 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- Migration 201 keeps the session-create function SECURITY INVOKER, so its
+    -- canonical PUBLIC grant is intentionally not treated as a service-only
+    -- contract. The backend nevertheless calls it through supabase_admin; the
+    -- effective service_role grant is mandatory for retries that supply a
+    -- client-owned session UUID.
+    IF NOT has_function_privilege(
+        'service_role',
+        'public.fn_create_session_daily_capped_v2(uuid,uuid,text,integer,text,timestamp with time zone,integer)',
+        'EXECUTE'
+    ) THEN
+        missing := array_append(
+            missing,
+            'required-service-acl:fn_create_session_daily_capped_v2'
+        );
+    END IF;
+
     -- Pin the remaining CHECK constraints that are not covered by the focused
     -- contracts below. Name-only checks are unsafe here because every source
     -- migration uses IF NOT EXISTS or manual provisioning may have reused the
@@ -1723,7 +1739,22 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Every new data table is RLS-enabled.  course-writing tables deliberately
+    -- Migration 197 records the repository-wide invariant that every ordinary
+    -- or partitioned table in public has RLS enabled. Checking only tables
+    -- created in this range would allow an older public table to remain open
+    -- while migration 197 is acknowledged in the ledger.
+    IF EXISTS (
+        SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relkind IN ('r', 'p')
+           AND NOT c.relrowsecurity
+    ) THEN
+        missing := array_append(missing, 'rls:all-public-tables');
+    END IF;
+
+    -- Every new data table is RLS-enabled. Course-writing tables deliberately
     -- expose no authenticated policies; backend service_role owns their IO.
     FOREACH item IN ARRAY ARRAY[
         'courses',
