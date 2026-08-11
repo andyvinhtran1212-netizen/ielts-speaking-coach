@@ -351,6 +351,9 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "course_writing_submissions_class_assignment_item_id_fkey" in verify_sql
     assert "con.confdeltype = 'n'" in verify_sql
     assert "ARRAY['class_assignment_item_id']::name[]" in verify_sql
+    assert "removed-column:course_writing_drafts.seq" in verify_sql
+    assert "public.fn_save_course_writing_draft(uuid,uuid,uuid,jsonb,bigint)" in verify_sql
+    assert "removed-function:fn_save_course_writing_draft" in verify_sql
     assert "constraint-contract:class_assignments.recipient_scope" in verify_sql
     assert "constraint-contract:listening_tests.test_type" in verify_sql
     assert "constraint-contract:class_assignments.skill" in verify_sql

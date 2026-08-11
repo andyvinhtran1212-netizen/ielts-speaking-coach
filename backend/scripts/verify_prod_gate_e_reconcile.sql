@@ -443,6 +443,15 @@ BEGIN
         missing := array_append(missing, 'removed-column:course_writing_drafts.seq');
     END IF;
 
+    IF to_regprocedure(
+        'public.fn_save_course_writing_draft(uuid,uuid,uuid,jsonb,bigint)'
+    ) IS NOT NULL THEN
+        missing := array_append(
+            missing,
+            'removed-function:fn_save_course_writing_draft(uuid,uuid,uuid,jsonb,bigint)'
+        );
+    END IF;
+
     -- Migration 202 is a receipt/evidence contract, not just a column name.
     -- ADD COLUMN IF NOT EXISTS cannot repair a manually-created weaker column,
     -- so refuse to baseline unless type, nullability and server default match.
