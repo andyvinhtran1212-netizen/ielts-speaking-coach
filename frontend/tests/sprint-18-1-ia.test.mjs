@@ -79,7 +79,7 @@ describe('Sprint 18.1 A — "Lớp & Học viên" tab bar', () => {
   test('tab active state uses tokenised brand classes (no inline hex)', () => {
     // Both pages now consume the shared admin-components.css for the tab styles
     // (cohorts: Sprint 18.3; students: Sprint 18.3.2 cross-chrome migration).
-    assert.match(ADMIN_COMPONENTS, /\.adm-subtab\.is-active[\s\S]*?--av-brand-teal-50/);
+    assert.match(ADMIN_COMPONENTS, /\.adm-subtab\.is-active[\s\S]*?--av-primary-soft/);
     assert.match(COHORTS_HTML, /admin-components\.css/);
     assert.match(STUDENTS_HTML, /admin-components\.css/);
   });

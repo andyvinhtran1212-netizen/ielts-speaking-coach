@@ -304,7 +304,7 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
   // use, but it was reachable only from a button inside a topic card, while the
   // two flag-gated cards sat at the top level and dead-ended for 67 of 68 users.
   test('a Luyện tập mode-card links straight to the practice picker', () => {
-    assert.match(html, /<a[^>]*href="\/pages\/vocab-practice\.html"[^>]*class="[^"]*\bmode-card\b/);
+    assert.match(html, /<a[^>]*href="\/vocabulary\/practice"[^>]*class="[^"]*\bmode-card\b/);
     assert.match(html, /<h3>Luyện tập<\/h3>/);
   });
 

@@ -26,143 +26,12 @@
   <link rel="stylesheet" href="/css/listening.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script type="module" src="/js/components/aver-chrome.js"></script>
 
-  <style>
-    .ls-shell {
-      max-width: 960px; margin: 0 auto;
-      padding: 0 var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
-    }
-    .ls-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
-    .ls-header .accent { color: var(--av-brand-teal-700); }
-    .ls-header .subtitle {
-      color: var(--av-text-secondary);
-      font-size: var(--av-fs-base);
-      line-height: var(--av-lh-normal);
-    }
-    #ls-groups {
-      display: flex; flex-direction: column; gap: var(--av-space-4);
-    }
-    .ls-group {
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card);
-    }
-    .ls-group.is-empty { opacity: 0.6; }
-    .ls-group-head {
-      display: flex; align-items: flex-start; gap: var(--av-space-3);
-      margin-bottom: var(--av-space-4);
-    }
-    .ls-group-icon {
-      flex: none;
-      width: 40px; height: 40px;
-      display: grid; place-items: center;
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-50);
-      color: var(--av-brand-teal-700);
-    }
-    .ls-group-icon svg { width: 22px; height: 22px; }
-    .ls-group-title {
-      font-size: var(--av-fs-lg);
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-text-primary);
-      display: flex; align-items: center; gap: var(--av-space-2);
-    }
-    .ls-group-count {
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-      color: var(--av-brand-teal-700);
-      background: var(--av-brand-teal-50);
-      padding: 1px 8px; border-radius: 999px;
-    }
-    .ls-group-lede {
-      color: var(--av-text-secondary);
-      font-size: var(--av-fs-sm);
-      margin-top: 2px;
-    }
-    .ls-group-soon {
-      color: var(--av-text-muted);
-      font-size: var(--av-fs-sm);
-      font-style: italic;
-    }
-    .ls-drill-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: var(--av-space-3);
-    }
-    .ls-drill {
-      display: flex; align-items: center; gap: var(--av-space-2);
-      flex-wrap: wrap;
-      padding: var(--av-space-3) var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-sunken, var(--av-surface-card));
-      text-decoration: none;
-      min-width: 0;
-    }
-    .ls-drill:hover { border-color: var(--av-brand-teal-700); }
-    /* Drill now wraps a main test link + a compact dictation link
-       (can't nest anchors). Main link carries the badge/title/stat/cta. */
-    .ls-drill-main {
-      display: flex; align-items: center; gap: var(--av-space-2);
-      flex-wrap: wrap; flex: 1 1 auto; min-width: 0;
-      text-decoration: none;
-    }
-    .ls-drill-dict {
-      flex: none;
-      text-decoration: none;
-      font-size: var(--av-fs-sm);
-      padding: 2px 7px;
-      border-radius: var(--av-radius-sm);
-      border: 1px solid var(--av-border-default);
-      color: var(--av-brand-teal-700);
-    }
-    .ls-drill-dict:hover { border-color: var(--av-brand-teal-700); }
-    .ls-drill-level {
-      flex: none;
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-on-primary);
-      background: var(--av-brand-teal-700);
-      padding: 1px 7px; border-radius: var(--av-radius-sm);
-    }
-    .ls-drill-title {
-      flex: 1 1 auto;
-      font-size: var(--av-fs-sm);
-      color: var(--av-text-primary);
-      min-width: 0;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .ls-drill-stat {
-      flex: none;
-      font-size: var(--av-fs-xs);
-      color: var(--av-brand-teal-700);
-    }
-    .ls-drill-cta {
-      flex: none;
-      font-size: var(--av-fs-xs);
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-brand-teal-700);
-    }
-    .empty-state, .error-banner {
-      padding: var(--av-space-8); text-align: center;
-      border: 1px dashed var(--av-border-default);
-      border-radius: var(--av-radius-lg);
-      color: var(--av-text-secondary);
-    }
-    .error-banner {
-      padding: var(--av-space-3) var(--av-space-4);
-      background: var(--av-error-soft); color: var(--av-error);
-      border: 1px solid var(--av-error); font-size: var(--av-fs-sm);
-      text-align: left;
-    }
-    [hidden] { display: none !important; }
-  </style>
+  <link rel="stylesheet" href="/css/listening-skills.css" />
 </head>
 <body class="av-page">
 
@@ -171,13 +40,27 @@
   <div class="shell">
     <main class="ls-shell">
       <header class="ls-header">
-        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại Listening</a></p>
-        <h1>Luyện <span class="accent">kĩ năng</span></h1>
+        <a class="ls-back" href="/listening">← Quay lại Listening</a>
+        <p class="eyebrow">LUYỆN THEO DẠNG CÂU HỎI</p>
+        <h1>Chọn đúng kĩ năng, <span class="accent">luyện sâu hơn</span></h1>
         <p class="subtitle">
-          Chọn dạng câu hỏi bạn muốn luyện riêng (điền form, bản đồ, nối, trắc nghiệm…).
-          Mỗi bài là 1 section ngắn — cùng giao diện làm bài &amp; chữa bài (nghe lại đúng
-          đoạn audio) như Mini Test, chấm điểm sau khi nộp.
+          Tập riêng từng dạng câu hỏi IELTS Listening, nhận điểm ngay sau khi nộp
+          và nghe lại đúng đoạn audio để hiểu mình đã bỏ lỡ chi tiết nào.
         </p>
+        <div class="ls-summary" id="ls-summary" hidden aria-live="polite">
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-total-count">0</span>
+            <span class="ls-summary__label">Bài đang mở</span>
+          </div>
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-done-count">0</span>
+            <span class="ls-summary__label">Đã luyện</span>
+          </div>
+          <div class="ls-summary__item">
+            <span class="ls-summary__value" id="ls-type-count">0</span>
+            <span class="ls-summary__label">Dạng kĩ năng</span>
+          </div>
+        </div>
       </header>
 
       <div class="empty-state" id="state-loading">Đang tải danh sách bài luyện…</div>
@@ -187,7 +70,25 @@
       </div>
       <div class="error-banner" id="state-error" hidden></div>
 
-      <section id="ls-groups" hidden></section>
+      <section class="ls-library" id="ls-library" hidden aria-labelledby="ls-library-title">
+        <div class="ls-toolbar">
+          <div>
+            <p class="eyebrow">LỘ TRÌNH KĨ NĂNG</p>
+            <h2 id="ls-library-title">Chọn dạng bài cần luyện</h2>
+            <p>Mỗi lần chỉ tập trung vào một dạng để danh sách ngắn và dễ theo dõi.</p>
+          </div>
+        </div>
+        <nav class="ls-skill-nav" id="ls-skill-nav" aria-label="Các dạng câu hỏi Listening"></nav>
+        <div class="ls-library-head">
+          <p class="ls-visible-count" id="ls-visible-count" aria-live="polite"></p>
+          <div class="ls-filter" role="group" aria-label="Lọc bài luyện theo trạng thái">
+            <button class="ls-filter__button is-active" type="button" data-status-filter="all" aria-pressed="true">Tất cả</button>
+            <button class="ls-filter__button" type="button" data-status-filter="new" aria-pressed="false">Chưa làm</button>
+            <button class="ls-filter__button" type="button" data-status-filter="done" aria-pressed="false">Đã luyện</button>
+          </div>
+        </div>
+        <section id="ls-groups"></section>
+      </section>
     </main>
   </div>
 

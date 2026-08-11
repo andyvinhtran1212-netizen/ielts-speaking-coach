@@ -149,38 +149,63 @@ describe('style và markup', () => {
     assert.match(CSS, /\.av-tally\[data-state='live'\] \.av-tally__rows\s*\{[^}]*dashed/);
   });
 
-  test('trang admin có modal và nạp CSS đúng một lần', () => {
-    assert.match(HTML, /id="tally-modal"/);
+  test('bảng nộp bài nằm trong KHU NHẬN BÀI, và CSS nạp đúng một lần', () => {
+    // Trước đây là một popup. Bảng 14 học viên × 7 cột không sống nổi trong một
+    // hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
+    assert.match(HTML, /id="panel-marking"/);
+    assert.match(HTML, /id="tally-body"/);
+    assert.ok(!/id="tally-modal"/.test(HTML), 'popup cũ phải được gỡ, không để hai đường');
     assert.equal((HTML.match(/speaking-assignment\.css/g) || []).length, 1);
   });
 });
 
 
-// ── modal phải là LỚP PHỦ, không phải thẻ chèn vào giữa trang ────────────
+// ── khu NHẬN BÀI: ba tab, chiếm trọn trang ──────────────────────────────
 
-describe('cấu trúc modal khớp hệ thống', () => {
-  test('backdrop bọc card, đúng thứ tự admin-components.css mong đợi', () => {
-    // CSS đặt position:fixed + lớp phủ lên .adm-modal-backdrop, còn .adm-modal
-    // chỉ là tấm thẻ. Dùng ngược lại thì thẻ chèn thẳng vào vị trí DOM của nó —
-    // nằm dưới màn hình, nên bấm "Xem ai nộp" trông như không có gì xảy ra.
-    const m = HTML.match(/<div class="adm-modal-backdrop" id="tally-modal"[\s\S]{0,400}?<\/div>/);
-    assert.ok(m, 'tally-modal phải là .adm-modal-backdrop');
-    assert.match(m[0], /<div class="adm-modal"/, 'và bọc một .adm-modal bên trong');
-    assert.doesNotMatch(HTML, /adm-modal-box/, '.adm-modal-box không tồn tại trong CSS');
+describe('nhận bài là một KHU, không phải popup', () => {
+  test('ba tab, mỗi tab một khung', () => {
+    for (const id of ['mtab-tally', 'mtab-effort', 'mtab-one',
+                      'mpanel-tally', 'mpanel-effort', 'mpanel-one']) {
+      assert.ok(HTML.includes(`id="${id}"`), `trang thiếu #${id}`);
+    }
+    assert.match(SRC, /function showMarkTab\(name\)/);
   });
 
-  test('dùng cùng cấu trúc với các modal khác trong trang', () => {
-    const backdrops = (HTML.match(/class="adm-modal-backdrop"/g) || []).length;
-    assert.ok(backdrops >= 3, `chỉ thấy ${backdrops} backdrop — tally chưa theo lối chung`);
+  test('mỗi tab nạp ở lần mở ĐẦU TIÊN, không nạp cả ba lúc vào', () => {
+    // Nạp cả ba là ba lượt gọi mạng cho hai tab giáo viên có thể không nhìn.
+    const i = SRC.indexOf('function showMarkTab');
+    const body = SRC.slice(i, i + 900);
+    assert.match(body, /dataset\.loaded/);
   });
 
-  test('bấm nền thì đóng, bấm trong thẻ thì không', () => {
-    // Bấm bên trong thẻ cũng nổi bọt lên nền; không so target thì modal đóng
-    // giữa lúc đang đọc.
-    assert.match(SRC, /tally-modal'\)\.addEventListener\('click'[\s\S]{0,120}?e\.target === \$\('tally-modal'\)/);
+  test('tab "Nhận bài" chỉ hiện khi đang mở một bài giao', () => {
+    // Nó là chỗ đứng tạm của một bài giao, không phải một mục thường trực của
+    // lớp — một tab trống thì mời bấm vào chỗ không có gì.
+    assert.match(HTML, /id="tab-marking"[^>]*hidden/);
+    assert.match(SRC, /\$\('tab-marking'\)\.hidden = false/);
+    assert.match(SRC, /\$\('tab-marking'\)\.hidden = true/);
+  });
+
+  test('bài KHÔNG phải theo buổi thì giấu hai tab không có nội dung', () => {
+    const i = SRC.indexOf('function openMarking');
+    const body = SRC.slice(i, i + 900);
+    assert.match(body, /\$\('mtab-one'\)\.hidden = !bankId/);
+    assert.match(body, /\$\('mtab-effort'\)\.hidden = !bankId/);
+  });
+
+  test('"Bài từng em" dùng LẠI bộ vẽ báo cáo của học viên', () => {
+    // Hai bộ vẽ cho cùng một nội dung là hai chỗ để trôi khỏi nhau.
+    assert.match(SRC, /import\('\/js\/course-report\.js'\)/);
+    assert.match(SRC, /_CR\.renderReport\(d\)/);
+    assert.match(SRC, /_CR\.bindReport\(box\)/);
+  });
+
+  test('trang admin NẠP tệp kiểu của bộ vẽ ấy', () => {
+    // Vẽ lớp `.cr-*` mà không nạp tệp định nghĩa chúng thì ra màn hình trần
+    // trụi và không có gì đỏ để báo — bài học PR #925.
+    assert.match(HTML, /course-report\.css/);
   });
 });
-
 
 // ── hạn nộp trong ghi chú phải là CHỮ, không phải thẻ HTML ───────────────
 
@@ -233,8 +258,13 @@ describe('bài course: đạt/chưa đạt/đang làm (cổng thuộc bài)', ()
   });
 
   test('đạt hiện ✓, kèm số lần kiểm tra lại khi có', () => {
+    // Ghim NỘI DUNG, không ghim cách xếp: ô điểm nay tách con số ra khỏi phần
+    // phụ (`<small>`) để cột không phình theo chuỗi dài nhất và đẩy cả hàng
+    // tràn khỏi khung. Ba mẩu tin vẫn còn đủ.
     const html = row({ passed_at: '2026-08-04T00:00:00Z', verdicts: 3, retakes: 2, score: 85 });
-    assert.match(html, />85% ✓ · KTL×2</);
+    assert.match(html, /85%/);
+    assert.match(html, /✓/);
+    assert.match(html, /KTL×2/);
     assert.doesNotMatch(html, /chưa đạt/);
   });
 
@@ -242,5 +272,170 @@ describe('bài course: đạt/chưa đạt/đang làm (cổng thuộc bài)', ()
     const html = tallyRow({ name: 'An', status: 'submitted',
       submitted_at: '2026-08-03T11:00:00+00:00', score: 6.5 }, 'speaking');
     assert.match(html, />6\.5</);
+  });
+});
+
+describe('hai lỗi lặng của khu nhận bài (codex cục bộ 06/08)', () => {
+  test('tab "Nhận bài" BẤM ĐƯỢC', () => {
+    // Thiếu dây thì tab hiện ra nhưng bấm không có gì xảy ra: giáo viên rời
+    // sang Bài tập rồi muốn quay lại khu đang mở là kẹt.
+    assert.match(SRC, /\$\('tab-marking'\)\.addEventListener\('click', \(\) => showPanel\('marking'\)\)/);
+  });
+
+  test('mạng chậm không làm giáo viên đọc bài của SAI em', () => {
+    // Bấm An rồi Bình: request của An về sau và ghi đè bài của Bình, trong khi
+    // tên Bình vẫn sáng.
+    //
+    // Chắn phải đếm SỐ LƯỢT, không nhớ `userId`: mở bài giao A, sang bài giao B
+    // rồi chọn ĐÚNG em ấy thì hai lượt mang cùng một userId và lượt của A vẫn
+    // ghi đè được lên bảng của B (codex PR 952).
+    const i = SRC.indexOf('async function openOneReport');
+    const body = SRC.slice(i, i + 1600);
+    assert.match(body, /const seq = \+\+_oneSeq;/);
+    assert.equal((body.match(/if \(seq !== _oneSeq \|\| gen !== _mkGen\) return;/g) || []).length, 2,
+      'phải chắn ở CẢ nhánh thành công lẫn nhánh hỏng');
+    assert.ok(!/_oneWant/.test(SRC), 'chắn theo userId không đủ');
+  });
+});
+
+describe('đổi bài giao không kéo theo bảng của bài cũ (codex cục bộ 06/08)', () => {
+  test('mỗi lần mở một bài giao là một THẾ HỆ mới', () => {
+    // Mở bài A (mạng chậm) rồi mở bài B: bảng của A ghi đè lên B, tiêu đề vẫn
+    // là B. Chắn theo `userId` không đỡ được vì đây là đổi BÀI GIAO.
+    assert.match(SRC, /let _mkGen = 0;/);
+    const i = SRC.indexOf('function openMarking');
+    assert.match(SRC.slice(i, i + 200), /_mkGen \+= 1;/);
+    assert.match(SRC, /btn-marking-back'\)\.addEventListener\('click', \(\) => \{\s*\n\s*_mkGen \+= 1;/);
+  });
+
+  test('CẢ BỐN lượt gọi của khu đều chụp thế hệ và kiểm lại', () => {
+    // Vá ba chỗ rồi sót chỗ thứ tư thì đúng chỗ ấy vẫn ghi đè, và không có gì
+    // đỏ để báo.
+    for (const fn of ['async function openTally', 'async function openEffort',
+                      'async function renderOneList', 'async function openOneReport']) {
+      const i = SRC.indexOf(fn);
+      assert.ok(i !== -1, `không thấy ${fn}`);
+      assert.match(SRC.slice(i, i + 1200), /const gen = _mkGen;/, `${fn} chưa chụp thế hệ`);
+    }
+    assert.ok((SRC.match(/gen !== _mkGen/g) || []).length >= 4,
+      'phải kiểm lại ở mọi chỗ vẽ');
+  });
+});
+
+// ── Hàng KHÔNG được tràn ra khỏi khung ────────────────────────────────────
+//
+// `1fr` thực chất là `minmax(auto, 1fr)`: cột tên không co được dưới bề rộng
+// nội dung. Cộng ba cột `auto` (giờ nộp, điểm, nút mở bài) thì một tên dài
+// hoặc một ô điểm dài — "85% · chưa đạt · KTL×2" — đẩy cả hàng vượt khung.
+
+describe('bảng nhận bài không tràn viền', () => {
+  const css = readFileSync(
+    new URL('../public/css/speaking-assignment.css', import.meta.url), 'utf8');
+
+  test('cột tên dùng minmax(0, 1fr), không phải 1fr', () => {
+    const rule = css.match(/\.av-tally__row\s*\{[^}]*\}/);
+    assert.ok(rule, 'không thấy .av-tally__row');
+    assert.match(rule[0], /minmax\(0,\s*1fr\)/);
+    assert.doesNotMatch(rule[0], /columns:[^;]*\s1fr\s/,
+      '`1fr` trần không co được dưới bề rộng nội dung');
+  });
+
+  test('và cột tên vẫn giữ quyền xuống dòng của nó', () => {
+    // `min-width: 0` + `overflow-wrap` ĐÃ có sẵn — thiếu chỉ là quyền CO
+    // (`minmax`). Thêm `text-overflow: ellipsis` ở đây sẽ đổi tên dài từ
+    // XUỐNG DÒNG thành CẮT CỤT: một hồi quy đội lốt bản vá.
+    const rules = [...css.matchAll(/\.av-tally__name\s*\{[^}]*\}/g)].map((m) => m[0]);
+    const main = rules.find((r) => /min-width/.test(r));
+    assert.ok(main, 'không thấy quy tắc chính của .av-tally__name');
+    assert.match(main, /overflow-wrap:\s*anywhere/);
+    assert.doesNotMatch(main, /text-overflow|white-space:\s*nowrap/);
+    assert.equal(rules.filter((r) => /min-width/.test(r)).length, 1,
+      'hai quy tắc cùng tên là hai chỗ tranh nhau');
+  });
+
+  test('MỘT khối cho màn hẹp, và nó cũng dùng minmax(0, …)', () => {
+    // Thêm một `@media` thứ hai thì khối đứng SAU ghi đè khối trước, và bản vá
+    // chỉ sống trong dải giữa hai điểm ngắt — điện thoại thật vẫn nhận `1fr`
+    // trần (codex #979).
+    const blocks = [...css.matchAll(/@media \(max-width:[^)]*\)\s*\{[\s\S]*?\n\}/g)]
+      .map((m) => m[0]).filter((b) => b.includes('.av-tally__row'));
+    assert.equal(blocks.length, 1, 'hai khối là hai chỗ triệt tiêu nhau');
+    assert.match(blocks[0], /minmax\(0,\s*1fr\)/);
+    assert.doesNotMatch(blocks[0], /grid-template-columns:[^;]*\s1fr\s/);
+    // Không cuộn ngang: cuộn ngang từng hàng là bắt tìm lại cái tên mỗi lần.
+    assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /overflow-x/);
+  });
+
+  test('bề rộng có TRẦN, và trần nằm trên khối chứ không trên hàng', () => {
+    // Không tràn mà vẫn xấu là hai lỗi khác nhau. Đo trên prod: khu này rộng
+    // 1632px trên màn 1920, cột tên `1fr` nuốt 1359px trong số đó — tên dính
+    // mép trái, giờ nộp/điểm/nút dạt mép phải, giữa là hơn nghìn pixel trắng.
+    // Neo ĐẦU DÒNG: `/\.av-tally\s*\{/` không neo sẽ nhận cả `.foo.av-tally {`
+    // và `.disabled .av-tally {` — hai bộ chọn hẹp hơn, chỉ sống trong một
+    // trạng thái, nên chốt sẽ xanh trong khi khu này vẫn kéo hết bề ngang
+    // (codex cục bộ 07/08).
+    const blocks = [...css.matchAll(/^\.av-tally\s*\{[^}]*\}/gm)].map((m) => m[0]);
+    assert.equal(blocks.length, 1, 'hai quy tắc gốc là hai chỗ tranh nhau');
+    assert.match(blocks[0], /max-width:\s*var\(--av-width-read\)/,
+      'thiếu trần thì cột tên lại nuốt hết phần thừa');
+    // Đo trên trang thật (prod, màn 1920) SAU khi áp luật này: khối 760px, cột
+    // tên 1359px → 487px, 0 hàng tràn. Chốt dưới đây chỉ giữ cho luật khỏi bị
+    // gỡ; bằng chứng nó CÓ TÁC DỤNG là phép đo ấy.
+    // Trần phải ở KHỐI: đặt trên hàng thì dòng đầu (số đã nộp, trạng thái) và
+    // dòng chân vẫn kéo hết bề ngang, và các hàng thụt vào so với chúng.
+    assert.doesNotMatch(css.match(/\.av-tally__row\s*\{[^}]*\}/)[0], /max-width/);
+  });
+
+  test('ô điểm cho phần phụ xuống dòng riêng', () => {
+    const rule = css.match(/\.av-tally__band small\s*\{[^}]*\}/);
+    assert.ok(rule, 'chưa tách phần phụ');
+    assert.match(rule[0], /display:\s*block/);
+  });
+});
+
+describe('lỗi đọc bảng tổng kết là LỜI MỜI, không phải ngõ cụt', () => {
+  const SRC2 = readFileSync(
+    new URL('../public/js/admin-classes.js', import.meta.url), 'utf8');
+
+  test('có nút Thử lại — nhưng CHỈ với lỗi thoáng qua', () => {
+    // Mời bấm lại một 404/500 là mời phí thời gian, và làm chính lời phân loại
+    // thành vô nghĩa (codex #979).
+    const fn = SRC2.slice(SRC2.indexOf('async function openTally'),
+                          SRC2.indexOf('async function openTally') + 2000);
+    assert.match(fn, /data-action="retry-tally"/);
+    // Soi ĐÚNG đoạn giữa lời nhắn và cái nút. Bản trước dò `transient ?` trong
+    // 200 ký tự trước nút, và nó bắt trúng nhánh của CÂU CHỮ nằm ngay trên —
+    // nên bỏ hẳn cổng của nút vẫn xanh.
+    const gate = fn.slice(fn.indexOf("'</p>'"), fn.indexOf('retry-tally'));
+    assert.match(gate, /transient/,
+      'nút phải nằm trong nhánh `transient`, không được nối vô điều kiện');
+  });
+
+  test('và nút ấy được nối', () => {
+    assert.match(SRC2, /button\[data-action="retry-tally"\]/);
+    assert.match(SRC2, /openTally\(_mk\.asg\)/);
+  });
+
+  test('phân biệt lỗi THOÁNG QUA với lỗi thật', () => {
+    // Ghim HÀNH VI: bản trước soi chữ trong mã, nên đổi `transient` thành
+    // `false` vẫn xanh — chốt canh một nhánh không bao giờ chạy.
+    const fn = new Function(
+      SRC2.slice(SRC2.indexOf('function isTransientNetworkError'),
+                 SRC2.indexOf('async function openTally'))
+      + ' return isTransientNetworkError;')();
+    for (const m of ['Failed to fetch', 'NetworkError when attempting to fetch',
+                     'Load failed']) {
+      assert.equal(fn(m), true, m);
+    }
+    // Bấm lại một 404/500 chỉ hỏng y hệt — mời bấm lại là mời phí thời gian.
+    for (const m of ['404 Not Found', 'Lỗi máy chủ 500', '', null]) {
+      assert.equal(fn(m), false, String(m));
+    }
+  });
+
+  test('và lời nhắn ấy có mặt', () => {
+    const fn = SRC2.slice(SRC2.indexOf('async function openTally'),
+                          SRC2.indexOf('async function openTally') + 1800);
+    assert.match(fn, /khởi động lại/);
   });
 });

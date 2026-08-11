@@ -528,13 +528,14 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /new AbortController\(\s*\)/);
   });
 
-  test('VALID_ACTIVE enum lists exactly the 5 skills (Phase B Q2)', () => {
+  test('VALID_ACTIVE enum lists every primary learner destination', () => {
     const m = component.match(/VALID_ACTIVE\s*=\s*\[([^\]]+)\]/);
     assert.ok(m);
     const skills = m[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
-    // Sprint 11.1 — 'listening' added as the 6th skill (DEBT-LISTENING-
-    // MODULE foundation 1/5). VALID_ACTIVE now has 6 entries.
-    assert.deepEqual(skills.sort(), ['grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
+    // `class` is a primary learner destination even though it is not a skill.
+    // Keeping it in this canonical contract lets My Class render a real active
+    // state instead of silently falling back to Home.
+    assert.deepEqual(skills.sort(), ['class', 'grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
   });
 
   test('shadow tree contains canonical brand wordmark with span.dot', () => {
@@ -556,7 +557,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // Reading is now an active nav link, not a locked span.
     assert.match(
       component,
-      /href="\/pages\/reading-vocab\.html"\s+data-tab="reading">Reading<\/a>/,
+      /href="\/reading\/vocab"\s+data-tab="reading">Reading<\/a>/,
       'Reading must be an active nav link (Sprint 20.2 unlock).',
     );
     assert.ok(
@@ -621,19 +622,23 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // [cutover /home 2026-08-05] như grammar bên dưới: chrome trỏ canonical,
     // bản legacy `/pages/home.html` vẫn phục vụ nhưng không còn là đích.
     assert.match(component, /href="\/home"\s+data-tab="home"/);
-    assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
+    // [cutover /writing/dashboard 2026-08-05] như /home và /speaking: chrome trỏ
+    // canonical; `/pages/writing-dashboard.html` vẫn phục vụ (cổng parity cần
+    // cả hai vế) nhưng không còn là đích người dùng bấm.
+    assert.match(component, /href="\/writing\/dashboard"\s+data-tab="writing"/);
     // [cutover /speaking 2026-08-05] như /home và /grammar: chrome trỏ
     // canonical; `/pages/speaking.html` vẫn phục vụ nhưng không còn là đích.
     assert.match(component, /href="\/speaking"\s+data-tab="speaking"/);
-    assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
+    assert.match(component, /href="\/listening"\s+data-tab="listening"/);
     // [cutover /grammar 2026-08-03] chrome trỏ route canonical; bản legacy
     // `/grammar.html` VẪN phục vụ, chỉ không còn là đích điều hướng.
     assert.match(component, /href="\/grammar"\s+data-tab="grammar"/);
     // B3 — Vocab nav DEFAULTS to the PUBLIC wiki (/vocabulary.html); aver-chrome
-    // swaps it to the login-gated hub (/pages/vocabulary.html) once a session is
+    // swaps it to the login-gated canonical hub (/vocabulary/hub) once a session is
     // detected (session-adaptive _applyVocabNav).
     assert.match(component, /href="\/vocabulary\.html"\s+data-tab="vocabulary"/);
-    assert.match(component, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading"/);
+    assert.match(component, /loggedIn\s*\?\s*['"]\/vocabulary\/hub['"]\s*:\s*['"]\/vocabulary\.html['"]/);
+    assert.match(component, /href="\/reading\/vocab"\s+data-tab="reading"/);
   });
 });
 

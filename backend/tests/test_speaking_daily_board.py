@@ -75,6 +75,20 @@ def _row(out, name):
     return next(r for r in out["students"] if r["name"] == name)
 
 
+def _days(out: dict) -> list[str]:
+    """Ngày của các cột, KHÔNG lặp.
+
+    Trục của bảng đổi từ NGÀY sang BÀI GIAO (một ngày giao hai bài thì bản cũ
+    chỉ hiện được một). Các chốt dưới đây vẫn nói về ngày, nên đọc ngày ra từ
+    danh sách bài — giữ nguyên điều chúng đang chứng minh.
+    """
+    seen: list[str] = []
+    for t in out.get("tasks") or []:
+        if t["day"] not in seen:
+            seen.append(t["day"])
+    return seen
+
+
 # ── Lưới cơ bản ──────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -82,7 +96,7 @@ async def test_one_column_per_day_newest_last():
     out = await _board(
         assignments=[_asg("a1", "2026-08-01"), _asg("a2", "2026-08-03")],
         items=[_item("a1", "s1"), _item("a2", "s1")])
-    assert out["days"] == ["2026-08-01", "2026-08-03"]
+    assert _days(out) == ["2026-08-01", "2026-08-03"]
 
 
 @pytest.mark.asyncio
@@ -115,7 +129,7 @@ async def test_only_daily_assignments():
     out = await _board(
         assignments=[_asg("a1", "2026-08-01"), _asg("a2", "2026-08-02", kind="lesson")],
         items=[_item("a1", "s1"), _item("a2", "s1")])
-    assert out["days"] == ["2026-08-01"]
+    assert _days(out) == ["2026-08-01"]
 
 
 @pytest.mark.asyncio
@@ -124,7 +138,7 @@ async def test_archived_assignment_is_not_counted_as_missed():
     out = await _board(
         assignments=[_asg("a1", "2000-01-01", status="archived")],
         items=[_item("a1", "s1")])
-    assert out["days"] == []
+    assert _days(out) == []
 
 
 # ── Ngày là ngày VIỆT NAM ────────────────────────────────────────────────────
@@ -140,7 +154,7 @@ async def test_day_is_the_vietnam_calendar_day():
                       "due_at": "2026-08-01T23:00:00+00:00",   # = 06:00 VN ngày 02
                       "created_at": "2026-08-01T00:00:00+00:00"}],
         items=[_item("a1", "s1")])
-    assert out["days"] == ["2026-08-02"], "ngày phải theo giờ Việt Nam"
+    assert _days(out) == ["2026-08-02"], "ngày phải theo giờ Việt Nam"
 
 
 # ── Gộp và xếp ───────────────────────────────────────────────────────────────
@@ -155,7 +169,7 @@ async def test_two_assignments_same_day_merge_best_first():
         assignments=[_asg("a1", "2000-01-01"), _asg("a2", "2000-01-01", hour="13:00")],
         items=[_item("a1", "s1", submitted="2000-01-01T11:00:00+00:00"),
                _item("a2", "s1")])
-    assert len(out["days"]) == 1
+    assert len(_days(out)) == 1
     assert _row(out, "An")["cells"][0]["state"] == "done"
 
 
@@ -176,7 +190,7 @@ async def test_window_keeps_the_most_recent_days():
         assignments=[_asg(f"a{i}", f"2026-08-{i:02d}") for i in range(1, 11)],
         items=[_item(f"a{i}", "s1") for i in range(1, 11)],
         days=3)
-    assert out["days"] == ["2026-08-08", "2026-08-09", "2026-08-10"]
+    assert _days(out) == ["2026-08-08", "2026-08-09", "2026-08-10"]
 
 
 @pytest.mark.asyncio
@@ -202,7 +216,7 @@ async def test_unactivated_learner_is_marked_not_silently_lazy():
 @pytest.mark.asyncio
 async def test_no_daily_assignments_is_an_ordinary_empty_answer():
     out = await _board(assignments=[], items=[])
-    assert out == {"days": [], "students": [], "assignment_count": 0, "stale": False}
+    assert out == {"tasks": [], "students": [], "assignment_count": 0, "stale": False}
 
 
 # ── Vá sổ trước khi đếm (codex #931) ─────────────────────────────────────────
@@ -228,4 +242,44 @@ async def test_a_failed_reconcile_says_so_instead_of_lying_quietly():
     out = await _board(assignments=[_asg("a1", "2000-01-01")],
                        items=[_item("a1", "s1")], reconcile=_boom)
     assert out["stale"] is True, "im lặng là để giáo viên nhắc nhầm một em đã nộp"
-    assert out["days"] == ["2000-01-01"], "vẫn phải vẽ được bảng"
+    assert _days(out) == ["2000-01-01"], "vẫn phải vẽ được bảng"
+
+
+# ── Trục là BÀI GIAO, không phải NGÀY ────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_two_tasks_on_the_same_day_are_two_columns():
+    """Trục cũ khoá theo NGÀY rồi gộp: một ngày giao hai bài chỉ hiện được một,
+    và một em nộp bài A mà bỏ bài B đọc thành "ngày ấy có làm"."""
+    out = await _board(
+        assignments=[_asg("a1", "2000-01-01", hour="11:00"),
+                     _asg("a2", "2000-01-01", hour="12:00")],
+        items=[_item("a1", "s1", submitted="2000-01-01T10:00:00+00:00", score=6.5),
+               _item("a2", "s1")])
+    assert len(out["tasks"]) == 2, "hai bài cùng ngày phải là HAI cột"
+    assert [t["day"] for t in out["tasks"]] == ["2000-01-01", "2000-01-01"]
+    cells = out["students"][0]["cells"]
+    assert [c["state"] for c in cells] == ["done", "missing"], \
+        "bỏ bài thứ hai KHÔNG được bị bài thứ nhất che mất"
+    assert out["students"][0]["missing"] == 1
+
+
+@pytest.mark.asyncio
+async def test_the_longest_gap_is_reported_not_just_the_total():
+    """Bỏ 3 bài rải rác là quên; bỏ 3 bài liên tiếp là em ấy đã rời đi."""
+    from routers.admin_class_assignments import _longest_missing_run
+    S = lambda *a: [{"state": x} for x in a]      # noqa: E731
+    assert _longest_missing_run(S("missing", "done", "missing", "done", "missing")) == 1
+    assert _longest_missing_run(S("done", "missing", "missing", "missing")) == 3
+    # Không được giao thì không phải một lần quay lại — nó không CẮT quãng.
+    assert _longest_missing_run(S("missing", "none", "missing")) == 2
+    assert _longest_missing_run([]) == 0
+
+
+@pytest.mark.asyncio
+async def test_every_task_column_carries_its_title():
+    """Đầu cột chỉ có ngày thì hai bài cùng ngày không phân biệt được."""
+    out = await _board(assignments=[_asg("a1", "2000-01-01")],
+                       items=[_item("a1", "s1")])
+    assert out["tasks"][0]["title"] == "Bài a1"
+    assert out["tasks"][0]["day"] == "2000-01-01"

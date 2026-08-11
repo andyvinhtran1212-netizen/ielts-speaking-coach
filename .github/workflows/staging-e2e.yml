@@ -13,6 +13,10 @@
 #     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
@@ -42,28 +46,172 @@ jobs:
       cancel-in-progress: false
       queue: max
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # This workflow validates staging. Scheduled workflows execute from
+          # default-branch YAML, but the code under test/evidence must match the
+          # branch Vercel + Railway deploy to staging.
+          ref: staging
+          fetch-depth: 1
+
+      - name: Checkout trusted Gate E auditor
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .gate-e-auditor
+          fetch-depth: 1
+
+      - name: Capture tested source revision
+        id: source_revision
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ref=staging" >> "$GITHUB_OUTPUT"
+
+      - name: Capture auditor revision
+        id: auditor_revision
+        run: echo "sha=$(git -C .gate-e-auditor rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore previous Gate E streak state
+        id: restore_gate_e_streak
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/gate-e-streak-state
+          # Do not partition the logical chain by dispatch ref. GitHub cache
+          # scope can still hide a feature-branch cache from main, so the
+          # updater also verifies global workflow history and resets on gaps.
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gate-e-streak-
 
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
 
+      - name: Verify frozen Gate E suite before executing staging code
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_TESTED_SHA: ${{ steps.source_revision.outputs.sha }}
+          GATE_E_AUDITOR_SHA: ${{ steps.auditor_revision.outputs.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-frozen-suite.mjs
+
       - name: Install frontend deps
         working-directory: frontend
+        timeout-minutes: 5
         run: npm ci
 
-      - name: Install Playwright chromium
+      - name: Install Playwright matrix engines
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
+        id: staging_e2e
         working-directory: frontend
+        # Reserve at least ten minutes of the 30-minute job budget for
+        # provenance, ledger/cache finalization and artifact uploads.
+        timeout-minutes: 20
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
         run: npm run test:e2e:staging
+
+      # Gate E evidence must remain inspectable even when the suite fails. This
+      # metadata contains only versions/run ids/outcome — never secrets or auth
+      # state — and pairs with Playwright's JSON reporter output.
+      - name: Write versioned device-matrix metadata
+        id: matrix_evidence
+        if: always()
+        env:
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome }}
+          EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
+          EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/write-gate-e-device-matrix-evidence.mjs
+
+      - name: Capture staging release provenance
+        id: staging_provenance
+        if: always()
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Update Gate E streak ledger
+        id: streak_ledger
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_STATE_ROOT: ${{ runner.temp }}/gate-e-streak-state
+        run: node .gate-e-auditor/frontend/tooling/update-gate-e-streak-ledger.mjs
+
+      - name: Save Gate E streak state
+        if: always() && steps.streak_ledger.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/gate-e-streak-state
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Package verifiable streak evidence
+        id: streak_bundle
+        if: always() && steps.streak_ledger.outcome == 'success'
+        run: |
+          test -f frontend/test-results/gate-e-streak-ledger.json
+          test -f frontend/test-results/staging-e2e-results.json
+          mkdir -p frontend/test-results/gate-e-streak-bundle
+          cp frontend/test-results/gate-e-streak-ledger.json frontend/test-results/gate-e-streak-bundle/
+          cp frontend/test-results/staging-e2e-results.json frontend/test-results/gate-e-streak-bundle/
+
+      - name: Upload device-matrix evidence
+        if: always() && steps.matrix_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-device-matrix-evidence.json
+            frontend/test-results/staging-e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload staging provenance
+        if: always() && steps.staging_provenance.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-staging-provenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-staging-provenance.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload streak ledger evidence
+        if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-streak-ledger-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload verifiable streak reset evidence
+        if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload incomplete streak reset ledger
+        if: always() && steps.streak_ledger.outcome == 'success' && steps.streak_bundle.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-ledger.json
+          if-no-files-found: error
+          retention-days: 30
 
       # Synthetic data only + short retention (plan B29).
       - uses: actions/upload-artifact@v4

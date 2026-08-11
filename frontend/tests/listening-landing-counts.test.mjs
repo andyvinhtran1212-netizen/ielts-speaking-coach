@@ -224,11 +224,9 @@ describe('listening-browse — modeLinksHtml', () => {
   });
 
   it('shows an honest note instead of four dead links when nothing exists', () => {
-    for (const item of [{ id: 'x', available_modes: [] }, { id: 'x' }]) {
-      const html = browse.modeLinksHtml(item);
-      assert.match(html, /Chưa có dạng luyện nào/);
-      assert.doesNotMatch(html, /<a /, 'no link may be rendered');
-    }
+    const html = browse.modeLinksHtml({ id: 'x', available_modes: [] });
+    assert.match(html, /Chưa có dạng luyện nào/);
+    assert.doesNotMatch(html, /<a /, 'no link may be rendered');
   });
 
   it('escapes the content id into the href', () => {
@@ -246,15 +244,21 @@ describe('listening-browse — lookup failure must not read as no-data', () => {
     browse = await import('../js/listening-browse.js');
   });
 
-  it('null available_modes renders a warning, not "chưa có dạng luyện nào"', () => {
+  it('null, missing or malformed available_modes renders a warning', () => {
     // The backend sets null when the listening_exercises read threw. An empty
     // list there would be indistinguishable from genuine no-data, dressing a
     // DB fault up as canonical truth — the same trap the access-code endpoints
     // avoid with association_lookup_failed.
-    const html = browse.modeLinksHtml({ id: 'x', available_modes: null });
-    assert.match(html, /Không đọc được/);
-    assert.doesNotMatch(html, /Chưa có dạng luyện nào/);
-    assert.doesNotMatch(html, /<a /);
+    for (const item of [
+      { id: 'x', available_modes: null },
+      { id: 'x' },
+      { id: 'x', available_modes: 'dictation' },
+    ]) {
+      const html = browse.modeLinksHtml(item);
+      assert.match(html, /Không đọc được/);
+      assert.doesNotMatch(html, /Chưa có dạng luyện nào/);
+      assert.doesNotMatch(html, /<a /);
+    }
   });
 
   it('an empty array still means genuine no-data', () => {
@@ -419,9 +423,14 @@ describe('shared player knows the practice library', () => {
 
   it('back link returns to the library the learner came from', () => {
     const block = PLAYER.split('const BACK_TARGETS = {')[1].split('};')[0];
-    for (const [k, page] of [['full', 'listening-tests'], ['mini', 'listening-mini-test'],
-                             ['drill', 'listening-skills'], ['practice', 'listening-practice']]) {
-      assert.match(block, new RegExp(`${k}:\\s*'/pages/${page}\\.html'`),
+    // [cutover /listening/tests 2026-08-05] KHÔNG dựng URL từ khuôn chung nữa:
+    // chỉ `full` đã sang route Next, ba shelf kia vẫn là trang legacy. Khuôn
+    // chung sẽ ép cả bốn giống nhau và che mất đúng cái vừa đổi.
+    for (const [k, href] of [['full', '/listening/tests'],
+                             ['mini', '/listening/mini-test'],
+                             ['drill', '/listening/skills'],
+                             ['practice', '/listening/practice']]) {
+      assert.match(block, new RegExp(`${k}:\\s*'${href.replace(/[/.]/g, '\\$&')}'`),
         `back target for ${k} missing — the learner lands on the wrong shelf`);
     }
   });

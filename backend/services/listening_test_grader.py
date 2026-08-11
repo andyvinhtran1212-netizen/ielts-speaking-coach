@@ -418,7 +418,38 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
 # review endpoint, the Luyện nhanh runner from /check, and the admin audit from
 # its own endpoint. Removing them costs no feature.
 _STUDENT_FORBIDDEN_PAYLOAD_KEYS = ("answers", "solutions", "audio_windows",
-                                   "transcript_anchors")
+                                   "transcript_anchors",
+                                   # Gist: `model_answer` LÀ đáp án, `rubric_keywords`
+                                   # là bộ từ khoá chấm điểm — biết trước là biết phải
+                                   # viết gì. Không mặt học viên nào đọc hai trường này
+                                   # (`listening-gist.js` chỉ đọc `prompt_text`, còn
+                                   # `keyword_matches` đến từ phản hồi chấm bài).
+                                   "model_answer", "rubric_keywords")
+
+# Đáp án LỒNG BÊN TRONG từng câu hỏi, không nằm ở mức đỉnh.
+#
+# Đây đúng là cái bẫy mà chú thích ngay trên đã kể một lần: bộ lọc cũ chỉ xoá
+# khoá mức đỉnh, nên khoá vẫn được phục vụ đầy đủ ở một tầng sâu hơn, TRÊN CHÍNH
+# response mà bộ lọc sinh ra để làm sạch. Ba chế độ dưới đây rơi vào đúng vết đó:
+#
+#   mcq        payload.questions[].answer_idx
+#   true_false payload.statements[].answer
+#
+# Cả hai trang đều đã tự xoá ở client ("user must NOT see it in DOM",
+# `listening-mcq.js:81`) — tức ý định đã đúng từ đầu, chỉ là dữ liệu vẫn đi tới
+# trình duyệt và ai mở tab Network cũng đọc được.
+#
+# Chép chính tả KHÔNG bị ảnh hưởng, và lý do KHÔNG phải "tôi cố ý chừa ra":
+# `segments` là CỘT MỨC ĐỈNH của `listening_exercises` (mig 057), nằm ngoài
+# `payload`, nên bộ lọc này chưa từng với tới nó. Trang tìm bài bằng
+# `Array.isArray(e.segments)` (`listening-dictation.js:101`). Tôi từng ghi ở đây
+# rằng transcript nằm trong payload và "cố ý chừa" — sai mô hình, và một test
+# viết theo mô hình sai đó đã xanh trên một hình dạng response mà trang thật sẽ
+# từ chối (codex cục bộ #967 vòng 2).
+_STUDENT_FORBIDDEN_NESTED = (
+    ("questions", "answer_idx"),
+    ("statements", "answer"),
+)
 
 
 def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -431,9 +462,25 @@ def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any
     safe: list[dict[str, Any]] = []
     for row in exercise_rows:
         copy = dict(row)
-        payload = dict(copy.get("payload") or {})
+        # `payload` là JSONB NOT NULL nhưng cột KHÔNG ràng buộc phải là object
+        # (`migrations/056_listening_module_foundation.sql:133`), nên một chuỗi,
+        # số, hay mảng JSON hợp lệ sẽ làm `dict(...)` ném lỗi. Trước đây điều đó
+        # vô hại vì chỉ route full-test gọi tới; nay route bài lẻ cũng gọi, nên
+        # một dòng dị dạng sẽ thành 500 thay vì được trả về. ĐÓNG AN TOÀN: coi
+        # như payload rỗng — thà mất nội dung một dòng hỏng còn hơn lộ đáp án
+        # hoặc sập cả endpoint (codex cục bộ #967).
+        raw_payload = copy.get("payload")
+        payload = dict(raw_payload) if isinstance(raw_payload, dict) else {}
         for key in _STUDENT_FORBIDDEN_PAYLOAD_KEYS:
             payload.pop(key, None)
+        for list_key, item_key in _STUDENT_FORBIDDEN_NESTED:
+            items = payload.get(list_key)
+            if isinstance(items, list):
+                payload[list_key] = [
+                    {k: v for k, v in item.items() if k != item_key}
+                    if isinstance(item, dict) else item
+                    for item in items
+                ]
         copy["payload"] = payload
         safe.append(copy)
     return safe

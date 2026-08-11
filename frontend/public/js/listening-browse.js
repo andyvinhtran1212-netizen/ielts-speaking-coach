@@ -18,6 +18,28 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 import { fetchAllPages } from './listening-list-paging.js';
 
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+    return;
+  }
+  fn();
+}
+
 const $ = (id) => document.getElementById(id);
 
 const STATE = {
@@ -69,7 +91,7 @@ async function load() {
     render();
     showState('ready');
   } catch (e) {
-    showError('Không tải được danh sách. ' + (e && e.message ? e.message : ''));
+    showError('Không tải được danh sách bài nghe. Vui lòng thử lại.');
   }
 }
 
@@ -87,11 +109,10 @@ const MODE_LINKS = {
 
 export function modeLinksHtml(item) {
   const cid = encodeURIComponent(item && item.id ? item.id : '');
-  // `available_modes: null` means the server could not read the exercise table.
-  // Printing "chưa có dạng luyện nào" there would dress a backend fault up as
-  // canonical no-data — the same trap the access-code endpoints avoid with
-  // `association_lookup_failed`. Say so instead.
-  if (item && item.available_modes === null) {
+  // Only an explicit array is canonical. Null means the exercise-table lookup
+  // failed; a missing/malformed field is also an unreadable contract, not
+  // proof that this content genuinely has no modes.
+  if (!item || !Array.isArray(item.available_modes)) {
     return '<span class="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>';
   }
   const modes = Array.isArray(item && item.available_modes) ? item.available_modes : [];
@@ -141,7 +162,7 @@ function escapeHtml(s) {
 
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  __averOnReady(() => {
     load();
     ['filter-accent', 'filter-cefr', 'filter-section'].forEach((id) => {
       $(id).addEventListener('change', load);

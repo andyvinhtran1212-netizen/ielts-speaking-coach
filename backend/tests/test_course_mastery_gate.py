@@ -1,7 +1,7 @@
 """Cổng THUỘC BÀI của bài tập theo buổi.
 
-Học viên phải đạt ngưỡng % (mặc định 80) mới được kết luận PASS; dưới ngưỡng thì
-kiểm tra lại bằng mẫu nhỏ (trộn câu + trộn đáp án, phía runner) tới khi đạt.
+Học viên phải đạt ngưỡng % mới PASS. Chỉ vùng 10 điểm ngay dưới
+ngưỡng được kiểm tra lại bằng mẫu 20 câu; thấp hơn phải làm lại toàn bài.
 
 Ba tính chất then chốt (codex #928 vòng 1 đòi cả ba):
   · server TỰ CHẤM LẠI từ answer_given + đáp án gốc — không tin bất kỳ tổng nào
@@ -129,6 +129,17 @@ def test_config_clamps_garbage():
     assert qs.mastery_config({"content_config": {"retake_size": 0}})["retake_size"] == 5
 
 
+@pytest.mark.parametrize(("pct", "action"), [
+    (75.0, "passed"),
+    (74.9, "retake"),
+    (65.0, "retake"),
+    (64.9, "retry_full"),
+])
+def test_threshold_75_has_an_exact_ten_point_near_pass_band(pct, action):
+    assert qs.near_pass_pct(75) == 65
+    assert qs.mastery_next_action(pct, 75) == action
+
+
 # ── Lượt chính: server tự chấm, kết luận đúng, ghi đúng ──────────────────────
 
 def test_run_pass_writes_verdict():
@@ -148,9 +159,140 @@ def test_run_fail_offers_retake_and_keeps_not_passed():
     out, log = _verdict(sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)))
     assert out["passed"] is False and out["pct"] == 70.0
     assert out["retake_size"] == 20 and out["threshold"] == 80
+    assert out["near_threshold"] == 70 and out["next_action"] == "retake"
+    assert out["history"] == [{
+        "number": 1, "phase": "run", "pct": 70.0,
+        "at": out["history"][0]["at"], "session_count": 2,
+        "next_action": "retake",
+    }]
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0
+
+
+def test_threshold_75_sends_65_percent_to_the_20_question_retake():
+    ss = _sessions(2)
+    out, _ = _verdict(
+        sessions=ss,
+        questions=_questions(20),
+        attempts=_attempts(ss, _given(20, wrong=7)),  # 13/20 = 65%
+        config={"pass_pct": 75, "retake_size": 20},
+    )
+    assert out["pct"] == 65.0
+    assert out["near_threshold"] == 65
+    assert out["next_action"] == "retake"
+    assert out["retake_size"] == 20
+
+
+def test_threshold_75_sends_below_65_percent_to_a_full_retry():
+    ss = _sessions(2)
+    out, log = _verdict(
+        sessions=ss,
+        questions=_questions(20),
+        attempts=_attempts(ss, _given(20, wrong=8)),  # 12/20 = 60%
+        config={"pass_pct": 75, "retake_size": 20},
+    )
+    assert out["pct"] == 60.0
+    assert out["next_action"] == "retry_full"
+    saved = [e for e in log if e[1] == "update"][0][2]["mastery"]["attempts"][-1]
+    assert saved["next_action"] == "retry_full"
+
+
+def test_a_retake_below_the_near_band_requires_a_full_retry_next():
+    prior = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 65.0, "at": "2026-08-08T01:00:00Z",
+        "sessions": ["s-run"], "next_action": "retake",
+    }]}
+    ss = _sessions(1, kind="retake")
+    out, _ = _verdict(
+        sessions=ss,
+        questions=_questions(20),
+        attempts=_attempts(ss, _given(20, wrong=8)),
+        config={"pass_pct": 75, "retake_size": 20},
+        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 65.0},
+    )
+    assert out["phase"] == "retake"
+    assert out["next_action"] == "retry_full"
+
+
+def test_reposting_the_same_failed_retake_is_idempotent():
+    ss = _sessions(1, kind="retake")
+    key = [ss[0]["id"]]
+    prior = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 65.0, "at": "2026-08-08T01:00:00Z",
+         "sessions": ["s-run"], "next_action": "retake"},
+        {"phase": "retake", "pct": 60.0, "at": "2026-08-08T02:00:00Z",
+         "sessions": key, "next_action": "retry_full"},
+    ]}
+    out, log = _verdict(
+        sessions=ss,
+        questions=_questions(20),
+        attempts=_attempts(ss, _given(20, wrong=8)),
+        config={"pass_pct": 75, "retake_size": 20},
+        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 60.0},
+    )
+    assert out["next_action"] == "retry_full"
+    assert [e for e in log if e[1] == "update"] == []
+
+
+def test_full_retry_rejects_sessions_created_before_the_failed_attempt():
+    ss = _sessions(2, created_at="2026-08-08T01:00:00Z")
+    prior = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 60.0, "at": "2026-08-08T02:00:00Z",
+        "sessions": ["old-a", "old-b"], "next_action": "retry_full",
+    }]}
+    with pytest.raises(HTTPException) as e:
+        _verdict(
+            sessions=ss,
+            questions=_questions(10),
+            attempts=_attempts(ss, _given(10)),
+            config={"pass_pct": 75},
+            item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 60.0},
+        )
+    assert e.value.status_code == 422
+    assert "phiên mới" in e.value.detail
+
+
+def test_full_retry_accepts_a_complete_set_of_new_sessions():
+    ss = _sessions(2, created_at="2026-08-08T03:00:00Z")
+    prior = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 60.0, "at": "2026-08-08T02:00:00Z",
+        "sessions": ["old-a", "old-b"], "next_action": "retry_full",
+    }]}
+    out, _ = _verdict(
+        sessions=ss,
+        questions=_questions(10),
+        attempts=_attempts(ss, _given(10)),
+        config={"pass_pct": 75},
+        item_row={"id": "it-1", "passed_at": None, "mastery": prior, "score": 60.0},
+    )
+    assert out["passed"] is True
+
+
+def test_near_pass_rerun_still_rejects_mixing_sessions_before_full_retry_boundary():
+    """Boundary survives latest action=retake; old+new sessions cannot be merged."""
+    ss = [
+        *_sessions(1, created_at="2026-08-08T01:00:00Z"),
+        *_sessions(1, created_at="2026-08-08T03:00:00Z"),
+    ]
+    ss[1]["id"] = "s-new"
+    prior = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 60.0, "at": "2026-08-08T02:00:00Z",
+         "sessions": ["s-old-a", "s-old-b"], "next_action": "retry_full"},
+        {"phase": "run", "pct": 70.0, "at": "2026-08-08T04:00:00Z",
+         "sessions": ["new-a", "new-b"], "next_action": "retake"},
+    ]}
+    with pytest.raises(HTTPException) as e:
+        _verdict(
+            sessions=ss,
+            questions=_questions(10),
+            attempts=_attempts(ss, _given(10)),
+            config={"pass_pct": 75},
+            item_row={"id": "it-1", "passed_at": None,
+                      "mastery": prior, "score": 70.0},
+        )
+    assert e.value.status_code == 422
+    assert "phiên mới" in e.value.detail
 
 
 def test_server_regrades_and_ignores_client_claims():
@@ -251,22 +393,31 @@ def test_retake_sample_clamped_to_pool():
     """Kho 3 câu, cấu hình 20 → mẫu 3 câu là đủ (không thể đòi hơn kho)."""
     ss = _sessions(1, kind="retake")
     prior = {"threshold": 80, "attempts": [
-        {"phase": "run", "pct": 60.0, "at": "t", "sessions": ["s-a"]},
+        {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-a"]},
     ]}
     out, _ = _verdict(sessions=ss, questions=_questions(3),
                       attempts=_attempts(ss, {f"q{i}": i % 4 for i in range(3)}),
                       item_row={"id": "it-1", "passed_at": None,
-                                "mastery": prior, "score": 60.0})
+                                "mastery": prior, "score": 70.0})
     assert out["passed"] is True and out["pct"] == 100.0
 
 
-def test_duplicate_question_is_rejected():
+def test_a_duplicate_question_is_TOLERATED_first_answer_wins():
+    """Bản trước bác cả lượt, với lý do "một câu hai lượt là dấu nộp ghép".
+
+    Lý do ấy không đứng vững, và cái giá thì có thật: em Lê Ngọc Hà Linh làm đủ
+    9 chặng nhưng có 10 phiên chốt (chặng 3 làm hai lần) và không bao giờ thấy
+    được kết quả của chính mình (06/08).
+
+    Client KHÔNG mua được điểm bằng cách gộp phiên: thứ tự do `created_at` trên
+    máy chủ quyết, nên nộp thêm chỉ có thể kéo về lượt SỚM HƠN. Xem hai chốt
+    `test_the_FIRST_answer_wins_even_when_the_redo_is_better` ở cuối tệp.
+    """
     ss = _sessions(2)
     att = _attempts(ss, _given(10))
     att.append({"session_id": ss[0]["id"], "qid": "q0", "answer_given": "0"})
-    with pytest.raises(HTTPException) as e:
-        _verdict(sessions=ss, attempts=att)
-    assert e.value.status_code == 422
+    out, _ = _verdict(sessions=ss, attempts=att)
+    assert "pct" in out, "lượt xét phải chạy được, không bác"
 
 
 def test_foreign_question_is_rejected():
@@ -295,7 +446,7 @@ def test_retake_requires_a_failed_run_first():
         _verdict(sessions=ss, attempts=_attempts(ss, given),
                  config={"retake_size": 5})
     assert e.value.status_code == 422
-    assert "lượt làm chính" in e.value.detail
+    assert "gần đạt" in e.value.detail
 
 
 def test_retake_after_passing_run_threshold_change_still_needs_failed_run():
@@ -351,13 +502,13 @@ def test_retake_must_be_exactly_one_session():
 def test_cas_conflict_rereads_and_merges_before_writing():
     """Hai tab, mỗi tab một retake KHÁC nhau, cùng chốt: kẻ thua vòng ghi phải
     ĐỌC LẠI sổ mới rồi gộp — kết quả tab kia sống sót, không bị đè (codex R3)."""
-    other = {"phase": "retake", "pct": 55.0, "at": "t2", "sessions": ["s-tab2"]}
+    other = {"phase": "retake", "pct": 75.0, "at": "t2", "sessions": ["s-tab2"]}
     base_run = {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-a", "s-b"]}
     stale_row = {"id": "it-1", "passed_at": None, "updated_at": "T0",
                  "mastery": {"threshold": 80, "attempts": [base_run]}, "score": 70.0}
     fresh_row = {"id": "it-1", "passed_at": None, "updated_at": "T1",
                  "mastery": {"threshold": 80, "attempts": [base_run, other]},
-                 "score": 55.0}
+                 "score": 75.0}
 
     class _CasTable(_Table):
         updates = 0
@@ -398,34 +549,28 @@ def test_cas_conflict_rereads_and_merges_before_writing():
     assert out["passed"] is False and out["pct"] == 60.0
     final = [e for e in log if e[1] == "update"][-1][2]
     phases = [(a["phase"], a["pct"]) for a in final["mastery"]["attempts"]]
-    assert ("retake", 55.0) in phases, "kết quả của tab kia phải SỐNG SÓT"
+    assert ("retake", 75.0) in phases, "kết quả của tab kia phải SỐNG SÓT"
     assert ("retake", 60.0) in phases, "kết quả của tab này cũng phải vào sổ"
     assert phases.count(("run", 70.0)) == 1, "lượt chính không bị nhân đôi"
 
-def test_late_failed_retake_after_pass_does_not_downgrade_score():
-    """Đã đạt (90%) rồi mới có một retake trượt (thua vòng CAS, hay làm lại
-    chơi): sổ ghi thêm lượt ấy nhưng score ĐÓNG BĂNG ở điểm đạt — ghi 40% đè
-    lên là bảng giáo viên hiện "40% ✓" tự mâu thuẫn (codex R5)."""
+def test_a_new_retake_after_pass_is_rejected_and_cannot_downgrade_score():
+    """Mốc đạt đã khóa thì không còn quyền mở/nộp một retake mới."""
     prior = {"threshold": 80, "attempts": [
         {"phase": "run", "pct": 70.0, "at": "t", "sessions": ["s-a"]},
         {"phase": "retake", "pct": 90.0, "at": "t", "sessions": ["s-win"]},
     ]}
     ss = _sessions(1, kind="retake")
     given = {f"q{i}": 99 for i in range(5)}          # trượt sạch: 0/5
-    out, log = _verdict(
-        sessions=ss, attempts=_attempts(ss, given),
-        config={"retake_size": 5},
-        item_row={"id": "it-1", "passed_at": "2026-08-04T00:00:00Z",
-                  "mastery": prior, "score": 90.0},
-    )
-    assert out["passed"] is True                     # đạt rồi là đạt
-    # Trả lời cũng phải nhất quán: pct là ĐIỂM ĐẠT (90), không phải 0% của lượt
-    # trượt vừa nộp — kẻo màn hình đọc "Đã ĐẠT · 0% · ngưỡng 80%" (codex R6).
-    assert out["pct"] == 90.0
-    patch_ = [e for e in log if e[1] == "update"][0][2]
-    assert "score" not in patch_, "điểm đạt không được hạ cấp"
-    assert "passed_at" not in patch_
-    assert len(patch_["mastery"]["attempts"]) == 3   # nhưng sổ vẫn ghi sự thật
+    log = []
+    with pytest.raises(HTTPException) as e:
+        _verdict(
+            log=log, sessions=ss, attempts=_attempts(ss, given),
+            config={"retake_size": 5},
+            item_row={"id": "it-1", "passed_at": "2026-08-04T00:00:00Z",
+                      "mastery": prior, "score": 90.0},
+        )
+    assert e.value.status_code == 422
+    assert [x for x in log if x[1] == "update"] == []
 
 
 # ── Từ chối lượt bẩn ─────────────────────────────────────────────────────────
@@ -507,7 +652,15 @@ def test_write_failure_is_not_a_silent_pass():
 
 def _start(kind, *, area="course"):
     log = []
-    db = _db(log, quiz_sessions=[])
+    db = _db(
+        log,
+        quiz_sessions=[],
+        class_assignments=[{"id": "asg-1", "content_config": {}}],
+        class_assignment_items=[{
+            "id": "it-1", "passed_at": None,
+            "mastery": {"attempts": [{"phase": "run", "pct": 70.0}]},
+        }],
+    )
     real_table = db.table
     def table(n):
         t = real_table(n)
@@ -554,6 +707,44 @@ def test_start_session_rejects_unknown_kind():
     assert e.value.status_code == 422
 
 
+# ── deadline: chặn ở biên chốt session, không chỉ lúc mở trang ────────────
+
+def _deadline_check(*, accepting=True, assignment=True, ended_by="completed"):
+    log = []
+    db = _db(
+        log,
+        class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
+        class_assignments=([{"id": "asg-1", "skill": "course",
+                            "due_at": "2026-08-08T19:00:00+07:00"}]
+                           if assignment else []),
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "is_accepting_submissions", lambda *_a, **_k: accepting):
+        qs._assert_course_session_accepting(
+            {"class_assignment_item_id": "it-1"}, ended_by)
+
+
+def test_course_session_cannot_finalize_after_the_deadline():
+    with pytest.raises(HTTPException) as e:
+        _deadline_check(accepting=False)
+    assert e.value.status_code == 409
+    assert "quá hạn" in e.value.detail
+
+
+def test_course_session_can_finalize_before_the_deadline():
+    _deadline_check(accepting=True)
+
+
+def test_pause_remains_a_soft_save_after_the_deadline():
+    _deadline_check(accepting=False, ended_by="paused")
+
+
+def test_missing_assignment_does_not_fail_open_at_finalize():
+    with pytest.raises(HTTPException) as e:
+        _deadline_check(assignment=False)
+    assert e.value.status_code == 404
+
+
 # ── Đường dây router ─────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -570,3 +761,57 @@ async def test_router_wires_verdict_through():
             authorization="Bearer x")
     assert out == {"passed": True}
     assert seen == {"user_id": "u-1", "bank_id": "bank-1", "session_ids": ["s-1"]}
+
+
+# ── Làm lại một chặng KHÔNG được chặn học viên khỏi kết quả ─────────────────
+#
+# Chuyện thật 06/08: em Lê Ngọc Hà Linh làm đủ 9 chặng nhưng có 10 phiên chốt —
+# chặng 3 làm hai lần. Lượt xét bác cả lượt với "Có câu bị nộp trùng", và em ấy
+# không bao giờ thấy được kết quả của chính mình.
+#
+# Nay giữ LƯỢT ĐẦU của mỗi câu, đúng luật `course_answer_report` đã dùng. Client
+# KHÔNG chọn được lượt nào thắng: thứ tự do dấu thời gian trên máy chủ quyết.
+
+def _dup_attempts(*, first_wrong: bool):
+    """10 câu ở phiên s-0; câu q0 làm LẠI ở phiên s-1 với đáp án khác."""
+    given = {f"q{i}": i % 4 for i in range(10)}
+    rows = [{"session_id": "s-0", "qid": q, "answer_given": str(v),
+             "created_at": f"2026-08-06T10:00:{i:02d}+00:00"}
+            for i, (q, v) in enumerate(given.items())]
+    if first_wrong:
+        rows[0]["answer_given"] = str((0 % 4 + 1) % 4)      # lượt ĐẦU sai
+        redo = "0"                                           # lượt sau đúng
+    else:
+        redo = str((0 % 4 + 1) % 4)                          # lượt sau sai
+    # ĐẶT lượt làm lại lên ĐẦU danh sách nhưng gắn dấu thời gian MUỘN HƠN.
+    # Thứ tự PostgREST trả về không phải thứ tự thời gian, nên nếu mã duyệt
+    # theo thứ tự danh sách thì lượt "đầu tiên" nó thấy lại là lượt làm SAU —
+    # và ai thắng thành chuyện may rủi.
+    rows.insert(0, {"session_id": "s-1", "qid": "q0", "answer_given": redo,
+                    "created_at": "2026-08-06T11:00:00+00:00"})
+    return rows
+
+
+def test_redoing_a_stage_no_longer_blocks_the_verdict():
+    v, _ = _verdict(sessions=_sessions(2), attempts=_dup_attempts(first_wrong=False))
+    assert v["pct"] == 100.0, "lượt ĐẦU của q0 đúng nên phải tính đúng"
+
+
+def test_the_FIRST_answer_wins_even_when_the_redo_is_better():
+    """Nộp thêm phiên chỉ có thể kéo về lượt SỚM HƠN, không bao giờ về lượt
+    điểm cao hơn — nên client không mua được điểm bằng cách gộp phiên."""
+    v, _ = _verdict(sessions=_sessions(2), attempts=_dup_attempts(first_wrong=True))
+    assert v["pct"] == 90.0, "lượt đầu SAI thì vẫn tính sai, dù làm lại đúng"
+
+
+def test_a_question_outside_the_bank_still_rejects_the_whole_run():
+    """Nới chỗ trùng lặp KHÔNG được nới luôn chỗ này: câu lạ là dấu nộp ghép
+    từ một bộ đề khác."""
+    import pytest
+    att = [{"session_id": "s-0", "qid": f"q{i}", "answer_given": str(i % 4),
+            "created_at": f"2026-08-06T10:00:{i:02d}+00:00"} for i in range(10)]
+    att.append({"session_id": "s-0", "qid": "LA-MAT", "answer_given": "0",
+                "created_at": "2026-08-06T10:00:59+00:00"})
+    with pytest.raises(Exception) as e:
+        _verdict(sessions=_sessions(1), attempts=att)
+    assert "không thuộc bộ đề" in str(getattr(e.value, "detail", e.value))

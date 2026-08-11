@@ -21,6 +21,11 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const frontPath = (...p) => join(__dirname, '..', ...p);
 
 const PAGE = front('pages', 'vocab-practice.html');
+// Logic đã TÁCH khỏi mã inline sang `/js/vocab-practice.js` khi port trang sang
+// Next: bản Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định về
+// HÀNH VI vì thế soi tệp JS; các khẳng định về KHUNG TRANG (nạp api.js, gọi
+// initSupabase, markup) vẫn soi HTML.
+const LOGIC = front('js', 'vocab-practice.js');
 const LANDING = front('js', 'vocab-landing.js');
 
 describe('vocab-practice hub — lists published vocab banks', () => {
@@ -30,29 +35,30 @@ describe('vocab-practice hub — lists published vocab banks', () => {
   });
 
   test('lists only published VOCAB banks via the student endpoint', () => {
-    assert.match(PAGE, /api\.get\('\/api\/quiz\/banks\?skill_area=vocab'\)/);
+    assert.match(LOGIC, /api\.get\('\/api\/quiz\/banks\?skill_area=vocab'\)/);
   });
 
   test('each bank opens the adaptive player at quiz.html?bank=', () => {
-    assert.match(PAGE, /\/pages\/quiz\.html\?bank='/);
-    assert.match(PAGE, /encodeURIComponent\(b\.id\)/);
+    assert.match(LOGIC, /\/pages\/quiz\.html\?bank='/);
+    assert.match(LOGIC, /encodeURIComponent\(b\.id\)/);
   });
 
   test('renders bank code, title and word count', () => {
-    assert.match(PAGE, /b\.code/);
-    assert.match(PAGE, /b\.title/);
-    assert.match(PAGE, /b\.words_count/);
+    assert.match(LOGIC, /b\.code/);
+    assert.match(LOGIC, /b\.title/);
+    assert.match(LOGIC, /b\.words_count/);
   });
 
   test('back link goes UP to the Vocabulary hub, not the public word wiki', () => {
-    assert.match(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
+    assert.match(PAGE, /subpage-header__back" href="\/vocabulary\/hub"/);
+    assert.doesNotMatch(PAGE, /subpage-header__back" href="\/pages\/vocabulary\.html"/);
     assert.doesNotMatch(PAGE, /subpage-header__back" href="\/vocabulary\.html"/);
   });
 
   test('has empty + error states and a progress link', () => {
     assert.match(PAGE, /id="vp-empty"/);
     assert.match(PAGE, /id="vp-error"/);
-    assert.match(PAGE, /\/pages\/quiz-progress\.html/);
+    assert.match(PAGE, /\/quiz\/progress/);
   });
 
   test('communicates the "test until the whole list is mastered" purpose', () => {
@@ -79,7 +85,7 @@ describe('vocab-landing — "Luyện tập" goes straight into the player', () =
     assert.match(LANDING, /c\.topic_id \? '&topic_id=' \+ encodeURIComponent\(c\.topic_id\)/);
   });
   test('progress is reachable from the Vocabulary page', () => {
-    assert.match(LANDING, /\/pages\/quiz-progress\.html/);
+    assert.match(LANDING, /\/quiz\/progress/);
   });
 });
 
@@ -91,7 +97,7 @@ describe('quiz.html resolves a bank from ?skill_area when ?bank is absent', () =
   });
   test('one bank starts directly; multiple hands off to the lesson picker', () => {
     assert.match(PLAYER, /banks\.length > 1/);
-    assert.match(PLAYER, /location\.replace\('\/pages\/vocab-practice\.html'\)/);
+    assert.match(PLAYER, /location\.replace\('\/vocabulary\/practice'\)/);
   });
 });
 

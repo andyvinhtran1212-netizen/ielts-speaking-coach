@@ -1,0 +1,62 @@
+{
+  "kind": "instructor-deliver",
+  "essay_id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+  "review_id": "5e2a91c7-4b83-4d16-9f52-70ac6b31d8e9",
+  "as_instructor": "7c4d8e51-2a96-4b70-83f1-6d95e2c407ba",
+  "instructor_note": "Ý tưởng rõ, nhưng đoạn 2 thiếu ví dụ. Lần sau thêm một số liệu cụ thể.",
+  "essay": {
+    "id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+    "status": "graded",
+    "task_type": "task2",
+    "essay_text": "Some people believe that university education should be free for everyone.",
+    "band_overall": 6.5,
+    "instructor_note": "",
+    "delivered_at": null,
+    "feedback": {
+      "essay_id": "b3f7c210-9d64-4e58-8a17-2c95d0e4f7a1",
+      "version": 1,
+      "model_used": "gemini-3-flash-preview",
+      "overall_band_score": 6.5,
+      "feedback_json": {
+        "overallBandScoreSummary": "Bài đủ ý, lập luận đoạn 2 còn mỏng. Cần thêm ví dụ cụ thể.",
+        "criteriaFeedback": {
+          "taskResponse": {
+            "band": 6.5,
+            "feedback": "Trả lời đủ hai vế nhưng ví dụ chung chung."
+          },
+          "coherenceAndCohesion": {
+            "band": 6.0,
+            "feedback": "Chuyển ý giữa đoạn 2 và 3 hơi gãy."
+          },
+          "lexicalResource": {
+            "band": 6.5,
+            "feedback": "Từ vựng đủ dùng, lặp «important»."
+          },
+          "grammaticalRangeAndAccuracy": {
+            "band": 6.0,
+            "feedback": "Câu phức đúng nhưng ít đa dạng."
+          }
+        },
+        "mistakeAnalysis": [
+          {
+            "original": "is very important",
+            "correction": "matters greatly",
+            "type": "lexical",
+            "explanation": "Tránh lặp cụm chung chung."
+          }
+        ]
+      }
+    },
+    "student": {
+      "id": "c8b45f92-31e7-4a60-9d28-5b07e13af6c4",
+      "student_code": "HV-0412",
+      "full_name": "Nguyễn Minh Anh",
+      "target_band": 7.0
+    }
+  },
+  "me": {
+    "id": "a19f3b60-77d2-4c85-b043-1e8f5a92c3d7",
+    "role": "admin",
+    "email": "admin@local"
+  }
+}

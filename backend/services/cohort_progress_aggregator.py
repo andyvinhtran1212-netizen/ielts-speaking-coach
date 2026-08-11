@@ -34,7 +34,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-from services.class_assignment_service import reconcile_test_attempts
+from services.class_assignment_service import (
+    reconcile_ledger_from_sessions,
+    reconcile_test_attempts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,12 +106,24 @@ def _fold(rows: List[Dict[str, Any]], key: str, when: str,
         # last real one.
         with_band = [r for r in rs if band and r.get(band) is not None]
         newest_banded = _latest(with_band, when) if with_band else None
+        # TÁM LƯỢT GẦN NHẤT có band — đủ để bảng vẽ một dải ô đọc-trong-ba-giây.
+        #
+        # Dựng từ chính `rs` đã đọc, KHÔNG thêm lượt gọi nào. Chỉ giữ con số:
+        # "yếu hay không" là câu hỏi của người ĐỌC (so với mục tiêu của em ấy),
+        # nên quyết ở đây là chôn một ngưỡng vào tầng gom dữ liệu.
+        recent = [r.get(band) for r in _newest_first(with_band, when)[:8]][::-1]
         out[owner] = {
             "attempts":      len(rs),
             "last_activity": newest.get(when) if newest else None,
             "last_band":     newest_banded.get(band) if newest_banded else None,
+            "recent_bands":  recent,
         }
     return out
+
+
+def _newest_first(rows: List[Dict[str, Any]], when: str) -> List[Dict[str, Any]]:
+    """Mới nhất trước. Dòng thiếu dấu thời gian xuống cuối, không ném."""
+    return sorted(rows, key=lambda r: (r.get(when) or ""), reverse=True)
 
 
 def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
@@ -128,7 +143,8 @@ def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
 
 
 def _empty() -> Dict[str, Any]:
-    return {"attempts": 0, "last_activity": None, "last_band": None}
+    return {"attempts": 0, "last_activity": None, "last_band": None,
+            "recent_bands": []}
 
 
 def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
@@ -177,23 +193,49 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     if not due_by_id:
         return {}
 
-    # Reading/Listening hand-ins are detected from the attempt rows, not written
-    # by the test page. Whichever screen an admin opens FIRST has to do that
-    # repair, or the Progress tab reports submitted work as missing until some
-    # other endpoint happens to run it. Best-effort: a failed repair still shows
-    # the other three skills, and the homework column is merely stale, not wrong
-    # in a new way.
-    try:
-        reconcile_test_attempts(db, assignments)
-    except Exception as exc:
-        # NAME IT. Continuing on the unrepaired ledger is the right call — the
-        # other three skills are fine and the homework counts are merely stale —
-        # but reporting stale counts as canonical is how "chưa nộp" ends up
-        # shown for work that was handed in. The homework list endpoint already
-        # warns on exactly this condition; this screen must not stay quiet.
-        logger.warning("[cohort-progress] test-attempt reconcile failed: %s", exc)
-        if degraded is not None:
-            degraded.append("homework_stale")
+    # Ba đường ghi sổ, ba đường vá — và mặt đọc nào giáo viên MỞ TRƯỚC cũng phải
+    # chạy đủ cả ba, nếu không tab Tiến độ báo "chưa nộp" cho việc đã làm xong,
+    # cho tới khi một endpoint khác tình cờ vá hộ.
+    #
+    #   · Speaking — `PATCH /complete` ghi sổ, nhưng ghi hỏng thì không ai thử lại.
+    #   · Reading/Listening — trang làm đề nộp bài mà không biết sổ lớp tồn tại.
+    #   · Bài theo buổi — `end_session` ghi best-effort; hỏng ở chặng CUỐI thì
+    #     không còn lượt nào sau để gọi lại.
+    #
+    # Trước đây chỗ này CHỈ chạy đường Reading/Listening, nên hai đường kia phải
+    # chờ giáo viên mở đúng tab Bài tập.
+    #
+    # MỘT KHỐI `try` CHO MỖI ĐƯỜNG. Gộp chung thì đường đầu hỏng là hai đường sau
+    # không được thử, dù mọi bảng chúng cần vẫn khoẻ.
+    #
+    # Best-effort: vá hỏng thì vẫn vẽ ba kỹ năng kia, và cột bài tập chỉ CŨ chứ
+    # không sai theo kiểu mới. Nhưng phải NÓI RA — đưa con số cũ ra như thể nó
+    # là sự thật đúng là cách "chưa nộp" hiện lên cho bài đã nộp.
+    from services.quiz_service import reconcile_course_items
+
+    # Lọc sẵn bằng cột `skill` mà lượt đọc trên ĐÃ lấy về. Mỗi đường vá tự đọc
+    # lại `class_assignments` (và `class_assignment_items`) để biết bài nào là
+    # của nó; đưa cả danh sách sang thì một lớp chỉ học Reading vẫn phải trả
+    # lượt đọc cho hai câu hỏi đã có sẵn đáp án ngay đây.
+    by_skill = {}
+    for a in assignments:
+        by_skill.setdefault(a.get("skill"), []).append(a["id"])
+    speaking_ids = by_skill.get("speaking", [])
+    course_ids = by_skill.get("course", [])
+
+    for what, fn in (
+        ("speaking", lambda: reconcile_ledger_from_sessions(db, speaking_ids)),
+        ("test-attempts", lambda: reconcile_test_attempts(db, assignments)),
+        ("course", lambda: reconcile_course_items(db, course_ids)),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            logger.warning("[cohort-progress] %s reconcile failed: %s", what, exc)
+            # Một lần thôi: ba đường cùng hỏng vẫn là một lời cảnh báo, và danh
+            # sách này đi thẳng ra câu trả lời.
+            if degraded is not None and "homework_stale" not in degraded:
+                degraded.append("homework_stale")
 
     items = _fetch_by_ids(
         db, "class_assignment_items", "id, assignment_id, student_id, submitted_at",
@@ -241,7 +283,9 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
     show "không đọc được" instead of inventing a fact.
     """
     students = _paged(
-        db, "students", "id, student_code, full_name, user_id",
+        # `target_band` đi kèm để bảng biết thế nào là "yếu" CHO EM ẤY. Một
+        # ngưỡng chung cho cả lớp là gọi một em mục tiêu 5.5 đạt 6.0 là yếu.
+        db, "students", "id, student_code, full_name, user_id, target_band",
         lambda q: q.eq("cohort_id", cohort_id),
     )
     if not students:
@@ -337,6 +381,7 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
             # No account = the three user-keyed skills are genuinely empty, not
             # zero-by-error. The page says which.
             "activated":    bool(uid),
+            "target_band":  s.get("target_band"),
             "skills":       {},
         }
         for skill in SKILLS:

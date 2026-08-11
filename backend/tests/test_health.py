@@ -48,6 +48,38 @@ def test_health_basic_returns_ok():
     assert out["status"] == "ok"
     assert "timestamp" in out and out["timestamp"]
     assert "version" in out
+    assert "release" not in out
+    assert "git_branch" not in out
+
+
+def test_health_runtime_exposes_admin_release_branch_only(monkeypatch):
+    """Gate E provenance can bind the backend to staging without making its
+    deployment fingerprint public."""
+    async def _admin(_authorization):
+        return True
+
+    monkeypatch.setattr(health_module, "_is_admin", _admin)
+    monkeypatch.setattr(health_module.grammar_service, "_load_mappings", lambda: {})
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "a" * 40)
+    monkeypatch.setenv("RAILWAY_GIT_BRANCH", "staging")
+
+    out = _run(health_module.health_runtime("Bearer admin"))
+    assert out["git_sha"] == "a" * 40
+    assert out["git_branch"] == "staging"
+
+
+def test_health_runtime_redacts_release_branch_for_anonymous(monkeypatch):
+    async def _anonymous(_authorization):
+        return False
+
+    monkeypatch.setattr(health_module, "_is_admin", _anonymous)
+    monkeypatch.setattr(health_module.grammar_service, "_load_mappings", lambda: {})
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "b" * 40)
+    monkeypatch.setenv("RAILWAY_GIT_BRANCH", "staging")
+
+    out = _run(health_module.health_runtime(None))
+    assert out["git_sha"] == health_module._REDACTED
+    assert out["git_branch"] == health_module._REDACTED
 
 
 # ── /health/ready ────────────────────────────────────────────────────────────

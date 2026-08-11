@@ -78,13 +78,19 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.match(player, /\/grammar["']/);
     // Vocab back returns to the lesson picker (vocab-practice), NOT /vocabulary.html
     // (the public word wiki) — both back controls share one unambiguous target.
-    assert.match(player, /\/pages\/vocab-practice\.html/);
+    assert.match(player, /\/vocabulary\/practice/);
     assert.ok(!/← Về Từ vựng<\/a>/.test(player), 'back CTA label must not be hard-coded vocab in markup');
   });
 });
 
 describe('Pha 5a — analytics + progress', () => {
-  const progress = readFileSync(path.join(ROOT, 'frontend/pages/quiz-progress.html'), 'utf8');
+  // Logic của trang đã TÁCH sang `/js/quiz-progress.js` khi port sang Next: bản
+  // Next phải chạy CHÍNH mã đó chứ không chép lại. Các khẳng định ở đây là
+  // "nguồn trang có chứa X", nên nguồn trang nay = HTML + module của nó. Gộp
+  // giữ ĐÚNG ý định cũ; ở tệp này không có khẳng định nào phụ thuộc THỨ TỰ
+  // trong HTML (đã kiểm), nên gộp là an toàn.
+  const progress = readFileSync(path.join(ROOT, 'frontend/pages/quiz-progress.html'), 'utf8')
+    + '\n' + readFileSync(path.join(ROOT, 'frontend/public/js/quiz-progress.js'), 'utf8');
   const player = readFileSync(path.join(ROOT, 'frontend/pages/quiz.html'), 'utf8');
   test('topic console loads per-bank analytics ("từ dễ sai")', () => {
     assert.match(html, /data-stats=/);
@@ -99,6 +105,6 @@ describe('Pha 5a — analytics + progress', () => {
     assert.match(progress, /Đã thuộc/);
   });
   test('player summary links to the progress page', () => {
-    assert.match(player, /\/pages\/quiz-progress\.html/);
+    assert.match(player, /\/quiz\/progress/);
   });
 });

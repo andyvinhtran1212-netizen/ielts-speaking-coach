@@ -1,0 +1,210 @@
+/**
+ * Aver Learning admin surface — shared visual baseline.
+ *
+ * Linked statically by every admin page. <aver-admin-chrome> keeps a fallback
+ * loader for legacy entry points. This file intentionally governs only
+ * cross-page presentation (type hierarchy, focus, controls, data containment,
+ * and responsive safety). Domain layouts remain in their page-local files.
+ * All rules are scoped to .av-admin-surface to avoid affecting student pages.
+ */
+
+.av-admin-surface {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--av-surface-page);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-sans);
+  line-height: var(--av-lh-normal);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.av-admin-surface *,
+.av-admin-surface *::before,
+.av-admin-surface *::after {
+  box-sizing: border-box;
+}
+
+.av-admin-surface ::selection {
+  background: var(--av-primary-soft);
+  color: var(--av-text-primary);
+}
+
+/* ── Page hierarchy ─────────────────────────────────────────────── */
+:where(.av-admin-surface h1) {
+  margin-top: 0;
+  color: var(--av-text-primary);
+  font-size: clamp(var(--av-fs-2xl), 2.4vw, var(--av-fs-4xl));
+  font-weight: var(--av-fw-bold);
+  line-height: var(--av-lh-tight);
+  letter-spacing: var(--av-tracking-tight);
+  text-wrap: balance;
+}
+
+:where(.av-admin-surface h2) {
+  color: var(--av-text-primary);
+  line-height: var(--av-lh-snug);
+  letter-spacing: var(--av-tracking-tight);
+}
+
+:where(.av-admin-surface p) {
+  text-wrap: pretty;
+}
+
+:where(
+  .av-admin-surface .subtitle,
+  .av-admin-surface .lede
+) {
+  color: var(--av-text-secondary);
+  line-height: var(--av-lh-normal);
+}
+
+/* ── Universal keyboard contract ────────────────────────────────── */
+.av-admin-surface :where(
+  a[href], button, input, select, textarea, summary,
+  [role="button"], [role="tab"], [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--av-border-focus);
+  outline-offset: 2px;
+  box-shadow: var(--av-shadow-focus);
+}
+
+.av-admin-surface :where(button, [role="button"]):not(:disabled) {
+  cursor: pointer;
+}
+
+.av-admin-surface :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+.av-admin-surface :where(button, input, select, textarea):disabled,
+.av-admin-surface :where([aria-disabled="true"]) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+/* ── Form baseline ──────────────────────────────────────────────── */
+:where(
+  .av-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  .av-admin-surface select,
+  .av-admin-surface textarea
+) {
+  max-width: 100%;
+  border-color: var(--av-border-default);
+  background-color: var(--av-surface-card);
+  color: var(--av-text-primary);
+}
+
+:where(
+  .av-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  .av-admin-surface select
+) {
+  min-height: 40px;
+}
+
+:where(
+  .av-admin-surface input,
+  .av-admin-surface textarea
+)::placeholder {
+  color: var(--av-text-muted);
+  opacity: 1;
+}
+
+:where(
+  .av-admin-surface input,
+  .av-admin-surface select,
+  .av-admin-surface textarea
+):focus {
+  border-color: var(--av-border-focus);
+}
+
+/* ── Data surfaces ──────────────────────────────────────────────── */
+:where(
+  .av-admin-surface .adm-table-wrap,
+  .av-admin-surface [class*="-table-wrap"],
+  .av-admin-surface .ml-tablewrap
+) {
+  max-width: 100%;
+  border-radius: var(--av-radius-lg);
+  box-shadow: var(--av-shadow-sm);
+  scrollbar-width: thin;
+  scrollbar-color: var(--av-border-strong) transparent;
+}
+
+:where(.av-admin-surface table) {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.av-admin-surface thead th) {
+  color: var(--av-text-secondary);
+}
+
+:where(.av-admin-surface tbody tr) {
+  transition: background-color var(--av-duration-fast) var(--av-easing-default);
+}
+
+:where(.av-admin-surface tbody tr:hover) {
+  background: var(--av-surface-sunken);
+}
+
+/* Toolbars retain their domain layout but share wrapping and touch safety. */
+:where(
+  .av-admin-surface [class*="-toolbar"],
+  .av-admin-surface [class*="-filter-bar"],
+  .av-admin-surface .ov-controls,
+  .av-admin-surface .adm-action-group
+) {
+  row-gap: var(--av-space-3);
+}
+
+/* ── Scrollbars and responsive containment ─────────────────────── */
+:where(
+  .av-admin-surface .adm-table-wrap,
+  .av-admin-surface [class*="-table-wrap"],
+  .av-admin-surface .ml-tablewrap
+)::-webkit-scrollbar {
+  height: 10px;
+}
+
+:where(
+  .av-admin-surface .adm-table-wrap,
+  .av-admin-surface [class*="-table-wrap"],
+  .av-admin-surface .ml-tablewrap
+)::-webkit-scrollbar-thumb {
+  background: var(--av-border-strong);
+  border: 3px solid transparent;
+  border-radius: var(--av-radius-pill);
+  background-clip: padding-box;
+}
+
+@media (max-width: 640px) {
+  :where(.av-admin-surface h1) {
+    font-size: var(--av-fs-2xl);
+  }
+
+  :where(
+    .av-admin-surface [class*="-toolbar"],
+    .av-admin-surface [class*="-filter-bar"],
+    .av-admin-surface .ov-controls
+  ) {
+    align-items: stretch;
+  }
+
+  :where(
+    .av-admin-surface [class*="-toolbar"],
+    .av-admin-surface [class*="-filter-bar"]
+  ) > :where(input, select, button, a) {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-admin-surface *,
+  .av-admin-surface *::before,
+  .av-admin-surface *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

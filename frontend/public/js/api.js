@@ -41,6 +41,20 @@
   var _RC = (typeof window !== 'undefined' && /** @type {any} */ (window).__AVER_RUNTIME_CONFIG__) || {};
 
   function initSupabase(url, anonKey) {
+    // MỘT client cho mỗi trang. Trước bản này, mỗi lời gọi lại `createClient`
+    // một lần nữa và ghi đè `_sb` — nghĩa là trang nào gọi hai lần sẽ có HAI
+    // GoTrue client dùng CHUNG một khoá lưu trữ, tranh nhau làm mới token và
+    // tranh nhau sự kiện đăng nhập giữa các tab. Client bị bỏ rơi vẫn sống.
+    //
+    // Trang legacy chỉ gọi một lần nên không lộ. Lỗi lộ ra khi đưa các module
+    // `public/js/*` sang route Next: module tự gọi `initSupabase` ở đầu tệp,
+    // còn `AuthedShell` cũng gọi ở `DOMContentLoaded` (Codex bắt ở #951).
+    //
+    // Vá ở ĐÂY chứ không ở từng trang: 108 chỗ gọi trong repo đều trỏ cùng một
+    // dự án Supabase (đếm được), nên "lần đầu thắng" không đổi hành vi của ai.
+    // Nếu lần đầu NÉM (ví dụ gọi không đối số khi `_RC` chưa cấu hình) thì `_sb`
+    // vẫn rỗng và lần gọi sau có đối số thật vẫn dựng được client.
+    if (_sb) return _sb;
     _sb = window.supabase.createClient(
       _RC.supabaseUrl || url,
       _RC.supabaseAnonKey || anonKey
@@ -63,14 +77,31 @@
   // pages/*.html are one level deep; index.html and admin.html are at root level.
   var _appRoot = /\/pages\/[^/]+$/.test(window.location.pathname) ? '../' : './';
 
+  // Token của lần lấy gần nhất. Giữ lại CHỈ để phục vụ đường `keepalive` —
+  // xem ghi chú ở `_apiRequest`.
+  var _lastToken = null;
+
   async function _getAuthToken() {
     if (!_sb) return null;
     var result = await _sb.auth.getSession();
-    return result.data.session ? result.data.session.access_token : null;
+    _lastToken = result.data.session ? result.data.session.access_token : null;
+    return _lastToken;
   }
 
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
-    var token = await _getAuthToken();
+    // Đường `keepalive` KHÔNG ĐƯỢC `await` trước khi gọi `fetch`.
+    //
+    // `keepalive` chỉ cứu được một request ĐÃ TỒN TẠI. Chờ lấy token trước là
+    // nhường quyền cho trình duyệt: nó có thể dừng JS ngay sau `pagehide`, và
+    // khi ấy `fetch` chưa bao giờ được tạo ra — lượt lưu lúc rời trang thành
+    // trang trí. Sáu chỗ đang dùng `keepalive` đều dính, kể cả báo cáo tính
+    // toàn vẹn của bài thi thử (codex cục bộ 05/08).
+    //
+    // Dùng token của lần lấy gần nhất. Token hết hạn thì request 401 và mất
+    // đúng lượt ấy — vẫn hơn một request không bao giờ được tạo.
+    var token = (opts && opts.keepalive && _lastToken !== null)
+      ? _lastToken
+      : await _getAuthToken();
     var headers = /** @type {Record<string, string>} */ ({});
 
     // ADR-012 §2 — correlation id browser → FastAPI (middleware echoes it;
@@ -181,6 +212,8 @@
     delete: function (path)        { return _apiRequest('DELETE', path); },
     /** @template T @param {string} path @param {FormData} fd @returns {Promise<T>} */
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
+    /** @template T @param {string} path @param {FormData} fd @param {*} [opts] @returns {Promise<T>} */
+    uploadWith: function (path, fd, opts) { return _apiRequest('POST', path, fd, true, null, opts); },
     // reading-access-tracking — GET/POST/PATCH with extra request headers
     // (X-Reading-Password / X-Reading-Anon) + optional opts ({noRedirect:true}
     // suppresses the 401→login bounce for the anonymous share-link path).

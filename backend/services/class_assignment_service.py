@@ -162,6 +162,7 @@ def create_class_assignment(
     status: str = "published",
     publish_at: Optional[str] = None,
     kind: str = "daily",
+    student_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Create one give and its per-student rows, atomically.
 
@@ -192,6 +193,18 @@ def create_class_assignment(
             # một bài ĐÃ PUBLISH mang sai loại — nhìn từ ngoài là một bài hằng
             # ngày hợp lệ, nên không có gì đỏ để báo.
             "p_kind":           kind,
+            # None = CẢ LỚP; `[]` = KHÔNG AI (mig 193 raise empty_roster).
+            #
+            # Phân biệt hai thứ ấy, đừng dùng phép kiểm chân trị: `[]` biến
+            # thành NULL nghĩa là một lời giao-cho-vài-em không chọn ai bỗng
+            # thành giao CHO CẢ LỚP — 30 em nhận một bài không dành cho họ, và
+            # không có gì đỏ để báo (codex PR 945).
+            #
+            # Danh sách gửi lên được hàm giao với `cohort_id`, nên một id lớp
+            # khác lọt vào sẽ bị bỏ chứ không tạo ra bài giao xuyên lớp — chốt
+            # ấy nằm trong SQL để nó đúng cả khi có người gọi RPC bằng đường
+            # khác.
+            "p_student_ids":    None if student_ids is None else list(student_ids),
         }).execute().data or []
     except Exception as exc:
         if "empty_roster" in str(exc):
@@ -206,6 +219,40 @@ def create_class_assignment(
         "student_count":     row.get("student_count") or 0,
         "unactivated_count": row.get("unactivated_count") or 0,
     }
+
+
+def backfill_assignment_items(
+    db,
+    *,
+    assignment_id: str,
+    student_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Thêm người nhận còn thiếu vào một bài ĐÃ GIAO.
+
+    Em vào lớp sau ngày giao không có dòng nào trong `class_assignment_items`,
+    nên bài ấy vô hình với em; còn bảng của giáo viên đếm em vào mẫu số mà không
+    bao giờ thấy bài nộp.
+
+    `student_ids=None` = mọi em đang trong lớp mà chưa có dòng. Chỉ THÊM, không
+    bao giờ xoá, và chạy lại bao nhiêu lần cũng vô hại (mig 193).
+    """
+    try:
+        rows = db.rpc("fn_backfill_assignment_items", {
+            "p_assignment_id": assignment_id,
+            # Cùng lý do: `[]` là "không ai", không phải "mọi người".
+            "p_student_ids":   None if student_ids is None else list(student_ids),
+        }).execute().data or []
+    except Exception as exc:
+        if "assignment_not_found" in str(exc):
+            raise AssignmentNotFoundError("Không tìm thấy bài giao này.")
+        if "subset_needs_explicit_students" in str(exc):
+            raise SubsetNeedsStudentsError(
+                "Bài này giao cho một nhóm — hãy chọn đích danh học viên cần thêm.")
+        raise
+    if not rows:
+        raise RuntimeError("Không bù được người nhận")
+    return {"added": rows[0].get("added") or 0,
+            "student_count": rows[0].get("student_count") or 0}
 
 
 def _items_for_assignments(db, assignment_ids: List[str]) -> List[Dict[str, Any]]:
@@ -353,6 +400,429 @@ def mark_item_submitted(
         logger.warning("[class] mark_item_submitted failed item=%s: %s", item_id, exc)
         raise LedgerWriteError(str(exc)) from exc
     return bool(r.data)
+
+
+def log_class_action(
+    db,
+    *,
+    action: str,
+    cohort_id: str,
+    actor: Optional[Dict[str, Any]] = None,
+    assignment_id: Optional[str] = None,
+    assignment_title: Optional[str] = None,
+    student_id: Optional[str] = None,
+    student_name: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    at: Optional[str] = None,
+) -> bool:
+    """Ghi một dòng nhật ký thao tác. Trả True khi đã ghi được.
+
+    KHÔNG NÉM. Việc chính đã xảy ra rồi — hạn đã đổi, bài đã trả — nên để lượt
+    ghi nhật ký làm đổ lời hồi đáp là báo hỏng cho một việc đã thành công, và
+    giáo viên sẽ bấm lại lần nữa.
+
+    Nhưng cũng KHÔNG NUỐT trong im lặng: trả về False để nơi gọi nói ra "đã làm,
+    nhưng chưa ghi được vào nhật ký". Một nhật ký thủng lỗ mà không ai biết còn
+    tệ hơn không có nhật ký, vì nó được tin.
+    """
+    row = {
+        "action": action,
+        "cohort_id": cohort_id,
+        "assignment_id": assignment_id,
+        # Chép TÊN lúc thao tác, cùng lý do với `actor_email`: hai khoá ngoại
+        # trên là ON DELETE SET NULL, nên xoá bài giao (hay học viên) sẽ cắt
+        # đường tra tên và dòng nhật ký còn lại chỉ nói "có người đổi cái gì
+        # đó" (codex #1010).
+        "assignment_title": assignment_title,
+        "student_id": student_id,
+        "student_name": student_name,
+        "actor_user_id": (actor or {}).get("id"),
+        "actor_email": (actor or {}).get("email"),
+        "details": details or {},
+    }
+    # Mốc là lúc VIỆC XẢY RA, không phải lúc dòng nhật ký được chèn.
+    #
+    # Hai lượt ghi chạy song song: A đổi hạn xong rồi khựng trước lúc chèn, B đổi
+    # tiếp và chèn trước — để `created_at` mặc định NOW() thì nhật ký kể ngược
+    # thứ tự, và màn hình sắp theo chính cột ấy (codex cục bộ 08/08 vòng 3).
+    # Nơi gọi nắm mốc của lượt ghi thật, nên nó truyền vào.
+    if at:
+        row["created_at"] = at
+    try:
+        db.table("class_action_log").insert(row).execute()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] KHÔNG ghi được nhật ký %s lớp=%s bài giao=%s: %s",
+                       action, cohort_id, assignment_id, exc)
+        return False
+
+
+def read_class_actions(db, *, cohort_id: str, limit: int = 50,
+                       before: Optional[str] = None) -> Dict[str, Any]:
+    """Nhật ký của một lớp, mới nhất trước. Trả `{actions, has_more, next_before}`.
+
+    Có trần cho MỖI TRANG — màn hình đọc để biết "gần đây ai đụng gì", và đổ
+    hàng nghìn dòng vào một khung cuộn thì không ai kéo tới đáy. Nhưng trần
+    không được biến thành một bức tường IM LẶNG: một nhật ký cắt cụt mà không
+    nói ra thì người đọc tin rằng mình đã thấy hết, đúng lúc họ đang đi tìm một
+    thao tác cũ (codex cục bộ 08/08 vòng 5).
+
+    Nên: `before` lật trang lùi theo `created_at`, và `has_more` nói thẳng còn
+    dòng cũ hơn. Đọc dư MỘT dòng để biết điều đó mà không phải đếm cả bảng.
+    """
+    n = max(1, min(int(limit or 50), 200))
+    q = (db.table("class_action_log")
+         .select("id, action, assignment_id, assignment_title, student_id, "
+                 "student_name, actor_email, details, created_at")
+         .eq("cohort_id", cohort_id))
+    if before:
+        q = q.lt("created_at", before)
+    rows = (q.order("created_at", desc=True).limit(n + 1).execute().data) or []
+    has_more = len(rows) > n
+    rows = rows[:n]
+    return {
+        "actions": rows,
+        "has_more": has_more,
+        # Mốc để xin trang kế — chính `created_at` của dòng cuối đang hiện.
+        "next_before": (rows[-1]["created_at"] if rows and has_more else None),
+    }
+
+
+class DueChangeRefused(Exception):
+    """Đổi hạn KHÔNG làm, và lý do là một dữ kiện đếm được, không phải một lời.
+
+    Mang theo `payload` để tầng router trả nguyên con số ra màn hình: giáo viên
+    cần biết đổi hạn này viết lại hồ sơ của BAO NHIÊU em, trước khi quyết.
+    """
+
+    def __init__(self, message: str, payload: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.payload = {"message": message, **(payload or {})}
+
+
+def _flips(submitted: List[str], old_due, new_due) -> Dict[str, int]:
+    """Đổi hạn này lật trạng thái của bao nhiêu lượt đã nộp.
+
+    "Nộp trễ" là SUY RA lúc đọc (`submitted_at > due_at`), không lưu — quy tắc
+    của migration 177, và nó có mặt trái: dời hạn là VIẾT LẠI hồ sơ đúng-hạn của
+    những người đã nộp. Cả hai chiều đều viết lại, và cả hai đều phải nói ra:
+
+      · dời về SAU  → lượt nộp trễ thành đúng hạn (xoá dấu trễ của họ);
+      · dời về TRƯỚC → lượt nộp đúng hạn thành trễ (buộc tội ngược thời gian).
+
+    Lượt chưa nộp không tính: hạn đổi thì "chưa nộp" vẫn là "chưa nộp".
+    """
+    to_ontime = to_late = 0
+    for raw in submitted:
+        at = _at(raw)
+        if at is None:
+            continue
+        was_late = bool(old_due) and at > old_due
+        now_late = bool(new_due) and at > new_due
+        if was_late and not now_late:
+            to_ontime += 1
+        elif now_late and not was_late:
+            to_late += 1
+    return {"to_ontime": to_ontime, "to_late": to_late}
+
+
+def change_assignment_due_at(
+    db,
+    *,
+    assignment_id: str,
+    cohort_id: str,
+    new_due_at: Optional[str],
+    expected_due_at: Optional[str],
+    confirm_rewrites: bool = False,
+    confirmed_flips: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Đổi hạn nộp của một bài giao. Ném `DueChangeRefused`.
+
+    Cho tới nay không có đường nào trong sản phẩm làm việc này: ngày 07/08 muốn
+    dời hạn Grammar 1 phải viết SQL rồi chạy tay trên máy chủ thật.
+
+    Hai chốt, và cả hai đều học từ chính lần chạy tay ấy:
+
+    · SO SÁNH RỒI ĐỔI. Người gọi phải nêu hạn mà MÀN HÌNH ĐANG HIỆN. Lệnh
+      `UPDATE` chỉ nêu id thì nó ghi đè bất kể giá trị đang có — và giữa lúc mở
+      trang với lúc bấm, một giáo viên khác (hay chính mình ở tab kia) có thể đã
+      đổi. Khi ấy lệnh này lặng lẽ thay một giá trị MỚI HƠN bằng cái cũ
+      (codex #996).
+
+    · NÓI RA SỐ HỒ SƠ BỊ VIẾT LẠI. Xem `_flips`. Khác 0 thì TỪ CHỐI, kèm con số,
+      cho tới khi người gọi xác nhận tường minh. Kịch bản chạy tay hôm 07/08
+      cũng có đúng chốt này, và nó xanh vì lớp ấy không có ai nộp trễ — chốt
+      đúng không phải vì nó im, mà vì nó đã đếm.
+    """
+    rows = (db.table("class_assignments")
+            .select("id, cohort_id, due_at, status, title")
+            .eq("id", assignment_id).limit(1).execute().data) or []
+    if not rows or rows[0].get("cohort_id") != cohort_id:
+        raise DueChangeRefused("Không tìm thấy bài giao của lớp này.")
+    asg = rows[0]
+    old_raw = asg.get("due_at")
+
+    # So sánh theo THỜI ĐIỂM, không theo chuỗi: cùng một mốc có thể viết bằng
+    # nhiều cách ('+07:00' và 'Z'), và so chuỗi sẽ báo tranh chấp giả.
+    if _at(old_raw) != _at(expected_due_at):
+        raise DueChangeRefused(
+            "Hạn đã đổi từ lúc mở trang. Tải lại bảng rồi xem hạn hiện tại "
+            "trước khi đổi tiếp.",
+            {"current_due_at": old_raw, "conflict": True})
+
+    old_due, new_due = _at(old_raw), _at(new_due_at)
+    if old_due == new_due:
+        raise DueChangeRefused("Hạn mới giống hệt hạn đang có — không có gì để đổi.")
+
+    submitted: List[str] = []
+    for chunk in _paged(db, "class_assignment_items", "id, submitted_at",
+                        lambda q: q.eq("assignment_id", assignment_id)):
+        if chunk.get("submitted_at"):
+            submitted.append(chunk["submitted_at"])
+
+    flips = _flips(submitted, old_due, new_due)
+    if flips["to_ontime"] or flips["to_late"]:
+        # XÁC NHẬN LÀ XÁC NHẬN CHO MỘT CON SỐ CỤ THỂ, không phải một cái cờ.
+        #
+        # Giữa lần bị từ chối và lần bấm lại, danh sách lượt nộp có thể đã khác:
+        # một em nộp xen vào đúng lúc giáo viên đang dời hạn về trước. Khi ấy
+        # `flips` tính lại ra con số KHÁC, mà chốt so-sánh-rồi-đổi ở trên chỉ
+        # canh `class_assignments.due_at` nên nó không thấy gì — giáo viên xác
+        # nhận hai hồ sơ và hệ thống viết lại ba (codex #1005).
+        #
+        # Nên đòi người gọi nêu lại CHÍNH con số họ vừa nhìn thấy. Lệch, hoặc
+        # không nêu, thì đó không phải một lời xác nhận: từ chối lần nữa, kèm
+        # con số MỚI, để họ đọc lại rồi quyết lại.
+        if not confirm_rewrites or confirmed_flips is None:
+            raise DueChangeRefused(
+                "Đổi hạn này viết lại hồ sơ đúng-hạn của những em đã nộp.",
+                {"needs_confirm": True, "flips": flips, "current_due_at": old_raw})
+        seen = {k: int(confirmed_flips.get(k) or 0) for k in ("to_ontime", "to_late")}
+        if seen != flips:
+            raise DueChangeRefused(
+                "Số lượt bị ảnh hưởng vừa đổi (có em nộp xen vào). Đọc lại con "
+                "số mới rồi quyết lại.",
+                {"needs_confirm": True, "flips": flips, "confirmed_flips": seen,
+                 "stale_confirmation": True, "current_due_at": old_raw})
+
+    changed_at = datetime.now(timezone.utc).isoformat()
+    patch = {"due_at": new_due_at, "updated_at": changed_at}
+    q = (db.table("class_assignments").update(patch)
+         .eq("id", assignment_id).eq("cohort_id", cohort_id))
+    # Nêu hạn CŨ trong điều kiện — 0 dòng nghĩa là tiền đề sai, và đúng lúc ấy
+    # phải dừng chứ không ghi tiếp.
+    q = q.is_("due_at", "null") if old_raw is None else q.eq("due_at", old_raw)
+    res = q.execute()
+    if not (res.data or []):
+        raise DueChangeRefused(
+            "Hạn vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.",
+            {"conflict": True})
+
+    logger.info("[class] đổi hạn bài giao=%s lớp=%s %s → %s (lật %s)",
+                assignment_id, cohort_id, old_raw, new_due_at, flips)
+    return {"assignment_id": assignment_id, "due_at": new_due_at,
+            "previous_due_at": old_raw, "flips": flips,
+            # Tên đọc sẵn ở đầu hàm — trả kèm để nơi gọi chép vào nhật ký mà
+            # không phải đọc lại bảng lần nữa.
+            "assignment_title": asg.get("title"),
+            # Mốc lượt ghi THẬT — nhật ký dùng nó thay cho giờ chèn dòng.
+            "changed_at": changed_at,
+            "submitted_count": len(submitted)}
+
+
+class ReturnNotPossible(Exception):
+    """Trả bài KHÔNG làm được, và lý do phải nói ra thành lời.
+
+    Mọi ca ở đây đều là "làm thì hỏng chuyện", không phải "hệ thống lỗi" — nên
+    chúng thành 4xx kèm nguyên câu, chứ không phải một 500 nuốt lý do.
+    """
+
+
+# Loại bài nộp mà trả bài GIỮ ĐƯỢC. Danh sách này ngắn có lý do, không phải vì
+# chưa làm nốt:
+#
+# Sổ cái tự vá lại từ bằng chứng bền — `assignment_tally` và
+# `reconcile_course_items` (bài theo buổi), `reconcile_ledger_from_sessions`
+# (Speaking), `reconcile_test_attempts` (Reading/Listening) đều tìm "mục chưa
+# nộp mà đã có bằng chứng" rồi đóng dấu lại. Trả bài mà không gỡ được bằng chứng
+# thì lần đầu có người mở trang là mục đóng lại, trong vài giây, không một lời
+# báo — một cái nút nói dối.
+#
+# Bài TỰ LUẬN theo buổi gỡ được: bằng chứng là MỘT dòng, và gỡ nó khỏi mục
+# (`class_assignment_item_id` = NULL) vẫn giữ nguyên bài em ấy viết để tra lại.
+# Speaking/Reading/Listening thì bằng chứng là chính phiên làm bài; gỡ chúng là
+# xoá bài em ấy đã làm khỏi mọi mặt đọc, nên đường ấy cần một thiết kế riêng chứ
+# không phải một dòng thêm vào danh sách này.
+_RETURNABLE_KINDS = {"course_writing"}
+
+
+def _seed_draft_from_submission(db, *, item_id: str, submission_id: str) -> int:
+    """Chép bài trong lượt nộp trở lại bản nháp của mục. Trả về số câu đã chép.
+
+    Bản chụp trong `course_writing_submissions.items` là bài THẬT em ấy bấm nộp;
+    bản nháp trên máy chủ chỉ là lượt lưu tự động có độ trễ, và có thể cũ hơn
+    hoặc chưa từng tới nơi. Ghi đè là ĐÚNG chiều: sau khi nộp, học viên không
+    còn đường nào ghi nháp nữa (`save_course_writing_draft` từ chối), nên không
+    có bản nào mới hơn để mà giẫm lên.
+
+    Không có gì để chép (lượt nộp rỗng) thì KHÔNG ghi một dòng rỗng: một bản
+    nháp trống và không có bản nháp nào dẫn tới cùng một màn hình, mà dòng rỗng
+    thì còn giẫm lên bản nháp cũ — thứ duy nhất còn sót lại của em ấy.
+    """
+    rows = (db.table("course_writing_submissions")
+            .select("id, user_id, bank_id, items")
+            .eq("id", submission_id).limit(1).execute().data) or []
+    if not rows:
+        raise ReturnNotPossible("Không đọc được bài đã nộp — chưa trả bài.")
+    sub = rows[0]
+
+    answers = {}
+    for it in (sub.get("items") or []):
+        if not isinstance(it, dict):
+            continue
+        qid, text = it.get("qid"), it.get("answer")
+        if qid and str(text or "").strip():
+            answers[str(qid)] = str(text)
+    if not answers:
+        return 0
+    if not (sub.get("user_id") and sub.get("bank_id")):
+        raise ReturnNotPossible(
+            "Lượt nộp thiếu thông tin học viên/bộ đề — chưa trả bài.")
+
+    db.table("course_writing_drafts").upsert({
+        "class_assignment_item_id": item_id,
+        "user_id": sub["user_id"],
+        "bank_id": sub["bank_id"],
+        "answers": answers,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }, on_conflict="class_assignment_item_id").execute()
+    return len(answers)
+
+
+def return_item_to_student(
+    db,
+    *,
+    item_id: str,
+    clear_score: bool,
+    now: Optional[datetime] = None,
+) -> dict:
+    """Trả một mục bài giao về cho học viên làm tiếp. Ném `ReturnNotPossible`.
+
+    Đây là đường ngược của `mark_item_submitted`, và nó phải gỡ ĐÚNG những gì
+    lượt nộp đã đặt vào — không hơn:
+
+      · `submitted_at`, `state`, `artifact_kind`, `artifact_id` → về trạng thái
+        chưa nộp;
+      · `score` chỉ xoá khi CHÍNH lượt nộp ấy ghi nó (`clear_score`, tính bằng
+        `course_hand_in_score` ở nơi gọi). Bộ đề có trắc nghiệm thì điểm của mục
+        là kết quả trắc nghiệm do `course_verdict` ghi — xoá nó ở đây là xoá
+        đúng thứ em ấy đã làm được;
+      · `mastery` KHÔNG đụng: sổ các lượt làm là lịch sử, không phải một lượt
+        nộp.
+
+    Và nó phải TRẢ LẠI CẢ BÀI, không chỉ mở lại ô trống — xem
+    `_seed_draft_from_submission`.
+
+    THỨ TỰ CÓ CHỦ Ý: rót nháp TRƯỚC (vô hình khi mục còn mang lượt nộp, nên hỏng
+    thì dừng khi chưa đụng gì), rồi dọn sổ, rồi gỡ bằng chứng SAU CÙNG. Gỡ trước mà dọn sổ hỏng
+    thì còn lại một mục vẫn mang dấu đã-nộp trỏ vào hư không. Làm ngược lại,
+    lượt vá sổ kế tiếp đóng dấu lại bằng CHÍNH `graded_at` cũ — trạng thái quay
+    về đúng như trước khi bấm, và giáo viên bấm lại được.
+    """
+    rows = (db.table("class_assignment_items")
+            .select("id, state, submitted_at, artifact_kind, artifact_id, opened_at")
+            .eq("id", item_id).limit(1).execute().data) or []
+    if not rows:
+        raise ReturnNotPossible("Không tìm thấy mục bài giao này.")
+    item = rows[0]
+
+    # Chép ra biến TRƯỚC lượt ghi. Lượt ghi bên dưới xoá chính ba ô này khỏi
+    # dòng, và đọc lại chúng từ `item` sau đó là đọc một dòng đã bị dọn — dựa
+    # vào việc client trả về một bản sao là dựa vào chi tiết cài đặt của thư viện.
+    was_submitted_at = item.get("submitted_at")
+    kind = item.get("artifact_kind")
+    artifact_id = item.get("artifact_id")
+
+    if not was_submitted_at:
+        raise ReturnNotPossible("Em này chưa nộp — không có gì để trả.")
+    if kind not in _RETURNABLE_KINDS:
+        raise ReturnNotPossible(
+            f"Chưa trả được bài dạng “{kind or 'không rõ'}”. Sổ lớp tự dựng lại "
+            "lượt nộp ấy từ chính phiên làm bài, nên trả xong nó sẽ tự đóng lại.")
+
+    # ── RÓT BÀI ĐÃ NỘP TRỞ LẠI NHÁP, TRƯỚC MỌI LƯỢT GHI KHÁC ────────────────
+    #
+    # Trả bài mà em ấy mở ra thấy trang trắng thì đây không phải một món quà,
+    # mà là án gõ lại mười câu. Bản nháp trên máy chủ KHÔNG đủ để tin: trang xoá
+    # nháp trong máy ngay khi nộp xong, còn bản trên máy chủ là lượt lưu tự động
+    # có độ trễ — những phím cuối trước lúc bấm Nộp hoàn toàn có thể chưa kịp
+    # bay lên (codex #1000, P2). Bản chụp trong lượt nộp mới là bài THẬT.
+    #
+    # Ghi TRƯỚC khi dọn sổ, vì trong lúc mục còn mang lượt nộp thì nháp không ai
+    # đọc (`course_writing_state` chỉ rót nháp khi mục chưa có lượt nộp) — nên
+    # ghi sớm là vô hình, còn hỏng thì dừng lại khi chưa đụng vào gì cả.
+    restored = _seed_draft_from_submission(
+        db, item_id=item_id, submission_id=artifact_id)
+
+    changed_at = (now or datetime.now(timezone.utc)).isoformat()
+    patch: Dict[str, Any] = {
+        # 'opened' chứ không 'assigned': em ấy ĐÃ mở bài. Và ràng buộc
+        # `class_assignment_items_submitted_at_required` cấm giữ 'graded' khi
+        # `submitted_at` trống.
+        "state": "opened" if item.get("opened_at") else "assigned",
+        "submitted_at": None,
+        "artifact_kind": None,
+        "artifact_id": None,
+        "updated_at": changed_at,
+    }
+    if clear_score:
+        patch["score"] = None
+
+    # SO SÁNH RỒI ĐỔI trên chính dấu nộp vừa đọc: giữa lúc đọc và lúc ghi, một
+    # lượt vá sổ (hay một giáo viên khác) có thể đã đổi dòng này. 0 dòng nghĩa là
+    # tiền đề sai, và đúng lúc ấy phải dừng chứ không ghi tiếp.
+    res = (db.table("class_assignment_items").update(patch)
+           .eq("id", item_id).eq("submitted_at", was_submitted_at)
+           .execute())
+    if not (res.data or []):
+        raise ReturnNotPossible(
+            "Mục này vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.")
+
+    # GỠ bằng chứng khỏi mục — KHÔNG xoá dòng. Bài em ấy viết và bản chấm còn
+    # nguyên để tra lại; ràng buộc "một lượt mỗi mục" chỉ tính dòng CÓ mục nên
+    # lượt nộp mới không va vào nó.
+    detached = (db.table("course_writing_submissions")
+                .update({"class_assignment_item_id": None})
+                .eq("id", artifact_id)
+                .eq("class_assignment_item_id", item_id)
+                .execute())
+    if not (detached.data or []):
+        # Sổ đã dọn nhưng bằng chứng còn gắn: lượt vá sổ kế tiếp sẽ đóng dấu lại
+        # bằng `graded_at` cũ, tức là quay về đúng trạng thái trước khi bấm. Nói
+        # thẳng là chưa trả được, đừng báo xong.
+        raise ReturnNotPossible(
+            "Không gỡ được bài đã nộp khỏi mục — chưa trả bài. Tải lại bảng "
+            "rồi thử lại.")
+
+    logger.info("[class] trả bài item=%s kind=%s artifact=%s clear_score=%s "
+                "nháp=%s câu", item_id, kind, artifact_id, clear_score, restored)
+    return {"item_id": item_id, "artifact_kind": kind,
+            "artifact_id": artifact_id, "score_cleared": clear_score,
+            "changed_at": changed_at,
+            # Số câu đã rót lại vào nháp — giáo viên cần biết em ấy mở ra sẽ
+            # thấy bài cũ hay một trang trắng.
+            "draft_restored": restored}
+
+
+class SubsetNeedsStudentsError(Exception):
+    """Bù người nhận cho một bài giao-theo-nhóm mà không nêu ai — 400, không 500.
+
+    "Bù cả lớp" ở đây là thêm đúng những em cố ý không được chọn.
+    """
+
+
+class AssignmentNotFoundError(Exception):
+    """Bài giao không tồn tại — 404, không phải 500."""
 
 
 class EmptyRosterError(Exception):

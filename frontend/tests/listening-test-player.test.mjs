@@ -50,6 +50,15 @@ describe('Sprint 13.5 — player page shell', () => {
     assert.match(HTML, /id="btn-start"/);
   });
 
+  it('keeps briefing and confirmation truthful for practice versus full tests', () => {
+    assert.match(HTML, /id="ft-prestart-audio-rule"/);
+    assert.match(HTML, /id="ft-prestart-control-rule"/);
+    assert.match(JS, /function isPracticeTest\(test\)/);
+    assert.match(JS, /Bạn có thể tạm dừng, tua và nghe lại audio/);
+    assert.match(JS, /Bắt đầu luyện nghe\?/);
+    assert.match(JS, /STATE\.scrub = isPracticeTest\(STATE\.test\)/);
+  });
+
   it('exposes audio controls but NO seek input (Cambridge constraint)', () => {
     // Sprint 13.5.7 — Cambridge audio authenticity strict: only Play
     // button + volume slider. No seek, no speed control, no pause.
@@ -92,6 +101,19 @@ describe('Sprint 13.5 — player page shell', () => {
 
   it('loads the player controller module', () => {
     assert.match(HTML, /\/js\/listening-test-player\.js/);
+  });
+
+  it('loads the Listening flow UI layer and labels the current test mode', () => {
+    assert.match(HTML, /\/css\/listening-test-ui\.css/);
+    assert.match(HTML, /id="ft-kind"/);
+    assert.match(JS, /data-listening-mode/);
+    assert.match(JS, /MINI LISTENING TEST/);
+  });
+
+  it('gives answer review an explicit next-step action group', () => {
+    assert.match(HTML, /class="ft-result-actions"/);
+    assert.match(HTML, /BƯỚC TIẾP THEO/);
+    assert.match(HTML, /id="res-chuabai"/);
   });
 });
 
@@ -800,7 +822,7 @@ describe('Sprint 13.5.7 — Cambridge audio authenticity', () => {
   it('practice (mini + drill) relaxes single-shot: togglePlayback + seek added', () => {
     // Mini + drill let the learner pause / seek / replay; full test keeps
     // the Cambridge single-shot constraint. Guarded by STATE.scrub.
-    assert.match(JS, /STATE\.scrub\s*=\s*tt === 'mini' \|\| tt === 'drill'/);
+    assert.match(JS, /STATE\.scrub\s*=\s*isPracticeTest\(STATE\.test\)/);
     assert.match(JS, /function togglePlayback\(\)/);
     assert.match(JS, /function wireSeekBar\(/);
     // No speed control was added to THIS player — speed lives only in the

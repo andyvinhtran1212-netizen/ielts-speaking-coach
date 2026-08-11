@@ -175,11 +175,11 @@
   // the player accepts but this map does not silently lands the student in the
   // Full Test library instead of where they started.
   var BACK_TARGETS = {
-    full:     { href: '/pages/listening-tests.html',     label: '← Listening tests' },
-    mini:     { href: '/pages/listening-mini-test.html', label: '← Mini tests' },
-    drill:    { href: '/pages/listening-skills.html',    label: '← Luyện kĩ năng' },
-    practice: { href: '/pages/listening-practice.html',  label: '← Luyện nhanh' },
-    mock:     { href: '/pages/mock-result.html',         label: '← Kết quả thi thử' },
+    full:     { href: '/listening/tests',     label: '← Listening tests' },
+    mini:     { href: '/listening/mini-test', label: '← Mini tests' },
+    drill:    { href: '/listening/skills',    label: '← Luyện kĩ năng' },
+    practice: { href: '/listening/practice',  label: '← Luyện nhanh' },
+    mock:     { href: '/mock/result',                    label: '← Kết quả thi thử' },
   };
   function wireBack() {
     var q = new URLSearchParams(window.location.search);
@@ -316,6 +316,7 @@
     var card = document.createElement('article');
     card.className = 'lr-card ' + (item.correct ? 'is-correct' : 'is-incorrect');
     card.setAttribute('data-q', String(item.q_num));
+    card.setAttribute('data-correct', item.correct ? 'true' : 'false');
 
     var win = item.audio_window;
     var tsLabel = win
@@ -413,7 +414,7 @@
       '<h3 class="lr-skills-panel__title">🎯 Kĩ năng cần luyện</h3>' +
       '<p class="lr-skills-panel__sub">Tổng hợp từ các câu sai — ưu tiên luyện kĩ năng xuất hiện nhiều nhất.</p>' +
       '<div class="lr-skills-panel__chips">' + chips + '</div>' +
-      '<a class="lr-skills-panel__cta" href="/pages/listening.html">Luyện nghe thêm →</a>';
+      '<a class="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a>';
     return panel;
   }
 
@@ -439,11 +440,45 @@
         });
       });
     }
+    renderReviewControls(items);
+  }
+
+  function setReviewFilter(filter) {
+    var selected = filter === 'wrong' || filter === 'correct' ? filter : 'all';
+    document.querySelectorAll('.lr-filter__button').forEach(function (button) {
+      var active = button.getAttribute('data-review-filter') === selected;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.lr-card').forEach(function (card) {
+      var correct = card.getAttribute('data-correct') === 'true';
+      card.hidden = selected === 'wrong' ? correct : (selected === 'correct' ? !correct : false);
+    });
+    var skills = document.querySelector('.lr-skills-panel');
+    if (skills) skills.hidden = selected === 'correct';
+  }
+
+  function renderReviewControls(items) {
+    var wrong = (items || []).filter(function (item) { return !item.correct; }).length;
+    var correct = (items || []).length - wrong;
+    var counts = $('lr-review-counts');
+    var preview = SESSION.data && SESSION.data.preview;
+    if (counts) {
+      counts.textContent = preview
+        ? (items.length + ' câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.')
+        : (wrong + ' câu cần xem lại · ' + correct + ' câu đúng. ' +
+          (wrong ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'));
+    }
+    document.querySelectorAll('.lr-filter__button').forEach(function (button) {
+      button.onclick = function () { setReviewFilter(button.getAttribute('data-review-filter')); };
+    });
+    setReviewFilter(preview ? 'all' : (wrong ? 'wrong' : 'all'));
   }
 
   function jumpToQ(qNum) {
     var card = document.querySelector('.lr-card[data-q="' + qNum + '"]');
     if (!card) return;
+    if (card.hidden) setReviewFilter('all');
     document.querySelectorAll('.lr-nav-q').forEach(function (b) { b.classList.remove('is-current'); });
     var btn = document.querySelector('.lr-nav-q[data-q="' + qNum + '"]');
     if (btn) btn.classList.add('is-current');

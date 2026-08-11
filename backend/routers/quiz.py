@@ -109,6 +109,13 @@ async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
 
 
+@router.get("/banks/{bank_id}/course-resume")
+async def course_resume(bank_id: UUID, authorization: str | None = Header(None)):
+    """Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.get_course_resume(user_id=user["id"], bank_id=str(bank_id))
+
+
 @router.post("/banks/{bank_id}/reset")
 async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)):
     """Wipe the caller's mastery cache for one bank so the adaptive test starts
@@ -146,6 +153,32 @@ async def submit_course_writing(body: CourseWritingBody,
     return await quiz_service.submit_course_writing(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
     )
+
+
+@router.post("/course/writing/draft")
+async def save_course_writing_draft(
+    body: CourseWritingBody, authorization: str | None = Header(None),
+):
+    """Lưu bản NHÁP phần tự luận. Không chấm, không chốt, gọi lại vô hại.
+
+    Có đường này thì bản nháp sống qua đổi máy và xoá bộ nhớ trình duyệt —
+    trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.save_course_writing_draft(
+        user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+    )
+
+
+@router.get("/course/report")
+async def course_answer_report(bank_id: str, authorization: str | None = Header(None)):
+    """Bài làm chi tiết của CHÍNH học viên: câu nào sai, em chọn gì, đáp án gì.
+
+    Cùng một bộ dựng với mặt đọc của giáo viên — hai bộ dựng cho cùng một nội
+    dung là hai chỗ để trôi khỏi nhau.
+    """
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_answer_report(user_id=user["id"], bank_id=bank_id)
 
 
 @router.post("/course/verdict")

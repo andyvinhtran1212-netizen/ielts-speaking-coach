@@ -25,17 +25,88 @@ name: Tests
 # checks and vice versa.
 
 on:
+  # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc dưới đây trả lời câu «PR này có
+  # đáng chạy test không»; ở đây câu hỏi khác hẳn: «main sau khi hợp nhất còn
+  # xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
+  # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `parity-gate.yml`.
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'backend/**'
       - 'frontend/**'
-      - '.github/workflows/backend-tests.yml'
+      # Các tệp NGOÀI `frontend/` mà job frontend dưới đây thực sự đọc bằng
+      # `readFileSync`. Thiếu chúng thì một PR CHỈ sửa tài liệu sẽ merge mà không
+      # chạy đúng cái test đang ghim tài liệu đó — ví dụ `brand-favicon.test.mjs`
+      # khẳng định `frontend/public/favicon.svg` PHẢI trùng bản trong `docs/brand/`,
+      # nên sửa một mình bản docs sẽ làm hai bên lệch nhau trong im lặng.
+      # `workflow-path-coverage.test.mjs` giữ danh sách này khỏi mục nát.
+      # Hệ quả chấp nhận được: job backend dùng chung bộ lọc nên cũng chạy theo.
+      - 'README.md'
+      - 'PHASE_CLOSURE_LEDGER.md'
+      - 'docs/SITE_OVERVIEW.md'
+      # Gate E preflight đối chiếu trực tiếp bốn exit criteria từ master plan.
+      - 'docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md'
+      # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
+      # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
+      - 'docs/ROUTE_LEDGER.md'
+      # `parity-core.test.mjs` đọc tài liệu này để xác nhận mỗi route nằm ngoài
+      # parity đều có lý do ghi lại.
+      - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
+      # `gate-e-preflight-contract.test.mjs` khóa trạng thái readiness và
+      # boundary resume theo đúng evidence hiện có. Các tài liệu evidence phải
+      # tự kích hoạt chốt này khi bị sửa riêng lẻ.
+      - 'docs/GATE_E_PREFLIGHT_2026-08-09.md'
+      - 'docs/GATE_E_DEVICE_MATRIX_2026-08-09.md'
+      - 'docs/GATE_E_STREAK_LEDGER_2026-08-09.md'
+      - 'docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md'
+      - 'docs/GATE_E_SPEAKING_CORE_2026-08-09.md'
+      - 'docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md'
+      - 'docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md'
+      - 'docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md'
+      - 'docs/brand/assets/**'
+      - 'docs/clusters/20_x/**'
+      # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
+      # test.mjs` chạy trong job frontend dưới đây và đọc MỌI workflow. Nếu chỉ
+      # ghim `backend-tests.yml` thì một PR sửa `paths` của `parity-gate.yml` sẽ
+      # không chạy đúng cái chốt đang canh `paths` — tức là chốt chống-"chốt-
+      # không-tự-nổ" lại tự dính chính lỗi đó. Nó không tự phát hiện được vì nó
+      # nạp workflow bằng `readdirSync`, không nêu tên tệp nào.
+      # Hook pre-push nằm ở `scripts/hooks/`, nhưng bộ chốt của nó là
+      # `frontend/tests/pre-push-hook.test.mjs` — chạy bởi job frontend dưới
+      # đây. Thiếu dòng này thì một PR CHỈ sửa hook sẽ không chạy chốt của
+      # chính nó (Codex bắt ở PR #943; cùng họ với phát hiện ở #930 và #937:
+      # chốt tồn tại mà không bao giờ nổ).
+      - 'scripts/hooks/**'
+      # Bao cả `backend-tests.yml`, nên không cần dòng ghim riêng tệp này nữa.
+      - '.github/workflows/**'
 
 jobs:
   backend:
     name: Backend (pytest + anchor drift)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    # Postgres THẬT cho các chốt nạp một tệp migration rồi GỌI hàm trong đó.
+    # Không có nó thì `test_delete_rpc_course_evidence.py` tự bỏ qua, và một PR
+    # làm hỏng cú pháp hàm hay bẻ mọi nhánh hành vi vẫn xanh ở cổng merge — một
+    # chốt tồn tại mà không bao giờ nổ (cùng họ với các phát hiện ở #930/#937/#943).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+    env:
+      # Trỏ chốt vào service ở trên. `REQUIRE_PG=1` biến "không nối được" thành
+      # ĐỎ thay vì "bỏ qua": ở CI thì thiếu Postgres là hỏng hạ tầng, không phải
+      # một lời miễn trừ.
+      TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+      REQUIRE_PG: '1'
 
     steps:
       - name: Checkout
@@ -69,13 +140,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # The frontend tests are pure node:test files — no transpile, no
-    # bundler. They exercise contracts (HTML structure, CSS token
-    # discipline, theme-toggle exports, IIFE patterns) rather than
-    # rendered behavior, so a single Node setup with no dependencies
-    # is enough. Test files are listed explicitly rather than via glob
-    # so a rogue *.test.js committed to the wrong directory can't
-    # silently break the gate.
+    # Most frontend tests are pure node:test contracts. Gate E also resolves
+    # the checked-in Playwright config and validates playwright-core's pinned
+    # browser metadata, so the main lockfile must be installed fail-closed.
 
     steps:
       - name: Checkout
@@ -85,6 +152,10 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
       # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
       # Rebuild it from the SAME pinned toolchain + config and fail if it differs:

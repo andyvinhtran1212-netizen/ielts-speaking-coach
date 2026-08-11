@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-surface.css" data-aver-admin-surface="1" />
   <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
@@ -45,7 +46,7 @@
       flex-wrap: wrap; gap: var(--av-space-3);
     }
     .overview-header h1 { font-size: var(--av-fs-2xl); margin: 0; }
-    .overview-header .accent { color: var(--av-brand-teal-700); }
+    .overview-header .accent { color: var(--av-brand-teal-700); white-space: nowrap; }
     .overview-header .ov-subtitle {
       margin: var(--av-space-1) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm);
     }
@@ -178,7 +179,8 @@
       letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold);
     }
     .db-card__scope {
-      text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular); color: var(--av-text-faint);
+      display: block; margin-top: 2px; text-transform: none; letter-spacing: 0;
+      font-weight: var(--av-fw-regular); color: var(--av-text-faint);
     }
     .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
     .db-card__split:empty { display: none; }
@@ -274,7 +276,7 @@
     }
   </style>
 </head>
-<body class="av-page">
+<body class="av-page av-admin-surface">
   <aver-admin-chrome active="overview">
 
     <div class="overview-shell">

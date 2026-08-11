@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'my-class.js'), 'utf8');
 const PAGE = readFileSync(join(HERE, '..', 'public', 'pages', 'my-class.html'), 'utf8');
+const MY_CLASS_CSS = readFileSync(join(HERE, '..', 'public', 'css', 'my-class.css'), 'utf8');
 const HOME_JS = readFileSync(join(HERE, '..', 'public', 'js', 'home.js'), 'utf8');
 
 /** Strip `//` comments before asserting a symbol is ABSENT — a comment
@@ -436,7 +437,7 @@ describe('one intended attempt starts exactly one session (Codex round 4)', () =
 //
 // A block that failed to load shows nothing and reloading is the fix.
 // `homework_stale` is the opposite: the list IS here and looks complete, but a
-// Reading/Listening hand-in may not be folded in yet — so a task the student
+// hand-in of ANY skill may not be folded in yet — so a task the student
 // already finished can still sit under "Cần nộp". Telling them to reload sends
 // them to retake work they have done.
 
@@ -481,6 +482,16 @@ describe('class-page banner tells the two failures apart', () => {
     assert.match(n.textContent, /buổi học/);
     assert.match(n.textContent, /không cần làm lại/i);
   });
+
+  test('lời nhắn KHÔNG nêu tên kỹ năng nào', () => {
+    // Cờ bật cho mọi đường vá sổ. Nhắc riêng "Reading/Listening" khiến em ấy
+    // yên tâm về đúng những kỹ năng có thể đang cũ, rồi đi làm lại bài Speaking
+    // hoặc bài theo buổi mình đã nộp (codex 06/08).
+    const n = banner(['homework_stale']);
+    for (const skill of [/Reading/, /Listening/, /Speaking/, /theo buổi/]) {
+      assert.doesNotMatch(n.textContent, skill);
+    }
+  });
 });
 
 
@@ -491,8 +502,12 @@ describe('class-page banner tells the two failures apart', () => {
 // lỗi ở máy mình.
 
 function loadItemRow() {
-  const start = SRC.indexOf('function itemRow(');
+  const start = SRC.indexOf('const awaitingWriting =');
   const end = SRC.indexOf('function renderGroup(');
+  // Cắt từ HÀM PHỤ chứ không từ `function itemRow`: `itemRow` gọi
+  // `awaitingWriting` khai ngay trên nó, và một lát cắt bỏ sót hàm phụ sẽ dựng
+  // ra một `itemRow` thiếu chân — bộ kiểm khi ấy đo một thứ không tồn tại trên
+  // trang thật.
   assert.ok(start !== -1 && end > start, 'itemRow not found');
   const esc = (s) => String(s == null ? '' : s);
   const dueLabel = () => '19:00 · 03/08';
@@ -663,8 +678,12 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
   const CHROME = readFileSync(
     join(HERE, '..', 'public', 'js', 'components', 'aver-chrome.js'), 'utf8');
 
-  test('có mục Lớp học, trỏ đúng trang', () => {
-    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class"/);
+  test('đổi nhãn thành MY CLASS và trỏ đúng trang', () => {
+    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class">MY CLASS<\/a>/);
+  });
+
+  test('MY CLASS có active state thật, không chỉ có data-tab', () => {
+    assert.match(CHROME, /VALID_ACTIVE\s*=\s*\[[^\]]*'class'/);
   });
 
   test('trang tự đánh dấu mình đang mở', () => {
@@ -674,5 +693,79 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
 
   test('được nạp trước như các mục điều hướng khác', () => {
     assert.match(CHROME, /href_matches: '\/pages\/my-class\.html'/);
+  });
+});
+
+// ── 360px: trang này chủ yếu mở trên điện thoại ────────────────────────────
+//
+// Audit 06/08: cả trang có ĐÚNG MỘT `@media`, và nó đặt lại đúng giá trị cũ
+// (`repeat(4, 1fr)` ở cả hai nơi) nên không làm gì cả. Bốn ô số bị nhồi vào
+// 360px: mỗi ô còn ~80px sau khi trừ đệm.
+
+describe('trang học viên trên điện thoại', () => {
+  const css = readFileSync(new URL('../public/pages/my-class.html', import.meta.url), 'utf8');
+
+  test('ô số xếp HAI cột trên điện thoại, BỐN từ 640px', () => {
+    const base = css.match(/\.mc-stats\s*\{[^}]*\}/);
+    assert.ok(base, 'không thấy .mc-stats');
+    assert.match(base[0], /grid-template-columns:\s*repeat\(2, 1fr\)/,
+      'mặc định (điện thoại) phải là 2 cột');
+    const wide = css.match(/@media \(min-width: 640px\)\s*\{\s*\.mc-stats\s*\{[^}]*\}/);
+    assert.ok(wide, 'thiếu điểm ngắt cho màn rộng');
+    assert.match(wide[0], /repeat\(4, 1fr\)/);
+  });
+
+  test('câu lệnh @media phải ĐỔI thứ gì đó', () => {
+    // Bản trước khai cùng một giá trị ở cả hai nơi — một điểm ngắt không đổi gì
+    // đọc như đã đáp ứng, mà thực ra không.
+    const base = css.match(/\.mc-stats\s*\{[^}]*grid-template-columns:\s*([^;]+);/);
+    const wide = css.match(/@media \(min-width: 640px\)[^}]*\.mc-stats\s*\{[^}]*grid-template-columns:\s*([^;]+);/);
+    assert.notEqual(base[1].trim(), wide[1].trim(),
+      'điểm ngắt đặt lại đúng giá trị cũ thì nó không tồn tại');
+  });
+
+  test('kẻ dọc không để lại vạch cụt ở mép lưới 2 cột', () => {
+    // `:last-child` không đủ: ô số 2 của MỖI hàng cũng là ô cuối hàng.
+    assert.match(css, /\.mc-stat:nth-child\(2n\)\s*\{\s*border-inline-end:\s*0/);
+  });
+
+  test('nút bấm cao tối thiểu 44px', () => {
+    assert.match(PAGE, /class="av-button av-button-primary" id="mc-due-start"/,
+      'CTA phải dùng primitive button canonical');
+    assert.doesNotMatch(`${PAGE}\n${SRC}\n${MY_CLASS_CSS}`, /mc-btn/,
+      'không tạo thêm một button family riêng cho My Class');
+    assert.match(MY_CLASS_CSS, /\.mc-due-now \.av-button,[^}]*\.mc-item \.av-button\s*\{[^}]*min-height:\s*44px/s,
+      'touch target của CTA trên trang phải cao tối thiểu 44px');
+  });
+});
+
+describe('nhịp chiều rộng và khoảng cách của khu vực bài tập', () => {
+  test('các section cấp trang không chạm viền nhau', () => {
+    assert.match(MY_CLASS_CSS,
+      /#mc-content\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*var\(--av-space-6\)/s,
+      'hero, ưu tiên và việc cần làm phải có cùng nhịp cách 24px');
+  });
+
+  test('danh sách bài dùng trọn chiều rộng như thẻ ưu tiên', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'không giữ một cột sidebar trống làm thẻ bài tập ngắn hơn');
+  });
+
+  test('nội dung trong thẻ có khoảng thở dọc rõ ràng', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item\s*\{[^}]*gap:\s*var\(--av-space-6\);[^}]*padding:\s*var\(--av-space-6\)/s);
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item-main\s*\{[^}]*gap:\s*var\(--av-space-2\)/s,
+      'nhãn, tiêu đề, mô tả và deadline không được chỉ cách nhau 4px');
+  });
+
+  test('hai panel phụ xếp dọc trên mobile 390px', () => {
+    const mobile = MY_CLASS_CSS.slice(MY_CLASS_CSS.indexOf('@media (max-width: 640px)'));
+    assert.match(mobile,
+      /\.mc-aside\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'Nhịp 14 ngày và Buổi học phải nằm một cột khi cùng xuất hiện');
+    assert.doesNotMatch(mobile, /\.mc-aside\s*\{[^}]*display:\s*flex/s,
+      'flex mặc định theo hàng sẽ ép hai panel nằm ngang');
   });
 });

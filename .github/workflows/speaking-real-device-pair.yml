@@ -1,0 +1,75 @@
+name: Speaking Gate E real-device pair verification
+
+permissions:
+  actions: read
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      safari_run_id:
+        description: Successful safari-floor evidence workflow run ID
+        required: true
+        type: string
+      ios_run_id:
+        description: Successful ios-safari-floor evidence workflow run ID
+        required: true
+        type: string
+      expected_source_sha:
+        description: Exact 40-character staging candidate SHA
+        required: true
+        type: string
+
+jobs:
+  verify-real-device-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require trusted main workflow revision
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout trusted auditor
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Download Safari artifact from its exact workflow run
+        uses: actions/download-artifact@v5
+        with:
+          name: gate-e-speaking-real-device-safari-floor-${{ inputs.safari_run_id }}-1
+          path: test-results/safari
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.safari_run_id }}
+
+      - name: Download iOS artifact from its exact workflow run
+        uses: actions/download-artifact@v5
+        with:
+          name: gate-e-speaking-real-device-ios-safari-floor-${{ inputs.ios_run_id }}-1
+          path: test-results/ios
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.ios_run_id }}
+
+      - name: Validate complete artifacts and GitHub run provenance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GATE_E_EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          GATE_E_PAIR_OUTPUT: test-results/gate-e-speaking-real-device-pair.json
+        run: >-
+          node frontend/tooling/verify-gate-e-speaking-real-device-pair.mjs
+          test-results/safari/frontend/test-results/gate-e-speaking-real-device-evidence.json
+          test-results/ios/frontend/test-results/gate-e-speaking-real-device-evidence.json
+
+      - name: Upload pair verdict
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-real-device-pair-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/gate-e-speaking-real-device-pair.json
+          if-no-files-found: error
+          retention-days: 90

@@ -23,6 +23,7 @@
        scopes its own border-box in admin-feedback.css. -->
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-surface.css" data-aver-admin-surface="1" />
   <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
   <link rel="stylesheet" href="/css/admin-feedback.css" />
 
@@ -30,12 +31,12 @@
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
 </head>
-<body class="av-page">
+<body class="av-page av-admin-surface">
   <aver-admin-chrome active="feedback">
     <main class="fbx">
       <header class="fbx__head">
         <h1>Feedback</h1>
-        <p>Đánh giá đề + báo lỗi đề + flag bài giải từ học viên (Reading &amp; Listening), gom theo đề.</p>
+        <p>Đánh giá và mọi báo lỗi người dùng từ Reading, Listening &amp; Vocabulary.</p>
       </header>
 
       <div class="fbx-toolbar">
@@ -49,6 +50,7 @@
           <option value="">Mọi kỹ năng</option>
           <option value="reading">Reading</option>
           <option value="listening">Listening</option>
+          <option value="vocabulary">Vocabulary</option>
         </select>
         <select class="fbx-select" id="fbx-status" aria-label="Lọc theo trạng thái">
           <option value="">Mọi trạng thái</option>

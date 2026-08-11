@@ -1,3 +1,25 @@
+
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+    return;
+  }
+  fn();
+}
 /**
  * frontend/js/listening-analytics.js — Sprint 11.5
  * (DEBT-LISTENING-MODULE 5/5).
@@ -53,7 +75,10 @@ function showState(name) {
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.surface.hidden = name !== 'ready';
 }
-function showError(msg) { VIEWS.error.textContent = msg; showState('error'); }
+function showError() {
+  VIEWS.error.textContent = 'Không tải được thống kê. Vui lòng thử lại.';
+  showState('error');
+}
 
 
 async function load() {
@@ -65,8 +90,8 @@ async function load() {
     if (!res || res.total_attempts === 0) { showState('empty'); return; }
     render(res);
     showState('ready');
-  } catch (e) {
-    showError('Không tải được thống kê. ' + (e && e.message ? e.message : ''));
+  } catch {
+    showError();
   }
 }
 
@@ -180,13 +205,14 @@ function escapeHtml(s) {
 
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  __averOnReady(() => {
     load();
     document.querySelectorAll('.range-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
         STATE.range = btn.dataset.range;
         document.querySelectorAll('.range-tab').forEach((b) => {
           b.classList.toggle('is-active', b === btn);
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
         });
         load();
       });

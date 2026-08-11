@@ -436,12 +436,28 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
     return row
 
 
-def _fetch_published_listening_exercises(
+def _fetch_published_exercises_for_student(
     *,
     content_id: str,
     exercise_type: str,
 ) -> list[dict]:
-    """Return published exercises for an already published content row."""
+    """Trả exercise đã publish, ĐÃ LỌC ĐÁP ÁN — chỉ dùng cho response học viên.
+
+    Tên hàm GHI THẲNG bảo đảm đó thay vì để người gọi sau tự đoán: bản cũ tên là
+    `_fetch_published_listening_exercises`, trả `select("*")` nguyên vẹn, nên
+    route boot chép chính tả gửi luôn `payload.answers` xuống trình duyệt.
+
+    Không phải giả định: bộ chuyển đổi xếp `dictation_gap_fill` và
+    `dictation_short_answer` vào `exercise_type="dictation"` rồi cất đáp án
+    chuẩn ở `payload.answers` (`services/listening_convert.py:1471,1510`). Tôi đã
+    xem route này một lượt và kết luận "chép chính tả cần transcript nên không
+    lọc được" — sai hai lần trong một câu: đáp án nằm ở `payload.answers` (khoá
+    MỨC ĐỈNH bộ lọc đã xoá sẵn từ Sprint 13.5), còn transcript thì nằm ở CỘT
+    `segments` riêng (mig 057), ngoài tầm với của bộ lọc (codex cục bộ #967).
+
+    ĐƯỜNG CHẤM BÀI KHÔNG ĐƯỢC DÙNG HÀM NÀY — nó cần payload thô, và nó vốn đã tự
+    truy vấn bảng (`listening.py:620`, `:5469`).
+    """
     if exercise_type not in _EXERCISE_TYPES:
         raise HTTPException(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
@@ -456,7 +472,8 @@ def _fetch_published_listening_exercises(
         .order("order_num", desc=False)
         .execute()
     )
-    return res.data or []
+    from services import listening_test_grader as grader
+    return grader.strip_answer_keys(res.data or [])
 
 
 @user_router.get("/content/{content_id}")
@@ -496,7 +513,7 @@ async def boot_listening_dictation(
     user = await _require_auth(authorization)
     _ = user
     content = _fetch_published_listening_content_with_signed_url(content_id)
-    exercises = _fetch_published_listening_exercises(
+    exercises = _fetch_published_exercises_for_student(
         content_id=content_id,
         exercise_type="dictation",
     )
@@ -1022,7 +1039,14 @@ async def get_listening_exercises(
         .order("order_num", desc=False)
         .execute()
     )
-    return {"exercises": res.data or []}
+    # Sprint 13.5 đã dựng chốt này cho `/tests/{id}`, nhưng route bài LẺ vẫn trả
+    # `select("*")` nguyên vẹn — tức `payload.questions[].answer_idx` (mcq),
+    # `payload.statements[].answer` (T/F) và `payload.model_answer` +
+    # `rubric_keywords` (gist) đều đi thẳng tới trình duyệt. Ba trang đó tự xoá ở
+    # client ("user must NOT see it in DOM", `listening-mcq.js:81`) nên trên màn
+    # hình không thấy gì, nhưng tab Network thì thấy đủ.
+    from services import listening_test_grader as grader
+    return {"exercises": grader.strip_answer_keys(res.data or [])}
 
 
 # ── Admin routes — content preview + list ─────────────────────────────────────
@@ -4032,8 +4056,8 @@ async def list_published_listening_tests(
 
     Hard-filters ``status='published'`` AND audio satisfied (full or
     assembled present). Each row carries the calling user's best score
-    + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
-    CTAs without a follow-up round-trip.
+    + total/submitted attempt counts so the tests list can render truthful
+    "Bắt đầu" vs "Làm lại" CTAs without a follow-up round-trip.
 
     test_type segregates the full-test, mini-test and skill-drill libraries,
     reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
@@ -4094,8 +4118,9 @@ async def list_published_listening_tests(
 
     # Per-user stats — single round trip across all visible test IDs.
     test_ids = [r["id"] for r in rows]
-    user_best:  dict[str, int] = {}
-    user_count: dict[str, int] = {}
+    user_best:            dict[str, int] = {}
+    user_count:           dict[str, int] = {}
+    user_submitted_count: dict[str, int] = {}
     if test_ids:
         try:
             att_res = (
@@ -4110,6 +4135,8 @@ async def list_published_listening_tests(
                 if not tid:
                     continue
                 user_count[tid] = user_count.get(tid, 0) + 1
+                if att.get("status") == "submitted":
+                    user_submitted_count[tid] = user_submitted_count.get(tid, 0) + 1
                 if att.get("status") == "submitted" and att.get("score") is not None:
                     prev = user_best.get(tid)
                     if prev is None or att["score"] > prev:
@@ -4135,8 +4162,9 @@ async def list_published_listening_tests(
             "trap":                 md.get("trap"),
             "level":                md.get("level"),
             "task":                 md.get("task"),
-            "user_best_score":      user_best.get(r["id"]),
-            "user_attempt_count":   user_count.get(r["id"], 0),
+            "user_best_score":              user_best.get(r["id"]),
+            "user_attempt_count":           user_count.get(r["id"], 0),
+            "user_submitted_attempt_count": user_submitted_count.get(r["id"], 0),
         })
 
     return {

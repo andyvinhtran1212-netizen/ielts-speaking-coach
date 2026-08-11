@@ -71,7 +71,7 @@ function Hero() {
         </a>
         <a href="#groups-section" className="btn-cta btn-outline">Xem 9 nhóm chủ đề</a>
         <a href="/pages/grammar-search.html?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
-        <a href="/pages/grammar-exercises.html" className="btn-cta btn-outline">Bài tập Grammar</a>
+        <a href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</a>
       </div>
     </div>
   );

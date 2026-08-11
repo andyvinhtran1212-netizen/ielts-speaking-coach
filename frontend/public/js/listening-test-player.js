@@ -202,10 +202,10 @@ function getClassItemFromUrl() {
 // to a raw URL from the query string. Unknown/absent → full (the historical
 // default, and what the mock embed gets — its back links are not shown anyway).
 const BACK_TARGETS = {
-  full:     '/pages/listening-tests.html',
-  mini:     '/pages/listening-mini-test.html',
-  drill:    '/pages/listening-skills.html',
-  practice: '/pages/listening-practice.html',
+  full:     '/listening/tests',
+  mini:     '/listening/mini-test',
+  drill:    '/listening/skills',
+  practice: '/listening/practice',
 };
 function originFromUrl() {
   const v = (new URLSearchParams(window.location.search).get('from') || '').trim();
@@ -213,7 +213,7 @@ function originFromUrl() {
 }
 function wireBack() {
   const href = BACK_TARGETS[originFromUrl()];
-  document.querySelectorAll('a[href="/pages/listening-tests.html"]')
+  document.querySelectorAll('a[href="/listening/tests"]')
     .forEach((a) => { a.href = href; });
 }
 
@@ -235,6 +235,28 @@ async function loadTest(testId) {
     STATE.test   = test;
     computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection / firstSection
     STATE.activeTab = STATE.firstSection;   // a mini may start at Section 3, not 1
+    const testType = test.test_type || 'full';
+    document.body.setAttribute('data-listening-mode', testType);
+    const kindLabel = testType === 'mini'
+      ? 'MINI LISTENING TEST'
+      : (testType === 'drill' || testType === 'practice')
+        ? 'LISTENING PRACTICE'
+        : 'FULL LISTENING TEST';
+    const kind = $('ft-kind');
+    if (kind) kind.textContent = kindLabel;
+    const practice = isPracticeTest(test);
+    const audioRule = $('ft-prestart-audio-rule');
+    const controlRule = $('ft-prestart-control-rule');
+    if (audioRule) {
+      audioRule.textContent = practice
+        ? 'Bạn có thể tạm dừng, tua và nghe lại audio để luyện tập chủ động.'
+        : 'Audio phát trong một lượt như đề thật — không tua, không phát lại từ đầu.';
+    }
+    if (controlRule) {
+      controlRule.textContent = practice
+        ? 'Thanh tiến độ cho phép quay lại đúng đoạn bạn muốn nghe thêm.'
+        : 'Kiểm tra âm lượng trước khi bắt đầu; trong lúc làm bài bạn chỉ có thể điều chỉnh âm lượng.';
+    }
     $('ft-title').textContent = test.title || test.test_id || 'Untitled';
     $('ft-subtitle').textContent =
       `${STATE.sectionCount} section${STATE.sectionCount > 1 ? 's' : ''} · ${STATE.totalQuestions} câu`;
@@ -464,16 +486,21 @@ async function seekAudioToRoom() {
   }
 }
 
+function isPracticeTest(test) {
+  const tt = test && test.test_type;
+  return tt === 'mini' || tt === 'drill' || tt === 'practice';
+}
+
 async function startAttempt() {
   // 4-skill mock (mock_embed): skip the native confirm — it would pop from the
   // hidden child iframe, and a dismiss/block would leave the listening attempt
   // unattached. The parent's prep screen already confirmed the start.
   var _embed = window.MockHook && MockHook.embedded && MockHook.embedded();
   if (!_embed) {
-    const ok = window.confirm(
-      'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
-      'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.',
-    );
+    const ok = window.confirm(isPracticeTest(STATE.test)
+      ? 'Bắt đầu luyện nghe? Bạn có thể tạm dừng, tua và nghe lại audio trước khi nộp bài.'
+      : 'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
+        'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.');
     if (!ok) return;
   }
 
@@ -1637,8 +1664,7 @@ function mountAudio() {
   // `practice` belongs here and not with `full`: a 40-second trap drill whose
   // whole point is hearing the trap again would be unusable under exam rules,
   // and resume-by-started_at would skip past the audio entirely.
-  const tt = STATE.test && STATE.test.test_type;
-  STATE.scrub = tt === 'mini' || tt === 'drill' || tt === 'practice';
+  STATE.scrub = isPracticeTest(STATE.test);
 
   // Sprint 13.5.5 — index cue points by tab so timeupdate can lazily
   // check whether to auto-advance the active tab (Cambridge-style:

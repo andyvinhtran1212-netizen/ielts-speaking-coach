@@ -3,7 +3,7 @@
  *
  * When a mock sitting has been RELEASED (giám khảo bấm CÔNG BỐ), a result tile
  * appears next to the "Thi thử Full Test" start card → clicking it opens the TRF
- * (mock-result.html) with the 4-skill bands + per-skill chữa-bài links.
+ * (`/mock/result`) with the 4-skill bands + per-skill chữa-bài links.
  * Best-effort + non-blocking: the start card always renders on its own.
  */
 (function () {
@@ -18,7 +18,7 @@
   function fmtBand(v) { return (v == null || v === '') ? '—' : Number(v).toFixed(1); }
 
   function tile(s) {
-    return '<a class="mock-result-tile" href="/pages/mock-result.html?sitting=' + encodeURIComponent(s.sitting_id) + '">'
+    return '<a class="mock-result-tile" href="/mock/result?sitting=' + encodeURIComponent(s.sitting_id) + '">'
       + '<span class="mock-result-tile__band">' + fmtBand(s.overall) + '</span>'
       + '<span class="mock-result-tile__body">'
       + '<span class="mock-result-tile__title">Kết quả: ' + esc(s.code || 'Thi thử') + '</span>'

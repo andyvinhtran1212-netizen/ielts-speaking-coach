@@ -64,12 +64,14 @@ describe('listening.html — landing shell contract', () => {
   });
 
   it('links the exam-shaped surfaces and the practice library', () => {
-    for (const page of ['listening-tests', 'listening-mini-test', 'listening-skills',
-                        'listening-practice']) {
+    // [cutover /listening/tests 2026-08-05] chỉ `tests` sang route Next; ba
+    // trang kia còn legacy. Liệt kê thẳng URL thay vì dựng từ tên trang.
+    for (const href of ['/listening/tests', '/listening/mini-test',
+                        '/listening/skills', '/listening/practice']) {
       assert.match(
         HTML,
-        new RegExp(`href=["']/pages/${page}\\.html["']`),
-        `landing must link to /pages/${page}.html`,
+        new RegExp(`href=["']${href.replace(/[/.]/g, '\\$&')}["']`),
+        `landing must link to ${href}`,
       );
     }
   });
@@ -107,8 +109,8 @@ describe('listening.html — landing shell contract', () => {
   });
 
   it('utility surfaces — Kho bài nghe (browse) + Thống kê (analytics)', () => {
-    assert.match(HTML, /href=["']\/pages\/listening-browse\.html["']/);
-    assert.match(HTML, /href=["']\/pages\/listening-analytics\.html["']/);
+    assert.match(HTML, /href=["']\/listening\/browse["']/);
+    assert.match(HTML, /href=["']\/listening\/analytics["']/);
   });
 
   it('loads the canonical tokens + its own decoupled stylesheet (A6)', () => {

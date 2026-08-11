@@ -34,6 +34,9 @@ describe('Skills Practice — page contract', () => {
     assert.match(HTML, /id="state-empty"/);
     assert.match(HTML, /id="state-error"/);
     assert.match(HTML, /id="ls-groups"/);
+    assert.match(HTML, /id="ls-library"/);
+    assert.match(HTML, /id="ls-skill-nav"/);
+    assert.match(HTML, /id="ls-summary"/);
   });
 
   it('loads the skills controller module', () => {
@@ -41,7 +44,7 @@ describe('Skills Practice — page contract', () => {
   });
 
   it('back-link points at /pages/listening.html', () => {
-    assert.match(HTML, /href=["']\/pages\/listening\.html["']/);
+    assert.match(HTML, /href=["']\/listening["']/);
   });
 
   it('uses canonical design tokens (no raw hex literals)', () => {
@@ -80,12 +83,32 @@ describe('Skills Practice — controller contract', () => {
   it('pages the list endpoint (limit cap 100) to gather all drills', () => {
     assert.match(JS, /offset=\$\{offset\}/);
   });
+
+  it('renders one selected skill with accessible status filters', () => {
+    assert.match(JS, /ACTIVE_SKILL/);
+    assert.match(JS, /data-skill=/);
+    assert.match(JS, /ACTIVE_STATUS/);
+    assert.match(HTML, /data-status-filter="new"/);
+    assert.match(HTML, /data-status-filter="done"/);
+  });
+
+  it('bases completion on submitted attempts, not total attempts', () => {
+    assert.match(JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(JS, /t\.user_submitted_attempt_count/);
+    assert.doesNotMatch(JS, /const attempted = \(t\.user_attempt_count/);
+  });
+
+  it('uses labelled drill actions and removes the emoji-only dictation control', () => {
+    assert.match(JS, />Chép chính tả<\/a>/);
+    assert.doesNotMatch(JS, /aria-label="Chép chính tả">✍️/);
+    assert.match(JS, /displayDrillTitle\(t\)/);
+  });
 });
 
 
 describe('Skills Practice — nav card on listening.html', () => {
   it('adds a mode-card linking to listening-skills.html', () => {
-    assert.match(LISTENING_HTML, /href=["']\/pages\/listening-skills\.html["']/);
+    assert.match(LISTENING_HTML, /href=["']\/listening\/skills["']/);
     assert.match(LISTENING_HTML, /Luyện kĩ năng/);
   });
 });

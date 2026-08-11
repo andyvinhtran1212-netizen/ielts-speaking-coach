@@ -57,7 +57,7 @@ import { installPerfResourceHints } from '/js/components/perf-hints.js';
 // and Grammar (DEBT-LISTENING-MODULE foundation 1/5). Page shell lives
 // at /pages/listening.html; user-facing routes (dictation, gist, T/F,
 // MCQ, mini test) land in Sprint 11.2-11.4.
-const VALID_ACTIVE = ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary'];
+const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'grammar', 'vocabulary'];
 
 // Supabase polling — ~3s ceiling matches Sprint 7.8-hotfix bootstrap
 // pattern. 50ms tick × 60 tries.
@@ -316,13 +316,13 @@ const TEMPLATE = /* html */ `
 
     <div class="nav-links">
       <a href="/home" data-tab="home">Trang chủ</a>
-      <a href="/pages/writing-dashboard.html" data-tab="writing">Writing</a>
-      <a href="/pages/my-class.html" data-tab="class">Lớp học</a>
+      <a href="/writing/dashboard" data-tab="writing">Writing</a>
+      <a href="/pages/my-class.html" data-tab="class">MY CLASS</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
-      <a href="/pages/listening.html" data-tab="listening">Listening</a>
+      <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
       <a href="/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
-      <a href="/pages/reading-vocab.html" data-tab="reading">Reading</a>
+      <a href="/reading/vocab" data-tab="reading">Reading</a>
     </div>
 
     <div class="topnav-right">
@@ -450,9 +450,9 @@ export class AverChrome extends HTMLElement {
               { href_matches: '/home' },
               { href_matches: '/pages/my-class.html' },
               { href_matches: '/speaking' },
-              { href_matches: '/pages/writing-dashboard.html' },
-              { href_matches: '/pages/listening.html' },
-              { href_matches: '/pages/reading-vocab.html' },
+              { href_matches: '/writing/dashboard' },
+              { href_matches: '/listening' },
+              { href_matches: '/reading/vocab' },
               { href_matches: '/grammar' },
               { href_matches: '/vocabulary.html' },
             ],
@@ -599,7 +599,7 @@ export class AverChrome extends HTMLElement {
     const root = this.shadowRoot;
     if (!root) return;
     const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
-    if (link) link.setAttribute('href', loggedIn ? '/pages/vocabulary.html' : '/vocabulary.html');
+    if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary.html');
   }
 
   _applyActive(value) {

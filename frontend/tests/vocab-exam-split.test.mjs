@@ -2,7 +2,7 @@
  * frontend/tests/vocab-exam-split.test.mjs
  *
  * Exam-prep vocab is kept SEPARATE from the self-curated topic vocab:
- *  • vocabulary.html hub gains a "Luyện thi" mode-card → /pages/vocab-exam.html
+ *  • vocabulary.html hub gains a "Luyện thi" mode-card → /vocabulary/exam
  *  • vocab-exam.js renders exam families (AWL/TOEIC/THPT) → their non-empty lists,
  *    each launching flashcard-study.html?stack=examlist:<slug>
  *  • flashcard-study.js gains an examlist branch (reuses the wiki renderer) that
@@ -61,7 +61,7 @@ describe('vocab-exam.js renderFamilies', () => {
 describe('wiring across pages', () => {
   test('hub exposes a Luyện thi entry to the exam page', () => {
     const html = read('pages/vocabulary.html');
-    assert.match(html, /href="\/pages\/vocab-exam\.html"/);
+    assert.match(html, /href="\/vocabulary\/exam"/);
     assert.match(html, /Luyện thi/);
   });
 

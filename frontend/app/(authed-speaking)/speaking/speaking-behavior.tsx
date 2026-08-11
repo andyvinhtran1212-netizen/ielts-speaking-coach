@@ -24,6 +24,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
@@ -32,7 +33,6 @@ import {
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
-const PRACTICE_URL = '/pages/practice.html';
 const LOGIN_URL = '/login.html';
 
 const $ = (id: string) => document.getElementById(id);
@@ -105,7 +105,7 @@ function applyExercisesFlag(d1: unknown, d3: unknown) {
   const c = $('exercises-link-container');
   if (!c) return;
   c.innerHTML = (d1 === true || d3 === true)
-    ? '<a href="/pages/exercises.html" class="main-tab-btn" style="text-decoration:none;">'
+    ? '<a href="/exercises" class="main-tab-btn" style="text-decoration:none;">'
       + '<span class="main-tab-label">🎯 Exercises</span>'
       + '<span class="main-tab-sub">Bài tập từ vựng ngắn</span>'
       + '</a>'
@@ -118,7 +118,7 @@ function applyFlashcardsFlag(enabled: unknown, api: any, st: State) {
   if (!c) return;
   if (enabled !== true) { c.innerHTML = ''; return; }
   c.innerHTML =
-    '<a href="/pages/flashcards.html" class="main-tab-btn" style="text-decoration:none;">'
+    '<a href="/flashcards" class="main-tab-btn" style="text-decoration:none;">'
     + '<span class="main-tab-label">📚 Flashcards</span>'
     + '<span class="main-tab-sub" id="flashcards-tab-sub">Ôn từ vựng theo lịch tự động</span>'
     + '</a>';
@@ -252,7 +252,7 @@ function sessionIdOf(s: any): string | null {
 }
 
 function goToPractice(sessionId: string) {
-  window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+  window.location.href = admitCorePlayer('speaking', { session_id: sessionId });
 }
 
 // ── Modal chủ đề ────────────────────────────────────────────────────────────

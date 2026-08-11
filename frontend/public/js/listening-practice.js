@@ -16,6 +16,28 @@
 
 import { fetchAllPages } from './listening-list-paging.js';
 
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+    return;
+  }
+  fn();
+}
+
 const SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
@@ -76,18 +98,19 @@ export function groupTests(groupKey, items) {
 }
 
 export function renderCard(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const completed = (t.user_submitted_attempt_count || 0) > 0;
+  const attemptCount = Math.max(0, Number(t.user_attempt_count) || 0);
   const best = t.user_best_score;
   const bits = [];
   if (best != null) bits.push(`Tốt nhất <strong>${esc(best)}</strong>`);
-  bits.push(attempted ? `đã làm ${esc(t.user_attempt_count)} lần` : 'chưa làm');
+  bits.push(attemptCount ? `đã mở ${esc(attemptCount)} lượt` : 'chưa làm');
   return `
-    <article class="lt-card" data-test-id="${esc(t.id)}">
+    <article class="lt-card" data-test-id="${esc(t.id)}" data-status="${completed ? 'done' : 'new'}">
       <div class="lt-card-title">${esc(t.title || t.test_id || 'Bài luyện')}</div>
       <div class="lt-card-stats">${bits.join(' · ')}</div>
-      <a class="${attempted ? 'lt-card-cta secondary' : 'lt-card-cta'}"
+      <a class="${completed ? 'lt-card-cta secondary' : 'lt-card-cta'}"
          href="/pages/listening-practice-run.html?id=${encodeURIComponent(t.id)}"
-        >${attempted ? 'Làm lại' : 'Bắt đầu'}</a>
+        >${completed ? 'Làm lại' : 'Bắt đầu'}</a>
     </article>`;
 }
 
@@ -135,7 +158,7 @@ async function selectTab(key) {
         (p) => window.api.get(p));
       STATE.cache.set(key, items);
     } catch (e) {
-      showError(`Không tải được danh sách: ${(e && e.message) || e}`);
+      showError('Không tải được danh sách bài luyện. Vui lòng thử lại.');
       return;
     }
   }
@@ -156,10 +179,10 @@ async function load() {
     renderTabBar();
     await selectTab(start.key);
   } catch (e) {
-    showError(`Không tải được Luyện nhanh: ${(e && e.message) || e}`);
+    showError('Không tải được Luyện nhanh. Vui lòng thử lại.');
   }
 }
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', load);
+  __averOnReady(load);
 }

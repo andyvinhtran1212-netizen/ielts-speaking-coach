@@ -30,9 +30,80 @@
 //    mới thường là tính năng thêm. Không gộp hai loại vào một con số.
 // 3. Mọi ngoại lệ phải có `reason`. Allowlist không lý do = tự cấp phép.
 
+import { resolveCorePlayerAdmissionFromParams } from '../lib/core-player-affinity.mjs';
+
 /** Chuẩn hoá khoảng trắng; giữ nguyên chữ và dấu. */
 export function normalizeText(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Keep DOM/API parity deterministic without masking executable third-party
+ * dependencies. Google Fonts is presentation-only for this text/contract
+ * extractor; its CSS has repeatedly returned WOFF2 URLs that later 404 in CI
+ * (runs 31439749380 and 31440757513), making an unchanged Legacy baseline red.
+ * Stub only the exact stylesheet host. Scripts, CDNs, and even direct gstatic
+ * font URLs remain visible failures, so a real broken dependency is not hidden.
+ */
+export function externalPresentationFixture(url) {
+  try {
+    if (new URL(url).hostname === 'fonts.googleapis.com') {
+      return { status: 200, contentType: 'text/css', body: '' };
+    }
+  } catch { /* malformed URL is not eligible for a fixture */ }
+  return null;
+}
+
+// Lỗi TẦNG VẬN CHUYỂN: request không bao giờ tới nơi, nên không có phản hồi để
+// nói lên điều gì về TRANG. Đây là hỏng của DỤNG CỤ ĐO, không phải khuyết tật
+// của thứ đang đo — và phân biệt được hai thứ đó là cả điểm của danh sách này.
+//
+// CA ĐÃ XẢY RA (2026-08-07, lượt `full` của cổng G1): backend production từ chối
+// kết nối giữa chừng. Khi nó từ chối RẢI RÁC, hai lần chụp khác nhau ⇒ báo
+// `unstable-extraction`. Nhưng khi nó từ chối ỔN ĐỊNH trong một quãng, hai lần
+// chụp GIỐNG NHAU (cùng hỏng) ⇒ harness kết luận "ổn định" rồi đem so với vế
+// kia vốn gọi được ⇒ 87/150 cặp báo lệch, 610 phát hiện mức cao. Không cái nào
+// là khuyết tật thật. Một cổng đỏ vì lý do sai vài lần là một cổng người ta bắt
+// đầu bỏ qua, nên đây không phải chuyện thẩm mỹ.
+//
+// `ERR_ABORTED` CỐ Ý ĐỨNG NGOÀI: nó xảy ra bình thường (điều hướng bị huỷ, tải
+// media bị dừng) và gộp vào đây sẽ biến mọi lượt chạy thành "hạ tầng hỏng".
+const TRANSPORT_ERRORS = new Set([
+  'net::ERR_CONNECTION_REFUSED',
+  'net::ERR_CONNECTION_RESET',
+  'net::ERR_CONNECTION_CLOSED',
+  'net::ERR_CONNECTION_TIMED_OUT',
+  'net::ERR_CONNECTION_FAILED',
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_INTERNET_DISCONNECTED',
+  'net::ERR_NETWORK_CHANGED',
+  'net::ERR_ADDRESS_UNREACHABLE',
+  'net::ERR_EMPTY_RESPONSE',
+  'net::ERR_SOCKET_NOT_CONNECTED',
+  'net::ERR_TIMED_OUT',
+  // TCP FIN/dữ liệu không được ACK ⇒ Chromium phát mã này. Thiếu nó là quay lại
+  // đúng hành vi cũ: đem bản chụp hỏng đi so rồi sinh hàng loạt lệch giả.
+  'net::ERR_CONNECTION_ABORTED',
+  // `net::ERR_FAILED` CỐ Ý ĐỨNG NGOÀI, dù nghe rất giống "mất kết nối".
+  // Chromium dùng chính mã này cho LỖI CORS. Đưa vào đây thì một hồi quy CORS
+  // của bản Next — tức đúng loại khuyết tật cổng này sinh ra để bắt — sẽ bị dán
+  // nhãn "hạ tầng hỏng" và biến mất khỏi báo cáo. Một bộ lọc chống-đỏ-giả mà
+  // nuốt luôn lỗi thật thì tệ hơn là không có.
+]);
+
+/**
+ * `errorText` của Playwright có phải lỗi tầng vận chuyển không?
+ *
+ * So BẰNG, không so CHỨA. `includes` sẽ khiến `net::ERR_FAILED` khớp luôn vào
+ * những mã dài hơn có cùng tiền tố, và mọi mã `net::ERR_*` chưa biết cũng dễ
+ * bị kéo vào — mà mở rộng nhầm ở đây nghĩa là giấu một lỗi thật dưới nhãn "hạ
+ * tầng hỏng". Muốn thêm mã nào thì thêm tường minh vào danh sách trên.
+ *
+ * `errorText` đôi khi kèm mô tả sau dấu cách, nên cắt ở khoảng trắng đầu tiên.
+ */
+export function isTransportError(errorText) {
+  if (typeof errorText !== 'string' || !errorText) return false;
+  return TRANSPORT_ERRORS.has(errorText.trim().split(/\s+/)[0]);
 }
 
 // Gốc giả chỉ dùng để phân giải đường dẫn khi caller không đưa `base`.
@@ -86,10 +157,38 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   let path = u.pathname;
   const params = u.searchParams;
 
+  // Launcher của Next cố ý không trỏ thẳng vào một implementation:
+  // deployment nhận navigation mới quyết định legacy/Next để một tab đã
+  // mở không giữ quyết định cutover cũ. Parity phải so đích mà policy
+  // HIỆN TẠI sẽ chọn, không so URL admission trung gian với URL player
+  // legacy. Dùng chính resolver production để không sinh thêm một bảng ánh xạ
+  // có thể trôi khỏi source of truth.
+  //
+  // Tham số không hợp lệ KHÔNG bị nuốt: giữ nguyên launcher trong facts
+  // để parity vẫn báo lệch. Cả route runtime lẫn parity gọi cùng một
+  // parser, nên validation key lặp/surface không thể trôi lệch giữa hai bên.
+  if (path === '/core-player/launch') {
+    let destination;
+    try {
+      destination = resolveCorePlayerAdmissionFromParams(params);
+    } catch {
+      // Cố ý fall through: URL admission hỏng phải hiện trong báo cáo.
+    }
+    // Policy cấm launcher làm player path, nên lời gọi này không thể đệ quy.
+    // Đặt ngoài try để lỗi canonical downstream không bị gán nhầm cho input.
+    if (destination) return canonicalHref(destination, { base });
+  }
+
   // ── Hợp đồng URL: legacy → canonical ───────────────────────────────────
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
   else if (path === '/pages/profile.html') path = '/profile';
+  // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
+  // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)
+  // nên lượt sweep đầu của tôi — khớp `"/pages/exercises.html"` — trượt sạch.
+  // Bot bắt ở #958. Giữ ánh xạ để neo trong trang và mọi link còn sót vẫn khớp.
+  else if (path === '/pages/exercises.html') path = '/exercises';
+  else if (path === '/pages/flashcards.html') path = '/flashcards';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì

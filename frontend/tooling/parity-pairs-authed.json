@@ -10,5 +10,146 @@
     "legacy": "/pages/speaking.html",
     "next": "/speaking",
     "allow": []
+  },
+  {
+    "name": "speaking-practice-dark",
+    "legacy": "/pages/practice.html",
+    "next": "/practice/session",
+    "allow": [],
+    "minBaselineLines": 2,
+    "note": "Không có query thì cả hai vế dừng ở nhánh THIẾU session_id. Cặp này chỉ chứng minh stable route + shell/CSS/boot/error state parity; nó không chứng minh recorder, upload, grading, full-test chain hay resume. Player chỉ được gọi ready sau khi có session fixture và live Gate E drills."
+  },
+  {
+    "name": "reading-vocab",
+    "legacy": "/pages/reading-vocab.html",
+    "next": "/reading/vocab",
+    "allow": []
+  },
+  {
+    "name": "reading-skill",
+    "legacy": "/pages/reading-skill.html",
+    "next": "/reading/skill",
+    "allow": []
+  },
+  {
+    "name": "reading-test",
+    "legacy": "/pages/reading-test.html",
+    "next": "/reading/test",
+    "allow": []
+  },
+  {
+    "name": "reading-mini-test",
+    "legacy": "/pages/reading-mini-test.html",
+    "next": "/reading/mini-test",
+    "allow": []
+  },
+  {
+    "name": "listening-tests",
+    "legacy": "/pages/listening-tests.html",
+    "next": "/listening/tests",
+    "allow": []
+  },
+  {
+    "name": "listening-mini-test",
+    "legacy": "/pages/listening-mini-test.html",
+    "next": "/listening/mini-test",
+    "allow": []
+  },
+  {
+    "name": "listening-skills",
+    "legacy": "/pages/listening-skills.html",
+    "next": "/listening/skills",
+    "allow": []
+  },
+  {
+    "name": "listening-practice",
+    "legacy": "/pages/listening-practice.html",
+    "next": "/listening/practice",
+    "allow": []
+  },
+  {
+    "name": "listening-landing",
+    "legacy": "/pages/listening.html",
+    "next": "/listening",
+    "allow": []
+  },
+  {
+    "name": "listening-browse",
+    "legacy": "/pages/listening-browse.html",
+    "next": "/listening/browse",
+    "allow": []
+  },
+  {
+    "name": "listening-analytics",
+    "legacy": "/pages/listening-analytics.html",
+    "next": "/listening/analytics",
+    "allow": []
+  },
+  {
+    "name": "flashcards",
+    "legacy": "/pages/flashcards.html",
+    "next": "/flashcards",
+    "allow": []
+  },
+  {
+    "name": "exercises",
+    "legacy": "/pages/exercises.html",
+    "next": "/exercises",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể bị tắt cả D1 và Flashcards; khi đó module chuẩn render header cùng trạng thái 'Exercises are not enabled' đủ 4 dòng. Cặp này chứng minh hai shell khớp ở trạng thái feature-disabled trên desktop/mobile; muốn phủ các drill card phải bật ít nhất một feature flag cho probe."
+  },
+  {
+    "name": "vocab-exam",
+    "legacy": "/pages/vocab-exam.html",
+    "next": "/vocabulary/exam",
+    "allow": []
+  },
+  {
+    "name": "full-test",
+    "legacy": "/pages/full-test.html",
+    "next": "/full-test",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Tài khoản probe KHÔNG có kỳ thi thử nào, nên vế legacy chỉ render trạng thái RỖNG: tiêu đề + mô tả + câu 'chưa có kỳ thi nào'. Đó là 3 dòng và là nội dung ĐẦY ĐỦ của trạng thái đó, không phải vế tham chiếu hỏng. Cặp này vì thế mới chỉ chứng minh: hai vế khớp TIÊU ĐỀ, khớp từng dòng chữ, không lỗi console, và khớp getComputedStyle ở cả hai bề rộng — cho ĐÚNG trạng thái rỗng. Nó KHÔNG chứng minh gì về danh sách kỳ thi. Muốn phủ nốt: mở một kỳ thi cho tài khoản probe rồi bỏ `minBaselineLines`."
+  },
+  {
+    "name": "vocab-practice",
+    "legacy": "/pages/vocab-practice.html",
+    "next": "/vocabulary/practice",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể KHÔNG có bài luyện nào được mở, khi đó legacy chỉ render tiêu đề + mô tả + câu 'chưa có bài luyện nào' — nội dung ĐẦY ĐỦ của trạng thái rỗng, không phải vế tham chiếu hỏng. Xem ghi chú cặp `full-test`: cặp này khi rỗng chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style, KHÔNG chứng minh gì về danh sách bài luyện."
+  },
+  {
+    "name": "speaking-result",
+    "legacy": "/pages/speaking-result.html",
+    "next": "/speaking/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có tham số `?sitting=` thì trang dừng ở 'Thiếu mã lượt thi' — MỘT dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này vì thế chỉ chứng minh hai vế khớp tiêu đề + dòng chữ + style ở NHÁNH THIẾU THAM SỐ. Muốn phủ nhánh có nhận xét thật: cho tài khoản probe một lượt thi đã chấm rồi thêm `?sitting=` vào cả hai vế."
+  },
+  {
+    "name": "quiz-progress",
+    "legacy": "/pages/quiz-progress.html",
+    "next": "/quiz/progress",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể chưa làm Quick-Check nào, khi đó trang chỉ render tiêu đề + mô tả + các đề mục rỗng. Cặp này khi đó chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style ở trạng thái rỗng."
+  },
+  {
+    "name": "mock-result",
+    "legacy": "/pages/mock-result.html",
+    "next": "/mock/result",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?sitting=` thì trang dừng ở trạng thái lỗi/chờ — rất ít dòng, và đó là nội dung đầy đủ của trạng thái đó. Cặp này chỉ chứng minh hai vế khớp ở nhánh THIẾU THAM SỐ; muốn phủ phiếu điểm thật thì cần một lượt thi đã công bố cho tài khoản probe."
+  },
+  {
+    "name": "vocabulary-hub",
+    "legacy": "/pages/vocabulary.html",
+    "next": "/vocabulary/hub",
+    "allow": [],
+    "note": "ĐÃ CHỐT 2026-08-08: `/vocabulary` thuộc về WIKI CÔNG KHAI (`public/vocabulary.html`), nên trang Từ vựng của học viên Ở LẠI `/vocabulary/hub` — đây là tên cuối cùng, không phải chỗ đậu tạm. Lý do và bằng chứng: `docs/ROUTE_LEDGER.md` mục Q3. Chốt `vocabulary-route-ownership.test.mjs` giữ quyết định này."
   }
 ]

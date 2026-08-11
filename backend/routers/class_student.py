@@ -29,6 +29,8 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.quiz_service import bank_has_writing
+from services.quiz_service import reconcile_course_items
 from services.class_assignment_service import (
     _ID_CHUNK,
     is_accepting_submissions,
@@ -136,7 +138,8 @@ def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {k: src[k] for k in _DISPLAY_CONFIG_FIELDS if k in src}
 
 
-def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
+              writing_memo: Dict[str, bool] | None = None) -> Dict[str, Any]:
     """Attach the two derived states the UI needs. Both come from timestamps, so
     they stay correct without any job keeping them so."""
     due_raw = assignment.get("due_at")
@@ -154,6 +157,13 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime) -
         # Cổng thuộc bài (chỉ bài course có): trang lớp hiện "85% · đã đạt"
         # thay vì "Band 85.0" — một con số không tồn tại trên thang IELTS.
         "passed_at":    item.get("passed_at"),
+        # Bộ đề này CÓ phần tự luận không — trang không được SUY từ
+        # `passed_at && !submitted_at`: một lượt ghi sổ hỏng (best-effort) ở bộ
+        # đề KHÔNG có tự luận cũng cho ra đúng hình dạng ấy, và học viên đọc
+        # thành "còn phần tự luận" cho một phần không tồn tại (codex cục bộ).
+        "writing_expected": (
+            bank_has_writing(assignment.get("content_id"), memo=writing_memo)
+            if assignment.get("skill") == "course" else False),
         "is_late":      is_late,
         "is_missing":   is_missing,
         "assignment": {
@@ -233,15 +243,36 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     # must not blank the page. Showing it WITHOUT SAYING SO is not: the one
     # thing that can go wrong here is a finished task still listed as owed, and
     # a student who trusts that list retakes work they have already handed in.
+    #
+    # Một khối riêng cho mỗi bộ đối chiếu: chúng đọc hai nguồn bằng chứng rời
+    # nhau, nên gộp chung nghĩa là bộ này hỏng thì bộ kia không được thử.
     stale = False
+    for what, fn in (
+        ("test-attempts", lambda: reconcile_test_attempts(
+            supabase_admin, list(by_id.values()))),
+        # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
+        # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
+        # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
+        # làm xong vẫn đang nợ.
+        ("course", lambda: reconcile_course_items(supabase_admin, list(by_id))),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            stale = True
+            logger.warning("[class] reconcile skipped (%s): %s", what, exc)
+    # Đọc lại SAU cả hai bộ, và ngoài khối bắt lỗi của chúng: một bộ hỏng vẫn
+    # phải lấy được kết quả của bộ kia.
     try:
-        reconcile_test_attempts(supabase_admin, list(by_id.values()))
         items = _reread_items(student["id"], [i["id"] for i in items]) or items
     except Exception as exc:
         stale = True
-        logger.warning("[class] test reconcile skipped: %s", exc)
+        logger.warning("[class] reread items failed: %s", exc)
 
-    out = [_decorate(i, by_id[i["assignment_id"]], now)
+    # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
+    # và một lượt đọc là đủ cho cả trang.
+    writing_memo: Dict[str, bool] = {}
+    out = [_decorate(i, by_id[i["assignment_id"]], now, writing_memo)
            for i in items if i["assignment_id"] in by_id]
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
     # be at the top. A give with no deadline is never urgent, so it sorts last

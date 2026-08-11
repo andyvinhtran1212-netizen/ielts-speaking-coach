@@ -43,34 +43,164 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      - 'frontend/public/pages/grammar-exercises.html'
+      - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
       # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
       # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
       # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở
       # PR #930; kiểm lại đúng: lần chạy authed trước đó là do dispatch tay.)
-      # CHỈ `(authed-home)`. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
+      # CHỈ các group có cặp trong parity-pairs-authed. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
       # `/pages/profile.html` đã 307 sang `/profile` khi cutover pilot 3 ⇒
       # không còn vế legacy để so. Bắt nó vào đây là để job chạy rồi BÁO XANH
       # mà chưa từng mở route đã sửa. Có test chặn đúng chuyện đó
       # (`parity-core.test.mjs` → "bộ lọc KHÔNG bắt route mà G1 không so được"),
       # và nó đã bắt tôi khi tôi thêm nhầm.
       - 'frontend/app/(authed-home)/**'
-      # Vế Speaking (cặp `/pages/speaking.html` ↔ `/speaking-preview`). Thêm
+      # Vế Speaking (cặp `/pages/speaking.html` ↔ `/speaking`). Thêm
       # CÙNG LÚC với cặp parity — thêm cặp mà quên glob là dựng đúng một cổng
       # không bao giờ tự kích hoạt, y hệt phát hiện của Codex trên PR #930.
       - 'frontend/app/(authed-speaking)/**'
+      # Speaking core dark route — stable URL, admission vẫn Legacy. Cặp parity
+      # hiện chỉ ghim nhánh thiếu session_id; live player evidence thuộc Gate E.
+      - 'frontend/app/(authed-practice)/**'
       - 'frontend/public/pages/speaking.html'
       - 'frontend/public/css/speaking.css'
       - 'frontend/public/js/cue-card-detector.js'
-      - 'frontend/lib/speaking-copy.mjs'
-      - 'frontend/lib/speaking-stats.mjs'
-      - 'frontend/components/authed-shell.tsx'
+      - 'frontend/public/js/format.js'
+      - 'frontend/public/js/retention-warning.js'
+      # Persistence controller là mã CHUNG của cặp practice: Next bundle import
+      # trực tiếp, còn Legacy nạp runtime module. Ghim riêng ba tệp thay vì
+      # `public/**` để một thay đổi admin không kích hoạt cổng parity vô nghĩa.
+      - 'frontend/public/js/speaking-full-test-controller.mjs'
+      - 'frontend/public/js/speaking-submission-controller.mjs'
+      - 'frontend/public/js/speaking-legacy-runtime.mjs'
+      # CẢ hai cây mã dùng chung, không ghim từng tệp. Job này chạy `npm run
+      # build`, nên BẤT KỲ component/lib nào cũng có thể lọt vào chunk của trang
+      # đang so — thêm một shared component mới mà quên bổ sung glob thì cổng
+      # không chạy cho đúng PR ấy (Codex bắt ở #946 vòng 3).
+      # Việc khoanh theo NHÓM ROUTE ở dưới vẫn giữ nguyên: đổi một route không
+      # đổi DOM route khác, còn mã dùng chung thì đổi được bất kỳ trang nào.
+      - 'frontend/lib/**'
+      - 'frontend/components/**'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
+      - 'frontend/public/js/home-mock-tiles.js'
       # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
       # khác biệt thật mà chỉ lượt 375 bắt được.
       - 'frontend/public/css/home.css'
       - 'frontend/public/css/mock-hub.css'
+      # Vế Bài viết (cặp `/pages/writing-dashboard.html` ↔ `/writing/dashboard`).
+      # Ba dòng này CỐ Ý nằm trong khối authed: `parity-core.test.mjs` cắt đúng
+      # khối này và đòi MỌI glob trong đó phải được regex chọn-phạm-vi authed
+      # bắt. Đặt ra ngoài thì glob vẫn kích hoạt job nhưng job chạy lượt
+      # `categories` và KHÔNG BAO GIỜ mở cặp writing — đúng lỗi Codex bắt ở #937,
+      # và không chốt nào nổ. Trong khối thì máy canh thay cho trí nhớ.
+      - 'frontend/app/(authed-writing)/**'
+      - 'frontend/public/pages/writing-dashboard.html'
+      - 'frontend/public/css/writing-dashboard.css'
+      # Vế Reading (cặp `/pages/reading-vocab.html` ↔ `/reading/vocab`). Nhóm
+      # trang chỉ-đọc KHÔNG có tệp hành vi riêng — cả hai vế nạp CHÍNH
+      # `public/js/reading-vocab.js`, nên tệp đó cũng phải kích hoạt cổng.
+      - 'frontend/app/(authed-reading)/**'
+      - 'frontend/app/(authed-listening)/**'
+      # Nhóm chỉ-đọc dùng CHÍNH module legacy cho cả hai vế, nên tệp JS đó cũng
+      # phải kích hoạt cổng — nó là mã CHUNG chứ không phải mã của riêng vế nào.
+      - 'frontend/public/pages/reading-vocab.html'
+      - 'frontend/public/pages/reading-skill.html'
+      - 'frontend/public/pages/reading-test.html'
+      - 'frontend/public/pages/reading-mini-test.html'
+      - 'frontend/public/pages/listening-tests.html'
+      - 'frontend/public/css/reading-vocab.css'
+      - 'frontend/public/css/listening.css'
+      # Tách từ khối <style> nội tuyến của `listening-tests.html`; CẢ HAI vế
+      # cùng link nó, nên nó là mã CHUNG và phải kích hoạt cổng. Bộ dò tĩnh
+      # `workflow-path-coverage.test.mjs` KHÔNG thấy được lớp này — CSS do
+      # trình duyệt nạp lúc chạy, không script nào nêu tên (đúng giới hạn đã
+      # ghi ở #946). Codex bắt ở #953.
+      - 'frontend/public/css/listening-tests.css'
+      - 'frontend/public/css/listening-mini-test.css'
+      - 'frontend/public/css/listening-skills.css'
+      - 'frontend/public/css/listening-practice.css'
+      - 'frontend/public/css/listening-browse.css'
+      - 'frontend/public/css/listening-analytics.css'
+      # CSS NỀN mà `AuthedShell` nạp cho MỌI trang được so — và trang legacy
+      # cũng nạp đúng ba tệp này. Đổi chúng là đổi cả 13 cặp cùng lúc, nên
+      # thiếu ở đây thì một PR sửa design-system chạy được mà không so gì.
+      # `tailwind.build.css` còn là phụ thuộc riêng của 3 trang Listening mới
+      # (review cục bộ bắt ở #957); hai tệp kia là điểm mù có sẵn từ trước.
+      - 'frontend/public/css/tailwind.build.css'
+      - 'frontend/public/css/aver-design/tokens.css'
+      - 'frontend/public/css/aver-design/components.css'
+      # Hai trang vocab dùng khuôn `mount()`; mỗi trang một route-group riêng
+      # vì hai tệp CSS định nghĩa lại cùng selector với giá trị khác nhau.
+      - 'frontend/app/(authed-exercises)/**'
+      - 'frontend/app/(authed-flashcards)/**'
+      - 'frontend/public/pages/exercises.html'
+      - 'frontend/public/pages/flashcards.html'
+      - 'frontend/public/css/exercises.css'
+      - 'frontend/public/css/flashcards.css'
+      - 'frontend/public/css/ds.css'
+      - 'frontend/public/js/vocab-modules/**'
+      - 'frontend/app/(authed-vocab-exam)/**'
+      # Trang Thi thử Full Test — port sang Next; JS/CSS vừa tách khỏi mã inline
+      # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
+      - 'frontend/app/(authed-full-test)/**'
+      - 'frontend/app/(authed-vocab-practice)/**'
+      - 'frontend/app/(authed-speaking-result)/**'
+      - 'frontend/app/(authed-quiz-progress)/**'
+      - 'frontend/app/(authed-mock-result)/**'
+      - 'frontend/app/(authed-vocabulary-hub)/**'
+      - 'frontend/public/pages/vocabulary.html'
+      - 'frontend/public/js/vocab-landing.js'
+      - 'frontend/public/css/vocabulary.css'
+      - 'frontend/public/pages/mock-result.html'
+      - 'frontend/public/js/mock-result.js'
+      - 'frontend/public/css/mock-result.css'
+      - 'frontend/public/pages/quiz-progress.html'
+      - 'frontend/public/js/quiz-progress.js'
+      - 'frontend/public/css/quiz-progress.css'
+      - 'frontend/public/pages/speaking-result.html'
+      - 'frontend/public/js/speaking-result.js'
+      - 'frontend/public/css/speaking-result.css'
+      - 'frontend/public/pages/vocab-practice.html'
+      - 'frontend/public/js/vocab-practice.js'
+      - 'frontend/public/css/vocab-practice.css'
+      - 'frontend/public/pages/full-test.html'
+      - 'frontend/public/js/full-test.js'
+      - 'frontend/public/css/full-test.css'
+      - 'frontend/public/pages/vocab-exam.html'
+      - 'frontend/public/css/vocab-exam.css'
+      - 'frontend/public/js/vocab-exam.js'
+      # Thí điểm nhóm CÓ-GHI: bản khai hợp đồng ghi của bài nghe trắc nghiệm
+      # chạy trên VẾ LEGACY (chưa có route Next). Sửa trang hay module của nó
+      # phải chạy lại cổng ghi.
+      - 'frontend/public/js/error-reporter.js'
+      # Phụ thuộc CHUNG của mọi cặp, review cục bộ #958 chỉ ra còn sót:
+      # `app/layout.tsx` là root layout của TẤT CẢ route Next; bộ sinh
+      # runtime-config quyết định mọi vế trỏ backend nào.
+      - 'frontend/app/layout.tsx'
+      - 'frontend/tooling/generate-runtime-config.mjs'
+      - 'frontend/public/pages/listening.html'
+      - 'frontend/public/pages/listening-browse.html'
+      - 'frontend/public/pages/listening-analytics.html'
+      - 'frontend/public/js/listening-landing.js'
+      - 'frontend/public/js/listening-browse.js'
+      - 'frontend/public/js/listening-analytics.js'
+      - 'frontend/public/js/reading-vocab.js'
+      - 'frontend/public/js/reading-skill.js'
+      - 'frontend/public/js/reading-test.js'
+      - 'frontend/public/js/reading-mini-test.js'
+      - 'frontend/public/js/listening-tests-list.js'
+      # `listening-tests-list.js` IMPORT helper này (dòng 21). Bỏ sót thì một PR
+      # chỉ sửa helper sẽ không chạy parity, dù nó đổi hành vi cả hai vế.
+      - 'frontend/public/js/listening-list-paging.js'
+      - 'frontend/public/js/listening-mini-test.js'
+      - 'frontend/public/js/listening-skills.js'
+      - 'frontend/public/js/listening-practice.js'
+      - 'frontend/public/pages/listening-mini-test.html'
+      - 'frontend/public/pages/listening-skills.html'
+      - 'frontend/public/pages/listening-practice.html'
       - 'frontend/tooling/supabase-session.mjs'
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
@@ -79,13 +209,118 @@ on:
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
       - 'frontend/public/js/components/aver-chrome.js'
+      # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
+      # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
+      # sửa chúng không chạy cổng lần nào (review CỤC BỘ bắt ở #955).
+      - 'frontend/public/js/theme-toggle.js'
+      - 'frontend/public/js/user-pill.js'
+      - 'frontend/public/js/components/perf-hints.js'
       - 'frontend/tooling/parity-core.mjs'
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
+      - 'frontend/tooling/verify-reading-vocab-flow.mjs'
+      - 'frontend/tooling/verify-reading-skill-flow.mjs'
+      - 'frontend/tooling/verify-reading-test-flow.mjs'
+      - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
+      - 'frontend/tooling/verify-listening-tests-flow.mjs'
+      - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
+      - 'frontend/tooling/verify-listening-skills-flow.mjs'
+      - 'frontend/tooling/verify-listening-practice-flow.mjs'
+      - 'frontend/tooling/verify-listening-landing-flow.mjs'
+      - 'frontend/tooling/verify-listening-browse-flow.mjs'
+      - 'frontend/tooling/verify-listening-analytics-flow.mjs'
+      # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
+      - 'frontend/tooling/verify-write-flows.mjs'
+      - 'frontend/tooling/write-flow-core.mjs'
+      - 'frontend/tooling/write-flows/**'
+      # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
+      # Các tệp dưới đây thuộc ba trang `listening-mcq` / `-tf` / `-gist`, đều chỉ
+      # được che bằng CỔNG
+      # ĐƯỜNG-GHI (chưa port sang Next nên chưa có cặp trong
+      # `parity-pairs-authed.json`). Chúng CỐ Ý nằm NGOÀI khối glob authed ở
+      # trên: có mặt trong `paths` để job + cổng ghi chạy, nhưng KHÔNG được
+      # regex authed bắt — mở lượt authed cho một trang không có cặp nào nghĩa
+      # là tốn một lượt cần secret để so đúng con số không (bot bắt ở #962).
+      # Khi trang lên Next và có cặp, chuyển chúng NGƯỢC lên khối authed.
+      - 'frontend/public/pages/listening-mcq.html'
+      - 'frontend/public/js/listening-mcq.js'
+      - 'frontend/public/pages/listening-tf.html'
+      - 'frontend/public/js/listening-tf.js'
+      - 'frontend/public/pages/listening-gist.html'
+      - 'frontend/public/js/listening-gist.js'
+      # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
+      # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
+      # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt
+      # cổng ghi chứ không chỉ cổng parity.
+      - 'frontend/public/js/components/audio-player.js'
+      - 'frontend/public/js/feedback-widgets.js'
+      # Luồng góp ý bấm `.fb-flag-btn` rồi thao tác trong popup — cả hai do
+      # `feedback.css` tạo hình. Thiếu tệp này thì PR chỉ sửa CSS đó không chạy
+      # cổng ghi, dù nó đủ sức làm nút không bấm được (bot bắt ở #962 vòng 3).
+      - 'frontend/public/css/feedback.css'
+      # ── Bài thi Đọc ──────────────────────────────────────────────────────
+      # `reading-exam` cũng chưa có cặp parity, nên nằm cùng khối này. Trang nạp
+      # 5 tệp dưới lúc chạy mà `reading-exam.js` KHÔNG import chúng, nên bộ dò
+      # tĩnh mù: `markdown.js` dựng thân đoạn đọc, `mock-exam-hook.js` quyết định
+      # nhánh nộp khi bài nằm trong đề thi thử, `runtime-config.js` quyết định
+      # gọi máy chủ nào — sửa bất kỳ tệp nào cũng đủ làm hỏng đường ghi.
+      - 'frontend/public/pages/reading-exam.html'
+      - 'frontend/public/js/reading-exam.js'
+      - 'frontend/public/js/markdown.js'
+      - 'frontend/public/js/mock-exam-hook.js'
+      - 'frontend/public/js/runtime-config.js'
+      - 'frontend/public/css/reading-exam.css'
+      - 'frontend/public/css/reading-exam-mockup.css'
+      # ── Trang luyện Speaking ─────────────────────────────────────────────
+      # Cũng chưa có cặp parity, nên nằm cùng khối này. Đây là trang mang đường
+      # ghi ĐẮT GIÁ NHẤT của sản phẩm: bản thu của học viên chỉ tồn tại trong bộ
+      # nhớ trang cho tới khi `POST /sessions/{id}/responses` nhận được. Trước
+      # PR này, sửa `practice.js` KHÔNG chạy cổng ghi lần nào.
+      - 'frontend/public/pages/practice.html'
+      - 'frontend/public/js/practice.js'
+      - 'frontend/public/js/pronunciation-drilldown.js'
+      - 'frontend/public/css/practice.css'
+      - 'frontend/public/css/speaking-assignment.css'
+      # `practice.html` nạp thẳng tệp này (dòng 644) và nó giữ đường THỬ LẠI của
+      # bản nộp mock speaking — sửa riêng nó mà không chạy cổng ghi là bỏ trống
+      # đúng đường cứu bài (codex cục bộ #980).
+      - 'frontend/public/js/speaking-debt.js'
+      # ── Trang chữa bài Đọc ───────────────────────────────────────────────
+      # Cũng chưa có cặp parity. Đường ghi của nó nuôi BẢN ĐỒ THÀNH THẠO, tức
+      # kiểu hỏng duy nhất mà học viên không bao giờ nhìn thấy hậu quả.
+      # `glossary-popover.js` nạp lúc chạy mà `reading-review.js` không import,
+      # nên bộ dò tĩnh mù với nó.
+      - 'frontend/public/pages/reading-review.html'
+      - 'frontend/public/js/reading-review.js'
+      - 'frontend/public/js/components/glossary-popover.js'
+      - 'frontend/public/css/reading-review.css'
+      - 'frontend/public/css/markdown.css'
+      # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
+      # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
+      # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
+      # (Codex bắt ở PR #944).
+      - 'frontend/public/js/api.js'
+      - 'frontend/public/js/analytics-beacon.js'
       - 'frontend/next.config.ts'
       - 'frontend/package-lock.json'
+      # `package.json` quyết định script nào chạy và dải phiên bản nào được cài;
+      # `tsconfig.json` định nghĩa bí danh `@/*` — đổi ánh xạ đó là đổi mã được
+      # gộp vào bundle. Ghim mỗi lock-file là chưa đủ (Codex bắt ở #946 vòng 4).
+      - 'frontend/package.json'
+      - 'frontend/tsconfig.json'
       - '.github/workflows/parity-gate.yml'
+  # SAU KHI MERGE. Cổng theo PR chỉ chứng minh «nhánh này so với main LÚC ĐÓ»;
+  # nó KHÔNG chứng minh main sau khi hợp nhất. Ngày 2026-08-07 chín PR chồng
+  # nhau lên main liên tiếp, mỗi PR đều xanh, mà trạng thái hợp nhất không cổng
+  # nào chạm tới — phải dispatch tay mới biết main lành. Main deploy thẳng ra
+  # production, nên đó là khoảng trống ngay trước mặt người dùng.
+  #
+  # KHÔNG khai `paths:` ở đây. Bộ lọc đường dẫn hợp lý cho PR (tiết kiệm lượt
+  # chạy khi nhánh không đụng gì liên quan), nhưng ở đây câu hỏi là «main còn
+  # lành không» — và câu đó không phụ thuộc vào việc lần merge NÀY đụng tệp nào.
+  push:
+    branches: [main]
   # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
   # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị
   # GitHub giãn ra trung vị 84 phút (khai 15). Lịch trên GitHub Actions là
@@ -105,7 +340,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: parity-gate-${{ github.ref }}
+  # PHẢI có `event_name` trong group. Trước đây group chỉ theo `github.ref`, mà
+  # push lên main, lịch đêm và dispatch tay đều mang `refs/heads/main` — nên một
+  # lần dispatch `scope=categories` sẽ HUỶ lượt post-merge đang chạy `full +
+  # authed`, rồi báo xanh. Commit đó vĩnh viễn không được lượt nào kiểm đủ, và
+  # bảng check thì trông y hệt lúc kiểm đủ.
+  #
+  # Giữa hai lần PUSH thì vẫn huỷ lượt cũ, và đó là cố ý: chỉ tip hiện tại mới
+  # là thứ đang chạy trên production. Hệ quả phải nói thẳng — trong một chuỗi
+  # merge dày, các commit ở giữa KHÔNG được kiểm riêng; thứ được bảo đảm là
+  # «main lành ở tip mới nhất», không phải «mỗi commit đều lành».
+  group: parity-gate-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -196,13 +441,22 @@ jobs:
           if [ -n "${{ inputs.scope }}" ]; then
             echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0
-          fi
+          # `schedule` và `push` (main) KHÔNG có nhánh gốc để so diff — không suy
+          # ra phạm vi được, nên chạy TẤT CẢ. Cả hai đều phải đặt `authed=true`:
+          # bản cũ `exit 0` ngay sau khi đặt `scope=full`, để cờ authed RỖNG, nên
+          # lịch đêm chưa bao giờ so 21 cặp cần-đăng-nhập — tức phần lớn trang
+          # học viên chỉ được so trong PR chứ chưa lần nào trên main.
+          case "${{ github.event_name }}" in
+            schedule|push)
+              echo "sự kiện ${{ github.event_name }} ⇒ chạy full + authed"
+              echo "scope=full" >> "$GITHUB_OUTPUT"
+              echo "authed=true" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+          esac
           BASE="origin/${{ github.base_ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
           echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
-          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/(backend|grammar-api)\.ts|frontend/public/pages/grammar-article\.html'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/|frontend/components/|frontend/public/pages/grammar-article\.html'; then
             echo "→ đụng bộ render BÀI VIẾT hoặc tầng dùng chung ⇒ phạm vi FULL"
             echo "scope=full" >> "$GITHUB_OUTPUT"
           else
@@ -214,7 +468,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking)\)/|frontend/public/pages/speaking\.html|frontend/public/css/speaking\.css|frontend/public/js/cue-card-detector\.js|frontend/lib/speaking-(copy|stats)\.mjs|frontend/components/authed-shell\.tsx|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub)\.css|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json)'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/css/(speaking|practice|speaking-assignment)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else
@@ -260,6 +514,7 @@ jobs:
           esac
 
           FAIL=0
+          INFRA=0
           for S in $RUNS; do
             case "$S" in
               authed) ARGS="--auth --pairs tooling/parity-pairs-authed.json" ;;
@@ -268,11 +523,45 @@ jobs:
             esac
             for VP in 1280x900 375x812; do
               echo "════════ lượt $S · bề rộng $VP ════════"
+              # `|| RC=$?` thay vì bật/tắt `set -e`: bước này chạy dưới `bash -e`,
+              # và đụng vào trạng thái đó sẽ đổi hành vi của mọi lệnh phía sau.
+              RC=0
               node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || FAIL=1
+                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || RC=$?
+              # PHÂN BIỆT HAI LOẠI ĐỎ. Mã 3 = không gọi được backend, tức bộ so
+              # KHÔNG kết luận gì về parity. Gộp nó vào FAIL sẽ hiện ra như «bản
+              # Next lệch bản legacy» — một lời khẳng định chưa đo được, và vài
+              # lần như thế là người ta bắt đầu bỏ qua cổng này.
+              case "$RC" in
+                0) ;;
+                3) INFRA=1
+                   echo "::warning::lượt $S/$VP KHÔNG kết luận được: backend không gọi được" ;;
+                # 4 = VỪA lệch parity VỪA hỏng hạ tầng. Phải đặt CẢ HAI cờ: gộp
+                # nó vào 3 sẽ in ra thông điệp «không phải phát hiện parity»
+                # trong khi báo cáo đang chứa cặp lệch thật.
+                4) INFRA=1; FAIL=1
+                   echo "::warning::lượt $S/$VP: có cặp lệch THẬT và có cặp không gọi được backend" ;;
+                *) FAIL=1 ;;
+              esac
             done
           done
-          exit $FAIL
+          if [ "$INFRA" = "1" ]; then
+            echo "::error::Cổng parity không chạy xong được vì backend không gọi được (mã 3)."
+            echo "Đây KHÔNG phải phát hiện về parity. Kiểm backend production rồi chạy lại."
+          fi
+          # Vẫn đỏ khi hạ tầng hỏng — bỏ qua trong im lặng thì lần merge kế tiếp
+          # đi qua một cổng chưa từng chạy. Đỏ, nhưng đỏ ĐÚNG LÝ DO.
+          #
+          # Dạng `if` tường minh thay cho `A || B && C`. Đo thật thì dạng kia
+          # KHÔNG sai ở đây (bash không kích hoạt `-e` cho lệnh nằm giữa danh
+          # sách `||`/`&&`), nhưng nó đọc như «hoặc A, hoặc B-rồi-C» trong khi
+          # thực chất là `(A || B) && C`, và trạng thái thoát của nó phụ thuộc
+          # vào lệnh nào được chạy sau cùng. Ở một dòng quyết định cổng đỏ hay
+          # xanh, thứ cần là đọc phát hiểu ngay.
+          if [ "$FAIL" = "1" ] || [ "$INFRA" = "1" ]; then
+            exit 1
+          fi
+          exit 0
 
       # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
       # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong
@@ -291,6 +580,82 @@ jobs:
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
+      # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
+      # request filter bị supersede hay nút reset. Runner này dùng browser thật,
+      # phiên + backend giả và chặn toàn bộ request; không cần secret, không ghi
+      # vào dữ liệu nào.
+      - name: Kiểm luồng Reading Vocab native
+        run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
+      # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
+      - name: Kiểm luồng Reading Skill native
+        run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
+      # total, test_type=full, reset và response cũ ngay trên production build.
+      - name: Kiểm luồng Reading Full Test native
+        run: node tooling/verify-reading-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Mini Test có default và thống kê duration riêng; runner này ngăn nó
+      # trượt về default Full Test khi phần behavior được đổi.
+      - name: Kiểm luồng Reading Mini Test native
+        run: node tooling/verify-reading-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/listening/tests` phân biệt activity attempt với submitted attempt.
+      # Runner browser khóa lại filter, trạng thái card, CTA và escaping thật.
+      - name: Kiểm luồng Listening Full Tests native
+        run: node tooling/verify-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Mini Tests có score không cố định và completion dựa trên submitted.
+      - name: Kiểm luồng Listening Mini Test native
+        run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Skill Drills có nav 11 dạng, ladder L/T và completion theo submitted.
+      - name: Kiểm luồng Listening Skills native
+        run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Luyện nhanh có overview-driven tabs, cache theo tab và hash selection.
+      - name: Kiểm luồng Listening Practice native
+        run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Landing dùng overview để quyết định card nào có đích chạy thật.
+      - name: Kiểm luồng Listening Landing native
+        run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
+      - name: Kiểm luồng Listening Browse native
+        run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Analytics khóa range contract, weighted denominators và trạng thái
+      # recent/empty/error trên browser thật.
+      - name: Kiểm luồng Listening Analytics native
+        run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
+      # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
+      # MỌI request ghi mà trang phát ra và đòi chúng đã được KHAI BÁO TRƯỚC.
+      # Một request ghi không nằm trong bản khai là lỗi — đó đúng là hình dạng
+      # của "nút làm SAI việc", thứ mà cổng parity tĩnh không thể thấy.
+      #
+      # Không cần secret, không ghi vào đâu (mạng bị chặn, dữ liệu trả sẵn).
+      - name: Cổng đường-ghi
+        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
+
+      # CÙNG bản khai, chạy trên vế LEGACY. Đây là thứ biến bản khai từ "test
+      # của bản Next" thành HỢP ĐỒNG: nếu chỉ chạy vế Next thì bản khai chỉ mô
+      # tả đúng thứ vừa được viết, và một đường ghi bị bỏ sót lúc port sẽ bỏ sót
+      # y hệt ở cả hai nơi. Bắt nó xanh trên trang legacy nghĩa là nó mô tả hành
+      # vi CÓ THẬT, đo được, trước khi bản Next tồn tại.
+      #
+      # Chỉ chạy các luồng CÓ khai `legacyRoute`; luồng của trang chỉ-có-Next sẽ
+      # rơi về `route` và bước này thành trùng lặp vô hại.
+      - name: Cổng đường-ghi (vế legacy — cùng bản khai)
+        env:
+          WF_LEGACY: '1'
+        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
 
       - name: Nộp báo cáo
         if: ${{ always() }}

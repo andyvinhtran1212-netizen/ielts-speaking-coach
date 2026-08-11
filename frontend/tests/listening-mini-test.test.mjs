@@ -35,7 +35,38 @@ describe('Mini test — list page reuses the full-test player', () => {
     assert.match(MINI_JS, /\/api\/listening\/tests\?test_type=mini/);
   });
   it('hub Mini Test card points to the mini list page', () => {
-    assert.match(HUB_HTML, /href="\/pages\/listening-mini-test\.html"/);
+    assert.match(HUB_HTML, /href="\/listening\/mini-test"/);
+  });
+});
+
+describe('Mini test — learner library hierarchy', () => {
+  it('shows progress totals and status filters on both list shells', () => {
+    for (const id of ['lt-summary', 'lt-total-count', 'lt-new-count', 'lt-done-count', 'lt-library']) {
+      assert.match(MINI_HTML, new RegExp(`id="${id}"`));
+    }
+    assert.match(MINI_HTML, /data-filter="all"/);
+    assert.match(MINI_HTML, /data-filter="new"/);
+    assert.match(MINI_HTML, /data-filter="done"/);
+    assert.match(MINI_JS, /function renderSummary\(\)/);
+    assert.match(MINI_JS, /function filteredTests\(\)/);
+  });
+
+  it('does not repeat title and test code when the source labels are identical', () => {
+    assert.match(MINI_JS, /sourceTitle\.toLowerCase\(\) !== sourceCode\.toLowerCase\(\)/);
+    assert.match(MINI_JS, /: 'Mini Listening Test'/);
+  });
+
+  it('does not invent a /40 denominator for variable-length mini tests', () => {
+    const card = MINI_JS.slice(MINI_JS.indexOf('function renderCard'), MINI_JS.indexOf('function filteredTests'));
+    assert.doesNotMatch(card, /\$\{esc\(best\)\}\/40/);
+    assert.match(card, /Điểm tốt nhất:[\s\S]*điểm/);
+  });
+
+  it('only submitted attempts count as completed practice', () => {
+    assert.match(MINI_JS, /function hasSubmittedAttempt\(t\)/);
+    assert.match(MINI_JS, /t\.user_submitted_attempt_count/);
+    assert.match(MINI_JS, /TESTS\.filter\(hasSubmittedAttempt\)/);
+    assert.doesNotMatch(MINI_JS, /const attempted = \(t\.user_attempt_count/);
   });
 });
 

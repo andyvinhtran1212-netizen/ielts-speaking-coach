@@ -4,6 +4,9 @@ sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 httpx==0.27.2
 python-dotenv==1.0.1
+# OpenAPI drift is byte-compared in CI. Pin the schema producer so a new
+# Pydantic minor cannot change JSON Schema without a reviewed repository diff.
+pydantic==2.12.5
 pydantic-settings==2.6.1
 python-multipart==0.0.12
 supabase==2.28.3

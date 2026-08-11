@@ -1,3 +1,25 @@
+
+
+// Module nay co the duoc NAP MUON: tren ban Next, `LegacyModule` chen the
+// <script> trong useEffect, tuc SAU khi React hydrate — ma luc do
+// `DOMContentLoaded` DA BAN. Mot listener dang ky sau do khong bao gio chay,
+// nen trang KHONG BAO GIO boot. Do la loi cong G1 bat duoc o
+// /listening/skills va /reading/vocab (PR #1004).
+//
+// Tren ban legacy the <script> van nam san trong HTML nen `readyState` con la
+// 'loading' — nhanh cu chay y nguyen, khong doi hanh vi.
+function __averOnReady(fn) {
+  if (typeof document === 'undefined') return;
+  // `readyState` LUON la chuoi trong trinh duyet that. Vang no nghia la ta dang
+  // o mot `document` GIA (bo test dung stub toi gian) — khi do giu nguyen hanh
+  // vi cu: chi dang ky listener, dung tu chay. Chay ngay o do se keo ca than
+  // boot vao moi truong khong co DOM that; da lam 5 test chet o lan dau.
+  if (typeof document.readyState !== 'string' || document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+    return;
+  }
+  fn();
+}
 /**
  * frontend/js/reading-vocab.js — Sprint 20.2 L1 Vocab Reading library.
  *
@@ -24,6 +46,9 @@ const VIEWS = {
   empty:   $('state-empty'),
   error:   $('state-error'),
   grid:    $('rv-grid'),
+  result:  $('rv-result-count'),
+  total:   $('rv-total-count'),
+  reset:   $('clear-filters'),
 };
 
 function showState(name) {
@@ -32,7 +57,24 @@ function showState(name) {
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.grid.hidden    = name !== 'ready';
 }
-function showError(msg) { VIEWS.error.textContent = msg; showState('error'); }
+function showError(msg) {
+  VIEWS.error.textContent = msg;
+  if (VIEWS.result) VIEWS.result.textContent = 'Không thể tải danh sách';
+  showState('error');
+}
+
+function revealActiveLibraryTab() {
+  const nav = document.querySelector?.('.rv-libnav');
+  const active = nav?.querySelector('.rv-libnav__link.is-active');
+  if (!nav || !active) return;
+  nav.scrollLeft = Math.max(0, active.offsetLeft - ((nav.clientWidth - active.clientWidth) / 2));
+}
+
+const DIFFICULTY_LABEL = {
+  foundation: 'Foundation',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
 
 function escapeHtml(s) {
   // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
@@ -48,6 +90,8 @@ async function load() {
   showState('loading');
   const difficulty = ($('filter-difficulty').value || '').trim();
   const tag = ($('filter-tag').value || '').trim();
+  VIEWS.result.textContent = 'Đang cập nhật danh sách…';
+  VIEWS.reset.hidden = !(difficulty || tag);
   const qs = new URLSearchParams();
   if (difficulty) qs.set('difficulty', difficulty);
   if (tag) qs.set('tag', tag);
@@ -57,12 +101,24 @@ async function load() {
     const res = await window.api.get(`/api/reading/vocab?${qs.toString()}`);
     STATE.items = (res && res.items) || [];
     seedTagFilter();
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
   } catch (e) {
     showError('Không tải được thư viện. ' + (e && e.message ? e.message : ''));
   }
+}
+
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+    ? res.total
+    : shown;
+  VIEWS.total.textContent = String(total);
+  VIEWS.result.textContent = total > shown
+    ? `${total} bài đọc phù hợp · đang hiển thị ${shown}`
+    : `${total} bài đọc phù hợp`;
 }
 
 // Populate the topic-tag dropdown once, from whatever the first load returns.
@@ -87,25 +143,40 @@ function render() {
     const a = document.createElement('a');
     a.className = 'rv-card';
     a.href = `/pages/reading-vocab-passage.html?slug=${encodeURIComponent(p.slug)}`;
+    const title = p.title || 'Bài đọc';
+    a.setAttribute('aria-label', `Đọc bài ${title}`);
+    const difficulty = DIFFICULTY_LABEL[p.difficulty_level] || p.difficulty_level || 'Mọi trình độ';
     const pills = [
-      p.difficulty_level ? `<span class="rv-pill is-brand">${escapeHtml(p.difficulty_level)}</span>` : '',
       (p.topic_tags || []).slice(0, 2).map((t) => `<span class="rv-pill">${escapeHtml(t)}</span>`).join(''),
-      p.estimated_minutes ? `<span class="rv-pill">${p.estimated_minutes}p</span>` : '',
-      p.word_count ? `<span class="rv-pill">${p.word_count} từ</span>` : '',
+      p.word_count ? `<span class="rv-pill">${escapeHtml(p.word_count)} từ</span>` : '',
     ].join('');
     a.innerHTML = `
-      <h3>${escapeHtml(p.title || 'Bài đọc')}</h3>
-      <div class="rv-card__excerpt">${escapeHtml(p.excerpt || '')}</div>
-      <div class="rv-meta">${pills}</div>`;
+      <div class="rv-card__top">
+        <span class="rv-card__type">TỪ VỰNG TRONG NGỮ CẢNH</span>
+        ${p.estimated_minutes ? `<span class="rv-card__time">${escapeHtml(p.estimated_minutes)} PHÚT</span>` : ''}
+      </div>
+      <h3>${escapeHtml(title)}</h3>
+      <p class="rv-card__excerpt">${escapeHtml(p.excerpt || '')}</p>
+      <div class="rv-meta">${pills}</div>
+      <div class="rv-card__footer">
+        <span class="rv-pill is-brand">${escapeHtml(difficulty)}</span>
+        <span class="rv-card__cta">Đọc &amp; tra từ <span aria-hidden="true">→</span></span>
+      </div>`;
     grid.appendChild(a);
   });
 }
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  __averOnReady(() => {
+    revealActiveLibraryTab();
     load();
     ['filter-difficulty', 'filter-tag'].forEach((id) => {
       $(id).addEventListener('change', load);
+    });
+    VIEWS.reset.addEventListener('click', () => {
+      $('filter-difficulty').value = '';
+      $('filter-tag').value = '';
+      load();
     });
   });
 }

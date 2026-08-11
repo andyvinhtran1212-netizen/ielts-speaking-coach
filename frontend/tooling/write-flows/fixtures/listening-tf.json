@@ -1,0 +1,12 @@
+{
+  "kind": "listening-tf",
+  "content_id": "55555555-5555-4555-8555-555555555555",
+  "exercise_id": "66666666-6666-4666-8666-666666666666",
+  "payload": {
+    "statements": [
+      { "idx": 0, "text": "Câu khẳng định 1.", "answer": "T" },
+      { "idx": 1, "text": "Câu khẳng định 2.", "answer": "F" },
+      { "idx": 2, "text": "Câu khẳng định 3.", "answer": "NG" }
+    ]
+  }
+}

@@ -46,6 +46,10 @@ CASES = [
     # could rename the function and silently mint a PUBLIC-executable one, so
     # every file that (re)defines it is pinned here.
     ("181_test_attempts_class_link.sql",        "fn_delete_class_assignment_if_unsubmitted"),
+    # mig 196 định nghĩa lại lần nữa, để nhận thêm bằng chứng của bài tập theo
+    # buổi. Mỗi tệp (RE)ĐỊNH NGHĨA hàm này đều phải nằm đây — đó đúng là chỗ một
+    # lần sửa sau này có thể lặng lẽ đẻ ra một hàm ai cũng gọi được.
+    ("196_delete_rpc_course_evidence.sql",      "fn_delete_class_assignment_if_unsubmitted"),
 ]
 _ids = [fn for _f, fn in CASES]
 
@@ -95,3 +99,32 @@ def test_revoke_precedes_nothing_that_regrants_public(filename, fn):
         rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+[\w.]*{fn}[^;]*TO\s+(PUBLIC|anon|authenticated)",
         _sql(filename), re.I | re.S,
     )
+
+
+@pytest.mark.parametrize("filename,fn", CASES, ids=_ids)
+def test_search_path_is_pinned_including_pg_temp(filename, fn):
+    """`SECURITY DEFINER` chạy bằng quyền của CHỦ hàm, nên `search_path` là một
+    mặt tấn công: ai tạo được một bảng tạm trùng tên thì hàm đọc bảng của họ.
+
+    Phải nêu `pg_temp` TƯỜNG MINH, và nêu SAU `public`. Bỏ nó đi thì Postgres
+    tự chèn `pg_temp` vào ĐẦU đường tìm — đúng thứ tự nguy hiểm. Mig 179/180/181
+    đều ghim `public, pg_temp`; một bản định nghĩa lại chỉ ghi `public` là đã
+    nới lỏng mà nhìn thì tưởng chặt hơn (codex 06/08).
+    """
+    body = _definition_of(filename, fn)
+    assert re.search(r"SET\s+search_path\s*=\s*public\s*,\s*pg_temp", body, re.I), \
+        f"{fn}: search_path phải là `public, pg_temp`"
+
+
+def _definition_of(filename: str, fn: str) -> str:
+    """Cắt ĐÚNG phần khai của một hàm, từ `CREATE ... FUNCTION <fn>` tới `AS $$`.
+
+    Quét cả tệp là đủ để xanh nhầm: mig 179 khai BA hàm, nên nới lỏng
+    `search_path` của riêng một hàm vẫn núp được sau hai hàm kia (codex 06/08).
+    """
+    src = _sql(filename)
+    m = re.search(rf"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+[\w.]*{fn}\s*\(",
+                  src, re.I)
+    assert m, f"{filename} không khai {fn}"
+    j = src.index("AS $$", m.start())
+    return src[m.start():j]

@@ -32,6 +32,7 @@
   <!-- Aver Design System foundation (tokens before components before page CSS). -->
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-surface.css" data-aver-admin-surface="1" />
   <link rel="stylesheet" href="/css/admin-writing.css" />
   <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
        Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
@@ -43,7 +44,7 @@
   <!-- F4 dashboard — workflow-grouped tiles, token-driven, light + dark.
        Self-contained (.dash-*); matches the #501/#502 card language. -->
 </head>
-<body class="av-page font-sans antialiased">
+<body class="av-page font-sans antialiased av-admin-surface">
   <aver-admin-chrome active="writing">
 
   

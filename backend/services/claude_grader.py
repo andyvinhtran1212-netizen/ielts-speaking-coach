@@ -545,10 +545,24 @@ async def grade_response(
         # fault walks the REAL two-attempt path into the terminal ValueError.
         raw2 = provider_fixtures.fixture_speaking_grade_raw(mode)
     else:
+        # Lần hai đổi sang MÔ HÌNH KHÁC, không hỏi lại đúng mô hình vừa hỏng.
+        #
+        # Lỗi ở đây không phải lỗi mạng mà là mô hình ngừng viết giữa chừng
+        # (`finish_reason=STOP` nhưng JSON chưa đóng) — hỏi lại chính nó là lặp
+        # lại cùng một xúc xắc: đo trên prod, 36/38 lượt hỏng đều gọi đúng hai
+        # lần và cả hai lần đều "thành công" ở tầng mạng. Một mô hình khác là
+        # một phép thử ĐỘC LẬP.
+        #
+        # Bỏ mô hình ĐÃ TRẢ LỜI, không phải bỏ mô hình đầu danh sách: khi
+        # `grading_primary` vắng mặt (không cấu hình, hoặc thiếu khoá) thì câu
+        # trả lời hỏng đến từ `claude_haiku`, mà cắt `[1:]` lại bắt đầu đúng ở
+        # `claude_haiku` — tức là hỏi lại chính nó (codex PR 945 vòng 4).
+        _retry_order = _order_after(fallback_events)
         raw2 = await _invoke_orchestrator(
             orchestrator, system_prompt, retry_message,
             user_id=user_id, session_id=session_id,
             sink=fallback_events,
+            order=_retry_order,
         )
     result2, error2 = validator(raw2)
 
@@ -739,6 +753,57 @@ def _fix_json_strings(text: str) -> str:
     return "".join(result)
 
 
+def _close_unterminated_json(text: str) -> str | None:
+    """Đóng nốt một JSON bị bỏ dở: chuỗi chưa đóng, mảng và đối tượng còn mở.
+
+    Trả `None` khi không có gì để đóng (đã cân bằng — hỏng vì lý do khác).
+
+    Vì sao cần: gemini-3.5-flash thỉnh thoảng NGỪNG VIẾT giữa đối tượng mà vẫn
+    báo `finish_reason=STOP`. Không phải chạm trần token — đo được 953/4096, và
+    bản thô kết thúc ở `"rubric_version": "v3"` thiếu đúng dấu `}`. Dựng lại
+    được trên một bài Part 2 thật: 2/14 lượt hỏng đúng kiểu này, và đó chính là
+    3,8% lượt chấm hỏng trên prod.
+
+    KHÔNG đoán phần nội dung bị mất: trường bắt buộc nằm sau chỗ đứt thì bộ kiểm
+    cấu trúc vẫn từ chối — bịa một điểm số cho phần chưa được viết mới là thứ
+    không được phép.
+    """
+    stack: list[str] = []
+    in_string = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if in_string:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+        i += 1
+
+    if not in_string and not stack:
+        return None
+
+    out = text
+    if in_string:
+        out += '"'
+    out = out.rstrip()
+    # Dấu phẩy treo: `["a",` phải đóng thành `["a"]`, không phải `["a",]`.
+    if out.endswith(","):
+        out = out[:-1]
+    for ch in reversed(stack):
+        out += "}" if ch == "{" else "]"
+    return out
+
+
 def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
     """
     Multi-strategy JSON parser for LLM output.
@@ -753,6 +818,15 @@ def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
     The error_str includes a safe response preview (no PII — just the first 200 chars).
     """
     json_str = _extract_json_object(raw)
+    if json_str is None:
+        # Không tách được thường KHÔNG phải "không có JSON" mà là "JSON chưa
+        # đóng": `_extract_json_object` đếm ngoặc nên một đối tượng bỏ dở làm nó
+        # trả None dù bản thô mở đầu bằng `{`. Vá rồi tách lại.
+        start = (raw or "").find("{")
+        if start != -1:
+            mended = _close_unterminated_json(raw[start:])
+            if mended is not None:
+                json_str = _extract_json_object(mended)
     if json_str is None:
         preview = (raw or "")[:200].replace("\n", "\\n")
         return None, f"no JSON object found. Preview: {preview!r}"
@@ -791,6 +865,29 @@ def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
     )
 
 
+def _order_after(events: list[FallbackEvent] | None) -> tuple[str, ...]:
+    """Thứ tự nhà cung cấp cho lần thử LẠI: bỏ đúng bên vừa trả lời.
+
+    Bên vừa trả lời = sự kiện `success` cuối cùng — chính nó đã đưa ra chuỗi
+    không đọc được, nên hỏi lại nó là lặp lại cùng một xúc xắc.
+
+    Không tìm được thì lùi về "bỏ bên đầu danh sách" (hành vi cũ), và không bao
+    giờ trả về rỗng: cắt hết danh sách nghĩa là không còn ai để hỏi, và lượt
+    chấm hỏng vì một phép cắt.
+    """
+    answered = None
+    for e in (events or []):
+        if getattr(e, "outcome", None) == "success":
+            answered = getattr(e, "provider", None)
+    if answered and answered in GRADING_PROVIDER_ORDER:
+        i = GRADING_PROVIDER_ORDER.index(answered)
+        rest = GRADING_PROVIDER_ORDER[i + 1:]
+        # Hết hàng phía sau thì quay lại từ đầu, BỎ chính bên vừa trả lời.
+        return rest or tuple(x for x in GRADING_PROVIDER_ORDER if x != answered) \
+            or GRADING_PROVIDER_ORDER
+    return GRADING_PROVIDER_ORDER[1:] or GRADING_PROVIDER_ORDER
+
+
 async def _invoke_orchestrator(
     orchestrator: GradingOrchestrator,
     system_prompt: str,
@@ -799,6 +896,7 @@ async def _invoke_orchestrator(
     user_id: str | None,
     session_id: str | None,
     sink: list[FallbackEvent] | None,
+    order: tuple[str, ...] | None = None,
 ) -> str:
     """Sprint 14.3 — replaces direct `_call_claude` calls.
 
@@ -814,7 +912,7 @@ async def _invoke_orchestrator(
             user_message,
             user_id=user_id,
             session_id=session_id,
-            order=GRADING_PROVIDER_ORDER,
+            order=order or GRADING_PROVIDER_ORDER,
         )
     except AllProvidersFailedError as exc:
         if sink is not None:
