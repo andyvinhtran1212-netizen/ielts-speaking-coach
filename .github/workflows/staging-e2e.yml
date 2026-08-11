@@ -45,7 +45,7 @@ jobs:
       group: staging-e2e-shared-env
       cancel-in-progress: false
       queue: max
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +102,12 @@ jobs:
         working-directory: frontend
         timeout-minutes: 5
         run: npm ci
+
+      - name: Verify Speaking Gate E matrix pins
+        working-directory: frontend
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-speaking-device-matrix.mjs
 
       - name: Install Playwright matrix engines
         working-directory: frontend

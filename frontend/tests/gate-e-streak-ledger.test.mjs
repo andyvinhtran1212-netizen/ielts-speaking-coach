@@ -397,12 +397,14 @@ describe('workflow and provenance contract', () => {
     const restore = WORKFLOW.indexOf('Restore previous Gate E streak state');
     const preflight = WORKFLOW.indexOf('Verify frozen Gate E suite before executing staging code');
     const install = WORKFLOW.indexOf('Install frontend deps');
+    const verifySpeakingPins = WORKFLOW.indexOf('Verify Speaking Gate E matrix pins');
     const run = WORKFLOW.indexOf('Run staging E2E');
     const failureMatrix = WORKFLOW.indexOf('Run Gate E Speaking failure matrix');
     const update = WORKFLOW.indexOf('Update Gate E streak ledger');
     const save = WORKFLOW.indexOf('Save Gate E streak state');
     assert.ok(
-      restore < preflight && preflight < install && install < run &&
+      restore < preflight && preflight < install && install < verifySpeakingPins &&
+      verifySpeakingPins < run &&
       run < failureMatrix && failureMatrix < update && update < save,
     );
     for (const artifact of [
@@ -412,6 +414,8 @@ describe('workflow and provenance contract', () => {
     ]) assert.ok(WORKFLOW.includes(artifact));
     assert.match(WORKFLOW, /Update Gate E streak ledger\n\s+id: streak_ledger\n\s+if: always\(\)/);
     assert.match(WORKFLOW, /Verify frozen Gate E suite before executing staging code\n\s+id: frozen_preflight/);
+    assert.match(WORKFLOW, /runs-on: ubuntu-24\.04/);
+    assert.match(WORKFLOW, /Verify Speaking Gate E matrix pins[\s\S]*?GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64[\s\S]*?verify-gate-e-speaking-device-matrix\.mjs/);
     assert.match(
       WORKFLOW,
       /Run Gate E Speaking failure matrix[\s\S]*?id: speaking_failure_matrix[\s\S]*?if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'[\s\S]*?npm run test:e2e:gate-e/,
