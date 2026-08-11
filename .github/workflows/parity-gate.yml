@@ -234,6 +234,11 @@ on:
       # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
       - 'frontend/app/(authed-admin-overview)/**'
       - 'frontend/public/css/admin-overview.css'
+      # Error-log admin có role gate + mutations triage fixture-backed riêng;
+      # không thể dùng snapshot parity bằng tài khoản thường.
+      - 'frontend/app/(authed-admin-error-logs)/**'
+      - 'frontend/lib/admin-error-logs-model.mjs'
+      - 'frontend/public/css/admin-error-logs-next.css'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -261,6 +266,7 @@ on:
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
+      - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -681,6 +687,12 @@ jobs:
       # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
       - name: Kiểm luồng Admin Overview native
         run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/error-logs` có cả read dashboard và mutations dismiss/undo/test.
+      # Runner fixture backend, kiểm canonical reload + rollback metrics và cấm
+      # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
+      - name: Kiểm luồng Admin Error Logs native
+        run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

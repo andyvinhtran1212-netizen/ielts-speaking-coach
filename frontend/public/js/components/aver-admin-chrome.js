@@ -513,7 +513,8 @@ const NAV_GROUPS = [
   {
     title: null,
     items: [
-      { section: 'error-logs', label: 'Báo lỗi',   href: '/pages/admin/error-logs/index.html', icon: 'alert' },
+      // Native owner; the public HTML URL stays reachable as the rollback target.
+      { section: 'error-logs', label: 'Báo lỗi',   href: '/admin/error-logs', icon: 'alert' },
       // Feedback feature — cross-skill inbox (đánh giá đề + báo lỗi đề + flag bài
       // giải) for reading + listening, grouped by test. Not under a skill since
       // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
