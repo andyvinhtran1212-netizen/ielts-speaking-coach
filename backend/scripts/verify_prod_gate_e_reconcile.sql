@@ -1835,8 +1835,7 @@ BEGIN
         'speaking_lesson_set_questions',
         'speaking_progress_marks',
         'course_writing_submissions',
-        'course_writing_drafts',
-        'class_action_log'
+        'course_writing_drafts'
     ] LOOP
         IF EXISTS (
             SELECT 1
@@ -1856,6 +1855,26 @@ BEGIN
             );
         END IF;
     END LOOP;
+
+    -- class_action_log is the deliberate exception to the default ALL grant.
+    -- UPDATE/DELETE remain trigger-guarded, but TRUNCATE bypasses row triggers
+    -- and RLS entirely. Migration 204 revokes that one privilege from every
+    -- application role while preserving the service_role operations used by
+    -- the backend append/read paths.
+    IF NOT has_table_privilege('service_role', 'public.class_action_log', 'SELECT')
+       OR NOT has_table_privilege('service_role', 'public.class_action_log', 'INSERT')
+       OR NOT has_table_privilege('service_role', 'public.class_action_log', 'UPDATE')
+       OR NOT has_table_privilege('service_role', 'public.class_action_log', 'DELETE')
+       OR NOT has_table_privilege('service_role', 'public.class_action_log', 'REFERENCES')
+       OR NOT has_table_privilege('service_role', 'public.class_action_log', 'TRIGGER')
+       OR has_table_privilege('anon', 'public.class_action_log', 'TRUNCATE')
+       OR has_table_privilege('authenticated', 'public.class_action_log', 'TRUNCATE')
+       OR has_table_privilege('service_role', 'public.class_action_log', 'TRUNCATE') THEN
+        missing := array_append(
+            missing,
+            'append-only-table-acl:class_action_log'
+        );
+    END IF;
 
     -- Migration 194 makes drafts backend-only at the table privilege layer in
     -- addition to RLS. RLS alone is insufficient proof because service_role

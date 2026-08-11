@@ -73,6 +73,13 @@ def test_reconciliation_is_atomic_and_does_not_drop_schema():
     assert "DROP COLUMN" not in SQL
 
 
+def test_append_only_log_rejects_trigger_bypassing_truncate():
+    assert (
+        "REVOKE TRUNCATE ON TABLE public.class_action_log\n"
+        "    FROM PUBLIC, anon, authenticated, service_role"
+    ) in SQL
+
+
 def test_procedure_has_an_explicit_audited_manifest_not_a_directory_baseline():
     assert RECONCILE.AUDITED_HISTORY[0] == "173_listening_tests_practice_type.sql"
     assert RECONCILE.AUDITED_HISTORY[-1] == "202_response_persisted_at.sql"
@@ -493,6 +500,12 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
         assert verify_sql.count(security_definer_function) >= 3
     assert "service-only-table-acl:course_writing_drafts" in verify_sql
     assert "service-role-table-acl:' || item" in verify_sql
+    assert "append-only-table-acl:class_action_log" in verify_sql
+    for role in ("anon", "authenticated", "service_role"):
+        assert (
+            f"has_table_privilege('{role}', 'public.class_action_log', 'TRUNCATE')"
+            in verify_sql
+        )
     for table_name in (
         "courses",
         "class_lessons",

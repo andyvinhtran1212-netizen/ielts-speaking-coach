@@ -4,8 +4,9 @@
 --
 -- Migration này cố ý lặp lại final contract của 189 và 200–202 theo dạng
 -- idempotent. Trên môi trường đã chạy đủ 173–203, nó là no-op về dữ liệu. Trên
--- production lệch ledger, nó chỉ bổ sung constraint pairing còn thiếu và ba
--- contract Gate E chưa tồn tại. Không migration lịch sử nào được replay mù.
+-- production lệch ledger, nó bổ sung constraint pairing còn thiếu, ba contract
+-- Gate E chưa tồn tại và đóng lỗ hổng TRUNCATE của nhật ký append-only. Không
+-- migration lịch sử nào được replay mù.
 --
 -- QUAN TRỌNG: production không được chạy file này qua forward runner thông
 -- thường khi ledger 173–203 còn lệch. Dùng procedure fail-closed:
@@ -15,6 +16,14 @@
 -- sử đã kiểm; tuyệt đối không dùng `apply_migrations.sh --baseline` ở đây.
 
 BEGIN;
+
+-- ── Append-only class action log privilege boundary ─────────────────────────
+-- UPDATE/DELETE đi qua row trigger của migration 198, nhưng PostgreSQL
+-- TRUNCATE không chạy row trigger và cũng không chịu RLS. Không vai ứng dụng
+-- nào được phép xoá sạch audit trail bằng đường tắt đó; bảo trì có chủ đích vẫn
+-- có thể do database owner thực hiện sau một thay đổi được audit riêng.
+REVOKE TRUNCATE ON TABLE public.class_action_log
+    FROM PUBLIC, anon, authenticated, service_role;
 
 -- ── Course assignment artifact truth ────────────────────────────────────────
 -- Một artifact phải có cả kind lẫn id, hoặc không có cả hai. Kiểm dữ liệu trước
