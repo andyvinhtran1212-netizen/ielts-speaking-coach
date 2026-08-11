@@ -24,6 +24,7 @@ BASELINE=0
 if [[ "${1:-}" == "--baseline" ]]; then BASELINE=1; shift; fi
 DB_URL="${1:?usage: apply_migrations.sh [--baseline] <DATABASE_URL>}"
 MIG_DIR="$(cd "$(dirname "$0")/../migrations" && pwd)"
+LOCKED_APPLIER="$(cd "$(dirname "$0")" && pwd)/apply_migration_locked.sql"
 PROD_REF="huwsmtubwulikhlmcirx"
 
 if [[ "$DB_URL" == *"$PROD_REF"* && "${ALLOW_PROD:-0}" != "1" ]]; then
@@ -45,23 +46,35 @@ skipped=0
 for f in $(ls "$MIG_DIR"/*.sql | sort); do
   base="$(basename "$f")"
   [[ "$base" == "032_rollback.sql" ]] && continue
+  # An entry already present in the immutable forward ledger is safe to skip.
+  # A row missing from this snapshot is never trusted: it always reaches the
+  # locked helper, which re-checks after waiting for a concurrent reconciler.
   if is_applied "$base"; then
     skipped=$((skipped + 1))
     continue
   fi
-  if [[ "$BASELINE" == "1" ]]; then
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -q -c \
-      "INSERT INTO _schema_migrations (filename) VALUES ('$base') ON CONFLICT DO NOTHING;"
-    echo "baseline: $base"
-  elif [[ "${DRY_RUN:-0}" == "1" ]]; then
-    echo "would apply: $base"
+  # The helper acquires the same PostgreSQL session lock as the production
+  # reconciler, then re-checks this exact ledger row under the lock before it
+  # can include the migration. The helper emits one namespaced status marker;
+  # actual psql/migration failures keep their native non-zero exit code.
+  if output="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q \
+      -v MIGRATION_NAME="$base" \
+      -v MIGRATION_PATH="$f" \
+      -v BASELINE="$BASELINE" \
+      -v DRY_RUN="${DRY_RUN:-0}" \
+      -f "$LOCKED_APPLIER")"; then
+    status=0
   else
-    echo "== $base"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -q -c \
-      "INSERT INTO _schema_migrations (filename) VALUES ('$base') ON CONFLICT DO NOTHING;"
+    status=$?
   fi
-  count=$((count + 1))
+  [[ "$status" == "0" ]] || exit "$status"
+  printf '%s\n' "$output"
+  case "$output" in
+    *"__apply_migration_status__=skipped"*) skipped=$((skipped + 1)) ;;
+    *"__apply_migration_status__=would-apply"*) count=$((count + 1)) ;;
+    *"__apply_migration_status__=processed"*) count=$((count + 1)) ;;
+    *) echo "REFUSED: locked migration helper returned no status for $base" >&2; exit 1 ;;
+  esac
 done
 
 echo "----"
