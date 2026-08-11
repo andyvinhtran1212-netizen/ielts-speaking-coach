@@ -35,11 +35,9 @@ const speakingEvidenceCheckCode = workflowCode.match(
 const speakingEvidenceUploadCode = workflowCode.match(
   /^      - name: Upload Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
-
-const shellRunBlock = (stepCode) => {
-  const block = stepCode.match(/^        run: \|\n((?:^          .*\n?)+)/m)?.[1] || '';
-  return block.replace(/^ {10}/gm, '');
-};
+const speakingEvidenceVerifier = read(
+  'frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs',
+);
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
   const tests = includedProjects.map((project) => ({
@@ -122,43 +120,28 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.doesNotMatch(WRITER, /STAGING_BYPASS|E2E_PASSWORD|access_token|refresh_token/);
   });
 
-  test('Speaking failure artifact fails closed when either runtime report is absent', () => {
+  test('Speaking failure evidence is semantically verified before any streak state advances', () => {
     assert.match(speakingEvidenceCheckCode, /id: speaking_failure_evidence/);
-    assert.match(speakingEvidenceCheckCode, /test -s frontend\/test-results\/gate-e-speaking-device-matrix-results\.json/);
-    assert.match(speakingEvidenceCheckCode, /test -s frontend\/playwright-report\/gate-e\/index\.html/);
+    assert.match(speakingEvidenceCheckCode, /GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/);
+    assert.match(
+      speakingEvidenceCheckCode,
+      /node \.gate-e-auditor\/frontend\/tooling\/verify-gate-e-speaking-failure-evidence\.mjs/,
+    );
     assert.match(
       speakingEvidenceUploadCode,
       /if: always\(\) && steps\.speaking_failure_evidence\.outcome == 'success'/,
     );
-
-    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-e-speaking-artifact-'));
-    const resultFile = path.join(
-      tempDir,
-      'frontend/test-results/gate-e-speaking-device-matrix-results.json',
+    assert.ok(
+      WORKFLOW.indexOf('Verify Speaking failure-matrix evidence')
+      < WORKFLOW.indexOf('Write versioned device-matrix metadata'),
+      'runtime evidence must be verified before metadata and ledger generation',
     );
-    const htmlFile = path.join(tempDir, 'frontend/playwright-report/gate-e/index.html');
-    const runCheck = () => spawnSync(
-      'bash',
-      ['-euo', 'pipefail', '-c', shellRunBlock(speakingEvidenceCheckCode)],
-      { cwd: tempDir, encoding: 'utf8' },
+    assert.match(
+      WORKFLOW,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
-
-    try {
-      mkdirSync(path.dirname(resultFile), { recursive: true });
-      mkdirSync(path.dirname(htmlFile), { recursive: true });
-      writeFileSync(resultFile, '{"suites":[]}');
-      writeFileSync(htmlFile, '<!doctype html>');
-      assert.equal(runCheck().status, 0, 'complete runtime evidence must pass');
-
-      rmSync(resultFile);
-      assert.notEqual(runCheck().status, 0, 'missing JSON runtime report must fail');
-
-      writeFileSync(resultFile, '{"suites":[]}');
-      rmSync(htmlFile);
-      assert.notEqual(runCheck().status, 0, 'missing HTML runtime report must fail');
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
+    assert.match(speakingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
+    assert.match(speakingEvidenceVerifier, /HTML embedded ZIP is truncated/);
   });
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {

@@ -381,12 +381,16 @@ describe('workflow and provenance contract', () => {
     );
     assert.match(CAPTURE, /if \(!shaPattern\.test\(sourceSha\)\) throw new Error\('source-sha-invalid'\)/);
     for (const tool of [
+      'verify-gate-e-speaking-failure-evidence.mjs',
       'write-gate-e-device-matrix-evidence.mjs',
       'capture-gate-e-staging-provenance.mjs',
       'update-gate-e-streak-ledger.mjs',
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
-    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 4);
+    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 5);
     assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
+    assert.match(WORKFLOW, /^\s*timeout-minutes:\s*60\s*$/m);
+    assert.match(DOC, /Job có timeout 60 phút/);
+    assert.match(DOC, /Speaking failure\s+matrix có timeout 10 phút/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
@@ -400,12 +404,14 @@ describe('workflow and provenance contract', () => {
     const verifySpeakingPins = WORKFLOW.indexOf('Verify Speaking Gate E matrix pins');
     const run = WORKFLOW.indexOf('Run staging E2E');
     const failureMatrix = WORKFLOW.indexOf('Run Gate E Speaking failure matrix');
+    const failureEvidence = WORKFLOW.indexOf('Verify Speaking failure-matrix evidence');
     const update = WORKFLOW.indexOf('Update Gate E streak ledger');
     const save = WORKFLOW.indexOf('Save Gate E streak state');
     assert.ok(
       restore < preflight && preflight < install && install < verifySpeakingPins &&
       verifySpeakingPins < run &&
-      run < failureMatrix && failureMatrix < update && update < save,
+      run < failureMatrix && failureMatrix < failureEvidence &&
+      failureEvidence < update && update < save,
     );
     for (const artifact of [
       'gate-e-staging-provenance.json',
@@ -422,7 +428,7 @@ describe('workflow and provenance contract', () => {
     );
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(WORKFLOW, /Upload Speaking failure-matrix evidence[\s\S]*?gate-e-speaking-failure-matrix-/);
     assert.match(WORKFLOW, /Save Gate E streak state\n\s+if: always\(\) && steps\.streak_ledger\.outcome == 'success'/);

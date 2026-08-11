@@ -138,6 +138,16 @@ jobs:
         timeout-minutes: 10
         run: npm run test:e2e:gate-e
 
+      # Validate reporter semantics before any metadata or ledger state can be
+      # written. A nonempty but truncated/empty artifact must reset the streak,
+      # never advance it and only fail later during upload.
+      - name: Verify Speaking failure-matrix evidence
+        id: speaking_failure_evidence
+        if: always() && steps.speaking_failure_matrix.outcome != 'skipped'
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs
+
       # Gate E evidence must remain inspectable even when the suite fails. This
       # metadata contains only versions/run ids/outcome — never secrets or auth
       # state — and pairs with Playwright's JSON reporter output.
@@ -145,7 +155,7 @@ jobs:
         id: matrix_evidence
         if: always()
         env:
-          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && 'success' || 'failure' }}
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && steps.speaking_failure_evidence.outcome == 'success' && 'success' || 'failure' }}
           EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
           EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
@@ -197,15 +207,6 @@ jobs:
             frontend/test-results/staging-e2e-results.json
           if-no-files-found: error
           retention-days: 30
-
-      # The committed manifest alone is not runtime evidence. Fail closed if
-      # Playwright timed out or was cancelled before either reporter flushed.
-      - name: Verify Speaking failure-matrix evidence
-        id: speaking_failure_evidence
-        if: always() && steps.speaking_failure_matrix.outcome != 'skipped'
-        run: |
-          test -s frontend/test-results/gate-e-speaking-device-matrix-results.json
-          test -s frontend/playwright-report/gate-e/index.html
 
       - name: Upload Speaking failure-matrix evidence
         if: always() && steps.speaking_failure_evidence.outcome == 'success'
