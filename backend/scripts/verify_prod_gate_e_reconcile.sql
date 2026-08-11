@@ -223,6 +223,31 @@ BEGIN
         );
     END IF;
 
+    -- Migration 193's subgroup backfill must keep both the subset guard and the
+    -- cohort-scoped recipient selection. Its signature and backend-only ACL do
+    -- not distinguish an unsafe whole-class implementation, so pin the audited
+    -- final body and execution properties before recording migration 193.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_proc p
+          JOIN pg_language l ON l.oid = p.prolang
+         WHERE p.oid = to_regprocedure(
+                   'public.fn_backfill_assignment_items(uuid,uuid[])'
+               )
+           AND l.lanname = 'plpgsql'
+           AND p.prorettype = 'record'::regtype
+           AND p.prosecdef
+           AND p.provolatile = 'v'
+           AND p.proparallel = 'u'
+           AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
+           AND md5(p.prosrc) = '578c2592304f1866bd26931384af8513'
+    ) THEN
+        missing := array_append(
+            missing,
+            'function-contract:fn_backfill_assignment_items'
+        );
+    END IF;
+
     -- The trigger OID only proves which function is called, not that the
     -- function still raises. Pin migration 198's canonical append-only body so
     -- service_role cannot bypass the audit guarantee through a RETURN OLD body.
@@ -466,12 +491,20 @@ BEGIN
     END IF;
     IF NOT EXISTS (
         SELECT 1
-         FROM pg_constraint
-         WHERE conname = 'class_assignments_skill_check'
-           AND conrelid = 'public.class_assignments'::regclass
-           AND pg_get_constraintdef(oid) LIKE '%course%'
+          FROM pg_constraint con
+         WHERE con.conname = 'class_assignments_skill_check'
+           AND con.conrelid = 'public.class_assignments'::regclass
+           AND con.contype = 'c'
+           AND con.convalidated
+           AND pg_get_constraintdef(con.oid) =
+               'CHECK ((skill = ANY (ARRAY[''speaking''::text, '
+               '''writing''::text, ''reading''::text, ''listening''::text, '
+               '''vocab''::text, ''grammar''::text, ''course''::text])))'
     ) THEN
-        missing := array_append(missing, 'constraint-value:assignment.course');
+        missing := array_append(
+            missing,
+            'constraint-contract:class_assignments.skill'
+        );
     END IF;
     IF NOT EXISTS (
         SELECT 1
@@ -818,6 +851,17 @@ BEGIN
             missing,
             'data:class_assignments.recipient_scope'
         );
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM class_assignments
+         WHERE skill IS NULL
+            OR skill NOT IN (
+                'speaking', 'writing', 'reading', 'listening',
+                'vocab', 'grammar', 'course'
+            )
+    ) THEN
+        missing := array_append(missing, 'data:class_assignments.skill');
     END IF;
     IF EXISTS (
         SELECT 1
