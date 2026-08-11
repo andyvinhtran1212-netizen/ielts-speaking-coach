@@ -239,6 +239,13 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "i.indnkeyatts = 2" in verify_sql
     assert "ARRAY['full_test_attempt_id', 'part']::name[]" in verify_sql
     assert "pg_get_expr(i.indpred, i.indrelid)" in verify_sql
+    assert "index-contract:uq_course_writing_per_item" in verify_sql
+    assert "'public.course_writing_submissions'::regclass" in verify_sql
+    assert "'(class_assignment_item_id IS NOT NULL)'" in verify_sql
+    assert "index-contract:uq_course_writing_draft_per_item" in verify_sql
+    assert "'public.course_writing_drafts'::regclass" in verify_sql
+    assert "i.indpred IS NULL" in verify_sql
+    assert "ARRAY['class_assignment_item_id']::name[]" in verify_sql
     assert "policy-contract:reconciled-tables" in verify_sql
     assert "FROM pg_policies p" in verify_sql
     assert "policy_difference" in verify_sql

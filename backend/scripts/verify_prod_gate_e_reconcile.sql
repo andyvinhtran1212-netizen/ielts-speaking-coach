@@ -290,6 +290,69 @@ BEGIN
         );
     END IF;
 
+    -- Migrations 192/194 use these unique indexes as application-level conflict
+    -- targets. A same-named ordinary, invalid, wrong-table, wrong-key or
+    -- wrong-predicate index would either admit duplicate submissions or make
+    -- draft ON CONFLICT saves fail after the ledger has been reconciled.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_index i
+         WHERE i.indexrelid = to_regclass(
+                   'public.uq_course_writing_per_item'
+               )
+           AND i.indrelid = 'public.course_writing_submissions'::regclass
+           AND i.indisunique
+           AND i.indisvalid
+           AND i.indisready
+           AND i.indnatts = 1
+           AND i.indnkeyatts = 1
+           AND i.indexprs IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = i.indrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['class_assignment_item_id']::name[]
+           AND pg_get_expr(i.indpred, i.indrelid) =
+               '(class_assignment_item_id IS NOT NULL)'
+    ) THEN
+        missing := array_append(
+            missing,
+            'index-contract:uq_course_writing_per_item'
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_index i
+         WHERE i.indexrelid = to_regclass(
+                   'public.uq_course_writing_draft_per_item'
+               )
+           AND i.indrelid = 'public.course_writing_drafts'::regclass
+           AND i.indisunique
+           AND i.indisvalid
+           AND i.indisready
+           AND i.indnatts = 1
+           AND i.indnkeyatts = 1
+           AND i.indexprs IS NULL
+           AND i.indpred IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = i.indrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['class_assignment_item_id']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'index-contract:uq_course_writing_draft_per_item'
+        );
+    END IF;
+
     FOR tbl, item IN
         SELECT * FROM (VALUES
             ('courses', 'update_courses_updated_at'),
