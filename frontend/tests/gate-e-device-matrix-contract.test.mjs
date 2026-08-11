@@ -2,7 +2,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -29,6 +29,17 @@ const stagingJobCode = workflowCode.match(/^  staging-e2e:\n[\s\S]*?(?=^  produc
 const evidenceUploadCode = workflowCode.match(
   /^      - name: Upload device-matrix evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
+const speakingEvidenceCheckCode = workflowCode.match(
+  /^      - name: Verify Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+const speakingEvidenceUploadCode = workflowCode.match(
+  /^      - name: Upload Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+
+const shellRunBlock = (stepCode) => {
+  const block = stepCode.match(/^        run: \|\n((?:^          .*\n?)+)/m)?.[1] || '';
+  return block.replace(/^ {10}/gm, '');
+};
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
   const tests = includedProjects.map((project) => ({
@@ -109,6 +120,45 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(WRITER, /target\.version !== project\.browser_version/);
     assert.ok(WRITER.includes('!= installed target'));
     assert.doesNotMatch(WRITER, /STAGING_BYPASS|E2E_PASSWORD|access_token|refresh_token/);
+  });
+
+  test('Speaking failure artifact fails closed when either runtime report is absent', () => {
+    assert.match(speakingEvidenceCheckCode, /id: speaking_failure_evidence/);
+    assert.match(speakingEvidenceCheckCode, /test -s frontend\/test-results\/gate-e-speaking-device-matrix-results\.json/);
+    assert.match(speakingEvidenceCheckCode, /test -s frontend\/playwright-report\/gate-e\/index\.html/);
+    assert.match(
+      speakingEvidenceUploadCode,
+      /if: always\(\) && steps\.speaking_failure_evidence\.outcome == 'success'/,
+    );
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-e-speaking-artifact-'));
+    const resultFile = path.join(
+      tempDir,
+      'frontend/test-results/gate-e-speaking-device-matrix-results.json',
+    );
+    const htmlFile = path.join(tempDir, 'frontend/playwright-report/gate-e/index.html');
+    const runCheck = () => spawnSync(
+      'bash',
+      ['-euo', 'pipefail', '-c', shellRunBlock(speakingEvidenceCheckCode)],
+      { cwd: tempDir, encoding: 'utf8' },
+    );
+
+    try {
+      mkdirSync(path.dirname(resultFile), { recursive: true });
+      mkdirSync(path.dirname(htmlFile), { recursive: true });
+      writeFileSync(resultFile, '{"suites":[]}');
+      writeFileSync(htmlFile, '<!doctype html>');
+      assert.equal(runCheck().status, 0, 'complete runtime evidence must pass');
+
+      rmSync(resultFile);
+      assert.notEqual(runCheck().status, 0, 'missing JSON runtime report must fail');
+
+      writeFileSync(resultFile, '{"suites":[]}');
+      rmSync(htmlFile);
+      assert.notEqual(runCheck().status, 0, 'missing HTML runtime report must fail');
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {

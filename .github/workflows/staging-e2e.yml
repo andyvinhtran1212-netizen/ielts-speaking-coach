@@ -198,8 +198,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Speaking failure-matrix evidence
+      # The committed manifest alone is not runtime evidence. Fail closed if
+      # Playwright timed out or was cancelled before either reporter flushed.
+      - name: Verify Speaking failure-matrix evidence
+        id: speaking_failure_evidence
         if: always() && steps.speaking_failure_matrix.outcome != 'skipped'
+        run: |
+          test -s frontend/test-results/gate-e-speaking-device-matrix-results.json
+          test -s frontend/playwright-report/gate-e/index.html
+
+      - name: Upload Speaking failure-matrix evidence
+        if: always() && steps.speaking_failure_evidence.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: gate-e-speaking-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
