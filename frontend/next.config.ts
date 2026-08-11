@@ -51,7 +51,6 @@ const nextConfig: NextConfig = {
         // route PHẢI cùng một commit — cổng route-ownership chặn trạng thái nửa
         // vời, vì một URL không thể vừa là route vừa là rewrite sang legacy.
         // `/pages/writing-dashboard.html` vẫn trả 200 (cổng parity cần cả hai vế).
-        { source: '/writing/result', destination: '/pages/writing-result.html' },
         { source: '/admin/writing/prompts', destination: '/pages/admin/writing/prompts.html' },
         { source: '/admin/writing/tips', destination: '/pages/admin/writing/tips.html' },
         { source: '/admin/writing/cohorts', destination: '/pages/admin/writing/cohorts.html' },
