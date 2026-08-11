@@ -64,7 +64,9 @@ Một run chỉ được cộng streak khi đồng thời:
 4. suite/matrix versions và frozen-file hashes khớp;
 5. source checkout là branch `staging`; runtime Vercel release và Railway
    `git_sha` từ endpoint admin-only `/health/runtime` đều bằng exact checkout
-   SHA; Vercel git ref là `staging`;
+   SHA; Vercel git ref là `staging`. Workflow truyền SHA do bước
+   `source_revision` chụp vào `GATE_E_SOURCE_SHA`; thiếu/sai SHA làm provenance
+   `ok=false` và reset streak;
 6. GitHub API xác nhận ledger cache đến từ đúng workflow run number ngay trước
    trên toàn workflow; run number phải chính xác bằng `current - 1`, không chỉ là
    run cũ gần nhất API còn trả về. Riêng job `staging-e2e` của run trước phải kết
