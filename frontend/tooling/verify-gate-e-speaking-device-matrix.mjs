@@ -9,7 +9,15 @@ const manifest = readJson('tooling/gate-e-speaking-device-matrix.json');
 const lock = readJson('package-lock.json');
 const browsers = readJson('node_modules/playwright-core/browsers.json').browsers || [];
 const installedPlaywright = lock.packages?.['node_modules/@playwright/test']?.version;
-const runnerImage = process.env.GATE_E_RUNNER_IMAGE || manifest.ci_runner;
+const configuredRunnerImage = process.env.GATE_E_RUNNER_IMAGE;
+
+if (configuredRunnerImage && configuredRunnerImage !== manifest.ci_runner) {
+  throw new Error(
+    `Speaking matrix runner ${configuredRunnerImage} != manifest ${manifest.ci_runner}`,
+  );
+}
+
+const runnerImage = manifest.ci_runner;
 
 if (manifest.playwright_version !== installedPlaywright) {
   throw new Error(
