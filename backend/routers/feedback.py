@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -35,6 +35,7 @@ router = APIRouter(prefix="/api", tags=["feedback"])
 _TYPES = {"rating", "report", "flag"}
 _SKILLS = {"reading", "listening", "vocabulary"}
 _STATUSES = {"new", "resolved"}
+_VOCAB_REPORT_CATEGORIES = {"audio_issue", "content_issue", "other"}
 _ATTEMPT_TABLE = {"reading": "reading_test_attempts", "listening": "listening_test_attempts"}
 _TEST_TABLE = {"reading": "reading_tests", "listening": "listening_tests"}
 
@@ -50,17 +51,29 @@ class FeedbackIn(BaseModel):
     attempt_id: Optional[str] = None
     passage_slug: Optional[str] = None
     content_id: Optional[str] = None
-    vocab_category: Optional[str] = None
-    vocab_slug: Optional[str] = None
+    vocab_category: Optional[str] = Field(default=None, max_length=120)
+    vocab_slug: Optional[str] = Field(default=None, max_length=160)
     q_num: Optional[int] = None
     rating_de: Optional[int] = None
     rating_audio: Optional[int] = None
-    category: Optional[str] = None
-    note: Optional[str] = None
+    category: Optional[str] = Field(default=None, max_length=64)
+    note: Optional[str] = Field(default=None, max_length=1000)
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _anonymous_vocab_dedupe_key(test_id: str, category: str) -> str:
+    """One anonymous inbox row per card/category/UTC day.
+
+    The value is minted by the server and protected by a database unique index
+    (migration 203), so parallel requests cannot race past an application-only
+    count check. Authenticated reports remain attributable and do not use this
+    anonymous abuse-control key.
+    """
+    bucket = datetime.now(timezone.utc).date().isoformat()
+    return f"{test_id}|{category}|{bucket}"
 
 
 async def _optional_user(authorization: str | None) -> Optional[dict]:
@@ -242,6 +255,16 @@ async def submit_feedback(
             raise HTTPException(422, "report requires a category or a note")
         rating_de = rating_audio = None
         if body.skill == "vocabulary":
+            # The public card UI emits the first two values. Note-only reports
+            # share the finite `other` bucket instead of creating infinitely
+            # many NULL categories (NULL values do not collide in a UNIQUE
+            # index).
+            category = category or "other"
+            if category not in _VOCAB_REPORT_CATEGORIES:
+                raise HTTPException(
+                    422,
+                    f"vocabulary category must be one of {sorted(_VOCAB_REPORT_CATEGORIES)}",
+                )
             q_num = None
     else:  # flag
         # Attempt-anchored flags target one review card → q_num bắt buộc.
@@ -264,12 +287,21 @@ async def submit_feedback(
         "status": "new",
         "created_by": user["id"] if user else None,
         "anon_id": anon_id if not user else None,
+        "anonymous_dedupe_key": (
+            _anonymous_vocab_dedupe_key(test_id, category)
+            if body.skill == "vocabulary" and user is None else None
+        ),
         "created_at": _now(),
     }
     try:
         supabase_admin.table("user_feedback").insert(row).execute()
     except Exception as exc:  # unique-index backstop for a racing double-rating
         msg = str(exc).lower()
+        if "uq_feedback_anon_vocab_daily" in msg:
+            raise HTTPException(429, {
+                "error": "anonymous_feedback_rate_limited",
+                "message": "Báo cáo cùng loại cho thẻ này đã được gửi hôm nay.",
+            })
         if "uq_feedback_rating" in msg or "duplicate key" in msg or "23505" in msg:
             raise HTTPException(409, "Bạn đã đánh giá đề này rồi.")
         raise HTTPException(500, f"Không lưu được feedback: {exc}")

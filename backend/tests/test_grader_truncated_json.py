@@ -22,6 +22,7 @@ mô hình, chụp lại nguyên văn.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import pathlib
@@ -60,8 +61,10 @@ def test_a_truncation_that_ate_a_required_field_is_still_refused():
     outs = [cg._parse_and_validate_practice(raw) for raw in _raws()]
     refused = [err for res, err in outs if res is None]
     assert refused, "phải còn ít nhất một bản BỊ TỪ CHỐI, không cứu bằng mọi giá"
-    assert any("thiếu field" in str(e) for e in refused), \
-        "từ chối thì phải nói rõ thiếu gì"
+    assert any(
+        "thiếu field" in str(e) or "no JSON object found" in str(e)
+        for e in refused
+    ), "phải từ chối ở lớp cấu trúc hoặc vì thiếu field, không nhận bản bị cụt"
 
 
 def test_the_repair_is_a_no_op_on_balanced_text():
@@ -82,9 +85,61 @@ def test_a_dangling_comma_does_not_survive_the_repair():
     assert out is not None and json.loads(out) == {"a": ["x"]}
 
 
-def test_an_unterminated_string_is_closed_too():
-    out = cg._close_unterminated_json('{"a": "chưa đóng')
-    assert out is not None and json.loads(out) == {"a": "chưa đóng"}
+def test_an_unterminated_string_is_refused_instead_of_saved_as_complete():
+    raw = '{"a": "This learner-facing sentence was cut in the mid'
+    assert cg._close_unterminated_json(raw) is None
+    parsed, error = cg._parse_json_response(raw)
+    assert parsed is None
+    assert "no JSON object found" in str(error)
+
+
+def _valid_test_grade() -> dict:
+    return {
+        "band_fc": 6,
+        "band_lr": 6,
+        "band_gra": 6,
+        "overall_band": 6.0,
+        "fc_feedback": "Nói khá trôi chảy.",
+        "lr_feedback": "Từ vựng ổn.",
+        "gra_feedback": "Ngữ pháp ổn.",
+        "strengths": ["Phát triển ý tốt"],
+        "improvements": ["Dùng từ đa dạng hơn"],
+        "improved_response": (
+            "I really love reading books because reading helps me relax "
+            "after a long day at work."
+        ),
+        "rubric_version": "v3",
+    }
+
+
+class _TwoResponseOrchestrator:
+    def __init__(self, responses: list[str]):
+        self._responses = iter(responses)
+        self.calls = 0
+
+    async def invoke(self, system_prompt, user_message, *,
+                     user_id=None, session_id=None, order=None):
+        self.calls += 1
+        return next(self._responses), []
+
+
+def test_mid_sentence_truncation_retries_provider_and_keeps_full_retry(monkeypatch):
+    valid_raw = json.dumps(_valid_test_grade())
+    cut_at = valid_raw.index("reading helps") + len("reading hel")
+    truncated_raw = valid_raw[:cut_at]
+    fake = _TwoResponseOrchestrator([truncated_raw, valid_raw])
+    monkeypatch.setattr(cg, "_get_orchestrator", lambda: fake)
+    monkeypatch.setattr(cg, "_get_client", lambda: None)
+
+    result = asyncio.run(cg.grade_response(
+        question="What do you do after work?",
+        transcript="I really love reading books because reading helps me relax after work.",
+        part=1,
+        mode="test",
+    ))
+
+    assert fake.calls == 2
+    assert result["improved_response"] == _valid_test_grade()["improved_response"]
 
 
 def test_the_retry_asks_a_DIFFERENT_model():
