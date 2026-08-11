@@ -214,7 +214,7 @@ describe('Sprint 12.5 — speaking carve survives Sprint 12.8 monolith closure',
   });
 
   it('admin.html redirects to the new IA (where Speaking lives)', () => {
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
   });
 });
 

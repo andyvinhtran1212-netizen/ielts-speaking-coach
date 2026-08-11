@@ -404,9 +404,9 @@ const NAV_GROUPS = [
     items: [
       // The former ops Dashboard (6-metric overview + trends) was consolidated
       // INTO Tổng quan (dashboard-consolidation): one page, two tabs
-      // (Vận hành / Nội dung). /pages/admin/dashboard/index.html 301-redirects
-      // here. The reading-attempts drill-down moved under this entry.
-      { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home',
+      // (Vận hành / Nội dung). `/admin` is the native owner; the stable file
+      // URL remains directly reachable as the rollback surface.
+      { section: 'overview',  label: 'Tổng quan', href: '/admin', icon: 'home',
         subsections: [
           // reading-access-tracking C — reading-attempts drill-down (auth +
           // anonymous share-link takers: time/band/skills).
@@ -625,7 +625,7 @@ function buildTemplate(active, subsection) {
     <span class="back-label">Trang chủ</span>
   </a>
   <span class="brand-divider">|</span>
-  <a href="/pages/admin/index.html" class="brand">
+  <a href="/admin" class="brand">
     Aver<span class="mark">.</span>Learning
   </a>
   <span class="admin-badge">Quản trị</span>

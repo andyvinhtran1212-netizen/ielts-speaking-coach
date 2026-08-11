@@ -459,18 +459,18 @@ describe('Sprint 12.8 — admin.html is a pure redirect to the new IA', () => {
   // (cluster closure) flips admin.html into a pure redirect — the banner
   // becomes a redirect card. Both meta refresh and JS location.replace()
   // target the new IA landing.
-  it('links to /pages/admin/index.html', () => {
-    assert.match(ADMIN_LEGACY, /href=["']\/pages\/admin\/index\.html["']/);
+  it('links to canonical /admin', () => {
+    assert.match(ADMIN_LEGACY, /href=["']\/admin["']/);
   });
 
   it('uses meta refresh + JS replace() for bookmark + JS-off fallback', () => {
     assert.match(
       ADMIN_LEGACY,
-      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/pages\/admin\/index\.html/,
+      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/admin/,
     );
     assert.match(
       ADMIN_LEGACY,
-      /window\.location\.replace\(\s*['"]\/pages\/admin\/index\.html['"]\s*\)/,
+      /window\.location\.replace\(\s*['"]\/admin['"]\s*\)/,
     );
   });
 
