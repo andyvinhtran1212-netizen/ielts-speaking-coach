@@ -11,6 +11,7 @@ const LAYOUT = read('app', '(authed-admin-system)', 'layout.tsx');
 const GATE = read('components', 'admin-access-gate.tsx');
 const SURFACE = read('public', 'css', 'aver-design', 'admin-surface.css');
 const LEGACY = read('pages', 'admin', 'system', 'index.html');
+const ADMIN_HOME = read('pages', 'admin', 'index.html');
 const CONFIG = read('next.config.ts');
 
 describe('/admin/system — native read-only admin pilot', () => {
@@ -18,6 +19,8 @@ describe('/admin/system — native read-only admin pilot', () => {
     assert.match(PAGE, /function AdminSystemPage/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/system['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'system', 'index.html')));
+    assert.match(ADMIN_HOME, /href="\/admin\/system">Hệ thống · LIVE<\/a>/);
+    assert.doesNotMatch(ADMIN_HOME, /href="\/pages\/admin\/system\/index\.html"/);
   });
 
   test('uses the canonical admin shell without importing legacy utility resets', () => {
