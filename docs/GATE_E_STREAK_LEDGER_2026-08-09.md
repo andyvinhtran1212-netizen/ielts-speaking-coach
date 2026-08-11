@@ -129,8 +129,17 @@ Trước khi tạo metadata hay cập nhật ledger, trusted auditor parse JSON 
 trước bước này. JSON + HTML report được upload thành artifact riêng, còn toàn bộ
 config/harness/spec/verifier được frozen bằng hash và directory allowlist.
 
-Đây chỉ là completion của slice Speaking, không phải global failure matrix hay
-real-device completion: Reading/Listening/Writing còn đủ bốn nhánh tương ứng;
+Reading nay có slice độc lập `npm run test:e2e:gate-e:reading`: đúng bốn failure
+path trên Chromium desktop, WebKit desktop và WebKit/iPhone synthetic, tổng 12
+case. Ambiguous commit chứng minh retry idempotent sau connection reset; partial
+persistence chứng minh full in-memory submit không bị chấm thiếu khi một PATCH
+422; reload/resume giữ server clock; Legacy → Next → Legacy cùng đọc một attempt
+và answer ledger. Trusted verifier bắt exact title/project counts, zero
+skip/fail/flake và HTML ZIP hoàn chỉnh. Reading suite hoặc verifier đỏ cũng làm
+`GATE_E_RUN_OUTCOME=failure` trước khi ledger được cập nhật.
+
+Đây là completion của hai slice Speaking + Reading, không phải global failure
+matrix hay real-device completion: Listening/Writing còn đủ bốn nhánh tương ứng;
 WebKit synthetic không thay Safari/iOS thật và hai requirement đó vẫn
 `pending`. Vì vậy `failure_injection.status` vẫn là `partial` và tooling không
 thể tuyên bố Gate E đủ evidence.
@@ -151,5 +160,5 @@ vẫn không được phép tuyên bố Gate E đủ evidence.
    provenance `ok=true`, 33/33 và `streak_count=1`.
 3. Để nightly/manual runs tiếp tục; bất kỳ reset nào phải được điều tra từ
    `reset_reasons`, không chỉnh ledger bằng tay.
-4. Thu hai real-device artifact và hoàn tất failure matrix của ba core cluster
+4. Thu hai real-device artifact và hoàn tất failure matrix của hai core cluster
    còn lại; chỉ sau đó mới đánh giá Gate E.

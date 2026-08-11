@@ -5,24 +5,32 @@ import { fileURLToPath } from 'node:url';
 const AUDITOR_FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 const fail = (message) => {
-  throw new Error(`Speaking failure evidence: ${message}`);
+  throw new Error(`Reading failure evidence: ${message}`);
 };
 
 const sorted = (values) => [...values].sort();
 
 const collectTests = (suites, output = []) => {
   for (const suite of suites || []) {
-    for (const spec of suite.specs || []) output.push(...(spec.tests || []));
+    for (const spec of suite.specs || []) {
+      for (const test of spec.tests || []) {
+        output.push({ ...test, title: test.title || spec.title });
+      }
+    }
     collectTests(suite.suites, output);
   }
   return output;
 };
 
-export function validateSpeakingFailureJson(manifest, report) {
+export function validateReadingFailureJson(manifest, report) {
   const expectedCounts = manifest.expected_project_counts || {};
   const expectedProjects = manifest.automated_projects?.map(({ project }) => project) || [];
+  const expectedTests = manifest.expected_tests || [];
   if (!Number.isInteger(manifest.expected_total_tests) || manifest.expected_total_tests <= 0) {
     fail('manifest expected_total_tests must be a positive integer');
+  }
+  if (!expectedTests.length || new Set(expectedTests).size !== expectedTests.length) {
+    fail('manifest expected_tests must be a nonempty unique list');
   }
   if (JSON.stringify(sorted(Object.keys(expectedCounts))) !== JSON.stringify(sorted(expectedProjects))) {
     fail('manifest project counts do not match automated projects');
@@ -30,6 +38,9 @@ export function validateSpeakingFailureJson(manifest, report) {
   const countTotal = Object.values(expectedCounts).reduce((sum, count) => sum + count, 0);
   if (countTotal !== manifest.expected_total_tests) {
     fail(`manifest project counts total ${countTotal} != ${manifest.expected_total_tests}`);
+  }
+  if (expectedTests.length * expectedProjects.length !== manifest.expected_total_tests) {
+    fail('manifest expected tests do not form the complete project matrix');
   }
 
   const configuredProjects = report?.config?.projects?.map(({ name }) => name) || [];
@@ -52,10 +63,14 @@ export function validateSpeakingFailureJson(manifest, report) {
     fail(`JSON discovered ${tests.length} tests != ${manifest.expected_total_tests}`);
   }
   const actualCounts = Object.fromEntries(expectedProjects.map((project) => [project, 0]));
+  const actualTitles = Object.fromEntries(expectedProjects.map((project) => [project, []]));
   for (const test of tests) {
     const projectName = test.projectName || test.projectId;
     if (!Object.hasOwn(actualCounts, projectName)) {
       fail(`JSON contains unexpected project ${projectName || '<missing>'}`);
+    }
+    if (!expectedTests.includes(test.title)) {
+      fail(`${projectName} contains unexpected test ${test.title || '<missing>'}`);
     }
     if (test.status !== 'expected') {
       fail(`${projectName} contains non-passing test status ${test.status || '<missing>'}`);
@@ -64,17 +79,21 @@ export function validateSpeakingFailureJson(manifest, report) {
       fail(`${projectName} must contain exactly one passed result per test`);
     }
     actualCounts[projectName] += 1;
+    actualTitles[projectName].push(test.title);
   }
   for (const [project, expected] of Object.entries(expectedCounts)) {
     if (actualCounts[project] !== expected) {
       fail(`${project} executed ${actualCounts[project]} tests != ${expected}`);
+    }
+    if (JSON.stringify(sorted(actualTitles[project])) !== JSON.stringify(sorted(expectedTests))) {
+      fail(`${project} did not execute each required Reading failure path exactly once`);
     }
   }
 
   return { total_tests: tests.length, project_counts: actualCounts };
 }
 
-export function validateSpeakingFailureHtml(html) {
+export function validateReadingFailureHtml(html) {
   if (!/^\s*<!DOCTYPE html>/i.test(html) || !/<html\b/i.test(html) || !/<body\b/i.test(html)) {
     fail('HTML report is missing its document shell');
   }
@@ -110,10 +129,10 @@ export function validateSpeakingFailureHtml(html) {
   return { embedded_bytes: zip.length };
 }
 
-export function verifySpeakingFailureEvidence({ manifest, report, html }) {
+export function verifyReadingFailureEvidence({ manifest, report, html }) {
   return {
-    json: validateSpeakingFailureJson(manifest, report),
-    html: validateSpeakingFailureHtml(html),
+    json: validateReadingFailureJson(manifest, report),
+    html: validateReadingFailureHtml(html),
   };
 }
 
@@ -122,21 +141,21 @@ export function run() {
     process.env.GATE_E_TESTED_ROOT || path.dirname(AUDITOR_FRONTEND),
   );
   const manifest = JSON.parse(
-    readFileSync(path.join(AUDITOR_FRONTEND, 'tooling', 'gate-e-speaking-device-matrix.json'), 'utf8'),
+    readFileSync(path.join(AUDITOR_FRONTEND, 'tooling', 'gate-e-reading-device-matrix.json'), 'utf8'),
   );
   const report = JSON.parse(
     readFileSync(
-      path.join(testedRoot, 'frontend', 'test-results', 'gate-e-speaking-device-matrix-results.json'),
+      path.join(testedRoot, 'frontend', 'test-results', 'gate-e-reading-device-matrix-results.json'),
       'utf8',
     ),
   );
   const html = readFileSync(
-    path.join(testedRoot, 'frontend', 'playwright-report', 'gate-e', 'index.html'),
+    path.join(testedRoot, 'frontend', 'playwright-report', 'gate-e-reading', 'index.html'),
     'utf8',
   );
-  const result = verifySpeakingFailureEvidence({ manifest, report, html });
+  const result = verifyReadingFailureEvidence({ manifest, report, html });
   console.log(
-    `Speaking failure evidence verified: ${result.json.total_tests} tests, `
+    `Reading failure evidence verified: ${result.json.total_tests} tests, `
     + `${Object.keys(result.json.project_counts).length} projects`,
   );
 }

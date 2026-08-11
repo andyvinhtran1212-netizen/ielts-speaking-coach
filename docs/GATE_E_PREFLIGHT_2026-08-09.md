@@ -25,17 +25,19 @@ thiết bị thật. Active-session affinity mới có foundation và unit-level
 chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
 implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
 contract. Speaking đã có stable hybrid Next player route với native bootstrap,
-recorder, submission, Full Test state và player lifecycle; renderer cùng browser
-evidence vẫn chưa hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
+recorder, submission, Full Test state và player lifecycle. Reading đã có native
+player cùng failure matrix versioned 12 case trên Chromium/WebKit desktop và
+WebKit/iPhone emulation; Listening/Writing và thiết bị Safari/iOS thật vẫn chưa
+hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; artifact ghi `matrix_complete: true`, exact revisions và 0 report error | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và matrix spec chưa bao phủ core players. WebKit/static scan không thay thế thiết bị thật. |
-| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có full-test chain + `test_part` resume regressions; `docs/SPIKE_4_GRADING_FAULT_PARITY_2026-07-14.md` pin grading fault/ambiguous-response semantics | Chưa có một versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing flows theo cả legacy→Next và Next→legacy. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; Speaking và Reading có matrix production-build riêng, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence, và Listening/Writing chưa có core-player matrix. WebKit/static scan không thay thế thiết bị thật. |
+| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Speaking có đủ bốn failure paths; Reading có 12 case = 4 path × Chromium/WebKit desktop/WebKit-iPhone, cùng canonical-state assertion sau reload/stack switch | Listening và Writing còn thiếu đủ bốn path; vì vậy chưa có versioned matrix bao phủ toàn bộ core speaking/reading/listening/writing. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
-| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests live-staging; cùng workflow chạy thêm Speaking failure matrix 46 browser cases trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift và fail của bất kỳ suite nào; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact; Reading/Listening/Writing còn bốn failure paths mỗi cluster. Cơ chế đếm không thay thế các lần chạy thật. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests live-staging; cùng workflow chạy Speaking 46 case và Reading 12 case trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier; artifact bind cùng frontend/backend SHA | Chưa có qualifying 20-run artifact; Listening/Writing còn bốn failure paths mỗi cluster. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -84,8 +86,8 @@ evidence vẫn chưa hoàn tất. Vì vậy canonical core cutover vẫn bị ch
 - **Root cause:** workflow nightly ban đầu không có frozen critical manifest,
   provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; Speaking
   failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Phần
-  còn thiếu là 20 executions thật cùng ba failure-matrix slice của các core
-  cluster tiếp theo.
+  còn thiếu là 20 executions thật cùng hai failure-matrix slice Listening và
+  Writing.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ

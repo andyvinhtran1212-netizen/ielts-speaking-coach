@@ -6,18 +6,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  validateSpeakingFailureHtml,
-  validateSpeakingFailureJson,
-} from '../tooling/verify-gate-e-speaking-failure-evidence.mjs';
+  validateReadingFailureHtml,
+  validateReadingFailureJson,
+} from '../tooling/verify-gate-e-reading-failure-evidence.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const MANIFEST = JSON.parse(
-  readFileSync(path.join(FRONTEND, 'tooling', 'gate-e-speaking-device-matrix.json'), 'utf8'),
+  readFileSync(path.join(FRONTEND, 'tooling', 'gate-e-reading-device-matrix.json'), 'utf8'),
 );
 
 const validReport = () => {
-  const tests = Object.entries(MANIFEST.expected_project_counts).flatMap(([projectName, count]) => (
-    Array.from({ length: count }, () => ({
+  const tests = Object.keys(MANIFEST.expected_project_counts).flatMap((projectName) => (
+    MANIFEST.expected_tests.map((title) => ({
+      title,
       projectName,
       status: 'expected',
       results: [{ status: 'passed' }],
@@ -27,12 +28,7 @@ const validReport = () => {
     config: { projects: MANIFEST.automated_projects.map(({ project: name }) => ({ name })) },
     suites: [{ specs: [{ tests }] }],
     errors: [],
-    stats: {
-      expected: MANIFEST.expected_total_tests,
-      skipped: 0,
-      unexpected: 0,
-      flaky: 0,
-    },
+    stats: { expected: 12, skipped: 0, unexpected: 0, flaky: 0 },
   };
 };
 
@@ -45,7 +41,6 @@ const minimalReportZip = () => {
   local.writeUInt32LE(body.length, 18);
   local.writeUInt32LE(body.length, 22);
   local.writeUInt16LE(name.length, 26);
-
   const central = Buffer.alloc(46);
   central.writeUInt32LE(0x02014b50, 0);
   central.writeUInt16LE(20, 4);
@@ -53,7 +48,6 @@ const minimalReportZip = () => {
   central.writeUInt32LE(body.length, 20);
   central.writeUInt32LE(body.length, 24);
   central.writeUInt16LE(name.length, 28);
-
   const localEntry = Buffer.concat([local, name, body]);
   const centralEntry = Buffer.concat([central, name]);
   const eocd = Buffer.alloc(22);
@@ -73,7 +67,7 @@ const validHtml = () => (
 
 const runVerifier = (testedRoot) => spawnSync(
   process.execPath,
-  ['tooling/verify-gate-e-speaking-failure-evidence.mjs'],
+  ['tooling/verify-gate-e-reading-failure-evidence.mjs'],
   {
     cwd: FRONTEND,
     encoding: 'utf8',
@@ -81,40 +75,26 @@ const runVerifier = (testedRoot) => spawnSync(
   },
 );
 
-describe('Speaking failure evidence is semantic and fail-closed', () => {
-  test('accepts the exact frozen 46-test/3-project report and complete HTML bundle', () => {
-    assert.deepEqual(validateSpeakingFailureJson(MANIFEST, validReport()).project_counts, {
-      'gate-e-chromium-desktop': 16,
-      'gate-e-webkit-desktop': 15,
-      'gate-e-webkit-iphone13': 15,
+describe('Reading failure evidence is semantic and fail-closed', () => {
+  test('accepts only the exact 12-test/3-project/four-path report', () => {
+    assert.deepEqual(validateReadingFailureJson(MANIFEST, validReport()).project_counts, {
+      'gate-e-reading-chromium-desktop': 4,
+      'gate-e-reading-webkit-desktop': 4,
+      'gate-e-reading-webkit-iphone13': 4,
     });
-    assert.ok(validateSpeakingFailureHtml(validHtml()).embedded_bytes > 22);
+    assert.ok(validateReadingFailureHtml(validHtml()).embedded_bytes > 22);
   });
 
-  test('rejects malformed JSON and a syntactically valid empty-suite report', () => {
-    assert.throws(() => JSON.parse('{"suites":'), SyntaxError);
+  test('rejects an empty report, wrong title and non-passing result', () => {
     const empty = validReport();
     empty.suites = [];
-    assert.throws(
-      () => validateSpeakingFailureJson(MANIFEST, empty),
-      /JSON discovered 0 tests != 46/,
-    );
-  });
-
-  test('rejects wrong project counts and non-passing results', () => {
-    const wrongCount = validReport();
-    wrongCount.suites[0].specs[0].tests.pop();
-    assert.throws(
-      () => validateSpeakingFailureJson(MANIFEST, wrongCount),
-      /JSON discovered 45 tests != 46/,
-    );
-
+    assert.throws(() => validateReadingFailureJson(MANIFEST, empty), /JSON discovered 0 tests != 12/);
+    const wrongTitle = validReport();
+    wrongTitle.suites[0].specs[0].tests[0].title = 'not-a-reading-failure-path';
+    assert.throws(() => validateReadingFailureJson(MANIFEST, wrongTitle), /unexpected test/);
     const failed = validReport();
     failed.suites[0].specs[0].tests[0].results[0].status = 'failed';
-    assert.throws(
-      () => validateSpeakingFailureJson(MANIFEST, failed),
-      /must contain exactly one passed result/,
-    );
+    assert.throws(() => validateReadingFailureJson(MANIFEST, failed), /exactly one passed result/);
   });
 
   test('accepts Playwright reports that identify projects with projectId', () => {
@@ -123,40 +103,26 @@ describe('Speaking failure evidence is semantic and fail-closed', () => {
       item.projectId = item.projectName;
       delete item.projectName;
     }
-    assert.equal(validateSpeakingFailureJson(MANIFEST, report).total_tests, 46);
+    assert.equal(validateReadingFailureJson(MANIFEST, report).total_tests, 12);
   });
 
-  test('rejects a truncated or semantically empty HTML report', () => {
-    assert.throws(() => validateSpeakingFailureHtml('<!DOCTYPE html><html><body></body>'), /embedded report bundle/);
+  test('rejects truncated or semantically empty HTML', () => {
+    assert.throws(() => validateReadingFailureHtml('<!DOCTYPE html><html><body></body>'), /embedded report bundle/);
     const truncated = validHtml().replace(/.{12}<\/template>$/, '</template>');
-    assert.throws(() => validateSpeakingFailureHtml(truncated), /base64 is truncated|ZIP/);
+    assert.throws(() => validateReadingFailureHtml(truncated), /base64 is truncated|ZIP/);
   });
 
-  test('CLI fails when either report is missing and passes only with both valid reports', () => {
-    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'gate-e-speaking-evidence-'));
-    const resultFile = path.join(
-      tempRoot,
-      'frontend/test-results/gate-e-speaking-device-matrix-results.json',
-    );
-    const htmlFile = path.join(tempRoot, 'frontend/playwright-report/gate-e/index.html');
+  test('CLI fails closed on missing files and accepts both complete reports', () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'gate-e-reading-evidence-'));
+    const resultFile = path.join(tempRoot, 'frontend/test-results/gate-e-reading-device-matrix-results.json');
+    const htmlFile = path.join(tempRoot, 'frontend/playwright-report/gate-e-reading/index.html');
     try {
       mkdirSync(path.dirname(resultFile), { recursive: true });
       mkdirSync(path.dirname(htmlFile), { recursive: true });
       writeFileSync(resultFile, JSON.stringify(validReport()));
       assert.notEqual(runVerifier(tempRoot).status, 0, 'missing HTML must fail');
-
       writeFileSync(htmlFile, validHtml());
       assert.equal(runVerifier(tempRoot).status, 0, 'complete evidence must pass');
-
-      writeFileSync(resultFile, '{"suites":');
-      assert.notEqual(runVerifier(tempRoot).status, 0, 'malformed JSON must fail');
-
-      const empty = validReport();
-      empty.suites = [];
-      writeFileSync(resultFile, JSON.stringify(empty));
-      assert.notEqual(runVerifier(tempRoot).status, 0, 'empty-suite JSON must fail');
-
-      writeFileSync(resultFile, JSON.stringify(validReport()));
       rmSync(resultFile);
       assert.notEqual(runVerifier(tempRoot).status, 0, 'missing JSON must fail');
     } finally {
