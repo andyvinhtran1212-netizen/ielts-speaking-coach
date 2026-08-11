@@ -42,7 +42,7 @@ Mỗi implementation có URL ổn định riêng:
 | Surface | Legacy stable URL | Next stable URL | Admission hiện tại |
 |---|---|---|---|
 | Speaking | `/pages/practice.html` | `/practice/session` | legacy |
-| Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy |
+| Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy |
 | Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy |
 | Writing dashboard | `/pages/writing-dashboard.html` | `/writing/dashboard` | Next — cutover trước batch này |
