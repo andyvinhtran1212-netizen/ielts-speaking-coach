@@ -58,15 +58,29 @@ jobs:
       group: staging-e2e-shared-env
       cancel-in-progress: false
     steps:
+      - name: Require trusted main workflow revision
+        run: test "$GITHUB_REF" = refs/heads/main
+
       - name: Checkout deployed staging source
         uses: actions/checkout@v5
         with:
           ref: staging
           fetch-depth: 0
 
+      - name: Checkout trusted Gate E auditor
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          path: .gate-e-auditor
+          fetch-depth: 1
+
       - name: Capture checked-out source SHA
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Capture trusted auditor SHA
+        id: auditor
+        run: echo "sha=$(git -C .gate-e-auditor rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -74,22 +88,24 @@ jobs:
           node-version: '24'
 
       - name: Capture exact staging release provenance
-        working-directory: frontend
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
           GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
           GATE_E_PROVENANCE_REQUIRED: 'true'
-        run: node tooling/capture-gate-e-staging-provenance.mjs
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
 
       - name: Validate real-device attestation against canonical state
         id: evidence
-        working-directory: frontend
+        if: always()
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           GATE_E_REAL_DEVICE_REQUIRED: 'true'
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
           GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_AUDITOR_SHA: ${{ steps.auditor.outputs.sha }}
           GATE_E_REQUIREMENT_ID: ${{ inputs.requirement_id }}
           GATE_E_OBSERVED_PLATFORM: ${{ inputs.observed_platform }}
           GATE_E_OBSERVED_BROWSER: ${{ inputs.observed_browser }}
@@ -100,7 +116,7 @@ jobs:
           GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
           GATE_E_CONSOLE_ERRORS_JSON: ${{ inputs.console_errors_json }}
           GATE_E_NETWORK_FAILURES_JSON: ${{ inputs.network_failures_json }}
-        run: node tooling/capture-gate-e-speaking-real-device-evidence.mjs
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-speaking-real-device-evidence.mjs
 
       - name: Upload validated evidence
         if: always()
@@ -108,8 +124,8 @@ jobs:
         with:
           name: gate-e-speaking-real-device-${{ inputs.requirement_id }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            frontend/tooling/gate-e-speaking-device-matrix.json
-            frontend/tooling/gate-e-speaking-real-device-evidence.schema.json
+            .gate-e-auditor/frontend/tooling/gate-e-speaking-device-matrix.json
+            .gate-e-auditor/frontend/tooling/gate-e-speaking-real-device-evidence.schema.json
             frontend/test-results/gate-e-staging-provenance.json
             frontend/test-results/gate-e-speaking-real-device-evidence.json
           if-no-files-found: error

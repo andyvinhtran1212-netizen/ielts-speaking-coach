@@ -53,6 +53,7 @@
   "real_device_evidence": {
     "schema": "tooling/gate-e-speaking-real-device-evidence.schema.json",
     "workflow": ".github/workflows/speaking-real-device-evidence.yml",
+    "pair_workflow": ".github/workflows/speaking-real-device-pair.yml",
     "max_attestation_age_hours": 12,
     "max_session_age_hours": 3,
     "retention_days": 90

@@ -16,11 +16,12 @@
   `real_device_requirements`; cổng Gate E đọc `real_devices_complete` trong
   `frontend/tooling/gate-e-streak-lib.mjs`; trước batch không có artifact thật
   để chuyển hai dòng này sang `complete`.
-- **Minimal fix:** workflow manual checkout đúng `staging`, đối chiếu frontend và
-  backend cùng SHA đang phục vụ, đọc lại session của tài khoản synthetic từ API,
-  yêu cầu đủ exact scope/zero console-network failure, rồi xuất artifact theo
-  JSON schema. Hai artifact chỉ hợp lệ khi cùng một `source_sha` và hai workflow
-  run khác nhau.
+- **Minimal fix:** workflow chỉ được dispatch từ revision tin cậy `main`, dùng
+  auditor/script ở `main` để checkout và kiểm candidate `staging`; đối chiếu
+  frontend và backend cùng SHA đang phục vụ, đọc lại session của tài khoản
+  synthetic từ API, yêu cầu đủ exact scope/zero console-network failure, rồi
+  xuất artifact theo JSON schema. Hai artifact chỉ hợp lệ khi cùng một
+  `source_sha`, hai workflow run khác nhau và metadata run khớp GitHub API.
 - **Verification:** unit test fail-closed cho version/scope/time/release/session,
   source contract cho workflow và schema; sau khi chạy thật, dùng pair verifier
   ở bước 4. Không sửa status manifest trước khi cả hai artifact đều xanh.
@@ -73,8 +74,10 @@ Hoàn tất đủ sáu scope:
 ## 3. Phát hành artifact
 
 Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** từ
-branch `staging`. Nhập platform/browser đúng nguyên văn trong matrix, session ID,
-UTC `observed_at`, operator và JSON scope. Ví dụ Safari:
+branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout candidate
+`staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
+Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
+`observed_at`, operator và JSON scope. Ví dụ Safari:
 
 ```json
 {
@@ -98,20 +101,17 @@ dùng để đổi manifest.
 
 ## 4. Ghép cặp và handoff
 
-Tải hai file `gate-e-speaking-real-device-evidence.json` từ hai workflow run vào
-hai thư mục riêng rồi chạy:
+Từ branch `main`, chạy workflow **Speaking Gate E real-device pair
+verification** với hai run ID và exact 40-character staging SHA. Workflow tải
+đúng artifact có tên gắn với từng run bằng GitHub Actions API, kiểm toàn bộ
+schema/semantic scope/canonical session, rồi đối chiếu metadata của từng run với
+GitHub API. Không dùng file JSON tải tay làm bằng chứng admission canonical.
 
-```bash
-GATE_E_EXPECTED_SOURCE_SHA=<40-char-staging-sha> node \
-  frontend/tooling/verify-gate-e-speaking-real-device-pair.mjs \
-  /path/to/safari/gate-e-speaking-real-device-evidence.json \
-  /path/to/ios/gate-e-speaking-real-device-evidence.json
-```
-
-Pair chỉ PASS khi đủ đúng hai requirement, hai run ID khác nhau, cùng matrix và
-cùng một `source_sha` trên `staging`. Sau đó mới mở PR evidence-only cập nhật hai
-dòng manifest sang `complete` kèm run ID/SHA; thay đổi manifest sẽ reset streak,
-vì vậy chuỗi 20 critical-suite run bắt đầu sau PR đó.
+Pair chỉ PASS khi đủ đúng hai requirement, hai run ID khác nhau, hai run đều là
+`workflow_dispatch` thành công lần đầu trên trusted `main`, cùng matrix và cùng
+một `source_sha` trên `staging`. Sau đó mới mở PR evidence-only cập nhật hai dòng
+manifest sang `complete` kèm run ID/SHA; thay đổi manifest sẽ reset streak, vì
+vậy chuỗi 20 critical-suite run bắt đầu sau PR đó.
 
 ## 5. Ranh giới quyết định
 

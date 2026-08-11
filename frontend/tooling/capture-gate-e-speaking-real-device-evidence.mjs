@@ -7,14 +7,18 @@ import {
   validateSpeakingRealDeviceEvidence,
 } from './gate-e-speaking-real-device-evidence-lib.mjs';
 
-const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const AUDITOR_FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const TESTED_ROOT = path.resolve(
+  process.env.GATE_E_TESTED_ROOT || path.dirname(AUDITOR_FRONTEND),
+);
+const TESTED_FRONTEND = path.join(TESTED_ROOT, 'frontend');
 const manifest = JSON.parse(readFileSync(
-  path.join(FRONTEND, 'tooling', 'gate-e-speaking-device-matrix.json'),
+  path.join(AUDITOR_FRONTEND, 'tooling', 'gate-e-speaking-device-matrix.json'),
   'utf8',
 ));
-const provenancePath = path.join(FRONTEND, 'test-results', 'gate-e-staging-provenance.json');
+const provenancePath = path.join(TESTED_FRONTEND, 'test-results', 'gate-e-staging-provenance.json');
 const outputPath = path.join(
-  FRONTEND,
+  TESTED_FRONTEND,
   'test-results',
   'gate-e-speaking-real-device-evidence.json',
 );
@@ -102,6 +106,7 @@ try {
     canonicalSession: canonical,
     workflow: {
       actor: process.env.GITHUB_ACTOR,
+      auditor_sha: process.env.GATE_E_AUDITOR_SHA,
       repository: process.env.GITHUB_REPOSITORY,
       name: process.env.GITHUB_WORKFLOW,
       run_id: process.env.GITHUB_RUN_ID,

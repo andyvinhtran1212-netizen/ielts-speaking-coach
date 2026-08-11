@@ -102,9 +102,11 @@ export function validateSpeakingRealDeviceEvidence({
       canonicalSession.persisted_response_count < 1) {
     errors.push('canonical-response-missing');
   }
-  if (!cleanText(canonicalSession?.mode)) errors.push('canonical-mode-missing');
-  if (![1, 2, 3].includes(Number(canonicalSession?.part))) errors.push('canonical-part-invalid');
-  if (!cleanText(canonicalSession?.status)) errors.push('canonical-status-missing');
+  if (canonicalSession?.mode !== 'practice') errors.push('canonical-mode-mismatch');
+  if (canonicalSession?.part !== 2) errors.push('canonical-part-mismatch');
+  if (typeof canonicalSession?.status !== 'string' || !canonicalSession.status.trim()) {
+    errors.push('canonical-status-missing');
+  }
 
   if (!cleanText(workflow?.actor)) errors.push('workflow-actor-missing');
   if (workflow?.repository !== 'andyvinhtran1212-netizen/ielts-speaking-coach') {
@@ -113,9 +115,10 @@ export function validateSpeakingRealDeviceEvidence({
   if (workflow?.name !== 'Speaking Gate E real-device evidence') {
     errors.push('workflow-name-mismatch');
   }
+  if (!SHA.test(cleanText(workflow?.auditor_sha))) errors.push('auditor-sha-invalid');
   if (!/^\d+$/.test(cleanText(workflow?.run_id))) errors.push('workflow-run-id-invalid');
   if (String(workflow?.run_attempt || '') !== '1') errors.push('workflow-rerun-not-eligible');
-  if (workflow?.git_ref !== 'refs/heads/staging') errors.push('workflow-ref-mismatch');
+  if (workflow?.git_ref !== 'refs/heads/main') errors.push('workflow-ref-mismatch');
 
   const ok = errors.length === 0;
   return {
@@ -146,13 +149,16 @@ export function validateSpeakingRealDeviceEvidence({
       provenance: {
         frontend_release: provenance.frontend_release,
         frontend_git_ref: provenance.frontend_git_ref,
+        runtime_environment: provenance.runtime_environment,
         backend_release: provenance.backend_release,
         backend_git_branch: provenance.backend_git_branch,
         backend_environment_name: provenance.backend_environment_name,
       },
       workflow: {
+        actor: cleanText(workflow.actor),
         repository: cleanText(workflow.repository),
         name: cleanText(workflow.name),
+        auditor_sha: cleanText(workflow.auditor_sha),
         run_id: cleanText(workflow.run_id),
         run_attempt: 1,
         git_ref: workflow.git_ref,
@@ -161,7 +167,110 @@ export function validateSpeakingRealDeviceEvidence({
   };
 }
 
-export function validateSpeakingRealDeviceEvidencePair(evidenceList, expectedSourceSha = '') {
+const COMPLETE_EVIDENCE_KEYS = [
+  'schema_version', 'matrix_id', 'requirement_id', 'status', 'evidence_class',
+  'source_sha', 'source_branch', 'staging_origin', 'route', 'coexistence_route',
+  'observed_platform', 'observed_browser', 'device_model', 'operator', 'attested_by',
+  'observed_at', 'captured_at', 'canonical_session', 'scope_results', 'console_errors',
+  'network_failures', 'provenance', 'workflow',
+];
+const CANONICAL_SESSION_KEYS = [
+  'id', 'mode', 'part', 'status', 'started_at', 'persisted_response_count',
+];
+const PROVENANCE_KEYS = [
+  'frontend_release', 'frontend_git_ref', 'runtime_environment', 'backend_release',
+  'backend_git_branch', 'backend_environment_name',
+];
+const WORKFLOW_KEYS = [
+  'actor', 'repository', 'name', 'auditor_sha', 'run_id', 'run_attempt', 'git_ref',
+];
+
+export function validateCompleteSpeakingRealDeviceArtifact(manifest, evidence) {
+  const errors = [];
+  if (!exactKeys(evidence, COMPLETE_EVIDENCE_KEYS)) errors.push('artifact-shape-mismatch');
+  if (!exactKeys(evidence?.canonical_session, CANONICAL_SESSION_KEYS)) {
+    errors.push('canonical-session-shape-mismatch');
+  }
+  if (!exactKeys(evidence?.provenance, PROVENANCE_KEYS)) {
+    errors.push('provenance-shape-mismatch');
+  }
+  if (!exactKeys(evidence?.workflow, WORKFLOW_KEYS)) {
+    errors.push('workflow-shape-mismatch');
+  }
+  if (evidence?.schema_version !== 1) errors.push('schema-version-mismatch');
+  if (evidence?.matrix_id !== manifest?.matrix_id) errors.push('matrix-id-mismatch');
+  if (evidence?.status !== 'complete') errors.push('evidence-not-complete');
+  if (evidence?.evidence_class !== 'manual-real-device') errors.push('evidence-class-mismatch');
+  if (evidence?.source_branch !== 'staging') errors.push('source-branch-mismatch');
+  if (evidence?.route !== manifest?.route ||
+      evidence?.coexistence_route !== manifest?.coexistence_route) {
+    errors.push('route-contract-mismatch');
+  }
+  const capturedAtMs = Date.parse(cleanText(evidence?.captured_at));
+  if (!Number.isFinite(capturedAtMs)) {
+    errors.push('captured-at-invalid');
+  } else {
+    const revalidated = validateSpeakingRealDeviceEvidence({
+      manifest,
+      input: {
+        requirement_id: evidence.requirement_id,
+        source_sha: evidence.source_sha,
+        observed_platform: evidence.observed_platform,
+        observed_browser: evidence.observed_browser,
+        device_model: evidence.device_model,
+        operator: evidence.operator,
+        observed_at: evidence.observed_at,
+        canonical_session_id: evidence.canonical_session?.id,
+        scope_results: evidence.scope_results,
+        console_errors: evidence.console_errors,
+        network_failures: evidence.network_failures,
+      },
+      provenance: {
+        ok: true,
+        staging_origin: evidence.staging_origin,
+        ...evidence.provenance,
+      },
+      canonicalSession: evidence.canonical_session,
+      workflow: evidence.workflow,
+      now: capturedAtMs,
+    });
+    errors.push(...revalidated.errors);
+    if (evidence.attested_by !== evidence.workflow?.actor) {
+      errors.push('attested-actor-mismatch');
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateSpeakingRealDeviceWorkflowRun(evidence, run) {
+  const errors = [];
+  if (String(run?.id || '') !== String(evidence?.workflow?.run_id || '')) {
+    errors.push('github-run-id-mismatch');
+  }
+  if (run?.name !== evidence?.workflow?.name) errors.push('github-workflow-name-mismatch');
+  if (run?.path !== '.github/workflows/speaking-real-device-evidence.yml') {
+    errors.push('github-workflow-path-mismatch');
+  }
+  if (run?.event !== 'workflow_dispatch') errors.push('github-run-event-mismatch');
+  if (run?.status !== 'completed' || run?.conclusion !== 'success') {
+    errors.push('github-run-not-successful');
+  }
+  if (run?.head_branch !== 'main' || run?.head_sha !== evidence?.workflow?.auditor_sha) {
+    errors.push('github-run-revision-mismatch');
+  }
+  if (Number(run?.run_attempt) !== 1) errors.push('github-run-attempt-mismatch');
+  if (run?.repository?.full_name !== evidence?.workflow?.repository) {
+    errors.push('github-repository-mismatch');
+  }
+  if (run?.actor?.login !== evidence?.workflow?.actor) errors.push('github-actor-mismatch');
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateSpeakingRealDeviceEvidencePair(
+  manifest,
+  evidenceList,
+  expectedSourceSha = '',
+) {
   const errors = [];
   const items = Array.isArray(evidenceList) ? evidenceList : [];
   const expectedIds = ['ios-safari-floor', 'safari-floor'];
@@ -169,9 +278,9 @@ export function validateSpeakingRealDeviceEvidencePair(evidenceList, expectedSou
   if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
     errors.push('requirement-pair-mismatch');
   }
-  if (items.some((item) => item?.status !== 'complete')) errors.push('evidence-not-complete');
-  if (items.some((item) => item?.matrix_id !== 'gate-e-speaking-device-matrix-v1')) {
-    errors.push('matrix-id-mismatch');
+  for (const item of items) {
+    const artifact = validateCompleteSpeakingRealDeviceArtifact(manifest, item);
+    errors.push(...artifact.errors.map((error) => `${item?.requirement_id || 'unknown'}:${error}`));
   }
   const sourceShas = new Set(items.map((item) => item?.source_sha));
   if (sourceShas.size !== 1 || !SHA.test(String(items[0]?.source_sha || ''))) {
@@ -181,7 +290,7 @@ export function validateSpeakingRealDeviceEvidencePair(evidenceList, expectedSou
     errors.push('expected-source-sha-mismatch');
   }
   if (items.some((item) => item?.source_branch !== 'staging' ||
-      item?.workflow?.git_ref !== 'refs/heads/staging')) {
+      item?.workflow?.git_ref !== 'refs/heads/main')) {
     errors.push('staging-ref-mismatch');
   }
   if (items.some((item) => item?.provenance?.frontend_release !== item?.source_sha ||
