@@ -353,6 +353,67 @@ BEGIN
         );
     END IF;
 
+    -- Course code is the stable public/admin identity and the seed itself uses
+    -- ON CONFLICT(code). The admin create/update routes rely on this exact key
+    -- to reject a duplicate course with 409 instead of creating split truth.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_attribute a
+         WHERE a.attrelid = 'public.courses'::regclass
+           AND a.attname = 'code'
+           AND NOT a.attisdropped
+           AND format_type(a.atttypid, a.atttypmod) = 'text'
+           AND a.attnotnull
+           AND NOT EXISTS (
+                SELECT 1
+                  FROM pg_attrdef d
+                 WHERE d.adrelid = a.attrelid
+                   AND d.adnum = a.attnum
+           )
+    ) THEN
+        missing := array_append(missing, 'column-contract:courses.code');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint con
+          JOIN pg_index idx ON idx.indexrelid = con.conindid
+         WHERE con.conrelid = 'public.courses'::regclass
+           AND con.conname = 'courses_code_key'
+           AND con.contype = 'u'
+           AND con.convalidated
+           AND idx.indrelid = con.conrelid
+           AND idx.indisunique
+           AND idx.indisvalid
+           AND idx.indisready
+           AND idx.indnkeyatts = 1
+           AND idx.indnatts = 1
+           AND idx.indexprs IS NULL
+           AND idx.indpred IS NULL
+           AND ARRAY(
+                SELECT att.attname
+                  FROM unnest(con.conkey) WITH ORDINALITY AS key(attnum, ord)
+                  JOIN pg_attribute att
+                    ON att.attrelid = con.conrelid
+                   AND att.attnum = key.attnum
+                 ORDER BY key.ord
+           ) = ARRAY['code']::name[]
+    ) THEN
+        missing := array_append(
+            missing,
+            'constraint-contract:courses.code-unique'
+        );
+    END IF;
+
+    IF EXISTS (
+        SELECT code
+          FROM public.courses
+         GROUP BY code
+        HAVING code IS NULL OR count(*) > 1
+    ) THEN
+        missing := array_append(missing, 'data:courses.code-duplicate');
+    END IF;
+
     -- Migration 189 widened score specifically so a perfect quiz percentage
     -- (100.0) remains representable. Constraint-name existence cannot prove
     -- either that typmod change or the validated canonical 0..100 domain.

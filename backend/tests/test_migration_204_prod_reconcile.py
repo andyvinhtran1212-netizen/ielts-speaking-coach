@@ -25,6 +25,7 @@ SCRIPT_PATH = BACKEND_ROOT / "scripts" / "reconcile_prod_gate_e_migrations.py"
 VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_gate_e_reconcile.sql"
 GRADING_PATH = BACKEND_ROOT / "routers" / "grading.py"
 PROGRESS_BACKFILL_PATH = BACKEND_ROOT / "scripts" / "backfill_speaking_progress.py"
+ADMIN_COURSES_PATH = BACKEND_ROOT / "routers" / "admin_courses.py"
 
 _SPEC = importlib.util.spec_from_file_location("prod_gate_e_reconcile", SCRIPT_PATH)
 assert _SPEC and _SPEC.loader
@@ -267,6 +268,11 @@ def test_postcondition_sql_pins_final_schema_data_and_rpc_body():
     assert "constraint-contract:speaking_progress_marks.response-parent" in verify_sql
     assert "data:speaking_progress_marks.response-id-duplicate" in verify_sql
     assert "ARRAY['response_id']::name[]" in verify_sql
+    assert "column-contract:courses.code" in verify_sql
+    assert "courses_code_key" in verify_sql
+    assert "constraint-contract:courses.code-unique" in verify_sql
+    assert "data:courses.code-duplicate" in verify_sql
+    assert "ARRAY['code']::name[]" in verify_sql
     assert "expected_check.definition" in verify_sql
     assert "class_assignments_kind_check" in verify_sql
     assert "class_assignment_items_artifact_pairing" in verify_sql
@@ -414,3 +420,12 @@ def test_both_progress_mark_writers_use_the_verified_response_conflict_key():
 
     assert '.upsert(mark, on_conflict="response_id")' in grading_source
     assert '.upsert(batch, on_conflict="response_id")' in backfill_source
+
+
+def test_admin_course_writes_rely_on_the_verified_code_unique_key():
+    source = ADMIN_COURSES_PATH.read_text(encoding="utf-8")
+
+    assert 'supabase_admin.table("courses").insert({' in source
+    assert '"code":        body.code' in source
+    assert 'if "duplicate key" in str(exc).lower() or "unique"' in source
+    assert "raise HTTPException(409" in source
