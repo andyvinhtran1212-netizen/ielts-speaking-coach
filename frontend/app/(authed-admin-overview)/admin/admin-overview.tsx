@@ -601,7 +601,7 @@ export function AdminOverview() {
             <a href="/admin/users">Tất cả người dùng · LIVE</a>
             <a href="/admin/system">Hệ thống · LIVE</a>
             <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>
-            <a href="/pages/admin/classes/index.html">Lớp &amp; Học viên</a>
+            <a href="/admin/classes">Lớp &amp; Học viên · LIVE</a>
             <a href="/pages/admin/usage/index.html">Usage logs · Phase B</a>
           </div>
         </div>
