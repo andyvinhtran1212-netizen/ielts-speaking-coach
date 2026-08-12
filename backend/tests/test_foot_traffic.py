@@ -377,6 +377,7 @@ def test_foot_traffic_snapshot_wins_over_future_date_to(monkeypatch):
     ("not-a-date", None),
     ("2026-08-12", "bad"),
     ("2026-08-13", "2026-08-12"),
+    ("2999-08-12", "2999-08-12"),
 ])
 def test_foot_traffic_rejects_invalid_date_filters(monkeypatch, date_from, date_to):
     from fastapi import HTTPException

@@ -1485,6 +1485,8 @@ async def foot_traffic(
     if date_to_point and date_from_point > date_to_point:
         raise HTTPException(422, "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc")
     effective_to_point = min(date_to_point, snapshot_point) if date_to_point else snapshot_point
+    if date_from_point > effective_to_point:
+        raise HTTPException(422, "Ngày bắt đầu không được nằm sau thời điểm dữ liệu hiện có")
     date_from = date_from_point.isoformat()
     date_to = date_to_point.isoformat() if date_to_point else None
     effective_to = effective_to_point.isoformat()

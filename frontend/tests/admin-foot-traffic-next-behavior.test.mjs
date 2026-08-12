@@ -30,6 +30,8 @@ describe('/admin/foot-traffic native contract', () => {
     assert.match(CLIENT, /snapshot\?\.key === currentKey/);
     assert.match(CLIENT, /const targetKey = makeKey\(from, to, routeFilter\)/);
     assert.match(CLIENT, /if \(targetKey === currentKey\) void load/);
+    assert.match(CLIENT, /nextFrom > defaults\.to/);
+    assert.match(CLIENT, /type="date" max=\{defaults\.to\}/);
     assert.match(LAYOUT, /admin-foot-traffic-next\.css/);
     assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-foot-traffic\)\/\*\*/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-foot-traffic-flow\.mjs/);

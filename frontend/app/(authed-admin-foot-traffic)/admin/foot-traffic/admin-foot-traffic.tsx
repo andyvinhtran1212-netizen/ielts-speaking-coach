@@ -49,8 +49,8 @@ export function AdminFootTraffic() {
     const requestId = ++sequence.current;
     const fromIso = dateInputToIso(nextFrom);
     const toIso = dateInputToIso(nextTo, true);
-    if (!fromIso || !toIso || fromIso > toIso) {
-      setError('Khoảng ngày không hợp lệ. Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+    if (!fromIso || !toIso || fromIso > toIso || nextFrom > defaults.to) {
+      setError('Khoảng ngày không hợp lệ. Ngày bắt đầu phải trước hoặc bằng ngày kết thúc và không được nằm trong tương lai.');
       setLoading(false);
       return;
     }
@@ -72,7 +72,7 @@ export function AdminFootTraffic() {
     } finally {
       if (requestId === sequence.current) setLoading(false);
     }
-  }, [profile.id, urlFrom, urlRoute, urlTo]);
+  }, [defaults.to, profile.id, urlFrom, urlRoute, urlTo]);
 
   useEffect(() => {
     setFrom(urlFrom); setTo(urlTo); setRouteFilter(urlRoute);
@@ -83,8 +83,8 @@ export function AdminFootTraffic() {
   const apply = () => {
     const fromIso = dateInputToIso(from);
     const toIso = dateInputToIso(to, true);
-    if (!fromIso || !toIso || fromIso > toIso) {
-      setError('Khoảng ngày không hợp lệ. Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+    if (!fromIso || !toIso || fromIso > toIso || from > defaults.to) {
+      setError('Khoảng ngày không hợp lệ. Ngày bắt đầu phải trước hoặc bằng ngày kết thúc và không được nằm trong tương lai.');
       return;
     }
     const url = new URL(window.location.href);
@@ -104,8 +104,8 @@ export function AdminFootTraffic() {
     <header className="aft-header"><div><p className="aft-eyebrow">Vận hành · Phân tích</p><h1>Lưu lượng truy cập</h1><p className="aft-subtitle">Theo dõi lượt xem trang, khách đăng nhập và lưu lượng ẩn danh. Đây là event traffic, không phải số phiên học.</p></div><button className="btn-secondary" type="button" onClick={() => void load(urlFrom, urlTo, urlRoute)} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></header>
 
     <section className="aft-filters" aria-label="Bộ lọc lưu lượng">
-      <label>Từ ngày<input aria-label="Từ ngày" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-      <label>Đến ngày<input aria-label="Đến ngày" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+      <label>Từ ngày<input aria-label="Từ ngày" type="date" max={defaults.to} value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+      <label>Đến ngày<input aria-label="Đến ngày" type="date" max={defaults.to} value={to} onChange={(event) => setTo(event.target.value)} /></label>
       <label className="aft-route-filter">Đường dẫn<input aria-label="Đường dẫn" value={routeFilter} onChange={(event) => setRouteFilter(event.target.value)} placeholder="Ví dụ /home" /></label>
       <button className="btn-primary" type="button" onClick={apply} disabled={loading}>Áp dụng</button>
     </section>
