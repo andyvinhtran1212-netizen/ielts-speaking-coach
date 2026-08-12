@@ -70,7 +70,7 @@ describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
 describe('Sprint 18.1 A — "Lớp & Học viên" tab bar', () => {
   test('cohorts page: cohorts tab active, links to students', () => {
     assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*id="tab-classes"[^>]*href="\/admin\/classes"/);
-    assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*id="tab-students"[^>]*href="\/pages\/admin\/classes\/index\.html\?tab=students"/);
+    assert.match(COHORTS_HTML, /class="adm-subtab"[^>]*id="tab-students"[^>]*href="\/admin\/students"/);
   });
   test('students page: students tab active, links to cohorts', () => {
     assert.match(STUDENTS_HTML, /id="tab-students"/);

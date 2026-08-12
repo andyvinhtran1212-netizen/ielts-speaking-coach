@@ -93,6 +93,6 @@ describe('Sprint 18.3.2 — Sprint 18.1 tabs preserved', () => {
     // GĐ 1b: cùng một trang, hai tab. Trạng thái active do JS đặt lúc chạy theo
     // ?tab=, nên ở đây chỉ ghim hai tab tồn tại và trỏ đúng đích.
     assert.match(HTML, /id="tab-classes"[^>]*href="\/admin\/classes"/);
-    assert.match(HTML, /id="tab-students"[^>]*href="\/pages\/admin\/classes\/index\.html\?tab=students"/);
+    assert.match(HTML, /id="tab-students"[^>]*href="\/admin\/students"/);
   });
 });
