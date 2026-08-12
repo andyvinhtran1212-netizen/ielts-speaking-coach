@@ -475,7 +475,9 @@ const NAV_GROUPS = [
           { slug: 'exercises',     label: 'D1 Exercises',    href: '/pages/admin/vocab/exercises.html' },
         ],
       },
-      { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit',
+      // Native hub owns the clean route; child tools remain legacy until their
+      // own cutover batches. The rollback hub stays directly reachable.
+      { section: 'grammar',   label: 'Grammar',   href: '/admin/grammar',   icon: 'edit',
         subsections: [
           { slug: 'articles',         label: 'Articles',          href: '/pages/admin/grammar/articles.html' },
           { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/pages/admin/vocab/topics.html?skill_area=grammar' },

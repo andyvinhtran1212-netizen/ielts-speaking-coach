@@ -270,6 +270,12 @@ on:
       - 'frontend/public/css/admin-reading-attempts-next.css'
       - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
       - 'frontend/public/js/admin-reading-attempts.js'
+      # Grammar hub is a native, read-only routing surface. Its fixture-backed
+      # browser contract pins admin auth, destination truth and responsive UI.
+      - 'frontend/app/(authed-admin-grammar)/**'
+      - 'frontend/public/css/admin-grammar-hub-next.css'
+      - 'frontend/public/pages/admin/grammar/index.html'
+      - 'frontend/public/pages/admin/index.html'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -334,6 +340,7 @@ on:
       - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
+      - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -801,6 +808,11 @@ jobs:
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
         run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar` is a read-only content-operations hub. The fixture
+      # proves backend role gating, canonical destinations and mobile/desktop UI.
+      - name: Kiểm luồng Admin Grammar hub native
+        run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

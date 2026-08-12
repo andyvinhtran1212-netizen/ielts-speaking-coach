@@ -277,7 +277,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/admin/grammar` | — | `pages/admin/grammar/index.html` | Admin | none | localStorage (theme), sessionStorage (category filter), fetch (grammar API) | M | Grammar article management hub |
+| `/admin/grammar` | `/pages/admin/grammar/index.html` remains rollback target | `app/(authed-admin-grammar)/admin/grammar/page.tsx` — native React ownership 2026-08-13 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; localStorage (theme/sidebar) | S | Native file-based content-operations hub; canonical links to learner preview, three legacy child workspaces and the shared Grammar exercise console; no content mutation or invented metrics |
 | `/admin/grammar/articles` | — | `pages/admin/grammar/articles.html` | Admin | `category`, `status` (draft, published), `search` | localStorage (theme), sessionStorage (filter state), fetch (article list) | L | Article CRUD + bulk edit; markdown editor |
 | `/admin/grammar/analytics` | — | `pages/admin/grammar/analytics.html` | Admin | `date_range`, `category` | localStorage (theme), fetch (analytics API), chart library | M | Article view count + engagement |
 | `/admin/grammar/recommend-test` | — | `pages/admin/grammar/recommend-test.html` | Admin | none | localStorage (theme), fetch (recommendation engine) | M | Test recommendation generator; preview rules |

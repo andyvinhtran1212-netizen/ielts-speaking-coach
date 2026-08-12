@@ -227,6 +227,18 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/grammar` hub migration (2026-08-13)
+
+- Reframed the landing as a content-operations workspace: publishing truth and
+  the repository workflow appear before the four operational destinations.
+- Kept the canonical file-based contract visible and added no fake counts or
+  editing affordances. Articles, analytics, recommendation testing and the
+  shared Grammar exercise console are clearly distinguished by purpose.
+- Added a direct learner-view link, semantic status labels, full-card keyboard
+  targets, responsive one-column composition and reduced-motion fallbacks.
+- The backend-owned admin role gate now fails closed before the native surface;
+  the legacy HTML remains directly reachable as the rollback target.
+
 ### Native `/admin/foot-traffic` migration (2026-08-12)
 
 - Replaced the legacy all-at-once surface with an operational hierarchy: clear
