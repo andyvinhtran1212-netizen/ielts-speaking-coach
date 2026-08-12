@@ -1464,7 +1464,7 @@ export interface paths {
          *
          *     Returns:
          *       - views_total              (sum of view_count across article_views)
-         *       - views_recent             (sum where last_viewed_at >= now-days)
+         *       - active_view_records_recent (user/article records active in the window)
          *       - saves_total              (count of saved_articles rows)
          *       - top_viewed[]             (top 20 by total views)
          *       - top_saved[]              (top 5 by save count)
