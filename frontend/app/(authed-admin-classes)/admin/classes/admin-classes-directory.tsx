@@ -50,6 +50,7 @@ export function AdminClassesDirectory() {
   const profile = useAdminProfile();
   const [payload, setPayload] = useState<CohortPayload>({ cohorts: [], rollup_failed: false, course_lookup_failed: false });
   const [courses, setCourses] = useState<Course[]>([]);
+  const [hasCohortSnapshot, setHasCohortSnapshot] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export function AdminClassesDirectory() {
     let canonical = true;
     if (cohortResult.status === 'fulfilled') {
       setPayload(normalizeCohortsPayload(cohortResult.value) as CohortPayload);
+      setHasCohortSnapshot(true);
     } else {
       canonical = false;
       setLoadError(messageOf(cohortResult.reason));
@@ -92,6 +94,7 @@ export function AdminClassesDirectory() {
   useEffect(() => {
     setPayload({ cohorts: [], rollup_failed: false, course_lookup_failed: false });
     setCourses([]);
+    setHasCohortSnapshot(false);
     setBanner(null);
     setStatus('active');
     setCourseId('');
@@ -109,6 +112,7 @@ export function AdminClassesDirectory() {
     [payload.cohorts, payload.rollup_failed],
   );
   const selectedCourseKnown = !draft?.courseId || courses.some((course) => course.id === draft.courseId);
+  const showingStaleCohorts = Boolean(loadError && hasCohortSnapshot);
 
   const mutate = async (action: () => Promise<unknown>, success: string) => {
     if (mutationBusy) return;
@@ -181,9 +185,9 @@ export function AdminClassesDirectory() {
       </nav>
 
       <section className="acd-kpis" aria-label="Tổng quan lớp học">
-        <div className="acd-kpi"><span>Lớp đang hoạt động</span><strong>{`${summary.active.toLocaleString('vi-VN')} / ${summary.total.toLocaleString('vi-VN')}`}</strong></div>
-        <div className="acd-kpi"><span>Học viên trong lớp active</span><strong><Count value={summary.students} /></strong></div>
-        <div className="acd-kpi"><span>Chưa kích hoạt</span><strong><Count value={summary.unactivated} /></strong></div>
+        <div className="acd-kpi"><span>Lớp đang hoạt động</span><strong>{hasCohortSnapshot ? `${summary.active.toLocaleString('vi-VN')} / ${summary.total.toLocaleString('vi-VN')}` : <span className="acd-unknown">Chưa đọc được</span>}</strong></div>
+        <div className="acd-kpi"><span>Học viên trong lớp active</span><strong><Count value={hasCohortSnapshot ? summary.students : null} /></strong></div>
+        <div className="acd-kpi"><span>Chưa kích hoạt</span><strong><Count value={hasCohortSnapshot ? summary.unactivated : null} /></strong></div>
       </section>
 
       <StatusBanner banner={banner} />
@@ -213,8 +217,8 @@ export function AdminClassesDirectory() {
           <button className="adm-btn-secondary" type="button" onClick={() => void loadDirectory()} disabled={loading || mutationBusy}>{loading ? 'Đang tải…' : 'Tải lại'}</button>
         </div>
 
-        <div className="acd-result-bar"><strong>{loadError ? (payload.cohorts.length ? `${rows.length.toLocaleString('vi-VN')} lớp · dữ liệu lần tải trước` : 'Chưa đọc được danh sách') : `${rows.length.toLocaleString('vi-VN')} lớp`}</strong><span>Số liệu tổng quan chỉ tính lớp đang hoạt động.</span></div>
-        {loadError && <div className={payload.cohorts.length ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không tải được danh sách lớp mới nhất</strong><span>{loadError}{payload.cohorts.length ? ' Dữ liệu bên dưới có thể đã cũ.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadDirectory()}>Thử lại</button></div>}
+        <div className="acd-result-bar"><strong>{loadError ? (showingStaleCohorts ? `${rows.length.toLocaleString('vi-VN')} lớp · dữ liệu lần tải trước` : 'Chưa đọc được danh sách') : `${rows.length.toLocaleString('vi-VN')} lớp`}</strong><span>Số liệu tổng quan chỉ tính lớp đang hoạt động.</span></div>
+        {loadError && <div className={showingStaleCohorts ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không tải được danh sách lớp mới nhất</strong><span>{loadError}{showingStaleCohorts ? ' Dữ liệu bên dưới có thể đã cũ.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadDirectory()}>Thử lại</button></div>}
         {!loadError && loading && !payload.cohorts.length ? <div className="acd-state" role="status"><span className="acd-spinner" aria-hidden="true" />Đang tải dữ liệu lớp…</div> : null}
         {!loadError && !loading && rows.length === 0 ? <div className="acd-state"><strong>{payload.cohorts.length ? 'Không có lớp khớp bộ lọc' : 'Chưa có lớp nào'}</strong><span>{payload.cohorts.length ? 'Thử đổi từ khóa, khóa học hoặc trạng thái.' : 'Tạo lớp đầu tiên để bắt đầu.'}</span></div> : null}
         {(!loadError || payload.cohorts.length > 0) && rows.length > 0 ? (

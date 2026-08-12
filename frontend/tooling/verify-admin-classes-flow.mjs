@@ -40,6 +40,7 @@ let cohorts = [
   { id: 'co-orphan', name: 'Lớp Liên Kết Cũ', code_prefix: null, description: null, course_id: 'course-missing', course: null, member_count: 4, unactivated_count: 0, is_active: true, created_at: '2026-07-01T00:00:00Z' },
   { id: 'co-archived', name: 'Lớp Đã Lưu', code_prefix: 'OLD', description: null, course_id: 'course-old', course: courses[1], member_count: 9, unactivated_count: 5, is_active: false, created_at: '2026-06-01T00:00:00Z' },
 ];
+let failCohortReads = false;
 
 const requests = [];
 const unexpectedWrites = [];
@@ -66,7 +67,10 @@ await page.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-classes@local', role: 'admin' });
   if (parsed.pathname === '/admin/courses' && method === 'GET') return json({ courses });
-  if (parsed.pathname === '/admin/cohorts' && method === 'GET') return json({ cohorts, course_lookup_failed: true });
+  if (parsed.pathname === '/admin/cohorts' && method === 'GET') {
+    if (failCohortReads) return json({ detail: 'fixture cohort read failed' }, 503);
+    return json({ cohorts, course_lookup_failed: true });
+  }
   if (parsed.pathname === '/admin/cohorts' && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}');
     const course = courses.find((item) => item.id === body.course_id) || null;
@@ -165,6 +169,16 @@ check('khôi phục PATCH is_active=true rồi canonical reload',
 
 check('table nằm trong viewport, overflow được giữ trong wrapper',
   await page.locator('[data-testid="classes-table-scroll"]').evaluate((element) => element.getBoundingClientRect().right <= window.innerWidth + 1));
+
+failCohortReads = true;
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByText('Không tải được danh sách lớp mới nhất', { exact: true }).waitFor({ state: 'visible' });
+const failedKpis = await page.locator('.acd-kpi strong').allTextContents();
+check('initial cohort failure never becomes fake zero',
+  failedKpis.length === 3
+  && failedKpis.every((value) => value.trim() === 'Chưa đọc được')
+  && pageErrors.length === 0,
+  [...failedKpis, ...pageErrors].join(' | '));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 

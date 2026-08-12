@@ -58,7 +58,8 @@ describe('/admin/classes — native directory ownership', () => {
     assert.doesNotMatch(DIRECTORY, /setCourses\(\[\]\);\s*setCoursesError/);
     assert.match(DIRECTORY, /Dữ liệu bên dưới có thể đã cũ/);
     assert.match(DIRECTORY, /Chưa đọc được số chưa kích hoạt/);
-    assert.doesNotMatch(DIRECTORY, /value=\{loadError \? null : summary\./);
+    assert.match(DIRECTORY, /hasCohortSnapshot \? summary\.students : null/);
+    assert.match(DIRECTORY, /showingStaleCohorts = Boolean\(loadError && hasCohortSnapshot\)/);
     assert.match(MODEL, /course_id: courseId \|\| null/);
     assert.doesNotMatch(DIRECTORY, /dangerouslySetInnerHTML|\.innerHTML/);
   });
@@ -85,6 +86,7 @@ describe('/admin/classes — native directory ownership', () => {
     assert.match(WORKFLOW, /node tooling\/verify-admin-classes-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.match(BROWSER, /canonical reload/);
+    assert.match(BROWSER, /initial cohort failure never becomes fake zero/);
   });
 });
 
