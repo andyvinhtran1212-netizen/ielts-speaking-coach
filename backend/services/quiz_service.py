@@ -435,6 +435,20 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
             q["accept"] = None
             q["answer"] = None
 
+    # BÀI ĐỌC THÊM: passage, từ vựng và câu hỏi đi cùng đề; bản dịch + đáp án
+    # chỉ tới sau khi học viên chủ động đối chiếu. Lọc ở máy chủ — xoá bằng JS
+    # vẫn để nguyên lời giải trong Network response, đúng lỗi phần tự luận đã
+    # từng mắc.
+    meta = dict(bank.get("meta") or {})
+    reading = meta.get("short_reading")
+    if isinstance(reading, dict):
+        reading_for_play = dict(reading)
+        reading_for_play.pop("translation", None)
+        reading_for_play.pop("answers", None)
+        reading_for_play["has_solution"] = True
+        meta["short_reading"] = reading_for_play
+        bank = {**bank, "meta": meta}
+
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
@@ -442,6 +456,36 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     if mastery_state is not None:
         out["mastery"] = mastery_state
     return out
+
+
+def course_reading_solution(*, user_id: str, bank_id: str,
+                            submitted_answers: dict) -> dict:
+    """Bản dịch và đáp án của bài đọc thêm, qua cùng cổng bài-giao với đề."""
+    _bank_meta_or_404(bank_id, user_id)
+    try:
+        rows = (supabase_admin.table("quiz_banks").select("meta")
+                .eq("id", bank_id).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc đáp án bài đọc: {exc}")
+    reading = (((rows[0] if rows else {}).get("meta") or {}).get("short_reading"))
+    if not isinstance(reading, dict):
+        raise HTTPException(404, "Bài tập này không có bài đọc thêm")
+    translation = reading.get("translation")
+    answers = reading.get("answers")
+    if not translation or not isinstance(answers, list) or not answers:
+        raise HTTPException(500, "Bài đọc chưa có đủ bản dịch và đáp án")
+    expected = [str(row.get("id") or "") for row in answers if row.get("id")]
+    if len(expected) != len(answers):
+        raise HTTPException(500, "Đáp án bài đọc thiếu mã câu")
+    submitted = {str(k): str(v or "").strip()
+                 for k, v in (submitted_answers or {}).items()}
+    missing = [qid for qid in expected if not submitted.get(qid)]
+    if missing:
+        raise HTTPException(422, {
+            "message": f"Còn {len(missing)} câu bài đọc chưa trả lời.",
+            "missing": missing,
+        })
+    return {"translation": translation, "answers": answers}
 
 
 def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:

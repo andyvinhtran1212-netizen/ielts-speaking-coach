@@ -217,6 +217,68 @@ def test_get_bank_for_play_unpublished_404():
     assert e.value.status_code == 404
 
 
+def test_get_bank_for_play_hides_short_reading_solution():
+    reading = {
+        "title": "Library", "passage": "Mai reads.",
+        "translation": "Mai đọc.",
+        "answers": [{"id": "r-01", "answer": "T", "explanation": "Đúng."}],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+        ("quiz_questions", "select"): [{"qid": "g1"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    served = out["bank"]["meta"]["short_reading"]
+    assert served["passage"] == "Mai reads."
+    assert served["has_solution"] is True
+    assert "translation" not in served
+    assert "answers" not in served
+
+
+def test_course_reading_solution_uses_a_separate_guarded_read():
+    reading = {
+        "translation": "Mai đọc.",
+        "answers": [{"id": "r-01", "answer": "T", "explanation": "Đúng."}],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.course_reading_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
+    assert out == reading
+    assert len([c for c in fake.calls if c["table"] == "quiz_banks"]) == 2
+
+
+def test_course_reading_solution_rejects_an_incomplete_attempt():
+    reading = {
+        "translation": "Mai đọc.",
+        "answers": [
+            {"id": "r-01", "answer": "T", "explanation": "Đúng."},
+            {"id": "r-02", "answer": "a", "explanation": "Danh từ số ít."},
+        ],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.course_reading_solution(
+                user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
+    assert exc.value.status_code == 422
+    assert exc.value.detail["missing"] == ["r-02"]
+
+
 # ── start session + resume ───────────────────────────────────────────
 
 def test_start_session_fails_closed_when_resume_read_errors():
