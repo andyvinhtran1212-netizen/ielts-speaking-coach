@@ -410,7 +410,7 @@ const NAV_GROUPS = [
         subsections: [
           // reading-access-tracking C — reading-attempts drill-down (auth +
           // anonymous share-link takers: time/band/skills).
-          { slug: 'reading-attempts', label: 'Reading — Lượt làm bài', href: '/pages/admin/dashboard/reading-attempts.html' },
+          { slug: 'reading-attempts', label: 'Reading — Lượt làm bài', href: '/admin/dashboard/reading-attempts' },
         ],
       },
     ],

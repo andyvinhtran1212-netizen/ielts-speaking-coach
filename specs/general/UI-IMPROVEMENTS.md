@@ -929,6 +929,37 @@ None found that require a schema or grading rewrite.
   hostile note escaping, partial/unavailable messaging, 44px mobile actions,
   no overflow, and PATCH→GET reconciliation on resolve and reopen.
 
+## Admin Reading-attempt analytics — 2026-08-13
+
+### Issue: the legacy dashboard presents capped and unavailable reads as exact truth
+
+- **Root cause:** the backend aggregates one capped attempt read without a
+  common upper snapshot bound, performs an unbounded title lookup, and returns
+  only a `truncated` boolean. The legacy controller then renders zero/empty
+  metrics when the source read fails and continues to show averages from an
+  incomplete sample.
+- **Severity:** Medium.
+- **Impact:** an admin can interpret a lower-bound sample as the exact number of
+  submissions or learners, treat an unavailable source as proof of no activity,
+  and act on biased band, duration, or skill averages. The wide tables also
+  overflow instead of becoming scan-friendly records on mobile.
+- **Impacted files:** Reading-attempt aggregation route/service/tests; native
+  `/admin/dashboard/reading-attempts` route/model/CSS; rollback controller;
+  admin navigation, route documentation, contract tests and fixture-backed
+  browser verifier.
+- **Suggested minimal fix:** freeze every source read at one UTC snapshot;
+  validate and exclude malformed rows; chunk exact title lookups; return a typed
+  `complete`/`partial`/`unavailable` contract with nullable unknowns; use `≥`
+  for incomplete derived counts and hide derived rates; keep the exact window
+  total exact when its count succeeds; make refresh `private, no-store`; retain
+  the legacy page only as a truthful rollback target.
+- **Verification:** cross the simulated row cap; fail the primary and each
+  auxiliary source separately; inject malformed rows and skill groups; confirm
+  no anonymous hash reaches the response; verify the admin gate, 7/30/90-day
+  URL/request contract, stale-refresh retention, hostile text escaping,
+  accessible band data, and populated table-to-card layouts without horizontal
+  page overflow at 390px and 1440px.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow

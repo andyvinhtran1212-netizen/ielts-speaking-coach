@@ -100,16 +100,27 @@ check('unavailable không giả số 0', await page.getByText(/Không hiển th�
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.getByLabel('Kỹ năng').selectOption('');
-await page.getByRole('button', { name: 'Tất cả' }).click();
-await page.getByText('SHARED-01', { exact: true }).first().waitFor({ state: 'visible' });
-await page.waitForFunction(() => {
-  const header = document.querySelector('.afd-group__header');
-  return header && getComputedStyle(header).display === 'grid' && document.documentElement.scrollWidth <= window.innerWidth;
+const desktopFilterResponse = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === '/api/admin/feedback'
+    && !url.searchParams.get('type')
+    && !url.searchParams.get('skill')
+    && !url.searchParams.get('status');
 });
-check('desktop giữ hierarchy nhóm và không tràn ngang', await page.evaluate(() => {
+await page.getByRole('button', { name: 'Tất cả' }).click();
+await desktopFilterResponse;
+await page.getByRole('heading', { name: 'Tất cả phản hồi', exact: true }).waitFor({ state: 'visible' });
+await page.getByText('SHARED-01', { exact: true }).first().waitFor({ state: 'visible' });
+const desktopLayout = await page.evaluate(() => {
   const header = document.querySelector('.afd-group__header');
-  return header && getComputedStyle(header).display === 'grid' && document.documentElement.scrollWidth <= window.innerWidth;
-}));
+  return {
+    hasHeader: Boolean(header),
+    display: header ? getComputedStyle(header).display : null,
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+  };
+});
+check('desktop giữ hierarchy nhóm và không tràn ngang', desktopLayout.hasHeader && desktopLayout.display === 'grid' && desktopLayout.scrollWidth <= desktopLayout.viewportWidth, JSON.stringify(desktopLayout));
 
 rollbackReadMode = 'unavailable';
 await page.goto(`${BASE}/pages/admin/feedback/index.html`, { waitUntil: 'domcontentloaded' });

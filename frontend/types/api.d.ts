@@ -674,7 +674,10 @@ export interface paths {
          *     `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
          *     APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
          *     returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
-         *     a query outage yields ok=false, never a 500. Cache-Control: 300s.
+         *     response distinguishes complete, partial and unavailable reads. Counts and
+         *     rows are frozen at one UTC watermark; a query outage yields unavailable or
+         *     partial data, never a false zero. The private response is never cached so
+         *     the explicit refresh action always obtains a new canonical snapshot.
          */
         get: operations["dashboard_reading_attempts_admin_dashboard_reading_attempts_get"];
         put?: never;
@@ -12462,6 +12465,127 @@ export interface components {
                 [key: string]: unknown;
             }[] | null;
         };
+        /** ReadingAttemptTotalsOut */
+        ReadingAttemptTotalsOut: {
+            /** Submitted All Time */
+            submitted_all_time: number | null;
+            /** Submitted Window */
+            submitted_window: number | null;
+            /** Auth Attempts */
+            auth_attempts: number | null;
+            /** Anon Attempts */
+            anon_attempts: number | null;
+            /** Auth Distinct Users */
+            auth_distinct_users: number | null;
+            /** Anon Distinct Sources */
+            anon_distinct_sources: number | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** ReadingAttemptsDashboardOut */
+        ReadingAttemptsDashboardOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Snapshot To
+             * Format: date-time
+             */
+            snapshot_to: string;
+            totals: components["schemas"]["ReadingAttemptTotalsOut"];
+            /** Band Distribution */
+            band_distribution: components["schemas"]["ReadingBandBucketOut"][];
+            /** Skill Performance */
+            skill_performance: components["schemas"]["ReadingSkillPerformanceOut"][];
+            time_stats: components["schemas"]["ReadingTimeStatsOut"];
+            /** Per Test */
+            per_test: components["schemas"]["ReadingPerTestOut"][];
+            /** Recent */
+            recent: components["schemas"]["ReadingRecentAttemptOut"][];
+            /** Malformed Count */
+            malformed_count: number;
+            /** Lookup Failures */
+            lookup_failures: ("all_time_count" | "window_count" | "test_titles" | "recent_identities")[];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** ReadingBandBucketOut */
+        ReadingBandBucketOut: {
+            /** Band */
+            band: number;
+            /** Count */
+            count: number;
+        };
+        /** ReadingPerTestOut */
+        ReadingPerTestOut: {
+            /** Test Id */
+            test_id: string;
+            /** Title */
+            title: string;
+            /** Attempts */
+            attempts: number;
+            /** Auth */
+            auth: number;
+            /** Anon */
+            anon: number;
+            /** Avg Band */
+            avg_band?: number | null;
+        };
+        /** ReadingRecentAttemptOut */
+        ReadingRecentAttemptOut: {
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Test Title */
+            test_title: string;
+            /** Who */
+            who: string;
+            /** Is Anonymous */
+            is_anonymous: boolean;
+            /** Band */
+            band?: number | null;
+            /** Time Minutes */
+            time_minutes?: number | null;
+        };
+        /** ReadingSkillPerformanceOut */
+        ReadingSkillPerformanceOut: {
+            /** Skill Tag */
+            skill_tag: string;
+            /** Correct */
+            correct: number;
+            /** Total */
+            total: number;
+            /** Accuracy */
+            accuracy?: number | null;
+        };
+        /** ReadingTimeStatsOut */
+        ReadingTimeStatsOut: {
+            /** Avg Minutes */
+            avg_minutes?: number | null;
+            /** Median Minutes */
+            median_minutes?: number | null;
+            /** Count */
+            count: number;
+        };
         /** ReassignRequest */
         ReassignRequest: {
             /** From User Id */
@@ -14226,7 +14350,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingAttemptsDashboardOut"];
                 };
             };
             /** @description Validation Error */
