@@ -239,6 +239,11 @@ on:
       - 'frontend/app/(authed-admin-error-logs)/**'
       - 'frontend/lib/admin-error-logs-model.mjs'
       - 'frontend/public/css/admin-error-logs-next.css'
+      # Users + Access Codes có 8 mutation vận hành và admin-only role gate;
+      # browser contract fixture-backed riêng kiểm canonical reload/invariants.
+      - 'frontend/app/(authed-admin-users)/**'
+      - 'frontend/lib/admin-users-model.mjs'
+      - 'frontend/public/css/admin-users-next.css'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -267,6 +272,7 @@ on:
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
+      - 'frontend/tooling/verify-admin-users-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -693,6 +699,12 @@ jobs:
       # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Error Logs native
         run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
+      # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi
+      # UI báo thành công; không chạm dữ liệu thật.
+      - name: Kiểm luồng Admin Users native
+        run: node tooling/verify-admin-users-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
