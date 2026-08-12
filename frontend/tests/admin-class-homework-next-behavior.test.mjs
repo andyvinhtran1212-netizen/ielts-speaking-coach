@@ -126,6 +126,15 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /name="ach-question-mode"/);
   });
 
+  test('shows manual Speaking order and uses one exclusive audio preview', () => {
+    assert.match(UI, /editor\.questionIds\.indexOf\(question\.id\)/);
+    assert.match(UI, /<span className="sr-only">Thứ tự chọn <\/span>\{selectedOrder \+ 1\}/);
+    assert.match(UI, /new Audio\(question\.audio_url\)/);
+    assert.match(UI, /previewAudio\.current\?\.pause\(\)/);
+    assert.match(UI, /aria-label=\{`\$\{previewingQuestion === question\.id \? 'Dừng nghe' : 'Nghe thử'\}: \$\{question\.text\}`\}/);
+    assert.match(CSS, /\.ach-question-row \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  });
+
   test('ships responsive styling, CI browser coverage and an updated route claim', () => {
     assert.match(LAYOUT, /admin-class-homework-next\.css/);
     assert.match(CSS, /@media \(max-width: 768px\)/);

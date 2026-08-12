@@ -114,6 +114,8 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
   const catalogSequence = useRef(0);
   const questionSequence = useRef(0);
   const logSequence = useRef(0);
+  const previewAudio = useRef<HTMLAudioElement | null>(null);
+  const [previewingQuestion, setPreviewingQuestion] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async (silent = false) => {
     const requestId = ++listSequence.current;
@@ -149,6 +151,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
 
   useEffect(() => () => {
     catalogSequence.current += 1; questionSequence.current += 1; logSequence.current += 1;
+    previewAudio.current?.pause(); previewAudio.current = null;
   }, [cohortId]);
 
   const loadCatalog = useCallback(async (draft: HomeworkDraft) => {
@@ -210,6 +213,12 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
     void loadQuestions(editor);
   }, [editor?.questionMode, editor?.contentId, editor?.kind, editor?.skill, editor?.part, loadQuestions]);
 
+  useEffect(() => {
+    previewAudio.current?.pause();
+    previewAudio.current = null;
+    setPreviewingQuestion(null);
+  }, [editor?.questionMode, editor?.contentId, editor?.kind, editor?.skill, editor?.part]);
+
   const summary = useMemo(() => assignmentSummary(assignments || []), [assignments]);
   const visible = useMemo(() => selectAssignments(assignments || [], { search, status }) as ClassAssignment[], [assignments, search, status]);
 
@@ -228,7 +237,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
     setBusy(true);
     try {
       const result = await window.api.post<{ student_count?: number; unactivated_count?: number }>(`/admin/cohorts/${encodeURIComponent(cohortId)}/assignments`, validation.body);
-      setEditor(null);
+      closeEditor();
       const base = `Đã giao bài cho ${result?.student_count || 0} học viên.`;
       const canonical = await canonicalMutation(base);
       if (canonical && result?.unactivated_count) setBanner({ kind: 'error', text: `${base} ${result.unactivated_count} bạn chưa kích hoạt nên chưa nhận được bài.` });
@@ -329,7 +338,29 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
     finally { if (requestId === logSequence.current) setLogLoading(false); }
   }, [cohortId]);
 
+  const stopQuestionPreview = () => {
+    if (previewAudio.current) {
+      previewAudio.current.pause();
+      previewAudio.current.currentTime = 0;
+      previewAudio.current = null;
+    }
+    setPreviewingQuestion(null);
+  };
+  const closeEditor = () => { stopQuestionPreview(); setEditor(null); };
   const toggleQuestion = (id: string) => setEditor((current) => current ? { ...current, questionIds: current.questionIds.includes(id) ? current.questionIds.filter((item) => item !== id) : [...current.questionIds, id], error: '' } : current);
+  const toggleQuestionPreview = (question: QuestionOption) => {
+    if (!question.audio_url) return;
+    if (previewingQuestion === question.id && previewAudio.current) {
+      stopQuestionPreview(); return;
+    }
+    previewAudio.current?.pause();
+    const audio = new Audio(question.audio_url);
+    previewAudio.current = audio; setPreviewingQuestion(question.id);
+    const clear = () => { if (previewAudio.current === audio) { previewAudio.current = null; setPreviewingQuestion(null); } };
+    audio.addEventListener('ended', clear, { once: true });
+    audio.addEventListener('error', clear, { once: true });
+    void audio.play().catch(clear);
+  };
   const toggleRecipient = (id: string) => setEditor((current) => current ? { ...current, studentIds: current.studentIds.includes(id) ? current.studentIds.filter((item) => item !== id) : [...current.studentIds, id], error: '' } : current);
   const markingHref = (assignment: ClassAssignment) => `/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohortId)}&assignment_id=${encodeURIComponent(assignment.id)}`;
 
@@ -345,7 +376,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
 
       <details className="ach-log" open={logOpen} onToggle={(event) => { const open = event.currentTarget.open; setLogOpen(open); if (open && !actionLog && !logLoading) void loadLog(); }}><summary>Nhật ký thao tác — đổi hạn và trả bài</summary><div>{logLoading && !actionLog ? <p className="acd-muted">Đang tải…</p> : logError ? <div className="acd-inline-error" role="alert">Không đọc được nhật ký: {logError}</div> : actionLog && !actionLog.actions.length ? <p className="acd-muted">Chưa có thao tác nào được ghi.</p> : actionLog ? <>{actionLog.actions.map((row) => { const detail = actionDetail(row); return <article className="ach-log-row" key={row.id}><time>{formatLogWhen(row.created_at)}</time><div><strong>{row.action === 'due_change' ? 'Đổi hạn nộp' : row.action === 'return_work' ? 'Trả bài cho học viên' : row.action}</strong><span>{[row.assignment_title, row.student_name].filter(Boolean).join(' · ') || 'Không rõ đối tượng'} · {row.actor_email || 'không rõ ai'}</span>{detail && <small>{detail}</small>}</div></article>; })}{actionLog.has_more && actionLog.next_before && <button className="adm-btn-secondary" type="button" onClick={() => void loadLog(actionLog.next_before)} disabled={logLoading}>Xem thao tác cũ hơn</button>}</> : null}</div></details>
 
-      <Dialog open={Boolean(editor)} title="Giao bài mới" description="Chọn nội dung, người nhận và hạn trước khi ghi vào sổ bài giao." busy={busy} onClose={() => setEditor(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="ach-homework-form" disabled={busy || catalogLoading}>{busy ? 'Đang giao…' : editor?.recipientScope === 'subset' ? `Giao cho ${editor.studentIds.length} học viên` : 'Giao cho cả lớp'}</button></>}>
+      <Dialog open={Boolean(editor)} title="Giao bài mới" description="Chọn nội dung, người nhận và hạn trước khi ghi vào sổ bài giao." busy={busy} onClose={closeEditor} actions={<><button className="adm-btn-secondary" type="button" onClick={closeEditor} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="ach-homework-form" disabled={busy || catalogLoading}>{busy ? 'Đang giao…' : editor?.recipientScope === 'subset' ? `Giao cho ${editor.studentIds.length} học viên` : 'Giao cho cả lớp'}</button></>}>
         <form id="ach-homework-form" className="acd-form ach-form" onSubmit={submitHomework}>
           <div className="ach-kind" role="radiogroup" aria-label="Loại bài"><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'daily'} onChange={() => editor && setEditor({ ...editor, kind: 'daily', contentId: '', questionIds: [], error: '' })} />Bài hằng ngày</label><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'lesson'} onChange={() => editor && setEditor({ ...editor, kind: 'lesson', skill: 'speaking', contentId: '', questionIds: [], error: '' })} />Bài sau buổi học</label></div>
           {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option></select></Field>}
@@ -353,7 +384,13 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation }
           <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => editor && setEditor({ ...editor, contentId: event.target.value, questionIds: [], error: '' })} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
           <Field label="Tên bài giao"><input required maxLength={300} value={editor?.title || ''} onChange={(event) => editor && setEditor({ ...editor, title: event.target.value, error: '' })} /></Field>
           {(editor?.kind === 'lesson' || editor?.skill === 'speaking') && <div className="ach-kind" role="radiogroup" aria-label="Cách chọn câu"><label><input type="radio" name="ach-question-mode" checked={editor.questionMode === 'random'} onChange={() => setEditor({ ...editor, questionMode: 'random', questionIds: [], error: '' })} />{editor.kind === 'lesson' ? 'Giao cả bộ' : 'Web bốc ngẫu nhiên'}</label><label><input type="radio" name="ach-question-mode" checked={editor.questionMode === 'manual'} onChange={() => setEditor({ ...editor, questionMode: 'manual', questionIds: [], error: '' })} />Tôi tự chọn</label></div>}
-          {editor?.questionMode === 'manual' && (editor.kind === 'lesson' || editor.skill === 'speaking') && editor.contentId && <div className="ach-question-list" aria-label="Chọn câu hỏi">{questionsLoading ? <p>Đang tải câu hỏi…</p> : questions.map((question) => <label key={question.id}><input type="checkbox" checked={editor.questionIds.includes(question.id)} onChange={() => toggleQuestion(question.id)} disabled={!question.ready || (editor.kind === 'daily' && !editor.questionIds.includes(question.id) && editor.questionIds.length >= questionsPerGive)} /><span>{question.text}</span>{!question.ready && <small>Chưa có audio sẵn sàng</small>}</label>)}</div>}
+          {editor?.questionMode === 'manual' && (editor.kind === 'lesson' || editor.skill === 'speaking') && editor.contentId && <div className="ach-question-list" aria-label="Chọn câu hỏi">{questionsLoading ? <p>Đang tải câu hỏi…</p> : questions.map((question) => {
+            const selectedOrder = editor.questionIds.indexOf(question.id);
+            return <div className="ach-question-row" key={question.id}>
+              <label><input type="checkbox" checked={selectedOrder >= 0} onChange={() => toggleQuestion(question.id)} disabled={!question.ready || (editor.kind === 'daily' && selectedOrder < 0 && editor.questionIds.length >= questionsPerGive)} /><span>{question.text}</span>{selectedOrder >= 0 && <strong className="ach-question-order"><span className="sr-only">Thứ tự chọn </span>{selectedOrder + 1}</strong>}{!question.ready && <small>Chưa có audio sẵn sàng</small>}</label>
+              {question.audio_url && <button className="adm-btn-secondary adm-btn-sm" type="button" aria-label={`${previewingQuestion === question.id ? 'Dừng nghe' : 'Nghe thử'}: ${question.text}`} onClick={() => toggleQuestionPreview(question)}>{previewingQuestion === question.id ? 'Dừng nghe' : 'Nghe thử'}</button>}
+            </div>;
+          })}</div>}
           {editor?.kind === 'lesson' ? <div className="acx-form-row"><Field label="Số ngày được nộp"><input type="number" min="1" max="90" value={editor.dueDays} onChange={(event) => setEditor({ ...editor, dueDays: event.target.value, error: '' })} /></Field><Field label="Giờ hạn · Việt Nam"><input type="time" value={editor.dueTime} onChange={(event) => setEditor({ ...editor, dueTime: event.target.value, error: '' })} /></Field></div> : <div className="acx-form-row"><Field label="Ngày hạn · Việt Nam"><input type="date" value={editor?.dueDate || ''} onChange={(event) => editor && setEditor({ ...editor, dueDate: event.target.value, error: '' })} /></Field><Field label="Giờ hạn · Việt Nam"><input type="time" value={editor?.dueTime || ''} onChange={(event) => editor && setEditor({ ...editor, dueTime: event.target.value, error: '' })} /></Field></div>}
           {editor?.skill === 'course' && <><div className="acx-form-row"><Field label="Ngưỡng đạt (%)" hint="Trống = mặc định 80"><input type="number" min="50" max="100" step="5" value={editor.passPct} onChange={(event) => setEditor({ ...editor, passPct: event.target.value, error: '' })} /></Field><Field label="Số câu kiểm tra lại" hint="Trống = mặc định 20"><input type="number" min="5" max="100" step="5" value={editor.retakeSize} onChange={(event) => setEditor({ ...editor, retakeSize: event.target.value, error: '' })} /></Field></div><div className="acd-warning">Vùng gần đạt bằng ngưỡng đạt trừ 10 điểm. Ví dụ đặt 75%: từ 65–74,9% làm bài kiểm tra lại; dưới 65% làm lại toàn bài.</div></>}
           <Field label="Dặn dò"><textarea rows={3} maxLength={2000} value={editor?.instructions || ''} onChange={(event) => editor && setEditor({ ...editor, instructions: event.target.value, error: '' })} /></Field>

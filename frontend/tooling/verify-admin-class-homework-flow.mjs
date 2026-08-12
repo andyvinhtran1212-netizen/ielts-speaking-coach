@@ -60,6 +60,16 @@ const allowedWrites = [
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch (_) {} }, [storageKey(SB), fakeSession]);
+await context.addInitScript(() => {
+  window.__homeworkAudioEvents = [];
+  window.Audio = class FixtureAudio {
+    constructor(src) { this.src = src; this.currentTime = 0; this.listeners = {}; window.__homeworkAudioEvents.push(['create', src]); window.__homeworkLastAudio = this; }
+    addEventListener(type, listener) { this.listeners[type] = listener; }
+    play() { window.__homeworkAudioEvents.push(['play', this.src]); return Promise.resolve(); }
+    pause() { window.__homeworkAudioEvents.push(['pause', this.src]); }
+    end() { this.listeners.ended?.(); }
+  };
+});
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -84,6 +94,14 @@ await page.route('**/*', async (route) => {
     if (failNextAssignments) { failNextAssignments = false; return json({ detail: 'fixture assignment reload failed' }, 503); }
     return json({ assignments, reconcile_failed: reconcileFailed });
   }
+  if (parsed.pathname === `/admin/cohorts/${cohortId}/speaking-topics`) return json({ items: [
+    { id: 'topic-1', title: 'Home and family', ready: true, already_given: false },
+  ], part: 1, questions_per_give: 2 });
+  if (parsed.pathname === `/admin/cohorts/${cohortId}/speaking-topics/topic-1/questions`) return json({ items: [
+    { id: 'q1', question_text: 'Where do you live?', giveable: true, audio_url: 'https://audio.fixture/q1.mp3' },
+    { id: 'q2', question_text: 'Who do you live with?', giveable: true, audio_url: 'https://audio.fixture/q2.mp3' },
+    { id: 'q3', question_text: 'What do you like about your home?', giveable: false, audio_url: null },
+  ], part: 1, questions_per_give: 2 });
   if (parsed.pathname === `/admin/cohorts/${cohortId}/course-banks`) return json({ items: [
     { id: 'bank-1', code: 'G01', title: 'Grammar 1', lesson_no: 1, ready: true, already_given: true },
     { id: 'bank-2', code: 'G02', title: 'Grammar 2', lesson_no: 2, ready: true, already_given: false },
@@ -146,7 +164,42 @@ const legacyHref = await page.locator('tr').filter({ hasText: 'Grammar 1' }).get
 check('marking seam deep-link đúng assignment', legacyHref === `/pages/admin/classes/index.html?cohort_id=${cohortId}&assignment_id=asg-course`);
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click();
-const create = page.getByRole('dialog');
+let create = page.getByRole('dialog');
+await create.getByLabel('Chủ đề').selectOption('topic-1');
+await create.getByLabel('Tên bài giao').fill('Speaking theo thứ tự');
+await create.getByText('Tôi tự chọn', { exact: true }).click();
+const q1 = create.locator('.ach-question-row').filter({ has: page.getByText('Where do you live?', { exact: true }) });
+const q2 = create.locator('.ach-question-row').filter({ has: page.getByText('Who do you live with?', { exact: true }) });
+await q2.locator('input[type="checkbox"]').check();
+await q1.locator('input[type="checkbox"]').check();
+check('thứ tự chọn thủ công hiển thị đúng q2→q1', await q2.getByText(/Thứ tự chọn 1/).count() === 1 && await q1.getByText(/Thứ tự chọn 2/).count() === 1);
+const q3 = create.locator('.ach-question-row').filter({ has: page.getByText('What do you like about your home?', { exact: true }) });
+check('câu chưa có audio không hiện nút preview', await q3.getByRole('button').count() === 0);
+await q1.getByRole('button', { name: 'Nghe thử: Where do you live?' }).click();
+await q2.getByRole('button', { name: 'Nghe thử: Who do you live with?' }).click();
+const audioEvents = await page.evaluate(() => window.__homeworkAudioEvents);
+check('audio preview mới dừng audio trước', JSON.stringify(audioEvents) === JSON.stringify([
+  ['create', 'https://audio.fixture/q1.mp3'], ['play', 'https://audio.fixture/q1.mp3'],
+  ['pause', 'https://audio.fixture/q1.mp3'], ['create', 'https://audio.fixture/q2.mp3'], ['play', 'https://audio.fixture/q2.mp3'],
+]));
+check('nghe thử không đổi lựa chọn hoặc thứ tự', await q2.locator('input[type="checkbox"]').isChecked() && await q1.locator('input[type="checkbox"]').isChecked() && await q2.getByText(/Thứ tự chọn 1/).count() === 1 && await q1.getByText(/Thứ tự chọn 2/).count() === 1);
+await page.evaluate(() => window.__homeworkLastAudio.end());
+await q2.getByRole('button', { name: 'Nghe thử: Who do you live with?' }).waitFor({ state: 'visible' });
+check('audio kết thúc trả nút về trạng thái nghe thử', true);
+await q2.getByRole('button', { name: 'Nghe thử: Who do you live with?' }).click();
+await create.getByRole('button', { name: 'Giao cho cả lớp' }).click();
+await page.getByText('Đã giao bài cho 1 học viên.', { exact: true }).waitFor({ state: 'visible' });
+const closeAudioEvents = await page.evaluate(() => window.__homeworkAudioEvents);
+check('đóng hộp giao bài dừng audio đang phát', JSON.stringify(closeAudioEvents.slice(-3)) === JSON.stringify([
+  ['create', 'https://audio.fixture/q2.mp3'], ['play', 'https://audio.fixture/q2.mp3'], ['pause', 'https://audio.fixture/q2.mp3'],
+]));
+const speakingWrite = writes('POST', `/cohorts/${cohortId}/assignments`).at(-1);
+const speakingBody = JSON.parse(speakingWrite?.body || '{}');
+check('payload Speaking giữ nguyên click order q2→q1', JSON.stringify(speakingBody.question_ids) === '["q2","q1"]', speakingWrite?.body || 'missing write');
+check('giao Speaking được canonical reload trước success', hasReadAfter(speakingWrite));
+
+await page.getByRole('button', { name: 'Giao bài mới' }).click();
+create = page.getByRole('dialog');
 await create.getByLabel('Kỹ năng').selectOption('course');
 await create.getByLabel('Bộ bài tập').selectOption('bank-2');
 await create.getByLabel('Tên bài giao').fill('Grammar 2 giao nhóm');
@@ -154,7 +207,10 @@ await create.getByLabel('Ngưỡng đạt (%)').fill('75');
 await create.getByLabel('Số câu kiểm tra lại').fill('20');
 await create.getByLabel('Giao cho', { exact: true }).selectOption('subset');
 await create.getByText('An', { exact: true }).click();
+const coursePostResponse = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === `/admin/cohorts/${cohortId}/assignments`);
+const courseReadResponse = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === `/admin/cohorts/${cohortId}/assignments`);
 await create.getByRole('button', { name: 'Giao cho 1 học viên' }).click();
+await Promise.all([coursePostResponse, courseReadResponse]);
 await page.getByText('Đã giao bài cho 1 học viên.', { exact: true }).waitFor({ state: 'visible' });
 const createWrite = writes('POST', `/cohorts/${cohortId}/assignments`).at(-1);
 const createBody = JSON.parse(createWrite?.body || '{}');
