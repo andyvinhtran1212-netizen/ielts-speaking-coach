@@ -289,6 +289,14 @@ on:
       - 'frontend/public/css/admin-grammar-articles-next.css'
       - 'frontend/public/pages/admin/grammar/articles.html'
       - 'frontend/public/js/admin-grammar-articles.js'
+      # Grammar Analytics distinguishes complete data from unavailable sources,
+      # paginates canonical rows and defines recent activity without inventing events.
+      - 'frontend/app/(authed-admin-grammar-analytics)/**'
+      - 'frontend/lib/admin-grammar-analytics-model.mjs'
+      - 'frontend/public/css/admin-grammar-analytics-next.css'
+      - 'frontend/public/pages/admin/grammar/analytics.html'
+      - 'frontend/public/js/admin-grammar-analytics.js'
+      - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -832,6 +840,11 @@ jobs:
       # pins URL filters, analytics availability, sandboxed previews and layout.
       - name: Kiểm luồng Admin Grammar Articles native
         run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
+      # pins URL windows, stale snapshots, degraded sources and responsive tables.
+      - name: Kiểm luồng Admin Grammar Analytics native
+        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

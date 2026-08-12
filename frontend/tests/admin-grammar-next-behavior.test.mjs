@@ -50,7 +50,7 @@ describe('/admin/grammar native hub', () => {
     for (const href of [
       '/grammar',
       '/admin/grammar/articles',
-      '/pages/admin/grammar/analytics.html',
+      '/admin/grammar/analytics',
       '/pages/admin/grammar/recommend-test.html',
       '/pages/admin/vocab/topics.html?skill_area=grammar',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);

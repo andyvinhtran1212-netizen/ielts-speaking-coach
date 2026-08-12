@@ -43,7 +43,7 @@ describe('Sprint 12.7 — grammar landing (pages/admin/grammar/index.html)', () 
   it('links to the 3 grammar admin child pages', () => {
     assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/articles["']/);
     assert.doesNotMatch(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/articles\.html["']/);
-    assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/analytics\.html["']/);
+    assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/analytics["']/);
     assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/recommend-test\.html["']/);
   });
 
