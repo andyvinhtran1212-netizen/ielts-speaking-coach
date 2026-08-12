@@ -256,6 +256,13 @@ on:
       - 'frontend/app/(authed-admin-foot-traffic)/**'
       - 'frontend/lib/admin-foot-traffic-model.mjs'
       - 'frontend/public/css/admin-foot-traffic-next.css'
+      # Feedback inbox mutates resolution state and must reconcile from the
+      # canonical GET. Fixture also pins URL filters and degraded read truth.
+      - 'frontend/app/(authed-admin-feedback)/**'
+      - 'frontend/lib/admin-feedback-model.mjs'
+      - 'frontend/public/css/admin-feedback-next.css'
+      - 'frontend/public/pages/admin/feedback/index.html'
+      - 'frontend/public/js/admin-feedback.js'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -318,6 +325,7 @@ on:
       - 'frontend/tooling/verify-admin-instructors-flow.mjs'
       - 'frontend/tooling/verify-admin-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
+      - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -776,6 +784,12 @@ jobs:
       # date filters, exact route, partial/unavailable truth and responsive UI.
       - name: Kiểm luồng Admin Foot Traffic native
         run: node tooling/verify-admin-foot-traffic-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/feedback` has a canonical status mutation. The fixture proves
+      # URL filtering, hostile-content escaping, degraded states and GET
+      # readback after each PATCH without touching production data.
+      - name: Kiểm luồng Admin Feedback native
+        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

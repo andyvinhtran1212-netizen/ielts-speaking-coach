@@ -26,6 +26,7 @@
 
   var _all = [];                         // every feedback row (unfiltered)
   var _filter = { type: '', status: '', skill: '' };
+  var _coverage = 'complete';
 
   var TYPE_LABEL = { rating: 'ĐÁNH GIÁ', report: 'BÁO LỖI', flag: 'FLAG GIẢI' };
   var CATEGORY_LABEL = {
@@ -39,11 +40,12 @@
     listening: '/pages/admin/listening/tests.html',
   };
 
-  function banner(msg, isErr) {
+  function banner(msg, isErr, isWarning) {
     var b = $('fbx-banner');
     if (!msg) { b.hidden = true; return; }
     b.hidden = false; b.textContent = msg;
     b.classList.toggle('is-error', !!isErr);
+    b.classList.toggle('is-warning', !!isWarning);
   }
 
   // ── filtering (client-side, mirrors admin-access-codes rowMatchesFilters) ───
@@ -67,8 +69,8 @@
   }
 
   function who(r) {
-    if (r.created_by) return 'học viên #' + String(r.created_by).slice(0, 6);
-    if (r.anon_id) return 'ẩn danh (share-link)';
+    if (r.identity_kind === 'user') return 'học viên đã đăng nhập';
+    if (r.identity_kind === 'anonymous' || r.anon_id) return 'ẩn danh (share-link)';
     return '—';
   }
 
@@ -155,6 +157,32 @@
     wireRows();
   }
 
+  function renderReadState(d) {
+    _coverage = d && d.data_status;
+    $('fbx-loading').hidden = true;
+    if (_coverage === 'unavailable') {
+      _all = [];
+      $('fbx-empty').hidden = true;
+      $('fbx-groups').hidden = true;
+      $('fbx-groups').innerHTML = '';
+      banner('Dữ liệu feedback hiện không khả dụng — không thể kết luận hộp thư đang trống.', true);
+      return false;
+    }
+    if (_coverage === 'partial') {
+      banner('Danh sách feedback chưa đầy đủ; các số đang hiện chỉ là cận dưới.', false, true);
+    } else {
+      banner('');
+    }
+    _all = (d && d.items) || [];
+    render();
+    if (_coverage === 'partial') {
+      $('fbx-count-n').textContent = '≥ ' + $('fbx-count-n').textContent;
+      // An empty scanned prefix is not proof that the full inbox is empty.
+      if (!_all.length) $('fbx-empty').hidden = true;
+    }
+    return true;
+  }
+
   function renderRow(r) {
     var resolved = r.status === 'resolved';
     var tagCls = r.type === 'rating' ? 'is-rating' : 'is-flag';   // report+flag share terracotta
@@ -219,8 +247,7 @@
     banner('');
     window.api.get('/api/admin/feedback')
       .then(function (d) {
-        _all = (d && d.items) || [];
-        render();
+        renderReadState(d || {});
       })
       .catch(function (e) {
         $('fbx-loading').hidden = true;
@@ -246,5 +273,5 @@
   } else { wireFilters(); load(); }
 
   // exposed for tests
-  window.__adminFeedback = { rowMatchesFilters: rowMatchesFilters, groupByTest: groupByTest, deepLink: deepLink, avg: avg };
+  window.__adminFeedback = { rowMatchesFilters: rowMatchesFilters, groupByTest: groupByTest, deepLink: deepLink, avg: avg, renderReadState: renderReadState };
 })();

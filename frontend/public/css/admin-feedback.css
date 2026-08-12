@@ -50,6 +50,7 @@
 
 .fbx-loading, .fbx-empty { padding: 28px 4px; color: var(--fbx-ink-faint); font-size: 14px; }
 .adm-banner.is-error { color: var(--av-error); }
+.adm-banner.is-warning { color: var(--av-warning); }
 
 /* group-by-test ------------------------------------------------------------ */
 .fbx-group {

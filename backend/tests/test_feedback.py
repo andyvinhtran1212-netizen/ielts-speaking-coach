@@ -33,21 +33,28 @@ class _R:
 class _Q:
     def __init__(self, db, table):
         self._db = db; self._t = table; self._op = "select"
-        self._filters = {}; self._payload = None
+        self._filters = {}; self._payload = None; self._limit = None
     def select(self, *a, **k): self._op = "select"; return self
     def insert(self, row, *a, **k): self._op = "insert"; self._payload = row; return self
     def update(self, patch, *a, **k): self._op = "update"; self._payload = patch; return self
     def eq(self, col, val): self._filters[col] = val; return self
+    def lte(self, col, val): self._filters[f"{col}__lte"] = val; return self
+    def or_(self, value): self._filters["__cursor"] = value; return self
     def in_(self, col, vals): self._filters[col] = tuple(vals); return self
     def order(self, *a, **k): return self
-    def limit(self, *a, **k): return self
-    def execute(self): return self._db.handle(self._t, self._op, self._filters, self._payload)
+    def limit(self, value, *a, **k): self._limit = value; return self
+    def execute(self): return self._db.handle(self._t, self._op, self._filters, self._payload, self._limit)
+
+
+class _StuckQ(_Q):
+    def or_(self, _value): return self
 
 
 class _DB:
     def __init__(self, attempt=None, test_id="ILR-X", existing_rating=False,
                  feedback_rows=None, update_found=True,
-                 passage_exists=False, content_exists=False):
+                 passage_exists=False, content_exists=False,
+                 server_cap=None, fail_feedback_select_after=None):
         self._attempt = attempt
         self._test_id = test_id
         self._existing = existing_rating
@@ -55,10 +62,13 @@ class _DB:
         self._update_found = update_found
         self._passage_exists = passage_exists
         self._content_exists = content_exists
+        self._server_cap = server_cap
+        self._fail_feedback_select_after = fail_feedback_select_after
+        self._feedback_selects = 0
         self.inserted = []
         self.updated = []
     def table(self, n): return _Q(self, n)
-    def handle(self, table, op, filters, payload):
+    def handle(self, table, op, filters, payload, limit=None):
         if table in ("reading_test_attempts", "listening_test_attempts"):
             return _R([self._attempt] if self._attempt else [])
         if table in ("reading_tests", "listening_tests"):
@@ -84,8 +94,41 @@ class _DB:
             # select: rating pre-check (attempt_id + type=rating) vs admin list
             if "attempt_id" in filters and filters.get("type") == "rating":
                 return _R([{"id": "existing"}] if self._existing else [])
-            return _R(self._feedback_rows)
+            self._feedback_selects += 1
+            if (
+                self._fail_feedback_select_after is not None
+                and self._feedback_selects > self._fail_feedback_select_after
+            ):
+                raise RuntimeError("feedback page unavailable")
+            rows = list(self._feedback_rows)
+            for key in ("skill", "type", "status", "test_id"):
+                if key in filters:
+                    rows = [row for row in rows if row.get(key) == filters[key]]
+            upper = filters.get("created_at__lte")
+            if upper is not None:
+                rows = [row for row in rows if not row.get("created_at") or row.get("created_at") <= upper]
+            cursor = filters.get("__cursor")
+            if cursor:
+                prefix = "created_at.lt."
+                middle = ",and(created_at.eq."
+                suffix = ",id.lt."
+                first, rest = cursor[len(prefix):].split(middle, 1)
+                second, raw_id = rest[:-1].split(suffix, 1)
+                assert first == second
+                rows = [row for row in rows if (
+                    row.get("created_at", "") < first
+                    or (row.get("created_at", "") == first and str(row.get("id", "")) < raw_id)
+                )]
+            rows.sort(key=lambda row: (row.get("created_at", ""), str(row.get("id", ""))), reverse=True)
+            effective_limit = limit
+            if self._server_cap is not None:
+                effective_limit = min(effective_limit, self._server_cap) if effective_limit is not None else self._server_cap
+            return _R(rows[:effective_limit] if effective_limit is not None else rows)
         return _R([])
+
+
+class _NonAdvancingDB(_DB):
+    def table(self, n): return _StuckQ(self, n)
 
 
 def _as_user(monkeypatch, uid="U1"):
@@ -246,7 +289,8 @@ def test_post_bad_type_422(monkeypatch):
 
 _FEEDBACK_ROWS = [
     {"id": "f1", "skill": "listening", "type": "rating", "status": "new",
-     "test_id": "ILR-LIS-01", "rating_de": 5, "created_at": "2026-06-13T03:00:00Z"},
+     "test_id": "ILR-LIS-01", "rating_de": 5, "created_by": "U1",
+     "created_at": "2026-06-13T03:00:00Z"},
     {"id": "f2", "skill": "listening", "type": "flag", "status": "new",
      "test_id": "ILR-LIS-01", "q_num": 3, "created_at": "2026-06-13T02:00:00Z"},
     {"id": "f3", "skill": "listening", "type": "report", "status": "resolved",
@@ -265,6 +309,143 @@ def test_admin_list_groups_by_test(monkeypatch):
     assert len(groups["ILR-LIS-01"]["items"]) == 2
     assert groups["ILR-LIS-01"]["new_count"] == 2      # f1 + f2 are new
     assert groups["ILR-LIS-02"]["new_count"] == 0      # f3 resolved
+    assert out["data_status"] == "complete"
+    assert out["truncated"] is False
+    assert out["malformed_count"] == 0
+    assert all(row["anon_id"] in (None, "redacted") for row in out["items"])
+    assert "secret-tok" not in str(out)
+    assert "created_by" not in out["items"][0]
+    assert out["items"][0]["identity_kind"] == "user"
+
+
+def test_admin_list_does_not_merge_same_test_id_across_skills(monkeypatch):
+    _as_admin(monkeypatch)
+    rows = [
+        {"id": "r1", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "SHARED-01", "created_at": "2026-06-13T03:00:00Z"},
+        {"id": "l1", "skill": "listening", "type": "flag", "status": "new",
+         "test_id": "SHARED-01", "created_at": "2026-06-13T02:00:00Z"},
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _DB(feedback_rows=rows))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert [(g["skill"], g["test_id"]) for g in out["groups"]] == [
+        ("reading", "SHARED-01"), ("listening", "SHARED-01")
+    ]
+
+
+def test_admin_list_pages_past_postgrest_cap(monkeypatch):
+    _as_admin(monkeypatch)
+    monkeypatch.setattr(F, "FEEDBACK_PAGE", 2)
+    rows = [
+        {"id": f"f{i}", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": f"2026-06-13T0{5-i}:00:00Z"}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _DB(feedback_rows=rows))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "complete"
+    assert out["count"] == 5
+    assert [row["id"] for row in out["items"]] == ["f0", "f1", "f2", "f3", "f4"]
+
+
+def test_admin_list_continues_when_server_caps_below_requested_page(monkeypatch):
+    _as_admin(monkeypatch)
+    rows = [
+        {"id": f"f{i}", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": f"2026-06-13T0{5-i}:00:00Z"}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _DB(feedback_rows=rows, server_cap=2))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "complete"
+    assert [row["id"] for row in out["items"]] == ["f0", "f1", "f2", "f3", "f4"]
+
+
+def test_admin_list_reports_partial_when_later_page_fails(monkeypatch):
+    _as_admin(monkeypatch)
+    monkeypatch.setattr(F, "FEEDBACK_PAGE", 2)
+    rows = [
+        {"id": f"f{i}", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": f"2026-06-13T0{5-i}:00:00Z"}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(
+        F,
+        "supabase_admin",
+        _DB(feedback_rows=rows, fail_feedback_select_after=1),
+    )
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "partial"
+    assert out["truncated"] is True
+    assert out["count"] == 2
+
+
+def test_admin_list_marks_safety_ceiling_as_partial(monkeypatch):
+    _as_admin(monkeypatch)
+    monkeypatch.setattr(F, "FEEDBACK_PAGE", 2)
+    monkeypatch.setattr(F, "FEEDBACK_MAX_ROWS", 3)
+    rows = [
+        {"id": f"f{i}", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": f"2026-06-13T0{5-i}:00:00Z"}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _DB(feedback_rows=rows))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "partial"
+    assert out["truncated"] is True
+    assert out["count"] == 3
+
+
+def test_admin_list_stops_when_pagination_cursor_does_not_advance(monkeypatch):
+    _as_admin(monkeypatch)
+    monkeypatch.setattr(F, "FEEDBACK_PAGE", 2)
+    rows = [
+        {"id": f"f{i}", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": f"2026-06-13T0{5-i}:00:00Z"}
+        for i in range(5)
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _NonAdvancingDB(feedback_rows=rows))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "partial"
+    assert out["truncated"] is True
+    assert [row["id"] for row in out["items"]] == ["f0", "f1"]
+
+
+def test_admin_list_query_failure_is_unavailable(monkeypatch):
+    _as_admin(monkeypatch)
+    class _Boom:
+        def table(self, _name):
+            raise RuntimeError("db unavailable")
+    monkeypatch.setattr(F, "supabase_admin", _Boom())
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["data_status"] == "unavailable"
+    assert out["count"] is None
+    assert out["items"] == []
+
+
+def test_admin_list_skips_malformed_rows_without_inventing_zero(monkeypatch):
+    _as_admin(monkeypatch)
+    rows = [
+        {"id": "good", "skill": "reading", "type": "report", "status": "new",
+         "test_id": "RD", "created_at": "2026-06-13T03:00:00Z"},
+        {"id": "bad", "skill": "speaking", "type": "report", "status": "new",
+         "test_id": "SP", "created_at": "2026-06-13T02:00:00Z"},
+        {"id": "bad-rating", "skill": "reading", "type": "rating", "status": "new",
+         "rating_de": 9, "test_id": "RD", "created_at": "2026-06-13T01:00:00Z"},
+    ]
+    monkeypatch.setattr(F, "supabase_admin", _DB(feedback_rows=rows))
+    out = _run(F.admin_list_feedback(skill=None, type=None, status=None, test_id=None,
+                                     authorization="x"))
+    assert out["count"] == 1
+    assert out["malformed_count"] == 2
+    assert [row["id"] for row in out["items"]] == ["good"]
 
 
 def test_admin_list_bad_filter_422(monkeypatch):
