@@ -15,11 +15,11 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 import uuid as _uuid
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -1645,8 +1645,114 @@ async def dashboard_trends(
 
 # ── reading-access-tracking C — GET /admin/dashboard/reading-attempts ─────────
 
-@router.get("/dashboard/reading-attempts")
+
+class ReadingAttemptTotalsOut(BaseModel):
+    submitted_all_time: int | None = Field(ge=0)
+    submitted_window: int | None = Field(ge=0)
+    auth_attempts: int | None = Field(ge=0)
+    anon_attempts: int | None = Field(ge=0)
+    auth_distinct_users: int | None = Field(ge=0)
+    anon_distinct_sources: int | None = Field(ge=0)
+    truncated: bool
+
+
+class ReadingBandBucketOut(BaseModel):
+    band: float = Field(ge=0, le=9)
+    count: int = Field(ge=0)
+
+
+class ReadingSkillPerformanceOut(BaseModel):
+    skill_tag: str
+    correct: int = Field(ge=0)
+    total: int = Field(gt=0)
+    accuracy: float | None = Field(default=None, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_aggregate(self):
+        if self.correct > self.total:
+            raise ValueError("correct cannot exceed total")
+        return self
+
+
+class ReadingTimeStatsOut(BaseModel):
+    avg_minutes: float | None = Field(default=None, ge=0)
+    median_minutes: float | None = Field(default=None, ge=0)
+    count: int = Field(ge=0)
+
+
+class ReadingPerTestOut(BaseModel):
+    test_id: str
+    title: str
+    attempts: int = Field(ge=0)
+    auth: int = Field(ge=0)
+    anon: int = Field(ge=0)
+    avg_band: float | None = Field(default=None, ge=0, le=9)
+
+    @model_validator(mode="after")
+    def validate_split(self):
+        if self.auth + self.anon != self.attempts:
+            raise ValueError("auth + anon must equal attempts")
+        return self
+
+
+class ReadingRecentAttemptOut(BaseModel):
+    submitted_at: datetime
+    test_title: str
+    who: str
+    is_anonymous: bool
+    band: float | None = Field(default=None, ge=0, le=9)
+    time_minutes: float | None = Field(default=None, ge=0)
+
+
+class ReadingAttemptsDashboardOut(BaseModel):
+    ok: bool
+    data_status: Literal["complete", "partial", "unavailable"]
+    window_days: Literal[7, 30, 90]
+    window_start: datetime
+    snapshot_to: datetime
+    totals: ReadingAttemptTotalsOut
+    band_distribution: list[ReadingBandBucketOut]
+    skill_performance: list[ReadingSkillPerformanceOut]
+    time_stats: ReadingTimeStatsOut
+    per_test: list[ReadingPerTestOut]
+    recent: list[ReadingRecentAttemptOut]
+    malformed_count: int = Field(ge=0)
+    lookup_failures: list[Literal[
+        "all_time_count", "window_count", "test_titles", "recent_identities"
+    ]]
+    computed_at: datetime
+
+    @model_validator(mode="after")
+    def validate_coverage_contract(self):
+        row_counts = (
+            self.totals.submitted_window,
+            self.totals.auth_attempts,
+            self.totals.anon_attempts,
+            self.totals.auth_distinct_users,
+            self.totals.anon_distinct_sources,
+        )
+        if self.data_status == "unavailable":
+            if self.ok or any(value is not None for value in row_counts):
+                raise ValueError("unavailable data must not expose false row counts")
+            if self.band_distribution or self.skill_performance or self.per_test or self.recent:
+                raise ValueError("unavailable data must not expose row-derived collections")
+            return self
+        if not self.ok or any(value is None for value in row_counts):
+            raise ValueError("available data requires non-null row counts")
+        derived = self.totals.auth_attempts + self.totals.anon_attempts
+        if derived > self.totals.submitted_window:
+            raise ValueError("derived attempt count cannot exceed submitted total")
+        degraded = bool(self.totals.truncated or self.malformed_count or self.lookup_failures)
+        if (self.data_status == "partial") != degraded:
+            raise ValueError("partial status must match a declared degradation reason")
+        if self.data_status == "complete" and derived != self.totals.submitted_window:
+            raise ValueError("complete attempt split must equal submitted total")
+        return self
+
+
+@router.get("/dashboard/reading-attempts", response_model=ReadingAttemptsDashboardOut)
 async def dashboard_reading_attempts(
+    response: Response,
     authorization: str | None = Header(default=None),
     days: int = 30,
 ):
@@ -1656,10 +1762,13 @@ async def dashboard_reading_attempts(
     `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
     APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
     returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
-    a query outage yields ok=false, never a 500. Cache-Control: 300s."""
+    response distinguishes complete, partial and unavailable reads. Counts and
+    rows are frozen at one UTC watermark; a query outage yields unavailable or
+    partial data, never a false zero. The private response is never cached so
+    the explicit refresh action always obtains a new canonical snapshot."""
     await require_admin(authorization)
-    body = admin_reading_dashboard.compute_reading_attempts_dashboard(days=days)
-    return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
+    response.headers["Cache-Control"] = "private, no-store"
+    return admin_reading_dashboard.compute_reading_attempts_dashboard(days=days)
 
 
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────

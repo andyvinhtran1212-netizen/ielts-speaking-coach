@@ -14,9 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 
 from services import admin_reading_dashboard as svc
 from routers import admin as admin_module
@@ -46,6 +45,7 @@ class _Chain:
     def limit(self, *a, **k): return self
     def eq(self, *a, **k): return self
     def gte(self, *a, **k): return self
+    def lte(self, *a, **k): return self
     def order(self, *a, **k): return self
     def in_(self, *a, **k): return self
 
@@ -132,6 +132,8 @@ def test_auth_vs_anon_split_and_distinct_counts(monkeypatch):
     assert t["auth_distinct_users"] == 2          # U1, U2 (exact)
     assert t["anon_distinct_sources"] == 2        # src A, src B (approximate)
     assert t["truncated"] is False
+    assert out["data_status"] == "complete"
+    assert out["snapshot_to"] and out["window_start"]
 
 
 def test_skill_performance_aggregates_weakest_first(monkeypatch):
@@ -197,19 +199,94 @@ def test_window_clamps_to_allowed_values(monkeypatch):
 
 
 def test_truncation_flag_when_window_count_exceeds_fetched(monkeypatch):
-    _patch(monkeypatch, _queues(window_count=9999))   # 9999 > 6 fetched rows
+    monkeypatch.setattr(svc, "_FETCH_CAP", 6)
+    _patch(monkeypatch, _queues(window_count=7))   # 7 > cap, exactly 6 fetched
     out = svc.compute_reading_attempts_dashboard(30)
     assert out["totals"]["truncated"] is True
+    assert out["data_status"] == "partial"
 
 
 def test_graceful_degradation_on_query_outage(monkeypatch):
     queues = _queues()
-    queues["reading_test_attempts"] = [RuntimeError("db down")]   # first call raises
+    queues["reading_test_attempts"] = [
+        _Result(count=42),
+        _Result(count=6),
+        RuntimeError("db down"),  # row source is load-bearing
+    ]
     _patch(monkeypatch, queues)
     out = svc.compute_reading_attempts_dashboard(30)
     assert out["ok"] is False
-    assert out["totals"]["submitted_all_time"] is None
+    assert out["data_status"] == "unavailable"
+    # A source-specific failure does not erase a count already confirmed by an
+    # earlier query; unavailable applies to the row-derived dashboard.
+    assert out["totals"]["submitted_all_time"] == 42
+    assert out["totals"]["submitted_window"] is None
     assert out["band_distribution"] == [] and out["recent"] == []
+
+
+def test_optional_count_outage_preserves_rows_as_partial(monkeypatch):
+    queues = _queues()
+    queues["reading_test_attempts"] = [
+        RuntimeError("count down"),
+        _Result(count=6),
+        _Result(data=_rows()),
+    ]
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["ok"] is True
+    assert out["data_status"] == "partial"
+    assert out["totals"]["submitted_all_time"] is None
+    assert out["totals"]["submitted_window"] == 6
+    assert out["lookup_failures"] == ["all_time_count"]
+
+
+def test_malformed_attempt_is_excluded_and_reported(monkeypatch):
+    rows = _rows() + [{"id": "bad", "test_id": "t1", "submitted_at": "not-a-date"}]
+    queues = _queues(window_count=7)
+    queues["reading_test_attempts"][2] = _Result(data=rows)
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["data_status"] == "partial"
+    assert out["malformed_count"] == 1
+    assert out["totals"]["auth_attempts"] + out["totals"]["anon_attempts"] == 6
+
+
+def test_missing_optional_diagnostics_do_not_erase_valid_attempt(monkeypatch):
+    rows = _rows()
+    rows[0]["skill_breakdown"] = None
+    rows[0]["time_spent_seconds"] = None
+    queues = _queues()
+    queues["reading_test_attempts"][2] = _Result(data=rows)
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["data_status"] == "complete"
+    assert out["malformed_count"] == 0
+    assert out["totals"]["auth_attempts"] + out["totals"]["anon_attempts"] == 6
+
+
+def test_invalid_optional_diagnostics_keep_attempt_and_reject_numeric_coercion(monkeypatch):
+    rows = _rows()
+    rows[0]["band_estimate"] = 9.5
+    rows[0]["time_spent_seconds"] = -1
+    rows[0]["skill_breakdown"] = {"detail": {"correct": True, "total": 3.9}}
+    queues = _queues()
+    queues["reading_test_attempts"][2] = _Result(data=rows)
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["data_status"] == "partial"
+    assert out["malformed_count"] == 3
+    assert out["totals"]["auth_attempts"] + out["totals"]["anon_attempts"] == 6
+    assert out["recent"][0]["band"] is None
+
+
+def test_count_row_race_degrades_instead_of_breaking_response_model(monkeypatch):
+    queues = _queues(window_count=5)  # row scan sees 6 after the count request
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["data_status"] == "partial"
+    assert out["lookup_failures"] == ["window_count"]
+    assert out["totals"]["submitted_window"] == 6
+    admin_module.ReadingAttemptsDashboardOut.model_validate(out)
 
 
 # ── Route-level admin guard ────────────────────────────────────────────
@@ -219,7 +296,7 @@ def test_route_requires_admin(monkeypatch):
         raise HTTPException(status_code=403, detail="forbidden")
     monkeypatch.setattr(admin_module, "require_admin", _deny)
     with pytest.raises(HTTPException) as exc:
-        _run(admin_module.dashboard_reading_attempts(authorization=None))
+        _run(admin_module.dashboard_reading_attempts(Response(), authorization=None))
     assert exc.value.status_code == 403
 
 
@@ -227,9 +304,52 @@ def test_route_returns_payload_with_cache_header_for_admin(monkeypatch):
     async def _ok(_auth):
         return {"id": "admin", "role": "admin"}
     monkeypatch.setattr(admin_module, "require_admin", _ok)
+    _patch(monkeypatch, _queues())
+    canonical = svc.compute_reading_attempts_dashboard(7)
     monkeypatch.setattr(
         admin_module.admin_reading_dashboard, "compute_reading_attempts_dashboard",
-        lambda days=30: {"ok": True, "window_days": days, "marker": "X"})
-    resp = _run(admin_module.dashboard_reading_attempts(authorization="x", days=7))
-    assert resp.headers.get("Cache-Control") == "max-age=300"
-    assert json.loads(bytes(resp.body)) == {"ok": True, "window_days": 7, "marker": "X"}
+        lambda days=30: canonical)
+    response = Response()
+    body = _run(admin_module.dashboard_reading_attempts(response, authorization="x", days=7))
+    assert response.headers.get("Cache-Control") == "private, no-store"
+    assert admin_module.ReadingAttemptsDashboardOut.model_validate(body)
+    assert body["window_days"] == 7
+
+
+def test_route_declares_runtime_response_validation():
+    route = next(
+        candidate for candidate in admin_module.router.routes
+        if getattr(candidate, "path", None) == "/admin/dashboard/reading-attempts"
+    )
+    assert route.response_model is admin_module.ReadingAttemptsDashboardOut
+
+
+def test_response_model_rejects_false_truth_contracts():
+    with pytest.raises(ValueError):
+        admin_module.ReadingAttemptsDashboardOut.model_validate({
+            "ok": True, "data_status": "unavailable", "window_days": 30,
+            "window_start": "2026-01-01T00:00:00Z", "snapshot_to": "2026-01-31T00:00:00Z",
+            "totals": {"submitted_all_time": 1, "submitted_window": 0, "auth_attempts": 0,
+                       "anon_attempts": 0, "auth_distinct_users": 0,
+                       "anon_distinct_sources": 0, "truncated": False},
+            "band_distribution": [], "skill_performance": [],
+            "time_stats": {"avg_minutes": None, "median_minutes": None, "count": 0},
+            "per_test": [], "recent": [], "malformed_count": 0,
+            "lookup_failures": [], "computed_at": "2026-01-31T00:00:01Z",
+        })
+
+
+@pytest.mark.parametrize("state", ["complete", "partial", "unavailable"])
+def test_response_model_accepts_every_canonical_service_state(monkeypatch, state):
+    queues = _queues()
+    if state == "partial":
+        monkeypatch.setattr(svc, "_FETCH_CAP", 6)
+        queues = _queues(window_count=7)
+    elif state == "unavailable":
+        queues["reading_test_attempts"] = [
+            _Result(count=42), _Result(count=6), RuntimeError("rows down")
+        ]
+    _patch(monkeypatch, queues)
+    out = svc.compute_reading_attempts_dashboard(30)
+    assert out["data_status"] == state
+    admin_module.ReadingAttemptsDashboardOut.model_validate(out)

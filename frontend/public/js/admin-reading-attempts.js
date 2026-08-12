@@ -47,6 +47,25 @@ function fmtInt(v) {
   if (v == null) return '—';
   try { return Number(v).toLocaleString('vi-VN'); } catch { return String(v); }
 }
+function fmtCount(v, partial) {
+  const formatted = fmtInt(v);
+  return formatted === '—' ? formatted : (partial ? '≥ ' : '') + formatted;
+}
+function fmtApproxCount(v, partial) {
+  const formatted = fmtInt(v);
+  return formatted === '—' ? formatted : (partial ? '≈ ≥ ' : '≈ ') + formatted;
+}
+const LOOKUP_FAILURE_LABEL = {
+  all_time_count: 'tổng lượt toàn thời gian',
+  window_count: 'phép đếm độc lập trong cửa sổ',
+  test_titles: 'tên đề Reading',
+  recent_identities: 'danh tính lượt nộp gần đây',
+};
+function hasIncompleteCoverage(d) {
+  const t = d && d.totals || {};
+  return !!(t.truncated || Number(d && d.malformed_count || 0) > 0
+    || (d && d.lookup_failures || []).includes('window_count'));
+}
 function fmtWhen(iso) {
   if (!iso) return '—';
   try { return new Date(iso).toLocaleString('vi-VN'); } catch { return iso; }
@@ -69,16 +88,18 @@ function setLoading(on) {
 function renderTotals(d) {
   const t = d.totals || {};
   $('rd-total-alltime').textContent = fmtInt(t.submitted_all_time);
-  $('rd-total-window').textContent = fmtInt(t.submitted_window);
+  const partial = hasIncompleteCoverage(d);
+  const windowLowerBound = !!((d.lookup_failures || []).includes('window_count'));
+  $('rd-total-window').textContent = fmtCount(t.submitted_window, windowLowerBound);
   // Auth-vs-anonymous split — honest units (auth exact distinct; anon attempts).
   $('rd-split').textContent =
-    fmtInt(t.auth_attempts) + ' đăng nhập · ' + fmtInt(t.anon_attempts) + ' ẩn danh';
-  $('rd-auth-users').textContent = fmtInt(t.auth_distinct_users);
-  $('rd-anon-sources').textContent = '≈ ' + fmtInt(t.anon_distinct_sources);
+    fmtCount(t.auth_attempts, partial) + ' đăng nhập · ' + fmtCount(t.anon_attempts, partial) + ' ẩn danh';
+  $('rd-auth-users').textContent = fmtCount(t.auth_distinct_users, partial);
+  $('rd-anon-sources').textContent = fmtApproxCount(t.anon_distinct_sources, partial);
 
   const ts = d.time_stats || {};
-  $('rd-time-avg').textContent = ts.avg_minutes == null ? '—' : ts.avg_minutes + ' phút';
-  $('rd-time-sub').textContent = (ts.median_minutes == null)
+  $('rd-time-avg').textContent = partial || ts.avg_minutes == null ? '—' : ts.avg_minutes + ' phút';
+  $('rd-time-sub').textContent = partial ? 'Không kết luận từ dữ liệu thiếu' : (ts.median_minutes == null)
     ? '' : 'trung vị ' + ts.median_minutes + ' phút · ' + fmtInt(ts.count) + ' lượt có giờ';
 
   const win = d.window_days;
@@ -111,6 +132,10 @@ function renderBars(hostId, items, opts) {
 }
 
 function renderSkills(d) {
+  if (hasIncompleteCoverage(d)) {
+    $('rd-skills').innerHTML = '<div class="rd-empty">Chưa thể xếp hạng kỹ năng từ dữ liệu thiếu.</div>';
+    return;
+  }
   const skills = d.skill_performance || [];
   // Weakest two (lowest accuracy, with data) flagged red — the actionable cue.
   const weakKeys = new Set(
@@ -126,17 +151,19 @@ function renderSkills(d) {
 }
 
 function renderBands(d) {
+  const partial = hasIncompleteCoverage(d);
   const items = (d.band_distribution || []).map((b) => ({
     key: String(b.band),
     label: 'Band ' + b.band,
     value: b.count,
-    valLabel: fmtInt(b.count),
+    valLabel: fmtCount(b.count, partial),
   }));
   renderBars('rd-bands', items, null);
 }
 
 function renderPerTest(d) {
   const rows = d.per_test || [];
+  const partial = hasIncompleteCoverage(d);
   const tbody = $('rd-pertest');
   const empty = $('rd-pertest-empty');
   if (!rows.length) { tbody.innerHTML = ''; if (empty) empty.hidden = false; return; }
@@ -144,10 +171,10 @@ function renderPerTest(d) {
   tbody.innerHTML = rows.map((p) =>
     '<tr>' +
       '<td>' + escapeHtml(p.title) + '</td>' +
-      '<td class="num">' + fmtInt(p.attempts) + '</td>' +
-      '<td class="num">' + fmtInt(p.auth) + '</td>' +
-      '<td class="num">' + fmtInt(p.anon) + '</td>' +
-      '<td class="num">' + (p.avg_band == null ? '—' : escapeHtml(p.avg_band)) + '</td>' +
+      '<td class="num">' + fmtCount(p.attempts, partial) + '</td>' +
+      '<td class="num">' + fmtCount(p.auth, partial) + '</td>' +
+      '<td class="num">' + fmtCount(p.anon, partial) + '</td>' +
+      '<td class="num">' + (partial || p.avg_band == null ? '—' : escapeHtml(p.avg_band)) + '</td>' +
     '</tr>'
   ).join('');
 }
@@ -173,11 +200,39 @@ function renderRecent(d) {
 }
 
 function render(d) {
+  if (d.data_status === 'unavailable' || d.ok === false) {
+    for (const id of ['rd-total-alltime', 'rd-total-window', 'rd-auth-users', 'rd-anon-sources', 'rd-time-avg']) {
+      if ($(id)) $(id).textContent = '—';
+    }
+    if ($('rd-split')) $('rd-split').textContent = '';
+    if ($('rd-time-sub')) $('rd-time-sub').textContent = 'Nguồn dữ liệu không đọc được';
+    if ($('rd-skills')) $('rd-skills').innerHTML = '<div class="rd-empty">Dữ liệu hiện không khả dụng.</div>';
+    if ($('rd-bands')) $('rd-bands').innerHTML = '<div class="rd-empty">Dữ liệu hiện không khả dụng.</div>';
+    if ($('rd-pertest')) $('rd-pertest').innerHTML = '';
+    if ($('rd-recent')) $('rd-recent').innerHTML = '';
+    if ($('rd-pertest-empty')) $('rd-pertest-empty').hidden = true;
+    if ($('rd-recent-empty')) $('rd-recent-empty').hidden = true;
+    showBanner('Dữ liệu lượt làm bài hiện không khả dụng — dấu — không có nghĩa là 0.');
+    return;
+  }
   renderTotals(d);
   renderSkills(d);
   renderBands(d);
   renderPerTest(d);
   renderRecent(d);
+  const warnings = [];
+  if (hasIncompleteCoverage(d)) {
+    warnings.push('Snapshot chưa đầy đủ — số đếm suy ra là cận dưới (≥), tỷ lệ và trung bình đã được ẩn.');
+  }
+  const failedLookups = (d.lookup_failures || []).map((source) => LOOKUP_FAILURE_LABEL[source] || source);
+  if (failedLookups.length) {
+    warnings.push('Nguồn phụ không đọc được: ' + failedLookups.join(', ') + '.');
+  } else if (d.data_status === 'partial' && !warnings.length) {
+    warnings.push('Một nguồn phụ không đọc được; các số liệu còn lại vẫn dùng snapshot đầy đủ.');
+  }
+  if (warnings.length) {
+    showToast(warnings.join(' '), 'warning', { persist: true });
+  }
   if (d.computed_at) $('rd-updated').textContent = 'Cập nhật lúc ' + fmtWhen(d.computed_at);
 }
 

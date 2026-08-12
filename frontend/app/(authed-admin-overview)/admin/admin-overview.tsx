@@ -600,7 +600,7 @@ export function AdminOverview() {
             <a href="/admin/students">Học viên · LIVE</a>
             <a href="/admin/users">Tất cả người dùng · LIVE</a>
             <a href="/admin/system">Hệ thống · LIVE</a>
-            <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>
+            <a href="/admin/dashboard/reading-attempts">Reading — Lượt làm bài · LIVE</a>
             <a href="/admin/classes">Lớp &amp; Học viên · LIVE</a>
             <a href="/admin/usage">Hoạt động người dùng</a>
           </div>
