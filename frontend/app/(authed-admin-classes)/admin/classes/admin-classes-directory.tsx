@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   cohortDraft,
   cohortSummary,
@@ -14,7 +15,6 @@ import {
 } from '@/lib/admin-classes-model.mjs';
 
 import type { Banner, Cohort, CohortDraft, CohortPayload, Course } from './admin-class-types';
-import { Dialog, Field, messageOf, StatusBanner } from './admin-class-ui';
 
 type ConfirmState = null | { cohort: Cohort; nextActive: boolean };
 
@@ -181,7 +181,7 @@ export function AdminClassesDirectory() {
 
       <nav className="acd-tabs" aria-label="Lớp và học viên">
         <a className="is-active" href="/admin/classes" aria-current="page"><span>Lớp</span><small>Danh mục · sĩ số · trạng thái</small></a>
-        <a href="/pages/admin/classes/index.html?tab=students"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></a>
+        <a href="/admin/students"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></a>
       </nav>
 
       <section className="acd-kpis" aria-label="Tổng quan lớp học">

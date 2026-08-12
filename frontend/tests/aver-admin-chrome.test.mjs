@@ -599,7 +599,7 @@ describe('GĐ 1 — merged class area highlights in the sidebar', () => {
     assert.match(CHROME_JS, /slug:\s*'classes'[^}]*href:\s*'\/admin\/classes'/);
   });
 
-  it('student directory remains on the legacy workspace until its own batch', () => {
-    assert.match(CHROME_JS, /slug:\s*'students'[^}]*\/pages\/admin\/classes\/index\.html\?tab=students/);
+  it('student directory points to its native owner', () => {
+    assert.match(CHROME_JS, /slug:\s*'students'[^}]*href:\s*'\/admin\/students'/);
   });
 });

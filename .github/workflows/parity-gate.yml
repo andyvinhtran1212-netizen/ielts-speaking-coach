@@ -247,8 +247,10 @@ on:
       # Class directory có rollup/course truth + CRUD/soft archive; browser
       # fixture kiểm failure states, orphan course preservation và reload chuẩn.
       - 'frontend/app/(authed-admin-classes)/**'
+      - 'frontend/app/(authed-admin-students)/**'
       - 'frontend/lib/admin-classes-model.mjs'
       - 'frontend/public/css/admin-classes-next.css'
+      - 'frontend/public/css/admin-students-next.css'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -279,6 +281,7 @@ on:
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
+      - 'frontend/tooling/verify-admin-students-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -717,6 +720,11 @@ jobs:
       # và edit lớp có course mồ côi không âm thầm tháo liên kết.
       - name: Kiểm luồng Admin Classes native
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/students` có search, CSV và mutation roster. Fixture ghim
+      # canonical reload, nullable clears, partial profile failure và cấm hard delete.
+      - name: Kiểm luồng Admin Students native
+        run: node tooling/verify-admin-students-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

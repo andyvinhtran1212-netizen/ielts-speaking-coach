@@ -597,7 +597,7 @@ export function AdminOverview() {
         <div>
           <h2 className="ov-section-title">Truy cập + Hệ thống</h2>
           <div className="placeholder-row">
-            <a href="/pages/admin/classes/index.html?tab=students">Học viên · LIVE</a>
+            <a href="/admin/students">Học viên · LIVE</a>
             <a href="/admin/users">Tất cả người dùng · LIVE</a>
             <a href="/admin/system">Hệ thống · LIVE</a>
             <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>

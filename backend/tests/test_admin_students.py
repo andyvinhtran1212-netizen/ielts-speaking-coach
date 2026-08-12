@@ -149,7 +149,7 @@ def test_get_student_returns_history():
     assert r.json()["essay_history"] == []
 
 
-def test_update_student_strips_none_fields():
+def test_update_student_preserves_explicit_null_for_optional_fields():
     with patch("routers.admin_students.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_students.student_service.update_student",
                return_value=_STUDENT_ROW) as mock_update:
@@ -161,7 +161,32 @@ def test_update_student_strips_none_fields():
     assert r.status_code == 200
     kwargs = mock_update.call_args.kwargs
     assert kwargs["student_id"] == _STUDENT_ROW["id"]
-    assert kwargs["data"] == {"full_name": "New Name"}  # None stripped
+    assert kwargs["data"] == {"full_name": "New Name", "target_band": None}
+
+
+def test_update_student_omits_fields_not_sent():
+    with patch("routers.admin_students.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_students.student_service.update_student",
+               return_value=_STUDENT_ROW) as mock_update:
+        r = _client().patch(
+            f"/admin/students/{_STUDENT_ROW['id']}",
+            json={"full_name": "New Name"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert mock_update.call_args.kwargs["data"] == {"full_name": "New Name"}
+
+
+def test_update_student_rejects_null_identity_fields():
+    with patch("routers.admin_students.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_students.student_service.update_student") as mock_update:
+        r = _client().patch(
+            f"/admin/students/{_STUDENT_ROW['id']}",
+            json={"student_code": None},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+    mock_update.assert_not_called()
 
 
 def test_delete_student_returns_204():
@@ -246,3 +271,32 @@ def test_list_students_attaches_cohort_name(monkeypatch):
     by = {r["id"]: r for r in rows}
     assert by["s1"]["cohort_name"] == "Lớp A"
     assert by["s2"]["cohort_name"] is None   # unassigned → None → UI "—"
+    assert by["s1"]["cohort_lookup_failed"] is False
+    assert by["s2"]["cohort_lookup_failed"] is False
+
+
+def test_list_students_exposes_cohort_lookup_failure(monkeypatch):
+    """A failed cohort enrichment must not make assigned students look empty."""
+    from services import student_service as ss
+
+    class _Q:
+        def __init__(self, name): self.name = name
+        def select(self, *a, **k): return self
+        def order(self, *a, **k): return self
+        def range(self, *a, **k): return self
+        def execute(self):
+            if self.name == "cohorts":
+                raise RuntimeError("lookup unavailable")
+            return type("R", (), {"data": [
+                {"id": "s1", "student_code": "S1", "full_name": "A", "cohort_id": "co1"},
+            ]})()
+        def in_(self, *a, **k): return self
+
+    class _C:
+        def table(self, name): return _Q(name)
+
+    monkeypatch.setattr(ss, "supabase_admin", _C())
+    rows = ss.list_students()
+    assert rows[0]["cohort_id"] == "co1"
+    assert rows[0]["cohort_name"] is None
+    assert rows[0]["cohort_lookup_failed"] is True

@@ -19,7 +19,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(authed-admin-classes)', 'admin', 'classes', 'page.tsx');
 const DIRECTORY = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-class-ui.tsx');
+const UI = read('components', 'admin-directory-ui.tsx');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-classes-next.css');
 const MODEL = read('lib', 'admin-classes-model.mjs');
@@ -33,7 +33,7 @@ describe('/admin/classes — native directory ownership', () => {
   test('uses backend admin gate while preserving legacy detail/student workspace', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /active="classes" subsection="classes"/);
-    assert.match(DIRECTORY, /href="\/pages\/admin\/classes\/index\.html\?tab=students"/);
+    assert.match(DIRECTORY, /href="\/admin\/students"/);
     assert.match(DIRECTORY, /\/pages\/admin\/classes\/index\.html\?cohort_id=/);
     assert.match(LEGACY, /id="view-detail"/);
     assert.match(LEDGER, /`\/admin\/classes`[^\n]+native directory ownership/);
@@ -77,7 +77,7 @@ describe('/admin/classes — native directory ownership', () => {
   test('canonical navigation enters native directory and exits to legacy student workspace', () => {
     assert.match(CHROME, /section:\s*'classes'[^}]*href:\s*'\/admin\/classes'/);
     assert.match(CHROME, /slug:\s*'classes'[^}]*href:\s*'\/admin\/classes'/);
-    assert.match(CHROME, /slug:\s*'students'[^}]*\/pages\/admin\/classes\/index\.html\?tab=students/);
+    assert.match(CHROME, /slug:\s*'students'[^}]*href:\s*'\/admin\/students'/);
   });
 
   test('fixture-backed browser contract is gated in CI', () => {
