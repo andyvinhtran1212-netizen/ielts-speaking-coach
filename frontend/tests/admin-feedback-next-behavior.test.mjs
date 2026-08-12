@@ -22,6 +22,7 @@ const CSS = read('public', 'css', 'admin-feedback-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const VERCEL = read('vercel.json');
+const VERIFIER = read('tooling', 'verify-admin-feedback-flow.mjs');
 
 const payload = (overrides = {}) => ({
   data_status: 'complete', snapshot_to: '2026-08-12T08:00:00Z', skill: null,
@@ -63,6 +64,10 @@ describe('/admin/feedback native ownership', () => {
     assert.match(CSS, /min-height:44px/);
     assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-feedback\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-feedback-flow\.mjs/);
+    assert.match(VERIFIER, /const desktopFilterResponse = page\.waitForResponse/);
+    assert.match(VERIFIER, /await desktopFilterResponse/);
+    assert.match(VERIFIER, /const desktopLayout = await page\.evaluate/);
+    assert.doesNotMatch(VERIFIER, /waitForFunction\(\(\) => \{\s*const header = document\.querySelector\('\.afd-group__header'\)/);
   });
 });
 
