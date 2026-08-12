@@ -43,6 +43,7 @@ test('renderer keeps passage, vocabulary and both question modes', () => {
   assert.match(html, /disabled>Đối chiếu bài đọc/);
   assert.match(html, /id="cr-back"/);
   assert.match(html, /cr-question__prompt/);
+  assert.match(html, /hoàn thành đủ 2 câu/);
 });
 
 test('solution is requested only after every reading answer exists', async () => {
@@ -61,6 +62,7 @@ test('solution is requested only after every reading answer exists', async () =>
   assert.equal(calls, 0);
   reading.write('r-01', 'T');
   reading.write('r-02', 'a');
+  assert.match(reading.render(), /Đã trả lời đủ 2 câu/);
   assert.equal(await reading.reveal(), true);
   assert.equal(calls, 1);
   assert.match(reading.render(), /Mai đọc sách\./);

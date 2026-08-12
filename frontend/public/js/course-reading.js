@@ -82,6 +82,7 @@ export function createReading({ api, storage, userId }) {
     const role = String(data.role || 'bài về nhà')
       .replace(/^bài luyện đọc\s*[—-]\s*/i, '');
     const miss = missing();
+    const questionCount = questions().length;
     const groups = (data.question_groups || []).map((group) => `
       <section class="cr-question-group" aria-labelledby="cr-group-${esc(group.id)}">
         <header><span>Phần ${group.id === 'content' ? '1' : '2'}</span>
@@ -103,7 +104,7 @@ export function createReading({ api, storage, userId }) {
         <span class="cr-word-count">${Number(data.word_count) || 0}<small>từ</small></span>
       </header>
       <div class="cr-guide" role="note"><strong>Cách làm</strong>
-        <span>Đọc lượt đầu không tra từ. Lượt hai dùng bảng từ vựng, rồi hoàn thành đủ 10 câu trước khi đối chiếu.</span>
+        <span>Đọc lượt đầu không tra từ. Lượt hai dùng bảng từ vựng, rồi hoàn thành đủ ${questionCount} câu trước khi đối chiếu.</span>
       </div>
       <div class="cr-reading-grid">
         <section class="cr-passage" aria-labelledby="cr-passage-title">
@@ -124,7 +125,7 @@ export function createReading({ api, storage, userId }) {
           ? '<strong>Đã đối chiếu.</strong> Bài đọc này là phần tự luyện, không cộng vào điểm trắc nghiệm.'
           : miss.length
             ? `Còn <strong>${miss.length}</strong> câu chưa trả lời. Điền đủ để mở bản dịch và lời giải.`
-            : 'Đã trả lời đủ 10 câu. Bạn có thể mở bản dịch và lời giải.'}</p>
+            : `Đã trả lời đủ ${questionCount} câu. Bạn có thể mở bản dịch và lời giải.`}</p>
         ${solution ? '' : `<button class="av-button av-button-primary" id="cr-check" type="button"${
           miss.length ? ' disabled' : ''}>Đối chiếu bài đọc</button>`}
       </footer>
