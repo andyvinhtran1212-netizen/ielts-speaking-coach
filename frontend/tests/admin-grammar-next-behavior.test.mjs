@@ -59,7 +59,16 @@ describe('/admin/grammar native hub', () => {
   });
 
   test('has a responsive and reduced-motion visual contract in CI', () => {
-    assert.match(LAYOUT, /admin-grammar-hub-next\.css/);
+    for (const stylesheet of [
+      'admin-components.css',
+      'admin-buttons.css',
+      'admin-status.css',
+      'admin-grammar-hub-next.css',
+    ]) {
+      assert.ok(LAYOUT.includes(stylesheet), `layout missing ${stylesheet}`);
+      assert.ok(WORKFLOW.includes(`frontend/public/css/${stylesheet.startsWith('admin-grammar') ? '' : 'aver-design/'}${stylesheet}`),
+        `parity paths missing ${stylesheet}`);
+    }
     assert.match(CSS, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(max-width: 480px\)/);

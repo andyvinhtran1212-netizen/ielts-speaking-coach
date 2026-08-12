@@ -273,6 +273,9 @@ on:
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
+      - 'frontend/public/css/aver-design/admin-components.css'
+      - 'frontend/public/css/aver-design/admin-buttons.css'
+      - 'frontend/public/css/aver-design/admin-status.css'
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
