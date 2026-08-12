@@ -275,9 +275,14 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
     const inv = SRC.indexOf('function invalidateProgress');
     assert.ok(/_dailyBoardLoaded = false/.test(SRC.slice(inv, inv + 700)),
       'invalidateProgress phải làm cũ cả bảng ngày');
-    // Mỗi lần nạp lại bảng bài tập là một lần dữ liệu bài giao vừa đổi.
-    const loads = (SRC.match(/await loadHomework\(\);/g) || []).length;
-    const paired = (SRC.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
+    // Deep-link từ directory Next chỉ ĐỌC danh sách để tìm assignment rồi mở
+    // workspace chấm; nó không đổi dữ liệu nên không được tính như mutation.
+    const seamStart = SRC.indexOf('async function openAssignmentDeepLink');
+    const seamEnd = seamStart < 0 ? seamStart : SRC.indexOf('\n}', seamStart) + 2;
+    const mutationSource = seamStart < 0 ? SRC : SRC.slice(0, seamStart) + SRC.slice(seamEnd);
+    // Mỗi lần nạp lại bảng bài tập SAU MUTATION là một lần dữ liệu vừa đổi.
+    const loads = (mutationSource.match(/await loadHomework\(\);/g) || []).length;
+    const paired = (mutationSource.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
     assert.equal(paired, loads,
       `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
   });

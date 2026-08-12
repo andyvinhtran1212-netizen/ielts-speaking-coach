@@ -109,7 +109,8 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /\/action-log/);
     assert.match(UI, /assignment_id=\$\{encodeURIComponent\(assignment\.id\)\}/);
     assert.match(LEGACY, /const assignmentId = params\.get\('assignment_id'\)/);
-    assert.match(LEGACY, /await loadHomework\(\)/);
+    assert.match(LEGACY, /async function openAssignmentDeepLink[\s\S]*?await loadHomework\(\)/);
+    assert.match(LEGACY, /await openAssignmentDeepLink\(assignmentId\)/);
     assert.match(LEGACY, /await openMarking\(/);
   });
 

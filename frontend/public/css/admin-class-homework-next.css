@@ -1,5 +1,5 @@
 /* Native assignment management inside /admin/classes/[cohortId]. */
-.ach-workspace { gap: var(--av-space-5); }
+.ach-workspace { gap: calc(var(--av-space-4) + var(--av-space-1)); }
 
 .ach-workspace .acd-kpis { margin: 0; }
 .ach-table { min-width: 980px; }
