@@ -785,6 +785,33 @@ None found that require a schema or grading rewrite.
   Close clears the deep-link, payload text is escaped, and no unexpected write
   occurs at desktop or narrow widths.
 
+## Admin operational alerts — 2026-08-12
+
+### Issue: the legacy alert tables flatten incident priority and overstate available actions
+
+- **Root cause:** session errors and response grading failures are rendered as
+  two wide tables with equal visual weight, truncated messages and no mobile
+  reading hierarchy. The route ledger also described dismissal although the
+  backend exposes only `GET /admin/alerts`; adding that control in the UI would
+  invent persistence that does not exist.
+- **Severity:** Medium.
+- **Impact:** admins must horizontally scan identifiers before understanding
+  the failure, long messages are hidden, and narrow screens become a table
+  viewport. A misleading dismissal control would make operational state diverge
+  from canonical backend truth.
+- **Impacted files:** native `/admin/system/alerts` page and model, system hub
+  link/layout, dedicated responsive CSS, route ledger, contract tests and
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** keep the endpoint read-only; present each incident
+  as a message-first card with explicit type, learner identity, step, timestamp
+  and real session link; preserve backend deduplication, expose client-only
+  session/response scope in the URL, and surface malformed or missing identity
+  as partial data rather than an empty value.
+- **Verification:** verify the admin gate and canonical `limit=30` request,
+  session/response counts, malicious payload escaping, malformed-row warning,
+  URL scope restoration, refresh, both real session links, no unexpected write,
+  and no horizontal overflow at 390px.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow

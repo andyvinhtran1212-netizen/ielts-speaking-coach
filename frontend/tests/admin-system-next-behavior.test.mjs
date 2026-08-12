@@ -51,13 +51,11 @@ describe('/admin/system — native read-only admin pilot', () => {
   });
 
   test('preserves both operational destinations and visible status truth', () => {
-    for (const path of [
-      '/pages/admin/system/ai-usage.html',
-      '/pages/admin/system/alerts.html',
-    ]) {
-      assert.ok(PAGE.includes(path), `Next missing ${path}`);
-      assert.ok(LEGACY.includes(path), `rollback HTML missing ${path}`);
-    }
+    assert.ok(PAGE.includes('/pages/admin/system/ai-usage.html'));
+    assert.ok(PAGE.includes('/admin/system/alerts'));
+    assert.ok(LEGACY.includes('/pages/admin/system/ai-usage.html'));
+    assert.ok(LEGACY.includes('/pages/admin/system/alerts.html'));
+    assert.doesNotMatch(PAGE, /href="\/pages\/admin\/system\/alerts\.html"/);
     assert.equal((PAGE.match(/adm-status-pill is-live/g) || []).length, 2);
     assert.match(PAGE, /aria-label="System admin sections"/);
   });
