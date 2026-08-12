@@ -519,7 +519,7 @@ const NAV_GROUPS = [
       // Feedback feature — cross-skill inbox (đánh giá đề + báo lỗi đề + flag bài
       // giải) for reading + listening, grouped by test. Not under a skill since
       // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
-      { section: 'feedback',   label: 'Feedback',  href: '/pages/admin/feedback/index.html', icon: 'message' },
+      { section: 'feedback',   label: 'Feedback',  href: '/admin/feedback', icon: 'message' },
       // Sprint 18.2 — "Hệ thống" folded into the Dashboard (AI Usage is the
       // cost-card drill-down). system / ai-usage / alerts stay in VALID_ACTIVE.
     ],

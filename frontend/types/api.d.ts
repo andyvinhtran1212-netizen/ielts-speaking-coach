@@ -10465,6 +10465,99 @@ export interface components {
             /** Action */
             action: string;
         };
+        /** AdminFeedbackGroupOut */
+        AdminFeedbackGroupOut: {
+            /** Test Id */
+            test_id?: string | null;
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /** New Count */
+            new_count: number;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+        };
+        /** AdminFeedbackInboxOut */
+        AdminFeedbackInboxOut: {
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Skill */
+            skill?: string | null;
+            /** Feedback Type */
+            feedback_type?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+            /** Count */
+            count: number | null;
+            /** Groups */
+            groups: components["schemas"]["AdminFeedbackGroupOut"][];
+            /** Truncated */
+            truncated: boolean;
+            /** Malformed Count */
+            malformed_count: number;
+        };
+        /** AdminFeedbackItemOut */
+        AdminFeedbackItemOut: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "rating" | "report" | "flag";
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+            /** Test Id */
+            test_id?: string | null;
+            /** Q Num */
+            q_num?: number | null;
+            /** Rating De */
+            rating_de?: number | null;
+            /** Rating Audio */
+            rating_audio?: number | null;
+            /** Category */
+            category?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Anon Id */
+            anon_id?: "redacted" | null;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "user" | "anonymous" | "unknown";
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** AdminFeedbackStatusOut */
+        AdminFeedbackStatusOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+        };
         /** AdminGenerateBatchRequest */
         AdminGenerateBatchRequest: {
             /** Words */
@@ -27657,7 +27750,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackInboxOut"];
                 };
             };
             /** @description Validation Error */
@@ -27694,7 +27787,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackStatusOut"];
                 };
             };
             /** @description Validation Error */

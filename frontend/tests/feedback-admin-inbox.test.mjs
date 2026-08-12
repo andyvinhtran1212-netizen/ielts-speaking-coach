@@ -24,7 +24,7 @@ const CHROME = read('js', 'components', 'aver-admin-chrome.js');
 describe('Admin feedback — nav registration', () => {
   it('chrome registers a "feedback" section + nav item + message icon', () => {
     assert.match(CHROME, /'feedback'/);                                  // VALID_ACTIVE
-    assert.match(CHROME, /section:\s*'feedback'[\s\S]*?href:\s*'\/pages\/admin\/feedback\/index\.html'[\s\S]*?icon:\s*'message'/);
+    assert.match(CHROME, /section:\s*'feedback'[\s\S]*?href:\s*'\/admin\/feedback'[\s\S]*?icon:\s*'message'/);
     assert.match(CHROME, /message:\s*'<path/);                            // icon glyph added
   });
 });

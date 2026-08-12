@@ -905,6 +905,30 @@ None found that require a schema or grading rewrite.
   retry, URL search/sort, malicious identity escaping, no unexpected write, and
   no horizontal overflow with populated rows at 390px and a table at 1440px.
 
+## Admin learner-feedback triage — 2026-08-12
+
+### Issue: the legacy inbox makes incomplete reads and optimistic status look canonical
+
+- **Root cause:** the legacy controller reads the whole `user_feedback` table in
+  one unpaged request, groups only by `test_id`, defaults to mixing resolved and
+  new work, and mutates rows optimistically before the backend is read again.
+- **Severity:** Medium.
+- **Impact:** PostgREST caps can hide older feedback without warning; equal
+  Reading/Listening identifiers can merge unrelated work; and a successful-looking
+  toggle can disagree with a full reload. Filter state also disappears on refresh.
+- **Impacted files:** feedback backend route/tests; native `/admin/feedback`
+  route/model/CSS; admin chrome link; route ledger, behavior test and
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** page a frozen backend snapshot using the
+  `(created_at,id)` keyset; return typed complete/partial/unavailable coverage;
+  redact anonymous capability tokens; group by `(skill,test_id)`; default the
+  native inbox to new work; keep type/skill/status in the URL; reload canonical
+  GET state after every PATCH; retain the HTML page as rollback.
+- **Verification:** cross the simulated response cap; collide a test id across
+  skills; reject malformed/unknown coverage; verify admin gate, URL filters,
+  hostile note escaping, partial/unavailable messaging, 44px mobile actions,
+  no overflow, and PATCH→GET reconciliation on resolve and reopen.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow
