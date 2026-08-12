@@ -1189,32 +1189,74 @@ async def list_unassigned_codes(authorization: str | None = Header(default=None)
 
 # ── Sprint 17.2 — usage log (per-user + per-code activity rollups) ────────────────
 
+_USAGE_PAGE = 1000
+_USAGE_ID_CHUNK = 200
+
+
+def _usage_paged(build_query) -> list[dict]:
+    """Read a complete, stably ordered PostgREST result.
+
+    Usage rollups are operational truth, so the implicit ~1000-row response cap
+    must not silently turn a real total into a plausible-looking lower number.
+    ``build_query`` returns a fresh builder for every page because PostgREST
+    builders are mutable.
+    """
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = (
+            build_query()
+            .range(start, start + _USAGE_PAGE - 1)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(page)
+        if len(page) < _USAGE_PAGE:
+            return rows
+        start += _USAGE_PAGE
+
+
+def _usage_id_chunks(user_ids: list[str]):
+    for start in range(0, len(user_ids), _USAGE_ID_CHUNK):
+        yield user_ids[start : start + _USAGE_ID_CHUNK]
+
 def _aggregate_usage_for_users(
     user_ids: list[str], date_from: str | None = None, date_to: str | None = None
 ) -> dict[str, dict]:
     """Per-user {sessions, last_active, ai_cost_usd} for the given users.
 
-    Batched: ONE sessions query + ONE ai_usage_logs query regardless of user count
-    (no N+1). Pattern #29: a failed sub-query degrades THAT metric to None rather
-    than failing the whole rollup. ISO-UTC timestamps compare lexicographically.
+    Batched in bounded user-id chunks (no per-user N+1), and every source page is
+    read past PostgREST's response cap. Pattern #29: a failed sub-query degrades
+    THAT metric to None rather than failing the whole rollup. ISO-UTC timestamps
+    compare lexicographically.
     """
     out = {uid: {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0} for uid in user_ids}
     if not user_ids:
         return out
 
     try:
-        sq = supabase_admin.table("sessions").select("user_id, started_at").in_("user_id", user_ids)
-        if date_from:
-            sq = sq.gte("started_at", date_from)
-        if date_to:
-            sq = sq.lte("started_at", date_to)
-        for row in (sq.execute().data or []):
-            uid, ts = row.get("user_id"), row.get("started_at")
-            if uid not in out:
-                continue
-            out[uid]["sessions"] += 1
-            if ts and (out[uid]["last_active"] is None or ts > out[uid]["last_active"]):
-                out[uid]["last_active"] = ts
+        for id_chunk in _usage_id_chunks(user_ids):
+            def sessions_query():
+                query = (
+                    supabase_admin.table("sessions")
+                    .select("id, user_id, started_at")
+                    .in_("user_id", id_chunk)
+                    .order("id")
+                )
+                if date_from:
+                    query = query.gte("started_at", date_from)
+                if date_to:
+                    query = query.lte("started_at", date_to)
+                return query
+
+            for row in _usage_paged(sessions_query):
+                uid, ts = row.get("user_id"), row.get("started_at")
+                if uid not in out:
+                    continue
+                out[uid]["sessions"] += 1
+                if ts and (out[uid]["last_active"] is None or ts > out[uid]["last_active"]):
+                    out[uid]["last_active"] = ts
     except Exception as exc:
         logger.warning("usage: sessions aggregate failed: %s", exc)
         for uid in out:
@@ -1222,15 +1264,24 @@ def _aggregate_usage_for_users(
             out[uid]["last_active"] = None
 
     try:
-        cq = supabase_admin.table("ai_usage_logs").select("user_id, cost_usd_est").in_("user_id", user_ids)
-        if date_from:
-            cq = cq.gte("created_at", date_from)
-        if date_to:
-            cq = cq.lte("created_at", date_to)
-        for row in (cq.execute().data or []):
-            uid = row.get("user_id")
-            if uid in out and out[uid]["ai_cost_usd"] is not None:
-                out[uid]["ai_cost_usd"] += float(row.get("cost_usd_est") or 0)
+        for id_chunk in _usage_id_chunks(user_ids):
+            def costs_query():
+                query = (
+                    supabase_admin.table("ai_usage_logs")
+                    .select("id, user_id, cost_usd_est")
+                    .in_("user_id", id_chunk)
+                    .order("id")
+                )
+                if date_from:
+                    query = query.gte("created_at", date_from)
+                if date_to:
+                    query = query.lte("created_at", date_to)
+                return query
+
+            for row in _usage_paged(costs_query):
+                uid = row.get("user_id")
+                if uid in out and out[uid]["ai_cost_usd"] is not None:
+                    out[uid]["ai_cost_usd"] += float(row.get("cost_usd_est") or 0)
     except Exception as exc:
         logger.warning("usage: ai cost aggregate failed: %s", exc)
         for uid in out:
@@ -1252,14 +1303,14 @@ async def usage_by_user(
     session count, last activity, and AI cost. Batched (no N+1)."""
     await require_admin(authorization)
     try:
-        users = (
-            supabase_admin.table("users")
+        users = _usage_paged(
+            lambda: supabase_admin.table("users")
             .select("id, email, display_name, role")
-            .execute()
-            .data
-        ) or []
+            .order("id")
+        )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải users: {exc}")
+        logger.warning("usage: users list failed: %s", exc)
+        raise HTTPException(500, "Không thể tải dữ liệu hoạt động") from exc
 
     agg = _aggregate_usage_for_users([u["id"] for u in users], date_from, date_to)
     return [
@@ -1291,22 +1342,25 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
         raise HTTPException(404, "Mã không tồn tại")
     code = code_rows[0]
 
-    asgn = (
-        supabase_admin.table("user_code_assignments")
-        .select("user_id, assigned_at")
+    asgn = _usage_paged(
+        lambda: supabase_admin.table("user_code_assignments")
+        .select("id, user_id, assigned_at")
         .eq("code_id", code_id)
         .eq("is_active", True)   # only active assignments count toward the rollup
-        .execute()
-        .data
-    ) or []
+        .order("id")
+    )
     uids = [a["user_id"] for a in asgn]
 
     users: dict[str, dict] = {}
     if uids:
-        for u in (
-            supabase_admin.table("users").select("id, email, display_name").in_("id", uids).execute().data or []
-        ):
-            users[u["id"]] = u
+        for id_chunk in _usage_id_chunks(uids):
+            for u in _usage_paged(
+                lambda id_chunk=id_chunk: supabase_admin.table("users")
+                .select("id, email, display_name, role")
+                .in_("id", id_chunk)
+                .order("id")
+            ):
+                users[u["id"]] = u
 
     agg = _aggregate_usage_for_users(uids)
     per_user = [
@@ -1314,12 +1368,24 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
             "user_id": uid,
             "email": (users.get(uid) or {}).get("email") or "",
             "name": (users.get(uid) or {}).get("display_name") or "",
+            "role": (users.get(uid) or {}).get("role"),
             **agg.get(uid, {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}),
         }
         for uid in uids
     ]
-    total_sessions = sum((p["sessions"] or 0) for p in per_user)
-    total_cost = round(sum((p["ai_cost_usd"] or 0) for p in per_user), 4)
+    # A failed source query degrades every corresponding per-user metric to
+    # None. Preserve that truth at aggregate level; coercing None to zero would
+    # tell admins "no activity/cost" when the backend actually could not read it.
+    total_sessions = (
+        None
+        if any(p["sessions"] is None for p in per_user)
+        else sum(p["sessions"] for p in per_user)
+    )
+    total_cost = (
+        None
+        if any(p["ai_cost_usd"] is None for p in per_user)
+        else round(sum(p["ai_cost_usd"] for p in per_user), 4)
+    )
     return {
         "code": code,
         "assigned_users": per_user,
@@ -4484,4 +4550,3 @@ async def admin_grammar_recommend_test(
             "url":      f"/pages/grammar-article.html?slug={match.get('slug')}",
         },
     }
-

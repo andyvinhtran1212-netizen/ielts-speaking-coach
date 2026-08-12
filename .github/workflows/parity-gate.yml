@@ -245,6 +245,12 @@ on:
       - 'frontend/lib/admin-instructors-model.mjs'
       - 'frontend/public/css/admin-instructors-next.css'
       - 'frontend/public/pages/instructor/index.html'
+      # User/activity usage has an admin gate and fixture-backed read contract.
+      # Route, model, responsive table and canonical access-code/overview links
+      # must all rerun the same verifier.
+      - 'frontend/app/(authed-admin-usage)/**'
+      - 'frontend/lib/admin-usage-model.mjs'
+      - 'frontend/public/css/admin-usage-next.css'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -305,6 +311,7 @@ on:
       - 'frontend/tooling/verify-admin-alerts-flow.mjs'
       - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-instructors-flow.mjs'
+      - 'frontend/tooling/verify-admin-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -753,6 +760,11 @@ jobs:
       # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
       - name: Kiểm luồng Admin Instructors native
         run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
+      # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.
+      - name: Kiểm luồng Admin Usage native
+        run: node tooling/verify-admin-usage-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

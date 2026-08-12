@@ -149,7 +149,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 | `pages/admin/index.html` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
 | `pages/admin/dashboard/index.html` | admin | Ops dashboard — visitors / practices / grading-minutes / tokens + trends (`GET /admin/dashboard/overview` + `/trends`). |
 | `pages/admin/dashboard/reading-attempts.html` | admin | Reading-attempts dashboard — auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). |
-| `pages/admin/foot-traffic/index.html` · `pages/admin/usage/index.html` | admin | Visitor foot-traffic + usage analytics (`/api/analytics/*`). |
+| `pages/admin/foot-traffic/index.html` · `/admin/usage` (`pages/admin/usage/index.html` rollback) | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
 | `pages/admin/error-logs/index.html` | admin | Error-report inbox (`/admin/error-logs`). |
 | `pages/admin/system/index.html` · `pages/admin/system/ai-usage.html` · `pages/admin/system/alerts.html` | admin | System health, AI token usage, alerts. |
 

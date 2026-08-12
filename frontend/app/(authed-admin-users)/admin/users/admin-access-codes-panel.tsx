@@ -275,7 +275,7 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError }: {
               <td>{formatDate(code.created_at)}</td>
               <td><span className="au-notes">{code.notes || '—'}</span></td>
               <td><div className="au-row-actions">
-                <a className="adm-btn-secondary adm-btn-sm" href={`/pages/admin/usage/index.html?code_id=${encodeURIComponent(code.id)}`}>Hoạt động</a>
+                <a className="adm-btn-secondary adm-btn-sm" href={`/admin/usage?code_id=${encodeURIComponent(code.id)}`}>Hoạt động</a>
                 {!code.is_revoked && code.is_active && <>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setEdit({ code, permissions: [...code.permissions], sessionLimit: code.session_limit == null ? '' : String(code.session_limit), error: '' })}>Sửa quyền</button>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConfirm({
