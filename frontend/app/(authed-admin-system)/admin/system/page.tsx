@@ -20,7 +20,7 @@ export default function AdminSystemPage() {
           </header>
 
           <section className="admin-hub-grid" aria-label="System admin sections">
-            <a href="/pages/admin/system/ai-usage.html" className="admin-hub-card">
+            <a href="/admin/system/ai-usage" className="admin-hub-card">
               <h3>AI Usage</h3>
               <p className="lede">
                 Theo dõi chi phí AI (Claude / Gemini / Whisper / TTS), filter theo cửa sổ

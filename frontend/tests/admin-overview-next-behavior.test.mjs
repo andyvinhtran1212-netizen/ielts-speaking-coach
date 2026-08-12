@@ -75,6 +75,8 @@ describe('/admin — lifecycle and contract behavior', () => {
     assert.match(BEHAVIOR, /requestId !== contentSequence\.current/);
     assert.match(BEHAVIOR, /loadedWindow\.current === windowDays/);
     assert.match(BEHAVIOR, /void loadOps\(windowDays, 'windowed'\)/);
+    assert.match(BEHAVIOR, /href=\{`\/admin\/system\/ai-usage\?days=\$\{windowDays\}`\}/);
+    assert.doesNotMatch(BEHAVIOR, /href="\/pages\/admin\/system\/ai-usage\.html"/);
   });
 
   test('is account-keyed, visibility-aware and cleans timers/listeners', () => {
@@ -111,6 +113,8 @@ describe('/admin — lifecycle and contract behavior', () => {
   test('gates the fixture-backed browser flow in CI', () => {
     assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-overview\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-overview\.css/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-system\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/public\/css\/admin-ai-usage-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-overview-flow\.mjs/);
     assert.match(BROWSER_FLOW, /parsed\.pathname === '\/auth\/me'/);
     assert.match(BROWSER_FLOW, /unexpectedWrites/);

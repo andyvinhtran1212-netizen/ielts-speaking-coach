@@ -234,6 +234,11 @@ on:
       # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
       - 'frontend/app/(authed-admin-overview)/**'
       - 'frontend/public/css/admin-overview.css'
+      # System admin có role gate + verifier fixture-backed riêng. Đổi page,
+      # layout hoặc CSS phải chạy lại chính các browser contract đó.
+      - 'frontend/app/(authed-admin-system)/**'
+      - 'frontend/public/css/admin-alerts-next.css'
+      - 'frontend/public/css/admin-ai-usage-next.css'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -292,6 +297,7 @@ on:
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-alerts-flow.mjs'
+      - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -730,6 +736,11 @@ jobs:
       # canonical dedupe/partial identity, scope URL, escaping và cấm mutation.
       - name: Kiểm luồng Admin Alerts native
         run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/system/ai-usage` là read-only cost report. Runner ghim period,
+      # service lạ, safety cap/truncation, escaping và cấm mutation.
+      - name: Kiểm luồng Admin AI Usage native
+        run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

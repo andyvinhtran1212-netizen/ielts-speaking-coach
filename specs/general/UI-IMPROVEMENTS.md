@@ -812,6 +812,30 @@ None found that require a schema or grading rewrite.
   URL scope restoration, refresh, both real session links, no unexpected write,
   and no horizontal overflow at 390px.
 
+## Admin AI usage — 2026-08-12
+
+### Issue: the legacy cost summary presents a capped estimate as an exact bill
+
+- **Root cause:** the backend intentionally caps aggregation at 10,000 log rows
+  and returns `meta.truncated`, but the legacy page ignores all metadata and
+  labels the resulting sum “Tổng cộng”. It also hardcodes four service buckets,
+  so a new backend service silently disappears from the breakdown.
+- **Severity:** Medium.
+- **Impact:** admins can under-read total AI consumption while believing the
+  number is complete, and cannot reconcile the overall total when a new or
+  unknown provider contributes cost.
+- **Impacted files:** native `/admin/system/ai-usage` route, model and responsive
+  CSS; system hub link/layout; route ledger, contract test and browser verifier.
+- **Suggested minimal fix:** preserve the canonical read-only endpoint and
+  period options; render every service key returned by the backend; surface
+  exact/unknown/truncated coverage from `meta`; distinguish estimates from
+  provider invoices; reject malformed top-level totals rather than defaulting
+  them to zero.
+- **Verification:** test exact and truncated meta, unknown service keys,
+  malformed totals and per-user rows; switch `days` and confirm URL/request;
+  escape authored identity fields; verify no write and no horizontal overflow
+  at 390px.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow

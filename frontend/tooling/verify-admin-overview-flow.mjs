@@ -131,6 +131,17 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/overview') {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overviewPayload) });
   }
+  if (parsed.pathname === '/admin/ai-usage') {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        overall: { calls: 1, cost_usd: 0.01, by_service: { claude: { calls: 1, cost_usd: 0.01 } } },
+        per_user: [],
+        meta: { query_limit: 10000, returned_rows: 1, total_matching_rows: 1, truncated: false },
+      }),
+    });
+  }
   if (parsed.pathname === '/admin/dashboard/overview') {
     const days = Number(parsed.searchParams.get('visitors_window')) || 30;
     if (days === 7) {
@@ -194,6 +205,8 @@ await page.getByRole('tab', { name: 'Vận hành' }).click();
 const contentReadsBeforeWindowChange = requests.filter((request) => request.path === '/admin/overview').length;
 await page.locator('#db-window').selectOption('7');
 await sevenStarted;
+check('drill-down token mang đúng cửa sổ 7 ngày',
+  await page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first().locator('.db-card__link').getAttribute('href') === '/admin/system/ai-usage?days=7');
 await page.locator('#db-window').selectOption('90');
 await page.getByText('900', { exact: true }).waitFor({ state: 'visible' });
 releaseSeven();
@@ -202,6 +215,8 @@ check('response 7 ngày đến trễ không ghi đè lựa chọn 90 ngày',
   await page.locator('#db-window').inputValue() === '90'
     && await page.getByText('900', { exact: true }).count() >= 1
     && await page.locator('#pane-ops').getByText('70', { exact: true }).count() === 0);
+check('drill-down token mang đúng cửa sổ 90 ngày',
+  await page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first().locator('.db-card__link').getAttribute('href') === '/admin/system/ai-usage?days=90');
 check('đổi cửa sổ không gọi thừa aggregate Nội dung',
   requests.filter((request) => request.path === '/admin/overview').length === contentReadsBeforeWindowChange);
 
@@ -253,6 +268,13 @@ const mobileGeometry = await page.evaluate(() => ({
 }));
 check('mobile không tràn ngang', mobileGeometry.scroll === mobileGeometry.client && mobileGeometry.shellRight <= mobileGeometry.client);
 check('dashboard không phát mutation nghiệp vụ', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
+
+await page.getByRole('tab', { name: 'Vận hành' }).click();
+await page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first().locator('.db-card__link').click();
+await page.getByRole('heading', { name: 'Chi phí AI', exact: true }).waitFor({ state: 'visible' });
+check('drill-down mở native AI Usage với period và request canonical',
+  page.url().endsWith('/admin/system/ai-usage?days=30')
+    && requests.some((request) => request.path === '/admin/ai-usage' && request.search === '?days=30'));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
 await browser.close();
