@@ -463,7 +463,7 @@ export function AdminOverview() {
           <MetricCard
             label={`Người xem (${ops?.visitors?.windowDays ?? windowDays} ngày)`}
             value={formatInteger(ops?.visitors?.count)}
-            href="/pages/admin/foot-traffic/index.html"
+            href="/admin/foot-traffic"
             series={trends?.visitors || []}
             loading={loadingScope != null}
             seriesLoading={trendsLoading}

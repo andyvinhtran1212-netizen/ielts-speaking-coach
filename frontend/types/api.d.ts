@@ -599,7 +599,10 @@ export interface paths {
          * Foot Traffic
          * @description Aggregated page-view foot traffic for the admin dashboard. Default window:
          *     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
-         *     Pattern #29: a query failure returns zeroed metrics, never a 500.
+         *
+         *     The response explicitly distinguishes complete, partial and unavailable
+         *     reads. An upstream failure must never masquerade as a real zero-traffic
+         *     window in the admin UI.
          */
         get: operations["foot_traffic_admin_analytics_foot_traffic_get"];
         put?: never;
@@ -11514,6 +11517,50 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** FootTrafficDayRow */
+        FootTrafficDayRow: {
+            /** Date */
+            date: string;
+            /** Views */
+            views: number;
+        };
+        /** FootTrafficOut */
+        FootTrafficOut: {
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to?: string | null;
+            /** Route */
+            route?: string | null;
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Effective To */
+            effective_to: string;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Total Views */
+            total_views?: number | null;
+            /** Unique Visitors */
+            unique_visitors?: number | null;
+            /** Anonymous Hits */
+            anonymous_hits?: number | null;
+            /** Top Pages */
+            top_pages: components["schemas"]["FootTrafficPageRow"][];
+            /** Daily */
+            daily: components["schemas"]["FootTrafficDayRow"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** FootTrafficPageRow */
+        FootTrafficPageRow: {
+            /** Path */
+            path: string;
+            /** Views */
+            views: number;
+        };
         /** FullPronRequest */
         FullPronRequest: {
             /**
@@ -13971,6 +14018,7 @@ export interface operations {
             query?: {
                 date_from?: string | null;
                 date_to?: string | null;
+                route?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -13986,7 +14034,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FootTrafficOut"];
                 };
             };
             /** @description Validation Error */

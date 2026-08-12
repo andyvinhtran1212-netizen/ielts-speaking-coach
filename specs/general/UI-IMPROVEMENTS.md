@@ -227,6 +227,20 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/foot-traffic` migration (2026-08-12)
+
+- Replaced the legacy all-at-once surface with an operational hierarchy: clear
+  analytics context, URL-restorable date/route filters, three restrained KPI
+  cells, one dominant daily trend, then ranked route detail.
+- Preserved semantic Aver tokens and shared admin primitives; added mobile KPI
+  stacking, scroll-contained daily bars, card-like route rows and visible focus.
+- Correctness drives presentation: unavailable analytics is never rendered as
+  zero; partial reads use `≥` and an explicit warning; the inclusive end date
+  covers the whole selected calendar day.
+- The reporting window and daily buckets are UTC by contract. Legacy
+  `date_range` bookmarks fall back to the default 30-day window; new filters
+  persist as `from`, `to`, and an exact `route` value.
+
 ### Batch A — shell and foundations (completed)
 
 - Added the statically loaded, token-only `admin-surface.css` baseline to all
