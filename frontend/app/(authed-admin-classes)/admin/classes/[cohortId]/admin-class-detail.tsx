@@ -16,6 +16,7 @@ import {
   selectRoster,
   validateLessonDraft,
 } from '@/lib/admin-class-detail-model.mjs';
+import { normalizeStudentWork } from '@/lib/admin-class-student-work-model.mjs';
 
 import type {
   Banner,
@@ -31,7 +32,10 @@ import type {
 } from './admin-class-detail-types';
 import { AdminClassHomework } from './admin-class-homework';
 import { AdminClassSubmissions } from './admin-class-submissions';
+import { AdminClassStudentWork } from './admin-class-student-work';
 import type { ClassAssignment } from './admin-class-homework-types';
+import type { SubmissionAssignment, SubmissionStudent } from './admin-class-submissions-types';
+import type { StudentWorkSubject } from './admin-class-student-work-types';
 
 type CohortDraft = {
   name: string;
@@ -122,11 +126,16 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   const [progressLoading, setProgressLoading] = useState(false);
   const [progressError, setProgressError] = useState<string | null>(null);
   const [homeworkRefreshKey, setHomeworkRefreshKey] = useState(0);
-  const [markingAssignment, setMarkingAssignment] = useState<ClassAssignment | null>(null);
+  const [markingAssignment, setMarkingAssignment] = useState<SubmissionAssignment | null>(null);
+  const [markingStudent, setMarkingStudent] = useState<SubmissionStudent | null>(null);
+  const [studentWorkSubject, setStudentWorkSubject] = useState<StudentWorkSubject | null>(null);
+  const [studentWorkReturn, setStudentWorkReturn] = useState<{ subject: StudentWorkSubject; tab: DetailTab } | null>(null);
   const [requestedAssignmentId, setRequestedAssignmentId] = useState<string | null>(null);
+  const [requestedStudentId, setRequestedStudentId] = useState<string | null>(null);
   const overviewSequence = useRef(0);
   const lessonsSequence = useRef(0);
   const progressSequence = useRef(0);
+  const studentWorkSequence = useRef(0);
 
   const loadOverview = useCallback(async (silent = false) => {
     const requestId = ++overviewSequence.current;
@@ -187,14 +196,16 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   }, [cohortId]);
 
   useEffect(() => {
-    setRoster(null); setLessons(null); setProgress(null); setBanner(null); setHomeworkRefreshKey(0); setMarkingAssignment(null);
+    setRoster(null); setLessons(null); setProgress(null); setBanner(null); setHomeworkRefreshKey(0); setMarkingAssignment(null); setMarkingStudent(null); setStudentWorkSubject(null); setStudentWorkReturn(null);
     setRosterError(null); setCoursesError(null); setLessonsError(null); setProgressError(null);
     setLessonsLoading(false); setProgressLoading(false);
     setSearch(''); setAccount('all');
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get('tab');
     const assignmentId = params.get('assignment_id');
+    const studentId = params.get('student_id');
     setRequestedAssignmentId(assignmentId);
+    setRequestedStudentId(studentId);
     setTab(assignmentId ? 'homework' : requestedTab === 'progress' || requestedTab === 'lessons' || requestedTab === 'homework' ? requestedTab : 'roster');
     void loadOverview();
     return () => {
@@ -203,6 +214,37 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
       progressSequence.current += 1;
     };
   }, [profile.id, cohortId, loadOverview]);
+
+  useEffect(() => {
+    if (!roster || !requestedStudentId) return;
+    const member = roster.members.find((item) => item.student_id === requestedStudentId);
+    if (!member) {
+      setRequestedStudentId(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('student_id');
+      window.history.replaceState({}, '', url);
+      setBanner({ kind: 'error', text: 'Học viên trong liên kết không còn thuộc lớp này.' });
+      return;
+    }
+    const subject = { student_id: member.student_id, name: member.name, student_code: member.student_code, user_id: member.user_id };
+    if (requestedAssignmentId) {
+      const requestId = ++studentWorkSequence.current;
+      setMarkingStudent(null);
+      void window.api.get<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/students/${encodeURIComponent(member.student_id)}/work`).then((value) => {
+        if (requestId !== studentWorkSequence.current) return;
+        const normalized = normalizeStudentWork(value, member.student_id) as { items: { assignment_id: string; has_writing: boolean }[] } | null;
+        const item = normalized?.items.find((row) => row.assignment_id === requestedAssignmentId);
+        if (item) {
+          setMarkingStudent({ studentId: member.student_id, userId: member.user_id, name: member.name, hasWriting: item.has_writing });
+        } else {
+          setBanner({ kind: 'error', text: 'Học viên này không có phần trong bài giao của liên kết.' });
+        }
+      }).catch(() => {
+        if (requestId === studentWorkSequence.current) setBanner({ kind: 'error', text: 'Đã mở bài nhưng chưa đọc được đầy đủ bằng chứng bài làm của học viên.' });
+      });
+    }
+    else if (!markingAssignment) setStudentWorkSubject(subject);
+  }, [cohortId, markingAssignment, requestedAssignmentId, requestedStudentId, roster]);
 
   useEffect(() => {
     if (tab === 'lessons' && lessons == null && !lessonsLoading && !lessonsError) void loadLessons();
@@ -223,27 +265,79 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
 
   const selectTab = (next: DetailTab) => {
     setMarkingAssignment(null);
+    setMarkingStudent(null);
+    setStudentWorkSubject(null);
+    setStudentWorkReturn(null);
     setRequestedAssignmentId(null);
+    setRequestedStudentId(null);
     setTab(next);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', next);
     url.searchParams.delete('assignment_id');
+    url.searchParams.delete('student_id');
     window.history.replaceState({}, '', url);
   };
 
   const openSubmissions = useCallback((assignment: ClassAssignment) => {
     setMarkingAssignment(assignment);
+    if (!requestedStudentId) setMarkingStudent(null);
+    setStudentWorkReturn(null);
     setRequestedAssignmentId(null);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', 'homework');
     url.searchParams.set('assignment_id', assignment.id);
     window.history.replaceState({}, '', url);
-  }, []);
+  }, [requestedStudentId]);
 
   const closeSubmissions = () => {
     setMarkingAssignment(null);
+    setMarkingStudent(null);
     const url = new URL(window.location.href);
     url.searchParams.delete('assignment_id');
+    if (studentWorkReturn) {
+      setTab(studentWorkReturn.tab);
+      setStudentWorkSubject(studentWorkReturn.subject);
+      setRequestedStudentId(studentWorkReturn.subject.student_id);
+      url.searchParams.set('tab', studentWorkReturn.tab);
+      url.searchParams.set('student_id', studentWorkReturn.subject.student_id);
+      setStudentWorkReturn(null);
+    } else {
+      setRequestedStudentId(null);
+      url.searchParams.delete('student_id');
+    }
+    window.history.replaceState({}, '', url);
+  };
+
+  const openStudentWork = (subject: StudentWorkSubject) => {
+    setStudentWorkSubject(subject);
+    setRequestedStudentId(subject.student_id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    url.searchParams.set('student_id', subject.student_id);
+    url.searchParams.delete('assignment_id');
+    window.history.replaceState({}, '', url);
+  };
+
+  const closeStudentWork = () => {
+    setStudentWorkSubject(null);
+    setRequestedStudentId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('student_id');
+    window.history.replaceState({}, '', url);
+  };
+
+  const openStudentAssignment = (assignment: SubmissionAssignment, student: SubmissionStudent) => {
+    if (!studentWorkSubject) return;
+    setStudentWorkReturn({ subject: studentWorkSubject, tab });
+    setStudentWorkSubject(null);
+    setMarkingStudent(student);
+    setMarkingAssignment(assignment);
+    setRequestedAssignmentId(null);
+    setTab('homework');
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', 'homework');
+    url.searchParams.set('student_id', studentWorkSubject.student_id);
+    url.searchParams.set('assignment_id', assignment.id);
     window.history.replaceState({}, '', url);
   };
 
@@ -465,7 +559,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
                 <td><code>{member.student_code || '—'}</code></td>
                 <td>{member.sessions == null ? <span className="acd-unknown">Không đọc được</span> : member.sessions.toLocaleString('vi-VN')}</td>
                 <td>{formatActivity(member.last_active)}</td><td>{formatMoney(member.ai_cost_usd)}</td>
-                <td><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConfirm({ kind: 'remove-member', member })} disabled={busy}>Gỡ khỏi lớp</button></td>
+                <td><div className="acx-row-actions"><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => openStudentWork({ student_id: member.student_id, name: member.name, student_code: member.student_code, user_id: member.user_id })} disabled={busy}>Xem bài</button><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConfirm({ kind: 'remove-member', member })} disabled={busy}>Gỡ khỏi lớp</button></div></td>
               </tr>)}
             </tbody></table></div>
           )}
@@ -478,12 +572,13 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
           {progressError && <div className={progress ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không đọc được tiến độ mới nhất</strong><span>{progressError}{progress ? ' Bảng dưới đây là ảnh chụp lần tải trước.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadProgress()} disabled={busy || progressLoading}>Thử lại</button></div>}
           {progress?.degraded.length ? <div className="acd-warning" role="alert">{progress.degraded.includes('homework_stale') && 'Cột bài tập có thể chưa cập nhật một số bài nộp mới nhất. '}{progress.degraded.filter((item) => item !== 'homework_stale').length > 0 && `Không đọc được: ${progress.degraded.filter((item) => item !== 'homework_stale').join(', ')}.`}</div> : null}
           {progressLoading && !progress ? <EmptyState title="Đang tính tiến độ…" text="Đang đối chiếu dữ liệu bốn kỹ năng và sổ bài tập." /> : progress && !progress.students.length ? <EmptyState title="Chưa có dữ liệu tiến độ" text="Lớp chưa có học viên trong sổ điểm danh." /> : progress ? (
-            <div className="acd-table-scroll" tabIndex={0} role="region" aria-label="Bảng tiến độ bốn kỹ năng, có thể cuộn ngang"><table className="acd-table acx-progress-table"><thead><tr><th>Học viên</th>{SKILLS.map((skill) => <th key={skill}>{SKILL_LABEL[skill]}</th>)}<th>Nộp đúng hạn</th><th>Hoạt động gần nhất</th></tr></thead><tbody>
+            <div className="acd-table-scroll" tabIndex={0} role="region" aria-label="Bảng tiến độ bốn kỹ năng, có thể cuộn ngang"><table className="acd-table acx-progress-table"><thead><tr><th>Học viên</th>{SKILLS.map((skill) => <th key={skill}>{SKILL_LABEL[skill]}</th>)}<th>Nộp đúng hạn</th><th>Hoạt động gần nhất</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>
               {progress.students.map((row) => <tr key={row.student_id}>
                 <td><div className="acx-person"><strong>{row.name}</strong><span className={row.activated ? 'is-active' : 'is-warning'}>{row.activated ? row.student_code || 'Đã kích hoạt' : 'Chưa kích hoạt'}</span></div></td>
                 {SKILLS.map((skill) => <td key={skill}><SkillCell value={row.skills[skill]} target={row.target_band} /></td>)}
                 <td>{row.homework == null ? <span className="acd-unknown">Không đọc được</span> : row.homework.on_time_pct == null ? <span className="acd-muted">Chưa có bài nộp</span> : <div className="acx-punctual"><strong>{row.homework.on_time_pct}%</strong>{row.homework.missing > 0 && <span>{row.homework.missing} chưa nộp</span>}</div>}</td>
                 <td>{formatActivity(latestSkillActivity(row.skills))}</td>
+                <td><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { const member = members.find((item) => item.student_id === row.student_id); openStudentWork({ student_id: row.student_id, name: row.name, student_code: row.student_code, user_id: member?.user_id || null }); }} disabled={busy}>Xem bài</button></td>
               </tr>)}
             </tbody></table></div>
           ) : null}
@@ -511,6 +606,8 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
         <AdminClassSubmissions
           cohortId={cohortId}
           assignment={markingAssignment}
+          initialStudent={markingStudent}
+          backLabel={studentWorkReturn ? `Quay lại bài của ${studentWorkReturn.subject.name}` : undefined}
           memberNames={Object.fromEntries(members.map((member) => [member.student_id, member.name]))}
           memberUserIds={Object.fromEntries(members.map((member) => [member.student_id, member.user_id]))}
           memberNamesAvailable={Boolean(roster)}
@@ -518,6 +615,8 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
           onMutation={() => { setHomeworkRefreshKey((value) => value + 1); invalidateProgress(); }}
         />
       )}
+
+      <AdminClassStudentWork cohortId={cohortId} subject={studentWorkSubject} onClose={closeStudentWork} onOpenAssignment={openStudentAssignment} />
 
       {tab === 'homework' && !markingAssignment && (
         <AdminClassHomework

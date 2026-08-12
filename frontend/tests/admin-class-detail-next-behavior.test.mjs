@@ -60,7 +60,7 @@ describe('/admin/classes/[cohortId] — native ownership', () => {
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(LAYOUT, /admin-class-detail-next\.css/);
-    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail \+ homework \+ assignment-centric submission\/marking ownership/);
+    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail \+ homework \+ assignment-centric marking \+ student-centric cross-assignment work-history ownership/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-class-detail-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.doesNotMatch(DETAIL, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
