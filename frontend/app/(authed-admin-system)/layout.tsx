@@ -19,6 +19,7 @@ export default function AdminSystemLayout({ children }: { children: ReactNode })
         '/css/aver-design/admin-hub.css',
         '/css/admin-system.css',
         '/css/admin-alerts-next.css',
+        '/css/admin-ai-usage-next.css',
       ]}
     >
       {children}
