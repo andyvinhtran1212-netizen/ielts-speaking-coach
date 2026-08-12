@@ -59,6 +59,21 @@ describe('Admin feedback — endpoint contract (#458)', () => {
     assert.match(JS, /row\.status = next;\s*\/\/ optimistic/);
     assert.match(JS, /row\.status = prev;\s*\/\/ revert/);
   });
+  it('rollback page preserves unavailable and partial read truth', () => {
+    assert.match(JS, /_coverage === 'unavailable'/);
+    assert.match(JS, /không thể kết luận hộp thư đang trống/);
+    assert.match(JS, /_coverage === 'partial'/);
+    assert.match(JS, /chỉ là cận dưới/);
+    assert.match(JS, /renderReadState\(d \|\| \{\}\)/);
+    assert.match(JS, /fbx-count-n'\)\.textContent = '≥ '/);
+    assert.match(JS, /if \(!_all\.length\) \$\('fbx-empty'\)\.hidden = true/);
+    assert.match(CSS, /\.adm-banner\.is-warning/);
+  });
+  it('rollback page consumes privacy-minimized identity_kind, not removed user UUIDs', () => {
+    assert.match(JS, /r\.identity_kind === 'user'/);
+    assert.match(JS, /r\.identity_kind === 'anonymous'/);
+    assert.doesNotMatch(JS, /học viên #' \+ String\(r\.created_by\)/);
+  });
 });
 
 
@@ -76,6 +91,25 @@ describe('Admin feedback — pure helpers (executed)', () => {
     )();
   }
   const H = loadHelpers();
+
+  function loadReadState() {
+    const body = JS.match(/function renderReadState\(d\) \{[\s\S]*?\n  \}/)[0];
+    const nodes = {
+      'fbx-loading': { hidden: false }, 'fbx-empty': { hidden: true },
+      'fbx-groups': { hidden: false, innerHTML: 'stale' },
+      'fbx-count-n': { textContent: '0' },
+    };
+    const calls = [];
+    return new Function(
+      'nodes', 'calls',
+      'var _all = []; var _coverage = "complete";' +
+      'function $(id) { return nodes[id]; }' +
+      'function banner(msg, isErr, isWarning) { calls.push({ msg, isErr, isWarning }); }' +
+      'function render() { nodes["fbx-empty"].hidden = _all.length !== 0; nodes["fbx-count-n"].textContent = String(_all.length); }' +
+      body +
+      '; return { run: renderReadState, nodes, calls };',
+    )(nodes, calls);
+  }
 
   it('rowMatchesFilters honours type + status + skill', () => {
     const r = { type: 'flag', status: 'new', skill: 'listening' };
@@ -107,6 +141,20 @@ describe('Admin feedback — pure helpers (executed)', () => {
   it('avg ignores nulls', () => {
     assert.equal(H.avg([5, null, 4]), 4.5);
     assert.equal(H.avg([null, null]), null);
+  });
+  it('first-page failure is unavailable, never a canonical empty inbox', () => {
+    const state = loadReadState();
+    assert.equal(state.run({ data_status: 'unavailable', items: [] }), false);
+    assert.equal(state.nodes['fbx-empty'].hidden, true);
+    assert.equal(state.nodes['fbx-groups'].hidden, true);
+    assert.match(state.calls.at(-1).msg, /không thể kết luận hộp thư đang trống/);
+  });
+  it('later-page failure keeps rows but marks every count as a lower bound', () => {
+    const state = loadReadState();
+    assert.equal(state.run({ data_status: 'partial', items: [{ id: 'f1' }] }), true);
+    assert.equal(state.nodes['fbx-count-n'].textContent, '≥ 1');
+    assert.equal(state.nodes['fbx-empty'].hidden, true);
+    assert.equal(state.calls.at(-1).isWarning, true);
   });
 });
 
