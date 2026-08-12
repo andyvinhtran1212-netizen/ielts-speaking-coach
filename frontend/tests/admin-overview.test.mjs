@@ -84,13 +84,15 @@ describe('Sprint 12.4 — 5 skill cards', () => {
   }
 
   it('all 5 skill cards link to their hubs (no is-placeholder remaining)', () => {
-    // Sprint 12.7 graduated Grammar — every skill card is now LIVE.
+    // Grammar now has a native clean-route owner; the rollback HTML remains
+    // directly reachable but must not be the normal navigation target.
     // design-fix-2 B4: skill cards reuse the shared .admin-hub-card primitive.
     assert.match(HTML, /href="\/pages\/admin\/speaking\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="speaking"/);
     assert.match(HTML, /href="\/pages\/admin\/writing\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
     assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
     assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
-    assert.match(HTML, /href="\/pages\/admin\/grammar\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
+    assert.match(HTML, /href="\/admin\/grammar"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/grammar\/index\.html"/);
   });
 
   it('no skill card carries is-placeholder anymore', () => {
