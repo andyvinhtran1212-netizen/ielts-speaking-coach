@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { groupReportQuestions, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
+import { canReturnSubmission, groupReportQuestions, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -45,6 +45,12 @@ describe('admin class submissions model', () => {
   test('distinguishes no writing submission from an empty graded submission', () => {
     assert.equal(normalizeWriting({ student: { id: 's1' }, assignment: { id: 'a1' }, submission: null }).submission, null);
     assert.equal(normalizeWriting({ student: { id: 's1' }, assignment: { id: 'a1' }, submission: { items: [], clean: 0, total: 0 } }).submission.total, 0);
+  });
+
+  test('returns work only while a published assignment is still accepting submissions', () => {
+    assert.equal(canReturnSubmission('archived', false), false);
+    assert.equal(canReturnSubmission('published', false), true);
+    assert.equal(canReturnSubmission('published', true), false);
   });
 });
 
@@ -101,7 +107,9 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /const failures: string\[\] = \[\]/);
     assert.match(UI, /failures\.push\(`Không đọc được phần tự luận/);
     assert.match(UI, /failures\.push\(`Không đọc được bài từng câu/);
-    assert.match(UI, /row\.has_writing && !tally\.sealed/);
+    assert.match(UI, /row\.has_writing && canReturnWork/);
+    assert.match(UI, /assignment\.status !== 'published' \? 'Mở lại bài trước khi trả bài'/);
+    assert.match(UI, /if \(!canReturnWork\)/);
     assert.match(UI, /tally\.counts\.flagged/);
     assert.match(UI, /view === 'student' \? retryCurrent\(\)/);
   });

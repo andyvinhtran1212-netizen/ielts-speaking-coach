@@ -106,3 +106,7 @@ export function groupReportQuestions(questions) {
   }
   return [...groups.values()].map((group) => ({ ...group, total: group.items.length, rate: group.items.length ? group.wrong / group.items.length : 0 })).sort((a, b) => b.wrong - a.wrong || b.total - a.total);
 }
+
+export function canReturnSubmission(assignmentStatus, sealed) {
+  return assignmentStatus === 'published' && sealed === false;
+}
