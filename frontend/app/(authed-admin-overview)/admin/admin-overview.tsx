@@ -167,7 +167,7 @@ const SKILL_LINKS = {
   writing: '/pages/admin/writing/index.html',
   listening: '/pages/admin/listening/index.html',
   vocab: '/pages/admin/vocab/index.html',
-  grammar: '/pages/admin/grammar/index.html',
+  grammar: '/admin/grammar',
 };
 
 function SkillCard({ name, children }: { name: keyof typeof SKILL_LINKS; children: React.ReactNode }) {
