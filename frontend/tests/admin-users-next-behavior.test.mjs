@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  activeAssignmentCount,
   normalizeCodesPayload,
   normalizeCohortsPayload,
   normalizeUsersPayload,
@@ -121,6 +122,8 @@ describe('/admin/users — canonical behavior', () => {
     assert.match(UI, /event\.key === 'Escape'/);
     assert.match(UI, /event\.key !== 'Tab'/);
     assert.match(UI, /focusable\[focusable\.length - 1\]/);
+    assert.match(UI, /\}, \[open\]\);/);
+    assert.match(UI, /busyRef\.current/);
     assert.match(UI, /aria-label=\{`Sắp xếp theo/);
     assert.match(USERS, /role="alert"/);
     assert.match(CODES, /role="alert"/);
@@ -156,6 +159,16 @@ describe('admin users model — hostile and partial payloads', () => {
     assert.equal(codes[0].assigned_users[0].is_fallback_used_by, true);
     assert.equal(codes[0].assigned_users[0].removable, false);
     assert.equal(quotaLabel(codes[0].assigned_users[0].quota), '3/5 · còn 2');
+  });
+
+  test('distinguishes real active assignments from a legacy fallback owner', () => {
+    const [fallback, assigned] = normalizeCodesPayload([
+      { id: 'legacy', code: 'OLD', assigned_user_count: 1, assigned_users: [{ user_id: 'u1', is_fallback_used_by: true, removable: false }] },
+      { id: 'active', code: 'LIVE', assigned_user_count: 1, assigned_users: [{ user_id: 'u2', is_fallback_used_by: false, removable: true }] },
+    ]);
+    assert.equal(activeAssignmentCount(fallback), 0);
+    assert.equal(activeAssignmentCount(assigned), 1);
+    assert.match(CODES, /disabled=\{activeAssignments > 0 \|\| code\.association_lookup_failed\}/);
   });
 
   test('filters and sorts users and codes using the legacy semantics', () => {

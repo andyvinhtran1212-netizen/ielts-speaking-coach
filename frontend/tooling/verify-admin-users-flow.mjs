@@ -41,6 +41,7 @@ let codes = [
   { id: 'c1', code: 'ACTIVE-001', is_used: true, is_revoked: false, is_active: true, used_by: 'u2', used_at: '2026-07-02T00:00:00Z', created_at: '2026-07-01T00:00:00Z', permissions: ['all'], session_limit: 10, expires_at: null, code_type: 'direct', cohort_id: 'co1', cohort_name: 'Khoá 1', notes: '<script>alert(1)</script>', association_lookup_failed: false, assigned_users: [{ user_id: 'u2', name: 'Bob', email: 'bob@example.test', is_fallback_used_by: false, removable: true, quota: { used: 3, limit: 10, remaining: 7, limit_type: 'per_user_via_code' } }] },
   { id: 'c2', code: 'POOL-002', is_used: false, is_revoked: false, is_active: true, used_by: null, used_at: null, created_at: '2026-08-02T00:00:00Z', permissions: ['writing'], session_limit: null, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: true, assigned_users: [] },
   { id: 'c3', code: 'OLD-003', is_used: true, is_revoked: true, is_active: false, used_by: 'u1', used_at: '2026-06-02T00:00:00Z', created_at: '2026-06-01T00:00:00Z', permissions: ['all'], session_limit: 5, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: false, assigned_users: [] },
+  { id: 'c4', code: 'LEGACY-004', is_used: true, is_revoked: false, is_active: true, used_by: 'u1', used_at: '2026-05-02T00:00:00Z', created_at: '2026-05-01T00:00:00Z', permissions: ['all'], session_limit: 5, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: false, assigned_users: [{ user_id: 'u1', name: 'Alice', email: 'alice@example.test', is_fallback_used_by: true, removable: false, quota: { used: 2, limit: 5, remaining: 3, limit_type: 'per_user_via_code' } }] },
 ];
 
 function usersPayload() {
@@ -211,10 +212,15 @@ check('đổi role PATCH đúng endpoint rồi canonical reload',
     && await aliceRow.getByText('instructor', { exact: true }).count() >= 1);
 
 await aliceRow.getByRole('button', { name: 'Tạo hồ sơ HV' }).click();
-await page.getByLabel('Mã học viên').fill('ALICE01');
-await page.getByLabel('Họ và tên').fill('Alice Nguyễn');
+await page.getByLabel('Mã học viên').fill('');
+await page.getByLabel('Mã học viên').pressSequentially('ALICE01');
+await page.getByLabel('Họ và tên').fill('');
+await page.getByLabel('Họ và tên').pressSequentially('Alice Nguyen');
+check('controlled modal giữ focus qua nhiều ký tự',
+  await page.getByLabel('Mã học viên').inputValue() === 'ALICE01'
+    && await page.getByLabel('Họ và tên').inputValue() === 'Alice Nguyen');
 await page.getByRole('button', { name: 'Tạo hồ sơ', exact: true }).click();
-await page.getByText('Đã tạo hồ sơ học viên cho Alice Nguyễn.', { exact: true }).waitFor({ state: 'visible' });
+await page.getByText('Đã tạo hồ sơ học viên cho Alice Nguyen.', { exact: true }).waitFor({ state: 'visible' });
 check('convert học viên POST đúng contract', studentCreated && requests.some((item) => item.method === 'POST' && item.path === '/admin/students'));
 
 await aliceRow.getByRole('button', { name: 'Tạo + gán mã' }).click();
@@ -231,6 +237,18 @@ check('tab mã đọc list canonical và mặc định ẩn mã revoked',
     && await page.getByText('OLD-003', { exact: true }).count() === 0);
 check('association_lookup_failed hiển thị cảnh báo thật', await page.getByText('⚠ lookup failed', { exact: true }).count() === 1);
 check('payload độc hại ở ghi chú không tạo script', await page.locator('.au-codes-table script').count() === 0);
+
+const legacyRow = page.locator('tr').filter({ hasText: 'LEGACY-004' });
+check('fallback owner chỉ là lịch sử, không có nút gỡ và vẫn cho thu hồi mã',
+  await legacyRow.getByText('lịch sử kích hoạt', { exact: true }).count() === 1
+    && await legacyRow.getByRole('button', { name: 'Gỡ', exact: true }).count() === 0
+    && await legacyRow.getByRole('button', { name: 'Thu hồi', exact: true }).isEnabled());
+await legacyRow.getByRole('button', { name: 'Thu hồi', exact: true }).click();
+await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
+await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
+check('fallback-only code thu hồi qua backend rồi canonical reload',
+  writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c4$/, '/admin/access-codes')
+    && await page.getByText('LEGACY-004', { exact: true }).count() === 0);
 
 let activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
 await activeRow.getByRole('button', { name: 'Sửa quyền' }).click();

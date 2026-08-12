@@ -62,12 +62,18 @@ export function Dialog({ open, title, description, children, actions, onClose, b
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(busy);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    busyRef.current = busy;
+    onCloseRef.current = onClose;
+  }, [busy, onClose]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy) onClose();
+      if (event.key === 'Escape' && !busyRef.current) onCloseRef.current();
       if (event.key !== 'Tab') return;
       const panel = panelRef.current;
       if (!panel) return;
@@ -94,7 +100,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
       document.removeEventListener('keydown', onKey);
       previous?.focus?.();
     };
-  }, [open, busy, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="au-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>

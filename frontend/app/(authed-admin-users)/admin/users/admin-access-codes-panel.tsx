@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { normalizeCodesPayload, quotaLabel, selectCodes, validateCodeDraft } from '@/lib/admin-users-model.mjs';
+import { activeAssignmentCount, normalizeCodesPayload, quotaLabel, selectCodes, validateCodeDraft } from '@/lib/admin-users-model.mjs';
 
 import type { AccessCode, AdminCohort, Banner, SortState } from './admin-user-types';
 import { CODE_TYPES } from './admin-user-types';
@@ -248,7 +248,9 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError }: {
               <th><SortButton field="created_at" sort={sort} onSort={sortBy}>Ngày tạo</SortButton></th>
               <th>Ghi chú</th><th>Thao tác</th>
             </tr></thead>
-            <tbody>{rows.map((code) => <tr key={code.id}>
+            <tbody>{rows.map((code) => {
+              const activeAssignments = activeAssignmentCount(code);
+              return <tr key={code.id}>
               <td><code className="au-code-value">{code.code || '—'}</code></td>
               <td><span className={`adm-chip${code.code_type === 'direct' ? ' is-direct' : ''}`}>{codeTypeLabel(code.code_type)}</span></td>
               <td>{code.cohort_name ? <span className="adm-chip is-direct">{code.cohort_name}</span> : '—'}</td>
@@ -285,7 +287,7 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError }: {
                       'Đã cấp mã mới.',
                     ),
                   })}>Cấp mã mới</button>
-                  <button className="adm-btn-danger adm-btn-sm" type="button" disabled={code.assigned_user_count > 0 || code.association_lookup_failed} title={code.assigned_user_count > 0 ? 'Gỡ tất cả người dùng trước khi thu hồi.' : code.association_lookup_failed ? 'Không thể xác minh người đang dùng mã.' : undefined} onClick={() => setConfirm({
+                  <button className="adm-btn-danger adm-btn-sm" type="button" disabled={activeAssignments > 0 || code.association_lookup_failed} title={activeAssignments > 0 ? 'Gỡ tất cả người dùng trước khi thu hồi.' : code.association_lookup_failed ? 'Không thể xác minh người đang dùng mã.' : undefined} onClick={() => setConfirm({
                     title: 'Thu hồi mã',
                     body: `Thu hồi mã ${code.code}? Hành động này không thể khôi phục.`,
                     confirmLabel: 'Thu hồi',
@@ -297,7 +299,7 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError }: {
                   })}>Thu hồi</button>
                 </>}
               </div></td>
-            </tr>)}</tbody>
+            </tr>})}</tbody>
           </table>
         </div>
       )}

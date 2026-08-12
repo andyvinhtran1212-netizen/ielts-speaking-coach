@@ -132,6 +132,14 @@ export function normalizeCodesPayload(value) {
   return (Array.isArray(value) ? value : []).map(normalizeAccessCode).filter(Boolean);
 }
 
+export function activeAssignmentCount(value) {
+  const users = Array.isArray(object(value).assigned_users) ? object(value).assigned_users : [];
+  return users.filter((item) => {
+    const user = object(item);
+    return user.removable === true && user.is_fallback_used_by !== true;
+  }).length;
+}
+
 export function normalizeCohortsPayload(value) {
   const rows = Array.isArray(value) ? value : Array.isArray(object(value).cohorts) ? object(value).cohorts : [];
   return rows.map((item) => {
