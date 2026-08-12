@@ -46,10 +46,11 @@ describe('/admin/classes/[cohortId] — native ownership', () => {
     assert.match(DETAIL, /await loadLessons\(true\)/);
   });
 
-  test('does not pretend homework and marking have migrated', () => {
-    assert.match(DETAIL, /Bài tập & Nhận bài/);
+  test('owns homework natively while marking stays an explicit legacy seam', () => {
+    assert.match(DETAIL, /<AdminClassHomework/);
+    assert.match(DETAIL, /Nhận bài & Chấm bài/);
     assert.match(DETAIL, /pages\/admin\/classes\/index\.html\?cohort_id/);
-    assert.doesNotMatch(DETAIL, /\/assignments`|openMarking|marking-title/);
+    assert.doesNotMatch(DETAIL, /openMarking|marking-title/);
   });
 
   test('ships contained tables, responsive reflow, focus-safe dialogs and reduced motion', () => {
@@ -57,7 +58,7 @@ describe('/admin/classes/[cohortId] — native ownership', () => {
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(LAYOUT, /admin-class-detail-next\.css/);
-    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail ownership/);
+    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail \+ homework assignment lifecycle ownership/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-class-detail-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.doesNotMatch(DETAIL, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);

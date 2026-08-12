@@ -29,6 +29,7 @@ import type {
   StudentOption,
   RosterPayload,
 } from './admin-class-detail-types';
+import { AdminClassHomework } from './admin-class-homework';
 
 type CohortDraft = {
   name: string;
@@ -44,7 +45,7 @@ type ConfirmState =
   | null;
 
 const SKILLS = ['speaking', 'writing', 'reading', 'listening'] as const;
-const DETAIL_TABS: DetailTab[] = ['roster', 'progress', 'lessons'];
+const DETAIL_TABS: DetailTab[] = ['roster', 'progress', 'lessons', 'homework'];
 const SKILL_LABEL: Record<(typeof SKILLS)[number], string> = {
   speaking: 'Speaking', writing: 'Writing', reading: 'Reading', listening: 'Listening',
 };
@@ -118,6 +119,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   const [progress, setProgress] = useState<ProgressPayload | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [progressError, setProgressError] = useState<string | null>(null);
+  const [homeworkRefreshKey, setHomeworkRefreshKey] = useState(0);
   const overviewSequence = useRef(0);
   const lessonsSequence = useRef(0);
   const progressSequence = useRef(0);
@@ -181,12 +183,12 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   }, [cohortId]);
 
   useEffect(() => {
-    setRoster(null); setLessons(null); setProgress(null); setBanner(null);
+    setRoster(null); setLessons(null); setProgress(null); setBanner(null); setHomeworkRefreshKey(0);
     setRosterError(null); setCoursesError(null); setLessonsError(null); setProgressError(null);
     setLessonsLoading(false); setProgressLoading(false);
     setSearch(''); setAccount('all');
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    setTab(requestedTab === 'progress' || requestedTab === 'lessons' ? requestedTab : 'roster');
+    setTab(requestedTab === 'progress' || requestedTab === 'lessons' || requestedTab === 'homework' ? requestedTab : 'roster');
     void loadOverview();
     return () => {
       overviewSequence.current += 1;
@@ -237,6 +239,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
     if (busy) return;
     if (tab === 'lessons') await loadLessons();
     else if (tab === 'progress') await loadProgress();
+    else if (tab === 'homework') setHomeworkRefreshKey((value) => value + 1);
     else await loadOverview();
   };
 
@@ -404,13 +407,14 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
             ['roster', 'Sổ điểm danh', 'Sĩ số và trạng thái tài khoản'],
             ['progress', 'Tiến độ 4 kỹ năng', 'Nhịp học và nộp đúng hạn'],
             ['lessons', 'Buổi học', 'Dòng thời gian nội dung'],
+            ['homework', 'Bài tập', 'Giao bài và theo dõi hạn'],
           ] as const).map(([value, label, hint]) => (
             <button id={`acx-tab-${value}`} key={value} type="button" role="tab" aria-controls={tab === value ? `acx-panel-${value}` : undefined} aria-selected={tab === value} aria-disabled={busy} tabIndex={tab === value ? 0 : -1} className={tab === value ? 'is-active' : ''} onClick={() => { if (!busy) selectTab(value); }} onKeyDown={(event) => handleTabKeyDown(event, value)}>
               <span>{label}</span><small>{hint}</small>
             </button>
           ))}
         </nav>
-        <a className="acx-legacy-workspace" href={`/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohortId)}`}><span>Bài tập & Nhận bài</span><small>Workspace legacy trong batch kế tiếp</small></a>
+        <a className="acx-legacy-workspace" href={`/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohortId)}`}><span>Nhận bài & Chấm bài</span><small>Workspace legacy trong batch kế tiếp</small></a>
       </div>
 
       {tab === 'roster' && (
@@ -468,6 +472,15 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
             </article>)}
           </div> : null}
         </section>
+      )}
+
+      {tab === 'homework' && (
+        <AdminClassHomework
+          cohortId={cohortId}
+          members={members}
+          refreshKey={homeworkRefreshKey}
+          onMutation={invalidateProgress}
+        />
       )}
 
       <Dialog open={Boolean(cohortDraft)} title="Sửa thông tin lớp" description="Các trường tuỳ chọn để trống sẽ được xoá khỏi bản ghi khi lưu." busy={busy} onClose={() => setCohortDraft(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setCohortDraft(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="acx-cohort-form" disabled={busy}>{busy ? 'Đang lưu…' : 'Lưu thay đổi'}</button></>}>

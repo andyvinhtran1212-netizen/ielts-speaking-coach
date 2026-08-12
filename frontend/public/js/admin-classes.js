@@ -1628,6 +1628,24 @@ async function loadHomework() {
   renderHomework();
 }
 
+/** Read-only deep-link seam from the native assignment directory to marking. */
+async function openAssignmentDeepLink(assignmentId) {
+  await loadHomework();
+  const assignment = _homework.find((row) => String(row.id) === assignmentId);
+  if (assignment) {
+    await openMarking(
+      assignment.id,
+      assignment.title || '',
+      assignment.skill === 'course' ? assignment.content_id : null,
+    );
+    return;
+  }
+  if (!_homeworkError) {
+    showPanel('homework');
+    toast('Không tìm thấy bài giao cần mở trong lớp này.', 'error');
+  }
+}
+
 const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening',
                       course: 'bài tập theo buổi' };
 
@@ -3923,6 +3941,7 @@ function showTab(name) {
 async function main() {
   const params = new URLSearchParams(window.location.search);
   const cohortId = params.get('cohort_id');
+  const assignmentId = params.get('assignment_id');
   bindShared();
 
   // A class deep-link wins over ?tab= — arriving at a specific class must show
@@ -3944,6 +3963,9 @@ async function main() {
     bindDetail();
     showPanel('roster');
     await loadDetail(cohortId);
+    if (assignmentId) {
+      await openAssignmentDeepLink(assignmentId);
+    }
   } else {
     $('view-detail').hidden = true;
     $('view-list').hidden = false;
