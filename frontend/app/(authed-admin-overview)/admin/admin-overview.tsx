@@ -476,7 +476,7 @@ export function AdminOverview() {
           </MetricCard>
           <MetricCard label="Bài practice đã hoàn thành" scope="toàn thời gian" value={formatInteger(ops?.totalPractices)} href="/pages/admin/usage/index.html" series={trends?.practices || []} loading={loadingScope === 'all'} seriesLoading={trendsLoading} />
           <MetricCard label="Phút chấm" scope="tích lũy" value={formatInteger(ops?.gradingMinutes)} unit="phút" href="/pages/admin/usage/index.html" loading={loadingScope === 'all'} />
-          <MetricCard label={`Token đã gọi (${ops?.tokens?.windowDays ?? windowDays} ngày)`} value={formatTokens(ops?.tokens?.count)} href="/pages/admin/system/ai-usage.html" series={trends?.tokens || []} loading={loadingScope != null} seriesLoading={trendsLoading} />
+          <MetricCard label={`Token đã gọi (${ops?.tokens?.windowDays ?? windowDays} ngày)`} value={formatTokens(ops?.tokens?.count)} href={`/admin/system/ai-usage?days=${windowDays}`} series={trends?.tokens || []} loading={loadingScope != null} seriesLoading={trendsLoading} />
         </section>
 
         <section className={`db-trends${trendsLoading ? ' is-loading' : ''}`} aria-label="Xu hướng theo ngày" aria-busy={trendsLoading || undefined}>
