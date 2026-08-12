@@ -49,11 +49,9 @@ describe('Sprint 12.5 — speaking landing (pages/admin/speaking/index.html)', (
       `expected at least 2 LIVE tags on speaking landing; got ${liveTags.length}`);
   });
 
-  it('AI Usage card still flagged as Sprint 12.8 placeholder', () => {
-    // Until cluster close, AI usage stays under the monolith — landing
-    // should advertise that, not pretend it carved already.
-    assert.match(SPK_INDEX, /Sprint 12\.8/);
-    assert.match(SPK_INDEX, /adm-status-pill is-soon/);  // design-fix-2: hub tags reuse .adm-status-pill
+  it('AI Usage card points to the native System workspace', () => {
+    assert.match(SPK_INDEX, /href=["']\/admin\/system["']/);
+    assert.doesNotMatch(SPK_INDEX, /Sprint 12\.8|href=["']\/admin\.html["']/);
   });
 
   it('loads the aver-admin-chrome module + error-reporter', () => {

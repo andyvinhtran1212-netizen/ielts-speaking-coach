@@ -418,7 +418,7 @@ const NAV_GROUPS = [
   {
     title: 'Nội dung',
     items: [
-      { section: 'speaking',  label: 'Speaking',  href: '/pages/admin/speaking/index.html',  icon: 'mic' },
+      { section: 'speaking',  label: 'Speaking',  href: '/admin/speaking',  icon: 'mic' },
       { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
         subsections: [
           { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },

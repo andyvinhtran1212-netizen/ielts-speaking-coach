@@ -227,6 +227,18 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/speaking` hub migration (2026-08-13)
+
+- Replaced sprint-history copy and the obsolete `/admin.html` operations link
+  with a task-first workspace for session QA, content management and pipeline
+  diagnostics.
+- Kept Sessions and Topics on their directly reachable rollback HTML until
+  each mutation-heavy child is migrated in its own PR; the hub labels that
+  ownership truth instead of implying the child routes are already native.
+- Promoted Sessions as the primary QA workflow, added a canonical learner
+  preview, backend-owned admin gate, full-card keyboard targets, responsive
+  one/two/three-column layouts and reduced-motion behavior.
+
 ### Native `/admin/grammar` hub migration (2026-08-13)
 
 - Reframed the landing as a content-operations workspace: publishing truth and
