@@ -163,7 +163,7 @@ function MetricCard({
 }
 
 const SKILL_LINKS = {
-  speaking: '/pages/admin/speaking/index.html',
+  speaking: '/admin/speaking',
   writing: '/pages/admin/writing/index.html',
   listening: '/pages/admin/listening/index.html',
   vocab: '/pages/admin/vocab/index.html',

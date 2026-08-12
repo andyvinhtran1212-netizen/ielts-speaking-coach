@@ -279,6 +279,12 @@ on:
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
+      # Speaking hub is a native, read-only routing surface. Sessions and
+      # Topics remain explicit legacy child workspaces until separate cutovers.
+      - 'frontend/app/(authed-admin-speaking)/**'
+      - 'frontend/public/css/admin-speaking-hub-next.css'
+      - 'frontend/public/pages/admin/speaking/index.html'
+      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -843,6 +849,9 @@ jobs:
       # proves backend role gating, canonical destinations and mobile/desktop UI.
       - name: Kiểm luồng Admin Grammar hub native
         run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Speaking hub native
+        run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

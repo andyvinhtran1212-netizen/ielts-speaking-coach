@@ -286,7 +286,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/admin/speaking` | — | `pages/admin/speaking/index.html` | Admin | none | localStorage (theme), sessionStorage (filter state), fetch (speaking API) | M | Speaking admin hub |
+| `/admin/speaking` | `/pages/admin/speaking/index.html` remains rollback target | `app/(authed-admin-speaking)/admin/speaking/page.tsx` — native React ownership 2026-08-13 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; localStorage (theme/sidebar) | S | Native read-only operations hub; links to the still-legacy Sessions/Topics workspaces, canonical System operations and learner preview without inventing metrics or mutations |
 | `/admin/speaking/sessions` | — | `pages/admin/speaking/sessions.html` | Admin | `student_id`, `status` (completed, in-progress), `date_range` | localStorage (theme), sessionStorage (filter), fetch (session list) | M | Session list + audio replay + grading audit |
 | `/admin/speaking/topics` | — | `pages/admin/speaking/topics.html` | Admin | none | localStorage (theme), fetch (topic API) | M | Topic CRUD + usage stats |
 
