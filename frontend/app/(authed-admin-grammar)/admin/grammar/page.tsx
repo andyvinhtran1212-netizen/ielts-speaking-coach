@@ -26,7 +26,7 @@ const destinations = [
     title: 'Analytics',
     description: 'Theo dõi lượt xem, lượt lưu, nội dung nổi bật và những bài chưa có tương tác.',
     detail: 'Views · Saves · Content gaps',
-    href: '/pages/admin/grammar/analytics.html',
+    href: '/admin/grammar/analytics',
     status: 'LIVE',
     statusClass: 'is-live',
     featured: false,

@@ -271,6 +271,9 @@ class TestAnalytics:
         # All 3 articles are zero-view since DB is empty.
         assert body["zero_view_total"] == 3
         assert body["articles_total"] == 3
+        assert body["analytics_status"] == {
+            "views": "complete", "recent_activity": "complete", "saves": "complete"
+        }
 
     def test_aggregates_views_and_saves(self, client, fake_db):
         fake_db.tables["article_views"] = [
@@ -286,8 +289,9 @@ class TestAnalytics:
         body = r.json()
         assert body["views_total"] == 8
         assert body["saves_total"] == 3
-        # Window cutoff was 30 days; last_viewed_at far in future → all in window.
-        assert body["views_recent"] == 8
+        # The schema stores one cumulative row per learner/article, not events.
+        assert body["active_view_records_recent"] == 2
+        assert body["recent_activity_basis"] == "user_article_records_with_last_viewed_at_in_window"
         # relative-clauses has no views → zero-view
         assert body["zero_view_total"] == 1
         zero_slugs = [r["slug"] for r in body["zero_view_slugs"]]
@@ -302,6 +306,64 @@ class TestAnalytics:
         r = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH)
         top = r.json()["top_viewed"]
         assert [t["slug"] for t in top] == ["modal-verbs", "relative-clauses", "past-perfect"]
+
+    def test_reads_every_postgrest_page_before_marking_sources_complete(self, client, fake_db):
+        fake_db.tables["article_views"] = [
+            {
+                "id": f"view-{index:04d}",
+                "article_slug": "past-perfect",
+                "view_count": 1,
+                "last_viewed_at": "2099-01-01T00:00:00+00:00",
+            }
+            for index in range(1205)
+        ]
+        fake_db.tables["saved_articles"] = [
+            {"id": f"save-{index:04d}", "article_slug": "past-perfect"}
+            for index in range(1107)
+        ]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"] == {
+            "views": "complete", "recent_activity": "complete", "saves": "complete"
+        }
+        assert body["views_total"] == 1205
+        assert body["active_view_records_recent"] == 1205
+        assert body["saves_total"] == 1107
+
+    def test_source_failure_is_unknown_not_false_zero(self, client, fake_db):
+        fake_db.fail_tables.add("article_views")
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"] == {
+            "views": "unavailable", "recent_activity": "unavailable", "saves": "complete"
+        }
+        assert body["views_total"] is None
+        assert body["active_view_records_recent"] is None
+        assert body["top_viewed"] is None
+        assert body["zero_view_total"] is None
+        assert body["zero_view_slugs"] is None
+        assert body["saves_total"] == 0
+
+    def test_invalid_activity_timestamp_only_degrades_window_metric(self, client, fake_db):
+        fake_db.tables["article_views"] = [{
+            "id": "view-invalid", "article_slug": "past-perfect", "view_count": 4,
+            "last_viewed_at": "not-a-timestamp",
+        }]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"]["views"] == "complete"
+        assert body["analytics_status"]["recent_activity"] == "unavailable"
+        assert body["views_total"] == 4
+        assert body["active_view_records_recent"] is None
+
+    @pytest.mark.parametrize("bad_count", [None, -1])
+    def test_invalid_view_count_degrades_view_source(self, client, fake_db, bad_count):
+        fake_db.tables["article_views"] = [{
+            "id": "view-invalid", "article_slug": "past-perfect", "view_count": bad_count,
+            "last_viewed_at": "2099-01-01T00:00:00+00:00",
+        }]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"]["views"] == "unavailable"
+        assert body["analytics_status"]["recent_activity"] == "unavailable"
+        assert body["views_total"] is None
+        assert body["zero_view_total"] is None
 
 
 # ── POST /admin/grammar/recommend-test ────────────────────────────

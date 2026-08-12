@@ -4510,6 +4510,9 @@ def _grammar_article_metric_rows(table: str, columns: str, slugs: list[str]) -> 
     while rows are inserted or saves are removed. Any page failure aborts the
     source instead of returning a partial total labelled complete.
     """
+    if not slugs:
+        return []
+
     rows: list[dict] = []
     cursor_id: str | None = None
     while True:
@@ -4660,7 +4663,7 @@ async def admin_grammar_analytics(
 
     Returns:
       - views_total              (sum of view_count across article_views)
-      - views_recent             (sum where last_viewed_at >= now-days)
+      - active_view_records_recent (user/article records active in the window)
       - saves_total              (count of saved_articles rows)
       - top_viewed[]             (top 20 by total views)
       - top_saved[]              (top 5 by save count)
@@ -4685,44 +4688,59 @@ async def admin_grammar_analytics(
         for s, a in (grammar_service.articles_by_slug or {}).items()
     }
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     views_per_slug: dict[str, int] = {}
-    views_recent_per_slug: dict[str, int] = {}
+    active_view_records_recent = 0
+    analytics_status = {
+        "views": "complete",
+        "recent_activity": "complete",
+        "saves": "complete",
+    }
     try:
-        # Pull all view rows. Set is small (~thousands at most for current scale)
-        # so a single fetch + Python aggregation is cheaper than a SQL view.
-        v_res = (
-            supabase_admin.table("article_views")
-            .select("article_slug, view_count, last_viewed_at")
-            .execute()
+        view_rows = _grammar_article_metric_rows(
+            "article_views", "article_slug,view_count,last_viewed_at", list(all_slugs)
         )
-        for row in (v_res.data or []):
+        for row in view_rows:
             s = row.get("article_slug")
             if not s:
                 continue
-            n = int(row.get("view_count") or 0)
+            raw_count = row.get("view_count")
+            if raw_count is None:
+                raise ValueError("article_views.view_count is null")
+            n = int(raw_count)
+            if n < 0:
+                raise ValueError("article_views.view_count is negative")
             views_per_slug[s] = views_per_slug.get(s, 0) + n
-            last = row.get("last_viewed_at") or ""
-            if last >= cutoff:
-                views_recent_per_slug[s] = views_recent_per_slug.get(s, 0) + n
+            last = row.get("last_viewed_at")
+            if not last:
+                analytics_status["recent_activity"] = "unavailable"
+                continue
+            try:
+                viewed_at = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+                if viewed_at.tzinfo is None:
+                    viewed_at = viewed_at.replace(tzinfo=timezone.utc)
+                if viewed_at >= cutoff:
+                    active_view_records_recent += 1
+            except (TypeError, ValueError):
+                analytics_status["recent_activity"] = "unavailable"
     except Exception as exc:
         logger.warning("[admin] grammar views fetch failed: %s", exc)
+        analytics_status["views"] = "unavailable"
+        analytics_status["recent_activity"] = "unavailable"
 
     saves_per_slug: dict[str, int] = {}
     try:
-        s_res = (
-            supabase_admin.table("saved_articles")
-            .select("article_slug")
-            .execute()
-        )
-        for row in (s_res.data or []):
+        for row in _grammar_article_metric_rows(
+            "saved_articles", "article_slug", list(all_slugs)
+        ):
             s = row.get("article_slug")
             if not s:
                 continue
             saves_per_slug[s] = saves_per_slug.get(s, 0) + 1
     except Exception as exc:
         logger.warning("[admin] grammar saves fetch failed: %s", exc)
+        analytics_status["saves"] = "unavailable"
 
     def _decorate(slug: str, count: int) -> dict:
         return {
@@ -4732,22 +4750,27 @@ async def admin_grammar_analytics(
             "count":    count,
         }
 
-    top_viewed = sorted(views_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:20]
-    top_saved  = sorted(saves_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    top_viewed = sorted(views_per_slug.items(), key=lambda kv: (-kv[1], kv[0]))[:20]
+    top_saved = sorted(saves_per_slug.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
 
     seen_slugs = set(views_per_slug.keys())
     zero_view_slugs = sorted(all_slugs - seen_slugs)[:30]
+    views_available = analytics_status["views"] == "complete"
+    saves_available = analytics_status["saves"] == "complete"
+    recent_available = analytics_status["recent_activity"] == "complete"
 
     return {
-        "views_total":      sum(views_per_slug.values()),
-        "views_recent":     sum(views_recent_per_slug.values()),
-        "saves_total":      sum(saves_per_slug.values()),
+        "views_total":      sum(views_per_slug.values()) if views_available else None,
+        "active_view_records_recent": active_view_records_recent if recent_available else None,
+        "saves_total":      sum(saves_per_slug.values()) if saves_available else None,
         "articles_total":   len(all_slugs),
-        "top_viewed":       [_decorate(s, c) for s, c in top_viewed],
-        "top_saved":        [_decorate(s, c) for s, c in top_saved],
-        "zero_view_slugs":  [_decorate(s, 0) for s in zero_view_slugs],
-        "zero_view_total":  len(all_slugs - seen_slugs),
+        "top_viewed":       [_decorate(s, c) for s, c in top_viewed] if views_available else None,
+        "top_saved":        [_decorate(s, c) for s, c in top_saved] if saves_available else None,
+        "zero_view_slugs":  [_decorate(s, 0) for s in zero_view_slugs] if views_available else None,
+        "zero_view_total":  len(all_slugs - seen_slugs) if views_available else None,
         "days":             days,
+        "analytics_status": analytics_status,
+        "recent_activity_basis": "user_article_records_with_last_viewed_at_in_window",
     }
 
 
