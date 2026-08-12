@@ -44,7 +44,7 @@ describe('Sprint 12.7 — grammar landing (pages/admin/grammar/index.html)', () 
     assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/articles["']/);
     assert.doesNotMatch(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/articles\.html["']/);
     assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/analytics["']/);
-    assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/recommend-test\.html["']/);
+    assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/recommend-test["']/);
   });
 
   it('carries the hybrid file-based banner explaining workflow', () => {
@@ -190,6 +190,8 @@ describe('Sprint 12.7 — grammar JS controllers', () => {
 
   it('recommend controller posts to /admin/grammar/recommend-test', () => {
     assert.match(JS_RECOMMEND, /api\.post\(['"]\/admin\/grammar\/recommend-test['"]/);
+    assert.match(JS_RECOMMEND, /draft_suppressed/);
+    assert.match(JS_RECOMMEND, /requestId !== runSequence/);
   });
 });
 

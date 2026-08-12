@@ -297,6 +297,14 @@ on:
       - 'frontend/public/pages/admin/grammar/analytics.html'
       - 'frontend/public/js/admin-grammar-analytics.js'
       - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
+      # Grammar Recommendation lab mirrors production draft suppression and
+      # anchor routing without persisting synthetic recommendations.
+      - 'frontend/app/(authed-admin-grammar-recommend)/**'
+      - 'frontend/lib/admin-grammar-recommend-model.mjs'
+      - 'frontend/public/css/admin-grammar-recommend-next.css'
+      - 'frontend/public/pages/admin/grammar/recommend-test.html'
+      - 'frontend/public/js/admin-grammar-recommend.js'
+      - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -845,6 +853,9 @@ jobs:
       # pins URL windows, stale snapshots, degraded sources and responsive tables.
       - name: Kiểm luồng Admin Grammar Analytics native
         run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Grammar Recommendation lab native
+        run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

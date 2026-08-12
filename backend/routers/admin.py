@@ -14,6 +14,7 @@ import math
 import random
 import string
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
@@ -4804,17 +4805,49 @@ async def admin_grammar_recommend_test(
 
     match = grammar_service.find_best_match(issue)
     if not match:
-        return {"issue": issue, "match": None}
+        return {"issue": issue, "outcome": "below_threshold", "match": None, "candidate": None}
 
-    full = grammar_service.get_article_by_slug(match.get("slug") or "")
+    slug = match.get("slug")
+    full = grammar_service.get_article_by_slug(slug or "")
+    if not slug or not full:
+        raise HTTPException(500, "matcher returned an article that is not in the canonical content index")
+    category = full.get("category") or match.get("category")
+    title = full.get("title") or match.get("title")
+    score = match.get("score")
+    if (
+        not category
+        or not title
+        or isinstance(score, bool)
+        or not isinstance(score, (int, float))
+        or not math.isfinite(score)
+        or score < 0
+        or score > 1
+    ):
+        raise HTTPException(500, "matcher returned an incomplete recommendation contract")
+    anchor = grammar_service.find_best_anchor(issue, slug)
+    url = f"/grammar/{quote(str(category), safe='')}/{quote(str(slug), safe='')}"
+    if anchor:
+        url += f"#{quote(str(anchor), safe='')}"
+    candidate = {
+        "slug": slug,
+        "category": category,
+        "title": title,
+        "score": score,
+        "summary": full.get("summary"),
+        "anchor": anchor,
+        "status": full.get("status") or "complete",
+        "url": url,
+    }
+    if candidate["status"] == "draft":
+        return {
+            "issue": issue,
+            "outcome": "draft_suppressed",
+            "match": None,
+            "candidate": candidate,
+        }
     return {
         "issue": issue,
-        "match": {
-            "slug":     match.get("slug"),
-            "category": match.get("category"),
-            "title":    match.get("title"),
-            "score":    match.get("score"),
-            "summary":  (full or {}).get("summary"),
-            "url":      f"/pages/grammar-article.html?slug={match.get('slug')}",
-        },
+        "outcome": "matched",
+        "match": candidate,
+        "candidate": candidate,
     }

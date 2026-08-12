@@ -37,7 +37,7 @@ const destinations = [
     title: 'Recommendation tester',
     description: 'Thử lỗi ngữ pháp mẫu và kiểm tra bài viết, anchor cùng điểm khớp trước khi phát hành.',
     detail: 'Article · Anchor · Match score',
-    href: '/pages/admin/grammar/recommend-test.html',
+    href: '/admin/grammar/recommend-test',
     status: 'LIVE',
     statusClass: 'is-live',
     featured: false,
