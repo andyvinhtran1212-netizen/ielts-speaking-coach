@@ -8360,6 +8360,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/reading-solution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Reading Solution
+         * @description Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này.
+         */
+        post: operations["course_reading_solution_api_quiz_course_reading_solution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/course/report": {
         parameters: {
             query?: never;
@@ -10945,6 +10965,18 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** CourseReadingBody */
+        CourseReadingBody: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Answers
+             * @default {}
+             */
+            answers: {
+                [key: string]: string;
+            };
         };
         /** CourseVerdictBody */
         CourseVerdictBody: {
@@ -26682,6 +26714,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CourseWritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_reading_solution_api_quiz_course_reading_solution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseReadingBody"];
             };
         };
         responses: {
