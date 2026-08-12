@@ -251,15 +251,18 @@ on:
       - 'frontend/lib/admin-class-detail-model.mjs'
       - 'frontend/lib/admin-class-homework-model.mjs'
       - 'frontend/lib/admin-class-submissions-model.mjs'
+      - 'frontend/lib/admin-class-student-work-model.mjs'
       - 'frontend/lib/admin-classes-model.mjs'
       - 'frontend/public/css/admin-class-detail-next.css'
       - 'frontend/public/css/admin-class-homework-next.css'
       - 'frontend/public/css/admin-class-submissions-next.css'
+      - 'frontend/public/css/admin-class-student-work-next.css'
       - 'frontend/public/css/admin-classes-next.css'
       - 'frontend/public/css/admin-students-next.css'
       - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
       - 'frontend/tests/admin-class-homework-next-behavior.test.mjs'
       - 'frontend/tests/admin-class-submissions-next-behavior.test.mjs'
+      - 'frontend/tests/admin-class-student-work-next-behavior.test.mjs'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -293,6 +296,7 @@ on:
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
       - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-student-work-flow.mjs'
       - 'frontend/tooling/verify-admin-students-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
@@ -748,6 +752,11 @@ jobs:
       # runner còn ghim trả bài phải reload canonical tally và audit status.
       - name: Kiểm luồng Admin Class Submissions native
         run: node tooling/verify-admin-class-submissions-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Từ một học viên, runner đọc lịch sử xuyên bài giao, chỉ mở artifact có
+      # bằng chứng và quay lại đúng hồ sơ sau khi xem bài từng em.
+      - name: Kiểm luồng Admin Class Student Work native
+        run: node tooling/verify-admin-class-student-work-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/students` có search, CSV và mutation roster. Fixture ghim
       # canonical reload, nullable clears, partial profile failure và cấm hard delete.

@@ -15,7 +15,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   return <label className="acd-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>;
 }
 
-export function Dialog({ open, title, description, children, actions, onClose, busy = false }: {
+export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '' }: {
   open: boolean;
   title: string;
   description?: ReactNode;
@@ -23,6 +23,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   actions: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  panelClassName?: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -71,7 +72,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   if (!open) return null;
   return (
     <div className="acd-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <div ref={panelRef} className="acd-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div ref={panelRef} className={`acd-dialog${panelClassName ? ` ${panelClassName}` : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="acd-dialog__head">
           <div><h2 id={titleId}>{title}</h2>{description && <div className="acd-dialog__description">{description}</div>}</div>
           <button className="acd-icon-button" type="button" aria-label="Đóng" onClick={onClose} disabled={busy}>×</button>

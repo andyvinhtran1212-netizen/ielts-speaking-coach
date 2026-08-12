@@ -139,7 +139,7 @@ describe('admin class homework — integration contracts', () => {
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(WORKFLOW, /verify-admin-class-homework-flow\.mjs/);
     assert.match(LEDGER, /tab=roster\|progress\|lessons\|homework/);
-    assert.match(LEDGER, /homework \+ assignment-centric submission\/marking ownership/);
+    assert.match(LEDGER, /homework \+ assignment-centric marking \+ student-centric cross-assignment work-history ownership/);
     assert.doesNotMatch(UI, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
   });
 });

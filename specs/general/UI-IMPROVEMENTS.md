@@ -757,6 +757,34 @@ None found that require a schema or grading rewrite.
   confirm one passage remains truthful and no `/40` or `60 phút` value is
   invented when the endpoint omits those fields.
 
+## Admin Class student work history — 2026-08-12
+
+### Issue: the native class workspace cannot answer “this learner has done what?”
+
+- **Root cause:** the roster and four-skill progress table expose class-level
+  metrics but no student-level action. The native homework area starts from an
+  assignment, while the canonical cross-assignment endpoint starts from a
+  student; only the rollback page connected that second direction.
+- **Severity:** Medium.
+- **Impact:** an admin must remember an assignment first or leave the native
+  workspace to inspect one learner's submitted, late, missing and archived
+  work. That interrupts the common intervention flow and makes the Next route
+  look complete while an operational read remains legacy-only.
+- **Impacted files:** the native class detail, submission workspace and shared
+  dialog component; `admin-class-student-work-model.mjs`; the dedicated CSS,
+  behavior test and fixture-backed browser verifier.
+- **Suggested minimal fix:** add one consistent “Xem bài” action to roster and
+  progress rows; render the canonical per-student endpoint in a focus-trapped
+  responsive dialog; show explicit loading/error/empty/partial states; expose
+  actions only for real artifacts; carry `student_id` through the URL and
+  return to the same learner after native marking.
+- **Verification:** open the workspace from both source tables; inspect
+  submitted/late/missing/archived and stale fixtures; verify an absent artifact
+  has no false link, Speaking opens its existing session surface, Course opens
+  the selected native student report plus writing, Back restores the learner,
+  Close clears the deep-link, payload text is escaped, and no unexpected write
+  occurs at desktop or narrow widths.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow

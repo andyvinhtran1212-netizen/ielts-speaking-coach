@@ -59,7 +59,7 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /\/tally`/);
     assert.match(UI, /\/attempt-report\?assignment_id=/);
     assert.match(UI, /\/students\/\$\{encodeURIComponent\(userId\)\}\/report\?assignment_id=/);
-    assert.match(UI, /\/writing\/\$\{encodeURIComponent\(row\.student_id\)\}/);
+    assert.match(UI, /\/writing\/\$\{encodeURIComponent\(studentId\)\}/);
     assert.match(UI, /\/return\/\$\{encodeURIComponent\(row\.student_id\)\}/);
     assert.doesNotMatch(HOMEWORK, /Nhận bài · legacy|markingHref/);
   });
@@ -117,8 +117,8 @@ describe('admin class submissions integration contracts', () => {
   test('ships responsive styling and updates route ownership truth', () => {
     assert.match(CSS, /@media \(max-width: 600px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
-    assert.match(LEDGER, /native detail \+ homework \+ assignment-centric submission\/marking ownership/);
-    assert.match(LEDGER, /cross-assignment (?:work-)?history/);
+    assert.match(LEDGER, /native detail \+ homework \+ assignment-centric marking \+ student-centric cross-assignment work-history ownership/);
+    assert.match(LEDGER, /per-student history across every assigned item/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-class-submissions-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.doesNotMatch(UI, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);

@@ -50,7 +50,7 @@ function WritingReport({ data }: { data: WritingPayload }) {
   return <div className="acs-writing"><div className="acs-writing-score"><strong>{submission.clean}</strong><span>/ {submission.total} câu đúng ngữ pháp</span></div><p className="acd-muted">Chấm lúc {formatVietnam(submission.graded_at)}{submission.model ? ` · ${submission.model}` : ''}. Máy soát ngữ pháp và chính tả, không sửa cách viết.</p>{submission.items.map((item, index) => { const issues = Array.isArray(item.issues) ? item.issues as Record<string, unknown>[] : []; const prompt = String(item.prompt ?? ''); const answer = String(item.answer ?? ''); const corrected = item.corrected == null ? '' : String(item.corrected); const explain = item.explain == null ? '' : String(item.explain); const ok = item.ok; const formOnly = ok === true && issues.length > 0; const graderError = item.error == null ? '' : String(item.error); return <article key={index} data-ok={ok == null ? 'unknown' : String(ok)} data-form={formOnly || undefined}><b>Câu {index + 1}</b><p><InlineMd text={prompt} /></p><blockquote>{answer}</blockquote>{ok == null ? <p className="acs-writing-unknown">{graderError || 'Chưa chấm được câu này.'}</p> : <>{corrected && corrected !== answer && <p><strong>Bản sửa:</strong> {corrected}</p>}{formOnly && <p className="acs-writing-unknown">Đúng ngữ pháp, còn lỗi trình bày — tính là đúng.</p>}{ok === true && !formOnly && <p className="acd-muted">Không có lỗi ngữ pháp hay chính tả.</p>}{issues.length > 0 && <ul>{issues.map((issue, issueIndex) => { const note = issue.note == null ? '' : String(issue.note); const type = String(issue.type ?? ''); return <li key={issueIndex}><span>{ISSUE_KIND[type] || type || 'lỗi'}</span><span>{String(issue.before ?? '')} → <strong>{String(issue.after ?? '')}</strong>{note ? ` · ${note}` : ''}</span></li>; })}</ul>}</>}{explain && <p><InlineMd text={explain} /></p>}</article>; })}</div>;
 }
 
-export function AdminClassSubmissions({ cohortId, assignment, memberNames, memberUserIds, memberNamesAvailable, onBack, onMutation }: SubmissionWorkspaceProps) {
+export function AdminClassSubmissions({ cohortId, assignment, initialStudent = null, backLabel = 'Quay lại danh sách bài tập', memberNames, memberUserIds, memberNamesAvailable, onBack, onMutation }: SubmissionWorkspaceProps) {
   const [view, setView] = useState<View>('tally');
   const [tally, setTally] = useState<TallyPayload | null>(null);
   const [effort, setEffort] = useState<EffortPayload | null>(null);
@@ -77,7 +77,14 @@ export function AdminClassSubmissions({ cohortId, assignment, memberNames, membe
     } catch (caught) { if (requestId === sequence.current) { setError(messageOf(caught)); setLoading(false); } return false; }
   }, [assignment.id, cohortId]);
 
-  useEffect(() => { setView('tally'); setTally(null); setEffort(null); setReport(null); setWriting(null); setSelected(null); setBanner(null); void loadTally(); return () => { sequence.current += 1; }; }, [assignment.id, loadTally]);
+  useEffect(() => {
+    setView('tally'); setTally(null); setEffort(null); setReport(null); setWriting(null); setSelected(null); setBanner(null);
+    void (async () => {
+      const canonical = await loadTally();
+      if (canonical && initialStudent) await openStudent(initialStudent);
+    })();
+    return () => { sequence.current += 1; };
+  }, [assignment.id, initialStudent, loadTally]);
 
   const loadEffort = async (force = false) => {
     if (!bankId) return;
@@ -88,13 +95,15 @@ export function AdminClassSubmissions({ cohortId, assignment, memberNames, membe
     catch (caught) { if (requestId === sequence.current) setError(messageOf(caught)); } finally { if (requestId === sequence.current) setLoading(false); }
   };
 
-  const openStudent = async (row: { student_id: string | null; user_id?: string | null; name: string; has_writing: boolean }) => {
+  async function openStudent(row: { student_id?: string | null; studentId?: string | null; user_id?: string | null; userId?: string | null; name: string; has_writing?: boolean; hasWriting?: boolean }) {
     const requestId = ++sequence.current;
     const failures: string[] = [];
-    const initialUserId = row.user_id || (row.student_id ? memberUserIds[row.student_id] : null) || null;
-    setView('student'); setSelected({ studentId: row.student_id, userId: initialUserId, name: row.name || 'Học viên', hasWriting: row.has_writing }); setReport(null); setWriting(null); setError(null); setLoading(true);
-    if (row.has_writing && row.student_id) {
-      try { const normalized = normalizeWriting(await window.api.get<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/assignments/${encodeURIComponent(assignment.id)}/writing/${encodeURIComponent(row.student_id)}`)) as WritingPayload | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Dữ liệu tự luận không đúng định dạng.'); setWriting(normalized); }
+    const studentId = row.student_id ?? row.studentId ?? null;
+    const hasWriting = row.has_writing ?? row.hasWriting ?? false;
+    const initialUserId = row.user_id ?? row.userId ?? (studentId ? memberUserIds[studentId] : null) ?? null;
+    setView('student'); setSelected({ studentId, userId: initialUserId, name: row.name || 'Học viên', hasWriting }); setReport(null); setWriting(null); setError(null); setLoading(true);
+    if (hasWriting && studentId) {
+      try { const normalized = normalizeWriting(await window.api.get<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/assignments/${encodeURIComponent(assignment.id)}/writing/${encodeURIComponent(studentId)}`)) as WritingPayload | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Dữ liệu tự luận không đúng định dạng.'); setWriting(normalized); }
       catch (caught) { failures.push(`Không đọc được phần tự luận: ${messageOf(caught)}`); }
     }
     if (bankId) {
@@ -103,16 +112,16 @@ export function AdminClassSubmissions({ cohortId, assignment, memberNames, membe
         try { const normalized = normalizeEffort(await window.api.get<unknown>(`/admin/quiz/banks/${encodeURIComponent(bankId)}/attempt-report?assignment_id=${encodeURIComponent(assignment.id)}`)) as EffortPayload | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Dữ liệu chi tiết làm bài không đúng định dạng.'); data = normalized; setEffort(normalized); }
         catch (caught) { failures.push(`Không đọc được bảng tiến độ: ${messageOf(caught)}`); }
       }
-      const effortRow = data?.students.find((item) => row.student_id ? item.student_id === row.student_id : item.user_id === initialUserId);
+      const effortRow = data?.students.find((item) => studentId ? item.student_id === studentId : item.user_id === initialUserId);
       const userId = effortRow?.user_id || initialUserId;
-      setSelected({ studentId: row.student_id, userId, name: row.name || (row.student_id ? memberNames[row.student_id] : '') || 'Học viên đã rời lớp', hasWriting: row.has_writing });
+      setSelected({ studentId, userId, name: row.name || (studentId ? memberNames[studentId] : '') || 'Học viên đã rời lớp', hasWriting });
       if (userId) {
         try { const normalized = normalizeStudentReport(await window.api.get<unknown>(`/admin/quiz/banks/${encodeURIComponent(bankId)}/students/${encodeURIComponent(userId)}/report?assignment_id=${encodeURIComponent(assignment.id)}`)) as StudentReport | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Báo cáo từng câu không đúng định dạng.'); setReport(normalized); }
         catch (caught) { failures.push(`Không đọc được bài từng câu: ${messageOf(caught)}`); }
       }
     }
     if (requestId === sequence.current) { setError(failures.length ? failures.join(' ') : null); setLoading(false); }
-  };
+  }
 
   const retryCurrent = () => {
     if (view === 'tally') return void loadTally();
@@ -154,7 +163,7 @@ export function AdminClassSubmissions({ cohortId, assignment, memberNames, membe
   };
 
   return <section id="acx-panel-homework" className="acd-workspace acs-workspace" role="tabpanel" aria-labelledby="acx-tab-homework">
-    <button className="adm-btn-link acs-back" type="button" onClick={onBack}>← Quay lại danh sách bài tập</button>
+    <button className="adm-btn-link acs-back" type="button" onClick={onBack}>← {backLabel}</button>
     <header className="acx-section-head"><div><p className="acd-eyebrow">Không gian nhận & chấm bài</p><h2>{assignment.title}</h2><p>{assignment.skill === 'course' ? 'Đọc tình trạng, mức độ làm bài, từng câu và phần tự luận từ các sổ chuẩn.' : 'Đọc tình trạng từng học viên và mở đúng bài làm đã nộp.'}</p></div><button className="adm-btn-secondary" type="button" onClick={() => view === 'effort' ? void loadEffort(true) : view === 'student' ? retryCurrent() : void loadTally()} disabled={loading}>Tải lại</button></header>
     <StatusBanner banner={banner} />
     <nav className="acs-tabs" role="tablist" aria-label="Cách xem bài nộp"><button id="acs-tab-tally" type="button" role="tab" aria-controls={view === 'tally' && !loading && !error ? 'acs-panel-tally' : undefined} aria-selected={view === 'tally'} tabIndex={view === 'tally' ? 0 : -1} className={view === 'tally' ? 'is-active' : ''} onKeyDown={(event) => moveInnerTab(event, 'tally')} onClick={() => { sequence.current += 1; setLoading(false); setError(null); setView('tally'); }}>Ai nộp</button>{bankId && <button id="acs-tab-effort" type="button" role="tab" aria-controls={view === 'effort' && !loading && !error ? 'acs-panel-effort' : undefined} aria-selected={view === 'effort'} tabIndex={view === 'effort' ? 0 : -1} className={view === 'effort' ? 'is-active' : ''} onKeyDown={(event) => moveInnerTab(event, 'effort')} onClick={() => void loadEffort()}>Chi tiết làm bài</button>}<button id="acs-tab-student" type="button" role="tab" aria-controls={view === 'student' && !loading && selected ? 'acs-panel-student' : undefined} aria-selected={view === 'student'} tabIndex={view === 'student' ? 0 : -1} className={view === 'student' ? 'is-active' : ''} disabled={!selected} onKeyDown={(event) => moveInnerTab(event, 'student')} onClick={() => selected && setView('student')}>Bài từng em</button></nav>
