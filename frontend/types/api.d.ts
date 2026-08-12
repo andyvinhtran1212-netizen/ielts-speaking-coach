@@ -4177,6 +4177,10 @@ export interface paths {
         /**
          * Update Student
          * @description Update student profile. Empty body → 400.
+         *
+         *     ``exclude_unset`` is intentional: optional profile fields can be cleared by
+         *     sending JSON ``null``. Required identity fields may be omitted, but may not
+         *     be explicitly cleared.
          */
         patch: operations["update_student_admin_students__student_id__patch"];
         trace?: never;
