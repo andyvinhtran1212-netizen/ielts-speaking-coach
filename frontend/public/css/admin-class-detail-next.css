@@ -36,7 +36,7 @@
 }
 .acx-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 5px;
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-lg);
@@ -135,6 +135,7 @@
 }
 
 @media (max-width: 768px) {
+  .acx-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acx-hero, .acx-section-head, .acx-lesson-head { align-items: stretch; flex-direction: column; }
   .acx-hero-actions, .acx-section-head > button { width: 100%; }
   .acx-hero-actions > *, .acx-section-head > button { flex: 1 1 auto; }

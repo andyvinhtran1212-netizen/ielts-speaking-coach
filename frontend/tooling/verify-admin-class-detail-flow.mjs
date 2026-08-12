@@ -160,8 +160,8 @@ check('roster và course là hai nguồn độc lập', requests.some((item) => 
 check('course failure không làm roster biến mất', await page.getByText('Bình', { exact: true }).count() === 1 && await page.getByText(/Không đọc được danh mục khoá/).count() === 1);
 check('usage null không bị bịa thành 0', await page.locator('tr').filter({ hasText: 'Bình' }).getByText('Không đọc được', { exact: true }).count() >= 2);
 check('payload độc hại được React escape', await page.locator('.acx-shell img, .acx-shell script').count() === 0);
-check('homework/marking dẫn rõ về rollback workspace', (await page.getByRole('link', { name: /Bài tập & Nhận bài/ }).getAttribute('href')) === `/pages/admin/classes/index.html?cohort_id=${cohortId}`);
-check('workspace legacy không giả làm tab', await page.getByRole('tab', { name: /Bài tập & Nhận bài/ }).count() === 0);
+check('marking dẫn rõ về rollback workspace', (await page.getByRole('link', { name: /Nhận bài & Chấm bài/ }).getAttribute('href')) === `/pages/admin/classes/index.html?cohort_id=${cohortId}`);
+check('workspace marking legacy không giả làm tab', await page.getByRole('tab', { name: /Nhận bài & Chấm bài/ }).count() === 0);
 
 await page.getByRole('tab', { name: /Tiến độ 4 kỹ năng/ }).click();
 await page.getByRole('heading', { name: 'Tiến độ 4 kỹ năng' }).waitFor({ state: 'visible' });

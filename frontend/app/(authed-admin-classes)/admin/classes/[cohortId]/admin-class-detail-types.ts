@@ -93,4 +93,4 @@ export type StudentOption = {
 };
 
 export type Banner = null | { kind: 'success' | 'error'; text: string };
-export type DetailTab = 'roster' | 'progress' | 'lessons';
+export type DetailTab = 'roster' | 'progress' | 'lessons' | 'homework';

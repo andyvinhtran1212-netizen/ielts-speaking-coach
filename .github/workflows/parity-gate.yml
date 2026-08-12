@@ -249,11 +249,14 @@ on:
       - 'frontend/app/(authed-admin-classes)/**'
       - 'frontend/app/(authed-admin-students)/**'
       - 'frontend/lib/admin-class-detail-model.mjs'
+      - 'frontend/lib/admin-class-homework-model.mjs'
       - 'frontend/lib/admin-classes-model.mjs'
       - 'frontend/public/css/admin-class-detail-next.css'
+      - 'frontend/public/css/admin-class-homework-next.css'
       - 'frontend/public/css/admin-classes-next.css'
       - 'frontend/public/css/admin-students-next.css'
       - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
+      - 'frontend/tests/admin-class-homework-next-behavior.test.mjs'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -285,6 +288,7 @@ on:
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
       - 'frontend/tooling/verify-admin-students-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
@@ -730,6 +734,12 @@ jobs:
       # canonical reload; homework/marking vẫn được dẫn rõ về rollback workspace.
       - name: Kiểm luồng Admin Class Detail native
         run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Assignment lifecycle là boundary ghi riêng: fixture ghim subset/class,
+      # mastery config, backfill, compare-and-confirm hạn và canonical reload.
+      # Submission/marking vẫn deep-link sang legacy cho tới batch kế tiếp.
+      - name: Kiểm luồng Admin Class Homework native
+        run: node tooling/verify-admin-class-homework-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/students` có search, CSV và mutation roster. Fixture ghim
       # canonical reload, nullable clears, partial profile failure và cấm hard delete.
