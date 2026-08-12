@@ -33,17 +33,20 @@ class _B:
     def __init__(self, name, tables, sink=None):
         self._name, self._t, self._eqs = name, tables, []
         self._sink, self._upd = sink, None
-        self._start, self._end = None, None
+        self._gts, self._order_col, self._limit = [], None, None
 
     def select(self, *a, **k): return self
-    def order(self, *a, **k): return self
-    def limit(self, *a, **k): return self
+    def order(self, col, *a, **k):
+        self._order_col = col
+        return self
+    def limit(self, value):
+        self._limit = value
+        return self
     def in_(self, *a, **k): return self
     def gte(self, *a, **k): return self
     def lte(self, *a, **k): return self
-
-    def range(self, start, end):
-        self._start, self._end = start, end
+    def gt(self, col, val):
+        self._gts.append((col, val))
         return self
 
     def update(self, payload):
@@ -58,8 +61,12 @@ class _B:
         rows = list(self._t.get(self._name, []))
         for col, val in self._eqs:
             rows = [r for r in rows if r.get(col) == val]
-        if self._start is not None:
-            rows = rows[self._start:self._end + 1]
+        for col, val in self._gts:
+            rows = [r for r in rows if (r.get(col) or "") > val]
+        if self._order_col:
+            rows.sort(key=lambda row: row.get(self._order_col) or "")
+        if self._limit is not None:
+            rows = rows[:self._limit]
         if self._upd is not None and self._sink is not None:
             self._sink.append({"table": self._name, "payload": self._upd, "eqs": list(self._eqs)})
         return _Exec(rows)

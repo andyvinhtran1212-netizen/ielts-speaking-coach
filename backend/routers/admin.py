@@ -1194,27 +1194,28 @@ _USAGE_ID_CHUNK = 200
 
 
 def _usage_paged(build_query) -> list[dict]:
-    """Read a complete, stably ordered PostgREST result.
+    """Read a complete PostgREST result with an ``id`` keyset cursor.
 
     Usage rollups are operational truth, so the implicit ~1000-row response cap
     must not silently turn a real total into a plausible-looking lower number.
-    ``build_query`` returns a fresh builder for every page because PostgREST
-    builders are mutable.
+    OFFSET pagination is deliberately avoided: concurrent inserts/deletes can
+    shift offsets and duplicate or skip existing rows. ``build_query`` returns
+    a fresh mutable builder for every page and every selected shape includes id.
     """
     rows: list[dict] = []
-    start = 0
+    cursor: str | None = None
     while True:
-        page = (
-            build_query()
-            .range(start, start + _USAGE_PAGE - 1)
-            .execute()
-            .data
-            or []
-        )
+        query = build_query().order("id").limit(_USAGE_PAGE)
+        if cursor is not None:
+            query = query.gt("id", cursor)
+        page = query.execute().data or []
         rows.extend(page)
         if len(page) < _USAGE_PAGE:
             return rows
-        start += _USAGE_PAGE
+        next_cursor = page[-1].get("id")
+        if not isinstance(next_cursor, str) or not next_cursor or next_cursor == cursor:
+            raise RuntimeError("usage pagination requires a progressing id cursor")
+        cursor = next_cursor
 
 
 def _usage_id_chunks(user_ids: list[str]):
@@ -1235,6 +1236,13 @@ def _aggregate_usage_for_users(
     if not user_ids:
         return out
 
+    # Freeze both source sets at one request watermark. Without it, a normal
+    # practice/log insert whose random UUID sorts into an already-read page can
+    # shift later OFFSET ranges and make a pre-existing row appear twice or not
+    # at all. New production rows use server/current timestamps, so excluding
+    # timestamps after this boundary gives every page the same logical snapshot.
+    snapshot_to = datetime.now(timezone.utc).isoformat()
+
     try:
         for id_chunk in _usage_id_chunks(user_ids):
             def sessions_query():
@@ -1242,7 +1250,7 @@ def _aggregate_usage_for_users(
                     supabase_admin.table("sessions")
                     .select("id, user_id, started_at")
                     .in_("user_id", id_chunk)
-                    .order("id")
+                    .lte("started_at", snapshot_to)
                 )
                 if date_from:
                     query = query.gte("started_at", date_from)
@@ -1270,7 +1278,7 @@ def _aggregate_usage_for_users(
                     supabase_admin.table("ai_usage_logs")
                     .select("id, user_id, cost_usd_est")
                     .in_("user_id", id_chunk)
-                    .order("id")
+                    .lte("created_at", snapshot_to)
                 )
                 if date_from:
                     query = query.gte("created_at", date_from)
@@ -1306,7 +1314,6 @@ async def usage_by_user(
         users = _usage_paged(
             lambda: supabase_admin.table("users")
             .select("id, email, display_name, role")
-            .order("id")
         )
     except Exception as exc:
         logger.warning("usage: users list failed: %s", exc)
@@ -1347,7 +1354,6 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
         .select("id, user_id, assigned_at")
         .eq("code_id", code_id)
         .eq("is_active", True)   # only active assignments count toward the rollup
-        .order("id")
     )
     uids = [a["user_id"] for a in asgn]
 
@@ -1358,7 +1364,6 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
                 lambda id_chunk=id_chunk: supabase_admin.table("users")
                 .select("id, email, display_name, role")
                 .in_("id", id_chunk)
-                .order("id")
             ):
                 users[u["id"]] = u
 

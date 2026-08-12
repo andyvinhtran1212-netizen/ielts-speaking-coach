@@ -33,19 +33,27 @@ class _B:
 
     def __init__(self, name, tables, calls):
         self._name, self._t, self._calls, self._eqs, self._ins = name, tables, calls, [], []
-        self._start, self._end = None, None
+        self._gtes, self._gts, self._ltes = [], [], []
+        self._order_col, self._limit = None, None
 
     def select(self, *a, **k): return self
-    def order(self, *a, **k): return self
-    def limit(self, *a, **k): return self
+    def order(self, col, *a, **k):
+        self._order_col = col
+        return self
+    def limit(self, value):
+        self._limit = value
+        return self
     def in_(self, col, values):
         self._ins.append((col, set(values)))
         return self
-    def gte(self, *a, **k): return self
-    def lte(self, *a, **k): return self
-
-    def range(self, start, end):
-        self._start, self._end = start, end
+    def gte(self, col, val):
+        self._gtes.append((col, val))
+        return self
+    def gt(self, col, val):
+        self._gts.append((col, val))
+        return self
+    def lte(self, col, val):
+        self._ltes.append((col, val))
         return self
 
     def eq(self, col, val):
@@ -62,8 +70,16 @@ class _B:
             rows = [r for r in rows if r.get(col) == val]
         for col, values in self._ins:
             rows = [r for r in rows if r.get(col) in values]
-        if self._start is not None:
-            rows = rows[self._start:self._end + 1]
+        for col, val in self._gtes:
+            rows = [r for r in rows if r.get(col) is None or r.get(col) >= val]
+        for col, val in self._gts:
+            rows = [r for r in rows if r.get(col) is not None and r.get(col) > val]
+        for col, val in self._ltes:
+            rows = [r for r in rows if r.get(col) is None or r.get(col) <= val]
+        if self._order_col:
+            rows.sort(key=lambda row: row.get(self._order_col) or "")
+        if self._limit is not None:
+            rows = rows[:self._limit]
         return _Exec(rows)
 
 
@@ -145,6 +161,51 @@ def test_usage_by_user_pages_session_and_cost_sources_past_cap(monkeypatch):
     out = _run(admin_module.usage_by_user(authorization="x"))
     assert out[0]["sessions"] == 1001
     assert out[0]["last_active"] == "2026-01-28T00:00:00Z"
+    assert out[0]["ai_cost_usd"] == 0.1001
+    assert calls.count("sessions") == 2
+    assert calls.count("ai_usage_logs") == 2
+
+
+def test_usage_rollup_watermark_excludes_insert_between_pages(monkeypatch):
+    original_sessions = [
+        {"id": f"s{i:04}", "user_id": "u1", "started_at": "2026-01-01T00:00:00Z"}
+        for i in range(1001)
+    ]
+    original_costs = [
+        {"id": f"a{i:04}", "user_id": "u1", "cost_usd_est": 0.0001,
+         "created_at": "2026-01-01T00:00:00Z"}
+        for i in range(1001)
+    ]
+    source_calls = {"sessions": 0, "costs": 0}
+
+    def sessions_source():
+        source_calls["sessions"] += 1
+        inserted = [
+            # Sorts before the page-1 cursor. OFFSET pagination would shift page
+            # 2 and duplicate an original row; keyset pagination ignores it.
+            {"id": "s-0001", "user_id": "u1", "started_at": "2026-01-01T00:00:00Z"},
+            # Sorts after the cursor but belongs after the request watermark.
+            {"id": "sz-new", "user_id": "u1", "started_at": "2999-01-01T00:00:00Z"},
+        ]
+        return original_sessions if source_calls["sessions"] == 1 else inserted + original_sessions
+
+    def costs_source():
+        source_calls["costs"] += 1
+        inserted = [
+            {"id": "a-0001", "user_id": "u1", "cost_usd_est": 9,
+             "created_at": "2026-01-01T00:00:00Z"},
+            {"id": "az-new", "user_id": "u1", "cost_usd_est": 9,
+             "created_at": "2999-01-01T00:00:00Z"},
+        ]
+        return original_costs if source_calls["costs"] == 1 else inserted + original_costs
+
+    calls = _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": sessions_source,
+        "ai_usage_logs": costs_source,
+    })
+    out = _run(admin_module.usage_by_user(authorization="x"))
+    assert out[0]["sessions"] == 1001
     assert out[0]["ai_cost_usd"] == 0.1001
     assert calls.count("sessions") == 2
     assert calls.count("ai_usage_logs") == 2
