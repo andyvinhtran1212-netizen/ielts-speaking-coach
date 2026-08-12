@@ -19,7 +19,7 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
-const LEGACY = read('public', 'js', 'admin-classes.js');
+const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const CSS = read('public', 'css', 'admin-class-homework-next.css');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -101,17 +101,15 @@ describe('admin class homework model — canonical truth', () => {
 });
 
 describe('admin class homework — integration contracts', () => {
-  test('owns assignment lifecycle while leaving marking as a deep legacy seam', () => {
+  test('owns assignment lifecycle and opens the native marking workspace', () => {
     assert.match(UI, /\/assignments`/);
     assert.match(UI, /assignments\/\$\{encodeURIComponent\(assignment\.id\)\}/);
     assert.match(UI, /\/backfill`/);
     assert.match(UI, /\/due`/);
     assert.match(UI, /\/action-log/);
-    assert.match(UI, /assignment_id=\$\{encodeURIComponent\(assignment\.id\)\}/);
-    assert.match(LEGACY, /const assignmentId = params\.get\('assignment_id'\)/);
-    assert.match(LEGACY, /async function openAssignmentDeepLink[\s\S]*?await loadHomework\(\)/);
-    assert.match(LEGACY, /await openAssignmentDeepLink\(assignmentId\)/);
-    assert.match(LEGACY, /await openMarking\(/);
+    assert.match(UI, /onOpenSubmissions\?\.\(assignment\)/);
+    assert.match(SUBMISSIONS, /\/assignments\/\$\{encodeURIComponent\(assignment\.id\)\}\/tally/);
+    assert.doesNotMatch(UI, /pages\/admin\/classes\/index\.html\?cohort_id|markingHref/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {
@@ -141,7 +139,7 @@ describe('admin class homework — integration contracts', () => {
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(WORKFLOW, /verify-admin-class-homework-flow\.mjs/);
     assert.match(LEDGER, /tab=roster\|progress\|lessons\|homework/);
-    assert.match(LEDGER, /homework assignment lifecycle/);
+    assert.match(LEDGER, /homework \+ assignment-centric submission\/marking ownership/);
     assert.doesNotMatch(UI, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
   });
 });

@@ -160,8 +160,8 @@ check('deep-link native homework khôi phục đúng tab', await page.getByRole(
 check('reconcile failure được hiện thay vì bịa số chuẩn', await page.getByText(/Chưa đối chiếu được một số bài đã nộp/).count() === 1);
 const unknownRow = page.locator('tr').filter({ hasText: 'Không rõ sổ nộp' });
 check('progress không đọc được không mở đường xoá', await unknownRow.getByText('Không đọc được', { exact: true }).count() === 1 && await unknownRow.getByRole('button', { name: 'Đóng bài' }).count() === 1 && await unknownRow.getByRole('button', { name: 'Xoá' }).count() === 0);
-const legacyHref = await page.locator('tr').filter({ hasText: 'Grammar 1' }).getByRole('link', { name: /Nhận bài/ }).getAttribute('href');
-check('marking seam deep-link đúng assignment', legacyHref === `/pages/admin/classes/index.html?cohort_id=${cohortId}&assignment_id=asg-course`);
+const markingButton = page.locator('tr').filter({ hasText: 'Grammar 1' }).getByRole('button', { name: 'Nhận bài' });
+check('marking mở bằng workspace native', await markingButton.count() === 1 && await page.locator('a[href*="/pages/admin/classes/index.html"]').count() === 0);
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click();
 let create = page.getByRole('dialog');

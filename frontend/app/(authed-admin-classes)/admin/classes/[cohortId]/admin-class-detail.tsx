@@ -30,6 +30,8 @@ import type {
   RosterPayload,
 } from './admin-class-detail-types';
 import { AdminClassHomework } from './admin-class-homework';
+import { AdminClassSubmissions } from './admin-class-submissions';
+import type { ClassAssignment } from './admin-class-homework-types';
 
 type CohortDraft = {
   name: string;
@@ -120,6 +122,8 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   const [progressLoading, setProgressLoading] = useState(false);
   const [progressError, setProgressError] = useState<string | null>(null);
   const [homeworkRefreshKey, setHomeworkRefreshKey] = useState(0);
+  const [markingAssignment, setMarkingAssignment] = useState<ClassAssignment | null>(null);
+  const [requestedAssignmentId, setRequestedAssignmentId] = useState<string | null>(null);
   const overviewSequence = useRef(0);
   const lessonsSequence = useRef(0);
   const progressSequence = useRef(0);
@@ -183,12 +187,15 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   }, [cohortId]);
 
   useEffect(() => {
-    setRoster(null); setLessons(null); setProgress(null); setBanner(null); setHomeworkRefreshKey(0);
+    setRoster(null); setLessons(null); setProgress(null); setBanner(null); setHomeworkRefreshKey(0); setMarkingAssignment(null);
     setRosterError(null); setCoursesError(null); setLessonsError(null); setProgressError(null);
     setLessonsLoading(false); setProgressLoading(false);
     setSearch(''); setAccount('all');
-    const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    setTab(requestedTab === 'progress' || requestedTab === 'lessons' || requestedTab === 'homework' ? requestedTab : 'roster');
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get('tab');
+    const assignmentId = params.get('assignment_id');
+    setRequestedAssignmentId(assignmentId);
+    setTab(assignmentId ? 'homework' : requestedTab === 'progress' || requestedTab === 'lessons' || requestedTab === 'homework' ? requestedTab : 'roster');
     void loadOverview();
     return () => {
       overviewSequence.current += 1;
@@ -215,11 +222,37 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
   const rosterShapeWarning = Boolean(roster && (roster.discarded_member_count > 0 || roster.member_count !== roster.members.length));
 
   const selectTab = (next: DetailTab) => {
+    setMarkingAssignment(null);
+    setRequestedAssignmentId(null);
     setTab(next);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', next);
+    url.searchParams.delete('assignment_id');
     window.history.replaceState({}, '', url);
   };
+
+  const openSubmissions = useCallback((assignment: ClassAssignment) => {
+    setMarkingAssignment(assignment);
+    setRequestedAssignmentId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', 'homework');
+    url.searchParams.set('assignment_id', assignment.id);
+    window.history.replaceState({}, '', url);
+  }, []);
+
+  const closeSubmissions = () => {
+    setMarkingAssignment(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('assignment_id');
+    window.history.replaceState({}, '', url);
+  };
+
+  const clearMissingAssignment = useCallback(() => {
+    setRequestedAssignmentId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('assignment_id');
+    window.history.replaceState({}, '', url);
+  }, []);
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: DetailTab) => {
     if (busy) return;
@@ -414,7 +447,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
             </button>
           ))}
         </nav>
-        <a className="acx-legacy-workspace" href={`/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohortId)}`}><span>Nhận bài & Chấm bài</span><small>Workspace legacy trong batch kế tiếp</small></a>
+        <button className="acx-legacy-workspace" type="button" onClick={() => { selectTab('homework'); window.requestAnimationFrame(() => document.getElementById('acx-panel-homework')?.scrollIntoView({ behavior: 'smooth' })); }}><span>Nhận bài & Chấm bài</span><small>Chọn một bài trong workspace native</small></button>
       </div>
 
       {tab === 'roster' && (
@@ -474,12 +507,27 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
         </section>
       )}
 
-      {tab === 'homework' && (
+      {tab === 'homework' && markingAssignment && (
+        <AdminClassSubmissions
+          cohortId={cohortId}
+          assignment={markingAssignment}
+          memberNames={Object.fromEntries(members.map((member) => [member.student_id, member.name]))}
+          memberUserIds={Object.fromEntries(members.map((member) => [member.student_id, member.user_id]))}
+          memberNamesAvailable={Boolean(roster)}
+          onBack={closeSubmissions}
+          onMutation={() => { setHomeworkRefreshKey((value) => value + 1); invalidateProgress(); }}
+        />
+      )}
+
+      {tab === 'homework' && !markingAssignment && (
         <AdminClassHomework
           cohortId={cohortId}
           members={members}
           refreshKey={homeworkRefreshKey}
           onMutation={invalidateProgress}
+          onOpenSubmissions={openSubmissions}
+          onOpenAssignmentMissing={clearMissingAssignment}
+          openAssignmentId={requestedAssignmentId}
         />
       )}
 

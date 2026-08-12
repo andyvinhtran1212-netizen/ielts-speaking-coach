@@ -19,6 +19,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
 const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const DIRECTORY = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-class-detail-next.css');
@@ -46,11 +47,12 @@ describe('/admin/classes/[cohortId] — native ownership', () => {
     assert.match(DETAIL, /await loadLessons\(true\)/);
   });
 
-  test('owns homework natively while marking stays an explicit legacy seam', () => {
+  test('owns homework and marking natively', () => {
     assert.match(DETAIL, /<AdminClassHomework/);
+    assert.match(DETAIL, /<AdminClassSubmissions/);
     assert.match(DETAIL, /Nhận bài & Chấm bài/);
-    assert.match(DETAIL, /pages\/admin\/classes\/index\.html\?cohort_id/);
-    assert.doesNotMatch(DETAIL, /openMarking|marking-title/);
+    assert.match(SUBMISSIONS, /Không gian nhận & chấm bài/);
+    assert.doesNotMatch(DETAIL, /pages\/admin\/classes\/index\.html\?cohort_id/);
   });
 
   test('ships contained tables, responsive reflow, focus-safe dialogs and reduced motion', () => {
@@ -58,13 +60,13 @@ describe('/admin/classes/[cohortId] — native ownership', () => {
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(LAYOUT, /admin-class-detail-next\.css/);
-    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail \+ homework assignment lifecycle ownership/);
+    assert.match(LEDGER, /`\/admin\/classes\/\[cohortId\]`[^\n]+native detail \+ homework \+ assignment-centric submission\/marking ownership/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-class-detail-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.doesNotMatch(DETAIL, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
   });
 
-  test('uses a complete tab contract while keeping the legacy workspace a link', () => {
+  test('uses a complete tab contract and a native workspace launcher', () => {
     assert.match(DETAIL, /role="tablist"/);
     assert.match(DETAIL, /aria-controls=\{tab === value \? `acx-panel-\$\{value\}` : undefined\}/);
     assert.match(DETAIL, /aria-labelledby="acx-tab-roster"/);
