@@ -28,7 +28,7 @@ export default function AdminSystemPage() {
               </p>
               <div className="meta"><span className="adm-status-pill is-live">LIVE</span></div>
             </a>
-            <a href="/pages/admin/system/alerts.html" className="admin-hub-card">
+            <a href="/admin/system/alerts" className="admin-hub-card">
               <h3>Alerts</h3>
               <p className="lede">
                 Cảnh báo lỗi gần đây — session errors + grading failures. Xem chi tiết,

@@ -291,6 +291,7 @@ on:
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
+      - 'frontend/tooling/verify-admin-alerts-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -724,6 +725,11 @@ jobs:
       # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Error Logs native
         run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/system/alerts` là read-only operational triage. Runner ghim
+      # canonical dedupe/partial identity, scope URL, escaping và cấm mutation.
+      - name: Kiểm luồng Admin Alerts native
+        run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi
