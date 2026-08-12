@@ -57,6 +57,9 @@ describe('/admin/grammar/analytics native ownership', () => {
     assert.match(CLIENT, /Dấu — không có nghĩa là 0/);
     assert.match(LEGACY_CLIENT, /requestId !== loadSequence/);
     assert.match(LEGACY_CLIENT, /không đồng nghĩa với 0/);
+    assert.match(LEGACY_CLIENT, /'top-empty'\)\.textContent = EMPTY_COPY\.top/);
+    assert.match(LEGACY_CLIENT, /'saved-empty'\)\.textContent = EMPTY_COPY\.saved/);
+    assert.match(LEGACY_CLIENT, /'zero-empty'\)\.textContent = EMPTY_COPY\.zero/);
   });
 
   test('records route ownership and responsive CI coverage', () => {

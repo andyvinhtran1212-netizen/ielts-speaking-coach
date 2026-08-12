@@ -24,6 +24,11 @@ const api = window.api;
 const $ = (id) => document.getElementById(id);
 let loadSequence = 0;
 let lastSnapshot = null;
+const EMPTY_COPY = {
+  top: 'Chưa có view nào.',
+  saved: 'Chưa có save nào.',
+  zero: 'Mọi article đều đã có view 🎉',
+};
 
 function escapeHtml(s) {
   // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
@@ -95,6 +100,7 @@ function renderTopViewed(rows) {
     $('top-wrap').hidden = true;
     return;
   }
+  $('top-empty').textContent = EMPTY_COPY.top;
   if (!rows.length) {
     $('top-empty').hidden = false;
     $('top-wrap').hidden = true;
@@ -121,6 +127,7 @@ function renderTopSaved(rows) {
     $('saved-wrap').hidden = true;
     return;
   }
+  $('saved-empty').textContent = EMPTY_COPY.saved;
   if (!rows.length) {
     $('saved-empty').hidden = false;
     $('saved-wrap').hidden = true;
@@ -147,6 +154,7 @@ function renderZeroView(rows) {
     $('zero-wrap').hidden = true;
     return;
   }
+  $('zero-empty').textContent = EMPTY_COPY.zero;
   if (!rows.length) {
     $('zero-empty').hidden = false;
     $('zero-wrap').hidden = true;
