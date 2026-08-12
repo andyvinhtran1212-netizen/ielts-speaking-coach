@@ -239,6 +239,12 @@ on:
       - 'frontend/app/(authed-admin-system)/**'
       - 'frontend/public/css/admin-alerts-next.css'
       - 'frontend/public/css/admin-ai-usage-next.css'
+      # Instructor oversight có admin gate + read-only browser contract riêng.
+      # Đổi component/CSS/link quay lại từ workspace phải chạy lại verifier.
+      - 'frontend/app/(authed-admin-instructors)/**'
+      - 'frontend/lib/admin-instructors-model.mjs'
+      - 'frontend/public/css/admin-instructors-next.css'
+      - 'frontend/public/pages/instructor/index.html'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -298,6 +304,7 @@ on:
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-alerts-flow.mjs'
       - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
+      - 'frontend/tooling/verify-admin-instructors-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -741,6 +748,11 @@ jobs:
       # service lạ, safety cap/truncation, escaping và cấm mutation.
       - name: Kiểm luồng Admin AI Usage native
         run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/instructors` là read-only ownership/cost oversight. Runner ghim
+      # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
+      - name: Kiểm luồng Admin Instructors native
+        run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

@@ -444,7 +444,7 @@ const NAV_GROUPS = [
           { slug: 'writing', label: 'Chấm Writing',    href: '/pages/admin/mock-tests/index.html?tab=writing' },
         ],
       },
-      { section: 'instructors', label: 'Giảng viên', href: '/pages/admin/instructors.html', icon: 'users' },
+      { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
       { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
         subsections: [
           { slug: 'content',   label: 'Quản lý nội dung', href: '/pages/admin/listening/index.html' },

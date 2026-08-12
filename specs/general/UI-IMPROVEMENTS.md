@@ -836,6 +836,33 @@ None found that require a schema or grading rewrite.
   escape authored identity fields; verify no write and no horizontal overflow
   at 390px.
 
+## Admin instructor oversight — 2026-08-12
+
+### Issue: the legacy table hides one canonical metric and implies unsupported management
+
+- **Root cause:** the eight-column table omits `regrade_events`, compresses the
+  distinction between regraded essays and regrade volume into a footnote, and
+  the route ledger calls the surface instructor/cohort management even though
+  `GET /admin/instructors` is read-only oversight. The table also overflows on
+  narrow screens.
+- **Severity:** Medium.
+- **Impact:** admins cannot see how repeated regrades differ from the number of
+  affected essays, may attribute those regrades to the roster owner, and may
+  expect assignment controls that have no canonical mutation contract.
+- **Impacted files:** native `/admin/instructors` route/model/CSS, admin chrome,
+  instructor workspace exit link, route ledger, source tests and fixture-backed
+  browser verifier.
+- **Suggested minimal fix:** keep the endpoint read-only; validate every metric
+  fail-closed; present responsive instructor cards with explicit student,
+  prompt, delivered, regraded-essay, regrade-event, all-version token and cost
+  facts; label the drill-down as audited impersonation and retain the legacy
+  HTML only as rollback.
+- **Verification:** verify the admin gate and exact canonical GET, malformed and
+  duplicate exclusion, metric distinction, malicious identity escaping, client
+  search URL, sanctioned encoded `as_instructor` link, no unexpected write and
+  no page overflow at 390px, and the two-column card hierarchy at 1440px; run
+  the backend aggregation and impersonation audit tests separately.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow
