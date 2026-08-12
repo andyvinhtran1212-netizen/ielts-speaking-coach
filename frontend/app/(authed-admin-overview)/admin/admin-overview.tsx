@@ -474,8 +474,8 @@ export function AdminOverview() {
                 : `${formatInteger(ops?.visitors?.authenticated)} đăng nhập · ${formatInteger(ops?.visitors?.anonymous)} lượt ẩn danh`}
             </div>
           </MetricCard>
-          <MetricCard label="Bài practice đã hoàn thành" scope="toàn thời gian" value={formatInteger(ops?.totalPractices)} href="/pages/admin/usage/index.html" series={trends?.practices || []} loading={loadingScope === 'all'} seriesLoading={trendsLoading} />
-          <MetricCard label="Phút chấm" scope="tích lũy" value={formatInteger(ops?.gradingMinutes)} unit="phút" href="/pages/admin/usage/index.html" loading={loadingScope === 'all'} />
+          <MetricCard label="Bài practice đã hoàn thành" scope="toàn thời gian" value={formatInteger(ops?.totalPractices)} href="/admin/usage" series={trends?.practices || []} loading={loadingScope === 'all'} seriesLoading={trendsLoading} />
+          <MetricCard label="Phút chấm" scope="tích lũy" value={formatInteger(ops?.gradingMinutes)} unit="phút" href="/admin/usage" loading={loadingScope === 'all'} />
           <MetricCard label={`Token đã gọi (${ops?.tokens?.windowDays ?? windowDays} ngày)`} value={formatTokens(ops?.tokens?.count)} href={`/admin/system/ai-usage?days=${windowDays}`} series={trends?.tokens || []} loading={loadingScope != null} seriesLoading={trendsLoading} />
         </section>
 
@@ -602,7 +602,7 @@ export function AdminOverview() {
             <a href="/admin/system">Hệ thống · LIVE</a>
             <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>
             <a href="/admin/classes">Lớp &amp; Học viên · LIVE</a>
-            <a href="/pages/admin/usage/index.html">Usage logs · Phase B</a>
+            <a href="/admin/usage">Hoạt động người dùng</a>
           </div>
         </div>
       </section>

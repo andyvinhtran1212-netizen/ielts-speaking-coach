@@ -32,14 +32,29 @@ class _B:
     is_active/id filters behave. A table value may be a callable to raise."""
 
     def __init__(self, name, tables, calls):
-        self._name, self._t, self._calls, self._eqs = name, tables, calls, []
+        self._name, self._t, self._calls, self._eqs, self._ins = name, tables, calls, [], []
+        self._gtes, self._gts, self._ltes = [], [], []
+        self._order_col, self._limit = None, None
 
     def select(self, *a, **k): return self
-    def order(self, *a, **k): return self
-    def limit(self, *a, **k): return self
-    def in_(self, *a, **k): return self
-    def gte(self, *a, **k): return self
-    def lte(self, *a, **k): return self
+    def order(self, col, *a, **k):
+        self._order_col = col
+        return self
+    def limit(self, value):
+        self._limit = value
+        return self
+    def in_(self, col, values):
+        self._ins.append((col, set(values)))
+        return self
+    def gte(self, col, val):
+        self._gtes.append((col, val))
+        return self
+    def gt(self, col, val):
+        self._gts.append((col, val))
+        return self
+    def lte(self, col, val):
+        self._ltes.append((col, val))
+        return self
 
     def eq(self, col, val):
         self._eqs.append((col, val))
@@ -53,6 +68,18 @@ class _B:
         rows = list(data)
         for col, val in self._eqs:
             rows = [r for r in rows if r.get(col) == val]
+        for col, values in self._ins:
+            rows = [r for r in rows if r.get(col) in values]
+        for col, val in self._gtes:
+            rows = [r for r in rows if r.get(col) is None or r.get(col) >= val]
+        for col, val in self._gts:
+            rows = [r for r in rows if r.get(col) is not None and r.get(col) > val]
+        for col, val in self._ltes:
+            rows = [r for r in rows if r.get(col) is None or r.get(col) <= val]
+        if self._order_col:
+            rows.sort(key=lambda row: row.get(self._order_col) or "")
+        if self._limit is not None:
+            rows = rows[:self._limit]
         return _Exec(rows)
 
 
@@ -105,11 +132,111 @@ def test_usage_by_user_no_n_plus_1(monkeypatch):
     assert calls.count("ai_usage_logs") == 1
 
 
+def test_usage_by_user_pages_past_postgrest_cap(monkeypatch):
+    users = [{"id": f"u{i}", "email": f"u{i}@x"} for i in range(1001)]
+    calls = _install(monkeypatch, {
+        "users": users,
+        "sessions": [],
+        "ai_usage_logs": [],
+    })
+    out = _run(admin_module.usage_by_user(authorization="x"))
+    assert len(out) == 1001
+    assert calls.count("users") == 2
+
+
+def test_usage_by_user_pages_session_and_cost_sources_past_cap(monkeypatch):
+    sessions = [
+        {"id": f"s{i:04}", "user_id": "u1", "started_at": f"2026-01-{(i % 28) + 1:02}T00:00:00Z"}
+        for i in range(1001)
+    ]
+    costs = [
+        {"id": f"a{i:04}", "user_id": "u1", "cost_usd_est": 0.0001}
+        for i in range(1001)
+    ]
+    calls = _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": sessions,
+        "ai_usage_logs": costs,
+    })
+    out = _run(admin_module.usage_by_user(authorization="x"))
+    assert out[0]["sessions"] == 1001
+    assert out[0]["last_active"] == "2026-01-28T00:00:00Z"
+    assert out[0]["ai_cost_usd"] == 0.1001
+    assert calls.count("sessions") == 2
+    assert calls.count("ai_usage_logs") == 2
+
+
+def test_usage_rollup_watermark_excludes_insert_between_pages(monkeypatch):
+    original_sessions = [
+        {"id": f"s{i:04}", "user_id": "u1", "started_at": "2026-01-01T00:00:00Z"}
+        for i in range(1001)
+    ]
+    original_costs = [
+        {"id": f"a{i:04}", "user_id": "u1", "cost_usd_est": 0.0001,
+         "created_at": "2026-01-01T00:00:00Z"}
+        for i in range(1001)
+    ]
+    source_calls = {"sessions": 0, "costs": 0}
+
+    def sessions_source():
+        source_calls["sessions"] += 1
+        inserted = [
+            # Sorts before the page-1 cursor. OFFSET pagination would shift page
+            # 2 and duplicate an original row; keyset pagination ignores it.
+            {"id": "s-0001", "user_id": "u1", "started_at": "2026-01-01T00:00:00Z"},
+            # Sorts after the cursor but belongs after the request watermark.
+            {"id": "sz-new", "user_id": "u1", "started_at": "2999-01-01T00:00:00Z"},
+        ]
+        return original_sessions if source_calls["sessions"] == 1 else inserted + original_sessions
+
+    def costs_source():
+        source_calls["costs"] += 1
+        inserted = [
+            {"id": "a-0001", "user_id": "u1", "cost_usd_est": 9,
+             "created_at": "2026-01-01T00:00:00Z"},
+            {"id": "az-new", "user_id": "u1", "cost_usd_est": 9,
+             "created_at": "2999-01-01T00:00:00Z"},
+        ]
+        return original_costs if source_calls["costs"] == 1 else inserted + original_costs
+
+    calls = _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": sessions_source,
+        "ai_usage_logs": costs_source,
+    })
+    out = _run(admin_module.usage_by_user(authorization="x"))
+    assert out[0]["sessions"] == 1001
+    assert out[0]["ai_cost_usd"] == 0.1001
+    assert calls.count("sessions") == 2
+    assert calls.count("ai_usage_logs") == 2
+
+
+def test_usage_by_user_merges_multiple_user_id_chunks(monkeypatch):
+    users = [{"id": f"u{i:03}", "email": f"u{i:03}@x"} for i in range(250)]
+    calls = _install(monkeypatch, {
+        "users": users,
+        "sessions": [
+            {"id": f"s{i:03}", "user_id": user["id"], "started_at": "2026-01-01T00:00:00Z"}
+            for i, user in enumerate(users)
+        ],
+        "ai_usage_logs": [
+            {"id": f"a{i:03}", "user_id": user["id"], "cost_usd_est": 0.001}
+            for i, user in enumerate(users)
+        ],
+    })
+    out = {row["user_id"]: row for row in _run(admin_module.usage_by_user(authorization="x"))}
+    assert len(out) == 250
+    assert out["u000"]["sessions"] == 1 and out["u000"]["ai_cost_usd"] == 0.001
+    assert out["u249"]["sessions"] == 1 and out["u249"]["ai_cost_usd"] == 0.001
+    assert calls.count("sessions") == 2
+    assert calls.count("ai_usage_logs") == 2
+
+
 def test_usage_by_user_graceful_on_sessions_failure(monkeypatch):
     def _boom():
         raise RuntimeError("sessions down")
     _install(monkeypatch, {
-        "users": [{"id": "u1", "email": "a@x", "display_name": "A"}],
+        "users": [{"id": "u1", "email": "a@x", "display_name": "A", "role": "student"}],
         "sessions": _boom,
         "ai_usage_logs": [{"user_id": "u1", "cost_usd_est": 0.03}],
     })
@@ -126,7 +253,7 @@ def test_code_usage_rollup_excludes_inactive(monkeypatch):
         "access_codes": [{"id": "c1", "code": "AAA", "session_limit": 10, "code_type": "mass", "cohort_id": None}],
         "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True, "assigned_at": "t"},
                                   {"code_id": "c1", "user_id": "u2", "is_active": False, "assigned_at": "t"}],  # excluded
-        "users": [{"id": "u1", "email": "a@x", "display_name": "A"}],
+        "users": [{"id": "u1", "email": "a@x", "display_name": "A", "role": "student"}],
         "sessions": [{"user_id": "u1", "started_at": "2026-01-01T00:00:00Z"},
                      {"user_id": "u1", "started_at": "2026-01-02T00:00:00Z"}],
         "ai_usage_logs": [{"user_id": "u1", "cost_usd_est": 0.04}],
@@ -134,6 +261,56 @@ def test_code_usage_rollup_excludes_inactive(monkeypatch):
     out = _run(admin_module.code_usage("c1", authorization="x"))
     assert out["aggregate"] == {"assigned_user_count": 1, "total_sessions": 2, "total_ai_cost_usd": 0.04}
     assert [u["user_id"] for u in out["assigned_users"]] == ["u1"]   # inactive u2 excluded
+    assert out["assigned_users"][0]["role"] == "student"
+
+
+def test_code_usage_preserves_degraded_aggregate_as_unknown(monkeypatch):
+    def _boom():
+        raise RuntimeError("sessions down")
+    _install(monkeypatch, {
+        "access_codes": [{"id": "c1", "code": "AAA"}],
+        "user_code_assignments": [{"id": "a1", "code_id": "c1", "user_id": "u1", "is_active": True}],
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": _boom,
+        "ai_usage_logs": [{"user_id": "u1", "cost_usd_est": 0.04}],
+    })
+    out = _run(admin_module.code_usage("c1", authorization="x"))
+    assert out["assigned_users"][0]["sessions"] is None
+    assert out["aggregate"]["total_sessions"] is None
+    assert out["aggregate"]["total_ai_cost_usd"] == 0.04
+
+
+def test_code_usage_merges_assignment_and_user_id_chunks(monkeypatch):
+    users = [
+        {"id": f"u{i:03}", "email": f"u{i:03}@x", "role": "student"}
+        for i in range(201)
+    ]
+    calls = _install(monkeypatch, {
+        "access_codes": [{"id": "c1", "code": "AAA"}],
+        "user_code_assignments": [
+            {"id": f"a{i:03}", "code_id": "c1", "user_id": user["id"], "is_active": True}
+            for i, user in enumerate(users)
+        ],
+        "users": users,
+        "sessions": [
+            {"id": f"s{i:03}", "user_id": user["id"], "started_at": "2026-01-01T00:00:00Z"}
+            for i, user in enumerate(users)
+        ],
+        "ai_usage_logs": [
+            {"id": f"l{i:03}", "user_id": user["id"], "cost_usd_est": 0.001}
+            for i, user in enumerate(users)
+        ],
+    })
+    out = _run(admin_module.code_usage("c1", authorization="x"))
+    assert out["aggregate"] == {
+        "assigned_user_count": 201,
+        "total_sessions": 201,
+        "total_ai_cost_usd": 0.201,
+    }
+    assert len(out["assigned_users"]) == 201
+    assert calls.count("users") == 2
+    assert calls.count("sessions") == 2
+    assert calls.count("ai_usage_logs") == 2
 
 
 def test_code_usage_404_when_missing(monkeypatch):

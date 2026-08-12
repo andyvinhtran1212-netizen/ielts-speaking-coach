@@ -863,6 +863,34 @@ None found that require a schema or grading rewrite.
   no page overflow at 390px, and the two-column card hierarchy at 1440px; run
   the backend aggregation and impersonation audit tests separately.
 
+## Admin user activity — 2026-08-12
+
+### Issue: the legacy activity log confuses read failures with no activity
+
+- **Root cause:** the default legacy controller catches a failed
+  `/admin/usage/users` request, replaces the response with an empty array and
+  renders “Chưa có hoạt động nào”. Its per-code summary also coerces degraded
+  `null` session/cost metrics to zero, while unpaged PostgREST reads can silently
+  stop at the default row cap. The route ledger separately mislabels this
+  contract as DAU/MAU analytics.
+- **Severity:** Medium.
+- **Impact:** admins can treat an unavailable or truncated source as proof of no
+  usage, underestimate total activity/cost, and misunderstand what the page is
+  measuring. On mobile the wide table also requires horizontal scanning.
+- **Impacted files:** backend usage aggregation and focused tests; native
+  `/admin/usage` route/model/CSS; Admin Overview and Access Code entry links;
+  route ledger, behavior test and fixture-backed browser verifier.
+- **Suggested minimal fix:** retain the two canonical read-only endpoints;
+  page stable queries past backend caps; preserve degraded aggregate metrics as
+  unknown; separate loading/error/empty/stale-data states; expose `code_id`,
+  search and sort in the URL; turn rows into labeled cards at narrow widths;
+  keep the HTML page as rollback only.
+- **Verification:** test more than 1,000 source rows and partial source failure;
+  validate duplicate/malformed identities; open both global and code drill-down
+  fixtures; confirm canonical endpoint selection, exact null messaging, stale
+  retry, URL search/sort, malicious identity escaping, no unexpected write, and
+  no horizontal overflow with populated rows at 390px and a table at 1440px.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow
