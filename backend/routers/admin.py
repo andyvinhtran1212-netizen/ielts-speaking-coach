@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 import uuid as _uuid
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -1412,55 +1412,135 @@ FOOT_TRAFFIC_PAGE = 1000
 FOOT_TRAFFIC_MAX_ROWS = 200_000
 
 
-@router.get("/analytics/foot-traffic")
+class FootTrafficPageRow(BaseModel):
+    path: str
+    views: int
+
+
+class FootTrafficDayRow(BaseModel):
+    date: str
+    views: int
+
+
+class FootTrafficOut(BaseModel):
+    date_from: str
+    date_to: str | None = None
+    route: str | None = None
+    snapshot_to: str
+    effective_to: str
+    data_status: Literal["complete", "partial", "unavailable"]
+    total_views: int | None = None
+    unique_visitors: int | None = None
+    anonymous_hits: int | None = None
+    top_pages: list[FootTrafficPageRow]
+    daily: list[FootTrafficDayRow]
+    truncated: bool
+
+
+def _foot_traffic_bound(value: str | None, *, end_of_day: bool = False) -> datetime | None:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        raise HTTPException(422, "Khoảng ngày không hợp lệ")
+    try:
+        if len(raw) == 10:
+            point = datetime.strptime(raw, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if end_of_day:
+                point += timedelta(days=1) - timedelta(microseconds=1)
+        else:
+            point = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if point.tzinfo is None:
+                point = point.replace(tzinfo=timezone.utc)
+            point = point.astimezone(timezone.utc)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, "Khoảng ngày không hợp lệ") from exc
+    return point
+
+
+@router.get("/analytics/foot-traffic", response_model=FootTrafficOut)
 async def foot_traffic(
     authorization: str | None = Header(default=None),
     date_from: str | None = None,
     date_to: str | None = None,
+    route: str | None = None,
 ):
     """Aggregated page-view foot traffic for the admin dashboard. Default window:
     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
-    Pattern #29: a query failure returns zeroed metrics, never a 500."""
+
+    The response explicitly distinguishes complete, partial and unavailable
+    reads. An upstream failure must never masquerade as a real zero-traffic
+    window in the admin UI.
+    """
     await require_admin(authorization)
-    if not date_from:
-        date_from = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # A small lag keeps transactions that started just before the request from
+    # committing behind an already-read keyset page. The response exposes this
+    # exact boundary as effective_to instead of implying it reaches wall-clock now.
+    snapshot_point = datetime.now(timezone.utc) - timedelta(seconds=5)
+    snapshot_to = snapshot_point.isoformat()
+    date_to_point = _foot_traffic_bound(date_to, end_of_day=True)
+    date_from_point = _foot_traffic_bound(date_from)
+    if date_from_point is None:
+        date_from_point = (date_to_point or snapshot_point) - timedelta(days=30)
+    if date_to_point and date_from_point > date_to_point:
+        raise HTTPException(422, "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc")
+    effective_to_point = min(date_to_point, snapshot_point) if date_to_point else snapshot_point
+    date_from = date_from_point.isoformat()
+    date_to = date_to_point.isoformat() if date_to_point else None
+    effective_to = effective_to_point.isoformat()
 
     rows: list[dict] = []
     truncated = False
+    data_status = "complete"
     try:
         # DEBT-2026-07-22-G — this read used to be a bare .select() with no
-        # .range(), so PostgREST capped the response at ~1000 rows and every
+        # pagination, so PostgREST capped the response at ~1000 rows and every
         # number below (total views, unique visitors, per-path counts, the daily
         # chart) was computed from an arbitrary 1000-row slice. Measured on prod
         # 2026-07-22: the 30-day view reported exactly 1000 views and charted
         # only 22–27/06 — the oldest days — so the panel was WRONG, not just
-        # incomplete. Page through with a stable (created_at, id) sort; without
-        # the ORDER BY, paging can repeat or skip rows between pages.
-        offset = 0
+        # incomplete. Page through the frozen request window using an id keyset;
+        # offset paging can repeat or skip rows while this hot table is written.
+        cursor_created_at: str | None = None
+        cursor_id: Any = None
         while True:
             q = (
                 supabase_admin.table("analytics_events")
-                .select("user_id, event_data, created_at")
+                .select("id, user_id, event_data, created_at")
                 .eq("event_name", "page_view")
                 .gte("created_at", date_from)
+                .lte("created_at", effective_to)
             )
-            if date_to:
-                q = q.lte("created_at", date_to)
+            if route:
+                q = q.contains("event_data", {"path": route})
+            if cursor_created_at is not None:
+                q = q.or_(
+                    f"created_at.gt.{cursor_created_at},"
+                    f"and(created_at.eq.{cursor_created_at},id.gt.{cursor_id})"
+                )
+            page_size = min(FOOT_TRAFFIC_PAGE, FOOT_TRAFFIC_MAX_ROWS - len(rows))
             batch = (
                 q.order("created_at")
                 .order("id")
-                .range(offset, offset + FOOT_TRAFFIC_PAGE - 1)
+                .limit(page_size)
                 .execute()
                 .data
                 or []
             )
-            rows.extend(batch)
-            if len(batch) < FOOT_TRAFFIC_PAGE:
+            if not batch:
                 break
-            offset += FOOT_TRAFFIC_PAGE
-            if offset >= FOOT_TRAFFIC_MAX_ROWS:
+            rows.extend(batch)
+            next_created_at = batch[-1].get("created_at")
+            next_id = batch[-1].get("id")
+            if not next_created_at or next_id is None or (
+                next_created_at == cursor_created_at and next_id == cursor_id
+            ):
+                raise RuntimeError("foot-traffic pagination cursor did not advance")
+            cursor_created_at, cursor_id = str(next_created_at), next_id
+            if len(rows) >= FOOT_TRAFFIC_MAX_ROWS:
                 # Never silent — the caller is told the window was cut.
                 truncated = True
+                data_status = "partial"
                 logger.warning(
                     "foot_traffic: hit the %d-row ceiling; results truncated",
                     FOOT_TRAFFIC_MAX_ROWS,
@@ -1475,6 +1555,9 @@ async def foot_traffic(
         logger.warning("foot_traffic: query failed: %s", exc)
         if rows:
             truncated = True
+            data_status = "partial"
+        else:
+            data_status = "unavailable"
 
     unique_users: set = set()
     anonymous_hits = 0
@@ -1488,7 +1571,7 @@ async def foot_traffic(
             anonymous_hits += 1
         ed = r.get("event_data") or {}
         path = ed.get("path") if isinstance(ed, dict) else None
-        if path:
+        if isinstance(path, str) and path:
             page_counts[path] = page_counts.get(path, 0) + 1
         ts = r.get("created_at")
         if ts:
@@ -1500,19 +1583,30 @@ async def foot_traffic(
         key=lambda x: x["views"], reverse=True,
     )[:10]
     daily_series = [{"date": d, "views": daily[d]} for d in sorted(daily)]
+    coverage_to = effective_to
+    if data_status == "partial" and rows:
+        last_read = rows[-1].get("created_at")
+        if isinstance(last_read, str) and last_read:
+            coverage_to = last_read
 
     return {
         "date_from": date_from,
         "date_to": date_to,
-        "total_views": len(rows),
-        "unique_visitors": len(unique_users),
-        "anonymous_hits": anonymous_hits,
+        "route": route,
+        "snapshot_to": snapshot_to,
+        # For partial reads this is the last successfully scanned event, not
+        # the requested watermark. Never imply unread days had zero traffic.
+        "effective_to": coverage_to,
+        "data_status": data_status,
+        "total_views": None if data_status == "unavailable" else len(rows),
+        "unique_visitors": None if data_status == "unavailable" else len(unique_users),
+        "anonymous_hits": None if data_status == "unavailable" else anonymous_hits,
         "top_pages": top_pages,
         "daily": daily_series,
         # DEBT-2026-07-22-G — true only if the MAX_ROWS ceiling bit. The admin
         # panel renders a warning on it; a truncated count must never read as a
         # complete one.
-        "truncated": truncated,
+        "truncated": data_status == "partial",
     }
 
 
