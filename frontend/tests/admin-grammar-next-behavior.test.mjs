@@ -49,7 +49,7 @@ describe('/admin/grammar native hub', () => {
   test('exposes every real destination and the learner preview', () => {
     for (const href of [
       '/grammar',
-      '/pages/admin/grammar/articles.html',
+      '/admin/grammar/articles',
       '/pages/admin/grammar/analytics.html',
       '/pages/admin/grammar/recommend-test.html',
       '/pages/admin/vocab/topics.html?skill_area=grammar',

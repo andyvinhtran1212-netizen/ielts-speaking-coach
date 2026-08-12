@@ -4499,6 +4499,44 @@ async def admin_delete_lemma_override(
 # pipeline.
 
 
+GRAMMAR_ARTICLE_METRIC_PAGE = 1000
+
+
+def _grammar_article_metric_rows(table: str, columns: str, slugs: list[str]) -> list[dict]:
+    """Read every metric row for the requested slugs.
+
+    PostgREST caps bare selects, so a single response cannot prove a metric is
+    complete. Keyset paging on the immutable primary key avoids offset drift
+    while rows are inserted or saves are removed. Any page failure aborts the
+    source instead of returning a partial total labelled complete.
+    """
+    rows: list[dict] = []
+    cursor_id: str | None = None
+    while True:
+        query = (
+            supabase_admin.table(table)
+            .select(f"id,{columns}")
+            .in_("article_slug", slugs)
+            .order("id")
+            .limit(GRAMMAR_ARTICLE_METRIC_PAGE)
+        )
+        if cursor_id is not None:
+            query = query.gt("id", cursor_id)
+        batch = (
+            query
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(batch)
+        if len(batch) < GRAMMAR_ARTICLE_METRIC_PAGE:
+            return rows
+        next_id = batch[-1].get("id")
+        if not next_id or next_id == cursor_id:
+            raise RuntimeError(f"{table} pagination cursor did not advance")
+        cursor_id = str(next_id)
+
+
 @router.get("/grammar/articles")
 async def admin_list_grammar_articles(
     category: str | None = Query(default=None, description="filter to a single category slug"),
@@ -4523,7 +4561,9 @@ async def admin_list_grammar_articles(
     except Exception as exc:
         raise HTTPException(500, f"grammar service unavailable: {exc}")
 
-    articles = list((grammar_service.articles_by_slug or {}).values())
+    all_articles = list((grammar_service.articles_by_slug or {}).values())
+    categories = sorted({a.get("category") for a in all_articles if a.get("category")})
+    articles = all_articles
 
     if category:
         articles = [a for a in articles if a.get("category") == category]
@@ -4538,35 +4578,30 @@ async def admin_list_grammar_articles(
 
     view_count: dict[str, int] = {}
     save_count: dict[str, int] = {}
+    analytics_status = {"views": "complete", "saves": "complete"}
     if slugs:
         try:
-            v_res = (
-                supabase_admin.table("article_views")
-                .select("article_slug, view_count")
-                .in_("article_slug", slugs)
-                .execute()
-            )
-            for row in (v_res.data or []):
+            for row in _grammar_article_metric_rows(
+                "article_views", "article_slug,view_count", slugs
+            ):
                 s = row.get("article_slug")
                 if not s:
                     continue
                 view_count[s] = view_count.get(s, 0) + int(row.get("view_count") or 0)
         except Exception as exc:
             logger.warning("[admin] grammar view aggregate failed: %s", exc)
+            analytics_status["views"] = "unavailable"
         try:
-            s_res = (
-                supabase_admin.table("saved_articles")
-                .select("article_slug")
-                .in_("article_slug", slugs)
-                .execute()
-            )
-            for row in (s_res.data or []):
+            for row in _grammar_article_metric_rows(
+                "saved_articles", "article_slug", slugs
+            ):
                 s = row.get("article_slug")
                 if not s:
                     continue
                 save_count[s] = save_count.get(s, 0) + 1
         except Exception as exc:
             logger.warning("[admin] grammar save aggregate failed: %s", exc)
+            analytics_status["saves"] = "unavailable"
 
     items = []
     for a in articles:
@@ -4579,19 +4614,19 @@ async def admin_list_grammar_articles(
             "band":          a.get("band"),
             "order":         a.get("order"),
             "tags":          a.get("tags") or [],
-            "view_count":    view_count.get(slug, 0),
-            "save_count":    save_count.get(slug, 0),
+            "view_count":    view_count.get(slug, 0) if analytics_status["views"] == "complete" else None,
+            "save_count":    save_count.get(slug, 0) if analytics_status["saves"] == "complete" else None,
             "source_path":   f"backend/content/{a.get('category', '')}/{slug}.md",
         })
 
     items.sort(key=lambda r: (r.get("category") or "", r.get("order") or 999, r.get("title") or ""))
 
-    categories = sorted({a.get("category") for a in articles if a.get("category")})
-
     return {
         "items":      items,
         "total":      len(items),
+        "available_total": len(all_articles),
         "categories": categories,
+        "analytics_status": analytics_status,
     }
 
 

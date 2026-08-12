@@ -33,6 +33,8 @@ class _TableQuery:
         self.fake = fake
         self.table_name = table_name
         self.in_filter: tuple[str, list] | None = None
+        self.gt_filter: tuple[str, str] | None = None
+        self.limit_value: int | None = None
 
     def select(self, *_args, **_kw):
         return self
@@ -41,11 +43,29 @@ class _TableQuery:
         self.in_filter = (field, list(values))
         return self
 
+    def order(self, *_args, **_kw):
+        return self
+
+    def gt(self, field, value):
+        self.gt_filter = (field, value)
+        return self
+
+    def limit(self, value):
+        self.limit_value = value
+        return self
+
     def execute(self):
         rows = self.fake.tables.get(self.table_name, [])
         if self.in_filter:
             f, vals = self.in_filter
             rows = [r for r in rows if r.get(f) in vals]
+        rows = sorted(rows, key=lambda row: str(row.get("id") or ""))
+        if self.gt_filter:
+            field, value = self.gt_filter
+            rows = [row for row in rows if str(row.get(field) or "") > str(value)]
+        # Match the hosted PostgREST cap so a test without explicit pagination
+        # cannot accidentally pass against this fake.
+        rows = rows[:self.limit_value or 1000]
         return _Resp(rows)
 
 
@@ -55,8 +75,11 @@ class _FakeSupabase:
             "article_views":  [],
             "saved_articles": [],
         }
+        self.fail_tables: set[str] = set()
 
     def table(self, name):
+        if name in self.fail_tables:
+            raise RuntimeError(f"{name} unavailable")
         return _TableQuery(self, name)
 
 
@@ -162,6 +185,8 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         body = r.json()
         assert body["total"] == 1
+        assert body["available_total"] == 3
+        assert body["categories"] == sorted(set(a["category"] for a in _ARTICLES))
         assert body["items"][0]["slug"] == "past-perfect"
 
     def test_search_by_title_substring(self, client):
@@ -190,6 +215,31 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         item = r.json()["items"][0]
         assert item["source_path"] == "backend/content/tenses/past-perfect.md"
+
+    def test_analytics_failure_is_explicit_and_never_becomes_false_zero(self, client, fake_db):
+        fake_db.fail_tables.add("article_views")
+        r = client.get("/admin/grammar/articles", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["analytics_status"] == {"views": "unavailable", "saves": "complete"}
+        assert all(item["view_count"] is None for item in body["items"])
+        assert all(item["save_count"] == 0 for item in body["items"])
+
+    def test_analytics_reads_every_postgrest_page_before_marking_complete(self, client, fake_db):
+        fake_db.tables["article_views"] = [
+            {"id": f"view-{index:04d}", "article_slug": "past-perfect", "view_count": 1}
+            for index in range(1205)
+        ]
+        fake_db.tables["saved_articles"] = [
+            {"id": f"save-{index:04d}", "article_slug": "past-perfect"}
+            for index in range(1107)
+        ]
+        r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["analytics_status"] == {"views": "complete", "saves": "complete"}
+        assert body["items"][0]["view_count"] == 1205
+        assert body["items"][0]["save_count"] == 1107
 
 
 # ── GET /admin/grammar/articles/{slug}/preview ────────────────────

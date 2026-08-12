@@ -15,7 +15,7 @@ const destinations = [
     title: 'Articles browser',
     description: 'Tra cứu toàn bộ bài viết, lọc theo danh mục và xem trước bản Markdown đã render.',
     detail: 'Tìm kiếm · Danh mục · Preview',
-    href: '/pages/admin/grammar/articles.html',
+    href: '/admin/grammar/articles',
     status: 'READ-ONLY',
     statusClass: 'is-readonly',
     featured: true,
