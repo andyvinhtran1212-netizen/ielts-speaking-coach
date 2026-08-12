@@ -248,9 +248,12 @@ on:
       # fixture kiểm failure states, orphan course preservation và reload chuẩn.
       - 'frontend/app/(authed-admin-classes)/**'
       - 'frontend/app/(authed-admin-students)/**'
+      - 'frontend/lib/admin-class-detail-model.mjs'
       - 'frontend/lib/admin-classes-model.mjs'
+      - 'frontend/public/css/admin-class-detail-next.css'
       - 'frontend/public/css/admin-classes-next.css'
       - 'frontend/public/css/admin-students-next.css'
+      - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -281,6 +284,7 @@ on:
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-students-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
@@ -720,6 +724,12 @@ jobs:
       # và edit lớp có course mồ côi không âm thầm tháo liên kết.
       - name: Kiểm luồng Admin Classes native
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
+      # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và
+      # canonical reload; homework/marking vẫn được dẫn rõ về rollback workspace.
+      - name: Kiểm luồng Admin Class Detail native
+        run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/students` có search, CSV và mutation roster. Fixture ghim
       # canonical reload, nullable clears, partial profile failure và cấm hard delete.

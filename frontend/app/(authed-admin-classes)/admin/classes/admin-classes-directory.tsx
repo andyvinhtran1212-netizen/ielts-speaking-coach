@@ -226,13 +226,13 @@ export function AdminClassesDirectory() {
             <table className="acd-table">
               <thead><tr><th>Lớp học</th><th>Khóa học</th><th>Sĩ số</th><th>Tiền tố mã</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead>
               <tbody>{rows.map((cohort) => <tr key={cohort.id}>
-                <td><div className="acd-class-cell"><a href={`/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohort.id)}`}>{cohort.name}</a>{cohort.description && <span>{cohort.description}</span>}</div></td>
+                <td><div className="acd-class-cell"><a href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>{cohort.name}</a>{cohort.description && <span>{cohort.description}</span>}</div></td>
                 <td><CourseCell cohort={cohort} lookupFailed={payload.course_lookup_failed} /></td>
                 <td><RosterCell cohort={cohort} /></td>
                 <td><code>{cohort.code_prefix || '—'}</code></td>
                 <td><span className={`adm-status-pill ${cohort.is_active ? 'is-active' : 'is-archived'}`}>{cohort.is_active ? 'Đang hoạt động' : 'Đã lưu trữ'}</span></td>
                 <td><div className="acd-actions">
-                  <a className="adm-btn-secondary adm-btn-sm" href={`/pages/admin/classes/index.html?cohort_id=${encodeURIComponent(cohort.id)}`}>Mở lớp</a>
+                  <a className="adm-btn-secondary adm-btn-sm" href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>Mở lớp</a>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(cohortDraft(cohort) as CohortDraft)} disabled={mutationBusy}>Sửa</button>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConfirm({ cohort, nextActive: !cohort.is_active })} disabled={mutationBusy}>{cohort.is_active ? 'Lưu trữ' : 'Khôi phục'}</button>
                 </div></td>

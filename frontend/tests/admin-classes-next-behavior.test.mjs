@@ -30,11 +30,11 @@ const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const BROWSER = read('tooling', 'verify-admin-classes-flow.mjs');
 
 describe('/admin/classes — native directory ownership', () => {
-  test('uses backend admin gate while preserving legacy detail/student workspace', () => {
+  test('uses backend admin gate and enters the native detail/student routes', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /active="classes" subsection="classes"/);
     assert.match(DIRECTORY, /href="\/admin\/students"/);
-    assert.match(DIRECTORY, /\/pages\/admin\/classes\/index\.html\?cohort_id=/);
+    assert.match(DIRECTORY, /`\/admin\/classes\/\$\{encodeURIComponent\(cohort\.id\)\}`/);
     assert.match(LEGACY, /id="view-detail"/);
     assert.match(LEDGER, /`\/admin\/classes`[^\n]+native directory ownership/);
   });

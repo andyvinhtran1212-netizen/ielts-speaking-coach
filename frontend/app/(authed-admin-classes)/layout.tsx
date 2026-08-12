@@ -15,6 +15,7 @@ export default function AdminClassesLayout({ children }: { children: ReactNode }
         '/css/aver-design/admin-buttons.css',
         '/css/aver-design/admin-status.css',
         '/css/admin-classes-next.css',
+        '/css/admin-class-detail-next.css',
       ]}
     >
       {children}
