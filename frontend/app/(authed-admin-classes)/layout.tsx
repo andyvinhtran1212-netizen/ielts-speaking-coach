@@ -17,6 +17,7 @@ export default function AdminClassesLayout({ children }: { children: ReactNode }
         '/css/admin-classes-next.css',
         '/css/admin-class-detail-next.css',
         '/css/admin-class-homework-next.css',
+        '/css/admin-class-submissions-next.css',
       ]}
     >
       {children}
