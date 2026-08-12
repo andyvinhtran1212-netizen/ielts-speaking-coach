@@ -244,6 +244,11 @@ on:
       - 'frontend/app/(authed-admin-users)/**'
       - 'frontend/lib/admin-users-model.mjs'
       - 'frontend/public/css/admin-users-next.css'
+      # Class directory có rollup/course truth + CRUD/soft archive; browser
+      # fixture kiểm failure states, orphan course preservation và reload chuẩn.
+      - 'frontend/app/(authed-admin-classes)/**'
+      - 'frontend/lib/admin-classes-model.mjs'
+      - 'frontend/public/css/admin-classes-next.css'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
@@ -273,6 +278,7 @@ on:
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
+      - 'frontend/tooling/verify-admin-classes-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
@@ -705,6 +711,12 @@ jobs:
       # UI báo thành công; không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Users native
         run: node tooling/verify-admin-users-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
+      # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
+      # và edit lớp có course mồ côi không âm thầm tháo liên kết.
+      - name: Kiểm luồng Admin Classes native
+        run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

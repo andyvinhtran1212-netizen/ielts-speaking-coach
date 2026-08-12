@@ -595,14 +595,11 @@ describe('GĐ 1 — merged class area highlights in the sidebar', () => {
     );
   });
 
-  for (const slug of ['classes', 'students']) {
-    it(`child link '${slug}' exists and points into the merged page`, () => {
-      assert.match(CHROME_JS, new RegExp(`slug:\\s*'${slug}'`));
-      assert.match(
-        CHROME_JS,
-        new RegExp(`slug:\\s*'${slug}'[^}]*/pages/admin/classes/index\\.html`),
-        `child '${slug}' must link into the merged page, not the retired one`,
-      );
-    });
-  }
+  it('class directory points to its native owner', () => {
+    assert.match(CHROME_JS, /slug:\s*'classes'[^}]*href:\s*'\/admin\/classes'/);
+  });
+
+  it('student directory remains on the legacy workspace until its own batch', () => {
+    assert.match(CHROME_JS, /slug:\s*'students'[^}]*\/pages\/admin\/classes\/index\.html\?tab=students/);
+  });
 });

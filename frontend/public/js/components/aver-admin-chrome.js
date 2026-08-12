@@ -493,14 +493,15 @@ const NAV_GROUPS = [
       // is folded into this area. The cohorts + students pages now present as
       // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
       // VALID_ACTIVE so the students page still resolves when reached via the tab.
-      // GĐ 1: lớp và học viên gộp về /pages/admin/classes/; trang cohorts cũ
-      // chuyển hướng sang đây. Slug đổi 'cohorts' → 'classes' để thư mục, slug
+      // GĐ 1: lớp và học viên gộp thành một khu; directory Lớp nay do
+      // /admin/classes sở hữu, còn Học viên tạm ở workspace legacy tới batch sau.
+      // Slug đổi 'cohorts' → 'classes' để thư mục, slug
       // và thuộc tính active= của trang khớp nhau — lệch một cái là sidebar
       // thôi tô sáng mục đang mở mà không báo gì.
       // (Lưu ý: slug 'cohorts' trong mục Writing bên dưới là thứ KHÁC, giữ nguyên.)
-      { section: 'classes',  label: 'Lớp & Học viên',     href: '/pages/admin/classes/index.html',  icon: 'layers',
+      { section: 'classes',  label: 'Lớp & Học viên',     href: '/admin/classes',  icon: 'layers',
         subsections: [
-          { slug: 'classes',  label: 'Lớp',      href: '/pages/admin/classes/index.html' },
+          { slug: 'classes',  label: 'Lớp',      href: '/admin/classes' },
           { slug: 'students', label: 'Học viên', href: '/pages/admin/classes/index.html?tab=students' },
         ] },
     ],
