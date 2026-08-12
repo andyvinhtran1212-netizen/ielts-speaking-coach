@@ -104,6 +104,9 @@ class _FakeGrammarService:
                 }
         return None
 
+    def find_best_anchor(self, issue: str, slug: str):
+        return "past-perfect-use" if slug == "past-perfect" else None
+
 
 _ARTICLES = [
     {
@@ -382,7 +385,10 @@ class TestRecommendTester:
         assert body["match"] is not None
         assert body["match"]["slug"] == "past-perfect"
         assert body["match"]["score"] == 0.9
-        assert body["match"]["url"].startswith("/pages/grammar-article.html?slug=")
+        assert body["outcome"] == "matched"
+        assert body["match"]["anchor"] == "past-perfect-use"
+        assert body["match"]["url"] == "/grammar/tenses/past-perfect#past-perfect-use"
+        assert body["candidate"] == body["match"]
 
     def test_no_match_returns_match_none(self, client):
         r = client.post(
@@ -391,7 +397,32 @@ class TestRecommendTester:
             headers=_ADMIN_AUTH,
         )
         body = r.json()
+        assert body["outcome"] == "below_threshold"
         assert body["match"] is None
+        assert body["candidate"] is None
+
+    def test_draft_candidate_is_visible_but_suppressed_like_production(self, client, fake_service):
+        fake_service.articles_by_slug["past-perfect"]["status"] = "draft"
+        body = client.post(
+            "/admin/grammar/recommend-test", json={"issue": "past perfect"}, headers=_ADMIN_AUTH
+        ).json()
+        assert body["outcome"] == "draft_suppressed"
+        assert body["match"] is None
+        assert body["candidate"]["slug"] == "past-perfect"
+        assert body["candidate"]["status"] == "draft"
+
+    @pytest.mark.parametrize("bad_score", [True, float("nan"), -0.1, 1.1])
+    def test_invalid_matcher_score_fails_closed(self, client, fake_service, monkeypatch, bad_score):
+        monkeypatch.setattr(fake_service, "find_best_match", lambda _issue: {
+            "slug": "past-perfect", "category": "tenses", "title": "Past Perfect", "score": bad_score,
+        })
+        response = client.post(
+            "/admin/grammar/recommend-test", json={"issue": "past perfect"}, headers=_ADMIN_AUTH
+        )
+        assert response.status_code == 500
+        body = response.json()["detail"]
+        assert body["error_code"] == "internal_error"
+        assert body["ref"]
 
     def test_blank_issue_returns_422_via_pydantic(self, client):
         r = client.post(

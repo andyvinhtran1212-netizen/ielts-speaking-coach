@@ -392,7 +392,8 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.doesNotMatch(html, /\/pages\/admin\/grammar\/articles\.html/);
     assert.match(html, /\/admin\/grammar\/analytics/);
     assert.doesNotMatch(html, /\/pages\/admin\/grammar\/analytics\.html/);
-    assert.match(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
+    assert.match(html, /\/admin\/grammar\/recommend-test/);
+    assert.doesNotMatch(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
     // Hybrid file-based banner must surface the workflow.
     assert.match(html, /backend\/content/);
   });

@@ -21,6 +21,7 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 const api = window.api;
 const $ = (id) => document.getElementById(id);
+let runSequence = 0;
 
 function escapeHtml(s) {
   // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
@@ -34,6 +35,7 @@ function escapeHtml(s) {
 
 async function runMatch() {
   const issue = ($('grt-issue').value || '').trim();
+  const requestId = ++runSequence;
   $('grt-error').hidden = true;
   $('grt-result').hidden = true;
   $('grt-no-match').hidden = true;
@@ -46,19 +48,26 @@ async function runMatch() {
 
   try {
     const data = await api.post('/admin/grammar/recommend-test', { issue });
-    if (!data.match) {
+    if (requestId !== runSequence) return;
+    if (data.outcome === 'below_threshold') {
       $('grt-no-match').hidden = false;
       return;
     }
-    const m = data.match;
+    const m = data.match || data.candidate;
+    if (!m) throw new Error('Phản hồi matcher không đúng contract');
     $('grt-title').textContent    = m.title || m.slug || '—';
     $('grt-slug').textContent     = m.slug || '—';
     $('grt-category').textContent = m.category || '—';
     $('grt-score').textContent    = m.score != null ? (Math.round(m.score * 100) / 100) : '—';
     $('grt-summary').textContent  = m.summary || '';
     $('grt-link').href            = m.url || '#';
+    $('grt-result').classList.toggle('is-draft-suppressed', data.outcome === 'draft_suppressed');
+    $('grt-title').textContent = data.outcome === 'draft_suppressed'
+      ? 'BỊ CHẶN (DRAFT) · ' + (m.title || m.slug || '—')
+      : (m.title || m.slug || '—');
     $('grt-result').hidden = false;
   } catch (e) {
+    if (requestId !== runSequence) return;
     $('grt-error').textContent = 'Không gọi được matcher: ' + (e && e.message || 'lỗi');
     $('grt-error').hidden = false;
   }
@@ -67,6 +76,7 @@ async function runMatch() {
 function wire() {
   $('btn-match').addEventListener('click', runMatch);
   $('btn-clear').addEventListener('click', () => {
+    runSequence += 1;
     $('grt-issue').value = '';
     $('grt-result').hidden = true;
     $('grt-no-match').hidden = true;
