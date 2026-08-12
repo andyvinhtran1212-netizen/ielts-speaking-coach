@@ -479,7 +479,7 @@ const NAV_GROUPS = [
       // own cutover batches. The rollback hub stays directly reachable.
       { section: 'grammar',   label: 'Grammar',   href: '/admin/grammar',   icon: 'edit',
         subsections: [
-          { slug: 'articles',         label: 'Articles',          href: '/pages/admin/grammar/articles.html' },
+          { slug: 'articles',         label: 'Articles',          href: '/admin/grammar/articles' },
           { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/pages/admin/vocab/topics.html?skill_area=grammar' },
           { slug: 'analytics',        label: 'Analytics',         href: '/pages/admin/grammar/analytics.html' },
           { slug: 'recommend-test',   label: 'Recommendation tester', href: '/pages/admin/grammar/recommend-test.html' },

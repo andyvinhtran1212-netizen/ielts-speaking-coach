@@ -279,6 +279,16 @@ on:
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
+      # Grammar Articles owns the clean inventory route and retains a direct
+      # legacy rollback. Backend status fields prevent analytics outages from
+      # masquerading as zero engagement.
+      - 'backend/routers/admin.py'
+      - 'backend/tests/test_admin_grammar.py'
+      - 'frontend/app/(authed-admin-grammar-articles)/**'
+      - 'frontend/lib/admin-grammar-articles-model.mjs'
+      - 'frontend/public/css/admin-grammar-articles-next.css'
+      - 'frontend/public/pages/admin/grammar/articles.html'
+      - 'frontend/public/js/admin-grammar-articles.js'
       # Error-log admin có role gate + mutations triage fixture-backed riêng;
       # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
@@ -344,6 +354,7 @@ on:
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
+      - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
@@ -816,6 +827,11 @@ jobs:
       # proves backend role gating, canonical destinations and mobile/desktop UI.
       - name: Kiểm luồng Admin Grammar hub native
         run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
+      # pins URL filters, analytics availability, sandboxed previews and layout.
+      - name: Kiểm luồng Admin Grammar Articles native
+        run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi

@@ -4523,7 +4523,9 @@ async def admin_list_grammar_articles(
     except Exception as exc:
         raise HTTPException(500, f"grammar service unavailable: {exc}")
 
-    articles = list((grammar_service.articles_by_slug or {}).values())
+    all_articles = list((grammar_service.articles_by_slug or {}).values())
+    categories = sorted({a.get("category") for a in all_articles if a.get("category")})
+    articles = all_articles
 
     if category:
         articles = [a for a in articles if a.get("category") == category]
@@ -4538,6 +4540,7 @@ async def admin_list_grammar_articles(
 
     view_count: dict[str, int] = {}
     save_count: dict[str, int] = {}
+    analytics_status = {"views": "complete", "saves": "complete"}
     if slugs:
         try:
             v_res = (
@@ -4553,6 +4556,7 @@ async def admin_list_grammar_articles(
                 view_count[s] = view_count.get(s, 0) + int(row.get("view_count") or 0)
         except Exception as exc:
             logger.warning("[admin] grammar view aggregate failed: %s", exc)
+            analytics_status["views"] = "unavailable"
         try:
             s_res = (
                 supabase_admin.table("saved_articles")
@@ -4567,6 +4571,7 @@ async def admin_list_grammar_articles(
                 save_count[s] = save_count.get(s, 0) + 1
         except Exception as exc:
             logger.warning("[admin] grammar save aggregate failed: %s", exc)
+            analytics_status["saves"] = "unavailable"
 
     items = []
     for a in articles:
@@ -4579,19 +4584,19 @@ async def admin_list_grammar_articles(
             "band":          a.get("band"),
             "order":         a.get("order"),
             "tags":          a.get("tags") or [],
-            "view_count":    view_count.get(slug, 0),
-            "save_count":    save_count.get(slug, 0),
+            "view_count":    view_count.get(slug, 0) if analytics_status["views"] == "complete" else None,
+            "save_count":    save_count.get(slug, 0) if analytics_status["saves"] == "complete" else None,
             "source_path":   f"backend/content/{a.get('category', '')}/{slug}.md",
         })
 
     items.sort(key=lambda r: (r.get("category") or "", r.get("order") or 999, r.get("title") or ""))
 
-    categories = sorted({a.get("category") for a in articles if a.get("category")})
-
     return {
         "items":      items,
         "total":      len(items),
+        "available_total": len(all_articles),
         "categories": categories,
+        "analytics_status": analytics_status,
     }
 
 

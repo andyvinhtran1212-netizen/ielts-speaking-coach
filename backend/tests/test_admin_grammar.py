@@ -55,8 +55,11 @@ class _FakeSupabase:
             "article_views":  [],
             "saved_articles": [],
         }
+        self.fail_tables: set[str] = set()
 
     def table(self, name):
+        if name in self.fail_tables:
+            raise RuntimeError(f"{name} unavailable")
         return _TableQuery(self, name)
 
 
@@ -162,6 +165,8 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         body = r.json()
         assert body["total"] == 1
+        assert body["available_total"] == 3
+        assert body["categories"] == sorted(set(a["category"] for a in _ARTICLES))
         assert body["items"][0]["slug"] == "past-perfect"
 
     def test_search_by_title_substring(self, client):
@@ -190,6 +195,15 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         item = r.json()["items"][0]
         assert item["source_path"] == "backend/content/tenses/past-perfect.md"
+
+    def test_analytics_failure_is_explicit_and_never_becomes_false_zero(self, client, fake_db):
+        fake_db.fail_tables.add("article_views")
+        r = client.get("/admin/grammar/articles", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["analytics_status"] == {"views": "unavailable", "saves": "complete"}
+        assert all(item["view_count"] is None for item in body["items"])
+        assert all(item["save_count"] == 0 for item in body["items"])
 
 
 # ── GET /admin/grammar/articles/{slug}/preview ────────────────────

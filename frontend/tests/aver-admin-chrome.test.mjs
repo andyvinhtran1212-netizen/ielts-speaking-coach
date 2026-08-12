@@ -388,7 +388,8 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.match(html, /<aver-admin-chrome\s+active=["']grammar["']/);
     assert.doesNotMatch(html, /Sắp ra mắt/);
     // Real landing must link to its three child pages.
-    assert.match(html, /\/pages\/admin\/grammar\/articles\.html/);
+    assert.match(html, /\/admin\/grammar\/articles/);
+    assert.doesNotMatch(html, /\/pages\/admin\/grammar\/articles\.html/);
     assert.match(html, /\/pages\/admin\/grammar\/analytics\.html/);
     assert.match(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
     // Hybrid file-based banner must surface the workflow.
