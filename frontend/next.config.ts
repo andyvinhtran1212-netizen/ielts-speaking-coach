@@ -108,7 +108,10 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-gist.html', destination: '/pages/admin/listening/gist.html', permanent: true },
       { source: '/pages/admin-listening-tf.html', destination: '/pages/admin/listening/tf.html', permanent: true },
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
-      { source: '/admin/access-codes', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
+      // Native Users pilot owns the clean access-code alias. Temporary on
+      // purpose: reverting the pilot must make this alias safe to repoint to
+      // the public rollback artifact without a browser-cached 308 stranding it.
+      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: false },
       { source: '/pages/admin/access-codes/index.html', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
       // Temporary during the `/admin` native pilot: a cached permanent redirect
       // would strand old dashboard bookmarks if the pilot is rolled back.

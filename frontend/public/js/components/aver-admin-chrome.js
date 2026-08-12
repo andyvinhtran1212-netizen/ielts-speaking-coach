@@ -488,7 +488,7 @@ const NAV_GROUPS = [
   {
     title: 'Người dùng',
     items: [
-      { section: 'users',    label: 'Tất cả người dùng',  href: '/pages/admin/users/index.html',    icon: 'user-check' },
+      { section: 'users',    label: 'Tất cả người dùng',  href: '/admin/users',                     icon: 'user-check' },
       // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
       // is folded into this area. The cohorts + students pages now present as
       // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
@@ -506,8 +506,8 @@ const NAV_GROUPS = [
     ],
   },
   // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
-  // access codes now live as the "Mã kích hoạt" tab inside the Users page
-  // ("Tất cả người dùng" above), and /admin/access-codes redirects there
+  // access codes now live as the "Mã kích hoạt" tab inside the native Users
+  // page ("Tất cả người dùng" above), and /admin/access-codes redirects there
   // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
   // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {

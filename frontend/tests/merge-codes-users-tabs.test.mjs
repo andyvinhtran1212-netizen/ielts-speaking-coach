@@ -91,16 +91,16 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   const NEXT_CONFIG = read('next.config.ts');
   const vercel = {
     redirects: Array.from(NEXT_CONFIG.matchAll(
-      /\{ source: '([^']+)', destination: '([^']+)', permanent: true \}/g,
-    )).map(([, source, destination]) => ({ source, destination, permanent: true })),
+      /\{ source: '([^']+)', destination: '([^']+)', permanent: (true|false) \}/g,
+    )).map(([, source, destination, permanent]) => ({ source, destination, permanent: permanent === 'true' })),
   };
   const chrome = read('js', 'components', 'aver-admin-chrome.js');
 
   test('/admin/access-codes redirects to the users page codes tab', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/admin/access-codes');
     assert.ok(r, 'missing /admin/access-codes redirect');
-    assert.match(r.destination, /\/pages\/admin\/users\/index\.html\?tab=codes/);
-    assert.equal(r.permanent, true);
+    assert.equal(r.destination, '/admin/users?tab=codes');
+    assert.equal(r.permanent, false, 'native pilot alias must stay rollback-safe');
   });
   test('the old access-codes page path also redirects to the codes tab', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');
@@ -109,7 +109,7 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   });
   test('nav no longer carries a standalone access-codes entry', () => {
     assert.doesNotMatch(chrome, /href:\s*'\/pages\/admin\/access-codes\/index\.html'/);
-    // the users entry remains the single door into both tabs
-    assert.match(chrome, /href:\s*'\/pages\/admin\/users\/index\.html'/);
+    // the native users entry remains the single door into both tabs
+    assert.match(chrome, /href:\s*'\/admin\/users'/);
   });
 });

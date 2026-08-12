@@ -458,8 +458,8 @@ export function AdminOverview() {
         hidden={pane !== 'ops'}
       >
         <section className="db-grid" aria-label="Số liệu vận hành">
-          <MetricCard label="Tổng người dùng" scope="toàn thời gian" value={formatInteger(ops?.totalUsers)} href="/pages/admin/users/index.html" loading={loadingScope === 'all'} />
-          <MetricCard label="Mã đã kích hoạt" scope="toàn thời gian" value={formatInteger(ops?.activeCodes)} href="/pages/admin/access-codes/index.html" loading={loadingScope === 'all'} />
+          <MetricCard label="Tổng người dùng" scope="toàn thời gian" value={formatInteger(ops?.totalUsers)} href="/admin/users" loading={loadingScope === 'all'} />
+          <MetricCard label="Mã đã kích hoạt" scope="toàn thời gian" value={formatInteger(ops?.activeCodes)} href="/admin/users?tab=codes" loading={loadingScope === 'all'} />
           <MetricCard
             label={`Người xem (${ops?.visitors?.windowDays ?? windowDays} ngày)`}
             value={formatInteger(ops?.visitors?.count)}
@@ -546,7 +546,7 @@ export function AdminOverview() {
             <span className="value">{formatInteger(errors.undismissed)}</span>
             <span className="delta">{finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
           </a>
-          <a className="stat-tile is-clickable" href="/pages/admin/access-codes/index.html">
+          <a className="stat-tile is-clickable" href="/admin/users?tab=codes">
             <span className="label">Mã đang dùng</span>
             <span className="value">{formatInteger(accessCodes.active)}</span>
             <span className="delta">Đại trà {formatInteger(codeMix.mass || 0)} · Trực tiếp {formatInteger(codeMix.direct || 0)} · NV {formatInteger(codeMix.staff || 0)}</span>
@@ -598,7 +598,7 @@ export function AdminOverview() {
           <h2 className="ov-section-title">Truy cập + Hệ thống</h2>
           <div className="placeholder-row">
             <a href="/pages/admin/classes/index.html?tab=students">Học viên · LIVE</a>
-            <a href="/pages/admin/users/index.html">Tất cả người dùng · LIVE</a>
+            <a href="/admin/users">Tất cả người dùng · LIVE</a>
             <a href="/admin/system">Hệ thống · LIVE</a>
             <a href="/pages/admin/dashboard/reading-attempts.html">Reading — Lượt làm bài · LIVE</a>
             <a href="/pages/admin/classes/index.html">Lớp &amp; Học viên</a>

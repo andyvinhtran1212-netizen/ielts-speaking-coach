@@ -261,8 +261,8 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/admin/system/alerts` | — | `pages/admin/system/alerts.html` | Admin | `severity` (critical, warning, info) | localStorage (theme), fetch (alert API) | M | Alert triage + dismissal |
 | `/admin/system/ai-usage` | — | `pages/admin/system/ai-usage.html` | Admin | `model`, `date_range` (filters) | localStorage (theme), fetch (usage API), chart library (recharts) | M | AI model usage + cost tracking |
 | `/admin/students` | — | `pages/admin/students/index.html` | Admin | `search`, `role`, `status` (filters) | localStorage (theme), sessionStorage (filter state), fetch (user list) | M | User list + cohort assignment |
-| `/admin/users` | — | `pages/admin/users/index.html` | Admin | `tab=codes` (access-code view; default is users) | localStorage (theme), sessionStorage (tab state), fetch (code API) | L | User management + access-code ownership tracking; dual-view |
-| `/admin/access-codes` | Clean alias; redirects to `/admin/users?tab=codes` (vercel.json line 48) | — | Admin | — | — | — | Rewrite target (not a real page) |
+| `/admin/users` | `/pages/admin/users/index.html` remains rollback target | `app/(authed-admin-users)/admin/users/page.tsx` — native React ownership 2026-08-12 | Admin | `tab=codes` (access-code view; default is users) | AuthProvider + backend-owned `/auth/me` role guard; canonical users/cohorts/access-code APIs; account-keyed stale-response guards | L | User roles, student conversion, generate-and-assign, access-code ownership/quota and code lifecycle; every mutation reconciles with canonical GET before success state |
+| `/admin/access-codes` | Temporary redirect to `/admin/users?tab=codes`; `/pages/admin/access-codes/index.html` remains the legacy consolidation alias | — | Admin | — | — | — | Clean alias into the native access-code tab; temporary redirect keeps rollback safe |
 | `/admin/instructors` | — | `pages/admin/instructors.html` | Admin | none | localStorage (theme), fetch (instructor list) | M | Instructor management + cohort assignment |
 | `/admin/usage` | — | `pages/admin/usage/index.html` | Admin | `metric` (dau, mau, features), `date_range` | localStorage (theme), fetch (analytics API), chart library | M | Aggregate usage stats |
 | `/admin/foot-traffic` | — | `pages/admin/foot-traffic/index.html` | Admin | `route`, `date_range` | localStorage (theme), fetch (traffic API), chart library | M | Per-route visitor count + trends |
@@ -421,7 +421,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/pages/admin-listening-gist.html` | `/pages/admin/listening/gist.html` | Permanent | — |
 | `/pages/admin-listening-tf.html` | `/pages/admin/listening/tf.html` | Permanent | — |
 | `/pages/admin-listening-mcq.html` | `/pages/admin/listening/mcq.html` | Permanent | — |
-| `/admin/access-codes` | `/pages/admin/users/index.html?tab=codes` | Permanent | Access-code view merged into users page |
+| `/admin/access-codes` | `/admin/users?tab=codes` | Temporary during native pilot | Access-code view merged into native users page; rollback-safe |
 | `/pages/admin/access-codes/index.html` | `/pages/admin/users/index.html?tab=codes` | Permanent | (legacy admin path) |
 | `/pages/admin/dashboard/index.html` | `/pages/admin/index.html` | Permanent | Dashboard hub redirected to main admin |
 
