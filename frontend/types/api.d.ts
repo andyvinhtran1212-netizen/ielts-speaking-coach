@@ -11547,6 +11547,10 @@ export interface components {
          *     `prompt_ids`.
          */
         FanOutCreate: {
+            /** Request Id */
+            request_id?: string | null;
+            /** Expected Student Count */
+            expected_student_count?: number | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -13233,6 +13237,8 @@ export interface components {
          *     constraint enforces at the DB layer.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
+            /** Request Id */
+            request_id?: string | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
