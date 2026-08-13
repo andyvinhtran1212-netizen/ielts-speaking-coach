@@ -1405,3 +1405,46 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   answer/explanation visibility, one image manager per block, multipart upload and
   delete followed by canonical readback, student-like preview URL, mobile/desktop
   containment, dark mode and absence of unexpected writes.
+
+## 2026-08-14 — Native `/admin/listening` content inventory
+
+### Root causes and severity
+
+- **Medium — lookup failure looked like missing authoring.** The legacy table
+  rendered a bare `?` when a per-row exercise request failed. This made an API
+  outage indistinguishable from an incomplete lesson. The native inventory has
+  explicit loading, ready and unavailable states; unavailable copy states that it
+  does not mean “chưa có”.
+- **Medium — malformed payloads could become a false empty screen.** The legacy
+  controller defaulted absent `items` and `total` to empty values. The native
+  normalizer rejects an invalid envelope, excludes only malformed identified rows
+  and keeps the backend total visible.
+- **Medium — filter and page context were not restorable.** Status and offset lived
+  only in memory, so refresh/back lost the admin’s place. Native status and page
+  live in the clean URL and reset coherently when the filter changes.
+- **Low — the nine-column table hid the authoring workflow.** The inventory listed
+  raw fields and six tiny actions with little hierarchy. A four-step authoring map,
+  grouped audio/status/exercise evidence and clearer primary identity reduce scan
+  cost without inventing aggregate metrics.
+
+### Design improvements implemented
+
+- A compact operational hero separates Cambridge test management and learner
+  preview from the canonical content list; the legacy page remains an explicit
+  rollback link rather than a competing primary destination.
+- Each row exposes content identity, classification, audio readiness, publication
+  status and all four exercise types. Exercise chips retain draft/published/archive
+  truth and report malformed or duplicate records instead of silently collapsing.
+- At tablet widths the table becomes labelled record cards; mobile actions retain
+  44px targets. Focus-visible states, token-only dark surfaces and reduced-motion
+  behavior follow the governed admin language.
+- This batch is intentionally read-only. Detail, status and metadata mutations stay
+  on their existing workspaces until separately audited and migrated.
+
+### Verification
+
+- Model tests cover filter normalization, canonical list invariants, malformed-row
+  reporting, exercise ownership/status/duplicates, audio sentinels and durations.
+- A fixture-backed browser flow proves admin gating, URL state, escaped hostile
+  titles, per-row partial failure truth, deep-link identity, mobile/desktop
+  containment, dark mode and zero business writes.

@@ -441,6 +441,7 @@ currently matches.
 | admin-writing-prompts-redesign | Prompt list paginated + filterable by level/topic with bulk publish/archive; create/edit via `POST /admin/writing/prompts` | port-to-component-test |
 | listening-mcq-sessions-pages | MCQ user page POSTs `/api/listening/attempts` (mode=mcq); admin editor POSTs `/admin/listening/exercises` (exercise_type=mcq, 1–20 Q); browse filters accent/cefr/section; analytics day-chart | port-to-component-test |
 | admin-listening-content-management | Content list GETs `/admin/listening/content` (status filter); detail GETs content/{id} + exercises?content_id= | port-to-component-test |
+| `admin-listening-content-next-behavior.test.mjs` + `verify-admin-listening-content-flow.mjs` | ✓ | `/admin/listening` | Admin gate; canonical pagination/filter URL; malformed-row truth; per-row exercise complete/error states; responsive/dark/reduced-motion inventory | model/source + fixture-backed browser | native inventory owner; detail/meta/editors remain rollback workspaces |
 | admin-listening-segments | Segment/region editor on `/admin/listening/content/{id}` + `/admin/listening/exercises` (region marking + timing; NOT a `/segments/{id}` endpoint) | port-to-component-test |
 | admin-listening-tests-detail | Test detail shows sections + questions-per-section with edit/delete-confirm; GETs `/admin/listening/tests/{id}` | port-to-component-test |
 | admin-listening-tests | Tests list paginated + filterable by level/type with import/create | port-to-component-test |

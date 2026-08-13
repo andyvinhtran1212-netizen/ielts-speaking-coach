@@ -84,18 +84,19 @@ describe('Admin overview — 6 skill cards', () => {
   }
 
   it('all 6 skill cards link to their hubs (no is-placeholder remaining)', () => {
-    // Speaking, Writing, Reading and Grammar now have native clean-route owners; rollback HTML
+    // Speaking, Writing, Reading, Listening and Grammar now have native clean-route owners; rollback HTML
     // remains directly reachable but must not be the normal navigation target.
     // design-fix-2 B4: skill cards reuse the shared .admin-hub-card primitive.
     assert.match(HTML, /href="\/admin\/speaking"[^>]*class="admin-hub-card"\s+data-skill="speaking"/);
     assert.match(HTML, /href="\/admin\/writing"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
     assert.match(HTML, /href="\/admin\/reading"[^>]*class="admin-hub-card"\s+data-skill="reading"/);
-    assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
+    assert.match(HTML, /href="\/admin\/listening"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
     assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
     assert.match(HTML, /href="\/admin\/grammar"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/speaking\/index\.html"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/writing\/index\.html"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/reading\/content\.html"[^>]*data-skill="reading"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*data-skill="listening"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/grammar\/index\.html"/);
   });
 
