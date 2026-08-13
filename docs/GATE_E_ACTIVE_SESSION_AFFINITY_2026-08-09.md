@@ -65,9 +65,11 @@ qua một global switch.
 Writing là trường hợp có trước foundation: `/writing/dashboard` đã là Next,
 trong khi `/pages/writing-dashboard.html` vẫn sống làm vế parity/rollback. Nó ở
 ngoài helper mới vì attempt được mở ngay trong dashboard, không qua sáu launcher
-trên. Gate E của Writing vẫn phải pin coexistence rollback floor và drill modal
-đang viết, autosave, reload, submit cùng canonical server draft; không được lấy
-coverage Speaking/Reading/Listening thay cho evidence Writing.
+trên. Writing đã có automated synthetic modal/autosave/reload/submit matrix
+riêng từ 2026-08-14, gồm exact-text idempotent readback và bidirectional
+Legacy/Next. Gate E của Writing vẫn phải pin coexistence rollback floor và chạy
+live staging drill trên canonical services; synthetic coverage không thay
+operational evidence.
 
 ## State machine cutover/rollback
 

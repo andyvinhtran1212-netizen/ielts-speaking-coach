@@ -72,6 +72,7 @@ export function WritingShell() {
 
         {/* Main content */}
         <div id="content">
+          <div id="writing-submit-notice" className="wd-submit-notice hidden" role="status"></div>
           {/* Sprint 5.2 — Writing permission preview banner (hidden by default,
                revealed when GET /api/student/permissions returns writing=false). */}
           <div id="writing-preview-banner" className="wd-preview-banner hidden mb-6 flex items-start gap-3">

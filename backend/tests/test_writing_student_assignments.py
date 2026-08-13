@@ -30,6 +30,7 @@ from routers.writing_student import (
     DraftUpsert,
     SubmitEssay,
     get_my_assignment,
+    get_my_assignment_submission,
     list_my_assignments,
     submit_my_assignment,
     upsert_my_draft,
@@ -132,9 +133,13 @@ class _Client:
         *,
         assignments_data: list[dict] | None = None,
         drafts_data:      list[dict] | None = None,
+        essays_data:      list[dict] | None = None,
+        jobs_data:        list[dict] | None = None,
     ):
         self._assignments = assignments_data or []
         self._drafts      = drafts_data or []
+        self._essays      = essays_data or []
+        self._jobs        = jobs_data or []
         self.calls: list[dict] = []
 
     def table(self, name): return _Builder(self, name)
@@ -181,6 +186,13 @@ class _Client:
                 r.data = [rec["payload"]]
             elif action == "delete":
                 r.data = []
+        elif table in ("writing_essays", "writing_jobs") and action == "select":
+            rows = self._essays if table == "writing_essays" else self._jobs
+            for col, val in rec["filters"]:
+                rows = [row for row in rows if str(row.get(col)) == str(val)]
+            r.data = rows
+        elif table == "writing_essays" and action == "delete":
+            r.data = []
         return r
 
 
@@ -381,13 +393,7 @@ def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatc
 
 
 def test_submit_blocked_when_already_submitted(monkeypatch):
-    """Status past `in_progress` → 409. Sprint 2.7.1 SAGA: the essay
-    row IS created (leg 1) but the conditional UPDATE finds no row
-    matching `status IN (pending, in_progress)`, so the orphan essay
-    is rolled back and grading is never scheduled.
-
-    Pin: 409 returned, no grading job, no BG task, AND a writing_essays
-    DELETE fires for the orphan."""
+    """A new request against terminal state is rejected before any write."""
     client = _Client(
         assignments_data=[
             {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
@@ -412,15 +418,10 @@ def test_submit_blocked_when_already_submitted(monkeypatch):
             student=_student(),
         ))
     assert exc.value.status_code == 409
-    # SAGA leg 1 still ran (essay was created speculatively).
-    fake_row.assert_called_once()
-    # SAGA leg 3 must NOT have run — no grading job, no BG task.
+    fake_row.assert_not_called()
     fake_job.assert_not_called()
     bg.add_task.assert_not_called()
-    # The orphan essay was rolled back.
-    deletes = [c for c in client.calls
-               if c["table"] == "writing_essays" and c["action"] == "delete"]
-    assert len(deletes) == 1, "expected orphan essay rollback DELETE"
+    assert not [c for c in client.calls if c["action"] in ("insert", "update", "delete")]
 
 
 def test_submit_links_essay_and_advances_status(monkeypatch):
@@ -484,25 +485,17 @@ def test_submit_links_essay_and_advances_status(monkeypatch):
 # ── Sprint 2.7.1 SAGA: lost-race protection + orphan rollback ────────
 
 
-def test_submit_lost_race_rolls_back_orphan_essay(monkeypatch):
-    """Two-tab race: tab A submits first, row moves to `submitted`.
-    Tab B's `_resolve_active_assignment` happens to read the still-
-    cached `in_progress`, but by the time the atomic claim+link
-    fires the row is already past.
-
-    Sprint 2.7.1 SAGA semantics:
-      • Tab B's writing_essays row IS created (leg 1, speculative).
-      • Tab B's claim UPDATE comes back empty (lost race).
-      • Tab B DELETEs the orphan essay it just created (leg 2.5).
-      • Tab B raises 409, no grading job, no BG task.
-
-    The pre-2.7.1 invariant ('lost race ⇒ no essay row created')
-    no longer holds — now the invariant is 'lost race ⇒ no orphan
-    survives in the DB', which is what we pin here."""
+def test_same_request_replays_committed_submission_without_new_write(monkeypatch):
+    """Response-loss retry returns canonical assignment→essay→job receipt."""
+    request_id = "11111111-1111-4111-8111-111111111111"
+    long_text = "Valid essay body with multiple meaningful words here. " * 25
     row = {
         "id":          _ASSIGNMENT_ID,
         "student_id":  _STUDENT_ID,
         "status":      "submitted",   # winning tab already advanced it
+        "essay_id":    "essay-uuid-eeee",
+        "student_submit_request_id": request_id,
+        "student_submit_text_sha256": ws_module._submit_text_sha256(long_text.strip()),
         "writing_prompts": {
             "id":          _PROMPT_ID,
             "title":       "T",
@@ -510,39 +503,75 @@ def test_submit_lost_race_rolls_back_orphan_essay(monkeypatch):
             "task_type":   "task2",
         },
     }
-    client = _Client(assignments_data=[row])
+    client = _Client(
+        assignments_data=[row],
+        essays_data=[{
+            "id": "essay-uuid-eeee", "status": "pending",
+            "is_flagged": False, "flag_reasons": [],
+        }],
+        jobs_data=[{"id": "job-uuid-ffff", "essay_id": "essay-uuid-eeee"}],
+    )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
     fake_row, fake_job = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
-    long_text = "Valid essay body with multiple meaningful words here. " * 25
+    result = _run(submit_my_assignment(
+        assignment_id=_ASSIGNMENT_ID,
+        body=SubmitEssay(essay_text=long_text, request_id=request_id),
+        background_tasks=bg,
+        student=_student(),
+    ))
+    assert result["replayed"] is True
+    assert result["essay_id"] == "essay-uuid-eeee"
+    assert result["job_id"] == "job-uuid-ffff"
+    fake_row.assert_not_called()
+    fake_job.assert_not_called()
+    bg.add_task.assert_not_called()
+    assert not [c for c in client.calls if c["action"] in ("insert", "update", "delete")]
+
+
+def test_same_request_with_different_text_is_rejected_without_write(monkeypatch):
+    request_id = "11111111-1111-4111-8111-111111111111"
+    client = _Client(assignments_data=[{
+        "id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
+        "status": "submitted", "essay_id": "essay-uuid-eeee",
+        "student_submit_request_id": request_id,
+        "student_submit_text_sha256": ws_module._submit_text_sha256("original"),
+        "writing_prompts": {},
+    }])
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    fake_row, fake_job = _patch_essay_service(monkeypatch)
+    bg = MagicMock(); bg.add_task = MagicMock()
     with pytest.raises(HTTPException) as exc:
         _run(submit_my_assignment(
             assignment_id=_ASSIGNMENT_ID,
-            body=SubmitEssay(essay_text=long_text),
+            body=SubmitEssay(essay_text="changed", request_id=request_id),
             background_tasks=bg,
             student=_student(),
         ))
     assert exc.value.status_code == 409
-    # SAGA leg 1 fired (the speculative essay creation).
-    fake_row.assert_called_once()
-    # SAGA leg 3 must NOT have run.
-    fake_job.assert_not_called()
-    bg.add_task.assert_not_called()
-    # SAGA leg 2.5: orphan rollback DELETE on writing_essays.
-    deletes = [c for c in client.calls
-               if c["table"] == "writing_essays" and c["action"] == "delete"]
-    assert len(deletes) == 1, \
-        "lost race must DELETE the orphan essay (no orphan survives)"
-    # Exactly one writing_assignments UPDATE attempt fired — the
-    # conditional claim that came back empty. The dispatcher records
-    # the call even though Postgres would have affected zero rows.
-    a_updates = [c for c in client.calls
-                 if c["table"] == "writing_assignments" and c["action"] == "update"]
-    assert len(a_updates) == 1, \
-        "lost race: exactly one UPDATE attempt (the failed claim)"
-    # And the draft must NOT have been cleaned up — that only runs
-    # after a successful claim.
-    draft_deletes = [c for c in client.calls
-                     if c["table"] == "writing_drafts" and c["action"] == "delete"]
-    assert draft_deletes == [], "lost race must not delete the draft"
+    fake_row.assert_not_called(); fake_job.assert_not_called(); bg.add_task.assert_not_called()
+
+
+def test_submission_readback_is_side_effect_free(monkeypatch):
+    request_id = "11111111-1111-4111-8111-111111111111"
+    client = _Client(
+        assignments_data=[{
+            "id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
+            "status": "submitted", "essay_id": "essay-uuid-eeee",
+            "student_submit_request_id": request_id,
+            "student_submit_text_sha256": ws_module._submit_text_sha256("body"),
+            "writing_prompts": {},
+        }],
+        essays_data=[{"id": "essay-uuid-eeee", "status": "pending", "is_flagged": False}],
+        jobs_data=[{"id": "job-uuid-ffff", "essay_id": "essay-uuid-eeee"}],
+    )
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    result = _run(get_my_assignment_submission(
+        assignment_id=_ASSIGNMENT_ID,
+        request_id=request_id,
+        student=_student(),
+    ))
+    assert result["essay_id"] == "essay-uuid-eeee"
+    assert result["replayed"] is True
+    assert not [c for c in client.calls if c["action"] in ("insert", "update", "delete")]

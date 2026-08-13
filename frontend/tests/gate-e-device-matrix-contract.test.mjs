@@ -44,6 +44,9 @@ const readingEvidenceVerifier = read(
 const listeningEvidenceVerifier = read(
   'frontend/tooling/verify-gate-e-listening-failure-evidence.mjs',
 );
+const writingEvidenceVerifier = read(
+  'frontend/tooling/verify-gate-e-writing-failure-evidence.mjs',
+);
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
   const tests = includedProjects.map((project) => ({
@@ -126,7 +129,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.doesNotMatch(WRITER, /STAGING_BYPASS|E2E_PASSWORD|access_token|refresh_token/);
   });
 
-  test('Speaking failure evidence is semantically verified before any streak state advances', () => {
+  test('all core failure evidence is semantically verified before any streak state advances', () => {
     assert.match(speakingEvidenceCheckCode, /id: speaking_failure_evidence/);
     assert.match(speakingEvidenceCheckCode, /GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/);
     assert.match(
@@ -144,7 +147,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     );
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(speakingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
     assert.match(speakingEvidenceVerifier, /HTML embedded ZIP is truncated/);
@@ -152,6 +155,8 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(readingEvidenceVerifier, /did not execute each required Reading failure path exactly once/);
     assert.match(listeningEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
     assert.match(listeningEvidenceVerifier, /did not execute each required Listening failure path exactly once/);
+    assert.match(writingEvidenceVerifier, /discovered \$\{tests\.length\} tests != \$\{manifest\.expected_total_tests\}/);
+    assert.match(writingEvidenceVerifier, /required paths mismatch/);
   });
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {

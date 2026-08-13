@@ -31,7 +31,13 @@ function walk(dir, rel = '') {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const r = rel ? rel + '/' + e.name : e.name;
     if (e.isDirectory()) {
-      if (['node_modules', 'graphify-out', 'tests', 'public', '.next', 'app'].includes(e.name)) continue; // public/ reached via compat symlinks at legacy paths (Phase 1)
+      if ([
+        'node_modules', 'graphify-out', 'tests', 'public', '.next', 'app',
+        // Playwright reporters are generated evidence, never route-bearing
+        // product pages. Keeping the exclusion here makes this sentinel stable
+        // whether a developer has just run browser tests or has a clean tree.
+        'playwright-report', 'test-results',
+      ].includes(e.name)) continue; // public/ reached via compat symlinks at legacy paths (Phase 1)
       out.push(...walk(path.join(dir, e.name), r));
     } else if (e.name.endsWith('.html')) {
       if (e.name === '_theme-test.html' || e.name.includes('.legacy.')) continue;

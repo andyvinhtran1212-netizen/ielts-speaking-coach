@@ -207,6 +207,34 @@ describe('writing-dashboard.html / state container IDs', () => {
   });
 });
 
+describe('/writing/dashboard — idempotent submit and account lifecycle', () => {
+  test('both stacks load the shared account-keyed submit receipt', () => {
+    assert.match(html, /writing-submit-receipt\.js/);
+    assert.match(behavior, /WritingSubmitReceipt/);
+    assert.match(behavior, /request_id: receipt\.requestId/);
+    assert.match(behavior, /\/submission\?request_id=/);
+  });
+
+  test('Next account switches cancel stale work and hide prior learner data', () => {
+    assert.doesNotMatch(behavior, /ranRef/);
+    assert.match(behavior, /const generation = ps\.generation \+ 1/);
+    assert.match(behavior, /ps\.generation !== generation/);
+    assert.match(behavior, /ms\.accountId === user\.id/);
+    assert.match(behavior, /ms\.accountId === accountId && ms\.assignmentId === assignmentId/);
+    assert.match(behavior, /setupAntiPaste\(textarea, ms, on\)/);
+    assert.match(behavior, /wireEssayFilterTabs\(ps, on\)/);
+    assert.match(behavior, /ps\.allEssays = \[\]/);
+    assert.match(behavior, /assignmentsList\.innerHTML = '<p class="text-sm py-8 text-center"/);
+  });
+
+  test('a superseded receipt is cleared and canonical lists are reloaded', () => {
+    assert.match(behavior, /statusCode\(err\) === 409/);
+    assert.match(behavior, /helper\.remove\(accountId, receipt\.assignmentId\)/);
+    assert.match(behavior, /Bài đã được nộp ở một tab khác/);
+    assert.match(html, /WritingSubmitReceipt\.remove\(accountId, pending\[i\]\.assignmentId\)/);
+  });
+});
+
 
 describe('writing-dashboard.html / 2-tab nav contract (Phase 2.3b)', () => {
   test('2 primary tabs preserved with their inline JS IDs', () => {

@@ -121,6 +121,12 @@ jobs:
           GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
         run: node tooling/verify-gate-e-listening-device-matrix.mjs
 
+      - name: Verify Writing Gate E matrix pins
+        working-directory: frontend
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-writing-device-matrix.mjs
+
       - name: Install Playwright matrix engines
         working-directory: frontend
         timeout-minutes: 5
@@ -188,6 +194,20 @@ jobs:
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
         run: node .gate-e-auditor/frontend/tooling/verify-gate-e-listening-failure-evidence.mjs
 
+      - name: Run Gate E Writing failure matrix
+        id: writing_failure_matrix
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        run: npm run test:e2e:gate-e:writing
+
+      - name: Verify Writing failure-matrix evidence
+        id: writing_failure_evidence
+        if: always() && steps.writing_failure_matrix.outcome != 'skipped'
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-writing-failure-evidence.mjs
+
       # Gate E evidence must remain inspectable even when the suite fails. This
       # metadata contains only versions/run ids/outcome — never secrets or auth
       # state — and pairs with Playwright's JSON reporter output.
@@ -195,7 +215,7 @@ jobs:
         id: matrix_evidence
         if: always()
         env:
-          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && steps.speaking_failure_evidence.outcome == 'success' && steps.reading_failure_matrix.outcome == 'success' && steps.reading_failure_evidence.outcome == 'success' && steps.listening_failure_matrix.outcome == 'success' && steps.listening_failure_evidence.outcome == 'success' && 'success' || 'failure' }}
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && steps.speaking_failure_evidence.outcome == 'success' && steps.reading_failure_matrix.outcome == 'success' && steps.reading_failure_evidence.outcome == 'success' && steps.listening_failure_matrix.outcome == 'success' && steps.listening_failure_evidence.outcome == 'success' && steps.writing_failure_matrix.outcome == 'success' && steps.writing_failure_evidence.outcome == 'success' && 'success' || 'failure' }}
           EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
           EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
@@ -281,6 +301,18 @@ jobs:
             frontend/test-results/gate-e-listening-device-matrix-results.json
             frontend/tooling/gate-e-listening-device-matrix.json
             frontend/playwright-report/gate-e-listening
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Writing failure-matrix evidence
+        if: always() && steps.writing_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-writing-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-writing-device-matrix-results.json
+            frontend/tooling/gate-e-writing-device-matrix.json
+            frontend/playwright-report/gate-e-writing
           if-no-files-found: error
           retention-days: 30
 

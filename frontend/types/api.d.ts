@@ -4461,6 +4461,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/writing/my-assignments/{assignment_id}/submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Assignment Submission
+         * @description Side-effect-free reconciliation for an ambiguous submit response.
+         */
+        get: operations["get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/writing/my-assignments/{assignment_id}/timer": {
         parameters: {
             query?: never;
@@ -12808,6 +12828,8 @@ export interface components {
         SubmitEssay: {
             /** Essay Text */
             essay_text?: string | null;
+            /** Request Id */
+            request_id?: string | null;
         };
         /** TTSRequest */
         TTSRequest: {
@@ -21045,6 +21067,41 @@ export interface operations {
                 "application/json": components["schemas"]["SubmitEssay"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get: {
+        parameters: {
+            query: {
+                request_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
