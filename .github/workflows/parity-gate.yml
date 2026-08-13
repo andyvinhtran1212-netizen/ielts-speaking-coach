@@ -273,13 +273,17 @@ on:
       - 'frontend/public/css/admin-reading-attempts-next.css'
       - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
       - 'frontend/public/js/admin-reading-attempts.js'
-      # Reading hub owns the clean route. Content/preview remain direct legacy
-      # rollback workspaces until their dedicated cutover batches.
+      # Reading hub + content manager own clean routes. Content HTML and preview
+      # remain direct rollback targets; preview awaits its dedicated cutover.
       - 'frontend/app/(authed-admin-reading)/**'
       - 'frontend/public/css/admin-reading-hub-next.css'
+      - 'frontend/app/(authed-admin-reading-content)/**'
+      - 'frontend/lib/admin-reading-content-model.mjs'
+      - 'frontend/public/css/admin-reading-content-next.css'
       - 'frontend/public/pages/admin/reading/content.html'
       - 'frontend/public/pages/admin/reading/preview.html'
       - 'frontend/tooling/verify-admin-reading-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -941,6 +945,11 @@ jobs:
       # truthful native/legacy destinations and responsive visual containment.
       - name: Kiểm luồng Admin Reading hub native
         run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Content manager mutates canonical Reading data. Fixture pins dry-run
+      # structure, route ownership, responsive table and GET readback after write.
+      - name: Kiểm luồng Admin Reading content native
+        run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

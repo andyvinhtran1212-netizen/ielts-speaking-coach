@@ -466,7 +466,7 @@ const NAV_GROUPS = [
       },
       { section: 'reading',   label: 'Reading',   href: '/admin/reading', icon: 'book-open',
         subsections: [
-          { slug: 'content',  label: 'Quản lý nội dung', href: '/pages/admin/reading/content.html' },
+          { slug: 'content',  label: 'Quản lý nội dung', href: '/admin/reading/content' },
         ],
       },
       { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book',

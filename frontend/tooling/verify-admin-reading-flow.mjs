@@ -33,8 +33,8 @@ await page.getByRole('heading', { name: 'Reading workspace', exact: true }).wait
 check('backend-owned admin gate chạy', requests.includes('GET /auth/me'));
 check('learner preview là canonical route', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/reading/test');
 check('ba workspace có full-card anchor', await page.locator('a.rdh-card[href]').count() === 3);
-check('ownership hiển thị đúng hai native và một legacy', await page.getByText('NATIVE', { exact: true }).count() === 2 && await page.getByText('LEGACY WORKSPACE', { exact: true }).count() === 1);
-check('content link giữ rollback trực tiếp', await page.getByRole('link', { name: /Passages & answer keys/ }).getAttribute('href') === '/pages/admin/reading/content.html');
+check('ownership hiển thị đúng ba workspace native', await page.getByText('NATIVE', { exact: true }).count() === 3 && await page.getByText('LEGACY WORKSPACE', { exact: true }).count() === 0);
+check('content link dùng canonical native route', await page.getByRole('link', { name: /Passages & answer keys/ }).getAttribute('href') === '/admin/reading/content');
 check('mobile một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.rdh-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });
