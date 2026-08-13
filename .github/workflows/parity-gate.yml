@@ -310,6 +310,7 @@ on:
       - 'frontend/app/(authed-admin-writing-new)/**'
       - 'backend/routers/admin_writing.py'
       - 'backend/routers/admin_writing_prompts.py'
+      - 'backend/services/student_service.py'
       - 'backend/tests/test_admin_writing.py'
       - 'backend/tests/test_admin_writing_extract.py'
       - 'backend/tests/test_admin_writing_prompts.py'
