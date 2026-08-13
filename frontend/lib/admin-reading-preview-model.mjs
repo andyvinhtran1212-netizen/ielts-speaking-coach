@@ -141,6 +141,8 @@ export function normalizeReadingImageDeleteAck(raw, questionId) {
   return value && textOf(value.question_id) === questionId && typeof value.deleted === 'boolean' ? { deleted: value.deleted } : null;
 }
 
-export function readingPreviewHref(testId) {
-  return `/admin/reading/preview?test_id=${encodeURIComponent(textOf(testId))}`;
+export function readingPreviewHref(testId, questionNumber = null) {
+  const qNum = integerOf(questionNumber);
+  const anchor = qNum != null && qNum >= 1 ? `#q${qNum}` : '';
+  return `/admin/reading/preview?test_id=${encodeURIComponent(textOf(testId))}${anchor}`;
 }

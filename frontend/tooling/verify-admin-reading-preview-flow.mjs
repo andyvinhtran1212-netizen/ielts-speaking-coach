@@ -80,6 +80,10 @@ await page.getByText('Đã xóa ảnh Q2', { exact: true }).waitFor();
 check('delete gọi đúng endpoint một lần', writes.filter((value) => value === 'DELETE /admin/reading/questions/q2/diagram-image').length === 1);
 check('delete canonical readback trả UI về fallback', getCount >= 3 && await page.getByText(/Chưa có ảnh; student view dùng fallback/).count() === 1);
 
+await page.goto(`${BASE}/admin/reading/preview?test_id=${testId}#q4`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Cities', exact: true }).waitFor();
+check('deep link câu hỏi chọn đúng passage trước khi scroll', await page.locator('#q4').count() === 1 && await page.getByRole('button', { name: /Passage 2/ }).getAttribute('aria-current') === 'true');
+
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Academic Reading QA', exact: true }).waitFor();

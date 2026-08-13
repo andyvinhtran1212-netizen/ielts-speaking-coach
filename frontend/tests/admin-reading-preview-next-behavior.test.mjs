@@ -107,6 +107,7 @@ test('requires mutation ACK identity and exact upload path', () => {
 
 test('native route owns QA while retaining explicit rollback and student-like preview', () => {
   assert.equal(readingPreviewHref('T 1'), '/admin/reading/preview?test_id=T%201');
+  assert.equal(readingPreviewHref('T 1', 21), '/admin/reading/preview?test_id=T%201#q21');
   assert.match(PAGE, /<AdminAccessGate>/);
   assert.match(PAGE, /active="reading" subsection="content"/);
   assert.match(LAYOUT, /admin-reading-preview-next\.css/);
@@ -114,7 +115,7 @@ test('native route owns QA while retaining explicit rollback and student-like pr
   assert.match(CLIENT, /\/pages\/admin\/reading\/preview\.html\?test_id=/);
   assert.match(CLIENT, /\/pages\/reading-review\.html\?admin_test_id=/);
   assert.match(CONTENT, /readingPreviewHref\(row\.slug\)/);
-  assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId\)/);
+  assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId, item\.questionNumber\)/);
   assert.doesNotMatch(CLIENT, /window\.confirm|window\.alert/);
 });
 
@@ -141,4 +142,12 @@ test('governed UI covers responsive, focus and reduced-motion behavior', () => {
   assert.match(CLIENT, /Boolean\(question\.id\) && busyQuestion === question\.id/);
   assert.match(CSS, /arp-file-label:has\(\.arp-file-input:focus-visible\)/);
   assert.match(WORKFLOW, /verify-admin-reading-preview-flow\.mjs/);
+});
+
+test('feedback deep links select the owning passage before scrolling to the question', () => {
+  assert.match(CLIENT, /\^#q\(\\d\+\)\$[\s\S]*deepLinkedPassage[\s\S]*item\.qNum === Number/);
+  assert.match(CLIENT, /setActivePassage\(\(previous\) => deepLinkedPassage \|\|/);
+  assert.match(CLIENT, /addEventListener\('hashchange', selectDeepLinkedPassage\)/);
+  assert.match(CLIENT, /removeEventListener\('hashchange', selectDeepLinkedPassage\)/);
+  assert.match(CLIENT, /\[activePassage, test\]/);
 });

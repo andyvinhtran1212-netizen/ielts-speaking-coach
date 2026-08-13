@@ -89,7 +89,11 @@ export function AdminReadingPreview() {
       if (!normalized) throw new Error('Payload preview không đúng contract gốc.');
       if (request !== sequence.current || scope.current !== owner) return null;
       setSnapshot({ key: owner, ...normalized, readAt: new Date().toISOString() });
-      setActivePassage((previous) => normalized.test.passages.some((item) => item.id === previous) ? previous : normalized.test.passages[0]?.id || null);
+      const deepLinkedQuestion = /^#q(\d+)$/.exec(window.location.hash);
+      const deepLinkedPassage = deepLinkedQuestion
+        ? normalized.test.questions.find((item) => item.qNum === Number(deepLinkedQuestion[1]))?.passageId
+        : null;
+      setActivePassage((previous) => deepLinkedPassage || (normalized.test.passages.some((item) => item.id === previous) ? previous : normalized.test.passages[0]?.id || null));
       return normalized;
     } catch (caught) {
       if (request === sequence.current && scope.current === owner) setLoadError(`${preserve && current ? 'Không thể làm mới — đang giữ snapshot trước. ' : ''}${messageOf(caught)}`);
@@ -98,7 +102,19 @@ export function AdminReadingPreview() {
   }, [current, key, testId]);
 
   useEffect(() => { scope.current = key; setSnapshot(null); setBanner(null); setActivePassage(null); setBusyQuestion(null); setDeleteAction(null); void load(false); return () => { sequence.current += 1; }; }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!test || !window.location.hash.startsWith('#q')) return; const timer = window.setTimeout(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' }), 60); return () => window.clearTimeout(timer); }, [test]);
+  useEffect(() => {
+    if (!test) return;
+    const selectDeepLinkedPassage = () => {
+      const match = /^#q(\d+)$/.exec(window.location.hash);
+      if (!match) return;
+      const owner = test.questions.find((item) => item.qNum === Number(match[1]))?.passageId;
+      if (owner) setActivePassage(owner);
+    };
+    selectDeepLinkedPassage();
+    window.addEventListener('hashchange', selectDeepLinkedPassage);
+    return () => window.removeEventListener('hashchange', selectDeepLinkedPassage);
+  }, [test]);
+  useEffect(() => { if (!test || !activePassage || !window.location.hash.startsWith('#q')) return; const timer = window.setTimeout(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' }), 60); return () => window.clearTimeout(timer); }, [activePassage, test]);
 
   const upload = async (question: Question, file: File) => {
     if (!question.id || busyQuestion) return;

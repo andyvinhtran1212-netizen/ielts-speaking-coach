@@ -103,7 +103,7 @@ export function feedbackDeepLink(item) {
   }
   if (!item.testId || /^(practice|exercise):/.test(item.testId)) return null;
   if (item.skill === 'reading') {
-    return readingPreviewHref(item.testId);
+    return readingPreviewHref(item.testId, item.questionNumber);
   }
   // Listening feedback stores the human-facing test_id, while the detail page
   // requires the row UUID. The list is the nearest truthful destination until
