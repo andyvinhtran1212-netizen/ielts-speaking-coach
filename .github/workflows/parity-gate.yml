@@ -234,6 +234,9 @@ on:
       # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
       - 'frontend/app/(authed-admin-overview)/**'
       - 'frontend/public/css/admin-overview.css'
+      - 'frontend/public/js/admin-overview.js'
+      - 'backend/routers/admin_overview.py'
+      - 'backend/tests/test_admin_overview.py'
       # System admin có role gate + verifier fixture-backed riêng. Đổi page,
       # layout hoặc CSS phải chạy lại chính các browser contract đó.
       - 'frontend/app/(authed-admin-system)/**'
@@ -270,6 +273,13 @@ on:
       - 'frontend/public/css/admin-reading-attempts-next.css'
       - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
       - 'frontend/public/js/admin-reading-attempts.js'
+      # Reading hub owns the clean route. Content/preview remain direct legacy
+      # rollback workspaces until their dedicated cutover batches.
+      - 'frontend/app/(authed-admin-reading)/**'
+      - 'frontend/public/css/admin-reading-hub-next.css'
+      - 'frontend/public/pages/admin/reading/content.html'
+      - 'frontend/public/pages/admin/reading/preview.html'
+      - 'frontend/tooling/verify-admin-reading-flow.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -452,6 +462,7 @@ on:
       - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
@@ -925,6 +936,11 @@ jobs:
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
         run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/reading` is the read-only routing hub. Fixture pins role gate,
+      # truthful native/legacy destinations and responsive visual containment.
+      - name: Kiểm luồng Admin Reading hub native
+        run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

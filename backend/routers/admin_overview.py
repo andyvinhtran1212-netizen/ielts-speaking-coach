@@ -19,6 +19,8 @@ Schema dependencies (all confirmed against migrations 009, 033, 056,
   - listening_test_attempts (id, user_id, test_id, status, score,
     grading_details, created_at, submitted_at) — audit 2026-07-17: nguồn
     hoạt động listening thật (bảng listening_attempts cũ đã chết)
+  - reading_test_attempts (id, user_id, test_id, status, score,
+    grading_details, created_at, submitted_at)
   - dictation_sessions (id, user_id, accuracy, completed_at)
   - user_vocabulary (id, user_id, mastery_status, is_archived,
     created_at)
@@ -95,6 +97,25 @@ def _first_attempt_only(rows: list[dict]) -> list[dict]:
         prev = first_by_key.get(key)
         if prev is None or (r.get("created_at") or "") < (prev.get("created_at") or ""):
             first_by_key[key] = r
+    return list(first_by_key.values())
+
+
+def _first_reading_attempt_only(rows: list[dict]) -> list[dict]:
+    """Canonical first Reading attempt per authenticated user or anonymous
+    source and test. Rows missing both identities stay distinct: merging all
+    NULL owners would undercount legacy/partially enriched anonymous traffic.
+    """
+    first_by_key: dict[tuple, dict] = {}
+    for index, row in enumerate(rows):
+        if row.get("user_id"):
+            key = ("user", row["user_id"], row.get("test_id"))
+        elif row.get("anon_src"):
+            key = ("anon", row["anon_src"], row.get("test_id"))
+        else:
+            key = ("row", row.get("id") or index)
+        previous = first_by_key.get(key)
+        if previous is None or (row.get("created_at") or "") < (previous.get("created_at") or ""):
+            first_by_key[key] = row
     return list(first_by_key.values())
 
 
@@ -181,6 +202,16 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         supabase_admin.table("listening_test_attempts")
         .select("id", count="exact", head=True)
     )
+    reading_recent = _safe_select(
+        supabase_admin.table("reading_test_attempts")
+        .select("id, user_id, anon_src, test_id, status, score, grading_details, "
+                "created_at, submitted_at")
+        .gte("created_at", iso_30d)
+    )
+    reading_total = _safe_count(
+        supabase_admin.table("reading_test_attempts")
+        .select("id", count="exact", head=True)
+    )
     dictation_recent = _safe_select(
         supabase_admin.table("dictation_sessions")
         .select("id, user_id, accuracy, section_title, test_id_external, completed_at, created_at")
@@ -260,6 +291,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_7d = (
         _user_ids_in(sessions_recent, iso_7d)
         | _user_ids_in(listening_recent, iso_7d)
+        | _user_ids_in(reading_recent, iso_7d)
         | _user_ids_in(dictation_recent, iso_7d)
     )
     # Writing essays use student_id — resolve via the students roster.
@@ -274,6 +306,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_30d = (
         _user_ids_in(sessions_recent, iso_30d)
         | _user_ids_in(listening_recent, iso_30d)
+        | _user_ids_in(reading_recent, iso_30d)
         | _user_ids_in(dictation_recent, iso_30d)
     )
     for e in essays_recent:
@@ -329,6 +362,27 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         if (r.get("created_at") or "") >= iso_7d
     )
 
+    # Reading uses the same canonical first-submitted-attempt rule and stores
+    # per-question grading details. Keep the ratio comparable across tests
+    # with different question counts instead of averaging raw scores.
+    reading_first = _first_reading_attempt_only([
+        r for r in reading_recent
+        if (r.get("created_at") or "") >= iso_7d and r.get("status") == "submitted"
+    ])
+    reading_accs = []
+    for r in reading_first:
+        gd = r.get("grading_details") or []
+        if r.get("score") is not None and gd:
+            reading_accs.append(r["score"] / len(gd))
+    reading_avg = (
+        round(sum(reading_accs) / len(reading_accs), 4)
+        if reading_accs else None
+    )
+    reading_7d = sum(
+        1 for r in reading_recent
+        if (r.get("created_at") or "") >= iso_7d
+    )
+
     # ── Recent activity feed ───────────────────────────────────────
     # Normalize across surfaces, sort by timestamp DESC, cap at 20.
 
@@ -358,6 +412,19 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "score":      (f"{r['score']}/{len(gd)}"
                            if r.get("score") is not None and gd else None),
             "link":       "/pages/admin/listening/attempts.html",
+        })
+    for r in reading_recent:
+        if r.get("status") != "submitted" or not r.get("submitted_at"):
+            continue
+        gd = r.get("grading_details") or []
+        activity.append({
+            "timestamp":  r["submitted_at"],
+            "user_id":    r.get("user_id"),
+            "skill":      "reading",
+            "action":     "Hoàn thành bài Reading",
+            "score":      (f"{r['score']}/{len(gd)}"
+                           if r.get("score") is not None and gd else None),
+            "link":       "/admin/dashboard/reading-attempts",
         })
     for r in dictation_recent:
         activity.append({
@@ -428,6 +495,11 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
                 "avg_score_7d":   listening_avg,
                 "dictation_total": dictation_total,
                 "dictation_7d":    dictation_7d,
+            },
+            "reading": {
+                "attempts_total": reading_total,
+                "attempts_7d":    reading_7d,
+                "avg_score_7d":   reading_avg,
             },
             "vocab": {
                 "words_total":       vocab_total,

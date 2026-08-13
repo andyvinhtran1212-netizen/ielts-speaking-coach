@@ -313,7 +313,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/admin/reading` | (no index.html; would be hub if created) | — | Admin | — | — | — | **Missing:** No reading admin index page exists yet |
+| `/admin/reading` | clean route; child content HTML remains directly reachable during migration | `app/(authed-admin-reading)/admin/reading/page.tsx` — native React ownership 2026-08-14 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; localStorage (theme/sidebar) | S | Native read-only workflow hub; truthful native/legacy ownership, canonical attempts + Reading-filtered feedback destinations and learner preview without fake metrics or mutations |
 | `/admin/reading/content` | — | `pages/admin/reading/content.html` | Admin | `test_id`, `status` (draft, published) | localStorage (theme), sessionStorage (filter state), fetch (content API) | L | Reading passage CRUD + preview |
 | `/admin/reading/preview` | — | `pages/admin/reading/preview.html` | Admin | `passage_id` | localStorage (theme), fetch (passage data) | M | Full passage preview + answer key edit |
 

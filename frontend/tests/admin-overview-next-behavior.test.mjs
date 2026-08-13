@@ -121,6 +121,7 @@ describe('/admin — lifecycle and contract behavior', () => {
     assert.match(BROWSER_FLOW, /response 7 ngày đến trễ không ghi đè/);
     assert.match(BROWSER_FLOW, /trends treo không chặn KPI/);
     assert.match(BROWSER_FLOW, /Listening hiển thị đúng tỷ lệ/);
+    assert.match(BROWSER_FLOW, /Reading hiển thị đúng tỷ lệ/);
   });
 });
 

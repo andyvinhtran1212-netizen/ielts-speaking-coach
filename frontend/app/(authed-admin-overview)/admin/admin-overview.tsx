@@ -165,13 +165,14 @@ function MetricCard({
 const SKILL_LINKS = {
   speaking: '/admin/speaking',
   writing: '/admin/writing',
+  reading: '/admin/reading',
   listening: '/pages/admin/listening/index.html',
   vocab: '/pages/admin/vocab/index.html',
   grammar: '/admin/grammar',
 };
 
 function SkillCard({ name, children }: { name: keyof typeof SKILL_LINKS; children: React.ReactNode }) {
-  const labels = { speaking: 'Speaking', writing: 'Writing', listening: 'Listening', vocab: 'Vocab', grammar: 'Grammar' };
+  const labels = { speaking: 'Speaking', writing: 'Writing', reading: 'Reading', listening: 'Listening', vocab: 'Vocab', grammar: 'Grammar' };
   return (
     <a href={SKILL_LINKS[name]} className="admin-hub-card" data-skill={name}>
       <h3>{labels[name]}</h3>
@@ -565,6 +566,11 @@ export function AdminOverview() {
               <SkillStat label="7 ngày" value={skills.writing?.essays_7d} />
               <SkillStat label="Tổng" value={skills.writing?.essays_total} />
               <SkillStat label="Chờ chấm" value={skills.writing?.feedback_pending} />
+            </SkillCard>
+            <SkillCard name="reading">
+              <SkillStat label="7 ngày" value={skills.reading?.attempts_7d} />
+              <SkillStat label="Tổng" value={skills.reading?.attempts_total} />
+              <SkillStat label="Đúng TB" value={skills.reading?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} />
             </SkillCard>
             <SkillCard name="listening">
               <SkillStat label="7 ngày" value={skills.listening?.attempts_7d} />
