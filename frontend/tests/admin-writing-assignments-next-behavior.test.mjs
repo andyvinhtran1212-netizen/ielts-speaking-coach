@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   assignmentFilters, assignmentHref, groupAssignments, normalizeAssignmentList,
-  normalizeCreateReceipt, normalizeFanoutReceipt, receiptMatchesDetail,
-  normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, validateAssignmentDraft,
+  normalizeCreateReceipt, normalizeFanoutReceipt, receiptMatchesVerification,
+  normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, isDefinitiveClientRejection, validateAssignmentDraft,
 } from '../lib/admin-writing-assignments-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,14 +44,17 @@ describe('Admin Writing Assignments native model', () => {
   });
 
   test('accepts only exact immutable mutation receipts and matching readback', () => {
-    const receipt = normalizeCreateReceipt({ count: 2, group_id: 'g1', created: [{ id: 'a1' }, { id: 'a2' }], duplicates_warning: ['s1'] }, 2);
+    const requestId = '00000000-0000-4000-8000-000000000123';
+    const receipt = normalizeCreateReceipt({ count: 2, group_id: 'g1', created: [{ id: 'a1' }, { id: 'a2' }], duplicates_warning: ['s1'] }, 2, requestId);
     assert.equal(receipt.createdCount, 2); assert.equal(normalizeCreateReceipt({ count: 1, group_id: 'g1', created: [{ id: 'a1' }], duplicates_warning: [] }, 2), null);
-    assert.equal(normalizeFanoutReceipt({ student_count: 1, created_count: 2, group_id: 'g1', assignment_ids: ['a1', 'a2'], duplicates_warning: [] }, 1, 2).firstId, 'a1');
+    assert.equal(normalizeFanoutReceipt({ student_count: 1, created_count: 2, group_id: 'g1', assignment_ids: ['a1', 'a2'], duplicates_warning: [] }, 1, 2, requestId).firstId, 'a1');
     assert.equal(normalizeFanoutReceipt({ student_count: 2, created_count: 2, group_id: 'g1', assignment_ids: ['a1', 'a2'], duplicates_warning: [] }, 1, 2), null);
-    assert.equal(receiptMatchesDetail(raw, receipt).id, 'a1'); assert.equal(receiptMatchesDetail({ ...raw, assignment_group_id: 'other' }, receipt), null);
+    assert.deepEqual(receiptMatchesVerification({ request_id: requestId, group_id: 'g1', expected_count: 2, assignment_ids: ['a2', 'a1'] }, receipt).assignmentIds, ['a1', 'a2']);
+    assert.equal(receiptMatchesVerification({ request_id: requestId, group_id: 'g1', expected_count: 2, assignment_ids: ['a1'] }, receipt), null);
     assert.deepEqual(normalizeStoredAssignmentReceipt(receipt), receipt); assert.equal(normalizeStoredAssignmentReceipt({ createdCount: 2 }), null);
     const request = { requestId: '00000000-0000-4000-8000-000000000123', path: '/admin/writing/assignments', mode: 'individual', expectedStudents: 1, expectedCount: 1, body: { request_id: '00000000-0000-4000-8000-000000000123', prompt_ids: ['p1'], student_ids: ['s1'] } };
     assert.deepEqual(normalizeStoredAssignmentRequest(request), request); assert.equal(normalizeStoredAssignmentRequest({ ...request, path: '/evil' }), null);
+    assert.equal(isDefinitiveClientRejection(400), true); assert.equal(isDefinitiveClientRejection(422), true); assert.equal(isDefinitiveClientRejection(408), false); assert.equal(isDefinitiveClientRejection(429), false); assert.equal(isDefinitiveClientRejection(503), false);
   });
 });
 
@@ -66,8 +69,8 @@ describe('/admin/writing/assignments native ownership and safety', () => {
 
   test('uses source-specific errors and readback-only retry after exact ACK', () => {
     assert.match(COMPONENT, /Promise\.allSettled/); assert.match(COMPONENT, /sourceErrors\.students/); assert.match(COMPONENT, /sourceErrors\.cohorts/); assert.match(COMPONENT, /sourceErrors\.prompts/);
-    assert.match(COMPONENT, /awa-pending-request:/); assert.match(COMPONENT, /crypto\.randomUUID\(\)/); assert.match(COMPONENT, /receiptMatchesDetail/); assert.match(COMPONENT, /const canonical = await loadList\(true\)/);
-    assert.match(COMPONENT, /Thử đối chiếu lại/); assert.match(COMPONENT, /statusCode === 409/); assert.match(COMPONENT, /Không có bài nào được tạo từ yêu cầu cũ/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
+    assert.match(COMPONENT, /awa-pending-request:/); assert.match(COMPONENT, /crypto\.randomUUID\(\)/); assert.match(COMPONENT, /receiptMatchesVerification/); assert.match(COMPONENT, /const canonical = await loadList\(true\)/);
+    assert.match(COMPONENT, /Thử đối chiếu lại/); assert.match(COMPONENT, /isDefinitiveClientRejection\(statusCode\)/); assert.match(COMPONENT, /Không có bài nào được tạo từ yêu cầu cũ/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
   });
 
   test('keeps legacy capabilities and governed responsive interaction', () => {

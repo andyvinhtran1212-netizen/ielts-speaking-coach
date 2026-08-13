@@ -282,6 +282,37 @@ def test_fanout_replay_returns_original_receipt_before_reading_changed_cohort():
     mock_db.table.assert_called_once_with("writing_assignment_requests")
 
 
+def test_verify_request_returns_only_rows_still_in_receipt_group():
+    request_id = "00000000-0000-4000-8000-000000000123"
+    group_id = "00000000-0000-4000-8000-000000000999"
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "request_id": request_id,
+        "group_id": group_id,
+        "expected_count": 2,
+        "assignment_ids": [_ASSIGN_ID],
+    })
+
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().get(
+            f"/admin/writing/assignments/requests/{request_id}",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "request_id": request_id,
+        "group_id": group_id,
+        "expected_count": 2,
+        "assignment_ids": [_ASSIGN_ID],
+    }
+    mock_db.rpc.assert_called_once_with("fn_verify_writing_assignment_request", {
+        "p_request_id": request_id,
+        "p_assigned_by": _ADMIN_USER["id"],
+    })
+
+
 def test_create_bulk_assignment_surfaces_duplicate_warning():
     """Bulk-create where one of the students already had this prompt:
     insert still happens for ALL students (allow + warn policy from

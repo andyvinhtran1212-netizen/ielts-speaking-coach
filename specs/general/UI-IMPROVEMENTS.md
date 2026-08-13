@@ -1303,8 +1303,10 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 
 - Backend tests pin the 501st sentinel and confirm the public response remains at
   500 rows with an explicit `capped=true` signal.
-- Model tests reject impossible timer/status identities, duplicate IDs and malformed
-  receipts, and cover grouping, URL normalization and server caps.
+- Model tests reject impossible timer/status identities, duplicate IDs, partial
+  receipt verification and malformed receipts, and cover grouping, URL normalization
+  and server caps. The browser fixture also proves a missing non-first assignment
+  keeps reconciliation pending and a definitive 422 returns the admin to editing.
 - The fixture-backed browser flow checks hostile text, partial picker failure,
   exact review arithmetic, successful POST followed by failed readback, GET-only
   retry reconciliation, and mobile overflow.

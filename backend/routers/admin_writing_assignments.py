@@ -531,6 +531,34 @@ async def fan_out_to_cohort(
     return result
 
 
+@router.get("/requests/{request_id}")
+async def verify_assignment_request(
+    request_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """Read back every assignment named by an idempotent request receipt.
+
+    A single representative row cannot prove that a bulk Cartesian insert is
+    still complete. This endpoint binds the immutable admin-owned receipt to
+    the current canonical assignment rows and returns the exact IDs that still
+    belong to the recorded group; the client keeps reconciliation pending
+    unless the complete set matches.
+    """
+    admin = await require_admin(authorization)
+    try:
+        result = supabase_admin.rpc("fn_verify_writing_assignment_request", {
+            "p_request_id": str(request_id),
+            "p_assigned_by": admin["id"],
+        }).execute().data
+    except Exception as exc:
+        if "writing_assignment_request_not_found" in str(exc):
+            raise HTTPException(404, "Assignment request not found") from exc
+        raise
+    if not isinstance(result, dict):
+        raise HTTPException(500, "Assignment request verification is malformed")
+    return result
+
+
 @router.get("/{assignment_id}")
 async def get_assignment(
     assignment_id: UUID,

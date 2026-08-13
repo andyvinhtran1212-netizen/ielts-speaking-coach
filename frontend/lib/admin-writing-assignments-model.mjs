@@ -136,7 +136,7 @@ export function normalizeCreateReceipt(raw, expectedCount, requestId = '') {
   if (!payload || !Number.isInteger(count) || count !== expectedCount || !groupId || !Array.isArray(payload.created) || payload.created.length !== count || !Array.isArray(payload.duplicates_warning)) return null;
   const ids = payload.created.map((item) => textOf(objectOf(item)?.id));
   if (ids.some((id) => !id) || new Set(ids).size !== count) return null;
-  return { requestId: optionalText(requestId), firstId: ids[0], groupId, createdCount: count, duplicateStudentIds: payload.duplicates_warning.map(textOf).filter(Boolean) };
+  return { requestId: optionalText(requestId), assignmentIds: ids, firstId: ids[0], groupId, createdCount: count, duplicateStudentIds: payload.duplicates_warning.map(textOf).filter(Boolean) };
 }
 
 export function normalizeFanoutReceipt(raw, expectedStudents, expectedCount, requestId = '') {
@@ -144,18 +144,27 @@ export function normalizeFanoutReceipt(raw, expectedStudents, expectedCount, req
   if (!payload || students !== expectedStudents || count !== expectedCount || !groupId || !Array.isArray(payload.assignment_ids) || payload.assignment_ids.length !== count || !Array.isArray(payload.duplicates_warning)) return null;
   const ids = payload.assignment_ids.map(textOf);
   if (ids.some((id) => !id) || new Set(ids).size !== count) return null;
-  return { requestId: optionalText(requestId), firstId: ids[0], groupId, createdCount: count, duplicateStudentIds: payload.duplicates_warning.map(textOf).filter(Boolean) };
+  return { requestId: optionalText(requestId), assignmentIds: ids, firstId: ids[0], groupId, createdCount: count, duplicateStudentIds: payload.duplicates_warning.map(textOf).filter(Boolean) };
 }
 
-export function receiptMatchesDetail(raw, receipt) {
-  const row = normalizeAssignment(raw);
-  return row && row.id === receipt?.firstId && row.groupId === receipt?.groupId && row.status === 'pending' ? row : null;
+export function receiptMatchesVerification(raw, receipt) {
+  const payload = objectOf(raw); const requestId = textOf(payload?.request_id); const groupId = textOf(payload?.group_id); const expectedCount = Number(payload?.expected_count);
+  if (!payload || !receipt?.requestId || requestId !== receipt.requestId || groupId !== receipt.groupId || expectedCount !== receipt.createdCount || !Array.isArray(payload.assignment_ids)) return null;
+  const ids = payload.assignment_ids.map(textOf);
+  if (ids.some((id) => !id) || ids.length !== receipt.createdCount || new Set(ids).size !== ids.length) return null;
+  const expected = [...receipt.assignmentIds].sort(); const current = [...ids].sort();
+  return expected.every((id, index) => id === current[index]) ? { requestId, groupId, assignmentIds: current } : null;
 }
 
 export function normalizeStoredAssignmentReceipt(raw) {
-  const value = objectOf(raw); const firstId = textOf(value?.firstId); const groupId = textOf(value?.groupId); const createdCount = Number(value?.createdCount);
-  if (!firstId || !groupId || !Number.isInteger(createdCount) || createdCount < 1 || !Array.isArray(value?.duplicateStudentIds)) return null;
-  return { requestId: optionalText(value.requestId), firstId, groupId, createdCount, duplicateStudentIds: value.duplicateStudentIds.map(textOf).filter(Boolean) };
+  const value = objectOf(raw); const requestId = textOf(value?.requestId); const firstId = textOf(value?.firstId); const groupId = textOf(value?.groupId); const createdCount = Number(value?.createdCount);
+  const assignmentIds = Array.isArray(value?.assignmentIds) ? value.assignmentIds.map(textOf) : [];
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId) || !firstId || !groupId || !Number.isInteger(createdCount) || createdCount < 1 || assignmentIds.length !== createdCount || assignmentIds.some((id) => !id) || new Set(assignmentIds).size !== createdCount || assignmentIds[0] !== firstId || !Array.isArray(value?.duplicateStudentIds)) return null;
+  return { requestId, assignmentIds, firstId, groupId, createdCount, duplicateStudentIds: value.duplicateStudentIds.map(textOf).filter(Boolean) };
+}
+
+export function isDefinitiveClientRejection(status) {
+  return Number.isInteger(status) && status >= 400 && status < 500 && ![408, 425, 429].includes(status);
 }
 
 export function normalizeStoredAssignmentRequest(raw) {

@@ -127,6 +127,54 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.fn_verify_writing_assignment_request(
+    p_request_id UUID,
+    p_assigned_by UUID
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_owner UUID;
+    v_receipt JSONB;
+    v_group_id UUID;
+    v_expected_count INTEGER;
+    v_current_ids JSONB;
+BEGIN
+    SELECT assigned_by, receipt
+      INTO v_owner, v_receipt
+      FROM writing_assignment_requests
+     WHERE id = p_request_id;
+
+    IF NOT FOUND OR v_owner IS DISTINCT FROM p_assigned_by THEN
+        RAISE EXCEPTION 'writing_assignment_request_not_found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_receipt IS NULL
+       OR jsonb_typeof(v_receipt->'assignment_ids') IS DISTINCT FROM 'array'
+       OR jsonb_typeof(v_receipt->'created_count') IS DISTINCT FROM 'number'
+       OR jsonb_typeof(v_receipt->'group_id') IS DISTINCT FROM 'string' THEN
+        RAISE EXCEPTION 'writing_assignment_request_receipt_malformed' USING ERRCODE = '22023';
+    END IF;
+
+    v_group_id := (v_receipt->>'group_id')::UUID;
+    v_expected_count := (v_receipt->>'created_count')::INTEGER;
+    SELECT COALESCE(jsonb_agg(expected.assignment_id ORDER BY expected.assignment_id), '[]'::JSONB)
+      INTO v_current_ids
+      FROM jsonb_array_elements_text(v_receipt->'assignment_ids') AS expected(assignment_id)
+      JOIN writing_assignments AS assignment
+        ON assignment.id = expected.assignment_id::UUID
+       AND assignment.assignment_group_id = v_group_id;
+
+    RETURN jsonb_build_object(
+        'request_id', p_request_id,
+        'group_id', v_group_id,
+        'expected_count', v_expected_count,
+        'assignment_ids', v_current_ids
+    );
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.fn_create_writing_assignments_idempotent(
     UUID, UUID, JSONB, UUID[], UUID[], TEXT, BOOLEAN, TIMESTAMP WITH TIME ZONE,
     TEXT, BOOLEAN, INTEGER, INTEGER
@@ -135,6 +183,11 @@ GRANT EXECUTE ON FUNCTION public.fn_create_writing_assignments_idempotent(
     UUID, UUID, JSONB, UUID[], UUID[], TEXT, BOOLEAN, TIMESTAMP WITH TIME ZONE,
     TEXT, BOOLEAN, INTEGER, INTEGER
 ) TO service_role;
+
+REVOKE ALL ON FUNCTION public.fn_verify_writing_assignment_request(UUID, UUID)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_verify_writing_assignment_request(UUID, UUID)
+    TO service_role;
 
 COMMENT ON TABLE writing_assignment_requests IS
     'Idempotency ledger for admin Writing assignment fan-out. Receipt and request payload are immutable evidence for safe POST retries.';

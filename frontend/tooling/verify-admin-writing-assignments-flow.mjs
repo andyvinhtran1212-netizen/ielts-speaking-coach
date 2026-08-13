@@ -32,12 +32,16 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/writing/assignments' && method === 'GET') return json({ assignments: rows, capped: false });
   if (path === '/admin/writing/assignments' && method === 'POST') {
     const body = request.postDataJSON(); const existing = committedRequests.get(body.request_id);
+    if (body.name === 'Invalid request') return json({ detail: 'fixture validation rejected' }, 422);
     if (existing) return json({ ...existing, replayed: true }, 201);
     const created = assignment({ id: 'a-new', assignment_group_id: 'g-new', name: body.name, allow_soft_check: body.allow_soft_check, is_timed: body.is_timed, time_limit_minutes: body.time_limit_minutes }); rows = [created, ...rows];
     committedRequests.set(body.request_id, { created: [{ id: 'a-new' }], count: 1, group_id: 'g-new', duplicates_warning: ['s1'] });
     return json({ detail: 'fixture response lost after commit' }, 503);
   }
-  if (path === '/admin/writing/assignments/a-new' && method === 'GET') return json(rows[0]);
+  if (path.startsWith('/admin/writing/assignments/requests/') && method === 'GET') {
+    const requestId = path.split('/').pop(); const receipt = committedRequests.get(requestId);
+    return receipt ? json({ request_id: requestId, group_id: receipt.group_id, expected_count: receipt.count, assignment_ids: receipt.created.map((item) => item.id) }) : json({ detail: 'not found' }, 404);
+  }
   return json({ detail: `unhandled ${method} ${path}` }, 500);
 });
 
@@ -65,6 +69,22 @@ const posts = requests.filter((item) => item.path === '/admin/writing/assignment
 check('retry POST dùng cùng request_id và backend chỉ tạo một nhóm', posts.length === 2 && posts.every((item) => item.body.request_id === firstRequestId) && rows.filter((item) => item.id === 'a-new').length === 1);
 await page.getByText(/Đã giao và đối chiếu 1 bài/).waitFor();
 check('replay ACK đối chiếu canonical và xoá cả pending states', requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').length === 2 && !await page.evaluate(([receiptKey, requestKey]) => sessionStorage.getItem(receiptKey) || sessionStorage.getItem(requestKey), [`awa-pending-receipt:${adminId}`, `awa-pending-request:${adminId}`]));
+
+await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
+await dialog.getByText('Lan', { exact: true }).click(); await dialog.getByText('Discuss public transport', { exact: true }).click();
+await dialog.getByLabel('Tên nhóm (tuỳ chọn)').fill('Invalid request'); await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).click();
+await dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' }).click(); await dialog.getByText(/Không có bài nào được tạo từ yêu cầu cũ/).waitFor();
+check('422 chắc chắn chưa ghi mở lại form và xoá pending request', await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).count() === 1 && !await page.evaluate((key) => sessionStorage.getItem(key), `awa-pending-request:${adminId}`));
+
+await dialog.getByRole('button', { name: 'Đóng' }).click();
+const partialRequestId = '00000000-0000-4000-8000-000000000777';
+const partialReceipt = { requestId: partialRequestId, assignmentIds: ['a-kept', 'a-deleted'], firstId: 'a-kept', groupId: 'g-partial', createdCount: 2, duplicateStudentIds: [] };
+committedRequests.set(partialRequestId, { created: [{ id: 'a-kept' }], count: 2, group_id: 'g-partial', duplicates_warning: [] });
+await page.evaluate(([key, value]) => sessionStorage.setItem(key, value), [`awa-pending-receipt:${adminId}`, JSON.stringify(partialReceipt)]);
+await page.reload({ waitUntil: 'domcontentloaded' }); await page.getByRole('dialog').waitFor();
+await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click(); await page.getByText(/Chưa xác minh đủ mọi assignment/).waitFor();
+check('thiếu non-first assignment giữ receipt chờ đối chiếu', Boolean(await page.evaluate((key) => sessionStorage.getItem(key), `awa-pending-receipt:${adminId}`)) && await page.getByRole('dialog').count() === 1);
+await page.evaluate((key) => sessionStorage.removeItem(key), `awa-pending-receipt:${adminId}`); await page.reload({ waitUntil: 'domcontentloaded' });
 
 await page.setViewportSize({ width: 390, height: 844 }); await page.getByText('Buổi kiểm tra', { exact: true }).waitFor();
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awa-row')).gridTemplateColumns.split(' ').length }));
