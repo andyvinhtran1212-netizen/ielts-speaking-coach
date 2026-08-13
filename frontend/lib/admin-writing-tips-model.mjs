@@ -4,6 +4,8 @@ const objectOf = (value) => value && typeof value === 'object' && !Array.isArray
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
 const optionalText = (value) => textOf(value) || null;
 const dateOf = (value) => { const text = optionalText(value); return text && !Number.isNaN(Date.parse(text)) ? text : null; };
+const canonical = (value) => Array.isArray(value) ? value.map(canonical) : objectOf(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, canonical(entry)])) : value;
+const stableJson = (value) => JSON.stringify(canonical(value));
 
 export function normalizeWritingTip(raw) {
   const row = objectOf(raw); const id = textOf(row?.id); const title = textOf(row?.title); const slug = textOf(row?.slug);
@@ -67,11 +69,12 @@ export function normalizeTipImport(raw) {
 export function pendingTipOperation(raw, account) {
   const row = objectOf(raw); const owner = textOf(row?.account); const action = textOf(row?.action); const expected = objectOf(row?.expected);
   if (owner !== textOf(account) || !['create', 'update', 'publish', 'delete', 'import'].includes(action) || !expected) return null;
-  const id = optionalText(row.id); const slug = textOf(expected.slug); if (!slug || (['update', 'publish', 'delete'].includes(action) && !id)) return null;
-  return { account: owner, action, id, expected: { slug, title: textOf(expected.title), published: typeof expected.published === 'boolean' ? expected.published : null, bodyMarkdown: textOf(expected.bodyMarkdown) }, startedAt: dateOf(row.startedAt) || new Date(0).toISOString() };
+  const id = optionalText(row.id); const slug = textOf(expected.slug); const title = textOf(expected.title); const bodyMarkdown = textOf(expected.bodyMarkdown); const taskType = textOf(expected.taskType); const contentType = textOf(expected.contentType); const category = optionalText(expected.category); const displayOrder = Number(expected.displayOrder); const typeData = objectOf(expected.typeData);
+  if (!slug || !title || !bodyMarkdown || !TASKS.has(taskType) || !CONTENT_TYPES.has(contentType) || typeof expected.published !== 'boolean' || !Number.isInteger(displayOrder) || displayOrder < 0 || !typeData || (['update', 'publish', 'delete'].includes(action) && !id)) return null;
+  return { account: owner, action, id, expected: { slug, title, published: expected.published, bodyMarkdown, taskType, contentType, category, displayOrder, typeData }, startedAt: dateOf(row.startedAt) || new Date(0).toISOString() };
 }
 
 export function tipOperationMatches(operation, tip) {
   if (!operation || !tip) return false; if (operation.id && tip.id !== operation.id) return false;
-  const expected = operation.expected; return tip.slug === expected.slug && (!expected.title || tip.title === expected.title) && (expected.published === null || tip.published === expected.published) && (!expected.bodyMarkdown || tip.bodyMarkdown === expected.bodyMarkdown);
+  const expected = operation.expected; return tip.slug === expected.slug && tip.title === expected.title && tip.published === expected.published && tip.bodyMarkdown === expected.bodyMarkdown && tip.taskType === expected.taskType && tip.contentType === expected.contentType && tip.category === expected.category && tip.displayOrder === expected.displayOrder && stableJson(tip.typeData) === stableJson(expected.typeData);
 }

@@ -346,6 +346,11 @@ on:
       - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
+      - 'backend/routers/admin_writing_tips.py'
+      - 'backend/tests/test_admin_writing_tips.py'
+      - 'frontend/app/(authed-admin-writing-tips)/**'
+      - 'frontend/public/css/admin-writing-tips-next.css'
+      - 'frontend/public/pages/admin/writing/tips.html'
       - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
