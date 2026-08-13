@@ -1081,7 +1081,8 @@ export interface paths {
         /**
          * Admin List Sessions
          * @description List all sessions across users (admin only).
-         *     Supports filtering by user_id, mode, status, error_code, has_error, date range.
+         *     Supports filtering by user_id or exact user_email, mode, status,
+         *     error_code, has_error, date range.
          *     Returns sessions enriched with user email.
          */
         get: operations["admin_list_sessions_admin_sessions_get"];
@@ -15191,6 +15192,7 @@ export interface operations {
         parameters: {
             query?: {
                 user_id?: string | null;
+                user_email?: string | null;
                 mode?: string | null;
                 status?: string | null;
                 error_code?: string | null;
