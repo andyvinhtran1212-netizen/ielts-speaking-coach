@@ -150,8 +150,10 @@ export function normalizeSpeakingSessionDetail(raw, expectedId = null) {
   return {
     ...base,
     userDisplayName: nullableText(source.user_display_name),
+    p1SessionId: nullableText(source.p1_session_id),
     p2SessionId: nullableText(source.p2_session_id),
     p3SessionId: nullableText(source.p3_session_id),
+    fullTestSiblingsLookupFailed: boolean(source.full_test_siblings_lookup_failed),
     questions,
     responses,
     malformedQuestions: source.questions.length - questions.length,

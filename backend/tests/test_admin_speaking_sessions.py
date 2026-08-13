@@ -18,10 +18,11 @@ class _Query:
         self.table = table
         self.action = "select"
         self.payload = None
+        self.equals = []
 
     def select(self, *_args, **_kwargs): self.action = "select"; return self
     def update(self, payload, *_args, **_kwargs): self.action = "update"; self.payload = payload; return self
-    def eq(self, *_args, **_kwargs): return self
+    def eq(self, column, value, *_args, **_kwargs): self.equals.append((column, value)); return self
     def in_(self, *_args, **_kwargs): return self
     def ilike(self, *_args, **_kwargs): return self
     def range(self, *_args, **_kwargs): return self
@@ -33,9 +34,10 @@ class _Query:
     def execute(self):
         self.db.calls.append((self.table, self.action, self.payload))
         if self.action == "update": return SimpleNamespace(data=[self.payload])
-        if self.table == "sessions": return SimpleNamespace(data=self.db.sessions)
-        if self.table == "questions": return SimpleNamespace(data=self.db.questions)
-        if self.table == "responses": return SimpleNamespace(data=self.db.responses)
+        def matches(row): return all(row.get(column) == value for column, value in self.equals)
+        if self.table == "sessions": return SimpleNamespace(data=[row for row in self.db.sessions if matches(row)])
+        if self.table == "questions": return SimpleNamespace(data=[row for row in self.db.questions if matches(row)])
+        if self.table == "responses": return SimpleNamespace(data=[row for row in self.db.responses if matches(row)])
         if self.table == "users":
             if self.db.fail_users: raise RuntimeError("user lookup unavailable")
             return SimpleNamespace(data=self.db.users)
@@ -61,7 +63,7 @@ async def _admin(_authorization):
 def test_targeted_repair_with_remaining_failure_stays_degraded(monkeypatch):
     db = _DB(
         sessions=[{"id": "s1", "part": 1, "mode": "test_part", "user_id": "u1", "status": "grading_failed", "regrade_count": 0}],
-        questions=[{"id": "q1", "question_text": "Question"}],
+        questions=[{"id": "q1", "session_id": "s1", "question_text": "Question"}],
         responses=[{"id": "r1", "session_id": "s1", "question_id": "q1", "transcript": "answer", "audio_storage_path": None, "grading_status": "failed", "overall_band": None, "regrade_count": 0}],
     )
     monkeypatch.setattr(admin, "supabase_admin", db)
@@ -107,7 +109,10 @@ def test_rebuild_clears_stale_error_and_syncs_class_score(monkeypatch):
 def test_single_response_regrade_keeps_session_degraded_when_another_response_failed(monkeypatch):
     db = _DB(
         sessions=[{"id": "s1", "part": 1, "mode": "test_part", "user_id": "u1"}],
-        questions=[{"question_text": "Question"}],
+        questions=[
+            {"id": "q1", "session_id": "s1", "question_text": "Question"},
+            {"id": "q2", "session_id": "s1", "question_text": "Question 2"},
+        ],
         responses=[
             {"id": "r1", "session_id": "s1", "question_id": "q1", "transcript": "a valid answer", "audio_storage_path": None, "grading_status": "completed", "overall_band": 6.5, "regrade_count": 0},
             {"id": "r2", "session_id": "s1", "question_id": "q2", "grading_status": "failed", "overall_band": None},
@@ -134,7 +139,8 @@ def test_single_response_regrade_keeps_session_degraded_when_another_response_fa
 def test_rebuild_does_not_complete_or_sync_with_failed_response(monkeypatch):
     db = _DB(
         sessions=[{"id": "s1", "mode": "test_part", "status": "grading_failed"}],
-        responses=[{"id": "r2", "grading_status": "failed", "overall_band": None}],
+        questions=[{"id": "q2", "session_id": "s1"}],
+        responses=[{"id": "r2", "session_id": "s1", "question_id": "q2", "grading_status": "failed", "overall_band": None}],
     )
     monkeypatch.setattr(admin, "supabase_admin", db)
     monkeypatch.setattr(admin, "require_admin", _admin)
@@ -150,6 +156,150 @@ def test_rebuild_does_not_complete_or_sync_with_failed_response(monkeypatch):
     updates = [payload for table, action, payload in db.calls if table == "sessions" and action == "update"]
     assert updates[-1]["status"] == "grading_failed"
     assert updates[-1]["failed_step"] == "admin_rebuild_summary"
+
+
+def test_rebuild_does_not_complete_or_sync_when_question_has_no_response(monkeypatch):
+    db = _DB(
+        sessions=[{"id": "s1", "mode": "test_part", "status": "grading_failed"}],
+        questions=[
+            {"id": "q1", "session_id": "s1"},
+            {"id": "q2", "session_id": "s1"},
+        ],
+        responses=[{
+            "id": "r1", "session_id": "s1", "question_id": "q1",
+            "grading_status": "completed", "overall_band": 6.0,
+        }],
+    )
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin, "_regrade_compute_session_bands", lambda _sid: {"overall_band": 6.0, "band_fc": 6.0, "band_lr": 6.0, "band_gra": 6.0, "band_p": 6.0})
+    monkeypatch.setattr(admin, "sync_class_item_score", lambda *_args: (_ for _ in ()).throw(AssertionError("partial score must not sync")))
+
+    result = asyncio.run(admin.admin_rebuild_summary(
+        "s1", p2_id=None, p3_id=None, authorization="Bearer test",
+    ))
+
+    assert result["sessions"][0]["ok"] is False
+    assert "1 response" in result["sessions"][0]["error"]
+    updates = [payload for table, action, payload in db.calls if table == "sessions" and action == "update"]
+    assert updates[-1]["status"] == "grading_failed"
+    assert updates[-1]["failed_step"] == "admin_rebuild_summary"
+
+
+def test_session_regrade_does_not_complete_or_sync_when_question_has_no_response(monkeypatch):
+    db = _DB(
+        sessions=[{"id": "s1", "part": 1, "mode": "test_part", "user_id": "u1", "status": "grading_failed", "regrade_count": 0}],
+        questions=[
+            {"id": "q1", "session_id": "s1", "question_text": "Question 1"},
+            {"id": "q2", "session_id": "s1", "question_text": "Question 2"},
+        ],
+        responses=[{
+            "id": "r1", "session_id": "s1", "question_id": "q1", "transcript": "complete answer",
+            "audio_storage_path": None, "grading_status": "completed", "overall_band": 6.0,
+            "regrade_count": 0,
+        }],
+    )
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin, "_regrade_compute_session_bands", lambda _sid: {"overall_band": 6.0, "band_fc": 6.0, "band_lr": 6.0, "band_gra": 6.0, "band_p": 6.0})
+    monkeypatch.setattr(admin, "sync_class_item_score", lambda *_args: (_ for _ in ()).throw(AssertionError("partial score must not sync")))
+
+    result = asyncio.run(admin.admin_regrade_session(
+        "s1", force=False, authorization="Bearer test",
+    ))
+
+    assert result["ok"] is False
+    assert result["partial_failure"] is True
+    assert result["failed"] == 1
+    assert result["regraded"] == 0
+    updates = [payload for table, action, payload in db.calls if table == "sessions" and action == "update"]
+    assert updates[-1]["status"] == "grading_failed"
+    assert updates[-1]["failed_step"] == "admin_regrade_session"
+
+
+def test_rebuild_does_not_complete_with_orphan_response(monkeypatch):
+    db = _DB(
+        sessions=[{"id": "s1", "mode": "test_part", "status": "grading_failed"}],
+        questions=[{"id": "q1", "session_id": "s1"}],
+        responses=[
+            {"id": "r1", "session_id": "s1", "question_id": "q1", "grading_status": "completed", "overall_band": 6.0},
+            {"id": "orphan", "session_id": "s1", "question_id": "gone", "grading_status": "completed", "overall_band": 8.0},
+        ],
+    )
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin, "_regrade_compute_session_bands", lambda _sid: {"overall_band": 7.0, "band_fc": 7.0, "band_lr": 7.0, "band_gra": 7.0, "band_p": 7.0})
+    monkeypatch.setattr(admin, "sync_class_item_score", lambda *_args: (_ for _ in ()).throw(AssertionError("orphan score must not sync")))
+
+    result = asyncio.run(admin.admin_rebuild_summary(
+        "s1", p2_id=None, p3_id=None, authorization="Bearer test",
+    ))
+
+    assert result["sessions"][0]["ok"] is False
+    updates = [payload for table, action, payload in db.calls if table == "sessions" and action == "update"]
+    assert updates[-1]["status"] == "grading_failed"
+
+
+def test_session_detail_resolves_full_test_siblings_from_canonical_attempt(monkeypatch):
+    attempt_id = "attempt-1"
+    db = _DB(
+        sessions=[
+            {"id": "s1", "user_id": "u1", "mode": "test_full", "part": 1, "full_test_attempt_id": attempt_id},
+            {"id": "s2", "user_id": "u1", "mode": "test_full", "part": 2, "full_test_attempt_id": attempt_id},
+            {"id": "s3", "user_id": "u1", "mode": "test_full", "part": 3, "full_test_attempt_id": attempt_id},
+            {"id": "other", "user_id": "u2", "mode": "test_full", "part": 2, "full_test_attempt_id": attempt_id},
+        ],
+    )
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    detail = asyncio.run(admin.admin_get_session("s1", authorization="Bearer test"))
+
+    assert detail["p1_session_id"] == "s1"
+    assert detail["p2_session_id"] == "s2"
+    assert detail["p3_session_id"] == "s3"
+    assert detail["full_test_siblings_lookup_failed"] is False
+
+
+def test_full_test_rebuild_rejects_sessions_from_different_attempt(monkeypatch):
+    db = _DB(sessions=[
+        {"id": "s1", "user_id": "u1", "mode": "test_full", "part": 1, "status": "completed", "full_test_attempt_id": "attempt-1"},
+        {"id": "s2", "user_id": "u1", "mode": "test_full", "part": 2, "status": "completed", "full_test_attempt_id": "attempt-2"},
+        {"id": "s3", "user_id": "u1", "mode": "test_full", "part": 3, "status": "completed", "full_test_attempt_id": "attempt-1"},
+    ])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    try:
+        asyncio.run(admin.admin_rebuild_summary(
+            "s1", p2_id="s2", p3_id="s3", authorization="Bearer test",
+        ))
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "canonical" in str(exc.detail)
+    else:
+        raise AssertionError("cross-attempt sessions must never be rebuilt together")
+
+
+def test_full_test_rebuild_accepts_exact_canonical_part_set(monkeypatch):
+    sessions = [
+        {"id": f"s{part}", "user_id": "u1", "mode": "test_full", "part": part, "status": "completed", "full_test_attempt_id": "attempt-1"}
+        for part in (1, 2, 3)
+    ]
+    db = _DB(sessions=sessions)
+    synced = []
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin, "_regrade_compute_session_bands", lambda _sid: {"overall_band": 6.5, "band_fc": 6.0, "band_lr": 6.5, "band_gra": 6.0, "band_p": 7.0})
+    monkeypatch.setattr(admin, "sync_class_item_score", lambda _db, sid: synced.append(sid))
+
+    result = asyncio.run(admin.admin_rebuild_summary(
+        "s1", p2_id="s2", p3_id="s3", authorization="Bearer test",
+    ))
+
+    assert [row["session_id"] for row in result["sessions"]] == ["s1", "s2", "s3"]
+    assert all(row["ok"] for row in result["sessions"])
+    assert synced == ["s1", "s2", "s3"]
 
 
 def test_session_list_exposes_user_lookup_failure(monkeypatch):

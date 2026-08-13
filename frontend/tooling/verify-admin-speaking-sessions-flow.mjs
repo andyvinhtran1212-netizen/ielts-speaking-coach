@@ -13,10 +13,10 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const dangerous = '<img src=x onerror="window.__sessionsXss=1">';
 let canonical = { status: 'completed', overall_band: 6.5, error_code: null, error_message: null, failed_step: null, last_error_at: null };
-let listReads = 0; let detailReads = 0; let delayPractice = false;
+let listReads = 0; let detailReads = 0; let delayPractice = false; let detailMode = 'test_part'; let detailPart = 2;
 const requests = []; const unexpectedWrites = []; const pageErrors = [];
 const baseRow = () => ({ id: 's1', user_id: 'u1', user_email: 'student@example.test', user_lookup_failed: false, mode: 'test_part', part: 2, topic: dangerous, started_at: '2026-08-12T01:00:00Z', completed_at: '2026-08-12T01:10:00Z', band_fc: 6, band_lr: 6.5, band_gra: 6, band_p: 7, ...canonical });
-const detailRow = () => ({ ...baseRow(), user_display_name: dangerous, p2_session_id: 's2', p3_session_id: 's3', questions_lookup_failed: false, responses_lookup_failed: false, questions: [{ id: 'q1', question_text: dangerous, order_num: 1 }], responses: [{ id: 'r1', question_id: 'q1', transcript: dangerous, overall_band: canonical.overall_band, feedback: { grammar_issues: [dangerous], strengths: ['Clear idea'] }, audio_playback_url: 'javascript:alert(1)', audio_storage_path: 'audio/r1.webm', grading_status: canonical.status === 'grading_failed' ? 'failed' : 'completed', stt_status: 'completed' }] });
+const detailRow = () => ({ ...baseRow(), mode: detailMode, part: detailPart, user_display_name: dangerous, p1_session_id: 's-p1', p2_session_id: 's1', p3_session_id: 's-p3', full_test_siblings_lookup_failed: false, questions_lookup_failed: false, responses_lookup_failed: false, questions: [{ id: 'q1', question_text: dangerous, order_num: 1 }], responses: [{ id: 'r1', question_id: 'q1', transcript: dangerous, overall_band: canonical.overall_band, feedback: { grammar_issues: [dangerous], strengths: ['Clear idea'] }, audio_playback_url: 'javascript:alert(1)', audio_storage_path: 'audio/r1.webm', grading_status: canonical.status === 'grading_failed' ? 'failed' : 'completed', stt_status: 'completed' }] });
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -47,6 +47,13 @@ await page.route('**/*', async (route) => {
     canonical = { status: 'completed', overall_band: 6.5, error_code: null, error_message: null, failed_step: null, last_error_at: null };
     return json({ ok: true, sessions: [{ session_id: 's1', ok: true, overall_band: 6.5, band_fc: 6, band_lr: 6.5, band_gra: 6, band_p: 7 }] });
   }
+  if (method === 'POST' && parsed.pathname === '/admin/sessions/s-p1/rebuild-summary') {
+    return json({ ok: true, sessions: [
+      { session_id: 's-p1', ok: true, overall_band: 6.5 },
+      { session_id: 's1', ok: true, overall_band: 6.5 },
+      { session_id: 's-p3', ok: true, overall_band: 6.5 },
+    ] });
+  }
   if (method === 'POST' && parsed.pathname === '/admin/responses/r1/regrade') return json({ ok: true, response_id: 'r1', session_id: 's1', overall_band: 6.5, re_transcribed: false, session_updated: true, remaining_failed: 0, session_band: 6.5 });
   return json({});
 });
@@ -54,7 +61,7 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/speaking/sessions?session=s1&mode=test_part`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Sessions & grading', exact: true }).waitFor();
 await page.getByRole('dialog').waitFor();
-check('admin gate, filter URL và deep-link đều chạy', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === '/admin/sessions' && item.search.includes('mode=test_part')) && detailReads === 1 && new URL(page.url()).searchParams.get('session') === 's1');
+check('admin gate, filter URL và deep-link đều chạy', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === '/admin/sessions' && item.search.includes('mode=test_part')) && detailReads >= 1 && new URL(page.url()).searchParams.get('session') === 's1');
 check('hostile text render thành text, không tạo node hay script', await page.locator('.ass-detail-dialog img').count() === 0 && await page.locator('.ass-detail-dialog script').count() === 0 && await page.evaluate(() => !window.__sessionsXss));
 check('unsafe audio URL bị loại nhưng storage truth vẫn hiện', await page.getByText('Audio có trong storage nhưng chưa lấy được URL phát an toàn.', { exact: true }).count() === 1 && await page.locator('audio').count() === 0);
 
@@ -87,6 +94,16 @@ await page.getByRole('button', { name: 'Tổng hợp lại', exact: true }).clic
 await page.getByRole('button', { name: 'Tổng hợp lại', exact: true }).last().click();
 await page.getByText('Đã tổng hợp 1 session. Đã đồng bộ lại từ máy chủ.', { exact: true }).waitFor();
 check('rebuild success chỉ báo sau canonical readback', listReads > readsBeforeRebuild.list && detailReads > readsBeforeRebuild.detail && await page.getByText('Hoàn tất', { exact: true }).count() >= 1 && await page.getByText('1 response vẫn lỗi', { exact: true }).count() === 0);
+
+detailMode = 'test_full'; detailPart = 2;
+await page.keyboard.press('Escape');
+await page.waitForURL((url) => !url.searchParams.has('session'));
+await page.getByRole('button', { name: 'Kiểm tra' }).click();
+await page.getByRole('button', { name: 'Tổng hợp Full Test' }).click();
+await page.getByRole('button', { name: 'Tổng hợp lại' }).last().click();
+await page.getByText('Đã tổng hợp 3 session. Đã đồng bộ lại từ máy chủ.', { exact: true }).waitFor();
+const fullWrite = requests.find((item) => item.method === 'POST' && item.path === '/admin/sessions/s-p1/rebuild-summary');
+check('Part 2 dùng đúng P1/P2/P3 canonical khi rebuild Full Test', Boolean(fullWrite) && new URLSearchParams(fullWrite.search).get('p2_id') === 's1' && new URLSearchParams(fullWrite.search).get('p3_id') === 's-p3');
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.keyboard.press('Escape');

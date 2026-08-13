@@ -3100,6 +3100,46 @@ async def admin_get_session(
 
     session = s_res.data[0]
 
+    # A full-test session is only one part of the canonical attempt. Resolve the
+    # other parts server-side instead of relying on non-existent p2/p3 columns
+    # on the selected row. Keep the lookup scoped to the same user as a second
+    # guard against ever exposing another learner's session ID.
+    session["p1_session_id"] = None
+    session["p2_session_id"] = None
+    session["p3_session_id"] = None
+    session["full_test_siblings_lookup_failed"] = False
+    if session.get("mode") == "test_full" and session.get("full_test_attempt_id"):
+        try:
+            siblings_query = (
+                supabase_admin.table("sessions")
+                .select("id, user_id, mode, part, full_test_attempt_id")
+                .eq("full_test_attempt_id", session["full_test_attempt_id"])
+                .eq("mode", "test_full")
+            )
+            if not session.get("user_id"):
+                raise ValueError("full-test session has no user_id")
+            siblings_query = siblings_query.eq("user_id", session["user_id"])
+            sibling_rows = siblings_query.execute().data or []
+            ids_by_part: dict[int, str] = {}
+            duplicate_part = False
+            for sibling in sibling_rows:
+                part = sibling.get("part")
+                sibling_id = sibling.get("id")
+                if part not in (1, 2, 3) or not sibling_id:
+                    continue
+                if part in ids_by_part and ids_by_part[part] != sibling_id:
+                    duplicate_part = True
+                    continue
+                ids_by_part[part] = sibling_id
+            if duplicate_part:
+                session["full_test_siblings_lookup_failed"] = True
+            else:
+                session["p1_session_id"] = ids_by_part.get(1)
+                session["p2_session_id"] = ids_by_part.get(2)
+                session["p3_session_id"] = ids_by_part.get(3)
+        except Exception:
+            session["full_test_siblings_lookup_failed"] = True
+
     # Enrich with user email
     uid = session.get("user_id")
     session["user_email"] = ""
@@ -3403,18 +3443,38 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
 
 
 def _regrade_incomplete_response_ids(session_id: str) -> list[str]:
-    """Return responses that still prevent a session from being canonical-complete."""
-    result = (
-        supabase_admin.table("responses")
-        .select("id, grading_status, overall_band")
+    """Return persisted or missing responses that prevent canonical completion."""
+    question_result = (
+        supabase_admin.table("questions")
+        .select("id")
         .eq("session_id", session_id)
         .execute()
     )
-    return [
+    response_result = (
+        supabase_admin.table("responses")
+        .select("id, question_id, grading_status, overall_band")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = response_result.data or []
+    question_ids = {row.get("id") for row in (question_result.data or []) if row.get("id")}
+    incomplete = [
         row.get("id") or "unknown"
-        for row in (result.data or [])
+        for row in responses
         if row.get("grading_status") == "failed" or row.get("overall_band") is None
     ]
+    answered_question_ids = {row.get("question_id") for row in responses if row.get("question_id")}
+    incomplete.extend(
+        f"question:{question_id}:missing_response"
+        for question_id in (row.get("id") for row in (question_result.data or []))
+        if question_id and question_id not in answered_question_ids
+    )
+    incomplete.extend(
+        f"response:{row.get('id') or 'unknown'}:unknown_question"
+        for row in responses
+        if not row.get("question_id") or row.get("question_id") not in question_ids
+    )
+    return list(dict.fromkeys(incomplete))
 
 
 async def _run_regrade_response(
@@ -3796,14 +3856,37 @@ async def admin_rebuild_summary(
     # Verify sessions exist
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, mode, status")
+        .select("id, user_id, mode, part, status, full_test_attempt_id")
         .in_("id", all_ids)
         .execute()
     )
-    found_ids = {s["id"] for s in (s_res.data or [])}
+    found_rows = s_res.data or []
+    found_ids = {s["id"] for s in found_rows}
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session không tồn tại: {missing}")
+
+    # A multi-part rebuild is allowed only for one canonical Full Test. Never
+    # let caller-supplied IDs aggregate unrelated learners or attempts.
+    if p2_id or p3_id:
+        if not p2_id or not p3_id or len(set(all_ids)) != 3:
+            raise HTTPException(400, "Full Test rebuild cần ba session P1/P2/P3 khác nhau")
+        rows_by_id = {row.get("id"): row for row in found_rows}
+        expected = ((session_id, 1), (p2_id, 2), (p3_id, 3))
+        primary = rows_by_id.get(session_id) or {}
+        attempt_id = primary.get("full_test_attempt_id")
+        user_id = primary.get("user_id")
+        valid = bool(attempt_id and user_id)
+        for sid, part in expected:
+            row = rows_by_id.get(sid) or {}
+            valid = valid and (
+                row.get("mode") == "test_full"
+                and row.get("part") == part
+                and row.get("full_test_attempt_id") == attempt_id
+                and row.get("user_id") == user_id
+            )
+        if not valid:
+            raise HTTPException(409, "Ba session không thuộc cùng một Full Test canonical")
 
     logger.info("[admin/rebuild-summary] sessions=%s by=%s", all_ids, admin_email)
 

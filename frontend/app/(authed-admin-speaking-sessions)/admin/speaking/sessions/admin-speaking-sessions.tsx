@@ -61,12 +61,13 @@ function FeedbackReport({ feedback }: { feedback: SpeakingFeedback | null }) {
 
 function SessionDetail({ data, busy, onAction }: { data: SpeakingSessionDetail; busy: boolean; onAction: (action: SessionAction) => void }) {
   const responseMap = useMemo(() => new Map(data.responses.map((response) => [response.questionId, response])), [data.responses]);
-  const degraded = data.userLookupFailed || data.questionsLookupFailed || data.responsesLookupFailed || data.malformedQuestions > 0 || data.malformedResponses > 0;
+  const degraded = data.userLookupFailed || data.questionsLookupFailed || data.responsesLookupFailed || data.fullTestSiblingsLookupFailed || data.malformedQuestions > 0 || data.malformedResponses > 0;
   return <div className="ass-detail">
     {degraded && <div className="ass-warning" role="alert"><strong>Chi tiết chưa đầy đủ.</strong><span>{[
       data.userLookupFailed ? 'Không tra được hồ sơ học viên.' : '', data.questionsLookupFailed ? 'Không đọc được câu hỏi.' : '',
       data.responsesLookupFailed ? 'Không đọc được câu trả lời.' : '', data.malformedQuestions ? `${data.malformedQuestions} câu hỏi sai định dạng.` : '',
       data.malformedResponses ? `${data.malformedResponses} câu trả lời sai định dạng.` : '',
+      data.fullTestSiblingsLookupFailed ? 'Không xác minh được các Part cùng Full Test.' : '',
     ].filter(Boolean).join(' ')}</span></div>}
     <dl className="ass-detail__meta">
       <div><dt>Session ID</dt><dd><code>{data.id}</code></dd></div>
@@ -83,8 +84,8 @@ function SessionDetail({ data, busy, onAction }: { data: SpeakingSessionDetail; 
     {data.errorCode && <section className="ass-error-card" role="alert"><div><span>{ERROR[data.errorCode] || data.errorCode}</span><strong>{data.failedStep || 'Không rõ bước lỗi'}</strong></div><p>{data.errorMessage || 'Không có mô tả lỗi.'}</p><time dateTime={data.lastErrorAt || undefined}>{formatTime(data.lastErrorAt)}</time></section>}
     <section className="ass-repair"><div><p className="acd-eyebrow">Repair controls</p><h3>Khôi phục kết quả canonical</h3><span>Repair chỉ chấm các câu lỗi/thiếu. Full regrade có thể thay đổi cả điểm đang hợp lệ.</span></div><div>
       <button className="adm-btn-secondary" type="button" disabled={busy || data.responsesLookupFailed} onClick={() => onAction({ kind: 'repair', sessionId: data.id })}>Repair câu lỗi</button>
-      <button className="adm-btn-secondary" type="button" disabled={busy || data.responsesLookupFailed} onClick={() => onAction({ kind: 'rebuild', sessionId: data.id, full: false, p2Id: null, p3Id: null })}>Tổng hợp lại</button>
-      {data.mode === 'test_full' && <button className="adm-btn-secondary" type="button" disabled={busy || data.responsesLookupFailed || !data.p2SessionId || !data.p3SessionId} onClick={() => onAction({ kind: 'rebuild', sessionId: data.id, full: true, p2Id: data.p2SessionId, p3Id: data.p3SessionId })}>Tổng hợp Full Test</button>}
+      <button className="adm-btn-secondary" type="button" disabled={busy || data.responsesLookupFailed} onClick={() => onAction({ kind: 'rebuild', sessionId: data.id, detailId: data.id, full: false, p2Id: null, p3Id: null })}>Tổng hợp lại</button>
+      {data.mode === 'test_full' && <button className="adm-btn-secondary" type="button" disabled={busy || data.responsesLookupFailed || data.fullTestSiblingsLookupFailed || !data.p1SessionId || !data.p2SessionId || !data.p3SessionId} title={!data.p1SessionId || !data.p2SessionId || !data.p3SessionId ? 'Full Test chưa có đủ ba Part để tổng hợp.' : undefined} onClick={() => onAction({ kind: 'rebuild', sessionId: data.p1SessionId!, detailId: data.id, full: true, p2Id: data.p2SessionId, p3Id: data.p3SessionId })}>Tổng hợp Full Test</button>}
       <button className="adm-btn-danger" type="button" disabled={busy || data.responsesLookupFailed} onClick={() => onAction({ kind: 'force', sessionId: data.id })}>Full regrade</button>
     </div></section>
     {!data.questions.length && !data.questionsLookupFailed ? <div className="acd-state"><strong>Session chưa có câu hỏi</strong><span>Không có dữ liệu câu hỏi để đối chiếu.</span></div> : <div className="ass-responses">{data.questions.map((question, index) => {
@@ -234,7 +235,8 @@ export function AdminSpeakingSessions() {
         successText = failed ? `Tổng hợp một phần: ${result.length - failed}/${result.length} session thành công.` : `Đã tổng hợp ${result.length} session.`;
       }
       if (profileId.current !== account) return;
-      const [detailOk, listOk] = await Promise.all([loadDetail(action.sessionId), loadList(filters, true)]);
+      const detailId = action.kind === 'rebuild' ? action.detailId : action.sessionId;
+      const [detailOk, listOk] = await Promise.all([loadDetail(detailId), loadList(filters, true)]);
       if (profileId.current !== account) return;
       setBanner(detailOk && listOk && !partialResult
         ? { kind: 'success', text: `${successText} Đã đồng bộ lại từ máy chủ.` }
