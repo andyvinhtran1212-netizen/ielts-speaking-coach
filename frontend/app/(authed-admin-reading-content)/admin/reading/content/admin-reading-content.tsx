@@ -41,6 +41,7 @@ export function AdminReadingContent() {
   const [shareRow, setShareRow] = useState<Row | null>(null);
   const [shareDays, setShareDays] = useState(7);
   const [shareUrl, setShareUrl] = useState('');
+  const [shareReadbackWarning, setShareReadbackWarning] = useState<string | null>(null);
   const key = `${profile.id}:${library}:${offset}`;
   const current = snapshot?.key === key ? snapshot : null;
 
@@ -154,9 +155,17 @@ export function AdminReadingContent() {
         const next = !row.locked;
         const ack = normalizeLockAck(await window.api.post<unknown>(`/admin/reading/content/tests/${encodeURIComponent(row.slug)}/lock`, { locked: next }), row.slug, next);
         if (!ack) throw new Error('ACK khóa bài không khớp.');
-        const canonical = await findCanonical('l3_test', row.slug);
-        if (!canonical || canonical.locked !== next) throw new Error('Canonical readback chưa phản ánh trạng thái khóa.');
-        setBanner({ kind: next ? 'info' : 'success', text: next ? `Mật khẩu mới: ${ack.password} — hãy sao chép ngay; mật khẩu cũ đã hết hiệu lực.` : 'Đã mở khóa và hủy mật khẩu cũ.' });
+        const credential = next ? `Mật khẩu mới: ${ack.password} — hãy sao chép ngay; mật khẩu cũ đã hết hiệu lực.` : '';
+        if (next) { setAction(null); setBanner({ kind: 'info', text: credential }); }
+        try {
+          const canonical = await findCanonical('l3_test', row.slug);
+          if (!canonical || canonical.locked !== next) throw new Error('Canonical readback chưa phản ánh trạng thái khóa.');
+        } catch (error) {
+          if (!next) throw error;
+          setBanner({ kind: 'info', text: `${credential} Đã nhận ACK nhưng chưa đọc lại được trạng thái canonical (${messageOf(error)}). Hãy lưu mật khẩu rồi làm mới thư viện.` });
+          return;
+        }
+        setBanner({ kind: next ? 'info' : 'success', text: next ? credential : 'Đã mở khóa và hủy mật khẩu cũ.' });
       } else {
         const ack = normalizeDeleteAck(await window.api.delete<unknown>(row.library === 'l3_test' ? `/admin/reading/content/tests/${encodeURIComponent(row.slug)}` : `/admin/reading/content/passages/${encodeURIComponent(row.slug)}`), row);
         if (!ack) throw new Error('ACK xóa nội dung không khớp identity.');
@@ -171,14 +180,24 @@ export function AdminReadingContent() {
 
   const generateShare = async () => {
     if (!shareRow || busy || shareDays < 1 || shareDays > 90) return;
-    setBusy(true); setBanner(null);
+    setBusy(true); setBanner(null); setShareReadbackWarning(null);
     try {
       const ack = normalizeShareAck(await window.api.post<unknown>(`/admin/reading/content/tests/${encodeURIComponent(shareRow.slug)}/share`, { expires_in_days: shareDays }), shareRow.slug);
       if (!ack) throw new Error('ACK tạo liên kết không khớp.');
-      const canonical = await findCanonical('l3_test', shareRow.slug);
-      if (!canonical?.shareActive || canonical.shareExpiresAt !== ack.expiresAt) throw new Error('Canonical readback chưa xác nhận liên kết mới.');
+      const url = canonicalReadingShareUrl(ack.token, window.location);
+      setShareUrl(url);
+      let canonical: Row | null;
+      try {
+        canonical = await findCanonical('l3_test', shareRow.slug);
+        if (!canonical?.shareActive || canonical.shareExpiresAt !== ack.expiresAt) throw new Error('Canonical readback chưa xác nhận liên kết mới.');
+      } catch (error) {
+        const warning = `Đã nhận ACK và tạo link mới, nhưng chưa đọc lại được trạng thái canonical (${messageOf(error)}). Hãy sao chép link rồi làm mới thư viện.`;
+        setShareReadbackWarning(warning);
+        setBanner({ kind: 'info', text: warning });
+        return;
+      }
       setShareRow(canonical);
-      setShareUrl(canonicalReadingShareUrl(ack.token, window.location));
+      setShareReadbackWarning(null);
       await load(library, offset, false);
     } catch (error) { setBanner({ kind: 'error', text: messageOf(error) }); }
     finally { setBusy(false); }
@@ -190,7 +209,7 @@ export function AdminReadingContent() {
       if (!normalizeShareAck(await window.api.post<unknown>(`/admin/reading/content/tests/${encodeURIComponent(shareRow.slug)}/share`, { revoke: true }), shareRow.slug, true)) throw new Error('ACK hủy liên kết không khớp.');
       const canonical = await findCanonical('l3_test', shareRow.slug);
       if (!canonical || canonical.shareActive) throw new Error('Canonical readback chưa xác nhận hủy liên kết.');
-      setShareUrl(''); setShareRow(null); await load(library, offset, false);
+      setShareUrl(''); setShareReadbackWarning(null); setShareRow(null); await load(library, offset, false);
       setBanner({ kind: 'success', text: 'Đã hủy liên kết; token cũ không còn quyền truy cập.' });
     } catch (error) { setBanner({ kind: 'error', text: messageOf(error) }); }
     finally { setBusy(false); }
@@ -227,12 +246,12 @@ export function AdminReadingContent() {
       {!!current?.malformed && <div className="arc-read-error is-warning" role="status">Đã loại {current.malformed} dòng sai contract; tổng từ server vẫn giữ nguyên.</div>}
       {loading && !current && <div className="arc-empty" role="status">Đang đọc thư viện…</div>}
       {current && !current.rows.length && <div className="arc-empty"><strong>Chưa có nội dung trong nhóm này</strong><span>Import file ở phía trên để bắt đầu.</span></div>}
-      {!!current?.rows.length && <div className="arc-table-wrap" role="region" aria-label="Bảng nội dung Reading" tabIndex={0}><table className="arc-table"><thead><tr><th>Nội dung</th><th>Thư viện</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>{current.rows.map((row) => <tr key={row.id}><td data-label="Nội dung"><strong>{row.title}</strong><code>{row.slug}</code><small>{[row.skillFocus, row.difficultyLevel].filter(Boolean).join(' · ') || 'Chưa có mô tả kỹ năng'}</small></td><td data-label="Thư viện"><span className="arc-library-pill">{READING_LIBRARY_LABEL[row.library]}</span>{row.examOnly && <small>Đề kỳ thi</small>}</td><td data-label="Trạng thái"><span className={`adm-status-pill is-${row.status === 'published' ? 'live' : row.status === 'archived' ? 'failed' : 'new'}`}>{row.status}</span>{row.locked && <small>🔒 Có mật khẩu</small>}{row.shareActive && <small>🔗 Đang chia sẻ</small>}</td><td data-label="Cập nhật"><time dateTime={row.updatedAt || undefined}>{formatReadingContentDate(row.updatedAt)}</time></td><td data-label="Thao tác"><div className="arc-actions">{row.library === 'l3_test' ? <><a href={`/pages/admin/reading/preview.html?test_id=${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem trước</a><button type="button" disabled={busy} onClick={() => setAction({ kind: 'exam', row })}>{row.examOnly ? 'Trả thư viện' : 'Dành cho kỳ thi'}</button><button type="button" disabled={busy} onClick={() => setAction({ kind: 'lock', row })}>{row.locked ? 'Mở khóa' : 'Khóa'}</button><button type="button" disabled={busy} onClick={() => { setShareRow(row); setShareUrl(''); }}>Chia sẻ</button></> : <a href={`/pages/${row.library === 'l1_vocab' ? 'reading-vocab-passage' : 'reading-skill-exercise'}.html?slug=${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem bài</a>}<button type="button" onClick={() => { document.querySelector('.arc-import')?.scrollIntoView({ behavior: 'smooth' }); setBanner({ kind: 'info', text: `Để sửa “${row.title}”, import lại file cùng ${row.library === 'l3_test' ? 'test_id' : 'slug'}; backend sẽ cập nhật idempotent.` }); }}>Sửa</button><button className="is-danger" type="button" disabled={busy} onClick={() => setAction({ kind: 'delete', row })}>Xóa</button></div></td></tr>)}</tbody></table></div>}
+      {!!current?.rows.length && <div className="arc-table-wrap" role="region" aria-label="Bảng nội dung Reading" tabIndex={0}><table className="arc-table"><thead><tr><th>Nội dung</th><th>Thư viện</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>{current.rows.map((row) => <tr key={row.id}><td data-label="Nội dung"><strong>{row.title}</strong><code>{row.slug}</code><small>{[row.skillFocus, row.difficultyLevel].filter(Boolean).join(' · ') || 'Chưa có mô tả kỹ năng'}</small></td><td data-label="Thư viện"><span className="arc-library-pill">{READING_LIBRARY_LABEL[row.library]}</span>{row.examOnly && <small>Đề kỳ thi</small>}</td><td data-label="Trạng thái"><span className={`adm-status-pill is-${row.status === 'published' ? 'live' : row.status === 'archived' ? 'failed' : 'new'}`}>{row.status}</span>{row.locked && <small>🔒 Có mật khẩu</small>}{row.shareActive && <small>🔗 Đang chia sẻ</small>}</td><td data-label="Cập nhật"><time dateTime={row.updatedAt || undefined}>{formatReadingContentDate(row.updatedAt)}</time></td><td data-label="Thao tác"><div className="arc-actions">{row.library === 'l3_test' ? <><a href={`/pages/admin/reading/preview.html?test_id=${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem trước</a><button type="button" disabled={busy} onClick={() => setAction({ kind: 'exam', row })}>{row.examOnly ? 'Trả thư viện' : 'Dành cho kỳ thi'}</button><button type="button" disabled={busy} onClick={() => setAction({ kind: 'lock', row })}>{row.locked ? 'Mở khóa' : 'Khóa'}</button><button type="button" disabled={busy} onClick={() => { setShareRow(row); setShareUrl(''); setShareReadbackWarning(null); }}>Chia sẻ</button></> : <a href={`/pages/${row.library === 'l1_vocab' ? 'reading-vocab-passage' : 'reading-skill-exercise'}.html?slug=${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem bài</a>}<button type="button" onClick={() => { document.querySelector('.arc-import')?.scrollIntoView({ behavior: 'smooth' }); setBanner({ kind: 'info', text: `Để sửa “${row.title}”, import lại file cùng ${row.library === 'l3_test' ? 'test_id' : 'slug'}; backend sẽ cập nhật idempotent.` }); }}>Sửa</button><button className="is-danger" type="button" disabled={busy} onClick={() => setAction({ kind: 'delete', row })}>Xóa</button></div></td></tr>)}</tbody></table></div>}
       {current && current.total > PAGE_SIZE && <nav className="arc-pagination" aria-label="Phân trang thư viện"><button type="button" disabled={loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>← Trước</button><span>Trang {page}/{maxPage} · {current.total} nội dung</span><button type="button" disabled={loading || offset + PAGE_SIZE >= current.total} onClick={() => setOffset(offset + PAGE_SIZE)}>Sau →</button></nav>}
     </section>
 
     {action && <div className="av-modal-backdrop arc-dialog" role="dialog" aria-modal="true" aria-labelledby="arc-action-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setAction(null); }}><div className="av-modal arc-dialog__panel"><p className="arc-eyebrow">Xác nhận thay đổi</p><h2 id="arc-action-title">{action.kind === 'delete' ? 'Xóa nội dung?' : action.kind === 'lock' ? (action.row.locked ? 'Mở khóa bài?' : 'Tạo mật khẩu mới?') : (action.row.examOnly ? 'Trả đề về thư viện?' : 'Giữ riêng cho kỳ thi?')}</h2><p>{action.kind === 'delete' && action.row.library === 'l3_test' ? 'Nếu đã có attempt, server chỉ archive và giữ toàn bộ dữ liệu học viên. Nếu chưa có attempt, nội dung sẽ bị xóa vật lý.' : action.kind === 'delete' ? 'Passage và câu hỏi L1/L2 sẽ bị xóa vật lý; có thể phục hồi bằng re-import.' : action.kind === 'lock' ? 'Mỗi lần khóa tạo mật khẩu mới và vô hiệu hóa mật khẩu cũ.' : 'Backend sẽ chặn trả đề về thư viện nếu một kỳ thi đang hoạt động còn sử dụng đề.'}</p><strong>{action.row.title}</strong><div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setAction(null)}>Hủy</button><button className={action.kind === 'delete' ? 'btn-danger' : 'btn-primary'} type="button" disabled={busy} onClick={() => void runAction()}>{busy ? 'Đang xác minh…' : 'Xác nhận'}</button></div></div></div>}
 
-    {shareRow && <div className="av-modal-backdrop arc-dialog" role="dialog" aria-modal="true" aria-labelledby="arc-share-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShareRow(null); }}><div className="av-modal arc-dialog__panel"><p className="arc-eyebrow">Quyền truy cập</p><h2 id="arc-share-title">Liên kết chia sẻ</h2><p>Tạo lại link sẽ vô hiệu hóa token cũ ngay lập tức. Người có link hợp lệ có thể bỏ qua mật khẩu bài.</p><label className="arc-days">Thời hạn (1–90 ngày)<input type="number" min="1" max="90" value={shareDays} onChange={(event) => setShareDays(Number(event.target.value))} /></label>{shareRow.shareActive && <p className="arc-share-state">Đang chia sẻ{shareRow.shareExpiresAt ? ` · hết hạn ${formatReadingContentDate(shareRow.shareExpiresAt)}` : ''}</p>}{shareUrl && <label className="arc-share-url">Sao chép link mới ngay<input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} /></label>}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setShareRow(null)}>Đóng</button>{shareRow.shareActive && <button className="btn-danger" type="button" disabled={busy} onClick={() => void revokeShare()}>Hủy link</button>}<button className="btn-primary" type="button" disabled={busy || shareDays < 1 || shareDays > 90} onClick={() => void generateShare()}>{busy ? 'Đang xác minh…' : shareRow.shareActive ? 'Tạo lại link' : 'Tạo link'}</button></div></div></div>}
+    {shareRow && <div className="av-modal-backdrop arc-dialog" role="dialog" aria-modal="true" aria-labelledby="arc-share-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShareRow(null); }}><div className="av-modal arc-dialog__panel"><p className="arc-eyebrow">Quyền truy cập</p><h2 id="arc-share-title">Liên kết chia sẻ</h2><p>Tạo lại link sẽ vô hiệu hóa token cũ ngay lập tức. Người có link hợp lệ có thể bỏ qua mật khẩu bài.</p><label className="arc-days">Thời hạn (1–90 ngày)<input type="number" min="1" max="90" value={shareDays} onChange={(event) => setShareDays(Number(event.target.value))} /></label>{shareRow.shareActive && <p className="arc-share-state">Đang chia sẻ{shareRow.shareExpiresAt ? ` · hết hạn ${formatReadingContentDate(shareRow.shareExpiresAt)}` : ''}</p>}{shareUrl && <label className="arc-share-url">Sao chép link mới ngay<input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} /></label>}{shareReadbackWarning && <p className="arc-share-warning" role="status">{shareReadbackWarning}</p>}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setShareRow(null)}>Đóng</button>{shareRow.shareActive && !shareReadbackWarning && <button className="btn-danger" type="button" disabled={busy} onClick={() => void revokeShare()}>Hủy link</button>}<button className="btn-primary" type="button" disabled={busy || !!shareReadbackWarning || shareDays < 1 || shareDays > 90} onClick={() => void generateShare()}>{busy ? 'Đang xác minh…' : shareRow.shareActive ? 'Tạo lại link' : 'Tạo link'}</button></div></div></div>}
   </main>;
 }

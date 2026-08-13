@@ -17,6 +17,7 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 const requests = []; const writes = []; const errors = [];
+let failCanonicalReadback = false;
 page.on('pageerror', (error) => errors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
@@ -28,10 +29,13 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'reading-content@local', role: 'admin' });
   if (parsed.pathname === '/admin/reading/content') {
     const limit = Number(parsed.searchParams.get('limit') || 25); const offset = Number(parsed.searchParams.get('offset') || 0);
+    if (parsed.searchParams.has('identity') && failCanonicalReadback) return json({ detail: 'readback unavailable' }, 503);
     if (parsed.searchParams.has('identity')) return json({ items: [item], total: 1, limit, offset });
     return json({ ...list(), limit, offset, items: offset ? [] : [item] });
   }
   if (parsed.pathname.endsWith('/exam-only') && method === 'POST') { item.exam_only = true; return json({ test_id: item.slug, exam_only: true }); }
+  if (parsed.pathname.endsWith('/lock') && method === 'POST') return json({ test_id: item.slug, locked: true, password: 'LOCK-ONLY-42' });
+  if (parsed.pathname.endsWith('/share') && method === 'POST') return json({ test_id: item.slug, share: { token: 'share-only-token', expires_at: '2026-08-20T00:00:00Z' } });
   return json({});
 });
 
@@ -48,6 +52,21 @@ await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận' }).clic
 await page.getByText('Đã giữ riêng đề cho kỳ thi.', { exact: true }).waitFor();
 check('mutation exam-only đúng endpoint', writes.includes('POST /admin/reading/content/tests/AVR-READ-001/exam-only'));
 check('sau write có canonical readback riêng rồi reload', requests.filter((value) => value.startsWith('GET /admin/reading/content?')).length >= 3);
+
+failCanonicalReadback = true;
+await page.getByRole('button', { name: 'Khóa', exact: true }).click();
+await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận' }).click();
+await page.getByText(/Mật khẩu mới: LOCK-ONLY-42.*chưa đọc lại được trạng thái canonical/).waitFor();
+check('lock ACK giữ mật khẩu dùng một lần khi canonical readback lỗi', await page.getByText(/Mật khẩu mới: LOCK-ONLY-42/).count() === 1);
+
+await page.getByRole('button', { name: 'Chia sẻ', exact: true }).click();
+await page.getByRole('dialog').getByRole('button', { name: 'Tạo link', exact: true }).click();
+const shareDialog = page.getByRole('dialog');
+await shareDialog.getByText(/Đã nhận ACK và tạo link mới/).waitFor();
+check('share ACK giữ link dùng một lần khi canonical readback lỗi', (await shareDialog.getByRole('textbox', { name: 'Sao chép link mới ngay' }).inputValue()).includes('share-only-token'));
+check('trạng thái chưa xác minh khóa rotate lần hai', await shareDialog.getByRole('button', { name: 'Tạo link', exact: true }).isDisabled());
+await shareDialog.getByRole('button', { name: 'Đóng' }).click();
+failCanonicalReadback = false;
 
 await page.setViewportSize({ width: 1440, height: 900 }); await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Thư viện nội dung Reading', exact: true }).waitFor();

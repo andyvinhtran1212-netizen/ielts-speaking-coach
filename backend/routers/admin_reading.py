@@ -57,7 +57,6 @@ router = APIRouter(
 _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 _LIST_PAGE_SIZE = 1000
-_LIST_MAX_OFFSET = 10_000
 
 
 def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
@@ -163,7 +162,7 @@ async def list_reading_content(
     status: str | None = Query(default=None),
     identity: str | None = Query(default=None, min_length=1, max_length=240),
     limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0, le=_LIST_MAX_OFFSET),
+    offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(None),
 ):
     """Admin list across reading_passages OR reading_tests (Sprint 20.3 →

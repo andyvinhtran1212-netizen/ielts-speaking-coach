@@ -297,6 +297,25 @@ def test_all_view_pages_each_source_past_postgrest_cap():
     assert [call.args for call in passage_query.range.call_args_list] == [(0, 999), (1000, 1124)]
 
 
+def test_l3_filter_allows_paging_beyond_ten_thousand_rows():
+    """The exact total and pager must agree: a reported row after 10k remains
+    reachable instead of the next request being rejected by validation."""
+    mock_db = MagicMock()
+    query = _stable_order_query(mock_db.table.return_value)
+    query.range.return_value.execute.return_value = MagicMock(data=[], count=10_026)
+
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        response = _client().get(
+            "/admin/reading/content?library=l3_test&offset=10025&limit=25",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 10_026
+    query.range.assert_called_once_with(10_025, 10_049)
+
+
 def test_all_view_fails_closed_when_exact_count_is_missing():
     passages = MagicMock()
     query = _stable_order_query(passages, after_neq=True)

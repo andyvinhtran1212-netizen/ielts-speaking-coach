@@ -52,3 +52,16 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(CSS, /@media\(max-width:900px\)/);
   assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
 });
+
+test('one-time credentials survive a failed canonical readback', () => {
+  const passwordAck = CLIENT.indexOf('const credential = next ?');
+  const passwordReadback = CLIENT.indexOf("await findCanonical('l3_test', row.slug)", passwordAck);
+  assert.ok(passwordAck > -1 && passwordReadback > passwordAck, 'password ACK must be rendered before readback');
+  assert.match(CLIENT.slice(passwordAck, passwordReadback), /setAction\(null\); setBanner\(\{ kind: 'info', text: credential \}\)/);
+
+  const shareAck = CLIENT.indexOf('const url = canonicalReadingShareUrl');
+  const shareReadback = CLIENT.indexOf("await findCanonical('l3_test', shareRow.slug)", shareAck);
+  assert.ok(shareAck > -1 && shareReadback > shareAck, 'share URL must be rendered before readback');
+  assert.match(CLIENT.slice(shareAck, shareReadback), /setShareUrl\(url\)/);
+  assert.match(CLIENT, /shareReadbackWarning/);
+});
