@@ -6,7 +6,7 @@ import test from 'node:test';
 import {
   formatListeningDuration, listeningAudioState, listeningContentListHref,
   normalizeListeningContentFilters, normalizeListeningContentList,
-  normalizeListeningExerciseCoverage,
+  normalizeListeningExerciseCoverage, normalizeListeningTestAudio,
 } from '../lib/admin-listening-content-model.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -48,7 +48,7 @@ test('keeps canonical total while excluding malformed content rows', () => {
   assert.equal(filtered.malformedCount, 1);
 });
 
-test('reports exercise coverage, malformed rows and duplicates truthfully', () => {
+test('aggregates valid exercise blocks and keeps supplemental mini tests neutral', () => {
   const result = normalizeListeningExerciseCoverage({ exercises: [
     { id: 'e1', content_id: 'c1', exercise_type: 'dictation', status: 'published' },
     { id: 'e2', content_id: 'c1', exercise_type: 'gist', status: 'draft' },
@@ -56,11 +56,15 @@ test('reports exercise coverage, malformed rows and duplicates truthfully', () =
     { id: 'e4', content_id: 'other', exercise_type: 'mcq', status: 'published' },
     { id: 'e5', content_id: 'c1', exercise_type: 'unknown', status: 'published' },
     { id: 'e6', exercise_type: 'mcq', status: 'published' },
+    { id: 'e7', content_id: 'c1', exercise_type: 'mini_test', status: 'published' },
   ] }, 'c1');
   assert.equal(result.presentCount, 2);
   assert.equal(result.readyCount, 1);
-  assert.equal(result.duplicateCount, 1);
+  assert.equal(result.blockCount, 3);
+  assert.equal(result.supplementalCount, 1);
   assert.equal(result.malformedCount, 3);
+  assert.equal(result.items.find((item) => item.type === 'gist').status, 'mixed');
+  assert.equal(result.items.find((item) => item.type === 'gist').blockCount, 2);
   assert.equal(result.items.find((item) => item.type === 'true_false').status, null);
   assert.equal(normalizeListeningExerciseCoverage({ exercises: 'not-array' }, 'c1'), null);
 });
@@ -70,6 +74,12 @@ test('derives audio truth and formats durations without inventing zero', () => {
   assert.equal(listeningAudioState({ sourceType: 'ai_elevenlabs', status: 'draft', audioStoragePath: null }), 'rendering');
   assert.equal(listeningAudioState({ sourceType: 'ai_elevenlabs', status: 'archived', audioStoragePath: null }), 'failed');
   assert.equal(listeningAudioState({ sourceType: 'upload_mp3', audioStoragePath: null }), 'missing');
+  assert.equal(listeningAudioState({ testId: 't1', audioStoragePath: null }), 'checking');
+  assert.equal(listeningAudioState({ testId: 't1', audioStoragePath: null }, null), 'unknown');
+  assert.equal(listeningAudioState({ testId: 't1', audioStoragePath: null }, { ready: true }), 'test_ready');
+  assert.equal(listeningAudioState({ testId: 't1', audioStoragePath: null }, { ready: false }), 'missing');
+  assert.deepEqual(normalizeListeningTestAudio({ id: 't1', audio_assembly_mode: 'full_premixed', full_audio_storage_path: 'tests/t1/full.mp3' }, 't1'), { id: 't1', mode: 'full_premixed', ready: true });
+  assert.equal(normalizeListeningTestAudio({ id: 'other', full_audio_storage_path: 'x' }, 't1'), null);
   assert.equal(formatListeningDuration(null), '—');
   assert.equal(formatListeningDuration(61.2), '1:01');
 });
@@ -81,6 +91,7 @@ test('owns /admin/listening with backend role guard and explicit rollback', () =
   assert.match(LAYOUT, /admin-listening-content-next\.css/);
   assert.match(CLIENT, /\/admin\/listening\/content\?\$\{query\}/);
   assert.match(CLIENT, /\/admin\/listening\/exercises\?content_id=/);
+  assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(testId\)\}/);
   assert.match(CLIENT, /\/pages\/admin\/listening\/index\.html/);
   assert.doesNotMatch(CLIENT, /window\.api\.(post|patch|delete|upload)/);
   assert.match(CHROME, /section: 'listening', label: 'Listening', href: '\/admin\/listening'/);

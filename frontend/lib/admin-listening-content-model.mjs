@@ -1,5 +1,6 @@
 const STATUSES = new Set(['draft', 'published', 'archived']);
 const EXERCISE_TYPES = ['dictation', 'gist', 'true_false', 'mcq'];
+const VALID_EXERCISE_TYPES = new Set([...EXERCISE_TYPES, 'mini_test']);
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -47,6 +48,7 @@ export function normalizeListeningContentItem(raw) {
     title: textOf(value.title) || id,
     status,
     sourceType: nullableText(value.source_type),
+    testId: nullableText(value.test_id),
     accent: nullableText(value.accent_tag),
     cefr: nullableText(value.cefr_level),
     ieltsSection: section != null && section >= 1 && section <= 4 ? section : null,
@@ -85,33 +87,60 @@ export function normalizeListeningExerciseCoverage(raw, contentId) {
   if (!value || !Array.isArray(value.exercises)) return null;
   const byType = new Map();
   let malformedCount = 0;
-  let duplicateCount = 0;
+  let supplementalCount = 0;
   for (const candidate of value.exercises) {
     const row = objectOf(candidate);
     const type = textOf(row?.exercise_type);
     const status = textOf(row?.status);
     const owner = textOf(row?.content_id);
-    if (!row || !EXERCISE_TYPES.includes(type) || !STATUSES.has(status) || owner !== contentId) {
+    if (!row || !VALID_EXERCISE_TYPES.has(type) || !STATUSES.has(status) || owner !== contentId) {
       malformedCount += 1;
       continue;
     }
-    if (byType.has(type)) {
-      duplicateCount += 1;
+    if (type === 'mini_test') {
+      supplementalCount += 1;
       continue;
     }
-    byType.set(type, status);
+    const statuses = byType.get(type) || [];
+    statuses.push(status);
+    byType.set(type, statuses);
   }
+  const items = EXERCISE_TYPES.map((type) => {
+    const statuses = byType.get(type) || [];
+    const status = !statuses.length ? null
+      : statuses.every((value) => value === 'published') ? 'published'
+        : statuses.every((value) => value === 'archived') ? 'archived'
+          : statuses.every((value) => value === 'draft') ? 'draft' : 'mixed';
+    return { type, status, blockCount: statuses.length };
+  });
   return {
-    items: EXERCISE_TYPES.map((type) => ({ type, status: byType.get(type) || null })),
-    readyCount: EXERCISE_TYPES.filter((type) => byType.get(type) === 'published').length,
+    items,
+    readyCount: items.filter((item) => item.status === 'published').length,
     presentCount: byType.size,
+    blockCount: items.reduce((total, item) => total + item.blockCount, 0),
     malformedCount,
-    duplicateCount,
+    supplementalCount,
   };
 }
 
-export function listeningAudioState(row) {
+export function normalizeListeningTestAudio(raw, expectedId) {
+  const value = objectOf(raw);
+  const id = textOf(value?.id);
+  if (!value || !id || id !== expectedId) return null;
+  return {
+    id,
+    mode: nullableText(value.audio_assembly_mode),
+    ready: Boolean(nullableText(value.full_audio_storage_path) || nullableText(value.assembled_audio_storage_path)),
+  };
+}
+
+export function listeningAudioState(row, parentTest) {
   if (row?.audioStoragePath && row?.durationSeconds != null) return 'ready';
+  if (row?.testId) {
+    if (parentTest === undefined) return 'checking';
+    if (parentTest === null) return 'unknown';
+    return parentTest.ready ? 'test_ready' : 'missing';
+  }
   if (row?.sourceType === 'ai_elevenlabs' && row?.status === 'archived') return 'failed';
   if (row?.sourceType === 'ai_elevenlabs' && !row?.audioStoragePath) return 'rendering';
   return 'missing';

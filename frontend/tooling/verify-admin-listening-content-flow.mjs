@@ -13,11 +13,11 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const content = [
   { id: 'c1', title: 'City transport <script>', status: 'published', source_type: 'test_section', accent_tag: 'uk_rp', cefr_level: 'B2', ielts_section: 2, section_num: 2, audio_duration_seconds: 125, audio_storage_path: 'tests/c1.mp3', topic_tags: ['transport'], is_premium: false, updated_at: '2026-08-14T00:00:00Z' },
-  { id: 'c2', title: 'Coastal lecture', status: 'published', source_type: 'upload_mp3', accent_tag: 'au', cefr_level: 'C1', ielts_section: 4, audio_duration_seconds: null, audio_storage_path: null, topic_tags: ['environment'], is_premium: true, created_at: '2026-08-13T00:00:00Z' },
+  { id: 'c2', test_id: 't1', title: 'Coastal lecture', status: 'published', source_type: 'test_section', accent_tag: 'au', cefr_level: 'C1', ielts_section: 4, audio_duration_seconds: 0, audio_storage_path: null, topic_tags: ['environment'], is_premium: true, created_at: '2026-08-13T00:00:00Z' },
   { id: '', title: 'Malformed', status: 'published' },
 ];
 const exercises = {
-  c1: [{ id: 'e1', content_id: 'c1', exercise_type: 'dictation', status: 'published' }, { id: 'e2', content_id: 'c1', exercise_type: 'gist', status: 'draft' }],
+  c1: [{ id: 'e1', content_id: 'c1', exercise_type: 'dictation', status: 'published' }, { id: 'e2', content_id: 'c1', exercise_type: 'gist', status: 'draft' }, { id: 'e3', content_id: 'c1', exercise_type: 'gist', status: 'published' }, { id: 'e4', content_id: 'c1', exercise_type: 'mini_test', status: 'published' }],
 };
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -35,6 +35,7 @@ await page.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'listening-content@local', role: 'admin' });
   if (parsed.pathname === '/admin/listening/content') return json({ items: content, total: 23, limit: 20, offset: 0 });
+  if (parsed.pathname === '/admin/listening/tests/t1') return json({ id: 't1', audio_assembly_mode: 'full_premixed', full_audio_storage_path: 'tests/t1/full.mp3', assembled_audio_storage_path: null });
   if (parsed.pathname === '/admin/listening/exercises') {
     const id = parsed.searchParams.get('content_id');
     return id === 'c2' ? json({ detail: 'lookup failed' }, 503) : json({ exercises: exercises[id] || [] });
@@ -44,10 +45,11 @@ await page.route('**/*', async (route) => {
 
 await page.goto(`${BASE}/admin/listening?status=published`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Kho nội dung Listening', exact: true }).waitFor();
-await page.getByText('2/4 đã soạn · 1/4 published', { exact: true }).waitFor();
+await page.getByText('2/4 loại · 3 block · 1/4 published · 1 mini', { exact: true }).waitFor();
 check('backend admin gate và canonical paging chạy', requests.includes('GET /auth/me') && requests.includes('GET /admin/listening/content?status=published&limit=20&offset=0'));
 check('hostile title được React escape', await page.getByText('City transport <script>', { exact: true }).count() === 1 && await page.locator('script').filter({ hasText: 'City transport' }).count() === 0);
-check('exercise coverage giữ draft/published truth', await page.getByText('2/4 đã soạn · 1/4 published', { exact: true }).count() === 1);
+check('nhiều block và mini-test giữ canonical truth', await page.getByText('2/4 loại · 3 block · 1/4 published · 1 mini', { exact: true }).count() === 1);
+check('test-section dùng audio parent bundle', requests.includes('GET /admin/listening/tests/t1') && await page.getByText('Ở test bundle', { exact: true }).count() === 1);
 check('lookup lỗi không biến thành chưa có', await page.getByText('Không đọc được', { exact: true }).count() === 1 && await page.getByText('Không đồng nghĩa “chưa có”', { exact: true }).count() === 1);
 check('malformed row được báo nhưng total server giữ nguyên', await page.getByText(/Đã loại 1 dòng/).count() === 1 && await page.getByText(/23 mục/).count() === 1);
 check('filter ở URL và active state đúng', new URL(page.url()).searchParams.get('status') === 'published' && await page.getByRole('button', { name: 'Đã phát hành' }).getAttribute('aria-current') === 'page');

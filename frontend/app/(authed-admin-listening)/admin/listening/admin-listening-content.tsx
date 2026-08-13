@@ -8,20 +8,22 @@ import {
   LISTENING_EXERCISE_LABEL, LISTENING_STATUS_LABEL, formatListeningContentDate,
   formatListeningDuration, listeningAudioState, listeningContentListHref,
   normalizeListeningContentFilters, normalizeListeningContentList,
-  normalizeListeningExerciseCoverage,
+  normalizeListeningExerciseCoverage, normalizeListeningTestAudio,
 } from '@/lib/admin-listening-content-model.mjs';
 
 type Status = 'all' | 'draft' | 'published' | 'archived';
 type ExerciseType = 'dictation' | 'gist' | 'true_false' | 'mcq';
-type Row = { id: string; title: string; status: Exclude<Status, 'all'>; sourceType: string | null; accent: string | null; cefr: string | null; ieltsSection: number | null; sectionNum: number | null; durationSeconds: number | null; audioStoragePath: string | null; topicTags: string[]; isPremium: boolean; createdAt: string | null; updatedAt: string | null };
-type Coverage = { items: Array<{ type: ExerciseType; status: string | null }>; readyCount: number; presentCount: number; malformedCount: number; duplicateCount: number };
+type Row = { id: string; title: string; status: Exclude<Status, 'all'>; sourceType: string | null; testId: string | null; accent: string | null; cefr: string | null; ieltsSection: number | null; sectionNum: number | null; durationSeconds: number | null; audioStoragePath: string | null; topicTags: string[]; isPremium: boolean; createdAt: string | null; updatedAt: string | null };
+type Coverage = { items: Array<{ type: ExerciseType; status: string | null; blockCount: number }>; readyCount: number; presentCount: number; blockCount: number; malformedCount: number; supplementalCount: number };
 type CoverageState = { phase: 'loading' } | { phase: 'ready'; value: Coverage } | { phase: 'error'; message: string };
+type ParentAudio = { id: string; mode: string | null; ready: boolean };
+type ParentAudioState = { phase: 'loading' } | { phase: 'ready'; value: ParentAudio } | { phase: 'error'; message: string };
 type Snapshot = { key: string; rows: Row[]; total: number; malformedCount: number; readAt: string };
 const PAGE_SIZE = 20;
 const FILTERS: Array<{ value: Status; label: string }> = (['all', 'draft', 'published', 'archived'] as Status[]).map((value) => ({ value, label: LISTENING_STATUS_LABEL[value] }));
 const messageOf = (caught: unknown) => caught instanceof Error ? caught.message : String(caught || 'Lỗi không xác định');
 const statusClass = (status: string) => status === 'published' ? 'is-live' : status === 'archived' ? 'is-failed' : 'is-new';
-const audioLabel = { ready: 'Sẵn sàng', rendering: 'Đang render', failed: 'Render lỗi', missing: 'Thiếu audio' } as const;
+const audioLabel = { ready: 'Sẵn sàng', test_ready: 'Ở test bundle', checking: 'Đang kiểm tra', unknown: 'Không đọc được', rendering: 'Đang render', failed: 'Render lỗi', missing: 'Thiếu audio' } as const;
 
 export function AdminListeningContent() {
   const profile = useAdminProfile();
@@ -34,6 +36,7 @@ export function AdminListeningContent() {
   const sequence = useRef(0);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [coverage, setCoverage] = useState<Record<string, CoverageState>>({});
+  const [parentAudio, setParentAudio] = useState<Record<string, ParentAudioState>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const current = snapshot?.key === key ? snapshot : null;
@@ -55,7 +58,10 @@ export function AdminListeningContent() {
       const next: Snapshot = { key: owner, rows: normalized.rows, total: normalized.total, malformedCount: normalized.malformedCount, readAt: new Date().toISOString() };
       setSnapshot(next);
       setCoverage(Object.fromEntries(normalized.rows.map((row) => [row.id, { phase: 'loading' }])));
-      await Promise.all(normalized.rows.map(async (row) => {
+      const testIds = [...new Set(normalized.rows.map((row) => row.testId).filter(Boolean))] as string[];
+      setParentAudio(Object.fromEntries(testIds.map((id) => [id, { phase: 'loading' }])));
+      await Promise.all([
+        ...normalized.rows.map(async (row) => {
         try {
           const result = normalizeListeningExerciseCoverage(await window.api.get<unknown>(`/admin/listening/exercises?content_id=${encodeURIComponent(row.id)}`), row.id) as Coverage | null;
           if (!result) throw new Error('Payload exercise không đúng contract.');
@@ -65,7 +71,19 @@ export function AdminListeningContent() {
           if (request !== sequence.current || scope.current !== owner) return;
           setCoverage((previous) => ({ ...previous, [row.id]: { phase: 'error', message: messageOf(caught) } }));
         }
-      }));
+        }),
+        ...testIds.map(async (testId) => {
+          try {
+            const result = normalizeListeningTestAudio(await window.api.get<unknown>(`/admin/listening/tests/${encodeURIComponent(testId)}`), testId) as ParentAudio | null;
+            if (!result) throw new Error('Payload test bundle không đúng contract.');
+            if (request !== sequence.current || scope.current !== owner) return;
+            setParentAudio((previous) => ({ ...previous, [testId]: { phase: 'ready', value: result } }));
+          } catch (caught) {
+            if (request !== sequence.current || scope.current !== owner) return;
+            setParentAudio((previous) => ({ ...previous, [testId]: { phase: 'error', message: messageOf(caught) } }));
+          }
+        }),
+      ]);
     } catch (caught) {
       if (request === sequence.current && scope.current === owner) setLoadError(`${preserve && current ? 'Không thể làm mới — đang giữ snapshot trước. ' : ''}${messageOf(caught)}`);
     } finally {
@@ -74,7 +92,7 @@ export function AdminListeningContent() {
   }, [current, filters.page, filters.status, key, offset, router]);
 
   useEffect(() => {
-    scope.current = key; setSnapshot(null); setCoverage({}); setLoadError(null); void load(false);
+    scope.current = key; setSnapshot(null); setCoverage({}); setParentAudio({}); setLoadError(null); void load(false);
     return () => { sequence.current += 1; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,9 +115,10 @@ export function AdminListeningContent() {
       {loading && !current && <div className="alc-empty" role="status">Đang đọc kho nội dung…</div>}
       {current && !current.rows.length && <div className="alc-empty"><strong>Không có nội dung ở trạng thái này</strong><span>Thử bộ lọc khác hoặc mở Cambridge tests để import dữ liệu.</span></div>}
       {!!current?.rows.length && <div className="alc-table-wrap" role="region" aria-label="Bảng nội dung Listening" tabIndex={0}><table className="alc-table"><thead><tr><th>Nội dung</th><th>Phân loại</th><th>Audio</th><th>Trạng thái</th><th>Exercises</th><th>Thao tác</th></tr></thead><tbody>{current.rows.map((row) => {
-        const audio = listeningAudioState(row) as keyof typeof audioLabel;
+        const testAudio = row.testId ? parentAudio[row.testId] : undefined;
+        const audio = listeningAudioState(row, testAudio?.phase === 'ready' ? testAudio.value : testAudio?.phase === 'error' ? null : undefined) as keyof typeof audioLabel;
         const rowCoverage = coverage[row.id];
-        return <tr key={row.id} data-content-id={row.id}><td data-label="Nội dung"><a className="alc-title" href={`/pages/admin/listening/content-detail.html?id=${encodeURIComponent(row.id)}`}>{row.title}</a><code>{row.id}</code><small>{row.topicTags.slice(0, 3).join(' · ') || 'Chưa có topic tags'}</small></td><td data-label="Phân loại"><strong>{[row.cefr, row.accent].filter(Boolean).join(' · ') || 'Chưa phân loại'}</strong><small>{row.ieltsSection ? `IELTS Section ${row.ieltsSection}` : row.sectionNum ? `Test section ${row.sectionNum}` : row.sourceType || 'Không rõ nguồn'}</small>{row.isPremium && <span className="alc-premium">Premium</span>}</td><td data-label="Audio"><span className={`alc-audio is-${audio}`}>{audioLabel[audio]}</span><small>{formatListeningDuration(row.durationSeconds)}</small></td><td data-label="Trạng thái"><span className={`adm-status-pill ${statusClass(row.status)}`}>{LISTENING_STATUS_LABEL[row.status]}</span><time dateTime={row.updatedAt || row.createdAt || undefined}>{formatListeningContentDate(row.updatedAt || row.createdAt)}</time></td><td data-label="Exercises"><ExerciseCoverage state={rowCoverage} /></td><td data-label="Thao tác"><div className="alc-actions"><a href={`/pages/admin/listening/content-detail.html?id=${encodeURIComponent(row.id)}`}>Chi tiết</a><a href={`/pages/admin/listening/content-meta.html?id=${encodeURIComponent(row.id)}`}>Metadata</a><a href={`/pages/admin/listening/segments.html?content_id=${encodeURIComponent(row.id)}`}>Dict</a><a href={`/pages/admin/listening/gist.html?content_id=${encodeURIComponent(row.id)}`}>Gist</a><a href={`/pages/admin/listening/tf.html?content_id=${encodeURIComponent(row.id)}`}>T/F</a><a href={`/pages/admin/listening/mcq.html?content_id=${encodeURIComponent(row.id)}`}>MCQ</a></div></td></tr>;
+        return <tr key={row.id} data-content-id={row.id}><td data-label="Nội dung"><a className="alc-title" href={`/pages/admin/listening/content-detail.html?id=${encodeURIComponent(row.id)}`}>{row.title}</a><code>{row.id}</code><small>{row.topicTags.slice(0, 3).join(' · ') || 'Chưa có topic tags'}</small></td><td data-label="Phân loại"><strong>{[row.cefr, row.accent].filter(Boolean).join(' · ') || 'Chưa phân loại'}</strong><small>{row.ieltsSection ? `IELTS Section ${row.ieltsSection}` : row.sectionNum ? `Test section ${row.sectionNum}` : row.sourceType || 'Không rõ nguồn'}</small>{row.isPremium && <span className="alc-premium">Premium</span>}</td><td data-label="Audio"><span className={`alc-audio is-${audio}`}>{audioLabel[audio]}</span><small>{row.testId && audio !== 'ready' ? `test ${row.testId}` : formatListeningDuration(row.durationSeconds)}</small></td><td data-label="Trạng thái"><span className={`adm-status-pill ${statusClass(row.status)}`}>{LISTENING_STATUS_LABEL[row.status]}</span><time dateTime={row.updatedAt || row.createdAt || undefined}>{formatListeningContentDate(row.updatedAt || row.createdAt)}</time></td><td data-label="Exercises"><ExerciseCoverage state={rowCoverage} /></td><td data-label="Thao tác"><div className="alc-actions"><a href={`/pages/admin/listening/content-detail.html?id=${encodeURIComponent(row.id)}`}>Chi tiết</a><a href={`/pages/admin/listening/content-meta.html?id=${encodeURIComponent(row.id)}`}>Metadata</a><a href={`/pages/admin/listening/segments.html?content_id=${encodeURIComponent(row.id)}`}>Dict</a><a href={`/pages/admin/listening/gist.html?content_id=${encodeURIComponent(row.id)}`}>Gist</a><a href={`/pages/admin/listening/tf.html?content_id=${encodeURIComponent(row.id)}`}>T/F</a><a href={`/pages/admin/listening/mcq.html?content_id=${encodeURIComponent(row.id)}`}>MCQ</a></div></td></tr>;
       })}</tbody></table></div>}
       {current && current.total > PAGE_SIZE && <nav className="alc-pagination" aria-label="Phân trang nội dung"><button type="button" disabled={loading || filters.page === 1} onClick={() => router.push(listeningContentListHref(filters.status, filters.page - 1))}>← Trước</button><span>Trang {filters.page}/{maxPage} · {current.total} nội dung</span><button type="button" disabled={loading || offset + PAGE_SIZE >= current.total} onClick={() => router.push(listeningContentListHref(filters.status, filters.page + 1))}>Sau →</button></nav>}
     </section>
@@ -110,6 +129,5 @@ export function AdminListeningContent() {
 function ExerciseCoverage({ state }: { state?: CoverageState }) {
   if (!state || state.phase === 'loading') return <div className="alc-exercises is-loading" role="status">Đang kiểm tra…</div>;
   if (state.phase === 'error') return <div className="alc-exercises is-error" title={state.message}><strong>Không đọc được</strong><small>Không đồng nghĩa “chưa có”</small></div>;
-  const warnings = state.value.malformedCount + state.value.duplicateCount;
-  return <div className="alc-exercises"><div>{state.value.items.map((item) => <span className={item.status ? statusClass(item.status) : 'is-missing'} key={item.type} title={`${LISTENING_EXERCISE_LABEL[item.type]}: ${item.status || 'chưa có'}`}>{LISTENING_EXERCISE_LABEL[item.type]}</span>)}</div><small>{state.value.presentCount}/4 đã soạn · {state.value.readyCount}/4 published{warnings ? ` · ${warnings} lỗi contract` : ''}</small></div>;
+  return <div className="alc-exercises"><div>{state.value.items.map((item) => <span className={item.status ? statusClass(item.status) : 'is-missing'} key={item.type} title={`${LISTENING_EXERCISE_LABEL[item.type]}: ${item.status || 'chưa có'} · ${item.blockCount} block`}>{LISTENING_EXERCISE_LABEL[item.type]}</span>)}</div><small>{state.value.presentCount}/4 loại · {state.value.blockCount} block · {state.value.readyCount}/4 published{state.value.supplementalCount ? ` · ${state.value.supplementalCount} mini` : ''}{state.value.malformedCount ? ` · ${state.value.malformedCount} lỗi contract` : ''}</small></div>;
 }
