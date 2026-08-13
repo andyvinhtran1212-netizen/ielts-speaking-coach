@@ -1046,3 +1046,47 @@ None found that require a schema or grading rewrite.
   available reading panes, inspect glossary and image lightbox, check every
   supported question type plus feedback flag, and verify independent desktop
   pane scrolling versus normal mobile document flow in light and dark themes.
+## Admin Speaking Topics — 2026-08-13
+
+### Summary
+
+The legacy Topics page mixed dense row actions, browser-native confirmation dialogs,
+and an inline question expansion into one desktop table. The native redesign makes
+the inventory and question library separate but connected workspaces, keeps Part and
+search state in the URL, and exposes the backend bulk operations that were previously
+described as future work.
+
+### Critical issues resolved
+
+- **AI generation copy contradicted the write contract.** The old control promised to
+  add only missing questions while an empty request selected the backend's destructive
+  `replace_all` default. The API and UI now default to `missing_only`; rotation is a
+  separately labelled destructive action with an accessible confirmation dialog.
+- **Question creation omitted canonical Part.** The old form sent no `part`, producing
+  a 422 response, and it hid Part 3 follow-ups inside a Part 2 topic. The new editor
+  sends and displays each question's actual Part, type, order, cue-card bullets and
+  reflection.
+- **Metadata lookup failure appeared as zero questions.** A failed aggregate query
+  previously produced `question_count=0`, inviting unsafe generation. The response now
+  carries `question_metadata_lookup_failed`, renders the count as unknown and disables
+  missing-only actions until the source can be read.
+
+### High-priority improvements implemented
+
+- Replaced `confirm()` and duplicated modal CSS with the shared focus-trapped `Dialog`,
+  including Escape, focus return and busy-state close prevention.
+- Added a mutation lock and canonical list/question readback after create, edit, toggle,
+  delete, generation and bulk operations. Acknowledgements must identify the exact
+  written records before success is shown.
+- Preserved the last valid topic snapshot on refresh failure and kept question-fetch
+  failure distinct from a genuinely empty topic.
+- Added responsive card rows below 768px, a non-sticky stacked detail surface on narrow
+  screens, 40px+ actions, visible focus rings and reduced-motion handling.
+- Warned that editing question text invalidates old audio, matching the backend's
+  deliberate audio reset behavior.
+
+### Positive observations preserved
+
+- The Part 1/2/3 mental model and direct topic/question CRUD remain familiar.
+- The legacy HTML page stays available as an explicit rollback artifact while the
+  clean route is owned by Next.js.

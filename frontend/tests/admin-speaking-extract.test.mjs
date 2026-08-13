@@ -42,7 +42,7 @@ describe('Sprint 12.5 — speaking landing (pages/admin/speaking/index.html)', (
 
   it('links Sessions + Topics child pages with LIVE tag', () => {
     assert.match(SPK_INDEX, /href=["']\/admin\/speaking\/sessions["']/);
-    assert.match(SPK_INDEX, /href=["']\/pages\/admin\/speaking\/topics\.html["']/);
+    assert.match(SPK_INDEX, /href=["']\/admin\/speaking\/topics["']/);
     // Both LIVE — at least two LIVE tags present.
     const liveTags = SPK_INDEX.match(/class="adm-status-pill is-live"\s*>\s*LIVE/g) || [];  // design-fix-2: hub tags reuse .adm-status-pill
     assert.ok(liveTags.length >= 2,

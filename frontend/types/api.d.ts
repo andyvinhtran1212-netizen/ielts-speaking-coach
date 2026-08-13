@@ -11207,7 +11207,7 @@ export interface components {
              * Category
              * @default
              */
-            category: string;
+            category: string | null;
             /** Part */
             part: number;
         };
@@ -11786,7 +11786,7 @@ export interface components {
             /**
              * Mode
              * @description missing_only | replace_all
-             * @default replace_all
+             * @default missing_only
              */
             mode: string;
         };
@@ -12883,6 +12883,8 @@ export interface components {
         };
         /** UpdateTopicQuestionRequest */
         UpdateTopicQuestionRequest: {
+            /** Part */
+            part?: number | null;
             /** Question Text */
             question_text?: string | null;
             /** Question Type */

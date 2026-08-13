@@ -26,9 +26,9 @@ const workspaces = [
     title: 'Topics & questions',
     description: 'Quản lý topic Part 1–3, câu hỏi, cue card và luồng sinh câu hỏi trước khi nội dung đến người học.',
     detail: 'Part 1–3 · Questions · Cue cards',
-    href: '/pages/admin/speaking/topics.html',
-    status: 'LEGACY WORKSPACE',
-    statusClass: 'is-readonly',
+    href: '/admin/speaking/topics',
+    status: 'NATIVE',
+    statusClass: 'is-live',
     featured: false,
   },
   {
@@ -84,7 +84,7 @@ export default function AdminSpeakingPage() {
                 <p className="sph-eyebrow">Công cụ vận hành</p>
                 <h2 id="speaking-workspaces-title">Bạn cần xử lý phần nào?</h2>
               </div>
-              <p>Sessions đã chạy native; Topics vẫn giữ rollback HTML cho tới batch migration kế tiếp.</p>
+              <p>Sessions và Topics đều chạy native; HTML cũ vẫn được giữ làm rollback trực tiếp.</p>
             </div>
             <div className="sph-grid">
               {workspaces.map((item) => (
