@@ -84,8 +84,10 @@ await page.route('**/*', async (route) => {
   const questionItem = parsed.pathname.match(/^\/admin\/topics\/([^/]+)\/questions\/([^/]+)$/);
   if (questionItem && method === 'PATCH') {
     const body = request.postDataJSON(); const rows = questions.get(questionItem[1]) || []; const row = rows.find((item) => item.id === questionItem[2]);
+    const partChanged = Object.hasOwn(body, 'part') && body.part !== row.part;
     Object.assign(row, { part: body.part, question_type: body.question_type, order_num: body.order_num, cue_card_bullets: body.cue_card_bullets, cue_card_reflection: body.cue_card_reflection });
     if (Object.hasOwn(body, 'question_text')) Object.assign(row, { question_text: body.question_text, audio_path: null, audio_url: null });
+    if (partChanged) Object.assign(row, { audio_path: null, audio_url: null });
     return json(row);
   }
   if (questionItem && method === 'DELETE') { questions.set(questionItem[1], (questions.get(questionItem[1]) || []).filter((row) => row.id !== questionItem[2])); return route.fulfill({ status: 204, body: '' }); }
@@ -125,7 +127,7 @@ await page.getByLabel('Part thực tế').selectOption('3');
 await page.getByRole('button', { name: 'Lưu câu hỏi' }).click();
 await page.getByText(/Đã cập nhật câu hỏi và đối chiếu lại từ máy chủ/).waitFor();
 const clearCueWrite = requests.find((item) => item.method === 'PATCH' && item.path === '/admin/topics/t2/questions/q2');
-check('đổi khỏi Part 2 xoá cue-card metadata nhưng giữ audio đúng đề', clearCueWrite?.body?.part === 3 && !Object.hasOwn(clearCueWrite.body, 'question_text') && clearCueWrite.body.cue_card_bullets === null && clearCueWrite.body.cue_card_reflection === null && questions.get('t2')?.find((row) => row.id === 'q2')?.audio_path === 'questions/q2.mp3');
+check('đổi Part xoá cue-card metadata và audio cũ', clearCueWrite?.body?.part === 3 && !Object.hasOwn(clearCueWrite.body, 'question_text') && clearCueWrite.body.cue_card_bullets === null && clearCueWrite.body.cue_card_reflection === null && questions.get('t2')?.find((row) => row.id === 'q2')?.audio_path === null);
 
 const readsBeforeRotate = { list: listReads, questions: questionReads };
 await page.getByRole('button', { name: 'AI thay toàn bộ' }).first().click();

@@ -2718,6 +2718,7 @@ async def update_topic_question(
         raise HTTPException(400, "Không có trường nào để cập nhật")
 
     update: dict = {}
+    part_changed = body.part is not None and body.part != current.get("part")
     if body.part                is not None: update["part"]                = body.part
     if body.question_text is not None:
         question_text = body.question_text.strip()
@@ -2735,6 +2736,11 @@ async def update_topic_question(
         if question_text != (current.get("question_text") or "").strip():
             update["audio_url"] = None
             update["audio_path"] = None
+    # Part là một phần của script TTS (lời dẫn/cấu trúc cue-card khác nhau), nên
+    # giữ audio cũ sau khi chuyển Part cũng nguy hiểm như giữ audio của lời cũ.
+    if part_changed:
+        update["audio_url"] = None
+        update["audio_path"] = None
     if body.question_type       is not None: update["question_type"]       = body.question_type.strip()
     if body.order_num           is not None: update["order_num"]           = body.order_num
     effective_part = body.part if body.part is not None else current.get("part")

@@ -241,6 +241,7 @@ export function AdminSpeakingTopics() {
       cue_card_reflection: reflection || null,
     };
     if (!editing || editing.text !== text) body.question_text = text;
+    const invalidatesAudio = Boolean(editing && (editing.text !== text || editing.part !== questionForm.part));
     mutationLock.current = true; setBusy(true); setQuestionFormError(null);
     const account = profile.id;
     try {
@@ -261,8 +262,8 @@ export function AdminSpeakingTopics() {
         || saved.cueCardBullets.length !== bullets.length
         || saved.cueCardBullets.some((bullet, index) => bullet !== bullets[index])
         || (!editing && orderNum === 0 && saved.orderNum <= 0)
-        || (editing && editing.text === text && saved.audioReady !== editing.audioReady)
-        || (editing && editing.text !== text && saved.audioReady)) {
+        || (editing && !invalidatesAudio && saved.audioReady !== editing.audioReady)
+        || (invalidatesAudio && saved.audioReady)) {
         throw new Error('Đọc lại không khớp câu hỏi vừa lưu.');
       }
       const topicsCanonical = await readTopics();
@@ -271,7 +272,7 @@ export function AdminSpeakingTopics() {
       setSnapshot({ account, rows: topicsCanonical.rows, malformed: topicsCanonical.malformedCount });
       setQuestionsError(null); setListError(null);
       setQuestionEditor(null);
-      setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã thêm'} câu hỏi và đối chiếu lại từ máy chủ.${editing && editing.text !== text ? ' Audio cũ đã được gỡ để tránh đọc sai đề.' : ''}` });
+      setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã thêm'} câu hỏi và đối chiếu lại từ máy chủ.${invalidatesAudio ? ' Audio cũ đã được gỡ để tránh đọc sai đề.' : ''}` });
     } catch (caught) { if (profileRef.current === account) setQuestionFormError(messageOf(caught)); }
     finally { mutationLock.current = false; setBusy(false); }
   };
@@ -427,7 +428,7 @@ export function AdminSpeakingTopics() {
       <div className="ast-form"><Field label="Tên topic"><input autoFocus value={topicDraft.title} onChange={(event) => setTopicDraft({ ...topicDraft, title: event.target.value })} placeholder="Travel and tourism" /></Field><Field label="Part"><select value={topicDraft.part} onChange={(event) => setTopicDraft({ ...topicDraft, part: Number(event.target.value) as 1 | 2 | 3 })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field><Field label="Category" hint="Tuỳ chọn; dùng để tìm và nhóm nội dung."><input value={topicDraft.category} onChange={(event) => setTopicDraft({ ...topicDraft, category: event.target.value })} placeholder="Lifestyle" /></Field>{topicFormError && <div className="acd-banner is-error" role="alert">{topicFormError}</div>}</div>
     </Dialog>
 
-    <Dialog open={questionEditor !== null} title={questionEditor === 'new' ? 'Thêm câu hỏi' : 'Sửa câu hỏi'} description={questionEditor !== 'new' && questionEditor?.audioReady ? 'Đổi nội dung câu hỏi sẽ gỡ audio hiện tại; cần render lại trước khi giao.' : 'Part 2 dùng cue-card; topic Part 2 vẫn có thể chứa follow-up Part 3.'} onClose={() => setQuestionEditor(null)} busy={busy} panelClassName="ast-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" disabled={busy} onClick={() => setQuestionEditor(null)}>Hủy</button><button className="adm-btn-primary" type="button" disabled={busy} onClick={() => void saveQuestion()}>{busy ? 'Đang lưu…' : 'Lưu câu hỏi'}</button></>}>
+    <Dialog open={questionEditor !== null} title={questionEditor === 'new' ? 'Thêm câu hỏi' : 'Sửa câu hỏi'} description={questionEditor !== 'new' && questionEditor?.audioReady ? 'Đổi nội dung hoặc Part sẽ gỡ audio hiện tại; cần render lại trước khi giao.' : 'Part 2 dùng cue-card; topic Part 2 vẫn có thể chứa follow-up Part 3.'} onClose={() => setQuestionEditor(null)} busy={busy} panelClassName="ast-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" disabled={busy} onClick={() => setQuestionEditor(null)}>Hủy</button><button className="adm-btn-primary" type="button" disabled={busy} onClick={() => void saveQuestion()}>{busy ? 'Đang lưu…' : 'Lưu câu hỏi'}</button></>}>
       <div className="ast-form"><Field label="Nội dung câu hỏi"><textarea autoFocus rows={4} value={questionForm.text} onChange={(event) => setQuestionForm({ ...questionForm, text: event.target.value })} /></Field><div className="ast-form-grid"><Field label="Part thực tế"><select value={questionForm.part} onChange={(event) => setQuestionForm({ ...questionForm, part: Number(event.target.value) as 1 | 2 | 3 })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field><Field label="Loại câu hỏi"><input value={questionForm.questionType} onChange={(event) => setQuestionForm({ ...questionForm, questionType: event.target.value })} placeholder="personal / cuecard / opinion" /></Field><Field label="Thứ tự" hint="0 = máy chủ tự xếp khi tạo mới."><input type="number" min="0" step="1" value={questionForm.orderNum} onChange={(event) => setQuestionForm({ ...questionForm, orderNum: event.target.value })} /></Field></div>{questionForm.part === 2 && <><Field label="Cue-card bullets" hint="Mỗi dòng một gợi ý."><textarea rows={5} value={questionForm.bullets} onChange={(event) => setQuestionForm({ ...questionForm, bullets: event.target.value })} /></Field><Field label="Reflection prompt"><textarea rows={2} value={questionForm.reflection} onChange={(event) => setQuestionForm({ ...questionForm, reflection: event.target.value })} /></Field></>}{questionFormError && <div className="acd-banner is-error" role="alert">{questionFormError}</div>}</div>
     </Dialog>
 

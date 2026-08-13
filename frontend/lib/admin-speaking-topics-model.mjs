@@ -61,7 +61,9 @@ export function normalizeSpeakingQuestion(raw, topicId = '') {
     questionType: stringOf(row.question_type).trim(),
     cueCardBullets: bullets,
     cueCardReflection: stringOf(row.cue_card_reflection).trim(),
-    audioReady: Boolean(nullableString(row.audio_url) || nullableString(row.audio_path)),
+    // Assignment requires a public URL. audio_path is only a fingerprint used
+    // to prove that the URL still speaks the current wording and Part.
+    audioReady: Boolean(nullableString(row.audio_url)),
   };
 }
 

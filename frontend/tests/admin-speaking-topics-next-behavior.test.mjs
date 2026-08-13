@@ -48,6 +48,20 @@ describe('admin Speaking Topics model', () => {
     assert.equal(questions.malformedCount, 1);
   });
 
+  test('marks audio ready only when a public URL exists', () => {
+    const questions = normalizeSpeakingQuestionList([
+      { id: 'path-only', topic_id: 't1', part: 1, question_text: 'Path only?', audio_path: 'questions/path.mp3' },
+      { id: 'url-only', topic_id: 't1', part: 1, question_text: 'Legacy URL?', audio_url: 'https://audio.test/legacy.mp3' },
+      { id: 'url-path', topic_id: 't1', part: 1, question_text: 'Current?', audio_url: 'https://audio.test/current.mp3', audio_path: 'questions/current.mp3' },
+    ], 't1');
+
+    assert.deepEqual(questions.rows.map((row) => [row.id, row.audioReady]), [
+      ['path-only', false],
+      ['url-only', true],
+      ['url-path', true],
+    ]);
+  });
+
   test('requires exact acknowledgements for generate and bulk writes', () => {
     const generated = normalizeGenerateResult({ topic_id: 't1', mode: 'missing_only', question_count: 1, questions: [{ id: 'q1', topic_id: 't1', part: 1, order_num: 1, question_text: 'Where?' }] }, 't1', 'missing_only');
     assert.equal(generated.questions.length, 1);

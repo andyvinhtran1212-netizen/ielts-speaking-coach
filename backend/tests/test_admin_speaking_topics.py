@@ -143,6 +143,31 @@ def test_update_question_can_change_part_and_clear_cue_card_metadata(monkeypatch
     assert result["audio_path"] is None
 
 
+@pytest.mark.parametrize(("from_part", "to_part"), [(1, 3), (3, 1), (1, 2), (3, 2)])
+def test_update_question_part_change_invalidates_audio(monkeypatch, from_part, to_part):
+    question = {
+        "id": "q1", "topic_id": "t1", "part": from_part,
+        "question_text": "Same question?",
+        "audio_url": "https://audio.test/q1.mp3", "audio_path": "questions/q1.mp3",
+    }
+    db = _DB(questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin, "_touch_topic", lambda _topic_id: None)
+
+    result = asyncio.run(admin.update_topic_question(
+        "t1",
+        "q1",
+        admin.UpdateTopicQuestionRequest(part=to_part),
+        authorization="Bearer test",
+    ))
+
+    assert result["part"] == to_part
+    assert result["question_text"] == "Same question?"
+    assert result["audio_url"] is None
+    assert result["audio_path"] is None
+
+
 def test_update_question_keeps_audio_when_text_is_unchanged(monkeypatch):
     question = {
         "id": "q1", "topic_id": "t1", "part": 2, "question_text": "Same question?",
