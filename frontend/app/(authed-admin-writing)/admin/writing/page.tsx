@@ -26,7 +26,7 @@ const groups = [
     title: 'Kiểm soát chất lượng',
     description: 'Đưa bài qua đúng lane, xử lý yêu cầu chấm lại và chỉ phát feedback đã được kiểm tra.',
     items: [
-      { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/pages/admin/writing/queue.html', status: 'MIGRATING', statusClass: 'is-soon' },
+      { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/admin/writing/queue', status: 'NATIVE', statusClass: 'is-live' },
       { title: 'Yêu cầu chấm lại', detail: 'Quyết định theo trạng thái canonical', href: '/admin/writing/regrade-requests', status: 'MIGRATING', statusClass: 'is-soon' },
       { title: 'Hàng đợi Instructor', detail: 'Instructor tier cần review', href: '/pages/admin/writing/instructor-queue.html', status: 'MIGRATING', statusClass: 'is-soon' },
       { title: 'Workspace chấm bài', detail: '13 phần · Deliver · Regrade', href: '/admin/writing/grade', status: 'NATIVE', statusClass: 'is-live' },

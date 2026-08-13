@@ -156,7 +156,7 @@ describe('queue.html — Mock (bài thi) review lane', () => {
 
 describe('grade-queue — chrome nav entry', () => {
   test('queue nav slot added after cohorts in the writing section', () => {
-    assert.match(CHROME, /slug: 'queue'[\s\S]*?writing\/queue\.html/);
+    assert.match(CHROME, /slug: 'queue'[\s\S]*?\/admin\/writing\/queue/);
     // ordering: cohorts then queue
     const i = CHROME.indexOf("slug: 'cohorts'");
     const j = CHROME.indexOf("slug: 'queue'");
@@ -170,14 +170,14 @@ describe('F3/F4 — dead bare-nav entries fixed', () => {
     assert.doesNotMatch(CHROME, /label: 'Chấm bài viết'/);
     assert.doesNotMatch(CHROME, /slug: 'grade'/);
   });
-  test('"Trạng thái chấm" (slug status) → queue.html?status=grading (F1 lane)', () => {
-    assert.match(CHROME, /slug: 'status',\s*label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/queue\.html\?status=grading'/);
+  test('"Trạng thái chấm" (slug status) → native queue?status=grading (F1 lane)', () => {
+    assert.match(CHROME, /slug: 'status',\s*label: 'Trạng thái chấm',\s*href: '\/admin\/writing\/queue\?status=grading'/);
   });
   test('"Trạng thái chấm" no longer points at the bare status.html', () => {
     assert.doesNotMatch(CHROME, /label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/status\.html'/);
   });
   test('"Hàng chờ chấm" remains the canonical queue entry', () => {
-    assert.match(CHROME, /slug: 'queue',\s*label: 'Hàng chờ chấm',\s*href: '\/pages\/admin\/writing\/queue\.html'/);
+    assert.match(CHROME, /slug: 'queue',\s*label: 'Hàng chờ chấm',\s*href: '\/admin\/writing\/queue'/);
   });
   test('queue reads ?status= deep-link → lands on that lane', () => {
     assert.match(JS, /function _readUrlStatus\(\)/);

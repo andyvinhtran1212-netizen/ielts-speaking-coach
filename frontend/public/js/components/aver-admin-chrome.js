@@ -432,12 +432,12 @@ const NAV_GROUPS = [
           // subsection="queue" so the grade view highlights "Hàng chờ chấm".
           // "Trạng thái chấm" stays, deep-linking to the F1 "Đang chấm" lane;
           // status.html is kept for the post-submit poll (new.html redirect).
-          { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/queue.html?status=grading' },
+          { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
           { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
           { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
-          { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/pages/admin/writing/queue.html' },
+          { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
           { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/pages/admin/writing/regrade-requests.html' },
           { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
         ],
