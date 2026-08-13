@@ -97,9 +97,9 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     assert.match(CHROME_JS, /localStorage\.(getItem|setItem|removeItem)/);
   });
 
-  it('renders sidebar with all 5 content sections in order', () => {
+  it('renders sidebar with all 6 content sections in order', () => {
     // sidebar Nội dung group items in source order
-    const orderRegex = /speaking[\s\S]*?writing[\s\S]*?listening[\s\S]*?vocab[\s\S]*?grammar/;
+    const orderRegex = /speaking[\s\S]*?writing[\s\S]*?listening[\s\S]*?reading[\s\S]*?vocab[\s\S]*?grammar/;
     assert.match(CHROME_JS, orderRegex);
   });
 
@@ -271,26 +271,26 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
 
 describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', () => {
   // Sprint 12.4 reshaped this landing from 11 link cards into a real
-  // dashboard: 4 stat tiles + 5 skill cards + activity feed. Hard pins
+  // dashboard: 4 stat tiles + 6 skill cards + activity feed. Hard pins
   // on shape moved into admin-overview.test.mjs; the assertions kept
   // here pin only the cluster-stable contract.
   it('embeds <aver-admin-chrome active="overview">', () => {
     assert.match(ADMIN_INDEX, /<aver-admin-chrome\s+active=["']overview["']/);
   });
 
-  it('renders 5 skill cards (ov-card class with data-skill attribute)', () => {
+  it('renders 6 skill cards (ov-card class with data-skill attribute)', () => {
     const cards = ADMIN_INDEX.match(/class="admin-hub-card(?: is-placeholder)?"\s+data-skill="/g) || [];  // design-fix-2 B4
-    assert.equal(cards.length, 5,
-      `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
+    assert.equal(cards.length, 6,
+      `expected 6 skill cards (Speaking/Writing/Reading/Listening/Vocab/Grammar); got ${cards.length}`);
   });
 
-  it('marks all 5 skill cards LIVE (no remaining is-soon skill placeholders)', () => {
+  it('marks all 6 skill cards LIVE (no remaining is-soon skill placeholders)', () => {
     // Sprint 12.7 graduated Grammar — the last skill placeholder. All
-    // 5 skill cards are now LIVE. Remaining `is-soon` tags belong only
+    // 6 skill cards are now LIVE. Remaining `is-soon` tags belong only
     // to Phase B sections (cohorts/usage/system) shown in the footer.
     const liveTags = ADMIN_INDEX.match(/is-live[^"]*">[^<]*LIVE[^<]*</g) || [];
-    assert.ok(liveTags.length >= 5,
-      `expected at least 5 LIVE tags (Speaking + Writing + Listening + Vocab + Grammar); got ${liveTags.length}`);
+    assert.ok(liveTags.length >= 6,
+      `expected at least 6 LIVE tags (Speaking + Writing + Reading + Listening + Vocab + Grammar); got ${liveTags.length}`);
     // Sprint-12.7 ref must be gone from any skill card meta block.
     assert.doesNotMatch(ADMIN_INDEX, /is-placeholder"\s+data-skill="grammar"/);
   });
