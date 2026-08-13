@@ -1212,3 +1212,50 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 - The fixture-backed browser flow covers admin gate, active/archive reads, hostile
   text escaping, answer-key approval, student/exam changes, create, archive, restore,
   stale snapshot preservation and 390px layout.
+
+## Admin Writing Regrade Requests — atomic decision workspace (2026-08-13)
+
+### Root causes and severity
+
+- **Critical — Accept was a non-atomic two-table saga.** The legacy route first
+  moved `writing_essays` from delivered to reviewed, then separately marked
+  `essay_regrade_requests` accepted. A write failure or concurrent admin decision
+  could hide feedback from the learner while the request remained pending or was
+  rejected. Migration 205 now locks both rows and applies accept/reject through a
+  service-role-only RPC in one transaction.
+- **Critical — re-delivery could leave an accepted request open.** Standard delivery
+  previously updated the essay and then fulfilled the request best-effort; Instructor
+  delivery did not close it at all. Migration 205 adds an atomic delivery RPC plus a
+  database trigger that fulfils every accepted request in the same transaction as any
+  essay transition to delivered.
+- **Medium — list completeness and malformed data were invisible.** The endpoint
+  silently capped at 300, while the legacy UI trusted every response row and showed
+  no stale state. The API reads a 301st sentinel and reports `capped`; the native UI
+  also labels stale snapshots and excluded contract violations.
+- **Medium — decisions lacked canonical reconciliation.** The legacy modal accepted
+  any PATCH response, closed immediately and reloaded one filtered lane. The native
+  flow validates the exact request/status acknowledgement, then reads both detail and
+  the all-status snapshot back before showing success. A transient post-write failure
+  exposes a readback-only retry and never repeats the PATCH.
+
+### Design improvements implemented
+
+- Four lifecycle tabs keep counts from four status-scoped canonical snapshots, with local search over
+  learner, cohort, prompt and reason. Cards prioritize the learner's reason beside the
+  exact task, band and essay state instead of compressing the decision into a table row.
+- A visible three-step strip explains request → atomic decision → re-delivery, and an
+  accepted detail links directly to the native grade workspace for the next action.
+- The focus-trapped dialog fetches fresh detail before enabling action, requires a
+  written rejection reason and removes browser-native confirm/alert behavior.
+- Responsive cards collapse to one column at mobile width, with 44px targets, visible
+  keyboard focus and reduced-motion support.
+
+### Verification
+
+- Backend tests cover RPC parameter truth, malformed acknowledgements, lifecycle 409s,
+  atomic migration sentinels and standard delivery through the new RPC.
+- Frontend model tests reject invalid identity/status/band values, pin exact decision
+  acknowledgements, URL filters, native ownership and governed styles.
+- The fixture-backed production browser flow covers hostile text, fresh detail reads,
+  Accept followed by a failed readback without a duplicate PATCH, retry reconciliation,
+  native grade handoff, stale snapshot preservation and 390px no-overflow layout.

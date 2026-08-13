@@ -62,8 +62,8 @@ describe('writing-result.html / tips recommendation (D6)', () => {
 });
 
 
-describe('admin/writing/regrade-requests.html (D5)', () => {
-  test('uses aver-admin chrome subsection=regrade-requests', () => {
+describe('admin/writing/regrade-requests.html rollback artifact (D5)', () => {
+  test('keeps the legacy rollback page independently reachable', () => {
     assert.match(admin, /<aver-admin-chrome\s+active="writing"\s+subsection="regrade-requests"\s*>/);
   });
   test('status filter chips + list + accept/reject actions', () => {
@@ -87,7 +87,7 @@ describe('admin/writing/regrade-requests.html (D5)', () => {
 
 
 describe('chrome nav', () => {
-  test('regrade-requests subsection → regrade-requests.html', () => {
-    assert.match(chromeJs, /slug:\s*'regrade-requests'[\s\S]*?regrade-requests\.html/);
+  test('regrade-requests subsection → native clean route', () => {
+    assert.match(chromeJs, /slug:\s*'regrade-requests'[^\n]+href:\s*'\/admin\/writing\/regrade-requests'/);
   });
 });

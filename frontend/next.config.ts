@@ -55,7 +55,8 @@ const nextConfig: NextConfig = {
         // direct `/pages/admin/writing/prompts.html` remains the rollback page.
         { source: '/admin/writing/tips', destination: '/pages/admin/writing/tips.html' },
         { source: '/admin/writing/cohorts', destination: '/pages/admin/writing/cohorts.html' },
-        { source: '/admin/writing/regrade-requests', destination: '/pages/admin/writing/regrade-requests.html' },
+        // `/admin/writing/regrade-requests` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/regrade-requests.html` for rollback.
         { source: '/admin/writing/assignments', destination: '/pages/admin/writing/assignments.html' },
         // CUTOVER 2026-08-05 — `/home` nay là ROUTE NEXT
         // (`app/(authed-home)/home/`), không còn rewrite sang bản legacy.
