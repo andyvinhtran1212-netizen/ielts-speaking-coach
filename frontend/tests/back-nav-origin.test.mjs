@@ -223,10 +223,10 @@ describe('admin writing sub-pages back to their SECTION, like listening does', (
         `${p}.html still backs to /admin.html (a redirect stub, not the section)`);
     }
   });
-  test('each backs to the Writing section index', () => {
+  test('each backs to the canonical Writing section route', () => {
     for (const p of PAGES) {
       assert.match(read('public', 'pages', 'admin', 'writing', `${p}.html`),
-        /<a href="\/pages\/admin\/writing\/index\.html" class="aw-back-link[^"]*">← Quản lý Writing<\/a>/,
+        /<a href="\/admin\/writing" class="aw-back-link[^"]*">← Quản lý Writing<\/a>/,
         `${p}.html does not back to the writing section`);
     }
   });
