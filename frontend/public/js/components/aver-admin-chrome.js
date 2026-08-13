@@ -421,7 +421,7 @@ const NAV_GROUPS = [
       { section: 'speaking',  label: 'Speaking',  href: '/admin/speaking',  icon: 'mic',
         subsections: [
           { slug: 'sessions', label: 'Sessions & grading', href: '/admin/speaking/sessions' },
-          { slug: 'topics', label: 'Topics & questions', href: '/pages/admin/speaking/topics.html' },
+          { slug: 'topics', label: 'Topics & questions', href: '/admin/speaking/topics' },
         ],
       },
       { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',

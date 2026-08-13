@@ -185,9 +185,11 @@ def _max_iso(*values: str | None) -> str | None:
     return max(parsed).isoformat()
 
 
-def _topic_status(topic: dict, question_count: int) -> tuple[str, str]:
+def _topic_status(topic: dict, question_count: int | None) -> tuple[str, str]:
     if not topic.get("is_active", True):
         return "inactive", "Inactive"
+    if question_count is None:
+        return "metadata_unavailable", "Question status unavailable"
     if question_count <= 0:
         return "no_questions", "No questions"
     if topic.get("last_rotated_at"):
@@ -441,7 +443,7 @@ def _validate_code_type_combo(code_type: str, cohort_id: str | None) -> None:
 
 class CreateTopicRequest(BaseModel):
     title:    str
-    category: str = ""   # kept for DB compat, not shown in UI
+    category: str | None = ""   # nullable for legacy clients; persisted as ""
     part:     int = Field(ge=1, le=3)
 
 
@@ -458,7 +460,7 @@ class BulkAddTopicsRequest(BaseModel):
 
 
 class GenerateTopicQuestionsRequest(BaseModel):
-    mode: str = Field(default="replace_all", description="missing_only | replace_all")
+    mode: str = Field(default="missing_only", description="missing_only | replace_all")
 
 
 class BulkTopicIdsRequest(BaseModel):
@@ -474,15 +476,16 @@ class CreateTopicQuestionRequest(BaseModel):
     part:                int   = Field(ge=1, le=3)
     question_text:       str
     question_type:       str   = ""
-    order_num:           int   = 0
+    order_num:           int   = Field(default=0, ge=0)
     cue_card_bullets:    list[str] | None = None
     cue_card_reflection: str | None       = None
 
 
 class UpdateTopicQuestionRequest(BaseModel):
+    part:                int | None        = Field(default=None, ge=1, le=3)
     question_text:       str | None       = None
     question_type:       str | None       = None
-    order_num:           int | None       = None
+    order_num:           int | None       = Field(default=None, ge=1)
     cue_card_bullets:    list[str] | None = None
     cue_card_reflection: str | None       = None
 
@@ -495,6 +498,7 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
     topic_ids = [t["id"] for t in rows if t.get("id")]
     question_counts: dict[str, int] = {}
     latest_question_at: dict[str, str] = {}
+    question_metadata_lookup_failed = False
 
     if topic_ids:
         try:
@@ -515,15 +519,17 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
                     q.get("created_at"),
                 ) or latest_question_at.get(topic_id)
         except Exception:
+            question_metadata_lookup_failed = True
             logger.warning("[admin.topics] failed to aggregate question metadata", exc_info=True)
 
     enriched: list[dict] = []
     for topic in rows:
         item = dict(topic)
         topic_id = item.get("id")
-        count = question_counts.get(topic_id, 0)
+        count = None if question_metadata_lookup_failed else question_counts.get(topic_id, 0)
         status_code, status_label = _topic_status(item, count)
         item["question_count"] = count
+        item["question_metadata_lookup_failed"] = question_metadata_lookup_failed
         item["status"] = status_code
         item["status_label"] = status_label
         item["last_question_created_at"] = latest_question_at.get(topic_id)
@@ -2412,13 +2418,16 @@ async def create_topic(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(400, "Tên topic không được để trống")
 
     try:
         res = (
             supabase_admin.table("topics")
             .insert({
-                "title":     body.title.strip(),
-                "category":  body.category.strip(),
+                "title":     title,
+                "category":  (body.category or "").strip(),
                 "part":      body.part,
                 "is_active": True,
             })
@@ -2441,7 +2450,11 @@ async def patch_topic(
     await require_admin(authorization)
 
     update: dict = {}
-    if body.title     is not None: update["title"]     = body.title.strip()
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(400, "Tên topic không được để trống")
+        update["title"] = title
     if body.category  is not None: update["category"]  = body.category.strip()
     if body.part      is not None: update["part"]       = body.part
     if body.is_active is not None: update["is_active"]  = body.is_active
@@ -2476,8 +2489,17 @@ async def delete_topic(
     await require_admin(authorization)
     try:
         supabase_admin.table("topics").delete().eq("id", topic_id).execute()
+        remaining = (
+            supabase_admin.table("topics")
+            .select("id")
+            .eq("id", topic_id)
+            .limit(1)
+            .execute()
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa topic: {exc}")
+    if remaining.data:
+        raise HTTPException(500, "Topic chưa được xóa hoàn tất")
 
 
 @router.post("/topics/bulk-delete")
@@ -2623,6 +2645,9 @@ async def create_topic_question(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
+    question_text = body.question_text.strip()
+    if not question_text:
+        raise HTTPException(400, "Câu hỏi không được để trống")
 
     # Auto order_num if not provided
     order = body.order_num
@@ -2637,17 +2662,23 @@ async def create_topic_question(
                 .execute()
             )
             order = (cnt.count or 0) + 1
-        except Exception:
-            order = 1
+        except Exception as exc:
+            raise HTTPException(500, f"Không xác định được thứ tự câu hỏi: {exc}")
+
+    cue_card_bullets = [item.strip() for item in (body.cue_card_bullets or []) if item.strip()] or None
+    cue_card_reflection = (body.cue_card_reflection or "").strip() or None
+    if body.part != 2:
+        cue_card_bullets = None
+        cue_card_reflection = None
 
     row = {
         "topic_id":            topic_id,
         "part":                body.part,
         "order_num":           order,
-        "question_text":       body.question_text.strip(),
-        "question_type":       body.question_type,
-        "cue_card_bullets":    body.cue_card_bullets,
-        "cue_card_reflection": body.cue_card_reflection,
+        "question_text":       question_text,
+        "question_type":       body.question_type.strip(),
+        "cue_card_bullets":    cue_card_bullets,
+        "cue_card_reflection": cue_card_reflection,
     }
     try:
         res = supabase_admin.table("topic_questions").insert(row).execute()
@@ -2668,9 +2699,31 @@ async def update_topic_question(
 ):
     await require_admin(authorization)
 
+    try:
+        current_res = (
+            supabase_admin.table("topic_questions")
+            .select("id, part, question_text, cue_card_bullets, cue_card_reflection")
+            .eq("id", question_id)
+            .eq("topic_id", topic_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải question hiện tại: {exc}")
+    if not current_res.data:
+        raise HTTPException(404, "Question không tồn tại")
+    current = current_res.data[0]
+
+    if not body.model_fields_set:
+        raise HTTPException(400, "Không có trường nào để cập nhật")
+
     update: dict = {}
-    if body.question_text       is not None:
-        update["question_text"] = body.question_text.strip()
+    if body.part                is not None: update["part"]                = body.part
+    if body.question_text is not None:
+        question_text = body.question_text.strip()
+        if not question_text:
+            raise HTTPException(400, "Câu hỏi không được để trống")
+        update["question_text"] = question_text
         # ĐỔI LỜI CÂU HỎI THÌ BẢN ĐỌC CŨ HẾT GIÁ TRỊ. Không xoá thì audio vẫn đọc
         # đề CŨ trong khi bộ chấm đọc đề MỚI: học viên trả lời cái mình nghe rồi
         # bị chấm theo một câu khác — nhận xét sai mà không ai truy ra được vì
@@ -2679,12 +2732,20 @@ async def update_topic_question(
         # Xoá chứ không render lại tại đây: render mất vài giây và endpoint này
         # là một lần bấm Lưu của admin. Xoá làm câu đó lập tức KHÔNG giao được
         # (backend chặn), và mẻ render sau sẽ dựng lại.
-        update["audio_url"] = None
-        update["audio_path"] = None
-    if body.question_type       is not None: update["question_type"]       = body.question_type
+        if question_text != (current.get("question_text") or "").strip():
+            update["audio_url"] = None
+            update["audio_path"] = None
+    if body.question_type       is not None: update["question_type"]       = body.question_type.strip()
     if body.order_num           is not None: update["order_num"]           = body.order_num
-    if body.cue_card_bullets    is not None: update["cue_card_bullets"]    = body.cue_card_bullets
-    if body.cue_card_reflection is not None: update["cue_card_reflection"] = body.cue_card_reflection
+    effective_part = body.part if body.part is not None else current.get("part")
+    if effective_part != 2:
+        update["cue_card_bullets"] = None
+        update["cue_card_reflection"] = None
+    else:
+        if "cue_card_bullets" in body.model_fields_set:
+            update["cue_card_bullets"] = [item.strip() for item in (body.cue_card_bullets or []) if item.strip()] or None
+        if "cue_card_reflection" in body.model_fields_set:
+            update["cue_card_reflection"] = (body.cue_card_reflection or "").strip() or None
 
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
@@ -2717,8 +2778,18 @@ async def delete_topic_question(
     await require_admin(authorization)
     try:
         supabase_admin.table("topic_questions").delete().eq("id", question_id).eq("topic_id", topic_id).execute()
+        remaining = (
+            supabase_admin.table("topic_questions")
+            .select("id")
+            .eq("id", question_id)
+            .eq("topic_id", topic_id)
+            .limit(1)
+            .execute()
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa question: {exc}")
+    if remaining.data:
+        raise HTTPException(500, "Question chưa được xóa hoàn tất")
     _touch_topic(topic_id)
 
 
@@ -2736,7 +2807,7 @@ async def generate_topic_questions(
     - mode=replace_all: delete current questions, then generate a fresh set.
     """
     auth_user = await require_admin(authorization)
-    mode = (body.mode if body else "replace_all").strip().lower()
+    mode = (body.mode if body else "missing_only").strip().lower()
     if mode not in {"missing_only", "replace_all"}:
         raise HTTPException(400, "mode phải là missing_only hoặc replace_all")
 

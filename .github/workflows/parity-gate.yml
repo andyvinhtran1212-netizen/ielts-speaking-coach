@@ -279,18 +279,24 @@ on:
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
-      # Speaking hub + Sessions are native. Topics remains the explicit legacy
-      # child until its separate cutover; Sessions has a mutation verifier.
+      # Speaking hub, Sessions and Topics are native. Sessions/Topics have
+      # fixture-backed mutation verifiers; direct HTML stays as rollback.
       - 'frontend/app/(authed-admin-speaking)/**'
       - 'frontend/app/(authed-admin-speaking-sessions)/**'
+      - 'frontend/app/(authed-admin-speaking-topics)/**'
       - 'frontend/lib/admin-speaking-sessions-model.mjs'
+      - 'frontend/lib/admin-speaking-topics-model.mjs'
       - 'frontend/public/css/admin-speaking-hub-next.css'
       - 'frontend/public/css/admin-speaking-sessions-next.css'
+      - 'frontend/public/css/admin-speaking-topics-next.css'
       - 'frontend/public/pages/admin/speaking/index.html'
       - 'frontend/public/pages/admin/speaking/sessions.html'
+      - 'frontend/public/pages/admin/speaking/topics.html'
       - 'frontend/public/js/admin-speaking-sessions.js'
+      - 'frontend/public/js/admin-speaking-topics.js'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -384,6 +390,7 @@ on:
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
@@ -866,6 +873,11 @@ jobs:
       # failure truth and canonical GET readback after every write.
       - name: Kiểm luồng Admin Speaking Sessions native
         run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Topics mutates topic/question libraries and AI rotation. The fixture
+      # pins safe missing-only semantics, exact payloads and canonical readback.
+      - name: Kiểm luồng Admin Speaking Topics native
+        run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
