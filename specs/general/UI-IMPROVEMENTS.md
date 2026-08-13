@@ -227,6 +227,22 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/writing/queue` migration (2026-08-13)
+
+- Replaced the compressed tab/table with a six-lane operations surface that
+  distinguishes AI work, human review, release readiness, delivered history
+  and Mock Writing decisions without mixing their mutation rules.
+- Preserved canonical contracts: only reviewed essays can be bulk delivered;
+  pending Mock essays can be graded; only genuinely short pending Mock essays
+  offer skip. Every mutation validates the resource acknowledgement and reads
+  the queue again before success is shown.
+- Made partial truth visible. Malformed rows are excluded with a warning,
+  cohort lookup failures no longer disappear, a failed refresh retains and
+  labels the matching prior snapshot, and the 200-row API cap is disclosed.
+- Added URL-restorable lane/cohort/overdue state, visible-tab polling only for
+  the live grading lane, accessible confirmation dialogs, 44px controls and a
+  desktop-table-to-mobile-card layout. Direct legacy HTML remains rollback.
+
 ### Native `/admin/writing` hub migration (2026-08-13)
 
 - Replaced the flat emoji tile dashboard with a workflow map: prepare inputs,

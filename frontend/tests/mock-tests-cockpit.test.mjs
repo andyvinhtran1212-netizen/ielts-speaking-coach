@@ -51,7 +51,7 @@ describe('mock-tests cockpit — controller', () => {
   test('frame src per tab; review is scoped to the selected exam (embed=1)', () => {
     assert.match(JS, /mock-exams\/index\.html\?embed=1/);
     assert.match(JS, /mock-reviews\/index\.html\?mock_exam_id=' \+ encodeURIComponent\(id\) \+ '&embed=1/);
-    assert.match(JS, /writing\/queue\.html\?embed=1&mocklane=1/);
+    assert.match(JS, /\/admin\/writing\/queue\?embed=1&mocklane=1/);
     // review returns null (→ "chọn đề") when no exam is selected
     assert.match(JS, /review:\s*function \(id\) \{ return id \?/);
   });
