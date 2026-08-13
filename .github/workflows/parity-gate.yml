@@ -306,6 +306,10 @@ on:
       - 'frontend/app/(authed-admin-writing-regrade)/**'
       - 'frontend/app/(authed-admin-writing-assignments)/**'
       - 'frontend/app/(authed-admin-writing-cohorts)/**'
+      - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
+      - 'backend/routers/admin_instructor_queue.py'
+      - 'backend/models/instructor_review.py'
+      - 'backend/services/instructor_workflow.py'
       - 'backend/routers/admin_writing_assignments.py'
       - 'backend/routers/admin_writing_cohorts.py'
       - 'backend/migrations/206_writing_assignment_idempotency.sql'
@@ -316,6 +320,7 @@ on:
       - 'frontend/lib/admin-writing-regrade-model.mjs'
       - 'frontend/lib/admin-writing-assignments-model.mjs'
       - 'frontend/lib/admin-writing-cohorts-model.mjs'
+      - 'frontend/lib/admin-writing-instructor-queue-model.mjs'
       - 'frontend/public/css/admin-writing-hub-next.css'
       - 'frontend/public/css/admin-writing-queue-next.css'
       - 'frontend/public/css/admin-writing-status-next.css'
@@ -323,6 +328,7 @@ on:
       - 'frontend/public/css/admin-writing-regrade-next.css'
       - 'frontend/public/css/admin-writing-assignments-next.css'
       - 'frontend/public/css/admin-writing-cohorts-next.css'
+      - 'frontend/public/css/admin-writing-instructor-queue-next.css'
       - 'frontend/public/pages/admin/writing/index.html'
       - 'frontend/public/pages/admin/writing/queue.html'
       - 'frontend/public/pages/admin/writing/status.html'
@@ -330,6 +336,7 @@ on:
       - 'frontend/public/pages/admin/writing/regrade-requests.html'
       - 'frontend/public/pages/admin/writing/new.html'
       - 'frontend/public/pages/admin/writing/cohorts.html'
+      - 'frontend/public/pages/admin/writing/instructor-queue.html'
       - 'frontend/public/js/admin-writing-queue.js'
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
@@ -338,6 +345,7 @@ on:
       - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -955,6 +963,12 @@ jobs:
       # prompt gives, canonical essay links, stale truth and mobile containment.
       - name: Kiểm luồng Admin Writing Cohorts native
         run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Instructor Queue mutates ownership. The fixture pins edited-lane
+      # visibility, exact ACK + canonical readback, ambiguous response
+      # reconciliation without POST replay, embed flags and mobile containment.
+      - name: Kiểm luồng Admin Writing Instructor Queue native
+        run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

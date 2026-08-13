@@ -28,7 +28,7 @@ const groups = [
     items: [
       { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/admin/writing/queue', status: 'NATIVE', statusClass: 'is-live' },
       { title: 'Yêu cầu chấm lại', detail: 'Quyết định atomic · Canonical readback', href: '/admin/writing/regrade-requests', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Hàng đợi Instructor', detail: 'Instructor tier cần review', href: '/pages/admin/writing/instructor-queue.html', status: 'MIGRATING', statusClass: 'is-soon' },
+      { title: 'Hàng đợi Instructor', detail: 'Claim atomic · Readback canonical', href: '/admin/writing/instructor-queue', status: 'NATIVE', statusClass: 'is-live' },
       { title: 'Workspace chấm bài', detail: '13 phần · Deliver · Regrade', href: '/admin/writing/grade', status: 'NATIVE', statusClass: 'is-live' },
     ],
   },

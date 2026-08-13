@@ -227,6 +227,18 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/writing/instructor-queue` migration (2026-08-13)
+
+- Replaced the compressed legacy table with a readable FIFO operations lane,
+  explicit ownership copy, SLA age, mobile cards and a focused release dialog.
+- Corrected the active-state contract: `edited` reviews remain visible in both
+  All Active and My Claims instead of disappearing before delivery.
+- Added account-keyed pending receipts for claim/release. Exact mutation ACKs
+  are followed by canonical GET readback; ambiguous responses reconcile with
+  reads only and never replay the ownership-changing POST.
+- Preserved visible-tab 30-second polling, stale/malformed truth, cockpit
+  `embed`/`mocklane` flags and the direct legacy HTML rollback target.
+
 ### Native `/admin/writing/queue` migration (2026-08-13)
 
 - Replaced the compressed tab/table with a six-lane operations surface that

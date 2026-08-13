@@ -111,7 +111,7 @@
 
 ### Q8: Instructor routes (3 vs. expected scope)
 - Only 3 instructor files found: `pages/instructor/index.html` (dashboard), `/grade.html`, `/compare.html`.
-- Expectation from writing flow: instructor sees queue in `/admin/writing/instructor-queue.html` instead.
+- Expectation from writing flow: instructor sees the admin-operated queue at `/admin/writing/instructor-queue` instead.
 - **Resolution:** Instructor grade/compare are specialty pages; primary flow is via admin-writing tab for school workflows.
 
 ### Q9: Admin.html (root redirect stub)
@@ -305,7 +305,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/admin/writing/tips` | — | `pages/admin/writing/tips.html` | Admin | none | localStorage (theme), fetch (tip API) | M | Writing tips CRUD (embedded in grade UI) |
 | `/admin/writing/status` | `/pages/admin/writing/status.html` remains rollback target | `app/(authed-admin-writing-status)/admin/writing/status/page.tsx` — native React ownership 2026-08-13 | Admin | required `essay_id` (legacy `id` accepted); optional `embed=1`, `mocklane=1` | AuthProvider + backend-owned `/auth/me` role guard; canonical read-only `/admin/writing/essays/{id}/status`; account/essay-keyed stale-response guard; visibility-aware sequential polling | M | Native per-essay grading monitor — not an aggregate dashboard; truthful time-estimate progress, retry ledger, stale snapshot, terminal success/failure actions and embedded Mock flow |
 | `/admin/writing/regrade-requests` | — | `pages/admin/writing/regrade-requests.html` | Admin | `status` (pending, approved, rejected) | localStorage (theme), fetch (regrade API), decision UI | M | Student regrade request review + approval |
-| `/admin/writing/instructor-queue` | (legacy path `/pages/admin-instructor-queue.html` redirects via vercel.json line 42) | `pages/admin/writing/instructor-queue.html` | Instructor (can also access as admin) | `cohort_id`, `status` | localStorage (theme), sessionStorage (filter), fetch (queue API) | M | Instructor-visible grading queue (subset of main queue) |
+| `/admin/writing/instructor-queue` | `/pages/admin/writing/instructor-queue.html` remains rollback target; old flat alias redirects there | `app/(authed-admin-writing-instructor-queue)/admin/writing/instructor-queue/page.tsx` — native React ownership 2026-08-13 | Admin acting as instructor | `view=all_active\|queued\|my_claims\|delivered`; `embed`, `mocklane` | AuthProvider + backend-owned `/auth/me` role guard; canonical instructor queue API; account/request-keyed stale guard; account-keyed pending mutation receipt | L | Native FIFO operations queue; `edited` remains active, claim/release require exact ACK plus GET readback, ambiguous responses reconcile without replaying POST, sequential visible-tab polling; direct legacy HTML retained for rollback |
 | `/admin/writing/tips` (rewrite) | Clean URL alias via vercel.json line 26 | — | Admin | — | — | — | Rewrite target (not a real page) |
 | `/admin/writing/regrade-requests` (rewrite) | Clean URL alias via vercel.json line 28 | — | Admin | — | — | — | Rewrite target (not a real page) |
 

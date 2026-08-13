@@ -487,7 +487,7 @@ export function AdminWritingGradeBehavior() {
     if (!review || !window.confirm('Release claim? Edits chưa lưu sẽ mất.')) return;
     try {
       await runMutation('instructor-release', () => window.api.post(`/admin/instructor/reviews/${encodeURIComponent(review.id)}/release`, {}));
-      window.location.href = withEmbed('/pages/admin/writing/instructor-queue.html');
+      window.location.href = withEmbed('/admin/writing/instructor-queue');
     } catch (caught) {
       setMessage('error', `Lỗi release: ${messageOf(caught)}`);
     }

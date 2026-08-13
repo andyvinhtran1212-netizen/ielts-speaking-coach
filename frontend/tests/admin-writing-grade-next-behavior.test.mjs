@@ -155,6 +155,8 @@ describe('admin Writing grade pure model', () => {
     assert.deepEqual(selectKeyedAdminState(privateState, 'b:e1'), { phase: 'loading' });
     assert.equal(classifyInstructorReview({ status: 'claimed', claimed_by: 'a' }, 'a').kind, 'mine');
     assert.equal(classifyInstructorReview({ status: 'claimed', claimed_by: 'b' }, 'a').kind, 'locked');
+    assert.equal(classifyInstructorReview({ status: 'edited', claimed_by: 'a' }, 'a').kind, 'mine');
+    assert.equal(classifyInstructorReview({ status: 'edited', claimed_by: 'b' }, 'a').kind, 'locked');
   });
 
   test('recomputes queue position from essay id instead of trusting a stale index', () => {
