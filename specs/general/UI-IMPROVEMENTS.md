@@ -1448,3 +1448,46 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
 - A fixture-backed browser flow proves admin gating, URL state, escaped hostile
   titles, per-row partial failure truth, deep-link identity, mobile/desktop
   containment, dark mode and zero business writes.
+
+## 2026-08-14 — Native `/admin/listening/content/[contentId]` detail
+
+### Root causes and severity
+
+- **Critical — publication writes could be shown optimistically.** The legacy
+  workspace merged the PATCH response into local state, so a stale or partial ACK
+  could disagree with persisted backend truth. The native flow requires an explicit
+  confirmation and only reports success after a canonical content GET confirms the
+  requested state.
+- **Medium — an exercise outage erased otherwise valid metadata.** Content and
+  exercise requests previously shared one `Promise.all`; either failure collapsed
+  the whole page. They now load independently, and an exercise failure explicitly
+  says that it is not evidence of an empty lesson.
+- **Medium — malformed and cross-content exercise rows were treated as empty.**
+  The shared normalizer validates ownership, aggregates duplicate blocks, exposes
+  mixed publication status and counts supplemental mini-tests separately.
+- **Medium — audio provenance and render waiting were ambiguous.** Content audio,
+  parent-test audio, pending ElevenLabs output and failed/unknown states now remain
+  distinct. Automatic polling is bounded to 60 seconds and exposes its expiry.
+
+### Design improvements implemented
+
+- The page uses a canonical metadata hero, compact truth cards, a four-type
+  exercise matrix and a readable transcript surface instead of an undifferentiated
+  editor column.
+- Publication actions explain learner visibility and attempt-history preservation
+  before mutation. The accessible dialog traps/restores focus, supports Escape and
+  stacks into a mobile sheet with 44px controls.
+- The native detail owns the clean path identity. Existing metadata and exercise
+  editors remain explicit links, and the legacy detail remains an explicit rollback
+  target rather than being silently removed.
+- Responsive grids collapse without horizontal page overflow; hostile title and
+  transcript text remain escaped by React. Dark surfaces, focus-visible states and
+  reduced-motion behavior use the governed admin tokens.
+
+### Verification
+
+- Model/source tests cover identity validation, safe signed-audio URLs, independent
+  reads, status readback, bounded polling, rollback/editor links and responsive CSS.
+- A fixture-backed browser flow proves partial exercise failure, escaped hostile
+  data, mobile/desktop containment, focused confirmation, exactly one PATCH and
+  canonical GET reconciliation against a deliberately stale mutation response.

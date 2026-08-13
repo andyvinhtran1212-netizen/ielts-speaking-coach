@@ -5,6 +5,14 @@ const VALID_EXERCISE_TYPES = new Set([...EXERCISE_TYPES, 'mini_test']);
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
 const nullableText = (value) => textOf(value) || null;
+const safeHttpUrl = (value) => {
+  const raw = nullableText(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch { return null; }
+};
 const finiteNumber = (value) => value === null || value === undefined || value === '' || typeof value === 'boolean'
   ? null
   : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -60,6 +68,25 @@ export function normalizeListeningContentItem(raw) {
     createdAt: nullableText(value.created_at),
     updatedAt: nullableText(value.updated_at),
   };
+}
+
+export function normalizeListeningContentDetail(raw, expectedId) {
+  const value = objectOf(raw);
+  const row = normalizeListeningContentItem(value);
+  if (!row || row.id !== expectedId) return null;
+  return {
+    ...row,
+    transcript: nullableText(value.transcript),
+    audioSignedUrl: safeHttpUrl(value.audio_signed_url),
+    externalLicense: nullableText(value.external_license),
+    externalSourceUrl: nullableText(value.external_source_url),
+  };
+}
+
+export function normalizeListeningStatusReadback(raw, expectedId, expectedStatus) {
+  const row = normalizeListeningContentDetail(raw, expectedId);
+  if (!row || row.status !== expectedStatus) return null;
+  return row;
 }
 
 export function normalizeListeningContentList(raw, expected = {}) {
