@@ -451,10 +451,10 @@ const NAV_GROUPS = [
         ],
       },
       { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
-      { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
+      { section: 'listening', label: 'Listening', href: '/admin/listening', icon: 'headphones',
         subsections: [
-          { slug: 'content',   label: 'Quản lý nội dung', href: '/pages/admin/listening/index.html' },
-          { slug: 'create',    label: 'Tạo bài',          href: '/pages/admin/listening/index.html' },
+          { slug: 'content',   label: 'Quản lý nội dung', href: '/admin/listening' },
+          { slug: 'create',    label: 'Tạo bài',          href: '/admin/listening' },
           { slug: 'tests',     label: 'Cambridge tests',  href: '/pages/admin/listening/tests.html' },
           { slug: 'segments',  label: 'Chia cắt audio',   href: '/pages/admin/listening/segments.html' },
           { slug: 'gist',      label: 'Bài Gist',         href: '/pages/admin/listening/gist.html' },
