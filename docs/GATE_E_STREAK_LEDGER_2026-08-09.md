@@ -114,7 +114,7 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   đều có timeout 20 giây để ledger/reset artifact còn đủ thời gian hoàn tất
   trước job timeout.
 
-## Failure-injection: Speaking COMPLETE, Gate E toàn cục vẫn PARTIAL
+## Failure-injection: bốn automated domain slices có đủ, Gate E vẫn PARTIAL
 
 Suite v2 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
 N/N−1 replay, two-user isolation và zero production egress. Bốn nhánh
@@ -145,11 +145,19 @@ sau khi `Thử lại` đã đưa đủ answer lên canonical state. Reload/resum
 full-test audio bám `started_at`; Legacy → Next → Legacy dùng chung attempt.
 Verifier semantic và artifact upload chạy trước ledger như hai slice trước.
 
-Đây là completion của ba slice Speaking + Reading + Listening, không phải global
-failure matrix hay real-device completion: Writing còn đủ bốn nhánh tương ứng;
-WebKit synthetic không thay Safari/iOS thật và hai requirement đó vẫn
-`pending`. Vì vậy `failure_injection.status` vẫn là `partial` và tooling không
-thể tuyên bố Gate E đủ evidence.
+Writing nay có slice thứ tư `npm run test:e2e:gate-e:writing`, 12 case trên ba
+project. Ambiguous commit commit canonical essay/job rồi reset connection và
+được GET readback đối chiếu mà không replay POST; partial persistence chứng minh
+exact in-memory text được submit dù PATCH latest 422; reload/resume và
+Legacy → Next → Legacy cùng đọc một draft/start state. Verifier semantic và
+artifact upload cũng chạy trước ledger.
+
+Đây là completion của bốn **automated synthetic slices**, không phải global
+failure-injection hay real-device completion. Live-staging failure injection
+vẫn chưa có; WebKit synthetic không thay Safari/iOS thật và hai requirement đó
+vẫn `pending`. Vì vậy `failure_injection.status` vẫn là `partial`, `missing`
+chứa `live-staging-core-player-failure-injection-evidence`, và tooling không thể
+tuyên bố Gate E đủ evidence.
 
 Vì vậy ledger tách ba cờ:
 
@@ -167,5 +175,5 @@ vẫn không được phép tuyên bố Gate E đủ evidence.
    provenance `ok=true`, 33/33 và `streak_count=1`.
 3. Để nightly/manual runs tiếp tục; bất kỳ reset nào phải được điều tra từ
    `reset_reasons`, không chỉnh ledger bằng tay.
-4. Thu hai real-device artifact và hoàn tất failure matrix của hai core cluster
-   còn lại; chỉ sau đó mới đánh giá Gate E.
+4. Thu hai real-device artifact, chạy live-staging failure injection và các
+   active-session drill; chỉ sau đó mới đánh giá Gate E.

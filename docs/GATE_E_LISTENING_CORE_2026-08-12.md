@@ -63,6 +63,7 @@ test đúng một passed result và HTML có embedded ZIP hoàn chỉnh chứa
 
 ## Trạng thái global Gate E
 
-Batch này hoàn tất Listening slice, không hoàn tất global Gate E. Writing vẫn
-thiếu bốn failure path, chưa có Safari/iOS real-device evidence và chưa có 20
-consecutive clean critical-suite executions.
+Batch này hoàn tất Listening slice, không hoàn tất global Gate E. Writing đã
+có automated synthetic matrix riêng ngày 2026-08-14; global gate vẫn thiếu
+live-staging failure-injection evidence, Safari/iOS real-device evidence,
+active-session drill và 20 consecutive clean critical-suite executions.
