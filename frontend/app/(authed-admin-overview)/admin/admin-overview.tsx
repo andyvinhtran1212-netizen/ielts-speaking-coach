@@ -418,7 +418,7 @@ export function AdminOverview() {
               <span className="db-attn-card__sub">error_logs chưa dismiss</span>
             </span>
           </a>
-          <a className="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
+          <a className="db-attn-card" href="/admin/writing/instructor-queue">
             <span className="db-attn-card__count">{formatInteger(ops?.attention?.writingPending)}</span>
             <span className="db-attn-card__body">
               <span className="db-attn-card__label">Bài viết chờ chấm</span>

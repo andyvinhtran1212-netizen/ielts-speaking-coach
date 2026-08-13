@@ -84,9 +84,9 @@ export function readAdminGradeQueue(storageValue, essayId) {
 export function classifyInstructorReview(review, adminId) {
   if (!review) return { kind: 'missing' };
   if (review.status === 'delivered') return { kind: 'delivered', review };
-  if (review.status === 'claimed' && review.claimed_by === adminId) {
+  if (['claimed', 'edited'].includes(review.status) && review.claimed_by === adminId) {
     return { kind: 'mine', review };
   }
-  if (review.status === 'claimed') return { kind: 'locked', review };
+  if (['claimed', 'edited'].includes(review.status)) return { kind: 'locked', review };
   return { kind: 'queued', review };
 }

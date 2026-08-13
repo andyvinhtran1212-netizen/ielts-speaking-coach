@@ -46,13 +46,13 @@ describe('/admin/writing native operations hub', () => {
     for (const href of [
       '/pages/admin/writing/new.html', '/admin/writing/prompts', '/admin/writing/tips',
       '/admin/writing/queue', '/admin/writing/regrade-requests',
-      '/pages/admin/writing/instructor-queue.html', '/admin/writing/grade',
+      '/admin/writing/instructor-queue', '/admin/writing/grade',
       '/admin/writing/assignments', '/admin/writing/cohorts', '/admin/students',
       '/writing/dashboard',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     assert.equal((PAGE.match(/href: '/g) || []).length, 10);
-    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 7);
-    assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 3);
+    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 8);
+    assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 2);
     assert.match(PAGE, /Chuẩn bị → Chấm → Giao & theo dõi/);
     assert.doesNotMatch(PAGE, /<span[^>]*>[^<]*(?:✍|📚|💡|📥|🔄|👤|📌|👥|🎓)/);
   });

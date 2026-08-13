@@ -440,7 +440,7 @@ const NAV_GROUPS = [
           { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
           { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
           { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/admin/writing/regrade-requests' },
-          { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
+          { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/admin/writing/instructor-queue' },
         ],
       },
       { section: 'mock-tests', label: 'Mock Test', href: '/pages/admin/mock-tests/index.html', icon: 'clipboard',
