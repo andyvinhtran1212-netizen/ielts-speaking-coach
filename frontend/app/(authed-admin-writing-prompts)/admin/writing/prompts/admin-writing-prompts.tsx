@@ -26,6 +26,7 @@ const EMPTY_ANALYSIS: AnalysisDraft = { chartType: 'mixed', overview: '', keyFea
 
 type Filters = { taskType: string; difficulty: string; lifecycle: 'active' | 'archived'; visibility: 'all' | 'student' | 'exam'; q: string };
 type Snapshot = { key: string; active: WritingPrompt[]; archived: WritingPrompt[]; malformed: number; capped: boolean; readAt: string };
+type PendingCreate = { id: string; expected: { title: string; promptText: string; taskType: TaskType; difficulty: Difficulty | null; imagePublicId: string | null } };
 
 function filtersFrom(params: ReturnType<typeof useSearchParams>): Filters {
   const task = params?.get('task_type') || '';
@@ -75,8 +76,8 @@ function httpStatusOf(caught: unknown) {
 
 function actionCopy(action: PromptAction | null) {
   if (!action) return { title: '', description: '', button: '', danger: false };
-  if (action.kind === 'archive') return { title: 'Lưu trữ prompt này?', description: 'Prompt ngừng xuất hiện trong thư viện giao bài. Hình hiện tại sẽ được xoá khỏi Storage; bài cũ vẫn giữ snapshot đã giao.', button: 'Lưu trữ prompt', danger: true };
-  if (action.kind === 'restore') return { title: 'Khôi phục prompt này?', description: 'Prompt trở lại thư viện hoạt động. Nếu từng có hình, bạn cần tải hình mới sau khi khôi phục.', button: 'Khôi phục', danger: false };
+  if (action.kind === 'archive') return { title: 'Lưu trữ prompt này?', description: 'Prompt ngừng xuất hiện trong thư viện giao bài. Hình đã phát hành được giữ làm bằng chứng cho bài cũ; khi khôi phục bạn cần gắn lại hình.', button: 'Lưu trữ prompt', danger: true };
+  if (action.kind === 'restore') return { title: 'Khôi phục prompt này?', description: 'Prompt trở lại thư viện hoạt động. Nếu từng có hình, bạn cần tải hoặc gắn hình mới sau khi khôi phục.', button: 'Khôi phục', danger: false };
   if (action.kind === 'reanalyze') return { title: 'Phân tích lại hình?', description: 'Đáp án hiện tại sẽ chuyển về chưa duyệt cho đến khi phân tích mới hoàn tất và được admin xác nhận.', button: 'Phân tích lại', danger: false };
   return action.prompt.examOnly
     ? { title: 'Trả đề về thư viện học viên?', description: 'Học viên có thể luyện đề này. Hệ thống sẽ từ chối nếu đề còn được một kỳ thi chưa lưu trữ sử dụng.', button: 'Trả về thư viện', danger: false }
@@ -105,6 +106,7 @@ export function AdminWritingPrompts() {
   const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
   const mutationLock = useRef(false);
+  const pendingCreate = useRef<PendingCreate | null>(null);
   const profileRef = useRef(profile.id); profileRef.current = profile.id;
   const filterKey = `${profile.id}|${filters.taskType}|${filters.difficulty}`;
   const current = snapshot?.key === filterKey ? snapshot : null;
@@ -186,6 +188,7 @@ export function AdminWritingPrompts() {
   };
 
   const openEditor = (prompt: WritingPrompt | null) => {
+    pendingCreate.current = null;
     setEditor(prompt || 'new'); setDraft(draftOf(prompt)); setImageFile(null); setRemoveImage(false); setFormError(null);
   };
 
@@ -200,6 +203,16 @@ export function AdminWritingPrompts() {
     mutationLock.current = true; setBusy(true); setFormError(null);
     let uploaded: { url: string; publicId: string } | null = null; let writeStarted = false; let acknowledged = false;
     try {
+      if (!editing && pendingCreate.current) {
+        const pending = pendingCreate.current;
+        const saved = await readPrompt(pending.id);
+        if (!saved.isActive || saved.title !== pending.expected.title || saved.promptText !== pending.expected.promptText || saved.taskType !== pending.expected.taskType || saved.difficulty !== pending.expected.difficulty || saved.imagePublicId !== pending.expected.imagePublicId) throw new Error('Đọc lại không khớp prompt đã tạo trước đó.');
+        const canonical = await readAll();
+        if (profileRef.current !== account) return;
+        pendingCreate.current = null; setCanonical(canonical); setEditor(null); setImageFile(null);
+        setBanner({ kind: 'success', text: 'Đã đối chiếu prompt đã tạo trước đó từ máy chủ.' });
+        return;
+      }
       if (draft.taskType === 'task1_academic' && imageFile) {
         const fd = new FormData(); fd.append('file', imageFile);
         uploaded = normalizePromptUpload(await window.api.upload<unknown>('/admin/writing/prompts/upload-image', fd));
@@ -215,11 +228,15 @@ export function AdminWritingPrompts() {
       const ack = normalizePromptWrite(raw, editing ? editing.id : '') as WritingPrompt | null;
       if (!ack) throw new Error('Máy chủ không xác nhận đúng prompt vừa lưu.');
       acknowledged = true;
+      if (!editing) pendingCreate.current = {
+        id: ack.id,
+        expected: { title, promptText, taskType: draft.taskType, difficulty: draft.difficulty || null, imagePublicId },
+      };
       const saved = await readPrompt(ack.id);
       if (!saved.isActive || saved.title !== title || saved.promptText !== promptText || saved.taskType !== draft.taskType || saved.difficulty !== (draft.difficulty || null) || saved.imagePublicId !== imagePublicId) throw new Error('Đọc lại không khớp prompt vừa lưu.');
       const canonical = await readAll();
       if (profileRef.current !== account) return;
-      setCanonical(canonical); setEditor(null); setImageFile(null);
+      pendingCreate.current = null; setCanonical(canonical); setEditor(null); setImageFile(null);
       setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã tạo'} prompt và đối chiếu lại từ máy chủ.` });
     } catch (caught) {
       const status = httpStatusOf(caught);
@@ -345,7 +362,7 @@ export function AdminWritingPrompts() {
       })}</div>
     </section>
 
-    <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo prompt mới' : 'Sửa prompt'} description="Nội dung prompt và hình nguồn. Answer key được duyệt ở workspace riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : 'Lưu prompt'}</button></>}>
+    <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo prompt mới' : 'Sửa prompt'} description="Nội dung prompt và hình nguồn. Answer key được duyệt ở workspace riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : pendingCreate.current ? 'Thử đối chiếu lại' : 'Lưu prompt'}</button></>}>
       <div className="awp-form"><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Tags" hint="Phân cách bằng dấu phẩy; tối đa 20 tags."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
         {draft.taskType === 'task1_academic' ? <section className="awp-image-field"><div><strong>Hình Task 1 Academic</strong><span>PNG, JPG hoặc WebP · tối đa 5 MB. File chỉ upload khi bạn bấm Lưu.</span></div>{!removeImage && (localImagePreview || draft.imageUrl) ? <div className="awp-image-preview">{localImagePreview ? <img src={localImagePreview} alt="Xem trước hình mới"/> : <img src={draft.imageUrl} alt="Hình hiện tại"/>}<button className="adm-btn-secondary" type="button" onClick={() => { setImageFile(null); setRemoveImage(true); }}>Bỏ hình</button></div> : <label className="awp-upload"><span>Chọn hình từ máy</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { setImageFile(event.target.files?.[0] || null); setRemoveImage(false); }}/></label>}</section> : null}
         {formError && <div className="acd-form-error" role="alert">{formError}</div>}

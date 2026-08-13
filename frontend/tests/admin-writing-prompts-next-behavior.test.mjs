@@ -119,6 +119,8 @@ describe('/admin/writing/prompts native ownership and safety contract', () => {
     assert.match(COMPONENT, /axes_or_categories:/);
     assert.match(COMPONENT, /discard-image/);
     assert.match(COMPONENT, /network failure after the write starts is ambiguous/);
+    assert.match(COMPONENT, /pendingCreate\.current/);
+    assert.match(COMPONENT, /Thử đối chiếu lại/);
     assert.match(COMPONENT, /image\/png,image\/jpeg,image\/webp/);
     assert.match(COMPONENT, /document\.hidden/);
     assert.doesNotMatch(COMPONENT, /setInterval\(/);

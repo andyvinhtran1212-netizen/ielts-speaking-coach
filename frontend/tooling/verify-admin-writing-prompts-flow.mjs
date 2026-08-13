@@ -27,7 +27,7 @@ const prompt = (overrides = {}) => ({
 });
 let active = [prompt(), prompt({ id: 'p2', task_type: 'task2', title: 'Climate policy', prompt_text: 'Discuss whether governments should prioritise climate policy over economic growth.', difficulty: null, tags: ['climate'], prompt_image_url: null, prompt_image_public_id: null, prompt_image_analysis: null, prompt_image_analysis_status: null, prompt_image_analysis_reviewed: false, prompt_image_analysis_model: null, prompt_image_analysis_public_id: null, prompt_image_analysis_at: null })];
 let archived = [prompt({ id: 'p3', task_type: 'task2', title: 'Archived transport prompt', prompt_text: 'Discuss the advantages and disadvantages of public transport investment.', difficulty: 'beginner', tags: ['transport'], is_active: false, prompt_image_url: null, prompt_image_public_id: null, prompt_image_analysis: null, prompt_image_analysis_status: null, prompt_image_analysis_reviewed: false, prompt_image_analysis_model: null, prompt_image_analysis_public_id: null, prompt_image_analysis_at: null })];
-let failNextList = false; let activeReads = 0; let maxActiveReads = 0;
+let failNextList = false; let failNextCreatedDetail = false; let activeReads = 0; let maxActiveReads = 0;
 const requests = []; const mutationBodies = []; const pageErrors = [];
 
 const browser = await launch();
@@ -62,6 +62,7 @@ await page.route('**/*', async (route) => {
   if (match) {
     const id = decodeURIComponent(match[1]); const sub = match[2]; const index = active.findIndex((row) => row.id === id);
     if (method === 'GET' && !sub) {
+      if (id === 'p-new' && failNextCreatedDetail) { failNextCreatedDetail = false; return json({ detail: 'fixture readback failed' }, 503); }
       const row = index >= 0 ? active[index] : archived.find((item) => item.id === id);
       return row ? json(row) : json({ detail: 'Prompt not found' }, 404);
     }
@@ -115,9 +116,13 @@ await page.getByRole('button', { name: 'Tạo prompt' }).click();
 await page.getByLabel('Tiêu đề').fill('New education prompt');
 await page.getByLabel('Đề bài').fill('Discuss whether universities should require every student to study environmental science.');
 await page.getByLabel('Tags').fill('education, environment');
+failNextCreatedDetail = true;
 await page.getByRole('button', { name: 'Lưu prompt' }).click();
-await page.getByText(/Đã tạo prompt/).waitFor();
-check('create yêu cầu exact acknowledgement rồi canonical readback', active.some((row) => row.id === 'p-new') && await page.getByRole('heading', { name: 'New education prompt' }).count() === 1);
+await page.getByRole('button', { name: 'Thử đối chiếu lại' }).waitFor();
+check('create ACK nhưng readback lỗi không được phép POST lần hai', requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'POST').length === 1);
+await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click();
+await page.getByText(/Đã đối chiếu prompt/).waitFor();
+check('retry chỉ đối chiếu prompt đã ACK rồi đóng editor', requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'POST').length === 1 && active.some((row) => row.id === 'p-new') && await page.getByRole('heading', { name: 'New education prompt' }).count() === 1);
 
 const newCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'New education prompt' }) });
 await newCard.getByRole('button', { name: 'Lưu trữ' }).click();

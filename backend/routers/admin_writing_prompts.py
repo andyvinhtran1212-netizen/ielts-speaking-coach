@@ -113,9 +113,10 @@ class PromptUpdate(BaseModel):
 class UploadImageResponse(BaseModel):
     """Response shape for `POST .../upload-image`. `url` is the public
     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
-    is the storage path (persisted into `prompt_image_public_id`, used to
-    delete the object on prompt delete). `width`/`height` are null — we
-    don't decode dimensions server-side (no Pillow dependency)."""
+    is the storage path persisted into `prompt_image_public_id`. Published
+    objects are retained as immutable grading evidence; only unattached
+    uploads may be discarded. `width`/`height` are null — we don't decode
+    dimensions server-side (no Pillow dependency)."""
     url:       str
     public_id: str
     width:     Optional[int] = None
@@ -413,9 +414,12 @@ async def update_prompt(
         if image_contract_touched:
             raise HTTPException(409, "Prompt changed; reload before saving")
         raise HTTPException(404, "Prompt not found")
-    new_public_id = r.data[0].get("prompt_image_public_id")
-    if old_public_id and old_public_id != new_public_id:
-        delete_prompt_image(old_public_id)
+    # Never delete an object that has been published on a prompt. Essay rows
+    # snapshot the public URL, and an in-flight submission may persist that
+    # snapshot after this update commits. Storage cleanup cannot prove the
+    # absence of that race atomically, so published chart objects are immutable
+    # grading evidence. The discard endpoint remains limited to uploads that
+    # were never attached to a prompt.
     # Only a chart identity change auto-triggers extraction. A title/tag edit
     # while an analysis is pending must not start a duplicate model call.
     if image_changed:
@@ -484,7 +488,10 @@ async def review_prompt_analysis(
 
     existing = (
         supabase_admin.table("writing_prompts")
-        .select("id, task_type, prompt_image_url, prompt_image_public_id")
+        .select(
+            "id, task_type, prompt_image_url, prompt_image_public_id, "
+            "prompt_image_analysis_status"
+        )
         .eq("id", str(prompt_id))
         .limit(1)
         .execute()
@@ -496,6 +503,8 @@ async def review_prompt_analysis(
         raise HTTPException(409, "Prompt no longer has a Task 1 Academic image")
     if body.expected_image_public_id != prompt.get("prompt_image_public_id"):
         raise HTTPException(409, "Prompt image changed; reload the answer key before saving")
+    if prompt.get("prompt_image_analysis_status") == "pending":
+        raise HTTPException(409, "Image analysis is still pending; wait before reviewing")
 
     update_query = (
         supabase_admin.table("writing_prompts")
@@ -509,6 +518,8 @@ async def review_prompt_analysis(
     )
     update_query = update_query.eq(
         "prompt_image_public_id", body.expected_image_public_id
+    ).eq(
+        "prompt_image_analysis_status", "ready"
     )
     r = update_query.execute()
     if not r.data:
@@ -525,19 +536,17 @@ async def soft_delete_prompt(
     the row, so old assignments / submissions referencing this prompt
     keep their context.  PATCH with is_active=true to restore.
 
-    Phase 2.3c-1: also deletes the Supabase Storage object and clears
-    the image columns. Soft-deleted prompts are never re-shown to admins
-    (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
-    image objects "just in case" of restore would steadily accumulate
-    storage. If a restore is ever needed, admin can re-upload the image
-    alongside the PATCH `is_active=true`."""
+    The prompt's image columns and analysis are cleared, but a published
+    Storage object is retained as immutable evidence for historical essays
+    and in-flight submissions that snapshot its public URL. If restored,
+    the admin can attach a new image."""
     await require_admin(authorization)
 
-    # Read the existing public_id BEFORE updating so we can clean up
-    # the storage object even if the row is missing afterwards (race-safe).
+    # Read the existing public_id for optimistic concurrency. The object itself
+    # is intentionally retained for historical essay snapshots.
     existing = (
         supabase_admin.table("writing_prompts")
-        .select("prompt_image_public_id")
+        .select("prompt_image_url, prompt_image_public_id")
         .eq("id", str(prompt_id))
         .limit(1)
         .execute()
@@ -565,9 +574,5 @@ async def soft_delete_prompt(
     r = update_query.execute()
     if not r.data:
         raise HTTPException(409, "Prompt changed; reload before archiving")
-
-    # Best-effort storage cleanup — never blocks the soft-delete.
-    if public_id:
-        delete_prompt_image(public_id)
 
     return {"message": "Prompt deactivated", "prompt_id": str(prompt_id)}

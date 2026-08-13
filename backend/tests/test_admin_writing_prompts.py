@@ -229,16 +229,12 @@ def test_patch_prompt_rejects_null_for_required_field():
 def test_delete_soft_deletes_via_is_active_false():
     """DELETE flips is_active to false; row is NOT physically removed.
 
-    Phase 2.3c-1 extends this to also clear `prompt_image_url` /
-    `prompt_image_public_id` and clean up the Supabase Storage object
-    when one exists. The orchestration is:
+    It also clears `prompt_image_url` / `prompt_image_public_id`, while any
+    published Storage object remains immutable for historical essays. The
+    orchestration is:
 
         1. SELECT prompt_image_public_id (404 if missing)
         2. UPDATE is_active=false + null both image columns
-        3. (best-effort) Storage delete by public_id
-
-    For this test we use a text-only prompt (no image) so the
-    Storage cleanup path is exercised via the next test.
     """
     mock_db = MagicMock()
     # Step 1 — pre-read returns a row with no image.
@@ -255,8 +251,7 @@ def test_delete_soft_deletes_via_is_active_false():
 
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
-         patch("routers.admin_writing_prompts.delete_prompt_image") as mock_del:
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
         r = _client().delete(
             f"/admin/writing/prompts/{_PROMPT_ID}",
             headers=_ADMIN_AUTH,
@@ -280,16 +275,11 @@ def test_delete_soft_deletes_via_is_active_false():
         "prompt_image_analysis_at": None,
     }
     mock_db.table.return_value.delete.assert_not_called()
-    # No public_id on the row → no Storage delete.
-    mock_del.assert_not_called()
 
 
-def test_delete_also_cleans_up_storage_when_image_exists():
-    """Soft-delete on a prompt that has an image must call
-    `delete_prompt_image(public_id)` so the Storage object isn't
-    orphaned on the free tier (storage is the binding cost). The
-    cleanup is best-effort — failure here doesn't block the
-    soft-delete response."""
+def test_delete_retains_published_storage_object_when_image_exists():
+    """Archiving clears the prompt reference but never destroys a chart
+    URL that a historical or in-flight essay may already have snapshotted."""
     mock_db = MagicMock()
     select_chain = (mock_db.table.return_value.select.return_value
                     .eq.return_value.limit.return_value)
@@ -304,14 +294,14 @@ def test_delete_also_cleans_up_storage_when_image_exists():
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
-         patch("routers.admin_writing_prompts.delete_prompt_image") as mock_del:
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove:
         r = _client().delete(
             f"/admin/writing/prompts/{_PROMPT_ID}",
             headers=_ADMIN_AUTH,
         )
 
     assert r.status_code == 200
-    mock_del.assert_called_once_with("aver/writing/prompt_images/abc")
+    remove.assert_not_called()
 
 
 # ── Phase 2.3c-1 — image upload + image-on-create ───────────────────
@@ -561,7 +551,7 @@ def test_patch_title_only_does_not_retrigger_analysis():
     run.assert_not_called()
 
 
-def test_patch_remove_image_clears_analysis_and_deletes_old_storage_object():
+def test_patch_remove_image_clears_analysis_and_retains_old_storage_object():
     mock_db = MagicMock()
     select_chain = (mock_db.table.return_value.select.return_value
                     .eq.return_value.limit.return_value)
@@ -597,11 +587,11 @@ def test_patch_remove_image_clears_analysis_and_deletes_old_storage_object():
     assert payload["prompt_image_analysis"] is None
     assert payload["prompt_image_analysis_reviewed"] is False
     assert payload["prompt_image_analysis_public_id"] is None
-    remove.assert_called_once_with("prompts/old.png")
+    remove.assert_not_called()
     mark.assert_not_called()
 
 
-def test_patch_replace_image_cleans_old_object_and_triggers_new_analysis():
+def test_patch_replace_image_retains_old_object_and_triggers_new_analysis():
     mock_db = MagicMock()
     (mock_db.table.return_value.select.return_value.eq.return_value
      .limit.return_value.execute.return_value) = MagicMock(data=[{
@@ -637,7 +627,7 @@ def test_patch_replace_image_cleans_old_object_and_triggers_new_analysis():
         )
 
     assert r.status_code == 200
-    remove.assert_called_once_with("prompts/old.png")
+    remove.assert_not_called()
     mark.assert_called_once_with(_PROMPT_ID, "prompts/new.png")
     run.assert_called_once_with(_PROMPT_ID, "pending-token")
 
@@ -686,9 +676,10 @@ def test_review_analysis_approves_and_sets_ready():
         "id": _PROMPT_ID, "task_type": "task1_academic",
         "prompt_image_url": "https://cur/x.png",
         "prompt_image_public_id": "prompts/x.png",
+        "prompt_image_analysis_status": "ready",
     }])
     update_chain = (mock_db.table.return_value.update.return_value
-                    .eq.return_value.eq.return_value)
+                    .eq.return_value.eq.return_value.eq.return_value)
     update_chain.execute.return_value = MagicMock(data=[
         {"id": _PROMPT_ID, "prompt_image_analysis_reviewed": True,
          "prompt_image_analysis_status": "ready"}])
@@ -706,6 +697,28 @@ def test_review_analysis_approves_and_sets_ready():
     assert payload["prompt_image_analysis_reviewed"] is True
     assert payload["prompt_image_analysis_status"] == "ready"
     assert payload["prompt_image_analysis"]["overview"].startswith("Tiêu thụ")
+
+
+def test_review_analysis_rejects_while_reanalysis_is_pending():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[{
+        "id": _PROMPT_ID, "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/x.png",
+        "prompt_image_public_id": "prompts/x.png",
+        "prompt_image_analysis_status": "pending",
+    }])
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}/analysis",
+            json={"analysis": _valid_analysis(), "reviewed": True,
+                  "expected_image_public_id": "prompts/x.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    mock_db.table.return_value.update.assert_not_called()
 
 
 def test_review_analysis_rejects_stale_image_fingerprint():

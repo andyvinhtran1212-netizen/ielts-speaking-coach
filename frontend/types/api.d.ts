@@ -3170,12 +3170,10 @@ export interface paths {
          *     the row, so old assignments / submissions referencing this prompt
          *     keep their context.  PATCH with is_active=true to restore.
          *
-         *     Phase 2.3c-1: also deletes the Supabase Storage object and clears
-         *     the image columns. Soft-deleted prompts are never re-shown to admins
-         *     (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
-         *     image objects "just in case" of restore would steadily accumulate
-         *     storage. If a restore is ever needed, admin can re-upload the image
-         *     alongside the PATCH `is_active=true`.
+         *     The prompt's image columns and analysis are cleared, but a published
+         *     Storage object is retained as immutable evidence for historical essays
+         *     and in-flight submissions that snapshot its public URL. If restored,
+         *     the admin can attach a new image.
          */
         delete: operations["soft_delete_prompt_admin_writing_prompts__prompt_id__delete"];
         options?: never;
@@ -12930,9 +12928,10 @@ export interface components {
          * UploadImageResponse
          * @description Response shape for `POST .../upload-image`. `url` is the public
          *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
-         *     is the storage path (persisted into `prompt_image_public_id`, used to
-         *     delete the object on prompt delete). `width`/`height` are null — we
-         *     don't decode dimensions server-side (no Pillow dependency).
+         *     is the storage path persisted into `prompt_image_public_id`. Published
+         *     objects are retained as immutable grading evidence; only unattached
+         *     uploads may be discarded. `width`/`height` are null — we don't decode
+         *     dimensions server-side (no Pillow dependency).
          */
         UploadImageResponse: {
             /** Url */

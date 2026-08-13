@@ -1170,9 +1170,10 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 - **Critical — stale answer keys could outlive their image.** Image replacement,
   removal and soft-delete did not clear all analysis columns, and review writes did
   not prove they still referred to the chart the admin opened. The backend now
-  invalidates the full analysis record whenever image/task identity changes, deletes
-  the prior Storage object only after a successful database update and uses
-  `expected_image_public_id` as an optimistic-concurrency fingerprint on approval.
+  invalidates the full analysis record whenever image/task identity changes, retains
+  every published Storage object as immutable historical grading evidence and uses
+  `expected_image_public_id` plus analysis status as optimistic-concurrency guards
+  on approval.
 - **Medium — archive was effectively irreversible.** The API supported inactive rows
   and restore, but the UI only loaded active prompts and labelled soft-delete as
   deletion. The native workspace provides explicit Active and Archived views with
@@ -1204,8 +1205,8 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 ### Verification
 
 - Backend route tests cover nullable clears, required-null rejection, paired image
-  validation, old-object cleanup, full analysis invalidation, discard path scoping
-  and stale image-fingerprint rejection.
+  validation, published-object retention, full analysis invalidation, discard path
+  scoping, pending-worker exclusion and stale image-fingerprint rejection.
 - Frontend model tests reject malformed canonical payloads and pin URL filters plus
   exact mutation acknowledgements.
 - The fixture-backed browser flow covers admin gate, active/archive reads, hostile
