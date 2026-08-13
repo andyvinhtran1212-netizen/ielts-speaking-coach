@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from unittest.mock import AsyncMock, patch
 from pathlib import Path
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -65,6 +66,8 @@ class _TableQuery:
         self.limit_n = None
         self._count_mode = None
         self._head = False
+        self.order_fields: list[tuple[str, bool]] = []
+        self.cursor_after: tuple[str, str] | None = None
 
     @property
     def not_(self):
@@ -84,6 +87,20 @@ class _TableQuery:
         self.filters.append((field, "gte", value))
         return self
 
+    def lte(self, field, value):
+        self.filters.append((field, "lte", value))
+        return self
+
+    def or_(self, expression):
+        match = re.fullmatch(
+            r"created_at\.gt\.(.*),and\(created_at\.eq\.(.*),id\.gt\.(.*)\)",
+            expression,
+        )
+        if not match or match.group(1) != match.group(2):
+            raise AssertionError(f"unsupported fake cursor expression: {expression}")
+        self.cursor_after = (match.group(1), match.group(3))
+        return self
+
     def is_(self, field, value):
         if value == "null":
             self.filters.append((field, "is_null", None))
@@ -99,16 +116,27 @@ class _TableQuery:
         self.limit_n = n
         return self
 
-    def order(self, *_args, **_kw):
+    def order(self, field, **kwargs):
+        self.order_fields.append((field, bool(kwargs.get("desc", False))))
         return self
 
     def execute(self):
         rows = self.fake.tables.get(self.table_name, [])
         matched = [r for r in rows if self._matches(r)]
+        if self.cursor_after:
+            matched = [
+                row for row in matched
+                if (str(row.get("created_at") or ""), str(row.get("id") or "")) > self.cursor_after
+            ]
+        for field, desc in reversed(self.order_fields):
+            matched.sort(key=lambda row: str(row.get(field) or ""), reverse=desc)
         # Exact count reflects ALL filter-matched rows, before limit paging.
         count = len(matched) if self._count_mode else None
         if self.limit_n is not None:
             matched = matched[: self.limit_n]
+        if self.fake.response_cap is not None:
+            matched = matched[: self.fake.response_cap]
+        self.fake.executions.append((self.table_name, self._head, len(matched)))
         data = [] if self._head else matched
         return _Resp(data, count)
 
@@ -120,6 +148,8 @@ class _TableQuery:
             if op == "ne" and row_val == value:
                 return False
             if op == "gte" and (row_val is None or row_val < value):
+                return False
+            if op == "lte" and (row_val is None or row_val > value):
                 return False
             if op == "is_null" and row_val is not None:
                 return False
@@ -134,6 +164,8 @@ class _TableQuery:
 
 class _FakeSupabase:
     def __init__(self):
+        self.response_cap: int | None = None
+        self.executions: list[tuple[str, bool, int]] = []
         self.tables: dict[str, list[dict]] = {
             "students":      [],
             "cohorts":       [],
@@ -372,8 +404,11 @@ class TestReadingFirstAttempt:
     def test_only_reading_query_requests_anonymous_source_column(self):
         listening_block, reading_block = _ROUTER_SOURCE.split("reading_recent =", 1)
         listening_block = listening_block.rsplit("listening_recent =", 1)[1]
+        paging_helper = _ROUTER_SOURCE.split("def _safe_reading_attempt_window", 1)[1]
+        paging_helper = paging_helper.split("def _first_attempt_only", 1)[0]
         assert "anon_src" not in listening_block
-        assert 'select("id, user_id, anon_src, test_id' in reading_block
+        assert 'select("id, user_id, anon_src, test_id' in paging_helper
+        assert "_safe_reading_attempt_window(iso_30d, snapshot_to)" in reading_block
 
     def test_avg_accuracy_uses_first_attempt_per_user_test(self, client, fake_db):
         def _att(i, score, days_ago):
@@ -414,6 +449,39 @@ class TestReadingFirstAttempt:
         # hash-a contributes 40% once; hash-b 80%; two unknown owners remain
         # separate (60%, 100%) instead of collapsing into one NULL identity.
         assert reading["avg_score_7d"] == 0.7
+
+    def test_reads_every_page_across_server_cap_and_seven_day_boundary(self, client, fake_db):
+        fake_db.response_cap = 1000
+        old = [
+            {"id": f"old-{i:04d}", "user_id": f"old-user-{i}", "anon_src": None,
+             "test_id": "rt-old", "status": "submitted", "score": 0,
+             "grading_details": [{"q_num": q + 1} for q in range(20)],
+             "created_at": _iso(-10 - i / 10000), "submitted_at": _iso(-10 - i / 10000)}
+            for i in range(100)
+        ]
+        recent = [
+            {"id": f"new-{i:04d}", "user_id": f"new-user-{i}", "anon_src": None,
+             "test_id": "rt-new", "status": "submitted", "score": 20,
+             "grading_details": [{"q_num": q + 1} for q in range(20)],
+             "created_at": _iso(-1 - i / 10000), "submitted_at": _iso(-1 - i / 10000)}
+            for i in range(1005)
+        ]
+        # Deliberately reverse physical storage order: correctness must come
+        # from the stable query order + cursor, not fixture insertion order.
+        fake_db.tables["reading_test_attempts"] = list(reversed(old + recent))
+
+        body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
+        assert body["skills"]["reading"] == {
+            "attempts_total": 1105,
+            "attempts_7d": 1005,
+            "avg_score_7d": 1.0,
+        }
+        data_pages = [
+            item for item in fake_db.executions
+            if item[0] == "reading_test_attempts" and not item[1]
+        ]
+        assert [page[2] for page in data_pages] == [1000, 105]
+        assert body["students"]["active_7d"] == 1005
 
 
 class TestWritingPending:

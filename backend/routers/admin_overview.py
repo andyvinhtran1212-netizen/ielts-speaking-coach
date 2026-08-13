@@ -50,6 +50,7 @@ router = APIRouter(tags=["admin", "overview"])
 
 _RECENT_ACTIVITY_LIMIT = 20
 _CACHE_MAX_AGE_SECONDS = 300
+_READING_ATTEMPT_PAGE = 1000
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -84,6 +85,58 @@ def _safe_count(q) -> int:
     except Exception as exc:
         logger.warning("[admin_overview] partial count failed: %s", exc)
         return 0
+
+
+def _safe_reading_attempt_window(cutoff: str, snapshot_to: str) -> list[dict]:
+    """Read the complete frozen Reading-attempt window with a stable keyset.
+
+    A bare PostgREST select is capped at roughly 1,000 rows. Offset paging is
+    not safe on this hot table because concurrent inserts can shift later
+    pages, so freeze the upper bound and advance by ``(created_at, id)``.
+    Any page failure discards the partial slice rather than returning a
+    plausible-but-incomplete aggregate.
+    """
+    rows: list[dict] = []
+    cursor_created_at: str | None = None
+    cursor_id: str | None = None
+    try:
+        while True:
+            query = (
+                supabase_admin.table("reading_test_attempts")
+                .select("id, user_id, anon_src, test_id, status, score, grading_details, "
+                        "created_at, submitted_at")
+                .gte("created_at", cutoff)
+                .lte("created_at", snapshot_to)
+            )
+            if cursor_created_at is not None and cursor_id is not None:
+                query = query.or_(
+                    f"created_at.gt.{cursor_created_at},"
+                    f"and(created_at.eq.{cursor_created_at},id.gt.{cursor_id})"
+                )
+            batch = (
+                query.order("created_at")
+                .order("id")
+                .limit(_READING_ATTEMPT_PAGE)
+                .execute()
+                .data
+                or []
+            )
+            if not batch:
+                return rows
+            rows.extend(batch)
+            if len(batch) < _READING_ATTEMPT_PAGE:
+                return rows
+            next_created_at = batch[-1].get("created_at")
+            next_id = batch[-1].get("id")
+            if not next_created_at or not next_id or (
+                next_created_at == cursor_created_at and next_id == cursor_id
+            ):
+                raise ValueError("Reading attempt pagination cursor did not advance")
+            cursor_created_at = next_created_at
+            cursor_id = str(next_id)
+    except Exception as exc:
+        logger.warning("[admin_overview] Reading attempt window failed: %s", exc)
+        return []
 
 
 def _first_attempt_only(rows: list[dict]) -> list[dict]:
@@ -147,6 +200,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
 
     now = datetime.now(timezone.utc)
+    snapshot_to = now.isoformat()
     iso_7d  = (now - timedelta(days=7)).isoformat()
     iso_24h = (now - timedelta(hours=24)).isoformat()
     iso_30d = (now - timedelta(days=30)).isoformat()
@@ -202,12 +256,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         supabase_admin.table("listening_test_attempts")
         .select("id", count="exact", head=True)
     )
-    reading_recent = _safe_select(
-        supabase_admin.table("reading_test_attempts")
-        .select("id, user_id, anon_src, test_id, status, score, grading_details, "
-                "created_at, submitted_at")
-        .gte("created_at", iso_30d)
-    )
+    reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to)
     reading_total = _safe_count(
         supabase_admin.table("reading_test_attempts")
         .select("id", count="exact", head=True)
