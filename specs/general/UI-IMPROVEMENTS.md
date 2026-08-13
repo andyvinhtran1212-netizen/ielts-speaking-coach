@@ -1359,3 +1359,49 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
 - Full backend admin statuses remain visible rather than collapsing to the
   learner-facing lifecycle.
 - The legacy rollback page and direct URL stay available for parity verification.
+## 2026-08-14 — Native `/admin/reading/preview` migration
+
+### Root causes and severity
+
+- **Critical — image writes could look complete before canonical truth was known.**
+  The legacy preview treated any resolved upload/delete request plus a reload as
+  success, without validating the mutation identity or the exact persisted image
+  path. The native flow validates the question-bound ACK and only reports success
+  after the full test GET confirms the canonical question payload. Ambiguous
+  responses are reconciled with GET and never replay the non-idempotent upload.
+- **Medium — paper QA and student preview were conflated.** The old workspace
+  rendered an admin-specific answer-key inspector but documentation described it
+  as the student view. The native page labels itself as Paper QA, while a separate
+  link opens the exact student review renderer through `admin_test_id` without
+  creating an attempt.
+- **Medium — malformed content was silently absorbed.** Invalid passage/question
+  identities, count drift, malformed IMG-PROMPT records and duplicate question
+  numbers could disappear into the render. The normalizer now excludes only rows
+  that cannot be identified and exposes each contract issue visibly.
+- **Medium — long papers lacked a usable information hierarchy.** Passages,
+  questions, answer keys and diagram tooling ran as one long column. The new
+  workspace separates reading rhythm from QA inspection and adds passage-level
+  sticky navigation.
+
+### Design improvements implemented
+
+- A restrained test hero, explicit admin-QA banner and compact truth metrics make
+  scope/status visible before the paper body.
+- Passage text uses a bounded reading measure; the question inspector separates
+  prompt/options, parsed template, diagram workflow and canonical answer evidence.
+- Consecutive diagram/flow questions expose exactly one image owner, matching the
+  student renderer. IMG-PROMPT metadata is collapsible and copyable beside it.
+- Mobile navigation becomes a contained horizontal passage strip; cards collapse
+  to one column without page overflow. Controls retain 44px targets, visible focus,
+  focus-trapped delete confirmation, dark tokens and reduced-motion behavior.
+- The legacy HTML remains an explicit rollback link; content-library and Reading
+  feedback deep links now target the clean native route.
+
+### Verification
+
+- Model/source tests cover nullable-number truth, malformed/count drift, duplicate
+  identity reporting, block ownership, IMG-PROMPT matching and exact mutation ACKs.
+- A fixture-backed browser flow proves admin gating, sanitized hostile Markdown,
+  answer/explanation visibility, one image manager per block, multipart upload and
+  delete followed by canonical readback, student-like preview URL, mobile/desktop
+  containment, dark mode and absence of unexpected writes.

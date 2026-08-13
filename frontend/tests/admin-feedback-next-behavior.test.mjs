@@ -101,7 +101,7 @@ describe('admin feedback model truth', () => {
   test('normalizes URL filters and deep-links without inventing broken anchors', () => {
     assert.deepEqual(normalizeFeedbackFilters({}), { type: '', skill: '', status: 'new' });
     assert.deepEqual(normalizeFeedbackFilters({ type: 'rating', skill: 'reading', status: 'all' }), { type: 'rating', skill: 'reading', status: '' });
-    assert.equal(feedbackDeepLink({ skill: 'reading', testId: 'RD-1', questionNumber: 3 }), '/pages/admin/reading/preview.html?test_id=RD-1');
+    assert.equal(feedbackDeepLink({ skill: 'reading', testId: 'RD-1', questionNumber: 3 }), '/admin/reading/preview?test_id=RD-1');
     assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'LIS-1', questionNumber: 3 }), '/pages/admin/listening/tests.html');
     assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'exercise:abc', questionNumber: null }), null);
     assert.equal(feedbackDeepLink({ skill: 'vocabulary', testId: 'vocabulary:work/career', questionNumber: null }), '/vocabulary.html?cat=work&slug=career');

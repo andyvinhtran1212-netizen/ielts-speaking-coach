@@ -44,7 +44,7 @@ await page.getByRole('heading', { name: 'Thư viện nội dung Reading', exact:
 check('backend-owned admin gate chạy', requests.some((value) => value.startsWith('GET /auth/me')));
 check('canonical list đọc page 25', requests.includes('GET /admin/reading/content?limit=25&offset=0'));
 check('row và action L3 render đúng', await page.getByText('Academic Test 1', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Dành cho kỳ thi' }).count() === 1);
-check('rollback preview giữ đường dẫn trực tiếp', (await page.getByRole('link', { name: 'Xem trước' }).getAttribute('href'))?.startsWith('/pages/admin/reading/preview.html?test_id=') === true);
+check('preview dùng canonical native route', (await page.getByRole('link', { name: 'Xem trước' }).getAttribute('href'))?.startsWith('/admin/reading/preview?test_id=') === true);
 check('mobile card-table không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && getComputedStyle(document.querySelector('.arc-table thead')).display === 'none'));
 
 await page.getByRole('button', { name: 'Dành cho kỳ thi' }).click();

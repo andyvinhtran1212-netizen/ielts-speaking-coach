@@ -273,17 +273,21 @@ on:
       - 'frontend/public/css/admin-reading-attempts-next.css'
       - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
       - 'frontend/public/js/admin-reading-attempts.js'
-      # Reading hub + content manager own clean routes. Content HTML and preview
-      # remain direct rollback targets; preview awaits its dedicated cutover.
+      # Reading hub, content manager and paper QA preview own clean routes.
+      # Direct HTML files remain explicit rollback targets.
       - 'frontend/app/(authed-admin-reading)/**'
       - 'frontend/public/css/admin-reading-hub-next.css'
       - 'frontend/app/(authed-admin-reading-content)/**'
       - 'frontend/lib/admin-reading-content-model.mjs'
       - 'frontend/public/css/admin-reading-content-next.css'
+      - 'frontend/app/(authed-admin-reading-preview)/**'
+      - 'frontend/lib/admin-reading-preview-model.mjs'
+      - 'frontend/public/css/admin-reading-preview-next.css'
       - 'frontend/public/pages/admin/reading/content.html'
       - 'frontend/public/pages/admin/reading/preview.html'
       - 'frontend/tooling/verify-admin-reading-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -467,6 +471,8 @@ on:
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
@@ -950,6 +956,11 @@ jobs:
       # structure, route ownership, responsive table and GET readback after write.
       - name: Kiểm luồng Admin Reading content native
         run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Paper QA exposes answer keys and mutates shared diagram images. Fixture
+      # pins block ownership, sanitized Markdown and canonical readback after write.
+      - name: Kiểm luồng Admin Reading preview native
+        run: node tooling/verify-admin-reading-preview-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

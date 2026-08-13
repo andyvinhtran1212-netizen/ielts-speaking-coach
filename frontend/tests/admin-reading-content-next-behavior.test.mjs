@@ -47,7 +47,7 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(PAGE, /AdminAccessGate/);
   assert.match(LAYOUT, /admin-reading-content-next\.css/);
   for (const contract of ['dry_run=true', 'dry_run=false', 'import-bundle', '/exam-only', '/lock', '/share', 'findCanonical']) assert.match(CLIENT, new RegExp(contract.replace('/', '\\/')));
-  assert.match(CLIENT, /pages\/admin\/reading\/preview\.html/);
+  assert.match(CLIENT, /readingPreviewHref\(row\.slug\)/);
   assert.match(CLIENT, /normalizeDeleteAck/);
   assert.match(CSS, /@media\(max-width:900px\)/);
   assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
