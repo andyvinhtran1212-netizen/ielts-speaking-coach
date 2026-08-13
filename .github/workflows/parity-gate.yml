@@ -346,6 +346,12 @@ on:
       - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
+      - 'backend/routers/admin_writing_tips.py'
+      - 'backend/tests/test_admin_writing_tips.py'
+      - 'frontend/app/(authed-admin-writing-tips)/**'
+      - 'frontend/public/css/admin-writing-tips-next.css'
+      - 'frontend/public/pages/admin/writing/tips.html'
+      - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -969,6 +975,12 @@ jobs:
       # reconciliation without POST replay, embed flags and mobile containment.
       - name: Kiểm luồng Admin Writing Instructor Queue native
         run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Writing Tips combines CRUD with dry-run→commit Markdown import. The
+      # fixture pins sanitized preview, exact ACK + canonical readback,
+      # account-keyed receipts, no mutation replay and responsive containment.
+      - name: Kiểm luồng Admin Writing Tips native
+        run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

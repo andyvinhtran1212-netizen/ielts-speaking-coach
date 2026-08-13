@@ -436,7 +436,7 @@ const NAV_GROUPS = [
           { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/admin/writing/assignments' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/admin/writing/prompts' },
-          { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
+          { slug: 'tips',             label: 'Mẹo viết',          href: '/admin/writing/tips' },
           { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
           { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
           { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/admin/writing/regrade-requests' },

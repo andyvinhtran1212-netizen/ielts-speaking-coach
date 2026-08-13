@@ -18615,6 +18615,7 @@ export interface operations {
             query?: {
                 task_type?: string | null;
                 published?: boolean | null;
+                slug?: string | null;
                 limit?: number;
             };
             header?: {

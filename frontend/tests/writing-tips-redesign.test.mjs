@@ -149,8 +149,9 @@ describe('css/markdown.css / token discipline', () => {
 
 
 describe('aver-admin-chrome.js / tips nav entry', () => {
-  test('writing section carries a tips subsection → tips.html', () => {
-    assert.match(chrome_js, /slug:\s*'tips'[\s\S]*?\/pages\/admin\/writing\/tips\.html/);
+  test('writing section enters the native tips route; legacy HTML stays rollback-only', () => {
+    assert.match(chrome_js, /slug:\s*'tips'[^\n]+href:\s*'\/admin\/writing\/tips'/);
+    assert.ok(html.includes('<aver-admin-chrome active="writing" subsection="tips">'));
   });
 });
 
