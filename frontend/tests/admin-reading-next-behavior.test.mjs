@@ -24,7 +24,7 @@ describe('/admin/reading native operations hub', () => {
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'reading', 'content.html')));
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'reading', 'preview.html')));
     assert.match(CHROME, /section: 'reading'[^\n]+href: '\/admin\/reading'/);
-    assert.match(CHROME, /slug: 'content'[^\n]+href: '\/pages\/admin\/reading\/content\.html'/);
+    assert.match(CHROME, /slug: 'content'[^\n]+href: '\/admin\/reading\/content'/);
     assert.match(OVERVIEW, /reading: '\/admin\/reading'/);
     assert.match(ROLLBACK_OVERVIEW, /href="\/admin\/reading"[^>]*data-skill="reading"/);
     assert.match(LEDGER, /`\/admin\/reading`[^\n]+authed-admin-reading[^\n]+native React ownership/);
@@ -40,12 +40,12 @@ describe('/admin/reading native operations hub', () => {
   });
 
   test('states route ownership truth and exposes only real destinations', () => {
-    for (const href of ['/reading/test', '/pages/admin/reading/content.html', '/admin/dashboard/reading-attempts', '/admin/feedback?skill=reading']) {
+    for (const href of ['/reading/test', '/admin/reading/content', '/admin/dashboard/reading-attempts', '/admin/feedback?skill=reading']) {
       assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     }
-    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 2);
-    assert.equal((PAGE.match(/status: 'LEGACY WORKSPACE'/g) || []).length, 1);
-    assert.match(PAGE, /Content vẫn mở workspace HTML hiện tại/);
+    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 3);
+    assert.equal((PAGE.match(/status: 'LEGACY WORKSPACE'/g) || []).length, 0);
+    assert.match(PAGE, /Content, Analytics và Feedback đều chạy native/);
     assert.doesNotMatch(PAGE, /window\.api\.|\bfetch\(|onClick=|<form/);
   });
 

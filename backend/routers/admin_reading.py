@@ -56,6 +56,7 @@ router = APIRouter(
 
 _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
+_LIST_PAGE_SIZE = 1000
 
 
 def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
@@ -115,29 +116,51 @@ def _normalise_l3_test_row(r: dict) -> dict:
     }
 
 
-def _l3_test_rows(status: str | None) -> list[dict]:
+def _exact_count(result, source: str) -> int:
+    count = getattr(result, "count", None)
+    if not isinstance(count, int) or count < 0:
+        logger.error("admin Reading list missing exact count: %s", source)
+        raise HTTPException(503, "Không xác minh được tổng nội dung Reading.")
+    return count
+
+
+def _l3_test_rows(status: str | None, last_index: int) -> tuple[list[dict], int]:
     """All L3 tests, normalised — for splicing into the 'Tất cả' view so L3
     shows as test rows, not raw passages (l3-action-consistency)."""
-    q = (
-        supabase_admin.table("reading_tests")
-        .select(
-            "id,test_id,title,module,time_limit_minutes,passage_count,"
-            # exam_only: the admin list renders the reserve/release button, and a
-            # button that cannot see the current state renders the wrong label.
-            "total_questions,band_target,status,updated_at,created_at,metadata,"
-            "exam_only",
+    rows: list[dict] = []
+    total: int | None = None
+    for start in range(0, last_index + 1, _LIST_PAGE_SIZE):
+        q = (
+            supabase_admin.table("reading_tests")
+            .select(
+                "id,test_id,title,module,time_limit_minutes,passage_count,"
+                "total_questions,band_target,status,updated_at,created_at,metadata,"
+                "exam_only",
+                count="exact",
+            )
+            .order("updated_at", desc=True, nullsfirst=False)
+            .order("id", desc=True)
+            .range(start, min(last_index, start + _LIST_PAGE_SIZE - 1))
         )
-        .order("updated_at", desc=True)
-    )
-    if status:
-        q = q.eq("status", status)
-    return [_normalise_l3_test_row(r) for r in (q.execute().data or [])]
+        if status:
+            q = q.eq("status", status)
+        result = q.execute()
+        page_total = _exact_count(result, "reading_tests")
+        if total is not None and page_total != total:
+            raise HTTPException(503, "Thư viện Reading thay đổi trong lúc phân trang; hãy tải lại.")
+        total = page_total
+        batch = result.data or []
+        rows.extend(_normalise_l3_test_row(r) for r in batch)
+        if len(batch) < min(_LIST_PAGE_SIZE, last_index - start + 1):
+            break
+    return rows, (total if total is not None else 0)
 
 
 @router.get("")
 async def list_reading_content(
     library: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    identity: str | None = Query(default=None, min_length=1, max_length=240),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(None),
@@ -160,6 +183,8 @@ async def list_reading_content(
         raise HTTPException(422, f"library must be one of {sorted(_LIBRARIES)}")
     if status is not None and status not in _STATUSES:
         raise HTTPException(422, f"status must be one of {sorted(_STATUSES)}")
+    if identity is not None and library is None:
+        raise HTTPException(422, "identity requires a library")
 
     # ── "L3 Full Test" tab → one row per test (reading_tests) ──────────
     if library == "l3_test":
@@ -173,15 +198,18 @@ async def list_reading_content(
             "exam_only",
                 count="exact",
             )
-            .order("updated_at", desc=True)
+            .order("updated_at", desc=True, nullsfirst=False)
+            .order("id", desc=True)
             .range(offset, offset + limit - 1)
         )
+        if identity:
+            q = q.eq("test_id", identity)
         if status:
             q = q.eq("status", status)
         res = q.execute()
         return {
             "items":  [_normalise_l3_test_row(r) for r in (res.data or [])],
-            "total":  getattr(res, "count", None) or 0,
+            "total":  _exact_count(res, "reading_tests"),
             "limit":  limit,
             "offset": offset,
         }
@@ -195,16 +223,19 @@ async def list_reading_content(
                 "topic_tags,updated_at,created_at",
                 count="exact",
             )
-            .order("updated_at", desc=True)
+            .order("updated_at", desc=True, nullsfirst=False)
+            .order("id", desc=True)
             .range(offset, offset + limit - 1)
             .eq("library", library)
         )
+        if identity:
+            q = q.eq("slug", identity)
         if status:
             q = q.eq("status", status)
         res = q.execute()
         return {
             "items":  res.data or [],
-            "total":  getattr(res, "count", None) or 0,
+            "total":  _exact_count(res, "reading_passages"),
             "limit":  limit,
             "offset": offset,
         }
@@ -213,28 +244,48 @@ async def list_reading_content(
     # l3-action-consistency: L3 appears as ONE test row per test (slug=test_id)
     # with full preview/edit/delete — NOT three raw passage rows (preview-only
     # + ambiguous to delete). Exclude l3_test passages, splice in the normalised
-    # reading_tests rows, then sort by recency. The client fetches a single
-    # ~200-row page (no pagination UI), so merge-then-slice in Python is correct
-    # for the real usage; #363 stays safe because L3 carries test_id as its slug.
-    pq = (
-        supabase_admin.table("reading_passages")
-        .select(
-            "id,slug,library,title,status,difficulty_level,skill_focus,"
-            "topic_tags,updated_at,created_at",
+    # reading_tests rows, then sort by recency. A global page needs at most
+    # `offset + limit` rows from each source: anything below that source-local
+    # rank cannot enter the requested page. Counts remain exact and independent
+    # of the bounded fetch. The old code fetched `limit` passages but every L3
+    # test, then reported `len(merged)` — a plausible but incomplete total.
+    fetch_count = offset + limit
+    passage_items: list[dict] = []
+    passage_total: int | None = None
+    for start in range(0, fetch_count, _LIST_PAGE_SIZE):
+        pq = (
+            supabase_admin.table("reading_passages")
+            .select(
+                "id,slug,library,title,status,difficulty_level,skill_focus,"
+                "topic_tags,updated_at,created_at",
+                count="exact",
+            )
+            .neq("library", "l3_test")
+            .order("updated_at", desc=True, nullsfirst=False)
+            .order("id", desc=True)
+            .range(start, min(fetch_count - 1, start + _LIST_PAGE_SIZE - 1))
         )
-        .neq("library", "l3_test")
-        .order("updated_at", desc=True)
-        .range(0, limit - 1)
-    )
-    if status:
-        pq = pq.eq("status", status)
-    passage_items = pq.execute().data or []
+        if status:
+            pq = pq.eq("status", status)
+        passage_result = pq.execute()
+        page_total = _exact_count(passage_result, "reading_passages")
+        if passage_total is not None and page_total != passage_total:
+            raise HTTPException(503, "Thư viện Reading thay đổi trong lúc phân trang; hãy tải lại.")
+        passage_total = page_total
+        batch = passage_result.data or []
+        passage_items.extend(batch)
+        if len(batch) < min(_LIST_PAGE_SIZE, fetch_count - start):
+            break
 
-    merged = list(passage_items) + _l3_test_rows(status)
-    merged.sort(key=lambda r: (r.get("updated_at") or ""), reverse=True)
+    test_items, test_total = _l3_test_rows(status, fetch_count - 1)
+    merged = list(passage_items) + test_items
+    # Python's stable sort preserves each source's SQL `(updated_at, id)` order
+    # within timestamp ties, while source concatenation gives a deterministic
+    # passage-before-test tie-break without comparing heterogeneous id types.
+    merged.sort(key=lambda r: r.get("updated_at") or "", reverse=True)
     return {
         "items":  merged[offset:offset + limit],
-        "total":  len(merged),
+        "total":  (passage_total if passage_total is not None else 0) + test_total,
         "limit":  limit,
         "offset": offset,
     }

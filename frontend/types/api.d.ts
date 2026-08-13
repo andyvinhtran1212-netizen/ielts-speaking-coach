@@ -25599,6 +25599,7 @@ export interface operations {
             query?: {
                 library?: string | null;
                 status?: string | null;
+                identity?: string | null;
                 limit?: number;
                 offset?: number;
             };

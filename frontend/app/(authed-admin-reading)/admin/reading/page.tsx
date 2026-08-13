@@ -15,9 +15,9 @@ const workspaces = [
     title: 'Passages & answer keys',
     description: 'Soạn passage, cấu trúc câu hỏi và đáp án trước khi nội dung được phát hành đến thư viện Reading.',
     detail: 'Passages · Questions · Publish',
-    href: '/pages/admin/reading/content.html',
-    status: 'LEGACY WORKSPACE',
-    statusClass: 'is-new',
+    href: '/admin/reading/content',
+    status: 'NATIVE',
+    statusClass: 'is-live',
     featured: true,
   },
   {
@@ -84,7 +84,7 @@ export default function AdminReadingPage() {
                 <p className="rdh-eyebrow">Công cụ vận hành</p>
                 <h2 id="reading-workspaces-title">Bạn cần xử lý phần nào?</h2>
               </div>
-              <p>Analytics và Feedback đã chạy native; Content vẫn mở workspace HTML hiện tại cho tới batch cutover riêng.</p>
+              <p>Content, Analytics và Feedback đều chạy native; trang HTML cũ chỉ còn là mốc rollback trực tiếp.</p>
             </div>
             <div className="rdh-grid">
               {workspaces.map((item) => (

@@ -180,7 +180,7 @@ describe('Sprint 20.3 — aver-admin chrome ships a Reading section', () => {
   const js = read('frontend/js/components/aver-admin-chrome.js');
   test('Reading appears under Nội dung with a content subsection link', () => {
     assert.match(js, /section:\s*'reading'/);
-    assert.match(js, /href:\s*'\/pages\/admin\/reading\/content\.html'/);
+    assert.match(js, /href:\s*'\/admin\/reading\/content'/);
   });
 });
 
