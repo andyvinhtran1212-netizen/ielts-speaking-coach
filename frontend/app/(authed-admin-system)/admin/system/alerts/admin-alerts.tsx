@@ -29,7 +29,7 @@ function validDateTime(value: string | null) {
 }
 
 function SessionCard({ row }: { row: SessionAlert }) {
-  const href = `/pages/admin/speaking/sessions.html?session=${encodeURIComponent(row.id)}`;
+  const href = `/admin/speaking/sessions?session=${encodeURIComponent(row.id)}`;
   return (
     <article className="aln-item">
       <div className="aln-item__head">
@@ -53,7 +53,7 @@ function SessionCard({ row }: { row: SessionAlert }) {
 }
 
 function GradingCard({ row }: { row: GradingAlert }) {
-  const href = `/pages/admin/speaking/sessions.html?session=${encodeURIComponent(row.sessionId)}`;
+  const href = `/admin/speaking/sessions?session=${encodeURIComponent(row.sessionId)}`;
   return (
     <article className="aln-item">
       <div className="aln-item__head">

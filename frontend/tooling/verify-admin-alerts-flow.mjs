@@ -66,7 +66,7 @@ check('đọc đúng canonical limit và hiển thị hai nhóm không đếm tr
 check('malformed record hiển thị partial warning thay vì giả dữ liệu đầy đủ', await page.getByText(/1 bản ghi không đúng định dạng/).count() === 1);
 check('payload độc hại được React escape', await page.locator('.aln-shell img, .aln-shell script, .aln-shell iframe').count() === 0);
 check('identity enrichment thiếu dùng user_id chuẩn thay vì bịa email', await page.getByText('user-1', { exact: true }).count() === 1 && await page.getByText('Không lấy được danh tính', { exact: true }).count() === 0);
-check('chỉ session thật tạo liên kết điều tra', await page.locator('a[href="/pages/admin/speaking/sessions.html?session=session-123456789"]').count() === 1 && await page.locator('a[href="/pages/admin/speaking/sessions.html?session=session-2"]').count() === 1);
+check('chỉ session thật tạo liên kết điều tra', await page.locator('a[href="/admin/speaking/sessions?session=session-123456789"]').count() === 1 && await page.locator('a[href="/admin/speaking/sessions?session=session-2"]').count() === 1);
 
 await page.getByRole('button', { name: 'Response', exact: true }).click();
 check('client filter đồng bộ URL và chỉ giữ đúng nhóm', new URL(page.url()).searchParams.get('scope') === 'grading' && await page.getByText('Response chưa chấm được', { exact: true }).count() >= 1 && await page.getByText('Payload <img src=x onerror=alert(1)>', { exact: true }).count() === 0);

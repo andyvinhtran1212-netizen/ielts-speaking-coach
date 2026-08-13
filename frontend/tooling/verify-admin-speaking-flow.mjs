@@ -33,7 +33,7 @@ await page.getByRole('heading', { name: 'Speaking workspace', exact: true }).wai
 check('backend-owned admin gate chạy', requests.includes('GET /auth/me'));
 check('learner preview là canonical route', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/speaking');
 check('ba workspace có full-card anchor', await page.locator('a.sph-card[href]').count() === 3);
-check('legacy child ownership hiển thị trung thực', await page.getByText('LEGACY WORKSPACE', { exact: true }).count() === 2);
+check('Sessions native và Topics legacy hiển thị đúng ownership', await page.getByText('NATIVE', { exact: true }).count() >= 2 && await page.getByText('LEGACY WORKSPACE', { exact: true }).count() === 1);
 check('mobile một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.sph-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });

@@ -418,7 +418,12 @@ const NAV_GROUPS = [
   {
     title: 'Nội dung',
     items: [
-      { section: 'speaking',  label: 'Speaking',  href: '/admin/speaking',  icon: 'mic' },
+      { section: 'speaking',  label: 'Speaking',  href: '/admin/speaking',  icon: 'mic',
+        subsections: [
+          { slug: 'sessions', label: 'Sessions & grading', href: '/admin/speaking/sessions' },
+          { slug: 'topics', label: 'Topics & questions', href: '/pages/admin/speaking/topics.html' },
+        ],
+      },
       { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
         subsections: [
           { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },

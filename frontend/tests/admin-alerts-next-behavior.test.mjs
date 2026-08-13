@@ -43,7 +43,7 @@ describe('/admin/system/alerts — native operational alerts', () => {
 
   test('uses native navigation, truthful artifact links, and responsive shared CSS', () => {
     assert.match(CLIENT, /href="\/admin\/system"/);
-    assert.match(CLIENT, /\/pages\/admin\/speaking\/sessions\.html\?session=/);
+    assert.match(CLIENT, /\/admin\/speaking\/sessions\?session=/);
     assert.match(CLIENT, /aria-live="polite"/);
     assert.match(CLIENT, /aria-busy=\{loading\}/);
     assert.match(LAYOUT, /admin-alerts-next\.css/);
