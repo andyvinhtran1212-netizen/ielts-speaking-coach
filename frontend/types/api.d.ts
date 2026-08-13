@@ -3347,9 +3347,9 @@ export interface paths {
          * Cohort Detail
          * @description Student × assignment matrix for one cohort.
          *
-         *     matrix[student_id][prompt_id] = {assignment_id, status, essay_id,
-         *     deadline, band}. Columns = distinct prompts assigned to the cohort,
-         *     ordered by earliest assignment. Sparse: a missing (student, prompt)
+         *     matrix[student_id][column_id] = {assignment_id, status, essay_id,
+         *     deadline, band}. Columns are distinct give/group × prompt identities,
+         *     ordered by earliest assignment. Sparse: a missing (student, give × prompt)
          *     pair simply has no key (the UI renders '—').
          */
         get: operations["cohort_detail_admin_writing_cohorts__cohort_id__get"];

@@ -52,6 +52,38 @@ def _cell_status(assignment: dict, essay: dict | None) -> str:
     return "not_submitted"
 
 
+def _column_key(assignment: dict) -> str:
+    """Return the identity of one real give × prompt column.
+
+    A prompt can be assigned repeatedly in different lessons.  Using only
+    ``prompt_id`` silently collapsed those gives and made whichever row was
+    iterated last win.  New writes always carry ``assignment_group_id``; old
+    standalone rows fall back to their immutable assignment id so no history
+    is hidden.
+    """
+    group_id = assignment.get("assignment_group_id")
+    prompt_id = assignment.get("prompt_id") or "missing-prompt"
+    if group_id:
+        return f"group:{group_id}:prompt:{prompt_id}"
+    return f"legacy:{assignment['id']}"
+
+
+def _is_overdue(deadline: str | None, now: datetime | None = None) -> bool:
+    """Compare deadlines as instants instead of lexicographic ISO strings."""
+    if not deadline:
+        return False
+    try:
+        parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError):
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return parsed < current
+
+
 def _fetch_bands_by_essay_ids(essay_ids: list[str]) -> dict[str, float | None]:
     """overall_band_score lives on writing_feedback (one row per essay —
     essay_id is UNIQUE there), NOT on writing_essays. Fetch the bands
@@ -148,9 +180,9 @@ async def list_cohorts(authorization: str | None = Header(None)):
 async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None)):
     """Student × assignment matrix for one cohort.
 
-    matrix[student_id][prompt_id] = {assignment_id, status, essay_id,
-    deadline, band}. Columns = distinct prompts assigned to the cohort,
-    ordered by earliest assignment. Sparse: a missing (student, prompt)
+    matrix[student_id][column_id] = {assignment_id, status, essay_id,
+    deadline, band}. Columns are distinct give/group × prompt identities,
+    ordered by earliest assignment. Sparse: a missing (student, give × prompt)
     pair simply has no key (the UI renders '—')."""
     await require_admin(authorization)
 
@@ -178,8 +210,9 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
     if student_ids:
         assignments = (
             supabase_admin.table("writing_assignments")
-            .select("id, student_id, prompt_id, essay_id, status, deadline, created_at, updated_at")
+            .select("id, student_id, prompt_id, essay_id, status, deadline, created_at, updated_at, assignment_group_id, name")
             .in_("student_id", student_ids)
+            .order("created_at")
             .execute()
         ).data or []
 
@@ -195,31 +228,39 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
         prompts = {p["id"]: p for p in prows}
     essays = _fetch_essays_by_ids([a["essay_id"] for a in assignments if a.get("essay_id")])
 
-    # Columns ordered by the earliest assignment created_at per prompt.
-    first_seen: dict[str, str] = {}
+    # Columns represent a real give × prompt, not merely a prompt.  Re-giving
+    # the same prompt in another lesson must remain a separate column.
+    columns_by_id: dict[str, dict] = {}
     for a in assignments:
         pid = a.get("prompt_id")
-        ca = a.get("created_at") or ""
-        if pid and (pid not in first_seen or ca < first_seen[pid]):
-            first_seen[pid] = ca
-    columns = sorted(prompts.keys(), key=lambda pid: first_seen.get(pid, ""))
-    assignment_cols = [{
-        "prompt_id": pid,
-        "title":     (prompts[pid].get("title") or "(Đề đã xóa)"),
-        "task_type": prompts[pid].get("task_type"),
-    } for pid in columns]
+        if not pid:
+            continue
+        column_id = _column_key(a)
+        if column_id not in columns_by_id:
+            prompt = prompts.get(pid, {})
+            columns_by_id[column_id] = {
+                "id": column_id,
+                "prompt_id": pid,
+                "group_id": a.get("assignment_group_id"),
+                "name": a.get("name"),
+                "title": prompt.get("title") or "(Đề đã xóa)",
+                "task_type": prompt.get("task_type"),
+                "assigned_at": a.get("created_at"),
+            }
+    assignment_cols = list(columns_by_id.values())
 
     matrix: dict[str, dict] = {sid: {} for sid in student_ids}
     stats = {"students": len(students), "assignments": len(assignments),
              "essays_pending": 0, "essays_delivered": 0, "overdue": 0}
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     for a in assignments:
         sid, pid = a.get("student_id"), a.get("prompt_id")
         if sid not in matrix or not pid:
             continue
+        column_id = _column_key(a)
         essay = essays.get(a.get("essay_id"))
         cell = _cell_status(a, essay)
-        matrix[sid][pid] = {
+        matrix[sid][column_id] = {
             "assignment_id": a["id"],
             "status":        cell,
             "essay_id":      a.get("essay_id"),
@@ -233,7 +274,9 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
             stats["essays_delivered"] += 1
         # Overdue = deadline passed and not delivered.
         dl = a.get("deadline")
-        if dl and dl < now_iso and cell != "delivered":
+        # A flagged essay carries canonical essay status=delivered; the flag is
+        # an operational issue, not an overdue submission.
+        if _is_overdue(dl, now) and cell not in ("delivered", "flagged"):
             stats["overdue"] += 1
 
     return {

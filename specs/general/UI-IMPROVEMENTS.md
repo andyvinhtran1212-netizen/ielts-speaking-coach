@@ -1310,3 +1310,40 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 - The fixture-backed browser flow checks hostile text, partial picker failure,
   exact review arithmetic, successful POST followed by failed readback, GET-only
   retry reconciliation, and mobile overflow.
+## 2026-08-13 — Admin Writing Cohorts native redesign
+
+### Summary
+
+The clean `/admin/writing/cohorts` route now owns a native React operational
+workspace while the direct legacy HTML remains the rollback target. The audit
+found a canonical contract bug before visual work: the backend keyed columns by
+`prompt_id`, although product policy permits assigning the same prompt in a new
+lesson. A later give could therefore overwrite an earlier one in the matrix.
+
+### Critical issues resolved
+
+- **Repeated gives no longer disappear.** Columns now use the real
+  assignment-group × prompt identity, with immutable assignment-id fallback for
+  legacy standalone rows. Every give remains independently visible and links to
+  its own essay.
+- **Deadline truth uses instants.** Overdue calculation parses timezone-aware
+  timestamps instead of comparing differently formatted ISO strings.
+- **Read failures never masquerade as empty state.** List and detail requests
+  preserve their last account-keyed snapshot, label it stale, and expose retry;
+  malformed rows/cells are counted visibly.
+
+### High-priority UX improvements
+
+- Replaced emoji-only tooltip cells with readable status labels, deadline/band
+  context, a persistent legend and URL-restorable activity/status/query filters.
+- Added a responsive master/detail hierarchy, compact cohort summaries, sticky
+  student/header context and 44px controls. Mobile keeps the matrix horizontally
+  scrollable without overflowing the page shell.
+- Grade actions are rendered only for canonical cells carrying an `essay_id`;
+  empty assignments remain truthful non-actions.
+
+### Positive observations preserved
+
+- Full backend admin statuses remain visible rather than collapsing to the
+  learner-facing lifecycle.
+- The legacy rollback page and direct URL stay available for parity verification.

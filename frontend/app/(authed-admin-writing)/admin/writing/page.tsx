@@ -39,7 +39,7 @@ const groups = [
     description: 'Giao đúng đề, theo dõi theo lớp và mở hồ sơ học viên từ cùng một luồng vận hành.',
     items: [
       { title: 'Gán bài tập', detail: 'Receipt · Fan-out · Canonical readback', href: '/admin/writing/assignments', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Lớp học', detail: 'Tiến độ chấm và trả theo lớp', href: '/admin/writing/cohorts', status: 'MIGRATING', statusClass: 'is-soon' },
+      { title: 'Lớp học', detail: 'Từng lượt giao · Stale truth · Mở bài canonical', href: '/admin/writing/cohorts', status: 'NATIVE', statusClass: 'is-live' },
       { title: 'Học viên', detail: 'Hồ sơ và lịch sử bài viết', href: '/admin/students', status: 'NATIVE', statusClass: 'is-live' },
     ],
   },

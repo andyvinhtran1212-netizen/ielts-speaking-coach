@@ -258,7 +258,11 @@
       // Body rows: student name + one cell per assignment.
       var bodyHtml = students.map(function (s) {
         var cells = cols.map(function (col) {
-          var cell = (matrix[s.id] || {})[col.prompt_id];
+          // Native contract separates repeated prompt gives by a stable column
+          // id. Keep prompt_id fallback so this rollback page also works with
+          // an older backend during a full application rollback.
+          var columnKey = col.id || col.prompt_id;
+          var cell = (matrix[s.id] || {})[columnKey];
           if (!cell) return '<td class="matrix-cell matrix-cell--empty">—</td>';
           var cfg = CELL[cell.status] || CELL.not_submitted;
           var overdue = cell.deadline && cell.deadline < new Date().toISOString() && cell.status !== 'delivered';
