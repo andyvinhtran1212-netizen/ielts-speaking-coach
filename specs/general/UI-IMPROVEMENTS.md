@@ -1117,3 +1117,42 @@ described as future work.
 - The Part 1/2/3 mental model and direct topic/question CRUD remain familiar.
 - The legacy HTML page stays available as an explicit rollback artifact while the
   clean route is owned by Next.js.
+## Admin Writing Status — native job monitor (2026-08-13)
+
+### Summary
+
+The legacy `/pages/admin/writing/status.html` was audited against its backend contract and migrated to the clean `/admin/writing/status` route. The screen is a read-only monitor for one `essay_id`, not the daily aggregate dashboard previously described by the route ledger.
+
+### Critical issue resolved: ownership metadata contradicted the product
+
+**Current state**: The ledger claimed `date_range`, `metric`, charts and a daily dashboard, while the implementation only calls `GET /admin/writing/essays/{id}/status`.
+**Problem**: Migration planning could invent filters and analytics that no canonical backend supports.
+**Recommendation implemented**: The route now exposes one essay identity, canonical state, retry evidence and operational next steps; the ledger was corrected to the real contract.
+**Impact**: Admins see backend truth and future batches cannot rely on fictional API behavior.
+
+### High priority issue resolved: overlapping poll responses
+
+**Current state**: The legacy page used an unconditional `setInterval(5000)`.
+**Problem**: A slow request can overlap the next interval and a late response can overwrite a newer state.
+**Recommendation implemented**: The native monitor schedules the next poll only after the current read settles, keys responses by admin account and essay, pauses while hidden, and stops at terminal status.
+**Impact**: The displayed state cannot regress because of overlapping requests or an account/essay switch.
+
+### High priority issue resolved: simulated progress looked canonical
+
+**Current state**: A time-derived percentage was presented as a normal progress bar.
+**Problem**: The backend reports an ETA, not realtime completion percentage or actual Deep-tier pass telemetry.
+**Recommendation implemented**: The UI labels both the bar and Deep-tier phase as time estimates, caps active progress below completion, and distinguishes canonical status from perceived wait time.
+**Impact**: Operators can judge waiting time without mistaking an animation for backend processing truth.
+
+### Medium priority improvements implemented
+
+- Poll failures keep the last matching snapshot and label it stale instead of replacing the status with an error string.
+- Retry count and the latest persisted failure are separated into a reliability ledger; malformed optional details are excluded visibly.
+- Terminal success links to the native Grade workspace; failure links back to the correct Queue or embedded Mock lane.
+- Responsive timeline/cards, keyboard focus, reduced-motion behavior and text-safe rendering are included in the native surface.
+
+### Positive observations preserved
+
+- Five-second polling cadence and terminal states remain compatible with the existing backend.
+- `embed` and `mocklane` survive the complete Queue → Status → Grade/Queue flow.
+- Direct legacy HTML remains available as the rollback artifact.

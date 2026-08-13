@@ -176,7 +176,7 @@ export function writingQueueDestination(row, filters) {
   if (filters?.embed) params.set('embed', '1');
   if (filters?.lane === 'mock') params.set('mocklane', '1');
   const path = (row.status === 'pending' && !row.gradingSkippedAt) || row.status === 'grading'
-    ? '/pages/admin/writing/status.html'
+    ? '/admin/writing/status'
     : '/admin/writing/grade';
   return `${path}?${params}`;
 }
