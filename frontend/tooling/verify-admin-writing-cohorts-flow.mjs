@@ -39,15 +39,17 @@ await page.route('**/*', async (route) => {
   return json({ detail: `unhandled ${request.method()} ${path}` }, 500);
 });
 
-await page.goto(`${BASE}/admin/writing/cohorts?cohort=c1`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/admin/writing/cohorts?cohort_id=c1`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Tiến độ theo lớp' }).waitFor(); await page.getByText('Buổi 2', { exact: true }).waitFor();
 check('admin gate và list/detail dùng canonical endpoints', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === '/admin/writing/cohorts') && requests.some((item) => item.path === '/admin/writing/cohorts/c1'));
 check('tên lớp nguy hiểm hiển thị như text', await page.evaluate(() => window.__cohortXss !== 1));
 check('hai lượt giao lại cùng prompt đều hiện riêng', await page.getByText('Grammar map', { exact: true }).count() === 2 && await page.getByText('Buổi 1', { exact: true }).count() === 1 && await page.getByText('Buổi 2', { exact: true }).count() === 1);
+check('bookmark legacy cohort_id khôi phục detail', requests.some((item) => item.path === '/admin/writing/cohorts/c1'));
 check('chỉ cell có essay id mở grade canonical', await page.getByRole('link', { name: /mở bài Writing/i }).count() === 2 && await page.getByRole('link', { name: /mở bài Writing/i }).first().getAttribute('href') === '/admin/writing/grade?essay_id=e1');
 await page.getByLabel('Lọc trạng thái ô').selectOption('overdue');
 await page.waitForFunction(() => new URL(location.href).searchParams.get('status') === 'overdue');
 check('bộ lọc trạng thái được giữ trên URL', new URL(page.url()).searchParams.get('status') === 'overdue');
+check('navigation native canonicalize cohort_id thành cohort', new URL(page.url()).searchParams.get('cohort') === 'c1' && !new URL(page.url()).searchParams.has('cohort_id'));
 failDetail = true; await page.getByRole('button', { name: 'Làm mới canonical' }).click(); await page.getByText('Ma trận đang là snapshot cũ', { exact: true }).waitFor();
 check('refresh lỗi giữ snapshot và gắn nhãn stale', await page.getByText('Buổi 2', { exact: true }).count() === 1);
 await page.setViewportSize({ width: 390, height: 844 });

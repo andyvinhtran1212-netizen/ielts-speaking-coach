@@ -57,6 +57,7 @@ describe('/admin/writing/cohorts native ownership and UX', () => {
   });
   test('renders canonical stale/malformed truth and only essay-backed actions', () => {
     assert.match(COMPONENT, /Snapshot cũ|snapshot cũ/); assert.match(COMPONENT, /sai contract/); assert.match(COMPONENT, /cell\.essayId \?/);
+    assert.match(COMPONENT, /params\?\.get\('cohort'\) \|\| params\?\.get\('cohort_id'\)/);
     assert.match(COMPONENT, /\/admin\/writing\/grade\?essay_id=/); assert.doesNotMatch(COMPONENT, /window\.alert|window\.confirm|\bconfirm\(/);
   });
   test('uses governed accessible responsive layout', () => {

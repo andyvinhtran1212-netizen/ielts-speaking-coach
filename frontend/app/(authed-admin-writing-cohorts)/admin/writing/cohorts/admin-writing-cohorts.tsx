@@ -38,7 +38,9 @@ const formatDate = (value: string | null, withTime = false) => value ? new Intl.
 
 export function AdminWritingCohorts() {
   const profile = useAdminProfile(); const router = useRouter(); const params = useSearchParams();
-  const filters = useMemo(() => cohortFilters({ cohort: params?.get('cohort'), status: params?.get('status'), activity: params?.get('activity'), q: params?.get('q') }), [params]);
+  // `cohort_id` is the legacy deep-link shape. Read it as an alias so old
+  // bookmarks survive cutover; every native navigation writes canonical `cohort`.
+  const filters = useMemo(() => cohortFilters({ cohort: params?.get('cohort') || params?.get('cohort_id'), status: params?.get('status'), activity: params?.get('activity'), q: params?.get('q') }), [params]);
   const [query, setQuery] = useState(filters.q); const [listSnapshot, setListSnapshot] = useState<ListSnapshot | null>(null);
   const [detailSnapshot, setDetailSnapshot] = useState<DetailSnapshot | null>(null);
   const [listLoading, setListLoading] = useState(true); const [detailLoading, setDetailLoading] = useState(false);
