@@ -63,7 +63,16 @@ check('mobile populated rows không tràn ngang', await page.evaluate(() => docu
 check('biểu đồ 30 ngày cuộn được bằng bàn phím và có bảng text thay thế', await page.evaluate(() => document.querySelectorAll('.aft-bar').length === 30 && document.querySelector('.aft-chart')?.tabIndex === 0 && document.querySelectorAll('.aft-sr-table tbody tr').length === 30));
 await page.evaluate(() => window.history.replaceState(null, '', '/admin/foot-traffic?from=2026-08-01&to=2026-08-12&route=%2Fhome&empty='));
 await page.getByRole('button', { name: 'Áp dụng' }).click();
+// The button stays visible while the same-scope canonical refetch is pending;
+// visibility therefore proves nothing about leaving the loading state.  Wait
+// for the actual contract (enabled) so a slower CI runner cannot race this
+// assertion while still timing out if the page genuinely remains loading.
 await page.getByRole('button', { name: 'Làm mới' }).waitFor({ state: 'visible' });
+await page.waitForFunction(() => {
+  const button = [...document.querySelectorAll('button')]
+    .find((item) => item.textContent?.trim() === 'Làm mới');
+  return button instanceof HTMLButtonElement && !button.disabled;
+});
 check('chuẩn hóa URL cùng scope không treo loading', await page.getByRole('button', { name: 'Làm mới' }).isEnabled());
 await page.getByRole('button', { name: 'Làm mới' }).click();
 await page.getByText('Không thể làm mới — đang giữ số liệu trước đó.', { exact: true }).waitFor({ state: 'visible' });
