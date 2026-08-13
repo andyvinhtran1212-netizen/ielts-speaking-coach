@@ -50,6 +50,7 @@ describe('cohorts.html / data contract', () => {
     assert.match(html, /function\s+renderDetail\s*\(/);
     assert.match(html, /id="matrix-head"/);
     assert.match(html, /id="matrix-body"/);
+    assert.match(html, /var columnKey = col\.id \|\| col\.prompt_id/);
   });
   test('admin sees full backend states (Pattern #11 — not the 4-state student collapse)', () => {
     for (const k of ['not_submitted', 'grading', 'reviewed', 'delivered', 'failed', 'flagged']) {

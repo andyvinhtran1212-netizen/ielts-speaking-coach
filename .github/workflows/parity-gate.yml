@@ -305,7 +305,9 @@ on:
       - 'frontend/app/(authed-admin-writing-prompts)/**'
       - 'frontend/app/(authed-admin-writing-regrade)/**'
       - 'frontend/app/(authed-admin-writing-assignments)/**'
+      - 'frontend/app/(authed-admin-writing-cohorts)/**'
       - 'backend/routers/admin_writing_assignments.py'
+      - 'backend/routers/admin_writing_cohorts.py'
       - 'backend/migrations/206_writing_assignment_idempotency.sql'
       - 'backend/tests/test_admin_writing_assignments.py'
       - 'frontend/lib/admin-writing-queue-model.mjs'
@@ -313,18 +315,21 @@ on:
       - 'frontend/lib/admin-writing-prompts-model.mjs'
       - 'frontend/lib/admin-writing-regrade-model.mjs'
       - 'frontend/lib/admin-writing-assignments-model.mjs'
+      - 'frontend/lib/admin-writing-cohorts-model.mjs'
       - 'frontend/public/css/admin-writing-hub-next.css'
       - 'frontend/public/css/admin-writing-queue-next.css'
       - 'frontend/public/css/admin-writing-status-next.css'
       - 'frontend/public/css/admin-writing-prompts-next.css'
       - 'frontend/public/css/admin-writing-regrade-next.css'
       - 'frontend/public/css/admin-writing-assignments-next.css'
+      - 'frontend/public/css/admin-writing-cohorts-next.css'
       - 'frontend/public/pages/admin/writing/index.html'
       - 'frontend/public/pages/admin/writing/queue.html'
       - 'frontend/public/pages/admin/writing/status.html'
       - 'frontend/public/pages/admin/writing/prompts.html'
       - 'frontend/public/pages/admin/writing/regrade-requests.html'
       - 'frontend/public/pages/admin/writing/new.html'
+      - 'frontend/public/pages/admin/writing/cohorts.html'
       - 'frontend/public/js/admin-writing-queue.js'
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
@@ -332,6 +337,7 @@ on:
       - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -944,6 +950,11 @@ jobs:
       # receipts, GET-only reconciliation and source-specific picker errors.
       - name: Kiểm luồng Admin Writing Assignments native
         run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Cohorts is a read-only operational matrix. The fixture pins repeated
+      # prompt gives, canonical essay links, stale truth and mobile containment.
+      - name: Kiểm luồng Admin Writing Cohorts native
+        run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
