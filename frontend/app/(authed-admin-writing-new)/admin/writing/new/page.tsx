@@ -1,0 +1,2 @@
+import type{Metadata}from'next';import{Suspense}from'react';import{AdminAccessGate}from'@/components/admin-access-gate';import{AdminWritingNew}from'./admin-writing-new';
+export const metadata:Metadata={title:'Gửi bài chấm · Admin',robots:{index:false,follow:false}};export default function Page(){return <aver-admin-chrome active="writing"><AdminAccessGate><Suspense fallback={<div className="adm-access-state adm-access-state--loading">Đang mở form chấm bài…</div>}><AdminWritingNew/></Suspense></AdminAccessGate></aver-admin-chrome>}
