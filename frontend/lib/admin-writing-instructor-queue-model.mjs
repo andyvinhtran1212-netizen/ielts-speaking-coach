@@ -62,6 +62,14 @@ export function instructorQueuePath(view, adminId = '') {
   return `/admin/instructor/queue?${params}`;
 }
 
+export function instructorReconcilePath(operation) {
+  const params = new URLSearchParams();
+  for (const status of ['queued', 'claimed', 'edited', 'delivered', 'released']) params.append('status', status);
+  const essayId = textOf(operation?.essayId);
+  if (essayId) params.set('essay_id', essayId);
+  return `/admin/instructor/queue?${params}`;
+}
+
 export function instructorGradeHref(essayId, raw = {}) {
   const id = textOf(essayId); if (!id) return '';
   const filters = instructorQueueFilters(raw); const params = new URLSearchParams({ essay_id: id });

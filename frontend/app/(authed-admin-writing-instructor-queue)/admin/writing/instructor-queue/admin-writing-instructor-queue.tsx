@@ -6,7 +6,7 @@ import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
 import {
   claimReadback, findInstructorReview, instructorGradeHref, instructorQueueFilters,
-  instructorQueueHref, instructorQueuePath, normalizeClaimAck, normalizeInstructorQueue,
+  instructorQueueHref, instructorQueuePath, instructorReconcilePath, normalizeClaimAck, normalizeInstructorQueue,
   normalizeReleaseAck, pendingInstructorOperation, releaseReadback,
 } from '@/lib/admin-writing-instructor-queue-model.mjs';
 
@@ -18,7 +18,6 @@ type Pending = { account: string; action: 'claim' | 'release'; reviewId: string;
 type Banner = { kind: 'success' | 'warning' | 'error'; title: string; detail: string };
 
 const POLL_INTERVAL_MS = 30_000;
-const RECONCILE_PATH = '/admin/instructor/queue?status=queued&status=claimed&status=edited&status=delivered&status=released';
 const VIEWS = [
   { id: 'all_active', label: 'Đang hoạt động', note: 'Chờ nhận + đang xử lý' },
   { id: 'queued', label: 'Chờ nhận', note: 'FIFO chưa có người giữ' },
@@ -47,7 +46,7 @@ export function AdminWritingInstructorQueue() {
   const filters = useMemo(() => instructorQueueFilters({ view: params?.get('view'), embed: params?.get('embed'), mocklane: params?.get('mocklane') }), [params]);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner | null>(null); const [busy, setBusy] = useState<string | null>(null); const [releaseTarget, setReleaseTarget] = useState<Row | null>(null);
-  const [pending, setPending] = useState<Pending | null>(null); const requestRef = useRef(0); const accountRef = useRef(profile.id); const loadRunning = useRef(false); accountRef.current = profile.id;
+  const [pending, setPending] = useState<Pending | null>(null); const pendingRef = useRef<Pending | null>(null); const requestRef = useRef(0); const accountRef = useRef(profile.id); const loadRunning = useRef(false); accountRef.current = profile.id;
   const current = snapshot?.account === profile.id && snapshot.view === filters.view ? snapshot : null;
   const navigate = useCallback((view: string) => router.replace(instructorQueueHref({ ...filters, view }), { scroll: false }), [filters, router]);
 
@@ -70,35 +69,35 @@ export function AdminWritingInstructorQueue() {
   }, [filters.view, profile.id]);
 
   const reconcile = useCallback(async (operation: Pending, announce = true) => {
-    const account = profile.id; setBusy(operation.reviewId); if (announce) setBanner({ kind: 'warning', title: 'Đang đối chiếu thao tác', detail: 'Chỉ đọc lại canonical state; không gửi lại POST.' });
+    const account = profile.id; pendingRef.current = operation; setBusy(operation.reviewId); if (announce) setBanner({ kind: 'warning', title: 'Đang đối chiếu thao tác', detail: 'Chỉ đọc lại canonical state; không gửi lại POST.' });
     try {
-      const normalized = normalizeInstructorQueue(await window.api.get<unknown>(RECONCILE_PATH));
+      const normalized = normalizeInstructorQueue(await window.api.get<unknown>(instructorReconcilePath(operation)));
       if (!normalized) throw new Error('Canonical readback sai contract.');
       if (accountRef.current !== account) return false;
       const row = findInstructorReview(normalized.rows, operation.reviewId) as Row | null;
       if (operation.action === 'claim') {
         const confirmed = claimReadback(row, account) as Row | null;
         if (confirmed) {
-          clearPending(account); setPending(null); setBanner({ kind: 'success', title: 'Đã xác nhận quyền giữ bài', detail: 'Đang mở workspace chấm từ essay canonical.' });
+          clearPending(account); pendingRef.current = null; setPending(null); setBanner({ kind: 'success', title: 'Đã xác nhận quyền giữ bài', detail: 'Đang mở workspace chấm từ essay canonical.' });
           window.location.href = instructorGradeHref(confirmed.essayId, filters); return true;
         }
         if (row?.review.claimedBy && row.review.claimedBy !== account) {
-          clearPending(account); setPending(null); setBanner({ kind: 'warning', title: 'Bài đã thuộc instructor khác', detail: 'Không gửi lại claim. Hàng đợi sẽ được làm mới.' }); await loadQueue(); return false;
+          clearPending(account); pendingRef.current = null; setPending(null); setBanner({ kind: 'warning', title: 'Bài đã thuộc instructor khác', detail: 'Không gửi lại claim. Hàng đợi sẽ được làm mới.' }); await loadQueue(); return false;
         }
         if (row?.review.status === 'queued' && row.review.claimedBy === null) {
-          clearPending(account); setPending(null); setBanner({ kind: 'warning', title: 'Claim chưa được ghi nhận', detail: 'Canonical state vẫn là Chờ nhận. Bạn có thể claim lại từ hàng đợi đã làm mới.' }); await loadQueue(); return false;
+          clearPending(account); pendingRef.current = null; setPending(null); setBanner({ kind: 'warning', title: 'Claim chưa được ghi nhận', detail: 'Canonical state vẫn là Chờ nhận. Bạn có thể claim lại từ hàng đợi đã làm mới.' }); await loadQueue(); return false;
         }
         if (['delivered', 'released'].includes(row?.review.status || '')) {
-          clearPending(account); setPending(null); setBanner({ kind: 'warning', title: 'Workflow đã đi tiếp', detail: 'Bài không còn ở trạng thái cần claim. Hàng đợi đã được làm mới theo canonical state.' }); await loadQueue(); return false;
+          clearPending(account); pendingRef.current = null; setPending(null); setBanner({ kind: 'warning', title: 'Workflow đã đi tiếp', detail: 'Bài không còn ở trạng thái cần claim. Hàng đợi đã được làm mới theo canonical state.' }); await loadQueue(); return false;
         }
         throw new Error('Backend chưa xác nhận bài thuộc quyền của tài khoản hiện tại.');
       }
       const confirmed = releaseReadback(row) as Row | null;
       if (confirmed || (row?.review.claimedBy && row.review.claimedBy !== account)) {
-        clearPending(account); setPending(null); setReleaseTarget(null); setBanner({ kind: 'success', title: 'Đã xác nhận thả bài', detail: row?.review.claimedBy ? 'Bài hiện đã được instructor khác nhận.' : 'Bài đã trở về hàng chờ.' }); await loadQueue(); return true;
+        clearPending(account); pendingRef.current = null; setPending(null); setReleaseTarget(null); setBanner({ kind: 'success', title: 'Đã xác nhận thả bài', detail: row?.review.claimedBy ? 'Bài hiện đã được instructor khác nhận.' : 'Bài đã trở về hàng chờ.' }); await loadQueue(); return true;
       }
       if (['delivered', 'released'].includes(row?.review.status || '')) {
-        clearPending(account); setPending(null); setReleaseTarget(null); setBanner({ kind: 'warning', title: 'Workflow đã đi tiếp', detail: 'Bài đã rời lane đang review; không gửi lại release.' }); await loadQueue(); return true;
+        clearPending(account); pendingRef.current = null; setPending(null); setReleaseTarget(null); setBanner({ kind: 'warning', title: 'Workflow đã đi tiếp', detail: 'Bài đã rời lane đang review; không gửi lại release.' }); await loadQueue(); return true;
       }
       throw new Error('Backend chưa xác nhận bài đã rời quyền sở hữu hiện tại.');
     } catch (caught) {
@@ -107,7 +106,7 @@ export function AdminWritingInstructorQueue() {
   }, [filters, loadQueue, profile.id]);
 
   useEffect(() => {
-    const stored = readPending(profile.id); setPending(stored);
+    const stored = readPending(profile.id); pendingRef.current = stored; setPending(stored);
     if (stored) void reconcile(stored, false).then((confirmed) => { if (!confirmed) void loadQueue(); });
     else void loadQueue();
   }, [loadQueue, profile.id, reconcile]);
@@ -120,23 +119,24 @@ export function AdminWritingInstructorQueue() {
   }, [loadQueue]);
 
   const claim = async (row: Row) => {
+    if (pendingRef.current) return;
     const operation: Pending = { account: profile.id, action: 'claim', reviewId: row.review.id, essayId: row.essayId, startedAt: new Date().toISOString() };
-    writePending(operation); setPending(operation); setBusy(row.review.id); setBanner(null);
+    pendingRef.current = operation; writePending(operation); setPending(operation); setBusy(row.review.id); setBanner(null);
     try {
       const raw = await window.api.post<unknown>(`/admin/instructor/reviews/${encodeURIComponent(row.review.id)}/claim`, {});
       if (!normalizeClaimAck(raw, row.review.id, profile.id)) throw new Error('Claim ACK không khớp review, owner hoặc trạng thái mong đợi.');
       await reconcile(operation, false);
     } catch (caught) {
       const status = statusCodeOf(caught);
-      if (definitive(status)) { clearPending(profile.id); setPending(null); setBanner({ kind: 'error', title: 'Claim bị từ chối', detail: messageOf(caught) }); }
+      if (definitive(status)) { clearPending(profile.id); pendingRef.current = null; setPending(null); setBanner({ kind: 'error', title: 'Claim bị từ chối', detail: messageOf(caught) }); }
       else await reconcile(operation, false);
     } finally { setBusy(null); }
   };
 
   const release = async () => {
-    const row = releaseTarget; if (!row) return;
+    const row = releaseTarget; if (!row || pendingRef.current) return;
     const operation: Pending = { account: profile.id, action: 'release', reviewId: row.review.id, essayId: row.essayId, startedAt: new Date().toISOString() };
-    writePending(operation); setPending(operation); setBusy(row.review.id); setBanner(null);
+    pendingRef.current = operation; writePending(operation); setPending(operation); setBusy(row.review.id); setBanner(null);
     try {
       const raw = await window.api.post<unknown>(`/admin/instructor/reviews/${encodeURIComponent(row.review.id)}/release`, {});
       if (!normalizeReleaseAck(raw, row.review.id)) throw new Error('Release ACK không khớp review hoặc trạng thái queued mong đợi.');
@@ -144,12 +144,13 @@ export function AdminWritingInstructorQueue() {
     } catch (caught) {
       const status = statusCodeOf(caught);
       if (status === 403) await reconcile(operation, false);
-      else if (definitive(status)) { clearPending(profile.id); setPending(null); setReleaseTarget(null); setBanner({ kind: 'error', title: 'Release bị từ chối', detail: messageOf(caught) }); }
+      else if (definitive(status)) { clearPending(profile.id); pendingRef.current = null; setPending(null); setReleaseTarget(null); setBanner({ kind: 'error', title: 'Release bị từ chối', detail: messageOf(caught) }); }
       else await reconcile(operation, false);
     } finally { setBusy(null); }
   };
 
   const rows = current?.rows || [];
+  const mutationsBlocked = Boolean(busy || pending);
   return <main className="awi-shell">
     <header className="awi-hero"><div><p className="awi-eyebrow">Writing · Human review lane</p><h1>Hàng đợi Instructor</h1><p>Nhận bài theo FIFO, chỉnh feedback trong workspace và chỉ kết luận thao tác sau canonical readback.</p></div><div className="awi-hero__actions"><a className="adm-btn-secondary" href="/admin/writing">Writing workspace</a><button className="adm-btn-primary" type="button" disabled={loading || Boolean(busy)} onClick={() => void loadQueue()}>{loading ? 'Đang làm mới…' : 'Làm mới canonical'}</button></div></header>
     <section className="awi-flow" aria-label="Chu trình instructor"><div><span>01</span><strong>Claim atomic</strong><small>Một instructor giữ bài</small></div><i>→</i><div><span>02</span><strong>Review & chỉnh sửa</strong><small>Mở essay canonical</small></div><i>→</i><div><span>03</span><strong>Deliver có kiểm chứng</strong><small>Học viên mới nhìn thấy</small></div></section>
@@ -158,13 +159,13 @@ export function AdminWritingInstructorQueue() {
     {current && current.malformed > 0 && <div className="awi-banner is-warning" role="alert"><div><strong>Dữ liệu bị loại</strong><span>{current.malformed} dòng sai contract không được hiển thị.</span></div></div>}
     <nav className="awi-tabs" aria-label="Bộ lọc hàng đợi">{VIEWS.map((item) => <button type="button" className={filters.view === item.id ? 'is-active' : ''} aria-current={filters.view === item.id ? 'page' : undefined} onClick={() => navigate(item.id)} disabled={Boolean(busy)} key={item.id}><span><strong>{item.label}</strong><small>{item.note}</small></span></button>)}</nav>
     <section className="awi-workspace" aria-labelledby="awi-list-title"><header><div><p className="awi-eyebrow">Canonical queue snapshot</p><h2 id="awi-list-title">{VIEWS.find((item) => item.id === filters.view)?.label}</h2><p>{filters.view === 'delivered' ? 'Lịch sử đã trả; mở bài ở chế độ xem.' : 'Bài cũ nhất được ưu tiên trước. Poll tuần tự mỗi 30 giây và tạm dừng khi tab ẩn.'}</p></div><div className="awi-count"><strong>{rows.length}</strong><span>bài hiển thị</span></div></header>
-      {loading && !current ? <div className="awi-state" role="status"><span className="awi-spinner"/><strong>Đang đọc hàng đợi…</strong></div> : loadError && !current ? <div className="awi-state is-error" role="alert"><strong>Không tải được hàng đợi</strong><p>{loadError}</p><button className="adm-btn-secondary" type="button" onClick={() => void loadQueue()}>Thử lại</button></div> : !rows.length ? <div className="awi-state"><strong>{filters.view === 'my_claims' ? 'Bạn chưa giữ bài nào' : filters.view === 'delivered' ? 'Chưa có bài đã trả' : 'Hàng đợi đang trống'}</strong><p>Snapshot canonical hiện không có bài ở lane này.</p></div> : <div className="awi-list">{rows.map((row) => <QueueRow row={row} adminId={profile.id} filters={filters} busy={busy === row.review.id} onClaim={() => void claim(row)} onRelease={() => setReleaseTarget(row)} key={row.review.id}/>)}</div>}
+      {loading && !current ? <div className="awi-state" role="status"><span className="awi-spinner"/><strong>Đang đọc hàng đợi…</strong></div> : loadError && !current ? <div className="awi-state is-error" role="alert"><strong>Không tải được hàng đợi</strong><p>{loadError}</p><button className="adm-btn-secondary" type="button" onClick={() => void loadQueue()}>Thử lại</button></div> : !rows.length ? <div className="awi-state"><strong>{filters.view === 'my_claims' ? 'Bạn chưa giữ bài nào' : filters.view === 'delivered' ? 'Chưa có bài đã trả' : 'Hàng đợi đang trống'}</strong><p>Snapshot canonical hiện không có bài ở lane này.</p></div> : <div className="awi-list">{rows.map((row) => <QueueRow row={row} adminId={profile.id} filters={filters} busy={busy === row.review.id} mutationsBlocked={mutationsBlocked} onClaim={() => void claim(row)} onRelease={() => setReleaseTarget(row)} key={row.review.id}/>)}</div>}
     </section>
     <Dialog open={releaseTarget !== null} title="Thả bài về hàng chờ?" description="Quyền giữ bài của bạn sẽ được gỡ. Instructor khác có thể claim ngay sau đó." onClose={() => setReleaseTarget(null)} busy={Boolean(busy)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setReleaseTarget(null)} disabled={Boolean(busy)}>Giữ bài</button><button className="adm-btn-danger" type="button" onClick={() => void release()} disabled={Boolean(busy)}>{busy ? 'Đang đối chiếu…' : 'Xác nhận thả bài'}</button></>}><p className="awi-dialog-copy">Mọi chỉnh sửa đã lưu trong workspace vẫn được giữ. Thao tác chỉ được báo thành công sau khi đọc lại trạng thái canonical.</p></Dialog>
   </main>;
 }
 
-function QueueRow({ row, adminId, filters, busy, onClaim, onRelease }: { row: Row; adminId: string; filters: { view: string; embed: string; mocklane: string }; busy: boolean; onClaim: () => void; onRelease: () => void }) {
+function QueueRow({ row, adminId, filters, busy, mutationsBlocked, onClaim, onRelease }: { row: Row; adminId: string; filters: { view: string; embed: string; mocklane: string }; busy: boolean; mutationsBlocked: boolean; onClaim: () => void; onRelease: () => void }) {
   const mine = row.review.claimedBy === adminId; const activeMine = mine && ['claimed', 'edited'].includes(row.review.status); const locked = Boolean(row.review.claimedBy) && !mine;
-  return <article className={`awi-row${row.isOverdue ? ' is-overdue' : ''}`}><div className="awi-row__age"><span className={row.isOverdue ? 'is-overdue' : row.ageHours >= 24 ? 'is-warning' : ''}>{formatAge(row.ageHours)}</span><time>{formatDate(row.submittedAt)}</time></div><div className="awi-row__student"><strong>{row.studentEmail || 'Học viên chưa có email'}</strong><span>Level {row.studentLevel} · {TASK_COPY[row.taskType] || row.taskType}</span></div><div className="awi-row__status"><span className={`awi-status is-${row.review.status}`}>{STATUS_COPY[row.review.status]}</span>{locked && <small>Đang do instructor khác giữ</small>}{activeMine && <small>Bạn đang giữ bài này</small>}</div><div className="awi-row__actions">{row.review.status === 'queued' && <button className="adm-btn-primary" type="button" onClick={onClaim} disabled={busy}>{busy ? 'Đang đối chiếu…' : 'Claim & mở bài'}</button>}{activeMine && <><a className="adm-btn-primary" href={instructorGradeHref(row.essayId, filters)}>Mở workspace</a><button className="adm-btn-secondary" type="button" onClick={onRelease} disabled={busy}>Thả bài</button></>}{locked && <span className="awi-locked">Đã khóa</span>}{row.review.status === 'delivered' && <a className="adm-btn-secondary" href={instructorGradeHref(row.essayId, filters)}>Xem bài</a>}</div></article>;
+  return <article className={`awi-row${row.isOverdue ? ' is-overdue' : ''}`}><div className="awi-row__age"><span className={row.isOverdue ? 'is-overdue' : row.ageHours >= 24 ? 'is-warning' : ''}>{formatAge(row.ageHours)}</span><time>{formatDate(row.submittedAt)}</time></div><div className="awi-row__student"><strong>{row.studentEmail || 'Học viên chưa có email'}</strong><span>Level {row.studentLevel} · {TASK_COPY[row.taskType] || row.taskType}</span></div><div className="awi-row__status"><span className={`awi-status is-${row.review.status}`}>{STATUS_COPY[row.review.status]}</span>{locked && <small>Đang do instructor khác giữ</small>}{activeMine && <small>Bạn đang giữ bài này</small>}</div><div className="awi-row__actions">{row.review.status === 'queued' && <button className="adm-btn-primary" type="button" onClick={onClaim} disabled={mutationsBlocked}>{busy ? 'Đang đối chiếu…' : 'Claim & mở bài'}</button>}{activeMine && <><a className="adm-btn-primary" href={instructorGradeHref(row.essayId, filters)}>Mở workspace</a><button className="adm-btn-secondary" type="button" onClick={onRelease} disabled={mutationsBlocked}>Thả bài</button></>}{locked && <span className="awi-locked">Đã khóa</span>}{row.review.status === 'delivered' && <a className="adm-btn-secondary" href={instructorGradeHref(row.essayId, filters)}>Xem bài</a>}</div></article>;
 }

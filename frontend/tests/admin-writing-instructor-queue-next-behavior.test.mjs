@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   claimReadback, instructorGradeHref, instructorQueueFilters, instructorQueueHref,
-  instructorQueuePath, normalizeClaimAck, normalizeInstructorQueue, normalizeReleaseAck,
+  instructorQueuePath, instructorReconcilePath, normalizeClaimAck, normalizeInstructorQueue, normalizeReleaseAck,
   pendingInstructorOperation, releaseReadback,
 } from '../lib/admin-writing-instructor-queue-model.mjs';
 
@@ -59,6 +59,11 @@ describe('Admin Writing Instructor Queue native model', () => {
     assert.equal(pendingInstructorOperation(pending, 'admin-2'), null);
     assert.equal(pendingInstructorOperation({ ...pending, action: 'deliver' }, 'admin-1'), null);
   });
+
+  test('bounds canonical reconciliation to the receipt essay when available', () => {
+    assert.equal(instructorReconcilePath({ essayId: 'e1' }), '/admin/instructor/queue?status=queued&status=claimed&status=edited&status=delivered&status=released&essay_id=e1');
+    assert.equal(instructorReconcilePath({ essayId: null }), '/admin/instructor/queue?status=queued&status=claimed&status=edited&status=delivered&status=released');
+  });
 });
 
 describe('/admin/writing/instructor-queue native ownership and safety', () => {
@@ -71,10 +76,11 @@ describe('/admin/writing/instructor-queue native ownership and safety', () => {
   });
 
   test('never replays POST during reconciliation and keeps stale truth visible', () => {
-    assert.match(COMPONENT, /RECONCILE_PATH/); assert.match(COMPONENT, /không gửi lại POST/i); assert.match(COMPONENT, /awiq-pending:/);
+    assert.match(COMPONENT, /instructorReconcilePath\(operation\)/); assert.match(COMPONENT, /không gửi lại POST/i); assert.match(COMPONENT, /awiq-pending:/);
     assert.match(COMPONENT, /normalizeClaimAck/); assert.match(COMPONENT, /normalizeReleaseAck/); assert.match(COMPONENT, /claimReadback/); assert.match(COMPONENT, /releaseReadback/);
     assert.match(COMPONENT, /accountRef\.current !== account/); assert.match(COMPONENT, /Claim chưa được ghi nhận/); assert.match(COMPONENT, /Workflow đã đi tiếp/);
-    assert.match(COMPONENT, /status === 403\) await reconcile/); assert.match(COMPONENT, /status=released/);
+    assert.match(COMPONENT, /status === 403\) await reconcile/); assert.match(instructorReconcilePath({ essayId: 'e1' }), /status=released/);
+    assert.match(COMPONENT, /pendingRef\.current/); assert.match(COMPONENT, /mutationsBlocked=\{mutationsBlocked\}/); assert.match(COMPONENT, /disabled=\{mutationsBlocked\}/);
     assert.doesNotMatch(COMPONENT, /Đã trả gần đây/);
     assert.match(COMPONENT, /snapshot cũ/); assert.match(COMPONENT, /sai contract/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
   });

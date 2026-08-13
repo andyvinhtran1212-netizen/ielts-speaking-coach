@@ -51,7 +51,7 @@ check('hostile email hiển thị như text', await claimFx.page.evaluate(() => 
 check('embed mode được đặt trên admin chrome', await claimFx.page.locator('aver-admin-chrome').getAttribute('embed') === '');
 await claimFx.page.getByRole('button', { name: 'Claim & mở bài' }).click();
 await claimFx.page.waitForURL(/\/admin\/writing\/grade\?essay_id=e1&embed=1&mocklane=1/);
-check('claim chỉ POST một lần rồi GET readback', claimFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r1/claim')).length === 1 && claimFx.requests.filter((r) => r.path === '/admin/instructor/queue').length >= 2);
+check('claim chỉ POST một lần rồi GET readback giới hạn theo essay', claimFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r1/claim')).length === 1 && claimFx.requests.some((r) => r.path === '/admin/instructor/queue' && new URLSearchParams(r.query).get('essay_id') === 'e1'));
 check('claim mở grade canonical và giữ cockpit flags', new URL(claimFx.page.url()).pathname === '/admin/writing/grade' && new URL(claimFx.page.url()).searchParams.get('embed') === '1' && new URL(claimFx.page.url()).searchParams.get('mocklane') === '1');
 await claimFx.page.close();
 
@@ -68,7 +68,7 @@ await releaseFx.page.goto(`${BASE}/admin/writing/instructor-queue?view=my_claims
 await releaseFx.page.getByRole('button', { name: 'Thả bài' }).waitFor(); await releaseFx.page.getByRole('button', { name: 'Thả bài' }).click();
 check('release dùng dialog accessible thay browser confirm', await releaseFx.page.getByRole('dialog', { name: 'Thả bài về hàng chờ?' }).count() === 1);
 await releaseFx.page.getByRole('button', { name: 'Xác nhận thả bài' }).click(); await releaseFx.page.getByText('Đã xác nhận thả bài', { exact: true }).waitFor();
-check('release chỉ POST một lần và đối chiếu GET', releaseFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r2/release')).length === 1 && releaseFx.requests.filter((r) => r.path === '/admin/instructor/queue').length >= 3);
+check('release chỉ POST một lần và đối chiếu GET giới hạn theo essay', releaseFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r2/release')).length === 1 && releaseFx.requests.some((r) => r.path === '/admin/instructor/queue' && new URLSearchParams(r.query).get('essay_id') === 'e2'));
 check('my claims rỗng sau canonical readback', await releaseFx.page.getByText('Bạn chưa giữ bài nào', { exact: true }).count() === 1);
 await releaseFx.page.close();
 
@@ -92,6 +92,25 @@ await absentFx.page.getByText('Claim chưa được ghi nhận', { exact: true }
 check('pending claim vẫn queued được kết luận không xảy ra, không POST', absentFx.requests.filter((r) => r.method === 'POST' && r.path.startsWith('/admin/instructor/reviews/')).length === 0 && await absentFx.page.getByRole('button', { name: 'Claim & mở bài' }).count() === 1);
 check('receipt claim không xảy ra được xoá để cho phép thử lại', await absentFx.page.evaluate((key) => sessionStorage.getItem(key), `awiq-pending:${adminId}`) === null);
 await absentFx.page.close();
+
+// An unresolved receipt is the one global mutation lock. A failed readback
+// must not allow another row to POST and overwrite that receipt.
+let failPendingReadback = false;
+const lockedFx = await fixturePage({
+  rows: () => [item('r7', 'e7', 'queued'), item('r8', 'e8', 'queued')],
+  shouldFail: () => failPendingReadback,
+  onPost: ({ path, json }) => {
+    if (path.endsWith('/r7/claim')) { failPendingReadback = true; return json({ detail: 'response lost' }, 503); }
+    return json({ detail: 'second mutation must stay blocked' }, 500);
+  },
+});
+await lockedFx.page.goto(`${BASE}/admin/writing/instructor-queue`, { waitUntil: 'domcontentloaded' });
+const claimButtons = lockedFx.page.getByRole('button', { name: 'Claim & mở bài' }); await claimButtons.first().click();
+await lockedFx.page.getByText('Chưa đối chiếu được thao tác', { exact: true }).waitFor();
+check('failed readback khóa mọi mutation và giữ đúng receipt đầu', await claimButtons.count() === 2 && await claimButtons.first().isDisabled() && await claimButtons.nth(1).isDisabled() && JSON.parse(await lockedFx.page.evaluate((key) => sessionStorage.getItem(key), `awiq-pending:${adminId}`)).reviewId === 'r7');
+await claimButtons.nth(1).click({ force: true });
+check('mutation thứ hai không POST và không ghi đè receipt', lockedFx.requests.filter((r) => r.method === 'POST' && r.path.startsWith('/admin/instructor/reviews/')).length === 1 && JSON.parse(await lockedFx.page.evaluate((key) => sessionStorage.getItem(key), `awiq-pending:${adminId}`)).reviewId === 'r7');
+await lockedFx.page.close();
 
 // Stale snapshot and responsive containment.
 let failStaleRefresh = false;
