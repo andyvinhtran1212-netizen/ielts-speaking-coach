@@ -9,6 +9,11 @@
   var PREFIX = 'writing-submit:v1:';
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   var TERMINAL = { submitted: true, grading: true, graded: true, reviewed: true, delivered: true, failed: true };
+  // Web Storage can be denied by browser privacy policy or fail on quota.
+  // Keep the current-tab retry contract alive in memory even when reload
+  // reconciliation is unavailable; storage is durability, not permission to
+  // submit.
+  var memory = Object.create(null);
 
   function key(account, assignmentId) {
     return PREFIX + encodeURIComponent(account) + ':' + encodeURIComponent(assignmentId);
@@ -44,25 +49,33 @@
   }
 
   function read(account, assignmentId) {
+    var storageKey = key(account, assignmentId);
     try {
-      var raw = sessionStorage.getItem(key(account, assignmentId));
-      if (!raw) return null;
+      var raw = sessionStorage.getItem(storageKey);
+      if (!raw) return memory[storageKey] || null;
       var receipt = normalize(JSON.parse(raw));
       if (!receipt || receipt.account !== account || receipt.assignmentId !== assignmentId) {
-        sessionStorage.removeItem(key(account, assignmentId));
+        sessionStorage.removeItem(storageKey);
+        delete memory[storageKey];
         return null;
       }
+      memory[storageKey] = receipt;
       return receipt;
     } catch (_) {
-      try { sessionStorage.removeItem(key(account, assignmentId)); } catch (_) {}
-      return null;
+      return memory[storageKey] || null;
     }
   }
 
   function write(receipt) {
     var normalized = normalize(receipt);
     if (!normalized) throw new TypeError('invalid-writing-submit-receipt');
-    sessionStorage.setItem(key(normalized.account, normalized.assignmentId), JSON.stringify(normalized));
+    var storageKey = key(normalized.account, normalized.assignmentId);
+    memory[storageKey] = normalized;
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(normalized));
+    } catch (_) {
+      // Submission remains safe for this page lifetime through `memory`.
+    }
     return normalized;
   }
 
@@ -79,18 +92,32 @@
   }
 
   function remove(account, assignmentId) {
-    try { sessionStorage.removeItem(key(account, assignmentId)); } catch (_) {}
+    var storageKey = key(account, assignmentId);
+    delete memory[storageKey];
+    try { sessionStorage.removeItem(storageKey); } catch (_) {}
   }
 
   function list(account) {
     var out = [];
     var prefix = PREFIX + encodeURIComponent(account) + ':';
+    var seen = Object.create(null);
+    Object.keys(memory).forEach(function (storageKey) {
+      if (storageKey.indexOf(prefix) !== 0) return;
+      var receipt = memory[storageKey];
+      if (receipt && receipt.account === account) {
+        seen[storageKey] = true;
+        out.push(receipt);
+      }
+    });
     try {
       for (var i = 0; i < sessionStorage.length; i += 1) {
         var storageKey = sessionStorage.key(i);
-        if (!storageKey || storageKey.indexOf(prefix) !== 0) continue;
+        if (!storageKey || storageKey.indexOf(prefix) !== 0 || seen[storageKey]) continue;
         var receipt = normalize(JSON.parse(sessionStorage.getItem(storageKey) || 'null'));
-        if (receipt && receipt.account === account) out.push(receipt);
+        if (receipt && receipt.account === account) {
+          memory[storageKey] = receipt;
+          out.push(receipt);
+        }
       }
     } catch (_) {}
     return out;

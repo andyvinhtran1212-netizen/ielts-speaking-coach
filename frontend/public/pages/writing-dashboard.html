@@ -1605,6 +1605,11 @@
 
     async function submitFromModal(force) {
       if (!modalState.assignmentId || !modalState.accountId) return;
+      var assignmentId = modalState.assignmentId;
+      var accountId = modalState.accountId;
+      function isCurrentSubmission() {
+        return modalState.accountId === accountId && modalState.assignmentId === assignmentId;
+      }
       var textarea = document.getElementById('modal-essay-textarea');
       var text     = textarea.value;
       var wc       = countWords(text);
@@ -1616,6 +1621,7 @@
       if (!force && modalState.allowSoftCheck) {
         var spellIssues = [];
         try { spellIssues = await runSpellCheck(text); } catch (e) { spellIssues = []; }
+        if (!isCurrentSubmission()) return;
         if (spellIssues.length) { showSpellPanel(spellIssues); return; }
       }
 
@@ -1642,8 +1648,8 @@
       }
 
       var receipt = window.WritingSubmitReceipt.begin(
-        modalState.accountId,
-        modalState.assignmentId,
+        accountId,
+        assignmentId,
         text
       );
       if (receipt.essayText !== text) {
@@ -1656,12 +1662,13 @@
       try {
         var raw = await window.api.post(
           '/api/writing/my-assignments/'
-            + encodeURIComponent(modalState.assignmentId) + '/submit',
+            + encodeURIComponent(assignmentId) + '/submit',
           { essay_text: receipt.essayText, request_id: receipt.requestId }
         );
-        var result = window.WritingSubmitReceipt.normalizeAck(raw, modalState.assignmentId);
+        var result = window.WritingSubmitReceipt.normalizeAck(raw, assignmentId);
         if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
-        window.WritingSubmitReceipt.remove(modalState.accountId, modalState.assignmentId);
+        window.WritingSubmitReceipt.remove(accountId, assignmentId);
+        if (!isCurrentSubmission()) return;
 
         if (modalState.countdownInterval) {
           clearInterval(modalState.countdownInterval);
@@ -1690,26 +1697,34 @@
         var reconciled = null;
         try { reconciled = await reconcileSubmission(receipt); } catch (_) {}
         if (reconciled) {
+          if (!isCurrentSubmission()) return;
           showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
           closeModal();
           await Promise.all([loadAssignments(), loadEssays()]);
         } else if (submitStatus(err) === 409) {
-          window.WritingSubmitReceipt.remove(modalState.accountId, modalState.assignmentId);
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
           showSubmissionNotice('warning', 'Bài đã đổi trạng thái hoặc được nộp ở tab khác. Danh sách đã được đồng bộ lại.');
           closeModal();
           await Promise.all([loadAssignments(), loadEssays()]);
         } else if (definitiveSubmitRejection(err)) {
-          window.WritingSubmitReceipt.remove(modalState.accountId, modalState.assignmentId);
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
           showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
         } else {
+          if (!isCurrentSubmission()) return;
           showSubmissionNotice(
             'warning',
             'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; em có thể thử lại an toàn hoặc tải lại để đối chiếu.'
           );
         }
       } finally {
-        if (submitBtn) submitBtn.disabled = false;
-        if (saveBtn)   saveBtn.disabled   = false;
+        // Success closes the current modal (assignmentId becomes null). A late
+        // callback from assignment A must not enable controls for assignment B.
+        var mayResetControls = modalState.accountId === accountId &&
+          (modalState.assignmentId === assignmentId || modalState.assignmentId === null);
+        if (mayResetControls && submitBtn) submitBtn.disabled = false;
+        if (mayResetControls && saveBtn)   saveBtn.disabled   = false;
       }
     }
 
