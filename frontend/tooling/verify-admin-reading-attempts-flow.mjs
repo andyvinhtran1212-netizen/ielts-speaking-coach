@@ -109,6 +109,7 @@ check('rollback partial giữ tổng exact, split lower-bound và ẩn trung bì
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.goto(`${BASE}/admin/dashboard/reading-attempts`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Lượt làm bài Reading', exact: true }).waitFor({ state: 'visible' });
+await page.locator('.ara-table').first().waitFor({ state: 'visible' });
 check('desktop dùng bảng và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.ara-table')).display === 'table' && document.documentElement.scrollWidth <= window.innerWidth));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
