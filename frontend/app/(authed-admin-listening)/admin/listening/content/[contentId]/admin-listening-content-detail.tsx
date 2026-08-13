@@ -25,42 +25,50 @@ export function AdminListeningContentDetail({ contentId }: { contentId: string }
   const profile = useAdminProfile();
   const key = `${profile.id}:${contentId}`;
   const sequence = useRef(0);
+  const contentReadOrder = useRef(0);
+  const exerciseReadOrder = useRef(0);
   const pollTimer = useRef<number | null>(null);
   const [content, setContent] = useState<{ key: string; value: Content } | null>(null);
   const [exercises, setExercises] = useState<ReadState<Coverage>>({ phase: 'loading' });
   const [parentAudio, setParentAudio] = useState<ReadState<{ id: string; mode: string | null; ready: boolean }> | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [pollExhausted, setPollExhausted] = useState(false);
+  const [pollEpoch, setPollEpoch] = useState(0);
   const [confirmStatus, setConfirmStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const current = content?.key === key ? content.value : null;
 
-  const readContent = useCallback(async (request: number) => {
-    const row = normalizeListeningContentDetail(await window.api.get<unknown>(`/admin/listening/content/${encodeURIComponent(contentId)}`), contentId) as Content | null;
+  const readContent = useCallback(async (request: number, expectedStatus?: Status) => {
+    const readOrder = ++contentReadOrder.current;
+    const payload = await window.api.get<unknown>(`/admin/listening/content/${encodeURIComponent(contentId)}`);
+    const row = (expectedStatus
+      ? normalizeListeningStatusReadback(payload, contentId, expectedStatus)
+      : normalizeListeningContentDetail(payload, contentId)) as Content | null;
     if (!row) throw new Error('Phản hồi nội dung không đúng contract canonical.');
-    if (request !== sequence.current) return null;
+    if (request !== sequence.current || readOrder !== contentReadOrder.current) return null;
     setContent({ key, value: row });
     if (row.testId) {
       setParentAudio({ phase: 'loading' });
       try {
         const parent = normalizeListeningTestAudio(await window.api.get<unknown>(`/admin/listening/tests/${encodeURIComponent(row.testId)}`), row.testId) as { id: string; mode: string | null; ready: boolean } | null;
         if (!parent) throw new Error('Payload test bundle không đúng contract.');
-        if (request === sequence.current) setParentAudio({ phase: 'ready', value: parent });
+        if (request === sequence.current && readOrder === contentReadOrder.current) setParentAudio({ phase: 'ready', value: parent });
       } catch (caught) {
-        if (request === sequence.current) setParentAudio({ phase: 'error', message: messageOf(caught) });
+        if (request === sequence.current && readOrder === contentReadOrder.current) setParentAudio({ phase: 'error', message: messageOf(caught) });
       }
     } else setParentAudio(null);
     return row;
   }, [contentId, key]);
 
   const readExercises = useCallback(async (request: number) => {
+    const readOrder = ++exerciseReadOrder.current;
     setExercises({ phase: 'loading' });
     try {
       const value = normalizeListeningExerciseCoverage(await window.api.get<unknown>(`/admin/listening/exercises?content_id=${encodeURIComponent(contentId)}`), contentId) as Coverage | null;
       if (!value) throw new Error('Payload exercise không đúng contract.');
-      if (request === sequence.current) setExercises({ phase: 'ready', value });
+      if (request === sequence.current && readOrder === exerciseReadOrder.current) setExercises({ phase: 'ready', value });
     } catch (caught) {
-      if (request === sequence.current) setExercises({ phase: 'error', message: messageOf(caught) });
+      if (request === sequence.current && readOrder === exerciseReadOrder.current) setExercises({ phase: 'error', message: messageOf(caught) });
     }
   }, [contentId]);
 
@@ -94,24 +102,37 @@ export function AdminListeningContentDetail({ contentId }: { contentId: string }
     };
     poll();
     return () => { cancelled = true; if (pollTimer.current) window.clearTimeout(pollTimer.current); };
-  }, [current?.id, current?.sourceType, current?.audioStoragePath, current?.status, readContent]);
+  }, [current?.id, current?.sourceType, current?.audioStoragePath, current?.status, pollEpoch, readContent]);
 
   const changeStatus = async () => {
     if (!confirmStatus || !current || busy) return;
-    const target = confirmStatus; const request = ++sequence.current;
+    const target = confirmStatus; const request = sequence.current;
     if (pollTimer.current) { window.clearTimeout(pollTimer.current); pollTimer.current = null; }
     setBusy(true); setBanner(null);
+    let contentReadRestarted = false;
     try {
       await window.api.patch(`/admin/listening/content/${encodeURIComponent(contentId)}/status`, { status: target });
-      const readback = normalizeListeningStatusReadback(await window.api.get<unknown>(`/admin/listening/content/${encodeURIComponent(contentId)}`), contentId, target) as Content | null;
+      const readback = await readContent(request, target);
       if (!readback) throw new Error('Backend chưa xác nhận trạng thái vừa chọn.');
+      contentReadRestarted = true;
       if (request !== sequence.current) return;
-      setContent({ key, value: readback }); setConfirmStatus(null);
+      setConfirmStatus(null);
       setBanner({ kind: 'success', text: `Đã đối chiếu backend: ${LISTENING_STATUS_LABEL[target]}.` });
-      void readExercises(request);
     } catch (caught) {
       if (request === sequence.current) setBanner({ kind: 'error', text: `Không xác nhận được trạng thái canonical: ${messageOf(caught)}. Hãy đọc lại trước khi thao tác tiếp.` });
-    } finally { if (request === sequence.current) setBusy(false); }
+    } finally {
+      if (request === sequence.current) {
+        const refreshes: Promise<unknown>[] = [readExercises(request)];
+        if (!contentReadRestarted) refreshes.push(readContent(request).catch((caught) => {
+          if (request === sequence.current) setParentAudio({ phase: 'error', message: `Không tái đồng bộ được audio: ${messageOf(caught)}` });
+        }));
+        await Promise.allSettled(refreshes);
+        if (request === sequence.current) {
+          setPollEpoch((value) => value + 1);
+          setBusy(false);
+        }
+      }
+    }
   };
 
   if (!current && !banner) return <main className="ald-shell"><div className="ald-state" role="status">Đang đọc nội dung canonical…</div></main>;

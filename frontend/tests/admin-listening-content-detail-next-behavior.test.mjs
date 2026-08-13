@@ -44,9 +44,15 @@ test('metadata and exercise reads stay independent and account-keyed', () => {
 test('status mutation requires confirmation and canonical GET readback', () => {
   assert.match(CLIENT, /<Dialog open=\{Boolean\(confirmStatus\)\}/);
   assert.match(CLIENT, /window\.api\.patch\(`\/admin\/listening\/content\/\$\{encodeURIComponent\(contentId\)\}\/status`/);
-  assert.match(CLIENT, /normalizeListeningStatusReadback\(await window\.api\.get/);
+  assert.match(CLIENT, /normalizeListeningStatusReadback\(payload, contentId, expectedStatus\)/);
+  assert.match(CLIENT, /const readOrder = \+\+contentReadOrder\.current/);
+  assert.match(CLIENT, /readOrder !== contentReadOrder\.current/);
+  assert.match(CLIENT, /const readOrder = \+\+exerciseReadOrder\.current/);
+  assert.match(CLIENT, /readOrder === exerciseReadOrder\.current/);
   assert.match(CLIENT, /Backend chưa xác nhận trạng thái vừa chọn/);
   assert.doesNotMatch(CLIENT, /setContent\([^\n]+await window\.api\.patch/);
+  assert.doesNotMatch(CLIENT, /const target = confirmStatus; const request = \+\+sequence\.current/);
+  assert.match(CLIENT, /finally \{[\s\S]*readExercises\(request\)[\s\S]*readContent\(request\)[\s\S]*setPollEpoch/);
 });
 
 test('render polling is bounded and cleaned up', () => {
