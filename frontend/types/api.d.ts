@@ -3127,6 +3127,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/prompts/discard-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Unattached Image
+         * @description Best-effort cleanup for an upload whose following prompt write failed.
+         *
+         *     Only paths minted by ``upload_prompt_image`` are accepted. This endpoint is
+         *     deliberately not a general-purpose storage delete surface.
+         */
+        post: operations["discard_unattached_image_admin_writing_prompts_discard_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/prompts/{prompt_id}": {
         parameters: {
             query?: never;
@@ -11297,6 +11320,11 @@ export interface components {
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
         };
+        /** DiscardImageRequest */
+        DiscardImageRequest: {
+            /** Public Id */
+            public_id: string;
+        };
         /**
          * DraftUpsert
          * @description Body for PATCH .../draft. Empty-string is a valid payload —
@@ -12333,6 +12361,11 @@ export interface components {
              * @default true
              */
             reviewed: boolean;
+            /**
+             * Expected Image Public Id
+             * @description Optimistic-concurrency fingerprint for the chart being reviewed.
+             */
+            expected_image_public_id: string;
         };
         /**
          * PromptCreate
@@ -12340,11 +12373,8 @@ export interface components {
          *     the migration's CHECK constraints + writing_essays size caps.
          *
          *     Phase 2.3c-1: `prompt_image_url` + `prompt_image_public_id`
-         *     plumbed for Task 1 Academic charts/diagrams.  Both NULL on
-         *     text-only prompts.  Admin UI hides the upload field unless
-         *     `task_type == 'task1_academic'`; the schema doesn't enforce
-         *     the pairing yet (intentional flexibility for content edge
-         *     cases — see migration 038's comment).
+         *     plumbed for Task 1 Academic charts/diagrams. Both are NULL on
+         *     text-only prompts and the route validates them as one storage pair.
          */
         PromptCreate: {
             /** Task Type */
@@ -18328,6 +18358,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadImageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_unattached_image_admin_writing_prompts_discard_image_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscardImageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

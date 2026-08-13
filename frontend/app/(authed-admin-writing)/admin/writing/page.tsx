@@ -16,7 +16,7 @@ const groups = [
     description: 'Tạo bài viết, quản lý prompt và biên tập mẹo trước khi nội dung đến học viên.',
     items: [
       { title: 'Soạn bài viết', detail: 'Tạo bài mới và chấm bằng AI', href: '/pages/admin/writing/new.html', status: 'MIGRATING', statusClass: 'is-soon' },
-      { title: 'Thư viện prompt', detail: 'Task 1 · Task 2 · Sample essay', href: '/admin/writing/prompts', status: 'MIGRATING', statusClass: 'is-soon' },
+      { title: 'Thư viện prompt', detail: 'Prompt · Hình Task 1 · Answer key', href: '/admin/writing/prompts', status: 'NATIVE', statusClass: 'is-live' },
       { title: 'Mẹo viết', detail: 'Nội dung hỗ trợ người học', href: '/admin/writing/tips', status: 'MIGRATING', statusClass: 'is-soon' },
     ],
   },

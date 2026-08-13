@@ -302,19 +302,24 @@ on:
       - 'frontend/app/(authed-admin-writing)/**'
       - 'frontend/app/(authed-admin-writing-queue)/**'
       - 'frontend/app/(authed-admin-writing-status)/**'
+      - 'frontend/app/(authed-admin-writing-prompts)/**'
       - 'frontend/lib/admin-writing-queue-model.mjs'
       - 'frontend/lib/admin-writing-status-model.mjs'
+      - 'frontend/lib/admin-writing-prompts-model.mjs'
       - 'frontend/public/css/admin-writing-hub-next.css'
       - 'frontend/public/css/admin-writing-queue-next.css'
       - 'frontend/public/css/admin-writing-status-next.css'
+      - 'frontend/public/css/admin-writing-prompts-next.css'
       - 'frontend/public/pages/admin/writing/index.html'
       - 'frontend/public/pages/admin/writing/queue.html'
       - 'frontend/public/pages/admin/writing/status.html'
+      - 'frontend/public/pages/admin/writing/prompts.html'
       - 'frontend/public/pages/admin/writing/new.html'
       - 'frontend/public/js/admin-writing-queue.js'
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -911,6 +916,11 @@ jobs:
       # embedded Mock flags, hostile retry data and responsive layout.
       - name: Kiểm luồng Admin Writing Status native
         run: node tooling/verify-admin-writing-status-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Prompts mutates content, storage images, archive and answer-key state.
+      # The fixture pins exact ACKs, canonical readback and mobile layout.
+      - name: Kiểm luồng Admin Writing Prompts native
+        run: node tooling/verify-admin-writing-prompts-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

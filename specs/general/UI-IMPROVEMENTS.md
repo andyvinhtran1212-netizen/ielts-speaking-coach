@@ -1156,3 +1156,58 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 - Five-second polling cadence and terminal states remain compatible with the existing backend.
 - `embed` and `mocklane` survive the complete Queue → Status → Grade/Queue flow.
 - Direct legacy HTML remains available as the rollback artifact.
+
+## Admin Writing Prompts — native content workspace (2026-08-13)
+
+### Root causes and severity
+
+- **Critical — explicit clears were silently discarded.** `PromptUpdate` accepted
+  JSON `null`, but the route removed every `None` before sending the PATCH to
+  Supabase. Clearing difficulty, removing a chart or changing away from Task 1
+  Academic therefore left canonical database values unchanged while the legacy UI
+  reported success. The route now distinguishes omitted fields from explicit nulls,
+  permits null only for declared nullable fields and rejects null on required fields.
+- **Critical — stale answer keys could outlive their image.** Image replacement,
+  removal and soft-delete did not clear all analysis columns, and review writes did
+  not prove they still referred to the chart the admin opened. The backend now
+  invalidates the full analysis record whenever image/task identity changes, deletes
+  the prior Storage object only after a successful database update and uses
+  `expected_image_public_id` as an optimistic-concurrency fingerprint on approval.
+- **Medium — archive was effectively irreversible.** The API supported inactive rows
+  and restore, but the UI only loaded active prompts and labelled soft-delete as
+  deletion. The native workspace provides explicit Active and Archived views with
+  canonical readback after archive and restore.
+- **Medium — answer-key editing dropped schema data.** The legacy form omitted
+  `axes_or_categories`; saving an otherwise valid extraction could erase the axes,
+  categories or time frame used by grading. The native editor includes every
+  `PromptImageAnalysis` field and preserves the image fingerprint when saving.
+- **Medium — async writes lacked operational truth.** Browser-native confirms,
+  non-awaited list reloads and a “close and reopen” reanalysis message could present
+  stale state as success. Mutations are now locked, exact acknowledgements validated,
+  and both lifecycle lists read back before success appears. Pending analysis polls
+  sequentially only while visible; failed refreshes keep and label the last snapshot.
+
+### Design improvements implemented
+
+- A manually composed content workspace separates server filters, local search and
+  student/exam visibility without inventing backend search semantics. A visible cap
+  warning explains that local search covers at most the loaded 500 records.
+- Prompt cards combine Task, difficulty, audience and answer-key state into a compact
+  visual hierarchy; archived content gets one safe restore action.
+- Prompt content, image upload and verified answer-key editing live in distinct,
+  focus-trapped dialogs. Files accept only PNG/JPG/WebP and upload on Save, avoiding
+  abandoned objects when a user merely previews or cancels a form.
+- Responsive layouts collapse overview metrics, filters and cards without horizontal
+  overflow; keyboard focus and reduced-motion behavior follow the governed admin
+  token system.
+
+### Verification
+
+- Backend route tests cover nullable clears, required-null rejection, paired image
+  validation, old-object cleanup, full analysis invalidation, discard path scoping
+  and stale image-fingerprint rejection.
+- Frontend model tests reject malformed canonical payloads and pin URL filters plus
+  exact mutation acknowledgements.
+- The fixture-backed browser flow covers admin gate, active/archive reads, hostile
+  text escaping, answer-key approval, student/exam changes, create, archive, restore,
+  stale snapshot preservation and 390px layout.

@@ -435,7 +435,7 @@ const NAV_GROUPS = [
           // remains the cross-essay in-flight lane on the Queue.
           { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
-          { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
+          { slug: 'prompts',          label: 'Thư viện prompt',   href: '/admin/writing/prompts' },
           { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
           { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
           { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
