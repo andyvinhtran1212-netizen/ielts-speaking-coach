@@ -181,9 +181,8 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
     """Student × assignment matrix for one cohort.
 
     matrix[student_id][column_id] = {assignment_id, status, essay_id,
-    deadline, band}. Columns = distinct prompts assigned to the cohort,
-    separated by give/group and ordered by earliest assignment. Sparse: a
-    missing (student, give × prompt)
+    deadline, band}. Columns are distinct give/group × prompt identities,
+    ordered by earliest assignment. Sparse: a missing (student, give × prompt)
     pair simply has no key (the UI renders '—')."""
     await require_admin(authorization)
 
