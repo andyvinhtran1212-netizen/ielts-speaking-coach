@@ -285,7 +285,7 @@
         var res = await window.api.post('/admin/writing/essays', payload);
         // Pre-warm notification permission so the status page can notify on graded.
         WC.requestNotifyPermission();
-        window.location.href = '/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(res.essay_id);
+        window.location.href = '/admin/writing/status?essay_id=' + encodeURIComponent(res.essay_id);
       } catch (err) {
         setAlert('error', err.message);
         btn.disabled = false; btn.textContent = 'Submit for grading';

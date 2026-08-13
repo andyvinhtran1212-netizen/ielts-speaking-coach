@@ -431,7 +431,8 @@ const NAV_GROUPS = [
           // (both → queue.html after F3), so it's removed. grade.html now sets
           // subsection="queue" so the grade view highlights "Hàng chờ chấm".
           // "Trạng thái chấm" stays, deep-linking to the F1 "Đang chấm" lane;
-          // status.html is kept for the post-submit poll (new.html redirect).
+          // The native status route owns the per-essay poller; this nav entry
+          // remains the cross-essay in-flight lane on the Queue.
           { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },

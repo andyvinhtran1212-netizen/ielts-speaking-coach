@@ -57,7 +57,7 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(isWritingEssayOverdue(row, Date.parse('2026-08-13T00:00:00Z')), true);
     assert.equal(isWritingEssayOverdue({ ...row, status: 'delivered' }, Date.parse('2026-08-13T00:00:00Z')), false);
     assert.deepEqual([writingMockMinimum('task1_academic'), writingMockMinimum('task2')], [150, 250]);
-    assert.equal(writingQueueDestination({ ...row, status: 'grading' }, { lane: 'graded', embed: false }), '/pages/admin/writing/status.html?essay_id=e1');
+    assert.equal(writingQueueDestination({ ...row, status: 'grading' }, { lane: 'graded', embed: false }), '/admin/writing/status?essay_id=e1');
     assert.equal(writingQueueDestination({ ...row, status: 'pending', grading_skipped_at: '2026-08-13T00:00:00Z', gradingSkippedAt: '2026-08-13T00:00:00Z' }, { lane: 'mock', embed: false }), '/admin/writing/grade?essay_id=e1&mocklane=1');
     assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1');
   });

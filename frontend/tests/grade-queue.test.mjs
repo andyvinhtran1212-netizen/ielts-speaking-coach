@@ -60,7 +60,7 @@ describe('queue.html — status tabs + overdue overlay (cross-cutting)', () => {
     assert.match(JS, /setInterval\(/);
   });
   test('F1: in-flight rows (pending/grading) open the status poller, not grade', () => {
-    assert.match(JS, /st === 'pending' \|\| st === 'grading'[\s\S]*?status\.html\?essay_id=/);
+    assert.match(JS, /st === 'pending' \|\| st === 'grading'[\s\S]*?\/admin\/writing\/status\?essay_id=/);
   });
 });
 
