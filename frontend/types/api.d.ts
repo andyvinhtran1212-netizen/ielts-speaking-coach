@@ -3495,6 +3495,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/assignments/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Assignment Request
+         * @description Read back every assignment named by an idempotent request receipt.
+         *
+         *     A single representative row cannot prove that a bulk Cartesian insert is
+         *     still complete. This endpoint binds the immutable admin-owned receipt to
+         *     the current canonical assignment rows and returns the exact IDs that still
+         *     belong to the recorded group; the client keeps reconciliation pending
+         *     unless the complete set matches.
+         */
+        get: operations["verify_assignment_request_admin_writing_assignments_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/assignments/{assignment_id}": {
         parameters: {
             query?: never;
@@ -11547,6 +11573,10 @@ export interface components {
          *     `prompt_ids`.
          */
         FanOutCreate: {
+            /** Request Id */
+            request_id?: string | null;
+            /** Expected Student Count */
+            expected_student_count?: number | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -13233,6 +13263,8 @@ export interface components {
          *     constraint enforces at the DB layer.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
+            /** Request Id */
+            request_id?: string | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -19079,6 +19111,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_assignment_request_admin_writing_assignments_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

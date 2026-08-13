@@ -304,15 +304,21 @@ on:
       - 'frontend/app/(authed-admin-writing-status)/**'
       - 'frontend/app/(authed-admin-writing-prompts)/**'
       - 'frontend/app/(authed-admin-writing-regrade)/**'
+      - 'frontend/app/(authed-admin-writing-assignments)/**'
+      - 'backend/routers/admin_writing_assignments.py'
+      - 'backend/migrations/206_writing_assignment_idempotency.sql'
+      - 'backend/tests/test_admin_writing_assignments.py'
       - 'frontend/lib/admin-writing-queue-model.mjs'
       - 'frontend/lib/admin-writing-status-model.mjs'
       - 'frontend/lib/admin-writing-prompts-model.mjs'
       - 'frontend/lib/admin-writing-regrade-model.mjs'
+      - 'frontend/lib/admin-writing-assignments-model.mjs'
       - 'frontend/public/css/admin-writing-hub-next.css'
       - 'frontend/public/css/admin-writing-queue-next.css'
       - 'frontend/public/css/admin-writing-status-next.css'
       - 'frontend/public/css/admin-writing-prompts-next.css'
       - 'frontend/public/css/admin-writing-regrade-next.css'
+      - 'frontend/public/css/admin-writing-assignments-next.css'
       - 'frontend/public/pages/admin/writing/index.html'
       - 'frontend/public/pages/admin/writing/queue.html'
       - 'frontend/public/pages/admin/writing/status.html'
@@ -325,6 +331,7 @@ on:
       - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -931,6 +938,12 @@ jobs:
       # fixture pins exact ACKs, atomic state, readback retry and mobile layout.
       - name: Kiểm luồng Admin Writing Regrade Requests native
         run: node tooling/verify-admin-writing-regrade-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Assignments fan-out can duplicate hundreds of writes when a client
+      # retries POST after a readback failure. This fixture pins immutable
+      # receipts, GET-only reconciliation and source-specific picker errors.
+      - name: Kiểm luồng Admin Writing Assignments native
+        run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
