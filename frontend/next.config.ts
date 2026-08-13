@@ -57,7 +57,8 @@ const nextConfig: NextConfig = {
         { source: '/admin/writing/cohorts', destination: '/pages/admin/writing/cohorts.html' },
         // `/admin/writing/regrade-requests` is native; direct legacy HTML stays
         // available at `/pages/admin/writing/regrade-requests.html` for rollback.
-        { source: '/admin/writing/assignments', destination: '/pages/admin/writing/assignments.html' },
+        // `/admin/writing/assignments` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/assignments.html` for rollback.
         // CUTOVER 2026-08-05 — `/home` nay là ROUTE NEXT
         // (`app/(authed-home)/home/`), không còn rewrite sang bản legacy.
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn

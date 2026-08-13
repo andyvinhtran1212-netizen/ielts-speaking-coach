@@ -51,8 +51,8 @@ describe('/admin/writing native operations hub', () => {
       '/writing/dashboard',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     assert.equal((PAGE.match(/href: '/g) || []).length, 10);
-    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 5);
-    assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 5);
+    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 6);
+    assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 4);
     assert.match(PAGE, /Chuẩn bị → Chấm → Giao & theo dõi/);
     assert.doesNotMatch(PAGE, /<span[^>]*>[^<]*(?:✍|📚|💡|📥|🔄|👤|📌|👥|🎓)/);
   });

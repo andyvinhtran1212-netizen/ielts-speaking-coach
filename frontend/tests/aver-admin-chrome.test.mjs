@@ -445,14 +445,14 @@ describe('Sprint 12.1 — next.config.ts carries 12 admin redirects', () => {
     }
   });
 
-  it('cuts prompts and regrade requests to Next while assignments remains legacy', () => {
+  it('cuts prompts, regrade requests and assignments to Next', () => {
     const json = routeConfig;
     const prompts = json.rewrites.find((r) => r.source === '/admin/writing/prompts');
     const regrades = json.rewrites.find((r) => r.source === '/admin/writing/regrade-requests');
     const assignments = json.rewrites.find((r) => r.source === '/admin/writing/assignments');
     assert.equal(prompts, undefined);
     assert.equal(regrades, undefined);
-    assert.equal(assignments.destination, '/pages/admin/writing/assignments.html');
+    assert.equal(assignments, undefined);
   });
 });
 

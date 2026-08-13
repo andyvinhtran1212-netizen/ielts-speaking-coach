@@ -434,7 +434,7 @@ const NAV_GROUPS = [
           // The native status route owns the per-essay poller; this nav entry
           // remains the cross-essay in-flight lane on the Queue.
           { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
-          { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
+          { slug: 'assignments',      label: 'Gán bài tập',       href: '/admin/writing/assignments' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/admin/writing/prompts' },
           { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
           { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },

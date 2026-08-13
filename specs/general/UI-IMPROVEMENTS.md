@@ -1259,3 +1259,52 @@ The legacy `/pages/admin/writing/status.html` was audited against its backend co
 - The fixture-backed production browser flow covers hostile text, fresh detail reads,
   Accept followed by a failed readback without a duplicate PATCH, retry reconciliation,
   native grade handoff, stale snapshot preservation and 390px no-overflow layout.
+
+## 2026-08-13 — Admin Writing Assignments native redesign
+
+### Root causes and severity
+
+- **Critical — a successful fan-out could be repeated after readback failure.** The
+  legacy flow used a single `try` around POST plus list reload and had no durable
+  acknowledgement state. A network failure after the insert left the same “Giao
+  bài” action available, so retrying could create the full Cartesian product again.
+  The native flow persists a client request UUID before POST; migration 206 owns
+  the request ledger and Cartesian insert in one transaction. An ambiguous retry
+  with the same UUID returns the original receipt instead of inserting again. Once
+  acknowledged, the client stores that receipt separately and exposes only GET
+  reconciliation.
+- **Medium — list completeness was invisible.** The assignment endpoint silently
+  returned at most 200/500 rows, so counts and search could look complete while old
+  assignments were omitted. It now reads a sentinel row and returns `capped`; the
+  UI labels the scope rather than presenting partial data as canonical totals.
+- **Medium — cohort failures masqueraded as an empty catalog.** The legacy
+  `loadCohorts()` swallowed every error and replaced the source with `[]`. The new
+  composer loads prompts, students and cohorts independently with source-specific
+  errors, excludes malformed rows and never enables a stale failed source.
+- **Medium — the destructive scale of fan-out was hidden behind browser confirm.**
+  Admins selected inputs in one long modal, then saw a generic native confirmation.
+  A dedicated review step now shows `đề × học viên = bài sẽ tạo`, the exact class,
+  timing, feedback depth and duplicate policy before POST. The reviewed cohort
+  count is also sent as a backend precondition; a membership change returns 409
+  and forces a fresh review instead of silently changing fan-out scale.
+
+### Design improvements implemented
+
+- Grouped register cards mirror one give-action and expose per-row learner, prompt,
+  timer/deadline, lifecycle state and the next grade action without a wide table.
+- The composer keeps individual, cohort, multi-prompt, Student Hub deep-link,
+  soft-check, IELTS timer and L1–L5 capabilities, with searchable bounded pickers.
+- URL-backed status, cohort and local query filters are shareable; stale snapshots,
+  caps and malformed rows remain visible instead of collapsing to empty states.
+- The focus-trapped two-stage dialog, 44px controls, visible keyboard focus,
+  reduced-motion treatment and 390px single-column layout replace `alert/confirm`.
+
+### Verification
+
+- Backend tests pin the 501st sentinel and confirm the public response remains at
+  500 rows with an explicit `capped=true` signal.
+- Model tests reject impossible timer/status identities, duplicate IDs and malformed
+  receipts, and cover grouping, URL normalization and server caps.
+- The fixture-backed browser flow checks hostile text, partial picker failure,
+  exact review arithmetic, successful POST followed by failed readback, GET-only
+  retry reconciliation, and mobile overflow.
