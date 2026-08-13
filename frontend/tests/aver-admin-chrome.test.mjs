@@ -445,11 +445,11 @@ describe('Sprint 12.1 — next.config.ts carries 12 admin redirects', () => {
     }
   });
 
-  it('updates two existing /admin/writing rewrites to nested paths', () => {
+  it('cuts prompts to Next while assignments remains a nested legacy rewrite', () => {
     const json = routeConfig;
     const prompts = json.rewrites.find((r) => r.source === '/admin/writing/prompts');
     const assignments = json.rewrites.find((r) => r.source === '/admin/writing/assignments');
-    assert.equal(prompts.destination,     '/pages/admin/writing/prompts.html');
+    assert.equal(prompts, undefined);
     assert.equal(assignments.destination, '/pages/admin/writing/assignments.html');
   });
 });

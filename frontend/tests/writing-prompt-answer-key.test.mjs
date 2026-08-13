@@ -4,7 +4,7 @@
  * Pins the admin review UI in prompts.html + the endpoints it calls:
  *   • panel elements + status badge
  *   • edit-mode-only visibility (needs a prompt id for PATCH/reanalyze)
- *   • Save&Approve → PATCH /{id}/analysis {analysis, reviewed:true}
+ *   • Save&Approve → PATCH /{id}/analysis with the chart fingerprint
  *   • Re-analyze → POST /{id}/reanalyze
  *   • notable_data "label | value | unit" round-trip
  */
@@ -40,8 +40,11 @@ describe('prompts.html — answer-key panel elements', () => {
 });
 
 describe('prompts.html — answer-key endpoints', () => {
-  test('Save&Approve PATCHes /{id}/analysis with reviewed:true', () => {
-    assert.match(html, /\/analysis',\s*\{\s*analysis:\s*collectAnalysis\(\),\s*reviewed:\s*true\s*\}/);
+  test('Save&Approve PATCHes /{id}/analysis with reviewed:true and image fingerprint', () => {
+    assert.match(
+      html,
+      /\/analysis',\s*\{\s*analysis:\s*collectAnalysis\(\),\s*reviewed:\s*true,\s*expected_image_public_id:\s*current\.prompt_image_public_id,?\s*\}/,
+    );
   });
   test('Re-analyze POSTs /{id}/reanalyze', () => {
     assert.match(html, /\/reanalyze',\s*\{\}\)/);

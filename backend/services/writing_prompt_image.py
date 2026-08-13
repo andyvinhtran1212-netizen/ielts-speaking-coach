@@ -76,10 +76,11 @@ def upload_prompt_image(
 
     Returns ``{"url": <public url>, "public_id": <storage path>,
     "width": None, "height": None}``. ``public_id`` carries the storage
-    path so ``delete_prompt_image`` can remove the object on prompt
-    delete (the column ``writing_prompts.prompt_image_public_id`` stores
-    it). ``width``/``height`` are ``None`` — without Pillow we don't
-    decode dimensions; the response model declares them Optional.
+    path stored in ``writing_prompts.prompt_image_public_id``. Once attached,
+    an object is retained as immutable historical grading evidence; deletion
+    is reserved for uploads that fail or are abandoned before attachment.
+    ``width``/``height`` are ``None`` — without Pillow we don't decode
+    dimensions; the response model declares them Optional.
 
     Raises:
         ValueError: size or format guard fails (router maps to 400).
@@ -131,9 +132,10 @@ def upload_prompt_image(
 
 
 def delete_prompt_image(public_id: Optional[str]) -> bool:
-    """Best-effort delete of the stored object. ``public_id`` is the
-    storage path returned by ``upload_prompt_image``. Never raises —
-    a cleanup failure must not block the prompt soft-delete."""
+    """Best-effort delete for an unattached upload. ``public_id`` is the
+    storage path returned by ``upload_prompt_image``. Callers must first prove
+    the object is not attached to a prompt; published objects are immutable.
+    Never raises because cleanup failure must not hide the original write."""
     if not public_id:
         return False
     try:

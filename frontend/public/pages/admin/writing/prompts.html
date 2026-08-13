@@ -481,8 +481,15 @@
       if (!_editingId) return;
       hide('analysis-error');
       try {
-        await window.api.patch('/admin/writing/prompts/' + _editingId + '/analysis',
-          { analysis: collectAnalysis(), reviewed: true });
+        var current = _allPrompts.find(function (x) { return x.id === _editingId; });
+        if (!current || !current.prompt_image_public_id) {
+          throw new Error('Ảnh đã thay đổi. Hãy tải lại prompt trước khi duyệt.');
+        }
+        await window.api.patch('/admin/writing/prompts/' + _editingId + '/analysis', {
+          analysis: collectAnalysis(),
+          reviewed: true,
+          expected_image_public_id: current.prompt_image_public_id,
+        });
         await loadPrompts();
         var p = _allPrompts.find(function (x) { return x.id === _editingId; });
         if (p) renderAnalysisPanel(p);

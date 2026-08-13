@@ -33,7 +33,7 @@ await page.getByRole('heading', { name: 'Writing workspace', exact: true }).wait
 check('backend-owned admin gate chạy', requests.includes('GET /auth/me'));
 check('learner preview là canonical route', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/writing/dashboard');
 check('ba chặng và mười workspace có full-card anchor', await page.locator('.wth-group').count() === 3 && await page.locator('a.wth-card[href]').count() === 10);
-check('ownership hiển thị đúng', await page.getByText('NATIVE', { exact: true }).count() === 3 && await page.getByText('MIGRATING', { exact: true }).count() === 7);
+check('ownership hiển thị đúng', await page.getByText('NATIVE', { exact: true }).count() === 4 && await page.getByText('MIGRATING', { exact: true }).count() === 6);
 check('mobile một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.wth-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });
