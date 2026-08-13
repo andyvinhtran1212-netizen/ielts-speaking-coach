@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeMatches } from '../lib/admin-writing-regrade-model.mjs';
+import { normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeMatches, regradeSort } from '../lib/admin-writing-regrade-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -40,6 +40,13 @@ describe('Admin Writing Regrade native model', () => {
     assert.equal(regradeHref({ status: 'fulfilled', q: 'S001' }), '/admin/writing/regrade-requests?status=fulfilled&q=S001');
     assert.equal(regradeMatches(normalizeRegradeRequest(raw), { status: 'pending', q: 's001' }), true);
   });
+
+  test('prioritizes oldest pending requests while keeping history newest first', () => {
+    const older = normalizeRegradeRequest({ ...raw, id: 'older', created_at: '2026-08-11T00:00:00Z' });
+    const newer = normalizeRegradeRequest({ ...raw, id: 'newer', created_at: '2026-08-13T00:00:00Z' });
+    assert.deepEqual(regradeSort([newer, older], 'pending').map((row) => row.id), ['older', 'newer']);
+    assert.deepEqual(regradeSort([older, newer], 'accepted').map((row) => row.id), ['newer', 'older']);
+  });
 });
 
 describe('/admin/writing/regrade-requests native ownership and safety', () => {
@@ -60,13 +67,16 @@ describe('/admin/writing/regrade-requests native ownership and safety', () => {
     assert.match(COMPONENT, /pendingDecision\.current/);
     assert.match(COMPONENT, /const detail = normalizeRegradeDecision/);
     assert.match(COMPONENT, /const canonical = await loadAll\(true\)/);
+    assert.match(COMPONENT, /window\.api\.get<unknown>\('\/admin\/writing\/regrade-requests'\)/);
+    assert.doesNotMatch(COMPONENT, /Promise\.all\(TABS\.map/);
+    assert.match(COMPONENT, /detailRequestId !== detailSequence\.current/);
     assert.match(COMPONENT, /mutationLock\.current/);
     assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
   });
 
   test('renders contract failures, cap truth and accessible responsive UI', () => {
     assert.match(COMPONENT, /Có lane chạm ngưỡng 300/);
-    assert.match(COMPONENT, /Promise\.all\(TABS\.map/);
+    assert.match(COMPONENT, /regradeSort\(/);
     assert.match(COMPONENT, /Dữ liệu bị loại/);
     assert.match(COMPONENT, /detailStale/);
     assert.match(COMPONENT, /aria-label="Trạng thái yêu cầu"/);

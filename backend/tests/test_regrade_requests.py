@@ -169,7 +169,7 @@ def test_admin_list_requires_auth():
 
 def test_admin_list_reports_cap_with_301st_sentinel():
     source = [{"id": f"r-{index}", "status": "pending"} for index in range(301)]
-    db = _routed_db({"essay_regrade_requests": source})
+    db = _rpc_db({"requests": source[:300], "capped": True})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
@@ -179,6 +179,28 @@ def test_admin_list_reports_cap_with_301st_sentinel():
     assert r.status_code == 200
     assert len(r.json()["requests"]) == 300
     assert r.json()["capped"] is True
+    db.rpc.assert_called_once_with("fn_list_writing_regrade_requests", {
+        "p_status": "pending", "p_cohort_id": None,
+    })
+
+
+def test_admin_list_reads_all_lanes_from_one_rpc_snapshot():
+    source = [
+        {"id": "pending-1", "status": "pending"},
+        {"id": "accepted-1", "status": "accepted"},
+        {"id": "rejected-1", "status": "rejected"},
+        {"id": "fulfilled-1", "status": "fulfilled"},
+    ]
+    db = _rpc_db({"requests": source, "capped": False})
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db), \
+         patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
+        r = TestClient(_app()).get("/admin/writing/regrade-requests", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert [row["id"] for row in r.json()["requests"]] == [row["id"] for row in source]
+    db.rpc.assert_called_once_with("fn_list_writing_regrade_requests", {
+        "p_status": None, "p_cohort_id": None,
+    })
 
 
 def test_admin_accept_un_delivers_essay():

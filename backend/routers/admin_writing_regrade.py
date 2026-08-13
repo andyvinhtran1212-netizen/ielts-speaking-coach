@@ -121,31 +121,23 @@ async def list_regrade_requests(
     + cohort filters. `cohort_id` resolves to its students first (19.2 pattern)."""
     await require_admin(authorization)
 
-    cohort_student_ids: Optional[list[str]] = None
-    if cohort_id:
-        srows = (
-            supabase_admin.table("students").select("id")
-            .eq("cohort_id", str(cohort_id)).execute()
-        ).data or []
-        cohort_student_ids = [s["id"] for s in srows]
-        if not cohort_student_ids:
-            return {"requests": [], "capped": False}
+    # Migration 205 ranks/caps each lane in one SQL statement. Four separate
+    # HTTP reads can observe four different snapshots around a concurrent PATCH
+    # and silently omit or duplicate a request across lanes.
+    try:
+        raw = supabase_admin.rpc("fn_list_writing_regrade_requests", {
+            "p_status": status,
+            "p_cohort_id": str(cohort_id) if cohort_id else None,
+        }).execute().data
+    except Exception as exc:
+        logger.error("[regrade] canonical list failed status=%s cohort=%s: %s", status, cohort_id, exc)
+        raise HTTPException(500, "Không thể đọc danh sách yêu cầu chấm lại.")
 
-    # Fetch one sentinel beyond the UI contract so an operator is never told
-    # this is the complete queue when the safety cap has truncated it.
-    q = (
-        supabase_admin.table("essay_regrade_requests")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(301)
-    )
-    if status:
-        q = q.eq("status", status)
-    if cohort_student_ids is not None:
-        q = q.in_("student_id", cohort_student_ids)
-
-    rows = q.execute().data or []
-    return {"requests": _decorate(rows[:300]), "capped": len(rows) > 300}
+    result = raw[0] if isinstance(raw, list) and raw else raw
+    if not isinstance(result, dict) or not isinstance(result.get("requests"), list) \
+            or not isinstance(result.get("capped"), bool):
+        raise HTTPException(500, "Máy chủ không trả về danh sách chấm lại hợp lệ.")
+    return {"requests": _decorate(result["requests"]), "capped": result["capped"]}
 
 
 @router.get("/{request_id}")

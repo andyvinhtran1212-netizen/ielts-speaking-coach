@@ -87,3 +87,14 @@ export function regradeMatches(row, filters) {
   return `${row.studentName} ${row.studentCode || ''} ${row.cohortName || ''} ${row.essayPrompt || ''} ${row.reason}`
     .toLocaleLowerCase('vi').includes(query);
 }
+
+export function regradeSort(rows, status) {
+  const direction = status === 'pending' ? 1 : -1;
+  return [...rows].sort((left, right) => {
+    const leftTime = left?.createdAt ? Date.parse(left.createdAt) : Number.NaN;
+    const rightTime = right?.createdAt ? Date.parse(right.createdAt) : Number.NaN;
+    if (Number.isNaN(leftTime)) return Number.isNaN(rightTime) ? 0 : 1;
+    if (Number.isNaN(rightTime)) return -1;
+    return direction * (leftTime - rightTime);
+  });
+}

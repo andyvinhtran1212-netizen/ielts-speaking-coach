@@ -13,8 +13,9 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const dangerous = '<img src=x onerror="window.__regradeXss=1">';
 const row = (overrides = {}) => ({ id: 'r1', essay_id: 'e1', student_id: 's1', reason: 'Em đã nêu đủ hai khía cạnh và muốn phần Task Response được kiểm tra lại kỹ hơn.', status: 'pending', student_name: dangerous, student_code: 'S001', cohort_name: 'A1', essay_task_type: 'task2', essay_prompt: 'Discuss whether cities should invest in public transport.', essay_status: 'delivered', essay_band: 6.5, admin_response: null, created_at: '2026-08-12T00:00:00Z', updated_at: '2026-08-12T00:00:00Z', actioned_at: null, fulfilled_at: null, ...overrides });
-let rows = [row(), row({ id: 'r2', essay_id: 'e2', student_name: 'Lan', student_code: 'S002', status: 'rejected', admin_response: 'Band hiện tại đã đúng theo descriptor.' })];
+let rows = [row(), row({ id: 'r2', essay_id: 'e2', student_name: 'Lan', student_code: 'S002', status: 'rejected', admin_response: 'Band hiện tại đã đúng theo descriptor.' }), row({ id: 'r3', essay_id: 'e3', student_name: 'Bình', student_code: 'S003', status: 'fulfilled', fulfilled_at: '2026-08-13T00:00:00Z' })];
 let failNextList = false; let failNextAcceptedDetail = false;
+let delayR2 = false; let releaseR2;
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
@@ -31,13 +32,13 @@ await page.route('**/*', async (route) => {
   if (path === '/auth/me') return json({ id: adminId, email: 'admin-writing-regrade@local', role: 'admin' });
   if (path === '/admin/writing/regrade-requests' && method === 'GET') {
     if (failNextList) { failNextList = false; return json({ detail: 'fixture list failure' }, 503); }
-    const status = parsed.searchParams.get('status');
-    return json({ requests: rows.filter((item) => !status || item.status === status), capped: false });
+    return json({ requests: rows, capped: false });
   }
   const match = path.match(/^\/admin\/writing\/regrade-requests\/([^/]+)$/);
   if (match) {
     const current = rows.find((item) => item.id === decodeURIComponent(match[1]));
     if (method === 'GET') {
+      if (current?.id === 'r2' && delayR2) await new Promise((resolve) => { releaseR2 = resolve; });
       if (current?.id === 'r1' && current.status === 'accepted' && failNextAcceptedDetail) { failNextAcceptedDetail = false; return json({ detail: 'fixture readback failure' }, 503); }
       return current ? json(current) : json({ detail: 'not found' }, 404);
     }
@@ -54,10 +55,8 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/writing/regrade-requests`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Yêu cầu chấm lại', exact: true }).waitFor();
 await page.getByText(dangerous, { exact: true }).waitFor();
-for (let attempt = 0; attempt < 40 && new Set(requests.filter((item) => item.path === '/admin/writing/regrade-requests' && item.method === 'GET').map((item) => item.status)).size < 4; attempt += 1) {
-  await page.waitForTimeout(25);
-}
-check('admin gate và bốn lane canonical được tải riêng', requests.some((item) => item.path === '/auth/me') && new Set(requests.filter((item) => item.path === '/admin/writing/regrade-requests' && item.method === 'GET').map((item) => item.status)).size === 4);
+const initialListReads = requests.filter((item) => item.path === '/admin/writing/regrade-requests' && item.method === 'GET');
+check('admin gate và bốn lane dùng chung một snapshot HTTP', requests.some((item) => item.path === '/auth/me') && initialListReads.length >= 1 && initialListReads.every((item) => item.status === null));
 check('hostile student name hiển thị như text', await page.evaluate(() => window.__regradeXss !== 1));
 
 await page.getByRole('button', { name: 'Mở hồ sơ' }).click();
@@ -79,6 +78,18 @@ failNextList = true;
 await page.getByRole('button', { name: 'Làm mới canonical' }).click();
 await page.getByText('Snapshot cũ', { exact: true }).waitFor();
 check('refresh lỗi giữ snapshot và gắn nhãn stale', await page.getByText('Lan').count() > 0);
+
+delayR2 = true;
+await page.getByRole('button', { name: 'Mở hồ sơ' }).click();
+await page.getByRole('dialog').getByText('Đóng', { exact: true }).click();
+await page.getByRole('button', { name: /Đã xong/ }).click();
+await page.getByText('Bình').waitFor();
+await page.getByRole('button', { name: 'Mở hồ sơ' }).click();
+await page.getByRole('dialog').getByText('Bình', { exact: true }).waitFor();
+releaseR2();
+await page.waitForTimeout(50);
+check('detail cũ không mở lại hoặc ghi đè hồ sơ mới', await page.getByRole('dialog').getByText('Bình', { exact: true }).count() === 1 && await page.getByRole('dialog').getByText('Lan', { exact: true }).count() === 0);
+await page.getByRole('dialog').getByText('Đóng', { exact: true }).click();
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awr-card')).gridTemplateColumns.split(' ').length }));

@@ -9,6 +9,39 @@
 
 BEGIN;
 
+CREATE OR REPLACE FUNCTION fn_list_writing_regrade_requests(
+    p_status    TEXT DEFAULT NULL,
+    p_cohort_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    WITH ranked AS (
+        SELECT r.*,
+               ROW_NUMBER() OVER (
+                   PARTITION BY r.status
+                   ORDER BY r.created_at DESC, r.id DESC
+               ) AS lane_rank,
+               COUNT(*) OVER (PARTITION BY r.status) AS lane_total
+          FROM essay_regrade_requests AS r
+          LEFT JOIN students AS s ON s.id = r.student_id
+         WHERE (p_status IS NULL OR r.status = p_status)
+           AND (p_cohort_id IS NULL OR s.cohort_id = p_cohort_id)
+    )
+    SELECT jsonb_build_object(
+        'requests', COALESCE(
+            jsonb_agg(to_jsonb(ranked) - 'lane_rank' - 'lane_total'
+                      ORDER BY created_at DESC, id DESC)
+                FILTER (WHERE lane_rank <= 300),
+            '[]'::JSONB
+        ),
+        'capped', COALESCE(BOOL_OR(lane_total > 300), FALSE)
+    )
+      FROM ranked;
+$$;
+
 CREATE OR REPLACE FUNCTION fn_action_writing_regrade_request(
     p_request_id UUID,
     p_admin_id   UUID,
@@ -188,6 +221,9 @@ CREATE TRIGGER trg_fulfil_writing_regrade_on_delivery
 COMMENT ON FUNCTION fn_action_writing_regrade_request(UUID, UUID, TEXT, TEXT) IS
 'Atomic admin accept/reject for a Writing regrade request. Accept also moves the delivered essay to reviewed in the same locked transaction.';
 
+COMMENT ON FUNCTION fn_list_writing_regrade_requests(TEXT, UUID) IS
+'Reads every status lane from one PostgreSQL statement snapshot, capped independently at 300 rows per lane.';
+
 COMMENT ON FUNCTION fn_deliver_writing_essay(UUID, TEXT, BOOLEAN) IS
 'Atomic reviewed-to-delivered transition. Any accepted regrade request is fulfilled in the same transaction.';
 
@@ -197,6 +233,11 @@ COMMENT ON FUNCTION fn_fulfil_writing_regrade_on_delivery() IS
 REVOKE EXECUTE ON FUNCTION fn_action_writing_regrade_request(UUID, UUID, TEXT, TEXT)
     FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION fn_action_writing_regrade_request(UUID, UUID, TEXT, TEXT)
+    TO service_role;
+
+REVOKE EXECUTE ON FUNCTION fn_list_writing_regrade_requests(TEXT, UUID)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION fn_list_writing_regrade_requests(TEXT, UUID)
     TO service_role;
 
 REVOKE EXECUTE ON FUNCTION fn_deliver_writing_essay(UUID, TEXT, BOOLEAN)

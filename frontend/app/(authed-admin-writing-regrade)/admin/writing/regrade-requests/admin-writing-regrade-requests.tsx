@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
-import { normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeMatches } from '@/lib/admin-writing-regrade-model.mjs';
+import { normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeMatches, regradeSort } from '@/lib/admin-writing-regrade-model.mjs';
 
 type Status = 'pending' | 'accepted' | 'rejected' | 'fulfilled';
 type Row = { id: string; essayId: string; status: Status; reason: string; studentName: string; studentCode: string | null; cohortName: string | null; taskType: string | null; essayPrompt: string | null; essayStatus: string | null; essayBand: number | null; adminResponse: string | null; createdAt: string | null; updatedAt: string | null; actionedAt: string | null; fulfilledAt: string | null };
@@ -43,6 +43,7 @@ export function AdminWritingRegradeRequests() {
   const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
+  const detailSequence = useRef(0);
   const mutationLock = useRef(false);
   const pendingDecision = useRef<PendingDecision | null>(null);
   const profileRef = useRef(profile.id); profileRef.current = profile.id;
@@ -54,16 +55,11 @@ export function AdminWritingRegradeRequests() {
     if (!silent) setLoading(true);
     setLoadError(null);
     try {
-      const lanes = await Promise.all(TABS.map(async (tab) => {
-        const normalized = normalizeRegradeList(await window.api.get<unknown>(`/admin/writing/regrade-requests?status=${tab.id}`)) as { rows: Row[]; capped: boolean; malformedCount: number } | null;
-        if (!normalized || normalized.rows.some((row) => row.status !== tab.id)) throw new Error(`Lane ${tab.id} không đúng định dạng canonical.`);
-        return normalized;
-      }));
+      const normalized = normalizeRegradeList(await window.api.get<unknown>('/admin/writing/regrade-requests')) as { rows: Row[]; capped: boolean; malformedCount: number } | null;
+      if (!normalized) throw new Error('Snapshot yêu cầu không đúng định dạng canonical.');
       if (requestId !== sequence.current || profileRef.current !== account) return null;
-      const merged = lanes.flatMap((lane) => lane.rows);
-      if (new Set(merged.map((row) => row.id)).size !== merged.length) throw new Error('Một yêu cầu xuất hiện ở nhiều lane canonical.');
-      setSnapshot({ account, rows: merged, capped: lanes.some((lane) => lane.capped), malformed: lanes.reduce((sum, lane) => sum + lane.malformedCount, 0), readAt: new Date().toISOString() });
-      return merged;
+      setSnapshot({ account, rows: normalized.rows, capped: normalized.capped, malformed: normalized.malformedCount, readAt: new Date().toISOString() });
+      return normalized.rows;
     } catch (caught) {
       if (requestId === sequence.current && profileRef.current === account) setLoadError(messageOf(caught));
       return null;
@@ -75,12 +71,12 @@ export function AdminWritingRegradeRequests() {
   useEffect(() => {
     pendingDecision.current = null; mutationLock.current = false; setSelected(null); setBanner(null); setSnapshot(null);
     void loadAll();
-    return () => { sequence.current += 1; };
+    return () => { sequence.current += 1; detailSequence.current += 1; };
   }, [profile.id, loadAll]);
 
   useEffect(() => { setQuery(filters.q); }, [filters.q]);
 
-  const visible = useMemo(() => rows.filter((row) => regradeMatches(row, { ...filters, q: query })), [rows, filters, query]);
+  const visible = useMemo(() => regradeSort(rows.filter((row) => regradeMatches(row, { ...filters, q: query })), filters.status) as Row[], [rows, filters, query]);
   const counts = useMemo(() => Object.fromEntries(TABS.map((tab) => [tab.id, rows.filter((row) => row.status === tab.id).length])), [rows]);
   const stale = Boolean(loadError && snapshot?.account === profile.id);
 
@@ -91,12 +87,17 @@ export function AdminWritingRegradeRequests() {
 
   const openDetail = async (row: Row) => {
     if (busy) return;
+    const detailRequestId = ++detailSequence.current;
+    const account = profile.id;
     setSelected(row); setDetailStale(true); setRejectMode(false); setResponse(''); setDialogError(null); pendingDecision.current = null;
     try {
       const detail = normalizeRegradeRequest(await window.api.get<unknown>(`/admin/writing/regrade-requests/${encodeURIComponent(row.id)}`)) as Row | null;
       if (!detail || detail.id !== row.id) throw new Error('Chi tiết yêu cầu không đúng định dạng.');
+      if (detailRequestId !== detailSequence.current || profileRef.current !== account) return;
       setSelected(detail); setDetailStale(false);
-    } catch (caught) { setDialogError(`Không đọc được chi tiết mới nhất: ${messageOf(caught)}`); }
+    } catch (caught) {
+      if (detailRequestId === detailSequence.current && profileRef.current === account) setDialogError(`Không đọc được chi tiết mới nhất: ${messageOf(caught)}`);
+    }
   };
 
   const reconcile = async (pending: PendingDecision, account: string) => {
@@ -140,7 +141,7 @@ export function AdminWritingRegradeRequests() {
     } finally { mutationLock.current = false; setBusy(false); }
   };
 
-  const close = () => { if (!busy) { setSelected(null); setDialogError(null); pendingDecision.current = null; } };
+  const close = () => { if (!busy) { detailSequence.current += 1; setSelected(null); setDialogError(null); pendingDecision.current = null; } };
   const dialogStatus = selected?.status || 'pending';
 
   return <main className="awr-shell">
