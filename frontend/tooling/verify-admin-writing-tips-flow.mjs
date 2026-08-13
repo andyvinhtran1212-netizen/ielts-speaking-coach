@@ -1,0 +1,56 @@
+// Fixture-backed browser contract for native Admin Writing Tips.
+import { existsSync } from 'node:fs';
+import { chromium } from 'playwright';
+import { storageKey } from './supabase-session.mjs';
+
+const BASE = process.argv[2] || 'http://localhost:3011'; const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const adminId = '00000000-0000-0000-0000-000000000125'; const session = JSON.stringify({ access_token: 'admin-writing-tips-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-tips@local' } });
+const now = '2026-08-13T00:00:00Z'; const dangerous = '<img src=x onerror="window.__tipsXss=1">'; const results = []; const errors = [];
+const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
+async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
+const tip = (id, slug, published = false, overrides = {}) => ({ id, title: slug === 'safe-tip' ? dangerous : `Tip ${id}`, slug, body_markdown: slug === 'safe-tip' ? '# Safe\n<script>window.__tipsXss=2</script>' : '# Useful tip', task_type: 'task_2', content_type: 'tip', category: 'ideas', published, display_order: 1, type_data: {}, created_at: now, updated_at: now, ...overrides });
+const imported = tip('00000000-0000-0000-0000-000000000103', 'imported-tip', false, { title: 'Imported tip', body_markdown: '# Imported' });
+const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 920 } }); await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
+let rows = [tip('00000000-0000-0000-0000-000000000101', 'safe-tip'), tip('00000000-0000-0000-0000-000000000102', 'published-tip', true)]; let loseCreateResponse = true; const requests = [];
+const page = await context.newPage(); page.on('pageerror', (error) => errors.push(String(error)));
+await page.route('**/*', async (route) => {
+  const request = route.request(); const url = request.url(); if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return route.continue(); if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
+  const parsed = new URL(url); const path = parsed.pathname; const method = request.method(); requests.push({ path, method, query: parsed.search }); const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  if (path === '/auth/me') return json({ id: adminId, email: 'admin-writing-tips@local', role: 'admin' });
+  if (path === '/admin/writing/tips' && method === 'GET') { let output = [...rows]; const task = parsed.searchParams.get('task_type'); const published = parsed.searchParams.get('published'); const slug = parsed.searchParams.get('slug'); if (task) output = output.filter((row) => row.task_type === task); if (published !== null) output = output.filter((row) => String(row.published) === published); if (slug) output = output.filter((row) => row.slug === slug); return json({ tips: output }); }
+  if (path === '/admin/writing/tips' && method === 'POST') { const body = request.postDataJSON(); const created = tip('00000000-0000-0000-0000-000000000104', body.slug, body.published, { ...body, created_at: now, updated_at: now, content_type: 'tip', type_data: {} }); rows.push(created); if (loseCreateResponse) { loseCreateResponse = false; return json({ detail: 'response lost after commit' }, 503); } return json(created, 201); }
+  const match = path.match(/^\/admin\/writing\/tips\/([^/]+)$/); if (match && method === 'GET') { const found = rows.find((row) => row.id === match[1]); return found ? json(found) : json({ detail: 'not found' }, 404); }
+  if (match && method === 'PATCH') { const index = rows.findIndex((row) => row.id === match[1]); if (index < 0) return json({ detail: 'not found' }, 404); rows[index] = { ...rows[index], ...request.postDataJSON(), updated_at: now }; return json(rows[index]); }
+  if (match && method === 'DELETE') { const index = rows.findIndex((row) => row.id === match[1]); if (index < 0) return json({ detail: 'not found' }, 404); rows.splice(index, 1); return json({ message: 'Đã xóa mẹo viết', tip_id: match[1] }); }
+  if (path === '/admin/writing/content/import' && method === 'POST') { const dry = parsed.searchParams.get('dry_run') === 'true'; const preview = { content_type: 'tip', title: 'Imported tip', slug: 'imported-tip', task_type: 'task_2', category: 'ideas', published: false, display_order: 2, type_data: {}, body_markdown: '# Imported' }; if (!dry && !rows.some((row) => row.id === imported.id)) rows.push(imported); return json({ parsed_data: preview, validation_errors: [], dry_run: dry, committed_id: dry ? null : imported.id, action: dry ? null : 'created' }); }
+  return json({ detail: `unhandled ${method} ${path}` }, 500);
+});
+
+await page.goto(`${BASE}/admin/writing/tips?task_type=task_2&q=safe`, { waitUntil: 'domcontentloaded' }); await page.getByRole('heading', { name: 'Mẹo viết', exact: true }).waitFor();
+check('admin gate và URL filter gọi canonical list', requests.some((r) => r.path === '/auth/me') && requests.some((r) => r.path === '/admin/writing/tips' && new URLSearchParams(r.query).get('task_type') === 'task_2'));
+check('hostile title render như text', await page.locator('.awt-card h3').evaluateAll((nodes, expected) => nodes.some((node) => node.textContent === expected) && !nodes.some((node) => node.querySelector('img')), dangerous) && await page.evaluate(() => window.__tipsXss !== 1));
+await page.getByRole('button', { name: 'Thêm nội dung' }).click(); const dialog = page.getByRole('dialog', { name: 'Tạo nội dung mới' });
+const fields = dialog.locator('input'); await fields.nth(0).fill('Response lost tip'); await fields.nth(1).fill('response-lost-tip'); await dialog.locator('textarea').fill('# Saved once'); await dialog.getByRole('button', { name: 'Lưu & đối chiếu' }).click();
+await page.getByText('Đã đối chiếu từ máy chủ', { exact: true }).waitFor();
+check('create response-lost không replay POST và lookup bounded theo slug', requests.filter((r) => r.path === '/admin/writing/tips' && r.method === 'POST').length === 1 && requests.some((r) => r.path === '/admin/writing/tips' && r.method === 'GET' && new URLSearchParams(r.query).get('slug') === 'response-lost-tip' && new URLSearchParams(r.query).get('limit') === '2'));
+check('receipt create được xoá sau canonical match', await page.evaluate((key) => sessionStorage.getItem(key), `awt-pending:${adminId}`) === null);
+
+await page.goto(`${BASE}/admin/writing/tips`, { waitUntil: 'domcontentloaded' }); await page.getByText('published-tip', { exact: true }).waitFor();
+const publishedCard = page.getByRole('article').filter({ hasText: 'published-tip' }); await publishedCard.getByRole('button', { name: 'Ẩn khỏi học viên' }).click();
+check('publish dùng dialog accessible', await page.getByRole('dialog', { name: 'Ẩn nội dung khỏi học viên?' }).count() === 1); await page.getByRole('button', { name: 'Xác nhận thay đổi' }).click(); await page.getByText('Trạng thái hiển thị cho học viên đã được xác nhận.', { exact: true }).waitFor();
+check('publish PATCH một lần rồi GET đúng id', requests.filter((r) => r.method === 'PATCH' && r.path.endsWith('/00000000-0000-0000-0000-000000000102')).length === 1 && requests.some((r) => r.method === 'GET' && r.path.endsWith('/00000000-0000-0000-0000-000000000102')));
+
+const deleteCard = page.getByRole('article').filter({ hasText: 'safe-tip' }); await deleteCard.getByRole('button', { name: 'Xóa' }).click(); await page.getByRole('button', { name: 'Xóa vĩnh viễn' }).click(); await page.getByText('Đã xác nhận xóa', { exact: true }).waitFor();
+check('delete xác nhận 404 readback trước success', requests.filter((r) => r.method === 'DELETE' && r.path.endsWith('/00000000-0000-0000-0000-000000000101')).length === 1 && requests.some((r) => r.method === 'GET' && r.path.endsWith('/00000000-0000-0000-0000-000000000101')));
+
+const markdown = `---\ncontent_type: tip\ntitle: Imported tip\ntask_type: task_2\n---\n# Imported`;
+await page.locator('.awt-drop input[type=file]').setInputFiles({ name: 'import.md', mimeType: 'text/markdown', buffer: Buffer.from(markdown) }); await page.getByRole('heading', { name: 'Imported tip', exact: true }).waitFor();
+check('import dry-run preview không ghi dữ liệu', requests.filter((r) => r.path === '/admin/writing/content/import' && new URLSearchParams(r.query).get('dry_run') === 'true').length === 1 && !rows.some((row) => row.id === imported.id));
+await page.getByRole('button', { name: 'Lưu vào thư viện' }).click(); await page.getByText('Nội dung import đã được xác nhận theo slug.', { exact: true }).waitFor();
+check('import commit một lần và GET readback đúng id', requests.filter((r) => r.path === '/admin/writing/content/import' && new URLSearchParams(r.query).get('dry_run') === 'false').length === 1 && requests.some((r) => r.method === 'GET' && r.path.endsWith(`/${imported.id}`)));
+
+await page.setViewportSize({ width: 390, height: 844 });
+const mobile = await page.evaluate(() => { const rect = (node) => { const value = node?.getBoundingClientRect(); return value ? `${Math.round(value.left)}..${Math.round(value.right)}(${Math.round(value.width)})` : 'missing'; }; const host = document.querySelector('aver-admin-chrome'); return { scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, actionMinHeight: parseFloat(getComputedStyle(document.querySelector('.awt-card footer button')).minHeight), offenders: [...document.querySelectorAll('body *')].filter((node) => node.getBoundingClientRect().right > innerWidth + 1).slice(0, 4).map((node) => `${node.tagName.toLowerCase()}.${node.className}:${Math.round(node.getBoundingClientRect().right)}`), geometry: `host=${rect(host)},content=${rect(host?.shadowRoot?.querySelector('.content'))},shell=${rect(document.querySelector('.awt-shell'))},hero=${rect(document.querySelector('.awt-hero'))}` }; });
+check('mobile không tràn page và action cao tối thiểu 44px', mobile.scrollWidth <= mobile.viewportWidth && mobile.actionMinHeight >= 44, `scroll=${mobile.scrollWidth}/${mobile.viewportWidth}, action=${mobile.actionMinHeight}px, ${mobile.geometry}${mobile.offenders.length ? `, offenders=${mobile.offenders.join('|')}` : ''}`);
+check('sanitized preview không chạy script và không có JS error', await page.evaluate(() => window.__tipsXss !== 2) && errors.length === 0, errors.join(' | '));
+await page.close(); await browser.close(); const failed = results.filter((item) => !item.ok); console.log(`\nAdmin Writing Tips native flow: ${results.length - failed.length}/${results.length} checks passed`); if (failed.length) process.exitCode = 1;

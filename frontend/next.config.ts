@@ -53,7 +53,8 @@ const nextConfig: NextConfig = {
         // `/pages/writing-dashboard.html` vẫn trả 200 (cổng parity cần cả hai vế).
         // `/admin/writing/prompts` is now owned by the native Next route;
         // direct `/pages/admin/writing/prompts.html` remains the rollback page.
-        { source: '/admin/writing/tips', destination: '/pages/admin/writing/tips.html' },
+        // `/admin/writing/tips` is native; direct legacy HTML stays available
+        // at `/pages/admin/writing/tips.html` for rollback.
         // `/admin/writing/cohorts` is native; direct legacy HTML stays
         // available at `/pages/admin/writing/cohorts.html` for rollback.
         // `/admin/writing/regrade-requests` is native; direct legacy HTML stays

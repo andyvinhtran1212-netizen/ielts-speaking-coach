@@ -105,6 +105,7 @@ class TipUpdate(BaseModel):
 async def list_tips(
     task_type:     Optional[str]  = Query(default=None, pattern=_TASK_TYPE_PATTERN),
     published:     Optional[bool] = Query(default=None),
+    slug:          Optional[str]  = Query(default=None, min_length=1, max_length=200),
     limit:         int            = Query(default=300, ge=1, le=500),
     authorization: str | None     = Header(None),
 ):
@@ -123,6 +124,8 @@ async def list_tips(
         q = q.eq("task_type", task_type)
     if published is not None:
         q = q.eq("published", published)
+    if slug:
+        q = q.eq("slug", slug.strip())
 
     r = q.execute()
     return {"tips": r.data or []}

@@ -99,6 +99,19 @@ def test_admin_list_returns_tips_array():
     assert r.json()["tips"][0]["title"] == "T"
 
 
+def test_admin_list_can_bound_receipt_reconciliation_by_slug():
+    """Create/import response-loss recovery must not scan a capped library."""
+    mock_db = MagicMock()
+    query = mock_db.table.return_value.select.return_value.order.return_value.order.return_value.limit.return_value
+    query.eq.return_value = query
+    query.execute.return_value = MagicMock(data=[])
+    with patch("routers.admin_writing_tips.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_tips.supabase_admin", mock_db):
+        r = _client().get("/admin/writing/tips?slug=receipt-tip&limit=2", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    query.eq.assert_called_once_with("slug", "receipt-tip")
+
+
 def test_admin_create_auto_slugs_and_stamps_created_by():
     mock_db = MagicMock()
     insert_chain = mock_db.table.return_value.insert.return_value

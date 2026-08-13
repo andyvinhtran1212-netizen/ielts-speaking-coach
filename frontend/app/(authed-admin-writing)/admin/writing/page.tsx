@@ -17,7 +17,7 @@ const groups = [
     items: [
       { title: 'Soạn bài viết', detail: 'Tạo bài mới và chấm bằng AI', href: '/pages/admin/writing/new.html', status: 'MIGRATING', statusClass: 'is-soon' },
       { title: 'Thư viện prompt', detail: 'Prompt · Hình Task 1 · Answer key', href: '/admin/writing/prompts', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Mẹo viết', detail: 'Nội dung hỗ trợ người học', href: '/admin/writing/tips', status: 'MIGRATING', statusClass: 'is-soon' },
+      { title: 'Mẹo viết', detail: 'Markdown · Publish · Import có readback', href: '/admin/writing/tips', status: 'NATIVE', statusClass: 'is-live' },
     ],
   },
   {
