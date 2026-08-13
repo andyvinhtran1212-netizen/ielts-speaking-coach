@@ -41,7 +41,7 @@ interface Window {
   };
   WritingHighlight?: { render(el: HTMLElement, essay: string, mistakes: unknown[]): void };
   AvImageLightbox?: { open(src: string, alt?: string): void };
-  renderMarkdown?: (markdown: string) => string;
+  renderMarkdown?: (markdown: string, options?: { breaks?: boolean }) => string;
 }
 
 declare function showToast(message: string, kind?: string, opts?: unknown): void;
