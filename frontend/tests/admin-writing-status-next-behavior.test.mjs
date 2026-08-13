@@ -51,7 +51,6 @@ describe('Admin Writing Status native model', () => {
     assert.equal(normalizeWritingStatusPayload({ ...raw, created_at: 'invalid' }, 'e1'), null);
     assert.equal(normalizeWritingStatusPayload({ ...raw, attempt_count: true }, 'e1'), null);
     assert.equal(normalizeWritingStatusPayload({ ...raw, attempt_count: 4, max_attempts: 3 }, 'e1'), null);
-    assert.equal(normalizeWritingStatusPayload({ ...raw, attempt_count: 1, attempt_failures: 2 }, 'e1'), null);
   });
 
   test('drops malformed optional retry detail without discarding canonical status', () => {
@@ -63,6 +62,16 @@ describe('Admin Writing Status native model', () => {
     assert.equal(normalizeWritingStatusPayload({ ...raw, last_failure: { ...raw.last_failure, attempt: 3 } }, 'e1').malformedOptional, 1);
     assert.equal(normalizeWritingStatusPayload({ ...raw, last_failure: null }, 'e1').malformedOptional, 1);
     assert.equal(normalizeWritingStatusPayload({ ...raw, attempt_failures: 0, last_failure: null }, 'e1').malformedOptional, 0);
+    const reapWindow = normalizeWritingStatusPayload({
+      ...raw,
+      status: 'pending',
+      attempt_count: 0,
+      attempt_failures: 1,
+      last_failure: { ...raw.last_failure, attempt: 1 },
+    }, 'e1');
+    assert.equal(reapWindow.status, 'pending');
+    assert.equal(reapWindow.malformedOptional, 1);
+    assert.equal(reapWindow.lastFailure.attempt, 1);
   });
 
   test('marks terminal states and labels all progress as time estimates', () => {
@@ -99,6 +108,7 @@ describe('/admin/writing/status native ownership and UX contract', () => {
     assert.match(COMPONENT, /visibilitychange/);
     assert.match(COMPONENT, /isWritingStatusTerminal\(next\.status\)/);
     assert.match(COMPONENT, /data\?\.status/);
+    assert.ok(COMPONENT.indexOf('setError(null);') > COMPONENT.indexOf('if (!normalized)'), 'read error clears only after a normalized canonical response');
   });
 
   test('does not invent writes or realtime percent truth', () => {

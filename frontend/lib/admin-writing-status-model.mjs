@@ -38,9 +38,15 @@ export function normalizeWritingStatusPayload(raw, expectedEssayId) {
   if (!essayId || essayId !== stringOf(expectedEssayId) || !STATUSES.has(status) || !createdAt ||
       etaSeconds == null || etaSeconds < 1 || etaSeconds > 3600 || !TIERS.has(gradingTier) ||
       attemptCount == null || attemptCount < 0 || maxAttempts == null || maxAttempts < 1 ||
-      attemptFailures == null || attemptFailures < 0 || attemptCount > maxAttempts || attemptFailures > attemptCount) return null;
+      attemptFailures == null || attemptFailures < 0 || attemptCount > maxAttempts) return null;
 
   let malformedOptional = 0;
+  // A stuck, never-claimed queued job can record its first timeout before the
+  // asynchronously scheduled retry increments attempt_count. The primary essay
+  // status remains canonical in that window; degrade only the optional ledger
+  // relationship instead of making the whole monitor unavailable.
+  if (attemptFailures > attemptCount) malformedOptional += 1;
+  const observedAttemptCeiling = Math.max(attemptCount, attemptFailures);
   let lastFailure = null;
   if (data.last_failure != null) {
     const failure = objectOf(data.last_failure);
@@ -49,7 +55,7 @@ export function normalizeWritingStatusPayload(raw, expectedEssayId) {
     const kind = nullableString(failure?.kind);
     const message = nullableString(failure?.message);
     const at = validDate(failure?.at);
-    if (failure && attempt != null && attempt > 0 && attempt <= attemptCount && attemptFailures > 0 && (model || kind || message || at)) {
+    if (failure && attempt != null && attempt > 0 && attempt <= observedAttemptCeiling && attempt <= maxAttempts && attemptFailures > 0 && (model || kind || message || at)) {
       lastFailure = { attempt, model, kind, message, at };
     } else malformedOptional += 1;
   } else if (attemptFailures > 0) malformedOptional += 1;

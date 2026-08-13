@@ -60,6 +60,8 @@ check('poll lỗi giữ snapshot đúng essay và gắn nhãn stale', await page
 
 delayNext = true;
 await page.getByRole('button', { name: 'Làm mới' }).click();
+await page.waitForTimeout(100);
+check('snapshot vẫn mang nhãn stale trong suốt retry chậm', await page.getByText('Đang hiển thị snapshot gần nhất.', { exact: true }).count() === 1);
 await Promise.all([page.getByRole('button', { name: 'Đang tải…' }).click({ force: true }).catch(() => {}), page.waitForTimeout(500)]);
 check('refresh đồng thời không tạo request status chồng nhau', maxActiveReads === 1, `max=${maxActiveReads}`);
 

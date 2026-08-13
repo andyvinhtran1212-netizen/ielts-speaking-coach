@@ -86,13 +86,16 @@ export function AdminWritingStatus() {
     const requestId = ++sequence.current;
     if (!essayId) return null;
     if (!silent) setLoading(true);
-    setError(null);
     try {
       const normalized = normalizeWritingStatusPayload(
         await window.api.get<unknown>(`/admin/writing/essays/${encodeURIComponent(essayId)}/status`), essayId,
       ) as WritingStatusPayload | null;
       if (requestId !== sequence.current || currentKey.current !== requestKey) return null;
       if (!normalized) throw new Error('Phản hồi trạng thái bài viết không đúng định dạng.');
+      // Keep the prior read error visible for the whole retry. Clearing it
+      // before this canonical response arrives would temporarily present the
+      // still-rendered old snapshot as current while a slow refresh is pending.
+      setError(null);
       setSnapshot({ key: requestKey, data: normalized, readAt: new Date().toISOString() });
       return normalized;
     } catch (caught) {
