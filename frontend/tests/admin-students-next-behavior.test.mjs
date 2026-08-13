@@ -50,6 +50,8 @@ describe('/admin/students — native directory ownership', () => {
     assert.match(DIRECTORY, /window\.api\.upload/);
     assert.match(DIRECTORY, /Promise\.allSettled/);
     assert.doesNotMatch(DIRECTORY, /window\.api\.delete|Xoá học viên/);
+    assert.match(DIRECTORY, /href=\{`\/admin\/writing\/new\?student_id=/);
+    assert.doesNotMatch(DIRECTORY, /pages\/admin\/writing\/new\.html/);
   });
 
   test('never turns failed reads into canonical empty/zero states', () => {

@@ -307,6 +307,12 @@ on:
       - 'frontend/app/(authed-admin-writing-assignments)/**'
       - 'frontend/app/(authed-admin-writing-cohorts)/**'
       - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
+      - 'frontend/app/(authed-admin-writing-new)/**'
+      - 'backend/routers/admin_writing.py'
+      - 'backend/routers/admin_writing_prompts.py'
+      - 'backend/tests/test_admin_writing.py'
+      - 'backend/tests/test_admin_writing_extract.py'
+      - 'backend/tests/test_admin_writing_prompts.py'
       - 'backend/routers/admin_instructor_queue.py'
       - 'backend/models/instructor_review.py'
       - 'backend/services/instructor_workflow.py'
@@ -321,6 +327,7 @@ on:
       - 'frontend/lib/admin-writing-assignments-model.mjs'
       - 'frontend/lib/admin-writing-cohorts-model.mjs'
       - 'frontend/lib/admin-writing-instructor-queue-model.mjs'
+      - 'frontend/lib/admin-writing-new-model.mjs'
       - 'frontend/public/css/admin-writing-hub-next.css'
       - 'frontend/public/css/admin-writing-queue-next.css'
       - 'frontend/public/css/admin-writing-status-next.css'
@@ -329,6 +336,7 @@ on:
       - 'frontend/public/css/admin-writing-assignments-next.css'
       - 'frontend/public/css/admin-writing-cohorts-next.css'
       - 'frontend/public/css/admin-writing-instructor-queue-next.css'
+      - 'frontend/public/css/admin-writing-new-next.css'
       - 'frontend/public/pages/admin/writing/index.html'
       - 'frontend/public/pages/admin/writing/queue.html'
       - 'frontend/public/pages/admin/writing/status.html'
@@ -346,6 +354,7 @@ on:
       - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-new-flow.mjs'
       - 'backend/routers/admin_writing_tips.py'
       - 'backend/tests/test_admin_writing_tips.py'
       - 'frontend/app/(authed-admin-writing-tips)/**'
@@ -981,6 +990,12 @@ jobs:
       # account-keyed receipts, no mutation replay and responsive containment.
       - name: Kiểm luồng Admin Writing Tips native
         run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Independent grading has no idempotency key. The fixture pins exact
+      # ACK redirect, definitive 4xx recovery, ambiguous-write receipt/no retry,
+      # extraction/upload contracts and responsive containment.
+      - name: Kiểm luồng Admin Writing New native
+        run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
