@@ -44,7 +44,7 @@ export function normalizeStudentWork(value, expectedStudentId) {
 
 export function studentWorkAction(item) {
   if (item?.artifact_kind === 'session' && item.artifact_id) {
-    return { kind: 'external', label: 'Nghe bài', href: `/pages/admin/speaking/sessions.html?session=${encodeURIComponent(item.artifact_id)}` };
+    return { kind: 'external', label: 'Nghe bài', href: `/admin/speaking/sessions?session=${encodeURIComponent(item.artifact_id)}` };
   }
   if (item?.has_writing) return { kind: 'writing', label: 'Xem tự luận' };
   if (item?.bank_id && item.artifact_id) return { kind: 'report', label: 'Xem từng câu' };

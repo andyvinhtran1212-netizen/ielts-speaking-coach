@@ -279,12 +279,18 @@ on:
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
-      # Speaking hub is a native, read-only routing surface. Sessions and
-      # Topics remain explicit legacy child workspaces until separate cutovers.
+      # Speaking hub + Sessions are native. Topics remains the explicit legacy
+      # child until its separate cutover; Sessions has a mutation verifier.
       - 'frontend/app/(authed-admin-speaking)/**'
+      - 'frontend/app/(authed-admin-speaking-sessions)/**'
+      - 'frontend/lib/admin-speaking-sessions-model.mjs'
       - 'frontend/public/css/admin-speaking-hub-next.css'
+      - 'frontend/public/css/admin-speaking-sessions-next.css'
       - 'frontend/public/pages/admin/speaking/index.html'
+      - 'frontend/public/pages/admin/speaking/sessions.html'
+      - 'frontend/public/js/admin-speaking-sessions.js'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -376,6 +382,8 @@ on:
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
@@ -852,6 +860,12 @@ jobs:
 
       - name: Kiểm luồng Admin Speaking hub native
         run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Sessions mutates grading and summary state. The fixture pins URL/deep
+      # links, stale-request suppression, accessible confirmations, partial
+      # failure truth and canonical GET readback after every write.
+      - name: Kiểm luồng Admin Speaking Sessions native
+        run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

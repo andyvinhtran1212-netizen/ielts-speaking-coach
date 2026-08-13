@@ -122,7 +122,7 @@ describe('lưới ngày', () => {
                            cell('missing')] }],
     }));
     const body = nodes['board-body'].innerHTML;
-    assert.match(body, /sessions\.html\?session=sess-9/);
+    assert.match(body, /admin\/speaking\/sessions\?session=sess-9/);
     // Ô không có bài thì KHÔNG có liên kết dẫn tới trang trống.
     assert.equal((body.match(/<a /g) || []).length, 1);
   });
@@ -206,13 +206,13 @@ describe('mở thẳng bài làm từ bảng tổng kết', () => {
 
   test('có phiên thì có nút Nghe & xem', () => {
     const html = tallyRow(row({ artifact_kind: 'session', artifact_id: 'sess-9' }), 'speaking');
-    assert.match(html, /sessions\.html\?session=sess-9/);
+    assert.match(html, /admin\/speaking\/sessions\?session=sess-9/);
     assert.match(html, /Nghe/);
   });
 
   test('chưa có bài thì KHÔNG có liên kết dẫn tới trang trống', () => {
     assert.doesNotMatch(tallyRow(row({ status: 'missing', score: null }), 'speaking'),
-      /sessions\.html/);
+      /admin\/speaking\/sessions/);
   });
 
   test('bài KHÔNG phải Speaking không mở bằng trang phiên Speaking', () => {

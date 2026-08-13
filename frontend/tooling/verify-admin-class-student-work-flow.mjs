@@ -77,7 +77,7 @@ await dialog.getByRole('heading', { name: 'An <img src=x>' }).waitFor({ state: '
 check('roster mở lịch sử bằng endpoint một-học-viên', requests.some((item) => item.path.endsWith('/students/st-a/work')) && new URL(page.url()).searchParams.get('student_id') === 'st-a');
 check('React escape tên và lịch sử giữ đủ trạng thái chuẩn', await dialog.locator('img').count() === 0 && await dialog.locator('.acw-item').filter({ hasText: 'Grammar 2' }).getByText('Đã nộp', { exact: true }).count() === 1 && await dialog.locator('.acw-item').filter({ hasText: 'Speaking daily' }).getByText('Nộp trễ', { exact: true }).count() === 1 && await dialog.locator('.acw-item').filter({ hasText: 'Reading chưa nộp' }).getByText('Không nộp', { exact: true }).count() === 1);
 check('partial reconcile được cảnh báo thay vì giả danh sách đầy đủ', await dialog.getByText(/Danh sách hoặc trạng thái bên dưới có thể còn thiếu/).count() === 1);
-check('chỉ artifact thật có hành động', await dialog.getByRole('link', { name: 'Nghe bài' }).getAttribute('href') === '/pages/admin/speaking/sessions.html?session=session-1' && await dialog.getByRole('button', { name: 'Xem tự luận' }).count() === 1 && await dialog.getByText('Chưa có bài để mở').count() === 1);
+check('chỉ artifact thật có hành động', await dialog.getByRole('link', { name: 'Nghe bài' }).getAttribute('href') === '/admin/speaking/sessions?session=session-1' && await dialog.getByRole('button', { name: 'Xem tự luận' }).count() === 1 && await dialog.getByText('Chưa có bài để mở').count() === 1);
 
 await dialog.getByRole('button', { name: 'Xem tự luận' }).click();
 await page.getByRole('heading', { name: 'Grammar 2', exact: true }).waitFor({ state: 'visible' });

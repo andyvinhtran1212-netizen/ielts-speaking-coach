@@ -369,7 +369,7 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.match(html, /<aver-admin-chrome\s+active=["']speaking["']/);
     assert.doesNotMatch(html, /Sắp ra mắt/);
     // Real landing must link to its two child pages (sessions + topics).
-    assert.match(html, /\/pages\/admin\/speaking\/sessions\.html/);
+    assert.match(html, /\/admin\/speaking\/sessions/);
     assert.match(html, /\/pages\/admin\/speaking\/topics\.html/);
   });
 

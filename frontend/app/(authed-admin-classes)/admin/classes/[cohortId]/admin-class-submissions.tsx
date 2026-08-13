@@ -21,7 +21,7 @@ function formatVietnam(value: string | null) {
 }
 
 function openArtifact(row: TallyStudent) {
-  if (row.artifact_kind === 'session' && row.artifact_id) return `/pages/admin/speaking/sessions.html?session=${encodeURIComponent(row.artifact_id)}`;
+  if (row.artifact_kind === 'session' && row.artifact_id) return `/admin/speaking/sessions?session=${encodeURIComponent(row.artifact_id)}`;
   return null;
 }
 

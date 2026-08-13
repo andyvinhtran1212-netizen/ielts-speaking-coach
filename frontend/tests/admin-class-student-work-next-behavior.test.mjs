@@ -41,7 +41,7 @@ describe('admin class student work model', () => {
   });
 
   test('only returns an action when a real artifact can be opened', () => {
-    assert.deepEqual(studentWorkAction({ artifact_kind: 'session', artifact_id: 'a/b' }), { kind: 'external', label: 'Nghe bài', href: '/pages/admin/speaking/sessions.html?session=a%2Fb' });
+    assert.deepEqual(studentWorkAction({ artifact_kind: 'session', artifact_id: 'a/b' }), { kind: 'external', label: 'Nghe bài', href: '/admin/speaking/sessions?session=a%2Fb' });
     assert.deepEqual(studentWorkAction({ has_writing: true }), { kind: 'writing', label: 'Xem tự luận' });
     assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: 'attempt' }), { kind: 'report', label: 'Xem từng câu' });
     assert.equal(studentWorkAction({ bank_id: 'bank', artifact_id: null }), null);

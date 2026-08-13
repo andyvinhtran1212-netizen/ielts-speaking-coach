@@ -984,6 +984,40 @@ None found that require a schema or grading rewrite.
   accessible band data, and populated table-to-card layouts without horizontal
   page overflow at 390px and 1440px.
 
+## Admin Speaking Sessions — 2026-08-13
+
+### Issue: legacy session triage can hide partial data and stale mutation results
+
+- **Root cause:** the legacy controller lets older list/detail requests overwrite
+  newer state, treats enrichment failures as empty related data, uses native
+  alert/confirm dialogs, and refreshes only the open detail after repair or
+  rebuild mutations. The targeted backend repair path could also mark a session
+  completed while some failed responses remained. Single-response regrade and
+  summary rebuild had the same completion-laundering path because they accepted
+  any computable aggregate band without checking every persisted response.
+- **Severity:** Critical for grading truth; Medium for the interaction defects.
+- **Impact:** an admin can see a completed status that disagrees with persisted
+  response failures, mistake unavailable user/question/response enrichment for
+  genuine absence, or see a stale list row after a successful-looking repair.
+  Filter and deep-link state is also lost across refreshes.
+- **Impacted files:** admin session list/detail/regrade/rebuild routes and focused
+  tests; native `/admin/speaking/sessions` route/model/CSS; Speaking hub, System
+  Alerts and class-work entry links; route docs, contract tests and the
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** keep the existing canonical endpoints; expose
+  enrichment lookup failures, require every regrade/rebuild path to verify that
+  no response remains failed or missing-band before clearing errors or syncing
+  a class score; add request
+  sequence guards, URL-backed filters, safe audio validation, an accessible
+  detail/confirmation flow and mandatory detail plus list GET readback after
+  every mutation. Retain the HTML page as rollback only.
+- **Verification:** cover partial targeted repair, summary error clearing and
+  class-score sync at route level; reject malformed responses and unsafe audio;
+  race list/detail requests; verify failed-only versus explicit full regrade,
+  duplicate-submit prevention, PATCH/POST→detail/list reconciliation, keyboard
+  dialog behavior, hostile text escaping, deep links and populated layouts at
+  390px and 1440px without horizontal overflow.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow

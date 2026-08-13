@@ -81,6 +81,7 @@ check('metric lỗi hiển thị unknown, không phải zero', await page.locato
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Articles browser', exact: true }).waitFor({ state: 'visible' });
+await page.locator('.gaa-table').first().waitFor({ state: 'visible' });
 check('desktop dùng bảng và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.gaa-table')).display === 'table' && document.documentElement.scrollWidth <= window.innerWidth));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));

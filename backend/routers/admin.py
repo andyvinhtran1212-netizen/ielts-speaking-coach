@@ -2968,6 +2968,7 @@ async def get_ai_usage(
 async def admin_list_sessions(
     authorization: str | None = Header(default=None),
     user_id:    str | None = None,
+    user_email: str | None = None,
     mode:       str | None = None,
     status:     str | None = None,
     error_code: str | None = None,
@@ -2979,10 +2980,33 @@ async def admin_list_sessions(
 ):
     """
     List all sessions across users (admin only).
-    Supports filtering by user_id, mode, status, error_code, has_error, date range.
+    Supports filtering by user_id or exact user_email, mode, status,
+    error_code, has_error, date range.
     Returns sessions enriched with user email.
     """
     await require_admin(authorization)
+
+    # Resolve an exact email on the server. Fetching the whole user directory in
+    # the browser is incomplete once PostgREST applies its row cap. A lookup
+    # outage must fail visibly instead of looking like zero matching sessions.
+    if not user_id and user_email and user_email.strip():
+        try:
+            matches = (
+                supabase_admin.table("users")
+                .select("id")
+                .eq("email", user_email.strip().lower())
+                .limit(2)
+                .execute()
+            ).data or []
+        except Exception as exc:
+            raise HTTPException(500, f"Lỗi khi tra email học viên: {exc}")
+        if len(matches) > 1:
+            raise HTTPException(409, "Có nhiều tài khoản dùng email này; hãy lọc bằng User ID.")
+        if not matches:
+            return []
+        user_id = matches[0].get("id")
+        if not user_id:
+            raise HTTPException(500, "Kết quả tra email học viên không có User ID.")
 
     q = (
         supabase_admin.table("sessions")
@@ -3005,7 +3029,13 @@ async def admin_list_sessions(
     elif has_error is False:
         q = q.is_("error_code", "null")
     if date_from:  q = q.gte("started_at", date_from)
-    if date_to:    q = q.lte("started_at", date_to + "T23:59:59Z")
+    if date_to:
+        try:
+            next_day = (datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)).date().isoformat()
+        except ValueError:
+            raise HTTPException(400, "date_to phải theo định dạng YYYY-MM-DD")
+        # Exclusive next-day bound includes timestamps with fractional seconds.
+        q = q.lt("started_at", next_day)
 
     try:
         res = q.execute()
@@ -3017,6 +3047,7 @@ async def admin_list_sessions(
     # Enrich with user email
     uids = list({s["user_id"] for s in sessions if s.get("user_id")})
     email_map: dict[str, str] = {}
+    user_lookup_failed = False
     if uids:
         try:
             ur = (
@@ -3028,10 +3059,13 @@ async def admin_list_sessions(
             for u in (ur.data or []):
                 email_map[u["id"]] = u.get("email") or ""
         except Exception:
-            pass
+            user_lookup_failed = True
 
     for s in sessions:
         s["user_email"] = email_map.get(s.get("user_id") or "", "")
+        # An empty email and a failed enrichment query are different truths.
+        # The admin UI must not present an outage as "this user has no email".
+        s["user_lookup_failed"] = user_lookup_failed
 
     return sessions
 
@@ -3066,9 +3100,50 @@ async def admin_get_session(
 
     session = s_res.data[0]
 
+    # A full-test session is only one part of the canonical attempt. Resolve the
+    # other parts server-side instead of relying on non-existent p2/p3 columns
+    # on the selected row. Keep the lookup scoped to the same user as a second
+    # guard against ever exposing another learner's session ID.
+    session["p1_session_id"] = None
+    session["p2_session_id"] = None
+    session["p3_session_id"] = None
+    session["full_test_siblings_lookup_failed"] = False
+    if session.get("mode") == "test_full" and session.get("full_test_attempt_id"):
+        try:
+            siblings_query = (
+                supabase_admin.table("sessions")
+                .select("id, user_id, mode, part, full_test_attempt_id")
+                .eq("full_test_attempt_id", session["full_test_attempt_id"])
+                .eq("mode", "test_full")
+            )
+            if not session.get("user_id"):
+                raise ValueError("full-test session has no user_id")
+            siblings_query = siblings_query.eq("user_id", session["user_id"])
+            sibling_rows = siblings_query.execute().data or []
+            ids_by_part: dict[int, str] = {}
+            duplicate_part = False
+            for sibling in sibling_rows:
+                part = sibling.get("part")
+                sibling_id = sibling.get("id")
+                if part not in (1, 2, 3) or not sibling_id:
+                    continue
+                if part in ids_by_part and ids_by_part[part] != sibling_id:
+                    duplicate_part = True
+                    continue
+                ids_by_part[part] = sibling_id
+            if duplicate_part:
+                session["full_test_siblings_lookup_failed"] = True
+            else:
+                session["p1_session_id"] = ids_by_part.get(1)
+                session["p2_session_id"] = ids_by_part.get(2)
+                session["p3_session_id"] = ids_by_part.get(3)
+        except Exception:
+            session["full_test_siblings_lookup_failed"] = True
+
     # Enrich with user email
     uid = session.get("user_id")
     session["user_email"] = ""
+    session["user_lookup_failed"] = False
     if uid:
         try:
             ur = (
@@ -3082,7 +3157,7 @@ async def admin_get_session(
                 session["user_email"]        = ur.data[0].get("email") or ""
                 session["user_display_name"] = ur.data[0].get("display_name") or ""
         except Exception:
-            pass
+            session["user_lookup_failed"] = True
 
     # Questions
     try:
@@ -3096,6 +3171,9 @@ async def admin_get_session(
         questions = q_res.data or []
     except Exception:
         questions = []
+        session["questions_lookup_failed"] = True
+    else:
+        session["questions_lookup_failed"] = False
 
     # Responses (includes transcript, feedback, band scores, status fields)
     try:
@@ -3111,6 +3189,9 @@ async def admin_get_session(
         responses = r_res.data or []
     except Exception:
         responses = []
+        session["responses_lookup_failed"] = True
+    else:
+        session["responses_lookup_failed"] = False
 
     for response in responses:
         playback_url = _sign_storage_url(_REGRADE_AUDIO_BUCKET, response.get("audio_storage_path"))
@@ -3361,6 +3442,41 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
     return {"overall_band": overall, "band_fc": band_fc, "band_lr": band_lr, "band_gra": band_gra, "band_p": band_p}
 
 
+def _regrade_incomplete_response_ids(session_id: str) -> list[str]:
+    """Return persisted or missing responses that prevent canonical completion."""
+    question_result = (
+        supabase_admin.table("questions")
+        .select("id")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    response_result = (
+        supabase_admin.table("responses")
+        .select("id, question_id, grading_status, overall_band")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = response_result.data or []
+    question_ids = {row.get("id") for row in (question_result.data or []) if row.get("id")}
+    incomplete = [
+        row.get("id") or "unknown"
+        for row in responses
+        if row.get("grading_status") == "failed" or row.get("overall_band") is None
+    ]
+    answered_question_ids = {row.get("question_id") for row in responses if row.get("question_id")}
+    incomplete.extend(
+        f"question:{question_id}:missing_response"
+        for question_id in (row.get("id") for row in (question_result.data or []))
+        if question_id and question_id not in answered_question_ids
+    )
+    incomplete.extend(
+        f"response:{row.get('id') or 'unknown'}:unknown_question"
+        for row in responses
+        if not row.get("question_id") or row.get("question_id") not in question_ids
+    )
+    return list(dict.fromkeys(incomplete))
+
+
 async def _run_regrade_response(
     resp: dict,
     session: dict,
@@ -3512,19 +3628,29 @@ async def admin_regrade_response(
     # Use the same canonical gate as complete_session(): only block if ALL band values are None.
     bands = _regrade_compute_session_bands(session_id)
     session_updated = False
+    incomplete_ids = _regrade_incomplete_response_ids(session_id)
     all_band_vals = [bands.get("overall_band")] + [
         bands.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")
     ]
     if not all(v is None for v in all_band_vals):
         now = datetime.now(timezone.utc).isoformat()
-        sess_update: dict = {
-            **bands,
-            "status": "completed",
-            "error_code": None,
-            "error_message": None,
-            "failed_step": None,
-            "last_error_at": None,
-        }
+        sess_update: dict = {**bands}
+        if incomplete_ids:
+            sess_update.update({
+                "status": "grading_failed",
+                "error_code": "grading_failed",
+                "error_message": f"Admin regrade còn {len(incomplete_ids)} response lỗi hoặc thiếu band.",
+                "failed_step": "admin_regrade_response",
+                "last_error_at": now,
+            })
+        else:
+            sess_update.update({
+                "status": "completed",
+                "error_code": None,
+                "error_message": None,
+                "failed_step": None,
+                "last_error_at": None,
+            })
         try:
             supabase_admin.table("sessions").update({
                 **sess_update,
@@ -3533,10 +3659,11 @@ async def admin_regrade_response(
             }).eq("id", session_id).execute()
         except Exception:
             supabase_admin.table("sessions").update(sess_update).eq("id", session_id).execute()
-        session_updated = True
+        session_updated = not incomplete_ids
         logger.info("[admin/regrade-response] session bands updated session=%s overall_band=%s", session_id, bands["overall_band"])
-        # GĐ 2 — keep a class assignment's score in step with the regraded band.
-        sync_class_item_score(supabase_admin, session_id)
+        # Only a canonical-complete result may replace the class ledger score.
+        if session_updated:
+            sync_class_item_score(supabase_admin, session_id)
 
     return {
         "ok":              True,
@@ -3545,6 +3672,7 @@ async def admin_regrade_response(
         "overall_band":    result["overall_band"],
         "re_transcribed":  result["re_transcribed"],
         "session_updated": session_updated,
+        "remaining_failed": len(incomplete_ids),
         "session_band":    bands["overall_band"],
     }
 
@@ -3619,6 +3747,9 @@ async def admin_regrade_session(
                 session_id, len(all_responses), len(to_regrade), skip_count, admin_email)
 
     regraded, failed_ids, failed_errors = 0, [], []
+    if not all_responses:
+        failed_ids.append("session:no_responses")
+        failed_errors.append("Session không có response để chấm hoặc tổng hợp")
     for resp in to_regrade:
         qid = resp.get("question_id")
         question_text = question_map.get(qid)
@@ -3636,15 +3767,19 @@ async def admin_regrade_session(
             failed_ids.append(resp["id"])
             failed_errors.append(f"{resp['id']}: {exc}")
 
-    # force=True with any failures: the session contains a mix of fresh and stale
-    # scores — do NOT finalize it as a clean completed session.
-    force_partial_failure = force and len(failed_ids) > 0
+    # Read persisted truth back after the loop. A grader call can return without
+    # producing a usable row, and a response outside the immediate exception
+    # list may still be failed/missing-band. Neither repair mode may finalize
+    # the session while any such row remains.
+    remaining_ids = _regrade_incomplete_response_ids(session_id)
+    failed_ids = list(dict.fromkeys([*failed_ids, *remaining_ids]))
+    partial_failure = len(failed_ids) > 0
 
     # Recompute session-level bands from all responses (including already-good ones)
     bands = _regrade_compute_session_bands(session_id)
     now = datetime.now(timezone.utc).isoformat()
 
-    if force_partial_failure:
+    if partial_failure:
         # Mark session as degraded so the admin knows it needs attention.
         # Do NOT restore status="completed" — the band scores are untrustworthy
         # because some responses kept their old scores.
@@ -3677,14 +3812,15 @@ async def admin_regrade_session(
             "regrade_count":    ((supabase_admin.table("sessions").select("regrade_count").eq("id", session_id).limit(1).execute().data or [{}])[0].get("regrade_count") or 0) + 1,
         }
         supabase_admin.table("sessions").update(full_sess_update).eq("id", session_id).execute()
-        # GĐ 2 — same for a whole-session regrade.
-        sync_class_item_score(supabase_admin, session_id)
+        # Only a canonical-complete result may replace the class ledger score.
+        if not partial_failure:
+            sync_class_item_score(supabase_admin, session_id)
     except Exception:
         supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
 
     return {
-        "ok":               not force_partial_failure,
-        "partial_failure":  force_partial_failure,
+        "ok":               not partial_failure,
+        "partial_failure":  partial_failure,
         "session_id":       session_id,
         "regraded":         regraded,
         "skipped":          skip_count,
@@ -3720,14 +3856,37 @@ async def admin_rebuild_summary(
     # Verify sessions exist
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, mode, status")
+        .select("id, user_id, mode, part, status, full_test_attempt_id")
         .in_("id", all_ids)
         .execute()
     )
-    found_ids = {s["id"] for s in (s_res.data or [])}
+    found_rows = s_res.data or []
+    found_ids = {s["id"] for s in found_rows}
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session không tồn tại: {missing}")
+
+    # A multi-part rebuild is allowed only for one canonical Full Test. Never
+    # let caller-supplied IDs aggregate unrelated learners or attempts.
+    if p2_id or p3_id:
+        if not p2_id or not p3_id or len(set(all_ids)) != 3:
+            raise HTTPException(400, "Full Test rebuild cần ba session P1/P2/P3 khác nhau")
+        rows_by_id = {row.get("id"): row for row in found_rows}
+        expected = ((session_id, 1), (p2_id, 2), (p3_id, 3))
+        primary = rows_by_id.get(session_id) or {}
+        attempt_id = primary.get("full_test_attempt_id")
+        user_id = primary.get("user_id")
+        valid = bool(attempt_id and user_id)
+        for sid, part in expected:
+            row = rows_by_id.get(sid) or {}
+            valid = valid and (
+                row.get("mode") == "test_full"
+                and row.get("part") == part
+                and row.get("full_test_attempt_id") == attempt_id
+                and row.get("user_id") == user_id
+            )
+        if not valid:
+            raise HTTPException(409, "Ba session không thuộc cùng một Full Test canonical")
 
     logger.info("[admin/rebuild-summary] sessions=%s by=%s", all_ids, admin_email)
 
@@ -3740,9 +3899,35 @@ async def admin_rebuild_summary(
             results.append({"session_id": sid, "ok": False, "error": "Không có đủ dữ liệu response để tính band"})
             continue
 
+        incomplete_ids = _regrade_incomplete_response_ids(sid)
+        if incomplete_ids:
+            # Rebuild does not call AI, so it cannot repair failed/missing rows.
+            # Persist the recalculated partial bands but keep the session visibly
+            # degraded instead of laundering it into a completed result.
+            now = datetime.now(timezone.utc).isoformat()
+            supabase_admin.table("sessions").update({
+                **bands,
+                "status": "grading_failed",
+                "error_code": "grading_failed",
+                "error_message": f"Tổng hợp còn {len(incomplete_ids)} response lỗi hoặc thiếu band.",
+                "failed_step": "admin_rebuild_summary",
+                "last_error_at": now,
+            }).eq("id", sid).execute()
+            results.append({
+                "session_id": sid,
+                "ok": False,
+                "error": f"Còn {len(incomplete_ids)} response lỗi hoặc thiếu band",
+                **bands,
+            })
+            continue
+
         sess_update: dict = {
             **bands,
             "status": "completed",
+            "error_code": None,
+            "error_message": None,
+            "failed_step": None,
+            "last_error_at": None,
         }
         try:
             full_update = {
@@ -3753,6 +3938,10 @@ async def admin_rebuild_summary(
             supabase_admin.table("sessions").update(full_update).eq("id", sid).execute()
         except Exception:
             supabase_admin.table("sessions").update(sess_update).eq("id", sid).execute()
+
+        # Rebuild is another canonical score write-path. Keep a linked class
+        # assignment in step just like response/session regrade does.
+        sync_class_item_score(supabase_admin, sid)
 
         results.append({"session_id": sid, "ok": True, **bands})
 

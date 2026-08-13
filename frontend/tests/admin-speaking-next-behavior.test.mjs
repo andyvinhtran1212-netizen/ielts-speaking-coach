@@ -38,11 +38,11 @@ describe('/admin/speaking native operations hub', () => {
   });
 
   test('states child ownership truth and exposes only real destinations', () => {
-    for (const href of ['/speaking', '/pages/admin/speaking/sessions.html', '/pages/admin/speaking/topics.html', '/admin/system']) {
+    for (const href of ['/speaking', '/admin/speaking/sessions', '/pages/admin/speaking/topics.html', '/admin/system']) {
       assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     }
-    assert.equal((PAGE.match(/LEGACY WORKSPACE/g) || []).length, 2);
-    assert.match(PAGE, /Hai workspace nghiệp vụ vẫn giữ rollback HTML/);
+    assert.equal((PAGE.match(/LEGACY WORKSPACE/g) || []).length, 1);
+    assert.match(PAGE, /Sessions đã chạy native/);
     assert.doesNotMatch(PAGE, /window\.api\.|\bfetch\(|onClick=|<form/);
     assert.doesNotMatch(PAGE, /Sprint 12\.5|Sprint 12\.8/);
     assert.doesNotMatch(LEGACY, /Sprint 12\.8|href="\/admin\.html"/);

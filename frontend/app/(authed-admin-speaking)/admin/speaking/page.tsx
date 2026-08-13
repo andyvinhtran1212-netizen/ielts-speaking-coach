@@ -15,9 +15,9 @@ const workspaces = [
     title: 'Sessions & grading',
     description: 'Tìm buổi luyện theo học viên, mode, trạng thái hoặc lỗi; nghe lại từng câu và kiểm tra feedback đã phát.',
     detail: 'Audio · Transcript · Regrade · Summary',
-    href: '/pages/admin/speaking/sessions.html',
-    status: 'LEGACY WORKSPACE',
-    statusClass: 'is-readonly',
+    href: '/admin/speaking/sessions',
+    status: 'NATIVE',
+    statusClass: 'is-live',
     featured: true,
   },
   {
@@ -84,7 +84,7 @@ export default function AdminSpeakingPage() {
                 <p className="sph-eyebrow">Công cụ vận hành</p>
                 <h2 id="speaking-workspaces-title">Bạn cần xử lý phần nào?</h2>
               </div>
-              <p>Hai workspace nghiệp vụ vẫn giữ rollback HTML cho tới khi được migrate ở PR riêng.</p>
+              <p>Sessions đã chạy native; Topics vẫn giữ rollback HTML cho tới batch migration kế tiếp.</p>
             </div>
             <div className="sph-grid">
               {workspaces.map((item) => (

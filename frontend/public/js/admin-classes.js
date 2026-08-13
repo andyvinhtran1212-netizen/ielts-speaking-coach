@@ -628,7 +628,7 @@ function workCtx(it) {
 function workOpen(it) {
   if (it.artifact_kind === 'session' && it.artifact_id) {
     return `<a class="cl-work__open" target="_blank" rel="noopener"
-      href="/pages/admin/speaking/sessions.html?session=${esc(it.artifact_id)}"
+      href="/admin/speaking/sessions?session=${esc(it.artifact_id)}"
       >Nghe bài</a>`;
   }
   if (it.has_writing) {
@@ -1194,7 +1194,7 @@ function tallyRow(r, skill) {
   // mở — một liên kết dẫn tới trang trống tệ hơn không có liên kết.
   const open = (r.artifact_kind === 'session' && r.artifact_id)
     ? `<a class="av-tally__open" target="_blank" rel="noopener"
-          href="/pages/admin/speaking/sessions.html?session=${esc(r.artifact_id)}"
+          href="/admin/speaking/sessions?session=${esc(r.artifact_id)}"
           title="Nghe bài làm và đọc nhận xét">Nghe &amp; xem</a>`
     // Bài tập theo buổi: đọc phần TỰ LUẬN em ấy viết. Chỉ hiện khi thật sự có
     // bài — một nút mở ra "chưa nộp gì" tệ hơn không có nút.
@@ -3404,7 +3404,7 @@ function renderDailyBoard(d) {
       // Bấm vào ô là nghe bài của ĐÚNG em ấy ở ĐÚNG bài ấy — đường ngắn nhất từ
       // "chỗ này trống" tới "em ấy đã nói gì".
       const inner = c.session_id
-        ? `<a href="/pages/admin/speaking/sessions.html?session=${esc(c.session_id)}"
+        ? `<a href="/admin/speaking/sessions?session=${esc(c.session_id)}"
               target="_blank" rel="noopener">${text || '·'}</a>`
         : text;
       return `<td class="av-board__cell${isBreak[i] ? ' av-board__daybreak' : ''}"
