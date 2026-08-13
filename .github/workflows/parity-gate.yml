@@ -297,6 +297,12 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+      # Writing hub is a native, read-only workflow map. Direct HTML remains
+      # rollback; the fixture pins admin auth, destination truth and layout.
+      - 'frontend/app/(authed-admin-writing)/**'
+      - 'frontend/public/css/admin-writing-hub-next.css'
+      - 'frontend/public/pages/admin/writing/index.html'
+      - 'frontend/tooling/verify-admin-writing-flow.mjs'
       # Grammar Articles owns the clean inventory route and retains a direct
       # legacy rollback. Backend status fields prevent analytics outages from
       # masquerading as zero engagement.
@@ -391,6 +397,7 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
@@ -878,6 +885,9 @@ jobs:
       # pins safe missing-only semantics, exact payloads and canonical readback.
       - name: Kiểm luồng Admin Speaking Topics native
         run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Writing hub native
+        run: node tooling/verify-admin-writing-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

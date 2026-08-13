@@ -227,6 +227,17 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/admin/writing` hub migration (2026-08-13)
+
+- Replaced the flat emoji tile dashboard with a workflow map: prepare inputs,
+  control grading quality, then assign and track learner work.
+- Made the route-ownership transition visible rather than implied: native
+  Grade/Students destinations and still-migrating child workspaces carry
+  explicit status labels, while the hub itself uses the backend admin gate.
+- Added canonical learner preview, full-card keyboard targets, 44px controls,
+  one/two-column responsive layouts, dark-theme token discipline and
+  reduced-motion behavior. Legacy HTML remains directly reachable for rollback.
+
 ### Native `/admin/speaking` hub migration (2026-08-13)
 
 - Replaced sprint-history copy and the obsolete `/admin.html` operations link

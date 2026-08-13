@@ -424,7 +424,7 @@ const NAV_GROUPS = [
           { slug: 'topics', label: 'Topics & questions', href: '/admin/speaking/topics' },
         ],
       },
-      { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
+      { section: 'writing',   label: 'Writing',   href: '/admin/writing',   icon: 'pen',
         subsections: [
           { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },
           // F4 nav-dedup — "Chấm bài viết" was a duplicate of "Hàng chờ chấm"
