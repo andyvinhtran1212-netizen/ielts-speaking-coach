@@ -1664,3 +1664,51 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   source and fixture-backed browser contracts cover malformed data, stale-response
   rejection, independent failures, exact identity, hostile text escaping,
   pagination, responsive containment and rollback behavior.
+
+## 2026-08-14 — Native `/admin/listening/content/[contentId]/edit` metadata editor
+
+### Critical issues resolved
+
+- **Explicit clears were silently ignored.** The PATCH schema accepted `null`, but
+  the route checked values instead of Pydantic's provided-field set. Clearing an
+  existing license, source URL, CEFR or IELTS section therefore produced no DB
+  update. The route now distinguishes omitted from explicit `null` and tests each
+  nullable field as canonical API behavior.
+- **Concurrent editors could overwrite each other.** The legacy form sent all nine
+  fields from a potentially stale snapshot and the backend did not update
+  `updated_at`. The native editor computes a field delta, sends the snapshot's
+  `expected_updated_at`, and the backend applies the write through the same version
+  filter while minting a new UTC timestamp. A 409 locks the editor before reload.
+
+### High-priority improvements
+
+- **Known-bad license data could pass differently by casing or URL scheme.** The
+  server now trims license/source values, blocks NC case-insensitively and accepts
+  only HTTP(S) attribution URLs. Topic tags are trimmed and deduplicated using a
+  case-insensitive key; the client mirrors these rules before network activity.
+- **Mutation success was inferred from the PATCH response.** Every save now writes
+  an account/content receipt, ignores the ACK as truth and performs an exact GET.
+  Ambiguous responses keep the form locked and expose a GET-only reconciliation;
+  the request is never automatically replayed.
+
+### Design improvements implemented
+
+- The editor is organized into core content, classification, discovery and rights
+  cards, with a read-only provenance rail and sticky delta summary. Nullable CEFR
+  and IELTS section start visibly unassigned instead of receiving fabricated
+  defaults.
+- Transcript length, topic-tag preview, attribution dependencies and paid-tier
+  incompatibility are visible beside the controls they affect. Reset, leaving,
+  pending-receipt discard and conflict reload use explicit confirmation boundaries.
+- Mobile collapses the form and provenance rail to one column, keeps 44px actions,
+  avoids horizontal page overflow and honors focus and reduced-motion preferences.
+  The HTML editor remains directly available as the rollback path.
+
+### Verification
+
+- Backend route tests cover explicit nulls, tag normalization, lowercase NC,
+  non-HTTP URL rejection, version conflict and fresh `updated_at` truth.
+- Model/source tests cover exact transcript preservation, nullable fields, delta
+  construction, receipt scope, canonical comparison, route ownership and token-only
+  responsive CSS. The browser fixture covers successful readback, 409 conflict and
+  an after-commit 503 reconciled without a second PATCH.

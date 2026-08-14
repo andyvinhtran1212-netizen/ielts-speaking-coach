@@ -12158,6 +12158,8 @@ export interface components {
             external_license?: string | null;
             /** External Source Url */
             external_source_url?: string | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /**
          * ListeningContentStatusPatchRequest

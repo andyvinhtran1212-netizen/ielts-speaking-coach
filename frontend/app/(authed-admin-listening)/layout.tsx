@@ -15,6 +15,7 @@ export default function AdminListeningLayout({ children }: { children: ReactNode
       '/css/aver-design/admin-buttons.css',
       '/css/aver-design/admin-status.css',
       '/css/admin-listening-content-next.css',
+      '/css/admin-listening-content-editor-next.css',
       '/css/admin-listening-tests-next.css',
       '/css/admin-listening-test-detail-next.css',
       '/css/admin-listening-attempts-next.css',

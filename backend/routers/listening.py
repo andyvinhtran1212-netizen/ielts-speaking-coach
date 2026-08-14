@@ -21,6 +21,7 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any, Optional
 
@@ -356,6 +357,7 @@ class ListeningContentMetadataPatchRequest(BaseModel):
     is_premium: bool | None = Field(default=None)
     external_license: str | None = Field(default=None, max_length=120)
     external_source_url: str | None = Field(default=None, max_length=500)
+    expected_updated_at: str | None = Field(default=None, max_length=80)
 
 
 class ListeningContentStatusPatchRequest(BaseModel):
@@ -1168,52 +1170,81 @@ async def admin_patch_listening_content(
     if not existing.data:
         raise HTTPException(404, "Listening content not found")
     current = existing.data[0]
+    fields = body.model_fields_set
+    expected_updated_at = (body.expected_updated_at or "").strip() or None
+    if expected_updated_at and str(current.get("updated_at") or "") != expected_updated_at:
+        raise HTTPException(
+            409,
+            "Listening content changed after this editor was opened. Reload canonical data before saving.",
+        )
 
     update: dict = {}
 
-    if body.title is not None:
-        title = body.title.strip()
+    if "title" in fields:
+        title = (body.title or "").strip()
         if not title:
             raise HTTPException(422, "title must not be empty")
         update["title"] = title
 
-    if body.transcript is not None:
-        transcript = body.transcript
+    if "transcript" in fields:
+        transcript = body.transcript or ""
         if not transcript.strip():
             raise HTTPException(422, "transcript must not be empty")
         update["transcript"] = transcript
 
-    if body.accent_tag is not None:
+    if "accent_tag" in fields:
         if body.accent_tag not in _ACCENT_VALUES:
             raise HTTPException(
                 422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
             )
         update["accent_tag"] = body.accent_tag
 
-    if body.cefr_level is not None:
-        if body.cefr_level not in _CEFR_VALUES:
+    if "cefr_level" in fields:
+        if body.cefr_level is not None and body.cefr_level not in _CEFR_VALUES:
             raise HTTPException(
                 422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
             )
         update["cefr_level"] = body.cefr_level
 
-    if body.ielts_section is not None:
-        if not (1 <= body.ielts_section <= 4):
+    if "ielts_section" in fields:
+        if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
             raise HTTPException(422, "ielts_section must be 1-4")
         update["ielts_section"] = body.ielts_section
 
-    if body.topic_tags is not None:
-        tags = [str(t).strip() for t in body.topic_tags if str(t).strip()]
+    if "topic_tags" in fields:
+        if body.topic_tags is None:
+            raise HTTPException(422, "topic_tags must be an array")
+        tags: list[str] = []
+        seen_tags: set[str] = set()
+        for raw_tag in body.topic_tags:
+            tag = str(raw_tag).strip()
+            # Keep this fold in lock-step with the browser editor's
+            # String.prototype.toLowerCase(). Python's casefold() is more
+            # aggressive (for example, ß -> ss), which made a successful
+            # write differ from the exact delta the editor later reconciles.
+            folded = tag.lower()
+            if tag and folded not in seen_tags:
+                seen_tags.add(folded)
+                tags.append(tag)
         update["topic_tags"] = tags
 
-    if body.is_premium is not None:
+    if "is_premium" in fields:
+        if body.is_premium is None:
+            raise HTTPException(422, "is_premium must be true or false")
         update["is_premium"] = bool(body.is_premium)
 
-    if body.external_license is not None:
-        update["external_license"] = body.external_license or None
+    if "external_license" in fields:
+        update["external_license"] = (body.external_license or "").strip() or None
 
-    if body.external_source_url is not None:
-        update["external_source_url"] = body.external_source_url or None
+    if "external_source_url" in fields:
+        from urllib.parse import urlparse
+        source_url = (body.external_source_url or "").strip() or None
+        if source_url:
+            parsed = urlparse(source_url)
+            if (parsed.scheme not in {"http", "https"} or not parsed.netloc
+                    or any(char.isspace() for char in source_url)):
+                raise HTTPException(422, "external_source_url must be an HTTP(S) URL")
+        update["external_source_url"] = source_url
 
     # Cross-field rules — evaluated against the merged shape (current row
     # + this PATCH's deltas) so partial updates can't slip past Sprint
@@ -1228,7 +1259,10 @@ async def admin_patch_listening_content(
     if (
         merged.get("is_premium")
         and merged.get("external_license")
-        and "NC" in str(merged["external_license"])
+        and re.search(
+            r"(^|[^A-Z0-9])NC([^A-Z0-9]|$)",
+            str(merged["external_license"]).upper(),
+        )
     ):
         raise HTTPException(
             422,
@@ -1242,14 +1276,25 @@ async def admin_patch_listening_content(
         # can refresh consistently.
         return current
 
-    res = (
-        supabase_admin.table("listening_content")
-        .update(update)
-        .eq("id", content_id)
-        .execute()
-    )
+    from datetime import datetime, timezone
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    mutation = (supabase_admin.table("listening_content")
+                .update(update).eq("id", content_id))
+    if expected_updated_at:
+        mutation = mutation.eq("updated_at", expected_updated_at)
+    res = mutation.execute()
     rows = res.data or []
-    return rows[0] if rows else {**current, **update}
+    if not rows:
+        if expected_updated_at:
+            raise HTTPException(
+                409,
+                "Listening content changed while saving. Reload canonical data before retrying.",
+            )
+        raise HTTPException(
+            500,
+            "Listening content update was not confirmed by the database.",
+        )
+    return rows[0]
 
 
 @admin_router.patch("/content/{content_id}/status")
