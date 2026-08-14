@@ -42,6 +42,7 @@ export function AdminListeningTestDetail({ testId }: { testId: string }) {
   const detailOrder = useRef(0);
   const audioOrder = useRef(0);
   const mapOrder = useRef(0);
+  const handledSectionHash = useRef('');
   const mapSelectionsRef = useRef<Record<string, MapSelection>>({});
   const [detail, setDetail] = useState<{ key: string; value: TestDetail } | null>(null);
   const [audio, setAudio] = useState<ReadState<AudioBundle>>({ phase: 'loading' });
@@ -119,6 +120,24 @@ export function AdminListeningTestDetail({ testId }: { testId: string }) {
       })();
     });
   }, [current?.id, current?.planExercises.map((exercise) => `${exercise.id}:${exercise.hasMapImage}:${exercise.mapImageGeneratedAt || ''}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!current) return;
+    const scrollToSectionHash = () => {
+      if (window.location.hash !== '#sections') {
+        handledSectionHash.current = '';
+        return;
+      }
+      if (handledSectionHash.current === key) return;
+      const target = document.getElementById('sections');
+      if (!target) return;
+      handledSectionHash.current = key;
+      window.requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+    };
+    scrollToSectionHash();
+    window.addEventListener('hashchange', scrollToSectionHash);
+    return () => window.removeEventListener('hashchange', scrollToSectionHash);
+  }, [current, key]);
 
   const reconcile = useCallback(async (request: number, expected: Record<string, unknown>, success: string) => {
     const row = await readDetail(request, expected);
@@ -261,7 +280,7 @@ export function AdminListeningTestDetail({ testId }: { testId: string }) {
       <div className={`altd-publish-gate ${publishGate.ok ? 'is-ready' : 'is-blocked'}`}><div><strong>{publishGate.ok ? 'Có thể phát hành' : 'Chưa qua cổng publish'}</strong><p>{publishGate.reason}</p></div><button className="adm-btn-primary" type="button" disabled={Boolean(busy) || !publishGate.ok || current.status === 'published'} onClick={() => setAction({ kind: 'status', status: 'published' })}>{current.status === 'published' ? 'Đang phát hành' : 'Phát hành test'}</button></div>
     </section>
 
-    <section className="altd-card" aria-labelledby="altd-sections-title"><div className="altd-section-head"><div><p className="alc-eyebrow">Content ownership</p><h2 id="altd-sections-title">Sections và exercises</h2></div><span>{current.sections.filter((section) => section.audioReady).length}/{current.sections.length} section có audio</span></div>{current.sections.length ? <div className="altd-section-grid">{current.sections.map((section) => <article key={section.id}><div><span>S{section.number}</span><span className={`adm-status-pill ${statusClass(section.status)}`}>{LISTENING_TEST_STATUS_LABEL[section.status]}</span></div><h3>{section.title}</h3><p>{section.audioReady ? '✓ Có audio' : 'Chưa có audio'} · {section.exerciseCount} exercises</p><a className="adm-btn-secondary" href={`/admin/listening/content/${encodeURIComponent(section.id)}`}>Mở content detail ↗</a></article>)}</div> : <div className="altd-empty"><strong>Chưa có section canonical</strong><span>Import lại bundle trước khi upload audio hoặc publish.</span></div>}</section>
+    <section id="sections" className="altd-card" aria-labelledby="altd-sections-title"><div className="altd-section-head"><div><p className="alc-eyebrow">Content ownership</p><h2 id="altd-sections-title">Sections và exercises</h2></div><span>{current.sections.filter((section) => section.audioReady).length}/{current.sections.length} section có audio</span></div>{current.sections.length ? <div className="altd-section-grid">{current.sections.map((section) => <article key={section.id}><div><span>S{section.number}</span><span className={`adm-status-pill ${statusClass(section.status)}`}>{LISTENING_TEST_STATUS_LABEL[section.status]}</span></div><h3>{section.title}</h3><p>{section.audioReady ? '✓ Có audio' : 'Chưa có audio'} · {section.exerciseCount} exercises</p><a className="adm-btn-secondary" href={`/admin/listening/content/${encodeURIComponent(section.id)}`}>Mở content detail ↗</a></article>)}</div> : <div className="altd-empty"><strong>Chưa có section canonical</strong><span>Import lại bundle trước khi upload audio hoặc publish.</span></div>}</section>
 
     {!!current.cues.length && <section className="altd-card" aria-labelledby="altd-cues-title"><div className="altd-section-head"><div><p className="alc-eyebrow">Assembled timeline</p><h2 id="altd-cues-title">Cue points</h2></div><span>{current.cues.length} mốc</span></div><div className="altd-table-wrap" role="region" aria-label="Cue points" tabIndex={0}><table><thead><tr><th>Type</th><th>Section</th><th>Time</th></tr></thead><tbody>{current.cues.map((cue, index) => <tr key={`${cue.type}-${cue.timestampSeconds}-${index}`}><td>{cue.type}</td><td>{cue.sectionNumber ?? '—'}</td><td>{cue.timestampSeconds.toFixed(2)}s</td></tr>)}</tbody></table></div></section>}
 

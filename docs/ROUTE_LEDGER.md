@@ -33,9 +33,9 @@
 
 ## Discrepancies & Open Questions
 
-### Q1: Admin route count (65 vs 67)
+### Q1: Admin route count (current inventory)
 - **Baseline claim (v2):** 62 admin pages
-- **Verified count (v3 audit 2026-07-13):** 67 files under `pages/admin/`
+- **Verified count (cross-audit 2026-08-15):** 66 files under `pages/admin/`
 - **Breakdown:**
   - `pages/admin/index.html` (1) — main hub
   - `pages/admin/dashboard/` (2) — overview + reading-attempts
@@ -44,20 +44,22 @@
   - `pages/admin/foot-traffic/` (1) — usage metrics
   - `pages/admin/grammar/` (4) — index + articles + analytics + recommend-test
   - `pages/admin/instructors.html` (1) — instructor oversight
-  - `pages/admin/listening/` (17) — content, audit, mcq, gist, tf, segments, dictation, cutter, import, tests, render, etc.
+  - `pages/admin/listening/` (15) — explicit rollback pages for the 15 native Admin Listening route surfaces
+  - `pages/admin/access-codes/`, `classes/`, `cohorts/` (3) — access and class operations
   - `pages/admin/mock-exams/` (1) — exam management
+  - `pages/admin/mock-live/`, `mock-pacing/`, `mock-tests/` (3) — mock-test operations
   - `pages/admin/mock-reviews/` (2) — index + report
   - `pages/admin/reading/` (2) — content + preview
   - `pages/admin/speaking/` (3) — index + sessions + topics
-  - `pages/admin/students.html` (1) — user management
+  - `pages/admin/students/` (1) — user management
   - `pages/admin/system/` (3) — alerts + ai-usage + index
   - `pages/admin/usage/index.html` (1) — per-user/access-code activity rollup
-  - `pages/admin/users.html` (1) — user list & access-code mgmt
-  - `pages/admin/vocab/` (9) — index + content + d1-curation + exercises + lemmas + quiz + quiz-analytics + stats + topics
-  - `pages/admin/writing/` (11) — index + new + grade + queue + assignments + prompts + cohorts + tips + regrade-requests + status + instructor-queue
-  - **Total: 67** ✓
+  - `pages/admin/users/` (1) — user list & access-code mgmt
+  - `pages/admin/vocab/` (9) — vocabulary operations
+  - `pages/admin/writing/` (11) — writing operations
+  - **Total: 66** ✓
 
-- **Resolution:** Plan doc should reference 67, not 62; ledger below uses 67 as canonical.
+- **Resolution:** The filesystem inventory is canonical; update this count whenever a rollback page is added or retired.
 
 ### Q2: Access-code redirect (2 targets)
 - `vercel.json` line 48–50 has three rules:
