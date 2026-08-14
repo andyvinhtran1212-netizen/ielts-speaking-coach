@@ -296,6 +296,8 @@ on:
       - 'frontend/public/js/admin-listening-content-list.js'
       - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+      - 'frontend/public/css/admin-listening-tests-next.css'
+      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -483,6 +485,7 @@ on:
       - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
@@ -981,6 +984,11 @@ jobs:
       # changes and reconciles every write through the canonical content GET.
       - name: Kiểm luồng Admin Listening content detail native
         run: node tooling/verify-admin-listening-content-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Test inventory mutates publication and exam-only visibility. Fixture
+      # pins URL filters, stale-ACK rejection and exact GET + list readback.
+      - name: Kiểm luồng Admin Listening tests native
+        run: node tooling/verify-admin-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

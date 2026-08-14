@@ -1,4 +1,6 @@
 const STATUSES = new Set(['draft', 'published', 'archived']);
+const TEST_TYPES = new Set(['full', 'mini', 'drill', 'practice']);
+const TEST_TYPE_FILTERS = new Set(['all', 'exam', ...TEST_TYPES]);
 const EXERCISE_TYPES = ['dictation', 'gist', 'true_false', 'mcq'];
 const VALID_EXERCISE_TYPES = new Set([...EXERCISE_TYPES, 'mini_test']);
 
@@ -41,6 +43,81 @@ export function listeningContentListHref(status = 'all', page = 1) {
   if (filters.status !== 'all') query.set('status', filters.status);
   if (filters.page > 1) query.set('page', String(filters.page));
   return `/admin/listening${query.size ? `?${query}` : ''}`;
+}
+
+export function normalizeListeningTestFilters(input = {}) {
+  const status = STATUSES.has(input.status) ? input.status : 'all';
+  const type = TEST_TYPE_FILTERS.has(input.type) ? input.type : 'all';
+  const search = textOf(input.search).slice(0, 80);
+  const page = integer(input.page);
+  return { status, type, search, page: page != null && page >= 1 ? page : 1 };
+}
+
+export function listeningTestListHref(input = {}) {
+  const filters = normalizeListeningTestFilters(input);
+  const query = new URLSearchParams();
+  if (filters.status !== 'all') query.set('status', filters.status);
+  if (filters.type !== 'all') query.set('type', filters.type);
+  if (filters.search) query.set('search', filters.search);
+  if (filters.page > 1) query.set('page', String(filters.page));
+  return `/admin/listening/tests${query.size ? `?${query}` : ''}`;
+}
+
+export function normalizeListeningTestItem(raw) {
+  const value = objectOf(raw);
+  const id = textOf(value?.id);
+  const testId = textOf(value?.test_id);
+  const status = textOf(value?.status);
+  const type = textOf(value?.test_type);
+  const sectionCount = integer(value?.section_count);
+  const audioReadyCount = integer(value?.audio_ready_count);
+  const band = finiteNumber(value?.band_target);
+  if (!value || !id || !testId || !STATUSES.has(status) || !TEST_TYPES.has(type)
+    || typeof value.exam_only !== 'boolean' || sectionCount == null || sectionCount < 0
+    || audioReadyCount == null || audioReadyCount < 0 || audioReadyCount > sectionCount
+    || (band != null && (band < 1 || band > 9))) return null;
+  return {
+    id, testId, status, type,
+    title: textOf(value.title) || testId,
+    bandTarget: band,
+    accentProfile: Array.isArray(value.accent_profile) ? value.accent_profile.map(textOf).filter(Boolean) : [],
+    sectionCount,
+    audioReadyCount,
+    examOnly: value.exam_only,
+    createdAt: nullableText(value.created_at),
+    updatedAt: nullableText(value.updated_at),
+  };
+}
+
+export function normalizeListeningTestList(raw, expected = {}) {
+  const value = objectOf(raw);
+  if (!value || !Array.isArray(value.items)) return null;
+  const limit = integer(value.limit);
+  const offset = integer(value.offset);
+  const total = integer(value.total);
+  if (limit == null || limit < 1 || limit > 100 || offset == null || offset < 0 || total == null || total < 0) return null;
+  if (expected.limit != null && limit !== expected.limit) return null;
+  if (expected.offset != null && offset !== expected.offset) return null;
+  if (value.items.length > limit || (value.items.length && total < offset + value.items.length)) return null;
+  const rows = [];
+  let malformedCount = 0;
+  for (const item of value.items) {
+    const row = normalizeListeningTestItem(item);
+    const typeMatches = !expected.type || expected.type === 'all'
+      || (expected.type === 'exam' ? ['full', 'mini', 'drill'].includes(row?.type) : row?.type === expected.type);
+    const searchMatches = !expected.search || row?.testId.toLocaleLowerCase().includes(expected.search.toLocaleLowerCase());
+    if (row && (!expected.status || expected.status === 'all' || row.status === expected.status) && typeMatches && searchMatches) rows.push(row);
+    else malformedCount += 1;
+  }
+  return { rows, malformedCount, limit, offset, total };
+}
+
+export function normalizeListeningTestMutationReadback(raw, expectedId, expected = {}) {
+  const value = objectOf(raw);
+  if (!value || textOf(value.id) !== expectedId || !STATUSES.has(textOf(value.status)) || typeof value.exam_only !== 'boolean') return null;
+  if (expected.status && value.status !== expected.status) return null;
+  if (expected.examOnly !== undefined && value.exam_only !== expected.examOnly) return null;
+  return { id: expectedId, status: value.status, examOnly: value.exam_only };
 }
 
 export function normalizeListeningContentItem(raw) {
