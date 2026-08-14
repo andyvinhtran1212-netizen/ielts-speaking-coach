@@ -19,7 +19,7 @@
 | Type | Built? | Created today (admin) | Schema home | Grading |
 |------|--------|------------------------|-------------|---------|
 | **Dictation** (chép chính tả) | ✅ Production | `pages/admin/listening/segments.html` → `POST /admin/listening/exercises` | `listening_exercises` `exercise_type=dictation` + `segments` column | word-diff, `listening_grader.grade_dictation` |
-| **Gist** (nghe ý chính) | ✅ Production | `pages/admin/listening/gist.html` → `POST /admin/listening/exercises` | `payload {prompt_text, model_answer, rubric_keywords[]}` | Haiku AI, `listening_gist_grader.grade_gist_response` |
+| **Gist** (nghe ý chính) | ✅ Production | `/admin/listening/gist` (native; `pages/admin/listening/gist.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {prompt_text, model_answer, rubric_keywords[]}` | Haiku AI, `listening_gist_grader.grade_gist_response` |
 | **True/False/Not-Given** | ✅ Production | `pages/admin/listening/tf.html` → `POST /admin/listening/exercises` | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact match, `listening_grader.grade_true_false` |
 | **MCQ** (trắc nghiệm) | ✅ Production | `pages/admin/listening/mcq.html` → `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
 | **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |

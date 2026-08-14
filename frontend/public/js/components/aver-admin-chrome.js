@@ -457,7 +457,7 @@ const NAV_GROUPS = [
           { slug: 'create',    label: 'Tạo bài',          href: '/admin/listening' },
           { slug: 'tests',     label: 'Cambridge tests',  href: '/admin/listening/tests' },
           { slug: 'segments',  label: 'Chia cắt audio',   href: '/admin/listening' },
-          { slug: 'gist',      label: 'Bài Gist',         href: '/pages/admin/listening/gist.html' },
+          { slug: 'gist',      label: 'Bài Gist',         href: '/admin/listening' },
           { slug: 'tf',        label: 'Bài True/False',   href: '/pages/admin/listening/tf.html' },
           { slug: 'mcq',       label: 'Bài MCQ',          href: '/pages/admin/listening/mcq.html' },
           { slug: 'attempts',  label: 'Lượt làm bài',     href: '/admin/listening/attempts' },

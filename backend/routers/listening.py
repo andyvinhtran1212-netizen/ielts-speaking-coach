@@ -120,16 +120,42 @@ def _validate_gist_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "Gist payload must be a JSON object.")
-    prompt = str(payload.get("prompt_text") or "").strip()
-    model_answer = str(payload.get("model_answer") or "").strip()
+    prompt_value = payload.get("prompt_text")
+    model_answer_value = payload.get("model_answer")
+    if not isinstance(prompt_value, str):
+        raise HTTPException(422, "Gist payload prompt_text must be a string.")
+    if not isinstance(model_answer_value, str):
+        raise HTTPException(422, "Gist payload model_answer must be a string.")
+    prompt = prompt_value.strip()
+    model_answer = model_answer_value.strip()
     if not prompt:
         raise HTTPException(422, "Gist payload missing prompt_text.")
     if not model_answer:
         raise HTTPException(422, "Gist payload missing model_answer.")
-    raw_keywords = payload.get("rubric_keywords") or []
+    if len(prompt) > 1_000:
+        raise HTTPException(422, "Gist prompt_text must not exceed 1000 characters.")
+    if len(model_answer) > 5_000:
+        raise HTTPException(422, "Gist model_answer must not exceed 5000 characters.")
+    raw_keywords = payload.get("rubric_keywords", [])
     if not isinstance(raw_keywords, list):
         raise HTTPException(422, "rubric_keywords must be a list of strings.")
-    keywords = [str(k).strip() for k in raw_keywords if str(k).strip()][:10]
+    if len(raw_keywords) > 10:
+        raise HTTPException(422, "rubric_keywords must contain at most 10 items.")
+    keywords: list[str] = []
+    seen: set[str] = set()
+    for index, raw_keyword in enumerate(raw_keywords):
+        if not isinstance(raw_keyword, str):
+            raise HTTPException(422, f"rubric_keywords[{index}] must be a string.")
+        keyword = raw_keyword.strip()
+        if not keyword:
+            raise HTTPException(422, f"rubric_keywords[{index}] must not be empty.")
+        if len(keyword) > 100:
+            raise HTTPException(422, f"rubric_keywords[{index}] must not exceed 100 characters.")
+        normalized = keyword.casefold()
+        if normalized in seen:
+            raise HTTPException(422, f"rubric_keywords[{index}] duplicates another keyword.")
+        seen.add(normalized)
+        keywords.append(keyword)
     return {
         "prompt_text":     prompt,
         "model_answer":    model_answer,

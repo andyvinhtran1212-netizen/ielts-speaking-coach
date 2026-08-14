@@ -136,13 +136,35 @@ def test_gist_payload_validator_happy():
     assert "trimmed" in out["rubric_keywords"]
 
 
-def test_gist_payload_validator_caps_keywords_at_10():
-    out = listening_router._validate_gist_payload({
-        "prompt_text":  "x",
-        "model_answer": "y",
-        "rubric_keywords": [f"kw{i}" for i in range(15)],
-    })
-    assert len(out["rubric_keywords"]) == 10
+def test_gist_payload_validator_rejects_more_than_10_keywords_instead_of_truncating():
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_gist_payload({
+            "prompt_text":  "x",
+            "model_answer": "y",
+            "rubric_keywords": [f"kw{i}" for i in range(15)],
+        })
+    assert exc.value.status_code == 422
+    assert "at most 10" in str(exc.value.detail)
+
+
+@pytest.mark.parametrize("keywords", [["Same", "same"], ["valid", ""], ["valid", 7]])
+def test_gist_payload_validator_rejects_ambiguous_keywords(keywords):
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_gist_payload({
+            "prompt_text": "x",
+            "model_answer": "y",
+            "rubric_keywords": keywords,
+        })
+    assert exc.value.status_code == 422
+
+
+def test_gist_payload_validator_rejects_oversized_text_fields():
+    with pytest.raises(HTTPException) as prompt_exc:
+        listening_router._validate_gist_payload({"prompt_text": "x" * 1001, "model_answer": "y"})
+    assert "1000" in str(prompt_exc.value.detail)
+    with pytest.raises(HTTPException) as answer_exc:
+        listening_router._validate_gist_payload({"prompt_text": "x", "model_answer": "y" * 5001})
+    assert "5000" in str(answer_exc.value.detail)
 
 
 def test_gist_payload_validator_rejects_missing_prompt():

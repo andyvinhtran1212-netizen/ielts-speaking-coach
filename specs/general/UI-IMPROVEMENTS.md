@@ -1806,3 +1806,56 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   next-order creation, canonical readback, dirty switching, 409 conflict,
   after-commit 503, POST-200/readback-403 reconciliation, storage failure, public
   audio API and responsive containment.
+
+## 2026-08-14 — Native `/admin/listening/gist` rubric authoring
+
+### Root causes and severity
+
+- **Critical — the editor could mutate the wrong Gist block.** Legacy load chose
+  the first result and save omitted `exercise_id`, `order_num` and a version token.
+  The native route exposes every ordered block and writes one exact identity with
+  `expected_updated_at`, or declares `expected_absent` for a new order.
+- **Critical — a POST acknowledgement was treated as persisted truth.** The old
+  form immediately announced success without reading the exercise back. The new
+  editor records the complete intended operation before POST and only reports
+  success after canonical GET matches prompt, model answer, keyword order, status
+  and block identity.
+- **Critical — concurrent work could overwrite a newer rubric.** Existing blocks
+  now use atomic optimistic concurrency and lock on 409. Ambiguous writes retain
+  a per-admin, per-content session receipt and expose GET-only reconciliation;
+  they are never automatically replayed.
+- **Medium — keyword overflow was silently discarded.** Backend validation used
+  `[:10]`, so an admin could believe all anchors were saved while the final five
+  disappeared. The API now rejects more than ten, empty, non-string, oversized or
+  case-insensitively duplicated keywords. The chip editor makes the count visible
+  and reports rejected additions without changing the accepted list.
+- **Medium — the screen hid grading behavior.** Admins saw “AI semantic” but not
+  that the non-AI fallback is capped at 60 or that learner success requires 80.
+  Those three rules now sit beside the rubric they affect; no fake preview score
+  is shown because there is no canonical preview endpoint.
+- **Medium — malformed rows could look like an empty block slot.** Complete block
+  normalization now fails closed on invalid payloads, versions, statuses or
+  duplicate orders so the UI cannot offer a misleading create over unknown data.
+- **Low — route documentation named a nonexistent `section_id` contract.** The
+  actual editor requires `content_id`; the native ledger, content inventory,
+  content detail and rollback link now preserve that exact query identity.
+
+### Design and verification
+
+- The workspace follows source → rubric → fallback anchors. Audio and a collapsed,
+  read-only transcript provide context without mixing content metadata writes into
+  the exercise mutation. Prompt and ground truth have visible counts and adjacent
+  validation; keywords use removable chips rather than an opaque comma string.
+- A provenance rail exposes block count, exact exercise ID, order, version, source
+  and publication state. Draft, published and archived blocks round-trip without
+  coercion; creating the next order is explicit and unsaved switching is confirmed.
+- The sticky save boundary states dirty/canonical truth. Leaving, switching,
+  creating a block, discarding a receipt and loading after conflict use focused
+  dialogs. Mobile collapses the rail and actions to one column with 44px controls,
+  visible focus and reduced-motion support.
+- Backend tests pin strict length/type/count/deduplication validation. Model/source
+  tests pin canonical normalization, exact operations, receipts, route ownership,
+  scoring copy and token-only responsive CSS. The fixture browser flow covers
+  draft/published/archived blocks, exact update, next-order create, dirty switching,
+  409 conflict, after-commit 503, POST-200/readback-403 reconciliation, storage
+  failure, canonical success truth and mobile/desktop containment.
