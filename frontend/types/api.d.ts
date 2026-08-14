@@ -6828,7 +6828,8 @@ export interface paths {
          *       - non-overlapping
          *       - transcript non-empty
          *
-         *     Legacy upsert semantics use the complete
+         *     Legacy callers that omit order_num retain their original "first block of
+         *     this type" semantics. Callers that provide order_num use the complete
          *     (content_id, exercise_type, order_num) block identity. Native editors
          *     update an exact exercise_id with an expected_updated_at version token so
          *     existing attempt rows keep referencing the same exercise.
