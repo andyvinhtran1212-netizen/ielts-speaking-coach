@@ -59,6 +59,8 @@ class _TableQuery:
         rows = self.fake.tables.setdefault(self.table_name, [])
         matched = [r for r in rows if all(r.get(f) == v for f, v in self.filters)]
         if self._mode == "update":
+            if self.fake.drop_updates:
+                return _Resp([])
             for r in matched:
                 r.update(self._update_payload or {})
             return _Resp(matched)
@@ -68,6 +70,7 @@ class _TableQuery:
 class _FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {"listening_content": []}
+        self.drop_updates = False
 
     def table(self, name):
         return _TableQuery(self, name)
@@ -110,6 +113,7 @@ def _seed_content(fake_db, **overrides):
         "external_source_url":    None,
         "audio_duration_seconds": 30,
         "audio_storage_path":     "uploads/sample.mp3",
+        "updated_at":             "2026-08-01T00:00:00+00:00",
     }
     row.update(overrides)
     fake_db.tables["listening_content"].append(row)
@@ -134,6 +138,7 @@ class TestPatchMetadata:
         assert body["accent_tag"] == "us_general"
         assert body["cefr_level"] == "B2"
         assert fake_db.tables["listening_content"][0]["title"] == "Updated Title"
+        assert body["updated_at"] != "2026-08-01T00:00:00+00:00"
 
     def test_update_multiple_fields_at_once(self, client, fake_db):
         row = _seed_content(fake_db)
@@ -204,6 +209,135 @@ class TestPatchMetadata:
         )
         assert r.status_code == 422
         assert "external_source_url" in r.text
+
+    def test_explicit_null_clears_nullable_metadata(self, client, fake_db):
+        row = _seed_content(
+            fake_db,
+            cefr_level="C1",
+            ielts_section=4,
+            external_license="CC BY 4.0",
+            external_source_url="https://example.com/source",
+        )
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={
+                "cefr_level": None,
+                "ielts_section": None,
+                "external_license": None,
+                "external_source_url": None,
+            },
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["cefr_level"] is None
+        assert r.json()["ielts_section"] is None
+        assert r.json()["external_license"] is None
+        assert r.json()["external_source_url"] is None
+
+    def test_topic_tags_are_trimmed_and_deduplicated_case_insensitively(self, client, fake_db):
+        row = _seed_content(fake_db)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"topic_tags": [" Travel ", "travel", "WORK", "work", ""]},
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["topic_tags"] == ["Travel", "WORK"]
+
+    def test_lowercase_nc_license_is_still_blocked_for_premium(self, client, fake_db):
+        row = _seed_content(fake_db, is_premium=True)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={
+                "external_license": "cc by-nc 4.0",
+                "external_source_url": "https://example.com/source",
+            },
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 422
+
+    def test_external_source_url_rejects_non_http_scheme(self, client, fake_db):
+        row = _seed_content(fake_db)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"external_source_url": "javascript:alert(1)"},
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 422
+
+    def test_external_source_url_rejects_whitespace_in_host(self, client, fake_db):
+        row = _seed_content(fake_db)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"external_source_url": "https://exa mple.com/source"},
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 422
+
+    def test_unrelated_license_text_containing_letters_nc_is_not_blocked(self, client, fake_db):
+        row = _seed_content(fake_db, is_premium=True)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={
+                "external_license": "Ancillary commercial license",
+                "external_source_url": "https://example.com/source",
+            },
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 200, r.text
+
+    def test_expected_updated_at_prevents_stale_overwrite(self, client, fake_db):
+        row = _seed_content(fake_db)
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"title": "Stale edit", "expected_updated_at": "2026-07-01T00:00:00+00:00"},
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 409
+        assert fake_db.tables["listening_content"][0]["title"] == "Sample Listening"
+
+    def test_matching_version_updates_atomically(self, client, fake_db):
+        row = _seed_content(fake_db)
+        previous = row["updated_at"]
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"title": "Versioned edit", "expected_updated_at": previous},
+            headers=_ADMIN_AUTH,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["title"] == "Versioned edit"
+        assert r.json()["updated_at"] != previous
+
+    def test_version_from_canonical_get_is_accepted_by_patch(self, client, fake_db):
+        row = _seed_content(fake_db)
+        canonical = client.get(
+            f"/admin/listening/content/{row['id']}",
+            headers=_ADMIN_AUTH,
+        )
+        assert canonical.status_code == 200, canonical.text
+        version = canonical.json()["updated_at"]
+
+        updated = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"title": "GET-version edit", "expected_updated_at": version},
+            headers=_ADMIN_AUTH,
+        )
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["title"] == "GET-version edit"
+
+    def test_unconfirmed_unversioned_update_never_returns_fabricated_200(self, client, fake_db):
+        row = _seed_content(fake_db)
+        fake_db.drop_updates = True
+
+        r = client.patch(
+            f"/admin/listening/content/{row['id']}",
+            json={"title": "Must not be fabricated"},
+            headers=_ADMIN_AUTH,
+        )
+
+        assert r.status_code == 500, r.text
+        assert r.json()["detail"]["error_code"] == "internal_error"
+        assert fake_db.tables["listening_content"][0]["title"] == "Sample Listening"
 
     def test_unknown_content_id_returns_404(self, client):
         r = client.patch(
