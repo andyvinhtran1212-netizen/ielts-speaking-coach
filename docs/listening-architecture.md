@@ -67,6 +67,7 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
 |------|----------|----------|----------|
 | Per-type exercise form | `segments` / `gist` / `tf` / `mcq` `.html` | `POST /admin/listening/exercises` | one `listening_exercises` row |
 | **Full-test pack** | `/admin/listening/import-fulltest` (native; `import-fulltest.html` rollback, #408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
+| **Skill-drill bundle** | `/admin/listening/import-drills` (native; `import-drills.html` rollback) | `POST /admin/listening/drills/import` (dry-run) → `/commit` | 1 drill test + 1 content row + block exercises; optional premixed mp3 |
 | Status transitions | `tests.html` list (#408) | `PATCH /admin/listening/tests/{id}/status` | draft ⇄ published ⇄ archived (publish has an audio gate) |
 
 > Note: the legacy **convert** (DOCX/2-file) path was RETIRED 2026-07-17 (usage
@@ -107,6 +108,20 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 - **Pack v1.2 transcript [MEASURED]:** the Solution carries two blocks — `# Transcript (bản đọc)` (display copy, verbatim `**Name (role):**` labels) → `listening_content.transcript`; and `# Audio Transcript / Script đầy đủ` (production copy with `(Qn)` markers) → used to compute per-question `transcript_anchors` (text-matched), stored in the exercise payload (no migration, Pattern #15). v1.1 packs fall back to joined-extracts + a warning.
 - **Import UI (#408):** `/admin/listening/import-fulltest` — drag/drop the 4 files, bind them to one SHA-256 fingerprint, dry-run with question/answer/IMG-PROMPT evidence, commit with a real upload progress bar, durable per-admin receipt, exact canonical GET readback and a separate publish confirmation. A duplicate ACTIVE Test ID blocks commit and hands off to the canonical Kho test status flow; the importer never archives a live row inside an ambiguous upload. Token is automatic (admin session Bearer) — no hand-pasted JWT. `import-fulltest.html` remains the explicit watchdog/manual rollback.
 
+### 5.1 Skill-drill batch pipeline — [MEASURED]
+
+`/admin/listening/import-drills` accepts a directory whose authoritative shape is
+`Source_JSON/<TEST_ID>.json` plus optional
+`audio_output/<TEST_ID>/{timings.json,full_test.mp3}`. Loose accessories attach
+only when exactly one Source JSON is selected; multi-source ambiguity, duplicate
+slots and audio without timings fail closed. Each bundle is SHA-256 bound before
+dry-run. Valid non-duplicate rows commit sequentially with one account-scoped
+receipt per POST, upload progress and exact test-detail GET verification. A 4xx
+rejects one row definitively; a 5xx/transport/malformed ACK/readback failure keeps
+the receipt and stops the queue. Reconciliation uses list/detail GET only and
+never replays the upload. Metadata-only drills remain explicit Drafts; audio-ready
+truth comes from `listening_tests.full_audio_*`, not the section audio flag.
+
 ---
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
@@ -120,7 +135,7 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 > Everything in this section is a **proposal**. None of it exists yet. Andy's idea: author *all* listening types via a file-pack upload like the full-test, instead of per-type interactive forms.
 
-**Today [MEASURED]:** only full-test uses pack-upload; dictation/gist/tf/mcq are form-authored one at a time; mini-test is a graded 1-section `listening_tests` row (`test_type=mini`) built through the full-test pipeline.
+**Today [MEASURED]:** full tests use a four-file pack and skill drills use a Source JSON plus optional timing/audio bundle; dictation/gist/tf/mcq standalone blocks remain form-authored one at a time. Mini-test is a graded 1-section `listening_tests` row (`test_type=mini`) built through the full-test pipeline.
 
 **Proposed model [INTENDED]:** a generalized "listening pack" reusing the full-test pipeline shape (dry-run → preview → commit → status + the #408 UI), where a pack = audio + transcript + a per-type exercise spec the parser maps onto the existing `exercise_type` payloads:
 

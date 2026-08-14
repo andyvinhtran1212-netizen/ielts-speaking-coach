@@ -360,6 +360,16 @@ on:
       - 'frontend/tests/admin-listening-fulltest-import-next-behavior.test.mjs'
       - 'frontend/tests/admin-listening-fulltest-import.test.mjs'
       - 'backend/tests/test_listening_fulltest_import.py'
+      - 'frontend/lib/admin-listening-drill-import-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/import-drills/**'
+      - 'frontend/public/css/admin-listening-drill-import-next.css'
+      - 'frontend/public/pages/admin/listening/import-drills.html'
+      - 'frontend/public/js/admin-listening-drills-import.js'
+      - 'frontend/tooling/verify-admin-listening-drill-import-flow.mjs'
+      - 'frontend/tests/admin-listening-drill-import-next-behavior.test.mjs'
+      - 'frontend/tests/admin-listening-drills-import.test.mjs'
+      - 'backend/services/listening_drill_import.py'
+      - 'backend/tests/test_listening_drill_import.py'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -1106,6 +1116,12 @@ jobs:
       # receipts, GET-only ambiguity reconciliation and publication readback.
       - name: Kiểm luồng Admin Listening full-test import native
         run: node tooling/verify-admin-listening-fulltest-import-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Skill-drill import is a client-side batch write boundary. The fixture
+      # pins deterministic grouping, duplicate locks, sequential receipts,
+      # upload progress and GET-only ambiguity reconciliation.
+      - name: Kiểm luồng Admin Listening skill-drill import native
+        run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

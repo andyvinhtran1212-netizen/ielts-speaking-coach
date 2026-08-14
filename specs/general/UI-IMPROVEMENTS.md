@@ -2050,3 +2050,91 @@ writes.
   recovery without POST replay, storage failure before POST and mobile containment.
 - Full frontend tests, TypeScript, production build and focused backend importer
   tests must pass; Claude review runs after browser verification and before commit.
+
+## 2026-08-14 — Native `/admin/listening/import-drills`
+
+### Summary
+
+The legacy batch table compressed file grouping, parser results and persistence
+into one optimistic surface. The native redesign uses four explicit evidence
+stages: inventory, dry-run, sequential commit and canonical result. It keeps the
+existing backend parser while making every uncertain relationship visible and
+non-actionable.
+
+### Critical issues resolved
+
+#### Issue: Loose multi-file selection can associate media with the wrong drill
+
+**Current State**: Directory paths are usable, but a loose selection has no
+reliable `audio_output/<TEST_ID>` owner and duplicate slots overwrite silently.
+
+**Problem**: The operator can validate one Source JSON while timings/audio from
+another drill are committed.
+
+**Recommendation**: Treat directory paths as canonical. Attach loose accessories
+only when exactly one Source JSON exists; surface unassigned and duplicate files
+as blocking inventory findings.
+
+**Impact**: No bundle is created by inference when the browser cannot prove file
+ownership.
+
+**Implementation Notes**: The pure grouping model returns bundles, unassigned
+files, ignored files and global errors separately.
+
+#### Issue: Audio without timings is silently downgraded to metadata-only
+
+**Current State**: The legacy controller simply omits the selected mp3 from the
+commit form when `timings.json` is absent.
+
+**Problem**: Admin intent and persisted truth diverge; the visible audio file is
+discarded without consent.
+
+**Recommendation**: Block the bundle before dry-run and explain that per-question
+replay windows require timings. Metadata-only is valid only when no audio was
+selected.
+
+**Impact**: “Audio-ready” and “Metadata-only” become truthful, mutually exclusive
+states.
+
+#### Issue: Batch POST results are replayable after transport ambiguity
+
+**Current State**: A network/5xx failure leaves the row available to retry and a
+successful ACK is not checked against canonical test detail.
+
+**Problem**: The backend may already have created a draft; a retry can collide or
+leave the operator unsure which row is authoritative.
+
+**Recommendation**: Commit selected rows sequentially. Before every POST, save an
+account-scoped receipt containing Test ID, SHA-256 fingerprint and baseline IDs.
+Keep it for all ambiguous outcomes, stop the whole queue, and reconcile by exact
+list/detail GET without replay.
+
+**Impact**: A batch can recover safely after reload, timeout or malformed ACK.
+
+### High-priority improvements implemented
+
+- Duplicate active Test IDs are never selectable and link to the native Kho test.
+- Canonical readback requires one exercised section, exact drill metadata and
+  top-level `full_audio_*` truth.
+- The confirmation dialog reports audio-ready versus metadata-only counts before
+  a write begins.
+- The table becomes stacked evidence cards on small screens; pickers and CTAs have
+  visible focus treatment and 44px touch targets.
+- Upload progress uses finite `progressbar` semantics outside a live region.
+
+### Positive observations preserved
+
+- The backend parser remains the canonical validator and commit still reparses
+  the uploaded bytes.
+- Metadata-only Drafts remain supported for planned audio production.
+- The HTML implementation stays reachable as a watchdog/manual rollback target.
+
+### Verification
+
+- Model tests cover deterministic grouping, limits, fingerprints, strict dry-run,
+  ACK/detail contracts, baseline reconciliation and account-scoped receipts.
+- Fixture-browser coverage exercises audio-ready, metadata-only, duplicate,
+  audio-without-timings, sequential success→503 stop, GET-only reconciliation,
+  localStorage failure before POST, focus and mobile containment.
+- TypeScript, production build, frontend contracts and backend drill importer
+  tests run before Claude review and publication.
