@@ -100,7 +100,7 @@ test('owns /admin/listening with backend role guard and explicit rollback', () =
 });
 
 test('keeps detail/editor identities and exposes truthful degraded states', () => {
-  assert.match(CLIENT, /content-detail\.html\?id=/);
+  assert.match(CLIENT, /\/admin\/listening\/content\/\$\{encodeURIComponent\(row\.id\)\}/);
   assert.match(CLIENT, /content-meta\.html\?id=/);
   for (const editor of ['segments', 'gist', 'tf', 'mcq']) assert.match(CLIENT, new RegExp(`${editor}\\.html\\?content_id=`));
   assert.match(CLIENT, /Không đồng nghĩa “chưa có”/);
