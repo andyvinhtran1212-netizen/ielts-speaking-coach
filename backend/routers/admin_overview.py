@@ -483,7 +483,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "action":     "Hoàn thành chép chính tả",
             "score":      (f"{round(float(r['accuracy']) * 100)}%"
                            if r.get("accuracy") is not None else None),
-            "link":       "/pages/admin/listening/dictation-reports.html",
+            "link":       "/admin/listening/dictation",
         })
     for e in essays_recent:
         if not e.get("created_at"):

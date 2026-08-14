@@ -117,7 +117,7 @@ export function AdminListeningAttempts() {
   return <main className="ala-shell">
     <header className="ala-hero">
       <div><p className="alc-eyebrow">Listening · Learner evidence</p><h1>Lượt làm bài Listening</h1><p>Đọc lịch sử nộp bài, thời lượng và đáp án từng câu từ cùng nguồn dữ liệu mà hệ thống chấm điểm đã lưu.</p></div>
-      <div className="ala-hero__actions"><a className="adm-btn-secondary" href="/admin/listening/tests">Kho test</a><a className="adm-btn-secondary" href="/pages/admin/listening/dictation-reports.html">Báo cáo dictation ↗</a></div>
+      <div className="ala-hero__actions"><a className="adm-btn-secondary" href="/admin/listening/tests">Kho test</a><a className="adm-btn-secondary" href="/admin/listening/dictation">Báo cáo dictation</a></div>
     </header>
 
     <section className="ala-context" aria-labelledby="ala-context-title"><div><p className="alc-eyebrow">Canonical read boundary</p><h2 id="ala-context-title">Một attempt, ba lớp bằng chứng</h2></div><ol><li><span>1</span><strong>Danh tính</strong><small>user + test association</small></li><li><span>2</span><strong>Kết quả</strong><small>điểm, tỉ lệ, thời lượng</small></li><li><span>3</span><strong>Từng câu</strong><small>trả lời, đáp án, trap</small></li></ol></section>

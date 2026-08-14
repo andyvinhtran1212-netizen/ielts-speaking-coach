@@ -461,7 +461,7 @@ const NAV_GROUPS = [
           { slug: 'tf',        label: 'Bài True/False',   href: '/pages/admin/listening/tf.html' },
           { slug: 'mcq',       label: 'Bài MCQ',          href: '/pages/admin/listening/mcq.html' },
           { slug: 'attempts',  label: 'Lượt làm bài',     href: '/admin/listening/attempts' },
-          { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/pages/admin/listening/dictation-reports.html' },
+          { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/admin/listening/dictation' },
         ],
       },
       { section: 'reading',   label: 'Reading',   href: '/admin/reading', icon: 'book-open',

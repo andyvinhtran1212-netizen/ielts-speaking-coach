@@ -1629,3 +1629,38 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
 - The fixture-backed browser flow proves hostile React escaping, malformed-row and
   lookup warnings, exact detail URL identity, trap evidence, canonical pagination
   and mobile/desktop containment with no JavaScript errors.
+
+## 2026-08-14 — Native `/admin/listening/dictation` evidence workspace
+
+### Root causes and severity
+
+- **Critical — aggregate silently sampled a capped result set.** The legacy
+  endpoint requested one 2,000-row batch, still subject to PostgREST row caps,
+  then labelled it as the full session count and mean. The backend now pages the
+  complete filtered scope in bounded 1,000-row reads before aggregating.
+- **Critical — broad learner filters stopped after 200 matched accounts.** Both
+  list and aggregate could omit valid sessions without warning. Learner ID lookup
+  now uses the same bounded complete-scope pagination and is regression-tested
+  beyond 1,000 matches.
+- **Critical — learner lookup failure looked like an empty association.** User
+  enrichment reused a helper that swallowed lookup failures. List and detail now
+  expose an explicit `association_lookup_failed` contract and preserve the user
+  ID while the native UI marks affected identity cells.
+- **Medium — detail omitted the reference sentence and learner identity.** An
+  admin could see a score and typed text but not what the learner was expected to
+  hear. The detail endpoint now includes canonical user identity; the workspace
+  presents reference and learner text side by side with word/error evidence.
+- **Medium — one failed read erased unrelated evidence.** Legacy `Promise.all`
+  hid the valid list when aggregate failed. Native list and aggregate reads are
+  independently scoped, guarded and retryable.
+
+### Design and verification
+
+- Filters, page and selected session round-trip through the clean URL. A three-step
+  evidence map leads from aggregate trends to session rows and then sentence detail.
+- Accuracy always carries a textual interpretation, tables become labeled cards on
+  mobile, selection is a real button, and focus moves to exact session detail.
+- Backend tests prove user-lookup truth and aggregation beyond 1,000 rows. Model,
+  source and fixture-backed browser contracts cover malformed data, stale-response
+  rejection, independent failures, exact identity, hostile text escaping,
+  pagination, responsive containment and rollback behavior.

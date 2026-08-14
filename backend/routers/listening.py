@@ -4710,6 +4710,71 @@ async def flag_listening_dictation(
     return {"id": flag_id, "status": "new"}
 
 
+def _all_dictation_user_ids(user_query: str) -> list:
+    """Resolve every matching learner ID without a silent search cap."""
+    user_ids: list = []
+    page_size = 1000
+    offset = 0
+    while True:
+        page = (supabase_admin.table("users").select("id")
+                .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                .order("id")
+                .range(offset, offset + page_size - 1).execute().data or [])
+        user_ids.extend(row["id"] for row in page if row.get("id"))
+        if len(page) < page_size:
+            return list(dict.fromkeys(user_ids))
+        offset += page_size
+
+
+_DICTATION_USER_FILTER_BATCH_SIZE = 100
+
+
+def _dictation_user_batches(user_ids: list | None) -> list[list | None]:
+    """Keep PostgREST ``in`` filters below practical URL-length limits."""
+    if user_ids is None:
+        return [None]
+    return [user_ids[start:start + _DICTATION_USER_FILTER_BATCH_SIZE]
+            for start in range(0, len(user_ids), _DICTATION_USER_FILTER_BATCH_SIZE)]
+
+
+def _dictation_list_rows_for_users(
+    select_fields: str,
+    test_id: str | None,
+    user_ids: list,
+    candidate_limit: int,
+) -> tuple[list[dict], int]:
+    """Read ordered per-batch candidates and sum disjoint exact totals.
+
+    The global first N rows must be contained in the first N rows of every
+    disjoint user batch, so this avoids loading the entire filtered history.
+    """
+    rows: list[dict] = []
+    total = 0
+    page_size = 1000
+    for user_batch in _dictation_user_batches(user_ids):
+        offset = 0
+        remaining = candidate_limit
+        batch_total: int | None = None
+        while remaining > 0:
+            take = min(page_size, remaining)
+            q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+            if test_id:
+                q = q.eq("test_id_external", test_id)
+            response = (q.in_("user_id", user_batch)
+                        .order("created_at", desc=True).order("id", desc=True)
+                        .range(offset, offset + take - 1).execute())
+            page = response.data or []
+            if batch_total is None:
+                batch_total = getattr(response, "count", None) or 0
+                total += batch_total
+            rows.extend(page)
+            if len(page) < take:
+                break
+            offset += take
+            remaining -= take
+    return rows, total
+
+
 @admin_router.get("/dictation-reports")
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
@@ -4723,30 +4788,63 @@ async def admin_list_dictation_reports(
     học viên (audit 2026-07-17: list từng trả user_id trần — admin không biết
     "học viên nào"). Returns {items, total, limit, offset}."""
     await require_admin(authorization)
-    q = (supabase_admin.table("dictation_sessions")
-         .select("id,user_id,test_id_external,section_num,section_title,"
-                 "total_sentences,correct_count,accuracy,total_time_seconds,"
-                 "completed_at,created_at", count="exact"))
-    if test_id:
-        q = q.eq("test_id_external", test_id)
+    select_fields = ("id,user_id,test_id_external,section_num,section_title,"
+                     "total_sentences,correct_count,accuracy,total_time_seconds,"
+                     "completed_at,created_at")
     if user_query:
-        u_res = (supabase_admin.table("users").select("id")
-                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
-                 .limit(200).execute())
-        uids = [r["id"] for r in (u_res.data or [])]
+        uids = _all_dictation_user_ids(user_query)
         if not uids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
-        q = q.in_("user_id", uids)
-    res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    items = res.data or []
+            return {"items": [], "total": 0, "limit": limit, "offset": offset,
+                    "association_lookup_failed": False,
+                    "association_lookup_failures": []}
+        matching_rows, total = _dictation_list_rows_for_users(
+            select_fields, test_id, uids, offset + limit)
+        matching_rows.sort(
+            key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
+            reverse=True,
+        )
+        items = matching_rows[offset:offset + limit]
+    else:
+        q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+        if test_id:
+            q = q.eq("test_id_external", test_id)
+        res = (q.order("created_at", desc=True).order("id", desc=True)
+               .range(offset, offset + limit - 1).execute())
+        items = res.data or []
+        total = getattr(res, "count", None) or 0
+    lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in items],
-                        "id,email,display_name")
+                        "id,email,display_name", lookup_failures=lookup_failures)
     for r in items:
         u = users.get(r.get("user_id")) or {}
         r["user"] = {"id": r.get("user_id"), "email": u.get("email"),
                      "display_name": u.get("display_name")}
-    return {"items": items, "total": getattr(res, "count", None) or 0,
-            "limit": limit, "offset": offset}
+    return {"items": items, "total": total,
+            "limit": limit, "offset": offset,
+            "association_lookup_failed": bool(lookup_failures),
+            "association_lookup_failures": sorted(lookup_failures)}
+
+
+def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) -> list[dict]:
+    """Read the complete aggregate scope in bounded ID and row pages."""
+    rows: list[dict] = []
+    page_size = 1000
+    for user_batch in _dictation_user_batches(user_ids):
+        offset = 0
+        while True:
+            q = supabase_admin.table("dictation_sessions").select(
+                "test_id_external,section_num,accuracy,total_sentences,error_trends")
+            if test_id:
+                q = q.eq("test_id_external", test_id)
+            if user_batch is not None:
+                q = q.in_("user_id", user_batch)
+            page = q.order("id").range(
+                offset, offset + page_size - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < page_size:
+                break
+            offset += page_size
+    return rows
 
 
 @admin_router.get("/dictation-reports/aggregate")
@@ -4760,20 +4858,13 @@ async def admin_dictation_reports_aggregate(
     Nhận CÙNG bộ lọc với list (test_id + user_query) — số tổng hợp phải cùng
     phạm vi với bảng phiên, không được lệch (review P2, PR #809)."""
     await require_admin(authorization)
-    q = supabase_admin.table("dictation_sessions").select(
-        "test_id_external,section_num,accuracy,total_sentences,error_trends")
-    if test_id:
-        q = q.eq("test_id_external", test_id)
+    user_ids = None
     if user_query:
-        u_res = (supabase_admin.table("users").select("id")
-                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
-                 .limit(200).execute())
-        uids = [r["id"] for r in (u_res.data or [])]
-        if not uids:
+        user_ids = _all_dictation_user_ids(user_query)
+        if not user_ids:
             return {"session_count": 0, "mean_accuracy": 0.0,
                     "top_missed": [], "top_wrong": []}
-        q = q.in_("user_id", uids)
-    rows = q.limit(2000).execute().data or []
+    rows = _all_dictation_aggregate_rows(test_id, user_ids)
 
     # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
     # not a truncated top list — a word below any single session's top-N would
@@ -4811,7 +4902,16 @@ async def admin_get_dictation_report(
            .eq("id", session_id).limit(1).execute())
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
-    return res.data[0]
+    row = dict(res.data[0])
+    lookup_failures: set[str] = set()
+    users = _rows_by_id("users", [row.get("user_id")], "id,email,display_name",
+                        lookup_failures=lookup_failures)
+    user = users.get(row.get("user_id")) or {}
+    row["user"] = {"id": row.get("user_id"), "email": user.get("email"),
+                   "display_name": user.get("display_name")}
+    row["association_lookup_failed"] = bool(lookup_failures)
+    row["association_lookup_failures"] = sorted(lookup_failures)
+    return row
 
 
 # ── Admin: lượt làm bài nghe của học viên (mini/drill/full) ──────────────────
