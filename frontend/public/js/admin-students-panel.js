@@ -470,7 +470,7 @@
               ? ' · TB ' + Math.round(lis.avg_duration_seconds / 60) + ' phút/bài' : '') + '</li>');
         }
         lisRows.push('<li><a href="/pages/admin/listening/attempts.html' + linkQs + '">Xem lượt làm bài</a>' +
-          ' · <a href="/pages/admin/listening/dictation-reports.html' + linkQs + '">Chép chính tả</a></li>');
+          ' · <a href="/admin/listening/dictation' + linkQs + '">Chép chính tả</a></li>');
         lisList.innerHTML = lisRows.join('');
       } else if (detail && !detail.user_id) {
         lisList.innerHTML = '<li class="st-list-empty">Chưa kích hoạt tài khoản — chưa có dữ liệu listening.</li>';

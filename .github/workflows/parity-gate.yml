@@ -308,6 +308,12 @@ on:
       - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
       - 'backend/routers/listening.py'
       - 'backend/tests/test_admin_listening_attempts.py'
+      - 'frontend/lib/admin-listening-dictation-model.mjs'
+      - 'frontend/public/css/admin-listening-dictation-next.css'
+      - 'frontend/public/pages/admin/listening/dictation-reports.html'
+      - 'frontend/public/js/admin-listening-dictation-reports.js'
+      - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
+      - 'backend/tests/test_listening_test_dictation.py'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -1012,6 +1018,13 @@ jobs:
       # exact detail identity, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening attempts native
         run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Dictation reports are read-only but aggregate scope and learner
+      # association truth are operationally sensitive. The fixture pins
+      # stale-response rejection, full-scope aggregate, exact session detail,
+      # independent failure states, pagination and responsive containment.
+      - name: Kiểm luồng Admin Listening dictation native
+        run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

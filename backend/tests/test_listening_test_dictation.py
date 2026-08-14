@@ -179,15 +179,22 @@ class _Q:
         self._payload = None
         self._eq: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
+        self._orders: list[tuple[str, bool]] = []
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
     def insert(self, p): self._mode = "insert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
-    def in_(self, c, vals): self._eq.append((c, ("__in__", list(vals)))); return self
+    def in_(self, c, vals):
+        values = list(vals)
+        self.fake.in_filter_sizes.append((self.name, c, len(values)))
+        self._eq.append((c, ("__in__", values)))
+        return self
     def or_(self, expr): self._or = expr; return self
     def limit(self, *_a, **_kw): return self
-    def order(self, *_a, **_kw): return self
+    def order(self, column, desc=False, **_kw):
+        self._orders.append((column, desc))
+        return self
     def range(self, s, e): self._range = (s, e); return self
 
     def _match(self, r):
@@ -211,6 +218,11 @@ class _Q:
         return True
 
     def execute(self):
+        if self.name in self.fake.fail_tables:
+            raise RuntimeError(f"forced lookup failure: {self.name}")
+        if self._range is not None:
+            self.fake.range_orderings.append(
+                (self.name, tuple(self._orders), self._range))
         rows = self.fake.tables.setdefault(self.name, [])
         if self._mode == "insert":
             payloads = self._payload if isinstance(self._payload, list) else [self._payload]
@@ -218,6 +230,8 @@ class _Q:
                 rows.append(dict(p))
             return _Resp(payloads)
         matched = [r for r in rows if self._match(r)]
+        for column, desc in reversed(self._orders):
+            matched.sort(key=lambda row: str(row.get(column) or ""), reverse=desc)
         total = len(matched)
         if self._range:
             s, e = self._range
@@ -238,7 +252,10 @@ class _Storage:
 class _Fake:
     def __init__(self):
         self.tables = {"listening_tests": [], "listening_content": [],
-                       "dictation_sessions": [], "user_feedback": []}
+                       "dictation_sessions": [], "user_feedback": [], "users": []}
+        self.fail_tables: set[str] = set()
+        self.in_filter_sizes: list[tuple[str, str, int]] = []
+        self.range_orderings: list[tuple[str, tuple[tuple[str, bool], ...], tuple[int, int]]] = []
         self.storage = _Storage()
 
     def table(self, name): return _Q(self, name)
@@ -702,6 +719,79 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
         test_id=None, user_query="khong-ai-ca", authorization=authz))
     assert agg_none == {"session_count": 0, "mean_accuracy": 0.0,
                         "top_missed": [], "top_wrong": []}
+
+
+def test_admin_dictation_list_and_detail_expose_user_lookup_failure(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"].append({
+        "id": "s-lookup", "user_id": "u-missing", "test_id_external": "C19-T1",
+        "section_num": 1, "total_sentences": 1, "correct_count": 1,
+        "accuracy": 1.0, "results": [], "created_at": "2026-08-14T00:00:00Z",
+    })
+    fake.fail_tables.add("users")
+    listed = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query=None, limit=30, offset=0, authorization=authz))
+    assert listed["association_lookup_failed"] is True
+    assert listed["association_lookup_failures"] == ["users"]
+    assert listed["items"][0]["user"] == {
+        "id": "u-missing", "email": None, "display_name": None}
+    detail = _run(listening_router.admin_get_dictation_report(
+        session_id="s-lookup", authorization=authz))
+    assert detail["association_lookup_failed"] is True
+    assert detail["user"]["id"] == "u-missing"
+
+
+def test_admin_dictation_aggregate_pages_past_postgrest_cap(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"] = [{
+        "id": f"session-{index}", "user_id": "u1", "test_id_external": "C19-T1",
+        "section_num": 1, "accuracy": 1.0,
+        "error_trends": {"missed": {"brighton": 1}, "wrong": {}},
+    } for index in range(1001)]
+    aggregate = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id="C19-T1", user_query=None, authorization=authz))
+    assert aggregate["session_count"] == 1001
+    assert aggregate["mean_accuracy"] == 1.0
+    assert aggregate["top_missed"][0] == {"word": "brighton", "count": 1001}
+
+
+def test_admin_dictation_user_filter_pages_past_old_200_user_cap(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["users"] = [{
+        "id": f"user-{index}", "email": f"learner-{index}@ex.com",
+        "display_name": f"Learner {index}",
+    } for index in range(1001)]
+    fake.tables["dictation_sessions"] = [{
+        "id": f"session-{index}", "user_id": f"user-{index}",
+        "test_id_external": "C19-T1", "section_num": 1,
+        "total_sentences": 1, "correct_count": 1, "accuracy": 1.0,
+        "created_at": "2026-08-14T00:00:00Z",
+    } for index in range(1001)]
+    listed = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query="@ex.com", limit=30, offset=0,
+        authorization=authz))
+    assert listed["total"] == 1001
+    assert len(listed["items"]) == 30
+    session_batches = [size for table, column, size in fake.in_filter_sizes
+                       if table == "dictation_sessions" and column == "user_id"]
+    assert len(session_batches) == 11
+    assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
+    paged_orders = [orders for table, orders, _range in fake.range_orderings
+                    if table in {"users", "dictation_sessions"}]
+    assert paged_orders and all(orders for orders in paged_orders)
+
+    fake.in_filter_sizes.clear()
+    fake.range_orderings.clear()
+    aggregate = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id=None, user_query="@ex.com", authorization=authz))
+    assert aggregate["session_count"] == 1001
+    session_batches = [size for table, column, size in fake.in_filter_sizes
+                       if table == "dictation_sessions" and column == "user_id"]
+    assert len(session_batches) == 11
+    assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
+    aggregate_orders = [orders for table, orders, _range in fake.range_orderings
+                        if table in {"users", "dictation_sessions"}]
+    assert aggregate_orders and all(orders for orders in aggregate_orders)
 
 
 def test_admin_dictation_reports_requires_admin(monkeypatch):
