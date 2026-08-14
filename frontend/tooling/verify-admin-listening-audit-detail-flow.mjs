@@ -77,6 +77,7 @@ check('section fallback rebases absolute window to section timebase', await page
 await page.getByLabel('Transcript canonical').first().fill('Draft survives tab switch');
 await page.getByLabel('Prompt').first().fill('Question draft survives tab switch');
 await page.getByRole('tab', { name: /Section 2/ }).press('ArrowRight');
+await page.waitForFunction(() => document.querySelector('#alqad-tab-3')?.getAttribute('aria-selected') === 'true' && document.activeElement?.id === 'alqad-tab-3');
 check('ARIA tabs move selection and focus with arrow keys', await page.getByRole('tab', { name: /Section 3/ }).getAttribute('aria-selected') === 'true' && await page.evaluate(() => document.activeElement?.id === 'alqad-tab-3'));
 await page.getByRole('tab', { name: /Section 3/ }).press('ArrowLeft');
 check('section tab switch preserves transcript and question drafts', await page.getByLabel('Transcript canonical').first().inputValue() === 'Draft survives tab switch' && await page.getByLabel('Prompt').first().inputValue() === 'Question draft survives tab switch');
