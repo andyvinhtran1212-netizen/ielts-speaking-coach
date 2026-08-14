@@ -301,6 +301,13 @@ on:
       - 'frontend/lib/admin-listening-test-detail-model.mjs'
       - 'frontend/public/css/admin-listening-test-detail-next.css'
       - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+      - 'frontend/lib/admin-listening-attempts-model.mjs'
+      - 'frontend/public/css/admin-listening-attempts-next.css'
+      - 'frontend/public/pages/admin/listening/attempts.html'
+      - 'frontend/public/js/admin-listening-attempts.js'
+      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+      - 'backend/routers/listening.py'
+      - 'backend/tests/test_admin_listening_attempts.py'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -490,6 +497,7 @@ on:
       - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
@@ -998,6 +1006,12 @@ jobs:
       # stale-ACK rejection, mode rollback, cascade archive and typed hard delete.
       - name: Kiểm luồng Admin Listening test detail native
         run: node tooling/verify-admin-listening-test-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Attempt inventory is read-only but association truth is operationally
+      # sensitive. Fixture pins canonical filters, lookup-failure visibility,
+      # exact detail identity, pagination and responsive containment.
+      - name: Kiểm luồng Admin Listening attempts native
+        run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

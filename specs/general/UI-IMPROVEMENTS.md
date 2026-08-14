@@ -1583,3 +1583,49 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   rejection, busy locking, map deletion, cascade archive and typed hard delete.
 - TypeScript strict and the production Next.js build include the dynamic route;
   legacy test-detail behavior tests remain green as rollback coverage.
+
+## 2026-08-14 — Native `/admin/listening/attempts` evidence inventory
+
+### Root causes and severity
+
+- **Critical — association lookup failure was rendered as canonical absence.**
+  `_rows_by_id()` swallowed `users` or `listening_tests` read failures and returned
+  empty maps, so the admin saw dashes indistinguishable from genuinely deleted
+  associations. The backend now returns an explicit failure flag plus the failed
+  tables; list and detail surfaces render a warning and mark affected cells.
+- **Medium — malformed grading data could become a plausible result.** The legacy
+  renderer trusted list/detail envelopes, score ratios and question objects. The
+  native normalizer checks exact attempt identity, score/total/accuracy agreement,
+  lookup flags and per-question scalar/bool contracts, then reports excluded rows
+  without replacing the backend total.
+- **Medium — filter and detail context disappeared on navigation.** User, test,
+  type, status, page and selected attempt now round-trip through the clean URL.
+  List reads are keyed by admin account and filter scope; detail reads have their
+  own sequence guard so a late response cannot overwrite another attempt.
+- **Low — the route was missing from migration truth.** The deployed HTML page
+  existed but was absent from the route ledger. The ledger, site overview,
+  invariant matrix, sidebar and overview activity links now name the native owner.
+
+### Design improvements implemented
+
+- A compact evidence map explains identity, result and per-question layers before
+  the inventory. Filters are fully labeled and grouped; the table presents human
+  identity, test provenance, lifecycle, score/accuracy and elapsed time.
+- Selecting a row opens an inline evidence workspace with summary cards, trap
+  totals and a separate per-question table. Closing it removes only the attempt
+  identity from the URL while preserving active filters.
+- Missing association and failed lookup are visually distinct. Mobile tables
+  become labeled cards rather than horizontal page overflow; desktop retains dense
+  scanning, visible focus and token-governed dark/reduced-motion behavior.
+- The direct HTML page remains an explicit rollback link and preserves the one
+  filter (`user`) that the legacy runtime actually supports.
+
+### Verification
+
+- Backend tests cover list/detail failure flags and prove missing join data is no
+  longer silently presented as empty truth.
+- Model/source tests cover URL ownership, strict envelopes, identity and score
+  drift, lookup consistency, duration formatting, admin gate and native links.
+- The fixture-backed browser flow proves hostile React escaping, malformed-row and
+  lookup warnings, exact detail URL identity, trap evidence, canonical pagination
+  and mobile/desktop containment with no JavaScript errors.

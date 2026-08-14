@@ -4839,7 +4839,13 @@ def _attempt_duration_seconds(row: dict) -> int | None:
     return max(0, int((b - a).total_seconds()))
 
 
-def _rows_by_id(table: str, ids: list, cols: str) -> dict:
+def _rows_by_id(
+    table: str,
+    ids: list,
+    cols: str,
+    *,
+    lookup_failures: set[str] | None = None,
+) -> dict:
     """Batch-resolve id → row (lô 100/lần — tránh URL dài + PostgREST cap)."""
     out: dict = {}
     uniq = sorted({i for i in ids if i})
@@ -4849,6 +4855,8 @@ def _rows_by_id(table: str, ids: list, cols: str) -> dict:
                    .in_("id", uniq[i:i + 100]).execute())
         except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
             logger.warning("[listening] admin join %s failed: %s", table, exc)
+            if lookup_failures is not None:
+                lookup_failures.add(table)
             return out
         for r in (res.data or []):
             out[r["id"]] = r
@@ -4917,7 +4925,11 @@ async def admin_list_listening_attempts(
                  .limit(200).execute())
         user_ids = [r["id"] for r in (u_res.data or [])]
         if not user_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+            return {
+                "items": [], "total": 0, "limit": limit, "offset": offset,
+                "association_lookup_failed": False,
+                "association_lookup_failures": [],
+            }
 
     test_ids: list | None = None
     if test_query or test_type:
@@ -4929,7 +4941,11 @@ async def admin_list_listening_attempts(
         t_res = t_q.limit(1000).execute()
         test_ids = [r["id"] for r in (t_res.data or [])]
         if not test_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+            return {
+                "items": [], "total": 0, "limit": limit, "offset": offset,
+                "association_lookup_failed": False,
+                "association_lookup_failures": [],
+            }
 
     q = (supabase_admin.table("listening_test_attempts")
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
@@ -4943,14 +4959,19 @@ async def admin_list_listening_attempts(
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     rows = res.data or []
 
+    lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in rows],
-                        "id,email,display_name")
+                        "id,email,display_name", lookup_failures=lookup_failures)
     tests = _rows_by_id("listening_tests", [r.get("test_id") for r in rows],
-                        "id,test_id,title,test_type")
+                        "id,test_id,title,test_type", lookup_failures=lookup_failures)
     return {
         "items": [_attempt_public_shape(r, users, tests) for r in rows],
         "total": getattr(res, "count", None) or 0,
         "limit": limit, "offset": offset,
+        # Không được biến lỗi join thành danh tính/bài thật sự trống. UI admin
+        # cần phân biệt canonical absence với visibility/read failure.
+        "association_lookup_failed": bool(lookup_failures),
+        "association_lookup_failures": sorted(lookup_failures),
     }
 
 
@@ -4967,13 +4988,17 @@ async def admin_get_listening_attempt(
     if not res.data:
         raise HTTPException(404, "Không tìm thấy lượt làm bài.")
     r = res.data[0]
-    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name")
+    lookup_failures: set[str] = set()
+    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name",
+                        lookup_failures=lookup_failures)
     tests = _rows_by_id("listening_tests", [r.get("test_id")],
-                        "id,test_id,title,test_type")
+                        "id,test_id,title,test_type", lookup_failures=lookup_failures)
     out = _attempt_public_shape(r, users, tests)
     out["grading_details"] = r.get("grading_details") or []
     out["trap_analytics"] = r.get("trap_analytics") or {}
     out["band_estimate"] = r.get("band_estimate")
+    out["association_lookup_failed"] = bool(lookup_failures)
+    out["association_lookup_failures"] = sorted(lookup_failures)
     return out
 
 
