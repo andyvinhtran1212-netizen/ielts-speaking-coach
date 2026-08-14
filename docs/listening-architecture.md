@@ -23,7 +23,7 @@
 | **True/False/Not-Given** | ✅ Production | `/admin/listening/tf` (native; `pages/admin/listening/tf.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact per-statement match; complete only at 100%, `listening_grader.grade_true_false` |
 | **MCQ** (trắc nghiệm) | ✅ Production | native `/admin/listening/mcq` (`pages/admin/listening/mcq.html` rollback) → versioned `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
 | **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |
-| **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `pages/admin/listening/import-fulltest.html` → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
+| **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `/admin/listening/import-fulltest` (HTML rollback retained) → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
 
 **Two important nuances [MEASURED]:**
 - `mini_test` is a value in the `exercise_type` CHECK, but no admin path creates an individual `mini_test` exercise. **The original Mini-Test session-mixer (admin `/sessions` composer + user session runner) was removed** — the "Mini Test" slot is now a graded 1-section `listening_tests` row (`test_type=mini`) served through the full-test player. The `listening_sessions` table + `listening_attempts.listening_session_id` column are retained for data (no longer written by any live path).
@@ -66,7 +66,7 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
 | Path | Admin UI | Endpoint | Produces |
 |------|----------|----------|----------|
 | Per-type exercise form | `segments` / `gist` / `tf` / `mcq` `.html` | `POST /admin/listening/exercises` | one `listening_exercises` row |
-| **Full-test pack** | `import-fulltest.html` (#408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
+| **Full-test pack** | `/admin/listening/import-fulltest` (native; `import-fulltest.html` rollback, #408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
 | Status transitions | `tests.html` list (#408) | `PATCH /admin/listening/tests/{id}/status` | draft ⇄ published ⇄ archived (publish has an audio gate) |
 
 > Note: the legacy **convert** (DOCX/2-file) path was RETIRED 2026-07-17 (usage
@@ -105,15 +105,14 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 - **Parser:** `backend/services/listening_fulltest_import.py` (`parse_fulltest`); fail-loud (`ok=False` + `errors[]`) on missing answer / missing audio window / audio↔timings divergence (±0.1s).
 - **Pack v1.2 transcript [MEASURED]:** the Solution carries two blocks — `# Transcript (bản đọc)` (display copy, verbatim `**Name (role):**` labels) → `listening_content.transcript`; and `# Audio Transcript / Script đầy đủ` (production copy with `(Qn)` markers) → used to compute per-question `transcript_anchors` (text-matched), stored in the exercise payload (no migration, Pattern #15). v1.1 packs fall back to joined-extracts + a warning.
-- **Import UI (#408):** `import-fulltest.html` — drag-drop the 4 files, dry-run, commit with a real upload progress bar, dup-ACTIVE handled in one click ("Archive bản cũ & Import"), "Publish ngay". Token is automatic (admin session Bearer) — no hand-pasted JWT.
+- **Import UI (#408):** `/admin/listening/import-fulltest` — drag/drop the 4 files, bind them to one SHA-256 fingerprint, dry-run with question/answer/IMG-PROMPT evidence, commit with a real upload progress bar, durable per-admin receipt, exact canonical GET readback and a separate publish confirmation. A duplicate ACTIVE Test ID blocks commit and hands off to the canonical Kho test status flow; the importer never archives a live row inside an ambiguous upload. Token is automatic (admin session Bearer) — no hand-pasted JWT. `import-fulltest.html` remains the explicit watchdog/manual rollback.
 
 ---
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
 
-1. **Import UI has no content preview / IMG-PROMPT surfacing.** The dry-run response already returns `questions[]` (with `prompt`, `options`, `answer`, **`img_prompt`** [`listening_fulltest_import.py:410`], `solution`, `audio_window`) + `warnings`, but `admin-listening-fulltest-import.js` `renderResult` shows only the validation banner + counts. Rendering a question/transcript preview and extracting/displaying the per-question IMG-PROMPT is a **render-layer** addition (no backend change). Natural feeder for the β AI-generated-diagrams stream (IMG-PROMPT → image).
-2. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist; no doc previously stated which is canonical. They produce the same `listening_tests` shape.
-3. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
+1. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist. The 4-file native route is the operational import surface; the legacy converter remains mounted pending a dependency audit. They produce the same `listening_tests` shape.
+2. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
 
 ---
 

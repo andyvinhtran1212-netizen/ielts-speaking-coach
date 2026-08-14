@@ -1947,3 +1947,106 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   backstop, native route ownership and a fixture-backed production browser flow
   covering 401/409/503/readback failure, focus, add/remove/reorder and responsive
   containment. Run Claude review after the major revamp before publishing the PR.
+
+## 2026-08-14 — Native `/admin/listening/import-fulltest`
+
+### Summary
+
+The legacy importer exposes the right parser and upload progress, but presents a
+four-file ingestion job as a collection of drop zones and browser-side mutations.
+The native redesign organizes it as pack identity → parser evidence → canonical
+readback, so an operator can tell which bytes were reviewed, what will be written
+and whether the backend actually persisted or published the test.
+
+### Critical issues
+
+#### Issue: Duplicate replacement crosses multiple browser mutations
+
+**Current State**: “Archive bản cũ & Import” PATCHes every matching active row,
+then starts a large upload and restores prior statuses when the commit reports an
+error.
+
+**Problem**: A lost upload ACK is not proof that commit failed. Restoring the old
+row while the server is still completing can create two active identities or hide
+which bundle is canonical.
+
+**Recommendation**: Do not archive inside the upload workflow. A duplicate Test ID
+must block commit and hand off to Kho test, where status changes already use a
+confirmation plus exact GET readback. The operator then reruns dry-run.
+
+**Impact**: A network failure cannot silently remove the only live paper or cause
+the importer to guess persisted truth.
+
+**Implementation Notes**: Keep the existing backend duplicate guard. Remove the
+combined action only from the native owner; retain HTML as explicit rollback.
+
+#### Issue: Dry-run is not cryptographically tied to the committed files
+
+**Current State**: The browser retains four mutable slot references, while dry-run
+sends only three and commit later reparses all four.
+
+**Problem**: The UI cannot prove that the file set being committed is the set the
+operator reviewed, especially after a replacement or Mini/Full mode change.
+
+**Recommendation**: Compute SHA-256 for all four files and include mode in one pack
+fingerprint. Invalidate preview whenever a slot or mode changes; allow commit only
+while the validated fingerprint remains current.
+
+**Impact**: The visual preview and the commit action refer to the same local bytes.
+
+**Implementation Notes**: Hash locally with Web Crypto; never upload or persist
+file contents in localStorage.
+
+#### Issue: Ambiguous POST can be replayed
+
+**Current State**: A network failure returns the page to an enabled import button.
+
+**Problem**: The original request may already have created a draft and uploaded
+audio. Repeating it can hit duplicate guards or produce uncertain cleanup work.
+
+**Recommendation**: Persist an account-scoped receipt before POST, including Test
+ID, pack fingerprint and exact baseline row IDs. A 5xx/network failure locks new
+POSTs; recovery searches by exact Test ID, excludes baseline IDs and reads the one
+candidate by UUID. Never replay the upload automatically.
+
+**Impact**: Reloads and transport failures become recoverable without duplicate
+writes.
+
+**Implementation Notes**: Treat 4xx as a definitive rejection; keep receipts for
+5xx, transport errors, malformed ACKs and failed GET readbacks.
+
+### High-priority improvements
+
+- **Evidence hierarchy**: Show parser errors, warnings, every question/answer and
+  contiguous IMG-PROMPT block before the commit control.
+- **Publication separation**: Commit creates Draft only. Published requires its own
+  focused dialog and exact UUID/status GET readback.
+- **Operational truth**: Expose file inventory, limits, Test ID, parser counts,
+  upload progress and canonical result in distinct regions instead of one mutable
+  banner.
+
+### Medium-priority enhancements
+
+- Route a four-file drop by extension/name while preserving explicit individual
+  pickers and per-slot errors.
+- Keep template downloads adjacent to the pack inventory.
+- Provide a one-click copy action per contiguous IMG-PROMPT block and a direct link
+  to the native test workspace after import.
+
+### Positive observations
+
+- Backend commit reparses the authoritative source files and already performs
+  fail-loud answer/timing validation.
+- The 60 MB cap, real XHR upload progress, automatic admin bearer token and
+  Draft-first lifecycle are worth preserving.
+- The existing canonical test inventory already supplies the safe duplicate-status
+  workflow needed by the redesign.
+
+### Verification
+
+- Model tests pin file routing/limits, SHA-256 descriptor shape, strict dry-run and
+  ACK contracts, section/image grouping, baseline reconciliation and account scope.
+- Fixture-browser coverage pins happy import/publish, duplicate blocking, 503
+  recovery without POST replay, storage failure before POST and mobile containment.
+- Full frontend tests, TypeScript, production build and focused backend importer
+  tests must pass; Claude review runs after browser verification and before commit.
