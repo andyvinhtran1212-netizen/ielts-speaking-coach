@@ -41,12 +41,13 @@ test('mutation readback validates identity and exact canonical field', () => {
   assert.equal(normalizeListeningTestMutationReadback(raw, 't1', { examOnly: false }), null);
 });
 
-test('native route is admin-gated and content inventory links to it', () => {
+test('native inventory is admin-gated and links to the native detail owner', () => {
   assert.match(PAGE, /<AdminAccessGate>/);
   assert.match(PAGE, /active="listening" subsection="tests"/);
   assert.match(CONTENT, /href="\/admin\/listening\/tests"/);
   assert.match(CHROME, /slug:\s*'tests',\s+label:\s*'Cambridge tests',\s+href:\s*'\/admin\/listening\/tests'/);
-  assert.match(CLIENT, /tests-detail\.html\?id=/);
+  assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(row\.id\)\}/);
+  assert.doesNotMatch(CLIENT, /tests-detail\.html\?id=/);
   assert.match(CLIENT, /listening\/index\.html\?test_id=/);
   assert.match(CLIENT, /tests\.html">Mở bản HTML rollback/);
 });

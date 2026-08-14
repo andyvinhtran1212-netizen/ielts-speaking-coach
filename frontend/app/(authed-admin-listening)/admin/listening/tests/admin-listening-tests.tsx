@@ -10,12 +10,14 @@ import {
   normalizeListeningTestFilters, normalizeListeningTestList,
   normalizeListeningTestMutationReadback,
 } from '@/lib/admin-listening-content-model.mjs';
+import { listeningTestDeleteReceiptKey, parseListeningTestDeleteReceipt } from '@/lib/admin-listening-test-detail-model.mjs';
 
 type Status = 'all' | 'draft' | 'published' | 'archived';
 type TestType = 'all' | 'exam' | 'full' | 'mini' | 'drill' | 'practice';
 type Row = { id: string; testId: string; status: Exclude<Status, 'all'>; type: Exclude<TestType, 'all' | 'exam'>; title: string; bandTarget: number | null; accentProfile: string[]; sectionCount: number; audioReadyCount: number; examOnly: boolean; createdAt: string | null; updatedAt: string | null };
 type Snapshot = { key: string; rows: Row[]; total: number; malformedCount: number; readAt: string };
 type Action = { row: Row; kind: 'status'; status: Exclude<Status, 'all'> } | { row: Row; kind: 'exam'; examOnly: boolean };
+type DeleteReceipt = { kind: 'success' | 'warning'; text: string };
 
 const PAGE_SIZE = 20;
 const STATUS_OPTIONS: Array<{ value: Status; label: string }> = (['all', 'draft', 'published', 'archived'] as Status[]).map((value) => ({ value, label: LISTENING_STATUS_LABEL[value] }));
@@ -38,15 +40,26 @@ export function AdminListeningTests() {
   const key = `${profile.id}:${filters.status}:${filters.type}:${filters.search}:${offset}`;
   const sequence = useRef(0);
   const scope = useRef(key);
+  const receiptProfile = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [deleteReceipt, setDeleteReceipt] = useState<DeleteReceipt | null>(null);
   const current = snapshot?.key === key ? snapshot : null;
 
   useEffect(() => setSearchDraft(filters.search), [filters.search]);
+  useEffect(() => {
+    if (receiptProfile.current === profile.id) return;
+    receiptProfile.current = profile.id;
+    setDeleteReceipt(null);
+    const receiptKey = listeningTestDeleteReceiptKey(profile.id);
+    const raw = window.sessionStorage.getItem(receiptKey);
+    window.sessionStorage.removeItem(receiptKey);
+    setDeleteReceipt(parseListeningTestDeleteReceipt(raw) as DeleteReceipt | null);
+  }, [profile.id]);
   useEffect(() => {
     if (searchDraft === filters.search) return;
     const timer = window.setTimeout(() => router.replace(listeningTestListHref({ ...filters, search: searchDraft, page: 1 })), 350);
@@ -107,6 +120,7 @@ export function AdminListeningTests() {
       <div className="alt-toolbar"><nav className="alt-status" aria-label="Lọc trạng thái">{STATUS_OPTIONS.map((item) => <button type="button" key={item.value} aria-current={filters.status === item.value ? 'page' : undefined} onClick={() => setFilter({ status: item.value })}>{item.label}</button>)}</nav><label><span>Loại test</span><select value={filters.type} onChange={(event) => setFilter({ type: event.target.value as TestType })}>{TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="alt-search"><span>Tìm Test ID</span><input type="search" value={searchDraft} placeholder="ILR-LIS-…" onChange={(event) => setSearchDraft(event.target.value)} /></label></div>
       {loadError && <div className="alc-banner is-error" role="alert"><strong>Cần kiểm tra</strong><span>{loadError}</span></div>}
       {notice && <div className="alc-banner is-success" role="status"><strong>Đã lưu</strong><span>{notice}</span></div>}
+      {deleteReceipt && <div className={`alc-banner is-${deleteReceipt.kind}`} role="status"><strong>{deleteReceipt.kind === 'warning' ? 'Đã xóa, cần dọn storage' : 'Đã xóa'}</strong><span>{deleteReceipt.text}</span></div>}
       {!!current?.malformedCount && <div className="alc-banner is-warning" role="status"><strong>Dữ liệu cần kiểm tra</strong><span>Đã loại {current.malformedCount} dòng sai contract hoặc không khớp bộ lọc; tổng backend vẫn được giữ nguyên.</span></div>}
       {loading && !current && <div className="alt-state" role="status">Đang đọc kho test…</div>}
       {current && !current.rows.length && <div className="alt-state"><strong>Không có test phù hợp</strong><span>Thử bộ lọc khác hoặc import một pack mới.</span></div>}
@@ -120,7 +134,7 @@ export function AdminListeningTests() {
 
 function TestRow({ row, busy, onAction }: { row: Row; busy: boolean; onAction: (action: Action) => void }) {
   const statusActions: Array<{ status: Exclude<Status, 'all'>; label: string }> = row.status === 'draft' ? [{ status: 'published', label: 'Phát hành' }, { status: 'archived', label: 'Lưu trữ' }] : row.status === 'published' ? [{ status: 'archived', label: 'Lưu trữ' }] : [{ status: 'draft', label: 'Khôi phục' }];
-  return <tr data-test-id={row.id}><td data-label="Test"><a className="alt-title" href={`/pages/admin/listening/tests-detail.html?id=${encodeURIComponent(row.id)}`}>{row.testId}</a><strong>{row.title}</strong><small>{row.bandTarget == null ? 'Chưa đặt band' : `Band ${row.bandTarget}`} · {row.accentProfile.join(' · ') || 'Chưa đặt accent'}</small></td><td data-label="Loại & phạm vi"><span>{TYPE_LABEL[row.type]}</span><span className={`alt-scope ${row.examOnly ? 'is-exam' : 'is-library'}`}>{row.examOnly ? 'Đề kỳ thi' : 'Thư viện luyện tập'}</span></td><td data-label="Cấu trúc"><strong>{row.sectionCount} section</strong><small>{row.audioReadyCount}/{row.sectionCount} section có audio</small></td><td data-label="Trạng thái"><span className={`adm-status-pill ${statusClass(row.status)}`}>{LISTENING_STATUS_LABEL[row.status]}</span><time dateTime={row.updatedAt || row.createdAt || undefined}>{formatListeningContentDate(row.updatedAt || row.createdAt)}</time></td><td data-label="Thao tác"><div className="alt-actions"><a href={`/pages/admin/listening/tests-detail.html?id=${encodeURIComponent(row.id)}`}>Mở test</a><a href={`/pages/admin/listening/index.html?test_id=${encodeURIComponent(row.id)}`}>Sections</a>{statusActions.map((item) => <button type="button" key={item.status} disabled={busy} onClick={() => onAction({ row, kind: 'status', status: item.status })}>{item.label}</button>)}<button type="button" disabled={busy} onClick={() => onAction({ row, kind: 'exam', examOnly: !row.examOnly })}>{row.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button></div></td></tr>;
+  return <tr data-test-id={row.id}><td data-label="Test"><a className="alt-title" href={`/admin/listening/tests/${encodeURIComponent(row.id)}`}>{row.testId}</a><strong>{row.title}</strong><small>{row.bandTarget == null ? 'Chưa đặt band' : `Band ${row.bandTarget}`} · {row.accentProfile.join(' · ') || 'Chưa đặt accent'}</small></td><td data-label="Loại & phạm vi"><span>{TYPE_LABEL[row.type]}</span><span className={`alt-scope ${row.examOnly ? 'is-exam' : 'is-library'}`}>{row.examOnly ? 'Đề kỳ thi' : 'Thư viện luyện tập'}</span></td><td data-label="Cấu trúc"><strong>{row.sectionCount} section</strong><small>{row.audioReadyCount}/{row.sectionCount} section có audio</small></td><td data-label="Trạng thái"><span className={`adm-status-pill ${statusClass(row.status)}`}>{LISTENING_STATUS_LABEL[row.status]}</span><time dateTime={row.updatedAt || row.createdAt || undefined}>{formatListeningContentDate(row.updatedAt || row.createdAt)}</time></td><td data-label="Thao tác"><div className="alt-actions"><a href={`/admin/listening/tests/${encodeURIComponent(row.id)}`}>Mở test</a><a href={`/pages/admin/listening/index.html?test_id=${encodeURIComponent(row.id)}`}>Sections</a>{statusActions.map((item) => <button type="button" key={item.status} disabled={busy} onClick={() => onAction({ row, kind: 'status', status: item.status })}>{item.label}</button>)}<button type="button" disabled={busy} onClick={() => onAction({ row, kind: 'exam', examOnly: !row.examOnly })}>{row.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button></div></td></tr>;
 }
 
 function dialogTitle(action: Action | null) { if (!action) return ''; return action.kind === 'status' ? `Chuyển ${action.row.testId} sang ${LISTENING_STATUS_LABEL[action.status]}?` : `${action.examOnly ? 'Dành' : 'Trả'} ${action.row.testId} ${action.examOnly ? 'cho kỳ thi' : 'về thư viện'}?`; }

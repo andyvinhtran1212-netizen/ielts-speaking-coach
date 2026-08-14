@@ -1530,3 +1530,56 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
 - The fixture-backed browser flow uses hostile text and deliberately stale PATCH
   responses to prove no optimistic state, then validates status and exam-only via
   exact GET plus list refresh on mobile and desktop.
+
+## 2026-08-14 — Native `/admin/listening/tests/[testId]` workspace
+
+### Root causes and severity
+
+- **Critical — audio mode could disagree with persisted truth.** The legacy page
+  changed local state before PATCH and deliberately kept that selection after a
+  failed write. The native selector may preview the requested panel while saving,
+  but a rejected mutation rereads the test and returns to the canonical mode.
+- **Critical — destructive and publication ACKs were trusted too broadly.** Audio,
+  map, status and cascade-archive writes now ignore their mutation payload and
+  require an exact test GET. Hard delete cannot be read back, so it requires the
+  UUID, human Test ID and complete non-negative cascade summary in its ACK. A
+  profile-keyed one-shot receipt carries cleanup totals or storage-orphan warnings
+  to the inventory without being consumed twice by React Strict Effects.
+- **Medium — concurrent actions could double-submit.** Upload, assemble, map,
+  lifecycle and delete controls now share one operation lock; dialogs remain busy
+  until canonical reconciliation finishes.
+- **Medium — preview-signing failure looked like missing media.** Test audio and
+  map storage truth is rendered separately from signed URLs. A stored asset whose
+  preview cannot be minted is reported as an operational error, never as absence.
+- **Medium — archive semantics were visually conflated.** Parent-only lifecycle
+  changes are now separated from “Lưu trữ toàn bundle”, which verifies every
+  returned section is archived while preserving attempts.
+
+### Design improvements implemented
+
+- A canonical hero and metadata strip lead into an audio pipeline workspace, then
+  section ownership, cue timeline, map assets, publication and a dedicated danger
+  zone. Test identity and learner/exam scope remain visible at the top.
+- Audio modes expose only relevant upload controls. Full and section assets show
+  canonical storage paths independently from playable signed previews; assemble
+  stays disabled until sections 1–4 are actually ready.
+- Plan-label cards retain manual-upload provenance, local image preview, MIME/size
+  validation and explicit $0 API copy. Existing API-generated assets remain
+  identifiable even though generation itself is decommissioned.
+- Confirmations use the shared focused dialog. Hard delete requires typing the
+  human Test ID; mobile grids collapse without page overflow and all controls keep
+  visible focus, reduced-motion support and token-governed surfaces.
+- `/admin/listening/tests/[testId]` owns the clean identity. The direct HTML page
+  remains an explicit rollback link; import and specialized editors remain direct
+  legacy workspaces until their own audited batches.
+
+### Verification
+
+- Model/source tests cover identity, duplicate/malformed children, mutation
+  readbacks, safe media URLs, upload constraints, publish gates, hard-delete ACKs,
+  route ownership, responsive CSS and dialog boundaries.
+- A fixture-backed browser flow proves escaped hostile data, mobile/desktop
+  containment, explicit map-signing failure, failed-mode rollback, stale-ACK
+  rejection, busy locking, map deletion, cascade archive and typed hard delete.
+- TypeScript strict and the production Next.js build include the dynamic route;
+  legacy test-detail behavior tests remain green as rollback coverage.
