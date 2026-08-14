@@ -3,6 +3,7 @@ const ROW_STATUS_SET = new Set(['submitted', 'in_progress', 'abandoned']);
 const TYPE_SET = new Set(['all', 'full', 'mini', 'drill', 'practice']);
 const ROW_TYPE_SET = new Set(['full', 'mini', 'drill', 'practice']);
 const LOOKUP_TABLES = new Set(['users', 'listening_tests']);
+const ACCURACY_ROUNDING_TOLERANCE = 5e-5 + Number.EPSILON;
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -96,7 +97,10 @@ export function normalizeListeningAttemptItem(raw) {
     || (durationSeconds != null && durationSeconds < 0)) return null;
   const graded = score != null && totalQuestions != null;
   if ((score == null) !== (totalQuestions == null) || (graded !== (accuracy != null))) return null;
-  if (graded && Math.abs(accuracy - Math.round((score / totalQuestions) * 10000) / 10000) > 0.00001) return null;
+  // Backend transmits round(score / total, 4). Compare to the exact ratio
+  // within half of one four-decimal unit so Python ties-to-even values such
+  // as 1/32 -> 0.0312 remain canonical in JavaScript.
+  if (graded && Math.abs(accuracy - (score / totalQuestions)) > ACCURACY_ROUNDING_TOLERANCE) return null;
   return {
     id, status, score, totalQuestions, accuracy, durationSeconds, user, test,
     startedAt: nullableText(value.started_at), submittedAt: nullableText(value.submitted_at),

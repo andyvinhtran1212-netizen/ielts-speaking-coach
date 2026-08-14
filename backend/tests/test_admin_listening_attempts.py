@@ -154,6 +154,12 @@ def test_list_joins_identity_and_computes_duration_accuracy(fake):
     assert "grading_details" not in it              # list KHÔNG mang payload nặng
 
 
+def test_list_accuracy_uses_python_four_decimal_rounding(fake):
+    _seed(fake, score=1, gd_n=32)
+    out = _list()
+    assert out["items"][0]["accuracy"] == 0.0312
+
+
 def test_list_filters_by_status_and_rejects_bad_values(fake):
     _seed(fake, status="submitted")
     _seed(fake, status="abandoned")

@@ -70,6 +70,21 @@ describe('Admin Listening attempts model', () => {
     assert.equal(normalizeListeningAttemptDetail({ ...baseRow(), grading_details: [], band_estimate: 12, association_lookup_failed: false, association_lookup_failures: [] }, 'attempt-1'), null);
   });
 
+  test('accepts backend ties-to-even accuracy for both list and detail', () => {
+    const gradingDetails = Array.from({ length: 32 }, (_, index) => ({
+      q_num: index + 1, correct: index === 0, user_answer: 'A', expected: index === 0 ? 'A' : 'B',
+    }));
+    const halfway = baseRow({ score: 1, total_questions: 32, accuracy: 0.0312 });
+    const list = normalizeListeningAttemptList(listPayload({ items: [halfway] }));
+    assert.equal(list.rows.length, 1);
+    const detail = normalizeListeningAttemptDetail({
+      ...halfway, grading_details: gradingDetails, association_lookup_failed: false,
+      association_lookup_failures: [],
+    }, 'attempt-1');
+    assert.equal(detail.questions.length, 32);
+    assert.equal(detail.accuracy, 0.0312);
+  });
+
   test('formats duration without inventing missing values', () => {
     assert.equal(formatListeningAttemptDuration(750), '12 phút 30 giây');
     assert.equal(formatListeningAttemptDuration(null), '—');
