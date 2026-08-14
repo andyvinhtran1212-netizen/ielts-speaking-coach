@@ -2138,3 +2138,74 @@ list/detail GET without replay.
   localStorage failure before POST, focus and mobile containment.
 - TypeScript, production build, frontend contracts and backend drill importer
   tests run before Claude review and publication.
+
+## 2026-08-14 — Native `/admin/listening/audit`
+
+### Summary
+
+The legacy dashboard visually flattened three different states: a successful
+live structural scan, the last persisted structural-plus-LLM audit, and a GET
+failure. The native redesign treats them as separate evidence clocks and closes
+the complete test inventory before presenting quality coverage.
+
+### Critical issues resolved
+
+#### Issue: Failed per-test reads look like an empty or unknown health pill
+
+**Current State**: Every rejected audit GET is converted to `null`; the row then
+shows `?` and `—` beside genuinely unaudited rows.
+
+**Problem**: An outage, permission problem or malformed response can be read as
+“nothing to inspect”, and aggregate health has no denominator for failed reads.
+
+**Recommendation**: Give every row a typed `loading`, `ready` or `lookup failed`
+state. Exclude lookup failures from clean health, show their count in the summary
+and provide a GET-only retry.
+
+**Impact**: Admins cannot confuse missing evidence with passing evidence.
+
+**Implementation Notes**: Response normalization binds UUID, Test ID, lifecycle,
+test type, question/section counts, issue counts and saved-audit identity.
+
+#### Issue: A paging guard can silently publish partial coverage
+
+**Current State**: The legacy controller stops after 30 pages, logs a console
+warning and renders the partial rows as though the dashboard covered every test.
+
+**Problem**: The screen's operational promise is “all tests”; an omitted older
+test may retain broken audio or answer evidence without appearing anywhere.
+
+**Recommendation**: Require a stable canonical total across pages. Reject an
+early short page, duplicate UUID, malformed row, changing total or guard overflow
+before replacing the last complete snapshot.
+
+**Impact**: The inventory is either demonstrably complete or visibly blocked.
+
+### High-priority improvements implemented
+
+- Live structural health is labelled as current no-LLM evidence; saved full audit
+  is labelled as a persisted snapshot from the last explicit full run.
+- Search, test type, live health and saved status are encoded in the URL.
+- Per-test audit GETs run in bounded batches of eight with a determinate progress
+  bar; account/request sequence guards prevent stale responses replacing state.
+- Summary cards expose canonical total, tests with errors, warnings and lookup
+  failures before the operator opens a detail workspace.
+- Desktop rows become labelled cards below 700px, action targets remain at least
+  44px and reduced-motion users do not receive progress animation.
+
+### Positive observations preserved
+
+- The backend structural/audio-bounds engine stays the canonical fast scanner.
+- The existing full-audit, triage, audio playback and in-place editing workflow
+  remains available in `audit-detail.html` until its dedicated native migration.
+- Direct HTML dashboard remains the watchdog/manual rollback target.
+
+### Verification
+
+- Pure model tests cover filter URLs, complete inventory pages, exact identity,
+  live issue/count consistency, saved evidence and lookup-vs-clean summaries.
+- Fixture browser coverage uses 101 tests to prove offset 0/100 pagination,
+  bounded per-test reads, hostile-text escaping, lookup failure, URL filters,
+  GET-only retry, mobile containment and desktop restoration.
+- TypeScript, production build, full frontend contracts and the backend audit
+  engine suite run before Claude review and publication.

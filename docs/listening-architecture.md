@@ -122,6 +122,21 @@ the receipt and stops the queue. Reconciliation uses list/detail GET only and
 never replays the upload. Metadata-only drills remain explicit Drafts; audio-ready
 truth comes from `listening_tests.full_audio_*`, not the section audio flag.
 
+### 5.2 Quality-audit inventory — [MEASURED]
+
+`/admin/listening/audit` is a native read-only operations surface over every
+`listening_tests` row. It first closes a stable, exact paginated inventory and
+then runs bounded `GET /admin/listening/tests/{id}/audit` batches. A changed
+canonical total, early page termination, duplicate UUID or malformed row blocks
+the new snapshot instead of presenting partial coverage. Per-test lookup errors
+remain an explicit unknown state and are never counted as clean.
+
+The dashboard deliberately separates two evidence clocks: **live structural**
+is the current no-LLM structural/audio-bounds GET, while **saved full audit** is
+the persisted structural+LLM result from the most recent explicit full run.
+Retry is GET-only. The HTML dashboard remains rollback; the edit/triage/full-run
+workspace remains at `audit-detail.html` until its own native migration.
+
 ---
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
