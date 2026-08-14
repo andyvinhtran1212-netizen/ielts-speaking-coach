@@ -85,6 +85,31 @@ _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
 
 
 _TF_VALID = {"T", "F", "NG"}
+MAX_LISTENING_SEGMENTS = 500
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """Recognize PostgREST/PostgreSQL uniqueness failures in both SDK shapes."""
+    message = str(exc).lower()
+    code = getattr(exc, "code", None)
+    if code is None and exc.args and isinstance(exc.args[0], dict):
+        code = exc.args[0].get("code")
+    # SQLSTATE is stable across PostgREST client exception shapes. Do not infer
+    # uniqueness from prose such as "duplicate key": that can misclassify an
+    # unrelated future constraint as a block-identity conflict.
+    return str(code or "") == "23505" or bool(re.search(r"\b23505\b", message))
+
+
+def _same_timestamp(left: object, right: object) -> bool:
+    """Compare Postgres timestamptz tokens without serialization false conflicts."""
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(str(left).replace("Z", "+00:00")) == datetime.fromisoformat(
+            str(right).replace("Z", "+00:00"),
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 def _validate_gist_payload(payload: dict) -> dict:
@@ -239,6 +264,11 @@ def _validate_dictation_segments(
     """
     if not isinstance(segments, list) or not segments:
         raise HTTPException(422, "Dictation exercises require at least one segment.")
+    if len(segments) > MAX_LISTENING_SEGMENTS:
+        raise HTTPException(
+            422,
+            f"Dictation exercises support at most {MAX_LISTENING_SEGMENTS} segments.",
+        )
 
     out: list[dict] = []
     prev_end = -1.0
@@ -390,11 +420,14 @@ class ListeningExerciseUpsertRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     content_id: str = Field(min_length=1, max_length=64)
+    exercise_id: str | None = Field(default=None, max_length=64)
     exercise_type: str = Field(default="dictation")
     segments: list[dict] = Field(default_factory=list)
     payload: dict = Field(default_factory=dict)
     order_num: int = Field(default=1, ge=1, le=200)
     status: str = Field(default="draft")
+    expected_updated_at: str | None = Field(default=None, max_length=80)
+    expected_absent: bool = Field(default=False)
 
 
 # ── User route — single content fetch ─────────────────────────────────────────
@@ -543,6 +576,7 @@ def _ensure_dictation_exercise(content_id: str) -> str:
         .select("id")
         .eq("content_id", content_id)
         .eq("exercise_type", "dictation")
+        .order("order_num")
         .limit(1)
         .execute()
     )
@@ -550,14 +584,37 @@ def _ensure_dictation_exercise(content_id: str) -> str:
         return existing.data[0]["id"]
 
     exercise_id = str(uuid.uuid4())
-    supabase_admin.table("listening_exercises").insert({
-        "id":            exercise_id,
-        "content_id":    content_id,
-        "exercise_type": "dictation",
-        "payload":       {},
-        "order_num":     1,
-        "status":        "published",
-    }).execute()
+    try:
+        supabase_admin.table("listening_exercises").insert({
+            "id":            exercise_id,
+            "content_id":    content_id,
+            "exercise_type": "dictation",
+            "payload":       {},
+            "segments":      [],
+            "order_num":     1,
+            "status":        "published",
+        }).execute()
+    except Exception as exc:
+        if not _is_unique_violation(exc):
+            raise
+        # Two first attempts can both miss the preflight SELECT. Migration 208
+        # serializes the INSERTs through the logical block key; after 23505,
+        # adopt the winner instead of surfacing an incidental learner-facing 500.
+        winner = (
+            supabase_admin.table("listening_exercises")
+            .select("id")
+            .eq("content_id", content_id)
+            .eq("exercise_type", "dictation")
+            .order("order_num")
+            .limit(1)
+            .execute()
+        )
+        if winner.data:
+            return winner.data[0]["id"]
+        raise HTTPException(
+            409,
+            "Dictation exercise was created concurrently; retry the attempt.",
+        ) from None
     return exercise_id
 
 
@@ -1172,7 +1229,7 @@ async def admin_patch_listening_content(
     current = existing.data[0]
     fields = body.model_fields_set
     expected_updated_at = (body.expected_updated_at or "").strip() or None
-    if expected_updated_at and str(current.get("updated_at") or "") != expected_updated_at:
+    if expected_updated_at and not _same_timestamp(current.get("updated_at"), expected_updated_at):
         raise HTTPException(
             409,
             "Listening content changed after this editor was opened. Reload canonical data before saving.",
@@ -1356,10 +1413,11 @@ async def admin_upsert_listening_exercise(
       - non-overlapping
       - transcript non-empty
 
-    Upsert semantics: if a row with the same (content_id, exercise_type)
-    pair already exists, the row is UPDATEd in place (preserves the
-    exercise_id so existing attempt rows keep referencing it). Otherwise
-    a new row is INSERTed.
+    Legacy callers that omit order_num retain their original "first block of
+    this type" semantics. Callers that provide order_num use the complete
+    (content_id, exercise_type, order_num) block identity. Native editors
+    update an exact exercise_id with an expected_updated_at version token so
+    existing attempt rows keep referencing the same exercise.
     """
     await require_admin(authorization)
 
@@ -1388,6 +1446,8 @@ async def admin_upsert_listening_exercise(
     validated_segments: list[dict] = []
     validated_payload: dict = dict(body.payload or {})
     if body.exercise_type == "dictation":
+        if "segments" not in body.model_fields_set:
+            raise HTTPException(422, "segments is required for a dictation save")
         validated_segments = _validate_dictation_segments(
             body.segments,
             audio_duration_seconds=duration,
@@ -1399,36 +1459,148 @@ async def admin_upsert_listening_exercise(
     elif body.exercise_type == "mcq":
         validated_payload = _validate_mcq_payload(validated_payload)
 
-    # ── Upsert: look up existing row by (content_id, exercise_type) ──────────
-    existing = (
+    if body.expected_absent and body.expected_updated_at:
+        raise HTTPException(
+            422,
+            "expected_absent and expected_updated_at are mutually exclusive",
+        )
+    if body.expected_absent and "order_num" not in body.model_fields_set:
+        raise HTTPException(422, "order_num is required with expected_absent")
+    if body.exercise_id:
+        try:
+            uuid.UUID(body.exercise_id)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(422, "exercise_id must be a valid UUID") from None
+        if body.expected_absent:
+            raise HTTPException(422, "exercise_id cannot be combined with expected_absent")
+        if not body.expected_updated_at:
+            raise HTTPException(422, "expected_updated_at is required with exercise_id")
+    elif body.expected_updated_at:
+        raise HTTPException(422, "exercise_id is required with expected_updated_at")
+
+    # Exact exercise identity is first-class for native editors. Older Gist,
+    # T/F and MCQ editors omit both exercise_id and order_num; preserve their
+    # first-block semantics so imported blocks at order 2+ are updated rather
+    # than shadowed by a new order-1 row.
+    explicit_order = "order_num" in body.model_fields_set
+    existing_query = (
         supabase_admin.table("listening_exercises")
-        .select("id")
-        .eq("content_id", body.content_id)
-        .eq("exercise_type", body.exercise_type)
-        .limit(1)
-        .execute()
+        .select("id,content_id,exercise_type,order_num,updated_at,payload")
     )
+    if body.exercise_id:
+        existing_query = existing_query.eq("id", body.exercise_id)
+    else:
+        existing_query = (
+            existing_query
+            .eq("content_id", body.content_id)
+            .eq("exercise_type", body.exercise_type)
+        )
+        if explicit_order:
+            existing_query = existing_query.eq("order_num", body.order_num)
+        else:
+            existing_query = existing_query.order("order_num")
+    existing = existing_query.limit(1).execute()
+    current_exercise = (existing.data or [None])[0]
+    resolved_order = body.order_num
+    if current_exercise and not body.exercise_id and not explicit_order:
+        resolved_order = int(current_exercise.get("order_num") or 1)
+
+    if body.exercise_id and not current_exercise:
+        raise HTTPException(
+            409,
+            "Exercise no longer exists. Reload canonical data before saving.",
+        )
+    if current_exercise and (
+        str(current_exercise.get("content_id")) != body.content_id
+        or current_exercise.get("exercise_type") != body.exercise_type
+        or int(current_exercise.get("order_num") or 0) != resolved_order
+    ):
+        raise HTTPException(
+            409,
+            "Exercise identity no longer matches this content/type/order block.",
+        )
+    if body.expected_absent and current_exercise:
+        raise HTTPException(
+            409,
+            "Exercise block was created elsewhere. Reload canonical data before saving.",
+        )
+    if body.expected_updated_at:
+        if not current_exercise or not _same_timestamp(
+            current_exercise.get("updated_at"), body.expected_updated_at,
+        ):
+            raise HTTPException(
+                409,
+                "Exercise block changed after this editor was opened. Reload canonical data before saving.",
+            )
+
+    # The native Dictation editor owns segments, not the type-specific JSONB
+    # configuration. Preserve an existing payload unless the caller explicitly
+    # supplied that field; otherwise a segments-only save would erase importer
+    # provenance or future playback/tolerance settings.
+    if (
+        body.exercise_type == "dictation"
+        and current_exercise
+        and "payload" not in body.model_fields_set
+    ):
+        validated_payload = dict(current_exercise.get("payload") or {})
 
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
         "payload":       validated_payload,
-        "order_num":     body.order_num,
+        "order_num":     resolved_order,
         "status":        body.status,
         "segments":      validated_segments,
     }
 
-    if existing.data:
-        exercise_id = existing.data[0]["id"]
-        supabase_admin.table("listening_exercises").update(payload).eq(
-            "id", exercise_id,
-        ).execute()
-        return {"ok": True, "exercise_id": exercise_id, "created": False}
+    from datetime import datetime, timezone
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    if current_exercise:
+        exercise_id = current_exercise["id"]
+        mutation = (
+            supabase_admin.table("listening_exercises")
+            .update(payload)
+            .eq("id", exercise_id)
+        )
+        if body.expected_updated_at:
+            mutation = mutation.eq("updated_at", body.expected_updated_at)
+        result = mutation.execute()
+        rows = result.data or []
+        if not rows:
+            if body.expected_updated_at:
+                raise HTTPException(
+                    409,
+                    "Exercise block changed while saving. Reload canonical data before retrying.",
+                )
+            raise HTTPException(500, "Exercise update was not confirmed by the database.")
+        return {
+            "ok": True,
+            "exercise_id": exercise_id,
+            "created": False,
+            "updated_at": rows[0].get("updated_at"),
+        }
 
     exercise_id = str(uuid.uuid4())
     payload["id"] = exercise_id
-    supabase_admin.table("listening_exercises").insert(payload).execute()
-    return {"ok": True, "exercise_id": exercise_id, "created": True}
+    try:
+        result = supabase_admin.table("listening_exercises").insert(payload).execute()
+    except Exception as exc:
+        if _is_unique_violation(exc):
+            raise HTTPException(
+                409,
+                "Exercise block was created concurrently. Reload canonical data before retrying.",
+            ) from None
+        raise
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(500, "Exercise insert was not confirmed by the database.")
+    return {
+        "ok": True,
+        "exercise_id": exercise_id,
+        "created": True,
+        "updated_at": rows[0].get("updated_at"),
+    }
 
 
 @admin_router.get("/exercises")

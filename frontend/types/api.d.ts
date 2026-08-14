@@ -6828,10 +6828,10 @@ export interface paths {
          *       - non-overlapping
          *       - transcript non-empty
          *
-         *     Upsert semantics: if a row with the same (content_id, exercise_type)
-         *     pair already exists, the row is UPDATEd in place (preserves the
-         *     exercise_id so existing attempt rows keep referencing it). Otherwise
-         *     a new row is INSERTed.
+         *     Legacy upsert semantics use the complete
+         *     (content_id, exercise_type, order_num) block identity. Native editors
+         *     update an exact exercise_id with an expected_updated_at version token so
+         *     existing attempt rows keep referencing the same exercise.
          */
         post: operations["admin_upsert_listening_exercise_admin_listening_exercises_post"];
         delete?: never;
@@ -12190,6 +12190,8 @@ export interface components {
         ListeningExerciseUpsertRequest: {
             /** Content Id */
             content_id: string;
+            /** Exercise Id */
+            exercise_id?: string | null;
             /**
              * Exercise Type
              * @default dictation
@@ -12213,6 +12215,13 @@ export interface components {
              * @default draft
              */
             status: string;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+            /**
+             * Expected Absent
+             * @default false
+             */
+            expected_absent: boolean;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {

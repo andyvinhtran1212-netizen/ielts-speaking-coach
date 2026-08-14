@@ -318,6 +318,16 @@ on:
       - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
       - 'backend/tests/test_listening_test_dictation.py'
       - 'backend/tests/test_admin_listening_content_patch.py'
+      - 'frontend/lib/admin-listening-segments-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
+      - 'frontend/public/css/admin-listening-segments-next.css'
+      - 'frontend/public/pages/admin/listening/segments.html'
+      - 'frontend/public/js/admin-listening-segments.js'
+      - 'frontend/public/js/components/audio-player.js'
+      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
+      - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
+      - 'backend/tests/test_listening_segments.py'
+      - 'backend/migrations/208_listening_exercise_block_identity.sql'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -509,6 +519,7 @@ on:
       - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
@@ -1035,6 +1046,12 @@ jobs:
       # independent failure states, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening dictation native
         run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Segment authoring mutates exact Dictation blocks. The fixture pins
+      # multi-block identity, version conflicts, durable receipts, canonical
+      # GET reconciliation, the public audio-time API and responsive containment.
+      - name: Kiểm luồng Admin Listening segments native
+        run: node tooling/verify-admin-listening-segments-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

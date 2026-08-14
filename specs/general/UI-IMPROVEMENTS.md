@@ -1712,3 +1712,97 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   construction, receipt scope, canonical comparison, route ownership and token-only
   responsive CSS. The browser fixture covers successful readback, 409 conflict and
   an after-commit 503 reconciled without a second PATCH.
+
+## 2026-08-14 — Native `/admin/listening/segments` Dictation authoring
+
+### Root causes and severity
+
+- **Critical — saving could update the wrong Dictation block.** Production has
+  many legitimate `(content_id, exercise_type)` pairs with different
+  `order_num` values, while the legacy backend selected only the first row and
+  ignored order identity. Native saves carry exact `exercise_id`, content, type,
+  order and `updated_at`; legacy fallback lookup is also scoped by order.
+- **Critical — write success was not canonical truth.** The old editor trusted a
+  small POST acknowledgement and the backend returned success even when an UPDATE
+  matched no rows. Update/insert results must now contain a persisted row, and the
+  browser reports success only after a complete Dictation GET matches every field.
+- **Critical — concurrent editors could silently overwrite or duplicate a block.**
+  Updates now apply an atomic version filter; creates declare `expected_absent`.
+  Migration 208 enforces the verified logical block key
+  `(content_id, exercise_type, order_num)` without forbidding multiple orders.
+- **Critical — a segments-only save could erase unrelated JSONB configuration.**
+  The shared upsert previously defaulted omitted `payload` to `{}` and wrote it
+  over the stored row. Exact Dictation updates now preserve canonical payload
+  unless the caller explicitly supplies that field, with a regression test.
+- **Critical — a deleted exact identity could silently become a new exercise.**
+  `exercise_id` now requires a valid UUID and `expected_updated_at`; a missing or
+  mismatched row is a 409 and never falls through to INSERT.
+- **Medium — timestamp tooling depended on private audio internals.** The legacy
+  page polled `_audio.currentTime`, continued polling across pause and coupled the
+  editor to an implementation detail. The shared player now exposes the additive
+  `getCurrentTime()` public method used by the native route.
+- **Medium — whitespace-tolerant alignment could map to the wrong character.**
+  The previous fallback searched a collapsed transcript but reused that index in
+  the original alignment arrays. The model carries collapsed-to-original offsets
+  and alignment-token offsets, including multi-character and surrogate-pair data.
+- **Medium — an acknowledged POST followed by a failed GET lost reconciliation
+  truth.** The receipt now distinguishes write acknowledgement from readback; a
+  later 403/404 keeps the form locked and permits GET-only reconciliation without
+  replaying the POST.
+- **Medium — malformed inventory rows could masquerade as an absent order.** The
+  native editor now fails closed when any Dictation row cannot be normalized, so
+  it never offers an `expected_absent` create against incomplete canonical truth.
+- **Medium — only existing blocks were reachable.** Admins can now create the next
+  ordered Dictation block through the native UI. The create uses `expected_absent`,
+  remains locked behind a pre-write receipt, and installs the block only after a
+  canonical GET confirms it.
+- **Medium — the learner lazy-create path could race the new unique key.** Two
+  simultaneous first attempts can both miss the preflight lookup. The loser now
+  recognizes PostgreSQL `23505`, reads the canonical order-one winner and proceeds
+  without an incidental learner-facing 500. The other insert paths were audited:
+  full-test/drill imports derive globally distinct `idx + 1` orders per content
+  and roll back the entire import on persistence failure.
+- **Low — migration truth named the wrong query contract.** The ledger documented
+  `section_id/status`, while the live tool requires `content_id`. Route, inventory,
+  detail and sidebar now use the clean native entry and retain exact HTML rollback.
+
+### Design and verification
+
+- The editor follows an explicit listen → draft → verify sequence. Canonical audio,
+  transcript parsing, segment text/timestamps, block identity and publication are
+  visually separated while a sticky action boundary keeps save truth visible.
+- Multiple Dictation blocks are selectable by order and status; unsaved switching,
+  replacement parsing, deletion, leaving, receipt discard and conflict reload use
+  focused confirmation dialogs. Draft, published and archived states round-trip
+  without coercion. Missing/malformed/duplicate data fails visibly.
+- The global “Chia cắt audio” navigation returns to the native content inventory,
+  where every row carries its exact `content_id`; opening the parameterized route
+  without that identity also redirects there instead of rendering a dead editor.
+- The source transcript is explicitly read-only canonical evidence. Admins edit it
+  in the native Metadata screen, then regenerate segments, so the authoring form
+  no longer implies that an unpersisted scratch edit changed the content record.
+- Pending receipts intentionally use `sessionStorage`, scoped by admin and content.
+  This keeps simultaneous tabs from overwriting one another's mutation receipt;
+  dirty or pending tabs also register a close warning. A browser restart can lose
+  the receipt, so POST acknowledgement is never inferred from storage alone and
+  every visible success still requires canonical GET readback.
+- Production preflight on 2026-08-14 found 666 `listening_exercises` rows, zero
+  duplicate identity groups and zero NULL `updated_at` values. Migration 208 uses
+  a plain transactional unique index because the migration helper may wrap files
+  in a transaction (where `CONCURRENTLY` is invalid) and the measured table is
+  small enough for the bounded one-time lock.
+- Deployment must apply migration 208 before exposing the new backend/frontend;
+  `expected_absent` relies on that unique index as the atomic backstop between its
+  preflight read and insert.
+- Alignment is preferred when valid, character-proportional estimates are labeled
+  as estimates, and every row exposes manual start/end marking plus clip preview.
+  Mobile collapses to one column with 44px actions and no horizontal overflow.
+- Backend tests cover exact block/version/expected-absent behavior and unconfirmed
+  writes, payload preservation, structured uniqueness conflicts, missing/mismatched
+  exact identities, order-scoped legacy callers and complete GET shape. Model/source
+  tests cover normalization, token-aware alignment mapping, precision-safe time
+  formatting, over-limit transcript reporting, receipts, native links and token-only
+  CSS. The fixture browser flow covers draft/published/archived blocks, native
+  next-order creation, canonical readback, dirty switching, 409 conflict,
+  after-commit 503, POST-200/readback-403 reconciliation, storage failure, public
+  audio API and responsive containment.

@@ -20,6 +20,7 @@ export default function AdminListeningLayout({ children }: { children: ReactNode
       '/css/admin-listening-test-detail-next.css',
       '/css/admin-listening-attempts-next.css',
       '/css/admin-listening-dictation-next.css',
+      '/css/admin-listening-segments-next.css',
     ]}
   >{children}</AuthedShell>;
 }
