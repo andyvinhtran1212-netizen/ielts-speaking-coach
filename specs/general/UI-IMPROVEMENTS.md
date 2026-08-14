@@ -1491,3 +1491,42 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
 - A fixture-backed browser flow proves partial exercise failure, escaped hostile
   data, mobile/desktop containment, focused confirmation, exactly one PATCH and
   canonical GET reconciliation against a deliberately stale mutation response.
+
+## 2026-08-14 — Native `/admin/listening/tests` inventory
+
+### Root causes and severity
+
+- **Critical — a resolved PATCH was treated as the final truth.** The legacy list
+  refetched broadly but never proved that the exact test carried the requested
+  status or `exam_only` flag. Native mutations use a confirmation dialog, ignore
+  the PATCH payload and validate an exact test GET before refreshing the list.
+- **Medium — malformed list envelopes became empty inventories.** Missing `items`,
+  invalid counts and malformed test rows were defaulted or rendered as absence.
+  The normalizer now rejects invalid envelopes, excludes only bad rows and keeps
+  the backend total plus a visible contract warning.
+- **Medium — operational context disappeared on refresh.** Status, type, search
+  and page lived only in JavaScript memory. They now round-trip through the clean
+  URL, with a bounded debounced search and coherent page reset.
+- **Medium — publication and learner visibility were visually conflated.** A
+  published `exam_only` test is valid but absent from the practice library. The
+  native page presents lifecycle and scope as separate canonical dimensions.
+
+### Design improvements implemented
+
+- A visibility-boundary explainer precedes the inventory, then each responsive
+  record groups identity, type/scope, section/audio completeness and lifecycle.
+- Import actions remain direct legacy workspaces and test detail remains an
+  explicit legacy link; the old tests list is retained as a rollback target.
+- Mutation copy explains the backend audio publish gate and the possible 409 when
+  returning a test that an active mock exam still owns. The UI distinguishes a
+  confirmed backend write from a failed follow-up list refresh.
+- Mobile cards avoid page overflow, keep 44px actions and preserve visible focus;
+  dark surfaces and reduced-motion behavior stay on shared admin tokens.
+
+### Verification
+
+- Model/source tests cover URL normalization, row/envelope invariants, backend
+  total preservation, identity-bound readback, dialog ownership and responsive CSS.
+- The fixture-backed browser flow uses hostile text and deliberately stale PATCH
+  responses to prove no optimistic state, then validates status and exam-only via
+  exact GET plus list refresh on mobile and desktop.

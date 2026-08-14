@@ -102,7 +102,7 @@ export function AdminListeningContent() {
   return <main className="alc-shell">
     <header className="alc-hero">
       <div><p className="alc-eyebrow">Listening · Content operations</p><h1>Kho nội dung Listening</h1><p>Đối chiếu trạng thái phát hành, nguồn audio và độ phủ bốn dạng bài trên dữ liệu canonical trước khi mở từng editor.</p></div>
-      <div className="alc-hero__actions"><a href="/pages/admin/listening/tests.html"><span>Cambridge tests</span><span aria-hidden="true">↗</span></a><a href="/listening/tests" target="_blank" rel="noreferrer"><span>Xem phía học viên</span><span aria-hidden="true">↗</span></a></div>
+      <div className="alc-hero__actions"><a href="/admin/listening/tests"><span>Cambridge tests</span><span aria-hidden="true">→</span></a><a href="/listening/tests" target="_blank" rel="noreferrer"><span>Xem phía học viên</span><span aria-hidden="true">↗</span></a></div>
     </header>
 
     <section className="alc-flow" aria-labelledby="alc-flow-title"><div><p className="alc-eyebrow">Authoring map</p><h2 id="alc-flow-title">Một dòng nội dung, bốn lớp kiểm định</h2><p>Mở detail để đọc transcript và trạng thái; từng editor giữ nguyên identity <code>content_id</code>.</p></div><ol><li><span>1</span><strong>Audio</strong><small>file, thời lượng, nguồn</small></li><li><span>2</span><strong>Metadata</strong><small>accent, CEFR, section</small></li><li><span>3</span><strong>Exercises</strong><small>dictation, gist, T/F, MCQ</small></li><li><span>4</span><strong>Publish</strong><small>draft → learner library</small></li></ol></section>
