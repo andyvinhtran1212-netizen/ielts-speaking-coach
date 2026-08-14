@@ -279,6 +279,100 @@ def test_tf_payload_validator_rejects_oversized_statement_text():
     assert "1000" in str(exc.value.detail)
 
 
+# ── MCQ validator + grading truth ───────────────────────────────────
+
+
+def _mcq_questions():
+    return [
+        {
+            "idx": 0,
+            "stem": "What caused the delay?",
+            "options": ["Weather", "Traffic", "Staffing", "Equipment"],
+            "answer_idx": 1,
+        },
+        {
+            "idx": 1,
+            "stem": "When will the route reopen?",
+            "options": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+            "answer_idx": 2,
+        },
+    ]
+
+
+def test_mcq_payload_validator_keeps_exact_question_contract():
+    out = listening_router._validate_mcq_payload({"questions": _mcq_questions()})
+    assert out == {"questions": _mcq_questions()}
+
+
+@pytest.mark.parametrize("questions", [None, {}, "one question"])
+def test_mcq_payload_validator_rejects_non_list_questions(questions):
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_mcq_payload({"questions": questions})
+    assert exc.value.status_code == 422
+    assert "must be a list" in str(exc.value.detail)
+
+
+@pytest.mark.parametrize(
+    "patch,detail",
+    [
+        ({"idx": True}, "idx invalid"),
+        ({"idx": "0"}, "idx invalid"),
+        ({"stem": 42}, "stem must be a string"),
+        ({"options": [1, "B", "C", "D"]}, "option 0 must be a string"),
+        ({"answer_idx": "1"}, "answer_idx invalid"),
+        ({"answer_idx": False}, "answer_idx invalid"),
+    ],
+)
+def test_mcq_payload_validator_rejects_coerced_fields(patch, detail):
+    questions = _mcq_questions()
+    questions[0] = {**questions[0], **patch}
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_mcq_payload({"questions": questions})
+    assert exc.value.status_code == 422
+    assert detail in str(exc.value.detail)
+
+
+@pytest.mark.parametrize(
+    "patch,detail",
+    [
+        ({"stem": "s" * 1001}, "1000"),
+        ({"options": ["a" * 501, "B", "C", "D"]}, "500"),
+    ],
+)
+def test_mcq_payload_validator_rejects_oversized_text(patch, detail):
+    questions = _mcq_questions()
+    questions[0] = {**questions[0], **patch}
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_mcq_payload({"questions": questions})
+    assert exc.value.status_code == 422
+    assert detail in str(exc.value.detail)
+
+
+def test_mcq_payload_validator_rejects_duplicate_option_text():
+    questions = _mcq_questions()
+    questions[0] = {**questions[0], "options": ["Traffic", "traffic", "Staffing", "Equipment"]}
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_mcq_payload({"questions": questions})
+    assert exc.value.status_code == 422
+    assert "distinct" in str(exc.value.detail)
+
+
+def test_mcq_grader_requires_every_answer_for_completion():
+    perfect = listening_grader.grade_mcq(
+        questions=_mcq_questions(),
+        user_answers=[1, 2],
+    )
+    partial = listening_grader.grade_mcq(
+        questions=_mcq_questions(),
+        user_answers=[1],
+    )
+    assert perfect["score"] == 1.0
+    assert perfect["is_correct"] is True
+    assert partial["score"] == 0.5
+    assert partial["is_correct"] is False
+    assert partial["details"][1]["actual_idx"] is None
+
+
 # ── Fake admin client + auth shims (reused minimal pattern) ──────────
 
 

@@ -1906,3 +1906,44 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   commit, POST-200/readback-403, storage failure, GET-only reconciliation,
   lowest-order learner fallback, keyboard-focus-stable reorder, add/remove/minimum
   interactions and responsive containment.
+
+## 2026-08-14 — Native `/admin/listening/mcq` answer-key authoring
+
+### Root causes and severity
+
+- **Critical — the legacy editor can mutate the wrong MCQ block.** Its GET takes
+  `exercises[0]`, while POST omits `exercise_id`, `order_num` and a version token.
+  The native route must list every ordered block and update one exact identity,
+  or create the next explicit order with `expected_absent`.
+- **Critical — a POST response is treated as saved truth.** The old page shows
+  success without reading the canonical row back. The native route must create a
+  per-admin/content receipt before POST, require a complete GET match before
+  success, and reconcile ambiguous outcomes with GET only.
+- **Critical — concurrent answer-key edits can overwrite one another.** Existing
+  MCQ saves have no `expected_updated_at`; the native editor must lock on 409 and
+  reload the exact conflicted block instead of silently switching to order one.
+- **High — question editing loses context and focus.** Selecting a correct radio
+  re-renders the entire legacy list, deletion has no confirmation/undo boundary,
+  and questions cannot be reordered. Stable row keys, focus-preserving reorder,
+  inline validation and a live announcement are required.
+- **Medium — backend validation coerces malformed fields.** String or boolean
+  indices, numeric stems/options and coercible answer indices can become valid
+  persisted answer keys. MCQ writes must require exact JSON types and bounded
+  stem/option text while still loading oversized legacy rows for in-place repair.
+- **Medium — scoring and publication truth are hidden.** The screen must state
+  that one exact option is correct per question, unanswered questions are wrong,
+  and backend completion is true only at 100%. Multiple drafts remain valid, but
+  migration 209 permits only one learner-reachable published MCQ block.
+
+### Target interaction and verification
+
+- Use the established evidence → questions → publication workspace: canonical
+  audio/transcript stay read-only, each question groups its stem and four labeled
+  A/B/C/D options, and the right rail exposes exact block ID/order/version/status.
+- Support 1–20 questions, stable keyboard reorder, minimum-aware delete, add,
+  draft/publish/archive, dirty-switch/leave confirmations, receipt recovery,
+  exact-block conflict reload and explicit HTML rollback.
+- Pin the pure payload model, strict backend validator, migration-209 publication
+  backstop, native route ownership and a fixture-backed production browser flow
+  covering 401/409/503/readback failure, focus, add/remove/reorder and responsive
+  containment. Run Claude review after the major revamp before publishing the PR.

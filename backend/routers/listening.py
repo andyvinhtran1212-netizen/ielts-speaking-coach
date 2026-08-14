@@ -86,6 +86,8 @@ _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
 
 _TF_VALID = {"T", "F", "NG"}
 MAX_LISTENING_SEGMENTS = 500
+MAX_MCQ_STEM_LENGTH = 1_000
+MAX_MCQ_OPTION_LENGTH = 500
 _SINGLE_PUBLISHED_EXERCISE_TYPES = frozenset({"gist", "true_false", "mcq"})
 
 
@@ -269,7 +271,9 @@ def _validate_mcq_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "mcq payload must be a JSON object.")
-    raw = payload.get("questions") or []
+    if "questions" not in payload:
+        raise HTTPException(422, "mcq payload missing questions.")
+    raw = payload.get("questions")
     if not isinstance(raw, list):
         raise HTTPException(422, "mcq payload questions must be a list.")
     if not (1 <= len(raw) <= 20):
@@ -281,31 +285,49 @@ def _validate_mcq_payload(payload: dict) -> dict:
     for i, raw_q in enumerate(raw):
         if not isinstance(raw_q, dict):
             raise HTTPException(422, f"Question {i} must be a JSON object.")
-        try:
-            idx_v = int(raw_q.get("idx"))
-        except (TypeError, ValueError):
+        idx_v = raw_q.get("idx")
+        if isinstance(idx_v, bool) or not isinstance(idx_v, int):
             raise HTTPException(422, f"Question {i} idx invalid.")
         if idx_v != i:
             raise HTTPException(
                 422,
                 f"Question idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
             )
-        stem = str(raw_q.get("stem") or "").strip()
+        stem_value = raw_q.get("stem")
+        if not isinstance(stem_value, str):
+            raise HTTPException(422, f"Question {i} stem must be a string.")
+        stem = stem_value.strip()
         if not stem:
             raise HTTPException(422, f"Question {i} stem is empty.")
-        opts_raw = raw_q.get("options") or []
+        if len(stem) > MAX_MCQ_STEM_LENGTH:
+            raise HTTPException(
+                422,
+                f"Question {i} stem must not exceed {MAX_MCQ_STEM_LENGTH} characters.",
+            )
+        opts_raw = raw_q.get("options")
         if not isinstance(opts_raw, list) or len(opts_raw) != 4:
             raise HTTPException(
                 422,
                 f"Question {i} requires exactly 4 options (got {len(opts_raw) if isinstance(opts_raw, list) else 'non-list'}).",
             )
-        options = [str(o).strip() for o in opts_raw]
-        for j, o in enumerate(options):
+        options: list[str] = []
+        for j, raw_option in enumerate(opts_raw):
+            if not isinstance(raw_option, str):
+                raise HTTPException(422, f"Question {i} option {j} must be a string.")
+            o = raw_option.strip()
             if not o:
                 raise HTTPException(422, f"Question {i} option {j} is empty.")
-        try:
-            answer_idx = int(raw_q.get("answer_idx"))
-        except (TypeError, ValueError):
+            if len(o) > MAX_MCQ_OPTION_LENGTH:
+                raise HTTPException(
+                    422,
+                    f"Question {i} option {j} must not exceed {MAX_MCQ_OPTION_LENGTH} characters.",
+                )
+            options.append(o)
+        normalized_options = [option.casefold() for option in options]
+        if len(set(normalized_options)) != len(normalized_options):
+            raise HTTPException(422, f"Question {i} options must be distinct.")
+        answer_idx = raw_q.get("answer_idx")
+        if isinstance(answer_idx, bool) or not isinstance(answer_idx, int):
             raise HTTPException(422, f"Question {i} answer_idx invalid.")
         if not (0 <= answer_idx <= 3):
             raise HTTPException(
