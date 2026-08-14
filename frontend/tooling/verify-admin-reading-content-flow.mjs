@@ -41,6 +41,8 @@ await page.route('**/*', async (route) => {
 
 await page.goto(`${BASE}/admin/reading/content`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Thư viện nội dung Reading', exact: true }).waitFor();
+await page.getByText('Academic Test 1', { exact: true }).waitFor();
+await page.getByRole('button', { name: 'Dành cho kỳ thi' }).waitFor();
 check('backend-owned admin gate chạy', requests.some((value) => value.startsWith('GET /auth/me')));
 check('canonical list đọc page 25', requests.includes('GET /admin/reading/content?limit=25&offset=0'));
 check('row và action L3 render đúng', await page.getByText('Academic Test 1', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Dành cho kỳ thi' }).count() === 1);
