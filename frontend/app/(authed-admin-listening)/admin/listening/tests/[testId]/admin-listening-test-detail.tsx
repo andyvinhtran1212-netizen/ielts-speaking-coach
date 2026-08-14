@@ -12,6 +12,7 @@ import {
   listeningTestDeleteReceiptKey, makeListeningTestDeleteReceipt,
   normalizeListeningHardDeleteAck, normalizeListeningMapSignedUrl,
   normalizeListeningTestDetail, normalizeListeningTestReadback,
+  storeListeningTestDeleteReceipt,
   validateListeningAudioFile, validateListeningMapFile,
 } from '@/lib/admin-listening-test-detail-model.mjs';
 
@@ -195,15 +196,7 @@ export function AdminListeningTestDetail({ testId }: { testId: string }) {
         if (!ack) throw new Error('ACK hard delete không khớp identity hoặc cascade summary.');
         const receipt = makeListeningTestDeleteReceipt(current.testId, ack);
         if (!receipt) throw new Error('Không tạo được biên nhận hard delete.');
-        try {
-          window.sessionStorage.setItem(listeningTestDeleteReceiptKey(profile.id), JSON.stringify(receipt));
-        } catch (caught) {
-          if (ack.storageFilesFailed.length) {
-            setBanner({ kind: 'warning', text: `${receipt.text} Không lưu được biên nhận điều hướng: ${messageOf(caught)}` });
-            setAction(null);
-            return;
-          }
-        }
+        storeListeningTestDeleteReceipt(listeningTestDeleteReceiptKey(profile.id), receipt);
         router.push('/admin/listening/tests');
         return;
       }

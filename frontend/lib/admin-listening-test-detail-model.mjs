@@ -2,6 +2,7 @@ const STATUSES = new Set(['draft', 'published', 'archived']);
 const TEST_TYPES = new Set(['full', 'mini', 'drill', 'practice']);
 const AUDIO_MODES = new Set(['full_premixed', 'parts_auto_assembled', 'parts_only']);
 const MAP_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const volatileDeleteReceipts = new Map();
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -249,6 +250,34 @@ export function parseListeningTestDeleteReceipt(raw) {
     const text = textOf(value?.text);
     return value && (kind === 'success' || kind === 'warning') && text && text.length <= 2000 ? { kind, text } : null;
   } catch { return null; }
+}
+
+const defaultSessionStorage = () => globalThis.sessionStorage;
+
+export function storeListeningTestDeleteReceipt(key, receipt, storageProvider = defaultSessionStorage) {
+  const safeKey = textOf(key);
+  const raw = receipt ? JSON.stringify(receipt) : '';
+  if (!safeKey || !parseListeningTestDeleteReceipt(raw)) return false;
+  volatileDeleteReceipts.set(safeKey, raw);
+  try {
+    storageProvider()?.setItem(safeKey, raw);
+    volatileDeleteReceipts.delete(safeKey);
+    return true;
+  } catch { return false; }
+}
+
+export function consumeListeningTestDeleteReceipt(key, storageProvider = defaultSessionStorage) {
+  const safeKey = textOf(key);
+  if (!safeKey) return null;
+  let raw = null;
+  try {
+    const storage = storageProvider();
+    raw = storage?.getItem(safeKey) ?? null;
+    storage?.removeItem(safeKey);
+  } catch { /* Optional storage must never block the canonical list. */ }
+  if (raw == null) raw = volatileDeleteReceipts.get(safeKey) ?? null;
+  volatileDeleteReceipts.delete(safeKey);
+  return parseListeningTestDeleteReceipt(raw);
 }
 
 export function canPublishListeningTest(test) {

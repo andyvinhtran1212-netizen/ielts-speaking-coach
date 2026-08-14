@@ -10,7 +10,7 @@ import {
   normalizeListeningTestFilters, normalizeListeningTestList,
   normalizeListeningTestMutationReadback,
 } from '@/lib/admin-listening-content-model.mjs';
-import { listeningTestDeleteReceiptKey, parseListeningTestDeleteReceipt } from '@/lib/admin-listening-test-detail-model.mjs';
+import { consumeListeningTestDeleteReceipt, listeningTestDeleteReceiptKey } from '@/lib/admin-listening-test-detail-model.mjs';
 
 type Status = 'all' | 'draft' | 'published' | 'archived';
 type TestType = 'all' | 'exam' | 'full' | 'mini' | 'drill' | 'practice';
@@ -56,9 +56,7 @@ export function AdminListeningTests() {
     receiptProfile.current = profile.id;
     setDeleteReceipt(null);
     const receiptKey = listeningTestDeleteReceiptKey(profile.id);
-    const raw = window.sessionStorage.getItem(receiptKey);
-    window.sessionStorage.removeItem(receiptKey);
-    setDeleteReceipt(parseListeningTestDeleteReceipt(raw) as DeleteReceipt | null);
+    setDeleteReceipt(consumeListeningTestDeleteReceipt(receiptKey) as DeleteReceipt | null);
   }, [profile.id]);
   useEffect(() => {
     if (searchDraft === filters.search) return;

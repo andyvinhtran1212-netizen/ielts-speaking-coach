@@ -5,9 +5,11 @@ import test from 'node:test';
 
 import {
   canPublishListeningTest, listeningTestDeleteReceiptKey, makeListeningTestDeleteReceipt,
+  consumeListeningTestDeleteReceipt,
   normalizeListeningAudioBundle, normalizeListeningHardDeleteAck,
   normalizeListeningMapSignedUrl, normalizeListeningTestDetail, normalizeListeningTestReadback,
-  parseListeningTestDeleteReceipt, validateListeningAudioFile, validateListeningMapFile,
+  parseListeningTestDeleteReceipt, storeListeningTestDeleteReceipt,
+  validateListeningAudioFile, validateListeningMapFile,
 } from '../lib/admin-listening-test-detail-model.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -96,6 +98,19 @@ test('hard-delete receipt preserves storage cleanup warnings across navigation',
   assert.equal(listeningTestDeleteReceiptKey('admin-1'), 'aver:admin-listening-test-delete:admin-1');
 });
 
+test('receipt storage failures fall back once without blocking list or redirect', () => {
+  const warning = makeListeningTestDeleteReceipt('C19-T1', { content: 4, exercises: 8, attempts: 2, storageFilesRemoved: 4, storageFilesFailed: ['tests/t1/full.mp3'] });
+  const key = listeningTestDeleteReceiptKey('storage-denied-admin');
+  const denied = () => ({
+    getItem() { throw new DOMException('denied', 'SecurityError'); },
+    removeItem() { throw new DOMException('denied', 'SecurityError'); },
+    setItem() { throw new DOMException('denied', 'SecurityError'); },
+  });
+  assert.equal(storeListeningTestDeleteReceipt(key, warning, denied), false);
+  assert.deepEqual(consumeListeningTestDeleteReceipt(key, denied), warning);
+  assert.equal(consumeListeningTestDeleteReceipt(key, denied), null);
+});
+
 test('publish and upload validators mirror backend preconditions', () => {
   assert.equal(canPublishListeningTest({ audioMode: 'full_premixed', fullAudioStoragePath: 'full.mp3' }).ok, true);
   assert.equal(canPublishListeningTest({ audioMode: 'parts_auto_assembled', assembledAudioStoragePath: 'assembled.mp3' }).ok, true);
@@ -139,11 +154,12 @@ test('every write is busy-guarded and reconciled from canonical GET', () => {
 test('hard delete uses typed confirmation and exact cascade ACK', () => {
   assert.match(CLIENT, /hardDeleteText !== current\.testId/);
   assert.match(CLIENT, /normalizeListeningHardDeleteAck/);
-  assert.match(CLIENT, /sessionStorage\.setItem\(listeningTestDeleteReceiptKey\(profile\.id\)/);
-  assert.match(LIST, /parseListeningTestDeleteReceipt/);
+  assert.match(CLIENT, /storeListeningTestDeleteReceipt\(listeningTestDeleteReceiptKey\(profile\.id\)/);
+  assert.match(LIST, /consumeListeningTestDeleteReceipt\(receiptKey\)/);
   assert.match(LIST, /receiptProfile\.current === profile\.id/);
   assert.match(LIST, /Đã xóa, cần dọn storage/);
   assert.match(CLIENT, /router\.push\('\/admin\/listening\/tests'\)/);
+  assert.doesNotMatch(CLIENT, /storageFilesFailed\.length[\s\S]*?return;/);
   assert.match(CLIENT, /Xóa test, sections, exercises, attempts/);
 });
 
