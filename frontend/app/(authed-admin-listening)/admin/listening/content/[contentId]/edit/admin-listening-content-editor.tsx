@@ -132,8 +132,10 @@ export function AdminListeningContentEditor({ contentId }: { contentId: string }
       return;
     }
     setPending(operation); setBusy(true); setBanner(null);
+    let patchAcknowledged = false;
     try {
       await window.api.patch(`/admin/listening/content/${encodeURIComponent(contentId)}`, result.patch);
+      patchAcknowledged = true;
       const snapshot = await readCanonical();
       if (account.current !== operation.account) return;
       if (!listeningContentPatchMatches(snapshot, operation.patch)) throw new Error('PATCH có response nhưng canonical readback chưa khớp delta.');
@@ -142,11 +144,11 @@ export function AdminListeningContentEditor({ contentId }: { contentId: string }
     } catch (caught) {
       if (account.current !== operation.account) return;
       const status = statusOf(caught);
-      if (definitive(status)) {
+      if (!patchAcknowledged && definitive(status)) {
         clearReceipt(receiptKey(operation.account, operation.contentId)); setPending(null);
         if (status === 409) setConflict(true);
         setBanner({ kind: 'error', title: status === 409 ? 'Có thay đổi song song' : 'Backend từ chối thay đổi', text: status === 409 ? 'Bản canonical đã đổi sau khi trang mở. Tải bản mới trước khi sửa tiếp để không ghi đè.' : messageOf(caught) });
-      } else setBanner({ kind: 'warning', title: 'Kết quả PATCH chưa rõ', text: `${messageOf(caught)} Biên nhận được giữ lại; dùng “Đối chiếu canonical”, không gửi lại.` });
+      } else setBanner({ kind: 'warning', title: patchAcknowledged ? 'PATCH đã nhận, chưa đọc lại được' : 'Kết quả PATCH chưa rõ', text: `${messageOf(caught)} Biên nhận được giữ lại; dùng “Đối chiếu canonical”, không gửi lại.` });
     } finally { if (account.current === operation.account) setBusy(false); }
   };
 

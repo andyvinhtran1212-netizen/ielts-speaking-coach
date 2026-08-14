@@ -102,6 +102,10 @@ describe('native route behavior and design contract', () => {
     assert.match(CLIENT, /window\.api\.patch\(`\/admin\/listening\/content\/\$\{encodeURIComponent\(contentId\)\}`/);
     assert.match(CLIENT, /const snapshot = await readCanonical\(\)/);
     assert.match(CLIENT, /listeningContentPatchMatches\(snapshot, operation\.patch\)/);
+    assert.match(CLIENT, /let patchAcknowledged = false/);
+    assert.match(CLIENT, /patchAcknowledged = true/);
+    assert.match(CLIENT, /!patchAcknowledged && definitive\(status\)/);
+    assert.match(CLIENT, /PATCH đã nhận, chưa đọc lại được/);
     assert.match(CLIENT, /Kết quả PATCH chưa rõ/);
     assert.match(CLIENT, /không tự phát lại PATCH/);
     assert.match(BACKEND, /expected_updated_at/);

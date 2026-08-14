@@ -18,7 +18,7 @@ let canonical = {
   external_license: null, external_source_url: null, status: 'draft', source_type: 'upload_mp3',
   audio_storage_path: 'content/audio.mp3', updated_at: '2026-08-14T01:00:00+00:00',
 };
-const patchBodies = []; let contentReads = 0;
+const patchBodies = []; let contentReads = 0; let nextReadFailure = 0;
 const applyPatch = (body) => {
   const map = { accent_tag: 'accent_tag', cefr_level: 'cefr_level', ielts_section: 'ielts_section', topic_tags: 'topic_tags', is_premium: 'is_premium', external_license: 'external_license', external_source_url: 'external_source_url', title: 'title', transcript: 'transcript' };
   for (const [key, target] of Object.entries(map)) if (Object.hasOwn(body, key)) canonical[target] = body[key];
@@ -38,7 +38,11 @@ await page.route('**/*', async (route) => {
   const parsed = new URL(url); const method = request.method();
   const json = (body, code = 200) => route.fulfill({ status: code, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'listening-meta@local', role: 'admin' });
-  if (parsed.pathname === `/admin/listening/content/${contentId}` && method === 'GET') { contentReads += 1; return json(canonical); }
+  if (parsed.pathname === `/admin/listening/content/${contentId}` && method === 'GET') {
+    contentReads += 1;
+    if (nextReadFailure) { const status = nextReadFailure; nextReadFailure = 0; return json({ detail: 'readback forbidden after acknowledged patch' }, status); }
+    return json(canonical);
+  }
   if (parsed.pathname === `/admin/listening/content/${contentId}` && method === 'PATCH') {
     const body = request.postDataJSON(); patchBodies.push(body);
     if (body.title === 'Conflict edit') {
@@ -46,6 +50,7 @@ await page.route('**/*', async (route) => {
       return json({ detail: 'version conflict' }, 409);
     }
     if (body.title === 'Ambiguous edit') { applyPatch(body); return json({ detail: 'gateway timeout after commit' }, 503); }
+    if (body.title === 'Acknowledged then forbidden') { applyPatch(body); nextReadFailure = 403; return json({ accepted: true }); }
     if (body.expected_updated_at !== canonical.updated_at) return json({ detail: 'version conflict' }, 409);
     applyPatch(body);
     return json({ accepted: true });
@@ -84,6 +89,15 @@ const patchCountBeforeReconcile = patchBodies.length;
 await page.getByRole('button', { name: 'Đối chiếu canonical' }).click();
 await page.getByText('Đã xác nhận lưu', { exact: true }).waitFor();
 check('response mơ hồ được reconcile bằng GET, không PATCH lại', patchBodies.length === patchCountBeforeReconcile && canonical.title === 'Ambiguous edit');
+
+await page.locator('#alme-title').fill('Acknowledged then forbidden');
+await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+await page.getByText('PATCH đã nhận, chưa đọc lại được', { exact: true }).waitFor();
+const patchCountAfterAcknowledged = patchBodies.length;
+check('PATCH 200 rồi GET 403 vẫn giữ receipt và khóa phát lại', await page.getByRole('heading', { name: 'Lượt lưu cần đối chiếu' }).count() === 1 && await page.locator('#alme-title').isDisabled());
+await page.getByRole('button', { name: 'Đối chiếu canonical' }).click();
+await page.getByText('Đã xác nhận lưu', { exact: true }).waitFor();
+check('readback 403 được reconcile bằng GET-only, không PATCH lần hai', patchBodies.length === patchCountAfterAcknowledged && canonical.title === 'Acknowledged then forbidden');
 
 await page.evaluate(() => {
   const nativeSetItem = Storage.prototype.setItem;
