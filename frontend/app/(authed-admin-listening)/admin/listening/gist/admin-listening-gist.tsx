@@ -35,6 +35,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
   const requestOrder = useRef(0);
   const account = useRef(profile.id);
   const leaving = useRef(false);
+  const focusId = useRef(requestedExerciseId);
   const [content, setContent] = useState<Content | null>(null);
   const [collection, setCollection] = useState<Collection | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -60,9 +61,10 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     : fingerprint(draft, targetStatus) !== fingerprint(listeningGistDraft(null) as Draft, 'draft');
   const locked = busy || Boolean(pending) || conflict
     || Boolean(collection?.duplicateOrders.length) || Boolean(collection?.malformedCount);
+  const competingPublished = collection?.items.find((item) => item.status === 'published' && item.id !== baseline?.id) || null;
 
   const readCollection = useCallback(async () => {
-    const raw = await window.api.get<unknown>(`/admin/listening/exercises?content_id=${encodeURIComponent(contentId)}&exercise_type=gist`);
+    const raw = await window.api.getWith<unknown>(`/admin/listening/exercises?content_id=${encodeURIComponent(contentId)}&exercise_type=gist`, {}, { noRedirect: true });
     const value = normalizeListeningGistBlocks(raw, contentId) as Collection | null;
     if (!value) throw new Error('Danh sách Gist không đúng contract canonical.');
     return value;
@@ -70,6 +72,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
 
   const install = useCallback((block: Block | null, nextCollection: Collection) => {
     setCollection(nextCollection); setBaseline(block); setSelectedId(block?.id || null); setNewOrderNum(null);
+    focusId.current = block?.id || null;
     setDraft(listeningGistDraft(block) as Draft); setTargetStatus(block?.status || 'draft'); setKeywordInput('');
     setErrors({}); setConflict(false);
     window.history.replaceState(null, '', listeningGistHref(contentId, block?.id || null));
@@ -81,7 +84,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     setLoading(true); setLoadError(null); setBanner(null); setPending(null); setConflict(false);
     try {
       const [rawContent, nextCollection] = await Promise.all([
-        window.api.get<unknown>(`/admin/listening/content/${encodeURIComponent(contentId)}`),
+        window.api.getWith<unknown>(`/admin/listening/content/${encodeURIComponent(contentId)}`, {}, { noRedirect: true }),
         readCollection(),
       ]);
       const nextContent = normalizeListeningGistContent(rawContent, contentId) as Content | null;
@@ -89,10 +92,11 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
       if (request !== requestOrder.current || account.current !== profile.id) return;
       if (nextCollection.duplicateOrders.length) throw new Error(`Có nhiều Gist block trùng order ${nextCollection.duplicateOrders.join(', ')}; cần sửa dữ liệu trước khi authoring.`);
       if (nextCollection.malformedCount) throw new Error(`Có ${nextCollection.malformedCount} Gist row sai contract. Editor khóa để không ghi đè dữ liệu không đọc được.`);
-      const block = requestedExerciseId
-        ? nextCollection.items.find((item) => item.id === requestedExerciseId) || null
+      const requestedId = focusId.current;
+      const block = requestedId
+        ? nextCollection.items.find((item) => item.id === requestedId) || null
         : nextCollection.items.find((item) => item.orderNum === 1) || nextCollection.items[0] || null;
-      if (requestedExerciseId && !block) throw new Error('exercise_id không thuộc content Gist này.');
+      if (requestedId && !block) throw new Error('exercise_id không thuộc content Gist này.');
       setContent(nextContent); install(block, nextCollection);
       const key = receiptKey(profile.id, contentId);
       let restored: Pending | null = null;
@@ -108,7 +112,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     } catch (caught) {
       if (request === requestOrder.current) setLoadError(messageOf(caught));
     } finally { if (request === requestOrder.current) setLoading(false); }
-  }, [contentId, install, profile.id, readCollection, requestedExerciseId]);
+  }, [contentId, install, profile.id, readCollection]);
 
   useEffect(() => { void load(); return () => { requestOrder.current += 1; }; }, [load]);
   useEffect(() => {
@@ -128,6 +132,12 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
 
   const save = async (status: Status) => {
     if (!content || !collection || locked) return;
+    if (status === 'published' && competingPublished) {
+      const text = `Block #${competingPublished.orderNum} đang phục vụ người học. Chuyển block đó về nháp hoặc lưu trữ trước.`;
+      setErrors({ form: text });
+      setBanner({ kind: 'error', title: 'Chỉ được có một Gist block published', text });
+      return;
+    }
     const result = buildListeningGistOperation({ contentId, block: baseline, orderNum, draft, status }) as { ok: boolean; errors: Record<string, string>; operation: Record<string, unknown> | null };
     setErrors(result.errors || {});
     if (!result.ok || !result.operation) { setBanner({ kind: 'error', title: 'Chưa thể lưu', text: 'Sửa các trường được đánh dấu rồi thử lại.' }); return; }
@@ -136,7 +146,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     setPending(receipt); setBusy(true); setBanner(null);
     let postAcknowledged = false;
     try {
-      await window.api.post('/admin/listening/exercises', result.operation);
+      await window.api.postWith('/admin/listening/exercises', result.operation, {}, { noRedirect: true });
       postAcknowledged = true;
       const nextCollection = await readCollection();
       const matched = findListeningGistOperationMatch(nextCollection, result.operation) as Block | null;
@@ -172,6 +182,7 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     if (!collection) return;
     const nextOrder = Math.max(0, ...collection.items.map((item) => item.orderNum)) + 1;
     if (nextOrder > 200) { setBanner({ kind: 'error', title: 'Không thể tạo block mới', text: 'Đã đạt giới hạn 200 block cho một content.' }); return; }
+    focusId.current = null;
     setBaseline(null); setSelectedId(null); setNewOrderNum(nextOrder); setDraft(listeningGistDraft(null) as Draft);
     setTargetStatus('draft'); setKeywordInput(''); setErrors({}); setConflict(false);
     window.history.replaceState(null, '', listeningGistHref(contentId));
@@ -204,11 +215,11 @@ export function AdminListeningGist({ contentId, requestedExerciseId }: { content
     <section className="alge-workspace">
       <div className="alge-main">
         <section className="alge-card" aria-labelledby="alge-source"><div className="alge-card-head"><div><p className="alc-eyebrow">1 · Đối chiếu nguồn</p><h2 id="alge-source">Audio và transcript canonical</h2></div><span>{Math.round(content.durationSeconds)} giây</span></div>{content.audioUrl ? <audio-player src={content.audioUrl} duration-hint={content.durationSeconds} refetch-url={`/admin/listening/content/${encodeURIComponent(contentId)}`} /> : <div className="alc-banner is-error" role="alert"><strong>Không có signed audio URL</strong><span>Vẫn có thể soạn nháp, nhưng cần nghe kiểm tra trước khi publish.</span></div>}<details className="alge-transcript"><summary>Mở transcript chỉ đọc</summary><div>{content.transcript || 'Content chưa có transcript.'}</div></details></section>
-        <section className="alge-card" aria-labelledby="alge-rubric"><div className="alge-card-head"><div><p className="alc-eyebrow">2 · Viết rubric</p><h2 id="alge-rubric">Câu hỏi và ground truth</h2></div><span>AI semantic · Haiku 4.5</span></div><label className="alge-field" htmlFor="alge-prompt"><span>Câu hỏi cho học viên</span><textarea id="alge-prompt" value={draft.promptText} maxLength={MAX_GIST_PROMPT_LENGTH} disabled={locked} aria-invalid={Boolean(errors.promptText)} aria-describedby={errors.promptText ? 'alge-prompt-error' : 'alge-prompt-help'} onChange={(event) => { setDraft({ ...draft, promptText: event.target.value }); setErrors({ ...errors, promptText: '' }); }} /><small id="alge-prompt-help">Một yêu cầu rõ, tập trung vào ý chính thay vì chi tiết nhỏ. {draft.promptText.length}/{MAX_GIST_PROMPT_LENGTH}</small>{errors.promptText && <strong id="alge-prompt-error" className="alge-field-error" role="alert">{errors.promptText}</strong>}</label><label className="alge-field" htmlFor="alge-answer"><span>Đáp án mẫu · ground truth</span><textarea id="alge-answer" className="is-tall" value={draft.modelAnswer} maxLength={MAX_GIST_MODEL_ANSWER_LENGTH} disabled={locked} aria-invalid={Boolean(errors.modelAnswer)} aria-describedby={errors.modelAnswer ? 'alge-answer-error' : 'alge-answer-help'} onChange={(event) => { setDraft({ ...draft, modelAnswer: event.target.value }); setErrors({ ...errors, modelAnswer: '' }); }} /><small id="alge-answer-help">Viết 2–4 câu nêu đủ chủ thể, luận điểm và kết luận chính. {draft.modelAnswer.length}/{MAX_GIST_MODEL_ANSWER_LENGTH}</small>{errors.modelAnswer && <strong id="alge-answer-error" className="alge-field-error" role="alert">{errors.modelAnswer}</strong>}</label></section>
+        <section className="alge-card" aria-labelledby="alge-rubric"><div className="alge-card-head"><div><p className="alc-eyebrow">2 · Viết rubric</p><h2 id="alge-rubric">Câu hỏi và ground truth</h2></div><span>AI semantic · Haiku 4.5</span></div>{errors.form && <strong className="alge-field-error" role="alert">{errors.form}</strong>}<label className="alge-field" htmlFor="alge-prompt"><span>Câu hỏi cho học viên</span><textarea id="alge-prompt" value={draft.promptText} maxLength={MAX_GIST_PROMPT_LENGTH} disabled={locked} aria-invalid={Boolean(errors.promptText)} aria-describedby={errors.promptText ? 'alge-prompt-error' : 'alge-prompt-help'} onChange={(event) => { setDraft({ ...draft, promptText: event.target.value }); setErrors({ ...errors, promptText: '', form: '' }); }} /><small id="alge-prompt-help">Một yêu cầu rõ, tập trung vào ý chính thay vì chi tiết nhỏ. {draft.promptText.length}/{MAX_GIST_PROMPT_LENGTH}</small>{errors.promptText && <strong id="alge-prompt-error" className="alge-field-error" role="alert">{errors.promptText}</strong>}</label><label className="alge-field" htmlFor="alge-answer"><span>Đáp án mẫu · ground truth</span><textarea id="alge-answer" className="is-tall" value={draft.modelAnswer} maxLength={MAX_GIST_MODEL_ANSWER_LENGTH} disabled={locked} aria-invalid={Boolean(errors.modelAnswer)} aria-describedby={errors.modelAnswer ? 'alge-answer-error' : 'alge-answer-help'} onChange={(event) => { setDraft({ ...draft, modelAnswer: event.target.value }); setErrors({ ...errors, modelAnswer: '', form: '' }); }} /><small id="alge-answer-help">Viết 2–4 câu nêu đủ chủ thể, luận điểm và kết luận chính. {draft.modelAnswer.length}/{MAX_GIST_MODEL_ANSWER_LENGTH}</small>{errors.modelAnswer && <strong id="alge-answer-error" className="alge-field-error" role="alert">{errors.modelAnswer}</strong>}</label></section>
         <section className="alge-card" aria-labelledby="alge-keywords"><div className="alge-card-head"><div><p className="alc-eyebrow">3 · Neo fallback</p><h2 id="alge-keywords">Từ khóa rubric</h2></div><span>{draft.keywords.length}/{MAX_GIST_KEYWORDS}</span></div><p className="alge-support">Từ khóa chỉ dùng khi AI không khả dụng. Nhập từng cụm ý có nghĩa; không lặp biến thể viết hoa.</p><div className="alge-keyword-entry"><label className="alge-field" htmlFor="alge-keyword"><span>Thêm từ hoặc cụm từ</span><input id="alge-keyword" value={keywordInput} disabled={locked || draft.keywords.length >= MAX_GIST_KEYWORDS} aria-invalid={Boolean(errors.keywords)} aria-describedby={errors.keywords ? 'alge-keyword-error' : 'alge-keyword-help'} onChange={(event) => setKeywordInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); addKeywords(); } }} /></label><button className="adm-btn-secondary" type="button" disabled={locked || !keywordInput.trim() || draft.keywords.length >= MAX_GIST_KEYWORDS} onClick={addKeywords}>Thêm từ khóa</button></div><small id="alge-keyword-help">Có thể dán nhiều mục, ngăn cách bằng dấu phẩy, chấm phẩy hoặc xuống dòng.</small>{errors.keywords && <strong id="alge-keyword-error" className="alge-field-error" role="alert">{errors.keywords}</strong>}<ul className="alge-keywords" aria-label="Từ khóa đã thêm">{draft.keywords.map((keyword, index) => <li key={`${keyword}-${index}`}><span>{keyword}</span><button type="button" aria-label={`Xóa từ khóa ${keyword}`} disabled={locked} onClick={() => setDraft({ ...draft, keywords: draft.keywords.filter((_, itemIndex) => itemIndex !== index) })}>×</button></li>)}</ul>{!draft.keywords.length && <div className="alge-empty"><strong>Chưa có từ khóa fallback</strong><span>Được phép lưu, nhưng khi AI lỗi thì điểm fallback sẽ là 0.</span></div>}
         <div className="alge-score-truth"><strong>Cách chấm thực tế</strong><ol><li>AI so khớp ngữ nghĩa với đáp án mẫu trên thang 0–100.</li><li>Nếu AI lỗi, fallback tính độ phủ từ khóa và bị giới hạn tối đa 60 điểm.</li><li>Học viên đạt khi điểm cuối cùng từ 80 trở lên.</li></ol></div></section>
       </div>
-      <aside className="alge-side"><section><p className="alc-eyebrow">Block identity</p><h2>{collection.items.length ? `${collection.items.length} Gist block` : 'Chưa có block'}</h2>{collection.items.length > 0 && <label className="alge-field" htmlFor="alge-block"><span>Block đang sửa</span><select id="alge-block" value={selectedId || ''} disabled={locked} onChange={(event) => chooseBlock(event.target.value)}>{!baseline && <option value="">Block mới #{orderNum}</option>}{collection.items.map((item) => <option key={item.id} value={item.id}>#{item.orderNum} · {STATUS_LABEL[item.status]} · {item.keywords.length} từ khóa</option>)}</select></label>}<button className="adm-btn-secondary" type="button" disabled={locked || Math.max(0, ...collection.items.map((item) => item.orderNum)) >= 200} onClick={() => dirty ? setConfirm('new-block') : startNewBlock()}>Thêm Gist block</button><dl><div><dt>Exercise ID</dt><dd><code>{baseline?.id || 'Tạo mới khi lưu'}</code></dd></div><div><dt>Order</dt><dd><code>#{orderNum}</code></dd></div><div><dt>Version</dt><dd><code>{baseline?.updatedAt || 'expected_absent'}</code></dd></div><div><dt>Nguồn</dt><dd>{content.sourceType || '—'}</dd></div></dl></section><section><p className="alc-eyebrow">Publication</p><fieldset className="alge-status-options"><legend>Trạng thái đích</legend>{(['draft', 'published', 'archived'] as Status[]).map((status) => <label className="alge-radio" key={status}><input type="radio" name="gist-status" checked={targetStatus === status} disabled={locked} onChange={() => setTargetStatus(status)} /><span><strong>{STATUS_LABEL[status]}</strong><small>{status === 'draft' ? 'Chưa phục vụ người học.' : status === 'published' ? 'Chỉ khả dụng khi content cha cũng published.' : 'Giữ block nhưng không phục vụ người học.'}</small></span></label>)}</fieldset>{targetStatus === 'published' && content.status !== 'published' && <p className="alge-publication-note">Block có thể được lưu published, nhưng người học chưa thấy cho tới khi content cha cũng published.</p>}</section><a className="alc-rollback" href={listeningGistRollbackHref(contentId)}>Mở bản HTML rollback ↗</a></aside>
+      <aside className="alge-side"><section><p className="alc-eyebrow">Block identity</p><h2>{collection.items.length ? `${collection.items.length} Gist block` : 'Chưa có block'}</h2>{collection.items.length > 0 && <label className="alge-field" htmlFor="alge-block"><span>Block đang sửa</span><select id="alge-block" value={selectedId || ''} disabled={locked} onChange={(event) => chooseBlock(event.target.value)}>{!baseline && <option value="">Block mới #{orderNum}</option>}{collection.items.map((item) => <option key={item.id} value={item.id}>#{item.orderNum} · {STATUS_LABEL[item.status]} · {item.keywords.length} từ khóa</option>)}</select></label>}<button className="adm-btn-secondary" type="button" disabled={locked || Math.max(0, ...collection.items.map((item) => item.orderNum)) >= 200} onClick={() => dirty ? setConfirm('new-block') : startNewBlock()}>Thêm Gist block</button><dl><div><dt>Exercise ID</dt><dd><code>{baseline?.id || 'Tạo mới khi lưu'}</code></dd></div><div><dt>Order</dt><dd><code>#{orderNum}</code></dd></div><div><dt>Version</dt><dd><code>{baseline?.updatedAt || 'expected_absent'}</code></dd></div><div><dt>Nguồn</dt><dd>{content.sourceType || '—'}</dd></div></dl></section><section><p className="alc-eyebrow">Publication</p><fieldset className="alge-status-options"><legend>Trạng thái đích</legend>{(['draft', 'published', 'archived'] as Status[]).map((status) => <label className="alge-radio" key={status}><input type="radio" name="gist-status" checked={targetStatus === status} disabled={locked || (status === 'published' && Boolean(competingPublished))} onChange={() => { setTargetStatus(status); setErrors((current) => ({ ...current, form: '' })); }} /><span><strong>{STATUS_LABEL[status]}</strong><small>{status === 'draft' ? 'Chưa phục vụ người học.' : status === 'published' ? 'Content cha phải published và không có Gist block published khác.' : 'Giữ block nhưng không phục vụ người học.'}</small></span></label>)}</fieldset>{competingPublished && <p className="alge-publication-note">Block #{competingPublished.orderNum} đang phục vụ người học. Mỗi content chỉ có một Gist block published; hãy chuyển block đó về nháp hoặc lưu trữ trước.</p>}{targetStatus === 'published' && content.status !== 'published' && <p className="alge-publication-note">Block có thể được lưu published, nhưng người học chưa thấy cho tới khi content cha cũng published.</p>}</section><a className="alc-rollback" href={listeningGistRollbackHref(contentId)}>Mở bản HTML rollback ↗</a></aside>
     </section>
     <footer className="alge-actions"><div><strong>{dirty ? 'Có thay đổi chưa lưu' : 'Đã đồng bộ canonical'}</strong><span>{pending ? 'Đang chờ đối chiếu receipt' : conflict ? 'Phải tải version mới' : `Block #${orderNum} · ${STATUS_LABEL[targetStatus]}`}</span></div><div><button className="adm-btn-secondary" type="button" disabled={busy} onClick={() => dirty ? setConfirm('leave') : window.location.assign(`/admin/listening/content/${encodeURIComponent(contentId)}`)}>Về chi tiết</button><button className="adm-btn-secondary" type="button" disabled={!dirty || locked} onClick={() => baseline ? install(baseline, collection) : startNewBlock()}>Hoàn tác</button><button className="adm-btn-primary" type="button" disabled={!dirty || locked} onClick={() => void save(targetStatus)}>{busy ? 'Đang đối chiếu…' : targetStatus === 'published' ? 'Lưu & xuất bản' : targetStatus === 'archived' ? 'Lưu bản lưu trữ' : 'Lưu bản nháp'}</button></div></footer>
     <Dialog open={confirm !== null} title={confirm === 'leave' ? 'Rời editor và bỏ thay đổi?' : confirm === 'discard-pending' ? 'Bỏ biên nhận chưa đối chiếu?' : confirm === 'switch' ? 'Chuyển block và bỏ thay đổi?' : confirm === 'new-block' ? 'Tạo block mới và bỏ thay đổi?' : 'Tải canonical mới?'} description={confirm === 'discard-pending' ? 'Chỉ bỏ sau khi đã kiểm tra record; thao tác này không hoàn tác POST có thể đã tới backend.' : 'Thay đổi chưa lưu sẽ không thể khôi phục.'} busy={false} onClose={() => setConfirm(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setConfirm(null)}>Tiếp tục sửa</button><button className="adm-btn-danger" type="button" onClick={applyConfirm}>{confirm === 'discard-pending' ? 'Bỏ biên nhận' : confirm === 'reload' ? 'Tải lại' : confirm === 'new-block' ? 'Tạo block mới' : 'Bỏ thay đổi'}</button></>} />

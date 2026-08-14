@@ -236,6 +236,49 @@ def test_tf_payload_validator_rejects_bad_answer():
     assert exc.value.status_code == 422
 
 
+@pytest.mark.parametrize("statements", [None, {}, "three statements"])
+def test_tf_payload_validator_rejects_non_list_statements(statements):
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_true_false_payload({"statements": statements})
+    assert exc.value.status_code == 422
+    assert "must be a list" in str(exc.value.detail)
+
+
+@pytest.mark.parametrize(
+    "field,value,detail",
+    [
+        ("idx", True, "idx invalid"),
+        ("idx", "0", "idx invalid"),
+        ("text", 42, "text must be a string"),
+        ("answer", 1, "answer must be a string"),
+    ],
+)
+def test_tf_payload_validator_rejects_coerced_statement_fields(field, value, detail):
+    statements = [
+        {"idx": 0, "text": "a", "answer": "T"},
+        {"idx": 1, "text": "b", "answer": "F"},
+        {"idx": 2, "text": "c", "answer": "NG"},
+    ]
+    statements[0][field] = value
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_true_false_payload({"statements": statements})
+    assert exc.value.status_code == 422
+    assert detail in str(exc.value.detail)
+
+
+def test_tf_payload_validator_rejects_oversized_statement_text():
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_true_false_payload({
+            "statements": [
+                {"idx": 0, "text": "a" * 1001, "answer": "T"},
+                {"idx": 1, "text": "b", "answer": "F"},
+                {"idx": 2, "text": "c", "answer": "NG"},
+            ],
+        })
+    assert exc.value.status_code == 422
+    assert "1000" in str(exc.value.detail)
+
+
 # ── Fake admin client + auth shims (reused minimal pattern) ──────────
 
 
@@ -252,10 +295,18 @@ class _FakeTableQuery:
         self._filters: list[tuple[str, object]] = []
         self._insert: dict | None = None
         self._update: dict | None = None
+        self._order: tuple[str, bool] | None = None
+        self._limit: int | None = None
 
     def select(self, *_a, **_k): return self
-    def limit(self, *_a, **_k): return self
-    def order(self, *_a, **_k): return self
+
+    def limit(self, count, *_a, **_k):
+        self._limit = int(count)
+        return self
+
+    def order(self, column, desc=False, *_a, **_k):
+        self._order = (column, bool(desc))
+        return self
 
     def eq(self, col, val):
         self._filters.append((col, val))
@@ -279,6 +330,11 @@ class _FakeTableQuery:
         rows = list(self._parent.canned.get(self._table, []))
         for col, val in self._filters:
             rows = [r for r in rows if r.get(col) == val]
+        if self._order:
+            column, descending = self._order
+            rows.sort(key=lambda row: row.get(column), reverse=descending)
+        if self._limit is not None:
+            rows = rows[:self._limit]
         return _FakeRes(rows)
 
 
@@ -327,6 +383,40 @@ def _content_row():
         "audio_storage_path": "ai/c1.mp3",
         "audio_duration_seconds": 270,
     }
+
+
+@pytest.mark.parametrize("mode", ["gist", "true_false", "mcq", "dictation"])
+def test_resolve_attempt_target_chooses_lowest_published_order(monkeypatch, mode):
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [
+            {
+                "id": "higher",
+                "content_id": "c1",
+                "exercise_type": mode,
+                "status": "published",
+                "order_num": 7,
+            },
+            {
+                "id": "lower",
+                "content_id": "c1",
+                "exercise_type": mode,
+                "status": "published",
+                "order_num": 2,
+            },
+        ],
+    })
+    _patch_admin_client(monkeypatch, fake)
+    body = listening_router.ListeningAttemptRequest(
+        content_id="c1",
+        mode=mode,
+        user_transcript="answer",
+    )
+
+    exercise, content = listening_router._resolve_attempt_target(body)
+
+    assert exercise["id"] == "lower"
+    assert content["id"] == "c1"
 
 
 # ── POST /api/listening/attempts — gist dispatch ─────────────────────

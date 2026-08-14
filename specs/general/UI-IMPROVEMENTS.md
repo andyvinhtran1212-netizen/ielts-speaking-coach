@@ -1859,3 +1859,50 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   draft/published/archived blocks, exact update, next-order create, dirty switching,
   409 conflict, after-commit 503, POST-200/readback-403 reconciliation, storage
   failure, canonical success truth and mobile/desktop containment.
+
+## 2026-08-14 — Native `/admin/listening/tf` answer-key authoring
+
+### Root causes and severity
+
+- **Critical — legacy saves could overwrite the wrong ordered block.** Load selected
+  the first row while POST omitted exact exercise identity, order and version. The
+  native editor lists every canonical block and uses `exercise_id` plus
+  `expected_updated_at`, or `expected_absent` for a new order.
+- **Critical — acknowledged POST was presented as canonical success.** A durable
+  per-admin/content receipt now precedes every write. Success requires a GET that
+  matches block identity, status, statement order, text and every T/F/NG answer;
+  ambiguous writes are reconciled by GET only and never replayed automatically.
+- **Critical — concurrent answer-key changes had no conflict boundary.** A 409 now
+  locks editing and preserves the newer canonical version until the admin chooses
+  to reload it.
+- **Medium — malformed field types were silently coerced.** Backend validation no
+  longer turns boolean/string indices, numeric statement text or numeric answers
+  into apparently valid data. Statements require contiguous integer indices,
+  string text of at most 1000 characters and an explicit T/F/NG value.
+- **Medium — the old form did not explain the distinction between F and NG.** Each
+  ground-truth option now states whether the audio confirms, contradicts or omits
+  the claim, reducing invalid answer keys.
+- **Medium — completion semantics were hidden.** The authoring screen states that
+  per-question marking is exact, blanks are wrong and backend `is_correct` becomes
+  true only at 100% for the block.
+
+### Design and verification
+
+- The workspace follows evidence → statements → publication. Audio and collapsed
+  transcript stay read-only; each numbered statement has adjacent validation,
+  explicit answer cards, reorder controls and a guarded delete boundary.
+- The provenance rail exposes exact block ID, order, version, source and lifecycle.
+  Dirty switching, leaving, new-block creation, receipt discard and conflict reload
+  use focused dialogs; no native `alert` or `confirm` is used.
+- Mobile stacks answer options and actions without horizontal overflow, preserves
+  44px controls and visible focus, and honors reduced motion. Legacy HTML remains
+  an explicit watchdog/manual rollback.
+- Production and staging preflight on 2026-08-14 found zero content/type groups
+  with more than one published Gist, T/F or MCQ block. Migration 209 therefore
+  adds a partial unique index as the atomic backstop for concurrent publishers;
+  the backend maps its `23505` to the same actionable 409 as the preflight guard.
+- Backend, model/source and fixture-browser tests pin strict payloads, multi-block
+  identity, draft/published/archived round-trip, exact update/create, 409, 503 after
+  commit, POST-200/readback-403, storage failure, GET-only reconciliation,
+  lowest-order learner fallback, keyboard-focus-stable reorder, add/remove/minimum
+  interactions and responsive containment.

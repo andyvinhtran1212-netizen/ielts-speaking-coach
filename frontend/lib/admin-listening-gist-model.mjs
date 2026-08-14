@@ -63,7 +63,6 @@ function normalizeBlock(raw, expectedContentId) {
   if (!value || !payload || !id || contentId !== expectedContentId || value.exercise_type !== 'gist'
     || orderNum == null || orderNum < 1 || orderNum > 200 || !STATUSES.has(status)
     || !updatedAt || !Number.isFinite(Date.parse(updatedAt)) || !promptText || !modelAnswer
-    || promptText.length > MAX_GIST_PROMPT_LENGTH || modelAnswer.length > MAX_GIST_MODEL_ANSWER_LENGTH
     || keywords == null) return null;
   return { id, contentId, orderNum, status, updatedAt, promptText, modelAnswer, keywords };
 }

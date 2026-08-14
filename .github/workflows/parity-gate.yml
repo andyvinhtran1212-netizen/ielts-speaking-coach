@@ -328,6 +328,7 @@ on:
       - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
       - 'backend/tests/test_listening_segments.py'
       - 'backend/migrations/208_listening_exercise_block_identity.sql'
+      - 'backend/migrations/209_listening_single_published_standalone_block.sql'
       - 'frontend/lib/admin-listening-gist-model.mjs'
       - 'frontend/app/(authed-admin-listening)/admin/listening/gist/**'
       - 'frontend/public/css/admin-listening-gist-next.css'
@@ -336,6 +337,13 @@ on:
       - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
       - 'frontend/tests/admin-listening-gist-next-behavior.test.mjs'
       - 'backend/tests/test_listening_gist_tf.py'
+      - 'frontend/lib/admin-listening-true-false-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/tf/**'
+      - 'frontend/public/css/admin-listening-true-false-next.css'
+      - 'frontend/public/pages/admin/listening/tf.html'
+      - 'frontend/public/js/admin-listening-tf.js'
+      - 'frontend/tooling/verify-admin-listening-true-false-flow.mjs'
+      - 'frontend/tests/admin-listening-true-false-next-behavior.test.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -1066,6 +1074,11 @@ jobs:
       # keywords, version conflicts, durable receipts and canonical readback.
       - name: Kiểm luồng Admin Listening Gist native
         run: node tooling/verify-admin-listening-gist-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # True/False authoring mutates exact answer-key blocks. The fixture pins
+      # T/F/NG ground truth, version conflicts, durable receipts and readback.
+      - name: Kiểm luồng Admin Listening True False native
+        run: node tooling/verify-admin-listening-true-false-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.

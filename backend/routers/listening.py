@@ -86,6 +86,7 @@ _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
 
 _TF_VALID = {"T", "F", "NG"}
 MAX_LISTENING_SEGMENTS = 500
+_SINGLE_PUBLISHED_EXERCISE_TYPES = frozenset({"gist", "true_false", "mcq"})
 
 
 def _is_unique_violation(exc: Exception) -> bool:
@@ -98,6 +99,41 @@ def _is_unique_violation(exc: Exception) -> bool:
     # uniqueness from prose such as "duplicate key": that can misclassify an
     # unrelated future constraint as a block-identity conflict.
     return str(code or "") == "23505" or bool(re.search(r"\b23505\b", message))
+
+
+def _published_standalone_orders(
+    content_id: str,
+    exercise_type: str,
+    *,
+    exclude_id: str | None = None,
+) -> list[int]:
+    """Return canonical live competitors for one standalone learner mode."""
+    if exercise_type not in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        return []
+    result = (
+        supabase_admin.table("listening_exercises")
+        .select("id,order_num")
+        .eq("content_id", content_id)
+        .eq("exercise_type", exercise_type)
+        .eq("status", "published")
+        .execute()
+    )
+    orders: set[int] = set()
+    for row in result.data or []:
+        if exclude_id and str(row.get("id")) == exclude_id:
+            continue
+        try:
+            orders.add(int(row.get("order_num")))
+        except (TypeError, ValueError):
+            continue
+    return sorted(orders)
+
+
+def _single_published_conflict_detail(exercise_type: str, live_orders: list[int]) -> str:
+    return (
+        f"Only one published {exercise_type} block is reachable per content. "
+        f"Archive or draft the live block at order {live_orders} before publishing this one."
+    )
 
 
 def _same_timestamp(left: object, right: object) -> bool:
@@ -174,7 +210,9 @@ def _validate_true_false_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "true_false payload must be a JSON object.")
-    raw = payload.get("statements") or []
+    if "statements" not in payload:
+        raise HTTPException(422, "true_false payload missing statements.")
+    raw = payload.get("statements")
     if not isinstance(raw, list):
         raise HTTPException(422, "true_false payload statements must be a list.")
     if not (3 <= len(raw) <= 12):
@@ -187,19 +225,26 @@ def _validate_true_false_payload(payload: dict) -> dict:
     for i, raw_stmt in enumerate(raw):
         if not isinstance(raw_stmt, dict):
             raise HTTPException(422, f"Statement {i} must be a JSON object.")
-        try:
-            idx_v = int(raw_stmt.get("idx"))
-        except (TypeError, ValueError):
+        idx_v = raw_stmt.get("idx")
+        if isinstance(idx_v, bool) or not isinstance(idx_v, int):
             raise HTTPException(422, f"Statement {i} idx invalid.")
         if idx_v != i:
             raise HTTPException(
                 422,
                 f"Statement idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
             )
-        text = str(raw_stmt.get("text") or "").strip()
+        text_value = raw_stmt.get("text")
+        if not isinstance(text_value, str):
+            raise HTTPException(422, f"Statement {i} text must be a string.")
+        text = text_value.strip()
         if not text:
             raise HTTPException(422, f"Statement {i} text is empty.")
-        ans = str(raw_stmt.get("answer") or "").upper().strip()
+        if len(text) > 1_000:
+            raise HTTPException(422, f"Statement {i} text must not exceed 1000 characters.")
+        answer_value = raw_stmt.get("answer")
+        if not isinstance(answer_value, str):
+            raise HTTPException(422, f"Statement {i} answer must be a string.")
+        ans = answer_value.upper().strip()
         if ans in {"TRUE"}: ans = "T"
         elif ans in {"FALSE"}: ans = "F"
         elif ans in {"NOT GIVEN", "NOTGIVEN", "N/G"}: ans = "NG"
@@ -762,6 +807,7 @@ def _resolve_attempt_target(
             .eq("content_id", content_id)
             .eq("exercise_type", body.mode)
             .eq("status", "published")
+            .order("order_num", desc=False)
             .limit(1)
             .execute()
         )
@@ -779,6 +825,7 @@ def _resolve_attempt_target(
             .eq("content_id", content_id)
             .eq("exercise_type", "dictation")
             .eq("status", "published")
+            .order("order_num", desc=False)
             .limit(1)
             .execute()
         )
@@ -1559,6 +1606,22 @@ async def admin_upsert_listening_exercise(
                 "Exercise block changed after this editor was opened. Reload canonical data before saving.",
             )
 
+    # Standalone learner pages resolve one published block per mode. This
+    # preflight gives admins an actionable 409; migration 209 is the atomic
+    # backstop when concurrent requests both pass this SELECT.
+    current_id = str(current_exercise.get("id")) if current_exercise else None
+    if body.status == "published" and body.exercise_type in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        live_orders = _published_standalone_orders(
+            body.content_id,
+            body.exercise_type,
+            exclude_id=current_id,
+        )
+        if live_orders:
+            raise HTTPException(
+                409,
+                _single_published_conflict_detail(body.exercise_type, live_orders),
+            )
+
     # The native Dictation editor owns segments, not the type-specific JSONB
     # configuration. Preserve an existing payload unless the caller explicitly
     # supplied that field; otherwise a segments-only save would erase importer
@@ -1591,7 +1654,25 @@ async def admin_upsert_listening_exercise(
         )
         if body.expected_updated_at:
             mutation = mutation.eq("updated_at", body.expected_updated_at)
-        result = mutation.execute()
+        try:
+            result = mutation.execute()
+        except Exception as exc:
+            if not _is_unique_violation(exc):
+                raise
+            live_orders = _published_standalone_orders(
+                body.content_id,
+                body.exercise_type,
+                exclude_id=str(exercise_id),
+            ) if body.status == "published" else []
+            if live_orders:
+                raise HTTPException(
+                    409,
+                    _single_published_conflict_detail(body.exercise_type, live_orders),
+                ) from None
+            raise HTTPException(
+                409,
+                "Exercise block changed concurrently. Reload canonical data before retrying.",
+            ) from None
         rows = result.data or []
         if not rows:
             if body.expected_updated_at:
@@ -1613,6 +1694,15 @@ async def admin_upsert_listening_exercise(
         result = supabase_admin.table("listening_exercises").insert(payload).execute()
     except Exception as exc:
         if _is_unique_violation(exc):
+            live_orders = _published_standalone_orders(
+                body.content_id,
+                body.exercise_type,
+            ) if body.status == "published" else []
+            if live_orders:
+                raise HTTPException(
+                    409,
+                    _single_published_conflict_detail(body.exercise_type, live_orders),
+                ) from None
             raise HTTPException(
                 409,
                 "Exercise block was created concurrently. Reload canonical data before retrying.",

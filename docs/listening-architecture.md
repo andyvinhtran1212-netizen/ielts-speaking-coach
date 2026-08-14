@@ -20,7 +20,7 @@
 |------|--------|------------------------|-------------|---------|
 | **Dictation** (chép chính tả) | ✅ Production | `pages/admin/listening/segments.html` → `POST /admin/listening/exercises` | `listening_exercises` `exercise_type=dictation` + `segments` column | word-diff, `listening_grader.grade_dictation` |
 | **Gist** (nghe ý chính) | ✅ Production | `/admin/listening/gist` (native; `pages/admin/listening/gist.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {prompt_text, model_answer, rubric_keywords[]}` | Haiku AI, `listening_gist_grader.grade_gist_response` |
-| **True/False/Not-Given** | ✅ Production | `pages/admin/listening/tf.html` → `POST /admin/listening/exercises` | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact match, `listening_grader.grade_true_false` |
+| **True/False/Not-Given** | ✅ Production | `/admin/listening/tf` (native; `pages/admin/listening/tf.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact per-statement match; complete only at 100%, `listening_grader.grade_true_false` |
 | **MCQ** (trắc nghiệm) | ✅ Production | `pages/admin/listening/mcq.html` → `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
 | **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |
 | **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `pages/admin/listening/import-fulltest.html` → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
@@ -52,7 +52,8 @@ listening_tests     — full-test bundle: test_id (external), title, version, ba
 **Payload polymorphism by `exercise_type` [MEASURED]** (validators in `backend/routers/listening.py`):
 - `dictation` — `payload {}`; the data lives in the `segments` column: `[{idx,start_sec,end_sec,transcript}]`.
 - `gist` — `_validate_gist_payload` (`:88`) → `{prompt_text, model_answer, rubric_keywords[≤10]}`.
-- `true_false` — `_validate_true_false_payload` (`:113`) → `{statements:[3–12 × {idx,text,answer∈T/F/NG}]}`.
+- `true_false` — `_validate_true_false_payload` → `{statements:[3–12 × {idx:int contiguous,text:string≤1000,answer∈T/F/NG}]}`; wrong field types fail instead of being coerced.
+- Standalone `gist`, `true_false` and `mcq` surfaces allow multiple ordered authoring blocks but exactly one published block per content/type. A second publish is rejected with `409`; migration 209 adds the atomic partial-unique backstop for concurrent publishers. Legacy/imported primary blocks may remain at any order, and learner fallback resolution is explicitly ordered by `order_num` for every mode.
 - `mcq` — `_validate_mcq_payload` (`:162`) → `{questions:[1–20 × {idx,stem,options[exactly 4],answer_idx 0–3}]}`.
 - **full-test exercises** — block-shaped payload enriched by the importer: `{answers, audio_windows{q→{start,end,section}}, solutions{q→{...}}, transcript_anchors{q→para_idx}, questions[]}` (`backend/services/listening_fulltest_import.py` `build_section_persistence`). Answer key is stripped from the live test and revealed only in the review.
 
