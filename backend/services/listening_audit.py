@@ -27,6 +27,15 @@ from . import listening_convert as lc
 
 DIMENSIONS = ("structure", "question", "script", "solution", "timeline", "audio")
 
+# Codes produced by deterministic checks. Persisted audit rows created before
+# issue provenance existed are normalised with this set so the admin never
+# presents an old structural finding as an LLM opinion (or vice versa).
+STRUCTURAL_ISSUE_CODES = {
+    "no_questions", "gap", "duplicate_qnum", "bad_qnum", "unknown_template",
+    "no_answer", "no_options", "no_match_options", "no_map_image", "no_window",
+    "bad_window", "no_transcript", "band_conversion", "no_audio", "window_past_end",
+}
+
 # Known template_kinds a persisted exercise may carry (from the importer map),
 # plus the standalone skill types that also live in listening_exercises.
 _KNOWN_TEMPLATE_KINDS = set(tk for _, tk in lc._MARKER_TO_TYPE.values()) | {
@@ -39,9 +48,27 @@ _DURATION_SLACK_S = 1.5
 
 
 def _issue(dimension: str, severity: str, code: str, message: str,
-           q_num: int | None = None) -> dict[str, Any]:
+           q_num: int | None = None, *, source: str = "structural") -> dict[str, Any]:
     return {"q_num": q_num, "dimension": dimension, "severity": severity,
-            "code": code, "message": message, "resolved": False}
+            "code": code, "message": message, "resolved": False, "source": source}
+
+
+def with_issue_sources(issues: list[Any] | None) -> list[Any]:
+    """Return a copy of persisted issues with an explicit provenance label."""
+    out: list[Any] = []
+    for raw in issues or []:
+        if not isinstance(raw, dict):
+            # Preserve corruption so strict consumers fail closed. Silently
+            # dropping an entry could make a saved audit look cleaner than it is.
+            out.append(raw)
+            continue
+        issue = dict(raw)
+        if issue.get("source") not in {"structural", "llm"}:
+            issue["source"] = (
+                "structural" if issue.get("code") in STRUCTURAL_ISSUE_CODES else "llm"
+            )
+        out.append(issue)
+    return out
 
 
 def _to_int(q: Any) -> int | None:
@@ -64,11 +91,20 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
         by_content.setdefault(ex.get("content_id"), []).append(ex)
 
     md = test.get("metadata") or {}
+    offsets = md.get("section_offsets") or {}
     sections: list[dict] = []
     all_questions: list[dict] = []
 
     for c in sorted(contents, key=lambda r: (r.get("section_num") or 0)):
         sec_num = c.get("section_num")
+        raw_offset = offsets.get(f"S{sec_num}")
+        try:
+            # Section 1 necessarily starts at zero. Later sections need an
+            # explicit absolute-track offset before a per-section player may
+            # rebase full-test windows without presenting plausible wrong audio.
+            audio_offset = max(0.0, float(raw_offset)) if raw_offset is not None else (0.0 if sec_num == 1 else None)
+        except (TypeError, ValueError):
+            audio_offset = None
         # Per-section audio duration: a mini/drill stores audio on the TEST row
         # (full_premixed); a parts test stores it on the content row.
         audio_dur = (c.get("audio_duration_seconds")
@@ -88,12 +124,14 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
                     "q_num":         qn,
                     "section_num":   sec_num,
                     "exercise_id":   ex.get("id"),
+                    "exercise_updated_at": ex.get("updated_at"),
                     "template_kind": tk,
                     "variant":       p.get("variant"),
                     "prompt":        q.get("prompt") or "",
                     "options":       q.get("options"),
                     "answer":        ans.get("answer"),
                     "alternatives":  ans.get("alternatives") or [],
+                    "trap_mechanisms": ans.get("trap_mechanisms") or [],
                     "solution":      sols.get(qn) or {},
                     "notes":         (ans.get("notes") or (sols.get(qn) or {}).get("why_correct") or ""),
                     "audio_window":  windows.get(qn),
@@ -107,6 +145,8 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
         sections.append({
             "section_num":    sec_num,
             "content_id":     c["id"],
+            "content_updated_at": c.get("updated_at"),
+            "audio_offset":   audio_offset,
             "transcript":     (c.get("transcript") or ""),
             "audio_duration": audio_dur,
             "questions":      q_rows,
@@ -292,7 +332,8 @@ async def llm_content_audit(h: dict, invoke) -> list[dict]:
         raw = await invoke(_AUDIT_SYSTEM, user)
     except Exception as exc:  # provider/network/content-policy — degrade, don't crash
         return [_issue("solution", "warning", "audit_inconclusive",
-                       f"LLM audit lỗi ({type(exc).__name__}) — cần xem tay.")]
+                       f"LLM audit lỗi ({type(exc).__name__}) — cần xem tay.",
+                       source="llm")]
     return parse_llm_audit(raw)
 
 
@@ -306,12 +347,12 @@ def parse_llm_audit(raw: str) -> list[dict]:
         # No JSON array at all — the model didn't follow format (a genuine
         # "all fine" answer is the literal "[]", which DOES match above).
         return [_issue("solution", "warning", "audit_inconclusive",
-                       "LLM audit không trả JSON — cần xem tay.")]
+                       "LLM audit không trả JSON — cần xem tay.", source="llm")]
     try:
         arr = json.loads(m.group(0))
     except Exception:
         return [_issue("solution", "warning", "audit_inconclusive",
-                       "LLM audit không parse được kết quả — cần xem tay.")]
+                       "LLM audit không parse được kết quả — cần xem tay.", source="llm")]
     out: list[dict] = []
     _dim = {"answer_in_script": "solution", "solution_consistency": "solution",
             "prompt_clarity": "question"}
@@ -322,5 +363,5 @@ def parse_llm_audit(raw: str) -> list[dict]:
         sev = it.get("severity") if it.get("severity") in ("error", "warning") else "warning"
         out.append(_issue(_dim.get(code, "solution"), sev, code,
                           str(it.get("message") or "LLM flagged"),
-                          q_num=_to_int(it.get("q_num"))))
+                          q_num=_to_int(it.get("q_num")), source="llm"))
     return out

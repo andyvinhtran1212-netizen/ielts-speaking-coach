@@ -43,6 +43,10 @@ export function listeningAuditDetailRollbackHref(id) {
   return `/pages/admin/listening/audit-detail.html?id=${encodeURIComponent(textOf(id))}`;
 }
 
+export function listeningAuditDetailHref(id) {
+  return `/admin/listening/audit-detail?id=${encodeURIComponent(textOf(id))}`;
+}
+
 export function normalizeListeningAuditInventoryPage(raw, expected = {}) {
   const value = normalizeListeningTestList(raw, expected);
   if (!value || value.malformedCount) return null;
