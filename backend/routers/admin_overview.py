@@ -460,7 +460,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "action":     "Hoàn thành bài Listening",
             "score":      (f"{r['score']}/{len(gd)}"
                            if r.get("score") is not None and gd else None),
-            "link":       "/pages/admin/listening/attempts.html",
+            "link":       "/admin/listening/attempts",
         })
     for r in reading_recent:
         if r.get("status") != "submitted" or not r.get("submitted_at"):
