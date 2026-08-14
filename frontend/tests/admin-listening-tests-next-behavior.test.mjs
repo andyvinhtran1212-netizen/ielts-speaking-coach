@@ -14,6 +14,7 @@ const CLIENT = read('app', '(authed-admin-listening)', 'admin', 'listening', 'te
 const PAGE = read('app', '(authed-admin-listening)', 'admin', 'listening', 'tests', 'page.tsx');
 const CONTENT = read('app', '(authed-admin-listening)', 'admin', 'listening', 'admin-listening-content.tsx');
 const CSS = read('public', 'css', 'admin-listening-tests-next.css');
+const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 
 const testRow = (patch = {}) => ({ id: 't1', test_id: 'ILR-LIS-1', title: '<script>', status: 'draft', test_type: 'full', exam_only: false, section_count: 4, audio_ready_count: 3, band_target: 7, accent_profile: ['UK'], ...patch });
 
@@ -29,6 +30,8 @@ test('list normalizer preserves backend total and surfaces malformed rows', () =
   assert.equal(result.malformedCount, 1);
   assert.equal(result.total, 22);
   assert.equal(normalizeListeningTestList({ items: [], total: 'no', limit: 20, offset: 0 }), null);
+  assert.equal(normalizeListeningTestList({ items: [testRow({ section_count: 0, audio_ready_count: 0 })], total: 1, limit: 20, offset: 0 }).rows[0].sectionCount, 0);
+  assert.equal(normalizeListeningTestList({ items: [testRow({ test_type: 'practice', section_count: 1, audio_ready_count: 1 })], total: 1, limit: 20, offset: 0 }).rows[0].sectionCount, 1);
 });
 
 test('mutation readback validates identity and exact canonical field', () => {
@@ -42,6 +45,7 @@ test('native route is admin-gated and content inventory links to it', () => {
   assert.match(PAGE, /<AdminAccessGate>/);
   assert.match(PAGE, /active="listening" subsection="tests"/);
   assert.match(CONTENT, /href="\/admin\/listening\/tests"/);
+  assert.match(CHROME, /slug:\s*'tests',\s+label:\s*'Cambridge tests',\s+href:\s*'\/admin\/listening\/tests'/);
   assert.match(CLIENT, /tests-detail\.html\?id=/);
   assert.match(CLIENT, /listening\/index\.html\?test_id=/);
   assert.match(CLIENT, /tests\.html">Mở bản HTML rollback/);
@@ -63,4 +67,5 @@ test('responsive UI exposes exam boundary, focus and reduced motion', () => {
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /prefers-reduced-motion:reduce/);
   assert.doesNotMatch(CSS, /#[0-9a-fA-F]{3,8}\b/);
+  assert.doesNotMatch(CLIENT, /sectionCount \|\| 4/);
 });

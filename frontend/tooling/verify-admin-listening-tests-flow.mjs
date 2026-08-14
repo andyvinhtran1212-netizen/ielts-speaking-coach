@@ -53,6 +53,7 @@ check('admin gate và query canonical chạy', listReads === 1 && listQueries[0]
 check('hostile title được React escape', await page.locator('script').filter({ hasText: 'Test' }).count() === 0 && await page.getByText('Test <script>', { exact: true }).count() === 1);
 check('malformed row bị báo, total backend được giữ', await page.getByText(/Đã loại 1 dòng/).count() === 1 && await page.getByText(/24 test/).count() >= 1);
 check('scope kỳ thi và rollback hiển thị rõ', await page.getByText('Thư viện luyện tập', { exact: true }).count() >= 1 && await page.getByRole('link', { name: 'Mở bản HTML rollback ↗' }).getAttribute('href') === '/pages/admin/listening/tests.html');
+check('sidebar giữ route native', await page.evaluate(() => [...(document.querySelector('aver-admin-chrome')?.shadowRoot?.querySelectorAll('a') || [])].find((link) => link.textContent?.includes('Cambridge tests'))?.getAttribute('href') === '/admin/listening/tests'));
 check('mobile cards không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.alt-table thead')).display === 'none' && document.documentElement.scrollWidth <= innerWidth));
 
 await page.getByRole('button', { name: 'Phát hành', exact: true }).click();
