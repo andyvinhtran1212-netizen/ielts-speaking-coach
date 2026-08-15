@@ -91,12 +91,13 @@ describe('Admin overview — 6 skill cards', () => {
     assert.match(HTML, /href="\/admin\/writing"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
     assert.match(HTML, /href="\/admin\/reading"[^>]*class="admin-hub-card"\s+data-skill="reading"/);
     assert.match(HTML, /href="\/admin\/listening"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
-    assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
+    assert.match(HTML, /href="\/admin\/vocab"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
     assert.match(HTML, /href="\/admin\/grammar"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/speaking\/index\.html"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/writing\/index\.html"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/reading\/content\.html"[^>]*data-skill="reading"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*data-skill="listening"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*data-skill="vocab"/);
     assert.doesNotMatch(HTML, /href="\/pages\/admin\/grammar\/index\.html"/);
   });
 

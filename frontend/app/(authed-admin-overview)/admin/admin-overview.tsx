@@ -167,7 +167,7 @@ const SKILL_LINKS = {
   writing: '/admin/writing',
   reading: '/admin/reading',
   listening: '/admin/listening',
-  vocab: '/pages/admin/vocab/index.html',
+  vocab: '/admin/vocab',
   grammar: '/admin/grammar',
 };
 
