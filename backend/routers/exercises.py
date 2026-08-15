@@ -1212,26 +1212,44 @@ async def complete_d1_session(
 
     correct_count = len(correct_items)
 
-    # Update the session row.  WITH CHECK ensures the user can only update
-    # their own session.  Idempotent: re-completing produces the same values.
-    try:
-        updated = sb.table("d1_sessions").update({
-            "completed_at":  datetime.now(timezone.utc).isoformat(),
-            "correct_count": correct_count,
-            "status":        "completed",
-        }).eq("id", session_id).execute()
-    except Exception as e:
-        logger.error("[exercises] complete_session update failed: %s", e)
-        raise HTTPException(500, "Could not persist session completion.")
-    if not updated.data:
-        logger.error("[exercises] complete_session update returned no row session=%s", session_id)
-        raise HTTPException(500, "Could not persist session completion.")
-
-    _safe_event(
-        "d1_session_completed",
-        {"session_id": session_id, "correct": correct_count, "total": total_count},
-        user_id,
-    )
+    # A completion replay (for example after a committed write whose HTTP ACK
+    # was lost) must be side-effect-free: preserve the original timestamp and
+    # do not double-count analytics. Active sessions perform the transition
+    # once; any unknown state fails closed.
+    if session_row.get("status") == "active":
+        try:
+            updated = sb.table("d1_sessions").update({
+                "completed_at":  datetime.now(timezone.utc).isoformat(),
+                "correct_count": correct_count,
+                "status":        "completed",
+            }).eq("id", session_id).eq("status", "active").execute()
+        except Exception as e:
+            logger.error("[exercises] complete_session update failed: %s", e)
+            raise HTTPException(500, "Could not persist session completion.")
+        if updated.data:
+            _safe_event(
+                "d1_session_completed",
+                {"session_id": session_id, "correct": correct_count, "total": total_count},
+                user_id,
+            )
+        else:
+            # A concurrent completion may have won after our initial SELECT.
+            try:
+                current = (
+                    sb.table("d1_sessions")
+                    .select("status")
+                    .eq("id", session_id)
+                    .limit(1)
+                    .execute()
+                )
+            except Exception as e:
+                logger.error("[exercises] completion race readback failed: %s", e)
+                raise HTTPException(500, "Could not verify session completion.")
+            if not current.data or current.data[0].get("status") != "completed":
+                logger.error("[exercises] complete_session update returned no row session=%s", session_id)
+                raise HTTPException(500, "Could not persist session completion.")
+    elif session_row.get("status") != "completed":
+        raise HTTPException(409, "Session cannot be completed from its current state.")
 
     return {
         "session_id":    session_id,

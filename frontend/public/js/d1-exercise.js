@@ -490,10 +490,11 @@
     // Every Next transition was gated on an attempt ACK. Completion itself is
     // also a canonical write: never present a local result as completed until
     // the backend acknowledges that state transition.
+    const completingSessionId = _session.id;
     _setHtml('<div class="state-msg"><div class="spinner"></div><p>Đang xác nhận kết quả…</p></div>');
     try {
       const res = await fetch(
-        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
+        `${BASE}/api/exercises/d1/sessions/${completingSessionId}/complete`,
         { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
       );
       if (!res.ok) {
@@ -501,7 +502,9 @@
         return;
       }
       const summary = await res.json();
-      window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+      if (window.localStorage?.getItem(ACTIVE_SESSION_KEY) === completingSessionId) {
+        window.localStorage.removeItem(ACTIVE_SESSION_KEY);
+      }
       renderSummaryScreen(summary);
     } catch (err) {
       console.warn('[d1] complete-session failed; completion remains pending:', err);

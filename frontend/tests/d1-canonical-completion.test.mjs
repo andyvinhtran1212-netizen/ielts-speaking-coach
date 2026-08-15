@@ -17,7 +17,7 @@ describe('D1 canonical completion and quota recovery', () => {
   test('active session survives exit and is resumed from the canonical session endpoint', () => {
     assert.match(source, /ACTIVE_SESSION_KEY = 'aver:d1:active-session'/);
     assert.match(source, /api\/exercises\/d1\/sessions\/\$\{sessionId\}/);
-    assert.match(source, /window\.localStorage\?\.removeItem\(ACTIVE_SESSION_KEY\)[\s\S]{0,120}renderSummaryScreen/);
+    assert.match(source, /localStorage\?\.getItem\(ACTIVE_SESSION_KEY\) === completingSessionId[\s\S]{0,180}renderSummaryScreen/);
   });
 
   test('a transient canonical resume failure blocks new-session creation', () => {
@@ -28,6 +28,12 @@ describe('D1 canonical completion and quota recovery', () => {
   test('a completed stored session replays idempotent completion to recover its summary', () => {
     assert.match(source, /\['active', 'completed'\]\.includes\(session\.status\)/);
     assert.match(source, /session\.status === 'completed' \|\| attempts\.length >= exercises\.length[\s\S]{0,100}await showSummary\(\)/);
+  });
+
+  test('completion cannot delete a newer tab session recovery key', () => {
+    assert.match(source, /const completingSessionId = _session\.id/);
+    assert.match(source, /localStorage\?\.getItem\(ACTIVE_SESSION_KEY\) === completingSessionId[\s\S]{0,120}removeItem\(ACTIVE_SESSION_KEY\)/);
+    assert.doesNotMatch(source, /const summary = await res\.json\(\);\s*window\.localStorage\?\.removeItem/);
   });
 
   test('429 shows reset-aware retry and an exit affordance without unlocking Next', () => {

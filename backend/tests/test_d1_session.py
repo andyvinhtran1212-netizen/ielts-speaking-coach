@@ -1042,6 +1042,45 @@ def test_complete_session_returns_summary_and_updates_status(monkeypatch):
     assert sess.get("completed_at")
 
 
+def test_completion_replay_preserves_timestamp_and_emits_one_event(monkeypatch):
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{
+            "id": "sess-replay", "user_id": USER_ID,
+            "exercise_ids": ["ex-0"],
+            "exercise_snapshot": [{
+                "id": "ex-0", "sentence": "Snapshot ___", "answer": "answer0",
+            }],
+            "total_count": 1, "correct_count": 0, "status": "active",
+            "completed_at": None,
+        }],
+        "vocabulary_exercise_attempts": [{
+            "id": "att-0", "exercise_id": "ex-0", "user_answer": "answer0",
+            "is_correct": True, "session_id": "sess-replay", "user_id": USER_ID,
+            "exercise_type": "D1", "attempted_at": "2026-08-16T01:01:00+00:00",
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
+
+    first = asyncio.run(exr.complete_d1_session(
+        session_id="sess-replay", authorization="Bearer x",
+    ))
+    original_completed_at = store["d1_sessions"][0]["completed_at"]
+
+    replay = asyncio.run(exr.complete_d1_session(
+        session_id="sess-replay", authorization="Bearer x",
+    ))
+
+    assert first["correct_count"] == replay["correct_count"] == 1
+    assert original_completed_at
+    assert store["d1_sessions"][0]["completed_at"] == original_completed_at
+    assert len(events) == 1
+    assert events[0][0] == "d1_session_completed"
+
+
 def test_complete_session_rejects_missing_persisted_attempt(monkeypatch):
     from fastapi import HTTPException
     from routers import exercises as exr
