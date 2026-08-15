@@ -53,6 +53,7 @@ def _rows(code: str, *, full_dur=400, transcript_ok=True):
     content = dict(res.content_row)
     content["id"] = "c-uuid"
     content["test_id"] = "t-uuid"
+    content["updated_at"] = "2026-08-14T08:00:00+00:00"
     content["audio_duration_seconds"] = full_dur
     if not transcript_ok:
         content["transcript"] = ""
@@ -60,6 +61,7 @@ def _rows(code: str, *, full_dur=400, transcript_ok=True):
     for i, ex in enumerate(res.exercise_rows):
         exercises.append({"id": f"ex-{i}", "content_id": "c-uuid",
                           "exercise_type": ex["exercise_type"], "order_num": ex["order_num"],
+                          "updated_at": "2026-08-14T08:00:00+00:00",
                           "payload": copy.deepcopy(ex["payload"])})
     return test, [content], exercises
 
@@ -83,7 +85,18 @@ def test_hydrate_assembles_questions():
     q1 = next(q for q in h["all_questions"] if q["q_num"] == 1)
     assert q1["template_kind"] == "mcq_3option"
     assert q1["answer"]
+    assert q1["exercise_updated_at"] == "2026-08-14T08:00:00+00:00"
+    assert h["sections"][0]["content_updated_at"] == "2026-08-14T08:00:00+00:00"
+    assert h["sections"][0]["audio_offset"] == 0
     assert q1["audio_window"] and q1["audio_window"]["end"] > q1["audio_window"]["start"]
+
+
+def test_later_section_without_explicit_offset_is_not_playback_verifiable():
+    t, contents, exercises = _rows("MCQ")
+    contents[0]["section_num"] = 2
+    t["metadata"] = {**(t.get("metadata") or {}), "section_offsets": {}}
+    h = audit.hydrate_test(t, contents, exercises)
+    assert h["sections"][0]["audio_offset"] is None
 
 
 # ── structural: clean fixtures flag nothing (per type) ─────────────────────
@@ -180,11 +193,18 @@ def test_parse_llm_audit_valid():
     out = audit.parse_llm_audit(raw)
     assert len(out) == 1 and out[0]["q_num"] == 3 and out[0]["severity"] == "error"
     assert out[0]["dimension"] == "solution"
+    assert out[0]["source"] == "llm"
 
 
 def test_parse_llm_audit_garbage_is_inconclusive():
     out = audit.parse_llm_audit("the model refused to answer")
     assert out and out[0]["code"] == "audit_inconclusive" and out[0]["severity"] == "warning"
+
+
+def test_issue_source_backfill_preserves_corrupt_entries_to_fail_closed():
+    out = audit.with_issue_sources([{"code": "no_window"}, "corrupt"])
+    assert out[0]["source"] == "structural"
+    assert out[1] == "corrupt"
 
 
 # ── GET endpoint ───────────────────────────────────────────────────────────
@@ -210,8 +230,31 @@ def test_get_audit_endpoint(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", _AuditGetStub(t, c, e))
     out = _run(listening_module.admin_get_test_audit(test_id="t-uuid", authorization="x"))
     assert out["question_count"] == 10
+    assert out["test_type"] in {"full", "mini", "drill", "practice"}
     assert out["live"]["health"]["status"] == "passed"
     assert out["saved"] is None
+    section = out["sections"][0]
+    assert section["content_updated_at"] == "2026-08-14T08:00:00+00:00"
+    assert section["questions"][0]["exercise_updated_at"] == "2026-08-14T08:00:00+00:00"
+    assert "options" in section["questions"][0]
+    assert "trap_mechanisms" in section["questions"][0]
+
+
+def test_get_audit_backfills_saved_issue_provenance(monkeypatch):
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    t, c, e = _rows("MCQ")
+    stub = _AuditGetStub(t, c, e)
+    stub._data["listening_audit"] = [{
+        "test_id": "t-uuid",
+        "issues": [
+            {"code": "no_window", "severity": "error", "resolved": False},
+            {"code": "answer_in_script", "severity": "error", "resolved": False},
+        ],
+    }]
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    out = _run(listening_module.admin_get_test_audit(test_id="t-uuid", authorization="x"))
+    assert [issue["source"] for issue in out["saved"]["issues"]] == ["structural", "llm"]
 
 
 def test_get_audit_requires_admin(monkeypatch):
@@ -231,12 +274,23 @@ class _EditStub:
         self._rows = {"listening_exercises": [ex], "listening_content": [content],
                       "listening_tests": [test]}
         self.updated_payload = None
+        self.last_update = None
     def table(self, name): self._t = name; return self
     def select(self, *a, **k): return self
     def eq(self, *a, **k): return self
     def limit(self, *a, **k): return self
-    def update(self, patch): self.updated_payload = patch.get("payload"); return self
+    def update(self, patch):
+        self.last_update = patch
+        self.updated_payload = patch.get("payload")
+        return self
     def execute(self): return type("R", (), {"data": self._rows.get(self._t, [])})()
+
+
+class _EditNoWriteStub(_EditStub):
+    def execute(self):
+        if self._t == "listening_exercises" and self.last_update is not None:
+            return type("R", (), {"data": []})()
+        return super().execute()
 
 
 def _edit_ctx(code="MCQ"):
@@ -267,6 +321,39 @@ def test_edit_answer_and_solution(monkeypatch):
     assert ans1["answer"] == "Z" and ans1["notes"] == "vì trong script nói Z"
     assert stub.updated_payload["solutions"]["1"]["why_correct"] == "vì trong script nói Z"
     assert stub.updated_payload["solutions"]["1"]["answer"] == "Z"
+    assert out["updated_at"] == stub.last_update["updated_at"]
+
+
+def test_edit_rejects_stale_version_token(monkeypatch):
+    ex, c, t = _edit_ctx()
+    stub = _EditStub(ex, c, t)
+    with pytest.raises(HTTPException) as err:
+        _patch(monkeypatch, ex["id"], 1, {
+            "answer": "Z",
+            "expected_updated_at": "2026-08-13T08:00:00+00:00",
+        }, stub)
+    assert err.value.status_code == 409
+    assert stub.updated_payload is None
+
+
+def test_edit_accepts_matching_version_token(monkeypatch):
+    ex, c, t = _edit_ctx()
+    stub = _EditStub(ex, c, t)
+    out = _patch(monkeypatch, ex["id"], 1, {
+        "answer": "Z",
+        "expected_updated_at": ex["updated_at"],
+    }, stub)
+    assert out["question"]["exercise_updated_at"] == out["updated_at"]
+
+
+def test_edit_matching_token_but_unconfirmed_write_is_conflict(monkeypatch):
+    ex, c, t = _edit_ctx()
+    stub = _EditNoWriteStub(ex, c, t)
+    with pytest.raises(HTTPException) as err:
+        _patch(monkeypatch, ex["id"], 1, {
+            "answer": "Z", "expected_updated_at": ex["updated_at"],
+        }, stub)
+    assert err.value.status_code == 409
 
 
 def test_edit_audio_window(monkeypatch):
@@ -276,6 +363,25 @@ def test_edit_audio_window(monkeypatch):
     assert "audio_window" in out["changed"]
     assert stub.updated_payload["audio_windows"]["2"] == {"start": 10.0, "end": 25.0, "section": "S3"}
     assert out["ok"] is True
+
+
+def test_edit_missing_audio_window_infers_content_section(monkeypatch):
+    ex, c, t = _edit_ctx()
+    c["section_num"] = 3
+    ex["payload"]["audio_windows"].pop("2", None)
+    stub = _EditStub(ex, c, t)
+    _patch(monkeypatch, ex["id"], 2, {"audio_window": {"start": 10, "end": 25}}, stub)
+    assert stub.updated_payload["audio_windows"]["2"] == {"start": 10.0, "end": 25.0, "section": "S3"}
+
+
+def test_edit_clear_audio_window_is_persisted(monkeypatch):
+    ex, c, t = _edit_ctx()
+    stub = _EditStub(ex, c, t)
+    assert "2" in ex["payload"]["audio_windows"]
+    out = _patch(monkeypatch, ex["id"], 2, {"audio_window": None}, stub)
+    assert "audio_window" in out["changed"]
+    assert "2" not in stub.updated_payload["audio_windows"]
+    assert out["question"]["audio_window"] is None
 
 
 def test_edit_bad_window_rejected(monkeypatch):
@@ -328,7 +434,13 @@ class _AuditRunStub:
     def limit(self, *a, **k): return self
     def insert(self, row): self.inserted = row; return self
     def update(self, patch): self.updated = patch; return self
-    def execute(self): return type("R", (), {"data": self._data.get(self._t, [])})()
+    def execute(self):
+        data = self._data.get(self._t, [])
+        if self._t == "listening_audit" and self.inserted is not None:
+            data = [self.inserted]
+        elif self._t == "listening_audit" and self.updated is not None and data:
+            data = [{**data[0], **self.updated}]
+        return type("R", (), {"data": data})()
 
 
 class _FakeProvider:
@@ -346,7 +458,11 @@ def test_audit_run_persists_with_llm(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     monkeypatch.setattr(listening_module, "_audit_provider",
                         lambda: _FakeProvider(raw='[{"q_num":4,"code":"answer_in_script","severity":"error","message":"đáp án không thấy trong script"}]'))
-    out = _run(listening_module.admin_run_test_audit(test_id="t-uuid", authorization="x"))
+    out = _run(listening_module.admin_run_test_audit(
+        test_id="t-uuid",
+        body=listening_module.AuditRunRequest(request_id="run_test_001"),
+        authorization="x",
+    ))
     # structural clean + 1 LLM error → has_issues, persisted via INSERT
     assert out["status"] == "has_issues"
     assert any(i["code"] == "answer_in_script" and i["q_num"] == 4 for i in out["issues"])
@@ -354,6 +470,9 @@ def test_audit_run_persists_with_llm(monkeypatch):
     assert stub.inserted["health"]["llm_model"]
     assert stub.inserted["audited_at"] == out["audited_at"]
     assert out["audited_at"].endswith("+00:00")
+    assert stub.inserted["updated_at"] == out["audited_at"]
+    assert stub.inserted["health"]["request_id"] == out["request_id"] == "run_test_001"
+    assert all(issue["source"] in {"structural", "llm"} for issue in out["issues"])
 
 
 def test_audit_run_llm_skipped_when_no_provider(monkeypatch):
@@ -385,18 +504,52 @@ def test_audit_triage_updates_status_and_resolves(monkeypatch):
     from routers.listening import AuditTriageRequest
     async def _ok(_a): return {"id": "admin"}
     monkeypatch.setattr(listening_module, "require_admin", _ok)
-    existing = {"test_id": "t-uuid", "status": "has_issues",
+    existing = {"test_id": "t-uuid", "status": "has_issues", "updated_at": "2026-08-14T02:00:00+00:00",
                 "issues": [{"q_num": 1, "code": "x", "severity": "error", "resolved": False},
                            {"q_num": 2, "code": "y", "severity": "error", "resolved": False}]}
     t, c, e = _rows("MCQ"); t["id"] = "t-uuid"
     stub = _AuditRunStub(t, c, e, existing_audit=existing)
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     out = _run(listening_module.admin_triage_test_audit(
-        test_id="t-uuid", body=AuditTriageRequest(status="fixed", notes="đã sửa Q1", resolved_indexes=[0]),
+        test_id="t-uuid", body=AuditTriageRequest(status="fixed", notes="đã sửa", resolved_indexes=[0, 1], expected_updated_at=existing["updated_at"]),
         authorization="x"))
     assert stub.updated["status"] == "fixed"
     assert stub.updated["issues"][0]["resolved"] is True
-    assert stub.updated["issues"][1]["resolved"] is False
+    assert stub.updated["issues"][1]["resolved"] is True
+    assert out["updated_at"]
+
+
+@pytest.mark.parametrize("indexes", [[9], [-1], [0, 0]])
+def test_audit_triage_rejects_invalid_or_duplicate_indexes(monkeypatch, indexes):
+    from routers.listening import AuditTriageRequest
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    existing = {"test_id": "t-uuid", "status": "has_issues", "updated_at": "2026-08-14T02:00:00+00:00",
+                "issues": [{"code": "x", "severity": "error", "resolved": False}]}
+    t, c, e = _rows("MCQ")
+    stub = _AuditRunStub(t, c, e, existing_audit=existing)
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    with pytest.raises(HTTPException) as err:
+        _run(listening_module.admin_triage_test_audit(
+            test_id="t-uuid", body=AuditTriageRequest(resolved_indexes=indexes, expected_updated_at=existing["updated_at"]),
+            authorization="x"))
+    assert err.value.status_code == 422
+
+
+@pytest.mark.parametrize("status", ["passed", "fixed"])
+def test_audit_triage_blocks_clean_status_with_unresolved_error(monkeypatch, status):
+    from routers.listening import AuditTriageRequest
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    existing = {"test_id": "t-uuid", "status": "has_issues", "updated_at": "2026-08-14T02:00:00+00:00",
+                "issues": [{"code": "x", "severity": "error", "resolved": False}]}
+    t, c, e = _rows("MCQ")
+    stub = _AuditRunStub(t, c, e, existing_audit=existing)
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    with pytest.raises(HTTPException) as err:
+        _run(listening_module.admin_triage_test_audit(
+            test_id="t-uuid", body=AuditTriageRequest(status=status, expected_updated_at=existing["updated_at"]), authorization="x"))
+    assert err.value.status_code == 422
 
 
 def test_audit_triage_404_when_no_audit(monkeypatch):
@@ -408,8 +561,27 @@ def test_audit_triage_404_when_no_audit(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     with pytest.raises(HTTPException) as ex:
         _run(listening_module.admin_triage_test_audit(
-            test_id="t-uuid", body=AuditTriageRequest(status="fixed"), authorization="x"))
+            test_id="t-uuid", body=AuditTriageRequest(status="fixed", expected_updated_at="2026-08-14T02:00:00+00:00"), authorization="x"))
     assert ex.value.status_code == 404
+
+
+def test_audit_triage_rejects_stale_version(monkeypatch):
+    from routers.listening import AuditTriageRequest
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    existing = {"test_id": "t-uuid", "status": "has_issues",
+                "updated_at": "2026-08-14T02:00:00+00:00", "issues": []}
+    t, c, e = _rows("MCQ")
+    stub = _AuditRunStub(t, c, e, existing_audit=existing)
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    with pytest.raises(HTTPException) as err:
+        _run(listening_module.admin_triage_test_audit(
+            test_id="t-uuid",
+            body=AuditTriageRequest(status="pending", expected_updated_at="2026-08-14T01:00:00+00:00"),
+            authorization="x",
+        ))
+    assert err.value.status_code == 409
+    assert stub.updated is None
 
 
 # ── het-block no_options + options editing ──────────────────────────────────
@@ -450,3 +622,16 @@ def test_edit_set_options(monkeypatch):
     out = _patch(monkeypatch, ex["id"], 1, {"options": opts}, stub)
     q1 = next(q for q in stub.updated_payload["questions"] if int(str(q["q_num"])) == 1)
     assert q1["options"] == opts
+
+
+def test_matching_editor_reads_and_persists_shared_option_bank(monkeypatch):
+    ex, c, t = _edit_ctx("MATCH")
+    hydrated = audit.hydrate_test(t, [c], [ex])
+    canonical_bank = ex["payload"]["metadata"]["match_options"]
+    assert hydrated["all_questions"][0]["options"] == canonical_bank
+
+    stub = _EditStub(ex, c, t)
+    replacement = [{"letter": "A", "text": "First"}, {"letter": "B", "text": "Second"}]
+    out = _patch(monkeypatch, ex["id"], hydrated["all_questions"][0]["q_num"], {"options": replacement}, stub)
+    assert stub.updated_payload["metadata"]["match_options"] == replacement
+    assert out["question"]["options"] == replacement

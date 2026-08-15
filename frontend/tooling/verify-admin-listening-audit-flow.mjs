@@ -73,7 +73,7 @@ check('live error, warning và saved status tách riêng',
   && await page.locator('tr[data-test-id="test-001"] td[data-label="Live structural"]').getByText('2 cảnh báo', { exact: true }).count() === 1
   && await page.locator('tr[data-test-id="test-003"] td[data-label="Saved full audit"]').getByText('Có lỗi đã lưu', { exact: true }).count() === 1);
 check('hostile title được React escape', await page.getByText('Hostile <script> title', { exact: true }).count() === 1 && await page.locator('script').filter({ hasText: 'Hostile' }).count() === 0);
-check('detail vẫn dùng rollback hợp lệ trước batch kế tiếp', await page.locator('tr[data-test-id="test-000"] a').filter({ hasText: 'Mở audit detail' }).getAttribute('href') === '/pages/admin/listening/audit-detail.html?id=test-000');
+check('dashboard đi tới native audit detail', await page.locator('tr[data-test-id="test-000"] a').filter({ hasText: 'Mở audit detail' }).getAttribute('href') === '/admin/listening/audit-detail?id=test-000');
 
 await page.getByRole('combobox', { name: 'Live health' }).selectOption('lookup');
 await page.getByRole('button', { name: 'Áp dụng' }).click();

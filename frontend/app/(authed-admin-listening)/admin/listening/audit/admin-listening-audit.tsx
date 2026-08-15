@@ -12,7 +12,7 @@ import {
   classifyListeningAudit,
   filterListeningAuditRows,
   formatListeningAuditDate,
-  listeningAuditDetailRollbackHref,
+  listeningAuditDetailHref,
   listeningAuditHref,
   normalizeListeningAuditFilters,
   normalizeListeningAuditInventoryPage,
@@ -218,6 +218,6 @@ function AuditRow({ row, busy, onRetry }: { row: CombinedRow; busy: boolean; onR
     <td data-label="Cấu trúc"><strong>{audit.phase === 'ready' ? `${audit.value.questionCount} câu` : `${test.sectionCount} section`}</strong><small>{audit.phase === 'ready' ? `${audit.value.sectionCount} section canonical` : `${test.audioReadyCount}/${test.sectionCount} section có audio`}</small></td>
     <td data-label="Live structural"><span className={`adm-status-pill ${healthClass}`}>{healthLabel}</span>{audit.phase === 'ready' && <small>{audit.value.live.errorCount} error · {audit.value.live.warningCount} warning</small>}{audit.phase === 'error' && <small>{audit.message}</small>}</td>
     <td data-label="Saved full audit">{saved ? <><span className={`adm-status-pill ${savedStatusClass(saved.status)}`}>{LISTENING_AUDIT_SAVED_LABEL[saved.status]}</span><small>{saved.auditedAt ? `Chạy ${formatListeningAuditDate(saved.auditedAt)}` : saved.status === 'pending' ? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'}</small></> : <><span className="adm-status-pill is-muted">Chưa xác định</span><small>Chờ live GET</small></>}</td>
-    <td data-label="Thao tác"><div className="alqa-actions"><a href={listeningAuditDetailRollbackHref(test.id)}>Mở audit detail ↗</a><a href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>Mở test</a><button type="button" disabled={busy} onClick={() => onRetry(test)}>Đọc lại GET</button></div></td>
+    <td data-label="Thao tác"><div className="alqa-actions"><a href={listeningAuditDetailHref(test.id)}>Mở audit detail ↗</a><a href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>Mở test</a><button type="button" disabled={busy} onClick={() => onRetry(test)}>Đọc lại GET</button></div></td>
   </tr>;
 }

@@ -134,15 +134,35 @@ remain an explicit unknown state and are never counted as clean.
 The dashboard deliberately separates two evidence clocks: **live structural**
 is the current no-LLM structural/audio-bounds GET, while **saved full audit** is
 the persisted structural+LLM result from the most recent explicit full run.
-Retry is GET-only. The HTML dashboard remains rollback; the edit/triage/full-run
-workspace remains at `audit-detail.html` until its own native migration.
+Retry is GET-only. The HTML dashboard remains rollback.
+
+`/admin/listening/audit-detail?id={test_uuid}` is the native repair workspace.
+Transcript and question PATCHes carry the row's `expected_updated_at` and are
+only shown as successful after an exact canonical audit GET reflects both the
+new value and a changed version. Drafts pin their original version; a sibling
+write may safely rebase an untouched field, while a canonical change to the
+same field preserves but locks the local draft until explicit reload. Audio
+resolves assembled, then full, then the matching section track — it never
+borrows another section. Full/assembled playback uses absolute windows; exact
+section fallback subtracts that section's persisted `audio_offset`. Every issue carries
+`source=structural|llm`, including old saved rows normalised on read.
+
+The full audit POST is deliberately not replayed after an ambiguous response.
+The browser writes an account/test/request receipt before the paid LLM call and
+recovers only by GET whose persisted health has the exact `request_id`. Triage
+draft inputs survive unrelated readbacks, stay pinned to `expected_updated_at`,
+and lock if another reviewer changes the saved audit. Triage rejects invalid/duplicate indexes
+and the backend refuses `passed` or `fixed` while an error remains unresolved.
+An ambiguous paid receipt has an explicit confirmation-only discard path so an
+unpersisted 5xx cannot strand the workspace; the warning states that retrying
+may incur another LLM charge.
+The HTML detail stays available as watchdog/manual rollback.
 
 ---
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
 
-1. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist. The 4-file native route is the operational import surface; the legacy converter remains mounted pending a dependency audit. They produce the same `listening_tests` shape.
-2. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
+1. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
 
 ---
 
