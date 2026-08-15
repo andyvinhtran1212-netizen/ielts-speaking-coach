@@ -59,10 +59,12 @@ check('mobile cards không tràn ngang', await page.evaluate(() => getComputedSt
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Kho nội dung Listening', exact: true }).waitFor();
+await page.locator('.alc-table thead').waitFor();
 check('desktop table hiển thị và không tràn trang', await page.evaluate(() => getComputedStyle(document.querySelector('.alc-table thead')).display !== 'none' && document.documentElement.scrollWidth <= innerWidth));
 await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Kho nội dung Listening', exact: true }).waitFor();
+await page.locator('.alc-library').waitFor();
 check('dark mode giữ surface và text phân biệt', await page.evaluate(() => { const node = document.querySelector('.alc-library'); const style = getComputedStyle(node); return style.backgroundColor !== style.color && style.color !== 'rgba(0, 0, 0, 0)'; }));
 check('inventory không phát sinh write', writes.length === 0, writes.join(', '));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
