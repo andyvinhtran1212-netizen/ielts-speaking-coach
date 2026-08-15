@@ -16,6 +16,8 @@ const contentTopicId = '00000000-0000-4000-8000-000000000401';
 const contentTopicIdB = '00000000-0000-4000-8000-000000000404';
 const vocabCardId = '00000000-0000-4000-8000-000000000411';
 const importedVocabCardId = '00000000-0000-4000-8000-000000000412';
+const bulkVocabCardId = '00000000-0000-4000-8000-000000000413';
+const staleVocabCardId = '00000000-0000-4000-8000-000000000414';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -52,6 +54,8 @@ let contentReads = 0;
 let contentDetailReads = 0;
 let contentWritePending = false;
 let contentImportPending = false;
+let failNextContentList = false;
+let partialNextContentBulk = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -169,6 +173,10 @@ await page.route('**/*', async (route) => {
     const ids = Array.isArray(body?.ids) ? body.ids : [];
     vocabRows = vocabRows.filter((row) => !ids.includes(row.id));
     contentWritePending = false;
+    if (partialNextContentBulk) {
+      partialNextContentBulk = false;
+      return json({ deleted_count: ids.length - 1, not_found: [staleVocabCardId] });
+    }
     return json({ deleted_count: ids.length, not_found: [] });
   }
   if (method === 'GET' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
@@ -192,6 +200,7 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'GET' && parsed.pathname === '/admin/vocabulary') {
     contentReads += 1;
+    if (failNextContentList) { failNextContentList = false; return json({ detail: 'fixture content unavailable' }, 503); }
     const category = parsed.searchParams.get('category') || '';
     const query = (parsed.searchParams.get('q') || '').toLowerCase();
     const offset = Number(parsed.searchParams.get('offset') || 0);
@@ -467,6 +476,7 @@ check('Lemma mobile không tràn ngang', await page.evaluate(() => document.docu
 await page.goto(`${BASE}/admin/vocab/topics?topic=${contentTopicId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Chủ đề nội dung', exact: true }).waitFor();
 await page.getByText('Work <script>', { exact: true }).first().waitFor();
+await page.locator('.avv-topic-form').waitFor();
 check('Topics chỉ nhận deep-link sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/content-topics/${contentTopicId}/bundle`) && new URL(page.url()).searchParams.get('topic') === contentTopicId);
 check('Topics escape title/card độc hại', await page.locator('.avv-topic-console script, .avv-topic-console img').count() === 0);
 failNextTopicBundle = true;
@@ -573,6 +583,14 @@ check('Content giữ query hợp lệ và phân trang canonical', new URL(page.u
 check('Content escape dữ liệu độc hại', await page.locator('.avv-content-console script, .avv-content-console img').count() === 0);
 check('Content import mở sẵn nhưng admin vẫn có thể đóng', await page.locator('details.avv-content-import').evaluate((node) => node.open));
 
+await page.getByLabel('Chọn mitigate<script>').check();
+failNextContentList = true;
+await page.locator('.avv-content-filters > label select').selectOption('travel');
+await page.getByText(/Không tải được kho từ/).waitFor();
+check('Content xoá dữ liệu và selection cũ khi filtered GET lỗi', await page.getByText('mitigate<script>', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Xoá (0)' }).isDisabled());
+await page.locator('.avv-content-filters > label select').selectOption('');
+await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
+
 await page.getByLabel('Tìm headword').fill('');
 await page.getByRole('button', { name: 'Tìm', exact: true }).click();
 await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
@@ -609,6 +627,20 @@ await page.waitForTimeout(40);
 check('Content hard-delete bị khoá trong dialog', contentWritePending && await contentDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
 await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).waitFor();
 check('Content DELETE đúng id và canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/vocabulary/${vocabCardId}`) && vocabRows.length === 0 && contentReads >= 3);
+
+vocabRows = [
+  { id: bulkVocabCardId, slug: 'recover', headword: 'recover', category: 'work-careers', level: 'B1', part_of_speech: 'verb', pronunciation: null, gloss_vi: 'phục hồi', audio_headword: null, audio_example: null, audio_status: 'pending', updated_at: null },
+  { id: staleVocabCardId, slug: 'stale', headword: 'stale', category: 'work-careers', level: 'B1', part_of_speech: 'adjective', pronunciation: null, gloss_vi: 'cũ', audio_headword: null, audio_example: null, audio_status: 'pending', updated_at: null },
+];
+await page.getByRole('button', { name: 'Tìm', exact: true }).click();
+await page.getByText('recover', { exact: true }).first().waitFor();
+await page.getByText('stale', { exact: true }).first().waitFor();
+await page.getByLabel('Chọn trang này').check();
+partialNextContentBulk = true;
+await page.getByRole('button', { name: 'Xoá (2)' }).click();
+await page.getByRole('dialog', { name: 'Xoá 2 từ đã chọn?' }).getByRole('button', { name: 'Xác nhận' }).click();
+await page.getByText(/Đã xoá 1 từ.*1 card đã được thay đổi hoặc xoá trước thao tác này/).waitFor();
+check('Content partial bulk-delete luôn canonical readback và cảnh báo', vocabRows.length === 0 && await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).count() === 1);
 
 await page.locator('details.avv-content-import').evaluate((node) => { node.open = true; });
 await page.locator('.avv-content-import input[type=file]').setInputFiles({ name: 'adapt.md', mimeType: 'text/markdown', buffer: Buffer.from('---\nheadword: adapt\ncategory: work-careers\n---\n') });

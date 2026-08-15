@@ -44,6 +44,10 @@ describe('Admin Vocabulary Content native ownership', () => {
     assert.match(CLIENT, /mutationLock\.current/);
     assert.match(CLIENT, /page\.words\.length === 0 && page\.total <= nextOffset/);
     assert.match(CLIENT, /setEditWord\(null\); setDraft\(null\); setEditError\(''\); setConfirmState\(null\)/);
+    assert.match(CLIENT, /setWords\(\[\]\); setTotal\(0\); setOffset\(targetOffset\); setSelected\(new Set\(\)\)/);
+    assert.match(CLIENT, /partialDeleteCount = ack\.notFound\.length/);
+    assert.match(CLIENT, /kind: 'warning'/);
+    assert.doesNotMatch(CLIENT, /if \(ack\.notFound\.length\) throw/);
   });
 
   test('preserves rich word-family JSON instead of comma-coercing objects', () => {

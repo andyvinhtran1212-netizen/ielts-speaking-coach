@@ -51,6 +51,7 @@
 .avv-banner ul { margin: 6px 0 0; padding-left: 20px; }
 .avv-banner.is-error { border-color: var(--av-error); background: var(--av-error-soft); color: var(--av-error); }
 .avv-banner.is-success { border-color: var(--av-brand-teal-200); background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); }
+.avv-banner.is-warning { border-color: var(--av-warning); background: var(--av-warning-soft); color: var(--av-warning); }
 .avv-state { padding: 48px; border: 1px dashed var(--av-border-default); border-radius: var(--av-radius-md); color: var(--av-text-muted); text-align: center; }
 .avv-flag { display: grid; grid-template-columns: minmax(0, .85fr) minmax(360px, 1.15fr); gap: 36px; padding: 24px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-sunken); }
 .avv-flag h2 { margin: 5px 0 8px; font-size: 1.35rem; }

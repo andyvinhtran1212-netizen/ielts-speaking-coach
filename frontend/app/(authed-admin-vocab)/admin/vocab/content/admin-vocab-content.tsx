@@ -23,7 +23,7 @@ type Word = { id: string; slug: string; headword: string; category: string; leve
 type Detail = { id: string; slug: string; headword: string; category: string; level: string; partOfSpeech: string; pronunciation: string; syllables: string; definitionEn: string; definitionVi: string; glossVi: string; example: string; register: string; commonError: string; memoryHook: string; source: string; group: string; bodyHtml: string; synonyms: unknown[]; antonyms: unknown[]; collocations: unknown[]; relatedWords: unknown[]; wordFamily: unknown[] };
 type Draft = { headword: string; category: string; level: string; partOfSpeech: string; pronunciation: string; syllables: string; definitionEn: string; definitionVi: string; glossVi: string; example: string; register: string; commonError: string; memoryHook: string; source: string; group: string; bodyHtml: string; synonyms: string; antonyms: string; collocations: string; relatedWords: string; wordFamilyJson: string };
 type ImportResult = { blocks: { index: number; headword: string; slug: string; category: string; errors: { field: string; message: string }[]; action: string; forecastAction: string }[]; errors: { block: number; headword: string; field: string; message: string }[]; committedIds: string[]; duplicateSlugs: string[]; summary: { total: number; created: number; updated: number; errors: number; forecastCreated: number; forecastUpdated: number } };
-type Notice = { kind: 'success' | 'error'; message: string };
+type Notice = { kind: 'success' | 'warning' | 'error'; message: string };
 type ConfirmState = { kind: 'single'; word: Word } | { kind: 'bulk'; words: Word[] } | { kind: 'audio'; ids: string[] };
 
 const PAGE_SIZE = 50;
@@ -103,7 +103,10 @@ export function AdminVocabContent() {
       setWords(page.words); setTotal(page.total); setOffset(page.offset); setSelected(new Set());
       return page;
     } catch (caught) {
-      if (requestId === sequence.current && account === accountRef.current) setNotice({ kind: 'error', message: `Không tải được kho từ: ${messageOf(caught)}` });
+      if (requestId === sequence.current && account === accountRef.current) {
+        setWords([]); setTotal(0); setOffset(targetOffset); setSelected(new Set());
+        setNotice({ kind: 'error', message: `Không tải được kho từ: ${messageOf(caught)}` });
+      }
       return null;
     } finally { if (requestId === sequence.current && account === accountRef.current) setLoading(false); }
   }, [fetchPage, profile.id]);
@@ -227,6 +230,7 @@ export function AdminVocabContent() {
   const runDelete = async () => {
     if (!confirmState || confirmState.kind === 'audio' || mutationLock.current) return;
     const target = confirmState; const account = profile.id; setConfirmError(''); setBusy(true); mutationLock.current = true;
+    let partialDeleteCount = 0;
     try {
       if (target.kind === 'single') {
         const ack = await window.api.delete<unknown>(`/admin/vocabulary/${encodeURIComponent(target.word.id)}`);
@@ -235,7 +239,7 @@ export function AdminVocabContent() {
         const ids = target.words.map((word) => word.id);
         const ack = normalizeBulkDeleteAck(await window.api.post<unknown>('/admin/vocabulary/bulk-delete', { ids }), ids);
         if (!ack) throw new Error('Backend không ACK đầy đủ batch delete.');
-        if (ack.notFound.length) throw new Error(`${ack.notFound.length} card đã đổi trước thao tác; danh sách cần được kiểm tra lại.`);
+        partialDeleteCount = ack.notFound.length;
       }
       if (account !== accountRef.current) return;
       const nextOffset = target.kind === 'bulk' && offset > 0 ? 0 : offset;
@@ -245,7 +249,10 @@ export function AdminVocabContent() {
         page = await loadPage(Math.max(0, nextOffset - PAGE_SIZE), category, query, false);
         if (!page) { setNotice({ kind: 'error', message: 'Backend đã ACK thao tác xoá nhưng trang trước chưa tải lại được. Hãy reload kho; không gửi lại DELETE.' }); return; }
       }
-      setNotice({ kind: 'success', message: `Đã xoá ${target.kind === 'single' ? `“${target.word.headword}”` : `${target.words.length} từ`} và đọc lại trang chuẩn từ backend.` });
+      setNotice(partialDeleteCount ? {
+        kind: 'warning',
+        message: `Đã xoá ${target.kind === 'bulk' ? target.words.length - partialDeleteCount : 1} từ và đọc lại trang chuẩn từ backend; ${partialDeleteCount} card đã được thay đổi hoặc xoá trước thao tác này.`,
+      } : { kind: 'success', message: `Đã xoá ${target.kind === 'single' ? `“${target.word.headword}”` : `${target.words.length} từ`} và đọc lại trang chuẩn từ backend.` });
     } catch (caught) {
       if (account === accountRef.current) { setConfirmState(null); setNotice({ kind: 'error', message: `Không xác nhận được thao tác xoá: ${messageOf(caught)} Hãy tải lại kho trước khi thử lại để tránh gửi DELETE hai lần.` }); }
     }
@@ -326,7 +333,7 @@ export function AdminVocabContent() {
       <a className="btn-secondary" href="/admin/vocab/topics">Quản lý chủ đề →</a>
     </header>
 
-    {notice ? <p className={`avv-banner is-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</p> : null}
+    {notice ? <p className={`avv-banner is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</p> : null}
 
     <details className="avv-content-import" open={importOpen} onToggle={(event) => setImportOpen(event.currentTarget.open)}>
       <summary><span><strong>Import Markdown</strong><small>Dry-run toàn bộ trước một lần commit</small></span><span className="avv-chip is-teal">ALL-OR-NOTHING</span></summary>
