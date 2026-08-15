@@ -292,6 +292,33 @@ def test_start_session_creates_record(monkeypatch):
     assert saved["exercise_snapshot"] == out["exercises"]
 
 
+def test_start_session_checks_quota_against_actual_thin_pool(monkeypatch):
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+    from services import rate_limit
+
+    store = {
+        "vocabulary_exercises": [_exercise(i) for i in range(5)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    requests: list[int] = []
+    monkeypatch.setattr(
+        rate_limit,
+        "enforce_exercise_session_capacity",
+        lambda **kwargs: requests.append(kwargs["requested"]),
+    )
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=10), authorization="Bearer x",
+    ))
+
+    assert out["total"] == 5
+    assert requests == [5]
+    assert len(store["d1_sessions"]) == 1
+
+
 def test_start_session_returns_exercises_with_answer(monkeypatch):
     """Local grading needs the answer field on every exercise — that's the
     whole point of going through /sessions instead of /d1 (which strips it)."""

@@ -20,6 +20,16 @@ describe('D1 canonical completion and quota recovery', () => {
     assert.match(source, /window\.localStorage\?\.removeItem\(ACTIVE_SESSION_KEY\)[\s\S]{0,120}renderSummaryScreen/);
   });
 
+  test('a transient canonical resume failure blocks new-session creation', () => {
+    assert.match(source, /if \(res\.status === 404\) \{[\s\S]{0,180}return false;[\s\S]{0,180}_showState\('error',[\s\S]{0,180}return true;/);
+    assert.match(source, /active-session resume failed:[\s\S]{0,220}_showState\('error',[\s\S]{0,180}return true;/);
+  });
+
+  test('a completed stored session replays idempotent completion to recover its summary', () => {
+    assert.match(source, /\['active', 'completed'\]\.includes\(session\.status\)/);
+    assert.match(source, /session\.status === 'completed' \|\| attempts\.length >= exercises\.length[\s\S]{0,100}await showSummary\(\)/);
+  });
+
   test('429 shows reset-aware retry and an exit affordance without unlocking Next', () => {
     assert.match(source, /res\.status === 429[\s\S]{0,300}_lastAttemptRateLimit/);
     assert.match(source, /formatQuotaMessage\(_lastAttemptRateLimit\)/);

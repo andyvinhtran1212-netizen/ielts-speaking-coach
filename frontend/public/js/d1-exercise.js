@@ -94,16 +94,20 @@
         headers: { 'Authorization': `Bearer ${_token}` },
       });
       if (!res.ok) {
-        if (res.status === 404) window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
-        return false;
+        if (res.status === 404) {
+          window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+          return false;
+        }
+        _showState('error', 'Chưa thể khôi phục phiên đang làm. Hãy thử tải lại trang.');
+        return true;
       }
       const data = await res.json();
       const session = data.session || {};
       const exercises = Array.isArray(session.exercise_snapshot)
         ? session.exercise_snapshot : [];
-      if (session.status !== 'active' || exercises.length === 0) {
-        window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
-        return false;
+      if (!['active', 'completed'].includes(session.status) || exercises.length === 0) {
+        _showState('error', 'Dữ liệu phiên đang làm không hợp lệ. Hãy tải lại hoặc liên hệ hỗ trợ.');
+        return true;
       }
       const attemptsById = new Map(
         (Array.isArray(data.attempts) ? data.attempts : [])
@@ -128,11 +132,16 @@
         attempts,
         is_review: false,
       };
+      if (session.status === 'completed' || attempts.length >= exercises.length) {
+        await showSummary();
+        return true;
+      }
       renderCurrentExercise();
       return true;
     } catch (err) {
       console.warn('[d1] active-session resume failed:', err);
-      return false;
+      _showState('error', 'Chưa thể khôi phục phiên đang làm. Hãy thử tải lại trang.');
+      return true;
     }
   }
 

@@ -860,15 +860,6 @@ async def start_d1_session(
     sb = _user_sb(_bearer_token(authorization))
     size = max(1, min(body.size, 20))
 
-    # Do not create a session the learner cannot finish under today's quota.
-    # Attempt-level enforcement still protects against races from other tabs.
-    rate_limit.enforce_exercise_session_capacity(
-        user_id=user_id,
-        exercise_type="D1",
-        daily_limit=50,
-        requested=size,
-    )
-
     # Step 1: collect attempted IDs once. The same column carries both
     # vocabulary_exercises.id and user_d1_questions.id (migration 054
     # dropped the FK on exercise_id), so the dedup-against-attempted
@@ -988,6 +979,16 @@ async def start_d1_session(
     exercises: list[dict] = [_personalized_session_view(r) for r in personalized]
     exercises.extend(_session_exercise_view(r) for r in admin_rows)
     exercise_ids = [e["id"] for e in exercises]
+
+    # Check the capacity against the queue we will actually persist. A thin
+    # pool may legitimately return fewer items than the requested size.
+    # Attempt-level enforcement still protects against races from other tabs.
+    rate_limit.enforce_exercise_session_capacity(
+        user_id=user_id,
+        exercise_type="D1",
+        daily_limit=50,
+        requested=len(exercise_ids),
+    )
 
     # Step 5: persist the session row. RLS WITH CHECK on user_id means a
     # caller cannot create a session for someone else even if they fake
