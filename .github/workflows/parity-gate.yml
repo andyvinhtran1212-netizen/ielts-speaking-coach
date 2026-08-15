@@ -431,18 +431,25 @@ on:
       - 'frontend/public/js/admin-listening-audit-detail.js'
       - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
       - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
-      # Vocabulary hub and Stats are native. The fixture pins backend-owned
-      # admin auth, exact aggregate shapes, the sole flag mutation and GET
-      # readback; rollback HTML remains directly reachable.
+      # Vocabulary hub, Stats, D1 Curation and Lemma Overrides are native. The
+      # fixture pins backend-owned admin auth, exact payload/ACK shapes,
+      # mutation locks and canonical GET readback; rollback HTML stays live.
       - 'frontend/app/(authed-admin-vocab)/**'
       - 'frontend/lib/admin-vocab-stats-model.mjs'
+      - 'frontend/lib/admin-vocab-curation-model.mjs'
       - 'frontend/public/css/admin-vocab-next.css'
       - 'frontend/public/pages/admin/vocab/index.html'
       - 'frontend/public/pages/admin/vocab/stats.html'
+      - 'frontend/public/pages/admin/vocab/d1-curation.html'
+      - 'frontend/public/pages/admin/vocab/lemmas.html'
       - 'frontend/public/js/admin-vocab-stats.js'
+      - 'frontend/public/js/admin-vocab-d1.js'
+      - 'frontend/public/js/admin-vocab-lemmas.js'
       - 'frontend/tooling/verify-admin-vocab-flow.mjs'
       - 'frontend/tests/admin-vocab-next-behavior.test.mjs'
       - 'frontend/tests/admin-vocab-next-model.test.mjs'
+      - 'frontend/tests/admin-vocab-curation-next-behavior.test.mjs'
+      - 'frontend/tests/admin-vocab-curation-next-model.test.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -1264,9 +1271,9 @@ jobs:
       - name: Kiểm luồng Admin Grammar hub native
         run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
 
-      # Vocabulary Stats contains an admin mutation. The fixture asserts its
-      # exact body, in-flight lock and canonical GET readback after ACK.
-      - name: Kiểm luồng Admin Vocabulary hub + Stats native
+      # Vocabulary Stats, D1 and Lemma contain admin mutations. The fixture
+      # asserts exact bodies, in-flight locks and canonical GET readbacks.
+      - name: Kiểm luồng Admin Vocabulary native
         run: node tooling/verify-admin-vocab-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Kiểm luồng Admin Speaking hub native
