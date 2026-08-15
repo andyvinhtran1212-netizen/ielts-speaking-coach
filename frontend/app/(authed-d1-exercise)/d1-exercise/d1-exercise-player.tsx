@@ -173,7 +173,11 @@ export function D1ExercisePlayer() {
     setMessage('');
     setPhase('completing');
     try {
-      const payload = await window.api.post(`/api/exercises/d1/sessions/${encodeURIComponent(current.sessionId)}/complete`);
+      const payload = await requestForAccount(
+        expectedAccount,
+        `/api/exercises/d1/sessions/${encodeURIComponent(current.sessionId)}/complete`,
+        { method: 'POST' },
+      );
       const canonical = normalizeD1Summary(payload, current);
       if (!canonical) throw new Error('Máy chủ trả về tổng kết không đúng định dạng.');
       if (accountRef.current !== expectedAccount) return;
@@ -181,10 +185,13 @@ export function D1ExercisePlayer() {
       setSummary(canonical);
       setReviewExercises(null);
       setPhase('summary');
-    } catch (caught) {
+    } catch (caught: any) {
       if (accountRef.current === expectedAccount) {
-        setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
-        setPhase('completing');
+        if (caught?.status === 401) window.location.href = '/login';
+        else {
+          setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
+          setPhase('completing');
+        }
       }
     } finally {
       mutationLock.current = false;
@@ -220,7 +227,7 @@ export function D1ExercisePlayer() {
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
-      const me = await window.api.get<any>('/auth/me');
+      const me = await requestForAccount(expectedAccount, '/auth/me');
       if (disposed || accountRef.current !== expectedAccount) return;
       if (me?.d1_enabled !== true) {
         setPhase('disabled');
@@ -283,8 +290,11 @@ export function D1ExercisePlayer() {
       }
     })().catch((caught) => {
       if (!disposed && accountRef.current === expectedAccount) {
-        setMessage(messageOf(caught));
-        setPhase('error');
+        if (caught?.status === 401) window.location.href = '/login';
+        else {
+          setMessage(messageOf(caught));
+          setPhase('error');
+        }
       }
     });
     return () => { disposed = true; };
@@ -344,16 +354,24 @@ export function D1ExercisePlayer() {
     try {
       for (let attempt = 0; attempt < 2 && !canonical; attempt += 1) {
         try {
-          const payload = await window.api.post(`/api/exercises/d1/${encodeURIComponent(exercise.id)}/attempt`, {
-            user_answer: selected,
-            session_id: session.sessionId,
-            client_attempt_id: key,
-          });
+          const payload = await requestForAccount(
+            expectedAccount,
+            `/api/exercises/d1/${encodeURIComponent(exercise.id)}/attempt`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_answer: selected,
+                session_id: session.sessionId,
+                client_attempt_id: key,
+              }),
+            },
+          );
           canonical = normalizeD1AttemptAck(payload, exercise, selected);
           if (!canonical) throw new Error('Máy chủ chưa xác nhận đúng attempt đã lưu.');
         } catch (caught: any) {
           lastError = caught;
-          if (caught?.status === 429) break;
+          if (caught?.status === 401 || caught?.status === 429) break;
           if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
@@ -362,9 +380,12 @@ export function D1ExercisePlayer() {
       setAttemptAck(canonical);
     } catch (caught: any) {
       if (accountRef.current === expectedAccount) {
-        const rateLimited = caught?.status === 429;
-        setAttemptRateLimited(rateLimited);
-        setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
+        if (caught?.status === 401) window.location.href = '/login';
+        else {
+          const rateLimited = caught?.status === 429;
+          setAttemptRateLimited(rateLimited);
+          setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
+        }
       }
     } finally {
       mutationLock.current = false;

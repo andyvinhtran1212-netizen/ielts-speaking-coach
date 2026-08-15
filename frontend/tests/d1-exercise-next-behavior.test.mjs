@@ -23,7 +23,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const accountKey = status === 'signed-in'/);
     assert.match(player, /accountRef\.current/);
     assert.match(player, /mutationLock\.current = false/);
-    assert.match(player, /window\.api\.get<any>\('\/auth\/me'\)/);
+    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me'\)/);
     assert.match(player, /normalizeD1Resume/);
     assert.match(player, /firstUnansweredIndex/);
     assert.match(player, /aver:d1:active-session/);
@@ -47,6 +47,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const payload = await startSessionForAccount\(expectedAccount\)/);
     assert.doesNotMatch(player, /window\.api\.post\('\/api\/exercises\/d1\/sessions'/);
     assert.doesNotMatch(player, /if \(response\.status === 401\) window\.location\.href/);
+    assert.doesNotMatch(player, /window\.api\.(?:get|post)\(/);
     assert.match(player, /catch \(caught: any\) \{\s*if \(accountRef\.current !== expectedAccount\) return;\s*if \(caught\?\.status === 401\) window\.location\.href = '\/login'/);
   });
 

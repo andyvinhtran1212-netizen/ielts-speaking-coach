@@ -10,6 +10,7 @@ const SESSION = '00000000-0000-4000-8000-000000000202';
 const FOREIGN_SESSION = '00000000-0000-4000-8000-000000000207';
 const FOREIGN_OWNER_SESSION = '00000000-0000-4000-8000-000000000209';
 const UNAUTHORIZED_SESSION = '00000000-0000-4000-8000-000000000210';
+const COMPLETE_401_SESSION = '00000000-0000-4000-8000-000000000211';
 const A = '00000000-0000-4000-8000-000000000203';
 const B = '00000000-0000-4000-8000-000000000204';
 const ATT_A = '00000000-0000-4000-8000-000000000205';
@@ -44,6 +45,15 @@ let resolveForeignOwnerMiss;
 const foreignOwnerMissStarted = new Promise((resolve) => { resolveForeignOwnerMiss = resolve; });
 let resolveUnauthorizedResponse;
 const unauthorizedResponseStarted = new Promise((resolve) => { resolveUnauthorizedResponse = resolve; });
+let bootstrap401Armed = false;
+let resolveBootstrap401;
+const bootstrap401Started = new Promise((resolve) => { resolveBootstrap401 = resolve; });
+let attempt401Armed = false;
+let resolveAttempt401;
+const attempt401Started = new Promise((resolve) => { resolveAttempt401 = resolve; });
+let complete401Armed = false;
+let resolveComplete401;
+const complete401Started = new Promise((resolve) => { resolveComplete401 = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -80,7 +90,15 @@ await context.route('**/*', async (route) => {
   };
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
-  if (url.pathname === '/auth/me') return json({ id: USER, d1_enabled: true });
+  if (url.pathname === '/auth/me') {
+    if (bootstrap401Armed && request.headers().authorization === 'Bearer fixture-token') {
+      bootstrap401Armed = false;
+      resolveBootstrap401();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return json({ detail: 'Token expired' }, 401);
+    }
+    return json({ id: USER, d1_enabled: true });
+  }
   if (request.method() === 'POST' && url.pathname === '/api/exercises/d1/sessions') {
     return json({ session_id: SESSION, exercises, total: 2 }, 201);
   }
@@ -124,9 +142,30 @@ await context.route('**/*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return json({ detail: 'Token expired' }, 401);
   }
+  if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${COMPLETE_401_SESSION}`) {
+    if (request.headers().authorization === 'Bearer foreign-token') {
+      return json({ detail: 'Session not found' }, 404);
+    }
+    return json({
+      session: {
+        id: COMPLETE_401_SESSION, status: 'active', total_count: 2,
+        exercise_ids: [A, B], exercise_snapshot: exercises,
+      },
+      attempts: [
+        { exercise_id: A, user_answer: 'adapt', is_correct: true },
+        { exercise_id: B, user_answer: 'fall', is_correct: false },
+      ],
+    });
+  }
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
     attemptBodies.push(body);
+    if (attempt401Armed && request.headers().authorization === 'Bearer fixture-token') {
+      attempt401Armed = false;
+      resolveAttempt401();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return json({ detail: 'Token expired' }, 401);
+    }
     await new Promise((resolve) => setTimeout(resolve, 350));
     if (!persistedAttempts.some((item) => item.exercise_id === A)) {
       persistedAttempts.push({ exercise_id: A, user_answer: 'adapt', is_correct: true });
@@ -147,6 +186,15 @@ await context.route('**/*', async (route) => {
       correct: [{ exercise_id: A, sentence: exercises[0].sentence, answer: 'adapt' }],
       wrong: [{ exercise_id: B, sentence: exercises[1].sentence, user_answer: 'fall', correct_answer: 'grow' }],
     });
+  }
+  if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/sessions/${COMPLETE_401_SESSION}/complete`) {
+    if (complete401Armed && request.headers().authorization === 'Bearer fixture-token') {
+      complete401Armed = false;
+      resolveComplete401();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return json({ detail: 'Token expired' }, 401);
+    }
+    return json({ detail: 'Session not found' }, 404);
   }
   if (url.pathname === '/api/error-logs' || url.pathname === '/api/analytics/events') return json({ ok: true });
   return json({});
@@ -286,6 +334,65 @@ check('account mới giữ được session sau stale 401', await page.evaluate(
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, UNAUTHORIZED_SESSION]));
+
+bootstrap401Armed = true;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await bootstrap401Started;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.waitForTimeout(350);
+check('401 trễ ở feature bootstrap không redirect account mới',
+  new URL(page.url()).pathname === '/d1-exercise');
+
+attempt401Armed = true;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+await page.getByRole('button', { name: 'adapt' }).click();
+await attempt401Started;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByText('Trees _____ in spring.').waitFor();
+await page.waitForTimeout(350);
+check('401 trễ khi lưu attempt không redirect account mới',
+  new URL(page.url()).pathname === '/d1-exercise');
+
+complete401Armed = true;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise?session=${COMPLETE_401_SESSION}`, { waitUntil: 'domcontentloaded' });
+await complete401Started;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.waitForTimeout(350);
+check('401 trễ khi complete không redirect account mới',
+  new URL(page.url()).pathname === '/d1-exercise');
 
 await context.close();
 await browser.close();
