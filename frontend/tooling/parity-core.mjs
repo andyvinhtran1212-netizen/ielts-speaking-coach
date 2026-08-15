@@ -192,6 +192,9 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/grammar/roadmap` giữ hai mode trên cùng URL: `?slug=` public và không
   // query là lộ trình cá nhân. Canonicalization chỉ đổi owner, không đổi mode.
   else if (path === '/pages/grammar-roadmap.html') path = '/grammar/roadmap';
+  // Pricing remains intentionally closed before launch. The Next route owns
+  // that server redirect; the legacy HTML is now rollback-only.
+  else if (path === '/pricing.html') path = '/pricing';
   else if (path === '/pages/profile.html') path = '/profile';
   // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
   // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)

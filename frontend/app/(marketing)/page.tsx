@@ -947,7 +947,7 @@ export default function LandingPreviewPage() {
 
           <p className="ix-price-note text-center mt-8 text-sm">
             Giá hiển thị là dự kiến — xem chi tiết tại{' '}
-            <a href="/pricing.html" className="ix-price-note__link underline underline-offset-2">
+            <a href="/pricing" className="ix-price-note__link underline underline-offset-2">
               trang bảng giá
             </a>
             .
