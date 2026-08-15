@@ -163,6 +163,9 @@ export function listeningTrueFalseHref(contentId, exerciseId = null) {
   return `/admin/listening/tf?${params.toString()}`;
 }
 
-export function listeningTrueFalseRollbackHref(contentId) {
-  return `/pages/admin/listening/tf.html?content_id=${encodeURIComponent(contentId)}`;
+/** @param {string} contentId @param {string|null} [exerciseId] */
+export function listeningTrueFalseRollbackHref(contentId, exerciseId = null) {
+  const params = new URLSearchParams({ content_id: contentId });
+  if (exerciseId) params.set('exercise_id', exerciseId);
+  return `/pages/admin/listening/tf.html?${params.toString()}`;
 }

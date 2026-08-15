@@ -63,6 +63,11 @@ await page.route('**/*', async (route) => {
       blocks[index] = { ...blocks[index], payload: statementPayload('Concurrent'), updated_at: '2026-08-14T01:00:00+00:00' };
       return json({ detail: 'version conflict' }, 409);
     }
+    if (text === 'Concurrent create.') {
+      blocks.push({ id: 'exercise-concurrent', content_id: contentId, exercise_type: 'true_false', order_num: body.order_num,
+        status: body.status, updated_at: '2026-08-14T02:00:00+00:00', payload: statementPayload('Concurrent winner') });
+      return json({ detail: 'block created concurrently' }, 409);
+    }
     const target = applyOperation(body);
     if (text === 'Ambiguous.') return json({ detail: 'gateway timeout after commit' }, 503);
     if (text === 'Acknowledged.') nextBlockReadFailure = 403;
@@ -74,7 +79,7 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/listening/tf?content_id=${contentId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Soạn nhận định T / F / NG theo bằng chứng' }).waitFor();
 check('route đọc exact content và đầy đủ T/F blocks', contentReads >= 1 && blockReads >= 1 && await page.locator('#altf-block option').count() === 3, `${contentReads} content GET · ${blockReads} block GET`);
-check('mặc định chọn order 1 và giữ rollback exact identity', await page.locator('#altf-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/tf.html?content_id=${contentId}`);
+check('mặc định chọn order 1 và giữ rollback exact identity', await page.locator('#altf-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/tf.html?content_id=${contentId}&exercise_id=exercise-1`);
 check('UI nêu đúng T/F/NG và điều kiện đạt 100%', await page.getByText(/Audio không đủ dữ kiện/).count() === 3 && await page.getByText(/đúng 100% nhận định/).count() === 1);
 
 const secondStatement = await page.locator('#altf-text-1').inputValue();
@@ -159,6 +164,17 @@ await page.getByText('Đã lưu bản nháp', { exact: true }).waitFor();
 const createPost = postBodies.at(-1);
 check('UI tạo block kế tiếp bằng expected_absent và không gửi exercise_id', createPost.order_num === 4 && createPost.expected_absent === true && !Object.hasOwn(createPost, 'exercise_id'));
 check('block mới chỉ cài sau canonical GET và xuất hiện trong selector', blocks.length === 4 && await page.locator('#altf-block').inputValue() === 'exercise-4' && await page.locator('#altf-block option').count() === 4);
+
+await page.getByRole('button', { name: 'Thêm T/F block' }).click();
+await page.locator('#altf-text-0').fill('Concurrent create.');
+await page.locator('#altf-text-1').fill('Concurrent loser two.');
+await page.locator('#altf-text-2').fill('Concurrent loser three.');
+await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
+await page.getByRole('heading', { name: 'Block đã đổi ở nơi khác' }).waitFor();
+await page.getByRole('button', { name: 'Tải canonical mới' }).click();
+await page.getByRole('button', { name: 'Tải lại' }).click();
+await page.waitForFunction(() => document.querySelector('#altf-block')?.value === 'exercise-concurrent');
+check('create conflict tải đúng order vừa bị admin khác tạo', await page.locator('#altf-text-0').inputValue().then((value) => value.startsWith('Concurrent winner')));
 
 await page.locator('#altf-text-0').fill('Unauthorized.');
 await page.getByRole('button', { name: 'Lưu bản nháp' }).click();

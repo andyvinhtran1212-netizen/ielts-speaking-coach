@@ -102,7 +102,7 @@ describe('Admin Listening True/False canonical model', () => {
     assert.deepEqual(normalizePendingListeningTrueFalseSave(pending, 'admin-1', 'content-1'), pending);
     assert.equal(normalizePendingListeningTrueFalseSave(pending, 'admin-2', 'content-1'), null);
     assert.equal(listeningTrueFalseHref('a/b', 'x/y'), '/admin/listening/tf?content_id=a%2Fb&exercise_id=x%2Fy');
-    assert.equal(listeningTrueFalseRollbackHref('a/b'), '/pages/admin/listening/tf.html?content_id=a%2Fb');
+    assert.equal(listeningTrueFalseRollbackHref('a/b', 'x/y'), '/pages/admin/listening/tf.html?content_id=a%2Fb&exercise_id=x%2Fy');
   });
 });
 
@@ -126,6 +126,8 @@ describe('native True/False route and persistence contract', () => {
     assert.match(CLIENT, /window\.api\.postWith\('\/admin\/listening\/exercises'/);
     assert.match(CLIENT, /noRedirect: true/);
     assert.match(CLIENT, /const focusId = useRef\(requestedExerciseId\)/);
+    assert.match(CLIENT, /const focusOrder = useRef<number \| null>\(null\)/);
+    assert.match(CLIENT, /if \(!baseline\) focusOrder\.current = orderNum/);
     assert.match(CLIENT, /const nextCollection = await readCollection\(\)/);
     assert.match(CLIENT, /findListeningTrueFalseOperationMatch/);
     assert.match(CLIENT, /let postAcknowledged = false/);
@@ -145,6 +147,8 @@ describe('native True/False route and persistence contract', () => {
     assert.match(MIGRATION, /CREATE UNIQUE INDEX IF NOT EXISTS idx_listening_exercises_single_published_standalone/);
     assert.match(MIGRATION, /WHERE status = 'published'/);
     assert.match(MIGRATION, /exercise_type IN \('gist', 'true_false', 'mcq'\)/);
+    assert.match(CLIENT, /listeningTrueFalseRollbackHref\(contentId, baseline\?\.id \|\| null\)/);
+    assert.match(read('public', 'js', 'admin-listening-tf.js'), /getExerciseIdFromUrl[\s\S]+exercises\.find[\s\S]+expected_updated_at/);
   });
 
   test('explains exact scoring and provides accessible authoring controls', () => {
