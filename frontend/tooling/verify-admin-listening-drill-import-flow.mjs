@@ -166,11 +166,11 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: `Lượt import ${T2} cần đối chiếu` }).waitFor();
 check('receipt sống qua reload và khóa cả hai picker', await page.locator('.aldi-picker input:disabled').count() === 2);
 await page.getByRole('button', { name: 'Đối chiếu canonical' }).click();
-await page.getByText(`Đã đối chiếu ${T2}: draft. Không gửi lại POST.`, { exact: true }).waitFor();
-check('ambiguous write reconcile bằng list + detail GET, không phát lại POST', commitRequests === beforeReconcile && listReads >= 3 && detailReads >= 2);
-check('canonical card sau reload đọc đúng metadata-only truth', await page.locator('.aldi-results').getByText('Metadata-only', { exact: true }).count() === 1);
-
-await page.getByRole('button', { name: 'Import batch khác' }).click();
+await page.getByText(/Backend chưa lưu fingerprint\/idempotency key/).waitFor();
+check('mất ACK giữ receipt để review thủ công dù chỉ có một row mới', commitRequests === beforeReconcile && listReads >= 3
+  && detailReads === 1 && await page.getByRole('heading', { name: `Lượt import ${T2} cần đối chiếu` }).count() === 1);
+await page.getByRole('button', { name: 'Bỏ receipt…' }).click();
+await page.getByRole('button', { name: 'Tôi đã kiểm tra, bỏ receipt' }).click();
 scenario = 'happy';
 await chooseDirectory([source(T5)]);
 await page.getByRole('button', { name: 'Dry-run tất cả' }).click();

@@ -364,10 +364,10 @@ export function AdminListeningDrillImport() {
       if (!id) {
         const result = await searchExact(pending.testId, pending.baselineIds);
         if (activeAccount.current !== account) return;
-        if (result.newMatches.length !== 1) throw new Error(result.newMatches.length
-          ? `Có ${result.newMatches.length} bản ghi mới cùng Test ID; cần mở Kho test để đối chiếu thủ công.`
-          : 'Chưa thấy bản ghi mới. Hãy chờ rồi đối chiếu lại; không gửi lại POST.');
-        id = result.newMatches[0].id;
+        const evidence = result.newMatches.length
+          ? `Đang có ${result.newMatches.length} bản ghi mới cùng Test ID.`
+          : 'Chưa thấy bản ghi mới cùng Test ID.';
+        throw new Error(`${evidence} Backend chưa lưu fingerprint/idempotency key nên không thể chứng minh bản ghi nào thuộc request này. Receipt vẫn được giữ; mở Kho test đối chiếu thủ công rồi chỉ dùng “Bỏ receipt…”.`);
       }
       const canonical = await readCanonical({ id, testId: pending.testId, drillType: pending.drillType,
         level: pending.level, hasAudio: pending.hasAudio, status: null });

@@ -182,7 +182,8 @@ describe('native route, queue boundary and responsive contract', () => {
     assert.match(CLIENT, /normalizeDrillCommit/);
     assert.match(CLIENT, /readCanonical/);
     assert.match(CLIENT, /queue đã dừng/i);
-    assert.match(CLIENT, /newMatches\.length !== 1/);
+    assert.match(CLIENT, /Backend chưa lưu fingerprint\/idempotency key/);
+    assert.doesNotMatch(CLIENT, /id = result\.newMatches\[0\]\.id/);
     assert.match(CLIENT, /if \(bundle\.canonical\) continue/);
     assert.match(CLIENT, /canonical\.exerciseCount !== ack\.exercisesCreated/);
     const queueLoop = CLIENT.slice(CLIENT.indexOf('for (const bundle of queue)'), CLIENT.indexOf('const reconcile = async'));
