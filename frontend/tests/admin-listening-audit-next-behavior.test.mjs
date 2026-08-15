@@ -81,7 +81,8 @@ describe('audit model rejects incomplete truth', () => {
 
   it('labels legacy persisted audits with missing timestamps as unknown time, not never run', () => {
     assert.match(component, /saved\.status === 'pending' \? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'/);
-    assert.match(backend, /"audited_at": audited_at/);
+    assert.match(backend, /"audited_at": now_iso/);
+    assert.match(backend, /"updated_at": now_iso/);
   });
 
   it('rejects identity drift, inconsistent health and malformed saved issues', () => {
