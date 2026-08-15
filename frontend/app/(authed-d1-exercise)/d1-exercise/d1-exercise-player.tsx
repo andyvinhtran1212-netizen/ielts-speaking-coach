@@ -72,7 +72,6 @@ async function requestForAccount(expectedAccount: string, path: string, init?: R
   let payload: any = null;
   try { payload = text ? JSON.parse(text) : null; } catch { /* handled below */ }
   if (!response.ok) {
-    if (response.status === 401) window.location.href = '/login';
     const detail = payload?.detail || null;
     const thrown: any = new Error(
       typeof detail === 'string' ? detail : detail?.message || `HTTP ${response.status}`,
@@ -275,6 +274,10 @@ export function D1ExercisePlayer() {
         setPhase('active');
       } catch (caught: any) {
         if (disposed || accountRef.current !== expectedAccount) return;
+        if (caught?.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
         setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
         setPhase('error');
       }
@@ -313,7 +316,8 @@ export function D1ExercisePlayer() {
       setPhase('active');
     } catch (caught: any) {
       if (accountRef.current !== expectedAccount) return;
-      if (caught?.status === 503) setPhase('empty');
+      if (caught?.status === 401) window.location.href = '/login';
+      else if (caught?.status === 503) setPhase('empty');
       else if (caught?.status === 429) {
         setMessage(quotaMessage(caught.detail));
         setPhase('rate_limited');

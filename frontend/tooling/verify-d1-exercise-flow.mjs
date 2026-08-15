@@ -9,6 +9,7 @@ const FOREIGN_USER = '00000000-0000-4000-8000-000000000208';
 const SESSION = '00000000-0000-4000-8000-000000000202';
 const FOREIGN_SESSION = '00000000-0000-4000-8000-000000000207';
 const FOREIGN_OWNER_SESSION = '00000000-0000-4000-8000-000000000209';
+const UNAUTHORIZED_SESSION = '00000000-0000-4000-8000-000000000210';
 const A = '00000000-0000-4000-8000-000000000203';
 const B = '00000000-0000-4000-8000-000000000204';
 const ATT_A = '00000000-0000-4000-8000-000000000205';
@@ -41,6 +42,8 @@ let completed = false;
 const persistedAttempts = [];
 let resolveForeignOwnerMiss;
 const foreignOwnerMissStarted = new Promise((resolve) => { resolveForeignOwnerMiss = resolve; });
+let resolveUnauthorizedResponse;
+const unauthorizedResponseStarted = new Promise((resolve) => { resolveUnauthorizedResponse = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -106,6 +109,20 @@ await context.route('**/*', async (route) => {
     resolveForeignOwnerMiss();
     await new Promise((resolve) => setTimeout(resolve, 300));
     return json({ detail: 'Session not found' }, 404);
+  }
+  if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${UNAUTHORIZED_SESSION}`) {
+    if (request.headers().authorization === 'Bearer foreign-token') {
+      return json({
+        session: {
+          id: UNAUTHORIZED_SESSION, status: 'active', total_count: 2,
+          exercise_ids: [A, B], exercise_snapshot: exercises,
+        },
+        attempts: persistedAttempts,
+      });
+    }
+    resolveUnauthorizedResponse();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return json({ detail: 'Token expired' }, 401);
   }
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
@@ -245,6 +262,30 @@ check('account mới claim query session vào đúng registry', await page.evalu
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, FOREIGN_OWNER_SESSION]));
+
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  window.__d1CurrentUser = userId;
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise?session=${UNAUTHORIZED_SESSION}`, { waitUntil: 'domcontentloaded' });
+await unauthorizedResponseStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByText('Trees _____ in spring.').waitFor();
+await page.waitForTimeout(350);
+check('401 trễ của account cũ không redirect account mới về login',
+  new URL(page.url()).pathname === '/d1-exercise'
+  && new URL(page.url()).searchParams.get('session') === UNAUTHORIZED_SESSION);
+check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
+  const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
+  return !!scoped && JSON.parse(scoped).includes(sessionId);
+}, [FOREIGN_USER, UNAUTHORIZED_SESSION]));
 
 await context.close();
 await browser.close();

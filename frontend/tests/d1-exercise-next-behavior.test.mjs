@@ -46,6 +46,8 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /Authorization: `Bearer \$\{authSession\.access_token\}`/);
     assert.match(player, /const payload = await startSessionForAccount\(expectedAccount\)/);
     assert.doesNotMatch(player, /window\.api\.post\('\/api\/exercises\/d1\/sessions'/);
+    assert.doesNotMatch(player, /if \(response\.status === 401\) window\.location\.href/);
+    assert.match(player, /catch \(caught: any\) \{\s*if \(accountRef\.current !== expectedAccount\) return;\s*if \(caught\?\.status === 401\) window\.location\.href = '\/login'/);
   });
 
   test('retries one stable client key and gates Next on canonical ACK', () => {
