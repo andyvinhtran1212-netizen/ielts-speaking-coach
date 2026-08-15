@@ -53,21 +53,20 @@ function retainSession(userId: string, sessionId: string) {
   writeSessionIds(userId, [...readSessionIds(userId).filter((id) => id !== sessionId), sessionId]);
 }
 
-async function startSessionForAccount(expectedAccount: string) {
+async function requestForAccount(expectedAccount: string, path: string, init?: RequestInit) {
   const sb = window.getSupabase() as any;
   const { data, error } = await sb.auth.getSession();
   const authSession = data?.session;
   if (error || !authSession?.access_token || authSession.user?.id !== expectedAccount) {
-    throw new Error('Tài khoản đã thay đổi trước khi tạo phiên.');
+    throw new Error('Tài khoản đã thay đổi trước khi gửi yêu cầu.');
   }
-  const response = await fetch(`${window.api.base}/api/exercises/d1/sessions`, {
-    method: 'POST',
+  const response = await fetch(`${window.api.base}${path}`, {
+    ...init,
     headers: {
       Authorization: `Bearer ${authSession.access_token}`,
-      'Content-Type': 'application/json',
       'X-Request-ID': window.crypto?.randomUUID?.() || `d1-start-${Date.now()}`,
+      ...(init?.headers || {}),
     },
-    body: JSON.stringify({ size: 10 }),
   });
   const text = await response.text();
   let payload: any = null;
@@ -83,6 +82,21 @@ async function startSessionForAccount(expectedAccount: string) {
     throw thrown;
   }
   return payload;
+}
+
+async function startSessionForAccount(expectedAccount: string) {
+  return requestForAccount(expectedAccount, '/api/exercises/d1/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ size: 10 }),
+  });
+}
+
+async function resumeSessionForAccount(expectedAccount: string, sessionId: string) {
+  return requestForAccount(
+    expectedAccount,
+    `/api/exercises/d1/sessions/${encodeURIComponent(sessionId)}`,
+  );
 }
 
 function quotaMessage(detail: any) {
@@ -229,7 +243,7 @@ export function D1ExercisePlayer() {
         let resumedId = '';
         for (const candidate of candidates) {
           try {
-            const payload = await window.api.get(`/api/exercises/d1/sessions/${encodeURIComponent(candidate)}`);
+            const payload = await resumeSessionForAccount(expectedAccount, candidate);
             resumed = normalizeD1Resume(payload);
             if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
             resumedId = candidate;

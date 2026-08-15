@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const BASE = process.argv[2] || 'http://localhost:3012';
 const API = 'http://localhost:8000';
 const USER = '00000000-0000-4000-8000-000000000201';
+const FOREIGN_USER = '00000000-0000-4000-8000-000000000208';
 const SESSION = '00000000-0000-4000-8000-000000000202';
 const FOREIGN_SESSION = '00000000-0000-4000-8000-000000000207';
 const A = '00000000-0000-4000-8000-000000000203';
@@ -40,7 +41,16 @@ const persistedAttempts = [];
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
-  getSession: async function () { return { data: { session: { access_token: 'fixture-token', user: { id: '${USER}', email: 'd1@local' } } }, error: null }; },
+  getSession: async function () {
+    var call = Number(sessionStorage.getItem('d1-auth-session-calls') || '0') + 1;
+    sessionStorage.setItem('d1-auth-session-calls', String(call));
+    var foreignAt = Number(localStorage.getItem('d1-foreign-token-at') || '0');
+    if (foreignAt === call) {
+      await new Promise(function (resolve) { setTimeout(resolve, 120); });
+      return { data: { session: { access_token: 'foreign-token', user: { id: '${FOREIGN_USER}', email: 'other@local' } } }, error: null };
+    }
+    return { data: { session: { access_token: 'fixture-token', user: { id: '${USER}', email: 'd1@local' } } }, error: null };
+  },
   onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
   signOut: async function () { return { error: null }; }
 } }; } };`;
@@ -174,6 +184,24 @@ check('singleton legacy chỉ bị claim sau resume user-scoped thành công', a
   return localStorage.getItem('aver:d1:active-session') === null
     && !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [USER, SESSION]));
+
+await page.evaluate(([userId, sessionId]) => {
+  localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
+  const calls = Number(sessionStorage.getItem('d1-auth-session-calls') || '0');
+  // On reload: AuthProvider owns call +1, /auth/me owns +2, resume owns +3.
+  localStorage.setItem('d1-foreign-token-at', String(calls + 3));
+}, [USER, SESSION]);
+await page.goto(`${BASE}/d1-exercise?session=${SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.getByText(/Tài khoản đã thay đổi trước khi gửi yêu cầu/).waitFor();
+check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
+  const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
+  return !!scoped && JSON.parse(scoped).includes(sessionId);
+}, [USER, SESSION]));
+await page.evaluate(() => localStorage.removeItem('d1-foreign-token-at'));
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByText('Trees _____ in spring.').waitFor();
+check('account cũ vẫn resume được đúng session sau token race',
+  new URL(page.url()).searchParams.get('session') === SESSION);
 
 await context.close();
 await browser.close();
