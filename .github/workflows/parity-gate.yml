@@ -194,6 +194,7 @@ on:
       # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
       - 'frontend/app/(authed-full-test)/**'
       - 'frontend/app/(authed-vocab-practice)/**'
+      - 'frontend/app/(authed-quiz-player)/**'
       - 'frontend/app/(authed-speaking-result)/**'
       - 'frontend/app/(authed-quiz-progress)/**'
       - 'frontend/app/(authed-mock-result)/**'
@@ -207,6 +208,11 @@ on:
       - 'frontend/public/pages/quiz-progress.html'
       - 'frontend/public/js/quiz-progress.js'
       - 'frontend/public/css/quiz-progress.css'
+      - 'frontend/public/pages/quiz.html'
+      - 'frontend/public/css/quiz-player.css'
+      - 'frontend/tests/quiz-player-next-behavior.test.mjs'
+      - 'frontend/tests/quiz-player-next-model.test.mjs'
+      - 'frontend/tooling/verify-quiz-flow.mjs'
       - 'frontend/public/pages/speaking-result.html'
       - 'frontend/public/js/speaking-result.js'
       - 'frontend/public/css/speaking-result.css'
@@ -879,7 +885,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-writing-result|authed-admin-writing-grade|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/pages/admin/writing/grade\.html|frontend/public/css/(speaking|practice|speaking-assignment|admin-writing|admin-writing-grade|aver-design/admin-surface)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt|writing-admin|toast)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|aver-admin-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard|writing-result|writing-renderers|writing-highlight|image-lightbox|markdown)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|writing-result|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics|writing-renderers|writing-highlight|image-lightbox|markdown)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-writing-result|authed-admin-writing-grade|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-quiz-player|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/pages/admin/writing/grade\.html|frontend/public/css/(speaking|practice|speaking-assignment|quiz-player|admin-writing|admin-writing-grade|aver-design/admin-surface)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt|writing-admin|toast)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|aver-admin-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard|writing-result|writing-renderers|writing-highlight|image-lightbox|markdown)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|quiz|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|writing-result|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics|writing-renderers|writing-highlight|image-lightbox|markdown)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tests/quiz-player-next-(behavior|model)\.test\.mjs|frontend/tooling/(verify-quiz-flow\.mjs|supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else
@@ -1000,6 +1006,12 @@ jobs:
 
       - name: Kiểm luồng Onboarding native
         run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Player Quiz có state ghi thích ứng; cặp parity tĩnh chỉ phủ nhánh thiếu
+      # bank. Fixture này chứng minh answer/advance locks, retry outbox,
+      # non-destructive review, reset reconcile và summary ngay trong browser.
+      - name: Kiểm luồng Quiz native
+        run: node tooling/verify-quiz-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
