@@ -53,6 +53,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/listening/exercises' && method === 'POST') {
     const body = request.postDataJSON(); postBodies.push(body);
     const prompt = body.payload?.prompt_text;
+    if (prompt === 'Unauthorized.') return json({ detail: 'session expired' }, 401);
     if (prompt === 'Conflict.') {
       const index = Math.max(0, blocks.findIndex((item) => item.id === body.exercise_id));
       blocks[index] = { ...blocks[index], payload: payload('Concurrent'), updated_at: '2026-08-14T01:00:00+00:00' };
@@ -98,7 +99,9 @@ await page.getByRole('heading', { name: 'Block đã đổi ở nơi khác' }).wa
 check('409 khóa form và không ghi đè canonical concurrent', await page.locator('#alge-prompt').isDisabled() && blocks[1].payload.prompt_text.startsWith('Concurrent'));
 await page.getByRole('button', { name: 'Tải canonical mới' }).click();
 await page.getByRole('button', { name: 'Tải lại' }).click();
-await page.waitForFunction(() => document.querySelector('#alge-block')?.value === 'exercise-1');
+await page.waitForFunction(() => document.querySelector('#alge-block')?.value === 'exercise-2');
+check('reload sau 409 giữ exact block đang xung đột', await page.locator('#alge-prompt').inputValue().then((value) => value.startsWith('Concurrent')));
+await page.getByRole('radio', { name: /Bản nháp/ }).check();
 
 await page.locator('#alge-prompt').fill('Ambiguous.');
 await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
@@ -106,7 +109,7 @@ await page.getByRole('heading', { name: 'Lượt lưu cần đối chiếu' }).w
 const postCountBeforeReconcile = postBodies.length;
 await page.getByRole('button', { name: 'Đối chiếu canonical' }).click();
 await page.getByText('Đã xác nhận lưu', { exact: true }).waitFor();
-check('503 sau commit reconcile bằng GET và không POST lại', postBodies.length === postCountBeforeReconcile && blocks[0].payload.prompt_text === 'Ambiguous.');
+check('503 sau commit reconcile bằng GET và không POST lại', postBodies.length === postCountBeforeReconcile && blocks[1].payload.prompt_text === 'Ambiguous.');
 
 await page.locator('#alge-prompt').fill('Acknowledged.');
 await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
@@ -115,9 +118,16 @@ const postCountAfterAcknowledged = postBodies.length;
 check('POST 200 rồi GET 403 giữ receipt và khóa phát lại', await page.getByRole('heading', { name: 'Lượt lưu cần đối chiếu' }).count() === 1 && await page.locator('#alge-prompt').isDisabled());
 await page.getByRole('button', { name: 'Đối chiếu canonical' }).click();
 await page.getByText('Đã xác nhận lưu', { exact: true }).waitFor();
-check('readback 403 reconcile bằng GET-only, không POST lần hai', postBodies.length === postCountAfterAcknowledged && blocks[0].payload.prompt_text === 'Acknowledged.');
+check('readback 403 reconcile bằng GET-only, không POST lần hai', postBodies.length === postCountAfterAcknowledged && blocks[1].payload.prompt_text === 'Acknowledged.');
 
+await page.locator('#alge-block').selectOption('exercise-1');
+await page.getByRole('radio', { name: /Đã xuất bản/ }).check();
+await page.getByRole('button', { name: 'Lưu & xuất bản' }).click();
+await page.getByText('Đã xuất bản Gist block', { exact: true }).waitFor();
 await page.getByRole('button', { name: 'Thêm Gist block' }).click();
+check('block mới không thể published khi đã có block đang phục vụ',
+  await page.getByRole('radio', { name: /Đã xuất bản/ }).isDisabled()
+  && await page.getByText(/Mỗi content chỉ có một Gist block published/).count() === 1);
 await page.locator('#alge-prompt').fill('New block question?');
 await page.locator('#alge-answer').fill('New block model answer.');
 await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
@@ -125,6 +135,14 @@ await page.getByText('Đã lưu bản nháp', { exact: true }).waitFor();
 const createPost = postBodies.at(-1);
 check('UI tạo block kế tiếp bằng expected_absent và không gửi exercise_id', createPost.order_num === 4 && createPost.expected_absent === true && !Object.hasOwn(createPost, 'exercise_id'));
 check('block mới chỉ cài sau canonical GET và xuất hiện trong selector', blocks.length === 4 && await page.locator('#alge-block').inputValue() === 'exercise-4' && await page.locator('#alge-block option').count() === 4);
+
+await page.locator('#alge-prompt').fill('Unauthorized.');
+await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
+await page.getByText('Backend từ chối thay đổi', { exact: true }).waitFor();
+check('401 trước ACK xóa receipt, không báo POST đã nhận và giữ form sửa được',
+  !(await page.locator('#alge-prompt').isDisabled())
+  && !(await page.getByText('POST đã nhận, chưa đọc lại được', { exact: true }).count())
+  && !(await page.evaluate(() => Object.keys(sessionStorage).some((key) => key.startsWith('alge-pending:')))));
 
 await page.evaluate(() => {
   const nativeSetItem = Storage.prototype.setItem;

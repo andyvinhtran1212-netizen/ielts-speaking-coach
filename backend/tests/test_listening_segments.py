@@ -225,6 +225,8 @@ class _FakeTableQuery:
             # Apply update to matching rows so subsequent reads see the change.
             rows = list(self._parent.canned.get(self._table, []))
             matched = [r for r in rows if all(r.get(c) == v for c, v in self._filters)]
+            if self._parent.unique_violation_on_update:
+                raise _StructuredUniqueViolation("concurrent publication conflict")
             if self._parent.drop_updates:
                 return _FakeRes([])
             for r in matched:
@@ -276,6 +278,7 @@ class _FakeAdminClient:
         self.drop_updates = False
         self.drop_inserts = False
         self.unique_violation_on_insert = False
+        self.unique_violation_on_update = False
         self.concurrent_insert_row: dict | None = None
         self.storage = _FakeStorage(self)
 
@@ -521,6 +524,23 @@ def test_admin_exercise_expected_absent_rejects_existing_order_block(monkeypatch
     assert fake.inserts == []
 
 
+def test_admin_exercise_rejects_standalone_mcq_on_importer_content(monkeypatch):
+    imported_content = {**_content_row(), "test_id": "test-uuid"}
+    fake = _FakeAdminClient({"listening_content": [imported_content], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="mcq", order_num=1,
+        payload={"questions": []}, expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert "importer" in str(exc.value.detail)
+    assert fake.inserts == []
+
+
 def test_admin_exercise_atomic_version_race_is_conflict(monkeypatch):
     row = {
         "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
@@ -712,6 +732,60 @@ def test_admin_exercise_legacy_implicit_order_updates_imported_block(monkeypatch
     assert fake.inserts == []
 
 
+@pytest.mark.parametrize(
+    "exercise_type,payload",
+    [
+        ("gist", {"prompt_text": "Question", "model_answer": "Answer"}),
+        ("true_false", {"statements": [
+            {"idx": 0, "text": "One", "answer": "T"},
+            {"idx": 1, "text": "Two", "answer": "F"},
+            {"idx": 2, "text": "Three", "answer": "NG"},
+        ]}),
+        ("mcq", {"questions": [{
+            "idx": 0,
+            "stem": "Question",
+            "options": ["A", "B", "C", "D"],
+            "answer_idx": 0,
+        }]}),
+    ],
+)
+def test_admin_exercise_rejects_second_published_standalone_block(
+    monkeypatch, exercise_type, payload,
+):
+    live = {
+        "id": EXERCISE_ONE,
+        "content_id": "c1",
+        "exercise_type": exercise_type,
+        "order_num": 1,
+        "status": "published",
+        "payload": payload,
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [live],
+    })
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_type=exercise_type,
+        order_num=2,
+        payload=payload,
+        status="published",
+        expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(
+            body=body,
+            authorization=authz,
+        ))
+    assert exc.value.status_code == 409
+    assert "Only one published" in str(exc.value.detail)
+    assert fake.inserts == []
+
+
 def test_admin_exercise_expected_absent_requires_explicit_order(monkeypatch):
     fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
     _patch_admin_client(monkeypatch, fake)
@@ -765,6 +839,43 @@ def test_admin_exercise_concurrent_create_unique_violation_is_conflict(monkeypat
     with pytest.raises(HTTPException) as exc:
         _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
     assert exc.value.status_code == 409
+
+
+def test_admin_exercise_concurrent_publish_unique_violation_is_conflict(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE,
+        "content_id": "c1",
+        "exercise_type": "gist",
+        "order_num": 1,
+        "status": "draft",
+        "payload": {"prompt_text": "Question", "model_answer": "Answer"},
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [row],
+    })
+    fake.unique_violation_on_update = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_id=EXERCISE_ONE,
+        exercise_type="gist",
+        order_num=1,
+        payload={"prompt_text": "Question", "model_answer": "Answer"},
+        status="published",
+        expected_updated_at=row["updated_at"],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(
+            body=body,
+            authorization=authz,
+        ))
+
+    assert exc.value.status_code == 409
+    assert "concurrently" in str(exc.value.detail)
 
 
 def test_admin_exercise_unconfirmed_insert_never_returns_success(monkeypatch):

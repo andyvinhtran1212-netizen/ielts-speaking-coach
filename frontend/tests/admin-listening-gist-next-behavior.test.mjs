@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   addListeningGistKeywords, buildListeningGistOperation, findListeningGistOperationMatch,
   listeningGistHref, listeningGistRollbackHref, MAX_GIST_KEYWORDS,
+  MAX_GIST_PROMPT_LENGTH,
   normalizeListeningGistBlocks, normalizeListeningGistContent, normalizePendingListeningGistSave,
   validateListeningGistDraft,
 } from '../lib/admin-listening-gist-model.mjs';
@@ -66,6 +67,9 @@ describe('Admin Listening Gist canonical model', () => {
     const full = addListeningGistKeywords(Array.from({ length: 10 }, (_, index) => `k${index}`), 'overflow');
     assert.equal(full.keywords.length, 10);
     assert.deepEqual(full.rejected, ['overflow']);
+    const oversized = 'x'.repeat(MAX_GIST_PROMPT_LENGTH + 1);
+    assert.equal(validateListeningGistDraft({ promptText: oversized, modelAnswer: 'Answer', keywords: [] }).ok, false);
+    assert.equal(normalizeListeningGistBlocks({ exercises: [block({ payload: { prompt_text: oversized, model_answer: 'Answer', rubric_keywords: [] } })] }, 'content-1').malformedCount, 0);
   });
 
   test('builds exact update or expected-absent create and reconciles every rubric field', () => {
@@ -118,7 +122,9 @@ describe('native Gist route and persistence contract', () => {
 
   test('uses exact version, durable receipt and canonical GET-only reconciliation', () => {
     assert.match(CLIENT, /buildListeningGistOperation/);
-    assert.match(CLIENT, /window\.api\.post\('\/admin\/listening\/exercises'/);
+    assert.match(CLIENT, /window\.api\.postWith\('\/admin\/listening\/exercises'/);
+    assert.match(CLIENT, /noRedirect: true/);
+    assert.match(CLIENT, /const focusId = useRef\(requestedExerciseId\)/);
     assert.match(CLIENT, /const nextCollection = await readCollection\(\)/);
     assert.match(CLIENT, /findListeningGistOperationMatch/);
     assert.match(CLIENT, /let postAcknowledged = false/);
@@ -133,6 +139,7 @@ describe('native Gist route and persistence contract', () => {
     assert.match(CLIENT, /targetStatus === 'archived'/);
     assert.match(BACKEND, /rubric_keywords must contain at most 10 items/);
     assert.match(BACKEND, /duplicates another keyword/);
+    assert.match(BACKEND, /Only one published/);
   });
 
   test('makes scoring truth and accessible authoring boundaries explicit', () => {
@@ -144,7 +151,7 @@ describe('native Gist route and persistence contract', () => {
     assert.match(CLIENT, /beforeunload/);
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.match(CLIENT, /<fieldset className="alge-status-options">/);
-    assert.doesNotMatch(CLIENT, /alert\(|confirm\(/);
+    assert.doesNotMatch(CLIENT, /\b(?:window\.)?(?:alert|confirm)\s*\(/i);
   });
 
   test('loads token-only responsive CSS and parity verifier', () => {
