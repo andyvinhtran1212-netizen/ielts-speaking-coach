@@ -6,6 +6,7 @@ const BASE = process.argv[2] || 'http://localhost:3012';
 const API = 'http://localhost:8000';
 const USER = '00000000-0000-4000-8000-000000000201';
 const SESSION = '00000000-0000-4000-8000-000000000202';
+const FOREIGN_SESSION = '00000000-0000-4000-8000-000000000207';
 const A = '00000000-0000-4000-8000-000000000203';
 const B = '00000000-0000-4000-8000-000000000204';
 const ATT_A = '00000000-0000-4000-8000-000000000205';
@@ -73,6 +74,9 @@ await context.route('**/*', async (route) => {
       },
       attempts: persistedAttempts,
     });
+  }
+  if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${FOREIGN_SESSION}`) {
+    return json({ detail: 'Session not found' }, 404);
   }
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
@@ -148,6 +152,28 @@ await page.getByRole('heading', { name: 'Kết quả luyện tập' }).waitFor()
 check('revision local-only không tạo attempt/SRS mới', attemptBodies.length === attemptsBeforeReview);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 check('không có pageerror', pageErrors.length === 0, pageErrors.join(' | '));
+
+await page.evaluate(([userId, sessionId]) => {
+  localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
+  localStorage.removeItem('aver:d1:active-session');
+}, [USER, SESSION]);
+await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.getByText('Trees _____ in spring.').waitFor();
+check('URL foreign 404 fallback ngay sang registry account',
+  new URL(page.url()).searchParams.get('session') === SESSION
+  && requests.includes(`GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`));
+
+await page.evaluate(([userId, sessionId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.setItem('aver:d1:active-session', sessionId);
+}, [USER, SESSION]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByText('Trees _____ in spring.').waitFor();
+check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
+  const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
+  return localStorage.getItem('aver:d1:active-session') === null
+    && !!scoped && JSON.parse(scoped).includes(sessionId);
+}, [USER, SESSION]));
 
 await context.close();
 await browser.close();

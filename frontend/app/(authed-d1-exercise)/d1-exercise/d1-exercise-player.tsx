@@ -15,17 +15,18 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 type Phase = 'loading' | 'start' | 'active' | 'completing' | 'summary' | 'empty' | 'rate_limited' | 'disabled' | 'error';
 type Session = any;
 type Summary = any;
+const LEGACY_STORAGE_KEY = 'aver:d1:active-session';
 
 function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught);
 }
 
 function storageKey(userId: string) {
-  return `aver:d1:active-session:${userId}`;
+  return `${LEGACY_STORAGE_KEY}:${userId}`;
 }
 
-function readSessionIds(userId: string) {
-  const raw = localStorage.getItem(storageKey(userId));
+function readSessionIdsFromKey(key: string) {
+  const raw = localStorage.getItem(key);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -38,6 +39,10 @@ function readSessionIds(userId: string) {
   return [raw];
 }
 
+function readSessionIds(userId: string) {
+  return readSessionIdsFromKey(storageKey(userId));
+}
+
 function writeSessionIds(userId: string, ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length) localStorage.setItem(storageKey(userId), JSON.stringify(unique));
@@ -46,6 +51,38 @@ function writeSessionIds(userId: string, ids: string[]) {
 
 function retainSession(userId: string, sessionId: string) {
   writeSessionIds(userId, [...readSessionIds(userId).filter((id) => id !== sessionId), sessionId]);
+}
+
+async function startSessionForAccount(expectedAccount: string) {
+  const sb = window.getSupabase() as any;
+  const { data, error } = await sb.auth.getSession();
+  const authSession = data?.session;
+  if (error || !authSession?.access_token || authSession.user?.id !== expectedAccount) {
+    throw new Error('Tài khoản đã thay đổi trước khi tạo phiên.');
+  }
+  const response = await fetch(`${window.api.base}/api/exercises/d1/sessions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${authSession.access_token}`,
+      'Content-Type': 'application/json',
+      'X-Request-ID': window.crypto?.randomUUID?.() || `d1-start-${Date.now()}`,
+    },
+    body: JSON.stringify({ size: 10 }),
+  });
+  const text = await response.text();
+  let payload: any = null;
+  try { payload = text ? JSON.parse(text) : null; } catch { /* handled below */ }
+  if (!response.ok) {
+    if (response.status === 401) window.location.href = '/login';
+    const detail = payload?.detail || null;
+    const thrown: any = new Error(
+      typeof detail === 'string' ? detail : detail?.message || `HTTP ${response.status}`,
+    );
+    thrown.status = response.status;
+    thrown.detail = detail;
+    throw thrown;
+  }
+  return payload;
 }
 
 function quotaMessage(detail: any) {
@@ -177,18 +214,39 @@ export function D1ExercisePlayer() {
       }
       const queryId = new URL(window.location.href).searchParams.get('session') || '';
       const storedIds = readSessionIds(expectedAccount);
-      const resumeId = queryId || storedIds[storedIds.length - 1] || '';
-      if (!resumeId) {
+      const legacyIds = storedIds.length ? [] : readSessionIdsFromKey(LEGACY_STORAGE_KEY);
+      const candidates = [...new Set([
+        queryId,
+        storedIds[storedIds.length - 1] || '',
+        legacyIds[legacyIds.length - 1] || '',
+      ].filter(Boolean))];
+      if (!candidates.length) {
         setPhase('start');
         return;
       }
       try {
-        const payload = await window.api.get(`/api/exercises/d1/sessions/${encodeURIComponent(resumeId)}`);
-        const resumed = normalizeD1Resume(payload);
-        if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
+        let resumed: Session | null = null;
+        let resumedId = '';
+        for (const candidate of candidates) {
+          try {
+            const payload = await window.api.get(`/api/exercises/d1/sessions/${encodeURIComponent(candidate)}`);
+            resumed = normalizeD1Resume(payload);
+            if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
+            resumedId = candidate;
+            break;
+          } catch (caught: any) {
+            if (caught?.status !== 404) throw caught;
+            clearResume(expectedAccount, candidate);
+          }
+        }
         if (disposed || accountRef.current !== expectedAccount) return;
+        if (!resumed) {
+          setPhase('start');
+          return;
+        }
         setSession(resumed);
         rememberSession(expectedAccount, resumed.sessionId);
+        if (legacyIds.includes(resumedId)) localStorage.removeItem(LEGACY_STORAGE_KEY);
         const next = firstUnansweredIndex(resumed);
         if (resumed.status === 'completed' || next < 0) {
           void complete(resumed, expectedAccount);
@@ -198,13 +256,8 @@ export function D1ExercisePlayer() {
         setPhase('active');
       } catch (caught: any) {
         if (disposed || accountRef.current !== expectedAccount) return;
-        if (caught?.status === 404) {
-          clearResume(expectedAccount, resumeId);
-          setPhase('start');
-        } else {
-          setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
-          setPhase('error');
-        }
+        setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
+        setPhase('error');
       }
     })().catch((caught) => {
       if (!disposed && accountRef.current === expectedAccount) {
@@ -222,7 +275,7 @@ export function D1ExercisePlayer() {
     setBusy(true);
     setMessage('');
     try {
-      const payload = await window.api.post('/api/exercises/d1/sessions', { size: 10 });
+      const payload = await startSessionForAccount(expectedAccount);
       const started = normalizeD1Start(payload);
       if (!started) throw new Error('Máy chủ trả về phiên D1 không đúng định dạng.');
       // The backend may already have committed this session. Preserve its ID
