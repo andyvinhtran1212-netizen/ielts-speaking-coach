@@ -31,6 +31,8 @@ describe('Admin Vocabulary Exercises native ownership', () => {
     assert.match(CLIENT, /normalizeBulkAck/);
     assert.match(CLIENT, /const canonical = await fetchSnapshot\(\)/);
     assert.match(CLIENT, /Không xác định status write đã tới backend hay chưa/);
+    assert.match(CLIENT, /setSnapshot\(EMPTY_SNAPSHOT\); setSelected\(new Set\(\)\)/);
+    assert.match(CLIENT, /if \(!items\.length \|\| loading \|\| busy\) return/);
     assert.doesNotMatch(CLIENT, /\bconfirm\(|\balert\(/);
   });
 
@@ -39,7 +41,7 @@ describe('Admin Vocabulary Exercises native ownership', () => {
     assert.match(CLIENT, /có thể mất gần 120 giây/);
     assert.match(CLIENT, /ack\.status === 'partial'/);
     assert.match(CLIENT, /Đây là write có chi phí/);
-    assert.match(CLIENT, /count > parsedWords\.length/);
+    assert.doesNotMatch(CLIENT, /count > parsedWords\.length/);
     assert.match(CLIENT, /disabled=\{busy \|\| loading\} onClick=\{openGenerate\}/);
   });
 

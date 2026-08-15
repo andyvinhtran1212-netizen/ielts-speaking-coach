@@ -89,7 +89,10 @@ export function AdminVocabExercises() {
       setSnapshot(next); setSelected(new Set());
       return next;
     } catch (caught) {
-      if (requestId === sequence.current && account === accountRef.current) setNotice({ kind: 'error', message: `Không tải được exercise queues: ${messageOf(caught)}` });
+      if (requestId === sequence.current && account === accountRef.current) {
+        setSnapshot(EMPTY_SNAPSHOT); setSelected(new Set());
+        setNotice({ kind: 'error', message: `Không tải được exercise queues: ${messageOf(caught)}` });
+      }
       return null;
     } finally {
       if (requestId === sequence.current && account === accountRef.current) setLoading(false);
@@ -122,7 +125,7 @@ export function AdminVocabExercises() {
   const countLabel = (item: Status) => snapshot[item].length === LIMIT ? `${LIMIT}+` : String(snapshot[item].length);
 
   const chooseStatus = (next: Status) => {
-    if (busy || next === status) return;
+    if (loading || busy || next === status) return;
     setStatus(next); setSelected(new Set()); setNotice(null); setStatusUrl(next);
   };
 
@@ -143,12 +146,12 @@ export function AdminVocabExercises() {
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((row) => row.id)));
 
   const requestAction = (action: Action, items: Exercise[]) => {
-    if (!items.length || busy) return;
+    if (!items.length || loading || busy) return;
     setConfirmError(''); setConfirmState({ action, items });
   };
 
   const runAction = async () => {
-    if (!confirmState || mutationLock.current) return;
+    if (!confirmState || loading || mutationLock.current) return;
     const target = confirmState; const account = profile.id;
     mutationLock.current = true; setBusy(true); setConfirmError(''); setNotice(null);
     let writeAttempted = false; let writeAcked = false;
@@ -179,7 +182,7 @@ export function AdminVocabExercises() {
     } catch (caught) {
       if (account !== accountRef.current) return;
       if (writeAttempted) {
-        setConfirmState(null);
+        setSnapshot(EMPTY_SNAPSHOT); setSelected(new Set()); setConfirmState(null);
         setNotice({ kind: 'error', message: `${writeAcked ? 'Backend đã ACK nhưng canonical queues chưa tải lại được' : 'Không xác định status write đã tới backend hay chưa'}: ${messageOf(caught)} Hãy reload queue; không gửi lại action trước khi kiểm tra.` });
       } else setConfirmError(`Không thể thực hiện action: ${messageOf(caught)}`);
     } finally {
@@ -198,7 +201,6 @@ export function AdminVocabExercises() {
     if (!parsedWords.length) { setGenerateError('Cần ít nhất một target word.'); return; }
     if (parsedWords.length > 100) { setGenerateError('Tối đa 100 target words cho một request.'); return; }
     if (!Number.isInteger(count) || count < 1 || count > 100) { setGenerateError('Số draft phải là số nguyên từ 1 đến 100.'); return; }
-    if (count > parsedWords.length) { setGenerateError(`Số draft không được vượt quá ${parsedWords.length} target words duy nhất.`); return; }
     const account = profile.id; mutationLock.current = true; setBusy(true); setGenerateError(''); setNotice(null);
     let writeAttempted = false; let writeAcked = false;
     try {
@@ -220,7 +222,7 @@ export function AdminVocabExercises() {
     } catch (caught) {
       if (account !== accountRef.current) return;
       if (writeAttempted) {
-        setGenerateOpen(false); setWordsInput('');
+        setSnapshot(EMPTY_SNAPSHOT); setSelected(new Set()); setGenerateOpen(false); setWordsInput('');
         setNotice({ kind: 'error', message: `${writeAcked ? 'Backend đã ACK generation nhưng queue readback chưa hoàn tất' : 'Không xác định Gemini request đã hoàn tất hay chưa'}: ${messageOf(caught)} Đây là write có chi phí; reload Draft và không tự động gửi lại.` });
       } else setGenerateError(`Không thể generate: ${messageOf(caught)}`);
     } finally {
@@ -238,20 +240,20 @@ export function AdminVocabExercises() {
 
     <section className="avv-exercises-board">
       <div className="avv-exercises-tabs" role="tablist" aria-label="Lọc exercise theo trạng thái">
-        {EXERCISE_STATUSES.map((item) => <button id={`avv-exercises-tab-${item}`} key={item} role="tab" aria-selected={status === item} tabIndex={status === item ? 0 : -1} className={status === item ? 'is-active' : ''} type="button" disabled={busy} onClick={() => chooseStatus(item as Status)} onKeyDown={(event) => onTabKeyDown(event, item as Status)}><span>{STATUS_LABELS[item as Status]}</span><b>{countLabel(item as Status)}</b></button>)}
+        {EXERCISE_STATUSES.map((item) => <button id={`avv-exercises-tab-${item}`} key={item} role="tab" aria-selected={status === item} tabIndex={status === item ? 0 : -1} className={status === item ? 'is-active' : ''} type="button" disabled={loading || busy} onClick={() => chooseStatus(item as Status)} onKeyDown={(event) => onTabKeyDown(event, item as Status)}><span>{STATUS_LABELS[item as Status]}</span><b>{countLabel(item as Status)}</b></button>)}
       </div>
 
       <div className="avv-exercises-bulk">
-        <label className="avv-check"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} ref={(node) => { if (node) node.indeterminate = selected.size > 0 && selected.size < rows.length; }} disabled={busy || !rows.length} onChange={toggleAll} />Chọn toàn bộ queue đang hiển thị</label>
+        <label className="avv-check"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} ref={(node) => { if (node) node.indeterminate = selected.size > 0 && selected.size < rows.length; }} disabled={loading || busy || !rows.length} onChange={toggleAll} />Chọn toàn bộ queue đang hiển thị</label>
         <span>{selected.size ? `${selected.size} exercise đã chọn` : 'Chưa chọn exercise'}</span>
-        <div><button className="btn-secondary" type="button" disabled={busy || !selectedRows.length} onClick={() => requestAction('publish', selectedRows)}>Publish ({selectedRows.length})</button><button className="btn-danger" type="button" disabled={busy || !selectedRows.length} onClick={() => requestAction('reject', selectedRows)}>Reject ({selectedRows.length})</button></div>
+        <div><button className="btn-secondary" type="button" disabled={loading || busy || !selectedRows.length} onClick={() => requestAction('publish', selectedRows)}>Publish ({selectedRows.length})</button><button className="btn-danger" type="button" disabled={loading || busy || !selectedRows.length} onClick={() => requestAction('reject', selectedRows)}>Reject ({selectedRows.length})</button></div>
       </div>
 
       <p className="avv-exercises-cap">Mỗi queue hiển thị tối đa {LIMIT} exercise mới nhất; “{LIMIT}+” nghĩa là có thể còn dữ liệu ngoài cửa sổ API hiện tại.</p>
-      {loading ? <div className="avv-state">Đang tải đồng thời ba queue chuẩn…</div> : rows.length === 0 ? <div className="avv-state">Không có exercise trong queue {STATUS_LABELS[status]}.</div> : <div className="avv-table-wrap"><table className="avv-table avv-exercises-table"><thead><tr><th><span className="sr-only">Chọn</span></th><th>Câu hỏi</th><th>Đáp án</th><th>Review</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td data-label="Chọn"><input aria-label={`Chọn exercise ${row.id}`} type="checkbox" checked={selected.has(row.id)} disabled={busy} onChange={() => toggleRow(row.id)} /></td><td data-label="Câu hỏi"><strong>{row.sentence || '(thiếu sentence)'}</strong><small>{row.id}</small>{!row.payloadComplete ? <span className="avv-chip is-warning">payload chưa đầy đủ</span> : null}</td><td data-label="Đáp án"><strong>{row.answer || '(thiếu answer/word)'}</strong><small>{row.distractors.length ? `Distractors: ${row.distractors.join(', ')}` : 'Thiếu distractors'}</small></td><td data-label="Review"><span className={`avv-chip is-${row.status === 'published' ? 'teal' : row.status === 'rejected' ? 'warning' : 'muted'}`}>{row.status}</span><small>{row.reviewedAt ? `Review ${formatDate(row.reviewedAt)}` : `Tạo ${formatDate(row.createdAt)}`}</small></td><td className="avv-row-actions">{row.status === 'published' ? <button className="btn-secondary" type="button" disabled={busy} onClick={() => requestAction('unpublish', [row])}>Unpublish</button> : <><button className="btn-secondary" type="button" disabled={busy} onClick={() => requestAction('publish', [row])}>Publish</button>{row.status === 'draft' ? <button className="btn-danger" type="button" disabled={busy} onClick={() => requestAction('reject', [row])}>Reject</button> : null}</>}</td></tr>)}</tbody></table></div>}
+      {loading ? <div className="avv-state">Đang tải đồng thời ba queue chuẩn…</div> : rows.length === 0 ? <div className="avv-state">Không có exercise trong queue {STATUS_LABELS[status]}.</div> : <div className="avv-table-wrap"><table className="avv-table avv-exercises-table"><thead><tr><th><span className="sr-only">Chọn</span></th><th>Câu hỏi</th><th>Đáp án</th><th>Review</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td data-label="Chọn"><input aria-label={`Chọn exercise ${row.id}`} type="checkbox" checked={selected.has(row.id)} disabled={loading || busy} onChange={() => toggleRow(row.id)} /></td><td data-label="Câu hỏi"><strong>{row.sentence || '(thiếu sentence)'}</strong><small>{row.id}</small>{!row.payloadComplete ? <span className="avv-chip is-warning">payload chưa đầy đủ</span> : null}</td><td data-label="Đáp án"><strong>{row.answer || '(thiếu answer/word)'}</strong><small>{row.distractors.length ? `Distractors: ${row.distractors.join(', ')}` : 'Thiếu distractors'}</small></td><td data-label="Review"><span className={`avv-chip is-${row.status === 'published' ? 'teal' : row.status === 'rejected' ? 'warning' : 'muted'}`}>{row.status}</span><small>{row.reviewedAt ? `Review ${formatDate(row.reviewedAt)}` : `Tạo ${formatDate(row.createdAt)}`}</small></td><td className="avv-row-actions">{row.status === 'published' ? <button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => requestAction('unpublish', [row])}>Unpublish</button> : <><button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => requestAction('publish', [row])}>Publish</button>{row.status === 'draft' ? <button className="btn-danger" type="button" disabled={loading || busy} onClick={() => requestAction('reject', [row])}>Reject</button> : null}</>}</td></tr>)}</tbody></table></div>}
     </section>
 
-    {confirmState ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="avv-exercises-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setConfirmState(null); }}><div className="av-modal avv-dialog-card"><p className="avv-eyebrow">Canonical status write</p><h2 id="avv-exercises-confirm-title" className="av-modal-title">{ACTION_LABELS[confirmState.action]} {confirmState.items.length} exercise?</h2><p>Backend sẽ chuyển selection sang <strong>{targetStatus(confirmState.action)}</strong>. Sau ACK, cả ba queue sẽ được tải lại trước khi báo hoàn tất.</p><div className="avv-confirm-list">{confirmState.items.slice(0, 8).map((item) => <span key={item.id}>{item.answer || item.id}</span>)}{confirmState.items.length > 8 ? <span>+{confirmState.items.length - 8} exercise khác</span> : null}</div>{confirmError ? <p className="avv-banner is-error" role="alert">{confirmError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => { setConfirmState(null); setConfirmError(''); }}>Hủy</button><button className={confirmState.action === 'reject' ? 'btn-danger' : 'btn-primary'} type="button" disabled={busy} onClick={() => void runAction()}>{busy ? 'Đang xác minh…' : 'Xác nhận'}</button></div></div></div> : null}
+    {confirmState ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="avv-exercises-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !loading && !busy) setConfirmState(null); }}><div className="av-modal avv-dialog-card"><p className="avv-eyebrow">Canonical status write</p><h2 id="avv-exercises-confirm-title" className="av-modal-title">{ACTION_LABELS[confirmState.action]} {confirmState.items.length} exercise?</h2><p>Backend sẽ chuyển selection sang <strong>{targetStatus(confirmState.action)}</strong>. Sau ACK, cả ba queue sẽ được tải lại trước khi báo hoàn tất.</p><div className="avv-confirm-list">{confirmState.items.slice(0, 8).map((item) => <span key={item.id}>{item.answer || item.id}</span>)}{confirmState.items.length > 8 ? <span>+{confirmState.items.length - 8} exercise khác</span> : null}</div>{confirmError ? <p className="avv-banner is-error" role="alert">{confirmError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => { setConfirmState(null); setConfirmError(''); }}>Hủy</button><button className={confirmState.action === 'reject' ? 'btn-danger' : 'btn-primary'} type="button" disabled={loading || busy} onClick={() => void runAction()}>{busy ? 'Đang xác minh…' : 'Xác nhận'}</button></div></div></div> : null}
 
     {generateOpen ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="avv-exercises-generate-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setGenerateOpen(false); }}><div className="av-modal avv-dialog-card avv-exercises-generate"><p className="avv-eyebrow">Gemini · synchronous chunks</p><h2 id="avv-exercises-generate-title" className="av-modal-title">Generate D1 drafts</h2><p>Request chạy đồng bộ theo chunk 10 từ và có thể mất gần 120 giây. Giữ tab mở; hệ thống có thể trả về kết quả <strong>partial</strong>. Không tự động retry vì đây là thao tác có chi phí.</p><label>Target words<textarea value={wordsInput} disabled={busy} placeholder="mitigate, sustainable, leverage" onChange={(event) => setWordsInput(event.target.value)} /></label><div className="avv-exercises-generate-meta"><label>Số draft<input type="number" min="1" max="100" value={generateCount} disabled={busy} onChange={(event) => setGenerateCount(event.target.value)} /></label><div><span>Target duy nhất</span><strong>{parsedWords.length}</strong></div><div><span>Chi phí ước tính</span><strong>${(Math.max(0, Number(generateCount) || 0) * 0.0005).toFixed(4)}</strong></div></div>{busy ? <p className="avv-banner is-warning" role="status">Gemini đang tạo và ghi từng chunk. Không đóng tab hoặc gửi lại request.</p> : null}{generateError ? <p className="avv-banner is-error" role="alert">{generateError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => { setGenerateOpen(false); setGenerateError(''); }}>Hủy</button><button className="btn-primary" type="button" disabled={busy} onClick={() => void runGenerate()}>{busy ? 'Đang chờ Gemini…' : 'Generate và chờ kết quả'}</button></div></div></div> : null}
   </main>;

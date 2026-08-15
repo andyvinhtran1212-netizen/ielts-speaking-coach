@@ -23,6 +23,7 @@ const exercisePublishedId = '00000000-0000-4000-8000-000000000422';
 const exerciseGeneratedId = '00000000-0000-4000-8000-000000000423';
 const exerciseGeneratedId2 = '00000000-0000-4000-8000-000000000424';
 const exerciseJobId = '00000000-0000-4000-8000-000000000425';
+const exerciseGeneratedId3 = '00000000-0000-4000-8000-000000000426';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -64,6 +65,8 @@ let partialNextContentBulk = false;
 let exerciseReads = 0;
 let exerciseWritePending = false;
 let exerciseGeneratePending = false;
+let delayedExerciseReads = 0;
+let failNextExerciseRead = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -163,6 +166,8 @@ await page.route('**/*', async (route) => {
   if (method === 'GET' && parsed.pathname === '/admin/exercises') {
     exerciseReads += 1;
     const requested = parsed.searchParams.get('status');
+    if (delayedExerciseReads > 0) { delayedExerciseReads -= 1; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    if (failNextExerciseRead && requested === 'draft') { failNextExerciseRead = false; return json({ detail: 'queue unavailable' }, 503); }
     return json(parsed.searchParams.get('exercise_type') === 'D1' && requested in exerciseRows ? exerciseRows[requested] : []);
   }
   if (expectedExerciseTransition) {
@@ -199,13 +204,17 @@ await page.route('**/*', async (route) => {
   if (expectedExerciseGenerate) {
     exerciseGeneratePending = true;
     await new Promise((resolve) => setTimeout(resolve, 180));
-    exerciseRows.draft = [
-      { id: exerciseGeneratedId, exercise_type: 'D1', status: 'draft', content_payload: { sentence: 'We can ___ quickly.', answer: 'adapt', distractors: ['stop', 'sleep', 'wait'] }, created_at: '2026-08-15T04:00:00Z', reviewed_at: null },
-      { id: exerciseGeneratedId2, exercise_type: 'D1', status: 'draft', content_payload: { sentence: 'Good teams ___.', answer: 'thrive', distractors: ['fade', 'sink', 'stall'] }, created_at: '2026-08-15T04:00:00Z', reviewed_at: null },
-      ...exerciseRows.draft,
-    ];
+    const words = Array.isArray(body?.words) ? body.words : [];
+    const count = Number.isInteger(body?.count) ? body.count : 0;
+    const generatedIds = [exerciseGeneratedId, exerciseGeneratedId2, exerciseGeneratedId3];
+    const generated = words.slice(0, Math.min(count, words.length)).map((word, index) => ({
+      id: generatedIds[index], exercise_type: 'D1', status: 'draft',
+      content_payload: { sentence: `${word} belongs in ___.`, answer: word, distractors: ['stop', 'sleep', 'wait'] },
+      created_at: '2026-08-15T04:00:00Z', reviewed_at: null,
+    }));
+    exerciseRows.draft = [...generated, ...exerciseRows.draft];
     exerciseGeneratePending = false;
-    return json({ job_id: exerciseJobId, status: 'completed', inserted_count: 2, requested_count: 2, word_count: 2, total_chunks: 1, successful_chunks: 1, failed_chunks: 0, estimated_cost_usd: 0.001, message: '2 draft(s) inserted across 1 chunk(s).' }, 202);
+    return json({ job_id: exerciseJobId, status: 'completed', inserted_count: generated.length, requested_count: count, word_count: words.length, total_chunks: 1, successful_chunks: 1, failed_chunks: 0, estimated_cost_usd: generated.length * 0.0005, message: `${generated.length} draft(s) inserted across 1 chunk(s).` }, 202);
   }
   if (method === 'POST' && parsed.pathname === '/admin/vocabulary/import') {
     const dryRun = parsed.searchParams.get('dry_run') === 'true';
@@ -727,6 +736,21 @@ check('Exercises canonicalize status sai và đọc đủ ba queue', new URL(pag
 check('Exercises escape prompt/answer độc hại', await page.locator('.avv-exercises-console script, .avv-exercises-console img').count() === 0 && await page.getByText('mitigate<script>', { exact: true }).count() === 1);
 check('Exercises counts phản ánh ba canonical queues', await page.getByRole('tab', { name: /Draft/ }).getByText('1', { exact: true }).count() === 1 && await page.getByRole('tab', { name: /Published/ }).getByText('1', { exact: true }).count() === 1);
 
+await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
+delayedExerciseReads = 3;
+await page.getByRole('button', { name: '↻ Làm mới' }).click();
+await page.waitForTimeout(40);
+check('Exercises khoá moderation trong lúc refresh canonical đang chờ', await page.getByRole('button', { name: 'Publish (1)' }).isDisabled() && requests.filter((item) => item.method === 'PATCH' && item.path.includes('/admin/exercises/')).length === 0);
+await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
+
+await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
+failNextExerciseRead = true;
+await page.getByRole('button', { name: '↻ Làm mới' }).click();
+await page.getByText(/Không tải được exercise queues/).waitFor();
+check('Exercises xoá rows và selection cũ khi canonical refresh lỗi', await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Publish (0)' }).isDisabled());
+await page.getByRole('button', { name: '↻ Làm mới' }).click();
+await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
+
 await page.getByRole('button', { name: 'Publish', exact: true }).click();
 const publishDialog = page.getByRole('dialog', { name: 'Publish 1 exercise?' });
 await publishDialog.getByRole('button', { name: 'Xác nhận' }).click();
@@ -748,16 +772,15 @@ check('Exercises bulk ACK phủ đúng selection và canonical queues', requests
 
 await page.getByRole('button', { name: '+ Generate batch' }).click();
 const generateDialog = page.getByRole('dialog', { name: 'Generate D1 drafts' });
-await generateDialog.getByLabel('Target words').fill('adapt, thrive');
-await generateDialog.getByLabel('Số draft').fill('2');
+await generateDialog.getByLabel('Target words').fill('adapt, thrive, persist');
 check('Exercises generation nói đúng synchronous/paid contract', await generateDialog.getByText(/có thể mất gần 120 giây/).count() === 1 && await generateDialog.getByText(/Không tự động retry/).count() === 1);
 await generateDialog.getByRole('button', { name: 'Generate và chờ kết quả' }).click();
 await page.waitForTimeout(40);
 check('Exercises generation khoá request trong lúc chờ Gemini', exerciseGeneratePending && await generateDialog.getByRole('button', { name: 'Đang chờ Gemini…' }).isDisabled());
-await page.getByText(/2 draft\(s\) inserted across 1 chunk\(s\)/).waitFor();
-check('Exercises generation body/summary và ba-queue readback đúng', requests.some((item) => item.method === 'POST' && item.path === '/admin/exercises/d1/generate-batch' && item.body?.count === 2 && item.body?.words?.join(',') === 'adapt,thrive') && exerciseRows.draft.length === 2 && exerciseReads >= 12);
+await page.getByText(/3 draft\(s\) inserted across 1 chunk\(s\)/).waitFor();
+check('Exercises cho batch ba từ dùng count mặc định và canonical readback đúng', requests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/d1/generate-batch' && item.body?.count === 10 && item.body?.words?.join(',') === 'adapt,thrive,persist').length === 1 && exerciseRows.draft.length === 3 && exerciseReads >= 18);
 await page.getByRole('tab', { name: /Draft/ }).click();
-await page.getByText('Good teams ___.', { exact: true }).waitFor();
+await page.getByText('thrive belongs in ___.', { exact: true }).waitFor();
 await page.getByRole('tab', { name: /Draft/ }).press('ArrowRight');
 check('Exercises tabs hỗ trợ bàn phím và giữ URL canonical', new URL(page.url()).searchParams.get('status') === 'published' && await page.getByRole('tab', { name: /Published/ }).getAttribute('aria-selected') === 'true');
 check('Exercises mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
