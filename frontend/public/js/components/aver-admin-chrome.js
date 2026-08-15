@@ -478,7 +478,7 @@ const NAV_GROUPS = [
           { slug: 'stats',         label: 'Stats',           href: '/admin/vocab/stats' },
           { slug: 'd1-curation',   label: 'D1 Curation',     href: '/admin/vocab/d1-curation' },
           { slug: 'lemmas',        label: 'Lemma Overrides', href: '/admin/vocab/lemmas' },
-          { slug: 'exercises',     label: 'D1 Exercises',    href: '/pages/admin/vocab/exercises.html' },
+          { slug: 'exercises',     label: 'D1 Exercises',    href: '/admin/vocab/exercises' },
         ],
       },
       // Native hub owns the clean route; child tools remain legacy until their
