@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 
 import { getVocabularyArticle, getVocabularyCategories } from '@/lib/vocabulary-api';
@@ -17,6 +18,11 @@ function queryText(value: string | string[] | undefined) {
 }
 
 async function VocabularyBody({ searchParams }: { searchParams: SearchParams }) {
+  // The generic build/ownership job intentionally has no backend configured.
+  // Keep the static shell + Suspense fallback prerenderable, but defer the
+  // canonical category read to a real request instead of making `next build`
+  // depend on localhost:8000 (or on production network availability).
+  await connection();
   const [params, categoriesPayload] = await Promise.all([searchParams, getVocabularyCategories()]);
   const categories = normalizeVocabularyCategories(categoriesPayload) as any[];
   const words = categories.flatMap((category) => category.articles);

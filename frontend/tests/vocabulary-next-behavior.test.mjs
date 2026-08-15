@@ -15,6 +15,8 @@ const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 describe('/vocabulary native public wiki', () => {
   test('route is public PPR and loads canonical server data', () => {
     assert.match(PAGE, /<Suspense fallback={<VocabularySkeleton \/>}>/);
+    assert.match(PAGE, /import \{ connection \} from 'next\/server'/);
+    assert.match(PAGE, /await connection\(\);/);
     assert.match(PAGE, /getVocabularyCategories\(\)/);
     assert.match(PAGE, /getVocabularyArticle\(selected\.category, selected\.slug\)/);
     assert.match(API, /getPublicJson\('\/api\/vocabulary\/categories'\)/);
