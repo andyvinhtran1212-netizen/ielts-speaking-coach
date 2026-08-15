@@ -25,7 +25,7 @@ function __averOnReady(fn) {
  *
  * Browse published L1 passages (GET /api/reading/vocab), render cards,
  * filter by difficulty / topic tag, deep-link to the passage page
- * (/pages/reading-vocab-passage.html?slug=...). Mirrors listening-browse.js.
+ * (/reading/vocab/{slug}). The direct HTML detail remains the rollback route.
  */
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -142,7 +142,7 @@ function render() {
   STATE.items.forEach((p) => {
     const a = document.createElement('a');
     a.className = 'rv-card';
-    a.href = `/pages/reading-vocab-passage.html?slug=${encodeURIComponent(p.slug)}`;
+    a.href = `/reading/vocab/${encodeURIComponent(p.slug)}`;
     const title = p.title || 'Bài đọc';
     a.setAttribute('aria-label', `Đọc bài ${title}`);
     const difficulty = DIFFICULTY_LABEL[p.difficulty_level] || p.difficulty_level || 'Mọi trình độ';

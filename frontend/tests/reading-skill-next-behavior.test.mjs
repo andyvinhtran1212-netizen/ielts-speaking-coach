@@ -70,7 +70,8 @@ describe('/reading/skill — native React behavior', () => {
   test('preserves pill order and the skill exercise destination', () => {
     assert.match(BEHAVIOR, /exercise\.skillLabel[\s\S]*\{difficulty \?[\s\S]*exercise\.topic/);
     assert.match(BEHAVIOR, /exercise\.estimatedMinutes[\s\S]*PHÚT/);
-    assert.match(BEHAVIOR, /\/pages\/reading-skill-exercise\.html\?slug=/);
+    assert.match(BEHAVIOR, /\/reading\/skill\/\$\{encodeURIComponent\(exercise\.slug\)\}/);
+    assert.doesNotMatch(BEHAVIOR, /\/pages\/reading-skill-exercise\.html\?slug=/);
     assert.match(BEHAVIOR, /className="rv-card__top"/);
     assert.match(BEHAVIOR, /className="rv-card__footer"/);
     assert.match(BEHAVIOR, /className="rv-card__cta"/);

@@ -1085,6 +1085,19 @@ None found that require a schema or grading rewrite.
   available reading panes, inspect glossary and image lightbox, check every
   supported question type plus feedback flag, and verify independent desktop
   pane scrolling versus normal mobile document flow in light and dark themes.
+
+### Native migration update — 2026-08-15
+
+- `/reading/vocab/[slug]` and `/reading/skill/[slug]` now share one native React
+  workspace. The implementation keeps the canonical GET/check contracts and
+  rollback HTML, rejects malformed or answer-bearing detail payloads, and only
+  locks a question after a valid server grading result.
+- The design-system audit changed the legacy tabs into a labelled tablist with
+  roving keyboard focus, kept the compact orientation header and independent
+  desktop panes, and added focus-contained glossary/image dialogs. The active
+  library cards now link directly to the native routes.
+- Verification is pinned by model/route tests, a fixture-backed browser flow,
+  the production Next build, and authenticated Legacy↔Next parity pairs.
 ## Admin Speaking Topics — 2026-08-13
 
 ### Summary

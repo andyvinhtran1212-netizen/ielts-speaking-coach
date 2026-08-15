@@ -73,7 +73,7 @@ describe('Sprint 20.3 — L2 library JS (reading-skill.js)', () => {
     assert.match(js, /qs\.set\('skill'/);
   });
   test('deep-links to the exercise page by slug', () => {
-    assert.match(js, /reading-skill-exercise\.html\?slug=/);
+    assert.match(js, /\/reading\/skill\/\$\{encodeURIComponent\(p\.slug\)\}/);
   });
   test('emphasises the skill_focus pill (brand-coloured)', () => {
     assert.match(js, /skill_focus/);

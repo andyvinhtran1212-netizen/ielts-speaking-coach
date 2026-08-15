@@ -32,10 +32,24 @@
     "allow": []
   },
   {
+    "name": "reading-vocab-detail",
+    "legacy": "/pages/reading-vocab-passage.html?slug=the-future-of-libraries",
+    "next": "/reading/vocab/the-future-of-libraries",
+    "allow": [],
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L1 orientation header, sanitized article, panes and instant-check rail; the fixture-backed detail verifier covers mutations, malformed payloads, keyboard dialogs and all four control types."
+  },
+  {
     "name": "reading-skill",
     "legacy": "/pages/reading-skill.html",
     "next": "/reading/skill",
     "allow": []
+  },
+  {
+    "name": "reading-skill-detail",
+    "legacy": "/pages/reading-skill-exercise.html?slug=completion-how-a-battery-works",
+    "next": "/reading/skill/completion-how-a-battery-works",
+    "allow": [],
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L2 skill-focus workspace; the fixture-backed detail verifier owns grading and interaction evidence."
   },
   {
     "name": "reading-test",

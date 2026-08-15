@@ -758,7 +758,8 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
-  const paired = new Set(pairs.map((x) => path.basename(x.legacy, '.html')));
+  const paired = new Set(pairs.map((x) => path.basename(
+    new URL(x.legacy, 'https://parity.invalid').pathname, '.html')));
   const documented = readFileSync(
     path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
 
@@ -834,8 +835,9 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
   const loadedLocalDependencies = new Set();
   for (const pair of pairs) {
+    const legacyPathname = new URL(pair.legacy, 'https://parity.invalid').pathname;
     const legacyPage = readFileSync(
-      path.join(ROOT, 'frontend/public', pair.legacy.replace(/^\//, '')),
+      path.join(ROOT, 'frontend/public', legacyPathname.replace(/^\//, '')),
       'utf8',
     );
     const assetUrls = [];
@@ -850,7 +852,7 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     }
     for (const raw of assetUrls) {
       if (/^(?:https?:)?\/\//.test(raw) || /^(?:data|blob|mailto):/.test(raw)) continue;
-      const pathname = new URL(raw, `https://parity.invalid${pair.legacy}`).pathname;
+      const pathname = new URL(raw, `https://parity.invalid${legacyPathname}`).pathname;
       const dependency = `frontend/public${pathname}`;
       if (existsSync(path.join(ROOT, dependency))) loadedLocalDependencies.add(dependency);
     }
