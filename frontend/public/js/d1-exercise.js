@@ -4,7 +4,7 @@
  * Flow:
  *   /auth/me  → flag check
  *   start screen → POST /api/exercises/d1/sessions → render queue
- *   click option → LOCAL grade (instant) → fire-and-forget POST /attempt
+ *   click option → LOCAL grade (instant) → persist /attempt → unlock Next
  *   end of queue → POST /sessions/{id}/complete → summary screen
  *   summary → [Phiên mới] / [Ôn lại câu sai] / [Về hub]
  *
@@ -20,8 +20,10 @@
   // per-page fallback duplication. d1-exercise.html loads api.js before this
   // script, so window.api is always defined here.
   const BASE = window.api.base;
+  const ACTIVE_SESSION_KEY = 'aver:d1:active-session';
 
   let _token = null;
+  let _userId = null;
   /** @typedef {{
    *   id: string,
    *   exercises: Array<{id: string, sentence: string, options: string[], answer: string}>,
@@ -32,6 +34,53 @@
    * }}
    */
   let _session = null;
+  let _lastAttemptRateLimit = null;
+
+  function activeSessionKey() {
+    return _userId ? `${ACTIVE_SESSION_KEY}:${_userId}` : '';
+  }
+
+  function readActiveSessionIds(key = activeSessionKey()) {
+    const raw = key ? window.localStorage?.getItem(key) : null;
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [...new Set(parsed.filter(id => typeof id === 'string' && id))];
+      }
+    } catch (_) {
+      // Backward compatibility with the pre-registry singleton value.
+    }
+    return [raw];
+  }
+
+  function writeActiveSessionIds(ids) {
+    const key = activeSessionKey();
+    if (!key) return;
+    const unique = [...new Set(ids.filter(id => typeof id === 'string' && id))];
+    if (unique.length) window.localStorage?.setItem(key, JSON.stringify(unique));
+    else window.localStorage?.removeItem(key);
+  }
+
+  function sessionIdFromUrl() {
+    return new URL(window.location.href).searchParams.get('session') || '';
+  }
+
+  function rememberActiveSession(sessionId) {
+    writeActiveSessionIds([...readActiveSessionIds().filter(id => id !== sessionId), sessionId]);
+    const url = new URL(window.location.href);
+    url.searchParams.set('session', sessionId);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function forgetActiveSession(sessionId) {
+    writeActiveSessionIds(readActiveSessionIds().filter(id => id !== sessionId));
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('session') === sessionId) {
+      url.searchParams.delete('session');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
 
   // ── Container helpers ─────────────────────────────────────────────────────
 
@@ -75,12 +124,87 @@
       if (!meRes.ok) { _showState('disabled'); return; }
       const me = await meRes.json();
       if (me.d1_enabled !== true) { _showState('disabled'); return; }
+      if (typeof me.id !== 'string' || !me.id) {
+        _showState('error', 'Không xác định được tài khoản đang đăng nhập.');
+        return;
+      }
+      _userId = me.id;
     } catch (_) {
       _showState('disabled');
       return;
     }
 
+    if (await resumeStoredSession()) return;
     renderStartScreen();
+  }
+
+  async function resumeStoredSession() {
+    const storedIds = readActiveSessionIds();
+    // A pre-namespace singleton is only a candidate. Never delete it on 404:
+    // it may belong to another account that used this browser. Claim/remove
+    // it only after the user-scoped endpoint proves ownership.
+    const legacyIds = storedIds.length ? [] : readActiveSessionIds(ACTIVE_SESSION_KEY);
+    const candidates = storedIds.length ? storedIds : legacyIds;
+    const sessionId = sessionIdFromUrl() || candidates[candidates.length - 1];
+    if (!sessionId) return false;
+    try {
+      const res = await fetch(`${BASE}/api/exercises/d1/sessions/${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${_token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          forgetActiveSession(sessionId);
+          return false;
+        }
+        _showState('error', 'Chưa thể khôi phục phiên đang làm. Hãy thử tải lại trang.');
+        return true;
+      }
+      const data = await res.json();
+      const session = data.session || {};
+      const exercises = Array.isArray(session.exercise_snapshot)
+        ? session.exercise_snapshot : [];
+      if (!['active', 'completed'].includes(session.status) || exercises.length === 0) {
+        _showState('error', 'Dữ liệu phiên đang làm không hợp lệ. Hãy tải lại hoặc liên hệ hỗ trợ.');
+        return true;
+      }
+      const attemptsById = new Map(
+        (Array.isArray(data.attempts) ? data.attempts : [])
+          .map(attempt => [attempt.exercise_id, attempt]),
+      );
+      const attempts = exercises
+        .filter(exercise => attemptsById.has(exercise.id))
+        .map(exercise => {
+          const attempt = attemptsById.get(exercise.id);
+          return {
+            exercise_id: exercise.id,
+            user_answer: attempt.user_answer,
+            is_correct: Boolean(attempt.is_correct),
+            correct_answer: exercise.answer,
+            sentence: exercise.sentence,
+          };
+        });
+      _session = {
+        id: session.id,
+        exercises,
+        current_index: Math.min(attempts.length, exercises.length),
+        attempts,
+        is_review: false,
+      };
+      rememberActiveSession(_session.id);
+      if (legacyIds.includes(_session.id)) {
+        window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+      }
+      if (session.status === 'completed' || attempts.length >= exercises.length) {
+        await showSummary();
+        return true;
+      }
+      renderCurrentExercise();
+      return true;
+    } catch (err) {
+      console.warn('[d1] active-session resume failed:', err);
+      _showState('error', 'Chưa thể khôi phục phiên đang làm. Hãy thử tải lại trang.');
+      return true;
+    }
   }
 
   // ── Screens ───────────────────────────────────────────────────────────────
@@ -120,6 +244,12 @@
       _showState('empty', 'Hiện chưa có bài tập nào được phát hành. Quay lại sau nhé.');
       return;
     }
+    if (res.status === 429) {
+      let detail = null;
+      try { detail = (await res.json()).detail; } catch (_) {}
+      _showState('rate_limited', formatQuotaMessage(detail));
+      return;
+    }
     if (!res.ok) { _showState('error'); return; }
 
     try {
@@ -136,17 +266,9 @@
       exercises:        data.exercises,    // each item carries `answer` for local grading
       current_index:    0,
       attempts:         [],
-      // Number of /attempt POSTs that failed to persist server-side.  When
-      // > 0, showSummary() trusts the local count instead of /complete (whose
-      // summary only sees attempts that DID land in the DB) — otherwise a
-      // network blip would silently undercount the user's score.
-      failed_attempts:  0,
-      // Whether any in-flight /attempt POSTs are still pending. showSummary
-      // waits briefly for them so a fast clicker doesn't trigger /complete
-      // before the last attempts have written.
-      pending_attempts: 0,
       is_review:        false,
     };
+    rememberActiveSession(_session.id);
 
     renderCurrentExercise();
   }
@@ -232,7 +354,7 @@
       fb.classList.add('wrong');
       fb.innerHTML = `✗ Đáp án đúng: <strong>${esc(ex.answer)}</strong>`;
     }
-    document.getElementById('next-btn').classList.remove('hidden');
+    const nextBtn = document.getElementById('next-btn');
 
     // Track locally for the summary screen and for review-wrong.
     _session.attempts.push({
@@ -243,10 +365,9 @@
       sentence:       ex.sentence,
     });
 
-    // Fire-and-forget POST so the backend can log + grade + rate-limit.
-    // We don't await — the local feedback already rendered. Review sessions
-    // (post-summary) skip this so a re-do doesn't pollute analytics or burn
-    // the daily quota a second time.
+    // Review sessions are local-only, so they can advance immediately. A real
+    // session must receive a canonical persistence ACK before Next unlocks;
+    // otherwise /complete could race the final attempt or silently omit it.
     //
     // Sprint 10.3 — the response now carries {srs_updated, srs_rating}
     // when this attempt fed the SRS schedule (first-attempt-only,
@@ -254,12 +375,63 @@
     // acknowledgement below the feedback box so the user knows the
     // signal landed without showing raw SRS internals.
     if (!_session.is_review && _session.id) {
-      _session.pending_attempts += 1;
-      postAttemptWithRetry(ex.id, choice, _session.id)
-        .then(data => { if (data) renderSrsIndicator(data); })
-        .finally(() => {
-          _session.pending_attempts -= 1;
-        });
+      const clientAttemptId = newClientAttemptId();
+      persistAnswerBeforeAdvance(ex.id, choice, _session.id, clientAttemptId, nextBtn);
+    } else {
+      nextBtn.classList.remove('hidden');
+    }
+  }
+
+  async function persistAnswerBeforeAdvance(
+    exerciseId, choice, sessionId, clientAttemptId, nextBtn,
+  ) {
+    const fb = document.getElementById('feedback');
+    let status = fb?.querySelector('.d1-save-status');
+    if (!status && fb) {
+      status = document.createElement('div');
+      status.className = 'd1-save-status';
+      fb.appendChild(status);
+    }
+
+    nextBtn.disabled = true;
+    nextBtn.classList.add('hidden');
+    if (status) status.textContent = 'Đang lưu bài…';
+
+    const data = await postAttemptWithRetry(
+      exerciseId, choice, sessionId, clientAttemptId,
+    );
+
+    if (data) {
+      if (status) status.textContent = '✓ Đã lưu bài';
+      renderSrsIndicator(data);
+      nextBtn.disabled = false;
+      nextBtn.classList.remove('hidden');
+      return;
+    }
+
+    if (!status) return;
+    if (_lastAttemptRateLimit) {
+      status.innerHTML = `${esc(formatQuotaMessage(_lastAttemptRateLimit))} `
+        + '<button type="button" class="btn-link d1-save-retry">Thử lại</button> '
+        + '<a class="btn-link" href="/exercises">Rời phiên</a>';
+      const retry = status.querySelector('.d1-save-retry');
+      if (retry) {
+        retry.onclick = () => persistAnswerBeforeAdvance(
+          exerciseId, choice, sessionId, clientAttemptId, nextBtn,
+        );
+      }
+      return;
+    }
+    status.innerHTML = 'Chưa lưu được bài. '
+      + '<button type="button" class="btn-link d1-save-retry">Thử lưu lại</button>';
+    const retry = status.querySelector('.d1-save-retry');
+    if (retry) {
+      retry.onclick = () => {
+        retry.disabled = true;
+        persistAnswerBeforeAdvance(
+          exerciseId, choice, sessionId, clientAttemptId, nextBtn,
+        );
+      };
     }
   }
 
@@ -297,9 +469,10 @@
 
   // One retry with a 500ms backoff covers the common transient-flake case
   // (DNS hiccup, reused-connection RST) without making the user wait long.
-  // Any non-2xx OR network error after the retry counts as a failure so
-  // showSummary() can fall back to the local count.
-  async function postAttemptWithRetry(exerciseId, choice, sessionId) {
+  // Any non-2xx OR network error after the retry returns null. The caller keeps
+  // Next locked and offers a manual retry with the same idempotency key.
+  async function postAttemptWithRetry(exerciseId, choice, sessionId, clientAttemptId) {
+    _lastAttemptRateLimit = null;
     const url = `${BASE}/api/exercises/d1/${exerciseId}/attempt`;
     const init = {
       method: 'POST',
@@ -307,17 +480,25 @@
         'Authorization': `Bearer ${_token}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({ user_answer: choice, session_id: sessionId }),
+      body: JSON.stringify({
+        user_answer: choice,
+        session_id: sessionId,
+        client_attempt_id: clientAttemptId,
+      }),
     };
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(url, init);
         // 429 (rate-limit) is NOT a transient flake — don't retry, but DO
-        // count it as a failure so the summary stays local-truthful.
+        // keep the learner on this item because no canonical row was written.
         if (res.status === 429) {
-          _session.failed_attempts += 1;
-          console.warn('[d1] attempt rate-limited (counted as sync failure)');
+          console.warn('[d1] attempt rate-limited (answer remains unsaved)');
+          try {
+            _lastAttemptRateLimit = (await res.json()).detail || {};
+          } catch (_) {
+            _lastAttemptRateLimit = {};
+          }
           return null;
         }
         if (res.ok) {
@@ -339,9 +520,19 @@
         await new Promise(r => setTimeout(r, 500));
       }
     }
-    _session.failed_attempts += 1;
-    console.warn('[d1] attempt POST failed after retry (summary will use local count)');
+    console.warn('[d1] attempt POST failed after retry (Next remains locked)');
     return null;
+  }
+
+  function newClientAttemptId() {
+    const cryptoApi = window.crypto;
+    if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+    if (!cryptoApi?.getRandomValues) return null;
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
   function nextExercise() {
@@ -352,56 +543,47 @@
   // ── Summary (basic for now; richer version lands in next commit) ─────────
 
   async function showSummary() {
-    // Wait briefly for any in-flight /attempt POSTs so a fast clicker doesn't
-    // call /complete before the last writes settle (which would manifest as
-    // failed_attempts being undercounted, and /complete missing rows that
-    // were only milliseconds away from landing).
-    await waitForPendingAttempts(2000);
-
     // Review sessions never call /complete — there's no backend session row.
     if (_session.is_review || !_session.id) {
       renderSummaryScreen(computeLocalSummary());
       return;
     }
 
-    // If any /attempt POST didn't persist, /complete's summary will under-
-    // count the user's score (it's derived only from rows in the DB linked
-    // by session_id). Trust local instead — backend stamping still happens
-    // in the background as a best-effort.
-    if (_session.failed_attempts > 0) {
-      console.warn(
-        '[d1] %d attempt sync failure(s) — using local summary, completing in background',
-        _session.failed_attempts,
-      );
-      fetch(
-        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
-        { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
-      ).catch(err => console.warn('[d1] background complete failed:', err));
-      renderSummaryScreen(computeLocalSummary());
-      return;
-    }
-
-    // No sync failures — backend summary is authoritative.
-    let summary = computeLocalSummary();
+    // Every Next transition was gated on an attempt ACK. Completion itself is
+    // also a canonical write: never present a local result as completed until
+    // the backend acknowledges that state transition.
+    const completingSessionId = _session.id;
+    _setHtml('<div class="state-msg"><div class="spinner"></div><p>Đang xác nhận kết quả…</p></div>');
     try {
       const res = await fetch(
-        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
+        `${BASE}/api/exercises/d1/sessions/${completingSessionId}/complete`,
         { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
       );
-      if (res.ok) summary = await res.json();
+      if (!res.ok) {
+        renderCompletionError();
+        return;
+      }
+      const summary = await res.json();
+      forgetActiveSession(completingSessionId);
+      renderSummaryScreen(summary);
     } catch (err) {
-      console.warn('[d1] complete-session failed; using local summary:', err);
+      console.warn('[d1] complete-session failed; completion remains pending:', err);
+      renderCompletionError();
     }
-    renderSummaryScreen(summary);
   }
 
-  // Poll pending_attempts down to 0 (or timeout). Cheap because it only fires
-  // once per session at the summary boundary.
-  async function waitForPendingAttempts(timeoutMs) {
-    const start = Date.now();
-    while (_session && _session.pending_attempts > 0 && Date.now() - start < timeoutMs) {
-      await new Promise(r => setTimeout(r, 50));
-    }
+  function renderCompletionError() {
+    _setHtml(`
+      <div class="state-msg error d1-completion-error">
+        <h2>Chưa thể xác nhận hoàn thành</h2>
+        <p>Bài làm đã được lưu, nhưng phiên vẫn chưa được đánh dấu hoàn thành.</p>
+        <div class="summary-actions">
+          <button class="btn-primary" id="d1-complete-retry">Thử xác nhận lại</button>
+          <a class="btn-ghost" href="/exercises">Rời phiên, tiếp tục sau</a>
+        </div>
+      </div>
+    `);
+    document.getElementById('d1-complete-retry').onclick = showSummary;
   }
 
   function computeLocalSummary() {
@@ -488,8 +670,8 @@
 
   function reviewWrong(wrongIds) {
     // Build a local-only review session from the exercises the user just got
-    // wrong.  No DB row is created — review attempts skip the fire-and-forget
-    // POST /attempt (see onAnswerClick) so they don't burn the daily quota
+    // wrong. No DB row is created — review attempts skip the persistence gate
+    // in onAnswerClick so they don't burn the daily quota
     // again or pollute analytics with practice repetitions.
     const idSet = new Set(wrongIds);
     const wrongExercises = _session.exercises.filter(e => idSet.has(e.id));
@@ -520,6 +702,17 @@
     const div = document.createElement('div');
     div.textContent = String(str == null ? '' : str);
     return div.innerHTML;
+  }
+
+  function formatQuotaMessage(detail) {
+    const remaining = Number.isFinite(Number(detail?.remaining))
+      ? ` Bạn còn ${Number(detail.remaining)} lượt.` : '';
+    let reset = '';
+    if (detail?.reset_at) {
+      const parsed = new Date(detail.reset_at);
+      if (!Number.isNaN(parsed.getTime())) reset = ` Có thể thử lại sau ${parsed.toLocaleString('vi-VN')}.`;
+    }
+    return `Không đủ lượt hôm nay để hoàn thành phiên.${remaining}${reset}`;
   }
 
   // Expose hooks the summary buttons bind to.
