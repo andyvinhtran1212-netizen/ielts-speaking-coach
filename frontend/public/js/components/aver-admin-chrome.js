@@ -471,9 +471,9 @@ const NAV_GROUPS = [
       },
       { section: 'vocab',     label: 'Vocab',     href: '/admin/vocab',     icon: 'book',
         subsections: [
-          { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/pages/admin/vocab/topics.html' },
+          { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/admin/vocab/topics' },
           { slug: 'content',       label: 'Nội dung từ vựng', href: '/pages/admin/vocab/content.html' },
-          { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/pages/admin/vocab/quiz.html' },
+          { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/admin/vocab/quiz' },
           { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/admin/vocab/quiz-analytics' },
           { slug: 'stats',         label: 'Stats',           href: '/admin/vocab/stats' },
           { slug: 'd1-curation',   label: 'D1 Curation',     href: '/admin/vocab/d1-curation' },
@@ -486,7 +486,7 @@ const NAV_GROUPS = [
       { section: 'grammar',   label: 'Grammar',   href: '/admin/grammar',   icon: 'edit',
         subsections: [
           { slug: 'articles',         label: 'Articles',          href: '/admin/grammar/articles' },
-          { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/pages/admin/vocab/topics.html?skill_area=grammar' },
+          { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/admin/vocab/topics?skill_area=grammar' },
           { slug: 'analytics',        label: 'Analytics',         href: '/admin/grammar/analytics' },
           { slug: 'recommend-test',   label: 'Recommendation tester', href: '/admin/grammar/recommend-test' },
         ],

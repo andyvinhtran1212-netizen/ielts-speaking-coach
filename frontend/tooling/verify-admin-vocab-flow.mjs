@@ -12,6 +12,8 @@ const learnerId = '10000000-0000-4000-8000-000000000115';
 const quizLearnerId = '00000000-0000-4000-8000-000000000301';
 const quizBankId = '00000000-0000-4000-8000-000000000302';
 const quizBankIdB = '00000000-0000-4000-8000-000000000303';
+const contentTopicId = '00000000-0000-4000-8000-000000000401';
+const contentTopicIdB = '00000000-0000-4000-8000-000000000404';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -37,6 +39,13 @@ let releaseHeldQuizBankAnalytics;
 let holdNextQuizDetail = false;
 let heldQuizDetailStarted = false;
 let releaseHeldQuizDetail;
+let topicReads = 0;
+let bundleReads = 0;
+let bankReads = 0;
+let topicWritePending = false;
+let bankWritePending = false;
+let importWritePending = false;
+let failNextTopicBundle = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -55,6 +64,9 @@ let d1Row = {
   headword: 'mitigate',
 };
 let lemmaRows = [{ id: '00000000-0000-4000-8000-000000000211', original_word: 'children<script>', lemma: 'child', pos_tag: 'NOUN', notes: 'irregular', created_at: '2026-08-15T00:00:00Z' }];
+let topicRow = { id: contentTopicId, slug: 'work-careers', title: 'Work <script>', skill_area: 'vocab', title_vi: null, description: 'Canonical topic', order: 1, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
+const topicRowB = { id: contentTopicIdB, slug: 'travel', title: 'Travel', skill_area: 'vocab', title_vi: null, description: 'Second topic', order: 2, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
+let topicBanks = [{ id: quizBankId, topic_id: contentTopicId, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null }];
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch (_) {} }, [storageKey(SB), fakeSession]);
@@ -65,13 +77,18 @@ await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
   if (url.startsWith(BASE) || url.startsWith('data:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
-  const parsed = new URL(url); const method = request.method(); const body = request.postDataJSON?.() ?? null;
+  const parsed = new URL(url); const method = request.method(); let body = null;
+  try { body = request.postDataJSON?.() ?? null; } catch (_) {}
   requests.push({ method, path: parsed.pathname, search: parsed.search, body });
   const expectedFlag = method === 'POST' && parsed.pathname === `/admin/users/${learnerId}/vocab-flag`;
   const expectedD1 = ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/vocab/d1-questions/${d1Row.id}`;
   const expectedLemma = (method === 'POST' && parsed.pathname === '/admin/vocab/lemmas/overrides')
     || (method === 'DELETE' && /^\/admin\/vocab\/lemmas\/overrides\/[0-9a-f-]+$/i.test(parsed.pathname));
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !expectedFlag && !expectedD1 && !expectedLemma && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)) unexpectedWrites.push(`${method} ${parsed.pathname}`);
+  const expectedTopic = ['POST'].includes(method) && parsed.pathname === '/admin/content-topics'
+    || ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/content-topics/${contentTopicId}`;
+  const expectedBank = ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/quiz/banks/${quizBankId}`;
+  const expectedImport = method === 'POST' && parsed.pathname === '/admin/quiz/import';
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !expectedFlag && !expectedD1 && !expectedLemma && !expectedTopic && !expectedBank && !expectedImport && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)) unexpectedWrites.push(`${method} ${parsed.pathname}`);
   const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-vocab@local', role: 'admin' });
   if (parsed.pathname === '/admin/vocab/stats') {
@@ -143,6 +160,64 @@ await page.route('**/*', async (route) => {
     lemmaWritePending = false;
     return route.fulfill({ status: 204, body: '' });
   }
+  if (method === 'GET' && parsed.pathname === '/admin/content-topics') {
+    topicReads += 1;
+    return json(parsed.searchParams.get('skill_area') === 'vocab' ? [topicRow, topicRowB] : []);
+  }
+  if (method === 'GET' && parsed.pathname === `/admin/content-topics/${contentTopicIdB}/bundle`) {
+    bundleReads += 1;
+    if (failNextTopicBundle) { failNextTopicBundle = false; return json({ detail: 'fixture bundle unavailable' }, 503); }
+    return json({ topic: topicRowB, vocab_cards: [], quiz_banks: [], counts: { vocab_cards: 0, quiz_banks: 0 } });
+  }
+  if (method === 'GET' && parsed.pathname === `/admin/content-topics/${contentTopicId}/bundle`) {
+    bundleReads += 1;
+    return json({
+      topic: topicRow,
+      vocab_cards: [{ id: '00000000-0000-4000-8000-000000000402', slug: 'mitigate', headword: 'mitigate<img>', category: 'work-careers', level: null, part_of_speech: null, audio_status: null, updated_at: null }],
+      quiz_banks: topicBanks.map(({ topic_id: _topicId, source: _source, version: _version, updated_at: _updatedAt, ...bank }) => bank),
+      counts: { vocab_cards: 1, quiz_banks: topicBanks.length },
+    });
+  }
+  if (expectedTopic && method === 'PATCH') {
+    topicWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    topicRow = { ...topicRow, title: body?.title ?? topicRow.title, title_vi: body?.title_vi ?? null, description: body?.description ?? null, order: body?.order ?? topicRow.order, is_published: body?.is_published ?? topicRow.is_published };
+    topicWritePending = false;
+    return json(topicRow);
+  }
+  if (expectedBank && method === 'PATCH') {
+    bankWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    topicBanks = topicBanks.map((bank) => bank.id === quizBankId ? { ...bank, is_published: body?.is_published ?? bank.is_published } : bank);
+    bankWritePending = false;
+    return json(topicBanks.find((bank) => bank.id === quizBankId));
+  }
+  if (expectedBank && method === 'DELETE') {
+    bankWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    topicBanks = topicBanks.filter((bank) => bank.id !== quizBankId);
+    bankWritePending = false;
+    return json({ id: quizBankId, deleted: true });
+  }
+  if (expectedImport) {
+    const dryRun = parsed.searchParams.get('dry_run') === 'true';
+    if (!dryRun) { importWritePending = true; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    const result = {
+      dry_run: dryRun,
+      meta: { code: 'L02', title: 'Grammar 2 <script>', skill_area: 'vocab' },
+      questions: [
+        { index: 1, qid: 'L02-Q1', item_key: 'mitigate', type: 'mcq', skill: 'meaning', validation_errors: [] },
+        { index: 2, qid: 'L02-Q2', item_key: 'mitigate', type: 'gap_text', skill: 'production', validation_errors: [] },
+      ], validation_errors: [],
+      summary: { words: 20, questions: 2, errors: 0, pools: 1 },
+      committed_bank_id: dryRun ? null : quizBankId,
+    };
+    if (!dryRun) {
+      topicBanks = [{ id: quizBankId, topic_id: contentTopicId, code: 'L02', title: 'Grammar 2 <script>', skill_area: 'vocab', words_count: 20, source: null, version: 2, is_published: true, updated_at: null }];
+      importWritePending = false;
+    }
+    return json(result);
+  }
   if (method === 'GET' && parsed.pathname === '/admin/quiz/students') {
     const course = parsed.searchParams.get('skill_area') === 'course';
     return json({
@@ -162,10 +237,7 @@ await page.route('**/*', async (route) => {
       recent_sessions: [{ code: 'L02', accuracy: null, words_mastered: 0, total_questions: 0, total_correct: 0, duration_sec: null, ended_at: null, ended_by: null }],
     });
   }
-  if (method === 'GET' && parsed.pathname === '/admin/quiz/banks') return json(parsed.searchParams.get('skill_area') === 'vocab' ? [
-    { id: quizBankId, topic_id: null, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
-    { id: quizBankIdB, topic_id: null, code: 'L03', title: 'Grammar 3', skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
-  ] : []);
+  if (method === 'GET' && parsed.pathname === '/admin/quiz/banks') { bankReads += 1; return json(parsed.searchParams.get('skill_area') === 'vocab' ? topicBanks : []); }
   if (method === 'GET' && parsed.pathname === `/admin/quiz/banks/${quizBankId}/analytics`) {
     if (holdNextQuizBankAnalytics) {
       holdNextQuizBankAnalytics = false;
@@ -183,6 +255,8 @@ await page.getByRole('heading', { name: 'Vocabulary workspace', exact: true }).w
 check('hub qua backend-owned admin gate', requests.some((item) => item.path === '/auth/me'));
 check('hub có đủ tám workspace và canonical links', await page.locator('a.avv-card').count() === 8
   && await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/vocabulary/hub'
+  && await page.locator('a.avv-card[href="/admin/vocab/topics"]').count() === 1
+  && await page.locator('a.avv-card[href="/admin/vocab/quiz"]').count() === 1
   && await page.getByRole('link', { name: /Kết quả Quick-Check/ }).getAttribute('href') === '/admin/vocab/quiz-analytics'
   && await page.getByRole('link', { name: /D1 Curation/ }).getAttribute('href') === '/admin/vocab/d1-curation'
   && await page.getByRole('link', { name: /Lemma Overrides/ }).getAttribute('href') === '/admin/vocab/lemmas');
@@ -281,10 +355,70 @@ await page.getByText('Đã xoá override và tải lại danh sách chuẩn từ
 check('Lemma DELETE đúng id và canonical readback', requests.some((item) => item.method === 'DELETE' && item.path === '/admin/vocab/lemmas/overrides/00000000-0000-4000-8000-000000000211') && lemmaReads >= 4);
 check('Lemma mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
+await page.goto(`${BASE}/admin/vocab/topics?topic=${contentTopicId}`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Chủ đề nội dung', exact: true }).waitFor();
+await page.getByText('Work <script>', { exact: true }).first().waitFor();
+check('Topics chỉ nhận deep-link sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/content-topics/${contentTopicId}/bundle`) && new URL(page.url()).searchParams.get('topic') === contentTopicId);
+check('Topics escape title/card độc hại', await page.locator('.avv-topic-console script, .avv-topic-console img').count() === 0);
+failNextTopicBundle = true;
+await page.getByRole('button', { name: /Travel/ }).click();
+await page.getByRole('alert').getByText(/Không tải được topic/).waitFor();
+check('Topics không hiện form cũ khi bundle topic mới lỗi', new URL(page.url()).searchParams.get('topic') === contentTopicIdB && await page.locator('.avv-topic-form').count() === 0 && await page.getByRole('button', { name: 'Xoá topic' }).count() === 0);
+await page.getByRole('button', { name: /Work <script>/ }).click();
+await page.locator('.avv-topic-form').waitFor();
+await page.getByLabel('Tên', { exact: true }).fill('Work & Careers');
+await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+await page.waitForTimeout(40);
+check('Topic form khoá trong lúc chờ ACK', topicWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).first().isDisabled());
+await page.getByText('Đã lưu topic và đọc lại canonical bundle.', { exact: true }).waitFor();
+check('Topic PATCH đúng body và canonical list/bundle readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/content-topics/${contentTopicId}` && item.body?.title === 'Work & Careers') && topicReads >= 2 && bundleReads >= 2);
+await page.getByRole('button', { name: 'Ẩn', exact: true }).click();
+await page.waitForTimeout(40);
+check('Bank publish bị khoá khi chờ ACK', bankWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).first().isDisabled());
+await page.getByText('Đã đổi trạng thái bank và đọc lại canonical bundle.', { exact: true }).waitFor();
+check('Bank PATCH đúng và canonical bundle phản ánh hidden', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/quiz/banks/${quizBankId}` && item.body?.is_published === false) && await page.getByText('hidden', { exact: true }).count() >= 1);
+await page.getByRole('button', { name: 'Phân tích' }).click();
+await page.getByText('mitigate<script>', { exact: true }).waitFor();
+check('Topics analytics escape item độc hại', await page.locator('.avv-inline-analytics script, .avv-inline-analytics img').count() === 0);
+check('Topics mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+
+await page.goto(`${BASE}/admin/vocab/quiz?topic=${contentTopicId}`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Quick‑Check Quiz', exact: true }).waitFor();
+await page.getByText('L02', { exact: true }).first().waitFor();
+check('Quiz deep-link được scoped topic list xác nhận', await page.getByLabel('Chủ đề (topic)').inputValue() === contentTopicId && requests.some((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab'));
+await page.locator('input[type=file]').setInputFiles({ name: 'L02.md', mimeType: 'text/markdown', buffer: Buffer.from('---\nkind: quiz\n---\n') });
+await page.getByText('Không có lỗi validation. Chọn đúng topic và lưu khi sẵn sàng.', { exact: true }).waitFor();
+check('Quiz dry-run gọi multipart không commit', requests.some((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=true')) && await page.getByText('Grammar 2 <script>', { exact: true }).count() === 1 && await page.locator('.avv-quiz-import script').count() === 0);
+await page.getByRole('button', { name: 'Lưu vào hệ thống' }).click();
+await page.waitForTimeout(40);
+check('Quiz commit khoá nút khi chờ ACK', importWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await page.getByText('Đã lưu bank L02 và đọc lại canonical list.', { exact: true }).waitFor();
+check('Quiz commit một lần và canonical bank readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1 && bankReads >= 2);
+const committedButton = page.getByRole('button', { name: 'Lưu vào hệ thống' });
+check('Quiz giữ commit disabled sau canonical success', await committedButton.isDisabled());
+await committedButton.evaluate((button) => button.click());
+await page.waitForTimeout(80);
+check('Quiz click lặp không gửi commit write thứ hai', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1);
+await page.getByRole('button', { name: 'Xoá', exact: true }).click();
+const bankDeleteDialog = page.getByRole('dialog', { name: 'Xoá Quick‑Check bank?' });
+await bankDeleteDialog.getByRole('button', { name: 'Xoá bank' }).click();
+await page.waitForTimeout(40);
+check('Quiz delete khoá dialog khi chờ ACK', bankWritePending && await bankDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await page.getByText('Đã xoá bank và đọc lại canonical list.', { exact: true }).waitFor();
+check('Quiz delete xác minh canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/quiz/banks/${quizBankId}`) && topicBanks.length === 0);
+check('Quiz mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+
+// Restore canonical banks for the independent read-only Analytics route below.
+topicBanks = [
+  { id: quizBankId, topic_id: contentTopicId, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
+  { id: quizBankIdB, topic_id: contentTopicId, code: 'L03', title: 'Grammar 3', skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
+];
+const analyticsRequestStart = requests.length;
 await page.goto(`${BASE}/admin/vocab/quiz-analytics?scope=vocab&tab=hard&bank_id=${quizBankId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Kết quả luyện tập từ vựng', exact: true }).waitFor();
 await page.getByText('mitigate<script>', { exact: true }).waitFor();
-check('Analytics deep-link chỉ tải bank sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/quiz/banks' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/quiz/banks/${quizBankId}/analytics`));
+const analyticsRequests = requests.slice(analyticsRequestStart);
+check('Analytics deep-link chỉ tải bank sau scoped canonical list', analyticsRequests.findIndex((item) => item.path === '/admin/quiz/banks' && item.search === '?skill_area=vocab') < analyticsRequests.findIndex((item) => item.path === `/admin/quiz/banks/${quizBankId}/analytics`));
 check('Analytics giữ scope/tab/bank hợp lệ trong URL', new URL(page.url()).searchParams.get('scope') === 'vocab' && new URL(page.url()).searchParams.get('tab') === 'hard' && new URL(page.url()).searchParams.get('bank_id') === quizBankId);
 check('Analytics escape dữ liệu item độc hại', await page.getByText('mitigate<script>', { exact: true }).count() === 1 && await page.locator('.avv-quiz-analytics script, .avv-quiz-analytics img').count() === 0);
 await page.getByLabel('Chọn bộ').selectOption('');

@@ -48,7 +48,7 @@ const destinations = [
     title: 'Grammar exercises',
     description: 'Mở console dùng chung để quản lý chủ đề, ngân hàng câu hỏi và bài luyện Grammar.',
     detail: 'Topics · Banks · Questions',
-    href: '/pages/admin/vocab/topics.html?skill_area=grammar',
+    href: '/admin/vocab/topics?skill_area=grammar',
     status: 'SHARED CONSOLE',
     statusClass: 'is-new',
     featured: false,

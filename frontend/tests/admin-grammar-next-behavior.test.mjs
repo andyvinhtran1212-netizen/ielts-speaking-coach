@@ -52,7 +52,7 @@ describe('/admin/grammar native hub', () => {
       '/admin/grammar/articles',
       '/admin/grammar/analytics',
       '/admin/grammar/recommend-test',
-      '/pages/admin/vocab/topics.html?skill_area=grammar',
+      '/admin/vocab/topics?skill_area=grammar',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     assert.equal((PAGE.match(/className={`grh-card/g) || []).length, 1);
     assert.match(PAGE, /destinations\.map/);
