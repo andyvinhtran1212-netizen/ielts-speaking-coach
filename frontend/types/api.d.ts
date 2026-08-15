@@ -6036,19 +6036,16 @@ export interface paths {
         put?: never;
         /**
          * Submit Review
-         * @description Self-rate a card.  Updates SRS state via services.srs.update_srs and
-         *     appends a row to flashcard_review_log so the next call's rate-limit
-         *     counter sees this review.
+         * @description Self-rate a card. The client operation ID, rate-limit receipt, and SRS
+         *     state are committed as one replay-safe transaction by migration 212.
          *
          *     Two-step flow:
          *       1. Look up the existing flashcard_reviews row (or fall back to
          *          per-vocab defaults — ease=2.5, interval=1, count=0, lapse=0).
          *          Validates that the vocab belongs to the caller via the SELECT
          *          on user_vocabulary (RLS hides foreign rows).
-         *       2. Compute next state + UPSERT (UNIQUE(user_id, vocabulary_id)).
-         *
-         *     Failure to write the audit log is non-fatal — SRS still updated, just
-         *     means the daily counter under-reports by one.
+         *       2. Compute the next derived state and let the RPC atomically claim the
+         *          operation ID + UPSERT the shared SRS row.
          */
         post: operations["submit_review_api_flashcards__vocab_id__review_post"];
         delete?: never;
@@ -12786,6 +12783,8 @@ export interface components {
         ReviewRequest: {
             /** Rating */
             rating: string;
+            /** Client Review Id */
+            client_review_id?: string | null;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {

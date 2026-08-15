@@ -7,7 +7,7 @@
 // Data: GET /api/vocabulary/exam → [{ family, title, lists:[{slug,title,
 //   description,exam_source,count}] }] (families ordered awl→toeic→thpt).
 // Each non-empty list links to the shared flashcard player:
-//   flashcard-study.html?stack=examlist:<list-slug>
+//   /flashcard-study?stack=examlist:<list-slug>
 //
 // No auth / no server SRS — same public model as the wiki topic stacks.
 
@@ -25,7 +25,7 @@
   var FAMILY_ICON = { awl: '🎓', toeic: '💼', thpt: '🏫' };
 
   function listCard(l) {
-    var href = '/pages/flashcard-study.html?stack=examlist:' + encodeURIComponent(l.slug);
+    var href = '/flashcard-study?stack=examlist:' + encodeURIComponent(l.slug);
     return '<a class="mode-card" href="' + href + '">'
       + '<div class="head"><div class="icon">🗂️</div><span class="arrow">→</span></div>'
       + '<h3>' + esc(l.title || l.slug) + '</h3>'

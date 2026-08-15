@@ -80,7 +80,7 @@
               + '</div>'
               + '<div class="vtc-actions">'
               + '<a class="vtc-act vtc-act--browse" href="/vocabulary?cat=' + slug + '">Khám phá</a>'
-              + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
+              + '<a class="vtc-act vtc-act--study" href="/flashcard-study?stack=wiki:' + slug + '">🃏 Flashcards</a>'
               // "✍️ Luyện tập" → straight into the adaptive Quick-Check player.
               // Audit 2026-07-28 §C6: this link used to be global, so picking
               // "Environment" still dumped the learner on the L01–L30 picker to

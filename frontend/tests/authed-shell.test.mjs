@@ -50,7 +50,8 @@ function authedLayouts() {
 
 describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () => {
   test('đánh dấu route auth-gated để chrome chọn đích Vocabulary ổn định', () => {
-    assert.match(SHELL, /<meta name="aver-auth-gated" content="1" \/>/);
+    assert.match(SHELL, /authGated = true/);
+    assert.match(SHELL, /authGated && <meta name="aver-auth-gated" content="1" \/>/);
   });
 
   test('có ít nhất hai route-group và MỌI layout đều đi qua AuthedShell', () => {
