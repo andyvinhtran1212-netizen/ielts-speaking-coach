@@ -30,6 +30,7 @@ const importedBlock = {
   },
 };
 const postBodies = []; let contentReads = 0; let blockReads = 0; let nextBlockReadFailure = 0;
+let includeImportedBlock = true;
 const applyOperation = (body) => {
   let target = body.exercise_id ? blocks.find((item) => item.id === body.exercise_id) : blocks.find((item) => item.order_num === body.order_num);
   if (!target) {
@@ -59,7 +60,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/listening/exercises' && method === 'GET') {
     blockReads += 1;
     if (nextBlockReadFailure) { const status = nextBlockReadFailure; nextBlockReadFailure = 0; return json({ detail: 'readback forbidden after acknowledged POST' }, status); }
-    return json({ exercises: [...blocks, importedBlock] });
+    return json({ exercises: includeImportedBlock ? [...blocks, importedBlock] : [...blocks] });
   }
   if (parsed.pathname === '/admin/listening/exercises' && method === 'POST') {
     const body = request.postDataJSON(); postBodies.push(body);
@@ -85,15 +86,19 @@ await page.getByRole('heading', { name: 'Soạn câu hỏi MCQ theo bằng chứ
 check('content chỉ có importer mở form standalone ở order kế tiếp và deep-link không loop',
   await page.getByText('Mới #8', { exact: true }).count() === 1
   && await page.getByText('Block thuộc kho đề', { exact: true }).count() === 1
-  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
+  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0
+  && await page.locator('#almc-stem-0').isDisabled()
+  && await page.getByRole('button', { name: 'Thêm MCQ block' }).isDisabled());
+includeImportedBlock = false;
 blocks = standaloneBlocks;
 await page.goto(`${BASE}/admin/listening/mcq?content_id=${contentId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Soạn câu hỏi MCQ theo bằng chứng' }).waitFor();
 check('route đọc exact content và đầy đủ MCQ blocks', contentReads >= 1 && blockReads >= 1 && await page.locator('#almc-block option').count() === 3, `${contentReads} content GET · ${blockReads} block GET`);
 check('mặc định chọn order 1 và tách block importer khỏi editor standalone',
   await page.locator('#almc-block').inputValue() === 'exercise-1'
-  && await page.getByText('1 MCQ block thuộc kho đề', { exact: true }).count() === 1
-  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
+  && await page.getByText('1 MCQ block thuộc kho đề', { exact: true }).count() === 0
+  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 1
+  && !(await page.locator('#almc-stem-0').isDisabled()));
 check('UI nêu bốn lựa chọn, một answer key và điều kiện đạt 100%', await page.getByText(/Một câu, bốn lựa chọn, một answer key/).count() === 1 && await page.getByText(/đúng 100% câu hỏi/).count() === 1);
 
 const secondStem = await page.locator('#almc-stem-1').inputValue();
@@ -177,7 +182,7 @@ await page.getByRole('radio', { name: 'Chọn B làm đáp án đúng câu 1' })
 await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
 await page.getByText('Đã lưu bản nháp', { exact: true }).waitFor();
 const createPost = postBodies.at(-1);
-check('UI tạo block kế tiếp sau order importer bằng expected_absent và không gửi exercise_id', createPost.order_num === 8 && createPost.expected_absent === true && !Object.hasOwn(createPost, 'exercise_id'));
+check('UI tạo block kế tiếp sau standalone order bằng expected_absent và không gửi exercise_id', createPost.order_num === 4 && createPost.expected_absent === true && !Object.hasOwn(createPost, 'exercise_id'));
 check('block mới chỉ cài sau canonical GET và xuất hiện trong selector', blocks.length === 4 && await page.locator('#almc-block').inputValue() === 'exercise-4' && await page.locator('#almc-block option').count() === 4);
 
 await page.locator('#almc-stem-0').fill('Unauthorized.');
