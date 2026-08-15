@@ -6828,10 +6828,11 @@ export interface paths {
          *       - non-overlapping
          *       - transcript non-empty
          *
-         *     Upsert semantics: if a row with the same (content_id, exercise_type)
-         *     pair already exists, the row is UPDATEd in place (preserves the
-         *     exercise_id so existing attempt rows keep referencing it). Otherwise
-         *     a new row is INSERTed.
+         *     Legacy callers that omit order_num retain their original "first block of
+         *     this type" semantics. Callers that provide order_num use the complete
+         *     (content_id, exercise_type, order_num) block identity. Native editors
+         *     update an exact exercise_id with an expected_updated_at version token so
+         *     existing attempt rows keep referencing the same exercise.
          */
         post: operations["admin_upsert_listening_exercise_admin_listening_exercises_post"];
         delete?: never;
@@ -10742,6 +10743,17 @@ export interface components {
             url: string;
         };
         /**
+         * AuditRunRequest
+         * @description Optional client identity for a paid/non-idempotent full audit run.
+         *
+         *     Legacy rollback callers may omit it. Native callers persist a UUID in their
+         *     durable receipt and reconcile only against the same request_id in health.
+         */
+        AuditRunRequest: {
+            /** Request Id */
+            request_id?: string | null;
+        };
+        /**
          * AuditTriageRequest
          * @description Human triage of a persisted audit: update reviewer status / notes and/or
          *     mark specific issues resolved (by index into the saved issues array).
@@ -10753,6 +10765,8 @@ export interface components {
             notes?: string | null;
             /** Resolved Indexes */
             resolved_indexes?: number[] | null;
+            /** Expected Updated At */
+            expected_updated_at: string;
         };
         /**
          * BackfillBody
@@ -12190,6 +12204,8 @@ export interface components {
         ListeningExerciseUpsertRequest: {
             /** Content Id */
             content_id: string;
+            /** Exercise Id */
+            exercise_id?: string | null;
             /**
              * Exercise Type
              * @default dictation
@@ -12213,6 +12229,13 @@ export interface components {
              * @default draft
              */
             status: string;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+            /**
+             * Expected Absent
+             * @default false
+             */
+            expected_absent: boolean;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -12545,6 +12568,8 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
@@ -25073,7 +25098,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuditRunRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

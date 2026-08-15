@@ -503,6 +503,28 @@ def test_get_test_detail_strips_answer_keys(monkeypatch):
             assert ex["payload"].get("questions")
 
 
+def test_get_test_detail_excludes_standalone_mcq_from_imported_section(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_sections_with_exercises(fake, test["id"])
+    content_id = fake.tables["listening_content"][0]["id"]
+    fake.tables["listening_exercises"].append({
+        "id": "standalone-mcq",
+        "content_id": content_id,
+        "exercise_type": "mcq",
+        "order_num": 999,
+        "payload": {
+            "questions": [{"idx": 0, "stem": "Wrong owner", "options": ["A", "B", "C", "D"], "answer_idx": 0}],
+        },
+    })
+
+    out = _run(listening_router.get_published_listening_test(
+        test_id=test["id"], authorization=authz,
+    ))
+    ids = [exercise["id"] for section in out["sections"] for exercise in section["exercises"]]
+    assert "standalone-mcq" not in ids
+
+
 def test_get_test_detail_strips_map_description_from_plan_label(monkeypatch):
     """Sprint 13.5.8 — the student endpoint must remove ``map_description``
     (both at the payload root and under ``payload.metadata``) for every

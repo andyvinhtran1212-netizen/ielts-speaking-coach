@@ -113,10 +113,12 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     assert.doesNotMatch(SRC, /#14B8A6/i);
   });
 
-  it('exposes play() / pause() / reset() public methods', () => {
+  it('exposes play() / pause() / reset() / getCurrentTime() public methods', () => {
     assert.match(SRC, /^\s*play\s*\(\s*\)\s*\{/m);
     assert.match(SRC, /^\s*pause\s*\(\s*\)\s*\{/m);
     assert.match(SRC, /^\s*reset\s*\(\s*\)\s*\{/m);
+    assert.match(SRC, /^\s*getCurrentTime\s*\(\s*\)\s*\{/m);
+    assert.match(SRC, /Number\.isFinite\(value\)\s*\?\s*value\s*:\s*null/);
   });
 
   it('Sprint 11.3 Bug 1 — icon swap uses setAttribute("hidden"), not IDL .hidden', () => {

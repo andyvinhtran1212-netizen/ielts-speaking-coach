@@ -65,8 +65,9 @@ test('render polling is bounded and cleaned up', () => {
 test('detail UI keeps rollback/editors and responsive accessible dialog', () => {
   assert.match(CLIENT, /content-detail\.html\?id=/);
   assert.match(CLIENT, /\/admin\/listening\/content\/\$\{encodeURIComponent\(current\.id\)\}\/edit/);
-  assert.match(CLIENT, /item\.type === 'dictation' \? 'segments' : item\.type === 'true_false' \? 'tf' : item\.type/);
-  assert.match(CLIENT, /`\/pages\/admin\/listening\/\$\{editor\}\.html\?content_id=\$\{encodeURIComponent\(contentId\)\}`/);
+  assert.match(CLIENT, /item\.type === 'dictation' \? `\/admin\/listening\/segments\?content_id=/);
+  assert.match(CLIENT, /item\.type === 'true_false' \? `\/admin\/listening\/tf\?content_id=/);
+  assert.match(CLIENT, /`\/admin\/listening\/mcq\?content_id=/);
   assert.match(CSS, /\.ald-exercise-grid\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(CSS, /@media\(max-width:760px\)[^\n]+\.ald-exercise-grid\{grid-template-columns:1fr\}/);
   assert.match(CSS, /\.acd-dialog-backdrop\{position:fixed/);
