@@ -20,6 +20,8 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 import uuid
@@ -5027,15 +5029,62 @@ class DictationSentenceSubmit(BaseModel):
     sentence_idx:    int = Field(ge=0)
     user_transcript: str = Field(default="", max_length=10_000)
     listen_count:    int = Field(default=0, ge=0)
-    time_seconds:    int | None = None
+    time_seconds:    int | None = Field(default=None, ge=0)
 
 
 class DictationSessionRequest(BaseModel):
-    test_id:            str
-    section_num:        int
+    test_id:            str = Field(min_length=1, max_length=100)
+    section_num:        int = Field(ge=1)
+    client_request_id:  uuid.UUID | None = None
     started_at:         str | None = None
     total_time_seconds: int | None = Field(default=None, ge=0)
     sentences:          list[DictationSentenceSubmit] = Field(default_factory=list, max_length=200)
+
+
+def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
+    """Bind an idempotency key to one exact canonical submission payload."""
+    payload = body.model_dump(mode="json", exclude={"client_request_id"})
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _dictation_session_response(row: dict, test_title: str | None = None) -> dict:
+    """Return the stable completion contract from a persisted canonical row."""
+    return {
+        "session_id":         row.get("id"),
+        "client_request_id":  row.get("client_request_id"),
+        "test_title":         test_title,
+        "section_num":        row.get("section_num"),
+        "total_time_seconds": row.get("total_time_seconds"),
+        "total_sentences":    row.get("total_sentences", 0),
+        "correct_count":      row.get("correct_count", 0),
+        "accuracy":           row.get("accuracy", 0),
+        "total_words":        row.get("total_words", 0),
+        "correct_words":      row.get("correct_words", 0),
+        "error_trends":       row.get("error_trends") or {},
+        "results":            row.get("results") or [],
+    }
+
+
+def _dictation_session_by_request(user_id: str, request_id: uuid.UUID) -> dict | None:
+    res = (
+        supabase_admin.table("dictation_sessions").select("*")
+        .eq("user_id", user_id).eq("client_request_id", str(request_id))
+        .limit(1).execute()
+    )
+    return res.data[0] if res.data else None
+
+
+def _assert_dictation_request_replay(
+    row: dict,
+    body: DictationSessionRequest,
+    fingerprint: str,
+) -> None:
+    if row.get("test_id") != body.test_id or row.get("section_num") != body.section_num:
+        raise HTTPException(409, "Mã gửi lại đã được dùng cho một bài chép chính tả khác.")
+    stored_fingerprint = row.get("submission_fingerprint")
+    if stored_fingerprint and stored_fingerprint != fingerprint:
+        raise HTTPException(409, "Nội dung gửi lại không khớp với lần nộp đầu tiên.")
 
 
 @user_router.post("/tests/dictation/session")
@@ -5055,6 +5104,13 @@ async def submit_listening_dictation_session(
     user = await _require_auth(authorization)
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
+
+    fingerprint = _dictation_submission_fingerprint(body)
+    if body.client_request_id:
+        existing = _dictation_session_by_request(user["id"], body.client_request_id)
+        if existing:
+            _assert_dictation_request_replay(existing, body, fingerprint)
+            return _dictation_session_response(existing)
 
     test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
@@ -5094,6 +5150,7 @@ async def submit_listening_dictation_session(
             "score":         g["score"],
             "correct_words": g["correct_words"],
             "total_words":   g["total_words"],
+            "diff":          g["diff"],
             "listen_count":  s.listen_count,
             "time_seconds":  s.time_seconds,
             "ops":           ops,
@@ -5119,19 +5176,39 @@ async def submit_listening_dictation_session(
         "started_at":         body.started_at,
         "completed_at":       datetime.now(timezone.utc).isoformat(),
     }
+    # Preserve the legacy no-receipt write shape during a migration-first
+    # rollout: old clients keep working even if code reaches an instance before
+    # migration 210, while the dark Next route remains gated until schema-ready.
+    if body.client_request_id:
+        row.update({
+            "client_request_id": str(body.client_request_id),
+            "submission_fingerprint": fingerprint,
+        })
     try:
         supabase_admin.table("dictation_sessions").insert(row).execute()
     except Exception as exc:  # pragma: no cover
+        if body.client_request_id and _is_unique_violation(exc):
+            existing = _dictation_session_by_request(user["id"], body.client_request_id)
+            if existing:
+                _assert_dictation_request_replay(existing, body, fingerprint)
+                return _dictation_session_response(existing, test.get("title"))
         logger.error("[dictation] session insert failed: %s", exc)
         raise HTTPException(500, "Không lưu được kết quả chép chính tả.")
 
-    return {
-        "session_id":         session_id,
-        "test_title":         test.get("title"),
-        "section_num":        body.section_num,
-        "total_time_seconds": body.total_time_seconds,
-        **report,
-    }
+    return _dictation_session_response(row, test.get("title"))
+
+
+@user_router.get("/tests/dictation/session/by-request/{client_request_id}")
+async def get_listening_dictation_session_by_request(
+    client_request_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """Reconcile an ambiguous completion POST by its durable client receipt."""
+    user = await _require_auth(authorization)
+    row = _dictation_session_by_request(user["id"], client_request_id)
+    if not row:
+        raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
+    return _dictation_session_response(row)
 
 
 @user_router.get("/tests/dictation/session/{session_id}")
