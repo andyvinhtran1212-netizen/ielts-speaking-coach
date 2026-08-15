@@ -186,6 +186,7 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // HTML page directly reachable as a rollback/parity reference, but compare
   // every link according to the canonical owner.
   else if (path === '/login.html') path = '/login';
+  else if (path === '/onboarding.html') path = '/onboarding';
   // `/grammar/search` cutover 2026-08-15. Giữ trang HTML làm rollback/parity,
   // nhưng mọi link tới nó phải so theo chủ sở hữu canonical mới; query `q`
   // vẫn được giữ nguyên ở bước dựng URL bên dưới.

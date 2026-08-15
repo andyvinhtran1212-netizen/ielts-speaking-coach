@@ -70,7 +70,7 @@ window.supabase = {
     }
     if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname)) return route.abort();
     if (url.origin === BASE) {
-      if (request.isNavigationRequest() && ['/home', '/onboarding.html'].includes(url.pathname)) {
+      if (request.isNavigationRequest() && ['/home', '/onboarding'].includes(url.pathname)) {
         return route.fulfill({ status: 200, contentType: 'text/html', body: `<title>destination</title><h1>${url.pathname}</h1>` });
       }
       return route.continue();
@@ -187,7 +187,7 @@ await codeInput.evaluate((node) => {
   node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 });
-await inactive.page.waitForURL('**/onboarding.html');
+await inactive.page.waitForURL('**/onboarding');
 check('Enter lặp chỉ gửi một activation; mất ACK vẫn reconcile rồi đi onboarding',
   inactive.writes.length === 1
     && inactive.writes[0].access_code === 'IELTS-TEST-001'

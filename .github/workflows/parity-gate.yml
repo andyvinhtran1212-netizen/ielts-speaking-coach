@@ -58,6 +58,14 @@ on:
       - 'frontend/tests/login-next-behavior.test.mjs'
       - 'frontend/tests/login-next-model.test.mjs'
       - 'frontend/tooling/verify-login-flow.mjs'
+      # Authenticated account-setup owner and its rollback artifact.
+      - 'frontend/app/(authed-onboarding)/**'
+      - 'frontend/lib/onboarding-model.mjs'
+      - 'frontend/public/onboarding.html'
+      - 'frontend/public/css/onboarding.css'
+      - 'frontend/tests/onboarding-next-behavior.test.mjs'
+      - 'frontend/tests/onboarding-next-model.test.mjs'
+      - 'frontend/tooling/verify-onboarding-flow.mjs'
       - 'frontend/public/pages/grammar-exercises.html'
       - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
@@ -989,6 +997,9 @@ jobs:
       # lost-ACK reconciliation path are all exercised with a fake backend.
       - name: Kiểm luồng Login/Auth native
         run: node tooling/verify-login-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Onboarding native
+        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"

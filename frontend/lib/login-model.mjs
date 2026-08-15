@@ -24,8 +24,7 @@ export function normalizeLoginProfile(value) {
 
 export function loginDestination(profile) {
   if (!profile?.isActive) return 'activate';
-  // Onboarding remains legacy-owned until its dedicated migration batch.
-  if (!profile.onboardingCompleted) return '/onboarding.html';
+  if (!profile.onboardingCompleted) return '/onboarding';
   return '/home';
 }
 

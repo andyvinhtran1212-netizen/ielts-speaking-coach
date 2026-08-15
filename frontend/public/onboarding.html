@@ -199,7 +199,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="js/runtime-config.js"></script>
+  <script src="js/error-reporter.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/analytics-beacon.js"></script>
+  <script src="js/rum-vitals.js"></script>
 
   <!-- Lucide hydration + canonical theme/user-pill wiring (Sprint 6.17.1). -->
   <script>
@@ -353,15 +356,43 @@
       btnNext.textContent = 'Đang lưu…';
 
       try {
-        var data = await window.api.patch('/auth/profile', {
-          target_band:          stepData.targetBand,
-          exam_date:            stepData.examDate,
-          self_level:           stepData.selfLevel,
-          preferred_topics:     [stepData.topic],
-          onboarding_completed: true,
-        });
+        var mutationError = null;
+        try {
+          await window.api.patch('/auth/profile', {
+            target_band:          stepData.targetBand,
+            exam_date:            stepData.examDate,
+            self_level:           stepData.selfLevel,
+            preferred_topics:     [stepData.topic],
+            onboarding_completed: true,
+          });
+        } catch (writeError) {
+          // PATCH may have committed while its response was lost. Canonical
+          // read-back below decides truth before the rollback page reports it.
+          mutationError = writeError;
+        }
 
-        // Redirect to practice with selected topic
+        var profile;
+        try {
+          profile = await window.api.get('/auth/me');
+        } catch (readError) {
+          throw new Error(mutationError
+            ? (mutationError.message || 'Không nhận được xác nhận lưu hồ sơ.') +
+              ' Chưa kiểm tra lại được trạng thái tài khoản; bạn có thể thử lại an toàn.'
+            : 'Đã gửi hồ sơ nhưng chưa xác nhận được trạng thái lưu.');
+        }
+        if (!profile || typeof profile.is_active !== 'boolean' ||
+            typeof profile.onboarding_completed !== 'boolean') {
+          throw new Error('Trạng thái tài khoản trả về không đúng định dạng.');
+        }
+        if (!profile.is_active) {
+          window.location.href = '/login';
+          return;
+        }
+        if (!profile.onboarding_completed) {
+          throw mutationError || new Error('Máy chủ chưa ghi nhận hoàn tất thiết lập. Vui lòng thử lại.');
+        }
+
+        // Redirect only after canonical truth confirms completion.
         window.location.href = '/home?first_topic=' + encodeURIComponent(stepData.topic);
       } catch (err) {
         showError(err.message || 'Không thể lưu thông tin. Vui lòng thử lại.');
@@ -375,18 +406,27 @@
       var { data: { session } } = await sb.auth.getSession();
 
       if (!session) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
       }
 
       try {
         var user = await window.api.get('/auth/me');
-        if (user && user.onboarding_completed) {
+        if (!user || typeof user.id !== 'string' ||
+            typeof user.is_active !== 'boolean' ||
+            typeof user.onboarding_completed !== 'boolean') {
+          throw new Error('Trạng thái tài khoản trả về không đúng định dạng.');
+        }
+        if (!user.is_active) {
+          window.location.href = '/login';
+        } else if (user.onboarding_completed) {
           window.location.href = '/home';
         }
         // else: stay on this page
       } catch (e) {
-        // non-fatal — let user proceed
+        // Canonical profile truth is required before this page may mutate it.
+        btnNext.disabled = true;
+        showError((e && e.message) || 'Không thể kiểm tra trạng thái tài khoản. Vui lòng tải lại trang.');
       }
     }
 

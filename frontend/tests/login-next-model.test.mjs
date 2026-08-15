@@ -19,7 +19,7 @@ describe('native login canonical model', () => {
 
   test('routes inactive, onboarding and ready accounts without a client-side guess', () => {
     assert.equal(loginDestination({ isActive: false, onboardingCompleted: false }), 'activate');
-    assert.equal(loginDestination({ isActive: true, onboardingCompleted: false }), '/onboarding.html');
+    assert.equal(loginDestination({ isActive: true, onboardingCompleted: false }), '/onboarding');
     assert.equal(loginDestination({ isActive: true, onboardingCompleted: true }), '/home');
   });
 
