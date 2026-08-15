@@ -170,6 +170,25 @@ export function AdminListeningFulltestImport() {
   }, [profile.id, receiptKey]);
 
   useEffect(() => {
+    const syncReceipt = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage || event.key !== receiptKey) return;
+      try {
+        const next = event.newValue
+          ? normalizeFulltestImportReceipt(JSON.parse(event.newValue), profile.id) as Receipt | null
+          : null;
+        if (event.newValue && !next) throw new Error('Receipt từ tab khác sai contract.');
+        setPending(next); setReceiptReady(true);
+        if (next) setError('Một tab khác đang giữ lượt import của tài khoản này; tab hiện tại đã khóa POST.');
+      } catch (caught) {
+        setReceiptReady(false);
+        setError(`Không đồng bộ được receipt giữa các tab; đã khóa POST. ${messageOf(caught)}`);
+      }
+    };
+    window.addEventListener('storage', syncReceipt);
+    return () => window.removeEventListener('storage', syncReceipt);
+  }, [profile.id, receiptKey]);
+
+  useEffect(() => {
     if (!busy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
@@ -195,6 +214,14 @@ export function AdminListeningFulltestImport() {
 
   const persistReceipt = (receipt: Receipt) => {
     const serialized = JSON.stringify(receipt);
+    const existingRaw = localStorage.getItem(receiptKey);
+    if (existingRaw) {
+      let existing: Receipt | null = null;
+      try { existing = normalizeFulltestImportReceipt(JSON.parse(existingRaw), receipt.account) as Receipt | null; } catch { /* fail closed below */ }
+      const sameWrite = existing && existing.testId === receipt.testId && existing.fingerprint === receipt.fingerprint
+        && existing.startedAt === receipt.startedAt;
+      if (!sameWrite) throw new Error('Tab khác đã giữ receipt import của tài khoản này; chưa ghi đè và chưa gửi POST.');
+    }
     localStorage.setItem(receiptKey, serialized);
     if (localStorage.getItem(receiptKey) !== serialized) throw new Error('Receipt không đọc lại được từ localStorage.');
     if (activeAccount.current === receipt.account) setPending(receipt);
@@ -273,32 +300,36 @@ export function AdminListeningFulltestImport() {
     let receipt: Receipt | null = null;
     let acknowledged = false;
     try {
-      const token = await accessToken();
-      if (activeAccount.current !== account) return;
-      const baseline = await searchExact(preview.testId, []);
-      if (activeAccount.current !== account) return;
-      if (baseline.matches.some((row) => row.status !== 'archived')) {
-        setError('Test ID đã xuất hiện sau dry-run. Mở Kho test để xử lý rồi kiểm tra pack lại.');
-        return;
-      }
-      receipt = buildFulltestImportReceipt({ account: profile.id, testId: preview.testId, fingerprint: previewFingerprint, mini, baselineIds: baseline.matches.map((row) => row.id) }) as Receipt;
-      try { persistReceipt(receipt); }
-      catch (caught) { receipt = null; setReceiptReady(false); throw new Error(`Không thể tạo biên nhận an toàn; chưa gửi POST. ${messageOf(caught)}`); }
-      setBusy('uploading');
-      const raw = await uploadCommit(files, mini, token, (loaded, total) => {
-        if (activeAccount.current === account) setProgress({ loaded, total });
-      }, activeUpload);
-      if (activeAccount.current !== account) return;
-      acknowledged = true;
-      const ack = normalizeFulltestCommit(raw, preview.testId) as CommitAck | null;
-      if (!ack) throw new Error('POST đã nhận nhưng ACK import sai contract.');
-      setCommitAck(ack);
-      receipt = { ...receipt, acknowledgedId: ack.id };
-      persistReceipt(receipt);
-      setBusy('reconciling');
-      const row = await readCanonical(ack.id, preview.testId, 'draft', mini ? 'mini' : 'full');
-      if (activeAccount.current !== account) return;
-      clearReceipt(); setCanonical(row); setNotice('Đã xác nhận draft bằng canonical GET. Chưa hiển thị cho học viên.');
+      if (!navigator.locks?.request) throw new Error('Trình duyệt không hỗ trợ khóa liên tab; đã chặn POST để bảo toàn receipt.');
+      await navigator.locks.request(`aver:admin:listening-fulltest-import:${account}`, { mode: 'exclusive', ifAvailable: true }, async (lock) => {
+        if (!lock) throw new Error('Một tab khác đang import bằng tài khoản này; chưa gửi POST.');
+        const token = await accessToken();
+        if (activeAccount.current !== account) return;
+        const baseline = await searchExact(preview.testId, []);
+        if (activeAccount.current !== account) return;
+        if (baseline.matches.some((row) => row.status !== 'archived')) {
+          setError('Test ID đã xuất hiện sau dry-run. Mở Kho test để xử lý rồi kiểm tra pack lại.');
+          return;
+        }
+        receipt = buildFulltestImportReceipt({ account: profile.id, testId: preview.testId, fingerprint: previewFingerprint, mini, baselineIds: baseline.matches.map((row) => row.id) }) as Receipt;
+        try { persistReceipt(receipt); }
+        catch (caught) { receipt = null; setReceiptReady(false); throw new Error(`Không thể tạo biên nhận an toàn; chưa gửi POST. ${messageOf(caught)}`); }
+        setBusy('uploading');
+        const raw = await uploadCommit(files, mini, token, (loaded, total) => {
+          if (activeAccount.current === account) setProgress({ loaded, total });
+        }, activeUpload);
+        if (activeAccount.current !== account) return;
+        acknowledged = true;
+        const ack = normalizeFulltestCommit(raw, preview.testId) as CommitAck | null;
+        if (!ack) throw new Error('POST đã nhận nhưng ACK import sai contract.');
+        setCommitAck(ack);
+        receipt = { ...receipt, acknowledgedId: ack.id };
+        persistReceipt(receipt);
+        setBusy('reconciling');
+        const row = await readCanonical(ack.id, preview.testId, 'draft', mini ? 'mini' : 'full');
+        if (activeAccount.current !== account) return;
+        clearReceipt(); setCanonical(row); setNotice('Đã xác nhận draft bằng canonical GET. Chưa hiển thị cho học viên.');
+      });
     } catch (caught) {
       if (activeAccount.current !== account) return;
       const definitive = caught instanceof UploadHttpError && caught.status >= 400 && caught.status < 500;

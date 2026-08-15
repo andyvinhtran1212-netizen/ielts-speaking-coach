@@ -142,6 +142,9 @@ describe('native route, write boundary and responsive contract', () => {
   test('writes receipt before progress-aware POST and reconciles ACK or ambiguity with GET only', () => {
     assert.match(CLIENT, /persistReceipt\(receipt\);/);
     assert.match(CLIENT, /localStorage\.getItem\(receiptKey\) !== serialized/);
+    assert.match(CLIENT, /navigator\.locks\.request/);
+    assert.match(CLIENT, /window\.addEventListener\('storage', syncReceipt\)/);
+    assert.match(CLIENT, /Tab khác đã giữ receipt import/);
     assert.match(CLIENT, /commitLock\.current/);
     assert.match(CLIENT, /for \(;;\)/);
     assert.match(CLIENT, /xhr\.upload\.onprogress/);

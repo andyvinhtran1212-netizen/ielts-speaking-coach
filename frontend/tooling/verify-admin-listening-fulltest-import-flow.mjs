@@ -41,7 +41,7 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => errors.push(String(error)));
-await page.route('**/*', async (route) => {
+await context.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
   if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
@@ -52,6 +52,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/listening/import-fulltest/commit' && method === 'POST') {
     commitRequests += 1; canonicalId = scenario === 'ambiguous' ? 'test-ambiguous' : `test-${commitRequests}`; canonicalStatus = 'draft';
     if (scenario === 'paged') await new Promise((resolve) => setTimeout(resolve, 250));
+    if (scenario === 'concurrent') await new Promise((resolve) => setTimeout(resolve, 400));
     if (scenario === 'ambiguous') return json({ detail: 'gateway timeout after commit' }, 503);
     return json({ id: canonicalId, test_id: testId, status: 'draft', sections_created: scenario === 'mini-mismatch' ? 1 : 4, exercises_created: 2,
       audio: { size_bytes: 3200, duration_seconds: 95 }, warnings: [] });
@@ -82,8 +83,8 @@ const pack = [
   { name: 'timings.json', mimeType: 'application/json', buffer: Buffer.from('{}') },
   { name: 'full_test.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('fixture-audio') },
 ];
-async function choosePack() {
-  const inputs = page.locator('.alfi-file input[type=file]');
+async function choosePack(target = page) {
+  const inputs = target.locator('.alfi-file input[type=file]');
   for (let index = 0; index < pack.length; index += 1) await inputs.nth(index).setInputFiles(pack[index]);
 }
 
@@ -158,6 +159,35 @@ check('canonical GET từ chối Mini có nhiều hơn một section', await pag
   && await page.getByText('đã được backend xác nhận', { exact: false }).count() === 0);
 await page.getByRole('button', { name: 'Bỏ receipt…' }).click();
 await page.getByRole('button', { name: 'Tôi đã kiểm tra, bỏ receipt' }).click();
+
+scenario = 'concurrent'; canonicalId = null; canonicalStatus = 'draft';
+await page.goto(`${BASE}/admin/listening/import-fulltest`, { waitUntil: 'domcontentloaded' });
+const secondPage = await context.newPage();
+secondPage.on('pageerror', (error) => errors.push(String(error)));
+await secondPage.goto(`${BASE}/admin/listening/import-fulltest`, { waitUntil: 'domcontentloaded' });
+await Promise.all([choosePack(page), choosePack(secondPage)]);
+await Promise.all([
+  page.getByRole('button', { name: 'Kiểm tra pack' }).click(),
+  secondPage.getByRole('button', { name: 'Kiểm tra pack' }).click(),
+]);
+await Promise.all([
+  page.getByText('Parser đã đọc trọn pack', { exact: true }).waitFor(),
+  secondPage.getByText('Parser đã đọc trọn pack', { exact: true }).waitFor(),
+]);
+const beforeConcurrent = commitRequests;
+await Promise.all([
+  page.getByRole('button', { name: 'Ghi thành Draft' }).click(),
+  secondPage.getByRole('button', { name: 'Ghi thành Draft' }).click(),
+]);
+await Promise.race([
+  page.getByText('đã được backend xác nhận', { exact: false }).waitFor(),
+  secondPage.getByText('đã được backend xác nhận', { exact: false }).waitFor(),
+]);
+await page.waitForTimeout(450);
+const lockErrors = await page.getByText(/tab khác đang import|tab khác đang giữ lượt import/i).count()
+  + await secondPage.getByText(/tab khác đang import|tab khác đang giữ lượt import/i).count();
+check('hai tab mở sẵn chỉ một tab được POST và receipt còn đúng chủ', commitRequests === beforeConcurrent + 1 && lockErrors >= 1, `${commitRequests - beforeConcurrent} POST · ${lockErrors} lock notice`);
+await secondPage.close();
 
 scenario = 'happy'; canonicalId = null; canonicalStatus = 'draft';
 await page.goto(`${BASE}/admin/listening/import-fulltest`, { waitUntil: 'domcontentloaded' });
