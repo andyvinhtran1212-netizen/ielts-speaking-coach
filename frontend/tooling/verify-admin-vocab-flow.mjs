@@ -1,6 +1,6 @@
-// Fixture-backed browser contract for native Admin Vocabulary hub + stats.
-// Production data is never read. The sole allowed business write is asserted
-// by method, path, body, lock and canonical readback.
+// Fixture-backed browser contract for native Admin Vocabulary workspaces.
+// Production data is never read. Every allowed business write is asserted by
+// method, path, body, lock and canonical readback where the backend supports it.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
@@ -14,6 +14,10 @@ const quizBankId = '00000000-0000-4000-8000-000000000302';
 const quizBankIdB = '00000000-0000-4000-8000-000000000303';
 const contentTopicId = '00000000-0000-4000-8000-000000000401';
 const contentTopicIdB = '00000000-0000-4000-8000-000000000404';
+const vocabCardId = '00000000-0000-4000-8000-000000000411';
+const importedVocabCardId = '00000000-0000-4000-8000-000000000412';
+const bulkVocabCardId = '00000000-0000-4000-8000-000000000413';
+const staleVocabCardId = '00000000-0000-4000-8000-000000000414';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -46,6 +50,12 @@ let topicWritePending = false;
 let bankWritePending = false;
 let importWritePending = false;
 let failNextTopicBundle = false;
+let contentReads = 0;
+let contentDetailReads = 0;
+let contentWritePending = false;
+let contentImportPending = false;
+let failNextContentList = false;
+let partialNextContentBulk = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -67,6 +77,45 @@ let lemmaRows = [{ id: '00000000-0000-4000-8000-000000000211', original_word: 'c
 let topicRow = { id: contentTopicId, slug: 'work-careers', title: 'Work <script>', skill_area: 'vocab', title_vi: null, description: 'Canonical topic', order: 1, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
 const topicRowB = { id: contentTopicIdB, slug: 'travel', title: 'Travel', skill_area: 'vocab', title_vi: null, description: 'Second topic', order: 2, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
 let topicBanks = [{ id: quizBankId, topic_id: contentTopicId, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null }];
+let vocabDetail = {
+  id: vocabCardId,
+  slug: 'mitigate',
+  headword: 'mitigate<script>',
+  category: 'work-careers',
+  level: 'B2',
+  part_of_speech: 'verb',
+  pronunciation: '/ˈmɪtɪɡeɪt/',
+  syllables: 'mit-i-gate',
+  definition_en: 'make less severe',
+  definition_vi: 'giảm nhẹ',
+  gloss_vi: 'giảm nhẹ <img onerror=alert(1)>',
+  example: 'Trees mitigate heat.',
+  register: 'formal',
+  common_error: '',
+  memory_hook: '',
+  source: 'fixture',
+  group: 'core',
+  body_html: '<p>Canonical body</p>',
+  synonyms: ['reduce'],
+  antonyms: ['worsen'],
+  collocations: ['mitigate risk'],
+  related_words: ['mitigation'],
+  word_family: [{ word: 'mitigation', pos: 'noun' }],
+};
+let vocabRows = [{
+  id: vocabCardId,
+  slug: 'mitigate',
+  headword: 'mitigate<script>',
+  category: 'work-careers',
+  level: 'B2',
+  part_of_speech: 'verb',
+  pronunciation: '/ˈmɪtɪɡeɪt/',
+  gloss_vi: 'giảm nhẹ <img onerror=alert(1)>',
+  audio_headword: null,
+  audio_example: null,
+  audio_status: 'pending',
+  updated_at: '2026-08-15T00:00:00Z',
+}];
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch (_) {} }, [storageKey(SB), fakeSession]);
@@ -88,9 +137,77 @@ await page.route('**/*', async (route) => {
     || ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/content-topics/${contentTopicId}`;
   const expectedBank = ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/quiz/banks/${quizBankId}`;
   const expectedImport = method === 'POST' && parsed.pathname === '/admin/quiz/import';
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !expectedFlag && !expectedD1 && !expectedLemma && !expectedTopic && !expectedBank && !expectedImport && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)) unexpectedWrites.push(`${method} ${parsed.pathname}`);
+  const expectedVocabCard = ['PATCH', 'DELETE'].includes(method) && parsed.pathname === `/admin/vocabulary/${vocabCardId}`;
+  const expectedVocabBulk = method === 'POST' && parsed.pathname === '/admin/vocabulary/bulk-delete';
+  const expectedVocabAudio = method === 'POST' && parsed.pathname === '/admin/vocabulary/generate-audio';
+  const expectedVocabImport = method === 'POST' && parsed.pathname === '/admin/vocabulary/import';
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !expectedFlag && !expectedD1 && !expectedLemma && !expectedTopic && !expectedBank && !expectedImport && !expectedVocabCard && !expectedVocabBulk && !expectedVocabAudio && !expectedVocabImport && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)) unexpectedWrites.push(`${method} ${parsed.pathname}`);
   const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-vocab@local', role: 'admin' });
+  if (method === 'POST' && parsed.pathname === '/admin/vocabulary/import') {
+    const dryRun = parsed.searchParams.get('dry_run') === 'true';
+    if (!dryRun) { contentImportPending = true; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    const result = {
+      dry_run: dryRun,
+      blocks: [{ index: 0, headword: 'adapt<script>', slug: 'adapt', validation_errors: [], action: dryRun ? null : 'created', db_action: 'created', parsed_data: { category: 'work-careers' } }],
+      validation_errors: [],
+      committed_ids: dryRun ? [] : ['adapt'],
+      duplicate_slugs: [],
+      summary: { total: 1, created: dryRun ? 0 : 1, updated: 0, errors: 0, forecast_created: 1, forecast_updated: 0 },
+    };
+    if (!dryRun) {
+      vocabRows = [{ id: importedVocabCardId, slug: 'adapt', headword: 'adapt<script>', category: 'work-careers', level: 'B1', part_of_speech: 'verb', pronunciation: null, gloss_vi: 'thích nghi', audio_headword: null, audio_example: null, audio_status: 'pending', updated_at: null }];
+      contentImportPending = false;
+    }
+    return json(result);
+  }
+  if (method === 'POST' && parsed.pathname === '/admin/vocabulary/generate-audio') {
+    contentWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    contentWritePending = false;
+    return json({ queued_count: body?.ids?.length ?? 0, engine: body?.engine, scope: body?.scope });
+  }
+  if (method === 'POST' && parsed.pathname === '/admin/vocabulary/bulk-delete') {
+    contentWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    const ids = Array.isArray(body?.ids) ? body.ids : [];
+    vocabRows = vocabRows.filter((row) => !ids.includes(row.id));
+    contentWritePending = false;
+    if (partialNextContentBulk) {
+      partialNextContentBulk = false;
+      return json({ deleted_count: ids.length - 1, not_found: [staleVocabCardId] });
+    }
+    return json({ deleted_count: ids.length, not_found: [] });
+  }
+  if (method === 'GET' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
+    contentDetailReads += 1;
+    return json(vocabDetail);
+  }
+  if (method === 'PATCH' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
+    contentWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    vocabDetail = { ...vocabDetail, ...body };
+    vocabRows = vocabRows.map((row) => row.id === vocabCardId ? { ...row, headword: body?.headword ?? row.headword, category: body?.category ?? row.category, level: body?.level ?? row.level, part_of_speech: body?.part_of_speech ?? row.part_of_speech, pronunciation: body?.pronunciation ?? row.pronunciation, gloss_vi: body?.gloss_vi ?? row.gloss_vi } : row);
+    contentWritePending = false;
+    return json(vocabDetail);
+  }
+  if (method === 'DELETE' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
+    contentWritePending = true;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    vocabRows = vocabRows.filter((row) => row.id !== vocabCardId);
+    contentWritePending = false;
+    return json({ id: vocabCardId, message: 'Vocabulary deleted' });
+  }
+  if (method === 'GET' && parsed.pathname === '/admin/vocabulary') {
+    contentReads += 1;
+    if (failNextContentList) { failNextContentList = false; return json({ detail: 'fixture content unavailable' }, 503); }
+    const category = parsed.searchParams.get('category') || '';
+    const query = (parsed.searchParams.get('q') || '').toLowerCase();
+    const offset = Number(parsed.searchParams.get('offset') || 0);
+    const limit = Number(parsed.searchParams.get('limit') || 50);
+    const filtered = vocabRows.filter((row) => (!category || row.category === category) && (!query || row.headword.toLowerCase().includes(query)));
+    return json({ words: filtered.slice(offset, offset + limit), total: filtered.length, limit, offset });
+  }
   if (parsed.pathname === '/admin/vocab/stats') {
     vocabRead += 1;
     if (holdNextVocab) {
@@ -259,7 +376,8 @@ check('hub có đủ tám workspace và canonical links', await page.locator('a.
   && await page.locator('a.avv-card[href="/admin/vocab/quiz"]').count() === 1
   && await page.getByRole('link', { name: /Kết quả Quick-Check/ }).getAttribute('href') === '/admin/vocab/quiz-analytics'
   && await page.getByRole('link', { name: /D1 Curation/ }).getAttribute('href') === '/admin/vocab/d1-curation'
-  && await page.getByRole('link', { name: /Lemma Overrides/ }).getAttribute('href') === '/admin/vocab/lemmas');
+  && await page.getByRole('link', { name: /Lemma Overrides/ }).getAttribute('href') === '/admin/vocab/lemmas'
+  && await page.getByRole('link', { name: /Nội dung từ vựng/ }).getAttribute('href') === '/admin/vocab/content');
 check('mobile hub một cột, không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.avv-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= window.innerWidth));
 
 await page.goto(`${BASE}/admin/vocab/stats?days=7`, { waitUntil: 'domcontentloaded' });
@@ -358,6 +476,7 @@ check('Lemma mobile không tràn ngang', await page.evaluate(() => document.docu
 await page.goto(`${BASE}/admin/vocab/topics?topic=${contentTopicId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Chủ đề nội dung', exact: true }).waitFor();
 await page.getByText('Work <script>', { exact: true }).first().waitFor();
+await page.locator('.avv-topic-form').waitFor();
 check('Topics chỉ nhận deep-link sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/content-topics/${contentTopicId}/bundle`) && new URL(page.url()).searchParams.get('topic') === contentTopicId);
 check('Topics escape title/card độc hại', await page.locator('.avv-topic-console script, .avv-topic-console img').count() === 0);
 failNextTopicBundle = true;
@@ -453,6 +572,87 @@ await page.getByRole('heading', { name: 'Kết quả bài tập theo buổi', ex
 await page.getByText('Phiên đã chấm', { exact: true }).waitFor();
 check('Analytics đổi toàn bộ rollup sang course scope', requests.some((item) => item.path === '/admin/quiz/students' && item.search === '?skill_area=course') && !new URL(page.url()).searchParams.has('bank_id'));
 check('Analytics mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+
+const contentRequestStart = requests.length;
+await page.goto(`${BASE}/admin/vocab/content?category=unknown-topic&q=mitigate`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Kho từ vựng', exact: true }).waitFor();
+await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
+const contentRequests = requests.slice(contentRequestStart);
+check('Content chỉ admit category qua scoped topic list', contentRequests.findIndex((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab') < contentRequests.findIndex((item) => item.path === '/admin/vocabulary') && !new URL(page.url()).searchParams.has('category'));
+check('Content giữ query hợp lệ và phân trang canonical', new URL(page.url()).searchParams.get('q') === 'mitigate' && contentRequests.some((item) => item.path === '/admin/vocabulary' && item.search === '?limit=50&offset=0&q=mitigate'));
+check('Content escape dữ liệu độc hại', await page.locator('.avv-content-console script, .avv-content-console img').count() === 0);
+check('Content import mở sẵn nhưng admin vẫn có thể đóng', await page.locator('details.avv-content-import').evaluate((node) => node.open));
+
+await page.getByLabel('Chọn mitigate<script>').check();
+failNextContentList = true;
+await page.locator('.avv-content-filters > label select').selectOption('travel');
+await page.getByText(/Không tải được kho từ/).waitFor();
+check('Content xoá dữ liệu và selection cũ khi filtered GET lỗi', await page.getByText('mitigate<script>', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Xoá (0)' }).isDisabled());
+await page.locator('.avv-content-filters > label select').selectOption('');
+await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
+
+await page.getByLabel('Tìm headword').fill('');
+await page.getByRole('button', { name: 'Tìm', exact: true }).click();
+await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
+await page.getByRole('button', { name: 'Sửa', exact: true }).click();
+const contentEditDialog = page.getByRole('dialog', { name: 'Hiệu chỉnh vocab card' });
+await contentEditDialog.waitFor();
+await contentEditDialog.getByLabel('Headword', { exact: true }).fill('mitigate safely');
+const wordFamilyValue = await contentEditDialog.locator('textarea.is-code').first().inputValue();
+check('Content editor giữ rich word-family JSON', wordFamilyValue.includes('"word": "mitigation"') && !wordFamilyValue.includes('[object Object]'));
+await contentEditDialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
+await page.waitForTimeout(40);
+check('Content PATCH bị khoá trong lúc chờ ACK', contentWritePending && await contentEditDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await page.getByText('Đã lưu và đọc lại vocab card chuẩn từ backend.', { exact: true }).waitFor();
+check('Content PATCH đúng body, giữ object word-family và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocabulary/${vocabCardId}` && item.body?.headword === 'mitigate safely' && item.body?.word_family?.[0]?.word === 'mitigation') && contentDetailReads >= 2 && contentReads >= 2);
+
+await page.getByLabel('Chọn mitigate safely').check();
+await page.getByLabel('Engine audio').selectOption('elevenlabs');
+await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
+const audioDialog = page.getByRole('dialog', { name: 'Tạo 1 audio bằng ElevenLabs?' });
+check('Content cảnh báo chi phí trước ElevenLabs write', await audioDialog.getByText('Chi phí bên thứ ba', { exact: true }).count() === 1);
+await audioDialog.getByRole('button', { name: 'Hủy' }).click();
+await page.getByLabel('Engine audio').selectOption('openai');
+await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
+await page.waitForTimeout(40);
+check('Content audio write bị khoá khi chờ ACK', contentWritePending && await page.getByRole('button', { name: 'Tạo audio (1)' }).isDisabled());
+await page.getByText(/Đã xếp hàng 1 từ qua openai/).waitFor();
+check('Content audio gửi đúng engine/scope/selection', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio' && item.body?.ids?.[0] === vocabCardId && item.body?.engine === 'openai' && item.body?.scope === 'both' && item.body?.skip_existing_audio === true));
+
+const contentRow = page.locator('tbody tr').filter({ hasText: 'mitigate safely' });
+await contentRow.getByRole('button', { name: 'Xoá', exact: true }).click();
+const contentDeleteDialog = page.getByRole('dialog', { name: 'Xoá “mitigate safely”?' });
+await contentDeleteDialog.getByRole('button', { name: 'Xác nhận' }).click();
+await page.waitForTimeout(40);
+check('Content hard-delete bị khoá trong dialog', contentWritePending && await contentDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).waitFor();
+check('Content DELETE đúng id và canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/vocabulary/${vocabCardId}`) && vocabRows.length === 0 && contentReads >= 3);
+
+vocabRows = [
+  { id: bulkVocabCardId, slug: 'recover', headword: 'recover', category: 'work-careers', level: 'B1', part_of_speech: 'verb', pronunciation: null, gloss_vi: 'phục hồi', audio_headword: null, audio_example: null, audio_status: 'pending', updated_at: null },
+  { id: staleVocabCardId, slug: 'stale', headword: 'stale', category: 'work-careers', level: 'B1', part_of_speech: 'adjective', pronunciation: null, gloss_vi: 'cũ', audio_headword: null, audio_example: null, audio_status: 'pending', updated_at: null },
+];
+await page.getByRole('button', { name: 'Tìm', exact: true }).click();
+await page.getByText('recover', { exact: true }).first().waitFor();
+await page.getByText('stale', { exact: true }).first().waitFor();
+await page.getByLabel('Chọn trang này').check();
+partialNextContentBulk = true;
+await page.getByRole('button', { name: 'Xoá (2)' }).click();
+await page.getByRole('dialog', { name: 'Xoá 2 từ đã chọn?' }).getByRole('button', { name: 'Xác nhận' }).click();
+await page.getByText(/Đã xoá 1 từ.*1 card đã được thay đổi hoặc xoá trước thao tác này/).waitFor();
+check('Content partial bulk-delete luôn canonical readback và cảnh báo', vocabRows.length === 0 && await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).count() === 1);
+
+await page.locator('details.avv-content-import').evaluate((node) => { node.open = true; });
+await page.locator('.avv-content-import input[type=file]').setInputFiles({ name: 'adapt.md', mimeType: 'text/markdown', buffer: Buffer.from('---\nheadword: adapt\ncategory: work-careers\n---\n') });
+await page.getByText(/adapt<script>/).first().waitFor();
+check('Content dry-run là multipart không commit', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/import' && item.search === '?dry_run=true') && await page.getByText('1', { exact: true }).count() >= 1);
+await page.getByRole('button', { name: 'Lưu vào thư viện' }).click();
+await page.waitForTimeout(40);
+check('Content import commit một lần và khoá resubmit', contentImportPending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await page.getByText(/Đã lưu 1 từ mới và cập nhật 0 từ/).waitFor();
+await page.getByText('adapt<script>', { exact: true }).first().waitFor();
+check('Content import một combined commit và canonical list readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/vocabulary/import' && item.search === '?dry_run=false').length === 1 && vocabRows[0]?.id === importedVocabCardId && contentReads >= 4);
+check('Content mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });

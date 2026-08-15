@@ -472,7 +472,7 @@ const NAV_GROUPS = [
       { section: 'vocab',     label: 'Vocab',     href: '/admin/vocab',     icon: 'book',
         subsections: [
           { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/admin/vocab/topics' },
-          { slug: 'content',       label: 'Nội dung từ vựng', href: '/pages/admin/vocab/content.html' },
+          { slug: 'content',       label: 'Nội dung từ vựng', href: '/admin/vocab/content' },
           { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/admin/vocab/quiz' },
           { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/admin/vocab/quiz-analytics' },
           { slug: 'stats',         label: 'Stats',           href: '/admin/vocab/stats' },
