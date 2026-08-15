@@ -156,6 +156,10 @@ export function AuthedShell({
 }) {
   return (
     <>
+      {/* Route-scoped hint for the adaptive student chrome. Without it the
+          Vocabulary target waits on a second Supabase poll and can briefly
+          disagree with an authenticated native page. */}
+      <meta name="aver-auth-gated" content="1" />
       <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
 
       {/* Font preconnects + faces — bộ của trang cần đăng nhập, KHÔNG phải bộ

@@ -638,6 +638,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // detected (session-adaptive _applyVocabNav).
     assert.match(component, /href="\/vocabulary"\s+data-tab="vocabulary"/);
     assert.match(component, /loggedIn\s*\?\s*['"]\/vocabulary\/hub['"]\s*:\s*['"]\/vocabulary['"]/);
+    assert.match(component, /meta\[name="aver-auth-gated"\]\[content="1"\]/);
     assert.match(component, /href="\/reading\/vocab"\s+data-tab="reading"/);
   });
 });
