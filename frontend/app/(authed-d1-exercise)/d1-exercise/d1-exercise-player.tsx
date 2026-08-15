@@ -150,8 +150,9 @@ export function D1ExercisePlayer() {
   const localCorrect = !!exercise && !!choice
     && choice.trim().toLocaleLowerCase('en') === exercise.answer.trim().toLocaleLowerCase('en');
 
-  const clearResume = useCallback((userId: string, sessionId: string) => {
+  const clearResume = useCallback((userId: string, sessionId: string, clearUrl = true) => {
     writeSessionIds(userId, readSessionIds(userId).filter((id) => id !== sessionId));
+    if (!clearUrl) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('session') === sessionId) {
       url.searchParams.delete('session');
@@ -250,7 +251,11 @@ export function D1ExercisePlayer() {
             break;
           } catch (caught: any) {
             if (caught?.status !== 404) throw caught;
-            clearResume(expectedAccount, candidate);
+            clearResume(
+              expectedAccount,
+              candidate,
+              !disposed && accountRef.current === expectedAccount,
+            );
           }
         }
         if (disposed || accountRef.current !== expectedAccount) return;

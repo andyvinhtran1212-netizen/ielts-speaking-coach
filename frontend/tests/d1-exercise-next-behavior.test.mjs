@@ -30,11 +30,12 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /JSON\.parse\(raw\)/);
     assert.match(player, /writeSessionIds\(userId, readSessionIds\(userId\)\.filter\(\(id\) => id !== sessionId\)\)/);
     assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,160}storedIds\[storedIds\.length - 1\][\s\S]{0,160}legacyIds\[legacyIds\.length - 1\]/);
-    assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,380}caught\?\.status !== 404[\s\S]{0,100}clearResume\(expectedAccount, candidate\)/);
+    assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,500}caught\?\.status !== 404[\s\S]{0,100}clearResume\([\s\S]{0,80}expectedAccount,[\s\S]{0,80}candidate/);
     assert.match(player, /legacyIds\.includes\(resumedId\)[\s\S]{0,80}removeItem\(LEGACY_STORAGE_KEY\)/);
     assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate\)/);
     assert.match(player, /async function resumeSessionForAccount\(expectedAccount: string, sessionId: string\)[\s\S]{0,220}requestForAccount\([\s\S]{0,80}expectedAccount/);
     assert.doesNotMatch(player, /window\.api\.get\(`\/api\/exercises\/d1\/sessions\/\$\{encodeURIComponent\(candidate\)\}`\)/);
+    assert.match(player, /clearResume\([\s\S]{0,100}expectedAccount,[\s\S]{0,100}candidate,[\s\S]{0,100}!disposed && accountRef\.current === expectedAccount/);
   });
 
   test('account changes reset question state and retain a late start ACK for its owner', () => {

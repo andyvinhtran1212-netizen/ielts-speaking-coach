@@ -8,6 +8,7 @@ const USER = '00000000-0000-4000-8000-000000000201';
 const FOREIGN_USER = '00000000-0000-4000-8000-000000000208';
 const SESSION = '00000000-0000-4000-8000-000000000202';
 const FOREIGN_SESSION = '00000000-0000-4000-8000-000000000207';
+const FOREIGN_OWNER_SESSION = '00000000-0000-4000-8000-000000000209';
 const A = '00000000-0000-4000-8000-000000000203';
 const B = '00000000-0000-4000-8000-000000000204';
 const ATT_A = '00000000-0000-4000-8000-000000000205';
@@ -38,6 +39,8 @@ const pageErrors = [];
 let attemptBCalls = 0;
 let completed = false;
 const persistedAttempts = [];
+let resolveForeignOwnerMiss;
+const foreignOwnerMissStarted = new Promise((resolve) => { resolveForeignOwnerMiss = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -49,9 +52,11 @@ window.supabase = { createClient: function () { return { auth: {
       await new Promise(function (resolve) { setTimeout(resolve, 120); });
       return { data: { session: { access_token: 'foreign-token', user: { id: '${FOREIGN_USER}', email: 'other@local' } } }, error: null };
     }
-    return { data: { session: { access_token: 'fixture-token', user: { id: '${USER}', email: 'd1@local' } } }, error: null };
+    var currentUser = window.__d1CurrentUser || '${USER}';
+    var foreign = currentUser === '${FOREIGN_USER}';
+    return { data: { session: { access_token: foreign ? 'foreign-token' : 'fixture-token', user: { id: currentUser, email: foreign ? 'other@local' : 'd1@local' } } }, error: null };
   },
-  onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
+  onAuthStateChange: function (callback) { window.__d1AuthCallback = callback; return { data: { subscription: { unsubscribe: function () {} } } }; },
   signOut: async function () { return { error: null }; }
 } }; } };`;
 
@@ -86,6 +91,20 @@ await context.route('**/*', async (route) => {
     });
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${FOREIGN_SESSION}`) {
+    return json({ detail: 'Session not found' }, 404);
+  }
+  if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${FOREIGN_OWNER_SESSION}`) {
+    if (request.headers().authorization === 'Bearer foreign-token') {
+      return json({
+        session: {
+          id: FOREIGN_OWNER_SESSION, status: 'active', total_count: 2,
+          exercise_ids: [A, B], exercise_snapshot: exercises,
+        },
+        attempts: persistedAttempts,
+      });
+    }
+    resolveForeignOwnerMiss();
+    await new Promise((resolve) => setTimeout(resolve, 300));
     return json({ detail: 'Session not found' }, 404);
   }
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
@@ -202,6 +221,30 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
 check('account cũ vẫn resume được đúng session sau token race',
   new URL(page.url()).searchParams.get('session') === SESSION);
+
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  localStorage.removeItem('aver:d1:active-session');
+  window.__d1CurrentUser = userId;
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_OWNER_SESSION}`, { waitUntil: 'domcontentloaded' });
+await foreignOwnerMissStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByText('Trees _____ in spring.').waitFor();
+await page.waitForTimeout(350);
+check('404 trễ của account cũ không xóa query resume của account mới',
+  new URL(page.url()).searchParams.get('session') === FOREIGN_OWNER_SESSION);
+check('account mới claim query session vào đúng registry', await page.evaluate(([userId, sessionId]) => {
+  const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
+  return !!scoped && JSON.parse(scoped).includes(sessionId);
+}, [FOREIGN_USER, FOREIGN_OWNER_SESSION]));
 
 await context.close();
 await browser.close();
