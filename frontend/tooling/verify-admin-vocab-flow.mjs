@@ -11,6 +11,7 @@ const adminId = '00000000-0000-4000-8000-000000000115';
 const learnerId = '10000000-0000-4000-8000-000000000115';
 const quizLearnerId = '00000000-0000-4000-8000-000000000301';
 const quizBankId = '00000000-0000-4000-8000-000000000302';
+const quizBankIdB = '00000000-0000-4000-8000-000000000303';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -30,6 +31,12 @@ let failNextD1Delete = false;
 let lemmaReads = 0;
 let lemmaWritePending = false;
 let failNextLemmaCreate = false;
+let holdNextQuizBankAnalytics = false;
+let heldQuizBankAnalyticsStarted = false;
+let releaseHeldQuizBankAnalytics;
+let holdNextQuizDetail = false;
+let heldQuizDetailStarted = false;
+let releaseHeldQuizDetail;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -143,13 +150,31 @@ await page.route('**/*', async (route) => {
       students: [{ user_id: quizLearnerId, name: 'Lan <img onerror=alert(1)>', email: 'lan@example.test', sessions: 2, graded_sessions: 1, time_sec: 125, avg_accuracy: 0.75, words_mastered: course ? 0 : 8, last_active: '2026-08-15T00:00:00Z' }],
     });
   }
-  if (method === 'GET' && parsed.pathname === `/admin/quiz/students/${quizLearnerId}`) return json({
-    user: { user_id: quizLearnerId, name: 'Lan <img onerror=alert(1)>', email: 'lan@example.test' },
-    banks: [{ bank_id: quizBankId, code: 'L02', title: 'Grammar 2', skill_area: 'vocab', words_count: 20, mastered: 6, in_progress: 2 }],
-    recent_sessions: [{ code: 'L02', accuracy: null, words_mastered: 0, total_questions: 0, total_correct: 0, duration_sec: null, ended_at: null, ended_by: null }],
-  });
-  if (method === 'GET' && parsed.pathname === '/admin/quiz/banks') return json(parsed.searchParams.get('skill_area') === 'vocab' ? [{ id: quizBankId, topic_id: null, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null }] : []);
-  if (method === 'GET' && parsed.pathname === `/admin/quiz/banks/${quizBankId}/analytics`) return json({ session_count: 2, items: [{ item_key: 'mitigate<script>', total: 4, wrong: 1, error_rate: 0.25 }], skills: [{ skill: 'meaning', total: 4, wrong: 1, error_rate: 0.25 }] });
+  if (method === 'GET' && parsed.pathname === `/admin/quiz/students/${quizLearnerId}`) {
+    if (holdNextQuizDetail) {
+      holdNextQuizDetail = false;
+      heldQuizDetailStarted = true;
+      await new Promise((resolve) => { releaseHeldQuizDetail = resolve; });
+    }
+    return json({
+      user: { user_id: quizLearnerId, name: 'Lan <img onerror=alert(1)>', email: 'lan@example.test' },
+      banks: [{ bank_id: quizBankId, code: 'L02', title: 'Grammar 2', skill_area: 'vocab', words_count: 20, mastered: 6, in_progress: 2 }],
+      recent_sessions: [{ code: 'L02', accuracy: null, words_mastered: 0, total_questions: 0, total_correct: 0, duration_sec: null, ended_at: null, ended_by: null }],
+    });
+  }
+  if (method === 'GET' && parsed.pathname === '/admin/quiz/banks') return json(parsed.searchParams.get('skill_area') === 'vocab' ? [
+    { id: quizBankId, topic_id: null, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
+    { id: quizBankIdB, topic_id: null, code: 'L03', title: 'Grammar 3', skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null },
+  ] : []);
+  if (method === 'GET' && parsed.pathname === `/admin/quiz/banks/${quizBankId}/analytics`) {
+    if (holdNextQuizBankAnalytics) {
+      holdNextQuizBankAnalytics = false;
+      heldQuizBankAnalyticsStarted = true;
+      await new Promise((resolve) => { releaseHeldQuizBankAnalytics = resolve; });
+    }
+    return json({ session_count: 2, items: [{ item_key: 'mitigate<script>', total: 4, wrong: 1, error_rate: 0.25 }], skills: [{ skill: 'meaning', total: 4, wrong: 1, error_rate: 0.25 }] });
+  }
+  if (method === 'GET' && parsed.pathname === `/admin/quiz/banks/${quizBankIdB}/analytics`) return json({ session_count: 1, items: [{ item_key: 'resilient', total: 2, wrong: 1, error_rate: 0.5 }], skills: [{ skill: 'spelling', total: 2, wrong: 1, error_rate: 0.5 }] });
   return json({});
 });
 
@@ -262,9 +287,27 @@ await page.getByText('mitigate<script>', { exact: true }).waitFor();
 check('Analytics deep-link chỉ tải bank sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/quiz/banks' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/quiz/banks/${quizBankId}/analytics`));
 check('Analytics giữ scope/tab/bank hợp lệ trong URL', new URL(page.url()).searchParams.get('scope') === 'vocab' && new URL(page.url()).searchParams.get('tab') === 'hard' && new URL(page.url()).searchParams.get('bank_id') === quizBankId);
 check('Analytics escape dữ liệu item độc hại', await page.getByText('mitigate<script>', { exact: true }).count() === 1 && await page.locator('.avv-quiz-analytics script, .avv-quiz-analytics img').count() === 0);
+await page.getByLabel('Chọn bộ').selectOption('');
+holdNextQuizBankAnalytics = true;
+await page.getByLabel('Chọn bộ').selectOption(quizBankId);
+await page.waitForTimeout(40);
+check('Analytics bank A được giữ để kiểm freshness', heldQuizBankAnalyticsStarted);
+await page.getByLabel('Chọn bộ').selectOption(quizBankIdB);
+await page.getByText('resilient', { exact: true }).waitFor();
+releaseHeldQuizBankAnalytics?.();
+await page.waitForTimeout(100);
+check('Analytics request bank cũ không ghi đè bank mới', new URL(page.url()).searchParams.get('bank_id') === quizBankIdB && await page.getByText('resilient', { exact: true }).count() === 1 && await page.getByText('mitigate<script>', { exact: true }).count() === 0);
 await page.getByRole('tab', { name: 'Theo học viên' }).click();
 await page.getByText('Lan <img onerror=alert(1)>', { exact: true }).waitFor();
 check('Analytics đọc rollup canonical và escape identity', requests.some((item) => item.path === '/admin/quiz/students' && item.search === '?skill_area=vocab') && await page.locator('.avv-quiz-analytics img').count() === 0);
+holdNextQuizDetail = true;
+await page.getByRole('button', { name: 'Xem chi tiết' }).click();
+await page.waitForTimeout(40);
+check('Analytics detail được giữ để kiểm close freshness', heldQuizDetailStarted);
+await page.keyboard.press('Escape');
+releaseHeldQuizDetail?.();
+await page.waitForTimeout(100);
+check('Analytics detail cũ không mở lại dialog đã đóng', await page.getByRole('dialog').count() === 0);
 await page.getByRole('button', { name: 'Xem chi tiết' }).click();
 const quizDialog = page.getByRole('dialog', { name: 'Lan <img onerror=alert(1)>' });
 await quizDialog.getByText('0s', { exact: true }).waitFor();

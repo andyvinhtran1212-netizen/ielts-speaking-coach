@@ -140,14 +140,21 @@ export function AdminVocabQuizAnalytics() {
     }
   };
 
+  const closeDetail = useCallback(() => {
+    detailSeq.current += 1;
+    setDetail(null);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
+
   useEffect(() => {
     const scopeAccount = `${profile.id}:${scope}`;
     if (scopeAccountRef.current !== scopeAccount) setBankId('');
     scopeAccountRef.current = scopeAccount;
-    setRollup(null); setDetail(null); setBanks([]); setBanksReady(false); setHard(null);
+    setRollup(null); closeDetail(); setBanks([]); setBanksReady(false); setHard(null); setHardLoading(false);
     void loadRollup(scope);
     return () => { rollupSeq.current += 1; bankSeq.current += 1; hardSeq.current += 1; detailSeq.current += 1; };
-  }, [loadRollup, profile.id, scope]);
+  }, [closeDetail, loadRollup, profile.id, scope]);
 
   useEffect(() => {
     if (tab === 'hard') void loadBanks(scope);
@@ -165,14 +172,14 @@ export function AdminVocabQuizAnalytics() {
 
   useEffect(() => {
     if (!detail) return undefined;
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setDetail(null); };
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') closeDetail(); };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
-  }, [detail]);
+  }, [closeDetail, detail]);
 
   const changeScope = (next: Scope) => { setScope(next); setBankId(''); setHard(null); updateUrl(next, tab); };
-  const changeTab = (next: Tab) => { bankSeq.current += 1; hardSeq.current += 1; setTab(next); setBanksReady(false); setBankId(''); setHard(null); setHardError(null); updateUrl(scope, next); };
-  const changeBank = (next: string) => { setBankId(next); setHard(null); setHardError(null); updateUrl(scope, tab, next); };
+  const changeTab = (next: Tab) => { bankSeq.current += 1; hardSeq.current += 1; setTab(next); setBanksReady(false); setBankId(''); setHard(null); setHardLoading(false); setHardError(null); updateUrl(scope, next); };
+  const changeBank = (next: string) => { hardSeq.current += 1; setBankId(next); setHard(null); setHardLoading(false); setHardError(null); updateUrl(scope, tab, next); };
   const copy = SCOPE_COPY[scope];
 
   return (
@@ -188,7 +195,7 @@ export function AdminVocabQuizAnalytics() {
 
       <section id="quiz-hard-panel" role="tabpanel" hidden={tab !== 'hard'} className="avv-hard-panel"><label>Chọn bộ để xem mục/skill dễ sai<select aria-label="Chọn bộ" disabled={banksLoading} value={bankId} onChange={(event) => changeBank(event.target.value)}><option value="">{banksLoading ? 'Đang tải…' : '— chọn bộ —'}</option>{banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.code} · {bank.title}</option>)}</select></label>{hardError ? <p className="avv-banner is-error" role="alert">{hardError}</p> : null}{hardLoading ? <div className="avv-state">Đang tải analytics…</div> : hard ? <><p className="avv-analysis-summary">Tổng phiên của bộ: <strong>{hard.sessionCount}</strong></p><ErrorTable title="Mục dễ sai" rows={hard.items} /><ErrorTable title="Kỹ năng dễ sai" rows={hard.skills} /></> : <div className="avv-state">Chọn một bank để xem tín hiệu khó.</div>}</section>
 
-      {detail ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-student-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="av-modal avv-dialog-card avv-dialog-card--wide"><button autoFocus className="avv-dialog-close" type="button" aria-label="Đóng" onClick={() => setDetail(null)}>×</button><p className="avv-eyebrow">Drill-down học viên</p><h2 id="quiz-student-title">{detail.user.name || '(không tên)'}</h2><p>{detail.user.email}</p>{detailError ? <p className="avv-banner is-error" role="alert">{detailError}</p> : detailLoading ? <div className="avv-state">Đang tải chi tiết…</div> : <><h3>Tiến độ theo bộ</h3>{detail.banks.length ? <div className="avv-bank-progress">{detail.banks.map((bank) => { const total = bank.wordsCount ?? bank.mastered + bank.inProgress; const percent = total ? Math.round(bank.mastered / total * 100) : 0; return <article key={bank.bankId}><div><strong>{bank.code} · {bank.title}</strong><span>{bank.mastered}/{total}</span></div><div className="avv-progress-track"><i style={{ width: `${percent}%` }} /></div></article>; })}</div> : <p className="avv-state">Chưa có tiến độ.</p>}<h3>Phiên gần đây</h3>{detail.recentSessions.length ? <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Bộ</th><th>Chính xác</th><th>Đã thuộc</th><th>Thời gian</th><th>Kết thúc</th></tr></thead><tbody>{detail.recentSessions.map((session, index) => <tr key={`${session.code}-${session.endedAt}-${index}`}><td data-label="Bộ">{session.code}</td><td data-label="Chính xác">{formatRatio(session.accuracy)}</td><td data-label="Đã thuộc">{session.wordsMastered}</td><td data-label="Thời gian">{formatDuration(session.durationSec)}</td><td data-label="Kết thúc">{dateOnly(session.endedAt)}{session.endedBy === 'paused' ? ' · tạm dừng' : ''}</td></tr>)}</tbody></table></div> : <p className="avv-state">Chưa có phiên nào.</p>}</>}</section></div> : null}
+      {detail ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-student-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetail(); }}><section className="av-modal avv-dialog-card avv-dialog-card--wide"><button autoFocus className="avv-dialog-close" type="button" aria-label="Đóng" onClick={closeDetail}>×</button><p className="avv-eyebrow">Drill-down học viên</p><h2 id="quiz-student-title">{detail.user.name || '(không tên)'}</h2><p>{detail.user.email}</p>{detailError ? <p className="avv-banner is-error" role="alert">{detailError}</p> : detailLoading ? <div className="avv-state">Đang tải chi tiết…</div> : <><h3>Tiến độ theo bộ</h3>{detail.banks.length ? <div className="avv-bank-progress">{detail.banks.map((bank) => { const total = bank.wordsCount ?? bank.mastered + bank.inProgress; const percent = total ? Math.round(bank.mastered / total * 100) : 0; return <article key={bank.bankId}><div><strong>{bank.code} · {bank.title}</strong><span>{bank.mastered}/{total}</span></div><div className="avv-progress-track"><i style={{ width: `${percent}%` }} /></div></article>; })}</div> : <p className="avv-state">Chưa có tiến độ.</p>}<h3>Phiên gần đây</h3>{detail.recentSessions.length ? <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Bộ</th><th>Chính xác</th><th>Đã thuộc</th><th>Thời gian</th><th>Kết thúc</th></tr></thead><tbody>{detail.recentSessions.map((session, index) => <tr key={`${session.code}-${session.endedAt}-${index}`}><td data-label="Bộ">{session.code}</td><td data-label="Chính xác">{formatRatio(session.accuracy)}</td><td data-label="Đã thuộc">{session.wordsMastered}</td><td data-label="Thời gian">{formatDuration(session.durationSec)}</td><td data-label="Kết thúc">{dateOnly(session.endedAt)}{session.endedBy === 'paused' ? ' · tạm dừng' : ''}</td></tr>)}</tbody></table></div> : <p className="avv-state">Chưa có phiên nào.</p>}</>}</section></div> : null}
     </main>
   );
 }

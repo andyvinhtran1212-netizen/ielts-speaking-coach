@@ -37,6 +37,9 @@ describe('Admin Vocabulary quiz analytics native ownership', () => {
     assert.match(CLIENT, /!banksReady/);
     assert.match(CLIENT, /updateUrl\(scope, tab\)/);
     assert.match(CLIENT, /event\.key === 'Escape'/);
+    assert.match(CLIENT, /const changeBank = \(next: string\) => \{ hardSeq\.current \+= 1;/);
+    assert.match(CLIENT, /const closeDetail = useCallback\(\(\) => \{\s*detailSeq\.current \+= 1;/);
+    assert.match(CLIENT, /onClick=\{closeDetail\}/);
   });
 
   test('CI owns model, browser flow and route group', () => {
