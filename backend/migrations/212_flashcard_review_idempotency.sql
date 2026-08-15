@@ -41,6 +41,42 @@ BEGIN
     IF p_rating NOT IN ('again', 'hard', 'good', 'easy') THEN
         RAISE EXCEPTION 'Unknown flashcard rating' USING ERRCODE = '22023';
     END IF;
+
+    -- A durable receipt remains replayable even if the learner archives the
+    -- vocabulary after the original commit but before receiving its HTTP ACK.
+    -- Resolve it before applying current reviewability rules, and return
+    -- without touching either the SRS row or the daily-count log.
+    SELECT * INTO v_existing
+      FROM flashcard_review_log
+     WHERE user_id = v_user_id
+       AND client_review_id = p_client_review_id;
+    IF FOUND THEN
+        IF v_existing.vocabulary_id IS DISTINCT FROM p_vocab_id
+           OR v_existing.rating IS DISTINCT FROM p_rating THEN
+            RAISE EXCEPTION 'client_review_id is already bound to different input'
+                USING ERRCODE = '22023';
+        END IF;
+
+        SELECT * INTO v_review
+          FROM flashcard_reviews
+         WHERE user_id = v_user_id
+           AND vocabulary_id = p_vocab_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Persisted review receipt has no SRS state'
+                USING ERRCODE = 'P0002';
+        END IF;
+
+        RETURN jsonb_build_object(
+            'replayed', true,
+            'interval_days', v_review.interval_days,
+            'ease_factor', v_review.ease_factor,
+            'review_count', v_review.review_count,
+            'lapse_count', v_review.lapse_count,
+            'last_reviewed_at', v_review.last_reviewed_at,
+            'next_review_at', v_review.next_review_at
+        );
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM user_vocabulary
          WHERE id = p_vocab_id
