@@ -12,11 +12,11 @@ const destinations = [
   { eyebrow: 'Sức khoẻ hệ thống', title: 'Vocab + Flashcards Stats', description: 'Theo dõi quy mô ngân hàng, false-positive, feature flag và sức khoẻ SRS.', detail: 'Bank · SRS · Engagement', href: '/admin/vocab/stats', status: 'LIVE', featured: true },
   { eyebrow: 'Tín hiệu người học', title: 'Kết quả Quick-Check', description: 'Quan sát số phiên, độ chính xác và những từ dễ sai theo từng bộ.', detail: 'Attempts · Accuracy · Difficult words', href: '/admin/vocab/quiz-analytics', status: 'LIVE' },
   { eyebrow: 'Ngân hàng nội dung', title: 'Nội dung từ vựng', description: 'Tìm kiếm, nhập, sửa và quản lý vòng đời các thẻ từ vựng.', detail: 'Import · Edit · Archive', href: '/pages/admin/vocab/content.html', status: 'LEGACY CONSOLE' },
-  { eyebrow: 'Cấu trúc chương trình', title: 'Chủ đề', description: 'Quản lý topic và liên kết từ vựng với ngân hàng câu hỏi.', detail: 'Topics · Cards · Banks', href: '/pages/admin/vocab/topics.html', status: 'LEGACY CONSOLE' },
+  { eyebrow: 'Cấu trúc chương trình', title: 'Chủ đề', description: 'Quản lý topic và liên kết từ vựng với ngân hàng câu hỏi.', detail: 'Topics · Cards · Banks', href: '/admin/vocab/topics', status: 'LIVE' },
   { eyebrow: 'Kiểm duyệt cá nhân hoá', title: 'D1 Curation', description: 'Rà soát câu fill-blank, ngữ cảnh và nguồn sinh trước khi phát hành.', detail: 'Review · Edit · Soft-delete', href: '/admin/vocab/d1-curation', status: 'LIVE' },
   { eyebrow: 'Chuẩn hoá ngôn ngữ', title: 'Lemma Overrides', description: 'Sửa mapping lemma cho idiom, proper noun và trường hợp spaCy nhận sai.', detail: 'Search · Override · Audit', href: '/admin/vocab/lemmas', status: 'LIVE' },
   { eyebrow: 'Bài luyện D1', title: 'Exercises pool', description: 'Điều phối hàng đợi draft, publish/reject và batch generation.', detail: 'Draft · Publish · Generate', href: '/pages/admin/vocab/exercises.html', status: 'LIVE' },
-  { eyebrow: 'Ngân hàng kiểm tra', title: 'Quick-Check Quiz', description: 'Quản lý câu hỏi và cấu hình quiz theo topic hoặc skill area.', detail: 'Banks · Questions · Import', href: '/pages/admin/vocab/quiz.html', status: 'LIVE' },
+  { eyebrow: 'Ngân hàng kiểm tra', title: 'Quick-Check Quiz', description: 'Quản lý câu hỏi và cấu hình quiz theo topic hoặc skill area.', detail: 'Banks · Questions · Import', href: '/admin/vocab/quiz', status: 'LIVE' },
 ] as const;
 
 export default function AdminVocabPage() {
