@@ -111,8 +111,30 @@
 .avv-dialog-card h2 { margin: 0; font-size: 1.45rem; letter-spacing: -.025em; }
 .avv-dialog-card > p:not(.avv-eyebrow):not(.avv-banner) { margin: 0; color: var(--av-text-secondary); line-height: 1.65; }
 .avv-dialog-card textarea { resize: vertical; }
+.avv-quiz-analytics .avv-stats-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.avv-native-tabs { display: flex; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-sunken); }
+.avv-native-tabs button { min-height: 38px; padding: 8px 13px; border: 0; border-radius: var(--av-radius-sm); background: transparent; color: var(--av-text-secondary); font: inherit; font-size: .82rem; font-weight: 750; cursor: pointer; }
+.avv-native-tabs button.is-active { background: var(--av-surface-card); color: var(--av-text-primary); box-shadow: var(--av-shadow-sm); }
+.avv-hard-panel { display: grid; gap: 18px; }
+.avv-hard-panel[hidden] { display: none; }
+.avv-hard-panel > label { display: grid; gap: 7px; max-width: 520px; color: var(--av-text-muted); font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.avv-hard-panel select { width: 100%; min-height: 42px; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-card); color: var(--av-text-primary); font: inherit; letter-spacing: normal; text-transform: none; }
+.avv-analysis-summary { margin: 0; color: var(--av-text-secondary); font-size: .85rem; }
+.avv-error-table .avv-section-head { margin: 8px 0 12px; }
+.avv-error-table .avv-section-head h3 { margin: 4px 0 0; }
+.avv-error-meter { display: block; width: 96px; height: 4px; margin-top: 7px; overflow: hidden; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); }
+.avv-error-meter i, .avv-progress-track i { display: block; height: 100%; border-radius: inherit; background: var(--av-brand-teal-600); }
+.avv-student-analytics-table { min-width: 920px; }
+.avv-dialog-card--wide { width: min(860px, 100%); max-width: 860px; }
+.avv-dialog-close { justify-self: end; width: 34px; height: 34px; margin-bottom: -48px; border: 0; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); color: var(--av-text-secondary); font: inherit; font-size: 1.25rem; cursor: pointer; }
+.avv-dialog-card--wide h3 { margin: 10px 0 0; font-size: 1rem; }
+.avv-bank-progress { display: grid; gap: 12px; }
+.avv-bank-progress article { display: grid; gap: 7px; }
+.avv-bank-progress article > div:first-child { display: flex; justify-content: space-between; gap: 20px; color: var(--av-text-secondary); font-size: .8rem; }
+.avv-bank-progress article strong { color: var(--av-text-primary); }
+.avv-progress-track { height: 6px; overflow: hidden; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); }
 @media (max-width: 900px) {
-  .avv-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avv-stats-grid, .avv-quiz-analytics .avv-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .avv-flag, .avv-engagement { grid-template-columns: 1fr; }
   .avv-filterbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .avv-filterbar__wide, .avv-filterbar__actions { grid-column: 1 / -1; }
@@ -150,6 +172,9 @@
   .avv-edit-grid label:first-child { grid-row: auto; }
   .avv-readonly-meta { grid-template-columns: 1fr; }
   .avv-edit-actions, .avv-dialog-card .av-modal-footer { display: grid; grid-template-columns: 1fr 1fr; }
+  .avv-native-tabs { width: 100%; box-sizing: border-box; }
+  .avv-native-tabs button { flex: 1; }
+  .avv-error-meter { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .avv-card, .avv-learner-link { transition: none; }
