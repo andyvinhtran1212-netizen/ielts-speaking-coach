@@ -91,6 +91,30 @@ MAX_MCQ_OPTION_LENGTH = 500
 _SINGLE_PUBLISHED_EXERCISE_TYPES = frozenset({"gist", "true_false", "mcq"})
 
 
+def _is_standalone_authoring_exercise(row: dict) -> bool:
+    """Identify legacy/native standalone blocks that must never join a test.
+
+    Imported test blocks carry ``template_kind`` and q_num-based questions.
+    Standalone authoring uses a separate gist/T-F/MCQ payload contract; mixing
+    those rows into a test section produces blank or malformed player blocks.
+    """
+    payload = row.get("payload") or {}
+    if not isinstance(payload, dict) or payload.get("template_kind"):
+        return False
+    exercise_type = row.get("exercise_type")
+    if exercise_type == "gist":
+        return "question" in payload
+    if exercise_type == "true_false":
+        return "statements" in payload
+    if exercise_type == "mcq":
+        questions = payload.get("questions")
+        return isinstance(questions, list) and any(
+            isinstance(question, dict) and ("idx" in question or "stem" in question)
+            for question in questions
+        )
+    return False
+
+
 def _is_unique_violation(exc: Exception) -> bool:
     """Recognize PostgREST/PostgreSQL uniqueness failures in both SDK shapes."""
     message = str(exc).lower()
@@ -1528,14 +1552,20 @@ async def admin_upsert_listening_exercise(
     # ── Resolve parent content (we need its duration for validation) ─────────
     c = (
         supabase_admin.table("listening_content")
-        .select("id,audio_duration_seconds")
+        .select("id,audio_duration_seconds,test_id")
         .eq("id", body.content_id)
         .limit(1)
         .execute()
     )
     if not c.data:
         raise HTTPException(404, "Listening content not found")
-    duration = c.data[0]["audio_duration_seconds"]
+    content_row = c.data[0]
+    duration = content_row["audio_duration_seconds"]
+    if content_row.get("test_id") and body.exercise_type in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        raise HTTPException(
+            409,
+            "Content này thuộc test/drill importer; hãy sửa block trong Listening Tests, không tạo block standalone.",
+        )
 
     # ── Validate per-type payload + segments (Sprint 11.3 + 11.4) ──────────
     validated_segments: list[dict] = []
@@ -4602,7 +4632,10 @@ async def get_published_listening_test(
         .order("order_num")
         .execute() if section_ids else None
     )
-    exercises_raw = (ex_res.data if ex_res else []) or []
+    exercises_raw = [
+        exercise for exercise in ((ex_res.data if ex_res else []) or [])
+        if not _is_standalone_authoring_exercise(exercise)
+    ]
     # Sprint 13.5 security guard — strip answer keys.
     exercises_safe = grader.strip_answer_keys(exercises_raw)
     # Sprint 13.5.6 — inject a fresh 2h signed URL for any plan-label

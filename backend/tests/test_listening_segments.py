@@ -524,6 +524,23 @@ def test_admin_exercise_expected_absent_rejects_existing_order_block(monkeypatch
     assert fake.inserts == []
 
 
+def test_admin_exercise_rejects_standalone_mcq_on_importer_content(monkeypatch):
+    imported_content = {**_content_row(), "test_id": "test-uuid"}
+    fake = _FakeAdminClient({"listening_content": [imported_content], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="mcq", order_num=1,
+        payload={"questions": []}, expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert "importer" in str(exc.value.detail)
+    assert fake.inserts == []
+
+
 def test_admin_exercise_atomic_version_race_is_conflict(monkeypatch):
     row = {
         "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",

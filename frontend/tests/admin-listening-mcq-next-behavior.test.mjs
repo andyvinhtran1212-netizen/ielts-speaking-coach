@@ -184,6 +184,8 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(CLIENT, /targetStatus === 'archived'/);
     assert.match(BACKEND, /stem must not exceed.*MAX_MCQ_STEM_LENGTH/);
     assert.match(BACKEND, /option.*must be a string/);
+    assert.match(BACKEND, /content_row\.get\("test_id"\).*_SINGLE_PUBLISHED_EXERCISE_TYPES/);
+    assert.match(BACKEND, /_is_standalone_authoring_exercise/);
     assert.match(MIGRATION, /exercise_type IN \('gist', 'true_false', 'mcq'\)/);
   });
 
@@ -198,6 +200,8 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.match(CLIENT, /className="alc-banner is-error" role="alert"/);
     assert.match(CLIENT, /MCQ block thuộc kho đề/);
+    assert.match(CLIENT, /const importerOwned = Boolean\(collection\?\.importedCount\)/);
+    assert.match(CLIENT, /Không thể tạo MCQ standalone/);
     assert.match(CLIENT, /!collection\.importedCount && <a className="alc-rollback"/);
     assert.match(CLIENT, /answerIdx: null/);
     assert.match(CLIENT, /text: messageOf\(caught\)/);

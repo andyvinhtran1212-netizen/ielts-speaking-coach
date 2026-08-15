@@ -79,7 +79,8 @@ export function AdminListeningMcq({ contentId, requestedExerciseId }: { contentI
   const dirty = baseline
     ? fingerprint(draft, targetStatus) !== fingerprint(initial, baseline.status)
     : fingerprint(draft, targetStatus) !== fingerprint(questionDraft(null), 'draft');
-  const locked = busy || Boolean(pending) || conflict
+  const importerOwned = Boolean(collection?.importedCount);
+  const locked = busy || Boolean(pending) || conflict || importerOwned
     || Boolean(collection?.duplicateOrders.length) || Boolean(collection?.malformedCount);
   const competingPublished = collection?.items.find((item) => item.status === 'published' && item.id !== baseline?.id) || null;
   const competingPublishedOrder = competingPublished?.orderNum || collection?.importedPublishedOrders[0] || null;
@@ -300,6 +301,10 @@ export function AdminListeningMcq({ contentId, requestedExerciseId }: { contentI
 
   const startNewBlock = () => {
     if (!collection) return;
+    if (collection.importedCount) {
+      setBanner({ kind: 'error', title: 'Content thuộc kho đề', text: 'Không thể tạo MCQ standalone trên content do test/drill importer quản lý.' });
+      return;
+    }
     const nextOrder = nextListeningMcqOrder(collection);
     if (nextOrder == null) {
       setBanner({ kind: 'error', title: 'Không thể tạo block mới', text: 'Đã đạt giới hạn 200 block cho một content.' });
