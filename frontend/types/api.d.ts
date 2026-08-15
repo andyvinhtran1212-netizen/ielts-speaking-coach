@@ -6420,6 +6420,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/dictation/session/by-request/{client_request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Dictation Session By Request
+         * @description Reconcile an ambiguous completion POST by its durable client receipt.
+         */
+        get: operations["get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/dictation/session/{session_id}": {
         parameters: {
             query?: never;
@@ -11371,6 +11391,8 @@ export interface components {
             test_id: string;
             /** Section Num */
             section_num: number;
+            /** Client Request Id */
+            client_request_id?: string | null;
             /** Started At */
             started_at?: string | null;
             /** Total Time Seconds */
@@ -24022,6 +24044,39 @@ export interface operations {
                 "application/json": components["schemas"]["DictationSessionRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                client_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
