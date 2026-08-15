@@ -51,7 +51,8 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === `/admin/listening/tests/${testId}/audit/run` && method === 'POST') {
     postCount += 1; lastRunRequestId = request.postDataJSON().request_id; receiptBeforePost = (await page.evaluate(() => window.__auditReceiptWrites.length > 0));
     if (postCount === 1) return json({ detail: 'ambiguous fixture' }, 503);
-    saved = { ...saved, audited_at: '2026-08-14T23:00:00Z', updated_at: '2026-08-14T23:00:00Z' };
+    const completedAt = new Date().toISOString();
+    saved = { ...saved, audited_at: completedAt, updated_at: completedAt };
     return json({ uuid: testId, audited_at: saved.audited_at, request_id: lastRunRequestId, status: saved.status, issues: saved.issues, health: saved.health });
   }
   if (parsed.pathname === `/admin/listening/tests/${testId}/audit` && method === 'PATCH') {
@@ -104,7 +105,8 @@ await page.getByRole('button', { name: 'Giữ receipt' }).click();
 check('receipt discard requires explicit confirmation and cancel keeps the lock', await page.getByText('Full audit đang cần đối chiếu', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Chạy full audit' }).isDisabled());
 await page.reload({ waitUntil: 'domcontentloaded' }); await page.getByRole('heading', { name: 'Canonical repair fixture' }).waitFor();
 check('reload does not replay ambiguous POST', postCount === 1);
-saved = { ...saved, audited_at: '2026-08-14T23:00:00Z', updated_at: '2026-08-14T23:00:00Z', health: { ...saved.health, request_id: lastRunRequestId } };
+const reconciledAt = new Date().toISOString();
+saved = { ...saved, audited_at: reconciledAt, updated_at: reconciledAt, health: { ...saved.health, request_id: lastRunRequestId } };
 await page.getByRole('button', { name: 'Đối chiếu bằng GET' }).click(); await page.getByText(/receipt được khép an toàn/).waitFor();
 check('GET-only reconciliation closes ambiguous receipt', postCount === 1 && await page.getByText('Full audit đang cần đối chiếu', { exact: true }).count() === 0);
 

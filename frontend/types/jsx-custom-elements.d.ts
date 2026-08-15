@@ -19,6 +19,7 @@ declare module 'react' {
         'refetch-url'?: string;
         'segment-start'?: string | number;
         'segment-end'?: string | number;
+        'auto-loop'?: string;
         compact?: string;
       };
     }

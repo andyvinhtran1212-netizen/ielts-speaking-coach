@@ -41,7 +41,10 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       identity_query_any_of: Object.freeze(['test_id']),
       allowed_query: Object.freeze(['test_id', 'section']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
-      next: Object.freeze({ path: '/listening/dictation/session', route_ready: false }),
+      // Native App Router player owns the complete dark-route flow, including
+      // durable completion reconciliation. Admission stays legacy until its
+      // Gate E browser/failure matrix passes.
+      next: Object.freeze({ path: '/listening/dictation/session', route_ready: true }),
     }),
   }),
 });

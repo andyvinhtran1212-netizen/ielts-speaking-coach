@@ -317,6 +317,13 @@ on:
       - 'frontend/public/js/admin-listening-dictation-reports.js'
       - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
       - 'backend/tests/test_listening_test_dictation.py'
+      - 'backend/migrations/210_dictation_session_idempotency.sql'
+      - 'backend/tests/test_migration_210_dictation_idempotency.py'
+      - 'frontend/app/(authed-listening-dictation)/**'
+      - 'frontend/lib/listening-dictation-controller.mjs'
+      - 'frontend/public/css/listening-dictation-next.css'
+      - 'frontend/tests/listening-dictation-next-behavior.test.mjs'
+      - 'frontend/tooling/verify-listening-dictation-session-flow.mjs'
       - 'backend/tests/test_admin_listening_content_patch.py'
       - 'frontend/lib/admin-listening-segments-model.mjs'
       - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
@@ -1009,6 +1016,12 @@ jobs:
       # liệu thật và fail nếu partial save vẫn cho phép finalization.
       - name: Kiểm luồng Listening Test native
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Dictation player owns multi-section practice and a durable completion
+      # receipt. The fixture commits then drops the POST acknowledgement and
+      # requires exact request-id GET reconciliation before success is shown.
+      - name: Kiểm luồng Listening Dictation native
+        run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
       # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,

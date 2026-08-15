@@ -607,6 +607,59 @@ def test_submit_dictation_session_persists_and_reports(monkeypatch):
     assert rows[0]["test_id_external"] == test["test_id"]
 
 
+def test_submit_dictation_session_is_idempotent_by_client_request(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton.")
+    request_id = uuid4()
+    submission = [{"sentence_idx": 0, "user_transcript": "the address is brighton"}]
+
+    first = _submit_session(
+        test["id"], 1, submission, authz, client_request_id=request_id)
+    replay = _submit_session(
+        test["id"], 1, submission, authz, client_request_id=request_id)
+
+    assert replay["session_id"] == first["session_id"]
+    assert replay["client_request_id"] == str(request_id)
+    assert len(fake.tables["dictation_sessions"]) == 1
+
+
+def test_submit_dictation_session_rejects_request_id_reuse_with_changed_payload(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton.")
+    request_id = uuid4()
+    _submit_session(test["id"], 1, [
+        {"sentence_idx": 0, "user_transcript": "the address is brighton"},
+    ], authz, client_request_id=request_id)
+
+    with pytest.raises(HTTPException) as excinfo:
+        _submit_session(test["id"], 1, [
+            {"sentence_idx": 0, "user_transcript": "changed answer"},
+        ], authz, client_request_id=request_id)
+    assert excinfo.value.status_code == 409
+
+
+def test_get_dictation_session_by_request_is_owner_scoped(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    request_id = uuid4()
+    fake.tables["dictation_sessions"].extend([
+        {"id": "mine", "user_id": "user-1", "client_request_id": str(request_id),
+         "total_sentences": 1, "correct_count": 1, "accuracy": 1},
+        {"id": "theirs", "user_id": "another-user", "client_request_id": str(request_id),
+         "total_sentences": 1, "correct_count": 0, "accuracy": 0},
+    ])
+    out = _run(listening_router.get_listening_dictation_session_by_request(
+        client_request_id=request_id, authorization=authz))
+    assert out["session_id"] == "mine"
+
+    missing = uuid4()
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.get_listening_dictation_session_by_request(
+            client_request_id=missing, authorization=authz))
+    assert excinfo.value.status_code == 404
+
+
 def test_submit_dictation_session_rejects_partial_or_duplicate_coverage(monkeypatch):
     # A completion report must cover the whole section exactly once — a subset
     # (or a duplicate/out-of-range index) would persist a corrupt aggregate.
