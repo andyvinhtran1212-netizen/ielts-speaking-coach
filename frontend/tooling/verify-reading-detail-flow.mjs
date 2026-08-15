@@ -100,7 +100,8 @@ await page.locator('.rv-detail').waitFor({ state: 'visible' });
 check('Vocab detail hiển thị metadata canonical',
   (await page.locator('.rv-passage__title').innerText()) === 'A Short History of Tea'
     && (await page.locator('.rv-detail__facts').innerText()).includes('8')
-    && (await page.locator('.rv-detail__topics').innerText()).includes('history'));
+    && (await page.locator('.rv-detail__topics').innerText()).includes('history')
+    && (await page.locator('.rv-back').innerText()).includes('Thư viện Vocab Reading'));
 check('đủ bốn loại control và chưa có answer key trước check',
   await page.locator('.rq-card').count() === 4
     && await page.locator('.rq-card select').count() === 1
@@ -110,7 +111,9 @@ const tabs = page.locator('[role="tab"]');
 await tabs.nth(0).focus(); await tabs.nth(0).press('End');
 check('tablist hỗ trợ roving keyboard và panel grammar',
   await tabs.nth(2).getAttribute('aria-selected') === 'true'
-    && await page.locator('#rv-panel-grammar').isVisible());
+    && await page.locator('#rv-panel-grammar').isVisible()
+    && (await page.locator('.rv-gpoint__example strong').innerText()) === 'became'
+    && !(await page.locator('.rv-gpoint__example').innerText()).includes('**'));
 await tabs.nth(2).press('Home');
 check('Home trả về văn bản gốc', await page.locator('#rv-panel-original').isVisible());
 

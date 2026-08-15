@@ -258,7 +258,7 @@ function ReadingWorkspace({ detail, library }: {
         <main className="rv-shell rv-detail-shell">
           <div className={`rv-detail${library === 'skill' ? ' rv-detail--skill' : ''}`}>
             <header className="rv-detail__header">
-              <a className="rv-back" href={backHref}><span aria-hidden="true">←</span> {library === 'vocab' ? 'Vocab Reading' : 'Skill Practice'}</a>
+              <a className="rv-back" href={backHref}><span aria-hidden="true">←</span> {library === 'vocab' ? 'Thư viện Vocab Reading' : 'Skill Practice'}</a>
               <div className="rv-detail__heading">
                 <div className="rv-detail__copy">
                   <p className="rv-kicker">{kicker}</p>
@@ -307,6 +307,13 @@ function ReadingWorkspace({ detail, library }: {
   );
 }
 
+function InlineStrong({ value }: { value: string }) {
+  return <>{value.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    const match = /^\*\*([^*]+)\*\*$/.exec(part);
+    return match ? <strong key={index}>{match[1]}</strong> : part;
+  })}</>;
+}
+
 function ReadingPanes({ detail }: { detail: NonNullable<Detail> }) {
   const tabs = useMemo(() => [
     { id: 'original', label: 'Văn bản gốc' },
@@ -352,7 +359,7 @@ function ReadingPanes({ detail }: { detail: NonNullable<Detail> }) {
       {detail.grammarFocus.length > 0 && <div aria-labelledby="rv-tab-grammar" className="rv-pane rv-pane--grammar" hidden={active !== 'grammar'} id="rv-panel-grammar" role="tabpanel">
         {detail.grammarFocus.map((point, index) => <article className="rv-gpoint" key={`${point.point}-${index}`}>
           <h3 className="rv-gpoint__title">{point.point}</h3>
-          {point.example && <p className="rv-gpoint__example">{point.example}</p>}
+          {point.example && <p className="rv-gpoint__example"><InlineStrong value={point.example} /></p>}
           {([['analysis', 'Phân tích'], ['review', 'Cấu trúc'], ['tip', 'Mẹo đọc']] as const).map(([key, label]) => point[key] && <p className={`rv-gpoint__row rv-gpoint__${key}`} key={key}><strong className="rv-gpoint__lbl">{label}: </strong><span>{point[key]}</span></p>)}
         </article>)}
       </div>}

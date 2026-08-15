@@ -44,6 +44,13 @@ describe('native Reading detail workspace', () => {
     assert.doesNotMatch(BEHAVIOR, /session\.answered \+=|session\.correct \+=/);
   });
 
+  test('preserves visible legacy copy and safe grammar emphasis', () => {
+    assert.match(BEHAVIOR, /'Thư viện Vocab Reading'/);
+    assert.match(BEHAVIOR, /function InlineStrong/);
+    assert.match(BEHAVIOR, /<InlineStrong value=\{point\.example\}/);
+    assert.doesNotMatch(BEHAVIOR, /rv-gpoint__example[^\n]+dangerouslySetInnerHTML/);
+  });
+
   test('renders sanitized Markdown and accessible tab/dialog interactions', () => {
     assert.match(ASSETS, /marked@12\.0\.2/); assert.match(ASSETS, /dompurify@3\.4\.8/);
     assert.match(VOCAB, /<ReadingDetailAssets/); assert.match(SKILL, /<ReadingDetailAssets/);
