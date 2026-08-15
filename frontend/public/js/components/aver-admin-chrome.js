@@ -459,7 +459,7 @@ const NAV_GROUPS = [
           { slug: 'segments',  label: 'Chia cắt audio',   href: '/admin/listening' },
           { slug: 'gist',      label: 'Bài Gist',         href: '/admin/listening' },
           { slug: 'tf',        label: 'Bài True/False',   href: '/admin/listening' },
-          { slug: 'mcq',       label: 'Bài MCQ',          href: '/pages/admin/listening/mcq.html' },
+          { slug: 'mcq',       label: 'Bài MCQ',          href: '/admin/listening' },
           { slug: 'attempts',  label: 'Lượt làm bài',     href: '/admin/listening/attempts' },
           { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/admin/listening/dictation' },
         ],

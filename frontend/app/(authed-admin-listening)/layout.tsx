@@ -23,6 +23,11 @@ export default function AdminListeningLayout({ children }: { children: ReactNode
       '/css/admin-listening-segments-next.css',
       '/css/admin-listening-gist-next.css',
       '/css/admin-listening-true-false-next.css',
+      '/css/admin-listening-mcq-next.css',
+      '/css/admin-listening-fulltest-import-next.css',
+      '/css/admin-listening-drill-import-next.css',
+      '/css/admin-listening-audit-next.css',
+      '/css/admin-listening-audit-detail-next.css',
     ]}
   >{children}</AuthedShell>;
 }

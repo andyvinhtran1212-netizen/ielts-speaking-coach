@@ -105,7 +105,7 @@ test('keeps detail/editor identities and exposes truthful degraded states', () =
   assert.match(CLIENT, /\/admin\/listening\/segments\?content_id=/);
   assert.match(CLIENT, /\/admin\/listening\/gist\?content_id=/);
   assert.match(CLIENT, /\/admin\/listening\/tf\?content_id=/);
-  assert.match(CLIENT, /mcq\.html\?content_id=/);
+  assert.match(CLIENT, /\/admin\/listening\/mcq\?content_id=/);
   assert.match(CLIENT, /Không đồng nghĩa “chưa có”/);
   assert.match(CLIENT, /Đã loại \{current\.malformedCount\} dòng/);
   assert.match(CLIENT, /scope\.current !== owner/);

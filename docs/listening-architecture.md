@@ -21,9 +21,9 @@
 | **Dictation** (chép chính tả) | ✅ Production | `pages/admin/listening/segments.html` → `POST /admin/listening/exercises` | `listening_exercises` `exercise_type=dictation` + `segments` column | word-diff, `listening_grader.grade_dictation` |
 | **Gist** (nghe ý chính) | ✅ Production | `/admin/listening/gist` (native; `pages/admin/listening/gist.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {prompt_text, model_answer, rubric_keywords[]}` | Haiku AI, `listening_gist_grader.grade_gist_response` |
 | **True/False/Not-Given** | ✅ Production | `/admin/listening/tf` (native; `pages/admin/listening/tf.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact per-statement match; complete only at 100%, `listening_grader.grade_true_false` |
-| **MCQ** (trắc nghiệm) | ✅ Production | `pages/admin/listening/mcq.html` → `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
+| **MCQ** (trắc nghiệm) | ✅ Production | native `/admin/listening/mcq` (`pages/admin/listening/mcq.html` rollback) → versioned `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
 | **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |
-| **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `pages/admin/listening/import-fulltest.html` → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
+| **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `/admin/listening/import-fulltest` (HTML rollback retained) → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
 
 **Two important nuances [MEASURED]:**
 - `mini_test` is a value in the `exercise_type` CHECK, but no admin path creates an individual `mini_test` exercise. **The original Mini-Test session-mixer (admin `/sessions` composer + user session runner) was removed** — the "Mini Test" slot is now a graded 1-section `listening_tests` row (`test_type=mini`) served through the full-test player. The `listening_sessions` table + `listening_attempts.listening_session_id` column are retained for data (no longer written by any live path).
@@ -54,7 +54,7 @@ listening_tests     — full-test bundle: test_id (external), title, version, ba
 - `gist` — `_validate_gist_payload` (`:88`) → `{prompt_text, model_answer, rubric_keywords[≤10]}`.
 - `true_false` — `_validate_true_false_payload` → `{statements:[3–12 × {idx:int contiguous,text:string≤1000,answer∈T/F/NG}]}`; wrong field types fail instead of being coerced.
 - Standalone `gist`, `true_false` and `mcq` surfaces allow multiple ordered authoring blocks but exactly one published block per content/type. A second publish is rejected with `409`; migration 209 adds the atomic partial-unique backstop for concurrent publishers. Legacy/imported primary blocks may remain at any order, and learner fallback resolution is explicitly ordered by `order_num` for every mode.
-- `mcq` — `_validate_mcq_payload` (`:162`) → `{questions:[1–20 × {idx,stem,options[exactly 4],answer_idx 0–3}]}`.
+- `mcq` — `_validate_mcq_payload` → `{questions:[1–20 × {idx:int contiguous,stem:string≤1000,options[exactly 4 × string≤500],answer_idx:int 0–3}]}`; malformed field types fail instead of being coerced.
 - **full-test exercises** — block-shaped payload enriched by the importer: `{answers, audio_windows{q→{start,end,section}}, solutions{q→{...}}, transcript_anchors{q→para_idx}, questions[]}` (`backend/services/listening_fulltest_import.py` `build_section_persistence`). Answer key is stripped from the live test and revealed only in the review.
 
 Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premixed mp3 (`audio_assembly_mode='full_premixed'`, path on the `listening_tests` row); per-type exercises reference their `listening_content` audio.
@@ -66,7 +66,8 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
 | Path | Admin UI | Endpoint | Produces |
 |------|----------|----------|----------|
 | Per-type exercise form | `segments` / `gist` / `tf` / `mcq` `.html` | `POST /admin/listening/exercises` | one `listening_exercises` row |
-| **Full-test pack** | `import-fulltest.html` (#408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
+| **Full-test pack** | `/admin/listening/import-fulltest` (native; `import-fulltest.html` rollback, #408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
+| **Skill-drill bundle** | `/admin/listening/import-drills` (native; `import-drills.html` rollback) | `POST /admin/listening/drills/import` (dry-run) → `/commit` | 1 drill test + 1 content row + block exercises; optional premixed mp3 |
 | Status transitions | `tests.html` list (#408) | `PATCH /admin/listening/tests/{id}/status` | draft ⇄ published ⇄ archived (publish has an audio gate) |
 
 > Note: the legacy **convert** (DOCX/2-file) path was RETIRED 2026-07-17 (usage
@@ -105,15 +106,63 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 - **Parser:** `backend/services/listening_fulltest_import.py` (`parse_fulltest`); fail-loud (`ok=False` + `errors[]`) on missing answer / missing audio window / audio↔timings divergence (±0.1s).
 - **Pack v1.2 transcript [MEASURED]:** the Solution carries two blocks — `# Transcript (bản đọc)` (display copy, verbatim `**Name (role):**` labels) → `listening_content.transcript`; and `# Audio Transcript / Script đầy đủ` (production copy with `(Qn)` markers) → used to compute per-question `transcript_anchors` (text-matched), stored in the exercise payload (no migration, Pattern #15). v1.1 packs fall back to joined-extracts + a warning.
-- **Import UI (#408):** `import-fulltest.html` — drag-drop the 4 files, dry-run, commit with a real upload progress bar, dup-ACTIVE handled in one click ("Archive bản cũ & Import"), "Publish ngay". Token is automatic (admin session Bearer) — no hand-pasted JWT.
+- **Import UI (#408):** `/admin/listening/import-fulltest` — drag/drop the 4 files, bind them to one SHA-256 fingerprint, dry-run with question/answer/IMG-PROMPT evidence, commit with a real upload progress bar, durable per-admin receipt, exact canonical GET readback and a separate publish confirmation. A duplicate ACTIVE Test ID blocks commit and hands off to the canonical Kho test status flow; the importer never archives a live row inside an ambiguous upload. Token is automatic (admin session Bearer) — no hand-pasted JWT. `import-fulltest.html` remains the explicit watchdog/manual rollback.
+
+### 5.1 Skill-drill batch pipeline — [MEASURED]
+
+`/admin/listening/import-drills` accepts a directory whose authoritative shape is
+`Source_JSON/<TEST_ID>.json` plus optional
+`audio_output/<TEST_ID>/{timings.json,full_test.mp3}`. Loose accessories attach
+only when exactly one Source JSON is selected; multi-source ambiguity, duplicate
+slots and audio without timings fail closed. Each bundle is SHA-256 bound before
+dry-run. Valid non-duplicate rows commit sequentially with one account-scoped
+receipt per POST, upload progress and exact test-detail GET verification. A 4xx
+rejects one row definitively; a 5xx/transport/malformed ACK/readback failure keeps
+the receipt and stops the queue. Reconciliation uses list/detail GET only and
+never replays the upload. Metadata-only drills remain explicit Drafts; audio-ready
+truth comes from `listening_tests.full_audio_*`, not the section audio flag.
+
+### 5.2 Quality-audit inventory — [MEASURED]
+
+`/admin/listening/audit` is a native read-only operations surface over every
+`listening_tests` row. It first closes a stable, exact paginated inventory and
+then runs bounded `GET /admin/listening/tests/{id}/audit` batches. A changed
+canonical total, early page termination, duplicate UUID or malformed row blocks
+the new snapshot instead of presenting partial coverage. Per-test lookup errors
+remain an explicit unknown state and are never counted as clean.
+
+The dashboard deliberately separates two evidence clocks: **live structural**
+is the current no-LLM structural/audio-bounds GET, while **saved full audit** is
+the persisted structural+LLM result from the most recent explicit full run.
+Retry is GET-only. The HTML dashboard remains rollback.
+
+`/admin/listening/audit-detail?id={test_uuid}` is the native repair workspace.
+Transcript and question PATCHes carry the row's `expected_updated_at` and are
+only shown as successful after an exact canonical audit GET reflects both the
+new value and a changed version. Drafts pin their original version; a sibling
+write may safely rebase an untouched field, while a canonical change to the
+same field preserves but locks the local draft until explicit reload. Audio
+resolves assembled, then full, then the matching section track — it never
+borrows another section. Full/assembled playback uses absolute windows; exact
+section fallback subtracts that section's persisted `audio_offset`. Every issue carries
+`source=structural|llm`, including old saved rows normalised on read.
+
+The full audit POST is deliberately not replayed after an ambiguous response.
+The browser writes an account/test/request receipt before the paid LLM call and
+recovers only by GET whose persisted health has the exact `request_id`. Triage
+draft inputs survive unrelated readbacks, stay pinned to `expected_updated_at`,
+and lock if another reviewer changes the saved audit. Triage rejects invalid/duplicate indexes
+and the backend refuses `passed` or `fixed` while an error remains unresolved.
+An ambiguous paid receipt has an explicit confirmation-only discard path so an
+unpersisted 5xx cannot strand the workspace; the warning states that retrying
+may incur another LLM charge.
+The HTML detail stays available as watchdog/manual rollback.
 
 ---
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
 
-1. **Import UI has no content preview / IMG-PROMPT surfacing.** The dry-run response already returns `questions[]` (with `prompt`, `options`, `answer`, **`img_prompt`** [`listening_fulltest_import.py:410`], `solution`, `audio_window`) + `warnings`, but `admin-listening-fulltest-import.js` `renderResult` shows only the validation banner + counts. Rendering a question/transcript preview and extracting/displaying the per-question IMG-PROMPT is a **render-layer** addition (no backend change). Natural feeder for the β AI-generated-diagrams stream (IMG-PROMPT → image).
-2. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist; no doc previously stated which is canonical. They produce the same `listening_tests` shape.
-3. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
+1. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
 
 ---
 
@@ -121,7 +170,7 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 > Everything in this section is a **proposal**. None of it exists yet. Andy's idea: author *all* listening types via a file-pack upload like the full-test, instead of per-type interactive forms.
 
-**Today [MEASURED]:** only full-test uses pack-upload; dictation/gist/tf/mcq are form-authored one at a time; mini-test is a graded 1-section `listening_tests` row (`test_type=mini`) built through the full-test pipeline.
+**Today [MEASURED]:** full tests use a four-file pack and skill drills use a Source JSON plus optional timing/audio bundle; dictation/gist/tf/mcq standalone blocks remain form-authored one at a time. Mini-test is a graded 1-section `listening_tests` row (`test_type=mini`) built through the full-test pipeline.
 
 **Proposed model [INTENDED]:** a generalized "listening pack" reusing the full-test pipeline shape (dry-run → preview → commit → status + the #408 UI), where a pack = audio + transcript + a per-type exercise spec the parser maps onto the existing `exercise_type` payloads:
 
