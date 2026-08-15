@@ -91,25 +91,34 @@ export function AdminVocabStats() {
       setNotice({ kind: 'error', message: 'User ID phải là UUID hợp lệ.' });
       return;
     }
+    // The flag readback and the regular refresh share one freshness boundary.
+    // Otherwise an older refresh can arrive after this mutation and paint the
+    // pre-mutation enabled-user count over the canonical readback.
+    const requestId = ++sequence.current;
+    setLoading(false);
     setSaving(true); setNotice(null);
     try {
       const result = await window.api.post<{ ok?: unknown; message?: unknown }>(`/admin/users/${encodeURIComponent(canonicalId)}/vocab-flag`, { enabled });
+      if (requestId !== sequence.current) return;
       if (result?.ok !== true) throw new Error('Backend không trả xác nhận lưu hợp lệ.');
       const ackMessage = typeof result.message === 'string' && result.message
         ? result.message
         : 'Backend đã xác nhận cập nhật feature flag.';
       try {
         const refreshed = normalizeVocabStatsPayload(await window.api.get<unknown>('/admin/vocab/stats')) as VocabStats | null;
+        if (requestId !== sequence.current) return;
         if (!refreshed) throw new Error('Dữ liệu đọc lại không đúng định dạng.');
         setVocab(refreshed);
         setNotice({ kind: 'success', message: ackMessage });
       } catch (readbackError) {
+        if (requestId !== sequence.current) return;
         setNotice({
           kind: 'error',
           message: `Backend đã xác nhận thay đổi nhưng chưa đọc lại được số liệu chuẩn: ${messageOf(readbackError)} Hãy tải lại trước khi thao tác tiếp.`,
         });
       }
     } catch (caught) {
+      if (requestId !== sequence.current) return;
       setNotice({ kind: 'error', message: `Không xác nhận được trạng thái feature flag: ${messageOf(caught)} Không bấm lại cho đến khi đã kiểm tra trạng thái người dùng.` });
     } finally { setSaving(false); }
   };

@@ -18,6 +18,10 @@ async function launchChromium() { try { return await chromium.launch(); } catch 
 
 let vocabRead = 0;
 let flagPending = false;
+let flagApplied = false;
+let holdNextVocab = false;
+let heldVocabStarted = false;
+let releaseHeldVocab;
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch (_) {} }, [storageKey(SB), fakeSession]);
@@ -36,7 +40,13 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-vocab@local', role: 'admin' });
   if (parsed.pathname === '/admin/vocab/stats') {
     vocabRead += 1;
-    return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: vocabRead > 1 ? 8 : 7 });
+    if (holdNextVocab) {
+      holdNextVocab = false;
+      heldVocabStarted = true;
+      await new Promise((resolve) => { releaseHeldVocab = resolve; });
+      return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: 7 });
+    }
+    return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: flagApplied ? 8 : 7 });
   }
   if (parsed.pathname === '/admin/flashcards/stats') return json({
     stats: {
@@ -49,6 +59,7 @@ await page.route('**/*', async (route) => {
   if (expectedFlag) {
     flagPending = true;
     await new Promise((resolve) => setTimeout(resolve, 180));
+    flagApplied = true;
     flagPending = false;
     return json({ ok: true, message: 'Vocab bank enabled.' });
   }
@@ -75,11 +86,18 @@ await page.getByLabel('User ID').fill('not-a-uuid');
 await page.getByRole('button', { name: 'Bật Vocab' }).click();
 check('UUID sai bị chặn trước network', await page.getByText('User ID phải là UUID hợp lệ.', { exact: true }).count() === 1 && !requests.some((item) => item.path.includes('not-a-uuid')));
 await page.getByLabel('User ID').fill(learnerId);
+holdNextVocab = true;
+await page.getByRole('button', { name: 'Làm mới' }).click();
+await page.waitForTimeout(40);
+check('refresh cũ đang được giữ để kiểm freshness', heldVocabStarted);
 await page.getByRole('button', { name: 'Bật Vocab' }).click();
 await page.waitForTimeout(40);
 check('mutation bị khoá trong lúc chờ ACK', flagPending && await page.getByRole('button', { name: 'Bật Vocab' }).isDisabled() && await page.getByRole('button', { name: 'Tắt Vocab' }).isDisabled());
 await page.getByText('Vocab bank enabled.', { exact: true }).waitFor();
 check('mutation đúng path/body và đọc lại canonical Vocab stats', requests.some((item) => item.method === 'POST' && item.path === `/admin/users/${learnerId}/vocab-flag` && item.body?.enabled === true) && vocabRead >= 2);
+releaseHeldVocab?.();
+await page.waitForTimeout(100);
+check('refresh cũ không ghi đè canonical flag readback', await page.getByText('8', { exact: true }).count() >= 1);
 check('stats mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });

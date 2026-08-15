@@ -38,6 +38,8 @@ describe('Admin Vocabulary native ownership', () => {
     assert.match(CLIENT, /window\.api\.post<\{ ok\?: unknown; message\?: unknown \}>/);
     assert.match(CLIENT, /\/vocab-flag/);
     assert.match(CLIENT, /result\?\.ok !== true/);
+    assert.match(CLIENT, /const requestId = \+\+sequence\.current/);
+    assert.ok((CLIENT.match(/requestId !== sequence\.current/g) || []).length >= 4, 'flag ACK/readback shares the refresh freshness boundary');
     assert.match(CLIENT, /Backend đã xác nhận thay đổi nhưng chưa đọc lại được số liệu chuẩn/);
     assert.ok((CLIENT.match(/window\.api\.get<unknown>\('\/admin\/vocab\/stats'\)/g) || []).length >= 2, 'initial read plus post-write readback');
     assert.match(CLIENT, /isUuid\(canonicalId\)/);
