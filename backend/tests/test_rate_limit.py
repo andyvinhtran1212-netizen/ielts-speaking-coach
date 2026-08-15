@@ -61,6 +61,28 @@ def test_over_limit_blocks(monkeypatch):
     assert exc.value.status_code == 429
 
 
+def test_session_capacity_blocks_ten_item_session_at_49_of_50(monkeypatch):
+    _stub_counter(monkeypatch, 49)
+    with pytest.raises(HTTPException) as exc:
+        rate_limit.enforce_exercise_session_capacity(
+            "u-1", "D1", daily_limit=50, requested=10,
+        )
+    assert exc.value.status_code == 429
+    detail = exc.value.detail
+    assert detail["error"] == "insufficient_session_quota"
+    assert detail["used"] == 49
+    assert detail["remaining"] == 1
+    assert detail["requested"] == 10
+    assert detail["reset_at"]
+
+
+def test_session_capacity_allows_request_that_fits_remaining(monkeypatch):
+    _stub_counter(monkeypatch, 40)
+    rate_limit.enforce_exercise_session_capacity(
+        "u-1", "D1", daily_limit=50, requested=10,
+    )
+
+
 # ── Misconfigured limit ───────────────────────────────────────────────────────
 
 

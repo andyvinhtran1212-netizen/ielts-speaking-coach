@@ -5569,9 +5569,9 @@ export interface paths {
          * Submit D1 Attempt
          * @description D1 free tier: 50 attempts/day to prevent abuse.
          *
-         *     The decorator above runs BEFORE this handler and raises HTTP 429 with a
-         *     machine-readable detail (error, limit, used, reset_at) once the user has
-         *     submitted 50 D1 attempts in the current UTC day.
+         *     Idempotency replay is checked before the daily limit. This matters for a
+         *     lost ACK on the 50th persisted attempt: retrying that same client key must
+         *     return the existing row, not become an artificial 429.
          *
          *     Sprint 10.5 Phase 2 — exercise_id may reference either a personalized
          *     question (user_d1_questions) or an admin-pool exercise
@@ -5660,8 +5660,8 @@ export interface paths {
          * @description Mark a session completed and return a per-item correct/wrong summary so
          *     the UI can render the results screen without making a separate request.
          *
-         *     Idempotent: calling this twice on the same session just re-derives the
-         *     summary from the attempt rows; the second update is a no-op.
+         *     Idempotent in result: calling this twice re-derives the same summary and
+         *     persists the same canonical status/count.
          */
         post: operations["complete_d1_session_api_exercises_d1_sessions__session_id__complete_post"];
         delete?: never;
@@ -11335,6 +11335,8 @@ export interface components {
             user_answer: string;
             /** Session Id */
             session_id?: string | null;
+            /** Client Attempt Id */
+            client_attempt_id?: string | null;
         };
         /** D1QuestionPatchPayload */
         D1QuestionPatchPayload: {

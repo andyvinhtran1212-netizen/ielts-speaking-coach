@@ -83,92 +83,6 @@ def _grade_d1(user_answer: str, correct_answer: str) -> bool:
 _D1_SRS_FLOOR_DAYS = 7
 
 
-def _apply_d1_srs_update(
-    sb,
-    user_id: str,
-    vocab_id: str,
-    rating: str,
-) -> bool:
-    """Sprint 10.3 — upsert flashcard_reviews from a D1 first-attempt
-    outcome, then sync the mastery column. Returns True on success
-    (SRS state written) so the response can carry srs_updated=true.
-
-    Fail-soft: any Supabase exception logs a WARNING and returns
-    False — the attempt log already succeeded and the user-facing
-    grading is unchanged. The next D1 attempt on a different exercise
-    targeting the same vocab will retry.
-
-    Defaults mirror flashcard_reviews column defaults (migration 027)
-    when no prior row exists: ease_factor=2.5, interval_days=1,
-    review_count=0, lapse_count=0. update_srs increments review_count
-    by 1 on every call, so the first wire-up lands the row at
-    review_count=1.
-    """
-    try:
-        existing = (
-            sb.table("flashcard_reviews")
-            .select("ease_factor, interval_days, review_count, lapse_count")
-            .eq("user_id", user_id)
-            .eq("vocabulary_id", vocab_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as e:
-        logger.warning(
-            "[exercises] flashcard_reviews fetch failed for vocab_id=%s "
-            "(skipping SRS wire-up): %s",
-            vocab_id, e,
-        )
-        return False
-
-    if existing.data:
-        prev = SimpleNamespace(**existing.data[0])
-    else:
-        prev = SimpleNamespace(
-            ease_factor=2.5,
-            interval_days=1,
-            review_count=0,
-            lapse_count=0,
-        )
-
-    try:
-        new_state = update_srs(prev, rating, floor=_D1_SRS_FLOOR_DAYS)
-    except Exception as e:
-        logger.warning(
-            "[exercises] update_srs failed for vocab_id=%s rating=%s: %s",
-            vocab_id, rating, e,
-        )
-        return False
-
-    upsert_row = {
-        "user_id":          user_id,
-        "vocabulary_id":    vocab_id,
-        "interval_days":    new_state["interval_days"],
-        "ease_factor":      new_state["ease_factor"],
-        "review_count":     new_state["review_count"],
-        "lapse_count":      new_state["lapse_count"],
-        "last_reviewed_at": new_state["last_reviewed_at"],
-        "next_review_at":   new_state["next_review_at"],
-        "updated_at":       new_state["last_reviewed_at"],
-    }
-    try:
-        sb.table("flashcard_reviews").upsert(
-            upsert_row, on_conflict="user_id,vocabulary_id",
-        ).execute()
-    except Exception as e:
-        logger.warning(
-            "[exercises] flashcard_reviews upsert failed for vocab_id=%s: %s",
-            vocab_id, e,
-        )
-        return False
-
-    # Sprint 10.6 (migration 055) — mastery_status column dropped. The
-    # response shape's derived `mastery_status` is computed on-the-fly
-    # from flashcard_reviews via services.mastery.derive_mastery_status,
-    # so there's nothing to sync back to user_vocabulary anymore.
-    return True
-
-
 def _public_view(row: dict) -> dict:
     """
     User-facing view of an exercise.  Removes the `answer`/`word` fields and
@@ -246,13 +160,105 @@ def _attempt_result(row: dict, *, replayed: bool) -> dict:
     }
 
 
+def _prepare_d1_srs_state(
+    sb,
+    user_id: str,
+    vocab_id: str,
+    rating: str,
+) -> dict | None:
+    """Compute the derived SRS fields without writing them.
+
+    The actual flashcard mutation is committed by fn_finalize_d1_attempt in
+    the same transaction as the attempt receipt. That transaction boundary is
+    what makes a lost-ACK retry safe and exactly-once.
+    """
+    try:
+        existing = (
+            sb.table("flashcard_reviews")
+            .select("ease_factor, interval_days, review_count, lapse_count")
+            .eq("user_id", user_id)
+            .eq("vocabulary_id", vocab_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning(
+            "[exercises] flashcard review read failed vocab=%s: %s", vocab_id, exc,
+        )
+        return None
+
+    current = (existing.data or [None])[0]
+    if isinstance(current, dict):
+        previous = SimpleNamespace(**current)
+    else:
+        previous = SimpleNamespace(
+            ease_factor=2.5, interval_days=1, review_count=0, lapse_count=0,
+        )
+
+    try:
+        new_state = update_srs(previous, rating, floor=_D1_SRS_FLOOR_DAYS)
+    except Exception as exc:
+        logger.warning(
+            "[exercises] D1 SRS calculation failed vocab=%s rating=%s: %s",
+            vocab_id, rating, exc,
+        )
+        return None
+
+    return {
+        "p_vocab_id": vocab_id,
+        "p_interval": new_state["interval_days"],
+        "p_ease": new_state["ease_factor"],
+        "p_lapse_delta": max(
+            0, int(new_state["lapse_count"]) - int(previous.lapse_count),
+        ),
+        "p_last_reviewed_at": new_state["last_reviewed_at"],
+        "p_next_review_at": new_state["next_review_at"],
+    }
+
+
+def _finalize_d1_attempt(
+    sb,
+    attempt_id: str,
+    feedback: dict,
+    srs_state: dict | None,
+) -> dict:
+    """Atomically seal feedback and apply the optional SRS mutation once."""
+    params = {
+        "p_attempt_id": attempt_id,
+        "p_vocab_id": None,
+        "p_interval": None,
+        "p_ease": None,
+        "p_lapse_delta": 0,
+        "p_last_reviewed_at": None,
+        "p_next_review_at": None,
+        "p_feedback": feedback,
+    }
+    if srs_state:
+        params.update(srs_state)
+    try:
+        result = sb.rpc("fn_finalize_d1_attempt", params).execute()
+    except Exception as exc:
+        logger.error(
+            "[exercises] D1 attempt finalization failed attempt=%s: %s",
+            attempt_id, exc,
+        )
+        raise HTTPException(500, "Could not finish saving attempt.")
+    row = (result.data or [None])[0] if isinstance(result.data, list) else result.data
+    if not isinstance(row, dict) or not row.get("id"):
+        logger.error(
+            "[exercises] D1 finalization returned no row attempt=%s", attempt_id,
+        )
+        raise HTTPException(500, "Could not finish saving attempt.")
+    return row
+
+
 def _load_attempt_by_client_id(sb, user_id: str, client_attempt_id: str) -> dict | None:
     """Fail closed: an unavailable idempotency lookup makes a retry unsafe."""
     try:
         result = (
             sb.table("vocabulary_exercise_attempts")
-            .select("id, user_id, exercise_id, session_id, client_attempt_id, "
-                    "user_answer, is_correct, score, feedback")
+            .select("id, user_id, exercise_id, exercise_source, session_id, client_attempt_id, "
+                    "user_answer, is_correct, score, feedback, post_processed_at")
             .eq("user_id", user_id)
             .eq("client_attempt_id", client_attempt_id)
             .limit(1)
@@ -418,18 +424,69 @@ async def submit_d1_attempt(
     sb = _user_sb(_bearer_token(authorization))
 
     client_attempt_id = str(body.client_attempt_id) if body.client_attempt_id else None
+    recovered_attempt: dict | None = None
     if client_attempt_id:
         existing_attempt = _load_attempt_by_client_id(sb, user_id, client_attempt_id)
         if existing_attempt:
-            return _replay_attempt_or_conflict(
+            replay_result = _replay_attempt_or_conflict(
                 existing_attempt, exercise_id=exercise_id, body=body,
             )
+            if existing_attempt.get("post_processed_at"):
+                return replay_result
+            recovered_attempt = existing_attempt
 
-    rate_limit.enforce_exercise_rate_limit(
-        user_id=user_id,
-        exercise_type="D1",
-        daily_limit=50,
-    )
+    if recovered_attempt is None:
+        rate_limit.enforce_exercise_rate_limit(
+            user_id=user_id,
+            exercise_type="D1",
+            daily_limit=50,
+        )
+
+    # Validate the session before resolving mutable source rows. New sessions
+    # grade from their immutable snapshot, so an admin edit/unpublish after the
+    # learner starts cannot change the answer contract mid-session.
+    linked_session_id: str | None = None
+    session_snapshot_item: dict | None = None
+    if body.session_id:
+        try:
+            sess = (
+                sb.table("d1_sessions")
+                .select("id, exercise_ids, exercise_snapshot, status")
+                .eq("id", body.session_id)
+                .limit(1)
+                .execute()
+            )
+            if not sess.data:
+                raise HTTPException(404, "Session not found.")
+            session_row = sess.data[0]
+            row_ids = session_row.get("exercise_ids") or []
+            if (
+                session_row.get("status") != "active"
+                and not (
+                    recovered_attempt is not None
+                    and session_row.get("status") == "completed"
+                )
+            ):
+                raise HTTPException(409, "Session is no longer active.")
+            if exercise_id not in row_ids:
+                raise HTTPException(409, "Exercise does not belong to this session.")
+            snapshot = session_row.get("exercise_snapshot")
+            if snapshot is not None:
+                if not isinstance(snapshot, list):
+                    raise HTTPException(500, "Session snapshot is invalid.")
+                matches = [
+                    item for item in snapshot
+                    if isinstance(item, dict) and item.get("id") == exercise_id
+                ]
+                if len(matches) != 1 or not str(matches[0].get("answer") or "").strip():
+                    raise HTTPException(500, "Session snapshot is invalid.")
+                session_snapshot_item = matches[0]
+            linked_session_id = body.session_id
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("[exercises] attempt session lookup failed: %s", e)
+            raise HTTPException(500, "Could not verify session.")
 
     # ── Resolve exercise_id polymorphically ─────────────────────────────────
     #
@@ -439,59 +496,72 @@ async def submit_d1_attempt(
     exercise_source: str = "personalized"
     correct_answer: str = ""
     target_vocab_id: str | None = None
+    recovered_feedback = (
+        recovered_attempt.get("feedback")
+        if recovered_attempt and isinstance(recovered_attempt.get("feedback"), dict)
+        else {}
+    )
 
-    try:
-        pers_res = (
-            sb.table("user_d1_questions")
-            .select("id, vocabulary_id, target_answer, options, is_active")
-            .eq("id", exercise_id)
-            .eq("is_active", True)
-            .limit(1)
-            .execute()
+    if session_snapshot_item is not None:
+        row = {"id": exercise_id}
+        correct_answer = str(session_snapshot_item.get("answer") or "")
+        target_vocab_id = session_snapshot_item.get("target_vocabulary_id")
+        exercise_source = (
+            "personalized"
+            if session_snapshot_item.get("source") == "personalized"
+            else "admin"
         )
-    except Exception as e:
-        logger.warning(
-            "[exercises] personalized lookup failed for exercise_id=%s "
-            "(falling through to admin pool): %s",
-            exercise_id, e,
-        )
-        pers_res = None
-
-    if pers_res and pers_res.data:
-        prow = pers_res.data[0]
-        exercise_source = "personalized"
-        correct_answer = prow.get("target_answer") or ""
-        target_vocab_id = prow.get("vocabulary_id")
-        # Synthesize a `row` dict so the downstream code can share the
-        # admin-pool variable name.
-        row = {"id": prow["id"]}
+    elif recovered_attempt is not None and recovered_feedback.get("correct_answer"):
+        row = {"id": exercise_id}
+        correct_answer = str(recovered_feedback["correct_answer"])
+        target_vocab_id = recovered_feedback.get("target_vocabulary_id")
+        exercise_source = str(recovered_attempt.get("exercise_source") or "admin")
     else:
         try:
-            # RLS already prevents non-admins from reading drafts; we still filter
-            # by status so the explicit "Exercise not found" branch is unambiguous
-            # for admins inadvertently submitting against an unpublished id.
-            # Sprint 10.3 — also select target_vocab_id so the attempt can wire
-            # the outcome back to flashcard_reviews (SRS state).
-            res = (
-                sb.table("vocabulary_exercises")
-                .select("id, exercise_type, content_payload, status, target_vocab_id")
+            pers_res = (
+                sb.table("user_d1_questions")
+                .select("id, vocabulary_id, target_answer, options, is_active")
                 .eq("id", exercise_id)
-                .eq("exercise_type", "D1")
+                .eq("is_active", True)
                 .limit(1)
                 .execute()
             )
         except Exception as e:
-            logger.error("[exercises] attempt fetch failed: %s", e)
-            raise HTTPException(500, "Could not load exercise.")
+            logger.warning(
+                "[exercises] personalized lookup failed for exercise_id=%s "
+                "(falling through to admin pool): %s",
+                exercise_id, e,
+            )
+            pers_res = None
 
-        if not res.data or res.data[0].get("status") != "published":
-            raise HTTPException(404, "Exercise not found.")
+        if pers_res and pers_res.data:
+            prow = pers_res.data[0]
+            exercise_source = "personalized"
+            correct_answer = prow.get("target_answer") or ""
+            target_vocab_id = prow.get("vocabulary_id")
+            row = {"id": prow["id"]}
+        else:
+            try:
+                res = (
+                    sb.table("vocabulary_exercises")
+                    .select("id, exercise_type, content_payload, status, target_vocab_id")
+                    .eq("id", exercise_id)
+                    .eq("exercise_type", "D1")
+                    .limit(1)
+                    .execute()
+                )
+            except Exception as e:
+                logger.error("[exercises] attempt fetch failed: %s", e)
+                raise HTTPException(500, "Could not load exercise.")
 
-        row = res.data[0]
-        payload = row.get("content_payload") or {}
-        exercise_source = "admin"
-        correct_answer = payload.get("answer") or ""
-        target_vocab_id = row.get("target_vocab_id")
+            if not res.data or res.data[0].get("status") != "published":
+                raise HTTPException(404, "Exercise not found.")
+
+            row = res.data[0]
+            payload = row.get("content_payload") or {}
+            exercise_source = "admin"
+            correct_answer = payload.get("answer") or ""
+            target_vocab_id = row.get("target_vocab_id")
 
     is_correct = _grade_d1(body.user_answer, correct_answer)
     score = 1.0 if is_correct else 0.0
@@ -504,59 +574,34 @@ async def submit_d1_attempt(
     # log a warning and treat the attempt as a retry (conservative
     # default — better to skip the SRS update than to write the wrong
     # state).
-    is_first_attempt = False
-    try:
-        prior_attempts = (
-            sb.table("vocabulary_exercise_attempts")
-            .select("id")
-            .eq("user_id", user_id)
-            .eq("exercise_id", row["id"])
-            .limit(1)
-            .execute()
-        )
-        is_first_attempt = not (prior_attempts.data or [])
-    except Exception as e:
-        logger.warning(
-            "[exercises] first-attempt count failed for exercise_id=%s "
-            "(treating as retry → SRS skip): %s",
-            row["id"], e,
-        )
+    if recovered_attempt is not None:
+        is_first_attempt = bool(recovered_feedback.get("srs_first_attempt"))
+    else:
+        is_first_attempt = False
+        try:
+            prior_attempts = (
+                sb.table("vocabulary_exercise_attempts")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("exercise_id", row["id"])
+                .limit(1)
+                .execute()
+            )
+            is_first_attempt = not (prior_attempts.data or [])
+        except Exception as e:
+            logger.warning(
+                "[exercises] first-attempt count failed for exercise_id=%s "
+                "(treating as retry → SRS skip): %s",
+                row["id"], e,
+            )
 
     feedback = {
         "is_correct": is_correct,
         "correct_answer": correct_answer,
         "your_answer": body.user_answer.strip(),
+        "target_vocabulary_id": target_vocab_id,
+        "srs_first_attempt": is_first_attempt,
     }
-
-    # Validate session_id (when provided) — it must belong to this user, remain
-    # active, and list the exercise_id in its snapshot. Fail closed: persisting
-    # an unlinked attempt would make the session impossible to complete even
-    # though the learner received an apparent success response.
-    linked_session_id: str | None = None
-    if body.session_id:
-        try:
-            sess = (
-                sb.table("d1_sessions")
-                .select("id, exercise_ids, status")
-                .eq("id", body.session_id)
-                .limit(1)
-                .execute()
-            )
-            if not sess.data:
-                # RLS hides another user's session, so empty data == not yours.
-                raise HTTPException(404, "Session not found.")
-            session_row = sess.data[0]
-            row_ids = session_row.get("exercise_ids") or []
-            if session_row.get("status") != "active":
-                raise HTTPException(409, "Session is no longer active.")
-            if row["id"] not in row_ids:
-                raise HTTPException(409, "Exercise does not belong to this session.")
-            linked_session_id = body.session_id
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error("[exercises] attempt session lookup failed: %s", e)
-            raise HTTPException(500, "Could not verify session.")
 
     attempt_row = {
         "user_id":           user_id,
@@ -570,29 +615,35 @@ async def submit_d1_attempt(
         "session_id":        linked_session_id,
         "client_attempt_id": client_attempt_id,
     }
-    try:
-        # User-scoped client so the WITH CHECK on user_id is enforced — a
-        # caller cannot insert an attempt that claims another user's id.
-        # Sprint 10.5 Phase 2 — exercise_source records whether the
-        # exercise_id points at user_d1_questions or vocabulary_exercises
-        # (migration 054 dropped the FK to make this polymorphism possible).
-        inserted = sb.table("vocabulary_exercise_attempts").insert(attempt_row).execute()
-    except Exception as e:
-        # A connection may fail after PostgreSQL committed the row. Read the
-        # idempotency key once before deciding this is a failed write.
-        if client_attempt_id:
-            existing_attempt = _load_attempt_by_client_id(sb, user_id, client_attempt_id)
-            if existing_attempt:
-                return _replay_attempt_or_conflict(
-                    existing_attempt, exercise_id=exercise_id, body=body,
-                )
-        logger.error("[exercises] attempt insert failed: %s", e)
-        raise HTTPException(500, "Could not save attempt.")
+    persisted_attempt = recovered_attempt
+    replayed = recovered_attempt is not None
+    if persisted_attempt is None:
+        try:
+            inserted = sb.table("vocabulary_exercise_attempts").insert(attempt_row).execute()
+        except Exception as e:
+            # A connection may fail after PostgreSQL committed the row. Resume
+            # post-processing from that row instead of acknowledging it early.
+            if client_attempt_id:
+                existing_attempt = _load_attempt_by_client_id(sb, user_id, client_attempt_id)
+                if existing_attempt:
+                    _replay_attempt_or_conflict(
+                        existing_attempt, exercise_id=exercise_id, body=body,
+                    )
+                    persisted_attempt = existing_attempt
+                    replayed = True
+            if persisted_attempt is None:
+                logger.error("[exercises] attempt insert failed: %s", e)
+                raise HTTPException(500, "Could not save attempt.")
 
-    if not inserted.data or not isinstance(inserted.data[0], dict) or not inserted.data[0].get("id"):
-        logger.error("[exercises] attempt insert returned no canonical row")
-        raise HTTPException(500, "Could not save attempt.")
-    persisted_attempt = inserted.data[0]
+        if persisted_attempt is None:
+            if (
+                not inserted.data
+                or not isinstance(inserted.data[0], dict)
+                or not inserted.data[0].get("id")
+            ):
+                logger.error("[exercises] attempt insert returned no canonical row")
+                raise HTTPException(500, "Could not save attempt.")
+            persisted_attempt = inserted.data[0]
 
     # ── Sprint 10.3 — D1 → SRS feedback loop ────────────────────────────
     #
@@ -624,6 +675,7 @@ async def submit_d1_attempt(
     #     items the user has chosen to hide)
     srs_updated = False
     srs_rating: str | None = None
+    srs_state: dict | None = None
     if is_first_attempt and target_vocab_id:
         srs_rating = "good" if is_correct else "again"
         try:
@@ -652,9 +704,10 @@ async def submit_d1_attempt(
             vocab_alive = False
 
         if vocab_alive:
-            srs_updated = _apply_d1_srs_update(
+            srs_state = _prepare_d1_srs_state(
                 sb, user_id, target_vocab_id, srs_rating,
             )
+            srs_updated = srs_state is not None
         if not srs_updated:
             # The handler skipped or fail-softed; clear the rating so
             # the response shape stays honest. Frontend keys off
@@ -664,26 +717,16 @@ async def submit_d1_attempt(
 
     feedback["srs_updated"] = srs_updated
     feedback["srs_rating"] = srs_rating
-    try:
-        saved_feedback = (
-            sb.table("vocabulary_exercise_attempts")
-            .update({"feedback": feedback})
-            .eq("id", persisted_attempt["id"])
-            .execute()
-        )
-        if not saved_feedback.data:
-            logger.warning(
-                "[exercises] attempt feedback update returned no row attempt=%s",
-                persisted_attempt["id"],
-            )
-    except Exception as e:
-        # The attempt itself is canonical even if this auxiliary SRS receipt
-        # cannot be attached. Do not invite a duplicate submission.
-        logger.warning(
-            "[exercises] attempt feedback receipt update failed attempt=%s: %s",
-            persisted_attempt["id"], e,
-        )
-    persisted_attempt = {**persisted_attempt, "feedback": feedback}
+    persisted_attempt = _finalize_d1_attempt(
+        sb, str(persisted_attempt["id"]), feedback, srs_state,
+    )
+    canonical_feedback = (
+        persisted_attempt.get("feedback")
+        if isinstance(persisted_attempt.get("feedback"), dict)
+        else {}
+    )
+    srs_updated = bool(canonical_feedback.get("srs_updated"))
+    srs_rating = canonical_feedback.get("srs_rating") if srs_updated else None
 
     _safe_event(
         "exercise_completed",
@@ -698,7 +741,7 @@ async def submit_d1_attempt(
         user_id,
     )
 
-    return _attempt_result(persisted_attempt, replayed=False)
+    return _attempt_result(persisted_attempt, replayed=replayed)
 
 
 # ── User: D1 session lifecycle ────────────────────────────────────────────────
@@ -816,6 +859,15 @@ async def start_d1_session(
     _require_d1_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
     size = max(1, min(body.size, 20))
+
+    # Do not create a session the learner cannot finish under today's quota.
+    # Attempt-level enforcement still protects against races from other tabs.
+    rate_limit.enforce_exercise_session_capacity(
+        user_id=user_id,
+        exercise_type="D1",
+        daily_limit=50,
+        requested=size,
+    )
 
     # Step 1: collect attempted IDs once. The same column carries both
     # vocabulary_exercises.id and user_d1_questions.id (migration 054

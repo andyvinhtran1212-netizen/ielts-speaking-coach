@@ -118,6 +118,46 @@ class _FakeClient:
         self.store.setdefault(name, [])
         return _FakeQuery(name, self.store)
 
+    def rpc(self, name, params):
+        assert name == "fn_finalize_d1_attempt"
+        store = self.store
+
+        class _Rpc:
+            def execute(self_inner):
+                rows = [
+                    row for row in store.setdefault("vocabulary_exercise_attempts", [])
+                    if row.get("id") == params["p_attempt_id"]
+                ]
+                if not rows:
+                    return _FakeRes([])
+                attempt = rows[0]
+                if not attempt.get("post_processed_at"):
+                    vocab_id = params.get("p_vocab_id")
+                    if vocab_id:
+                        reviews = store.setdefault("flashcard_reviews", [])
+                        existing = next(
+                            (r for r in reviews if r.get("vocabulary_id") == vocab_id), None,
+                        )
+                        if existing:
+                            existing["review_count"] = int(existing.get("review_count", 0)) + 1
+                            existing["lapse_count"] = int(existing.get("lapse_count", 0)) + int(params.get("p_lapse_delta") or 0)
+                            existing["interval_days"] = params["p_interval"]
+                            existing["ease_factor"] = params["p_ease"]
+                        else:
+                            reviews.append({
+                                "user_id": USER_ID,
+                                "vocabulary_id": vocab_id,
+                                "review_count": 1,
+                                "lapse_count": int(params.get("p_lapse_delta") or 0),
+                                "interval_days": params["p_interval"],
+                                "ease_factor": params["p_ease"],
+                            })
+                    attempt["feedback"] = params["p_feedback"]
+                    attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
+                return _FakeRes([attempt])
+
+        return _Rpc()
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +210,7 @@ def _bypass_d1_rate_limit(monkeypatch):
     from services import rate_limit
 
     monkeypatch.setattr(rate_limit, "enforce_exercise_rate_limit", lambda **_k: None)
+    monkeypatch.setattr(rate_limit, "enforce_exercise_session_capacity", lambda **_k: None)
 
 
 class _AttemptInsertFailureQuery(_FakeQuery):
@@ -597,8 +638,12 @@ def test_attempt_grades_personalized_question(monkeypatch):
     srs_calls: list = []
     def _fake_srs(_sb, _user, vocab_id, rating):
         srs_calls.append((vocab_id, rating))
-        return True
-    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+        return {
+            "p_vocab_id": vocab_id, "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 0, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        }
+    monkeypatch.setattr(exr, "_prepare_d1_srs_state", _fake_srs)
 
     out = asyncio.run(exr.submit_d1_attempt(
         exercise_id="pq-0",
@@ -643,8 +688,12 @@ def test_attempt_personalized_wrong_answer_fires_srs_again(monkeypatch):
     srs_calls: list = []
     def _fake_srs(_sb, _user, vocab_id, rating):
         srs_calls.append((vocab_id, rating))
-        return True
-    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+        return {
+            "p_vocab_id": vocab_id, "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 1, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        }
+    monkeypatch.setattr(exr, "_prepare_d1_srs_state", _fake_srs)
 
     out = asyncio.run(exr.submit_d1_attempt(
         exercise_id="pq-0",
@@ -765,8 +814,8 @@ def test_attempt_insert_failure_is_not_reported_as_success_or_sent_to_srs(monkey
     _replace_user_client(monkeypatch, store, _AttemptInsertFailureQuery)
     srs_calls: list[tuple] = []
     monkeypatch.setattr(
-        exr, "_apply_d1_srs_update",
-        lambda *args: srs_calls.append(args) or True,
+        exr, "_prepare_d1_srs_state",
+        lambda *args: srs_calls.append(args) or {},
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -802,8 +851,12 @@ def test_lost_ack_replays_single_persisted_attempt_without_duplicate_srs(monkeyp
     _replace_user_client(monkeypatch, store, _LostAckQuery)
     srs_calls: list[tuple] = []
     monkeypatch.setattr(
-        exr, "_apply_d1_srs_update",
-        lambda *args: srs_calls.append(args) or True,
+        exr, "_prepare_d1_srs_state",
+        lambda *args: srs_calls.append(args) or {
+            "p_vocab_id": "vocab-0", "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 0, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        },
     )
 
     out = asyncio.run(exr.submit_d1_attempt(
@@ -816,7 +869,59 @@ def test_lost_ack_replays_single_persisted_attempt_without_duplicate_srs(monkeyp
     assert out["replayed"] is True
     assert len(store["vocabulary_exercise_attempts"]) == 1
     assert store["vocabulary_exercise_attempts"][0]["client_attempt_id"] == key
-    assert srs_calls == []
+    assert len(srs_calls) == 1
+    assert out["srs_updated"] is True
+
+    replay = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0", client_attempt_id=key),
+        authorization="Bearer x",
+    ))
+    assert replay["replayed"] is True
+    assert replay["attempt_id"] == out["attempt_id"]
+    assert len(srs_calls) == 1
+
+
+def test_session_attempt_grades_from_snapshot_after_admin_unpublish(monkeypatch):
+    """The answer contract is frozen when the learner starts the session."""
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "vocabulary_exercises": [{
+            **_exercise(0),
+            "status": "draft",
+            "content_payload": {
+                "sentence": "Edited ___ sentence.",
+                "answer": "new-answer",
+                "distractors": ["a", "b", "c"],
+            },
+        }],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [{
+            "id": "sess-snapshot", "user_id": USER_ID,
+            "exercise_ids": ["ex-0"], "total_count": 1, "status": "active",
+            "exercise_snapshot": [{
+                "id": "ex-0", "sentence": "Original ___ sentence.",
+                "answer": "answer0", "options": ["answer0", "a", "b", "c"],
+                "source": "admin_fallback", "target_vocabulary_id": None,
+            }],
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="ex-0",
+        body=D1AttemptRequest(
+            user_answer="answer0", session_id="sess-snapshot",
+            client_attempt_id="4e9155c9-c3b2-4ee9-9136-d5aaf1aa8960",
+        ),
+        authorization="Bearer x",
+    ))
+
+    assert out["is_correct"] is True
+    assert out["correct_answer"] == "answer0"
+    assert store["vocabulary_exercise_attempts"][0]["exercise_source"] == "admin"
 
 
 def test_attempt_replay_happens_before_daily_limit_and_rejects_key_reuse(monkeypatch):
@@ -833,6 +938,7 @@ def test_attempt_replay_happens_before_daily_limit_and_rejects_key_reuse(monkeyp
             "client_attempt_id": key, "user_answer": "answer0",
             "is_correct": True, "score": 1.0,
             "feedback": {"correct_answer": "answer0", "srs_updated": False},
+            "post_processed_at": "2026-08-16T00:00:00+00:00",
         }],
     }
     _patch_user_route(monkeypatch, store)

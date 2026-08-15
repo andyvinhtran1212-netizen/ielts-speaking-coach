@@ -115,6 +115,45 @@ class _Client:
     def table(self, name=None, *_a, **_k):
         return _Builder(self, name)
 
+    def rpc(self, name, params):
+        assert name == "fn_finalize_d1_attempt"
+        client = self
+
+        class _Exec:
+            def execute(self_inner):
+                attempt = next(
+                    row for table, row in reversed(client.inserts)
+                    if table == "vocabulary_exercise_attempts"
+                    and row.get("id") == params["p_attempt_id"]
+                )
+                if not attempt.get("post_processed_at"):
+                    vocab_id = params.get("p_vocab_id")
+                    if vocab_id:
+                        prior = (client.canned.get("flashcard_reviews") or [None])[0]
+                        prior = prior or {}
+                        review_row = {
+                            "user_id": "user-A",
+                            "vocabulary_id": vocab_id,
+                            "interval_days": params["p_interval"],
+                            "ease_factor": params["p_ease"],
+                            "review_count": int(prior.get("review_count", 0)) + 1,
+                            "lapse_count": int(prior.get("lapse_count", 0)) + int(params.get("p_lapse_delta") or 0),
+                            "last_reviewed_at": params["p_last_reviewed_at"],
+                            "next_review_at": params["p_next_review_at"],
+                        }
+                        client.upserts.append((
+                            "flashcard_reviews", review_row, "user_id,vocabulary_id",
+                        ))
+                    attempt["feedback"] = params["p_feedback"]
+                    attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
+
+                class _R:
+                    data = [attempt]
+                    count = None
+                return _R()
+
+        return _Exec()
+
     # The D1 handler hits sb.postgrest.auth(token) indirectly via
     # _user_sb in the real code; we patch _user_sb itself in the
     # test fixture so postgrest isn't touched.
