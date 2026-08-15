@@ -111,6 +111,90 @@ check('profile sai contract hiện lỗi blocking thay vì mở form',
   `retry=${malformedRetryVisible}; form=${malformedFormCount}; writes=${malformed.writes.length}; reads=${malformed.reads.length}; url=${new URL(malformed.page.url()).pathname}`);
 await malformed.context.close();
 
+async function wizardSnapshot(page) {
+  const cardStyle = await page.locator('.ob-card').evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderTopColor,
+      borderRadius: style.borderRadius,
+      color: style.color,
+      fontFamily: style.fontFamily,
+    };
+  });
+  return {
+    step: (await page.locator('.ob-step-label').innerText()).trim(),
+    percent: (await page.locator('.ob-step-pct').innerText()).trim(),
+    title: (await page.locator('.step-panel.active .ob-step__title').innerText()).trim(),
+    subtitle: (await page.locator('.step-panel.active .ob-step__subtitle').innerText()).trim(),
+    next: (await page.locator('.btn-primary').innerText()).trim(),
+    cardStyle,
+    contained: await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  };
+}
+
+async function runParityLeg(path, legacy) {
+  const leg = await fixture({
+    profile: { id: 'user-1', is_active: true, onboarding_completed: false },
+    viewport: { width: 390, height: 844 },
+  });
+  await leg.page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+  await leg.page.locator('#target-band').waitFor();
+  const steps = [await wizardSnapshot(leg.page)];
+
+  await leg.page.locator('#target-band').selectOption('7.0');
+  await leg.page.locator('#exam-date').fill('2027-04-05');
+  await leg.page.locator('.btn-primary').click();
+  if (legacy) {
+    await leg.page.locator('#level-cards [data-value="upper_intermediate"]').click();
+  } else {
+    const level = leg.page.getByRole('radio', { name: /Trên trung cấp/ });
+    await level.focus();
+    await leg.page.keyboard.press('Space');
+    await leg.page.waitForFunction(() => document.querySelector('input[name="self-level"]:checked')?.value === 'upper_intermediate');
+  }
+  steps.push(await wizardSnapshot(leg.page));
+
+  await leg.page.locator('.btn-primary').click();
+  if (legacy) {
+    await leg.page.locator('#topic-cards [data-value="technology"]').click();
+  } else {
+    const topic = leg.page.getByRole('radio', { name: /Công nghệ & Xã hội số/ });
+    await topic.focus();
+    await leg.page.keyboard.press('Space');
+    await leg.page.waitForFunction(() => document.querySelector('input[name="first-topic"]:checked')?.value === 'technology');
+  }
+  steps.push(await wizardSnapshot(leg.page));
+
+  await leg.page.locator('.btn-primary').click();
+  await leg.page.waitForURL('**/home?first_topic=technology');
+  const result = {
+    steps,
+    writes: leg.writes,
+    destination: `${new URL(leg.page.url()).pathname}${new URL(leg.page.url()).search}`,
+    errors: leg.errors,
+  };
+  await leg.context.close();
+  return result;
+}
+
+function sameWizardContract(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const [rollbackParity, nativeParity] = await Promise.all([
+  runParityLeg('/onboarding.html', true),
+  runParityLeg('/onboarding', false),
+]);
+const parityMatches = sameWizardContract(rollbackParity, nativeParity);
+check('rollback và native giữ cùng nội dung, style, hành vi và payload trên profile chưa hoàn tất',
+  parityMatches,
+  parityMatches ? '' : `legacy=${JSON.stringify(rollbackParity)}; next=${JSON.stringify(nativeParity)}`);
+const intentionalMismatch = structuredClone(nativeParity);
+intentionalMismatch.steps[0].title = 'INTENTIONAL PARITY MISMATCH';
+check('bộ so hai-leg chặn được một sai khác cố ý',
+  !sameWizardContract(rollbackParity, intentionalMismatch));
+
 const wizard = await fixture({
   profile: { id: 'user-1', is_active: true, onboarding_completed: false },
   ambiguousPatch: true,
@@ -132,7 +216,9 @@ await wizard.page.getByRole('button', { name: 'Tiếp theo →' }).click();
 const topic = wizard.page.getByRole('radio', { name: /Công nghệ & Xã hội số/ });
 await topic.focus();
 await wizard.page.keyboard.press('Space');
+const keyboardTopicChecked = await topic.isChecked();
 const mobileContained = await wizard.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+const mobileDimensions = await wizard.page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth }));
 const readsBeforeSubmit = wizard.reads.length;
 await wizard.page.getByRole('button', { name: /Bắt đầu luyện tập ngay/ }).evaluate((node) => {
   node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -153,7 +239,8 @@ check('payload giữ đúng năm field đã kiểm chứng',
     onboarding_completed: true,
   }));
 check('mobile không tràn ngang và radio dùng được bằng bàn phím',
-  keyboardLevelChecked && mobileContained);
+  keyboardLevelChecked && keyboardTopicChecked && mobileContained,
+  `level=${keyboardLevelChecked}; topic=${keyboardTopicChecked}; scrollWidth=${mobileDimensions.scrollWidth}; innerWidth=${mobileDimensions.innerWidth}`);
 check('wizard không có lỗi JavaScript', wizard.errors.length === 0, wizard.errors.join(' | '));
 await wizard.context.close();
 

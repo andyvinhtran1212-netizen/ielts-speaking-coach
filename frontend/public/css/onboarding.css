@@ -52,6 +52,8 @@
   background: var(--av-surface-card);
   border: 1px solid var(--av-border-subtle);
   box-shadow: var(--av-shadow-lg);
+  /* Keep the horizontal slide animation from widening the mobile document. */
+  overflow-x: hidden;
 }
 
 
