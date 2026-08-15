@@ -62,7 +62,9 @@ async function requestForAccount(
   const sb = window.getSupabase() as any;
   const { data, error } = await sb.auth.getSession();
   const authSession = data?.session;
-  if (error || !authSession?.access_token || authSession.user?.id !== expectedAccount) {
+  if (error || !authSession?.access_token
+    || authSession.user?.id !== expectedAccount
+    || !isCurrent()) {
     throw new Error('Tài khoản đã thay đổi trước khi gửi yêu cầu.');
   }
   const requestId = window.crypto?.randomUUID?.() || `d1-request-${Date.now()}`;

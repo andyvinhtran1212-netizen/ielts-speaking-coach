@@ -43,7 +43,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const ownsOperation = \(\) => accountRef\.current === expectedAccount[\s\S]{0,160}accountGenerationRef\.current === expectedGeneration[\s\S]{0,120}mutationOwnerRef\.current === operation/);
     assert.match(player, /const started = normalizeD1Start\(payload\)[\s\S]{0,420}retainSession\(expectedAccount, started\.sessionId\);[\s\S]{0,100}if \(!ownsOperation\(\)\) return/);
     assert.match(player, /function retainSession\(userId: string, sessionId: string\)[\s\S]{0,180}writeSessionIds\(userId/);
-    assert.match(player, /async function requestForAccount[\s\S]{0,420}authSession\.user\?\.id !== expectedAccount/);
+    assert.match(player, /async function requestForAccount[\s\S]{0,420}authSession\.user\?\.id !== expectedAccount[\s\S]{0,80}!isCurrent\(\)/);
     assert.match(player, /Authorization: `Bearer \$\{token\}`/);
     assert.match(player, /const payload = await startSessionForAccount\(expectedAccount, ownsOperation\)/);
     assert.doesNotMatch(player, /window\.api\.post\('\/api\/exercises\/d1\/sessions'/);

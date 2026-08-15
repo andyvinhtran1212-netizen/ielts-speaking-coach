@@ -73,6 +73,7 @@ let refreshGenerationRaceArmed = false;
 let refreshGenerationOldPosts = 0;
 let resolveRefreshGenerationOld;
 const refreshGenerationOldStarted = new Promise((resolve) => { resolveRefreshGenerationOld = resolve; });
+let initialDispatchRaceArmed = false;
 let final401Armed = false;
 let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
@@ -82,6 +83,11 @@ window.supabase = { createClient: function () { return { auth: {
   getSession: async function () {
     var call = Number(sessionStorage.getItem('d1-auth-session-calls') || '0') + 1;
     sessionStorage.setItem('d1-auth-session-calls', String(call));
+    if (localStorage.getItem('d1-delay-auth-once') === '1') {
+      localStorage.removeItem('d1-delay-auth-once');
+      window.__d1DelayedAuthStarted = true;
+      await new Promise(function (resolve) { setTimeout(resolve, 500); });
+    }
     var foreignAt = Number(localStorage.getItem('d1-foreign-token-at') || '0');
     if (foreignAt === call) {
       await new Promise(function (resolve) { setTimeout(resolve, 120); });
@@ -142,7 +148,7 @@ await context.route('**/*', async (route) => {
     return json({ session_id: SESSION, exercises, total: 2 }, 201);
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${SESSION}`) {
-    if ((generationRaceArmed || staleRetryArmed || refreshGenerationRaceArmed)
+    if ((generationRaceArmed || staleRetryArmed || refreshGenerationRaceArmed || initialDispatchRaceArmed)
       && request.headers().authorization === 'Bearer foreign-token') {
       return json({ detail: 'Session not found' }, 404);
     }
@@ -203,6 +209,12 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
     attemptBodies.push(body);
+    if (initialDispatchRaceArmed && body.user_answer === 'adapt') {
+      return json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' });
+    }
+    if (initialDispatchRaceArmed && body.user_answer === 'freeze') {
+      return json({ attempt_id: ATT_B, persisted: true, replayed: false, is_correct: false, correct_answer: 'adapt', score: 0, srs_updated: false, srs_rating: null });
+    }
     if (refreshGenerationRaceArmed && body.user_answer === 'adapt') {
       refreshGenerationOldPosts += 1;
       if (refreshGenerationOldPosts === 1) {
@@ -592,6 +604,47 @@ await page.waitForTimeout(600);
 check('generation cũ không redispatch bằng token refresh sau A→B→A',
   refreshGenerationOldPosts === 1);
 refreshGenerationRaceArmed = false;
+
+initialDispatchRaceArmed = true;
+persistedAttempts.length = 0;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  window.__d1AccessToken = 'fixture-token';
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+const adaptPostsBeforeDelayedToken = attemptBodies.filter((body) => body.user_answer === 'adapt').length;
+await page.evaluate(() => {
+  window.__d1DelayedAuthStarted = false;
+  localStorage.setItem('d1-delay-auth-once', '1');
+});
+await page.getByRole('button', { name: 'adapt' }).click();
+await page.waitForFunction(() => window.__d1DelayedAuthStarted === true);
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AccessToken = 'foreign-token';
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.evaluate(([userId]) => {
+  window.__d1CurrentUser = userId;
+  window.__d1AccessToken = 'fixture-token';
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'fixture-token',
+    user: { id: userId, email: 'd1@local' },
+  });
+}, [USER]);
+await page.getByText('People must _____ to change.').waitFor();
+await page.getByRole('button', { name: 'freeze' }).click();
+await page.getByText('✓ Đã lưu bài.').waitFor();
+await page.waitForTimeout(600);
+check('generation cũ không dispatch sau token lookup trễ A→B→A',
+  attemptBodies.filter((body) => body.user_answer === 'adapt').length === adaptPostsBeforeDelayedToken);
+initialDispatchRaceArmed = false;
 
 await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
