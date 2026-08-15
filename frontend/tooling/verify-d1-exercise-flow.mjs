@@ -345,6 +345,28 @@ check('URL foreign 404 fallback ngay sang registry account',
   new URL(page.url()).searchParams.get('session') === SESSION
   && requests.includes(`GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`));
 
+const staleRegistryMissesBefore = requests.filter(
+  (entry) => entry === `GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`,
+).length;
+await page.evaluate(([userId, activeId, staleId]) => {
+  localStorage.setItem(
+    `aver:d1:active-session:${userId}`,
+    JSON.stringify([activeId, staleId]),
+  );
+}, [USER, SESSION, FOREIGN_SESSION]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByText('Trees _____ in spring.').waitFor();
+check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
+  ([userId, activeId]) => {
+    const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
+    return new URL(window.location.href).searchParams.get('session') === activeId
+      && !!scoped && JSON.parse(scoped).length === 1 && JSON.parse(scoped)[0] === activeId;
+  },
+  [USER, SESSION],
+) && requests.filter(
+  (entry) => entry === `GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`,
+).length === staleRegistryMissesBefore + 1);
+
 await page.evaluate(([userId, sessionId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.setItem('aver:d1:active-session', sessionId);

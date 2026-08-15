@@ -292,8 +292,8 @@ export function D1ExercisePlayer() {
       const legacyIds = storedIds.length ? [] : readSessionIdsFromKey(LEGACY_STORAGE_KEY);
       const candidates = [...new Set([
         queryId,
-        storedIds[storedIds.length - 1] || '',
-        legacyIds[legacyIds.length - 1] || '',
+        ...[...storedIds].reverse(),
+        ...[...legacyIds].reverse(),
       ].filter(Boolean))];
       if (!candidates.length) {
         setPhase('start');

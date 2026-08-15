@@ -29,7 +29,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /aver:d1:active-session/);
     assert.match(player, /JSON\.parse\(raw\)/);
     assert.match(player, /writeSessionIds\(userId, readSessionIds\(userId\)\.filter\(\(id\) => id !== sessionId\)\)/);
-    assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,160}storedIds\[storedIds\.length - 1\][\s\S]{0,160}legacyIds\[legacyIds\.length - 1\]/);
+    assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,120}\.\.\.\[\.\.\.storedIds\]\.reverse\(\),[\s\S]{0,120}\.\.\.\[\.\.\.legacyIds\]\.reverse\(\)/);
     assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,500}caught\?\.status !== 404[\s\S]{0,100}clearResume\([\s\S]{0,80}expectedAccount,[\s\S]{0,80}candidate/);
     assert.match(player, /legacyIds\.includes\(resumedId\)[\s\S]{0,80}removeItem\(LEGACY_STORAGE_KEY\)/);
     assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration\)/);
