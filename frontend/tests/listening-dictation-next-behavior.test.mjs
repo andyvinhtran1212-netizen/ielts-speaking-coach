@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
-  dictationParams, dictationReceiptKey, formatDictationTime, isMissingReceipt,
+  dictationParams, dictationReceiptKey, dictationRequestId, formatDictationTime, isMissingReceipt,
   normalizeDictationBundle, normalizeDictationGrade, normalizeDictationReceipt,
   normalizeDictationReport, topDictationWords,
 } from '../lib/listening-dictation-controller.mjs';
@@ -65,6 +65,19 @@ describe('native Listening Dictation model', () => {
     assert.equal(isMissingReceipt(new Error('HTTP 503')), false);
   });
 
+  test('generates a secure v4 receipt without randomUUID on the Safari floor', () => {
+    const fallbackCrypto = {
+      getRandomValues(bytes) {
+        for (let index = 0; index < bytes.length; index += 1) bytes[index] = index;
+        return bytes;
+      },
+    };
+    const requestId = dictationRequestId(fallbackCrypto);
+    assert.equal(requestId, '00010203-0405-4607-8809-0a0b0c0d0e0f');
+    assert.match(requestId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.throws(() => dictationRequestId({}), /dictation-secure-random-unavailable/);
+  });
+
   test('sorts useful error trends and formats durations truthfully', () => {
     assert.deepEqual(topDictationWords({ brighton: 2, address: 3, '': 8, bad: -1 }), [{ word: 'address', count: 3 }, { word: 'brighton', count: 2 }]);
     assert.equal(formatDictationTime(125), '2 phút 5 giây');
@@ -90,6 +103,10 @@ describe('native Listening Dictation ownership', () => {
     assert.match(CLIENT, /Gửi lại và xác nhận/);
     assert.match(CLIENT, /dictation\/flag/);
     assert.match(CLIENT, /audio-player/);
+    assert.doesNotMatch(CLIENT, /crypto\.randomUUID\(\)/);
+    assert.match(CLIENT, /const canRestartSection = saveState === 'saved'/);
+    assert.match(CLIENT, /disabled=\{!canRestartSection\}/);
+    assert.match(CLIENT, /if \(!canRestartSection\) return; clearReceipt/);
   });
 
   test('loads the audio component and responsive token-only route CSS', () => {

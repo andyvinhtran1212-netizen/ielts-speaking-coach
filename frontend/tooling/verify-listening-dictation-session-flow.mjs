@@ -13,10 +13,16 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
+await context.addInitScript(([key, value]) => {
+  localStorage.setItem(key, value);
+  // Supported Safari/iOS floor has getRandomValues but may not expose
+  // randomUUID. Exercise the completion flow under that exact capability set.
+  Object.defineProperty(globalThis.crypto, 'randomUUID', { configurable: true, value: undefined });
+}, [storageKey(SB), session]);
 const page = await context.newPage();
 const errors = []; const completionPosts = []; const receiptReads = [];
 let canonical = null;
+let releaseCompletion;
 page.on('pageerror', (error) => errors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
@@ -54,6 +60,7 @@ await page.route('**/*', async (route) => {
       ],
     };
     // Simulate commit success + lost HTTP acknowledgement.
+    await new Promise((resolve) => { releaseCompletion = resolve; });
     return route.abort('connectionreset');
   }
   if (parsed.pathname === '/api/listening/tests/dictation/flag' && method === 'POST') return json({ id: 'flag-1', status: 'new' });
@@ -74,6 +81,9 @@ await page.getByLabel('Câu trả lời câu 2').fill('The address is bright.');
 await page.getByRole('button', { name: 'Kiểm tra câu' }).click();
 await page.getByText('80% · 4/5 từ').waitFor();
 await page.getByRole('button', { name: 'Xem tổng kết' }).click();
+await page.getByText('Đang xác nhận…', { exact: true }).waitFor();
+check('lost ACK không thể xoá receipt bằng làm lại khi đang xác nhận', await page.getByRole('button', { name: 'Làm lại section' }).isDisabled());
+releaseCompletion?.();
 await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
 check('mất ACK được read-back tự động bằng đúng receipt', completionPosts.length === 1 && receiptReads.length >= 2 && canonical?.client_request_id === completionPosts[0].client_request_id);
 check('payload hoàn tất đủ coverage và receipt UUID', completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));

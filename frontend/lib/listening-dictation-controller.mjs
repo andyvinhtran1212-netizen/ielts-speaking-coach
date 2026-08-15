@@ -140,6 +140,21 @@ export function dictationReceiptKey(accountId, testId, sectionNum) {
   return `av:dictation:v1:${account}:${test}:${section}`;
 }
 
+export function dictationRequestId(cryptoProvider = globalThis.crypto) {
+  if (cryptoProvider && typeof cryptoProvider.randomUUID === 'function') {
+    return cryptoProvider.randomUUID();
+  }
+  if (!cryptoProvider || typeof cryptoProvider.getRandomValues !== 'function') {
+    throw new Error('dictation-secure-random-unavailable');
+  }
+  const bytes = new Uint8Array(16);
+  cryptoProvider.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function normalizeDictationReceipt(payload, identity) {
   if (!payload || typeof payload !== 'object') return null;
   const requestId = text(payload.requestId);

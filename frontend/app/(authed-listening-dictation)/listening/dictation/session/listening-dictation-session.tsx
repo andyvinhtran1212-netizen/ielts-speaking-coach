@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   dictationParams,
   dictationReceiptKey,
+  dictationRequestId,
   formatDictationTime,
   isMissingReceipt,
   normalizeDictationBundle,
@@ -303,7 +304,7 @@ export function ListeningDictationSession() {
   const complete = useCallback(async () => {
     if (!section || !user?.id || !params) return;
     const totalTime = startedAtRef.current ? Math.max(0, Math.round((Date.now() - startedAtRef.current) / 1000)) : null;
-    const requestId = crypto.randomUUID();
+    const requestId = dictationRequestId();
     const submission = {
       client_request_id: requestId, test_id: params.testId, section_num: section.section_num,
       started_at: startedAtRef.current ? new Date(startedAtRef.current).toISOString() : null,
@@ -371,6 +372,7 @@ export function ListeningDictationSession() {
 
   const visibleReport = report || clientReport(results, startedAtRef.current ? Math.round((Date.now() - startedAtRef.current) / 1000) : null);
   const opCounts = visibleReport.error_trends?.op_counts || {};
+  const canRestartSection = saveState === 'saved';
 
   return <main className="dict-next-shell">
     <header className="dict-next-hero">
@@ -403,7 +405,7 @@ export function ListeningDictationSession() {
       <div className="dict-next-stats"><article><span>Độ chính xác</span><strong>{percentage(visibleReport.accuracy)}</strong></article><article><span>Câu đúng hoàn toàn</span><strong>{visibleReport.correct_count}/{visibleReport.total_sentences}</strong></article><article><span>Từ đúng</span><strong>{visibleReport.correct_words}/{visibleReport.total_words}</strong></article><article><span>Thời gian</span><strong>{formatDictationTime(visibleReport.total_time_seconds)}</strong></article></div>
       <div className="dict-next-trends"><h3>Mẫu lỗi</h3><div><span>Thiếu <b>{opCounts.miss || 0}</b></span><span>Sai <b>{opCounts.wrong || 0}</b></span><span>Thừa <b>{opCounts.extra || 0}</b></span></div>{topDictationWords(visibleReport.error_trends?.missed).length ? <p>Từ hay thiếu: {topDictationWords(visibleReport.error_trends.missed).map((item: any) => `${item.word} (${item.count})`).join(', ')}</p> : null}</div>
       <div className="dict-next-review"><h3>Đối chiếu từng câu</h3>{section.sentences.map((sentence: string, index: number) => { const result = results[index]; return <article key={index}><header><strong>Câu {index + 1}</strong><span>{result ? `${percentage(result.score)} · ${result.correct_words}/${result.total_words}` : 'Đang khôi phục từ máy chủ'}</span><button type="button" disabled={flagged.has(index)} onClick={() => { setFlagIndex(index); setFlagCategory(''); setFlagNote(''); setFlagError(''); }}>{flagged.has(index) ? '✓ Đã báo lỗi' : '⚑ Báo lỗi'}</button></header><p className="dict-next-reference"><span>Transcript</span>{sentence}</p>{result ? <><p className="dict-next-user-answer"><span>Bạn đã gõ</span>{result.user_text || '—'}</p><Diff operations={result.diff} /></> : null}</article>; })}</div>
-      <div className="dict-next-actions"><button type="button" onClick={() => { clearReceipt(section); selectSection(section); }}>Làm lại section</button>{bundle.sections.length > 1 ? <button type="button" onClick={() => setPhase('picker')}>Chọn section khác</button> : null}<a href="/listening">Về Listening</a></div>
+      <div className="dict-next-actions"><button type="button" disabled={!canRestartSection} onClick={() => { if (!canRestartSection) return; clearReceipt(section); selectSection(section); }}>Làm lại section</button>{bundle.sections.length > 1 ? <button type="button" onClick={() => setPhase('picker')}>Chọn section khác</button> : null}<a href="/listening">Về Listening</a></div>
     </section> : null}
 
     {flagIndex != null ? <div className="dict-next-modal" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFlagIndex(null); }}><section role="dialog" aria-modal="true" aria-labelledby="flag-title"><h2 id="flag-title">Báo lỗi — câu {flagIndex + 1}</h2><p>Chọn loại lỗi hoặc mô tả cụ thể để đội nội dung kiểm tra.</p><div className="dict-next-flag-options">{[['audio_unclear', 'Audio khó nghe'], ['transcript_wrong', 'Transcript sai'], ['timing_wrong', 'Cắt đoạn sai']].map(([value, label]) => <button className={flagCategory === value ? 'is-selected' : ''} type="button" onClick={() => setFlagCategory(value)} key={value}>{label}</button>)}</div><textarea autoFocus aria-label="Mô tả lỗi" value={flagNote} onChange={(event) => setFlagNote(event.target.value)} placeholder="Mô tả thêm…" />{flagError ? <p role="alert" className="dict-next-inline-error">{flagError}</p> : null}<div className="dict-next-actions"><button type="button" onClick={() => setFlagIndex(null)}>Hủy</button><button className="is-primary" type="button" disabled={flagging} onClick={() => void submitFlag()}>{flagging ? 'Đang gửi…' : 'Gửi báo lỗi'}</button></div></section></div> : null}
