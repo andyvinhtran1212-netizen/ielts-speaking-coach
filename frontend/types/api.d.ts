@@ -10743,6 +10743,17 @@ export interface components {
             url: string;
         };
         /**
+         * AuditRunRequest
+         * @description Optional client identity for a paid/non-idempotent full audit run.
+         *
+         *     Legacy rollback callers may omit it. Native callers persist a UUID in their
+         *     durable receipt and reconcile only against the same request_id in health.
+         */
+        AuditRunRequest: {
+            /** Request Id */
+            request_id?: string | null;
+        };
+        /**
          * AuditTriageRequest
          * @description Human triage of a persisted audit: update reviewer status / notes and/or
          *     mark specific issues resolved (by index into the saved issues array).
@@ -10754,6 +10765,8 @@ export interface components {
             notes?: string | null;
             /** Resolved Indexes */
             resolved_indexes?: number[] | null;
+            /** Expected Updated At */
+            expected_updated_at: string;
         };
         /**
          * BackfillBody
@@ -12555,6 +12568,8 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
@@ -25083,7 +25098,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuditRunRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

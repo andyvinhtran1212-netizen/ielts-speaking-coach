@@ -53,7 +53,7 @@ check('test-section dùng audio parent bundle', requests.includes('GET /admin/li
 check('lookup lỗi không biến thành chưa có', await page.getByText('Không đọc được', { exact: true }).count() === 1 && await page.getByText('Không đồng nghĩa “chưa có”', { exact: true }).count() === 1);
 check('malformed row được báo nhưng total server giữ nguyên', await page.getByText(/Đã loại 1 dòng/).count() === 1 && await page.getByText(/23 mục/).count() === 1);
 check('filter ở URL và active state đúng', new URL(page.url()).searchParams.get('status') === 'published' && await page.getByRole('button', { name: 'Đã phát hành' }).getAttribute('aria-current') === 'page');
-check('detail/editor giữ đúng identity', await page.getByRole('link', { name: 'Chi tiết' }).first().getAttribute('href') === '/admin/listening/content/c1' && await page.getByRole('link', { name: 'MCQ' }).first().getAttribute('href') === '/pages/admin/listening/mcq.html?content_id=c1');
+check('detail/editor giữ đúng identity', await page.getByRole('link', { name: 'Chi tiết' }).first().getAttribute('href') === '/admin/listening/content/c1' && await page.getByRole('link', { name: 'MCQ' }).first().getAttribute('href') === '/admin/listening/mcq?content_id=c1');
 check('mobile cards không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.alc-table thead')).display === 'none' && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });
