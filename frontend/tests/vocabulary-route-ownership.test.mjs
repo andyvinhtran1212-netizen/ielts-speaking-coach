@@ -79,14 +79,19 @@ describe('quyền sở hữu route /vocabulary (chốt 2026-08-08)', () => {
     const sổ = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
     const hàng = sổ.split('\n').filter((l) => l.trimStart().startsWith('|'));
 
-    // 1. Hàng có ô route ĐÚNG BẰNG `/vocabulary` phải trỏ tới tệp công khai.
+    // 1. Hàng có ô route ĐÚNG BẰNG `/vocabulary` phải trỏ tới implementation
+    // công khai hiện hành và vẫn ghi rõ artifact rollback công khai cũ.
     const cột = (l) => l.split('|').map((c) => c.trim());
     const xấu = [];
+    const publicWiki = R.find((r) => r.route === '/vocabulary');
     for (const l of hàng) {
       const c = cột(l);
       if (c[1] !== '`/vocabulary`') continue;
       if (!/public\/vocabulary\.html/.test(l)) {
-        xấu.push(`hàng /vocabulary không trỏ tới public/vocabulary.html: ${l.slice(0, 90)}`);
+        xấu.push(`hàng /vocabulary không ghi artifact rollback public/vocabulary.html: ${l.slice(0, 90)}`);
+      }
+      if (publicWiki && !/app\/\(public-content\)\/vocabulary\/page\.tsx/.test(l)) {
+        xấu.push(`hàng /vocabulary không trỏ tới App Router owner: ${l.slice(0, 90)}`);
       }
       if (/\bStudent\b/.test(l)) {
         xấu.push(`hàng /vocabulary còn đánh dấu Student: ${l.slice(0, 90)}`);

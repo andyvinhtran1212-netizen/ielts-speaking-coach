@@ -228,10 +228,10 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` (root) | `public/vocabulary.html` | **Public** | none | localStorage (theme) | M | **Wiki từ vựng CÔNG KHAI** — không cần đăng nhập. Là đích của tab «Vocabulary» trên `aver-chrome.js:324` và của link quay lại trong `vocab-article.html`. SỞ HỮU tên `/vocabulary` (chốt 2026-08-08, Q3). KHÔNG phải trang học viên: trang đó là `pages/vocabulary.html` ↔ `/vocabulary/hub`. `/pages/my-vocabulary.html` → `/pages/vocabulary.html` (vercel.json dòng 35) là redirect của TRANG HỌC VIÊN, không liên quan tới hàng này. |
+| `/vocabulary` | `public/vocabulary.html` và `public/pages/vocab-article.html` giữ làm rollback + parity | `app/(public-content)/vocabulary/page.tsx` — CUTOVER 2026-08-15 | **Public** | `cat`, `slug` (identity kép; tùy chọn) | localStorage (theme), sessionStorage analytics id; public server fetch `/api/vocabulary/categories` + `/api/vocabulary/articles/{cat}/{slug}`; client fetch khi đổi từ, Web Audio/Speech, anonymous feedback | M | **Wiki từ vựng CÔNG KHAI** — React sở hữu master/detail, lọc, deep-link, audio fallback, báo lỗi và analytics; strict canonical normalizers fail closed. SỞ HỮU tên `/vocabulary` (Q3); trang học viên ở `/vocabulary/hub`. |
 | `/vocabulary/exam` | `/pages/vocab-exam.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-vocab-exam)/vocabulary/exam/page.tsx` — CUTOVER 2026-08-06; native React behavior 2026-08-09 | Student shell; endpoint public | none | `/api/vocabulary/exam`; abort on unmount | S | Read-only AWL/TOEIC/THPT list launcher; authored metadata React-escaped; opens shared flashcard player; soft-navigation safe |
 | `/vocabulary/practice` | `app/(authed-vocab-practice)/vocabulary/practice/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-09 | `pages/vocab-practice.html` (parity/rollback only) | Student | none | AuthProvider, `/api/quiz/banks?skill_area=vocab`; abort on unmount/account switch | S | Vocabulary Quick-Check bank picker; authored metadata React-escaped; soft-navigation safe |
-| `/vocabulary/article` | — | `pages/vocab-article.html` | Public | `word_id`, `source` (reading, listening, etc.) | localStorage (theme), fetch (word definition + examples) | S | Word detail + etymology + usage |
+| `/pages/vocab-article.html` | rollback-only standalone; không có clean route riêng | canonical detail nằm tại `/vocabulary?cat=<category>&slug=<slug>` | Public | `cat`, `slug` | legacy `vocabulary.js`; cùng `/api/vocabulary/articles/{cat}/{slug}` | S | Hàng `/vocabulary/article?word_id&source` cũ là phantom contract: file thật luôn dùng `cat` + `slug`. Giữ artifact đến Gate F nhưng mọi inbound link đã về owner `/vocabulary`. |
 
 ### Exercises & Quizzes
 
@@ -549,8 +549,9 @@ Once Next.js migration strategy is finalized, use these to track progress:
 | `test_id` | Content test/exam identifier | Reading/listening/exam flows | `?test_id=reading-full-test-001` |
 | `attempt_id` | User's attempt at a test/quiz | Review/result flows | `?attempt_id=a1b2c3d4` |
 | `submission_id` | Writing or instructor-reviewed submission | Result/grading flows | `?submission_id=sub-12345` |
-| `slug` | Grammar article URL-safe name | Grammar routes | `?slug=future-tense` (served via dynamic route) |
+| `slug` | Article URL-safe name | Grammar roadmap/search and Vocabulary Wiki | `?slug=future-tense`, `?cat=technology&slug=cutting-edge` |
 | `category` | Grammar category (grammar-for-speaking, etc.) | Grammar routes | `?category=grammar-for-writing` (via dynamic route) |
+| `cat` | Vocabulary category; ghép với `slug` thành canonical word identity | `/vocabulary` | `?cat=technology&slug=cutting-edge` |
 | `tab` | UI tab selector | Admin/hub pages | `?tab=codes` (access-codes view in users page) |
 | `search` / `q` | Query string for search | Grammar search, admin list filters | `?q=verb%20agreement` |
 | `date_range` | Filter by date (start–end or preset) | Admin analytics | `?date_range=7d` or `?start=2026-07-06&end=2026-07-13` |
@@ -560,10 +561,8 @@ Once Next.js migration strategy is finalized, use these to track progress:
 | `level` | Difficulty level filter (elementary, intermediate, advanced) | Listening/reading browse | `?level=intermediate` |
 | `metric` | Analytics metric selector | Admin dashboards | `?metric=dau` |
 | `list_id` | Vocabulary list identifier (AWL, TOEIC, THPT, topic-123) | Vocabulary exam/practice | `?list_id=AWL` |
-| `word_id` | Specific vocabulary word | Vocab article detail | `?word_id=abandon` |
 | `bank_id` | Grammar quiz bank slug | Quiz player | `?bank_id=present-simple` |
 | `lesson_id` | Lesson within bank (optional progression) | Quiz player | `?lesson_id=1` |
-| `source` | Origin of content (reading, listening, writing) | Vocab article context | `?source=reading` |
 
 ### Fragment (hash) Conventions
 
@@ -581,7 +580,7 @@ Some routes are served by the same HTML file but accessible via multiple URL pat
 
 | Pattern 1 | Pattern 2 | Implementation file | Notes |
 |---|---|---|---|
-| `/vocabulary` | `/vocabulary.html` | `public/vocabulary.html` | Wiki CÔNG KHAI, trang độc lập — SỞ HỮU `/vocabulary` (chốt 2026-08-08, Q3). Không phải bí danh cũ; không được biến thành redirect. |
+| `/vocabulary` | `public/vocabulary.html` + `public/pages/vocab-article.html` | `app/(public-content)/vocabulary/page.tsx` | CUTOVER 2026-08-15; wiki CÔNG KHAI sở hữu route, HTML cũ chỉ là rollback/parity đến Gate F. |
 | `/writing` | `/writing/dashboard` | `pages/writing-dashboard.html` | Clean URL alias via vercel rewrite |
 | `/writing/result` | (direct path only) | `pages/writing-result.html` | No root-level alias |
 | `/grammar` | `/grammar.html` | `app/(public-content)/grammar/page.tsx` | CUTOVER (pilot 2); legacy giữ làm mốc rollback + vế parity |

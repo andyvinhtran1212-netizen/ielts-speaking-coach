@@ -195,6 +195,9 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // Pricing remains intentionally closed before launch. The Next route owns
   // that server redirect; the legacy HTML is now rollback-only.
   else if (path === '/pricing.html') path = '/pricing';
+  // `/vocabulary` là wiki công khai; `cat` + `slug` tạo identity kép vì một
+  // slug có thể thuộc nhiều category. Giữ nguyên query khi đổi owner.
+  else if (path === '/vocabulary.html') path = '/vocabulary';
   else if (path === '/pages/profile.html') path = '/profile';
   // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
   // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)

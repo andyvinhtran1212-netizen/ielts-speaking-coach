@@ -321,7 +321,7 @@ const TEMPLATE = /* html */ `
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
-      <a href="/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
+      <a href="/vocabulary" data-tab="vocabulary">Vocabulary</a>
       <a href="/reading/vocab" data-tab="reading">Reading</a>
     </div>
 
@@ -454,7 +454,7 @@ export class AverChrome extends HTMLElement {
               { href_matches: '/listening' },
               { href_matches: '/reading/vocab' },
               { href_matches: '/grammar' },
-              { href_matches: '/vocabulary.html' },
+              { href_matches: '/vocabulary' },
             ],
           },
           eagerness: 'moderate',
@@ -593,13 +593,13 @@ export class AverChrome extends HTMLElement {
 
 
   // B3 — session-adaptive Vocabulary target. Default (template) is the PUBLIC
-  // wiki /vocabulary.html so a logged-out user browses without a login wall;
+  // wiki /vocabulary so a logged-out user browses without a login wall;
   // once a session is confirmed we point it at the login-gated hub ("của bạn").
   _applyVocabNav(loggedIn) {
     const root = this.shadowRoot;
     if (!root) return;
     const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
-    if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary.html');
+    if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary');
   }
 
   _applyActive(value) {

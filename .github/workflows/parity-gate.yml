@@ -551,6 +551,16 @@ on:
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
       - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
+      # Public Vocabulary Wiki owns server bootstrap plus client-side
+      # master/detail interactions; legacy HTML remains the parity/rollback leg.
+      - 'frontend/app/(public-content)/vocabulary/**'
+      - 'frontend/lib/vocabulary-api.ts'
+      - 'frontend/lib/vocabulary-model.mjs'
+      - 'frontend/public/vocabulary.html'
+      - 'frontend/public/pages/vocab-article.html'
+      - 'frontend/public/js/vocabulary.js'
+      - 'frontend/public/css/vocab-wiki.css'
+      - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
       # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
       # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
@@ -979,6 +989,11 @@ jobs:
       # authored-text escaping và responsive layout mà không ghi production.
       - name: Kiểm luồng Grammar Roadmap cá nhân native
         run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Public parity khóa nội dung ban đầu; fixture browser này khóa các hành
+      # vi sau hydrate: filter, compound deep-link, feedback và mobile sheet.
+      - name: Kiểm luồng Vocabulary Wiki native
+        run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

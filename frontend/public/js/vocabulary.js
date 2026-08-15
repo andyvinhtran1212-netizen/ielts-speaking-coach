@@ -258,7 +258,11 @@
         const a = await window.api.get(`/api/vocabulary/articles/${encodeURIComponent(cat)}/${encodeURIComponent(slug)}`);
         if (my !== state.seq) return;                 // a newer selection won — drop stale render
         cardEl.innerHTML = cardHTML(a) + articleBodyHTML(a);
-        try { history.replaceState(null, '', `/vocabulary.html?cat=${encodeURIComponent(cat)}&slug=${encodeURIComponent(slug)}`); } catch (_) {}
+        // Keep the rollback page on its own URL. Canonical inbound links use
+        // `/vocabulary`, but rewriting this legacy document to that pathname
+        // makes the parity gate compare the Next route with itself and makes
+        // a direct rollback session silently cross the ownership boundary.
+        try { history.replaceState(null, '', `${location.pathname}?cat=${encodeURIComponent(cat)}&slug=${encodeURIComponent(slug)}`); } catch (_) {}
         fireAnalytics(slug, cat);
       } catch (err) {
         if (my !== state.seq) return;

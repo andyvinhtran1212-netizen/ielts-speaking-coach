@@ -90,6 +90,9 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       canonicalHref('/pages/grammar-roadmap.html?slug=tenses'),
       '/grammar/roadmap?slug=tenses');
     assert.equal(
+      canonicalHref('/vocabulary.html?cat=technology&slug=cutting-edge'),
+      '/vocabulary?cat=technology&slug=cutting-edge');
+    assert.equal(
       canonicalHref('/pages/grammar-article.html?category=tenses&slug=present-perfect'),
       '/grammar/tenses/present-perfect');
   });

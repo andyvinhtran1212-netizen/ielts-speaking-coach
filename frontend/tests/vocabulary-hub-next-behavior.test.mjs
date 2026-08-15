@@ -78,7 +78,7 @@ describe('/vocabulary/hub — native React ownership', () => {
     assert.match(BEHAVIOR, /count > 0 && !!slug/);
     assert.match(BEHAVIOR, /encodeURIComponent\(slug\)/);
     assert.match(BEHAVIOR, /encodeURIComponent\(linkedTopicId\)/);
-    assert.match(BEHAVIOR, /\/vocabulary\.html\?cat=/);
+    assert.match(BEHAVIOR, /\/vocabulary\?cat=/);
     assert.match(BEHAVIOR, /\/pages\/flashcard-study\.html\?stack=wiki:/);
     assert.match(BEHAVIOR, /\/quiz\/progress\?skill_area=vocab/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
