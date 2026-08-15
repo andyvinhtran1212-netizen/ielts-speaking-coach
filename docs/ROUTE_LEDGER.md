@@ -33,9 +33,9 @@
 
 ## Discrepancies & Open Questions
 
-### Q1: Admin route count (65 vs 67)
+### Q1: Admin route count (current inventory)
 - **Baseline claim (v2):** 62 admin pages
-- **Verified count (v3 audit 2026-07-13):** 67 files under `pages/admin/`
+- **Verified count (cross-audit 2026-08-15):** 66 files under `pages/admin/`
 - **Breakdown:**
   - `pages/admin/index.html` (1) — main hub
   - `pages/admin/dashboard/` (2) — overview + reading-attempts
@@ -44,20 +44,22 @@
   - `pages/admin/foot-traffic/` (1) — usage metrics
   - `pages/admin/grammar/` (4) — index + articles + analytics + recommend-test
   - `pages/admin/instructors.html` (1) — instructor oversight
-  - `pages/admin/listening/` (17) — content, audit, mcq, gist, tf, segments, dictation, cutter, import, tests, render, etc.
+  - `pages/admin/listening/` (15) — explicit rollback pages for the 15 native Admin Listening route surfaces
+  - `pages/admin/access-codes/`, `classes/`, `cohorts/` (3) — access and class operations
   - `pages/admin/mock-exams/` (1) — exam management
+  - `pages/admin/mock-live/`, `mock-pacing/`, `mock-tests/` (3) — mock-test operations
   - `pages/admin/mock-reviews/` (2) — index + report
   - `pages/admin/reading/` (2) — content + preview
   - `pages/admin/speaking/` (3) — index + sessions + topics
-  - `pages/admin/students.html` (1) — user management
+  - `pages/admin/students/` (1) — user management
   - `pages/admin/system/` (3) — alerts + ai-usage + index
   - `pages/admin/usage/index.html` (1) — per-user/access-code activity rollup
-  - `pages/admin/users.html` (1) — user list & access-code mgmt
-  - `pages/admin/vocab/` (9) — index + content + d1-curation + exercises + lemmas + quiz + quiz-analytics + stats + topics
-  - `pages/admin/writing/` (11) — index + new + grade + queue + assignments + prompts + cohorts + tips + regrade-requests + status + instructor-queue
-  - **Total: 67** ✓
+  - `pages/admin/users/` (1) — user list & access-code mgmt
+  - `pages/admin/vocab/` (9) — vocabulary operations
+  - `pages/admin/writing/` (11) — writing operations
+  - **Total: 66** ✓
 
-- **Resolution:** Plan doc should reference 67, not 62; ledger below uses 67 as canonical.
+- **Resolution:** The filesystem inventory is canonical; update this count whenever a rollback page is added or retired.
 
 ### Q2: Access-code redirect (2 targets)
 - `vercel.json` line 48–50 has three rules:
@@ -332,13 +334,13 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/admin/listening/gist` | `/pages/admin/listening/gist.html?content_id=…` remains rollback target; old flat path still redirects | `app/(authed-admin-listening)/admin/listening/gist/page.tsx` + `admin-listening-gist.tsx` — native React ownership 2026-08-14 | Admin | required `content_id`; optional exact `exercise_id` | AuthProvider + backend-owned `/auth/me` role guard; exact content GET; complete Gist-block GET; versioned exact-block POST; account/content pending receipt + canonical GET reconciliation | M | Native multi-block Gist rubric authoring: audio/transcript context, prompt/model answer/keyword chips, draft/publish/archive with one learner-reachable published block, 401-before-ACK truth, duplicate/malformed fail closed, explicit scoring truth, exact-block optimistic conflict reload and HTML rollback |
 | `/admin/listening/tf` | `/pages/admin/listening/tf.html?content_id=…` remains rollback target; old flat path still redirects | `app/(authed-admin-listening)/admin/listening/tf/page.tsx` + `admin-listening-true-false.tsx` — native React ownership 2026-08-14 | Admin | required `content_id`; optional exact `exercise_id` | AuthProvider + backend-owned `/auth/me` role guard; exact content GET; complete true_false-block GET; versioned exact-block POST; account/content pending receipt + canonical GET reconciliation | M | Native multi-block T/F/NG authoring: audio/transcript evidence, 3–12 ordered statements, explicit answer-key semantics, draft/publish/archive with one learner-reachable published block, repairable oversized legacy text, 401-before-ACK truth, duplicate/malformed fail closed, exact scoring truth, keyboard-stable reorder, exact-block conflict reload and HTML rollback |
 | `/admin/listening/dictation` | `/pages/admin/listening/dictation-reports.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/dictation/page.tsx` + `admin-listening-dictation.tsx` — native React ownership 2026-08-14 | Admin | `user`; `test`; `page`; `session` | AuthProvider + backend-owned `/auth/me` role guard; independent account/filter-keyed canonical list + full-scope aggregate reads; exact session detail; explicit user lookup truth | M | Native dictation evidence workspace preserves backend totals, pages aggregate rows beyond PostgREST caps, separates list/aggregate failures and shows reference-versus-learner evidence per sentence |
-| `/admin/listening/audit` | — | `pages/admin/listening/audit.html` | Admin | `test_id`, `status` (valid, errors) | localStorage (theme), fetch (audit API), virtual scroll | L | Content audit + error flag + fix workflow |
-| `/admin/listening/audit-detail` | — | `pages/admin/listening/audit-detail.html` | Admin | `audit_id` | localStorage (theme), fetch (audit detail) | M | Single audit item + resolution |
+| `/admin/listening/audit` | `/pages/admin/listening/audit.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/audit/page.tsx` + `admin-listening-audit.tsx` — native React ownership 2026-08-14 | Admin | `search`, `type=full\|mini\|drill\|practice`, `health=error\|warning\|clean\|lookup`, `saved=pending\|passed\|has_issues\|fixed` | AuthProvider + backend-owned `/auth/me` role guard; exact stable pagination of all tests; bounded per-test canonical audit GET; account/request freshness guards; URL filters | L | Native read-only quality inventory separates current structural/audio health from the last persisted structural+LLM full audit, treats lookup failure as unknown rather than clean, and keeps explicit HTML rollback/detail handoff |
+| `/admin/listening/audit-detail` | `/pages/admin/listening/audit-detail.html?id=…` remains rollback target | `app/(authed-admin-listening)/admin/listening/audit-detail/page.tsx` + `admin-listening-audit-detail.tsx` — native React ownership 2026-08-14 | Admin | required `id` (test UUID) | AuthProvider + backend-owned `/auth/me` role guard; exact audit/audio GETs; transcript/question optimistic tokens; canonical GET after every PATCH; account/test full-run receipt; GET-only ambiguity reconciliation | L | Native repair workspace separates live structural from saved structural+LLM evidence, selects exact section audio, prevents concurrent overwrite and blocks passed/fixed while saved errors remain unresolved |
 | `/admin/listening/attempts` | `/pages/admin/listening/attempts.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/attempts/page.tsx` + `admin-listening-attempts.tsx` — native React ownership 2026-08-14 | Admin | `user`; `test`; `type=full\|mini\|drill\|practice`; `status=submitted\|in_progress\|abandoned`; `page`; `attempt` | AuthProvider + backend-owned `/auth/me` role guard; account/filter-keyed canonical list; exact attempt-detail GET; association lookup truth | M | Native learner-evidence inventory preserves backend totals, separates join failure from missing association and deep-links per-question grading through URL identity |
 | `/admin/listening/tests` | `/pages/admin/listening/tests.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/tests/page.tsx` — native React ownership 2026-08-14 | Admin | `status=draft\|published\|archived`; `type=exam\|full\|mini\|drill\|practice`; `search`; `page` | AuthProvider + backend-owned `/auth/me` role guard; canonical paged tests GET; status/exam-only PATCH + exact detail GET + list readback | M | Native test inventory separates lifecycle from learner visibility (`exam_only`) and owns links to the native detail workspace |
 | `/admin/listening/tests/[testId]` | `/pages/admin/listening/tests-detail.html?id={testId}` remains rollback target | `app/(authed-admin-listening)/admin/listening/tests/[testId]/page.tsx` + `admin-listening-test-detail.tsx` — native React ownership 2026-08-14 | Admin | path UUID `testId` | AuthProvider + backend-owned `/auth/me` role guard; canonical test/audio/map GETs; mode/audio/assemble/map/status/archive mutations + exact GET readback; typed hard-delete + identity-bound cascade ACK | L | Native operational workspace separates parent publication from cascade archive, exposes preview-signing failures, rejects stale ACKs and retains import/edit legacy workspaces |
 | `/pages/admin/listening/tests-detail.html` | — | `pages/admin/listening/tests-detail.html` | Admin | `id` (test UUID) | localStorage (theme), fetch (test/audio/map data) | M | Explicit rollback for native `/admin/listening/tests/[testId]` |
-| `/admin/listening/import-drills` | — | `pages/admin/listening/import-drills.html` | Admin | none | localStorage (theme), file upload (drill data), fetch (import API) | M | Bulk import skill drills from archive |
+| `/admin/listening/import-drills` | `/pages/admin/listening/import-drills.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/import-drills/page.tsx` + `admin-listening-drill-import.tsx` — native React ownership 2026-08-14 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; directory/loose file inventory; per-bundle SHA-256; dry-run upload; sequential progress-aware commit XHR; account-scoped receipt; exact test list/detail GET reconciliation | L | Native four-gate batch importer binds accessories only by authoritative path or a single loose source, distinguishes metadata-only from audio-ready, blocks duplicate active IDs and audio-without-timings, stops the queue on ambiguous writes and keeps explicit HTML rollback |
 | `/admin/listening/import-fulltest` | `/pages/admin/listening/import-fulltest.html` remains rollback target | `app/(authed-admin-listening)/admin/listening/import-fulltest/page.tsx` + `admin-listening-fulltest-import.tsx` — native React ownership 2026-08-14 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard; four local files; SHA-256 pack identity; dry-run upload; account-scoped durable receipt; progress-aware commit XHR; exact test list/detail GET reconciliation; status PATCH + GET readback | L | Native three-gate importer: file/type/size validation, parser evidence with answers and contiguous IMG-PROMPT blocks, changed-pack invalidation, duplicate fail-closed handoff to Kho test, no archive-inside-upload saga, no ambiguous POST replay, Draft-first publication and explicit HTML rollback |
 
 ### Admin — Vocabulary
