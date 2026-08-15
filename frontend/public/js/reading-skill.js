@@ -25,8 +25,8 @@ function __averOnReady(fn) {
  *
  * Browse published L2 skill-practice exercises (GET /api/reading/skill).
  * The L2-specific filter is `skill` (skill_focus); cards emphasise the
- * targeted IELTS reading skill. Deep-links to /pages/reading-skill-exercise.
- * html?slug=... Mirrors reading-vocab.js (Sprint 20.2).
+ * targeted IELTS reading skill. Deep-links to /reading/skill/{slug}; the
+ * direct HTML exercise remains the rollback route. Mirrors reading-vocab.js.
  */
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -148,7 +148,7 @@ function render() {
   STATE.items.forEach((p) => {
     const a = document.createElement('a');
     a.className = 'rv-card';
-    a.href = `/pages/reading-skill-exercise.html?slug=${encodeURIComponent(p.slug)}`;
+    a.href = `/reading/skill/${encodeURIComponent(p.slug)}`;
     const title = displaySkillTitle(p);
     a.setAttribute('aria-label', `Luyện bài ${title}`);
     const skillLabel = p.skill_focus ? (SKILL_LABEL[p.skill_focus] || p.skill_focus) : '';

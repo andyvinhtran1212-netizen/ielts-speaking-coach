@@ -33,10 +33,10 @@
   },
   {
     "name": "reading-vocab-detail",
-    "legacy": "/pages/reading-vocab-passage.html?slug=a-short-history-of-tea",
-    "next": "/reading/vocab/a-short-history-of-tea",
+    "legacy": "/pages/reading-vocab-passage.html?slug=the-future-of-libraries",
+    "next": "/reading/vocab/the-future-of-libraries",
     "allow": [],
-    "note": "Published seed passage pins the L1 orientation header, sanitized article, panes and instant-check rail. The fixture-backed detail verifier covers mutations, malformed payloads, keyboard dialogs and all four control types."
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L1 orientation header, sanitized article, panes and instant-check rail; the fixture-backed detail verifier covers mutations, malformed payloads, keyboard dialogs and all four control types."
   },
   {
     "name": "reading-skill",
@@ -46,10 +46,10 @@
   },
   {
     "name": "reading-skill-detail",
-    "legacy": "/pages/reading-skill-exercise.html?slug=skim-climate-change-coral-reefs",
-    "next": "/reading/skill/skim-climate-change-coral-reefs",
+    "legacy": "/pages/reading-skill-exercise.html?slug=completion-how-a-battery-works",
+    "next": "/reading/skill/completion-how-a-battery-works",
     "allow": [],
-    "note": "Published seed exercise pins the L2 skill-focus workspace. The fixture-backed detail verifier owns grading and interaction evidence."
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L2 skill-focus workspace; the fixture-backed detail verifier owns grading and interaction evidence."
   },
   {
     "name": "reading-test",
