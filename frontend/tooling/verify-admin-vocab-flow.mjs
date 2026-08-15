@@ -24,8 +24,10 @@ let heldVocabStarted = false;
 let releaseHeldVocab;
 let d1Reads = 0;
 let d1WritePending = false;
+let failNextD1Delete = false;
 let lemmaReads = 0;
 let lemmaWritePending = false;
+let failNextLemmaCreate = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -104,6 +106,7 @@ await page.route('**/*', async (route) => {
   if (expectedD1 && method === 'DELETE') {
     d1WritePending = true;
     await new Promise((resolve) => setTimeout(resolve, 180));
+    if (failNextD1Delete) { failNextD1Delete = false; d1WritePending = false; return json({ detail: 'fixture archive rejected' }, 409); }
     d1Row = { ...d1Row, is_active: false };
     d1WritePending = false;
     return route.fulfill({ status: 204, body: '' });
@@ -117,6 +120,7 @@ await page.route('**/*', async (route) => {
   if (expectedLemma && method === 'POST') {
     lemmaWritePending = true;
     await new Promise((resolve) => setTimeout(resolve, 180));
+    if (failNextLemmaCreate) { failNextLemmaCreate = false; lemmaWritePending = false; return json({ detail: 'fixture duplicate override' }, 409); }
     const item = { id: '00000000-0000-4000-8000-000000000212', original_word: body?.original_word, lemma: body?.lemma, pos_tag: body?.pos_tag, notes: body?.notes, created_at: '2026-08-15T01:00:00Z' };
     lemmaRows = [item, ...lemmaRows];
     lemmaWritePending = false;
@@ -185,13 +189,18 @@ await page.getByLabel('Target answer').fill('reduce');
 await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
 await page.waitForTimeout(40);
 check('D1 khoá edit trong lúc chờ ACK', d1WritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+check('D1 khoá filter để readback không lệch URL', await page.getByLabel('Source').isDisabled() && await page.getByLabel('Trạng thái').isDisabled() && await page.getByRole('button', { name: 'Reset' }).isDisabled());
 await page.getByText('Đã lưu và tải lại danh sách D1 chuẩn từ backend.', { exact: true }).waitFor();
 check('D1 PATCH đúng body và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocab/d1-questions/${d1Row.id}` && item.body?.context_sentence === 'We need to <img onerror=alert(1)> the risk.' && item.body?.target_answer === 'reduce' && item.body?.hint === 'reduce') && d1Reads >= 3);
 await page.getByRole('button', { name: 'Archive' }).click();
 const d1Dialog = page.getByRole('dialog', { name: 'Archive câu hỏi D1?' });
+failNextD1Delete = true;
 await d1Dialog.getByRole('button', { name: 'Archive', exact: true }).click();
 await page.waitForTimeout(40);
 check('D1 khoá archive trong lúc chờ backend', d1WritePending && await d1Dialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await d1Dialog.getByRole('alert').waitFor();
+check('D1 hiện lỗi archive ngay trong dialog', await d1Dialog.getByRole('alert').getByText(/Không xác nhận được trạng thái archive/).count() === 1);
+await d1Dialog.getByRole('button', { name: 'Archive', exact: true }).click();
 await page.getByText('Đã archive và tải lại danh sách D1 chuẩn từ backend.', { exact: true }).waitFor();
 check('D1 DELETE giữ soft-delete truth qua readback', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/vocab/d1-questions/${d1Row.id}`) && d1Row.is_active === false && d1Reads >= 4);
 check('D1 mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -206,13 +215,19 @@ await page.waitForTimeout(80);
 check('Lemma prefix search bền trong URL/request', new URL(page.url()).searchParams.get('search') === 'child' && requests.some((item) => item.path === '/admin/vocab/lemmas/overrides' && item.search === '?search=child&offset=0&limit=100'));
 await page.getByRole('button', { name: '+ Thêm override', exact: true }).click();
 const lemmaCreateDialog = page.getByRole('dialog', { name: 'Thêm lemma override' });
+await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
+check('Lemma hiện validation ngay trong modal', await lemmaCreateDialog.getByRole('alert').getByText('Original word và lemma không được trống.', { exact: true }).count() === 1);
 await lemmaCreateDialog.getByLabel('Original word', { exact: true }).fill('mice');
 await lemmaCreateDialog.getByLabel('Lemma (canonical form)', { exact: true }).fill('mouse');
 await lemmaCreateDialog.locator('select').selectOption('NOUN');
 await lemmaCreateDialog.getByLabel('Notes (tuỳ chọn)', { exact: true }).fill('irregular plural');
+failNextLemmaCreate = true;
 await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
 await page.waitForTimeout(40);
 check('Lemma khoá create trong lúc chờ ACK', lemmaWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+await lemmaCreateDialog.getByRole('alert').waitFor();
+check('Lemma hiện lỗi backend ngay trong modal', await lemmaCreateDialog.getByRole('alert').getByText(/Không xác nhận được trạng thái override/).count() === 1);
+await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
 await page.getByText('Đã tạo override và tải lại danh sách chuẩn từ backend.', { exact: true }).waitFor();
 check('Lemma POST đúng body và canonical readback', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocab/lemmas/overrides' && item.body?.original_word === 'mice' && item.body?.lemma === 'mouse' && item.body?.pos_tag === 'NOUN' && item.body?.notes === 'irregular plural') && lemmaReads >= 3);
 await page.getByRole('button', { name: 'Xoá', exact: true }).click();

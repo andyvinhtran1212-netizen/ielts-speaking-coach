@@ -73,6 +73,7 @@ export function AdminVocabD1Curation() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [archiveRow, setArchiveRow] = useState<D1Row | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const sequence = useRef(0);
   const accountRef = useRef(profile.id);
@@ -116,13 +117,14 @@ export function AdminVocabD1Curation() {
   useEffect(() => {
     if (!archiveRow) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busyId) setArchiveRow(null);
+      if (event.key === 'Escape' && !busyId) { setArchiveRow(null); setArchiveError(null); }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [archiveRow, busyId]);
 
   const applyFilters = () => {
+    if (mutationLock.current) return;
     const userId = draftFilters.userId.trim();
     if (userId && !isUuid(userId)) {
       setError('User ID phải là UUID hợp lệ.');
@@ -139,6 +141,7 @@ export function AdminVocabD1Curation() {
   };
 
   const resetFilters = () => {
+    if (mutationLock.current) return;
     const next = { source: '', active: 'true', userId: '' };
     setDraftFilters(next); setFilters(next);
     window.history.replaceState(null, '', window.location.pathname);
@@ -191,16 +194,21 @@ export function AdminVocabD1Curation() {
   const archive = async () => {
     const row = archiveRow;
     if (!row || mutationLock.current) return;
-    mutationLock.current = true; setBusyId(row.id); setNotice(null);
+    mutationLock.current = true; setBusyId(row.id); setNotice(null); setArchiveError(null);
     const account = profile.id;
+    let acknowledged = false;
     try {
       await window.api.delete(`/admin/vocab/d1-questions/${encodeURIComponent(row.id)}`);
+      acknowledged = true;
       if (account !== accountRef.current) return;
       setArchiveRow(null);
       if (!await refreshAfterWrite()) throw new Error('Delete đã trả về nhưng canonical readback thất bại. Hãy tải lại trước khi thao tác tiếp.');
       setNotice({ kind: 'success', message: 'Đã archive và tải lại danh sách D1 chuẩn từ backend.' });
     } catch (caught) {
-      if (account === accountRef.current) setNotice({ kind: 'error', message: `Không xác nhận được trạng thái archive: ${messageOf(caught)}` });
+      if (account === accountRef.current) {
+        const message = `Không xác nhận được trạng thái archive: ${messageOf(caught)}`;
+        if (acknowledged) setNotice({ kind: 'error', message }); else setArchiveError(message);
+      }
     } finally {
       mutationLock.current = false;
       if (account === accountRef.current) setBusyId(null);
@@ -215,10 +223,10 @@ export function AdminVocabD1Curation() {
       </header>
 
       <form className="avv-filterbar" onSubmit={(event) => { event.preventDefault(); applyFilters(); }}>
-        <label>Source<select aria-label="Source" value={draftFilters.source} onChange={(event) => setDraftFilters((current) => ({ ...current, source: event.target.value }))}><option value="">Tất cả</option><option value="haiku">Haiku</option><option value="gemini">Gemini</option><option value="fallback_evidence">Fallback cần xem</option></select></label>
-        <label>Trạng thái<select aria-label="Trạng thái" value={draftFilters.active} onChange={(event) => setDraftFilters((current) => ({ ...current, active: event.target.value }))}><option value="">Tất cả</option><option value="true">Active</option><option value="false">Archived</option></select></label>
-        <label className="avv-filterbar__wide">User ID<input aria-label="User ID" value={draftFilters.userId} onChange={(event) => setDraftFilters((current) => ({ ...current, userId: event.target.value }))} placeholder="UUID (tuỳ chọn)" /></label>
-        <div className="avv-filterbar__actions"><button className="btn-secondary" type="button" onClick={resetFilters}>Reset</button><button className="btn-primary" type="submit">Tìm kiếm</button></div>
+        <label>Source<select aria-label="Source" disabled={!!busyId} value={draftFilters.source} onChange={(event) => setDraftFilters((current) => ({ ...current, source: event.target.value }))}><option value="">Tất cả</option><option value="haiku">Haiku</option><option value="gemini">Gemini</option><option value="fallback_evidence">Fallback cần xem</option></select></label>
+        <label>Trạng thái<select aria-label="Trạng thái" disabled={!!busyId} value={draftFilters.active} onChange={(event) => setDraftFilters((current) => ({ ...current, active: event.target.value }))}><option value="">Tất cả</option><option value="true">Active</option><option value="false">Archived</option></select></label>
+        <label className="avv-filterbar__wide">User ID<input aria-label="User ID" disabled={!!busyId} value={draftFilters.userId} onChange={(event) => setDraftFilters((current) => ({ ...current, userId: event.target.value }))} placeholder="UUID (tuỳ chọn)" /></label>
+        <div className="avv-filterbar__actions"><button className="btn-secondary" type="button" disabled={!!busyId} onClick={resetFilters}>Reset</button><button className="btn-primary" type="submit" disabled={!!busyId}>Tìm kiếm</button></div>
       </form>
 
       {notice ? <p className={`avv-banner is-${notice.kind}`} role="status">{notice.message}</p> : null}
@@ -237,7 +245,7 @@ export function AdminVocabD1Curation() {
                   <td data-label="Attempts">{row.attemptCount}</td>
                   <td data-label="Trạng thái"><span className={`avv-chip is-${row.isActive ? 'teal' : 'muted'}`}>{row.isActive ? 'active' : 'archived'}</span></td>
                   <td data-label="Created">{formatDate(row.createdAt)}</td>
-                  <td className="avv-row-actions"><button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => startEdit(row)}>Sửa</button>{row.isActive ? <button className="btn-danger" type="button" disabled={!!busyId} onClick={() => setArchiveRow(row)}>Archive</button> : <button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => void patchRow(row, { is_active: true }, ['is_active'], 'Đã restore và tải lại danh sách D1 chuẩn từ backend.')}>Restore</button>}</td>
+                  <td className="avv-row-actions"><button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => startEdit(row)}>Sửa</button>{row.isActive ? <button className="btn-danger" type="button" disabled={!!busyId} onClick={() => { setArchiveError(null); setArchiveRow(row); }}>Archive</button> : <button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => void patchRow(row, { is_active: true }, ['is_active'], 'Đã restore và tải lại danh sách D1 chuẩn từ backend.')}>Restore</button>}</td>
                 </tr>
                 {editing ? <tr className="avv-edit-row"><td colSpan={7}><div className="avv-edit-grid"><label>Context sentence<textarea value={editDraft.contextSentence} onChange={(event) => setEditDraft((current) => current ? { ...current, contextSentence: event.target.value } : current)} /></label><label>Target answer<input value={editDraft.targetAnswer} onChange={(event) => setEditDraft((current) => current ? { ...current, targetAnswer: event.target.value } : current)} /></label><label>Hint<input value={editDraft.hint} onChange={(event) => setEditDraft((current) => current ? { ...current, hint: event.target.value } : current)} /></label><div className="avv-readonly-meta"><span>Vocab ID</span><code>{row.vocabularyId}</code><span>Generated</span><strong>{formatDate(row.generatedAt)}</strong></div></div><div className="avv-edit-actions"><button className="btn-secondary" type="button" disabled={busyId === row.id} onClick={() => { setEditingId(null); setEditDraft(null); }}>Đóng</button><button className="btn-primary" type="button" disabled={busyId === row.id} onClick={() => void saveEdit(row)}>{busyId === row.id ? 'Đang xác minh…' : 'Lưu thay đổi'}</button></div></td></tr> : null}
               </Fragment>;
@@ -247,7 +255,7 @@ export function AdminVocabD1Curation() {
       )}
       {!loading && rows.length < total ? <button className="btn-secondary avv-load-more" type="button" disabled={loadingMore} onClick={() => void readList(filters, rows.length, true)}>{loadingMore ? 'Đang tải…' : 'Tải thêm'}</button> : null}
 
-      {archiveRow ? <div className="avv-modal-layer" role="dialog" aria-modal="true" aria-labelledby="d1-archive-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setArchiveRow(null); }}><section className="avv-modal-card"><p className="avv-eyebrow">Soft delete</p><h2 id="d1-archive-title">Archive câu hỏi D1?</h2><p>Attempt history vẫn được giữ. Câu hỏi sẽ ngừng xuất hiện trong pool active sau khi backend xác nhận.</p><strong>{archiveRow.headword || archiveRow.targetAnswer}</strong><div className="avv-modal-actions"><button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => setArchiveRow(null)}>Hủy</button><button className="btn-danger" type="button" disabled={!!busyId} onClick={() => void archive()}>{busyId ? 'Đang xác minh…' : 'Archive'}</button></div></section></div> : null}
+      {archiveRow ? <div className="av-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="d1-archive-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) { setArchiveRow(null); setArchiveError(null); } }}><section className="av-modal avv-dialog-card"><p className="avv-eyebrow">Soft delete</p><h2 id="d1-archive-title">Archive câu hỏi D1?</h2><p>Attempt history vẫn được giữ. Câu hỏi sẽ ngừng xuất hiện trong pool active sau khi backend xác nhận.</p><strong>{archiveRow.headword || archiveRow.targetAnswer}</strong>{archiveError ? <p className="avv-banner is-error" role="alert">{archiveError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={!!busyId} onClick={() => { setArchiveRow(null); setArchiveError(null); }}>Hủy</button><button className="btn-danger" type="button" disabled={!!busyId} onClick={() => void archive()}>{busyId ? 'Đang xác minh…' : 'Archive'}</button></div></section></div> : null}
     </main>
   );
 }
