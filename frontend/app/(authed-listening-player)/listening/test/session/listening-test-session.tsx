@@ -373,7 +373,7 @@ export function ListeningTestSession() {
 
   useEffect(() => {
     if (!params || status === 'initial-loading') return;
-    if (status === 'signed-out') { window.location.replace('/login.html'); return; }
+    if (status === 'signed-out') { window.location.replace('/login'); return; }
     if (status !== 'signed-in' || !user?.id) return;
     const key = `${params.testId}:${params.classItem || ''}:${params.sittingId || ''}:${user.id}`;
     if (bootKeyRef.current === key) return;

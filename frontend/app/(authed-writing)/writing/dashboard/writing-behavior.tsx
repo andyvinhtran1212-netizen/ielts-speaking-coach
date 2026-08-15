@@ -467,7 +467,7 @@ async function downloadEssayDocx(essayId: string, btn: HTMLElement | null) {
   try {
     const sb = (window as any).getSupabase?.();
     const session = (await sb.auth.getSession()).data.session;
-    if (!session) { window.location.href = '/login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     const url = (window as any).api.base + '/api/writing/my-essays/' +
       encodeURIComponent(essayId) + '/export.docx';
     const res = await fetch(url, {
@@ -1500,7 +1500,7 @@ async function applyWritingPermissionGating(api: any, isCurrent: () => boolean) 
 }
 
 // Khớp bản legacy (dòng 605 của writing-dashboard.html) và khớp /speaking.
-const LOGIN_URL = '/login.html';
+const LOGIN_URL = '/login';
 
 export function WritingBehavior() {
   const { status, user } = useAuth();

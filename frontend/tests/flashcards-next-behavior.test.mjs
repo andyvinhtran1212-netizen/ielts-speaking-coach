@@ -24,7 +24,7 @@ describe('/flashcards — lifecycle-safe Next orchestration', () => {
   test('uses shared auth, fails closed and keys the mount by account', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
-    assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
     assert.match(BEHAVIOR, /accountKey=\{user\.id\}/);
     assert.match(BEHAVIOR, /moduleName="flashcards"/);
     assert.match(BEHAVIOR, /embedded=\{false\}/);

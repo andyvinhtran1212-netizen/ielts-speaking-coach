@@ -334,7 +334,7 @@ export function QuizProgressBehavior() {
       setProgressErrorState(null);
       setMistakesState(null);
       setMistakesErrorState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

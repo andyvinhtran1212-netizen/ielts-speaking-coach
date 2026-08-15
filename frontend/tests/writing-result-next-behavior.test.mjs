@@ -46,7 +46,7 @@ describe('/writing/result — native Next ownership', () => {
 
   test('waits for auth and shared globals before the canonical read', () => {
     assert.match(BEHAVIOR, /status === 'signed-out'/);
-    assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id/);
     assert.match(BEHAVIOR, /accountKey \? `\$\{accountKey\}:\$\{essayId\}` : ''/);
     assert.match(BEHAVIOR, /selectWritingResultView\(resultState, requestKey\)/);

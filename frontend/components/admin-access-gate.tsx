@@ -46,7 +46,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

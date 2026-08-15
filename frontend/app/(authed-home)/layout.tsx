@@ -24,7 +24,7 @@ export default function AuthedHomeLayout({ children }: { children: ReactNode }) 
         //
         // KHÔNG nạp `home-mock-tiles.js` ở đây, dù bản legacy có: nó TỰ CHẠY lúc
         // `DOMContentLoaded` và gọi ngay `/api/mock-exams/my-sittings` → 401 →
-        // `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến mất (cổng parity bắt
+        // `api.js:130` đẩy sang `/login` và CẢ TRANG biến mất (cổng parity bắt
         // được ở PR #930). Logic đó đã port vào `home-behavior.tsx`.
         <script src="/js/speaking-debt.js" defer />
       }

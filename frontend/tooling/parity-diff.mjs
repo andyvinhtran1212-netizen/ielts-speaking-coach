@@ -66,6 +66,15 @@ let AUTH_ENTRY = null;
 /** Cặp mặc định — chỉ những route đã có CẢ hai bản chạy song song. */
 const DEFAULT_PAIRS = [
   {
+    // Public auth entry. Both pages remain intentionally reachable during
+    // rollout: `/login` is the canonical Next owner and `/login.html` is the
+    // rollback/parity leg. Signed-out mode is read-only and deterministic.
+    name: 'login',
+    legacy: '/login.html',
+    next: '/login',
+    allow: [],
+  },
+  {
     name: 'grammar-home',
     legacy: '/grammar.html',
     next: '/grammar',

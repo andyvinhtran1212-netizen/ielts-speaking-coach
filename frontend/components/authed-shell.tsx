@@ -119,7 +119,7 @@ export function AuthedShell({
   /**
    * Thẻ script thêm cho riêng route-group. CHỈ dùng cho script KHÔNG tự gọi
    * API lúc nạp — một script tự-khởi-động-và-gọi-API sẽ bắn request trước khi
-   * phiên sẵn sàng → 401 → `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến
+   * phiên sẵn sàng → 401 → `api.js:130` đẩy sang `/login` và CẢ TRANG biến
    * mất (đã xảy ra thật với `home-mock-tiles.js`, cổng parity bắt được ở PR
    * #930). Loại đó phải port vào tầng behavior, chạy sau khi xác nhận đăng nhập.
    */

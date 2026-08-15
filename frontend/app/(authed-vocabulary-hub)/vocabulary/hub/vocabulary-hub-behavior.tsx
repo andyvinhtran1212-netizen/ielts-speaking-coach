@@ -342,7 +342,7 @@ export function VocabularyHubBehavior() {
   }, []);
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

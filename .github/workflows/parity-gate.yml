@@ -47,6 +47,17 @@ on:
       # về `/`; job vẫn phải chạy verifier HTTP riêng ở cuối.
       - 'frontend/app/(marketing)/pricing/**'
       - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
+      # Public auth entry has a signed-out parity pair plus a fixture-backed
+      # callback/activation verifier. Keep the rollback HTML in the trigger.
+      - 'frontend/app/(public-auth)/**'
+      - 'frontend/lib/login-model.mjs'
+      - 'frontend/public/login.html'
+      - 'frontend/public/css/login-next.css'
+      - 'frontend/public/js/exam-player.js'
+      - 'frontend/public/js/practice.js'
+      - 'frontend/tests/login-next-behavior.test.mjs'
+      - 'frontend/tests/login-next-model.test.mjs'
+      - 'frontend/tooling/verify-login-flow.mjs'
       - 'frontend/public/pages/grammar-exercises.html'
       - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
@@ -972,6 +983,12 @@ jobs:
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm boundary Pricing pre-launch
         run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Login needs interaction evidence beyond the signed-out parity frame:
+      # implicit callback cleanup, backend-canonical activation truth and the
+      # lost-ACK reconciliation path are all exercised with a fake backend.
+      - name: Kiểm luồng Login/Auth native
+        run: node tooling/verify-login-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
