@@ -86,6 +86,9 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),
       '/grammar/compare?slug=past-perfect-vs-past-simple');
     assert.equal(
+      canonicalHref('/pages/grammar-roadmap.html?slug=tenses'),
+      '/grammar/roadmap?slug=tenses');
+    assert.equal(
       canonicalHref('/pages/grammar-article.html?category=tenses&slug=present-perfect'),
       '/grammar/tenses/present-perfect');
   });

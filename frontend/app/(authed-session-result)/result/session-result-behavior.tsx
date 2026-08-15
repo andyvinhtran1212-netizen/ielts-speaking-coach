@@ -282,7 +282,7 @@ function KpWeakWidget({ requestKey }: { requestKey: string }) {
         })}
       </div>
       <a
-        href="/pages/grammar-roadmap.html"
+        href="/grammar/roadmap"
         style={{
           fontSize: 'var(--av-fs-sm)',
           fontWeight: 600,

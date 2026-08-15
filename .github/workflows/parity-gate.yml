@@ -546,6 +546,7 @@ on:
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
+      - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
       # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
       # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
@@ -965,6 +966,12 @@ jobs:
       # vào dữ liệu nào.
       - name: Kiểm luồng Reading Vocab native
         run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/grammar/roadmap?slug=` được G1 public parity phủ; mode không slug là
+      # private/account-keyed nên cần fixture riêng để kiểm auth, lỗi-vs-rỗng,
+      # authored-text escaping và responsive layout mà không ghi production.
+      - name: Kiểm luồng Grammar Roadmap cá nhân native
+        run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

@@ -189,6 +189,9 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/grammar/compare` cutover 2026-08-15. Query `slug` là một phần của hợp
   // đồng backend và được giữ nguyên ở bước dựng URL bên dưới.
   else if (path === '/pages/grammar-compare.html') path = '/grammar/compare';
+  // `/grammar/roadmap` giữ hai mode trên cùng URL: `?slug=` public và không
+  // query là lộ trình cá nhân. Canonicalization chỉ đổi owner, không đổi mode.
+  else if (path === '/pages/grammar-roadmap.html') path = '/grammar/roadmap';
   else if (path === '/pages/profile.html') path = '/profile';
   // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
   // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)
