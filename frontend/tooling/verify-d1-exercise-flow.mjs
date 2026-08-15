@@ -65,6 +65,13 @@ let resolveGenerationOldAttempt;
 const generationOldAttemptStarted = new Promise((resolve) => { resolveGenerationOldAttempt = resolve; });
 let resolveGenerationNewAttempt;
 const generationNewAttemptStarted = new Promise((resolve) => { resolveGenerationNewAttempt = resolve; });
+let staleRetryArmed = false;
+let staleRetryOldPosts = 0;
+let resolveStaleRetryFirst;
+const staleRetryFirstStarted = new Promise((resolve) => { resolveStaleRetryFirst = resolve; });
+let final401Armed = false;
+let resolveFinal401;
+const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -123,10 +130,16 @@ await context.route('**/*', async (route) => {
     return json({ id: USER, d1_enabled: true });
   }
   if (request.method() === 'POST' && url.pathname === '/api/exercises/d1/sessions') {
+    if (final401Armed && request.headers().authorization === 'Bearer fixture-token') {
+      final401Armed = false;
+      resolveFinal401();
+      return json({ detail: 'Current token revoked' }, 401);
+    }
     return json({ session_id: SESSION, exercises, total: 2 }, 201);
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${SESSION}`) {
-    if (generationRaceArmed && request.headers().authorization === 'Bearer foreign-token') {
+    if ((generationRaceArmed || staleRetryArmed)
+      && request.headers().authorization === 'Bearer foreign-token') {
       return json({ detail: 'Session not found' }, 404);
     }
     return json({
@@ -186,6 +199,15 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
     attemptBodies.push(body);
+    if (staleRetryArmed && body.user_answer === 'adapt') {
+      staleRetryOldPosts += 1;
+      if (staleRetryOldPosts === 1) resolveStaleRetryFirst();
+      return json({ detail: 'temporary fixture failure' }, 503);
+    }
+    if (staleRetryArmed && body.user_answer === 'freeze') {
+      staleRetryArmed = false;
+      return json({ attempt_id: ATT_B, persisted: true, replayed: false, is_correct: false, correct_answer: 'adapt', score: 0, srs_updated: false, srs_rating: null });
+    }
     if (generationRaceArmed && body.user_answer === 'adapt' && !generationOldAttemptSeen) {
       generationOldAttemptSeen = true;
       resolveGenerationOldAttempt();
@@ -485,6 +507,52 @@ check('ACK generation A cũ không mở khóa attempt A mới',
 await page.getByText('✓ Đã lưu bài.').waitFor();
 check('attempt generation mới tự mở khóa sau đúng ACK',
   !(await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled()));
+
+staleRetryArmed = true;
+staleRetryOldPosts = 0;
+persistedAttempts.length = 0;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+await page.getByRole('button', { name: 'adapt' }).click();
+await staleRetryFirstStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.evaluate(([userId]) => {
+  window.__d1CurrentUser = userId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'fixture-token',
+    user: { id: userId, email: 'd1@local' },
+  });
+}, [USER]);
+await page.getByText('People must _____ to change.').waitFor();
+await page.getByRole('button', { name: 'freeze' }).click();
+await page.getByText('✓ Đã lưu bài.').waitFor();
+await page.waitForTimeout(600);
+check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
+
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  window.__d1CurrentUser = userId;
+  window.__d1AccessToken = 'fixture-token';
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+final401Armed = true;
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+await final401Started;
+await page.waitForURL('**/login');
+check('401 cuối của token hiện hành redirect về login', new URL(page.url()).pathname === '/login');
 
 await context.close();
 await browser.close();

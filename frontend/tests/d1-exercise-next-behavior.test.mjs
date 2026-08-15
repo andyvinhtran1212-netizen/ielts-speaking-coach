@@ -23,7 +23,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const accountKey = status === 'signed-in'/);
     assert.match(player, /accountRef\.current/);
     assert.match(player, /mutationLock\.current = false/);
-    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me'\)/);
+    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me', ownsGeneration\)/);
     assert.match(player, /normalizeD1Resume/);
     assert.match(player, /firstUnansweredIndex/);
     assert.match(player, /aver:d1:active-session/);
@@ -32,24 +32,26 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,160}storedIds\[storedIds\.length - 1\][\s\S]{0,160}legacyIds\[legacyIds\.length - 1\]/);
     assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,500}caught\?\.status !== 404[\s\S]{0,100}clearResume\([\s\S]{0,80}expectedAccount,[\s\S]{0,80}candidate/);
     assert.match(player, /legacyIds\.includes\(resumedId\)[\s\S]{0,80}removeItem\(LEGACY_STORAGE_KEY\)/);
-    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate\)/);
-    assert.match(player, /async function resumeSessionForAccount\(expectedAccount: string, sessionId: string\)[\s\S]{0,220}requestForAccount\([\s\S]{0,80}expectedAccount/);
+    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration\)/);
+    assert.match(player, /async function resumeSessionForAccount\([\s\S]{0,180}isCurrent: \(\) => boolean[\s\S]{0,180}requestForAccount\([\s\S]{0,100}isCurrent/);
     assert.doesNotMatch(player, /window\.api\.get\(`\/api\/exercises\/d1\/sessions\/\$\{encodeURIComponent\(candidate\)\}`\)/);
     assert.match(player, /clearResume\([\s\S]{0,100}expectedAccount,[\s\S]{0,100}candidate,[\s\S]{0,100}!disposed && accountRef\.current === expectedAccount/);
   });
 
   test('account changes reset question state and retain a late start ACK for its owner', () => {
     assert.match(player, /setSession\(null\)[\s\S]{0,220}setIndex\(0\)[\s\S]{0,120}setChoice\(null\)[\s\S]{0,120}setAttemptKey\(''\)[\s\S]{0,120}setAttemptAck\(null\)[\s\S]{0,120}setSaveError\(''\)/);
-    assert.match(player, /const started = normalizeD1Start\(payload\)[\s\S]{0,420}retainSession\(expectedAccount, started\.sessionId\);[\s\S]{0,220}accountGenerationRef\.current !== expectedGeneration[\s\S]{0,120}mutationOwnerRef\.current !== operation/);
+    assert.match(player, /const ownsOperation = \(\) => accountRef\.current === expectedAccount[\s\S]{0,160}accountGenerationRef\.current === expectedGeneration[\s\S]{0,120}mutationOwnerRef\.current === operation/);
+    assert.match(player, /const started = normalizeD1Start\(payload\)[\s\S]{0,420}retainSession\(expectedAccount, started\.sessionId\);[\s\S]{0,100}if \(!ownsOperation\(\)\) return/);
     assert.match(player, /function retainSession\(userId: string, sessionId: string\)[\s\S]{0,180}writeSessionIds\(userId/);
-    assert.match(player, /async function requestForAccount[\s\S]{0,260}authSession\.user\?\.id !== expectedAccount/);
+    assert.match(player, /async function requestForAccount[\s\S]{0,420}authSession\.user\?\.id !== expectedAccount/);
     assert.match(player, /Authorization: `Bearer \$\{token\}`/);
-    assert.match(player, /const payload = await startSessionForAccount\(expectedAccount\)/);
+    assert.match(player, /const payload = await startSessionForAccount\(expectedAccount, ownsOperation\)/);
     assert.doesNotMatch(player, /window\.api\.post\('\/api\/exercises\/d1\/sessions'/);
     assert.doesNotMatch(player, /if \(response\.status === 401\) window\.location\.href/);
     assert.doesNotMatch(player, /window\.api\.(?:get|post)\(/);
     assert.doesNotMatch(player, /caught\?\.status === 401[\s\S]{0,120}window\.location/);
     assert.match(player, /result\.response\.status === 401[\s\S]{0,420}refreshedSession\?\.user\?\.id === expectedAccount[\s\S]{0,220}refreshedSession\.access_token !== result\.token[\s\S]{0,120}dispatch\(refreshedSession\.access_token\)/);
+    assert.match(player, /response\.status === 401 && isCurrent\(\)[\s\S]{0,320}latestSession\?\.user\?\.id === expectedAccount[\s\S]{0,120}latestSession\.access_token === result\.token[\s\S]{0,100}window\.location\.replace\('\/login'\)/);
     assert.match(player, /const requestId = [\s\S]{0,260}'X-Request-ID': requestId/);
     assert.match(player, /const generation = \+\+accountGenerationRef\.current[\s\S]*?mutationOwnerRef\.current = null\s*;?\s*mutationLock\.current = false/);
     assert.match(player, /finally \{\s*if \(mutationOwnerRef\.current === operation\) \{[\s\S]{0,100}mutationLock\.current = false/);
@@ -58,6 +60,7 @@ describe('/d1-exercise native ownership', () => {
   test('retries one stable client key and gates Next on canonical ACK', () => {
     assert.match(player, /client_attempt_id: key/);
     assert.match(player, /for \(let attempt = 0; attempt < 2 && !canonical/);
+    assert.match(player, /for \(let attempt = 0; attempt < 2 && !canonical; attempt \+= 1\) \{\s*if \(!ownsOperation\(\)\) return;[\s\S]{0,180}requestForAccount\([\s\S]{0,180}ownsOperation/);
     assert.match(player, /normalizeD1AttemptAck\(payload, exercise, selected\)/);
     assert.match(player, /const canAdvance = answered && \(reviewMode \|\| !!attemptAck\) && !busy/);
     assert.match(player, /persistAnswer\(choice, attemptKey\)/);

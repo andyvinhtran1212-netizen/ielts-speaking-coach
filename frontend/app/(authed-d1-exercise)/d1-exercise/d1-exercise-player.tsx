@@ -53,7 +53,12 @@ function retainSession(userId: string, sessionId: string) {
   writeSessionIds(userId, [...readSessionIds(userId).filter((id) => id !== sessionId), sessionId]);
 }
 
-async function requestForAccount(expectedAccount: string, path: string, init?: RequestInit) {
+async function requestForAccount(
+  expectedAccount: string,
+  path: string,
+  isCurrent: () => boolean,
+  init?: RequestInit,
+) {
   const sb = window.getSupabase() as any;
   const { data, error } = await sb.auth.getSession();
   const authSession = data?.session;
@@ -88,6 +93,16 @@ async function requestForAccount(expectedAccount: string, path: string, init?: R
   }
   const { response, payload } = result;
   if (!response.ok) {
+    if (response.status === 401 && isCurrent()) {
+      const latest = await sb.auth.getSession();
+      const latestSession = latest.data?.session;
+      if (isCurrent()
+        && !latest.error
+        && latestSession?.user?.id === expectedAccount
+        && latestSession.access_token === result.token) {
+        window.location.replace('/login');
+      }
+    }
     const detail = payload?.detail || null;
     const thrown: any = new Error(
       typeof detail === 'string' ? detail : detail?.message || `HTTP ${response.status}`,
@@ -99,18 +114,23 @@ async function requestForAccount(expectedAccount: string, path: string, init?: R
   return payload;
 }
 
-async function startSessionForAccount(expectedAccount: string) {
-  return requestForAccount(expectedAccount, '/api/exercises/d1/sessions', {
+async function startSessionForAccount(expectedAccount: string, isCurrent: () => boolean) {
+  return requestForAccount(expectedAccount, '/api/exercises/d1/sessions', isCurrent, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ size: 10 }),
   });
 }
 
-async function resumeSessionForAccount(expectedAccount: string, sessionId: string) {
+async function resumeSessionForAccount(
+  expectedAccount: string,
+  sessionId: string,
+  isCurrent: () => boolean,
+) {
   return requestForAccount(
     expectedAccount,
     `/api/exercises/d1/sessions/${encodeURIComponent(sessionId)}`,
+    isCurrent,
   );
 }
 
@@ -190,6 +210,9 @@ export function D1ExercisePlayer() {
     const operation = Symbol('d1-complete');
     mutationOwnerRef.current = operation;
     mutationLock.current = true;
+    const ownsOperation = () => accountRef.current === expectedAccount
+      && accountGenerationRef.current === expectedGeneration
+      && mutationOwnerRef.current === operation;
     setBusy(true);
     setMessage('');
     setPhase('completing');
@@ -197,21 +220,18 @@ export function D1ExercisePlayer() {
       const payload = await requestForAccount(
         expectedAccount,
         `/api/exercises/d1/sessions/${encodeURIComponent(current.sessionId)}/complete`,
+        ownsOperation,
         { method: 'POST' },
       );
       const canonical = normalizeD1Summary(payload, current);
       if (!canonical) throw new Error('Máy chủ trả về tổng kết không đúng định dạng.');
-      if (accountRef.current !== expectedAccount
-        || accountGenerationRef.current !== expectedGeneration
-        || mutationOwnerRef.current !== operation) return;
+      if (!ownsOperation()) return;
       clearResume(expectedAccount, current.sessionId);
       setSummary(canonical);
       setReviewExercises(null);
       setPhase('summary');
     } catch (caught: any) {
-      if (accountRef.current === expectedAccount
-        && accountGenerationRef.current === expectedGeneration
-        && mutationOwnerRef.current === operation) {
+      if (ownsOperation()) {
         setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
         setPhase('completing');
       }
@@ -234,6 +254,9 @@ export function D1ExercisePlayer() {
     const expectedAccount = accountKey;
     const generation = ++accountGenerationRef.current;
     let disposed = false;
+    const ownsGeneration = () => !disposed
+      && accountRef.current === expectedAccount
+      && accountGenerationRef.current === generation;
     // A previous account may still have a request settling. Its response is
     // guarded by accountRef; do not let its lock strand the new account.
     mutationOwnerRef.current = null;
@@ -255,9 +278,8 @@ export function D1ExercisePlayer() {
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
-      const me = await requestForAccount(expectedAccount, '/auth/me');
-      if (disposed || accountRef.current !== expectedAccount
-        || accountGenerationRef.current !== generation) return;
+      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration);
+      if (!ownsGeneration()) return;
       if (me?.d1_enabled !== true) {
         setPhase('disabled');
         return;
@@ -279,7 +301,7 @@ export function D1ExercisePlayer() {
         let resumedId = '';
         for (const candidate of candidates) {
           try {
-            const payload = await resumeSessionForAccount(expectedAccount, candidate);
+            const payload = await resumeSessionForAccount(expectedAccount, candidate, ownsGeneration);
             resumed = normalizeD1Resume(payload);
             if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
             resumedId = candidate;
@@ -293,8 +315,7 @@ export function D1ExercisePlayer() {
             );
           }
         }
-        if (disposed || accountRef.current !== expectedAccount
-          || accountGenerationRef.current !== generation) return;
+        if (!ownsGeneration()) return;
         if (!resumed) {
           setPhase('start');
           return;
@@ -310,14 +331,12 @@ export function D1ExercisePlayer() {
         setIndex(next);
         setPhase('active');
       } catch (caught: any) {
-        if (disposed || accountRef.current !== expectedAccount
-          || accountGenerationRef.current !== generation) return;
+        if (!ownsGeneration()) return;
         setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
         setPhase('error');
       }
     })().catch((caught) => {
-      if (!disposed && accountRef.current === expectedAccount
-        && accountGenerationRef.current === generation) {
+      if (ownsGeneration()) {
         setMessage(messageOf(caught));
         setPhase('error');
       }
@@ -332,19 +351,20 @@ export function D1ExercisePlayer() {
     const operation = Symbol('d1-start');
     mutationOwnerRef.current = operation;
     mutationLock.current = true;
+    const ownsOperation = () => accountRef.current === expectedAccount
+      && accountGenerationRef.current === expectedGeneration
+      && mutationOwnerRef.current === operation;
     setBusy(true);
     setMessage('');
     try {
-      const payload = await startSessionForAccount(expectedAccount);
+      const payload = await startSessionForAccount(expectedAccount, ownsOperation);
       const started = normalizeD1Start(payload);
       if (!started) throw new Error('Máy chủ trả về phiên D1 không đúng định dạng.');
       // The backend may already have committed this session. Preserve its ID
       // under the request owner even if auth changed while the ACK travelled;
       // only the current owner is allowed to update visible state or the URL.
       retainSession(expectedAccount, started.sessionId);
-      if (accountRef.current !== expectedAccount
-        || accountGenerationRef.current !== expectedGeneration
-        || mutationOwnerRef.current !== operation) return;
+      if (!ownsOperation()) return;
       setSession(started);
       setIndex(0);
       setChoice(null);
@@ -355,9 +375,7 @@ export function D1ExercisePlayer() {
       rememberSession(expectedAccount, started.sessionId);
       setPhase('active');
     } catch (caught: any) {
-      if (accountRef.current !== expectedAccount
-        || accountGenerationRef.current !== expectedGeneration
-        || mutationOwnerRef.current !== operation) return;
+      if (!ownsOperation()) return;
       if (caught?.status === 503) setPhase('empty');
       else if (caught?.status === 429) {
         setMessage(quotaMessage(caught.detail));
@@ -384,6 +402,9 @@ export function D1ExercisePlayer() {
     const operation = Symbol('d1-attempt');
     mutationOwnerRef.current = operation;
     mutationLock.current = true;
+    const ownsOperation = () => accountRef.current === expectedAccount
+      && accountGenerationRef.current === expectedGeneration
+      && mutationOwnerRef.current === operation;
     setBusy(true);
     setSaveError('');
     setAttemptRateLimited(false);
@@ -391,10 +412,12 @@ export function D1ExercisePlayer() {
     let lastError: unknown = null;
     try {
       for (let attempt = 0; attempt < 2 && !canonical; attempt += 1) {
+        if (!ownsOperation()) return;
         try {
           const payload = await requestForAccount(
             expectedAccount,
             `/api/exercises/d1/${encodeURIComponent(exercise.id)}/attempt`,
+            ownsOperation,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -414,14 +437,10 @@ export function D1ExercisePlayer() {
         }
       }
       if (!canonical) throw lastError || new Error('Không lưu được attempt.');
-      if (accountRef.current !== expectedAccount
-        || accountGenerationRef.current !== expectedGeneration
-        || mutationOwnerRef.current !== operation) return;
+      if (!ownsOperation()) return;
       setAttemptAck(canonical);
     } catch (caught: any) {
-      if (accountRef.current === expectedAccount
-        && accountGenerationRef.current === expectedGeneration
-        && mutationOwnerRef.current === operation) {
+      if (ownsOperation()) {
         const rateLimited = caught?.status === 429;
         setAttemptRateLimited(rateLimited);
         setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
