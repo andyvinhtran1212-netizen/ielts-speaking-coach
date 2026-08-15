@@ -83,7 +83,7 @@ function prettifySlug(slug: string) {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function CategoryBadge({ category }: { category: string }) {
+export function CategoryBadge({ category }: { category: string }) {
   return (
     <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/8 text-white/50">
       {prettifySlug(category)}

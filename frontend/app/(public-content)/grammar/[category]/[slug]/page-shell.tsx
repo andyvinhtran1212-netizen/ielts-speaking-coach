@@ -126,7 +126,7 @@ function renderCompareLinks(compareWith: string[], slug: string): string {
   return compareWith
     .map((otherSlug) => {
       const compareSlug = `${slug}-vs-${otherSlug}`;
-      const url = `/pages/grammar-compare.html?slug=${encodeURIComponent(compareSlug)}`;
+      const url = `/grammar/compare?slug=${encodeURIComponent(compareSlug)}`;
       const otherDisplay = otherSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       return `<a href="${url}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">So sánh với ${escapeHtml(otherDisplay)} →</a>`;
     })

@@ -337,7 +337,7 @@
     if (!compareWith || compareWith.length === 0) return;
     el.innerHTML = compareWith.map(function (otherSlug) {
       var compareSlug = currentSlug + '-vs-' + otherSlug;
-      return '<a href="' + _url('pages/grammar-compare.html') + '?slug=' + compareSlug + '" ' +
+      return '<a href="/grammar/compare?slug=' + encodeURIComponent(compareSlug) + '" ' +
              'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 ' +
              'bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">' +
              'So sánh với ' + _prettifySlug(otherSlug) + ' →</a>';

@@ -147,7 +147,7 @@
 |---|---|---|---|---|---|---|---|
 | `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
 | `/grammar/:category/:slug` | `/:category/:slug` (clean URL alias via vercel rewrite) | `pages/grammar-article.html` | Public | `anchor` (scroll to section) | localStorage (theme), fetch (public API) | M | Article view; ~150 articles served by single page; server-side SEO metadata |
-| `/grammar/compare` | — | `pages/grammar-compare.html` | Public | `a`, `b` (article slugs to compare) | localStorage (theme), fetch API | M | Side-by-side article comparison |
+| `/grammar/compare` | `/pages/grammar-compare.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/compare/page.tsx` — CUTOVER 2026-08-15 | Public | `slug` theo dạng `<left>-vs-<right>` | localStorage (theme); server fetch public API | M | Native SSR side-by-side article comparison; legacy page retained for rollback/parity |
 | `/grammar/roadmap` | — | `pages/grammar-roadmap.html` | Public | none | localStorage (theme) | S | Learning path graph; static layout |
 | `/grammar/search` | `/pages/grammar-search.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/search/page.tsx` — CUTOVER 2026-08-15 | Public | `q` (search term) | localStorage (theme); server fetch public API | M | Native SSR full-text search; legacy page retained for rollback/parity |
 
