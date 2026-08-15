@@ -30,6 +30,8 @@ describe('Admin Topics + Quick-Check native ownership', () => {
     assert.ok((TOPICS.match(/fetchBundle\(skill/g) || []).length >= 3);
     assert.match(TOPICS, /normalizeDeleteAck/);
     assert.match(TOPICS, /mutationLock\.current/);
+    assert.match(TOPICS, /setDetailLoading\(true\); setBundle\(null\); setDraft\(null\);[^\n]*setNotice\(null\)/);
+    assert.match(TOPICS, /\}, \[fetchBundle, selectedId\]\);/);
     assert.doesNotMatch(TOPICS, /\bconfirm\(|\balert\(/);
   });
 
@@ -46,6 +48,10 @@ describe('Admin Topics + Quick-Check native ownership', () => {
     assert.match(QUIZ, /const canonical = await fetchBanks\(skill\)/);
     assert.match(QUIZ, /Không tự động retry write này/);
     assert.match(QUIZ, /mutationLock\.current/);
+    assert.match(QUIZ, /const \[committed, setCommitted\] = useState\(false\)/);
+    assert.match(QUIZ, /!!preview && !committed/);
+    assert.match(QUIZ, /setPreview\(value as ImportPreview\); setCommitted\(true\)/);
+    assert.match(QUIZ, /className="av-modal-backdrop avv-dialog"/);
     assert.doesNotMatch(QUIZ, /\bconfirm\(|\balert\(/);
   });
 });

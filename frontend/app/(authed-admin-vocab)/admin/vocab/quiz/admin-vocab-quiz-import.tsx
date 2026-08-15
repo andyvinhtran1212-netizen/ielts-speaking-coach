@@ -32,6 +32,7 @@ export function AdminVocabQuizImport() {
   const [selectedTopic, setSelectedTopic] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [committed, setCommitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,7 +60,7 @@ export function AdminVocabQuizImport() {
 
   useEffect(() => {
     const requestId = ++sequence.current; const account = profile.id;
-    setLoading(true); setTopics([]); setBanks([]); setSelectedTopic(''); setFile(null); setPreview(null); setNotice(null);
+    setLoading(true); setTopics([]); setBanks([]); setSelectedTopic(''); setFile(null); setPreview(null); setCommitted(false); setNotice(null);
     if (fileRef.current) fileRef.current.value = '';
     void Promise.all([fetchTopics(skill), fetchBanks(skill)]).then(([topicRows, bankRows]) => {
       if (requestId !== sequence.current || account !== accountRef.current) return;
@@ -120,11 +121,11 @@ export function AdminVocabQuizImport() {
 
   const onFile = (event: ChangeEvent<HTMLInputElement>) => {
     const picked = event.target.files?.[0] ?? null;
-    setFile(picked); setPreview(null);
+    setFile(picked); setPreview(null); setCommitted(false);
     if (picked) void runDryCheck(picked);
   };
   const reset = () => {
-    previewSequence.current += 1; setFile(null); setPreview(null); setChecking(false); setNotice(null);
+    previewSequence.current += 1; setFile(null); setPreview(null); setCommitted(false); setChecking(false); setNotice(null);
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -143,7 +144,7 @@ export function AdminVocabQuizImport() {
       const saved = canonical.find((bank) => bank.id === value.committedBankId);
       if (!saved || saved.topicId !== selectedTopic) throw new Error('Bank đã ACK nhưng chưa xuất hiện đúng topic trong canonical list.');
       if (requestId !== sequence.current || account !== accountRef.current) return;
-      setBanks(canonical); setPreview(value as ImportPreview);
+      setBanks(canonical); setPreview(value as ImportPreview); setCommitted(true);
       setNotice({ kind: 'success', message: `Đã lưu bank ${value.meta?.code || saved.code} và đọc lại canonical list.` });
     } catch (caught) {
       if (requestId === sequence.current && account === accountRef.current) setNotice({ kind: 'error', message: `Không xác nhận được import: ${messageOf(caught)} Không tự động retry write này.` });
@@ -167,7 +168,7 @@ export function AdminVocabQuizImport() {
     } finally { mutationLock.current = false; if (account === accountRef.current) setBusy(false); }
   };
 
-  const commitReady = !!file && !!preview && preview.summary.errors === 0 && preview.meta?.skillArea === skill && !!selectedTopic && !busy && !checking;
+  const commitReady = !!file && !!preview && !committed && preview.summary.errors === 0 && preview.meta?.skillArea === skill && !!selectedTopic && !busy && !checking;
 
   return <main className="avv-shell avv-console-shell avv-quiz-import">
     <header className="avv-stats-hero">
@@ -200,6 +201,6 @@ export function AdminVocabQuizImport() {
       {loading ? <div className="avv-state">Đang tải danh sách bank…</div> : banks.length === 0 ? <div className="avv-state">Chưa có bank trong khu vực này.</div> : <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Bank</th><th>Topic</th><th>Số từ</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{banks.map((bank) => { const topic = topics.find((row) => row.id === bank.topicId); return <tr key={bank.id}><td data-label="Bank"><strong>{bank.code}</strong><small>{bank.title || 'Chưa đặt tiêu đề'}</small></td><td data-label="Topic">{topic ? <a href={`/admin/vocab/topics?skill_area=${skill}&topic=${topic.id}`}>{topic.title}</a> : <span className="avv-chip is-warning">Không thấy topic</span>}</td><td data-label="Số từ">{bank.wordsCount}</td><td data-label="Trạng thái"><span className={`avv-chip is-${bank.published ? 'teal' : 'muted'}`}>{bank.published ? 'published' : 'hidden'}</span></td><td className="avv-row-actions"><button className="btn-danger" type="button" disabled={busy} onClick={() => setDeleteBank(bank)}>Xoá</button></td></tr>; })}</tbody></table></div>}
     </section>
 
-    {deleteBank ? <div className="avv-modal-layer" role="dialog" aria-modal="true" aria-labelledby="quiz-delete-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteBank(null); }}><section className="avv-modal-card"><p className="avv-eyebrow">Thao tác không hoàn tác</p><h2 id="quiz-delete-title">Xoá Quick‑Check bank?</h2><p>Bank và toàn bộ câu hỏi của bank sẽ bị xoá. UI chỉ cập nhật sau khi backend ACK và canonical list không còn bank này.</p><strong>{deleteBank.code} · {deleteBank.title || 'Chưa đặt tiêu đề'}</strong><div className="avv-modal-actions"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setDeleteBank(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void confirmDelete()}>{busy ? 'Đang xác minh…' : 'Xoá bank'}</button></div></section></div> : null}
+    {deleteBank ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-delete-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteBank(null); }}><section className="av-modal avv-dialog-card"><p className="avv-eyebrow">Thao tác không hoàn tác</p><h2 id="quiz-delete-title">Xoá Quick‑Check bank?</h2><p>Bank và toàn bộ câu hỏi của bank sẽ bị xoá. UI chỉ cập nhật sau khi backend ACK và canonical list không còn bank này.</p><strong>{deleteBank.code} · {deleteBank.title || 'Chưa đặt tiêu đề'}</strong><div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setDeleteBank(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void confirmDelete()}>{busy ? 'Đang xác minh…' : 'Xoá bank'}</button></div></section></div> : null}
   </main>;
 }

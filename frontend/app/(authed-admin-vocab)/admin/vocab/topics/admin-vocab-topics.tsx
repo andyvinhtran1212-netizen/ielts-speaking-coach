@@ -101,7 +101,7 @@ export function AdminVocabTopics() {
     if (!selectedId || !topics.some((row) => row.id === selectedId)) return;
     const requestId = ++sequence.current;
     const account = profile.id;
-    setDetailLoading(true); setAnalytics(null); setAnalyticsBankId('');
+    setDetailLoading(true); setBundle(null); setDraft(null); setAnalytics(null); setAnalyticsBankId(''); setNotice(null);
     void fetchBundle(skill, selectedId).then((value) => {
       if (requestId === sequence.current && account === accountRef.current) { setBundle(value); setDraft(draftOf(value.topic)); }
     }).catch((caught) => {
@@ -109,7 +109,7 @@ export function AdminVocabTopics() {
     }).finally(() => {
       if (requestId === sequence.current && account === accountRef.current) setDetailLoading(false);
     });
-  }, [fetchBundle, profile.id, selectedId, skill, topics]);
+  }, [fetchBundle, selectedId]); // Topic admission/reset owns skill, account and list changes.
 
   useEffect(() => {
     if (!confirmState) return undefined;

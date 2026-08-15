@@ -13,6 +13,7 @@ const quizLearnerId = '00000000-0000-4000-8000-000000000301';
 const quizBankId = '00000000-0000-4000-8000-000000000302';
 const quizBankIdB = '00000000-0000-4000-8000-000000000303';
 const contentTopicId = '00000000-0000-4000-8000-000000000401';
+const contentTopicIdB = '00000000-0000-4000-8000-000000000404';
 const fakeSession = JSON.stringify({ access_token: 'admin-vocab-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-vocab@local' } });
 const results = [];
 const requests = [];
@@ -44,6 +45,7 @@ let bankReads = 0;
 let topicWritePending = false;
 let bankWritePending = false;
 let importWritePending = false;
+let failNextTopicBundle = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
   user_id: '00000000-0000-4000-8000-000000000202',
@@ -63,6 +65,7 @@ let d1Row = {
 };
 let lemmaRows = [{ id: '00000000-0000-4000-8000-000000000211', original_word: 'children<script>', lemma: 'child', pos_tag: 'NOUN', notes: 'irregular', created_at: '2026-08-15T00:00:00Z' }];
 let topicRow = { id: contentTopicId, slug: 'work-careers', title: 'Work <script>', skill_area: 'vocab', title_vi: null, description: 'Canonical topic', order: 1, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
+const topicRowB = { id: contentTopicIdB, slug: 'travel', title: 'Travel', skill_area: 'vocab', title_vi: null, description: 'Second topic', order: 2, is_published: true, created_at: '2026-08-15T00:00:00Z', updated_at: '2026-08-15T00:00:00Z' };
 let topicBanks = [{ id: quizBankId, topic_id: contentTopicId, code: 'L02', title: null, skill_area: 'vocab', words_count: 20, source: null, version: 1, is_published: true, updated_at: null }];
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -159,7 +162,12 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'GET' && parsed.pathname === '/admin/content-topics') {
     topicReads += 1;
-    return json(parsed.searchParams.get('skill_area') === 'vocab' ? [topicRow] : []);
+    return json(parsed.searchParams.get('skill_area') === 'vocab' ? [topicRow, topicRowB] : []);
+  }
+  if (method === 'GET' && parsed.pathname === `/admin/content-topics/${contentTopicIdB}/bundle`) {
+    bundleReads += 1;
+    if (failNextTopicBundle) { failNextTopicBundle = false; return json({ detail: 'fixture bundle unavailable' }, 503); }
+    return json({ topic: topicRowB, vocab_cards: [], quiz_banks: [], counts: { vocab_cards: 0, quiz_banks: 0 } });
   }
   if (method === 'GET' && parsed.pathname === `/admin/content-topics/${contentTopicId}/bundle`) {
     bundleReads += 1;
@@ -352,6 +360,12 @@ await page.getByRole('heading', { name: 'Chủ đề nội dung', exact: true })
 await page.getByText('Work <script>', { exact: true }).first().waitFor();
 check('Topics chỉ nhận deep-link sau scoped canonical list', requests.findIndex((item) => item.path === '/admin/content-topics' && item.search === '?skill_area=vocab') < requests.findIndex((item) => item.path === `/admin/content-topics/${contentTopicId}/bundle`) && new URL(page.url()).searchParams.get('topic') === contentTopicId);
 check('Topics escape title/card độc hại', await page.locator('.avv-topic-console script, .avv-topic-console img').count() === 0);
+failNextTopicBundle = true;
+await page.getByRole('button', { name: /Travel/ }).click();
+await page.getByRole('alert').getByText(/Không tải được topic/).waitFor();
+check('Topics không hiện form cũ khi bundle topic mới lỗi', new URL(page.url()).searchParams.get('topic') === contentTopicIdB && await page.locator('.avv-topic-form').count() === 0 && await page.getByRole('button', { name: 'Xoá topic' }).count() === 0);
+await page.getByRole('button', { name: /Work <script>/ }).click();
+await page.locator('.avv-topic-form').waitFor();
 await page.getByLabel('Tên', { exact: true }).fill('Work & Careers');
 await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
 await page.waitForTimeout(40);
@@ -380,6 +394,11 @@ await page.waitForTimeout(40);
 check('Quiz commit khoá nút khi chờ ACK', importWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
 await page.getByText('Đã lưu bank L02 và đọc lại canonical list.', { exact: true }).waitFor();
 check('Quiz commit một lần và canonical bank readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1 && bankReads >= 2);
+const committedButton = page.getByRole('button', { name: 'Lưu vào hệ thống' });
+check('Quiz giữ commit disabled sau canonical success', await committedButton.isDisabled());
+await committedButton.evaluate((button) => button.click());
+await page.waitForTimeout(80);
+check('Quiz click lặp không gửi commit write thứ hai', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1);
 await page.getByRole('button', { name: 'Xoá', exact: true }).click();
 const bankDeleteDialog = page.getByRole('dialog', { name: 'Xoá Quick‑Check bank?' });
 await bankDeleteDialog.getByRole('button', { name: 'Xoá bank' }).click();
