@@ -70,7 +70,7 @@ const HTML = /* html */ `
       <div class="modes-grid">
 
         <!-- D1: Fill blank -->
-        <a data-card="d1" href="/pages/d1-exercise.html" class="mode-card">
+        <a data-card="d1" href="/d1-exercise" class="mode-card">
           <div class="head">
             <div class="icon"><i data-lucide="pencil"></i></div>
             <span class="ex-pill pill-live">Live</span>
