@@ -131,6 +131,13 @@ test('dynamic route is admin-gated and tests inventory owns its native detail li
   assert.match(LAYOUT, /admin-listening-test-detail-next\.css/);
 });
 
+test('delayed sections anchor scrolls after canonical data renders', () => {
+  assert.match(CLIENT, /<section id="sections" className="altd-card"/);
+  assert.match(CLIENT, /window\.location\.hash !== '#sections'/);
+  assert.match(CLIENT, /target\.scrollIntoView\(\{ block: 'start' \}\)/);
+  assert.match(CLIENT, /window\.addEventListener\('hashchange', scrollToSectionHash\)/);
+});
+
 test('reads are account-keyed, ordered and keep audio/map failures explicit', () => {
   assert.match(CLIENT, /const key = `\$\{profile\.id\}:\$\{testId\}`/);
   assert.match(CLIENT, /const order = \+\+detailOrder\.current/);

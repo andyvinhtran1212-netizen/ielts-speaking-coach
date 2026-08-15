@@ -162,8 +162,7 @@ The HTML detail stays available as watchdog/manual rollback.
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
 
-1. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist. The 4-file native route is the operational import surface; the legacy converter remains mounted pending a dependency audit. They produce the same `listening_tests` shape.
-2. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
+1. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
 
 ---
 
