@@ -91,6 +91,16 @@ const DEFAULT_PAIRS = [
     next: '/grammar/exercises',
     allow: [],
   },
+  {
+    name: 'grammar-search',
+    legacy: '/pages/grammar-search.html?q=tenses',
+    next: '/grammar/search?q=tenses',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/search?q=tenses',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
 ];
 
 /** Bổ sung toàn bộ bài Grammar từ backend — không lấy mẫu, quét hết. */

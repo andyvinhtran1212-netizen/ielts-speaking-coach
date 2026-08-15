@@ -44,8 +44,8 @@ describe('route /grammar (Phase 3)', () => {
   });
 
   test('ba chế độ của legacy được giữ nguyên: ?q= · ?category= · trang chủ', () => {
-    assert.match(PAGE, /redirect\(`\/pages\/grammar-search\.html\?q=/,
-      '?q= phải chuyển sang trang kết quả như legacy (loadGrammarHome)');
+    assert.match(PAGE, /redirect\(`\/grammar\/search\?q=/,
+      '?q= phải chuyển sang route kết quả canonical');
     assert.match(PAGE, /getCategory\(category\)/);
     assert.match(PAGE, /Promise\.all\(\[getHome\(\), getGroups\(\)\]\)/,
       'trang chủ nạp song song như legacy; tuần tự sẽ cộng dồn độ trễ');
@@ -127,6 +127,13 @@ describe('parity với trang legacy', () => {
 
   test('link bài viết trỏ URL sạch canonical (route Next của pilot 2)', () => {
     assert.match(CARDS, /\/grammar\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
+  });
+
+  test('mọi điểm vào tìm kiếm đều trỏ route Next canonical', () => {
+    assert.match(PAGE, /href="\/grammar\/search\?q=ielts"/);
+    assert.match(SEARCH, /window\.location\.assign\(`\/grammar\/search\?q=/);
+    assert.doesNotMatch(PAGE, /pages\/grammar-search\.html/);
+    assert.doesNotMatch(SEARCH, /pages\/grammar-search\.html/);
   });
 
   test('thẻ thư mục dùng <a> thật thay vì onclick giả lập', () => {
