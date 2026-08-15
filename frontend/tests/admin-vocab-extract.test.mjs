@@ -45,8 +45,8 @@ describe('Sprint 12.6 — vocab landing (pages/admin/vocab/index.html)', () => {
 
   it('links Stats + D1 Curation + Lemmas child pages', () => {
     assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/stats["']/);
-    assert.match(VCB_INDEX, /href=["']\/pages\/admin\/vocab\/d1-curation\.html["']/);
-    assert.match(VCB_INDEX, /href=["']\/pages\/admin\/vocab\/lemmas\.html["']/);
+    assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/d1-curation["']/);
+    assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/lemmas["']/);
   });
 
   it('marks D1 + Lemmas as new Sprint 12.6 surfaces', () => {

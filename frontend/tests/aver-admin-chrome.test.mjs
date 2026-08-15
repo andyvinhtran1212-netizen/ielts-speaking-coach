@@ -380,8 +380,10 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     // Real landing must link to its three child pages.
     assert.match(html, /\/admin\/vocab\/stats/);
     assert.doesNotMatch(html, /\/pages\/admin\/vocab\/stats\.html/);
-    assert.match(html, /\/pages\/admin\/vocab\/d1-curation\.html/);
-    assert.match(html, /\/pages\/admin\/vocab\/lemmas\.html/);
+    assert.match(html, /\/admin\/vocab\/d1-curation/);
+    assert.doesNotMatch(html, /\/pages\/admin\/vocab\/d1-curation\.html/);
+    assert.match(html, /\/admin\/vocab\/lemmas/);
+    assert.doesNotMatch(html, /\/pages\/admin\/vocab\/lemmas\.html/);
   });
 
   it('Sprint 12.7 — grammar index is a real landing (not a stub)', () => {

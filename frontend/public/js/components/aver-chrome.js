@@ -399,6 +399,13 @@ export class AverChrome extends HTMLElement {
     shadow.innerHTML = `<style>${STYLE}</style>${TEMPLATE}`;
 
     this._applyActive(this.getAttribute('active'));
+    // Native auth-gated route groups declare this route-scoped marker from
+    // AuthedShell. Apply the signed-in target synchronously instead of racing
+    // the independent Supabase poll against navigation or parity capture.
+    // Public layouts omit it and retain the public /vocabulary default.
+    if (document.querySelector('meta[name="aver-auth-gated"][content="1"]')) {
+      this._applyVocabNav(true);
+    }
     this._applyRole();   // re-apply any role set before the element upgraded
     this._bindToggle();
     this._bindDropdown();
