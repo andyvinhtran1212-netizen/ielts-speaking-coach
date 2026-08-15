@@ -70,7 +70,7 @@ function Hero() {
           Khám phá hệ thống
         </a>
         <a href="#groups-section" className="btn-cta btn-outline">Xem 9 nhóm chủ đề</a>
-        <a href="/pages/grammar-search.html?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
+        <a href="/grammar/search?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
         <a href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</a>
       </div>
     </div>
@@ -169,7 +169,7 @@ function CategoryView({ slug, data }: { slug: string; data: any }) {
  * Phần đọc `searchParams` — bắt buộc nằm sau `Suspense`.
  *
  * Ba chế độ, giữ nguyên hành vi legacy (`loadGrammarHome`):
- *   `?q=`        → chuyển sang trang kết quả tìm kiếm (legacy, chưa port)
+ *   `?q=`        → chuyển sang route kết quả tìm kiếm canonical
  *   `?category=` → xem một thư mục
  *   không tham số → trang chủ đầy đủ
  */
@@ -178,7 +178,7 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
   const q = typeof params.q === 'string' ? params.q : '';
   const category = typeof params.category === 'string' ? params.category : '';
 
-  if (q) redirect(`/pages/grammar-search.html?q=${encodeURIComponent(q)}`);
+  if (q) redirect(`/grammar/search?q=${encodeURIComponent(q)}`);
 
   if (category) {
     const data = await getCategory(category);

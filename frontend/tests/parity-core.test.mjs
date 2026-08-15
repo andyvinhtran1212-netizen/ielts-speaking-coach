@@ -367,7 +367,7 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
   test('#5 phân giải ../ theo URL trang, không nối chuỗi', () => {
     const base2 = 'https://x/pages/grammar-article.html?category=tenses&slug=present-perfect';
     assert.equal(canonicalHref('../grammar.html', { base: base2 }), '/grammar');
-    assert.equal(canonicalHref('./grammar-search.html', { base: base2 }), '/pages/grammar-search.html');
+    assert.equal(canonicalHref('./grammar-search.html?q=tenses', { base: base2 }), '/grammar/search?q=tenses');
     // Chốt chặn: dạng cũ nối chuỗi sẽ ra '/../grammar.html'.
     assert.ok(!String(canonicalHref('../grammar.html', { base: base2 })).includes('..'));
   });
@@ -664,7 +664,12 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   // đọc đi thêm một tên vào `KNOWN_NO_PAIR`, tức tự tay tạo ra đúng lỗ mà chốt
   // sinh ra để chặn. Mô hình của chốt phải phủ CẢ HAI nơi khai cặp.
   const diffSrc = readFileSync(path.join(ROOT, 'frontend/tooling/parity-diff.mjs'), 'utf8');
-  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => m[1]);
+  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => {
+    // Một cặp có thể cần query fixture để chạm đúng state hữu ích (ví dụ
+    // Grammar Search). Quyền sở hữu route vẫn là pathname; so cả `?q=` ở đây
+    // sẽ báo giả rằng route đã cutover nhưng chưa có cặp.
+    return new URL(m[1], 'https://parity.local').pathname;
+  });
   assert.ok(publicPairs.length >= 1, 'không đọc được cặp công khai nào — bộ dò hỏng?');
   for (const r of publicPairs) paired.add(r);
 
