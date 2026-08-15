@@ -138,7 +138,7 @@ function HomeContent({ home, groups }: { home: any; groups: any[] }) {
               Mỗi chủ đề có lộ trình từ kiến thức nền → nâng cao. Học theo thứ tự được đề xuất để không bỏ sót.
             </p>
           </div>
-          <a href="/pages/grammar-roadmap.html?slug=tenses" className="btn-cta btn-primary flex-shrink-0">
+          <a href="/grammar/roadmap?slug=tenses" className="btn-cta btn-primary flex-shrink-0">
             Bắt đầu với Tenses →
           </a>
         </div>

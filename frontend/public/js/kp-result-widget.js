@@ -51,7 +51,7 @@
         '<p class="text-sm mb-3" style="color:var(--av-text-secondary);">' +
           items.length + ' điểm ngữ pháp cần củng cố qua các buổi luyện của bạn.</p>' +
         '<div style="margin-bottom:var(--av-space-3);">' + chips + '</div>' +
-        '<a href="/pages/grammar-roadmap.html" ' +
+        '<a href="/grammar/roadmap" ' +
           'style="font-size:var(--av-fs-sm);font-weight:600;color:var(--av-primary);text-decoration:none;">' +
           'Xem lộ trình của bạn →</a>' +
       '</div>';

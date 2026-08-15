@@ -41,6 +41,11 @@ async function fetchCompare(slug: string): Promise<any | null> {
   return getPublicJson(`/api/grammar/compare/${encodeURIComponent(slug)}`);
 }
 
+/** Lộ trình bài viết của một category công khai. */
+async function fetchRoadmap(slug: string): Promise<any | null> {
+  return getPublicJson(`/api/grammar/roadmap/${encodeURIComponent(slug)}`);
+}
+
 // React `cache()`: generateMetadata và thân trang dùng CHUNG một lần fetch cho
 // mỗi request (ADR-008: "generateMetadata và page body phải dùng cùng memoized
 // loader"). Loader mới cũng phải đi qua đây, không gọi thẳng backend.
@@ -50,3 +55,4 @@ export const getGroups = cache(fetchGroups);
 export const getCategory = cache(fetchCategory);
 export const getSearch = cache(fetchSearch);
 export const getCompare = cache(fetchCompare);
+export const getRoadmap = cache(fetchRoadmap);

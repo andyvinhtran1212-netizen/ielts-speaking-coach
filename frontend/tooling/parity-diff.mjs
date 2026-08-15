@@ -111,6 +111,16 @@ const DEFAULT_PAIRS = [
       reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
     }],
   },
+  {
+    name: 'grammar-roadmap',
+    legacy: '/pages/grammar-roadmap.html?slug=tenses',
+    next: '/grammar/roadmap?slug=tenses',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/roadmap/tenses',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
 ];
 
 /** Bổ sung toàn bộ bài Grammar từ backend — không lấy mẫu, quét hết. */
