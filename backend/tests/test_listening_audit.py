@@ -352,6 +352,8 @@ def test_audit_run_persists_with_llm(monkeypatch):
     assert any(i["code"] == "answer_in_script" and i["q_num"] == 4 for i in out["issues"])
     assert stub.inserted is not None and stub.inserted["test_id"] == "t-uuid"
     assert stub.inserted["health"]["llm_model"]
+    assert stub.inserted["audited_at"] == out["audited_at"]
+    assert out["audited_at"].endswith("+00:00")
 
 
 def test_audit_run_llm_skipped_when_no_provider(monkeypatch):

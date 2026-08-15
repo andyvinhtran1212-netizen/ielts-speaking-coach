@@ -19,6 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const component = read('app/(authed-admin-listening)/admin/listening/audit/admin-listening-audit.tsx');
+const backend = read('../backend/routers/listening.py');
 const page = read('app/(authed-admin-listening)/admin/listening/audit/page.tsx');
 const css = read('public/css/admin-listening-audit-next.css');
 const workflow = read('../.github/workflows/parity-gate.yml');
@@ -74,6 +75,11 @@ describe('audit model rejects incomplete truth', () => {
     const value = normalizeListeningAuditSnapshot(auditRaw({ saved }), { id: 'test-1', testId: 'ILR-LIS-001' });
     assert.equal(value.saved.status, 'fixed');
     assert.equal(value.saved.health.errorCount, 1);
+  });
+
+  it('labels legacy persisted audits with missing timestamps as unknown time, not never run', () => {
+    assert.match(component, /saved\.status === 'pending' \? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'/);
+    assert.match(backend, /"audited_at": audited_at/);
   });
 
   it('rejects identity drift, inconsistent health and malformed saved issues', () => {

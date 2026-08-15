@@ -3258,6 +3258,8 @@ async def admin_run_test_audit(
               "question_count": len(h["all_questions"]),
               "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None}
     status = health["status"]
+    from datetime import datetime, timezone
+    audited_at = datetime.now(timezone.utc).isoformat()
 
     row = {
         "test_id":  test_id,
@@ -3265,6 +3267,7 @@ async def admin_run_test_audit(
         "health":   health,
         "issues":   issues,
         "auditor":  (user or {}).get("id") or (user or {}).get("email"),
+        "audited_at": audited_at,
     }
     # upsert on the unique test_id
     existing = _load_audit_row(test_id)
@@ -3274,7 +3277,8 @@ async def admin_run_test_audit(
         supabase_admin.table("listening_audit").insert(row).execute()
 
     return {"test_id": test.get("test_id"), "uuid": test_id,
-            "health": health, "issues": issues, "status": status}
+            "health": health, "issues": issues, "status": status,
+            "audited_at": audited_at}
 
 
 class AuditTriageRequest(BaseModel):
