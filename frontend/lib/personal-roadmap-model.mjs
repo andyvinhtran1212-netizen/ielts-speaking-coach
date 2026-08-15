@@ -22,8 +22,10 @@ export function normalizePersonalRoadmap(value) {
     return { mode: 'static', weakCount: 0, nodes: [] };
   }
 
-  const weakCount = Number(raw.weak_count);
-  if (!Number.isInteger(weakCount) || weakCount < 0) throw new Error('invalid-personal-roadmap');
+  const weakCount = raw.weak_count;
+  if (typeof weakCount !== 'number' || !Number.isInteger(weakCount) || weakCount <= 0) {
+    throw new Error('invalid-personal-roadmap');
+  }
 
   const nodes = raw.nodes.map((value, index) => {
     const node = objectOf(value);
@@ -36,5 +38,8 @@ export function normalizePersonalRoadmap(value) {
     }
     return { slug, title, category, status, isWeak: node.is_weak };
   });
+  if (nodes.filter((node) => node.isWeak).length !== weakCount) {
+    throw new Error('invalid-personal-roadmap');
+  }
   return { mode: 'personal', weakCount, nodes };
 }

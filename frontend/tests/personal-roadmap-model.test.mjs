@@ -25,6 +25,17 @@ describe('personal roadmap canonical payload', () => {
   test('payload hỏng không được biến thành trạng thái rỗng', () => {
     for (const payload of [null, {}, { mode: 'personal', nodes: [] }, { mode: 'static' }, { mode: 'static', nodes: [{}] }, {
       mode: 'personal', weak_count: 1, nodes: [{ slug: 'x', title: 'X', status: 'mystery', is_weak: true }],
+    }, {
+      mode: 'personal', weak_count: 1, nodes: [],
+    }, {
+      mode: 'personal', weak_count: null,
+      nodes: [{ slug: 'x', title: 'X', status: 'weak', is_weak: true }],
+    }, {
+      mode: 'personal', weak_count: 2,
+      nodes: [{ slug: 'x', title: 'X', status: 'weak', is_weak: true }],
+    }, {
+      mode: 'personal', weak_count: 1,
+      nodes: [{ slug: 'x', title: 'X', status: 'unseen', is_weak: false }],
     }]) assert.throws(() => normalizePersonalRoadmap(payload), /invalid-personal-roadmap/);
   });
 
