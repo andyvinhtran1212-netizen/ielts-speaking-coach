@@ -85,6 +85,7 @@ async function requestForAccount(
     const refreshed = await sb.auth.getSession();
     const refreshedSession = refreshed.data?.session;
     if (!refreshed.error
+      && isCurrent()
       && refreshedSession?.user?.id === expectedAccount
       && refreshedSession.access_token
       && refreshedSession.access_token !== result.token) {

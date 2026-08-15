@@ -50,7 +50,7 @@ describe('/d1-exercise native ownership', () => {
     assert.doesNotMatch(player, /if \(response\.status === 401\) window\.location\.href/);
     assert.doesNotMatch(player, /window\.api\.(?:get|post)\(/);
     assert.doesNotMatch(player, /caught\?\.status === 401[\s\S]{0,120}window\.location/);
-    assert.match(player, /result\.response\.status === 401[\s\S]{0,420}refreshedSession\?\.user\?\.id === expectedAccount[\s\S]{0,220}refreshedSession\.access_token !== result\.token[\s\S]{0,120}dispatch\(refreshedSession\.access_token\)/);
+    assert.match(player, /result\.response\.status === 401[\s\S]{0,420}isCurrent\(\)[\s\S]{0,120}refreshedSession\?\.user\?\.id === expectedAccount[\s\S]{0,220}refreshedSession\.access_token !== result\.token[\s\S]{0,120}dispatch\(refreshedSession\.access_token\)/);
     assert.match(player, /response\.status === 401 && isCurrent\(\)[\s\S]{0,320}latestSession\?\.user\?\.id === expectedAccount[\s\S]{0,120}latestSession\.access_token === result\.token[\s\S]{0,100}window\.location\.replace\('\/login'\)/);
     assert.match(player, /const requestId = [\s\S]{0,260}'X-Request-ID': requestId/);
     assert.match(player, /const generation = \+\+accountGenerationRef\.current[\s\S]*?mutationOwnerRef\.current = null\s*;?\s*mutationLock\.current = false/);

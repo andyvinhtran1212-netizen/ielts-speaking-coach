@@ -69,6 +69,10 @@ let staleRetryArmed = false;
 let staleRetryOldPosts = 0;
 let resolveStaleRetryFirst;
 const staleRetryFirstStarted = new Promise((resolve) => { resolveStaleRetryFirst = resolve; });
+let refreshGenerationRaceArmed = false;
+let refreshGenerationOldPosts = 0;
+let resolveRefreshGenerationOld;
+const refreshGenerationOldStarted = new Promise((resolve) => { resolveRefreshGenerationOld = resolve; });
 let final401Armed = false;
 let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
@@ -138,7 +142,7 @@ await context.route('**/*', async (route) => {
     return json({ session_id: SESSION, exercises, total: 2 }, 201);
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${SESSION}`) {
-    if ((generationRaceArmed || staleRetryArmed)
+    if ((generationRaceArmed || staleRetryArmed || refreshGenerationRaceArmed)
       && request.headers().authorization === 'Bearer foreign-token') {
       return json({ detail: 'Session not found' }, 404);
     }
@@ -199,6 +203,18 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
     attemptBodies.push(body);
+    if (refreshGenerationRaceArmed && body.user_answer === 'adapt') {
+      refreshGenerationOldPosts += 1;
+      if (refreshGenerationOldPosts === 1) {
+        resolveRefreshGenerationOld();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return json({ detail: 'Old token expired' }, 401);
+      }
+      return json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' });
+    }
+    if (refreshGenerationRaceArmed && body.user_answer === 'freeze') {
+      return json({ attempt_id: ATT_B, persisted: true, replayed: false, is_correct: false, correct_answer: 'adapt', score: 0, srs_updated: false, srs_rating: null });
+    }
     if (staleRetryArmed && body.user_answer === 'adapt') {
       staleRetryOldPosts += 1;
       if (staleRetryOldPosts === 1) resolveStaleRetryFirst();
@@ -539,6 +555,43 @@ await page.getByRole('button', { name: 'freeze' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
 await page.waitForTimeout(600);
 check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
+
+refreshGenerationRaceArmed = true;
+refreshGenerationOldPosts = 0;
+persistedAttempts.length = 0;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  window.__d1AccessToken = 'fixture-token';
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+await page.getByRole('button', { name: 'adapt' }).click();
+await refreshGenerationOldStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AccessToken = 'foreign-token';
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.evaluate(([userId]) => {
+  window.__d1CurrentUser = userId;
+  window.__d1AccessToken = 'refreshed-token';
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'refreshed-token',
+    user: { id: userId, email: 'd1@local' },
+  });
+}, [USER]);
+await page.getByText('People must _____ to change.').waitFor();
+await page.getByRole('button', { name: 'freeze' }).click();
+await page.getByText('✓ Đã lưu bài.').waitFor();
+await page.waitForTimeout(600);
+check('generation cũ không redispatch bằng token refresh sau A→B→A',
+  refreshGenerationOldPosts === 1);
+refreshGenerationRaceArmed = false;
 
 await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
