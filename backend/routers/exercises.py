@@ -221,8 +221,8 @@ def _finalize_d1_attempt(
     attempt_id: str,
     feedback: dict,
     srs_state: dict | None,
-) -> dict:
-    """Atomically seal feedback and apply the optional SRS mutation once."""
+) -> tuple[dict, bool]:
+    """Atomically seal one attempt and report whether this caller claimed it."""
     params = {
         "p_attempt_id": attempt_id,
         "p_vocab_id": None,
@@ -243,13 +243,20 @@ def _finalize_d1_attempt(
             attempt_id, exc,
         )
         raise HTTPException(500, "Could not finish saving attempt.")
-    row = (result.data or [None])[0] if isinstance(result.data, list) else result.data
+    receipt = (result.data or [None])[0] if isinstance(result.data, list) else result.data
+    row = receipt.get("attempt") if isinstance(receipt, dict) else None
+    finalized = receipt.get("finalized") if isinstance(receipt, dict) else None
     if not isinstance(row, dict) or not row.get("id"):
         logger.error(
             "[exercises] D1 finalization returned no row attempt=%s", attempt_id,
         )
         raise HTTPException(500, "Could not finish saving attempt.")
-    return row
+    if not isinstance(finalized, bool):
+        logger.error(
+            "[exercises] D1 finalization returned no claim flag attempt=%s", attempt_id,
+        )
+        raise HTTPException(500, "Could not finish saving attempt.")
+    return row, finalized
 
 
 def _load_attempt_by_client_id(sb, user_id: str, client_attempt_id: str) -> dict | None:
@@ -717,7 +724,7 @@ async def submit_d1_attempt(
 
     feedback["srs_updated"] = srs_updated
     feedback["srs_rating"] = srs_rating
-    persisted_attempt = _finalize_d1_attempt(
+    persisted_attempt, finalized_here = _finalize_d1_attempt(
         sb, str(persisted_attempt["id"]), feedback, srs_state,
     )
     canonical_feedback = (
@@ -728,18 +735,19 @@ async def submit_d1_attempt(
     srs_updated = bool(canonical_feedback.get("srs_updated"))
     srs_rating = canonical_feedback.get("srs_rating") if srs_updated else None
 
-    _safe_event(
-        "exercise_completed",
-        {
-            "type": "D1",
-            "exercise_id": row["id"],
-            "is_correct": is_correct,
-            "score": score,
-            "srs_updated": srs_updated,
-            "srs_rating": srs_rating,
-        },
-        user_id,
-    )
+    if finalized_here:
+        _safe_event(
+            "exercise_completed",
+            {
+                "type": "D1",
+                "exercise_id": row["id"],
+                "is_correct": is_correct,
+                "score": score,
+                "srs_updated": srs_updated,
+                "srs_rating": srs_rating,
+            },
+            user_id,
+        )
 
     return _attempt_result(persisted_attempt, replayed=replayed)
 

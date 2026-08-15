@@ -35,6 +35,46 @@
   let _session = null;
   let _lastAttemptRateLimit = null;
 
+  function readActiveSessionIds() {
+    const raw = window.localStorage?.getItem(ACTIVE_SESSION_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [...new Set(parsed.filter(id => typeof id === 'string' && id))];
+      }
+    } catch (_) {
+      // Backward compatibility with the pre-registry singleton value.
+    }
+    return [raw];
+  }
+
+  function writeActiveSessionIds(ids) {
+    const unique = [...new Set(ids.filter(id => typeof id === 'string' && id))];
+    if (unique.length) window.localStorage?.setItem(ACTIVE_SESSION_KEY, JSON.stringify(unique));
+    else window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+  }
+
+  function sessionIdFromUrl() {
+    return new URL(window.location.href).searchParams.get('session') || '';
+  }
+
+  function rememberActiveSession(sessionId) {
+    writeActiveSessionIds([...readActiveSessionIds().filter(id => id !== sessionId), sessionId]);
+    const url = new URL(window.location.href);
+    url.searchParams.set('session', sessionId);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function forgetActiveSession(sessionId) {
+    writeActiveSessionIds(readActiveSessionIds().filter(id => id !== sessionId));
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('session') === sessionId) {
+      url.searchParams.delete('session');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+
   // ── Container helpers ─────────────────────────────────────────────────────
 
   function _root() { return document.querySelector('.exercise-container'); }
@@ -87,7 +127,8 @@
   }
 
   async function resumeStoredSession() {
-    const sessionId = window.localStorage?.getItem(ACTIVE_SESSION_KEY);
+    const storedIds = readActiveSessionIds();
+    const sessionId = sessionIdFromUrl() || storedIds[storedIds.length - 1];
     if (!sessionId) return false;
     try {
       const res = await fetch(`${BASE}/api/exercises/d1/sessions/${sessionId}`, {
@@ -95,7 +136,7 @@
       });
       if (!res.ok) {
         if (res.status === 404) {
-          window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+          forgetActiveSession(sessionId);
           return false;
         }
         _showState('error', 'Chưa thể khôi phục phiên đang làm. Hãy thử tải lại trang.');
@@ -206,7 +247,7 @@
       attempts:         [],
       is_review:        false,
     };
-    window.localStorage?.setItem(ACTIVE_SESSION_KEY, _session.id);
+    rememberActiveSession(_session.id);
 
     renderCurrentExercise();
   }
@@ -502,9 +543,7 @@
         return;
       }
       const summary = await res.json();
-      if (window.localStorage?.getItem(ACTIVE_SESSION_KEY) === completingSessionId) {
-        window.localStorage.removeItem(ACTIVE_SESSION_KEY);
-      }
+      forgetActiveSession(completingSessionId);
       renderSummaryScreen(summary);
     } catch (err) {
       console.warn('[d1] complete-session failed; completion remains pending:', err);

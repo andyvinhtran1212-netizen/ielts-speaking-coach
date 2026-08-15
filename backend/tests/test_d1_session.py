@@ -129,8 +129,9 @@ class _FakeClient:
                     if row.get("id") == params["p_attempt_id"]
                 ]
                 if not rows:
-                    return _FakeRes([])
+                    return _FakeRes(None)
                 attempt = rows[0]
+                finalized = not attempt.get("post_processed_at")
                 if not attempt.get("post_processed_at"):
                     vocab_id = params.get("p_vocab_id")
                     if vocab_id:
@@ -154,7 +155,7 @@ class _FakeClient:
                             })
                     attempt["feedback"] = params["p_feedback"]
                     attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
-                return _FakeRes([attempt])
+                return _FakeRes({"attempt": attempt, "finalized": finalized})
 
         return _Rpc()
 
@@ -885,6 +886,8 @@ def test_lost_ack_replays_single_persisted_attempt_without_duplicate_srs(monkeyp
             "p_next_review_at": "2026-08-23T00:00:00Z",
         },
     )
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
 
     out = asyncio.run(exr.submit_d1_attempt(
         exercise_id="pq-0",
@@ -907,6 +910,46 @@ def test_lost_ack_replays_single_persisted_attempt_without_duplicate_srs(monkeyp
     assert replay["replayed"] is True
     assert replay["attempt_id"] == out["attempt_id"]
     assert len(srs_calls) == 1
+    assert [event[0] for event in events] == ["exercise_completed"]
+
+
+def test_losing_attempt_finalizer_does_not_emit_duplicate_analytics(monkeypatch):
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    key = "7a9288e2-6d28-4538-866a-cf7d31f58d0e"
+    attempt = {
+        "id": "attempt-race", "user_id": USER_ID,
+        "exercise_id": "pq-0", "exercise_source": "personalized",
+        "session_id": None, "client_attempt_id": key,
+        "user_answer": "target0", "is_correct": True, "score": 1.0,
+        "feedback": {
+            "correct_answer": "target0", "target_vocabulary_id": None,
+            "srs_first_attempt": False, "srs_updated": False, "srs_rating": None,
+        },
+        "post_processed_at": None,
+    }
+    store = {
+        "vocabulary_exercise_attempts": [attempt],
+        "user_d1_questions": [], "vocabulary_exercises": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
+    monkeypatch.setattr(
+        exr, "_finalize_d1_attempt",
+        lambda *_args: ({**attempt, "post_processed_at": "2026-08-16T00:00:00Z"}, False),
+    )
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0", client_attempt_id=key),
+        authorization="Bearer x",
+    ))
+
+    assert out["persisted"] is True
+    assert out["replayed"] is True
+    assert events == []
 
 
 def test_session_attempt_grades_from_snapshot_after_admin_unpublish(monkeypatch):

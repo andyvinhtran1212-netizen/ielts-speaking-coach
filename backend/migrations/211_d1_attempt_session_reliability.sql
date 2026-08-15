@@ -26,7 +26,11 @@ COMMENT ON COLUMN d1_sessions.exercise_snapshot IS
 -- Finish one persisted attempt's post-processing in the same transaction as
 -- its optional SRS mutation. Locking the attempt row makes concurrent retries
 -- with the same client_attempt_id converge on one SRS increment.
-CREATE OR REPLACE FUNCTION fn_finalize_d1_attempt(
+DROP FUNCTION IF EXISTS fn_finalize_d1_attempt(
+    uuid, uuid, integer, real, integer, timestamptz, timestamptz, jsonb
+);
+
+CREATE FUNCTION fn_finalize_d1_attempt(
     p_attempt_id       uuid,
     p_vocab_id         uuid,
     p_interval         integer,
@@ -36,7 +40,7 @@ CREATE OR REPLACE FUNCTION fn_finalize_d1_attempt(
     p_next_review_at   timestamptz,
     p_feedback         jsonb
 )
-RETURNS SETOF vocabulary_exercise_attempts
+RETURNS JSONB
 LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
@@ -54,8 +58,10 @@ BEGIN
     END IF;
 
     IF v_attempt.post_processed_at IS NOT NULL THEN
-        RETURN NEXT v_attempt;
-        RETURN;
+        RETURN jsonb_build_object(
+            'attempt', to_jsonb(v_attempt),
+            'finalized', false
+        );
     END IF;
 
     IF p_vocab_id IS NOT NULL THEN
@@ -100,7 +106,10 @@ BEGIN
        AND user_id = auth.uid()
      RETURNING * INTO v_attempt;
 
-    RETURN NEXT v_attempt;
+    RETURN jsonb_build_object(
+        'attempt', to_jsonb(v_attempt),
+        'finalized', true
+    );
 END;
 $$;
 
@@ -112,7 +121,7 @@ GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(
 ) TO authenticated;
 
 COMMENT ON FUNCTION fn_finalize_d1_attempt IS
-    'Atomically applies at most one optional SRS update and seals a D1 attempt post-processing receipt; safe for lost-ACK retries.';
+    'Atomically applies at most one optional SRS update and seals a D1 attempt post-processing receipt; returns finalized=true only to the caller that performed the transition.';
 
 -- Rollback (manual):
 -- DROP INDEX IF EXISTS uq_vocab_attempts_user_client_attempt;

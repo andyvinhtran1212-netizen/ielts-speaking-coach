@@ -32,10 +32,12 @@ def test_session_snapshot_remains_nullable_for_historical_rows():
 
 
 def test_post_processing_and_srs_commit_in_one_locked_transaction():
-    assert "create or replace function fn_finalize_d1_attempt" in SQL
+    assert "create function fn_finalize_d1_attempt" in SQL
     assert "for update" in SQL
     assert "if v_attempt.post_processed_at is not null" in SQL
     assert "insert into flashcard_reviews" in SQL
     assert "post_processed_at = now()" in SQL
+    assert "'finalized', false" in SQL
+    assert "'finalized', true" in SQL
     assert "revoke all on function fn_finalize_d1_attempt" in SQL
     assert "to authenticated" in SQL

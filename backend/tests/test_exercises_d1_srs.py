@@ -126,6 +126,7 @@ class _Client:
                     if table == "vocabulary_exercise_attempts"
                     and row.get("id") == params["p_attempt_id"]
                 )
+                finalized = not attempt.get("post_processed_at")
                 if not attempt.get("post_processed_at"):
                     vocab_id = params.get("p_vocab_id")
                     if vocab_id:
@@ -148,7 +149,7 @@ class _Client:
                     attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
 
                 class _R:
-                    data = [attempt]
+                    data = {"attempt": attempt, "finalized": finalized}
                     count = None
                 return _R()
 
