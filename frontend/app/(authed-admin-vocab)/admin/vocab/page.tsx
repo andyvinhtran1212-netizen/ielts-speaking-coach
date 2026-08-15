@@ -15,7 +15,7 @@ const destinations = [
   { eyebrow: 'Cấu trúc chương trình', title: 'Chủ đề', description: 'Quản lý topic và liên kết từ vựng với ngân hàng câu hỏi.', detail: 'Topics · Cards · Banks', href: '/admin/vocab/topics', status: 'LIVE' },
   { eyebrow: 'Kiểm duyệt cá nhân hoá', title: 'D1 Curation', description: 'Rà soát câu fill-blank, ngữ cảnh và nguồn sinh trước khi phát hành.', detail: 'Review · Edit · Soft-delete', href: '/admin/vocab/d1-curation', status: 'LIVE' },
   { eyebrow: 'Chuẩn hoá ngôn ngữ', title: 'Lemma Overrides', description: 'Sửa mapping lemma cho idiom, proper noun và trường hợp spaCy nhận sai.', detail: 'Search · Override · Audit', href: '/admin/vocab/lemmas', status: 'LIVE' },
-  { eyebrow: 'Bài luyện D1', title: 'Exercises pool', description: 'Điều phối hàng đợi draft, publish/reject và batch generation.', detail: 'Draft · Publish · Generate', href: '/pages/admin/vocab/exercises.html', status: 'LIVE' },
+  { eyebrow: 'Bài luyện D1', title: 'Exercises pool', description: 'Điều phối hàng đợi draft, publish/reject và batch generation.', detail: 'Draft · Review · Generate', href: '/admin/vocab/exercises', status: 'LIVE' },
   { eyebrow: 'Ngân hàng kiểm tra', title: 'Quick-Check Quiz', description: 'Quản lý câu hỏi và cấu hình quiz theo topic hoặc skill area.', detail: 'Banks · Questions · Import', href: '/admin/vocab/quiz', status: 'LIVE' },
 ] as const;
 
