@@ -5,14 +5,22 @@ import { chromium } from 'playwright';
 const BASE = process.argv[2] || 'http://localhost:3011';
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
+async function waitForCount(getCount, expected, timeout = 2000) {
+  const deadline = Date.now() + timeout;
+  while (getCount() < expected && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return getCount() >= expected;
+}
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await context.newPage();
-const errors = []; const feedback = []; const articleReads = [];
+const errors = []; const feedback = []; const analytics = []; const articleReads = [];
+const vocabularyViews = () => analytics.filter((event) => event.event_name === 'vocab_wiki_viewed');
 page.on('pageerror', (error) => errors.push(String(error)));
-await page.route('**/*', async (route) => {
+await context.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
   if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
@@ -34,7 +42,9 @@ await page.route('**/*', async (route) => {
   if (method === 'POST' && parsed.pathname === '/api/feedback') {
     feedback.push(JSON.parse(request.postData() || '{}')); return json({ id: 'feedback-fixture' });
   }
-  if (method === 'POST' && parsed.pathname === '/api/analytics/events') return json({ ok: true });
+  if (method === 'POST' && parsed.pathname === '/api/analytics/events') {
+    analytics.push(JSON.parse(request.postData() || '{}')); return json({ ok: true });
+  }
   return json({ detail: `unhandled fixture ${method} ${parsed.pathname}` }, 404);
 });
 
@@ -43,6 +53,8 @@ await page.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: t
 await page.locator('.vmd-row').first().waitFor();
 const rowCount = await page.locator('.vmd-row').count();
 check('server bootstrap render danh mục và thẻ đầu tiên', rowCount >= 2 && await page.locator('.va-card').count() === 1, `${rowCount} rows`);
+await waitForCount(() => vocabularyViews().length, 1);
+check('desktop default card phát đúng một lượt xem', vocabularyViews().length === 1, `${vocabularyViews().length} vocabulary views`);
 
 const firstHeadword = (await page.locator('.vmd-rw').first().textContent() || '').trim();
 await page.getByRole('searchbox', { name: 'Tìm từ vựng' }).fill(firstHeadword);
@@ -77,6 +89,22 @@ if (await third.count()) {
   await page.getByRole('button', { name: 'Quay lại danh sách' }).click();
 }
 check('mobile detail đóng về danh sách và không tràn ngang', await page.locator('.vmd-shell.show-detail').count() === 0 && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+
+const mobileBefore = vocabularyViews().length;
+const mobile = await context.newPage();
+mobile.on('pageerror', (error) => errors.push(String(error)));
+await mobile.setViewportSize({ width: 390, height: 844 });
+await mobile.goto(`${BASE}/vocabulary`, { waitUntil: 'domcontentloaded' });
+await mobile.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
+await mobile.locator('.vmd-row').first().waitFor();
+await mobile.waitForFunction(() => Boolean(window.api?.post));
+await mobile.waitForTimeout(250);
+const mobileSilent = vocabularyViews().length === mobileBefore;
+await mobile.locator('.vmd-row-main').first().click();
+await mobile.locator('.va-card').waitFor();
+await waitForCount(() => vocabularyViews().length, mobileBefore + 1);
+check('mobile chỉ phát lượt xem sau khi mở thẻ', mobileSilent && vocabularyViews().length === mobileBefore + 1, `${vocabularyViews().length - mobileBefore} mobile views`);
+await mobile.close();
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
 
 await browser.close();

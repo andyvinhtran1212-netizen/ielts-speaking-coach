@@ -202,6 +202,7 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
   const [category, setCategory] = useState(validInitialCategory);
   const [query, setQuery] = useState('');
   const [showDetail, setShowDetail] = useState(Boolean(initialSlug));
+  const [desktopDetailVisible, setDesktopDetailVisible] = useState(false);
   const [detail, setDetail] = useState<DetailState | null>(initialArticle
     ? { key: initialKey, status: 'ready', article: initialArticle }
     : initialWord || initialSlug
@@ -224,7 +225,17 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
   }, []);
 
   useEffect(() => {
-    if (detail?.status !== 'ready' || analyticsRef.current.has(detail.key)) return;
+    const media = window.matchMedia('(min-width: 861px)');
+    const sync = () => setDesktopDetailVisible(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (detail?.status !== 'ready'
+      || (!showDetail && !desktopDetailVisible)
+      || analyticsRef.current.has(detail.key)) return;
     analyticsRef.current.add(detail.key);
     try {
       const sessionId = sessionStorage.getItem('vocab_session_id') || crypto.randomUUID();
@@ -237,7 +248,7 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
         }).catch(() => undefined);
       });
     } catch { /* analytics is best effort */ }
-  }, [detail]);
+  }, [desktopDetailVisible, detail, showDetail]);
 
   function play(audio: string, say: string, button: HTMLButtonElement) {
     window.speechSynthesis?.cancel();

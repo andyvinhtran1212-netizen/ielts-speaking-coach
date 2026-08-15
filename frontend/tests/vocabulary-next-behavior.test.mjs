@@ -44,6 +44,8 @@ describe('/vocabulary native public wiki', () => {
     assert.match(CLIENT, /skill: 'vocabulary'/);
     assert.match(CLIENT, /category: reason === 'audio' \? 'audio_issue' : 'content_issue'/);
     assert.match(CLIENT, /event_name: 'vocab_wiki_viewed'/);
+    assert.match(CLIENT, /window\.matchMedia\('\(min-width: 861px\)'\)/);
+    assert.match(CLIENT, /\(!showDetail && !desktopDetailVisible\)/);
   });
 
   test('legacy card stylesheet remains before Tailwind and public parity covers both widths', () => {
