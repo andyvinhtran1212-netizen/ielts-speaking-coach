@@ -1947,3 +1947,324 @@ lesson. A later give could therefore overwrite an earlier one in the matrix.
   backstop, native route ownership and a fixture-backed production browser flow
   covering 401/409/503/readback failure, focus, add/remove/reorder and responsive
   containment. Run Claude review after the major revamp before publishing the PR.
+
+## 2026-08-14 — Native `/admin/listening/import-fulltest`
+
+### Summary
+
+The legacy importer exposes the right parser and upload progress, but presents a
+four-file ingestion job as a collection of drop zones and browser-side mutations.
+The native redesign organizes it as pack identity → parser evidence → canonical
+readback, so an operator can tell which bytes were reviewed, what will be written
+and whether the backend actually persisted or published the test.
+
+### Critical issues
+
+#### Issue: Duplicate replacement crosses multiple browser mutations
+
+**Current State**: “Archive bản cũ & Import” PATCHes every matching active row,
+then starts a large upload and restores prior statuses when the commit reports an
+error.
+
+**Problem**: A lost upload ACK is not proof that commit failed. Restoring the old
+row while the server is still completing can create two active identities or hide
+which bundle is canonical.
+
+**Recommendation**: Do not archive inside the upload workflow. A duplicate Test ID
+must block commit and hand off to Kho test, where status changes already use a
+confirmation plus exact GET readback. The operator then reruns dry-run.
+
+**Impact**: A network failure cannot silently remove the only live paper or cause
+the importer to guess persisted truth.
+
+**Implementation Notes**: Keep the existing backend duplicate guard. Remove the
+combined action only from the native owner; retain HTML as explicit rollback.
+
+#### Issue: Dry-run is not cryptographically tied to the committed files
+
+**Current State**: The browser retains four mutable slot references, while dry-run
+sends only three and commit later reparses all four.
+
+**Problem**: The UI cannot prove that the file set being committed is the set the
+operator reviewed, especially after a replacement or Mini/Full mode change.
+
+**Recommendation**: Compute SHA-256 for all four files and include mode in one pack
+fingerprint. Invalidate preview whenever a slot or mode changes; allow commit only
+while the validated fingerprint remains current.
+
+**Impact**: The visual preview and the commit action refer to the same local bytes.
+
+**Implementation Notes**: Hash locally with Web Crypto; never upload or persist
+file contents in localStorage.
+
+#### Issue: Ambiguous POST can be replayed
+
+**Current State**: A network failure returns the page to an enabled import button.
+
+**Problem**: The original request may already have created a draft and uploaded
+audio. Repeating it can hit duplicate guards or produce uncertain cleanup work.
+
+**Recommendation**: Persist an account-scoped receipt before POST, including Test
+ID, pack fingerprint and exact baseline row IDs. A 5xx/network failure locks new
+POSTs; recovery searches by exact Test ID, excludes baseline IDs and reads the one
+candidate by UUID. Never replay the upload automatically.
+
+**Impact**: Reloads and transport failures become recoverable without duplicate
+writes.
+
+**Implementation Notes**: Treat 4xx as a definitive rejection; keep receipts for
+5xx, transport errors, malformed ACKs and failed GET readbacks.
+
+### High-priority improvements
+
+- **Evidence hierarchy**: Show parser errors, warnings, every question/answer and
+  contiguous IMG-PROMPT block before the commit control.
+- **Publication separation**: Commit creates Draft only. Published requires its own
+  focused dialog and exact UUID/status GET readback.
+- **Operational truth**: Expose file inventory, limits, Test ID, parser counts,
+  upload progress and canonical result in distinct regions instead of one mutable
+  banner.
+
+### Medium-priority enhancements
+
+- Route a four-file drop by extension/name while preserving explicit individual
+  pickers and per-slot errors.
+- Keep template downloads adjacent to the pack inventory.
+- Provide a one-click copy action per contiguous IMG-PROMPT block and a direct link
+  to the native test workspace after import.
+
+### Positive observations
+
+- Backend commit reparses the authoritative source files and already performs
+  fail-loud answer/timing validation.
+- The 60 MB cap, real XHR upload progress, automatic admin bearer token and
+  Draft-first lifecycle are worth preserving.
+- The existing canonical test inventory already supplies the safe duplicate-status
+  workflow needed by the redesign.
+
+### Verification
+
+- Model tests pin file routing/limits, SHA-256 descriptor shape, strict dry-run and
+  ACK contracts, section/image grouping, baseline reconciliation and account scope.
+- Fixture-browser coverage pins happy import/publish, duplicate blocking, 503
+  recovery without POST replay, storage failure before POST and mobile containment.
+- Full frontend tests, TypeScript, production build and focused backend importer
+  tests must pass; Claude review runs after browser verification and before commit.
+
+## 2026-08-14 — Native `/admin/listening/import-drills`
+
+### Summary
+
+The legacy batch table compressed file grouping, parser results and persistence
+into one optimistic surface. The native redesign uses four explicit evidence
+stages: inventory, dry-run, sequential commit and canonical result. It keeps the
+existing backend parser while making every uncertain relationship visible and
+non-actionable.
+
+### Critical issues resolved
+
+#### Issue: Loose multi-file selection can associate media with the wrong drill
+
+**Current State**: Directory paths are usable, but a loose selection has no
+reliable `audio_output/<TEST_ID>` owner and duplicate slots overwrite silently.
+
+**Problem**: The operator can validate one Source JSON while timings/audio from
+another drill are committed.
+
+**Recommendation**: Treat directory paths as canonical. Attach loose accessories
+only when exactly one Source JSON exists; surface unassigned and duplicate files
+as blocking inventory findings.
+
+**Impact**: No bundle is created by inference when the browser cannot prove file
+ownership.
+
+**Implementation Notes**: The pure grouping model returns bundles, unassigned
+files, ignored files and global errors separately.
+
+#### Issue: Audio without timings is silently downgraded to metadata-only
+
+**Current State**: The legacy controller simply omits the selected mp3 from the
+commit form when `timings.json` is absent.
+
+**Problem**: Admin intent and persisted truth diverge; the visible audio file is
+discarded without consent.
+
+**Recommendation**: Block the bundle before dry-run and explain that per-question
+replay windows require timings. Metadata-only is valid only when no audio was
+selected.
+
+**Impact**: “Audio-ready” and “Metadata-only” become truthful, mutually exclusive
+states.
+
+#### Issue: Batch POST results are replayable after transport ambiguity
+
+**Current State**: A network/5xx failure leaves the row available to retry and a
+successful ACK is not checked against canonical test detail.
+
+**Problem**: The backend may already have created a draft; a retry can collide or
+leave the operator unsure which row is authoritative.
+
+**Recommendation**: Commit selected rows sequentially. Before every POST, save an
+account-scoped receipt containing Test ID, SHA-256 fingerprint and baseline IDs.
+Keep it for all ambiguous outcomes, stop the whole queue, and reconcile by exact
+list/detail GET without replay.
+
+**Impact**: A batch can recover safely after reload, timeout or malformed ACK.
+
+### High-priority improvements implemented
+
+- Duplicate active Test IDs are never selectable and link to the native Kho test.
+- Canonical readback requires one exercised section, exact drill metadata and
+  top-level `full_audio_*` truth.
+- The confirmation dialog reports audio-ready versus metadata-only counts before
+  a write begins.
+- The table becomes stacked evidence cards on small screens; pickers and CTAs have
+  visible focus treatment and 44px touch targets.
+- Upload progress uses finite `progressbar` semantics outside a live region.
+
+### Positive observations preserved
+
+- The backend parser remains the canonical validator and commit still reparses
+  the uploaded bytes.
+- Metadata-only Drafts remain supported for planned audio production.
+- The HTML implementation stays reachable as a watchdog/manual rollback target.
+
+### Verification
+
+- Model tests cover deterministic grouping, limits, fingerprints, strict dry-run,
+  ACK/detail contracts, baseline reconciliation and account-scoped receipts.
+- Fixture-browser coverage exercises audio-ready, metadata-only, duplicate,
+  audio-without-timings, sequential success→503 stop, GET-only reconciliation,
+  localStorage failure before POST, focus and mobile containment.
+- TypeScript, production build, frontend contracts and backend drill importer
+  tests run before Claude review and publication.
+
+## 2026-08-14 — Native `/admin/listening/audit`
+
+### Summary
+
+The legacy dashboard visually flattened three different states: a successful
+live structural scan, the last persisted structural-plus-LLM audit, and a GET
+failure. The native redesign treats them as separate evidence clocks and closes
+the complete test inventory before presenting quality coverage.
+
+### Critical issues resolved
+
+#### Issue: Failed per-test reads look like an empty or unknown health pill
+
+**Current State**: Every rejected audit GET is converted to `null`; the row then
+shows `?` and `—` beside genuinely unaudited rows.
+
+**Problem**: An outage, permission problem or malformed response can be read as
+“nothing to inspect”, and aggregate health has no denominator for failed reads.
+
+**Recommendation**: Give every row a typed `loading`, `ready` or `lookup failed`
+state. Exclude lookup failures from clean health, show their count in the summary
+and provide a GET-only retry.
+
+**Impact**: Admins cannot confuse missing evidence with passing evidence.
+
+**Implementation Notes**: Response normalization binds UUID, Test ID, lifecycle,
+test type, question/section counts, issue counts and saved-audit identity.
+
+#### Issue: A paging guard can silently publish partial coverage
+
+**Current State**: The legacy controller stops after 30 pages, logs a console
+warning and renders the partial rows as though the dashboard covered every test.
+
+**Problem**: The screen's operational promise is “all tests”; an omitted older
+test may retain broken audio or answer evidence without appearing anywhere.
+
+**Recommendation**: Require a stable canonical total across pages. Reject an
+early short page, duplicate UUID, malformed row, changing total or guard overflow
+before replacing the last complete snapshot.
+
+**Impact**: The inventory is either demonstrably complete or visibly blocked.
+
+### High-priority improvements implemented
+
+- Live structural health is labelled as current no-LLM evidence; saved full audit
+  is labelled as a persisted snapshot from the last explicit full run.
+- Search, test type, live health and saved status are encoded in the URL.
+- Per-test audit GETs run in bounded batches of eight with a determinate progress
+  bar; account/request sequence guards prevent stale responses replacing state.
+- Summary cards expose canonical total, tests with errors, warnings and lookup
+  failures before the operator opens a detail workspace.
+- Desktop rows become labelled cards below 700px, action targets remain at least
+  44px and reduced-motion users do not receive progress animation.
+
+### Positive observations preserved
+
+- The backend structural/audio-bounds engine stays the canonical fast scanner.
+- The direct HTML audit detail remains an explicit watchdog/manual rollback.
+- Direct HTML dashboard remains the watchdog/manual rollback target.
+
+## 2026-08-14 — Admin Listening audit detail native repair workspace
+
+### Root causes closed
+
+- The legacy editor wrote transcript/question payloads without version tokens
+  and treated mutation ACK copy as canonical truth. The native workspace sends
+  `expected_updated_at` and requires an exact GET readback after every PATCH.
+- Its audio fallback selected the first section track for every question. Audio
+  now resolves assembled → full → the exact `section_num`; missing section audio
+  remains visible and never borrows another section.
+- Full audit is a paid, non-idempotent LLM POST but previously had no durable
+  ambiguity boundary. An account/test/request-scoped receipt is now written
+  before POST; timeout/5xx recovery is GET-only against the exact persisted
+  `health.request_id`, so another tab's run cannot close this receipt. A
+  confirmation-only discard path prevents an unpersisted 5xx from locking the
+  workspace forever and states that a retry can incur another charge.
+- Structural and LLM findings were inferred from code names in the browser.
+  Backend responses now expose `source`, including deterministic backfill for
+  older saved rows, and the UI labels both evidence types explicitly.
+- Triage formerly ignored invalid issue indexes and allowed `fixed` while errors
+  remained. Backend and UI now reject those states, require
+  `expected_updated_at`, and lock preserved inputs when another reviewer changes
+  the saved audit.
+
+### Interaction and responsive decisions
+
+- One section is edited at a time through keyboard-accessible tabs; transcript
+  and each question pin the version used for the write. An external edit to the
+  same canonical fields preserves the local draft but locks Save until the admin
+  explicitly reloads; unrelated readbacks preserve triage inputs. Inactive
+  section panels remain mounted, so mouse/arrow tab navigation never discards
+  transcript or question drafts.
+- Question forms include prompt, answer, alternatives, MCQ options, traps,
+  solution and optional audio bounds in one repair card. Full/assembled audio
+  keeps absolute windows; exact-section fallback subtracts a verified
+  `audio_offset`, cross-checks the declared section, and fails closed when the
+  timebase is unknown. Malformed option/window rows remain open for repair;
+  unreadable list fields must be explicitly re-entered so an unrelated fix
+  cannot clear grading data. Clearing both bounds on an existing window emits
+  explicit `null` and requires canonical GET confirmation. Non-audio repairs
+  on a question that never had a window may leave both bounds empty. Live and saved findings stay
+  visually separate instead of being merged into a false current snapshot.
+- Invalid or duplicate `q_num` values no longer close the whole workspace. The
+  ambiguous cards remain visible but read-only because the positional PATCH
+  would be unsafe; valid cards and transcript repair remain available.
+- Alternatives and trap mechanisms use newline-delimited fields, while option
+  text with embedded newlines round-trips through an escaped JSON string. A
+  comma inside a valid answer is never silently split into two grading keys.
+- The verification player is fixed but collapses on mobile; all primary controls
+  retain 44px touch targets, visible focus, reduced-motion support and no page
+  overflow at 390px.
+
+### Verification
+
+- Pure model coverage pins strict identity/count/version contracts, exact section
+  audio, option parsing, canonical matchers and durable receipt reconciliation.
+- Fixture browser coverage pins transcript/question versioned PATCH + GET,
+  ambiguous full-audit recovery without POST replay, triage guards and responsive
+  containment. Backend focused coverage pins source provenance and truthful writes.
+
+### Verification
+
+- Pure model tests cover filter URLs, complete inventory pages, exact identity,
+  live issue/count consistency, saved evidence and lookup-vs-clean summaries.
+- Fixture browser coverage uses 101 tests to prove offset 0/100 pagination,
+  bounded per-test reads, hostile-text escaping, lookup failure, URL filters,
+  GET-only retry, mobile containment and desktop restoration.
+- TypeScript, production build, full frontend contracts and the backend audit
+  engine suite run before Claude review and publication.
