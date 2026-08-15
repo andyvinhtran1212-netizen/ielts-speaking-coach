@@ -927,6 +927,7 @@ def test_admin_delete_exercise_soft_archives(monkeypatch):
     # Soft-delete = UPDATE with status='archived', NOT a DELETE.
     updates = [u for u in fake.updates if u[0] == "listening_exercises"]
     assert any(u[2].get("status") == "archived" for u in updates)
+    assert any(u[2].get("updated_at") for u in updates)
 
 
 def test_admin_delete_exercise_404_when_missing(monkeypatch):

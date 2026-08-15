@@ -32,6 +32,23 @@ WHERE updated_at IS NULL;
 ALTER TABLE listening_exercises
     ALTER COLUMN updated_at SET NOT NULL;
 
+-- Every mutation must advance the optimistic-concurrency token. A DEFAULT only
+-- covers INSERTs; without this trigger an archive/status update can leave the
+-- old token in place and a stale editor can subsequently overwrite it.
+CREATE OR REPLACE FUNCTION update_listening_exercises_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_listening_exercises_updated_at ON listening_exercises;
+CREATE TRIGGER trg_listening_exercises_updated_at
+    BEFORE UPDATE ON listening_exercises
+    FOR EACH ROW EXECUTE FUNCTION update_listening_exercises_updated_at();
+
 DO $$
 BEGIN
     IF EXISTS (

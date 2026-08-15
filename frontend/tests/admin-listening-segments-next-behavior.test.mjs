@@ -195,6 +195,9 @@ describe('native segments route and persistence contract', () => {
     assert.match(BACKEND, /mutation = mutation\.eq\("updated_at", body\.expected_updated_at\)/);
     assert.match(MIGRATION, /HAVING COUNT\(\*\) > 1[\s\S]+RAISE EXCEPTION/);
     assert.match(MIGRATION, /UNIQUE INDEX IF NOT EXISTS[\s\S]+content_id, exercise_type, order_num/);
+    assert.match(MIGRATION, /CREATE OR REPLACE FUNCTION update_listening_exercises_updated_at\(\)/);
+    assert.match(MIGRATION, /BEFORE UPDATE ON listening_exercises/);
+    assert.match(BACKEND, /"status": "archived",[\s\S]+"updated_at": datetime\.now/);
   });
 
   test('uses public audio time API and protects destructive/unsaved boundaries', () => {

@@ -1653,8 +1653,12 @@ async def admin_delete_listening_exercise(
     if not res.data:
         raise HTTPException(404, "Exercise not found")
 
+    from datetime import datetime, timezone
     supabase_admin.table("listening_exercises").update({
         "status": "archived",
+        # Keep the API truthful even during a rolling deploy before migration
+        # 208's trigger is present on every environment.
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", exercise_id).execute()
 
     return {"ok": True, "exercise_id": exercise_id, "status": "archived"}
