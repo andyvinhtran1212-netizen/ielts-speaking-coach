@@ -75,7 +75,7 @@ test('behavior: read qua /auth/profile với fallback /auth/me (ADR-011)', () =>
   assert.match(BEHAVIOR, /^'use client';/);
   assert.match(BEHAVIOR, /'\/auth\/profile'/);
   assert.match(BEHAVIOR, /'\/auth\/me'/, 'legacy fallback path must survive');
-  assert.match(BEHAVIOR, /location\.replace\('\/login\.html'\)/,
+  assert.match(BEHAVIOR, /location\.replace\('\/login'\)/,
     'signed-out must leave via replace() so Back cannot restore private data (ADR-011 §3)');
   assert.match(BEHAVIOR, /\[status, user\?\.id\]/,
     'data effect must be keyed by user id — same-status account switch A→B must refetch (review #742)');
@@ -120,7 +120,7 @@ test('AUDIT F6: logout/account-switch abort mọi in-flight request (ADR-011 §2
   // The signed-out gate must abort BEFORE redirecting away.
   const gate = BEHAVIOR.indexOf("status === 'signed-out'");
   const abortIdx = BEHAVIOR.indexOf('.abort()', gate);
-  const redirectIdx = BEHAVIOR.indexOf("replace('/login.html')", gate);
+  const redirectIdx = BEHAVIOR.indexOf("replace('/login')", gate);
   assert.ok(gate !== -1 && abortIdx !== -1 && abortIdx < redirectIdx,
     'signed-out gate: abort in-flight requests BEFORE leaving the page');
   assert.match(BEHAVIOR, /AbortError'\) return/,

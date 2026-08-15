@@ -57,7 +57,7 @@ describe('/admin/writing/grade — native ownership + admin boundary', () => {
 
   test('fails closed through account-keyed /auth/me role truth', () => {
     assert.match(GATE, /status === 'signed-out'/);
-    assert.match(GATE, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(GATE, /window\.location\.replace\('\/login'\)/);
     assert.match(GATE, /window\.api\.get<AdminProfile>\('\/auth\/me'\)/);
     assert.match(GATE, /profile\?\.role === 'admin'/);
     assert.match(GATE, /selectKeyedAdminState\(accessState, accountKey\)/);

@@ -676,7 +676,7 @@ export class AverChrome extends HTMLElement {
       // AFTER the awaited revoke. supabase-js v2 signOut() calls the
       // network revoke BEFORE clearing the localStorage session — if we
       // dispatched av-chrome-signed-out first, the Next AuthProvider's
-      // fail-closed redirect (profile → /login.html) would navigate away
+      // fail-closed redirect (profile → /login) would navigate away
       // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
       // the next page load would restore the session and the logout would
       // silently undo itself.

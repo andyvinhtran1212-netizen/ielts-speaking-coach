@@ -5388,7 +5388,7 @@
       var result = await sb.auth.getSession();
       if (!_playerActive || generation !== _playerGeneration) return;
       if (!result.data.session) {
-        window.location.href = window.api.url('login.html');
+        window.location.href = '/login';
         return;
       }
       // Stamp any debt WE create with the owner, so a shared browser cannot let

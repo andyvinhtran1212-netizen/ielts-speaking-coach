@@ -241,7 +241,7 @@ async function loadClassStrip(api: any, cancelled: () => boolean) {
  * Trên trang legacy thứ tự thẻ script bảo đảm `initSupabase` đã chạy trước;
  * trong Next mọi script ngoài đều `defer` còn script nội tuyến chạy lúc parse,
  * nên nó bắn `/api/mock-exams/my-sittings` TRƯỚC khi phiên sẵn sàng → 401 →
- * `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến mất. Cổng parity authed
+ * `api.js:130` đẩy sang `/login` và CẢ TRANG biến mất. Cổng parity authed
  * bắt đúng vậy: `title-mismatch: Trang chủ → Đăng nhập`, 68 phát hiện.
  *
  * Ở đây nó chạy SAU khi `useAuth()` xác nhận đã đăng nhập và `window.api` sẵn
@@ -343,7 +343,7 @@ export function HomeBehavior() {
   // trang riêng tư từ lịch sử. Bản legacy tương ứng: home.html chuyển hướng về
   // login khi không có phiên.
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

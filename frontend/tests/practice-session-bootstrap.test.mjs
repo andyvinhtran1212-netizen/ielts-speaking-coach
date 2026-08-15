@@ -248,7 +248,7 @@ describe('native Speaking session bootstrap contract', () => {
     assert.match(NEXT_BOOT, /ownerUserId\.current !== user\.id/);
     assert.match(NEXT_BOOT, /window\.location\.reload\(\)/);
     assert.match(NEXT_BOOT, /error\.code === 'auth_required'/);
-    assert.match(NEXT_BOOT, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(NEXT_BOOT, /window\.location\.replace\('\/login'\)/);
     assert.match(NEXT_BOOT, /request_id: \(error as any\)\?\.request_id/);
     assert.match(NEXT_BOOT, /type: 'practice_native_bootstrap_failed',[\s\S]*?\n\s+code,/);
     assert.match(LEGACY_RUNTIME, /async function init\(bootstrap\)/);

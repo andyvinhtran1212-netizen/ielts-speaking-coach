@@ -1167,7 +1167,7 @@ export function SessionResultBehavior() {
     if (status === 'signed-out') {
       setResultState(null);
       setErrorState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

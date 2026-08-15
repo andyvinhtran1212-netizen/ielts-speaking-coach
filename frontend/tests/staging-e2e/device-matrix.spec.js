@@ -54,7 +54,7 @@ test('Next → legacy → Next seam keeps origin storage and never calls product
 
 test('signed-out private route fails closed and login has no horizontal overflow', async ({ page }) => {
   await page.goto('/profile');
-  await page.waitForURL('**/login.html*', { timeout: 20_000 });
+  await page.waitForURL('**/login*', { timeout: 20_000 });
   await expect(page.locator('body')).toContainText(/averlearning|Đăng nhập|Google/i);
 
   const layout = await page.evaluate(() => ({

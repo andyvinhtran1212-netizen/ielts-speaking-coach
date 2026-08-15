@@ -389,7 +389,7 @@ export function MockResultBehavior() {
       setResultState(null);
       setErrorState(null);
       setPendingKey(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

@@ -615,7 +615,7 @@ export function ReadingExamSession() {
   useEffect(() => {
     if (!params || status === 'initial-loading') return;
     if (!params.share && status === 'signed-out') {
-      window.location.replace('/login.html');
+      window.location.replace('/login');
       return;
     }
     if (!params.share && status === 'signed-in' && user?.id) {

@@ -314,7 +314,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
             Luyện IELTS Speaking với AI — nhận feedback ngay lập tức
           </p>
           <a
-            href="/login.html"
+            href="/login"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap"
           >
             Dùng thử miễn phí →
@@ -350,7 +350,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           </p>
           <div className="flex flex-col gap-2">
             <a
-              href="/login.html"
+              href="/login"
               className="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors"
             >
               Luyện Speaking ngay

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 
 // Legacy head scripts, kept byte-faithful (index.html):
 //  1. OAuth-redirect recovery — Supabase OAuth lands users on the SITE ROOT
-//     with #access_token / ?code=; legacy forwards them to /login.html to
+//     with #access_token / ?code=; legacy forwards them to /login to
 //     finish sign-in. Harmless on the dark preview URL, REQUIRED the moment
 //     this layout serves `/` (root cutover parity item).
 //  2. Anti-flash theme IIFE — sets [data-theme] before first paint. Rendered
@@ -16,7 +16,7 @@ const OAUTH_RECOVERY = `
 (function () {
   var h = window.location.hash, s = window.location.search;
   if (h.indexOf('access_token=') !== -1 || s.indexOf('code=') !== -1) {
-    window.location.replace('/login.html' + s + h);
+    window.location.replace('/login' + s + h);
   }
 })();
 `.trim();

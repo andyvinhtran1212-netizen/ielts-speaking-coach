@@ -81,6 +81,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('đưa link legacy về dạng canonical', () => {
     assert.equal(canonicalHref('/grammar.html'), '/grammar');
     assert.equal(canonicalHref('/index.html'), '/');
+    assert.equal(canonicalHref('/login.html'), '/login');
     assert.equal(canonicalHref('/pages/profile.html'), '/profile');
     assert.equal(
       canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),

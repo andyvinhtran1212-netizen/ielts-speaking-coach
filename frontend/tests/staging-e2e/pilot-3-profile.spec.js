@@ -1,7 +1,7 @@
 // Pilot 3 (authenticated read) — browser-level proof on the LIVE staging
 // stack, covering the ADR-011 mandatory isolation matrix:
 //
-//   1. signed-out fail-closed: /profile leaves for /login.html
+//   1. signed-out fail-closed: /profile leaves for /login
 //   2. signed-in render: student's own /auth/profile data appears; the private
 //      API response carries Cache-Control: private, no-store (pilot checklist)
 //   3. two-user isolation: Login A → private data → sign-out → Login B in the
@@ -40,12 +40,12 @@ async function signInSession(request, role) {
 }
 
 test.describe('pilot 3 — /profile authenticated read', () => {
-  test('signed-out fail-closed → /login.html', async ({ browser, baseURL }) => {
+  test('signed-out fail-closed → /login', async ({ browser, baseURL }) => {
     const context = await browser.newContext();
     await primeBypassCookie(context, baseURL);
     const page = await context.newPage();
     await page.goto('/profile');
-    await page.waitForURL('**/login.html*', { timeout: 20_000 });
+    await page.waitForURL('**/login*', { timeout: 20_000 });
     await context.close();
   });
 
@@ -102,7 +102,7 @@ test.describe('pilot 3 — /profile authenticated read', () => {
       await window.getSupabase().auth.signOut();
     });
     // Provider fail-closed → replace() to login.
-    await page.waitForURL('**/login.html*', { timeout: 20_000 });
+    await page.waitForURL('**/login*', { timeout: 20_000 });
 
     // logout → Back must NOT restore A's private page (replace() + bfcache
     // re-validation). Either we stay on login or land on a signed-out
@@ -113,7 +113,7 @@ test.describe('pilot 3 — /profile authenticated read', () => {
 
     // ── Phase B: instructor signs in — SAME context, fresh storage write ──
     const bearersBeforeB = bearers.length;
-    await page.goto('/login.html'); // neutral origin page to write storage
+    await page.goto('/login'); // canonical public origin page to write storage
     await page.evaluate(
       ([key, value]) => {
         window.localStorage.setItem(key, value);

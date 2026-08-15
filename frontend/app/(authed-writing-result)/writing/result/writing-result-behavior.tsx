@@ -261,7 +261,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
       const sb = window.getSupabase() as any;
       const session = (await sb.auth.getSession()).data.session;
       if (!session) {
-        window.location.href = '/login.html';
+        window.location.href = '/login';
         return;
       }
       const response = await fetch(`${window.api.base}/api/writing/my-essays/${encodeURIComponent(essayId)}/export.docx`, {
@@ -415,7 +415,7 @@ export function WritingResultBehavior() {
   const requestKey = accountKey ? `${accountKey}:${essayId}` : '';
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

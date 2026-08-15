@@ -66,7 +66,7 @@ function PersonalRoadmapBody() {
   useEffect(() => {
     if (status === 'signed-out') {
       setState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

@@ -28,7 +28,7 @@ describe('/listening/tests — native React behavior', () => {
   test('uses shared auth, fails closed and keys requests by account', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
-    assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /\[accountKey\]/);

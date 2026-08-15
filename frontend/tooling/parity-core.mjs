@@ -182,6 +182,10 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // ── Hợp đồng URL: legacy → canonical ───────────────────────────────────
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
+  // `/login` owns authentication entry after the native cutover. Keep the
+  // HTML page directly reachable as a rollback/parity reference, but compare
+  // every link according to the canonical owner.
+  else if (path === '/login.html') path = '/login';
   // `/grammar/search` cutover 2026-08-15. Giữ trang HTML làm rollback/parity,
   // nhưng mọi link tới nó phải so theo chủ sở hữu canonical mới; query `q`
   // vẫn được giữ nguyên ở bước dựng URL bên dưới.

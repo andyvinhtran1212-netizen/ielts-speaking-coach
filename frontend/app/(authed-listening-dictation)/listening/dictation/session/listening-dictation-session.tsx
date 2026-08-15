@@ -242,7 +242,7 @@ export function ListeningDictationSession() {
 
   useEffect(() => {
     if (status === 'initial-loading') return;
-    if (status === 'signed-out') { window.location.replace('/login.html'); return; }
+    if (status === 'signed-out') { window.location.replace('/login'); return; }
     if (!user?.id) return;
     const key = `${user.id}:${searchParams?.toString() || ''}`;
     if (bootKeyRef.current === key) return;

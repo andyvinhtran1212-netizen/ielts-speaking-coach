@@ -45,7 +45,7 @@ export function PracticeSessionBoot() {
   useEffect(() => {
     if (status === 'initial-loading') return;
     if (status === 'signed-out') {
-      window.location.replace('/login.html');
+      window.location.replace('/login');
       return;
     }
     if (!user?.id) {
@@ -107,7 +107,7 @@ export function PracticeSessionBoot() {
       .catch((error) => {
         if (!active) return;
         if (error instanceof PracticeBootstrapError && error.code === 'auth_required') {
-          window.location.replace('/login.html');
+          window.location.replace('/login');
           return;
         }
         const message = error instanceof PracticeBootstrapError

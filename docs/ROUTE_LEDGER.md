@@ -138,7 +138,7 @@
 |---|---|---|---|---|---|---|---|
 | `/` | — | `index.html` | Public | none | localStorage (theme) | S | Landing page; marketing content only |
 | `/pricing` | `/pricing.html` giữ nguyên làm rollback/source cho ngày launch | `app/(marketing)/pricing/page.tsx` — CUTOVER 2026-08-15 | Public | none | none while pre-launch closed | S | Native server redirect về `/`; không gửi UI giá chưa phát hành xuống trình duyệt. Legacy cũng tiếp tục giữ redirect sentinel. |
-| `/login` | — | `login.html` | Public | `next` (redirect after login) | localStorage (theme), Supabase client | M | Auth entry point; session init |
+| `/login` | `/login.html` remains rollback/parity target | `app/(public-auth)/login/page.tsx` — native React ownership 2026-08-15 | Public | none; Supabase implicit callback hash/query is consumed then removed | localStorage (theme), shared Supabase client, canonical `/auth/me` | M | Native auth entry; strict backend profile truth; inactive access-code flow reconciles `/auth/me` after every mutation outcome, including lost ACK; active unonboarded users remain routed to legacy `/onboarding.html` until its dedicated batch |
 | `/onboarding` | — | `onboarding.html` | Student | none | localStorage (theme), Supabase session | M | Post-signup activation flow |
 
 ### Grammar
