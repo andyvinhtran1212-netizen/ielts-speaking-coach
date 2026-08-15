@@ -238,7 +238,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/grammar/exercises` | `app/(public-content)/grammar/exercises/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/grammar-exercises.html` (parity/rollback only) | Public | none | `/api/grammar/exercises`; abort on unmount | M | Grammar quiz launcher; authored bank metadata React-escaped; soft-navigation safe |
-| `/d1-exercise` | — | `pages/d1-exercise.html` | Student | `task_id`, `attempt_id` | localStorage (theme), sessionStorage (exercise state), file upload (image) | M | Academic writing Task 1 (chart description) |
+| `/d1-exercise` | `/pages/d1-exercise.html` giữ làm rollback | `app/(authed-d1-exercise)/d1-exercise/page.tsx` — native React behavior 2026-08-16 | Student | `session` (D1 session UUID, optional resume) | AuthProvider; `/auth/me`; `/api/exercises/d1/sessions*`; account-keyed localStorage resume pointer; idempotent attempt ACK gate | M | D1 fill-blank vocabulary player; immutable snapshot, resume, canonical completion summary và local-only wrong-answer revision |
 | `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |
 | `/exercises` | `/pages/exercises.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(authed-exercises)/exercises/page.tsx` — CUTOVER 2026-08-06; lifecycle-safe Next orchestration 2026-08-09 | Student | none | AuthProvider; `/auth/me`; retained `vocab-modules/exercises.js` through shared mount/unmount adapter; abort on unmount | M | Feature-gated exercise hub; account-keyed and soft-navigation safe |
 | `/quiz` | `app/(authed-quiz-player)/quiz/page.tsx` — CUTOVER 2026-08-15; native React behavior | `pages/quiz.html` (parity/rollback only) | Student | `bank` (bank UUID), or `skill_area` + `topic_id` (optional picker scope) | AuthProvider, `/api/quiz/banks*`, `/api/quiz/sessions*`; keyed/abortable bank reads; serialized retry outbox + keepalive; in-memory session review | L | Adaptive Quick-Check player; choice/text/boolean/syllable, non-destructive review, reset reconciliation and truthful save warning |
@@ -405,7 +405,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | **MediaRecorder** | 3 | Practice (speaking), writing (audio submission), dictation |
 | **audio playback** | ~20 | Listening, result, dictation, review flows |
 | **Clipboard API** | ~5 | Admin grading (paste rubric), dictation (paste answer) |
-| **File upload** | ~15 | Admin listening (audio), reading (image), writing (submit), d1-exercise (chart) |
+| **File upload** | ~15 | Admin listening (audio), reading (image), writing (submit) |
 | **Canvas/waveform** | 2 | Audio cutter, audio spike visualization |
 | **Chart library** | ~12 | Analytics pages (usage, foot-traffic, quiz analytics, etc.) |
 

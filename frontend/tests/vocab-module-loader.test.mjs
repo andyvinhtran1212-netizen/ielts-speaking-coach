@@ -413,7 +413,7 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
   });
 
   test('card hrefs are absolute paths (Sprint 6.15.8-hotfix lesson)', () => {
-    assert.match(src, /href="\/pages\/d1-exercise\.html"/);
+    assert.match(src, /href="\/d1-exercise"/);
     assert.match(src, /href="\/flashcards"/);
     // No relative hrefs that would break under Vercel rewrites.
     assert.ok(
