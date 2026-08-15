@@ -348,14 +348,14 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/admin/vocab` | — | `pages/admin/vocab/index.html` | Admin | none | localStorage (theme), sessionStorage (tab state), fetch (vocab API) | M | Vocabulary admin hub; 8-tab interface |
+| `/admin/vocab` | `/pages/admin/vocab/index.html` remains rollback target | `app/(authed-admin-vocab)/admin/vocab/page.tsx` — native React ownership 2026-08-15 | Admin | none | AuthProvider + backend-owned `/auth/me` role guard | S | Native eight-workspace hub; canonical chrome/overview links use the clean route while child legacy consoles remain explicit until their own batches |
 | `/admin/vocab/content` | — | `pages/admin/vocab/content.html` | Admin | `list_id`, `status` (active, archived), `search` | localStorage (theme), sessionStorage (filter state), fetch (card list) | L | Vocabulary card CRUD + bulk edit; PostgREST 1000-row cap (paginated in v3) |
 | `/admin/vocab/d1-curation` | — | `pages/admin/vocab/d1-curation.html` | Admin | `batch`, `status` (pending, reviewed) | localStorage (theme), fetch (curation API) | M | D1 topic word curation workflow |
 | `/admin/vocab/exercises` | — | `pages/admin/vocab/exercises.html` | Admin | `list_id`, `type` (quiz, flashcard) | localStorage (theme), fetch (exercise API) | M | Exercise template CRUD |
 | `/admin/vocab/lemmas` | — | `pages/admin/vocab/lemmas.html` | Admin | `search`, `part_of_speech`, `frequency` | localStorage (theme), sessionStorage (filter), fetch (lemma list) | M | Lemma browser + headword management |
 | `/admin/vocab/quiz` | — | `pages/admin/vocab/quiz.html` | Admin | `bank_id`, `status` | localStorage (theme), fetch (quiz API) | M | Grammar/vocab quiz question editor |
 | `/admin/vocab/quiz-analytics` | — | `pages/admin/vocab/quiz-analytics.html` | Admin | `bank_id`, `date_range` | localStorage (theme), fetch (analytics API), chart library | M | Quiz attempt analytics + difficulty review |
-| `/admin/vocab/stats` | — | `pages/admin/vocab/stats.html` | Admin | none | localStorage (theme), fetch (stats API), chart library | S | Vocabulary corpus stats (unique words, frequency dist) |
+| `/admin/vocab/stats` | `/pages/admin/vocab/stats.html` remains rollback target | `app/(authed-admin-vocab)/admin/vocab/stats/page.tsx` + `admin-vocab-stats.tsx` — native React ownership 2026-08-15 | Admin | `days=7\|30\|90` | AuthProvider + backend-owned `/auth/me` role guard; independent canonical Vocab/Flashcards GETs; UUID-gated flag POST + Vocab GET readback; account/request freshness guards | M | Native stats consumes the actual backend aggregate keys (legacy expected stale field names and rendered empty metrics), preserves partial refresh truth, exposes SRS rating/engagement evidence and never reports a feature-flag write complete without canonical readback |
 | `/admin/vocab/topics` | — | `pages/admin/vocab/topics.html` | Admin | none | localStorage (theme), fetch (topic API) | M | Topic CRUD + word assignment |
 
 ### Admin — Mock Exams & Reviews
