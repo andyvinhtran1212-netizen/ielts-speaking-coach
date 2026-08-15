@@ -663,6 +663,60 @@
   text-align: center;
 }
 
+/* Native Next detail dialogs. They replace page-level DOM ownership while
+   preserving the glossary/image affordances from the rollback surfaces. */
+.rv-dialog-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--av-space-4);
+  background: var(--av-surface-overlay);
+}
+.rv-dialog {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: min(82dvh, 760px);
+  overflow: auto;
+  padding: var(--av-space-6);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-elevated);
+  color: var(--av-text-primary);
+  box-shadow: var(--av-shadow-lg, var(--av-shadow-md));
+}
+.rv-dialog h2 { margin: 0 2.5rem var(--av-space-2) 0; font-size: var(--av-fs-xl); }
+.rv-dialog p { margin: var(--av-space-2) 0 0; line-height: var(--av-lh-relaxed); }
+.rv-dialog__close {
+  position: absolute;
+  top: var(--av-space-3);
+  right: var(--av-space-3);
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  cursor: pointer;
+}
+.rv-dialog__close:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.rv-dialog__meta { color: var(--av-primary); font-family: var(--av-font-mono); font-size: var(--av-fs-sm); }
+.rv-dialog__example { color: var(--av-text-secondary); font-style: italic; }
+.rv-dialog__synonyms { padding-top: var(--av-space-2); border-top: 1px solid var(--av-border-subtle); color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+.rv-dialog--image { width: min(94vw, 1180px); padding: var(--av-space-3); overflow: hidden; }
+.rv-dialog--image img { display: block; max-width: 100%; max-height: calc(82dvh - var(--av-space-6)); margin: auto; object-fit: contain; }
+.rv-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+}
+
 /* ── Sprint 20.3 — library switcher (L1 Vocab ↔ L2 Skill) ───────────── */
 /* Reading tab is a single chrome nav slot covering both libraries; this
  * page-level switcher lets students jump between them. Underline-active

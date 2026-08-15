@@ -74,7 +74,8 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /id="clear-filters"/);
     assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
     assert.match(BEHAVIOR, /setDifficulty\(''\)[\s\S]*setTag\(''\)/);
-    assert.match(BEHAVIOR, /\/pages\/reading-vocab-passage\.html\?slug=/);
+    assert.match(BEHAVIOR, /\/reading\/vocab\/\$\{encodeURIComponent\(passage\.slug\)\}/);
+    assert.doesNotMatch(BEHAVIOR, /\/pages\/reading-vocab-passage\.html\?slug=/);
   });
 
   test('preserves the redesigned card hierarchy and accessible action cues', () => {

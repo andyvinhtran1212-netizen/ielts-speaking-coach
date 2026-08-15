@@ -227,7 +227,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
                 <a
                   aria-label={`Đọc bài ${passage.title}`}
                   className="rv-card"
-                  href={`/pages/reading-vocab-passage.html?slug=${encodeURIComponent(passage.slug)}`}
+                  href={`/reading/vocab/${encodeURIComponent(passage.slug)}`}
                   key={passage.key}
                 >
                   <div className="rv-card__top">
