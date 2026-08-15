@@ -108,6 +108,7 @@ export function AuthedShell({
   utilityLayer = true,
   tailwindLayer = utilityLayer,
   chrome = 'student',
+  authGated = true,
   bodyClass = 'av-page font-sans min-h-screen',
   children,
 }: {
@@ -146,6 +147,11 @@ export function AuthedShell({
   /** Shared coexistence chrome. Admin routes use the canonical admin component. */
   chrome?: 'student' | 'admin' | 'none';
   /**
+   * Whether the whole route requires a signed-in account. Hybrid surfaces can
+   * still consume AuthProvider while leaving their public modes accessible.
+   */
+  authGated?: boolean;
+  /**
    * Class gắn vào `<body>`. Mặc định giữ nguyên chuỗi cũ để ba trang đã port
    * không đổi. Trang legacy có body class KHÁC NHAU (`reading-vocab` chỉ có
    * `av-page`, `speaking` có tận sáu class) nên nó phải là tham số; ghi cứng
@@ -159,7 +165,7 @@ export function AuthedShell({
       {/* Route-scoped hint for the adaptive student chrome. Without it the
           Vocabulary target waits on a second Supabase poll and can briefly
           disagree with an authenticated native page. */}
-      <meta name="aver-auth-gated" content="1" />
+      {authGated && <meta name="aver-auth-gated" content="1" />}
       <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
 
       {/* Font preconnects + faces — bộ của trang cần đăng nhập, KHÔNG phải bộ

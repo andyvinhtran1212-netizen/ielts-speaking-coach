@@ -17,6 +17,7 @@ persisted in flashcard_stacks — that table only holds manual stacks.
 """
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -29,7 +30,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
 from services.pg_search import ilike_eq_any_filter, ilike_or_filter
-from services.rate_limit import rate_limit_flashcard
+from services.rate_limit import enforce_flashcard_rate_limit
 from services.srs import update_srs
 from services import kp_evidence
 
@@ -317,6 +318,9 @@ class ReviewRequest(BaseModel):
     """Body for POST /api/flashcards/{vocab_id}/review (step 4)."""
     model_config = ConfigDict(extra="ignore")
     rating: str
+    # Native Next player always sends this. Optional for the legacy rollback
+    # artifact until Gate F removes it.
+    client_review_id: uuid.UUID | None = None
 
     @field_validator("rating")
     @classmethod
@@ -1168,32 +1172,90 @@ async def get_due_count(authorization: str | None = Header(default=None)):
         return {"count": 0}
 
 
+def _load_review_receipt(sb, user_id: str, client_review_id: str) -> dict | None:
+    """Fail closed when retry identity cannot be checked safely."""
+    try:
+        result = (
+            sb.table("flashcard_review_log")
+            .select("id, user_id, vocabulary_id, rating, client_review_id")
+            .eq("user_id", user_id)
+            .eq("client_review_id", client_review_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error(
+            "[flashcards] idempotency lookup failed user=%s key=%s: %s",
+            user_id, client_review_id, exc,
+        )
+        raise HTTPException(500, "Could not verify review idempotency.")
+    return (result.data or [None])[0]
+
+
+def _review_receipt_conflicts(receipt: dict, vocab_id: str, rating: str) -> bool:
+    return (receipt.get("vocabulary_id") != vocab_id
+            or receipt.get("rating") != rating)
+
+
+def _is_review_idempotency_conflict(exc: Exception) -> bool:
+    """Recognize only migration 212's stable SQLSTATE + exact message."""
+    code = getattr(exc, "code", None)
+    message = getattr(exc, "message", None)
+    if exc.args and isinstance(exc.args[0], dict):
+        code = code or exc.args[0].get("code")
+        message = message or exc.args[0].get("message")
+    return (str(code or "") == "22023"
+            and message == "client_review_id is already bound to different input")
+
+
 @user_router.post("/{vocab_id}/review")
-@rate_limit_flashcard(daily_limit=settings.FLASHCARD_DAILY_REVIEW_LIMIT)
 async def submit_review(
     vocab_id: str,
     body: ReviewRequest,
     authorization: str | None = Header(default=None),
 ):
     """
-    Self-rate a card.  Updates SRS state via services.srs.update_srs and
-    appends a row to flashcard_review_log so the next call's rate-limit
-    counter sees this review.
+    Self-rate a card. The client operation ID, rate-limit receipt, and SRS
+    state are committed as one replay-safe transaction by migration 212.
 
     Two-step flow:
       1. Look up the existing flashcard_reviews row (or fall back to
          per-vocab defaults — ease=2.5, interval=1, count=0, lapse=0).
          Validates that the vocab belongs to the caller via the SELECT
          on user_vocabulary (RLS hides foreign rows).
-      2. Compute next state + UPSERT (UNIQUE(user_id, vocabulary_id)).
-
-    Failure to write the audit log is non-fatal — SRS still updated, just
-    means the daily counter under-reports by one.
+      2. Compute the next derived state and let the RPC atomically claim the
+         operation ID + UPSERT the shared SRS row.
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_flashcards_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
+
+    # A persisted key is a replay, so it must bypass the daily cap (otherwise a
+    # lost ACK on review #500 could never be recovered). A reused key with
+    # different input is rejected before any SRS work.
+    client_review_id = str(body.client_review_id) if body.client_review_id else str(uuid.uuid4())
+    existing_receipt = _load_review_receipt(sb, user_id, client_review_id) if body.client_review_id else None
+    if existing_receipt:
+        if _review_receipt_conflicts(existing_receipt, vocab_id, body.rating):
+            raise HTTPException(409, "client_review_id is already bound to different input.")
+    else:
+        try:
+            enforce_flashcard_rate_limit(
+                user_id=user_id,
+                daily_limit=settings.FLASHCARD_DAILY_REVIEW_LIMIT,
+            )
+        except HTTPException as limit_error:
+            # The original request may have committed between our first lookup
+            # and the quota count. Recover that lost ACK instead of rejecting a
+            # now-persisted replay at the exact daily boundary.
+            if limit_error.status_code != 429 or not body.client_review_id:
+                raise
+            existing_receipt = _load_review_receipt(sb, user_id, client_review_id)
+            if not existing_receipt:
+                raise
+            if _review_receipt_conflicts(existing_receipt, vocab_id, body.rating):
+                raise HTTPException(409, "client_review_id is already bound to different input.")
 
     # Confirm the vocab belongs to the caller before writing review state.
     try:
@@ -1245,7 +1307,7 @@ async def submit_review(
         # bypassing the model still gets a 422 here rather than 500.
         raise HTTPException(422, str(ve))
 
-    # L8: atomic write via fn_apply_srs_review (migration 125). The Python
+    # Atomic + idempotent write via migration 212. The Python
     # update_srs above stays the single source of truth for the derived fields
     # (interval/ease/next_review); the RPC increments review_count/lapse_count
     # SERVER-SIDE so two concurrent reviews of the same card don't lose an
@@ -1253,9 +1315,10 @@ async def submit_review(
     # the rating-determined increment (0 or 1), independent of the stale read.
     lapse_delta = int(new_state["lapse_count"]) - int(cur["lapse_count"])
     try:
-        rpc_res = supabase_admin.rpc("fn_apply_srs_review", {
-            "p_user_id":          user_id,
+        rpc_res = sb.rpc("fn_apply_srs_review_idempotent", {
+            "p_client_review_id": client_review_id,
             "p_vocab_id":         vocab_id,
+            "p_rating":           body.rating,
             "p_interval":         new_state["interval_days"],
             "p_ease":             new_state["ease_factor"],
             "p_lapse_delta":      lapse_delta,
@@ -1263,6 +1326,8 @@ async def submit_review(
             "p_next_review_at":   new_state["next_review_at"],
         }).execute()
     except Exception as e:
+        if _is_review_idempotency_conflict(e):
+            raise HTTPException(409, "client_review_id is already bound to different input.")
         logger.error("[flashcards] review RPC failed: %s", e)
         raise HTTPException(500, "Could not save review.")
 
@@ -1270,33 +1335,31 @@ async def submit_review(
     # (source=srs_review, +1 good/easy, -1 again/hard). Best-effort — the helper
     # swallows all errors (no-op until migrations 128/129 land, and skips words
     # with no matching vocab_card KP), so it never affects the review response.
-    kp_evidence.record_srs_review(
-        user_id, (v_check.data[0] or {}).get("headword"), body.rating,
-        context={"vocabulary_id": vocab_id})
+    persisted = (rpc_res.data or [None])[0] if isinstance(rpc_res.data, list) else rpc_res.data
+    if not isinstance(persisted, dict):
+        logger.error("[flashcards] review RPC returned no receipt vocab=%s", vocab_id)
+        raise HTTPException(500, "Could not confirm saved review.")
+
+    replayed = persisted.get("replayed")
+    if not isinstance(replayed, bool):
+        logger.error("[flashcards] review RPC returned invalid replay flag vocab=%s", vocab_id)
+        raise HTTPException(500, "Could not confirm saved review.")
+
+    if not replayed:
+        kp_evidence.record_srs_review(
+            user_id, (v_check.data[0] or {}).get("headword"), body.rating,
+            context={"vocabulary_id": vocab_id})
 
     # Prefer the authoritative persisted row (server-incremented review_count)
     # for the response; fall back to the Python state if the RPC returned nothing.
-    persisted = (rpc_res.data or [None])[0] if isinstance(rpc_res.data, list) else rpc_res.data
-    eff = persisted if isinstance(persisted, dict) else new_state
-
-    # Rate-limit audit row.  Failure here under-reports today's count by 1
-    # but doesn't block the user's progress — SRS already saved above.
-    try:
-        sb.table("flashcard_review_log").insert({
-            "user_id":       user_id,
-            "vocabulary_id": vocab_id,
-            "rating":        body.rating,
-        }).execute()
-    except Exception as e:
-        logger.debug("[flashcards] review_log insert failed (non-fatal): %s", e)
-
     return {
         "vocab_id":       vocab_id,
         "status":         "success",
-        "next_review_at": eff.get("next_review_at", new_state["next_review_at"]),
-        "interval_days":  eff.get("interval_days", new_state["interval_days"]),
-        "ease_factor":    eff.get("ease_factor", new_state["ease_factor"]),
-        "review_count":   eff.get("review_count", new_state["review_count"]),
+        "replayed":       replayed,
+        "next_review_at": persisted.get("next_review_at"),
+        "interval_days":  persisted.get("interval_days"),
+        "ease_factor":    persisted.get("ease_factor"),
+        "review_count":   persisted.get("review_count"),
     }
 
 

@@ -3,7 +3,7 @@
  *
  * PR1 — study a topic's vocab stack with flashcards:
  *  • each #vocab-topics card gets a "🃏 Flashcards" launch (+ "Khám phá" browse),
- *    pointing at flashcard-study.html?stack=wiki:<category>
+ *    pointing at the canonical /flashcard-study?stack=wiki:<category>
  *  • flashcard-study.js gains a wiki mode: loads the public category-cards
  *    endpoint, renders the rich fields (audio/IPA/collocations/synonyms/memory
  *    hook/common error), and tracks progress in localStorage (no server SRS)
@@ -29,7 +29,7 @@ const VOCAB_CSS = front('css', 'vocabulary.css');
 describe('topic cards launch flashcards for that stack', () => {
   test('each topic card has a Flashcards launch to wiki:<category>', () => {
     assert.match(LANDING, /vtc-act--study/);
-    assert.match(LANDING, /flashcard-study\.html\?stack=wiki:/);
+    assert.match(LANDING, /\/flashcard-study\?stack=wiki:/);
     assert.match(LANDING, /Khám phá/);          // browse-wiki action still present
   });
   test('action buttons are styled (theme-aware)', () => {

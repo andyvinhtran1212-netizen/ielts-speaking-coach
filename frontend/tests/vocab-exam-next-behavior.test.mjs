@@ -58,6 +58,6 @@ describe('/vocabulary/exam — native React behavior', () => {
 
   test('keeps the canonical hub return and shared flashcard player', () => {
     assert.match(SHELL, /href="\/vocabulary\/hub"/);
-    assert.match(BEHAVIOR, /\/pages\/flashcard-study\.html\?stack=examlist:/);
+    assert.match(BEHAVIOR, /\/flashcard-study\?stack=examlist:/);
   });
 });
