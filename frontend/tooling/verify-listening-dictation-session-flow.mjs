@@ -23,6 +23,8 @@ const page = await context.newPage();
 const errors = []; const completionPosts = []; const receiptReads = [];
 let canonical = null;
 let releaseCompletion;
+let markCompletionStarted;
+const completionStarted = new Promise((resolve) => { markCompletionStarted = resolve; });
 page.on('pageerror', (error) => errors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
@@ -60,6 +62,7 @@ await page.route('**/*', async (route) => {
       ],
     };
     // Simulate commit success + lost HTTP acknowledgement.
+    markCompletionStarted();
     await new Promise((resolve) => { releaseCompletion = resolve; });
     return route.abort('connectionreset');
   }
@@ -83,7 +86,11 @@ await page.getByText('80% · 4/5 từ').waitFor();
 await page.getByRole('button', { name: 'Xem tổng kết' }).click();
 await page.getByText('Đang xác nhận…', { exact: true }).waitFor();
 check('lost ACK không thể xoá receipt bằng làm lại khi đang xác nhận', await page.getByRole('button', { name: 'Làm lại section' }).isDisabled());
-releaseCompletion?.();
+// `saving` is rendered before the POST reaches Playwright's route handler.
+// Wait for the fixture to actually hold the acknowledgement before releasing
+// it; otherwise a fast assertion can race the request and leave it suspended.
+await completionStarted;
+releaseCompletion();
 await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
 check('mất ACK được read-back tự động bằng đúng receipt', completionPosts.length === 1 && receiptReads.length >= 2 && canonical?.client_request_id === completionPosts[0].client_request_id);
 check('payload hoàn tất đủ coverage và receipt UUID', completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));
