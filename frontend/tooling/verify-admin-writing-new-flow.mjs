@@ -69,7 +69,7 @@ check('4xx xác định xoá receipt và mở lại submit', !await page.evaluat
 
 essayMode = 'unauthorized';
 await page.getByRole('button', { name: 'Gửi vào hàng chờ chấm' }).click();
-await page.waitForURL(/\/login\.html$/);
+await page.waitForURL(/\/login$/);
 check('401 xác định xoá receipt trước khi chuyển đăng nhập', !await page.evaluate((key) => sessionStorage.getItem(key), `awn-pending:${admin}`));
 
 essayMode = 'success';

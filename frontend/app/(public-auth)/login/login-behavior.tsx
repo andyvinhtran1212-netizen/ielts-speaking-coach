@@ -68,11 +68,16 @@ function hasAuthCallbackMaterial() {
 async function bootstrap(): Promise<BootResult> {
   const client = await sharedClient();
   const callback = hasAuthCallbackMaterial();
-  const { data, error } = await client.auth.getSession();
-  const session = data?.session;
   // Supabase must inspect the implicit fragment first, but callback material
-  // must leave the address bar even when it is expired or malformed.
-  if (callback) window.history.replaceState(null, '', '/login');
+  // must leave the address bar before an exchange can stall or reject.
+  let sessionRead: ReturnType<SupabaseClient['auth']['getSession']>;
+  try {
+    sessionRead = client.auth.getSession();
+  } finally {
+    if (callback) window.history.replaceState(null, '', '/login');
+  }
+  const { data, error } = await sessionRead;
+  const session = data?.session;
   if (error || (callback && !session?.access_token)) {
     throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
   }
@@ -95,6 +100,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [activateError, setActivateError] = useState('');
   const [activateSuccess, setActivateSuccess] = useState('');
   const clientRef = useRef<SupabaseClient | null>(null);
+  const activateInFlight = useRef(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyProfile = useCallback((profile: LoginProfile) => {
@@ -167,6 +173,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   }
 
   async function activate() {
+    if (activateInFlight.current) return;
     const code = normalizeAccessCode(accessCode);
     setAccessCode(code);
     setActivateError('');
@@ -176,7 +183,9 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       return;
     }
 
+    activateInFlight.current = true;
     setActivateBusy(true);
+    let keepLockedForRedirect = false;
     try {
       const client = clientRef.current || await sharedClient();
       clientRef.current = client;
@@ -221,11 +230,15 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       }
 
       setActivateSuccess('Tài khoản đã được kích hoạt! Đang chuyển tiếp…');
+      keepLockedForRedirect = true;
       redirectTimer.current = setTimeout(() => window.location.replace(destination), 450);
     } catch (caught) {
       setActivateError(messageOf(caught, 'Kích hoạt thất bại.'));
     } finally {
-      setActivateBusy(false);
+      if (!keepLockedForRedirect) {
+        activateInFlight.current = false;
+        setActivateBusy(false);
+      }
     }
   }
 
@@ -295,16 +308,17 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               placeholder="VD: IELTS-TEST-001"
               autoComplete="off"
               value={accessCode}
-              readOnly={activateBusy}
-              aria-disabled={activateBusy}
+              disabled={activateBusy}
               onChange={(event) => setAccessCode(event.target.value.toUpperCase())}
-              onKeyDown={(event) => { if (event.key === 'Enter') void activate(); }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !activateInFlight.current) void activate();
+              }}
             />
             <button
               className="lx-action-activate"
               type="button"
-              onClick={() => { if (!activateBusy) void activate(); }}
-              aria-disabled={activateBusy}
+              onClick={() => { if (!activateInFlight.current) void activate(); }}
+              disabled={activateBusy}
             >
               {activateBusy ? 'Đang kích hoạt…' : 'Kích hoạt'}
             </button>

@@ -21,7 +21,14 @@ async function launch() {
 
 const browser = await launch();
 
-async function fixture({ session, profile, ambiguousActivation = false, viewport = { width: 1280, height: 900 } }) {
+async function fixture({
+  session,
+  profile,
+  ambiguousActivation = false,
+  sessionMode = 'immediate',
+  activationDelayMs = 0,
+  viewport = { width: 1280, height: 900 },
+}) {
   const context = await browser.newContext({ viewport });
   const errors = [];
   const reads = [];
@@ -29,11 +36,23 @@ async function fixture({ session, profile, ambiguousActivation = false, viewport
   let canonical = { ...profile };
   const supabaseStub = `
 window.__oauthInput = null;
+window.__sessionWaiters = [];
+window.__settleSessions = function (outcome) {
+  var waiters = window.__sessionWaiters.splice(0);
+  waiters.forEach(function (waiter) { waiter(outcome); });
+};
 window.supabase = {
   createClient: function () {
     return { auth: {
-      getSession: async function () {
-        return { data: { session: ${session ? "{ access_token: 'fixture-token', user: { id: 'user-1' } }" : 'null'} }, error: null };
+      getSession: function () {
+        var result = { data: { session: ${session ? "{ access_token: 'fixture-token', user: { id: 'user-1' } }" : 'null'} }, error: null };
+        if (${JSON.stringify(sessionMode)} === 'immediate') return Promise.resolve(result);
+        return new Promise(function (resolve, reject) {
+          window.__sessionWaiters.push(function (outcome) {
+            if (outcome === 'reject') reject(new Error('fixture getSession rejected'));
+            else resolve(result);
+          });
+        });
       },
       signInWithOAuth: async function (input) {
         window.__oauthInput = input;
@@ -63,6 +82,7 @@ window.supabase = {
     }
     if (request.method() === 'POST' && url.pathname === '/auth/activate') {
       writes.push(JSON.parse(request.postData() || '{}'));
+      if (activationDelayMs) await new Promise((resolve) => setTimeout(resolve, activationDelayMs));
       if (ambiguousActivation) {
         canonical = { ...canonical, is_active: true };
         return route.abort('connectionfailed');
@@ -94,6 +114,34 @@ check('mobile giữ form trong viewport và ẩn pitch phụ',
     && getComputedStyle(document.querySelector('.lx-pitch')).display === 'none'));
 await signedOut.context.close();
 
+const delayedCallback = await fixture({ session: false, profile: {}, sessionMode: 'pending' });
+await delayedCallback.page.goto(`${BASE}/login#access_token=delayed`, { waitUntil: 'domcontentloaded' });
+await delayedCallback.page.waitForFunction(() => location.pathname === '/login'
+  && !location.hash
+  && window.__sessionWaiters.length > 0);
+const delayedUrlBeforeSettle = new URL(delayedCallback.page.url());
+check('callback được xóa trước khi getSession đang chờ hoàn tất',
+  delayedUrlBeforeSettle.pathname === '/login' && !delayedUrlBeforeSettle.hash);
+await delayedCallback.page.evaluate(() => window.__settleSessions('resolve'));
+await delayedCallback.page.locator('.lx-error').waitFor();
+await delayedCallback.context.close();
+
+const rejectedCallback = await fixture({ session: false, profile: {}, sessionMode: 'pending' });
+await rejectedCallback.page.goto(`${BASE}/login?code=pkce-fixture`, { waitUntil: 'domcontentloaded' });
+await rejectedCallback.page.waitForFunction(() => location.pathname === '/login'
+  && !location.search
+  && window.__sessionWaiters.length > 0);
+const rejectedUrlBeforeSettle = new URL(rejectedCallback.page.url());
+await rejectedCallback.page.evaluate(() => window.__settleSessions('reject'));
+await rejectedCallback.page.locator('.lx-error').waitFor();
+const rejectedUrlAfterSettle = new URL(rejectedCallback.page.url());
+check('callback PKCE vẫn sạch khi getSession reject',
+  rejectedUrlBeforeSettle.pathname === '/login'
+    && !rejectedUrlBeforeSettle.search
+    && rejectedUrlAfterSettle.pathname === '/login'
+    && !rejectedUrlAfterSettle.search);
+await rejectedCallback.context.close();
+
 const expired = await fixture({ session: false, profile: {} });
 await expired.page.goto(`${BASE}/login#access_token=expired`, { waitUntil: 'domcontentloaded' });
 const expiredAlert = expired.page.locator('.lx-error');
@@ -119,6 +167,7 @@ const inactive = await fixture({
   session: true,
   profile: { id: 'user-1', is_active: false, onboarding_completed: false },
   ambiguousActivation: true,
+  activationDelayMs: 150,
 });
 await inactive.page.goto(`${BASE}/login#access_token=fixture`, { waitUntil: 'domcontentloaded' });
 await inactive.page.getByRole('dialog', { name: 'Kích hoạt tài khoản' }).waitFor();
@@ -133,9 +182,13 @@ check('implicit callback xóa token khỏi URL và dùng /auth/me để mở mod
     && !new URL(inactive.page.url()).hash
     && inactive.reads.length === 1);
 await codeInput.fill(' ielts-test-001 ');
-await inactive.page.getByRole('button', { name: 'Kích hoạt' }).click();
+await codeInput.evaluate((node) => {
+  node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+});
 await inactive.page.waitForURL('**/onboarding.html');
-check('mất ACK activation vẫn reconcile canonical truth rồi đi onboarding',
+check('Enter lặp chỉ gửi một activation; mất ACK vẫn reconcile rồi đi onboarding',
   inactive.writes.length === 1
     && inactive.writes[0].access_code === 'IELTS-TEST-001'
     && inactive.reads.length === 2);

@@ -42,11 +42,14 @@ describe('/login native auth entry', () => {
     assert.match(BEHAVIOR, /'error_description'/);
     assert.match(BEHAVIOR, /query\.has\('code'\)/);
     assert.match(BEHAVIOR, /client\.auth\.getSession\(\)/);
-    const sessionRead = BEHAVIOR.indexOf('client.auth.getSession()');
+    const guardedSessionRead = BEHAVIOR.indexOf('sessionRead = client.auth.getSession()');
     const callbackScrub = BEHAVIOR.indexOf("if (callback) window.history.replaceState(null, '', '/login')");
+    const sessionAwait = BEHAVIOR.indexOf('await sessionRead');
     const callbackValidation = BEHAVIOR.indexOf('if (error || (callback && !session?.access_token))');
-    assert.ok(sessionRead < callbackScrub && callbackScrub < callbackValidation,
-      'Supabase reads the implicit fragment before it is scrubbed, including failed callbacks');
+    assert.ok(guardedSessionRead > 0 && guardedSessionRead < callbackScrub && callbackScrub < sessionAwait && sessionAwait < callbackValidation,
+      'Supabase starts reading the implicit fragment, then credentials are scrubbed before the read can settle');
+    assert.ok(BEHAVIOR.lastIndexOf('finally', callbackScrub) < callbackScrub,
+      'callback scrub is in a finally block so a synchronous session initialization failure cannot leak material');
     assert.doesNotMatch(BEHAVIOR, /exchangeCodeForSession|createClient\(/);
     assert.match(BEHAVIOR, /redirectTo: `\$\{window\.location\.origin\}\/login`/);
   });
@@ -65,8 +68,10 @@ describe('/login native auth entry', () => {
     assert.ok(mutation > 0 && reconciliation > mutation);
     assert.match(BEHAVIOR, /request may have committed while its ACK was lost/);
     assert.match(BEHAVIOR, /destination === 'activate'/);
-    assert.match(BEHAVIOR, /aria-disabled=\{activateBusy\}/);
-    assert.match(BEHAVIOR, /readOnly=\{activateBusy\}/);
+    assert.match(BEHAVIOR, /activateInFlight\.current/);
+    assert.match(BEHAVIOR, /if \(activateInFlight\.current\) return/);
+    assert.match(BEHAVIOR, /disabled=\{activateBusy\}/);
+    assert.match(BEHAVIOR, /keepLockedForRedirect = true/);
     assert.match(BEHAVIOR, /event\.key !== 'Tab'/);
     assert.match(BEHAVIOR, /document\.activeElement === first/);
   });
