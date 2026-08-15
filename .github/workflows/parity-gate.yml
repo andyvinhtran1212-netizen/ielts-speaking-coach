@@ -43,6 +43,10 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      # Pricing pre-launch không có cặp ảnh hợp lệ vì cả hai vế cùng redirect
+      # về `/`; job vẫn phải chạy verifier HTTP riêng ở cuối.
+      - 'frontend/app/(marketing)/pricing/**'
+      - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
       - 'frontend/public/pages/grammar-exercises.html'
       - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
@@ -956,6 +960,9 @@ jobs:
       # cần secret nào. Bản đầu tôi gác nó và chính PR thêm nó đã KHÔNG chạy nó
       # (`authed` false vì chỉ sửa workflow + tooling) — đúng lớp lỗi Codex bắt
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
+      - name: Kiểm boundary Pricing pre-launch
+        run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$PARITY_PORT"
+
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
 

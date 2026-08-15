@@ -84,3 +84,26 @@ Glob và regex authed trong `parity-gate.yml` đã sẵn sàng nên không cần
 Giới hạn còn lại phải nói rõ: nếu probe vẫn feature-disabled, cặp chỉ chứng minh
 hai shell khớp ở nhánh đó trên desktop/mobile. Muốn phủ hai drill card phải bật
 ít nhất một feature flag cho probe rồi bỏ hoặc nâng baseline tương ứng.
+
+---
+
+# Vì sao `/pricing` không có cặp visual parity (2026-08-15)
+
+`/pricing` đang được khóa có chủ ý trước launch. Bản legacy
+`/pricing.html` dùng `window.location.replace('/')`; route Next sở hữu cùng
+quyết định ở server bằng HTTP 307 về `/`.
+
+Đây không phải một cặp ảnh hợp lệ: sau redirect cả hai URL cùng thành `/`, và
+G1 cố ý chặn `same-final-url` vì nếu cho phép thì nó chỉ chụp homepage hai lần,
+không chứng minh gì về route Pricing.
+
+Thay cho ảnh parity, `verify-pricing-redirect-flow.mjs` chạy trên production
+build trong chính G1 và kiểm bốn invariant:
+
+1. `/pricing` trả đúng 307, không phải redirect vĩnh viễn;
+2. `Location` trỏ chính xác về `/`;
+3. response redirect không gửi nội dung giá chưa phát hành;
+4. navigation bình thường theo redirect và kết thúc ở homepage.
+
+`frontend/public/pricing.html` vẫn giữ nguyên redirect sentinel và toàn bộ UI
+giá làm rollback/source artifact cho ngày marketing quyết định mở launch.

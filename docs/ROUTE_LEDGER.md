@@ -137,7 +137,7 @@
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/` | — | `index.html` | Public | none | localStorage (theme) | S | Landing page; marketing content only |
-| `/pricing` | — | `pricing.html` | Public | none | localStorage (theme) | S | Pricing table; marketing static |
+| `/pricing` | `/pricing.html` giữ nguyên làm rollback/source cho ngày launch | `app/(marketing)/pricing/page.tsx` — CUTOVER 2026-08-15 | Public | none | none while pre-launch closed | S | Native server redirect về `/`; không gửi UI giá chưa phát hành xuống trình duyệt. Legacy cũng tiếp tục giữ redirect sentinel. |
 | `/login` | — | `login.html` | Public | `next` (redirect after login) | localStorage (theme), Supabase client | M | Auth entry point; session init |
 | `/onboarding` | — | `onboarding.html` | Student | none | localStorage (theme), Supabase session | M | Post-signup activation flow |
 

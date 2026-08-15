@@ -85,6 +85,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
     assert.equal(
       canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),
       '/grammar/compare?slug=past-perfect-vs-past-simple');
+    assert.equal(canonicalHref('/pricing.html'), '/pricing');
     assert.equal(
       canonicalHref('/pages/grammar-roadmap.html?slug=tenses'),
       '/grammar/roadmap?slug=tenses');
@@ -658,7 +659,7 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
   // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
   // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
-  const KNOWN_NO_PAIR = ['/writing/dashboard'];
+  const KNOWN_NO_PAIR = ['/pricing', '/writing/dashboard'];
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
