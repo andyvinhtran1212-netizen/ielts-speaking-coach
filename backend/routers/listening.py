@@ -3189,18 +3189,25 @@ async def admin_get_test_audit(
     h = listening_audit_svc.hydrate_test(test, contents, exercises)
     report = listening_audit_svc.run_structural(h)
     saved = _load_audit_row(test_id)
+    if saved:
+        saved = {**saved, "issues": listening_audit_svc.with_issue_sources(saved.get("issues"))}
     # Editor view — the fields the audit-detail page renders + edits inline.
     editor_sections = [{
         "section_num": s["section_num"],
         "content_id":  s["content_id"],
+        "content_updated_at": s["content_updated_at"],
+        "audio_offset": s["audio_offset"],
         "transcript":  s["transcript"],
         "questions": [{
             "q_num":         q["q_num"],
             "exercise_id":   q["exercise_id"],
+            "exercise_updated_at": q["exercise_updated_at"],
             "template_kind": q["template_kind"],
             "prompt":        q["prompt"],
+            "options":       q["options"],
             "answer":        q["answer"],
             "alternatives":  q["alternatives"],
+            "trap_mechanisms": q["trap_mechanisms"],
             "solution":      q["notes"],
             "audio_window":  q["audio_window"],
         } for q in s["questions"]],
@@ -3210,7 +3217,7 @@ async def admin_get_test_audit(
         "uuid":        test_id,
         "title":       test.get("title"),
         "status":      test.get("status"),
-        "test_type":   test.get("test_type"),
+        "test_type":   h.get("test_type"),
         "question_count": len(h["all_questions"]),
         "section_count":  len(h["sections"]),
         "sections":    editor_sections,   # for the inline editor
@@ -3229,9 +3236,21 @@ def _audit_provider():
         return None
 
 
+class AuditRunRequest(BaseModel):
+    """Optional client identity for a paid/non-idempotent full audit run.
+
+    Legacy rollback callers may omit it. Native callers persist a UUID in their
+    durable receipt and reconcile only against the same request_id in health.
+    """
+    model_config = ConfigDict(extra="forbid")
+    request_id: str | None = Field(default=None, min_length=8, max_length=80,
+                                   pattern=r"^[A-Za-z0-9_-]+$")
+
+
 @admin_router.post("/tests/{test_id}/audit/run")
 async def admin_run_test_audit(
     test_id: str,
+    body: AuditRunRequest | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Full audit: structural + audio-bounds + LLM content pass. PERSISTS the
@@ -3250,31 +3269,42 @@ async def admin_run_test_audit(
     if provider is None:
         issues.append({"q_num": None, "dimension": "solution", "severity": "warning",
                        "code": "llm_skipped", "resolved": False,
+                       "source": "llm",
                        "message": "Chưa cấu hình model audit (LISTENING_AUDIT_MODEL/API key) — bỏ qua LLM pass."})
     else:
         issues.extend(await listening_audit_svc.llm_content_audit(h, provider.invoke))
 
+    from uuid import uuid4
+    request_id = body.request_id if body and body.request_id else str(uuid4())
     health = {**listening_audit_svc.summarize(issues),
               "question_count": len(h["all_questions"]),
-              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None}
+              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None,
+              "request_id": request_id}
     status = health["status"]
-
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
     row = {
         "test_id":  test_id,
         "status":   status,
         "health":   health,
         "issues":   issues,
         "auditor":  (user or {}).get("id") or (user or {}).get("email"),
+        "audited_at": now_iso,
+        "updated_at": now_iso,
     }
     # upsert on the unique test_id
     existing = _load_audit_row(test_id)
     if existing:
-        supabase_admin.table("listening_audit").update(row).eq("test_id", test_id).execute()
+        result = (supabase_admin.table("listening_audit").update(row)
+                  .eq("test_id", test_id).execute())
     else:
-        supabase_admin.table("listening_audit").insert(row).execute()
+        result = supabase_admin.table("listening_audit").insert(row).execute()
+    if not (result.data or []):
+        raise HTTPException(500, "Listening audit write was not confirmed by the database.")
 
     return {"test_id": test.get("test_id"), "uuid": test_id,
-            "health": health, "issues": issues, "status": status}
+            "health": health, "issues": issues, "status": status,
+            "audited_at": now_iso, "request_id": request_id}
 
 
 class AuditTriageRequest(BaseModel):
@@ -3284,6 +3314,7 @@ class AuditTriageRequest(BaseModel):
     status:          str | None = None       # 'pending'|'passed'|'has_issues'|'fixed'
     notes:           str | None = None
     resolved_indexes: list[int] | None = None
+    expected_updated_at: str = Field(min_length=8, max_length=80)
 
 
 _AUDIT_STATUSES = {"pending", "passed", "has_issues", "fixed"}
@@ -3301,6 +3332,11 @@ async def admin_triage_test_audit(
     row = _load_audit_row(test_id)
     if not row:
         raise HTTPException(404, "Chưa có bản audit cho test này — chạy audit trước.")
+    if not _same_timestamp(row.get("updated_at"), body.expected_updated_at):
+        raise HTTPException(
+            409,
+            "Listening audit changed after this triage was opened. Reload canonical data before saving.",
+        )
     patch: dict[str, Any] = {}
     if body.status is not None:
         if body.status not in _AUDIT_STATUSES:
@@ -3310,13 +3346,33 @@ async def admin_triage_test_audit(
         patch["notes"] = body.notes
     if body.resolved_indexes is not None:
         issues = list(row.get("issues") or [])
-        for i in body.resolved_indexes:
-            if 0 <= i < len(issues):
-                issues[i] = {**issues[i], "resolved": True}
+        requested = body.resolved_indexes
+        if len(set(requested)) != len(requested) or any(i < 0 or i >= len(issues) for i in requested):
+            raise HTTPException(422, "resolved_indexes chứa vị trí không hợp lệ hoặc bị trùng.")
+        for i in requested:
+            issues[i] = {**issues[i], "resolved": True}
         patch["issues"] = issues
+    candidate_issues = patch.get("issues", list(row.get("issues") or []))
+    if patch.get("status") in {"passed", "fixed"} and any(
+        issue.get("severity") == "error" and not issue.get("resolved")
+        for issue in candidate_issues if isinstance(issue, dict)
+    ):
+        raise HTTPException(
+            422,
+            "Không thể đánh dấu passed/fixed khi vẫn còn lỗi chưa được xử lý.",
+        )
     if not patch:
         raise HTTPException(422, "Không có gì để cập nhật.")
-    supabase_admin.table("listening_audit").update(patch).eq("test_id", test_id).execute()
+    from datetime import datetime, timezone
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
+    result = (supabase_admin.table("listening_audit").update(patch)
+              .eq("test_id", test_id)
+              .eq("updated_at", body.expected_updated_at).execute())
+    if not (result.data or []):
+        raise HTTPException(
+            409,
+            "Listening audit changed while saving triage. Reload canonical data before retrying.",
+        )
     return {"test_id": test_id, **patch}
 
 
@@ -3331,6 +3387,7 @@ class QuestionEditRequest(BaseModel):
     trap_mechanisms: list[str] | None = None
     audio_window:    dict[str, Any] | None = None  # {start, end, section?}
     options:         list[dict[str, Any]] | None = None  # MCQ options [{letter,text}]; [] clears → short-answer
+    expected_updated_at: str | None = Field(default=None, max_length=80)
 
 
 def _fetch_exercise_ctx(exercise_id: str) -> tuple[dict, dict, dict]:
@@ -3370,6 +3427,12 @@ async def admin_edit_exercise_question(
     a fresh structural/audio re-check for it."""
     await require_admin(authorization)
     ex, content, test = _fetch_exercise_ctx(exercise_id)
+    expected_updated_at = (body.expected_updated_at or "").strip() or None
+    if expected_updated_at and not _same_timestamp(ex.get("updated_at"), expected_updated_at):
+        raise HTTPException(
+            409,
+            "Listening exercise changed after this editor was opened. Reload canonical data before saving.",
+        )
     payload = dict(ex.get("payload") or {})
 
     def _int(x):
@@ -3384,16 +3447,25 @@ async def admin_edit_exercise_question(
     a_idx = next((i for i, a in enumerate(answers) if _int(a.get("q_num")) == q_num), None)
 
     changed: list[str] = []
+    shared_option_bank = payload.get("template_kind") in {"matching", "mcq_multi"}
     if body.prompt is not None:
         questions[q_idx] = {**questions[q_idx], "prompt": body.prompt}
         changed.append("prompt")
     if body.options is not None:
-        q_obj = dict(questions[q_idx])
-        if body.options:
-            q_obj["options"] = body.options
+        if shared_option_bank:
+            metadata = dict(payload.get("metadata") or {})
+            if body.options:
+                metadata["match_options"] = body.options
+            else:
+                metadata.pop("match_options", None)
+            payload["metadata"] = metadata
         else:
-            q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
-        questions[q_idx] = q_obj
+            q_obj = dict(questions[q_idx])
+            if body.options:
+                q_obj["options"] = body.options
+            else:
+                q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
+            questions[q_idx] = q_obj
         changed.append("options")
 
     if a_idx is not None:
@@ -3422,36 +3494,62 @@ async def admin_edit_exercise_question(
         sols[str(q_num)] = cur
         payload["solutions"] = sols
 
-    if body.audio_window is not None:
-        w = body.audio_window
-        s, e = w.get("start"), w.get("end")
-        if s is None or e is None:
-            raise HTTPException(422, "audio_window cần cả start và end.")
-        try:
-            s, e = float(s), float(e)
-        except (TypeError, ValueError):
-            raise HTTPException(422, "audio_window start/end phải là số.")
-        if e <= s:
-            raise HTTPException(422, f"audio_window không hợp lệ (end ≤ start: {s}–{e}).")
+    if "audio_window" in body.model_fields_set:
         wins = dict(payload.get("audio_windows") or {})
-        new_w = {"start": round(s, 2), "end": round(e, 2)}
-        if w.get("section"):
-            new_w["section"] = w["section"]
-        elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
-            new_w["section"] = wins[str(q_num)]["section"]
-        wins[str(q_num)] = new_w
+        if body.audio_window is None:
+            wins.pop(str(q_num), None)
+            wins.pop(q_num, None)
+        else:
+            w = body.audio_window
+            s, e = w.get("start"), w.get("end")
+            if s is None or e is None:
+                raise HTTPException(422, "audio_window cần cả start và end.")
+            try:
+                s, e = float(s), float(e)
+            except (TypeError, ValueError):
+                raise HTTPException(422, "audio_window start/end phải là số.")
+            if s < 0 or e <= s:
+                raise HTTPException(422, f"audio_window không hợp lệ (cần start ≥ 0, end > start: {s}–{e}).")
+            new_w = {"start": round(s, 2), "end": round(e, 2)}
+            if w.get("section"):
+                new_w["section"] = w["section"]
+            elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
+                new_w["section"] = wins[str(q_num)]["section"]
+            else:
+                section_num = _int(content.get("section_num"))
+                if section_num is None or section_num < 1:
+                    raise HTTPException(422, "Không xác định được section cho audio_window mới.")
+                new_w["section"] = f"S{section_num}"
+            wins[str(q_num)] = new_w
         payload["audio_windows"] = wins
         changed.append("audio_window")
 
     if not changed:
         raise HTTPException(422, "Không có trường nào để sửa.")
 
-    supabase_admin.table("listening_exercises").update(
-        {"payload": payload}).eq("id", exercise_id).execute()
+    from datetime import datetime, timezone
+    updated_at = datetime.now(timezone.utc).isoformat()
+    mutation = (supabase_admin.table("listening_exercises")
+                .update({"payload": payload, "updated_at": updated_at})
+                .eq("id", exercise_id))
+    if expected_updated_at:
+        mutation = mutation.eq("updated_at", expected_updated_at)
+    result = mutation.execute()
+    rows = result.data or []
+    if not rows:
+        if expected_updated_at:
+            raise HTTPException(
+                409,
+                "Listening exercise changed while saving. Reload canonical data before retrying.",
+            )
+        raise HTTPException(
+            500,
+            "Listening exercise update was not confirmed by the database.",
+        )
 
     # Re-check just this question (structural + audio bounds) so the editor can
     # show whether the fix cleared the issue.
-    updated_ex = {**ex, "payload": payload}
+    updated_ex = {**ex, "payload": payload, "updated_at": updated_at}
     h = listening_audit_svc.hydrate_test(test or {"id": content.get("test_id")},
                                          [content] if content else [], [updated_ex])
     issues = [i for i in (listening_audit_svc.structural_checks(h)
@@ -3463,6 +3561,7 @@ async def admin_edit_exercise_question(
         "exercise_id": exercise_id,
         "q_num":       q_num,
         "changed":     changed,
+        "updated_at":  updated_at,
         "question":    q_view,
         "issues":      issues,
         "ok":          not any(i["severity"] == "error" for i in issues),

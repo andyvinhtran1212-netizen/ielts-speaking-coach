@@ -48,7 +48,8 @@ test('native inventory is admin-gated and links to the native detail owner', () 
   assert.match(CHROME, /slug:\s*'tests',\s+label:\s*'Cambridge tests',\s+href:\s*'\/admin\/listening\/tests'/);
   assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(row\.id\)\}/);
   assert.doesNotMatch(CLIENT, /tests-detail\.html\?id=/);
-  assert.match(CLIENT, /listening\/index\.html\?test_id=/);
+  assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(row\.id\)\}#sections/);
+  assert.doesNotMatch(CLIENT, /listening\/index\.html\?test_id=/);
   assert.match(CLIENT, /tests\.html">Mở bản HTML rollback/);
 });
 

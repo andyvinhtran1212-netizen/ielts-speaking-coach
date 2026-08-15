@@ -2138,3 +2138,133 @@ list/detail GET without replay.
   localStorage failure before POST, focus and mobile containment.
 - TypeScript, production build, frontend contracts and backend drill importer
   tests run before Claude review and publication.
+
+## 2026-08-14 — Native `/admin/listening/audit`
+
+### Summary
+
+The legacy dashboard visually flattened three different states: a successful
+live structural scan, the last persisted structural-plus-LLM audit, and a GET
+failure. The native redesign treats them as separate evidence clocks and closes
+the complete test inventory before presenting quality coverage.
+
+### Critical issues resolved
+
+#### Issue: Failed per-test reads look like an empty or unknown health pill
+
+**Current State**: Every rejected audit GET is converted to `null`; the row then
+shows `?` and `—` beside genuinely unaudited rows.
+
+**Problem**: An outage, permission problem or malformed response can be read as
+“nothing to inspect”, and aggregate health has no denominator for failed reads.
+
+**Recommendation**: Give every row a typed `loading`, `ready` or `lookup failed`
+state. Exclude lookup failures from clean health, show their count in the summary
+and provide a GET-only retry.
+
+**Impact**: Admins cannot confuse missing evidence with passing evidence.
+
+**Implementation Notes**: Response normalization binds UUID, Test ID, lifecycle,
+test type, question/section counts, issue counts and saved-audit identity.
+
+#### Issue: A paging guard can silently publish partial coverage
+
+**Current State**: The legacy controller stops after 30 pages, logs a console
+warning and renders the partial rows as though the dashboard covered every test.
+
+**Problem**: The screen's operational promise is “all tests”; an omitted older
+test may retain broken audio or answer evidence without appearing anywhere.
+
+**Recommendation**: Require a stable canonical total across pages. Reject an
+early short page, duplicate UUID, malformed row, changing total or guard overflow
+before replacing the last complete snapshot.
+
+**Impact**: The inventory is either demonstrably complete or visibly blocked.
+
+### High-priority improvements implemented
+
+- Live structural health is labelled as current no-LLM evidence; saved full audit
+  is labelled as a persisted snapshot from the last explicit full run.
+- Search, test type, live health and saved status are encoded in the URL.
+- Per-test audit GETs run in bounded batches of eight with a determinate progress
+  bar; account/request sequence guards prevent stale responses replacing state.
+- Summary cards expose canonical total, tests with errors, warnings and lookup
+  failures before the operator opens a detail workspace.
+- Desktop rows become labelled cards below 700px, action targets remain at least
+  44px and reduced-motion users do not receive progress animation.
+
+### Positive observations preserved
+
+- The backend structural/audio-bounds engine stays the canonical fast scanner.
+- The direct HTML audit detail remains an explicit watchdog/manual rollback.
+- Direct HTML dashboard remains the watchdog/manual rollback target.
+
+## 2026-08-14 — Admin Listening audit detail native repair workspace
+
+### Root causes closed
+
+- The legacy editor wrote transcript/question payloads without version tokens
+  and treated mutation ACK copy as canonical truth. The native workspace sends
+  `expected_updated_at` and requires an exact GET readback after every PATCH.
+- Its audio fallback selected the first section track for every question. Audio
+  now resolves assembled → full → the exact `section_num`; missing section audio
+  remains visible and never borrows another section.
+- Full audit is a paid, non-idempotent LLM POST but previously had no durable
+  ambiguity boundary. An account/test/request-scoped receipt is now written
+  before POST; timeout/5xx recovery is GET-only against the exact persisted
+  `health.request_id`, so another tab's run cannot close this receipt. A
+  confirmation-only discard path prevents an unpersisted 5xx from locking the
+  workspace forever and states that a retry can incur another charge.
+- Structural and LLM findings were inferred from code names in the browser.
+  Backend responses now expose `source`, including deterministic backfill for
+  older saved rows, and the UI labels both evidence types explicitly.
+- Triage formerly ignored invalid issue indexes and allowed `fixed` while errors
+  remained. Backend and UI now reject those states, require
+  `expected_updated_at`, and lock preserved inputs when another reviewer changes
+  the saved audit.
+
+### Interaction and responsive decisions
+
+- One section is edited at a time through keyboard-accessible tabs; transcript
+  and each question pin the version used for the write. An external edit to the
+  same canonical fields preserves the local draft but locks Save until the admin
+  explicitly reloads; unrelated readbacks preserve triage inputs. Inactive
+  section panels remain mounted, so mouse/arrow tab navigation never discards
+  transcript or question drafts.
+- Question forms include prompt, answer, alternatives, MCQ options, traps,
+  solution and optional audio bounds in one repair card. Full/assembled audio
+  keeps absolute windows; exact-section fallback subtracts a verified
+  `audio_offset`, cross-checks the declared section, and fails closed when the
+  timebase is unknown. Malformed option/window rows remain open for repair;
+  unreadable list fields must be explicitly re-entered so an unrelated fix
+  cannot clear grading data. Clearing both bounds on an existing window emits
+  explicit `null` and requires canonical GET confirmation. Non-audio repairs
+  on a question that never had a window may leave both bounds empty. Live and saved findings stay
+  visually separate instead of being merged into a false current snapshot.
+- Invalid or duplicate `q_num` values no longer close the whole workspace. The
+  ambiguous cards remain visible but read-only because the positional PATCH
+  would be unsafe; valid cards and transcript repair remain available.
+- Alternatives and trap mechanisms use newline-delimited fields, while option
+  text with embedded newlines round-trips through an escaped JSON string. A
+  comma inside a valid answer is never silently split into two grading keys.
+- The verification player is fixed but collapses on mobile; all primary controls
+  retain 44px touch targets, visible focus, reduced-motion support and no page
+  overflow at 390px.
+
+### Verification
+
+- Pure model coverage pins strict identity/count/version contracts, exact section
+  audio, option parsing, canonical matchers and durable receipt reconciliation.
+- Fixture browser coverage pins transcript/question versioned PATCH + GET,
+  ambiguous full-audit recovery without POST replay, triage guards and responsive
+  containment. Backend focused coverage pins source provenance and truthful writes.
+
+### Verification
+
+- Pure model tests cover filter URLs, complete inventory pages, exact identity,
+  live issue/count consistency, saved evidence and lookup-vs-clean summaries.
+- Fixture browser coverage uses 101 tests to prove offset 0/100 pagination,
+  bounded per-test reads, hostile-text escaping, lookup failure, URL filters,
+  GET-only retry, mobile containment and desktop restoration.
+- TypeScript, production build, full frontend contracts and the backend audit
+  engine suite run before Claude review and publication.

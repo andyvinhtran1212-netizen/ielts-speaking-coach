@@ -370,6 +370,25 @@ on:
       - 'frontend/tests/admin-listening-drills-import.test.mjs'
       - 'backend/services/listening_drill_import.py'
       - 'backend/tests/test_listening_drill_import.py'
+      - 'frontend/lib/admin-listening-audit-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/audit/**'
+      - 'frontend/public/css/admin-listening-audit-next.css'
+      - 'frontend/public/pages/admin/listening/audit.html'
+      - 'frontend/public/js/admin-listening-audit.js'
+      - 'frontend/tooling/verify-admin-listening-audit-flow.mjs'
+      - 'frontend/tests/admin-listening-audit-next-behavior.test.mjs'
+      - 'frontend/tests/admin-listening-audit-paging.test.mjs'
+      - 'frontend/tests/admin-listening-audit.test.mjs'
+      - 'backend/services/listening_audit.py'
+      - 'backend/routers/listening.py'
+      - 'backend/tests/test_listening_audit.py'
+      - 'frontend/lib/admin-listening-audit-detail-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/audit-detail/**'
+      - 'frontend/public/css/admin-listening-audit-detail-next.css'
+      - 'frontend/public/pages/admin/listening/audit-detail.html'
+      - 'frontend/public/js/admin-listening-audit-detail.js'
+      - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
+      - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
       # Grammar hub is a native, read-only routing surface. Its fixture-backed
       # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
@@ -1122,6 +1141,16 @@ jobs:
       # upload progress and GET-only ambiguity reconciliation.
       - name: Kiểm luồng Admin Listening skill-drill import native
         run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Quality audit distinguishes live structural evidence, persisted full
+      # audit and lookup failure across the complete paginated test inventory.
+      - name: Kiểm luồng Admin Listening quality audit native
+        run: node tooling/verify-admin-listening-audit-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # The detail workspace is a versioned repair boundary. The fixture pins
+      # exact section audio, canonical readback, paid-run receipts and triage.
+      - name: Kiểm luồng Admin Listening audit detail native
+        run: node tooling/verify-admin-listening-audit-detail-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.
