@@ -143,7 +143,9 @@ export function D1ExercisePlayer() {
   const accountKey = status === 'signed-in' && user?.id ? user.id : null;
   const accountRef = useRef<string | null>(null);
   accountRef.current = accountKey;
+  const accountGenerationRef = useRef(0);
   const mutationLock = useRef(false);
+  const mutationOwnerRef = useRef<symbol | null>(null);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [message, setMessage] = useState('');
@@ -184,6 +186,9 @@ export function D1ExercisePlayer() {
 
   const complete = useCallback(async (current: Session, expectedAccount: string) => {
     if (mutationLock.current) return;
+    const expectedGeneration = accountGenerationRef.current;
+    const operation = Symbol('d1-complete');
+    mutationOwnerRef.current = operation;
     mutationLock.current = true;
     setBusy(true);
     setMessage('');
@@ -196,19 +201,27 @@ export function D1ExercisePlayer() {
       );
       const canonical = normalizeD1Summary(payload, current);
       if (!canonical) throw new Error('Máy chủ trả về tổng kết không đúng định dạng.');
-      if (accountRef.current !== expectedAccount) return;
+      if (accountRef.current !== expectedAccount
+        || accountGenerationRef.current !== expectedGeneration
+        || mutationOwnerRef.current !== operation) return;
       clearResume(expectedAccount, current.sessionId);
       setSummary(canonical);
       setReviewExercises(null);
       setPhase('summary');
     } catch (caught: any) {
-      if (accountRef.current === expectedAccount) {
+      if (accountRef.current === expectedAccount
+        && accountGenerationRef.current === expectedGeneration
+        && mutationOwnerRef.current === operation) {
         setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
         setPhase('completing');
       }
     } finally {
-      mutationLock.current = false;
-      if (accountRef.current === expectedAccount) setBusy(false);
+      if (mutationOwnerRef.current === operation) {
+        mutationOwnerRef.current = null;
+        mutationLock.current = false;
+        if (accountRef.current === expectedAccount
+          && accountGenerationRef.current === expectedGeneration) setBusy(false);
+      }
     }
   }, [clearResume]);
 
@@ -219,9 +232,11 @@ export function D1ExercisePlayer() {
   useEffect(() => {
     if (!accountKey) return;
     const expectedAccount = accountKey;
+    const generation = ++accountGenerationRef.current;
     let disposed = false;
     // A previous account may still have a request settling. Its response is
     // guarded by accountRef; do not let its lock strand the new account.
+    mutationOwnerRef.current = null;
     mutationLock.current = false;
     setBusy(false);
     setOwnerKey(expectedAccount);
@@ -241,7 +256,8 @@ export function D1ExercisePlayer() {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
       const me = await requestForAccount(expectedAccount, '/auth/me');
-      if (disposed || accountRef.current !== expectedAccount) return;
+      if (disposed || accountRef.current !== expectedAccount
+        || accountGenerationRef.current !== generation) return;
       if (me?.d1_enabled !== true) {
         setPhase('disabled');
         return;
@@ -277,7 +293,8 @@ export function D1ExercisePlayer() {
             );
           }
         }
-        if (disposed || accountRef.current !== expectedAccount) return;
+        if (disposed || accountRef.current !== expectedAccount
+          || accountGenerationRef.current !== generation) return;
         if (!resumed) {
           setPhase('start');
           return;
@@ -293,12 +310,14 @@ export function D1ExercisePlayer() {
         setIndex(next);
         setPhase('active');
       } catch (caught: any) {
-        if (disposed || accountRef.current !== expectedAccount) return;
+        if (disposed || accountRef.current !== expectedAccount
+          || accountGenerationRef.current !== generation) return;
         setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
         setPhase('error');
       }
     })().catch((caught) => {
-      if (!disposed && accountRef.current === expectedAccount) {
+      if (!disposed && accountRef.current === expectedAccount
+        && accountGenerationRef.current === generation) {
         setMessage(messageOf(caught));
         setPhase('error');
       }
@@ -309,6 +328,9 @@ export function D1ExercisePlayer() {
   const start = async () => {
     if (!accountKey || mutationLock.current) return;
     const expectedAccount = accountKey;
+    const expectedGeneration = accountGenerationRef.current;
+    const operation = Symbol('d1-start');
+    mutationOwnerRef.current = operation;
     mutationLock.current = true;
     setBusy(true);
     setMessage('');
@@ -320,7 +342,9 @@ export function D1ExercisePlayer() {
       // under the request owner even if auth changed while the ACK travelled;
       // only the current owner is allowed to update visible state or the URL.
       retainSession(expectedAccount, started.sessionId);
-      if (accountRef.current !== expectedAccount) return;
+      if (accountRef.current !== expectedAccount
+        || accountGenerationRef.current !== expectedGeneration
+        || mutationOwnerRef.current !== operation) return;
       setSession(started);
       setIndex(0);
       setChoice(null);
@@ -331,7 +355,9 @@ export function D1ExercisePlayer() {
       rememberSession(expectedAccount, started.sessionId);
       setPhase('active');
     } catch (caught: any) {
-      if (accountRef.current !== expectedAccount) return;
+      if (accountRef.current !== expectedAccount
+        || accountGenerationRef.current !== expectedGeneration
+        || mutationOwnerRef.current !== operation) return;
       if (caught?.status === 503) setPhase('empty');
       else if (caught?.status === 429) {
         setMessage(quotaMessage(caught.detail));
@@ -342,14 +368,21 @@ export function D1ExercisePlayer() {
         setPhase('start');
       }
     } finally {
-      mutationLock.current = false;
-      if (accountRef.current === expectedAccount) setBusy(false);
+      if (mutationOwnerRef.current === operation) {
+        mutationOwnerRef.current = null;
+        mutationLock.current = false;
+        if (accountRef.current === expectedAccount
+          && accountGenerationRef.current === expectedGeneration) setBusy(false);
+      }
     }
   };
 
   const persistAnswer = async (selected: string, key: string) => {
     if (!accountKey || !session || !exercise || reviewMode || mutationLock.current) return;
     const expectedAccount = accountKey;
+    const expectedGeneration = accountGenerationRef.current;
+    const operation = Symbol('d1-attempt');
+    mutationOwnerRef.current = operation;
     mutationLock.current = true;
     setBusy(true);
     setSaveError('');
@@ -381,17 +414,25 @@ export function D1ExercisePlayer() {
         }
       }
       if (!canonical) throw lastError || new Error('Không lưu được attempt.');
-      if (accountRef.current !== expectedAccount) return;
+      if (accountRef.current !== expectedAccount
+        || accountGenerationRef.current !== expectedGeneration
+        || mutationOwnerRef.current !== operation) return;
       setAttemptAck(canonical);
     } catch (caught: any) {
-      if (accountRef.current === expectedAccount) {
+      if (accountRef.current === expectedAccount
+        && accountGenerationRef.current === expectedGeneration
+        && mutationOwnerRef.current === operation) {
         const rateLimited = caught?.status === 429;
         setAttemptRateLimited(rateLimited);
         setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
       }
     } finally {
-      mutationLock.current = false;
-      if (accountRef.current === expectedAccount) setBusy(false);
+      if (mutationOwnerRef.current === operation) {
+        mutationOwnerRef.current = null;
+        mutationLock.current = false;
+        if (accountRef.current === expectedAccount
+          && accountGenerationRef.current === expectedGeneration) setBusy(false);
+      }
     }
   };
 

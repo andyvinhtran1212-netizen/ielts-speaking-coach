@@ -59,6 +59,12 @@ let refreshRetryExpected = false;
 let refreshRetrySeen = false;
 let resolveRefresh401;
 const refresh401Started = new Promise((resolve) => { resolveRefresh401 = resolve; });
+let generationRaceArmed = false;
+let generationOldAttemptSeen = false;
+let resolveGenerationOldAttempt;
+const generationOldAttemptStarted = new Promise((resolve) => { resolveGenerationOldAttempt = resolve; });
+let resolveGenerationNewAttempt;
+const generationNewAttemptStarted = new Promise((resolve) => { resolveGenerationNewAttempt = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -120,6 +126,9 @@ await context.route('**/*', async (route) => {
     return json({ session_id: SESSION, exercises, total: 2 }, 201);
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${SESSION}`) {
+    if (generationRaceArmed && request.headers().authorization === 'Bearer foreign-token') {
+      return json({ detail: 'Session not found' }, 404);
+    }
     return json({
       session: {
         id: SESSION, status: 'active', total_count: 2,
@@ -177,6 +186,18 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === `/api/exercises/d1/${A}/attempt`) {
     const body = JSON.parse(request.postData() || '{}');
     attemptBodies.push(body);
+    if (generationRaceArmed && body.user_answer === 'adapt' && !generationOldAttemptSeen) {
+      generationOldAttemptSeen = true;
+      resolveGenerationOldAttempt();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' });
+    }
+    if (generationRaceArmed && body.user_answer === 'freeze') {
+      resolveGenerationNewAttempt();
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      generationRaceArmed = false;
+      return json({ attempt_id: ATT_B, persisted: true, replayed: false, is_correct: false, correct_answer: 'adapt', score: 0, srs_updated: false, srs_rating: null });
+    }
     if (attempt401Armed && request.headers().authorization === 'Bearer fixture-token') {
       attempt401Armed = false;
       resolveAttempt401();
@@ -429,6 +450,41 @@ await page.evaluate(([userId]) => {
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 check('401 token cũ retry một lần bằng token refresh cùng account',
   refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise');
+
+generationRaceArmed = true;
+persistedAttempts.length = 0;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
+await page.getByRole('button', { name: 'adapt' }).click();
+await generationOldAttemptStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'foreign-token',
+    user: { id: foreignUserId, email: 'other@local' },
+  });
+}, [FOREIGN_USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await page.evaluate(([userId]) => {
+  window.__d1CurrentUser = userId;
+  window.__d1AuthCallback?.('SIGNED_IN', {
+    access_token: 'fixture-token',
+    user: { id: userId, email: 'd1@local' },
+  });
+}, [USER]);
+await page.getByText('People must _____ to change.').waitFor();
+await page.getByRole('button', { name: 'freeze' }).click();
+await generationNewAttemptStarted;
+await page.waitForTimeout(550);
+check('ACK generation A cũ không mở khóa attempt A mới',
+  await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled());
+await page.getByText('✓ Đã lưu bài.').waitFor();
+check('attempt generation mới tự mở khóa sau đúng ACK',
+  !(await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled()));
 
 await context.close();
 await browser.close();
