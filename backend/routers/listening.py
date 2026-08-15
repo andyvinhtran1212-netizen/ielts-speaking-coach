@@ -3448,16 +3448,25 @@ async def admin_edit_exercise_question(
     a_idx = next((i for i, a in enumerate(answers) if _int(a.get("q_num")) == q_num), None)
 
     changed: list[str] = []
+    shared_option_bank = payload.get("template_kind") in {"matching", "mcq_multi"}
     if body.prompt is not None:
         questions[q_idx] = {**questions[q_idx], "prompt": body.prompt}
         changed.append("prompt")
     if body.options is not None:
-        q_obj = dict(questions[q_idx])
-        if body.options:
-            q_obj["options"] = body.options
+        if shared_option_bank:
+            metadata = dict(payload.get("metadata") or {})
+            if body.options:
+                metadata["match_options"] = body.options
+            else:
+                metadata.pop("match_options", None)
+            payload["metadata"] = metadata
         else:
-            q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
-        questions[q_idx] = q_obj
+            q_obj = dict(questions[q_idx])
+            if body.options:
+                q_obj["options"] = body.options
+            else:
+                q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
+            questions[q_idx] = q_obj
         changed.append("options")
 
     if a_idx is not None:
@@ -3507,6 +3516,11 @@ async def admin_edit_exercise_question(
                 new_w["section"] = w["section"]
             elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
                 new_w["section"] = wins[str(q_num)]["section"]
+            else:
+                section_num = _int(content.get("section_num"))
+                if section_num is None or section_num < 1:
+                    raise HTTPException(422, "Không xác định được section cho audio_window mới.")
+                new_w["section"] = f"S{section_num}"
             wins[str(q_num)] = new_w
         payload["audio_windows"] = wins
         changed.append("audio_window")

@@ -365,6 +365,15 @@ def test_edit_audio_window(monkeypatch):
     assert out["ok"] is True
 
 
+def test_edit_missing_audio_window_infers_content_section(monkeypatch):
+    ex, c, t = _edit_ctx()
+    c["section_num"] = 3
+    ex["payload"]["audio_windows"].pop("2", None)
+    stub = _EditStub(ex, c, t)
+    _patch(monkeypatch, ex["id"], 2, {"audio_window": {"start": 10, "end": 25}}, stub)
+    assert stub.updated_payload["audio_windows"]["2"] == {"start": 10.0, "end": 25.0, "section": "S3"}
+
+
 def test_edit_clear_audio_window_is_persisted(monkeypatch):
     ex, c, t = _edit_ctx()
     stub = _EditStub(ex, c, t)
@@ -612,3 +621,16 @@ def test_edit_set_options(monkeypatch):
     out = _patch(monkeypatch, ex["id"], 1, {"options": opts}, stub)
     q1 = next(q for q in stub.updated_payload["questions"] if int(str(q["q_num"])) == 1)
     assert q1["options"] == opts
+
+
+def test_matching_editor_reads_and_persists_shared_option_bank(monkeypatch):
+    ex, c, t = _edit_ctx("MATCH")
+    hydrated = audit.hydrate_test(t, [c], [ex])
+    canonical_bank = ex["payload"]["metadata"]["match_options"]
+    assert hydrated["all_questions"][0]["options"] == canonical_bank
+
+    stub = _EditStub(ex, c, t)
+    replacement = [{"letter": "A", "text": "First"}, {"letter": "B", "text": "Second"}]
+    out = _patch(monkeypatch, ex["id"], hydrated["all_questions"][0]["q_num"], {"options": replacement}, stub)
+    assert stub.updated_payload["metadata"]["match_options"] == replacement
+    assert out["question"]["options"] == replacement

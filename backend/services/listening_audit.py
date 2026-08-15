@@ -114,6 +114,7 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
         for ex in sorted(by_content.get(c["id"], []), key=lambda e: (e.get("order_num") or 0)):
             p = ex.get("payload") or {}
             tk = p.get("template_kind")
+            metadata = p.get("metadata") or {}
             answers = {(_to_int(a.get("q_num"))): a for a in (p.get("answers") or [])}
             windows = {(_to_int(k)): v for k, v in (p.get("audio_windows") or {}).items()}
             sols = {(_to_int(k)): v for k, v in (p.get("solutions") or {}).items()}
@@ -128,14 +129,16 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
                     "template_kind": tk,
                     "variant":       p.get("variant"),
                     "prompt":        q.get("prompt") or "",
-                    "options":       q.get("options"),
+                    # Matching and multi-select render one exercise-level bank;
+                    # per-question options are ignored by the learner player.
+                    "options":       metadata.get("match_options") if tk in ("matching", "mcq_multi") else q.get("options"),
                     "answer":        ans.get("answer"),
                     "alternatives":  ans.get("alternatives") or [],
                     "trap_mechanisms": ans.get("trap_mechanisms") or [],
                     "solution":      sols.get(qn) or {},
                     "notes":         (ans.get("notes") or (sols.get(qn) or {}).get("why_correct") or ""),
                     "audio_window":  windows.get(qn),
-                    "metadata":      p.get("metadata") or {},
+                    "metadata":      metadata,
                     "map_svg":       p.get("map_svg"),
                     "map_image":     p.get("map_image_storage_path"),
                     "audio_duration": audio_dur,
