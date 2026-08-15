@@ -101,6 +101,16 @@ const DEFAULT_PAIRS = [
       reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
     }],
   },
+  {
+    name: 'grammar-compare',
+    legacy: '/pages/grammar-compare.html?slug=past-perfect-vs-past-simple',
+    next: '/grammar/compare?slug=past-perfect-vs-past-simple',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/compare/past-perfect-vs-past-simple',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
 ];
 
 /** Bổ sung toàn bộ bài Grammar từ backend — không lấy mẫu, quét hết. */
