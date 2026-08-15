@@ -100,6 +100,7 @@ await page.locator('.rv-detail').waitFor({ state: 'visible' });
 check('Vocab detail hiển thị metadata canonical',
   (await page.locator('.rv-passage__title').innerText()) === 'A Short History of Tea'
     && (await page.locator('.rv-detail__facts').innerText()).includes('8')
+    && (await page.locator('.rv-detail__facts').innerText()).includes('Phút đọc')
     && (await page.locator('.rv-detail__topics').innerText()).includes('history')
     && (await page.locator('.rv-back').innerText()).includes('Thư viện Vocab Reading'));
 check('đủ bốn loại control và chưa có answer key trước check',
@@ -156,7 +157,8 @@ await page.goto(`${BASE}/reading/skill/skim-climate-change-coral-reefs`, { waitU
 await page.locator('.rv-detail').waitFor({ state: 'visible' });
 check('Skill detail dùng chung workspace nhưng giữ skill focus',
   (await page.locator('.rv-skill-banner').innerText()).includes('Skimming')
-    && (await page.locator('.rq-title').innerText()) === 'Luyện đúng kỹ năng');
+    && (await page.locator('.rq-title').innerText()) === 'Luyện đúng kỹ năng'
+    && (await page.locator('.rv-detail__facts').innerText()).includes('Phút luyện'));
 
 scenario = 'leak';
 await page.goto(`${BASE}/reading/vocab/leak-passage`, { waitUntil: 'domcontentloaded' });

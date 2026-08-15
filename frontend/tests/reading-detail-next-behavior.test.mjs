@@ -46,6 +46,7 @@ describe('native Reading detail workspace', () => {
 
   test('preserves visible legacy copy and safe grammar emphasis', () => {
     assert.match(BEHAVIOR, /'Thư viện Vocab Reading'/);
+    assert.match(BEHAVIOR, /library === 'vocab' \? 'Phút đọc' : 'Phút luyện'/);
     assert.match(BEHAVIOR, /function InlineStrong/);
     assert.match(BEHAVIOR, /<InlineStrong value=\{point\.example\}/);
     assert.doesNotMatch(BEHAVIOR, /rv-gpoint__example[^\n]+dangerouslySetInnerHTML/);

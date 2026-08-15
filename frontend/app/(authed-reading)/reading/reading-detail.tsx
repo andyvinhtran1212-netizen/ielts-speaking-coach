@@ -268,7 +268,7 @@ function ReadingWorkspace({ detail, library }: {
                 </div>
                 <dl className="rv-detail__facts" aria-label="Thông tin bài luyện">
                   <div><dt>{detail.difficulty ? DIFFICULTY_LABEL[detail.difficulty] || detail.difficulty : 'Mọi trình độ'}</dt><dd>Trình độ</dd></div>
-                  <div><dt>{detail.estimatedMinutes ?? '—'}</dt><dd>Phút luyện</dd></div>
+                  <div><dt>{detail.estimatedMinutes ?? '—'}</dt><dd>{library === 'vocab' ? 'Phút đọc' : 'Phút luyện'}</dd></div>
                   <div><dt>{detail.wordCount ?? '—'}</dt><dd>Từ</dd></div>
                 </dl>
               </div>
