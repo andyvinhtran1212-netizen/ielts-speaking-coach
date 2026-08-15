@@ -1,7 +1,10 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,6 +15,18 @@ const NEXT_LANDING = readFileSync(path.join(FRONTEND, 'app', '(marketing)', 'pag
 const LEGACY_LANDING = readFileSync(path.join(FRONTEND, 'public', 'index.html'), 'utf8');
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
 const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/parity-gate.yml'), 'utf8');
+const VERIFY_PRICING = path.join(FRONTEND, 'tooling', 'verify-pricing-redirect-flow.mjs');
+const execFileAsync = promisify(execFile);
+
+const listen = (server) => new Promise((resolve, reject) => {
+  server.once('error', reject);
+  server.listen(0, '127.0.0.1', () => {
+    const address = server.address();
+    resolve(`http://127.0.0.1:${address.port}`);
+  });
+});
+
+const close = (server) => new Promise((resolve) => server.close(resolve));
 
 describe('/pricing pre-launch native ownership', () => {
   test('Next owns the clean route with a server redirect only', () => {
@@ -42,5 +57,33 @@ describe('/pricing pre-launch native ownership', () => {
   test('CI verifies redirect semantics instead of fake same-page parity', () => {
     assert.match(WORKFLOW, /frontend\/app\/\(marketing\)\/pricing\/\*\*/);
     assert.match(WORKFLOW, /node tooling\/verify-pricing-redirect-flow\.mjs/);
+  });
+
+  test('redirect verifier rejects a cross-origin homepage target', async () => {
+    const target = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/html' });
+      response.end('<h1>External homepage</h1>');
+    });
+    const targetBase = await listen(target);
+    const source = createServer((_request, response) => {
+      response.writeHead(307, { location: `${targetBase}/` });
+      response.end();
+    });
+    const sourceBase = await listen(source);
+
+    try {
+      await assert.rejects(
+        execFileAsync(process.execPath, [VERIFY_PRICING, sourceBase]),
+        (error) => {
+          assert.equal(error.code, 1);
+          assert.match(error.stdout, /redirect target is exactly the same-origin homepage/);
+          assert.match(error.stdout, /normal navigation finishes on the same-origin homepage/);
+          return true;
+        },
+      );
+    } finally {
+      await close(source);
+      await close(target);
+    }
   });
 });
