@@ -347,7 +347,7 @@ async function _initExerciseCTA(category: string, slug: string) {
 
     if (!link) return;
 
-    link.setAttribute('href', `/pages/quiz.html?bank=${encodeURIComponent(info.bank_id)}`);
+    link.setAttribute('href', `/quiz?bank=${encodeURIComponent(info.bank_id)}`);
     if (sub && info.questions) {
       sub.textContent = `Làm ${info.questions} điểm ngữ pháp để kiểm tra kiến thức bài này.`;
     }

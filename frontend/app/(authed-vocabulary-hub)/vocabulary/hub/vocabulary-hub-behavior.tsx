@@ -289,7 +289,7 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
         {visibleCategories.map(({ category, count, slug }) => {
           const encodedSlug = encodeURIComponent(slug);
           const linkedTopicId = topicId(category);
-          const practiceHref = `/pages/quiz.html?skill_area=vocab${
+          const practiceHref = `/quiz?skill_area=vocab${
             linkedTopicId ? `&topic_id=${encodeURIComponent(linkedTopicId)}` : ''
           }`;
           return (

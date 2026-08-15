@@ -109,7 +109,7 @@ export function GrammarExercisesBehavior() {
             {group.banks.map((bank) => (
               <a
                 key={bank.id}
-                href={`/pages/quiz.html?bank=${encodeURIComponent(bank.id)}`}
+                href={`/quiz?bank=${encodeURIComponent(bank.id)}`}
                 className="group flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 transition hover:border-teal/40 hover:bg-teal/[0.06]"
               >
                 <span className="text-white/85 font-medium truncate">

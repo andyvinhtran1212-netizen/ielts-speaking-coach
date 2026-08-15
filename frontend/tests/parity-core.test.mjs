@@ -85,6 +85,9 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
     assert.equal(canonicalHref('/onboarding.html'), '/onboarding');
     assert.equal(canonicalHref('/pages/profile.html'), '/profile');
     assert.equal(
+      canonicalHref('/pages/quiz.html?bank=bank-1'),
+      '/quiz?bank=bank-1');
+    assert.equal(
       canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),
       '/grammar/compare?slug=past-perfect-vs-past-simple');
     assert.equal(canonicalHref('/pricing.html'), '/pricing');

@@ -144,6 +144,14 @@
     "note": "Tài khoản probe có thể chưa làm Quick-Check nào, khi đó trang chỉ render tiêu đề + mô tả + các đề mục rỗng. Cặp này khi đó chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style ở trạng thái rỗng."
   },
   {
+    "name": "quiz-player-missing-bank",
+    "legacy": "/pages/quiz.html",
+    "next": "/quiz",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có query bank thì cả hai vế fail closed ở nhánh thiếu tham số. Cặp G1 này ghim route/shell/copy/style desktop-mobile; fixture verify-quiz-flow.mjs mới chứng minh player, mutation, retry, review và reset bằng một bank ổn định."
+  },
+  {
     "name": "mock-result",
     "legacy": "/pages/mock-result.html",
     "next": "/mock/result",

@@ -210,6 +210,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // Bot bắt ở #958. Giữ ánh xạ để neo trong trang và mọi link còn sót vẫn khớp.
   else if (path === '/pages/exercises.html') path = '/exercises';
   else if (path === '/pages/flashcards.html') path = '/flashcards';
+  // `/quiz` cutover 2026-08-15. Grammar articles and Vocabulary Practice still
+  // expose the rollback link on their legacy side while the native side points
+  // at the clean owner. Without this mapping the parity gate reports every
+  // migrated launcher as a missing/extra pair even though the bank query is
+  // identical — and then skips the browser write-flow that proves the player.
+  else if (path === '/pages/quiz.html') path = '/quiz';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
