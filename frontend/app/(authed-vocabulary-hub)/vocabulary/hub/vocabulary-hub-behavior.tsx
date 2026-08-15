@@ -304,7 +304,7 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
                 </span>
               </div>
               <div className="vtc-actions">
-                <a className="vtc-act vtc-act--browse" href={`/vocabulary.html?cat=${encodedSlug}`}>Khám phá</a>
+                <a className="vtc-act vtc-act--browse" href={`/vocabulary?cat=${encodedSlug}`}>Khám phá</a>
                 <a className="vtc-act vtc-act--study" href={`/pages/flashcard-study.html?stack=wiki:${encodedSlug}`}>🃏 Flashcards</a>
                 <a className="vtc-act vtc-act--ex" href={practiceHref}>✍️ Luyện tập</a>
               </div>

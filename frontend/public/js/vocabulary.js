@@ -258,7 +258,7 @@
         const a = await window.api.get(`/api/vocabulary/articles/${encodeURIComponent(cat)}/${encodeURIComponent(slug)}`);
         if (my !== state.seq) return;                 // a newer selection won — drop stale render
         cardEl.innerHTML = cardHTML(a) + articleBodyHTML(a);
-        try { history.replaceState(null, '', `/vocabulary.html?cat=${encodeURIComponent(cat)}&slug=${encodeURIComponent(slug)}`); } catch (_) {}
+        try { history.replaceState(null, '', `/vocabulary?cat=${encodeURIComponent(cat)}&slug=${encodeURIComponent(slug)}`); } catch (_) {}
         fireAnalytics(slug, cat);
       } catch (err) {
         if (my !== state.seq) return;

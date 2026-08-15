@@ -135,7 +135,7 @@ describe('Admin feedback — pure helpers (executed)', () => {
     assert.equal(H.deepLink({ skill: 'listening', test_id: 'LIS-1' }),
       '/pages/admin/listening/tests.html?test=LIS-1');
     assert.equal(H.deepLink({ skill: 'vocabulary', test_id: 'vocabulary:work/career-path' }),
-      '/vocabulary.html?cat=work&slug=career-path');
+      '/vocabulary?cat=work&slug=career-path');
     assert.equal(H.deepLink({ skill: 'listening' }), null);   // no test_id → no link
   });
   it('avg ignores nulls', () => {

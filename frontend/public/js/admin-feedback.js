@@ -85,7 +85,7 @@
     if (r.skill === 'vocabulary' && r.test_id) {
       var vocab = /^vocabulary:([^/]+)\/(.+)$/.exec(r.test_id);
       return vocab
-        ? '/vocabulary.html?cat=' + encodeURIComponent(vocab[1]) + '&slug=' + encodeURIComponent(vocab[2])
+        ? '/vocabulary?cat=' + encodeURIComponent(vocab[1]) + '&slug=' + encodeURIComponent(vocab[2])
         : null;
     }
     var base = DEEP_LINK[r.skill];

@@ -99,7 +99,7 @@ export function averageRating(values) {
 export function feedbackDeepLink(item) {
   if (item.skill === 'vocabulary' && item.testId) {
     const match = /^vocabulary:([^/]+)\/(.+)$/.exec(item.testId);
-    return match ? `/vocabulary.html?cat=${encodeURIComponent(match[1])}&slug=${encodeURIComponent(match[2])}` : null;
+    return match ? `/vocabulary?cat=${encodeURIComponent(match[1])}&slug=${encodeURIComponent(match[2])}` : null;
   }
   if (!item.testId || /^(practice|exercise):/.test(item.testId)) return null;
   if (item.skill === 'reading') {

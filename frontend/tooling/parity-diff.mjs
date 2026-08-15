@@ -121,6 +121,23 @@ const DEFAULT_PAIRS = [
       reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
     }],
   },
+  {
+    name: 'vocabulary-wiki',
+    legacy: '/vocabulary.html?cat=technology&slug=cutting-edge',
+    next: '/vocabulary?cat=technology&slug=cutting-edge',
+    allow: [
+      {
+        kind: 'api-missing',
+        value: 'GET /api/vocabulary/categories',
+        reason: 'Next fetch category feed phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+      },
+      {
+        kind: 'api-missing',
+        value: 'GET /api/vocabulary/articles/technology/cutting-edge',
+        reason: 'Next fetch thẻ đầu tiên phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+      },
+    ],
+  },
 ];
 
 /** Bổ sung toàn bộ bài Grammar từ backend — không lấy mẫu, quét hết. */

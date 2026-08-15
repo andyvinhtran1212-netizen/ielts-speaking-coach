@@ -105,7 +105,7 @@ describe('admin feedback model truth', () => {
     assert.equal(feedbackDeepLink({ skill: 'reading', testId: 'RD-1', questionNumber: null }), '/admin/reading/preview?test_id=RD-1');
     assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'LIS-1', questionNumber: 3 }), '/pages/admin/listening/tests.html');
     assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'exercise:abc', questionNumber: null }), null);
-    assert.equal(feedbackDeepLink({ skill: 'vocabulary', testId: 'vocabulary:work/career', questionNumber: null }), '/vocabulary.html?cat=work&slug=career');
+    assert.equal(feedbackDeepLink({ skill: 'vocabulary', testId: 'vocabulary:work/career', questionNumber: null }), '/vocabulary?cat=work&slug=career');
     assert.equal(formatFeedbackTime('2026-08-12T07:00:00Z', new Date('2026-08-12T08:00:00Z')), '1 giờ trước');
   });
 });

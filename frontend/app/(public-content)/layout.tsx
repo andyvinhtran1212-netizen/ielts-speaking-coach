@@ -43,11 +43,12 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         rel="stylesheet"
       />
 
-      {/* Stylesheets: tokens → components → ds → grammar-wiki.css → tailwind (last for cascade) */}
+      {/* Stylesheets: tokens → components → ds → content CSS → tailwind (last for cascade) */}
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       <link rel="stylesheet" href="/css/ds.css" />
       <link rel="stylesheet" href="/css/grammar-wiki.css" />
+      <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* Canonical chrome Web Component (Sprint 7.13) */}
