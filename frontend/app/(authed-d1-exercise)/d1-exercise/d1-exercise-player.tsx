@@ -44,6 +44,10 @@ function writeSessionIds(userId: string, ids: string[]) {
   else localStorage.removeItem(storageKey(userId));
 }
 
+function retainSession(userId: string, sessionId: string) {
+  writeSessionIds(userId, [...readSessionIds(userId).filter((id) => id !== sessionId), sessionId]);
+}
+
 function quotaMessage(detail: any) {
   const remaining = Number.isFinite(Number(detail?.remaining))
     ? ` Bạn còn ${Number(detail.remaining)} lượt.` : '';
@@ -105,7 +109,7 @@ export function D1ExercisePlayer() {
   }, []);
 
   const rememberSession = useCallback((userId: string, sessionId: string) => {
-    writeSessionIds(userId, [...readSessionIds(userId).filter((id) => id !== sessionId), sessionId]);
+    retainSession(userId, sessionId);
     const url = new URL(window.location.href);
     url.searchParams.set('session', sessionId);
     window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
@@ -155,6 +159,11 @@ export function D1ExercisePlayer() {
     setSession(null);
     setSummary(null);
     setReviewExercises(null);
+    setIndex(0);
+    setChoice(null);
+    setAttemptKey('');
+    setAttemptAck(null);
+    setSaveError('');
     setAttemptRateLimited(false);
 
     (async () => {
@@ -216,6 +225,10 @@ export function D1ExercisePlayer() {
       const payload = await window.api.post('/api/exercises/d1/sessions', { size: 10 });
       const started = normalizeD1Start(payload);
       if (!started) throw new Error('Máy chủ trả về phiên D1 không đúng định dạng.');
+      // The backend may already have committed this session. Preserve its ID
+      // under the request owner even if auth changed while the ACK travelled;
+      // only the current owner is allowed to update visible state or the URL.
+      retainSession(expectedAccount, started.sessionId);
       if (accountRef.current !== expectedAccount) return;
       setSession(started);
       setIndex(0);

@@ -32,6 +32,12 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /queryId \|\| storedIds\[storedIds\.length - 1\]/);
   });
 
+  test('account changes reset question state and retain a late start ACK for its owner', () => {
+    assert.match(player, /setSession\(null\)[\s\S]{0,220}setIndex\(0\)[\s\S]{0,120}setChoice\(null\)[\s\S]{0,120}setAttemptKey\(''\)[\s\S]{0,120}setAttemptAck\(null\)[\s\S]{0,120}setSaveError\(''\)/);
+    assert.match(player, /const started = normalizeD1Start\(payload\)[\s\S]{0,420}retainSession\(expectedAccount, started\.sessionId\);\s*if \(accountRef\.current !== expectedAccount\) return;/);
+    assert.match(player, /function retainSession\(userId: string, sessionId: string\)[\s\S]{0,180}writeSessionIds\(userId/);
+  });
+
   test('retries one stable client key and gates Next on canonical ACK', () => {
     assert.match(player, /client_attempt_id: key/);
     assert.match(player, /for \(let attempt = 0; attempt < 2 && !canonical/);
