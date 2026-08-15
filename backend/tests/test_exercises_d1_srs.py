@@ -68,6 +68,8 @@ class _Builder:
     def neq(self, *_a, **_k): return self
 
     def insert(self, row):
+        if self._table == "vocabulary_exercise_attempts" and not row.get("id"):
+            row = {**row, "id": f"attempt-{len(self._parent.inserts) + 1}"}
         self._parent.inserts.append((self._table, row))
 
         class _Exec:
@@ -125,11 +127,8 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
     async def _fake_auth(_authz):
         return {"id": user_id}
 
-    # The rate-limit decorator (services/rate_limit.py) does its own
-    # `from routers.auth import get_supabase_user` at call time and
-    # then verifies the user via that imported function. So we must
-    # patch the source module — patching `ex.get_supabase_user` won't
-    # reach the decorator's lazy re-import.
+    # Keep the auth source patched too because other exercised helpers import
+    # it lazily even though submit_d1_attempt now enforces quota imperatively.
     from routers import auth as auth_mod
     monkeypatch.setattr(auth_mod, "get_supabase_user", _fake_auth)
     monkeypatch.setattr(ex, "get_supabase_user", _fake_auth)
@@ -141,10 +140,7 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
 
 @pytest.fixture(autouse=True)
 def _bypass_rate_limit(monkeypatch):
-    """Disable the rate-limit usage counter so tests don't need to
-    stub a daily-usage Supabase row. The decorator is applied at
-    import time on the handler so we can't replace the decorator
-    itself; instead we patch the enforcement function it calls."""
+    """Disable the daily-usage counter so these tests stay focused on SRS."""
     from services import rate_limit
     monkeypatch.setattr(rate_limit, "enforce_exercise_rate_limit", lambda **_k: None)
 

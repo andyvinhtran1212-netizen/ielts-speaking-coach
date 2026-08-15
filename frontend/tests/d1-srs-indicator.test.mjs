@@ -50,17 +50,14 @@ describe('Sprint 10.3 — D1 SRS indicator wiring', () => {
     );
   });
 
-  it('onAnswerClick chains .then(renderSrsIndicator) on the POST', () => {
-    // The fire-and-forget pattern survives, but with a .then to
-    // render the indicator before the .finally cleanup. Pin both
-    // sites.
+  it('renders the SRS indicator after the awaited persistence ACK', () => {
     assert.ok(
-      /postAttemptWithRetry\([^)]+\)\s*\.then\(/.test(D1_SOURCE),
-      '.then must follow postAttemptWithRetry to handle the SRS payload.',
+      /const data = await postAttemptWithRetry\([\s\S]{0,180}if \(data\)/.test(D1_SOURCE),
+      'The persistence gate must await the backend response before branching.',
     );
     assert.ok(
       D1_SOURCE.includes('renderSrsIndicator(data)'),
-      'The .then callback must invoke renderSrsIndicator with the body.',
+      'The persisted response must be passed to renderSrsIndicator.',
     );
   });
 

@@ -4,7 +4,7 @@
  * Flow:
  *   /auth/me  → flag check
  *   start screen → POST /api/exercises/d1/sessions → render queue
- *   click option → LOCAL grade (instant) → fire-and-forget POST /attempt
+ *   click option → LOCAL grade (instant) → persist /attempt → unlock Next
  *   end of queue → POST /sessions/{id}/complete → summary screen
  *   summary → [Phiên mới] / [Ôn lại câu sai] / [Về hub]
  *
@@ -136,15 +136,6 @@
       exercises:        data.exercises,    // each item carries `answer` for local grading
       current_index:    0,
       attempts:         [],
-      // Number of /attempt POSTs that failed to persist server-side.  When
-      // > 0, showSummary() trusts the local count instead of /complete (whose
-      // summary only sees attempts that DID land in the DB) — otherwise a
-      // network blip would silently undercount the user's score.
-      failed_attempts:  0,
-      // Whether any in-flight /attempt POSTs are still pending. showSummary
-      // waits briefly for them so a fast clicker doesn't trigger /complete
-      // before the last attempts have written.
-      pending_attempts: 0,
       is_review:        false,
     };
 
@@ -232,7 +223,7 @@
       fb.classList.add('wrong');
       fb.innerHTML = `✗ Đáp án đúng: <strong>${esc(ex.answer)}</strong>`;
     }
-    document.getElementById('next-btn').classList.remove('hidden');
+    const nextBtn = document.getElementById('next-btn');
 
     // Track locally for the summary screen and for review-wrong.
     _session.attempts.push({
@@ -243,10 +234,9 @@
       sentence:       ex.sentence,
     });
 
-    // Fire-and-forget POST so the backend can log + grade + rate-limit.
-    // We don't await — the local feedback already rendered. Review sessions
-    // (post-summary) skip this so a re-do doesn't pollute analytics or burn
-    // the daily quota a second time.
+    // Review sessions are local-only, so they can advance immediately. A real
+    // session must receive a canonical persistence ACK before Next unlocks;
+    // otherwise /complete could race the final attempt or silently omit it.
     //
     // Sprint 10.3 — the response now carries {srs_updated, srs_rating}
     // when this attempt fed the SRS schedule (first-attempt-only,
@@ -254,12 +244,51 @@
     // acknowledgement below the feedback box so the user knows the
     // signal landed without showing raw SRS internals.
     if (!_session.is_review && _session.id) {
-      _session.pending_attempts += 1;
-      postAttemptWithRetry(ex.id, choice, _session.id)
-        .then(data => { if (data) renderSrsIndicator(data); })
-        .finally(() => {
-          _session.pending_attempts -= 1;
-        });
+      const clientAttemptId = newClientAttemptId();
+      persistAnswerBeforeAdvance(ex.id, choice, _session.id, clientAttemptId, nextBtn);
+    } else {
+      nextBtn.classList.remove('hidden');
+    }
+  }
+
+  async function persistAnswerBeforeAdvance(
+    exerciseId, choice, sessionId, clientAttemptId, nextBtn,
+  ) {
+    const fb = document.getElementById('feedback');
+    let status = fb?.querySelector('.d1-save-status');
+    if (!status && fb) {
+      status = document.createElement('div');
+      status.className = 'd1-save-status';
+      fb.appendChild(status);
+    }
+
+    nextBtn.disabled = true;
+    nextBtn.classList.add('hidden');
+    if (status) status.textContent = 'Đang lưu bài…';
+
+    const data = await postAttemptWithRetry(
+      exerciseId, choice, sessionId, clientAttemptId,
+    );
+
+    if (data) {
+      if (status) status.textContent = '✓ Đã lưu bài';
+      renderSrsIndicator(data);
+      nextBtn.disabled = false;
+      nextBtn.classList.remove('hidden');
+      return;
+    }
+
+    if (!status) return;
+    status.innerHTML = 'Chưa lưu được bài. '
+      + '<button type="button" class="btn-link d1-save-retry">Thử lưu lại</button>';
+    const retry = status.querySelector('.d1-save-retry');
+    if (retry) {
+      retry.onclick = () => {
+        retry.disabled = true;
+        persistAnswerBeforeAdvance(
+          exerciseId, choice, sessionId, clientAttemptId, nextBtn,
+        );
+      };
     }
   }
 
@@ -297,9 +326,9 @@
 
   // One retry with a 500ms backoff covers the common transient-flake case
   // (DNS hiccup, reused-connection RST) without making the user wait long.
-  // Any non-2xx OR network error after the retry counts as a failure so
-  // showSummary() can fall back to the local count.
-  async function postAttemptWithRetry(exerciseId, choice, sessionId) {
+  // Any non-2xx OR network error after the retry returns null. The caller keeps
+  // Next locked and offers a manual retry with the same idempotency key.
+  async function postAttemptWithRetry(exerciseId, choice, sessionId, clientAttemptId) {
     const url = `${BASE}/api/exercises/d1/${exerciseId}/attempt`;
     const init = {
       method: 'POST',
@@ -307,17 +336,20 @@
         'Authorization': `Bearer ${_token}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({ user_answer: choice, session_id: sessionId }),
+      body: JSON.stringify({
+        user_answer: choice,
+        session_id: sessionId,
+        client_attempt_id: clientAttemptId,
+      }),
     };
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(url, init);
         // 429 (rate-limit) is NOT a transient flake — don't retry, but DO
-        // count it as a failure so the summary stays local-truthful.
+        // keep the learner on this item because no canonical row was written.
         if (res.status === 429) {
-          _session.failed_attempts += 1;
-          console.warn('[d1] attempt rate-limited (counted as sync failure)');
+          console.warn('[d1] attempt rate-limited (answer remains unsaved)');
           return null;
         }
         if (res.ok) {
@@ -339,9 +371,19 @@
         await new Promise(r => setTimeout(r, 500));
       }
     }
-    _session.failed_attempts += 1;
-    console.warn('[d1] attempt POST failed after retry (summary will use local count)');
+    console.warn('[d1] attempt POST failed after retry (Next remains locked)');
     return null;
+  }
+
+  function newClientAttemptId() {
+    const cryptoApi = window.crypto;
+    if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+    if (!cryptoApi?.getRandomValues) return null;
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
   function nextExercise() {
@@ -352,36 +394,14 @@
   // ── Summary (basic for now; richer version lands in next commit) ─────────
 
   async function showSummary() {
-    // Wait briefly for any in-flight /attempt POSTs so a fast clicker doesn't
-    // call /complete before the last writes settle (which would manifest as
-    // failed_attempts being undercounted, and /complete missing rows that
-    // were only milliseconds away from landing).
-    await waitForPendingAttempts(2000);
-
     // Review sessions never call /complete — there's no backend session row.
     if (_session.is_review || !_session.id) {
       renderSummaryScreen(computeLocalSummary());
       return;
     }
 
-    // If any /attempt POST didn't persist, /complete's summary will under-
-    // count the user's score (it's derived only from rows in the DB linked
-    // by session_id). Trust local instead — backend stamping still happens
-    // in the background as a best-effort.
-    if (_session.failed_attempts > 0) {
-      console.warn(
-        '[d1] %d attempt sync failure(s) — using local summary, completing in background',
-        _session.failed_attempts,
-      );
-      fetch(
-        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
-        { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
-      ).catch(err => console.warn('[d1] background complete failed:', err));
-      renderSummaryScreen(computeLocalSummary());
-      return;
-    }
-
-    // No sync failures — backend summary is authoritative.
+    // Every Next transition was gated on an attempt ACK, so the backend
+    // summary can now be authoritative.
     let summary = computeLocalSummary();
     try {
       const res = await fetch(
@@ -393,15 +413,6 @@
       console.warn('[d1] complete-session failed; using local summary:', err);
     }
     renderSummaryScreen(summary);
-  }
-
-  // Poll pending_attempts down to 0 (or timeout). Cheap because it only fires
-  // once per session at the summary boundary.
-  async function waitForPendingAttempts(timeoutMs) {
-    const start = Date.now();
-    while (_session && _session.pending_attempts > 0 && Date.now() - start < timeoutMs) {
-      await new Promise(r => setTimeout(r, 50));
-    }
   }
 
   function computeLocalSummary() {
@@ -488,8 +499,8 @@
 
   function reviewWrong(wrongIds) {
     // Build a local-only review session from the exercises the user just got
-    // wrong.  No DB row is created — review attempts skip the fire-and-forget
-    // POST /attempt (see onAnswerClick) so they don't burn the daily quota
+    // wrong. No DB row is created — review attempts skip the persistence gate
+    // in onAnswerClick so they don't burn the daily quota
     // again or pollute analytics with practice repetitions.
     const idSet = new Set(wrongIds);
     const wrongExercises = _session.exercises.filter(e => idSet.has(e.id));

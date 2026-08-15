@@ -26,7 +26,7 @@ from routers.auth import get_supabase_user
 from services.analytics import fire_event
 from services.d1_content_gen import GeminiBatchError, generate_d1_exercises
 from services.feature_flags import is_d1_enabled
-from services.rate_limit import rate_limit_exercise
+from services import rate_limit
 from services.srs import update_srs
 
 logger = logging.getLogger(__name__)
@@ -207,6 +207,9 @@ class D1AttemptRequest(BaseModel):
     # they submitted, for the per-session summary in /sessions/{id}/complete.
     # Legacy clients omit it and the column stays NULL (see migration 024).
     session_id: str | None = None
+    # Stable for one answer submission. A retry with the same UUID replays the
+    # persisted result instead of consuming quota or inserting another row.
+    client_attempt_id: uuid.UUID | None = None
 
 
 class StartSessionRequest(BaseModel):
@@ -223,6 +226,58 @@ class AdminGenerateBatchRequest(BaseModel):
 class AdminPatchExerciseRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     content_payload: dict[str, Any] | None = None
+
+
+def _attempt_result(row: dict, *, replayed: bool) -> dict:
+    """Return the public ACK from one canonically persisted attempt row."""
+    feedback = row.get("feedback") if isinstance(row.get("feedback"), dict) else {}
+    rating = feedback.get("srs_rating")
+    if rating not in ("good", "again"):
+        rating = None
+    return {
+        "attempt_id": str(row.get("id") or ""),
+        "persisted": True,
+        "replayed": replayed,
+        "is_correct": bool(row.get("is_correct")),
+        "correct_answer": str(feedback.get("correct_answer") or ""),
+        "score": float(row.get("score") or 0.0),
+        "srs_updated": bool(feedback.get("srs_updated")),
+        "srs_rating": rating,
+    }
+
+
+def _load_attempt_by_client_id(sb, user_id: str, client_attempt_id: str) -> dict | None:
+    """Fail closed: an unavailable idempotency lookup makes a retry unsafe."""
+    try:
+        result = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("id, user_id, exercise_id, session_id, client_attempt_id, "
+                    "user_answer, is_correct, score, feedback")
+            .eq("user_id", user_id)
+            .eq("client_attempt_id", client_attempt_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error(
+            "[exercises] idempotency lookup failed user=%s key=%s: %s",
+            user_id, client_attempt_id, exc,
+        )
+        raise HTTPException(500, "Could not verify attempt idempotency.")
+    return (result.data or [None])[0]
+
+
+def _replay_attempt_or_conflict(
+    row: dict,
+    *,
+    exercise_id: str,
+    body: D1AttemptRequest,
+) -> dict:
+    same_answer = str(row.get("user_answer") or "").strip() == body.user_answer.strip()
+    same_session = (row.get("session_id") or None) == (body.session_id or None)
+    if row.get("exercise_id") != exercise_id or not same_answer or not same_session:
+        raise HTTPException(409, "client_attempt_id is already bound to different input.")
+    return _attempt_result(row, replayed=True)
 
 
 # ── User: D1 list ─────────────────────────────────────────────────────────────
@@ -339,7 +394,6 @@ async def get_d1_exercise(
 
 
 @user_router.post("/d1/{exercise_id}/attempt")
-@rate_limit_exercise(exercise_type="D1", daily_limit=50)
 async def submit_d1_attempt(
     exercise_id: str,
     body: D1AttemptRequest,
@@ -348,9 +402,9 @@ async def submit_d1_attempt(
     """
     D1 free tier: 50 attempts/day to prevent abuse.
 
-    The decorator above runs BEFORE this handler and raises HTTP 429 with a
-    machine-readable detail (error, limit, used, reset_at) once the user has
-    submitted 50 D1 attempts in the current UTC day.
+    Idempotency replay is checked before the daily limit. This matters for a
+    lost ACK on the 50th persisted attempt: retrying that same client key must
+    return the existing row, not become an artificial 429.
 
     Sprint 10.5 Phase 2 — exercise_id may reference either a personalized
     question (user_d1_questions) or an admin-pool exercise
@@ -362,6 +416,20 @@ async def submit_d1_attempt(
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
+
+    client_attempt_id = str(body.client_attempt_id) if body.client_attempt_id else None
+    if client_attempt_id:
+        existing_attempt = _load_attempt_by_client_id(sb, user_id, client_attempt_id)
+        if existing_attempt:
+            return _replay_attempt_or_conflict(
+                existing_attempt, exercise_id=exercise_id, body=body,
+            )
+
+    rate_limit.enforce_exercise_rate_limit(
+        user_id=user_id,
+        exercise_type="D1",
+        daily_limit=50,
+    )
 
     # ── Resolve exercise_id polymorphically ─────────────────────────────────
     #
@@ -460,56 +528,71 @@ async def submit_d1_attempt(
         "your_answer": body.user_answer.strip(),
     }
 
-    # Validate session_id (when provided) — must belong to this user AND list
-    # the exercise_id in its snapshot.  Invalid links are dropped (still log
-    # the attempt) so a stale or forged id can't poison a real session.
+    # Validate session_id (when provided) — it must belong to this user, remain
+    # active, and list the exercise_id in its snapshot. Fail closed: persisting
+    # an unlinked attempt would make the session impossible to complete even
+    # though the learner received an apparent success response.
     linked_session_id: str | None = None
     if body.session_id:
         try:
             sess = (
                 sb.table("d1_sessions")
-                .select("id, exercise_ids")
+                .select("id, exercise_ids, status")
                 .eq("id", body.session_id)
                 .limit(1)
                 .execute()
             )
-            if sess.data:
-                row_ids = sess.data[0].get("exercise_ids") or []
-                if row["id"] in row_ids:
-                    linked_session_id = body.session_id
-                else:
-                    logger.warning(
-                        "[exercises] attempt session_id=%s does not list exercise_id=%s — dropping link",
-                        body.session_id, row["id"],
-                    )
-            else:
+            if not sess.data:
                 # RLS hides another user's session, so empty data == not yours.
-                logger.warning(
-                    "[exercises] attempt session_id=%s not visible to user=%s — dropping link",
-                    body.session_id, user_id,
-                )
+                raise HTTPException(404, "Session not found.")
+            session_row = sess.data[0]
+            row_ids = session_row.get("exercise_ids") or []
+            if session_row.get("status") != "active":
+                raise HTTPException(409, "Session is no longer active.")
+            if row["id"] not in row_ids:
+                raise HTTPException(409, "Exercise does not belong to this session.")
+            linked_session_id = body.session_id
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.warning("[exercises] attempt session lookup failed: %s", e)
+            logger.error("[exercises] attempt session lookup failed: %s", e)
+            raise HTTPException(500, "Could not verify session.")
 
+    attempt_row = {
+        "user_id":           user_id,
+        "exercise_id":       row["id"],
+        "exercise_type":     "D1",
+        "exercise_source":   exercise_source,
+        "user_answer":       body.user_answer.strip(),
+        "is_correct":        is_correct,
+        "score":             score,
+        "feedback":          feedback,
+        "session_id":        linked_session_id,
+        "client_attempt_id": client_attempt_id,
+    }
     try:
         # User-scoped client so the WITH CHECK on user_id is enforced — a
         # caller cannot insert an attempt that claims another user's id.
         # Sprint 10.5 Phase 2 — exercise_source records whether the
         # exercise_id points at user_d1_questions or vocabulary_exercises
         # (migration 054 dropped the FK to make this polymorphism possible).
-        sb.table("vocabulary_exercise_attempts").insert({
-            "user_id":         user_id,
-            "exercise_id":     row["id"],
-            "exercise_type":   "D1",
-            "exercise_source": exercise_source,
-            "user_answer":     body.user_answer.strip(),
-            "is_correct":      is_correct,
-            "score":           score,
-            "feedback":        feedback,
-            "session_id":      linked_session_id,
-        }).execute()
+        inserted = sb.table("vocabulary_exercise_attempts").insert(attempt_row).execute()
     except Exception as e:
-        logger.warning("[exercises] attempt insert failed (non-fatal): %s", e)
+        # A connection may fail after PostgreSQL committed the row. Read the
+        # idempotency key once before deciding this is a failed write.
+        if client_attempt_id:
+            existing_attempt = _load_attempt_by_client_id(sb, user_id, client_attempt_id)
+            if existing_attempt:
+                return _replay_attempt_or_conflict(
+                    existing_attempt, exercise_id=exercise_id, body=body,
+                )
+        logger.error("[exercises] attempt insert failed: %s", e)
+        raise HTTPException(500, "Could not save attempt.")
+
+    if not inserted.data or not isinstance(inserted.data[0], dict) or not inserted.data[0].get("id"):
+        logger.error("[exercises] attempt insert returned no canonical row")
+        raise HTTPException(500, "Could not save attempt.")
+    persisted_attempt = inserted.data[0]
 
     # ── Sprint 10.3 — D1 → SRS feedback loop ────────────────────────────
     #
@@ -579,6 +662,29 @@ async def submit_d1_attempt(
             # that didn't happen.
             srs_rating = None
 
+    feedback["srs_updated"] = srs_updated
+    feedback["srs_rating"] = srs_rating
+    try:
+        saved_feedback = (
+            sb.table("vocabulary_exercise_attempts")
+            .update({"feedback": feedback})
+            .eq("id", persisted_attempt["id"])
+            .execute()
+        )
+        if not saved_feedback.data:
+            logger.warning(
+                "[exercises] attempt feedback update returned no row attempt=%s",
+                persisted_attempt["id"],
+            )
+    except Exception as e:
+        # The attempt itself is canonical even if this auxiliary SRS receipt
+        # cannot be attached. Do not invite a duplicate submission.
+        logger.warning(
+            "[exercises] attempt feedback receipt update failed attempt=%s: %s",
+            persisted_attempt["id"], e,
+        )
+    persisted_attempt = {**persisted_attempt, "feedback": feedback}
+
     _safe_event(
         "exercise_completed",
         {
@@ -592,16 +698,7 @@ async def submit_d1_attempt(
         user_id,
     )
 
-    return {
-        "is_correct": is_correct,
-        "correct_answer": correct_answer,
-        "score": score,
-        # Sprint 10.3 — new fields. Backwards compat: pre-10.3 frontends
-        # ignore unknown keys; post-10.3 d1-exercise.js renders the
-        # "✓ Đã ghi nhận" / "📝 Lưu ý" indicator when srs_updated=true.
-        "srs_updated": srs_updated,
-        "srs_rating":  srs_rating,
-    }
+    return _attempt_result(persisted_attempt, replayed=False)
 
 
 # ── User: D1 session lifecycle ────────────────────────────────────────────────
@@ -845,9 +942,10 @@ async def start_d1_session(
     # the body.
     try:
         sess = sb.table("d1_sessions").insert({
-            "user_id":      user_id,
-            "exercise_ids": exercise_ids,
-            "total_count":  len(exercise_ids),
+            "user_id":          user_id,
+            "exercise_ids":     exercise_ids,
+            "exercise_snapshot": exercises,
+            "total_count":      len(exercise_ids),
         }).execute()
     except Exception as e:
         logger.error("[exercises] start_session insert failed: %s", e)
@@ -909,8 +1007,8 @@ async def get_d1_session(
             .execute()
         )
     except Exception as e:
-        logger.warning("[exercises] get_session attempts lookup failed: %s", e)
-        attempts = type("S", (), {"data": []})()
+        logger.error("[exercises] get_session attempts lookup failed: %s", e)
+        raise HTTPException(500, "Could not load session attempts.")
 
     return {
         "session": sess.data[0],
@@ -927,8 +1025,8 @@ async def complete_d1_session(
     Mark a session completed and return a per-item correct/wrong summary so
     the UI can render the results screen without making a separate request.
 
-    Idempotent: calling this twice on the same session just re-derives the
-    summary from the attempt rows; the second update is a no-op.
+    Idempotent in result: calling this twice re-derives the same summary and
+    persists the same canonical status/count.
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
@@ -938,7 +1036,7 @@ async def complete_d1_session(
     try:
         sess_res = (
             sb.table("d1_sessions")
-            .select("id, exercise_ids, total_count, status")
+            .select("id, exercise_ids, exercise_snapshot, total_count, status")
             .eq("id", session_id)
             .limit(1)
             .execute()
@@ -952,13 +1050,22 @@ async def complete_d1_session(
 
     session_row = sess_res.data[0]
     exercise_ids: list[str] = list(session_row.get("exercise_ids") or [])
+    total_count = session_row.get("total_count")
+    if (
+        not exercise_ids
+        or total_count != len(exercise_ids)
+        or len(set(exercise_ids)) != len(exercise_ids)
+    ):
+        logger.error("[exercises] corrupt session snapshot session=%s", session_id)
+        raise HTTPException(500, "Session snapshot is invalid.")
 
     # Pull all attempts linked to this session so we can build the summary.
     try:
         att_res = (
             sb.table("vocabulary_exercise_attempts")
-            .select("exercise_id, user_answer, is_correct")
+            .select("id, exercise_id, user_answer, is_correct, attempted_at")
             .eq("session_id", session_id)
+            .order("attempted_at", desc=False)
             .execute()
         )
     except Exception as e:
@@ -967,39 +1074,75 @@ async def complete_d1_session(
 
     attempts_by_id: dict[str, dict] = {}
     for a in (att_res.data or []):
-        # If the same exercise was answered twice in one session (edge case)
-        # the latest insert wins — we don't have attempted_at in this query,
-        # but list iteration order from PostgREST is insertion-stable.
+        # Historical clients could duplicate an attempt after a lost ACK.
+        # Ordered iteration makes the latest persisted row authoritative.
         attempts_by_id[a["exercise_id"]] = a
 
-    # Resolve exercise content for the summary cards.  RLS allows reading
-    # published rows; if any have since been unpublished/deleted, the
-    # session simply omits them from the summary.
-    ex_rows: dict[str, dict] = {}
-    if exercise_ids:
+    missing_attempt_ids = [ex_id for ex_id in exercise_ids if ex_id not in attempts_by_id]
+    if missing_attempt_ids:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "session_incomplete",
+                "message": "Every exercise must be persisted before completion.",
+                "missing_exercise_ids": missing_attempt_ids,
+            },
+        )
+
+    # New sessions own an immutable learner-facing payload. For sessions made
+    # before migration 211, reconstruct from both canonical source tables.
+    snapshot = session_row.get("exercise_snapshot")
+    snapshot_by_id: dict[str, dict] = {}
+    if isinstance(snapshot, list):
+        for item in snapshot:
+            if isinstance(item, dict) and item.get("id") in exercise_ids:
+                snapshot_by_id[item["id"]] = item
+
+    unresolved = [ex_id for ex_id in exercise_ids if ex_id not in snapshot_by_id]
+    if unresolved:
         try:
             ex_res = (
                 sb.table("vocabulary_exercises")
-                .select("id, content_payload")
-                .in_("id", exercise_ids)
+                .select("id, content_payload, target_vocab_id")
+                .in_("id", unresolved)
                 .execute()
             )
             for r in (ex_res.data or []):
-                ex_rows[r["id"]] = r
+                snapshot_by_id[r["id"]] = _session_exercise_view(r)
         except Exception as e:
             logger.warning("[exercises] complete_session ex fetch failed: %s", e)
+
+    unresolved = [ex_id for ex_id in exercise_ids if ex_id not in snapshot_by_id]
+    if unresolved:
+        try:
+            personalized_res = (
+                sb.table("user_d1_questions")
+                .select("id, vocabulary_id, context_sentence, blank_position_start, "
+                        "blank_position_end, target_answer, options, hint")
+                .in_("id", unresolved)
+                .execute()
+            )
+            for r in (personalized_res.data or []):
+                snapshot_by_id[r["id"]] = _personalized_session_view(r)
+        except Exception as e:
+            logger.warning("[exercises] complete_session personalized fetch failed: %s", e)
+
+    unresolved = [ex_id for ex_id in exercise_ids if ex_id not in snapshot_by_id]
+    if unresolved:
+        logger.error(
+            "[exercises] session content unavailable session=%s ids=%s",
+            session_id, unresolved,
+        )
+        raise HTTPException(500, "Could not reconstruct session content.")
 
     correct_items: list[dict] = []
     wrong_items: list[dict] = []
 
     for ex_id in exercise_ids:
-        ex = ex_rows.get(ex_id) or {}
-        payload = ex.get("content_payload") or {}
-        sentence = payload.get("sentence", "")
-        correct_answer = payload.get("answer", "")
-        att = attempts_by_id.get(ex_id)
-        if att is None:
-            continue  # user skipped this exercise — neither correct nor wrong
+        exercise = snapshot_by_id[ex_id]
+        sentence = exercise.get("sentence", "")
+        correct_answer = exercise.get("answer", "")
+        att = attempts_by_id[ex_id]
         if att.get("is_correct"):
             correct_items.append({
                 "exercise_id": ex_id,
@@ -1015,18 +1158,21 @@ async def complete_d1_session(
             })
 
     correct_count = len(correct_items)
-    total_count = session_row.get("total_count") or len(exercise_ids)
 
     # Update the session row.  WITH CHECK ensures the user can only update
     # their own session.  Idempotent: re-completing produces the same values.
     try:
-        sb.table("d1_sessions").update({
+        updated = sb.table("d1_sessions").update({
             "completed_at":  datetime.now(timezone.utc).isoformat(),
             "correct_count": correct_count,
             "status":        "completed",
         }).eq("id", session_id).execute()
     except Exception as e:
-        logger.warning("[exercises] complete_session update failed (non-fatal): %s", e)
+        logger.error("[exercises] complete_session update failed: %s", e)
+        raise HTTPException(500, "Could not persist session completion.")
+    if not updated.data:
+        logger.error("[exercises] complete_session update returned no row session=%s", session_id)
+        raise HTTPException(500, "Could not persist session completion.")
 
     _safe_event(
         "d1_session_completed",
