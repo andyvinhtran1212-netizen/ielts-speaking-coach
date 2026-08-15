@@ -18,7 +18,16 @@ describe('D1 canonical completion and quota recovery', () => {
     assert.match(source, /ACTIVE_SESSION_KEY = 'aver:d1:active-session'/);
     assert.match(source, /api\/exercises\/d1\/sessions\/\$\{sessionId\}/);
     assert.match(source, /const storedIds = readActiveSessionIds\(\)/);
-    assert.match(source, /sessionIdFromUrl\(\) \|\| storedIds\[storedIds\.length - 1\]/);
+    assert.match(source, /const candidates = storedIds\.length \? storedIds : legacyIds/);
+    assert.match(source, /sessionIdFromUrl\(\) \|\| candidates\[candidates\.length - 1\]/);
+  });
+
+  test('session registry is account-scoped and legacy ownership is proven before cleanup', () => {
+    assert.match(source, /_userId = me\.id/);
+    assert.match(source, /`\$\{ACTIVE_SESSION_KEY\}:\$\{_userId\}`/);
+    assert.match(source, /const legacyIds = storedIds\.length \? \[\] : readActiveSessionIds\(ACTIVE_SESSION_KEY\)/);
+    assert.match(source, /rememberActiveSession\(_session\.id\)[\s\S]{0,180}legacyIds\.includes\(_session\.id\)[\s\S]{0,100}removeItem\(ACTIVE_SESSION_KEY\)/);
+    assert.match(source, /res\.status === 404[\s\S]{0,100}forgetActiveSession\(sessionId\)/);
   });
 
   test('a transient canonical resume failure blocks new-session creation', () => {

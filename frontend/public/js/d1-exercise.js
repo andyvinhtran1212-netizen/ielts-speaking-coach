@@ -23,6 +23,7 @@
   const ACTIVE_SESSION_KEY = 'aver:d1:active-session';
 
   let _token = null;
+  let _userId = null;
   /** @typedef {{
    *   id: string,
    *   exercises: Array<{id: string, sentence: string, options: string[], answer: string}>,
@@ -35,8 +36,12 @@
   let _session = null;
   let _lastAttemptRateLimit = null;
 
-  function readActiveSessionIds() {
-    const raw = window.localStorage?.getItem(ACTIVE_SESSION_KEY);
+  function activeSessionKey() {
+    return _userId ? `${ACTIVE_SESSION_KEY}:${_userId}` : '';
+  }
+
+  function readActiveSessionIds(key = activeSessionKey()) {
+    const raw = key ? window.localStorage?.getItem(key) : null;
     if (!raw) return [];
     try {
       const parsed = JSON.parse(raw);
@@ -50,9 +55,11 @@
   }
 
   function writeActiveSessionIds(ids) {
+    const key = activeSessionKey();
+    if (!key) return;
     const unique = [...new Set(ids.filter(id => typeof id === 'string' && id))];
-    if (unique.length) window.localStorage?.setItem(ACTIVE_SESSION_KEY, JSON.stringify(unique));
-    else window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+    if (unique.length) window.localStorage?.setItem(key, JSON.stringify(unique));
+    else window.localStorage?.removeItem(key);
   }
 
   function sessionIdFromUrl() {
@@ -117,6 +124,11 @@
       if (!meRes.ok) { _showState('disabled'); return; }
       const me = await meRes.json();
       if (me.d1_enabled !== true) { _showState('disabled'); return; }
+      if (typeof me.id !== 'string' || !me.id) {
+        _showState('error', 'Không xác định được tài khoản đang đăng nhập.');
+        return;
+      }
+      _userId = me.id;
     } catch (_) {
       _showState('disabled');
       return;
@@ -128,7 +140,12 @@
 
   async function resumeStoredSession() {
     const storedIds = readActiveSessionIds();
-    const sessionId = sessionIdFromUrl() || storedIds[storedIds.length - 1];
+    // A pre-namespace singleton is only a candidate. Never delete it on 404:
+    // it may belong to another account that used this browser. Claim/remove
+    // it only after the user-scoped endpoint proves ownership.
+    const legacyIds = storedIds.length ? [] : readActiveSessionIds(ACTIVE_SESSION_KEY);
+    const candidates = storedIds.length ? storedIds : legacyIds;
+    const sessionId = sessionIdFromUrl() || candidates[candidates.length - 1];
     if (!sessionId) return false;
     try {
       const res = await fetch(`${BASE}/api/exercises/d1/sessions/${sessionId}`, {
@@ -173,6 +190,10 @@
         attempts,
         is_review: false,
       };
+      rememberActiveSession(_session.id);
+      if (legacyIds.includes(_session.id)) {
+        window.localStorage?.removeItem(ACTIVE_SESSION_KEY);
+      }
       if (session.status === 'completed' || attempts.length >= exercises.length) {
         await showSummary();
         return true;
