@@ -54,6 +54,11 @@ const attempt401Started = new Promise((resolve) => { resolveAttempt401 = resolve
 let complete401Armed = false;
 let resolveComplete401;
 const complete401Started = new Promise((resolve) => { resolveComplete401 = resolve; });
+let refresh401Armed = false;
+let refreshRetryExpected = false;
+let refreshRetrySeen = false;
+let resolveRefresh401;
+const refresh401Started = new Promise((resolve) => { resolveRefresh401 = resolve; });
 
 const supabaseStub = `
 window.supabase = { createClient: function () { return { auth: {
@@ -67,7 +72,8 @@ window.supabase = { createClient: function () { return { auth: {
     }
     var currentUser = window.__d1CurrentUser || '${USER}';
     var foreign = currentUser === '${FOREIGN_USER}';
-    return { data: { session: { access_token: foreign ? 'foreign-token' : 'fixture-token', user: { id: currentUser, email: foreign ? 'other@local' : 'd1@local' } } }, error: null };
+    var token = window.__d1AccessToken || (foreign ? 'foreign-token' : 'fixture-token');
+    return { data: { session: { access_token: token, user: { id: currentUser, email: foreign ? 'other@local' : 'd1@local' } } }, error: null };
   },
   onAuthStateChange: function (callback) { window.__d1AuthCallback = callback; return { data: { subscription: { unsubscribe: function () {} } } }; },
   signOut: async function () { return { error: null }; }
@@ -91,6 +97,17 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
   if (url.pathname === '/auth/me') {
+    if (refresh401Armed && request.headers().authorization === 'Bearer fixture-token') {
+      refresh401Armed = false;
+      refreshRetryExpected = true;
+      resolveRefresh401();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return json({ detail: 'Old token expired' }, 401);
+    }
+    if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token') {
+      refreshRetryExpected = false;
+      refreshRetrySeen = true;
+    }
     if (bootstrap401Armed && request.headers().authorization === 'Bearer fixture-token') {
       bootstrap401Armed = false;
       resolveBootstrap401();
@@ -393,6 +410,25 @@ await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await page.waitForTimeout(350);
 check('401 trễ khi complete không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
+
+refresh401Armed = true;
+await page.evaluate(([userId, foreignUserId]) => {
+  localStorage.removeItem(`aver:d1:active-session:${userId}`);
+  localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+}, [USER, FOREIGN_USER]);
+await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await refresh401Started;
+await page.evaluate(([userId]) => {
+  window.__d1CurrentUser = userId;
+  window.__d1AccessToken = 'refreshed-token';
+  window.__d1AuthCallback?.('TOKEN_REFRESHED', {
+    access_token: 'refreshed-token',
+    user: { id: userId, email: 'd1@local' },
+  });
+}, [USER]);
+await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+check('401 token cũ retry một lần bằng token refresh cùng account',
+  refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise');
 
 await context.close();
 await browser.close();

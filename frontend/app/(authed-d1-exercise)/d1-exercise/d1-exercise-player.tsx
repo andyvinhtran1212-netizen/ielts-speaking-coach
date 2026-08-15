@@ -60,17 +60,33 @@ async function requestForAccount(expectedAccount: string, path: string, init?: R
   if (error || !authSession?.access_token || authSession.user?.id !== expectedAccount) {
     throw new Error('Tài khoản đã thay đổi trước khi gửi yêu cầu.');
   }
-  const response = await fetch(`${window.api.base}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${authSession.access_token}`,
-      'X-Request-ID': window.crypto?.randomUUID?.() || `d1-start-${Date.now()}`,
-      ...(init?.headers || {}),
-    },
-  });
-  const text = await response.text();
-  let payload: any = null;
-  try { payload = text ? JSON.parse(text) : null; } catch { /* handled below */ }
+  const requestId = window.crypto?.randomUUID?.() || `d1-request-${Date.now()}`;
+  const dispatch = async (token: string) => {
+    const response = await fetch(`${window.api.base}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Request-ID': requestId,
+        ...(init?.headers || {}),
+      },
+    });
+    const text = await response.text();
+    let payload: any = null;
+    try { payload = text ? JSON.parse(text) : null; } catch { /* handled below */ }
+    return { response, payload, token };
+  };
+  let result = await dispatch(authSession.access_token);
+  if (result.response.status === 401) {
+    const refreshed = await sb.auth.getSession();
+    const refreshedSession = refreshed.data?.session;
+    if (!refreshed.error
+      && refreshedSession?.user?.id === expectedAccount
+      && refreshedSession.access_token
+      && refreshedSession.access_token !== result.token) {
+      result = await dispatch(refreshedSession.access_token);
+    }
+  }
+  const { response, payload } = result;
   if (!response.ok) {
     const detail = payload?.detail || null;
     const thrown: any = new Error(
@@ -187,11 +203,8 @@ export function D1ExercisePlayer() {
       setPhase('summary');
     } catch (caught: any) {
       if (accountRef.current === expectedAccount) {
-        if (caught?.status === 401) window.location.href = '/login';
-        else {
-          setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
-          setPhase('completing');
-        }
+        setMessage(`Chưa xác nhận được tổng kết: ${messageOf(caught)}`);
+        setPhase('completing');
       }
     } finally {
       mutationLock.current = false;
@@ -281,20 +294,13 @@ export function D1ExercisePlayer() {
         setPhase('active');
       } catch (caught: any) {
         if (disposed || accountRef.current !== expectedAccount) return;
-        if (caught?.status === 401) {
-          window.location.href = '/login';
-          return;
-        }
         setMessage(`Không khôi phục được phiên: ${messageOf(caught)}`);
         setPhase('error');
       }
     })().catch((caught) => {
       if (!disposed && accountRef.current === expectedAccount) {
-        if (caught?.status === 401) window.location.href = '/login';
-        else {
-          setMessage(messageOf(caught));
-          setPhase('error');
-        }
+        setMessage(messageOf(caught));
+        setPhase('error');
       }
     });
     return () => { disposed = true; };
@@ -326,8 +332,7 @@ export function D1ExercisePlayer() {
       setPhase('active');
     } catch (caught: any) {
       if (accountRef.current !== expectedAccount) return;
-      if (caught?.status === 401) window.location.href = '/login';
-      else if (caught?.status === 503) setPhase('empty');
+      if (caught?.status === 503) setPhase('empty');
       else if (caught?.status === 429) {
         setMessage(quotaMessage(caught.detail));
         setPhase('rate_limited');
@@ -380,12 +385,9 @@ export function D1ExercisePlayer() {
       setAttemptAck(canonical);
     } catch (caught: any) {
       if (accountRef.current === expectedAccount) {
-        if (caught?.status === 401) window.location.href = '/login';
-        else {
-          const rateLimited = caught?.status === 429;
-          setAttemptRateLimited(rateLimited);
-          setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
-        }
+        const rateLimited = caught?.status === 429;
+        setAttemptRateLimited(rateLimited);
+        setSaveError(rateLimited ? quotaMessage(caught.detail) : `Chưa lưu được bài: ${messageOf(caught)}`);
       }
     } finally {
       mutationLock.current = false;

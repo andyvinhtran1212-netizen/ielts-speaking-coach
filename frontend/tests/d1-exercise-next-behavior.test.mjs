@@ -43,12 +43,14 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const started = normalizeD1Start\(payload\)[\s\S]{0,420}retainSession\(expectedAccount, started\.sessionId\);\s*if \(accountRef\.current !== expectedAccount\) return;/);
     assert.match(player, /function retainSession\(userId: string, sessionId: string\)[\s\S]{0,180}writeSessionIds\(userId/);
     assert.match(player, /async function requestForAccount[\s\S]{0,260}authSession\.user\?\.id !== expectedAccount/);
-    assert.match(player, /Authorization: `Bearer \$\{authSession\.access_token\}`/);
+    assert.match(player, /Authorization: `Bearer \$\{token\}`/);
     assert.match(player, /const payload = await startSessionForAccount\(expectedAccount\)/);
     assert.doesNotMatch(player, /window\.api\.post\('\/api\/exercises\/d1\/sessions'/);
     assert.doesNotMatch(player, /if \(response\.status === 401\) window\.location\.href/);
     assert.doesNotMatch(player, /window\.api\.(?:get|post)\(/);
-    assert.match(player, /catch \(caught: any\) \{\s*if \(accountRef\.current !== expectedAccount\) return;\s*if \(caught\?\.status === 401\) window\.location\.href = '\/login'/);
+    assert.doesNotMatch(player, /caught\?\.status === 401[\s\S]{0,120}window\.location/);
+    assert.match(player, /result\.response\.status === 401[\s\S]{0,420}refreshedSession\?\.user\?\.id === expectedAccount[\s\S]{0,220}refreshedSession\.access_token !== result\.token[\s\S]{0,120}dispatch\(refreshedSession\.access_token\)/);
+    assert.match(player, /const requestId = [\s\S]{0,260}'X-Request-ID': requestId/);
   });
 
   test('retries one stable client key and gates Next on canonical ACK', () => {
