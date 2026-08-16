@@ -98,6 +98,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 | `pages/listening-test.html` · `pages/listening-mini-test.html` | student | Full / mini test players (attempt + score). |
 | `pages/listening-skills.html` | student | Skills Practice — skill drills grouped by question type (`GET /api/listening/tests?test_type=drill`); each drill reuses the mini-test player + review. |
 | `pages/listening-test-dictation.html` | student | Chép chính tả — per-sentence dictation on a test's audio (auto-clip when timed), completion report (time/accuracy/error trends) + content-error flagging (`/api/listening/tests/dictation/*`). |
+| `/listening/review` (`app/(authed-listening-review)/listening/review/*`; `pages/listening-review.html` rollback) | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
 | `pages/listening-analytics.html` | student | Personal listening analytics. |
 
 ### 4.5 Student — Reading

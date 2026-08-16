@@ -92,7 +92,7 @@
     var mockOrigin = '&from=mock&sitting=' + encodeURIComponent(sitting);
     var reviews = [];
     if (data.listening_attempt_id) reviews.push({ icon: '🎧', title: 'Chữa bài Listening', hint: 'Xem lại từng câu + transcript',
-      href: '/pages/listening-review.html?attempt_id=' + encodeURIComponent(data.listening_attempt_id) + mockOrigin });
+      href: '/listening/review?attempt_id=' + encodeURIComponent(data.listening_attempt_id) + mockOrigin });
     if (data.reading_attempt_id) reviews.push({ icon: '📖', title: 'Chữa bài Reading', hint: 'Xem lại từng câu + bài đọc',
       href: '/reading/review?attempt_id=' + encodeURIComponent(data.reading_attempt_id) + mockOrigin });
     // Writing: one card per task. A task with readable feedback links to it; a

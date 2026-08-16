@@ -264,6 +264,16 @@ on:
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
+      # Listening review has no stable production attempt for a useful parity
+      # pair. Keep it outside the authed-pair block above: these paths trigger
+      # the hermetic browser verifier, not a secret-backed empty parity run.
+      - 'frontend/app/(authed-listening-review)/**'
+      - 'frontend/lib/listening-review-model.mjs'
+      - 'frontend/public/pages/listening-review.html'
+      - 'frontend/public/js/listening-review.js'
+      - 'frontend/public/css/listening-review.css'
+      - 'frontend/public/css/listening-review-next.css'
+      - 'frontend/tests/listening-review-next-behavior.test.mjs'
       # Admin Overview không có cặp parity đáng tin cậy: cả hai vế cần role
       # admin. Nó có browser read-flow với phiên/backend giả ở dưới, nên group
       # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
@@ -644,6 +654,7 @@ on:
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
+      - 'frontend/tooling/verify-listening-review-flow.mjs'
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
       - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
       - 'frontend/tooling/verify-admin-alerts-flow.mjs'
@@ -1126,6 +1137,12 @@ jobs:
       # liệu thật và fail nếu partial save vẫn cho phép finalization.
       - name: Kiểm luồng Listening Test native
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Review has no deterministic production attempt for static parity.
+      # This hermetic fixture pins submitted/auth gates, preview neutrality,
+      # filters, transcript/audio sync, escaping and responsive containment.
+      - name: Kiểm luồng Listening Review native
+        run: node tooling/verify-listening-review-flow.mjs "http://localhost:$PARITY_PORT"
 
       # Dictation player owns multi-section practice and a durable completion
       # receipt. The fixture commits then drops the POST acknowledgement and

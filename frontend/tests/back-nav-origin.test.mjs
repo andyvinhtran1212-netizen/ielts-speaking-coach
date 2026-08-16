@@ -199,7 +199,7 @@ describe('the callers stamp the origin', () => {
     assert.match(read('public', 'js', 'listening-mini-test.js'), /listening-test\.html\?id=\$\{[^}]+\}&from=mini/);
   });
   test('the listening player carries the origin through to its review page', () => {
-    assert.match(LPLAYER_JS, /listening-review\.html\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
+    assert.match(LPLAYER_JS, /\/listening\/review\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
   });
   test('the mock result tags BOTH its reviews with the sitting to return to', () => {
     // Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
@@ -209,7 +209,7 @@ describe('the callers stamp the origin', () => {
     const MOCK = read('public', 'pages', 'mock-result.html')
       + '\n' + read('public', 'js', 'mock-result.js');
     assert.match(MOCK, /var mockOrigin = '&from=mock&sitting=' \+ encodeURIComponent\(sitting\)/);
-    assert.match(MOCK, /listening-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
+    assert.match(MOCK, /\/listening\/review\?attempt_id=[^\n]*\+ mockOrigin/);
     assert.match(MOCK, /\/reading\/review\?attempt_id=[^\n]*\+ mockOrigin/);
   });
 });
