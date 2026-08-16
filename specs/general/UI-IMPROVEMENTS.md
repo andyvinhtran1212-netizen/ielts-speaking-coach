@@ -227,6 +227,20 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/instructor/grade` migration (2026-08-16)
+
+- Replaced the legacy stacked cards and browser confirmations with a focused
+  review workspace: sticky teacher-note/action rail, readable essay canvas,
+  shared learner feedback renderers and accessible confirmation dialogs.
+- Made uncertainty visible. Version-budget and active-review lookup failures no
+  longer silently hide actions; delivery is disabled with an explicit reason.
+- Bound delivery to both `review_id` and `essay_id`, persisted the same note in
+  the audit review and student-visible essay, and enforced the server transition
+  from `claimed/edited` exactly once.
+- Every note, delivery, regrade and revoke mutation is followed by canonical
+  readback. Ambiguous state locks further writes and offers a read-only
+  reconciliation action; no POST is replayed automatically.
+
 ### Native `/admin/writing/instructor-queue` migration (2026-08-13)
 
 - Replaced the compressed legacy table with a readable FIFO operations lane,

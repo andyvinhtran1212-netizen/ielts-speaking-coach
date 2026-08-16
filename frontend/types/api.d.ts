@@ -11922,6 +11922,21 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InstructorDeliverBody */
+        InstructorDeliverBody: {
+            /**
+             * Essay Id
+             * Format: uuid
+             * @description Essay identity bound to this review
+             */
+            essay_id: string;
+            /**
+             * Instructor Note
+             * @description Teacher comment copied to the review audit row and student-visible essay
+             * @default
+             */
+            instructor_note: string;
+        };
         /** InstructorNoteBody */
         InstructorNoteBody: {
             /**
@@ -20612,7 +20627,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstructorDeliverBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

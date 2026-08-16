@@ -201,7 +201,7 @@ export function instructorGradeHref(essayId, reviewId, asInstructor = null) {
   });
   const target = nullableText(asInstructor);
   if (target) params.set('as_instructor', target);
-  return `/pages/instructor/grade.html?${params.toString()}`;
+  return `/instructor/grade?${params.toString()}`;
 }
 
 export function assignmentTone(assignment, now = Date.now()) {

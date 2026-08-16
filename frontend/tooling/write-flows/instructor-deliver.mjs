@@ -36,9 +36,8 @@ const AS = FX.as_instructor;
 
 export default {
   name: 'instructor-grade — lưu nhận xét rồi TRẢ BÀI',
-  route: '/instructor/grade',
+  route: `/instructor/grade?essay_id=${ESSAY}&review_id=${REVIEW}&as_instructor=${AS}`,
   legacyRoute: `/pages/instructor/grade.html?essay_id=${ESSAY}&review_id=${REVIEW}&as_instructor=${AS}`,
-  nextPending: 'trang Next chưa tồn tại — bản khai dựng TRƯỚC khi port',
   settleMs: 900,
   drainMs: 1500,
 
@@ -51,9 +50,20 @@ export default {
     // hoá đúng cái ca mà tham số ấy VÔ TÁC DỤNG, trong khi bản khai lại tuyên
     // bố nó bảo vệ việc quy trách nhiệm.
     [/\/auth\/me/, FX.me],
+    [/\/instructor\/essays\/[^/?]+\/versions(\?|$)/, {
+      versions: [{
+        version: 1, source: 'ai_pro', overall_band_score: FX.essay.band_overall,
+        created_at: '2026-08-16T00:00:00Z', feedback_json: FX.essay.feedback.feedback_json,
+      }],
+      budget: { live_count: 1, max: 3, can_compose: true },
+    }],
+    [/\/instructor\/reviews\/queue(\?|$)/, [{
+      essay_id: ESSAY, review: { id: REVIEW, status: 'claimed' },
+      student_email: 'student@local', task_type: FX.essay.task_type,
+    }]],
     [/\/instructor\/essays\/[^/?]+(\?|$)/, FX.essay],
-    [/\/instructor-note/, {}],
-    [/\/deliver/, {}],
+    [/\/instructor-note/, { essay_id: ESSAY, instructor_note: FX.instructor_note, status: 'reviewed' }],
+    [/\/deliver/, { id: REVIEW, essay_id: ESSAY, status: 'delivered' }],
   ],
 
   steps: [
@@ -97,6 +107,7 @@ export default {
       path: `/instructor/reviews/${REVIEW}/deliver`,
       times: 1,
       query: { as_instructor: AS },
+      body: { essay_id: ESSAY, instructor_note: FX.instructor_note },
     },
   ],
 };

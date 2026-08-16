@@ -308,6 +308,15 @@ on:
       - 'backend/routers/instructor.py'
       - 'backend/services/essay_service.py'
       - 'backend/tests/test_f2_compose_versions.py'
+      - 'frontend/app/(authed-instructor-grade)/**'
+      - 'frontend/lib/instructor-grade-model.mjs'
+      - 'frontend/public/css/instructor-grade-next.css'
+      - 'frontend/tests/instructor-grade-next.test.mjs'
+      - 'frontend/tooling/verify-instructor-grade-flow.mjs'
+      - 'frontend/tooling/write-flows/instructor-deliver.mjs'
+      - 'backend/services/instructor_workflow.py'
+      - 'backend/tests/test_instructor_workflow.py'
+      - 'backend/tests/test_instructor_routes_isolation.py'
       # User/activity usage has an admin gate and fixture-backed read contract.
       # Route, model, responsive table and canonical access-code/overview links
       # must all rerun the same verifier.
@@ -1216,6 +1225,9 @@ jobs:
       # Runner ghim full-feedback preview, owner scope, impersonation và no-replay.
       - name: Kiểm luồng Instructor Compare native
         run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Instructor Grade native
+        run: node tooling/verify-instructor-grade-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
       # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.

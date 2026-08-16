@@ -225,6 +225,8 @@ def deliver(
     review_id: UUID,
     instructor_id: UUID,
     instructor_note: Optional[str] = None,
+    *,
+    expected_essay_id: Optional[UUID] = None,
 ) -> InstructorReview:
     """Mark the review delivered and surface the note to the student.
 
@@ -242,29 +244,56 @@ def deliver(
            writing_feedback.prompt_version = '<existing>-instructor'
            (idempotent — only adds the suffix if not already present)
 
-    Step 1 is filtered on `claimed_by = instructor_id` so the auth
-    check is enforced inside the UPDATE — same pattern as `release`.
+    Step 1 is filtered on `claimed_by = instructor_id` and the only legal
+    source states (`claimed` or `edited`) so the auth and exactly-once
+    transition are enforced inside the UPDATE. Instructor callers also pass
+    `expected_essay_id`; binding it in the same WHERE clause prevents a stale
+    review id from delivering a different essay than the one on screen.
     """
     # Step 1: mark the review delivered (auth filter inside the WHERE).
-    review_response = supabase_admin.table("instructor_reviews").update({
+    review_query = supabase_admin.table("instructor_reviews").update({
         "status":          InstructorReviewStatus.DELIVERED.value,
         "delivered_at":    _now_iso(),
         "instructor_note": instructor_note,
     }).eq("id", str(review_id)).eq(
         "claimed_by", str(instructor_id),
-    ).execute()
+    ).in_("status", [
+        InstructorReviewStatus.CLAIMED.value,
+        InstructorReviewStatus.EDITED.value,
+    ])
+    if expected_essay_id is not None:
+        review_query = review_query.eq("essay_id", str(expected_essay_id))
+    review_response = review_query.execute()
 
     if not review_response.data:
         existing = supabase_admin.table("instructor_reviews").select(
-            "id, status, claimed_by",
+            "id, essay_id, status, claimed_by",
         ).eq("id", str(review_id)).limit(1).execute()
         if not existing.data:
             raise NotFoundError(f"Review {review_id} not found")
+        current = existing.data[0]
+        if current.get("claimed_by") != str(instructor_id):
+            raise PermissionError(
+                f"Review {review_id} cannot be delivered by instructor "
+                f"{instructor_id} (current claimed_by="
+                f"{current.get('claimed_by')!r}, status={current['status']!r}). "
+                f"Only the current claimant can deliver."
+            )
+        if expected_essay_id is not None and current.get("essay_id") != str(expected_essay_id):
+            raise ConflictError("Review không khớp với bài viết đang mở.")
+        if current.get("status") not in (
+            InstructorReviewStatus.CLAIMED.value,
+            InstructorReviewStatus.EDITED.value,
+        ):
+            raise ConflictError(
+                f"Review {review_id} is in status={current.get('status')!r}; "
+                "only claimed/edited reviews can be delivered."
+            )
         raise PermissionError(
             f"Review {review_id} cannot be delivered by instructor "
             f"{instructor_id} (current claimed_by="
-            f"{existing.data[0].get('claimed_by')!r}, "
-            f"status={existing.data[0]['status']!r}). Only the "
+            f"{current.get('claimed_by')!r}, "
+            f"status={current['status']!r}). Only the "
             f"current claimant can deliver."
         )
 
@@ -389,7 +418,7 @@ def get_queue(
 ) -> list[InstructorQueueItem]:
     """Return queue items joined with student email + essay metadata.
 
-    `status_filter` defaults to {queued, claimed} — the active queue.
+    `status_filter` defaults to {queued, claimed, edited} — the active queue.
     Passing {delivered} retrieves the recent-delivered list for the
     queue page's history tab.
 
@@ -409,6 +438,7 @@ def get_queue(
         status_filter = [
             InstructorReviewStatus.QUEUED,
             InstructorReviewStatus.CLAIMED,
+            InstructorReviewStatus.EDITED,
         ]
 
     status_values = [s.value if hasattr(s, "value") else s for s in status_filter]

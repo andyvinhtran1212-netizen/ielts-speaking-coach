@@ -90,7 +90,7 @@ describe('/instructor/compare canonical model', () => {
     });
     assert.equal(
       instructorCompareBackHref('essay/a', 'teacher/b'),
-      '/pages/instructor/grade.html?essay_id=essay%2Fa&as_instructor=teacher%2Fb',
+      '/instructor/grade?essay_id=essay%2Fa&as_instructor=teacher%2Fb',
     );
     assert.throws(() => instructorCompareBackHref('', null), /essay-id-required/);
   });

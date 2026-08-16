@@ -63,7 +63,7 @@ describe('/instructor native dashboard model', () => {
     assert.throws(() => instructorApiPath('/instructor-evil', 'gv'), /instructor-api-path-required/);
     assert.equal(
       instructorGradeHref('essay/a', 'review b', 'gv/c'),
-      '/pages/instructor/grade.html?essay_id=essay%2Fa&review_id=review+b&as_instructor=gv%2Fc',
+      '/instructor/grade?essay_id=essay%2Fa&review_id=review+b&as_instructor=gv%2Fc',
     );
   });
 
