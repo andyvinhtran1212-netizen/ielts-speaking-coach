@@ -85,6 +85,10 @@ check('bấm lại tab hiện tại trả iframe về workspace gốc', await pa
 await page.getByRole('tab', { name: 'Chấm Writing' }).press('Home');
 check('tablist hỗ trợ Home/End/arrow mà không tự kích hoạt iframe', await page.getByRole('tab', { name: 'Quản lý đề' }).evaluate((node) => node === document.activeElement) && new URL(page.url()).searchParams.get('tab') === 'writing');
 
+await page.getByRole('tab', { name: 'Quản lý đề' }).click();
+await page.locator('iframe[src="/admin/mock-exams?embed=1"]').waitFor();
+check('Manage đã nhúng route Next.js native, không còn rollback HTML', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-exams?embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
+
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, tabHeight: parseFloat(getComputedStyle(document.querySelector('.mts-tabs button')).minHeight) }));
 check('mobile không tràn ngang và tab đạt 44px', mobile.width <= mobile.viewport && mobile.tabHeight >= 44, `${mobile.width}/${mobile.viewport}, ${mobile.tabHeight}px`);

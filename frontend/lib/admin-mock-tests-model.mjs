@@ -60,15 +60,19 @@ export function filterMockExams(exams, stage) {
   return canonical === 'all' ? exams : exams.filter((exam) => mockExamStage(exam) === canonical);
 }
 
-export function mockTestsHref(tab) {
+export function mockTestsHref(tab, examId = '') {
   const canonical = mockTestsTab(tab);
-  return canonical === 'manage' ? '/admin/mock-tests' : `/admin/mock-tests?tab=${canonical}`;
+  if (canonical === 'manage') return '/admin/mock-tests';
+  const query = new URLSearchParams({ tab: canonical });
+  const id = TEXT(examId);
+  if ((canonical === 'live' || canonical === 'review') && id) query.set('exam_id', id);
+  return `/admin/mock-tests?${query}`;
 }
 
 export function mockTestsFrame(tab, examId) {
   const canonical = mockTestsTab(tab);
   const id = TEXT(examId);
-  if (canonical === 'manage') return '/pages/admin/mock-exams/index.html?embed=1';
+  if (canonical === 'manage') return '/admin/mock-exams?embed=1';
   if (canonical === 'writing') return '/admin/writing/queue?embed=1&mocklane=1';
   if (!id) return null;
   if (canonical === 'live') {

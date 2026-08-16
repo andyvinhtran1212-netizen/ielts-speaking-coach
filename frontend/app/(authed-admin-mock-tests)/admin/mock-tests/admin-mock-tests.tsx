@@ -27,7 +27,7 @@ type Tab = 'manage' | 'live' | 'review' | 'writing';
 type Stage = 'all' | 'draft' | 'live' | 'closed';
 
 const TABS: { id: Tab; label: string; needsExam: boolean; legacy: boolean }[] = [
-  { id: 'manage', label: 'Quản lý đề', needsExam: false, legacy: true },
+  { id: 'manage', label: 'Quản lý đề', needsExam: false, legacy: false },
   { id: 'live', label: 'Phòng thi trực tiếp', needsExam: true, legacy: true },
   { id: 'review', label: 'Duyệt bài thi', needsExam: true, legacy: true },
   { id: 'writing', label: 'Chấm Writing', needsExam: false, legacy: false },
@@ -50,6 +50,7 @@ export function AdminMockTests() {
   const profile = useAdminProfile();
   const params = useSearchParams();
   const initialTab = useMemo(() => mockTestsTab(params?.get('tab')) as Tab, [params]);
+  const requestedExam = params?.get('exam_id')?.trim() || '';
   const [tab, setTab] = useState<Tab>(initialTab);
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [stage, setStage] = useState<Stage>('all');
@@ -86,7 +87,9 @@ export function AdminMockTests() {
         setExams(normalized.rows);
         setSelectedId((current) => normalized.rows.some((row: Exam) => row.id === current)
           ? current
-          : normalized.rows[0]?.id || '');
+          : normalized.rows.some((row: Exam) => row.id === requestedExam)
+            ? requestedExam
+            : normalized.rows[0]?.id || '');
         setNotice(normalized.malformedCount
           ? `${normalized.malformedCount} đề sai contract đã bị loại; danh sách có thể chưa đầy đủ.`
           : null);
@@ -112,6 +115,10 @@ export function AdminMockTests() {
       loadingRef.current = false;
     };
   }, [profile.id]);
+
+  useEffect(() => {
+    if (requestedExam && exams.some((exam) => exam.id === requestedExam)) setSelectedId(requestedExam);
+  }, [exams, requestedExam]);
 
   const shown = useMemo(() => filterMockExams(exams, stage) as Exam[], [exams, stage]);
   const selected = exams.find((exam) => exam.id === selectedId) || null;
@@ -150,7 +157,12 @@ export function AdminMockTests() {
   const activateTab = (next: Tab) => {
     if (next === tab) setFrameEpoch((current) => current + 1);
     setTab(next);
-    window.history.replaceState(window.history.state, '', mockTestsHref(next));
+    window.history.replaceState(window.history.state, '', mockTestsHref(next, selectedId));
+  };
+
+  const selectExam = (id: string) => {
+    setSelectedId(id);
+    if (tab === 'live' || tab === 'review') window.history.replaceState(window.history.state, '', mockTestsHref(tab, id));
   };
 
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -194,7 +206,7 @@ export function AdminMockTests() {
               ? <div className="mts-rail__state">{exams.length ? 'Không có đề khớp bộ lọc.' : 'Chưa có đề nào.'}</div>
               : <ul className="mts-list">{shown.map((exam) => {
                 const examStage = mockExamStage(exam);
-                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => setSelectedId(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Retake theo học viên' : 'Sequential theo lớp'} · {exam.activeSection}</small></button></li>;
+                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => selectExam(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Retake theo học viên' : 'Sequential theo lớp'} · {exam.activeSection}</small></button></li>;
               })}</ul>}
         </aside>
 

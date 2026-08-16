@@ -520,9 +520,8 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      # Mock Tests cockpit owns the clean orchestration route. The child
-      # manage/live/review modules remain explicit rollback frames until their
-      # focused native batches; the fixture pins selection and admission truth.
+      # Mock Tests cockpit owns orchestration; Manage is native while Live and
+      # Review remain explicit rollback frames until their focused batches.
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
       - 'frontend/public/css/admin-mock-tests-next.css'
@@ -530,6 +529,14 @@ on:
       - 'frontend/public/js/admin-mock-tests.js'
       - 'frontend/tooling/verify-admin-mock-tests-flow.mjs'
       - 'frontend/tests/admin-mock-tests-next-behavior.test.mjs'
+      - 'frontend/app/(authed-admin-mock-exams)/**'
+      - 'frontend/lib/admin-mock-exams-model.mjs'
+      - 'frontend/public/css/admin-mock-exams-next.css'
+      - 'frontend/public/pages/admin/mock-exams/index.html'
+      - 'frontend/public/js/admin-mock-exams.js'
+      - 'frontend/public/js/admin-exam-content.js'
+      - 'frontend/tooling/verify-admin-mock-exams-flow.mjs'
+      - 'frontend/tests/admin-mock-exams-next-model.test.mjs'
       # Writing hub is a native, read-only workflow map. Direct HTML remains
       # rollback; the fixture pins admin auth, destination truth and layout.
       - 'frontend/app/(authed-admin-writing)/**'
@@ -1436,6 +1443,11 @@ jobs:
       # shareable tabs, exact child identity and mobile containment.
       - name: Kiểm luồng Admin Mock Tests native
         run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native definition workspace exercises canonical exam/progress reads,
+      # guarded sequential writes, retake assignment and content-library truth.
+      - name: Kiểm luồng Admin Mock Exams native
+        run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
