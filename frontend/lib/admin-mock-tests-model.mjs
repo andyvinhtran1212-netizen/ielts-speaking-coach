@@ -78,5 +78,5 @@ export function mockTestsFrame(tab, examId) {
   if (canonical === 'live') {
     return `/admin/mock-live?exam_id=${encodeURIComponent(id)}&embed=1`;
   }
-  return `/pages/admin/mock-reviews/index.html?mock_exam_id=${encodeURIComponent(id)}&embed=1`;
+  return `/admin/mock-reviews?mock_exam_id=${encodeURIComponent(id)}&embed=1`;
 }

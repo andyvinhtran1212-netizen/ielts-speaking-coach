@@ -520,8 +520,8 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      # Mock Tests cockpit owns orchestration; Manage and Live/Pacing are native
-      # while Review remains an explicit rollback frame until its focused batch.
+      # Mock Tests cockpit owns orchestration; Manage, Live/Pacing and
+      # Reviews/Report are native while direct HTML remains rollback evidence.
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
       - 'frontend/public/css/admin-mock-tests-next.css'
@@ -546,6 +546,16 @@ on:
       - 'frontend/public/js/admin-mock-pacing.js'
       - 'frontend/tooling/verify-admin-mock-live-flow.mjs'
       - 'frontend/tests/admin-mock-live-next-model.test.mjs'
+      - 'frontend/app/(authed-admin-mock-reviews)/**'
+      - 'frontend/lib/admin-mock-reviews-model.mjs'
+      - 'frontend/public/css/admin-mock-reviews-next.css'
+      - 'frontend/public/pages/admin/mock-reviews/index.html'
+      - 'frontend/public/pages/admin/mock-reviews/report.html'
+      - 'frontend/public/js/admin-mock-reviews.js'
+      - 'frontend/public/js/admin-mock-report.js'
+      - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
+      - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
+      - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
       # Writing hub is a native, read-only workflow map. Direct HTML remains
       # rollback; the fixture pins admin auth, destination truth and layout.
       - 'frontend/app/(authed-admin-writing)/**'
@@ -1462,6 +1472,11 @@ jobs:
       # pacing remains read-only and states its timestamp limits explicitly.
       - name: Kiểm luồng Admin Mock Live và Pacing native
         run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native review console pins lookup failure truth, per-skill review,
+      # canonical mutation readbacks, release confirmation and report bands.
+      - name: Kiểm luồng Admin Mock Reviews và Report native
+        run: node tooling/verify-admin-mock-reviews-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.

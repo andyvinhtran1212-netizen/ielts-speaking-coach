@@ -52,13 +52,14 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(mockTestsHref('review', 'exam / 1'), '/admin/mock-tests?tab=review&exam_id=exam+%2F+1');
     assert.equal(mockTestsFrame('manage'), '/admin/mock-exams?embed=1');
     assert.equal(mockTestsFrame('live', 'exam / 1'), '/admin/mock-live?exam_id=exam%20%2F%201&embed=1');
+    assert.equal(mockTestsFrame('review', 'exam / 1'), '/admin/mock-reviews?mock_exam_id=exam%20%2F%201&embed=1');
     assert.equal(mockTestsFrame('review', ''), null);
     assert.equal(mockTestsFrame('writing'), '/admin/writing/queue?embed=1&mocklane=1');
   });
 });
 
 describe('/admin/mock-tests native ownership and UX', () => {
-  test('owns clean cockpit route while child HTML remains explicit rollback', () => {
+  test('owns clean cockpit route while rollback artifacts remain available during parity', () => {
     assert.match(PAGE, /AdminMockTestsPage/);
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'mock-tests', 'index.html')));
@@ -69,7 +70,8 @@ describe('/admin/mock-tests native ownership and UX', () => {
   });
 
   test('keeps canonical selection truth, live safety and account-scoped refresh', () => {
-    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'normalizeMockExamList', 'liveDraftBlocked', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'MODULE ROLLBACK']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'normalizeMockExamList', 'liveDraftBlocked', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc']) assert.ok(COMPONENT.includes(token), token);
+    assert.doesNotMatch(COMPONENT, /id: 'review'[^\n]+legacy: true/);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|window\.api\.(post|patch|delete)/);
   });
 

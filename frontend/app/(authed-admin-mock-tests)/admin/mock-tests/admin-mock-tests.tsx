@@ -29,7 +29,7 @@ type Stage = 'all' | 'draft' | 'live' | 'closed';
 const TABS: { id: Tab; label: string; needsExam: boolean; legacy: boolean }[] = [
   { id: 'manage', label: 'Quản lý đề', needsExam: false, legacy: false },
   { id: 'live', label: 'Phòng thi trực tiếp', needsExam: true, legacy: false },
-  { id: 'review', label: 'Duyệt bài thi', needsExam: true, legacy: true },
+  { id: 'review', label: 'Duyệt bài thi', needsExam: true, legacy: false },
   { id: 'writing', label: 'Chấm Writing', needsExam: false, legacy: false },
 ];
 const STAGES: { id: Stage; label: string }[] = [
