@@ -19,6 +19,9 @@ export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
   '/recorder-spike',
 ]);
 
+export const LEGACY_RETIREMENT_BEACON = '/js/legacy-retirement-beacon.js';
+export const RUNTIME_CONFIG_SCRIPT = 'runtime-config.js';
+
 function walkFiles(root, accept, prefix = '') {
   const files = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -86,6 +89,11 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     .sort();
   const redirects = redirectSourcesFromConfig(readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8'));
   const legacyHtml = classifyLegacyHtml(publicHtmlPaths, redirects);
+  const telemetryMissingPaths = legacyHtml.renderable.filter((publicPath) => {
+    const source = readFileSync(path.join(frontendRoot, 'public', publicPath.slice(1)), 'utf8');
+    return !source.includes(`src="${LEGACY_RETIREMENT_BEACON}"`)
+      || !source.includes(RUNTIME_CONFIG_SCRIPT);
+  });
   const corePlayers = summarizeCorePlayers();
   const ownership = findCollisions();
   const blockers = [];
@@ -93,6 +101,11 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     code: 'legacy-html-renderable',
     count: legacyHtml.renderable.length,
     paths: legacyHtml.renderable,
+  });
+  if (telemetryMissingPaths.length) blockers.push({
+    code: 'legacy-retirement-telemetry-missing',
+    count: telemetryMissingPaths.length,
+    paths: telemetryMissingPaths,
   });
   const coreNotReady = corePlayers.entries.filter((entry) => !entry.nextRouteReady).map((entry) => entry.surface);
   if (coreNotReady.length) blockers.push({ code: 'core-next-route-not-ready', count: coreNotReady.length, surfaces: coreNotReady });
@@ -113,11 +126,14 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
       total: publicHtmlPaths.length,
       compatibilityRedirected: legacyHtml.redirected.length,
       directlyRenderable: legacyHtml.renderable.length,
+      telemetryInstrumented: legacyHtml.renderable.length - telemetryMissingPaths.length,
+      telemetryMissingPaths,
       redirectedPaths: legacyHtml.redirected,
       renderablePaths: legacyHtml.renderable,
     },
     corePlayers,
     routeOwnershipCollisions: ownership.collisions,
+    gateFObservationReady: telemetryMissingPaths.length === 0,
     staticCutoverReady: blockers.length === 0,
     blockers,
   };
@@ -127,6 +143,7 @@ function printHuman(report) {
   console.log('Next.js migration static inventory');
   console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
   console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.compatibilityRedirected} redirected; ${report.legacyHtml.directlyRenderable} still directly renderable`);
+  console.log(`  Gate F telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
   console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
   console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);
   console.log(`  Static cutover ready: ${report.staticCutoverReady ? 'YES' : 'NO'}`);

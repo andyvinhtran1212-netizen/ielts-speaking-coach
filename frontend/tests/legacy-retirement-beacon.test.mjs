@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import vm from 'node:vm';
+
+const SOURCE = readFileSync(new URL('../public/js/legacy-retirement-beacon.js', import.meta.url), 'utf8');
+
+async function execute({
+  hostname = 'www.averlearning.com',
+  pathname = '/pages/example.html',
+  readyState = 'complete',
+  runtimeConfig = undefined,
+  apiBase = undefined,
+  pageViewSent = false,
+} = {}) {
+  const requests = [];
+  let loadHandler = null;
+  const window = {
+    aver: pageViewSent ? { _pageViewSent: true } : {},
+    location: { hostname, pathname, search: '?secret=must-not-leak' },
+    __AVER_RUNTIME_CONFIG__: runtimeConfig,
+    api: apiBase ? { base: apiBase } : undefined,
+    addEventListener(name, handler, options) {
+      if (name === 'load') loadHandler = { handler, options };
+    },
+    fetch(url, options) {
+      requests.push({ url, options });
+      return Promise.resolve({ ok: true });
+    },
+  };
+  vm.runInNewContext(SOURCE, { window, document: { readyState } });
+  return { requests, window, fireLoad: () => loadHandler?.handler(), loadHandler };
+}
+
+test('sends one privacy-bounded legacy page_view through the configured environment', async () => {
+  const result = await execute({
+    hostname: 'staging.averlearning.com',
+    pathname: '/pages/practice.html',
+    runtimeConfig: {
+      apiBase: 'https://ielts-speaking-coach-staging.up.railway.app',
+      environment: 'staging',
+      release: 'a'.repeat(40),
+    },
+  });
+  assert.equal(result.requests.length, 1);
+  const request = result.requests[0];
+  assert.equal(request.url, 'https://ielts-speaking-coach-staging.up.railway.app/api/analytics/events');
+  assert.equal(request.options.keepalive, true);
+  assert.equal(request.options.credentials, 'omit');
+  const body = JSON.parse(request.options.body);
+  assert.deepEqual(body, {
+    event_name: 'page_view',
+    event_data: {
+      path: '/pages/practice.html',
+      implementation: 'legacy',
+      release: 'a'.repeat(40),
+      environment: 'staging',
+      telemetry_scope: 'gate-f-legacy-retirement',
+      beacon_version: 1,
+    },
+  });
+  assert.doesNotMatch(request.options.body, /secret|referrer|search/i);
+});
+
+test('waits for the canonical beacon and never doubles its page_view', async () => {
+  const result = await execute({ readyState: 'loading' });
+  assert.equal(result.requests.length, 0);
+  assert.equal(result.loadHandler.options.once, true);
+  result.window.aver._pageViewSent = true;
+  result.fireLoad();
+  assert.equal(result.requests.length, 0);
+});
+
+test('uses api.js as a local fallback but never guesses a backend from hostname', async () => {
+  const apiConfigured = await execute({
+    hostname: 'localhost',
+    apiBase: 'http://localhost:8000',
+  });
+  assert.equal(apiConfigured.requests[0].url, 'http://localhost:8000/api/analytics/events');
+  const unconfigured = await execute({ hostname: 'www.averlearning.com' });
+  assert.equal(unconfigured.requests.length, 0);
+  assert.equal(unconfigured.window.aver._pageViewSent, undefined);
+});
+
+test('duplicate script evaluation remains exactly-once', async () => {
+  const requests = [];
+  const window = {
+    aver: {},
+    location: { hostname: 'www.averlearning.com', pathname: '/legacy.html' },
+    fetch(url, options) {
+      requests.push({ url, options });
+      return Promise.resolve({ ok: true });
+    },
+    addEventListener() {},
+    __AVER_RUNTIME_CONFIG__: { apiBase: 'https://api.example.test' },
+  };
+  const context = vm.createContext({ window, document: { readyState: 'complete' } });
+  vm.runInContext(SOURCE, context);
+  vm.runInContext(SOURCE, context);
+  assert.equal(requests.length, 1);
+});
