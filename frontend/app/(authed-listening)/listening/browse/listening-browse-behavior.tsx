@@ -9,7 +9,7 @@ const PAGE_LIMIT = 100;
 const MAX_PAGES = 20;
 
 const MODE_LINKS = [
-  ['dictation', 'Chép chính tả', '/pages/listening-dictation.html'],
+  ['dictation', 'Chép chính tả', '/listening/dictation'],
   ['gist', 'Ý chính', '/listening/gist'],
   ['true_false', 'Đúng/Sai', '/listening/tf'],
   ['mcq', 'Trắc nghiệm', '/listening/mcq'],

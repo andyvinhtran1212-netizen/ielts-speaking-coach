@@ -646,7 +646,30 @@ def _fetch_published_exercises_for_student(
         .execute()
     )
     from services import listening_test_grader as grader
-    return grader.strip_answer_keys(res.data or [])
+    rows = grader.strip_answer_keys(res.data or [])
+    if exercise_type != "dictation":
+        return rows
+
+    # A dictation transcript is the answer itself. The legacy boot used to
+    # send segments[].transcript before the learner typed anything, which made
+    # the full key visible in DevTools even though the page hid it. The grader
+    # reads the raw database row through _resolve_attempt_target(), so learner
+    # boot only needs the clip identity and timing window.
+    safe_rows: list[dict] = []
+    for row in rows:
+        safe_row = dict(row)
+        raw_segments = row.get("segments")
+        safe_row["segments"] = [
+            {
+                "idx": segment.get("idx"),
+                "start_sec": segment.get("start_sec"),
+                "end_sec": segment.get("end_sec"),
+            }
+            for segment in (raw_segments if isinstance(raw_segments, list) else [])
+            if isinstance(segment, dict)
+        ]
+        safe_rows.append(safe_row)
+    return safe_rows
 
 
 @user_router.get("/content/{content_id}")
@@ -1229,23 +1252,15 @@ async def get_listening_exercises(
     if not c.data:
         raise HTTPException(404, "Listening content not found or not published")
 
-    res = (
-        supabase_admin.table("listening_exercises")
-        .select("*")
-        .eq("content_id", content_id)
-        .eq("exercise_type", exercise_type)
-        .eq("status", "published")
-        .order("order_num", desc=False)
-        .execute()
-    )
-    # Sprint 13.5 đã dựng chốt này cho `/tests/{id}`, nhưng route bài LẺ vẫn trả
-    # `select("*")` nguyên vẹn — tức `payload.questions[].answer_idx` (mcq),
-    # `payload.statements[].answer` (T/F) và `payload.model_answer` +
-    # `rubric_keywords` (gist) đều đi thẳng tới trình duyệt. Ba trang đó tự xoá ở
-    # client ("user must NOT see it in DOM", `listening-mcq.js:81`) nên trên màn
-    # hình không thấy gì, nhưng tab Network thì thấy đủ.
-    from services import listening_test_grader as grader
-    return {"exercises": grader.strip_answer_keys(res.data or [])}
+    # Keep every learner exercise surface on the same answer-stripping path.
+    # Besides payload answer keys, Dictation must also withhold the reference
+    # transcript stored in the top-level `segments` column.
+    return {
+        "exercises": _fetch_published_exercises_for_student(
+            content_id=content_id,
+            exercise_type=exercise_type,
+        ),
+    }
 
 
 # ── Admin routes — content preview + list ─────────────────────────────────────

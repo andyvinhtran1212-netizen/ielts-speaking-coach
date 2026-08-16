@@ -262,7 +262,9 @@ def test_boot_listening_dictation_combines_content_and_exercises(monkeypatch):
     assert "transcript" not in out["content"]
     assert "audio_storage_path" not in out["content"]
     assert out["exercises"][0]["id"] == "ex1"
-    assert out["exercises"][0]["segments"][0]["transcript"] == "Full transcript"
+    assert out["exercises"][0]["segments"] == [{
+        "idx": 0, "start_sec": None, "end_sec": None,
+    }]
     assert "attempts" not in out
     assert "listening_attempts" not in fake.table_calls
 
