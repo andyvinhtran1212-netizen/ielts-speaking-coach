@@ -51,7 +51,7 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(mockTestsHref('review'), '/admin/mock-tests?tab=review');
     assert.equal(mockTestsHref('review', 'exam / 1'), '/admin/mock-tests?tab=review&exam_id=exam+%2F+1');
     assert.equal(mockTestsFrame('manage'), '/admin/mock-exams?embed=1');
-    assert.equal(mockTestsFrame('live', 'exam / 1'), '/pages/admin/mock-live/index.html?exam_id=exam%20%2F%201&embed=1');
+    assert.equal(mockTestsFrame('live', 'exam / 1'), '/admin/mock-live?exam_id=exam%20%2F%201&embed=1');
     assert.equal(mockTestsFrame('review', ''), null);
     assert.equal(mockTestsFrame('writing'), '/admin/writing/queue?embed=1&mocklane=1');
   });

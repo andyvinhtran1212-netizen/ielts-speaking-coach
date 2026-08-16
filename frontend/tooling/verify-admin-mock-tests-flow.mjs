@@ -39,7 +39,7 @@ await page.route('**/*', async (route) => {
   const url = request.url();
   const parsed = new URL(url);
   if (url.startsWith(BASE)) {
-    if (/^\/pages\/admin\/mock-(?:exams|live|reviews)\//.test(parsed.pathname)) {
+    if (/^\/pages\/admin\/mock-(?:exams|reviews)\//.test(parsed.pathname)) {
       return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>rollback fixture</title>' });
     }
     return route.continue();
@@ -49,6 +49,12 @@ await page.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-mock-tests@local', role: 'admin' });
   if (parsed.pathname === '/admin/mock-exams') return json({ exams });
+  if (parsed.pathname === '/admin/mock-exams/live-1/live') return json({
+    exam: { id: 'live-1', code: 'MOCK-LIVE', title: 'Đề đang thi', exam_mode: 'sequential', status: 'published', is_open: true, active_section: 'reading', collected_section: null, section_started_at: null, section_duration_seconds: 3600, section_time_left_seconds: 1200, configured_sections: ['listening', 'reading', 'writing'], cohort_id: null },
+    roster: { expected: null, started: 0, not_started: [], off_roster: [] },
+    sections: { listening: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 }, reading: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 }, writing: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 } },
+    students: [], server_time: '2026-08-16T08:00:00Z',
+  });
   return json({ detail: 'unhandled fixture route' }, 500);
 });
 
@@ -60,10 +66,10 @@ check('deep-link live fail-closed khi đề mặc định còn draft', await pag
 
 await page.getByRole('button', { name: /MOCK-LIVE/ }).click();
 await page.locator('iframe').waitFor();
-check('live frame giữ đúng selected exam identity', (await page.locator('iframe').getAttribute('src')) === '/pages/admin/mock-live/index.html?exam_id=live-1&embed=1');
+check('live frame giữ đúng selected exam identity và dùng route native', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
 await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement.getAttribute('data-theme') === 'dark');
-check('theme parent được đồng bộ sang module rollback', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement.getAttribute('data-theme') === 'dark'));
+check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement.getAttribute('data-theme') === 'dark'));
 
 await page.getByRole('button', { name: 'Đang thi', exact: true }).click();
 check('stage filter giữ canonical total và đúng một live exam', await page.getByText('1/3', { exact: true }).count() === 1 && await page.getByRole('button', { name: /MOCK-LIVE/ }).count() === 1 && await page.getByRole('button', { name: /MOCK-DRAFT/ }).count() === 0);

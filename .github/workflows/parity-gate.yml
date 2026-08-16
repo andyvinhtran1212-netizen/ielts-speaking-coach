@@ -520,8 +520,8 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      # Mock Tests cockpit owns orchestration; Manage is native while Live and
-      # Review remain explicit rollback frames until their focused batches.
+      # Mock Tests cockpit owns orchestration; Manage and Live/Pacing are native
+      # while Review remains an explicit rollback frame until its focused batch.
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
       - 'frontend/public/css/admin-mock-tests-next.css'
@@ -537,6 +537,15 @@ on:
       - 'frontend/public/js/admin-exam-content.js'
       - 'frontend/tooling/verify-admin-mock-exams-flow.mjs'
       - 'frontend/tests/admin-mock-exams-next-model.test.mjs'
+      - 'frontend/app/(authed-admin-mock-live)/**'
+      - 'frontend/lib/admin-mock-live-model.mjs'
+      - 'frontend/public/css/admin-mock-live-next.css'
+      - 'frontend/public/pages/admin/mock-live/index.html'
+      - 'frontend/public/pages/admin/mock-pacing/index.html'
+      - 'frontend/public/js/admin-mock-live.js'
+      - 'frontend/public/js/admin-mock-pacing.js'
+      - 'frontend/tooling/verify-admin-mock-live-flow.mjs'
+      - 'frontend/tests/admin-mock-live-next-model.test.mjs'
       # Writing hub is a native, read-only workflow map. Direct HTML remains
       # rollback; the fixture pins admin auth, destination truth and layout.
       - 'frontend/app/(authed-admin-writing)/**'
@@ -1448,6 +1457,11 @@ jobs:
       # guarded sequential writes, retake assignment and content-library truth.
       - name: Kiểm luồng Admin Mock Exams native
         run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native invigilator operations keep irreversible controls canonical;
+      # pacing remains read-only and states its timestamp limits explicitly.
+      - name: Kiểm luồng Admin Mock Live và Pacing native
+        run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
