@@ -432,9 +432,29 @@ describe('workflow and provenance contract', () => {
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
     assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 8);
     assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
-    assert.match(WORKFLOW, /^\s*timeout-minutes:\s*60\s*$/m);
-    assert.match(DOC, /Job có timeout 60 phút/);
-    assert.match(DOC, /Speaking failure\s+matrix có timeout 10 phút/);
+    const gateJob = WORKFLOW.slice(
+      WORKFLOW.indexOf('  staging-e2e:'),
+      WORKFLOW.indexOf('  production-release-drift:'),
+    );
+    const jobTimeout = Number(gateJob.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
+    const stepStarts = [...gateJob.matchAll(/^ {6}- (?:name|uses):/gm)]
+      .map((match) => match.index);
+    const stepBlocks = stepStarts.map((start, index) => gateJob.slice(
+      start,
+      stepStarts[index + 1] ?? gateJob.length,
+    ));
+    const missingTimeouts = stepBlocks
+      .filter((block) => !/^ {8}timeout-minutes:\s*\d+\s*$/m.test(block))
+      .map((block) => block.match(/^ {6}- (?:name|uses):\s*(.+)$/m)?.[1]);
+    assert.deepEqual(missingTimeouts, [], `uncapped Gate E steps: ${missingTimeouts.join(', ')}`);
+    const allStepTimeouts = stepBlocks.map((block) => Number(
+      block.match(/^ {8}timeout-minutes:\s*(\d+)\s*$/m)?.[1],
+    ));
+    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 144);
+    assert.ok(jobTimeout >= allStepTimeouts.reduce((total, value) => total + value, 0) + 30);
+    assert.match(DOC, /Job có timeout 180 phút/);
+    assert.match(DOC, /mọi step có timeout riêng/);
+    assert.match(DOC, /bốn failure\s+matrix có timeout 10 phút mỗi bước/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
@@ -485,6 +505,12 @@ describe('workflow and provenance contract', () => {
       WORKFLOW,
       /Run Gate E Speaking failure matrix[\s\S]*?id: speaking_failure_matrix[\s\S]*?if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'[\s\S]*?npm run test:e2e:gate-e/,
     );
+    assert.equal((WORKFLOW.match(
+      /if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'/g,
+    ) || []).length, 4);
+    for (const id of ['matrix_evidence', 'staging_provenance', 'streak_ledger']) {
+      assert.match(WORKFLOW, new RegExp(`id: ${id}\\n\\s+if: always\\(\\)`));
+    }
     assert.match(
       WORKFLOW,
       /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
