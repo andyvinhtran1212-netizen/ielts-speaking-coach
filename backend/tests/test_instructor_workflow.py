@@ -141,6 +141,9 @@ class _Query:
             return _Response(matched)
 
         if self.op == "update":
+            failure = self.fake.fail_next_update.pop(self.table_name, None)
+            if failure is not None:
+                raise failure
             with self.fake.lock:
                 changed = []
                 for r in rows:
@@ -159,6 +162,7 @@ class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
         self.lock = threading.Lock()
+        self.fail_next_update: dict[str, Exception] = {}
 
     def table(self, name: str) -> _Query:
         if name == "writing_feedback_current":   # GV-1a: view == base for single-version test data
@@ -374,7 +378,7 @@ def test_deliver_rejects_a_second_transition(fake_db, workflow):
         review.id, instructor, instructor_note="first", expected_essay_id=essay_id,
     )
 
-    with pytest.raises(workflow.ConflictError, match="only claimed/edited"):
+    with pytest.raises(workflow.ConflictError, match="different delivery payload"):
         workflow.deliver(
             review.id, instructor, instructor_note="second", expected_essay_id=essay_id,
         )
@@ -384,6 +388,44 @@ def test_deliver_rejects_a_second_transition(fake_db, workflow):
     assert row["delivered_at"] == first.delivered_at.isoformat()
     assert row["instructor_note"] == "first"
     assert fake_db.tables["writing_essays"][0]["instructor_note"] == "first"
+
+
+def test_deliver_retry_repairs_failure_after_review_transition(fake_db, workflow):
+    """An identical retry completes steps 2-3 after step 1 already committed."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id), "status": "graded", "instructor_note": None,
+    }]
+    fake_db.tables["writing_feedback"] = [{
+        "essay_id": str(essay_id), "version": 1, "prompt_version": "v2.1",
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    fake_db.fail_next_update["writing_essays"] = RuntimeError("postgrest timeout")
+
+    with pytest.raises(RuntimeError, match="postgrest timeout"):
+        workflow.deliver(
+            review.id,
+            instructor,
+            instructor_note="same payload",
+            expected_essay_id=essay_id,
+        )
+
+    assert fake_db.tables["instructor_reviews"][0]["status"] == "delivered"
+    assert fake_db.tables["writing_essays"][0]["status"] == "graded"
+
+    recovered = workflow.deliver(
+        review.id,
+        instructor,
+        instructor_note="same payload",
+        expected_essay_id=essay_id,
+    )
+
+    assert recovered.status == InstructorReviewStatus.DELIVERED
+    assert fake_db.tables["writing_essays"][0]["status"] == "delivered"
+    assert fake_db.tables["writing_essays"][0]["instructor_note"] == "same payload"
+    assert fake_db.tables["writing_feedback"][0]["prompt_version"] == "v2.1-instructor"
 
 
 def test_deliver_rejects_review_essay_mismatch(fake_db, workflow):

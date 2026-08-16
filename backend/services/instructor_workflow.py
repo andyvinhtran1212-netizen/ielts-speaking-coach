@@ -245,10 +245,12 @@ def deliver(
            (idempotent — only adds the suffix if not already present)
 
     Step 1 is filtered on `claimed_by = instructor_id` and the only legal
-    source states (`claimed` or `edited`) so the auth and exactly-once
+    source states (`claimed` or `edited`) so the auth and single state
     transition are enforced inside the UPDATE. Instructor callers also pass
     `expected_essay_id`; binding it in the same WHERE clause prevents a stale
-    review id from delivering a different essay than the one on screen.
+    review id from delivering a different essay than the one on screen. An
+    identical retry may resume steps 2-3 after step 1 already committed; it
+    never rewrites the audit note or repeats the state transition.
     """
     # Step 1: mark the review delivered (auth filter inside the WHERE).
     review_query = supabase_admin.table("instructor_reviews").update({
@@ -264,10 +266,11 @@ def deliver(
     if expected_essay_id is not None:
         review_query = review_query.eq("essay_id", str(expected_essay_id))
     review_response = review_query.execute()
+    delivered: Optional[InstructorReview] = None
 
     if not review_response.data:
         existing = supabase_admin.table("instructor_reviews").select(
-            "id, essay_id, status, claimed_by",
+            "*",
         ).eq("id", str(review_id)).limit(1).execute()
         if not existing.data:
             raise NotFoundError(f"Review {review_id} not found")
@@ -281,23 +284,34 @@ def deliver(
             )
         if expected_essay_id is not None and current.get("essay_id") != str(expected_essay_id):
             raise ConflictError("Review không khớp với bài viết đang mở.")
+        if current.get("status") == InstructorReviewStatus.DELIVERED.value:
+            # Step 1 may have committed even when a later Supabase write failed
+            # or its response was lost. Permit only an identity- and payload-
+            # identical retry to finish the student-facing essay update and
+            # feedback stamp. A second delivery with a different note remains
+            # a conflict, so the immutable audit copy cannot be overwritten.
+            if expected_essay_id is None or current.get("instructor_note") != instructor_note:
+                raise ConflictError(
+                    f"Review {review_id} is already delivered with a different "
+                    "delivery payload."
+                )
+            delivered = _row_to_review(current)
         if current.get("status") not in (
             InstructorReviewStatus.CLAIMED.value,
             InstructorReviewStatus.EDITED.value,
-        ):
+        ) and delivered is None:
             raise ConflictError(
                 f"Review {review_id} is in status={current.get('status')!r}; "
                 "only claimed/edited reviews can be delivered."
             )
-        raise PermissionError(
-            f"Review {review_id} cannot be delivered by instructor "
-            f"{instructor_id} (current claimed_by="
-            f"{current.get('claimed_by')!r}, "
-            f"status={current['status']!r}). Only the "
-            f"current claimant can deliver."
-        )
-
-    delivered = _row_to_review(review_response.data[0])
+        if delivered is None:
+            # A row that still appears deliverable but failed the conditional
+            # UPDATE changed concurrently between the write and this read.
+            raise ConflictError(
+                f"Review {review_id} changed while delivery was being confirmed."
+            )
+    else:
+        delivered = _row_to_review(review_response.data[0])
 
     # Step 2: mirror student-facing note + flip essay status. Note
     # mirrored only when explicitly provided — None means "no note",
