@@ -22,6 +22,7 @@ const PREVIOUS_LEGACY = process.env.GATE_E_PREVIOUS_LEGACY_SESSION_ID || '';
 const PREVIOUS_NEXT = process.env.GATE_E_PREVIOUS_NEXT_SESSION_ID || '';
 const PREVIOUS_RUN_ID = process.env.GATE_E_PREVIOUS_PHASE_RUN_ID || '';
 const LINEAGE_VERIFIED = process.env.GATE_E_LINEAGE_VERIFIED || '';
+const LINEAGE_ROLLBACK_MODE = process.env.GATE_E_ROLLBACK_MODE || '';
 const HANDOFF_VERIFIED = process.env.GATE_E_HANDOFF_VERIFIED || '';
 const OUTPUT = path.resolve('test-results/gate-e-speaking-coexistence-evidence.json');
 const SHA = /^[a-f0-9]{40}$/;
@@ -42,7 +43,7 @@ function assertEvidenceContract(evidence) {
 function writeEvidence(patch) {
   const evidence = {
     schema_version: 1,
-    drill_id: 'gate-e-speaking-coexistence-v1',
+    drill_id: 'gate-e-speaking-coexistence-v2',
     phase: PHASE || null,
     source_sha: SOURCE_SHA || null,
     rollback_floor_sha: FLOOR_SHA || null,
@@ -186,7 +187,11 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
     expect(PREVIOUS_RUN_ID).toMatch(/^\d+$/);
   }
   if (PHASE === 'rollback') {
-    expect(SOURCE_SHA).toBe(FLOOR_SHA);
+    // The lineage verifier accepts either an exact-floor deployment rollback
+    // or a descendant commit that moves admission back to Legacy.
+    expect(LINEAGE_ROLLBACK_MODE).toBe(
+      SOURCE_SHA === FLOOR_SHA ? 'exact-floor' : 'forward-revert',
+    );
     expect(PREVIOUS_NEXT).toMatch(UUID);
     expect(PREVIOUS_LEGACY).toBe('');
     expect(PREVIOUS_RUN_ID).toMatch(/^\d+$/);
@@ -256,6 +261,9 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
     created_session_url: created.url,
     previous_session_url: previousUrl,
     ...(PHASE === 'floor' ? { floor_dark_next_url: floorDarkNextUrl } : {}),
+    ...(PHASE === 'rollback' ? {
+      rollback_mode: LINEAGE_ROLLBACK_MODE,
+    } : {}),
     canonical_sessions: [createdCanonical, previousCanonical],
     reload_and_copy_url_passed: true,
   });

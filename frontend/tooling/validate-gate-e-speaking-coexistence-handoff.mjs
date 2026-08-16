@@ -4,17 +4,21 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA = /^[a-f0-9]{40}$/;
 
 export function validatePreviousPhaseHandoff({
   phase,
+  sourceSha,
   floorSha,
   previousRunId,
   previousLegacySessionId,
   previousNextSessionId,
   runMetadata,
   previousEvidence,
+  isAncestor = () => false,
 }) {
   if (!['floor', 'cutover', 'rollback'].includes(phase)) throw new Error('phase-invalid');
+  if (!SHA.test(sourceSha || '') || !SHA.test(floorSha || '')) throw new Error('handoff-sha-invalid');
   if (phase === 'floor') {
     if (previousRunId || previousLegacySessionId || previousNextSessionId) {
       throw new Error('floor-must-not-declare-previous-phase');
@@ -38,7 +42,8 @@ export function validatePreviousPhaseHandoff({
     throw new Error('previous-session-handoff-invalid');
   }
   if (!previousEvidence || previousEvidence.schema_version !== 1 ||
-      previousEvidence.drill_id !== 'gate-e-speaking-coexistence-v1' ||
+      previousEvidence.drill_id !== 'gate-e-speaking-coexistence-v2' ||
+      !SHA.test(previousEvidence.source_sha || '') ||
       previousEvidence.phase !== expectedPhase ||
       previousEvidence.status !== 'passed' || previousEvidence.ok !== true ||
       previousEvidence.expected_admission !== expectedAdmission ||
@@ -54,6 +59,13 @@ export function validatePreviousPhaseHandoff({
   }
   if (expectedPhase === 'floor' && previousEvidence.source_sha !== floorSha) {
     throw new Error('previous-floor-source-mismatch');
+  }
+  if (phase === 'rollback' && previousEvidence.source_sha === sourceSha) {
+    throw new Error('rollback-source-must-differ-from-cutover');
+  }
+  if (phase === 'rollback' && sourceSha !== floorSha &&
+      !isAncestor(previousEvidence.source_sha, sourceSha)) {
+    throw new Error('forward-rollback-source-is-not-cutover-descendant');
   }
 
   return {
@@ -80,6 +92,7 @@ function findEvidence(directory) {
 
 function run() {
   const phase = process.env.GATE_E_DRILL_PHASE || '';
+  const sourceSha = process.env.GATE_E_SOURCE_SHA || '';
   const floorSha = process.env.GATE_E_ROLLBACK_FLOOR_SHA || '';
   const previousRunId = process.env.GATE_E_PREVIOUS_PHASE_RUN_ID || '';
   const previousLegacySessionId = process.env.GATE_E_PREVIOUS_LEGACY_SESSION_ID || '';
@@ -103,12 +116,23 @@ function run() {
     }
     result = validatePreviousPhaseHandoff({
       phase,
+      sourceSha,
       floorSha,
       previousRunId,
       previousLegacySessionId,
       previousNextSessionId,
       runMetadata,
       previousEvidence,
+      isAncestor(ancestor, descendant) {
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+            stdio: 'ignore',
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      },
     });
   } catch (error) {
     result = {

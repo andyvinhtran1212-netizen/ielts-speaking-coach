@@ -19,14 +19,17 @@ export function validatePhaseLineage({ phase, sourceSha, floorSha, isAncestor })
       throw new Error('cutover-source-is-not-floor-descendant');
     }
   }
-  if (phase === 'rollback' && sourceSha !== floorSha) {
-    throw new Error('rollback-source-must-equal-rollback-floor');
+  if (phase === 'rollback' && sourceSha !== floorSha && !isAncestor(floorSha, sourceSha)) {
+    throw new Error('rollback-source-is-not-floor-descendant');
   }
 
   return {
     phase,
     source_sha: sourceSha,
     rollback_floor_sha: floorSha,
+    rollback_mode: phase === 'rollback'
+      ? (sourceSha === floorSha ? 'exact-floor' : 'forward-revert')
+      : null,
     verified: true,
   };
 }
@@ -74,6 +77,9 @@ function run() {
   writeFileSync(output, `${JSON.stringify({ schema_version: 1, ...evidence }, null, 2)}\n`);
   if (evidence.verified && process.env.GITHUB_OUTPUT) {
     appendFileSync(process.env.GITHUB_OUTPUT, 'verified=true\n');
+    if (evidence.rollback_mode) {
+      appendFileSync(process.env.GITHUB_OUTPUT, `rollback_mode=${evidence.rollback_mode}\n`);
+    }
   }
   console.log(`Gate E coexistence lineage: ${evidence.verified ? 'VERIFIED' : 'INVALID'}`);
   if (!evidence.verified) process.exitCode = 1;

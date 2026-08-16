@@ -85,6 +85,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GATE_E_DRILL_PHASE: ${{ inputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
           GATE_E_ROLLBACK_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
           GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ inputs.previous_phase_run_id }}
           GATE_E_PREVIOUS_LEGACY_SESSION_ID: ${{ inputs.previous_legacy_session_id }}
@@ -112,6 +113,7 @@ jobs:
           GATE_E_PREVIOUS_NEXT_SESSION_ID: ${{ inputs.previous_next_session_id }}
           GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ inputs.previous_phase_run_id }}
           GATE_E_LINEAGE_VERIFIED: ${{ steps.lineage.outputs.verified }}
+          GATE_E_ROLLBACK_MODE: ${{ steps.lineage.outputs.rollback_mode }}
           GATE_E_HANDOFF_VERIFIED: ${{ steps.handoff.outputs.verified }}
         run: npx playwright test -c playwright.speaking-coexistence.config.js
 
