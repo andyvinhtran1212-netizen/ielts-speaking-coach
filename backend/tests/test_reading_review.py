@@ -50,7 +50,8 @@ _SUBMITTED_ATTEMPT = {
     "skill_breakdown": {"vocabulary_in_context": {"correct": 1, "total": 1}},
     "grading_details": [
         {"q_num": 1, "correct": True, "user_answer": "gravity", "expected": "gravity",
-         "skill_tag": "vocabulary_in_context", "passage_order": 1},
+         "skill_tag": "vocabulary_in_context", "passage_order": 1,
+         "explanation": "Submission-time explanation stays immutable."},
     ],
 }
 _TEST_ROW = {"test_id": "TEST_06", "title": "Test 6", "module": "academic"}
@@ -109,9 +110,29 @@ def test_review_merges_solution_translation_and_by_part():
     item = body["review"][0]
     assert item["correct"] is True and item["user_answer"] == "gravity"
     assert item["prompt"] == "Label 1 ____"
-    assert item["explanation"].startswith("Gravity is named")
+    assert item["explanation"] == "Submission-time explanation stays immutable."
     assert item["solution"]["steps"] == "Định vị…"
     assert item["solution"]["trap_analysis"].startswith("Bẫy")
+
+
+def test_review_legacy_grading_row_falls_back_to_current_explanation():
+    legacy_row = {
+        key: value for key, value in _SUBMITTED_ATTEMPT["grading_details"][0].items()
+        if key != "explanation"
+    }
+    attempt = dict(_SUBMITTED_ATTEMPT, grading_details=[legacy_row])
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests":         [_TEST_ROW],
+        "reading_passages":      _PASSAGES,
+        "reading_questions":     _QUESTIONS,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+
+    assert r.status_code == 200
+    assert r.json()["review"][0]["explanation"].startswith("Gravity is named")
 
 
 def test_review_requires_auth():
