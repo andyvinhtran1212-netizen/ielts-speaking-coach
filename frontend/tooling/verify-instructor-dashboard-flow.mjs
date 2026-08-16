@@ -84,7 +84,7 @@ await page.route('**/*', async (route) => {
   if (method === 'GET' && Object.hasOwn(fixtures, path)) return json(fixtures[path]);
   if (method === 'GET' && path === '/instructor/students/s1/summary') {
     return json({
-      student: { id: 's1', full_name: 'An <script>alert(1)</script>', student_code: 'HV-001', target_band: '7.0' },
+      student: { id: 's1', full_name: 'An <script>alert(1)</script>', student_code: 'HV-001', target_band: 7.0 },
       stats: { total_essays: 3, graded_count: 2, flagged_count: 1, average_band_last5: 6.5 },
       recent_essays: [{ id: 'e1', task_type: 'task2', status: 'delivered' }],
     });
@@ -119,6 +119,7 @@ await page.getByRole('button', { name: 'An <script>alert(1)</script>' }).click()
 await page.getByRole('complementary', { name: 'Hồ sơ học viên' }).getByText('Band TB 5 bài', { exact: true }).waitFor({ state: 'visible' });
 check('drawer dùng summary canonical có impersonation', requests.some((item) => item.path === '/instructor/students/s1/summary' && new URLSearchParams(item.search).get('as_instructor') === instructorId));
 check('drawer hiển thị đúng thống kê', await page.getByRole('complementary', { name: 'Hồ sơ học viên' }).getByText('6.5', { exact: true }).count() === 1);
+check('drawer giữ target_band dạng số từ backend', await page.getByRole('complementary', { name: 'Hồ sơ học viên' }).getByText('HV-001 · Mục tiêu 7', { exact: true }).count() === 1);
 await page.getByRole('button', { name: 'Đóng', exact: true }).click();
 
 await page.getByRole('button', { name: 'Lớp & Mã' }).click();

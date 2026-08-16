@@ -23,6 +23,11 @@ function count(value) {
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
 }
 
+function nullableNumberText(value) {
+  const number = finite(value);
+  return number == null ? null : String(number);
+}
+
 function normalizeList(value, mapper) {
   if (!Array.isArray(value)) return null;
   const rows = [];
@@ -156,7 +161,7 @@ export function normalizeInstructorSummary(value) {
       id,
       fullName: text(student.full_name) || 'Học viên',
       studentCode: text(student.student_code),
-      targetBand: nullableText(student.target_band),
+      targetBand: nullableNumberText(student.target_band),
     }),
     stats: Object.freeze({
       totalEssays,

@@ -41,17 +41,19 @@ describe('/instructor native dashboard model', () => {
 
   test('normalizes student summary without treating malformed recent essays as empty', () => {
     const summary = normalizeInstructorSummary({
-      student: { id: 's1', full_name: 'An', student_code: 'HV1', target_band: '7.0' },
+      student: { id: 's1', full_name: 'An', student_code: 'HV1', target_band: 7.0 },
       stats: { total_essays: 3, graded_count: 2, flagged_count: 1, average_band_last5: 6.5 },
       recent_essays: [{ id: 'e1', task_type: 'task2', status: 'delivered' }],
     });
     assert.equal(summary.student.fullName, 'An');
+    assert.equal(summary.student.targetBand, '7');
     assert.equal(summary.stats.averageBandLast5, 6.5);
     assert.equal(summary.recentEssays[0].status, 'delivered');
     assert.equal(normalizeInstructorSummary({ student: { id: 's1' }, stats: {}, recent_essays: null }), null);
     assert.equal(normalizeInstructorSummary({ student: { id: 's1' }, stats: { total_essays: 'bad', graded_count: 0, flagged_count: 0 }, recent_essays: [] }), null);
     assert.equal(normalizeInstructorSummary({ student: { id: 's1' }, stats: { total_essays: false, graded_count: 0, flagged_count: 0 }, recent_essays: [] }), null);
     assert.equal(normalizeInstructorSummary({ student: { id: 's1' }, stats: { total_essays: 0, graded_count: 0, flagged_count: 0 }, recent_essays: [{ status: 'delivered' }] }), null);
+    assert.equal(normalizeInstructorSummary({ student: { id: 's1', target_band: 'not-a-band' }, stats: { total_essays: 0, graded_count: 0, flagged_count: 0 }, recent_essays: [] }).student.targetBand, null);
   });
 
   test('propagates impersonation only to instructor API paths and preserves existing queries', () => {
