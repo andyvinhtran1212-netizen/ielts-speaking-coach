@@ -652,6 +652,7 @@ on:
       - 'frontend/tooling/verify-listening-practice-flow.mjs'
       - 'frontend/tooling/verify-listening-landing-flow.mjs'
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
+      - 'frontend/tooling/verify-listening-standalone-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
       - 'frontend/tooling/verify-listening-review-flow.mjs'
@@ -693,14 +694,11 @@ on:
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
       # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
-      # Các tệp dưới đây thuộc ba trang `listening-mcq` / `-tf` / `-gist`, đều chỉ
-      # được che bằng CỔNG
-      # ĐƯỜNG-GHI (chưa port sang Next nên chưa có cặp trong
-      # `parity-pairs-authed.json`). Chúng CỐ Ý nằm NGOÀI khối glob authed ở
-      # trên: có mặt trong `paths` để job + cổng ghi chạy, nhưng KHÔNG được
-      # regex authed bắt — mở lượt authed cho một trang không có cặp nào nghĩa
-      # là tốn một lượt cần secret để so đúng con số không (bot bắt ở #962).
-      # Khi trang lên Next và có cặp, chuyển chúng NGƯỢC lên khối authed.
+      # Các tệp dưới đây là rollback của ba route native `listening-mcq` / `-tf`
+      # / `-gist`. Chúng vẫn có đường ghi nên tiếp tục kích hoạt cổng write-flow;
+      # route Next được kiểm bằng runner fixture riêng (không có content UUID
+      # production ổn định để lập một cặp parity tĩnh trung thực).
+      - 'frontend/public/css/listening-standalone-next.css'
       - 'frontend/public/pages/listening-mcq.html'
       - 'frontend/public/js/listening-mcq.js'
       - 'frontend/public/pages/listening-tf.html'
@@ -1126,6 +1124,12 @@ jobs:
       # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
       - name: Kiểm luồng Listening Browse native
         run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Ba exercise lẻ dùng chung contract đọc/ghi nhưng khác payload. Runner
+      # fixture kiểm cả MCQ, T/F và Gist trên mã React thật, gồm answer-leak,
+      # identity, submit, reset, lỗi thân thiện và mobile containment.
+      - name: Kiểm luồng Listening exercises native
+        run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$PARITY_PORT"
 
       # Analytics khóa range contract, weighted denominators và trạng thái
       # recent/empty/error trên browser thật.
