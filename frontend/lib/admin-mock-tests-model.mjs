@@ -76,7 +76,7 @@ export function mockTestsFrame(tab, examId) {
   if (canonical === 'writing') return '/admin/writing/queue?embed=1&mocklane=1';
   if (!id) return null;
   if (canonical === 'live') {
-    return `/pages/admin/mock-live/index.html?exam_id=${encodeURIComponent(id)}&embed=1`;
+    return `/admin/mock-live?exam_id=${encodeURIComponent(id)}&embed=1`;
   }
   return `/pages/admin/mock-reviews/index.html?mock_exam_id=${encodeURIComponent(id)}&embed=1`;
 }
