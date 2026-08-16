@@ -103,6 +103,13 @@ backend fixture, kiểm role admin/student, đủ sáu collection owner-scoped,
 drawer học viên, escaping và tràn ngang mobile/desktop. Legacy HTML vẫn được giữ
 làm rollback artifact tới Gate F; chi tiết chấm bài vẫn là route legacy riêng.
 
+`/instructor/compare` cũng không dùng visual pair vì cùng role gate và cần dữ
+liệu có ít nhất hai grading version. `verify-instructor-compare-flow.mjs` dùng
+fixture owner-scoped để kiểm full-feedback preview, bốn lựa chọn nguyên khối,
+base-version provenance, Overall tính lại, admin impersonation, student deny,
+responsive overflow và POST → canonical GET reconciliation không replay. HTML
+compare cũ vẫn là rollback artifact; entry từ grade đã chuyển sang route native.
+
 ---
 
 # Vì sao `/pricing` không có cặp visual parity (2026-08-15)

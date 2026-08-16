@@ -297,6 +297,16 @@ on:
       - 'frontend/lib/instructor-dashboard-model.mjs'
       - 'frontend/public/css/instructor-next.css'
       - 'frontend/tests/instructor-dashboard-next.test.mjs'
+      - 'frontend/app/(authed-instructor-compare)/**'
+      - 'frontend/lib/instructor-compare-model.mjs'
+      - 'frontend/public/css/instructor-compare-next.css'
+      - 'frontend/public/js/instructor-compose.js'
+      - 'frontend/public/js/instructor-compose-util.js'
+      - 'frontend/public/js/instructor-grade.js'
+      - 'frontend/tests/instructor-compare-next.test.mjs'
+      - 'frontend/tests/f2-compare-mix.test.mjs'
+      - 'backend/services/essay_service.py'
+      - 'backend/tests/test_f2_compose_versions.py'
       # User/activity usage has an admin gate and fixture-backed read contract.
       # Route, model, responsive table and canonical access-code/overview links
       # must all rerun the same verifier.
@@ -667,6 +677,7 @@ on:
       - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-instructors-flow.mjs'
       - 'frontend/tooling/verify-instructor-dashboard-flow.mjs'
+      - 'frontend/tooling/verify-instructor-compare-flow.mjs'
       - 'frontend/tooling/verify-admin-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
@@ -1199,6 +1210,11 @@ jobs:
       # Runner ghim owner scope, impersonation, canonical reload và responsive UI.
       - name: Kiểm luồng Instructor Dashboard native
         run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/instructor/compare` dùng role-aware fixture và mutation readback giả.
+      # Runner ghim full-feedback preview, owner scope, impersonation và no-replay.
+      - name: Kiểm luồng Instructor Compare native
+        run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
       # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.
