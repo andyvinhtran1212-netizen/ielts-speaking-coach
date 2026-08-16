@@ -1920,7 +1920,7 @@ function renderResult(result) {
   // libraries + the mock result, and would otherwise guess.
   const chuabai = $('res-chuabai');
   if (chuabai && STATE.attemptId) {
-    chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId)
+    chuabai.href = '/listening/review?attempt_id=' + encodeURIComponent(STATE.attemptId)
       + '&from=' + originFromUrl();
   }
 

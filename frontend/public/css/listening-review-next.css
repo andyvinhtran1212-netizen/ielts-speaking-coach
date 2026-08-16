@@ -1,0 +1,30 @@
+.listening-review-next-error {
+  display: grid;
+  justify-items: center;
+  gap: var(--av-space-3);
+  text-align: center;
+}
+
+.listening-review-next-error a {
+  color: var(--exam-accent);
+  font-weight: var(--av-fw-semibold);
+}
+
+.lr-card__top:focus-visible,
+.lr-nav-q:focus-visible,
+.lr-section-tab:focus-visible,
+.lr-card__ts:focus-visible {
+  outline: 2px solid var(--exam-accent);
+  outline-offset: 2px;
+}
+
+.lr-card__prompt,
+.lr-sol__text p {
+  margin-bottom: 0;
+}
+
+@media (max-width: 520px) {
+  .lr-preview-banner {
+    max-width: min(62vw, 280px);
+  }
+}

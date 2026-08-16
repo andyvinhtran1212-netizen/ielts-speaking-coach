@@ -156,7 +156,7 @@ function ReviewLinks({ data, sittingId }: {
       icon: '🎧',
       title: 'Chữa bài Listening',
       hint: 'Xem lại từng câu + transcript',
-      href: `/pages/listening-review.html?attempt_id=${encodeURIComponent(data.listening_attempt_id)}${mockOrigin}`,
+      href: `/listening/review?attempt_id=${encodeURIComponent(data.listening_attempt_id)}${mockOrigin}`,
     });
   }
   if (data.reading_attempt_id) {

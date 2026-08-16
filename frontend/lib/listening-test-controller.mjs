@@ -215,7 +215,7 @@ export function listeningReviewHref(attemptId, from = null) {
     attempt_id: requiredText(attemptId, 'missing-listening-attempt'),
     from: LISTENING_ORIGINS.has(String(from || '')) ? String(from) : 'full',
   });
-  return `/pages/listening-review.html?${query.toString()}`;
+  return `/listening/review?${query.toString()}`;
 }
 
 export function listeningDictationHref(testId) {
