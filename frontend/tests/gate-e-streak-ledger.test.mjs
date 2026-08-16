@@ -437,11 +437,23 @@ describe('workflow and provenance contract', () => {
       WORKFLOW.indexOf('  production-release-drift:'),
     );
     const jobTimeout = Number(gateJob.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
-    const serialStepTimeouts = [...gateJob.matchAll(/^ {8}timeout-minutes:\s*(\d+)\s*$/gm)]
-      .map((match) => Number(match[1]));
-    assert.deepEqual(serialStepTimeouts, [5, 5, 20, 10, 10, 10, 10]);
-    assert.ok(jobTimeout >= serialStepTimeouts.reduce((total, value) => total + value, 0) + 30);
-    assert.match(DOC, /Job có timeout 100 phút/);
+    const stepStarts = [...gateJob.matchAll(/^ {6}- (?:name|uses):/gm)]
+      .map((match) => match.index);
+    const stepBlocks = stepStarts.map((start, index) => gateJob.slice(
+      start,
+      stepStarts[index + 1] ?? gateJob.length,
+    ));
+    const missingTimeouts = stepBlocks
+      .filter((block) => !/^ {8}timeout-minutes:\s*\d+\s*$/m.test(block))
+      .map((block) => block.match(/^ {6}- (?:name|uses):\s*(.+)$/m)?.[1]);
+    assert.deepEqual(missingTimeouts, [], `uncapped Gate E steps: ${missingTimeouts.join(', ')}`);
+    const allStepTimeouts = stepBlocks.map((block) => Number(
+      block.match(/^ {8}timeout-minutes:\s*(\d+)\s*$/m)?.[1],
+    ));
+    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 144);
+    assert.ok(jobTimeout >= allStepTimeouts.reduce((total, value) => total + value, 0) + 30);
+    assert.match(DOC, /Job có timeout 180 phút/);
+    assert.match(DOC, /mọi step có timeout riêng/);
     assert.match(DOC, /bốn failure\s+matrix có timeout 10 phút mỗi bước/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
