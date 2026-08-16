@@ -223,6 +223,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | Route | Alias / redirect | Tệp sở hữu | Ai xem được | Tham số | Trạng thái phía client | Kích thước | Ghi chú |
 |---|---|---|---|---|---|---|---|
 | `/profile` | `/pages/profile.html` → 307 sang `/profile` (bản legacy ĐÃ gỡ khi cutover pilot 3) | `app/(authed)/profile/page.tsx` — CUTOVER (pilot 3) | Student | none | localStorage (theme), Supabase session | M | Hồ sơ học viên |
+| `/my-class` | `/pages/my-class.html` remains rollback/parity target | `app/(authed-my-class)/my-class/page.tsx` + `my-class-workspace.tsx` — native React ownership 2026-08-16 | Student | none | AuthProvider; canonical `/api/class/me`; `/api/class/assignments/{item}/start`; runtime core-player admission; sanitized Markdown; visibility-aware deadline reconciliation | L | Native class workspace with fail-visible block degradation, canonical progress/list contract checks, one-operation start lock, nearest-deadline refresh, 14-day rhythm and lesson attachments. All canonical inbound links use `/my-class`; Legacy HTML remains rollback-only until Gate F. |
 
 ### Vocabulary
 

@@ -217,3 +217,43 @@ export function admitCorePlayer(
   }
   return `${RUNTIME_ADMISSION_PATH}?${params.toString()}`;
 }
+
+/**
+ * Convert an N-1 backend's implementation-specific URL into a fresh runtime
+ * admission decision. Compatibility parsing lives here so callers never need
+ * to copy legacy player paths and silently bypass a later cutover/rollback.
+ */
+export function admitCorePlayerFromLegacyUrl(
+  surface,
+  legacyUrl,
+  expectedQuery = {},
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const config = surfacePolicy(surface, policy);
+  if (typeof legacyUrl !== 'string' || !legacyUrl.startsWith('/')) {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(legacyUrl, 'https://aver.invalid');
+  } catch {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  if (parsed.origin !== 'https://aver.invalid' || parsed.pathname !== config.legacy.path
+      || parsed.hash || parsed.username || parsed.password) {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  const entries = [...parsed.searchParams.entries()];
+  const keys = new Set();
+  for (const [key] of entries) {
+    if (keys.has(key)) throw new Error(`invalid-core-player-legacy-query:${surface}`);
+    keys.add(key);
+  }
+  const query = Object.fromEntries(entries);
+  for (const [key, value] of Object.entries(expectedQuery || {})) {
+    if (query[key] !== scalarQueryValue(value, key)) {
+      throw new Error(`mismatched-core-player-legacy-query:${surface}:${key}`);
+    }
+  }
+  return admitCorePlayer(surface, query, policy);
+}
