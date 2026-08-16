@@ -141,7 +141,7 @@ export function instructorCompareBackHref(essayId, asInstructor = null) {
   const params = new URLSearchParams({ essay_id: id });
   const target = nullableText(asInstructor);
   if (target) params.set('as_instructor', target);
-  return `/pages/instructor/grade.html?${params.toString()}`;
+  return `/instructor/grade?${params.toString()}`;
 }
 
 export function instructorComposePayload(baseVersion, picks) {

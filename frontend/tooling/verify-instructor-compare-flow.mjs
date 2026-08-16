@@ -129,7 +129,7 @@ const ownerReads = requests.filter((item) => item.method === 'GET' && item.path.
 check('đọc đúng endpoint owner-scoped sau /auth/me', ownerReads.length === 1 && requests.findIndex((item) => item.path === '/auth/me') < requests.findIndex((item) => item.path.startsWith('/instructor/')));
 check('GET versions mang đúng as_instructor', new URLSearchParams(ownerReads[0]?.search).get('as_instructor') === instructorId);
 check('banner impersonation và back-link giữ context', await page.getByText(/Đang xem như giảng viên/).count() === 1
-  && await page.getByRole('link', { name: 'Quay lại bài chấm' }).getAttribute('href') === `/pages/instructor/grade.html?essay_id=${essayId}&as_instructor=teacher%2Fid`);
+  && await page.getByRole('link', { name: 'Quay lại bài chấm' }).getAttribute('href') === `/instructor/grade?essay_id=${essayId}&as_instructor=teacher%2Fid`);
 check('render đủ hai version và full base preview', await page.getByRole('columnheader', { name: 'v2 · AI' }).count() === 1
   && await page.getByText('Bài mẫu từ bản 2', { exact: true }).count() === 1);
 check('renderer escape nội dung độc hại', await page.locator('.ic-preview-stack script').count() === 0 && await page.evaluate(() => !window.__previewXss));

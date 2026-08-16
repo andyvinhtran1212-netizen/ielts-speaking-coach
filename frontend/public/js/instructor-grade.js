@@ -153,7 +153,10 @@ async function onDeliver() {
     // save the comment first so it ships with the delivery
     await api.patch('/instructor/essays/' + encodeURIComponent(ESSAY_ID) + '/instructor-note',
       { instructor_note: $('ig-comment').value });
-    await api.post('/instructor/reviews/' + encodeURIComponent(REVIEW_ID) + '/deliver', {});
+    await api.post('/instructor/reviews/' + encodeURIComponent(REVIEW_ID) + '/deliver', {
+      essay_id: ESSAY_ID,
+      instructor_note: $('ig-comment').value,
+    });
     banner('Đã trả bài — học viên sẽ thấy nhận xét.', 'ok');
     await loadEssay();
   } catch (e) {
