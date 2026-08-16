@@ -16,6 +16,8 @@ const CONFIG = read('frontend/playwright.gate-e-listening.config.js');
 const WORKFLOW = read('.github/workflows/staging-e2e.yml');
 const SPEC = read('frontend/tests/gate-e-listening/listening-failure-matrix.spec.js');
 const HARNESS = read('frontend/tests/gate-e-listening/listening-gate-e-harness.js');
+const DICTATION_SPEC = read('frontend/tests/gate-e-listening/dictation-failure-matrix.spec.js');
+const DICTATION_HARNESS = read('frontend/tests/gate-e-listening/dictation-gate-e-harness.js');
 const VERIFIER = read('frontend/tooling/verify-gate-e-listening-device-matrix.mjs');
 const runVerifier = (runnerImage) => spawnSync(
   process.execPath,
@@ -28,19 +30,23 @@ const runVerifier = (runnerImage) => spawnSync(
 );
 
 describe('Listening Gate E failure matrix is pinned and auditable', () => {
-  test('manifest matches lockfile, config projects and exact four-path matrix', () => {
+  test('manifest matches lockfile, config projects and exact eight-path matrix', () => {
     assert.equal(MANIFEST.playwright_version, LOCK.packages['node_modules/@playwright/test'].version);
-    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v1');
-    assert.equal(MANIFEST.expected_total_tests, 12);
-    assert.equal(MANIFEST.expected_tests.length, 4);
+    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v2');
+    assert.equal(MANIFEST.expected_total_tests, 24);
+    assert.equal(MANIFEST.expected_tests.length, 8);
     for (const project of MANIFEST.automated_projects) {
       assert.match(CONFIG, new RegExp(`name: '${project.project}'`));
-      assert.equal(MANIFEST.expected_project_counts[project.project], 4);
+      assert.equal(MANIFEST.expected_project_counts[project.project], 8);
     }
-    for (const title of MANIFEST.expected_tests) {
+    for (const title of MANIFEST.expected_tests.slice(0, 4)) {
       assert.match(SPEC, new RegExp(`test\\('${title}'`));
     }
+    for (const title of MANIFEST.expected_tests.slice(4)) {
+      assert.match(DICTATION_SPEC, new RegExp(`test\\('${title}'`));
+    }
     assert.equal((SPEC.match(/^test\('/gm) || []).length, 4);
+    assert.equal((DICTATION_SPEC.match(/^test\('/gm) || []).length, 4);
     assert.match(CONFIG, /^\s*retries:\s*0,\s*$/m);
     assert.match(CONFIG, /gate-e-listening-device-matrix-results\.json/);
   });
@@ -56,6 +62,11 @@ describe('Listening Gate E failure matrix is pinned and auditable', () => {
     assert.match(HARNESS, /PRODUCTION_ORIGINS/);
     assert.match(HARNESS, /productionRequests/);
     assert.match(HARNESS, /state\.answers\.set/);
+    assert.match(DICTATION_SPEC, /RECEIPT_KEY/);
+    assert.match(DICTATION_SPEC, /page\.reload\(\)/);
+    assert.match(DICTATION_SPEC, /completionCalls\)\.toHaveLength\(1\)/);
+    assert.match(DICTATION_HARNESS, /PRODUCTION_ORIGINS/);
+    assert.match(DICTATION_HARNESS, /state\.byRequest/);
   });
 
   test('workflow runs and semantically verifies Listening before streak metadata', () => {
