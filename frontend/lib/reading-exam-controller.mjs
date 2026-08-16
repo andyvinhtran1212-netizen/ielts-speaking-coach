@@ -134,7 +134,7 @@ export function readingReviewHref(attemptId, { anonId = null, from = null, sitti
   const origin = READING_ORIGINS.has(String(from || '')) ? String(from) : 'full';
   query.set('from', origin);
   if (origin === 'mock' && sittingId) query.set('sitting', String(sittingId));
-  return `/pages/reading-review.html?${query.toString()}`;
+  return `/reading/review?${query.toString()}`;
 }
 
 /** @param {string | null | undefined} from @param {string | null | undefined} [sittingId] */

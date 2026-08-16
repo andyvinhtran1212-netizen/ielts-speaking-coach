@@ -192,7 +192,7 @@ describe('the callers stamp the origin', () => {
     assert.match(read('public', 'js', 'reading-mini-test.js'), /reading-exam\.html\?test_id=\$\{[^}]+\}&from=mini/);
   });
   test('the exam carries the origin through to the review page', () => {
-    assert.match(EXAM_JS, /reading-review\.html\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
+    assert.match(EXAM_JS, /\/reading\/review\?attempt_id=[\s\S]{0,120}&from=' \+ originFromUrl\(\)/);
   });
   test('both listening libraries tag their link into the player', () => {
     assert.match(read('public', 'js', 'listening-tests-list.js'), /listening-test\.html\?id=\$\{[^}]+\}&from=full/);
@@ -210,7 +210,7 @@ describe('the callers stamp the origin', () => {
       + '\n' + read('public', 'js', 'mock-result.js');
     assert.match(MOCK, /var mockOrigin = '&from=mock&sitting=' \+ encodeURIComponent\(sitting\)/);
     assert.match(MOCK, /listening-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
-    assert.match(MOCK, /reading-review\.html\?attempt_id=[^\n]*\+ mockOrigin/);
+    assert.match(MOCK, /\/reading\/review\?attempt_id=[^\n]*\+ mockOrigin/);
   });
 });
 

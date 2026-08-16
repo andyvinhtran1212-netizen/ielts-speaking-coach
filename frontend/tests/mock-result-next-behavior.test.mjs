@@ -58,7 +58,7 @@ describe('/mock/result — native React behavior', () => {
   test('keeps per-skill review actions and the mock-origin return contract', () => {
     assert.match(BEHAVIOR, /&from=mock&sitting=\$\{encodeURIComponent\(sittingId\)\}/);
     assert.match(BEHAVIOR, /\/pages\/listening-review\.html\?attempt_id=/);
-    assert.match(BEHAVIOR, /\/pages\/reading-review\.html\?attempt_id=/);
+    assert.match(BEHAVIOR, /\/reading\/review\?attempt_id=/);
     assert.match(BEHAVIOR, /\/pages\/writing-result\.html\?id=/);
     assert.match(BEHAVIOR, /\/speaking\/result\?sitting=/);
     assert.match(BEHAVIOR, /rel="noopener"/);

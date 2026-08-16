@@ -61,7 +61,7 @@ check('backend-owned admin gate và canonical GET chạy', requests.includes('GE
 check('answer key và explanation hiển thị', await page.getByText('evaporation', { exact: true }).count() === 1 && await page.getByText('Follow the upward arrow.', { exact: true }).count() === 1);
 check('diagram block chỉ có một image manager', await page.getByRole('region', { name: 'Ảnh sơ đồ cho câu 2' }).count() === 1 && await page.getByText('Dùng chung ảnh sơ đồ với Q2', { exact: false }).count() === 1);
 check('IMG-PROMPT và contract issue hiển thị thật', await page.getByText('Prompt tạo ảnh được trích từ file').count() === 1 && await page.getByText(/1 vấn đề contract cần rà/).count() === 1);
-check('student-like preview dùng review route', await page.getByRole('link', { name: 'Xem như học viên ↗' }).getAttribute('href') === `/pages/reading-review.html?admin_test_id=${testId}`);
+check('student-like preview dùng native review route', await page.getByRole('link', { name: 'Xem như học viên ↗' }).getAttribute('href') === `/reading/review?admin_test_id=${testId}`);
 check('Markdown không chạy script', await page.evaluate(() => !window.__arpXss && !window.__optionXss));
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 const upload = page.locator('input[type=file]').first();

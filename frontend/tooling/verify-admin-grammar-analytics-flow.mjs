@@ -63,6 +63,7 @@ await page.getByRole('button', { name: 'Làm mới' }).click();
 await page.getByText('Một phần analytics không khả dụng.', { exact: true }).waitFor({ state: 'visible' });
 check('views lỗi là unknown, không phải zero', await page.getByText('Nguồn không khả dụng', { exact: true }).count() >= 2 && await page.getByText(/Dấu — không có nghĩa là 0/).count() >= 1);
 
+unavailableViews = false;
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Analytics snapshot', exact: true }).waitFor({ state: 'visible' });

@@ -164,7 +164,7 @@ function ReviewLinks({ data, sittingId }: {
       icon: '📖',
       title: 'Chữa bài Reading',
       hint: 'Xem lại từng câu + bài đọc',
-      href: `/pages/reading-review.html?attempt_id=${encodeURIComponent(data.reading_attempt_id)}${mockOrigin}`,
+      href: `/reading/review?attempt_id=${encodeURIComponent(data.reading_attempt_id)}${mockOrigin}`,
     });
   }
   (data.writing_tasks || []).forEach((task) => {

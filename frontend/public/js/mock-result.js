@@ -94,7 +94,7 @@
     if (data.listening_attempt_id) reviews.push({ icon: '🎧', title: 'Chữa bài Listening', hint: 'Xem lại từng câu + transcript',
       href: '/pages/listening-review.html?attempt_id=' + encodeURIComponent(data.listening_attempt_id) + mockOrigin });
     if (data.reading_attempt_id) reviews.push({ icon: '📖', title: 'Chữa bài Reading', hint: 'Xem lại từng câu + bài đọc',
-      href: '/pages/reading-review.html?attempt_id=' + encodeURIComponent(data.reading_attempt_id) + mockOrigin });
+      href: '/reading/review?attempt_id=' + encodeURIComponent(data.reading_attempt_id) + mockOrigin });
     // Writing: one card per task. A task with readable feedback links to it; a
     // task that never got graded says SO — the old code just skipped it, so a
     // student with one graded task saw a single link and an unexplained gap.

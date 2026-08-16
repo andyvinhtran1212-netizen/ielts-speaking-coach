@@ -113,7 +113,7 @@ test('native route owns QA while retaining explicit rollback and student-like pr
   assert.match(LAYOUT, /admin-reading-preview-next\.css/);
   assert.match(LAYOUT, /markdown\.js/);
   assert.match(CLIENT, /\/pages\/admin\/reading\/preview\.html\?test_id=/);
-  assert.match(CLIENT, /\/pages\/reading-review\.html\?admin_test_id=/);
+  assert.match(CLIENT, /\/reading\/review\?admin_test_id=/);
   assert.match(CONTENT, /readingPreviewHref\(row\.slug\)/);
   assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId, item\.questionNumber\)/);
   assert.doesNotMatch(CLIENT, /window\.confirm|window\.alert/);
