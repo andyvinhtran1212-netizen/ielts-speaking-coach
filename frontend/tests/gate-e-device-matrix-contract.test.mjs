@@ -19,6 +19,9 @@ const LOCK = json('frontend/package-lock.json');
 const CONFIG = read('frontend/playwright.staging.config.js');
 const WORKFLOW = read('.github/workflows/staging-e2e.yml');
 const SPEC = read('frontend/tests/staging-e2e/device-matrix.spec.js');
+const LIVE_FAILURE_SPEC = read(
+  'frontend/tests/staging-e2e/core-player-failure-injection.spec.js',
+);
 const HELPERS = read('frontend/tests/staging-e2e/helpers.js');
 const WRITER = read('frontend/tooling/write-gate-e-device-matrix-evidence.mjs');
 const DOC = read('docs/GATE_E_DEVICE_MATRIX_2026-08-09.md');
@@ -31,6 +34,12 @@ const evidenceUploadCode = workflowCode.match(
 )?.[0] || '';
 const speakingEvidenceCheckCode = workflowCode.match(
   /^      - name: Verify Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+const liveFailureEvidenceCheckCode = workflowCode.match(
+  /^      - name: Verify live-staging core-player failure evidence\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
+const liveFailureEvidenceUploadCode = workflowCode.match(
+  /^      - name: Upload live-staging core-player failure evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
 const speakingEvidenceUploadCode = workflowCode.match(
   /^      - name: Upload Speaking failure-matrix evidence\n[\s\S]*?(?=^      - )/m,
@@ -46,6 +55,9 @@ const listeningEvidenceVerifier = read(
 );
 const writingEvidenceVerifier = read(
   'frontend/tooling/verify-gate-e-writing-failure-evidence.mjs',
+);
+const liveFailureEvidenceVerifier = read(
+  'frontend/tooling/verify-gate-e-live-staging-failure-evidence.mjs',
 );
 
 const writeSyntheticReport = (file, includedProjects, { extraSkippedProjects = [], errors = [] } = {}) => {
@@ -130,6 +142,23 @@ describe('Gate E device matrix is pinned and bounded', () => {
   });
 
   test('all core failure evidence is semantically verified before any streak state advances', () => {
+    assert.match(liveFailureEvidenceCheckCode, /id: live_staging_failure_evidence/);
+    assert.match(liveFailureEvidenceCheckCode, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}/);
+    assert.match(
+      liveFailureEvidenceCheckCode,
+      /verify-gate-e-live-staging-failure-evidence\.mjs/,
+    );
+    assert.match(
+      liveFailureEvidenceUploadCode,
+      /steps\.live_staging_failure_evidence\.outcome == 'success'/,
+    );
+    assert.match(LIVE_FAILURE_SPEC, /route\.fetch\(\{ timeout: 60_000, maxRetries: 0 \}\)/);
+    assert.match(LIVE_FAILURE_SPEC, /route\.abort\('connectionreset'\)/);
+    assert.match(LIVE_FAILURE_SPEC, /uploadAttempts[^]*?toBe\(1\)/);
+    assert.match(LIVE_FAILURE_SPEC, /clientResult\._reconciled[^]*?toBe\(true\)/);
+    assert.match(liveFailureEvidenceVerifier, /upload-replay-detected/);
+    assert.match(liveFailureEvidenceVerifier, /response-identity-mismatch/);
+    assert.match(liveFailureEvidenceVerifier, /forbidden-field:/);
     assert.match(speakingEvidenceCheckCode, /id: speaking_failure_evidence/);
     assert.match(speakingEvidenceCheckCode, /GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/);
     assert.match(
@@ -147,7 +176,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     );
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.live_staging_failure_evidence\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(speakingEvidenceVerifier, /JSON discovered \$\{tests\.length\} tests/);
     assert.match(speakingEvidenceVerifier, /HTML embedded ZIP is truncated/);

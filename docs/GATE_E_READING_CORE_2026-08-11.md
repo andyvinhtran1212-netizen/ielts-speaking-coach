@@ -45,5 +45,7 @@ scripts, shared `api.js`, coordinator và UI state machine vẫn là code produc
 - Harness/spec: `frontend/tests/gate-e-reading/`.
 - Semantic verifier: `frontend/tooling/verify-gate-e-reading-failure-evidence.mjs`.
 - WebKit desktop/iPhone là emulation, không phải Safari/iOS thiết bị thật.
-- `failure_injection.status` vẫn `partial` cho tới khi Listening và Writing đóng
-  đủ bốn path tương ứng.
+- Listening/Writing synthetic slices và Speaking live-staging ambiguous-commit
+  journey đã đóng sau batch này; `failure_injection.status=complete` chỉ khi
+  trusted verifier của mọi slice cùng xanh. Safari/iOS thật, streak và drill
+  vẫn là các gate độc lập.
