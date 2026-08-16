@@ -17,6 +17,7 @@ const fakeSession = JSON.stringify({
 const content = {
   id: CONTENT_ID, title: 'Travel <script>alert(1)</script>',
   audio_signed_url: 'data:audio/wav;base64,UklGRg==', audio_duration_seconds: 90,
+  transcript: 'SECRET TRANSCRIPT MUST BE IGNORED BY THE CLIENT',
 };
 const exercises = {
   gist: { id: 'exercise-gist', content_id: CONTENT_ID, exercise_type: 'gist', payload: { prompt_text: 'Summarise <b>the trip</b>.' } },
