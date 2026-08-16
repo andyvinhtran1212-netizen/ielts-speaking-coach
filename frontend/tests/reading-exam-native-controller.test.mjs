@@ -71,10 +71,10 @@ describe('native Reading exam controller', () => {
   test('builds a capability-safe review URL with an allowlisted origin', () => {
     assert.equal(
       readingReviewHref('attempt 1', { anonId: 'anon/token', from: 'mini' }),
-      '/pages/reading-review.html?attempt_id=attempt+1&anon=anon%2Ftoken&from=mini',
+      '/reading/review?attempt_id=attempt+1&anon=anon%2Ftoken&from=mini',
     );
-    assert.equal(readingReviewHref('a1', { from: 'https://evil.test' }), '/pages/reading-review.html?attempt_id=a1&from=full');
-    assert.equal(readingReviewHref('a1', { from: 'mock', sittingId: 's1' }), '/pages/reading-review.html?attempt_id=a1&from=mock&sitting=s1');
+    assert.equal(readingReviewHref('a1', { from: 'https://evil.test' }), '/reading/review?attempt_id=a1&from=full');
+    assert.equal(readingReviewHref('a1', { from: 'mock', sittingId: 's1' }), '/reading/review?attempt_id=a1&from=mock&sitting=s1');
     assert.equal(readingLibraryHref('mini'), '/reading/mini-test');
     assert.equal(readingLibraryHref('mock', 's/1'), '/mock/result?sitting=s%2F1');
     assert.equal(readingLibraryHref('https://evil.test'), '/reading/test');

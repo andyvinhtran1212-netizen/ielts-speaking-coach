@@ -55,7 +55,7 @@ describe('mock-result — shell + design system', () => {
 describe('mock-result — chữa bài links per skill', () => {
   test('L/R link to the per-question review by attempt_id', () => {
     assert.match(HTML, /listening-review\.html\?attempt_id=' \+ encodeURIComponent\(data\.listening_attempt_id\)/);
-    assert.match(HTML, /reading-review\.html\?attempt_id=' \+ encodeURIComponent\(data\.reading_attempt_id\)/);
+    assert.match(HTML, /\/reading\/review\?attempt_id=' \+ encodeURIComponent\(data\.reading_attempt_id\)/);
   });
   test('Writing tasks link to the delivered essay feedback by id', () => {
     // Driven off writing_tasks[] now, not the two flat ids: the payload carries a

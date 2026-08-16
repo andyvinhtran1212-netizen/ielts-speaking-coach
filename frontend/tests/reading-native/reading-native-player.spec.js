@@ -113,7 +113,7 @@ test('anonymous share boot and save carry the minted capability token', async ({
   await page.getByRole('button', { name: 'Nộp bài', exact: true }).click();
   await expect(page.getByRole('link', { name: /Xem chữa bài chi tiết/ })).toHaveAttribute(
     'href',
-    `/pages/reading-review.html?attempt_id=${ATTEMPT}&anon=anon-capability&from=mini`,
+    `/reading/review?attempt_id=${ATTEMPT}&anon=anon-capability&from=mini`,
   );
 });
 

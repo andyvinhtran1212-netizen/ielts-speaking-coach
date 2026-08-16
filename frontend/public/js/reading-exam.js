@@ -2407,7 +2407,7 @@
         ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
       // Carry the origin through to the review page too — it has the same
       // both-libraries problem and would otherwise guess.
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id)
+      chuaBai.href = '/reading/review?attempt_id=' + encodeURIComponent(result.attempt_id)
         + anonSuffix + '&from=' + originFromUrl();
       chuaBai.hidden = false;
     }

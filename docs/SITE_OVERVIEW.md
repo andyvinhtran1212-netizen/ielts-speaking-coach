@@ -110,7 +110,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 | `pages/reading-skill-exercise.html` | student | One L2 exercise — same panes + skill-tagged Qs (`GET /api/reading/skill/{slug}`). |
 | `pages/reading-test.html` | student | L3 full-test browse (`GET /api/reading/test`). |
 | `pages/reading-exam.html` | student **or anonymous** | L3 exam: boot + start + auto-save + submit (`/api/reading/test/{id}/boot`, `/attempts`, `/answers`, `/submit`). Locked tests prompt a password; `?share=<token>` → anonymous boot/start via `/api/reading/test/share/{token}/*` carrying `X-Reading-Anon`. |
-| `pages/reading-review.html` | student **or anonymous** | Post-submit chữa-bài: score/band/skill + rich per-Q solution (`GET /api/reading/test/attempts/{id}/review`; `?anon=` → `X-Reading-Anon`). Solution is stripped during the test, revealed only here. |
+| `/reading/review` (`app/(reading-review)/reading/review/*`; `pages/reading-review.html` rollback) | student **or anonymous**, plus admin preview | Native post-submit chữa-bài: score/band/skill + rich per-Q solution (`GET /api/reading/test/attempts/{id}/review`; `?anon=` → `X-Reading-Anon`). `?admin_test_id=` opens the honest no-score admin preview. Solution is stripped during the test, revealed only here; legacy HTML remains for rollback/parity until Gate F. |
 | `pages/exam.html` | student | Multi-source exam player (Phase 3; TOEIC Part 5 first). `?id=` plays an exam (MCQ → submit → result + KP-aware review stepper); no id lists published exams (`GET /api/exams[?source]`, `/api/exams/{id}`, `POST /{id}/attempts`, `/attempts/{id}/review`). A right/wrong answer feeds `kp_evidence`. |
 
 ### 4.5b Student — Mock Test (4-skill, sealed)

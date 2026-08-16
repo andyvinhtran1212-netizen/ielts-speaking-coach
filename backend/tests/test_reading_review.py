@@ -60,6 +60,7 @@ _PASSAGES = [
 ]
 _QUESTIONS = [
     {"q_num": 1, "question_type": "diagram_label_completion", "prompt": "Label 1 ____",
+     "explanation": "Gravity is named directly in the source sentence.",
      "payload": {"solution": {"band": 5, "steps": "Định vị…", "source_excerpt": "…gravity…",
                               "vocab": ["gravity = trọng lực"], "trap_analysis": "Bẫy: gradient",
                               "tips": "Dự đoán từ loại"}},
@@ -108,6 +109,7 @@ def test_review_merges_solution_translation_and_by_part():
     item = body["review"][0]
     assert item["correct"] is True and item["user_answer"] == "gravity"
     assert item["prompt"] == "Label 1 ____"
+    assert item["explanation"].startswith("Gravity is named")
     assert item["solution"]["steps"] == "Định vị…"
     assert item["solution"]["trap_analysis"].startswith("Bẫy")
 

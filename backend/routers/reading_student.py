@@ -1357,6 +1357,13 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         item = dict(g)
         item["prompt"] = ctx.get("prompt")
         item["question_type"] = ctx.get("question_type")
+        # Keep the plain authored explanation in the public review contract.
+        # build_stepper() deliberately turns it into a one-step fallback, while
+        # both review renderers reserve the structured stepper UI for authored
+        # multi-step solutions. Without this sibling field, a question that has
+        # explanation but no payload.solution reaches neither renderer path and
+        # the learner sees no rationale at all.
+        item["explanation"] = ctx.get("explanation")
         item["solution"] = sol_by_qnum.get(qn)
         # Phase 0.3 — normalized stepper view-model (reconciles rich prose
         # solutions AND plain `explanation` into one stepper shape + surfaces
