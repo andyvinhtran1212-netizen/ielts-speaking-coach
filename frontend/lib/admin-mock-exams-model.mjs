@@ -164,6 +164,28 @@ export function normalizeRetestSummary(raw) {
   });
 }
 
+export function mergeRetestCandidates(rows, servableSkills = ['listening', 'reading', 'writing']) {
+  const allowed = new Set(servableSkills);
+  const merged = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row?.userId) continue;
+    const current = merged.get(row.userId) || {
+      userId: row.userId,
+      studentName: row.studentName || row.userId,
+      skills: new Set(),
+    };
+    for (const skill of Array.isArray(row.skills) ? row.skills : []) {
+      if (allowed.has(skill)) current.skills.add(skill);
+    }
+    merged.set(row.userId, current);
+  }
+  return [...merged.values()].map((row) => ({
+    userId: row.userId,
+    studentName: row.studentName,
+    skills: ['listening', 'reading', 'writing'].filter((skill) => row.skills.has(skill)),
+  }));
+}
+
 export function normalizeExamContent(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.items)) return null;
   const rows = raw.items.flatMap((row) => {

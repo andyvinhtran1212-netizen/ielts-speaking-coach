@@ -6,6 +6,7 @@ import { messageOf } from '@/components/admin-directory-ui';
 import {
   localDateTimeIn,
   localToIso,
+  mergeRetestCandidates,
   normalizeAssignments,
   normalizeRetestSummary,
   retakeServableSkills,
@@ -40,6 +41,7 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [loadingAssignments, setLoadingAssignments] = useState(true);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
     if (request !== assignmentRequestRef.current) return false;
     if (!normalized) throw new Error('Danh sách assignment sai contract.');
     setAssignments(normalized as Assignment[]);
+    setAssignmentError(null);
     return true;
   };
 
@@ -68,10 +71,10 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
         if (!dead && request === assignmentRequestRef.current) {
           if (!normalized) throw new Error('Danh sách assignment sai contract.');
           setAssignments(normalized as Assignment[]);
-          setError(null);
+          setAssignmentError(null);
         }
       } catch (caught) {
-        if (!dead && request === assignmentRequestRef.current) setError(messageOf(caught));
+        if (!dead && request === assignmentRequestRef.current) setAssignmentError(messageOf(caught));
       } finally {
         if (!dead && request === assignmentRequestRef.current) setLoadingAssignments(false);
       }
@@ -91,13 +94,26 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
       const rows = normalizeRetestSummary(await window.api.get<unknown>(`/admin/mock-exams/${encodeURIComponent(value)}/retest-summary`));
       if (request !== candidateRequestRef.current) return;
       if (!rows) throw new Error('Danh sách học viên test lại sai contract.');
-      setCandidates(rows as Candidate[]);
-      setPicked(Object.fromEntries((rows as Candidate[]).map((row) => [row.userId, row.skills.filter((skill) => servable.includes(skill))])));
+      const merged = mergeRetestCandidates(rows as Candidate[], servable) as Candidate[];
+      setCandidates(merged);
+      setPicked(Object.fromEntries(merged.map((row) => [row.userId, row.skills])));
       setError(null);
     } catch (caught) {
       if (request === candidateRequestRef.current) setError(messageOf(caught));
     } finally {
       if (request === candidateRequestRef.current) setLoadingCandidates(false);
+    }
+  };
+
+  const retryAssignments = async () => {
+    setLoadingAssignments(true);
+    setAssignmentError(null);
+    try {
+      if (!await loadAssignments()) throw new Error('Yêu cầu tải assignment đã lỗi thời.');
+    } catch (caught) {
+      setAssignmentError(messageOf(caught));
+    } finally {
+      setLoadingAssignments(false);
     }
   };
 
@@ -174,8 +190,8 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
             })}</tbody></table>
           )}
         </div>
-        <div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void assign()} disabled={busy || loadingCandidates || !sourceId}>{busy ? 'Đang ghi…' : 'Gán assignment đã chọn'}</button></div>
-        <div className="mex-current"><h3>Assignment hiện tại</h3>{loadingAssignments ? <p role="status">Đang tải assignment…</p> : !assignments.length ? <p>Chưa gán học viên nào.</p> : <ul>{assignments.map((row) => <li key={row.userId}><span><strong>{row.studentName}</strong><small>{row.skills.join(', ')}{row.openUntil ? ` · hạn ${new Date(row.openUntil).toLocaleString('vi-VN')}` : ''}</small></span><button className="adm-btn-secondary" type="button" onClick={() => void unassign(row)} disabled={busy}>Gỡ</button></li>)}</ul>}</div>
+        <div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void assign()} disabled={busy || loadingAssignments || Boolean(assignmentError) || loadingCandidates || !sourceId}>{busy ? 'Đang ghi…' : 'Gán assignment đã chọn'}</button></div>
+        <div className="mex-current"><h3>Assignment hiện tại</h3>{loadingAssignments ? <p role="status">Đang tải assignment…</p> : assignmentError ? <div className="mex-alert is-error" role="alert"><span>Không đọc được assignment hiện tại: {assignmentError}</span><button className="adm-btn-secondary" type="button" onClick={() => void retryAssignments()} disabled={busy}>Thử lại</button></div> : !assignments.length ? <p>Chưa gán học viên nào.</p> : <ul>{assignments.map((row) => <li key={row.userId}><span><strong>{row.studentName}</strong><small>{row.skills.join(', ')}{row.openUntil ? ` · hạn ${new Date(row.openUntil).toLocaleString('vi-VN')}` : ''}</small></span><button className="adm-btn-secondary" type="button" onClick={() => void unassign(row)} disabled={busy}>Gỡ</button></li>)}</ul>}</div>
       </section>
     </div>
   );

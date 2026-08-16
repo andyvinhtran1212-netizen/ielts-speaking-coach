@@ -10,6 +10,7 @@ const requests = [];
 const errors = [];
 const results = [];
 let assignments = [];
+let failAssignmentLookup = true;
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
@@ -72,8 +73,14 @@ await page.route('**/*', async (route) => {
     exams = exams.map((row) => row.id === advanceMatch[1] ? { ...row, active_section: 'listening' } : row);
     return json({ active_section: 'listening' });
   }
-  if (path === '/admin/mock-exams/source-1/retest-summary') return json({ students: [{ user_id: 'student-1', student_name: 'Nguyễn An', skills: ['listening', 'reading', 'writing'] }] });
-  if (path === '/admin/mock-exams/retake-1/assignments' && method === 'GET') return json({ assignments });
+  if (path === '/admin/mock-exams/source-1/retest-summary') return json({ students: [
+    { user_id: 'student-1', student_name: 'Nguyễn An', skills: ['listening', 'reading'] },
+    { user_id: 'student-1', student_name: 'Nguyễn An', skills: ['writing'] },
+  ] });
+  if (path === '/admin/mock-exams/retake-1/assignments' && method === 'GET') {
+    if (failAssignmentLookup) return json({ detail: 'fixture assignment lookup failed' }, 503);
+    return json({ assignments });
+  }
   if (path === '/admin/mock-exams/retake-1/assignments' && method === 'POST') {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
@@ -84,9 +91,12 @@ await page.route('**/*', async (route) => {
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
 });
 
+const initialPaths = ['/auth/me', '/admin/mock-exams', '/admin/cohorts', '/admin/mock-exams/reading-tests', '/admin/listening/tests', '/admin/writing/prompts'];
+const initialReads = Promise.all(initialPaths.map((path) => page.waitForResponse((response) => new URL(response.url()).pathname === path)));
 await page.goto(`${BASE}/admin/mock-exams`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Quản lý đề thi' }).waitFor();
-check('backend-owned admin gate và toàn bộ picker canonical chạy', ['/auth/me', '/admin/mock-exams', '/admin/cohorts', '/admin/mock-exams/reading-tests', '/admin/listening/tests', '/admin/writing/prompts'].every((path) => requests.some((item) => item.path === path)));
+await initialReads;
+check('backend-owned admin gate và toàn bộ picker canonical chạy', initialPaths.every((path) => requests.some((item) => item.path === path)));
 await page.locator('.mex-progress-row').first().waitFor();
 check('progress published hiển thị trạng thái thật', await page.locator('.mex-progress-row').filter({ hasText: '2/3 đã nộp' }).count() >= 1);
 
@@ -117,14 +127,23 @@ await page.getByText('Đã chuyển SOURCE-1 sang Listening.').waitFor();
 check('open và advance giữ from_section chống stale tab', requests.some((item) => item.path === '/admin/mock-exams/source-1/open' && item.body?.is_open === true) && requests.some((item) => item.path === '/admin/mock-exams/source-1/advance' && item.body?.from_section === 'not_started'));
 
 const retakeCard = page.getByRole('article').filter({ hasText: 'RETAKE-1' });
+const firstAssignmentRead = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/mock-exams/retake-1/assignments');
 await retakeCard.getByRole('button', { name: 'Gán test lại' }).click();
+const firstAssignmentResponse = await firstAssignmentRead;
+const assignmentLoadAlert = page.getByText(/Không đọc được assignment hiện tại/);
+await assignmentLoadAlert.waitFor({ state: 'visible' });
+check('assignment lookup lỗi không giả thành danh sách rỗng', firstAssignmentResponse.status() === 503 && await page.getByText('Chưa gán học viên nào.', { exact: true }).count() === 0);
+failAssignmentLookup = false;
+await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
+await page.getByText('Chưa gán học viên nào.', { exact: true }).waitFor({ state: 'visible' });
+check('assignment lookup thử lại đọc được canonical state', true);
 await page.getByLabel('Đề gốc').selectOption('source-1');
 await page.getByText('Nguyễn An').waitFor();
 check('kỹ năng thiếu nội dung bị khóa trước mutation', await page.getByLabel('Nguyễn An · Listening').isDisabled());
 await page.getByRole('button', { name: 'Gán assignment đã chọn' }).click();
 await page.getByText('Assignment hiện tại').waitFor();
 const assignmentRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/mock-exams/retake-1/assignments');
-check('retake gửi deadline và chỉ kỹ năng servable', Boolean(assignmentRequest?.body?.assignments?.[0]?.open_until) && !assignmentRequest?.body?.assignments?.[0]?.skills.includes('listening'));
+check('retake gộp kỹ năng trùng, gửi deadline và chỉ kỹ năng servable', Boolean(assignmentRequest?.body?.assignments?.[0]?.open_until) && JSON.stringify(assignmentRequest?.body?.assignments?.[0]?.skills) === '["reading","writing"]');
 await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
 
 const levelInput = page.getByLabel('Cấp khóa READ-PAPER');

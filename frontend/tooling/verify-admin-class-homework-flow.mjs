@@ -46,6 +46,7 @@ let reconcileFailed = true;
 let failNextAssignments = false;
 let dueNeedsConfirm = true;
 let dueConflictNext = false;
+let createdAssignmentSequence = 0;
 const requests = [];
 const unexpectedWrites = [];
 const allowedWrites = [
@@ -108,7 +109,7 @@ await page.route('**/*', async (route) => {
   ] });
   if (parsed.pathname === `/admin/cohorts/${cohortId}/assignments` && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}');
-    assignments = [{ id: 'asg-created', status: 'published', kind: body.kind, skill: body.skill, title: body.title, due_at: '2026-08-25T12:00:00Z', content_id: body.content_id, content_config: { test_title: 'Grammar 2', pass_pct: body.pass_pct, retake_size: body.retake_size }, recipient_scope: body.student_ids ? 'subset' : 'class', progress: { assigned: 1, submitted: 0, late: 0, missing: 0, no_account: 0 } }, ...assignments];
+    assignments = [{ id: `asg-created-${++createdAssignmentSequence}`, status: 'published', kind: body.kind, skill: body.skill, title: body.title, due_at: '2026-08-25T12:00:00Z', content_id: body.content_id, content_config: { test_title: 'Grammar 2', pass_pct: body.pass_pct, retake_size: body.retake_size }, recipient_scope: body.student_ids ? 'subset' : 'class', progress: { assigned: 1, submitted: 0, late: 0, missing: 0, no_account: 0 } }, ...assignments];
     reconcileFailed = false;
     return json({ student_count: 1, unactivated_count: 0 }, 201);
   }
@@ -157,7 +158,9 @@ const hasReadAfter = (write) => {
 await page.goto(`${BASE}/admin/classes/${cohortId}?tab=homework`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Bài tập', exact: true }).waitFor({ state: 'visible' });
 check('deep-link native homework khôi phục đúng tab', await page.getByRole('tab', { name: /Bài tập/ }).getAttribute('aria-selected') === 'true');
-check('reconcile failure được hiện thay vì bịa số chuẩn', await page.getByText(/Chưa đối chiếu được một số bài đã nộp/).count() === 1);
+const reconcileWarning = page.getByText(/Chưa đối chiếu được một số bài đã nộp/);
+await reconcileWarning.waitFor({ state: 'visible' });
+check('reconcile failure được hiện thay vì bịa số chuẩn', await reconcileWarning.count() === 1);
 const unknownRow = page.locator('tr').filter({ hasText: 'Không rõ sổ nộp' });
 check('progress không đọc được không mở đường xoá', await unknownRow.getByText('Không đọc được', { exact: true }).count() === 1 && await unknownRow.getByRole('button', { name: 'Đóng bài' }).count() === 1 && await unknownRow.getByRole('button', { name: 'Xoá' }).count() === 0);
 const markingButton = page.locator('tr').filter({ hasText: 'Grammar 1' }).getByRole('button', { name: 'Nhận bài' });
