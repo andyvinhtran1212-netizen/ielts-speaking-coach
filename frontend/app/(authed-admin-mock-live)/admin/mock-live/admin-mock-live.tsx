@@ -292,7 +292,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
                 {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && (snapshot.sections[snapshot.exam.activeSection]?.working || 0) === 0 && <span className="mlv-pill is-live">Đã thu đủ</span>}
                 {nextSection && <button type="button" className="adm-btn-primary" onClick={() => void advance()} disabled={Boolean(busyKey)}>{snapshot.exam.activeSection === 'not_started' ? `Bắt đầu · mở ${LABEL[nextSection]}` : `Mở ${LABEL[nextSection]} →`}</button>}
               </>}
-              <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(snapshot.exam.id)}`}>Duyệt bài →</a>
+              <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(snapshot.exam.id)}`} target={embedded ? '_top' : undefined}>Duyệt bài →</a>
             </div>
           </div>
         </section>

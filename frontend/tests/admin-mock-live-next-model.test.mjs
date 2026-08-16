@@ -133,6 +133,11 @@ test('native routes own auth, exact identities, irreversible guards and accessib
   assert.doesNotMatch(live, /prompt\s*\(/);
   assert.match(dialog, /import \{ Dialog \}/);
   assert.match(dialog, /<Dialog/);
+  assert.match(live, /target=\{embedded \? '_top' : undefined\}/);
+  const liveCss = read('public', 'css', 'admin-mock-live-next.css');
+  assert.match(liveCss, /\.acd-dialog-backdrop\s*\{/);
+  assert.match(liveCss, /\.acd-dialog__body\s*\{/);
+  assert.match(liveCss, /@media \(max-width: 720px\)[\s\S]*\.acd-dialog-backdrop\s*\{ align-items: end;/);
   assert.match(pacing, /normalizePacing/);
   assert.match(pacing, /lần sửa cuối cùng/);
   assert.match(cockpitModel, /return `\/admin\/mock-live\?exam_id=/);

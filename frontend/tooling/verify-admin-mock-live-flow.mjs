@@ -153,7 +153,31 @@ check('pacing mobile không tràn ngang và back action đạt 44px', mobile.wid
 
 await page.goto(`${BASE}/admin/mock-live?exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Nguyễn An', { exact: true }).waitFor();
+await page.setViewportSize({ width: 1440, height: 980 });
 await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+const desktopDialog = await page.evaluate(() => {
+  const backdrop = document.querySelector('.acd-dialog-backdrop');
+  const panel = document.querySelector('.acd-dialog');
+  if (!backdrop || !panel) return null;
+  const rect = panel.getBoundingClientRect();
+  return { position: getComputedStyle(backdrop).position, panelWidth: rect.width, centerDelta: Math.abs(rect.left + rect.width / 2 - innerWidth / 2) };
+});
+check('void dialog có backdrop cố định và panel căn giữa ở desktop', desktopDialog?.position === 'fixed' && desktopDialog.panelWidth <= 520 && desktopDialog.centerDelta <= 2, JSON.stringify(desktopDialog));
+await page.getByRole('dialog').getByRole('button', { name: 'Đóng' }).click();
+await page.setViewportSize({ width: 390, height: 844 });
+await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+const mobileDialog = await page.evaluate(() => {
+  const backdrop = document.querySelector('.acd-dialog-backdrop');
+  const panel = document.querySelector('.acd-dialog');
+  const action = document.querySelector('.acd-dialog__actions button');
+  if (!backdrop || !panel || !action) return null;
+  const rect = panel.getBoundingClientRect();
+  const actions = document.querySelector('.acd-dialog__actions');
+  const actionStyle = actions ? getComputedStyle(actions) : null;
+  const actionContentWidth = actions && actionStyle ? actions.getBoundingClientRect().width - parseFloat(actionStyle.paddingLeft) - parseFloat(actionStyle.paddingRight) : 0;
+  return { align: getComputedStyle(backdrop).alignItems, bottomDelta: Math.abs(innerHeight - rect.bottom), actionWidth: action.getBoundingClientRect().width, actionContentWidth, panelWidth: rect.width };
+});
+check('void dialog thành bottom sheet và action full-width ở mobile', mobileDialog?.align === 'end' && mobileDialog.bottomDelta <= 2 && mobileDialog.actionWidth >= mobileDialog.actionContentWidth - 2, JSON.stringify(mobileDialog));
 await page.getByRole('dialog').getByLabel('Lý do huỷ *').fill('Mở nhầm đề; chưa bắt đầu làm');
 await page.getByRole('dialog').getByRole('button', { name: 'Huỷ lượt thi' }).click();
 await page.getByText('Đã huỷ lượt thi của Nguyễn An.').waitFor();
