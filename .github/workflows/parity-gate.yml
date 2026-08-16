@@ -287,12 +287,16 @@ on:
       - 'frontend/app/(authed-admin-system)/**'
       - 'frontend/public/css/admin-alerts-next.css'
       - 'frontend/public/css/admin-ai-usage-next.css'
-      # Instructor oversight có admin gate + read-only browser contract riêng.
-      # Đổi component/CSS/link quay lại từ workspace phải chạy lại verifier.
+      # Instructor oversight và workspace có role gate + browser contract riêng.
+      # Probe G1 không có role instructor, nên các route này chạy fixture verifier
+      # thay vì mở một cặp visual parity không quan sát được dữ liệu thật.
       - 'frontend/app/(authed-admin-instructors)/**'
       - 'frontend/lib/admin-instructors-model.mjs'
       - 'frontend/public/css/admin-instructors-next.css'
-      - 'frontend/public/pages/instructor/index.html'
+      - 'frontend/app/(authed-instructor)/**'
+      - 'frontend/lib/instructor-dashboard-model.mjs'
+      - 'frontend/public/css/instructor-next.css'
+      - 'frontend/tests/instructor-dashboard-next.test.mjs'
       # User/activity usage has an admin gate and fixture-backed read contract.
       # Route, model, responsive table and canonical access-code/overview links
       # must all rerun the same verifier.
@@ -662,6 +666,7 @@ on:
       - 'frontend/tooling/verify-admin-alerts-flow.mjs'
       - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-instructors-flow.mjs'
+      - 'frontend/tooling/verify-instructor-dashboard-flow.mjs'
       - 'frontend/tooling/verify-admin-usage-flow.mjs'
       - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
       - 'frontend/tooling/verify-admin-feedback-flow.mjs'
@@ -1189,6 +1194,11 @@ jobs:
       # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
       - name: Kiểm luồng Admin Instructors native
         run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/instructor` dùng role-aware fixture thay cho G1 probe không có role.
+      # Runner ghim owner scope, impersonation, canonical reload và responsive UI.
+      - name: Kiểm luồng Instructor Dashboard native
+        run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
       # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.

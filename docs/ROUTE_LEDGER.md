@@ -252,7 +252,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
-| `/instructor` | — | `pages/instructor/index.html` | Instructor | none | localStorage (theme), sessionStorage (cohort filter), Supabase session (verify role) | M | Instructor dashboard; cohort + essay queue |
+| `/instructor` | `/pages/instructor/index.html` remains rollback target | `app/(authed-instructor)/instructor/page.tsx` — native React ownership 2026-08-16 | Instructor | `as_instructor` (admin-only, audited by backend) | AuthProvider + canonical `/auth/me`; owner-scoped `/instructor/*`; account/request-keyed stale guard; canonical reload after mutations | L | Native roster, student summary, cohorts, enrollment codes, prompt/assignment matrix and review claim. Admin impersonation propagates through the single path helper; instructor surface never calls admin APIs. Grade detail remains on the legacy stable URL until its own route migrates. |
 | `/instructor/grade` | — | `pages/instructor/grade.html` | Instructor | `submission_id` | localStorage (theme), fetch (essay + rubric + student history), file upload (for attachments) | L | Grade UI; 1635 LOC inline script in writing-dashboard context |
 | `/instructor/compare` | — | `pages/instructor/compare.html` | Instructor | `submission_id_1`, `submission_id_2` (optional, side-by-side) | localStorage (theme), fetch (essays) | M | Compare two essays side-by-side |
 

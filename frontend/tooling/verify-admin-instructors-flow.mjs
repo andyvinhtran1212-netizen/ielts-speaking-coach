@@ -53,7 +53,7 @@ check('phân biệt bài chấm lại và tổng lượt chấm lại', await pa
 check('cảnh báo bản ghi sai định dạng hiện rõ', await page.getByText(/1 bản ghi sai định dạng hoặc trùng mã/).count() === 1);
 check('định danh độc hại được React escape', await page.locator('.ain-shell img, .ain-shell script, .ain-shell iframe').count() === 0);
 const workspace = page.getByRole('link', { name: /Mở workspace đã audit của Cô <script>alert\(1\)<\/script>/ });
-check('CTA dùng đúng sanctioned impersonation URL', await workspace.getAttribute('href') === '/pages/instructor/index.html?as_instructor=teacher%2Fid%20with%20space');
+check('CTA dùng đúng sanctioned impersonation URL', await workspace.getAttribute('href') === '/instructor?as_instructor=teacher%2Fid%20with%20space');
 await page.getByLabel('Tìm giảng viên').fill('second@');
 check('tìm kiếm lọc client và đồng bộ URL', await page.getByText('Thầy Bình', { exact: true }).count() === 1 && await page.getByText('Cô <script>alert(1)</script>', { exact: true }).count() === 0 && new URL(page.url()).searchParams.get('q') === 'second@');
 await page.getByLabel('Tìm giảng viên').fill('không có');

@@ -90,5 +90,5 @@ export function formatInstructorCost(value) {
 
 export function instructorWorkspaceHref(instructorId) {
   const id = text(instructorId);
-  return id ? `/pages/instructor/index.html?as_instructor=${encodeURIComponent(id)}` : null;
+  return id ? `/instructor?as_instructor=${encodeURIComponent(id)}` : null;
 }
