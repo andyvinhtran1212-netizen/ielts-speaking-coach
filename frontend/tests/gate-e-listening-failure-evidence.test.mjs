@@ -28,7 +28,7 @@ const validReport = () => {
     config: { projects: MANIFEST.automated_projects.map(({ project: name }) => ({ name })) },
     suites: [{ specs: [{ tests }] }],
     errors: [],
-    stats: { expected: 12, skipped: 0, unexpected: 0, flaky: 0 },
+    stats: { expected: MANIFEST.expected_total_tests, skipped: 0, unexpected: 0, flaky: 0 },
   };
 };
 
@@ -76,11 +76,11 @@ const runVerifier = (testedRoot) => spawnSync(
 );
 
 describe('Listening failure evidence is semantic and fail-closed', () => {
-  test('accepts only the exact 12-test/3-project/four-path report', () => {
+  test('accepts only the exact 24-test/3-project/eight-path report', () => {
     assert.deepEqual(validateListeningFailureJson(MANIFEST, validReport()).project_counts, {
-      'gate-e-listening-chromium-desktop': 4,
-      'gate-e-listening-webkit-desktop': 4,
-      'gate-e-listening-webkit-iphone13': 4,
+      'gate-e-listening-chromium-desktop': 8,
+      'gate-e-listening-webkit-desktop': 8,
+      'gate-e-listening-webkit-iphone13': 8,
     });
     assert.ok(validateListeningFailureHtml(validHtml()).embedded_bytes > 22);
   });
@@ -88,7 +88,7 @@ describe('Listening failure evidence is semantic and fail-closed', () => {
   test('rejects an empty report, wrong title and non-passing result', () => {
     const empty = validReport();
     empty.suites = [];
-    assert.throws(() => validateListeningFailureJson(MANIFEST, empty), /JSON discovered 0 tests != 12/);
+    assert.throws(() => validateListeningFailureJson(MANIFEST, empty), /JSON discovered 0 tests != 24/);
     const wrongTitle = validReport();
     wrongTitle.suites[0].specs[0].tests[0].title = 'not-a-listening-failure-path';
     assert.throws(() => validateListeningFailureJson(MANIFEST, wrongTitle), /unexpected test/);
@@ -103,7 +103,10 @@ describe('Listening failure evidence is semantic and fail-closed', () => {
       item.projectId = item.projectName;
       delete item.projectName;
     }
-    assert.equal(validateListeningFailureJson(MANIFEST, report).total_tests, 12);
+    assert.equal(
+      validateListeningFailureJson(MANIFEST, report).total_tests,
+      MANIFEST.expected_total_tests,
+    );
   });
 
   test('rejects truncated or semantically empty HTML', () => {

@@ -4,29 +4,36 @@ Ngày khóa contract: **2026-08-12**.
 
 ## Phạm vi và kết luận
 
-Listening có hai implementation cùng sống trên canonical API:
+Listening có hai core surface; mỗi surface có hai implementation cùng sống
+trên canonical API:
 
-- Next.js: `/listening/test/session?id=<test_id>`;
-- legacy fallback: `/pages/listening-test.html?id=<test_id>`.
+- full test: Next.js `/listening/test/session?id=<test_id>` và legacy fallback
+  `/pages/listening-test.html?id=<test_id>`;
+- test-linked Dictation: Next.js
+  `/listening/dictation/session?test_id=<test_id>` và legacy fallback
+  `/pages/listening-test-dictation.html?test_id=<test_id>`.
 
-Gate E slice này chạy đúng bốn failure path trên Chromium desktop, WebKit
-desktop và WebKit/iPhone 13 emulation, tổng cộng **12 test**, `workers: 1`,
+Gate E slice này chạy đúng tám failure path trên Chromium desktop, WebKit
+desktop và WebKit/iPhone 13 emulation, tổng cộng **24 test**, `workers: 1`,
 `retries: 0`, dùng production Next build và fixture server-state dùng chung cho
 cả hai implementation. Đây là automated synthetic evidence; không được gọi là
 Safari/iOS thiết bị thật.
 
 ## Root cause và mức độ
 
-- **Root cause:** native Listening player đã có autosave/retry/resume, nhưng
-  chưa có failure-injection evidence chứng minh canonical attempt không mất dữ
-  liệu khi transport mơ hồ, một PATCH bị từ chối, refresh hoặc đổi stack.
-- **Severity:** Critical — Listening submit chỉ gửi `{}`; backend chấm từ đáp án
-  đã persist. Nếu client submit khi còn một câu chưa lưu, câu đó mất vĩnh viễn.
+- **Root cause:** native Listening full-test đã có autosave/retry/resume và
+  Dictation đã có durable completion receipt, nhưng trước matrix v2 chưa có
+  failure-injection evidence cho Dictation chứng minh một completion không mất
+  hoặc nhân đôi khi mất ACK, lỗi trước commit, refresh hay legacy/Next cùng sống.
+- **Severity:** Critical — full-test submit chỉ gửi `{}` nên một answer chưa
+  persist sẽ mất vĩnh viễn; Dictation completion là canonical progress/analytics
+  nên mất ACK không được phép làm mất lượt học hoặc tạo session trùng.
 - **Impacted contracts:** `createListeningSaveCoordinator()`, native
   `startFresh()/resume()/submit()`, legacy `detectResumable()/resumeAttempt()` và
-  `flushAllPendingSaves()/confirmSubmit()`.
+  `flushAllPendingSaves()/confirmSubmit()`; cùng Dictation durable receipt,
+  `/dictation/session/by-request/{client_request_id}` và legacy no-receipt POST.
 
-## Bốn failure path đã đóng băng
+## Tám failure path đã đóng băng
 
 1. `listening-core-player-ambiguous-commit`
    - PATCH đầu tiên commit vào canonical fixture rồi connection reset.
@@ -43,6 +50,21 @@ Safari/iOS thiết bị thật.
 4. `listening-bidirectional-cross-version-core-player`
    - Legacy tạo attempt/lưu câu 1 → Next resume/lưu câu 2 → legacy resume lại.
    - Hai stack cùng đọc một `attempt_id` và một canonical answer map.
+5. `listening-dictation-core-player-ambiguous-commit`
+   - Completion đã commit nhưng response bị reset.
+   - Next read-back đúng `client_request_id`, chỉ có một canonical session và
+     chỉ xoá receipt sau khi server xác nhận.
+6. `listening-dictation-core-player-pre-commit-failure-retry`
+   - POST đầu trả 503 trước commit; canonical store vẫn rỗng và receipt còn bền.
+   - CTA retry gửi lại cùng request id, tạo đúng một session rồi xoá receipt.
+7. `listening-dictation-core-player-reload-receipt-resume`
+   - Connection reset trước commit, sau đó reload toàn trang.
+   - Next khôi phục exact payload từ receipt theo account/test/section, gửi lại
+     cùng request id và nhận canonical report mà không tạo session trùng.
+8. `listening-dictation-legacy-next-canonical-coexistence`
+   - Legacy no-receipt POST và Next receipt POST đều hoạt động qua cùng endpoint.
+   - Hai lượt học có chủ ý tạo hai canonical session; chỉ lượt Next tham gia
+     request-id reconciliation, không làm hỏng rollback client.
 
 Mọi path đều fail nếu có request tới Railway/Supabase production origin hoặc có
 uncaught browser error.
@@ -56,7 +78,7 @@ uncaught browser error.
 - Semantic verifier:
   `frontend/tooling/verify-gate-e-listening-failure-evidence.mjs`
 
-Verifier chỉ nhận exact 12 test/3 project/four title, zero skip/fail/flake, mỗi
+Verifier chỉ nhận exact 24 test/3 project/eight title, zero skip/fail/flake, mỗi
 test đúng một passed result và HTML có embedded ZIP hoàn chỉnh chứa
 `report.json`. CI chạy verifier trước metadata/ledger; matrix hoặc verifier đỏ
 đều đặt `GATE_E_RUN_OUTCOME=failure`.
