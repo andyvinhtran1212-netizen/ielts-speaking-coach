@@ -46,7 +46,10 @@ jobs:
       cancel-in-progress: false
       queue: max
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # The explicitly capped serial steps can consume 70 minutes. Keep a
+    # separate 30-minute finalization margin so a step-level timeout can still
+    # produce the fail-closed ledger and evidence artifacts below.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
         with:
@@ -135,8 +138,8 @@ jobs:
       - name: Run staging E2E
         id: staging_e2e
         working-directory: frontend
-        # Leave enough of the 60-minute job budget for the frozen Speaking,
-        # Reading and Listening matrices plus evidence finalization.
+        # Leave enough of the 100-minute job budget for all four frozen
+        # matrices plus fail-closed evidence finalization.
         timeout-minutes: 20
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}

@@ -432,9 +432,17 @@ describe('workflow and provenance contract', () => {
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
     assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 8);
     assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
-    assert.match(WORKFLOW, /^\s*timeout-minutes:\s*60\s*$/m);
-    assert.match(DOC, /Job có timeout 60 phút/);
-    assert.match(DOC, /Speaking failure\s+matrix có timeout 10 phút/);
+    const gateJob = WORKFLOW.slice(
+      WORKFLOW.indexOf('  staging-e2e:'),
+      WORKFLOW.indexOf('  production-release-drift:'),
+    );
+    const jobTimeout = Number(gateJob.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
+    const serialStepTimeouts = [...gateJob.matchAll(/^ {8}timeout-minutes:\s*(\d+)\s*$/gm)]
+      .map((match) => Number(match[1]));
+    assert.deepEqual(serialStepTimeouts, [5, 5, 20, 10, 10, 10, 10]);
+    assert.ok(jobTimeout >= serialStepTimeouts.reduce((total, value) => total + value, 0) + 30);
+    assert.match(DOC, /Job có timeout 100 phút/);
+    assert.match(DOC, /bốn failure\s+matrix có timeout 10 phút mỗi bước/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
@@ -485,6 +493,12 @@ describe('workflow and provenance contract', () => {
       WORKFLOW,
       /Run Gate E Speaking failure matrix[\s\S]*?id: speaking_failure_matrix[\s\S]*?if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'[\s\S]*?npm run test:e2e:gate-e/,
     );
+    assert.equal((WORKFLOW.match(
+      /if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'/g,
+    ) || []).length, 4);
+    for (const id of ['matrix_evidence', 'staging_provenance', 'streak_ledger']) {
+      assert.match(WORKFLOW, new RegExp(`id: ${id}\\n\\s+if: always\\(\\)`));
+    }
     assert.match(
       WORKFLOW,
       /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
