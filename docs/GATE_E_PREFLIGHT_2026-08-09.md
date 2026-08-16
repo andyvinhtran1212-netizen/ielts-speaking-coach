@@ -19,7 +19,7 @@ khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn c
 Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
 hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
 emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
-ghi đủ project counts/version/outcome. Critical-suite v2 và ledger đã được
+ghi đủ project counts/version/outcome. Critical-suite v5 và ledger đã được
 định nghĩa, nhưng chưa có qualifying 20-run artifact; vẫn chưa có Safari/iOS
 thiết bị thật. Active-session affinity mới có foundation và unit-level contract,
 chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
@@ -29,18 +29,19 @@ recorder, submission, Full Test state và player lifecycle. Reading đã có nat
 player cùng failure matrix versioned 12 case trên Chromium/WebKit desktop và
 WebKit/iPhone emulation. Listening cũng có native core player và matrix 12 case
 tương ứng. Writing cũng đã có matrix 12 case cùng idempotent submit/readback;
-đây vẫn là synthetic evidence. Thiết bị Safari/iOS thật, live-staging
-failure-injection, active-session drill và qualifying streak chưa hoàn tất. Vì
-vậy canonical core cutover vẫn bị chặn bởi Gate E.
+đây vẫn là synthetic evidence. Live-staging failure-injection journey và
+trusted verifier đã được tích hợp nhưng chưa có artifact từ release đã merge;
+thiết bị Safari/iOS thật, active-session drill và qualifying streak chưa hoàn
+tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence. WebKit/static scan không thay thế thiết bị thật. |
-| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; Writing còn chứng minh exact in-memory text + idempotent readback | Chưa có artifact chạy failure injection trên live staging release/canonical services; synthetic fixture coverage không được nâng thành operational evidence. |
+| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay | Chưa có successful artifact của live journey trên cùng frontend/backend staging SHA; source/tooling không được tính thay lần chạy thật. |
 | Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
-| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v2 freeze 33 tests live-staging; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và live-staging failure-injection evidence. Cơ chế đếm không thay thế các lần chạy thật. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v5 freeze 34 tests live-staging, gồm live failure injection; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và chưa có successful live-staging artifact từ release v5. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -89,14 +90,15 @@ vậy canonical core cutover vẫn bị chặn bởi Gate E.
 - **Root cause:** workflow nightly ban đầu không có frozen critical manifest,
   provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; Speaking
   failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Phần
-  còn thiếu là 20 executions thật cùng live-staging failure-injection evidence.
+  còn thiếu là 20 executions thật cùng một successful artifact từ live-staging
+  failure-injection journey đã tích hợp.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
   thư mục `frontend/tests/staging-e2e/`.
-- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA để
-  bắt đầu candidate streak, rồi thêm từng failure slice trong PR core cluster
-  tương ứng. Không backfill run trước khi ledger/provenance tồn tại.
+- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA,
+  chạy v5 để thu live artifact đầu tiên rồi bắt đầu candidate streak. Không
+  backfill run trước khi ledger/provenance tồn tại.
 - **Verification:** auditor tái dựng đúng 20 run IDs liên tiếp từ artifacts,
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.

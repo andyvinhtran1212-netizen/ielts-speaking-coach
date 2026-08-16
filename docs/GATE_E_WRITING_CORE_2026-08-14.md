@@ -75,7 +75,8 @@ Mọi path fail nếu có production egress hoặc uncaught browser error.
 - CI chạy Writing matrix + verifier trước metadata/ledger; suite/verifier đỏ
   đặt `GATE_E_RUN_OUTCOME=failure`.
 
-`frontend/tooling/gate-e-critical-suite.json` vẫn để
-`failure_injection.status=partial`: automated four-domain coverage đã có, nhưng
-`live-staging-core-player-failure-injection-evidence` chưa được thu. Gate E còn
-thiếu Safari/iOS thật, active-session drill và 20 consecutive clean runs.
+`frontend/tooling/gate-e-critical-suite.json` chuyển
+`failure_injection.status=complete` sau khi Speaking live-staging journey chứng
+minh commit-then-response-loss được canonical GET reconcile mà không replay.
+Gate E vẫn còn thiếu Safari/iOS thật, active-session drill và 20 consecutive
+clean runs.

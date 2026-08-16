@@ -274,7 +274,7 @@ describe('candidate streak advances and resets fail-closed', () => {
     for (let run = 1; run <= 20; run += 1) ledger = advance(ledger, run);
     assert.equal(ledger.streak_count, 20);
     assert.equal(ledger.threshold_met, true);
-    assert.equal(ledger.failure_matrix_complete, false);
+    assert.equal(ledger.failure_matrix_complete, true);
     assert.equal(ledger.real_devices_complete, false);
     assert.equal(ledger.gate_e_evidence_eligible, false);
   });
@@ -304,6 +304,9 @@ describe('candidate streak advances and resets fail-closed', () => {
   test('failure status cannot overclaim completion while required paths remain', () => {
     const inconsistentManifest = structuredClone(MANIFEST);
     inconsistentManifest.failure_injection.status = 'complete';
+    inconsistentManifest.failure_injection.missing = [
+      'live-staging-core-player-failure-injection-evidence',
+    ];
     const ledger = advance(null, 1, { manifest: inconsistentManifest });
     assert.equal(ledger.failure_matrix_complete, false);
     assert.equal(ledger.gate_e_evidence_eligible, false);
@@ -422,6 +425,7 @@ describe('workflow and provenance contract', () => {
     );
     assert.match(CAPTURE, /if \(!shaPattern\.test\(sourceSha\)\) throw new Error\('source-sha-invalid'\)/);
     for (const tool of [
+      'verify-gate-e-live-staging-failure-evidence.mjs',
       'verify-gate-e-speaking-failure-evidence.mjs',
       'verify-gate-e-reading-failure-evidence.mjs',
       'verify-gate-e-listening-failure-evidence.mjs',
@@ -430,8 +434,8 @@ describe('workflow and provenance contract', () => {
       'capture-gate-e-staging-provenance.mjs',
       'update-gate-e-streak-ledger.mjs',
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
-    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 8);
-    assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
+    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 9);
+    assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD[\s\S]*?GATE_E_SOURCE_SHA/);
     const gateJob = WORKFLOW.slice(
       WORKFLOW.indexOf('  staging-e2e:'),
       WORKFLOW.indexOf('  production-release-drift:'),
@@ -450,7 +454,7 @@ describe('workflow and provenance contract', () => {
     const allStepTimeouts = stepBlocks.map((block) => Number(
       block.match(/^ {8}timeout-minutes:\s*(\d+)\s*$/m)?.[1],
     ));
-    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 144);
+    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 149);
     assert.ok(jobTimeout >= allStepTimeouts.reduce((total, value) => total + value, 0) + 30);
     assert.match(DOC, /Job có timeout 180 phút/);
     assert.match(DOC, /mọi step có timeout riêng/);
@@ -470,6 +474,7 @@ describe('workflow and provenance contract', () => {
     const verifyListeningPins = WORKFLOW.indexOf('Verify Listening Gate E matrix pins');
     const verifyWritingPins = WORKFLOW.indexOf('Verify Writing Gate E matrix pins');
     const run = WORKFLOW.indexOf('Run staging E2E');
+    const liveFailureEvidence = WORKFLOW.indexOf('Verify live-staging core-player failure evidence');
     const failureMatrix = WORKFLOW.indexOf('Run Gate E Speaking failure matrix');
     const failureEvidence = WORKFLOW.indexOf('Verify Speaking failure-matrix evidence');
     const readingFailureMatrix = WORKFLOW.indexOf('Run Gate E Reading failure matrix');
@@ -483,7 +488,7 @@ describe('workflow and provenance contract', () => {
     assert.ok(
       restore < preflight && preflight < install && install < verifySpeakingPins &&
       verifySpeakingPins < verifyReadingPins && verifyReadingPins < verifyListeningPins && verifyListeningPins < verifyWritingPins && verifyWritingPins < run &&
-      run < failureMatrix && failureMatrix < failureEvidence &&
+      run < liveFailureEvidence && liveFailureEvidence < failureMatrix && failureMatrix < failureEvidence &&
       failureEvidence < readingFailureMatrix && readingFailureMatrix < readingFailureEvidence &&
       readingFailureEvidence < listeningFailureMatrix && listeningFailureMatrix < listeningFailureEvidence &&
       listeningFailureEvidence < writingFailureMatrix && writingFailureMatrix < writingFailureEvidence &&
@@ -491,6 +496,7 @@ describe('workflow and provenance contract', () => {
     );
     for (const artifact of [
       'gate-e-staging-provenance.json',
+      'gate-e-live-staging-failure-injection.json',
       'gate-e-streak-ledger.json',
       'staging-e2e-results.json',
     ]) assert.ok(WORKFLOW.includes(artifact));
@@ -513,9 +519,10 @@ describe('workflow and provenance contract', () => {
     }
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.live_staging_failure_evidence\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(WORKFLOW, /Upload Speaking failure-matrix evidence[\s\S]*?gate-e-speaking-failure-matrix-/);
+    assert.match(WORKFLOW, /Upload live-staging core-player failure evidence[\s\S]*?gate-e-live-staging-failure-/);
     assert.match(WORKFLOW, /Run Gate E Reading failure matrix[\s\S]*?npm run test:e2e:gate-e:reading/);
     assert.match(WORKFLOW, /Upload Reading failure-matrix evidence[\s\S]*?gate-e-reading-failure-matrix-/);
     assert.match(WORKFLOW, /Run Gate E Listening failure matrix[\s\S]*?npm run test:e2e:gate-e:listening/);
