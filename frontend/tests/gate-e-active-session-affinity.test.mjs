@@ -52,8 +52,7 @@ describe('current admission policy preserves behavior', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
       assert.equal(config.admit_new, 'legacy');
-      assert.equal(config.next.route_ready,
-        ['reading_exam', 'listening_test', 'listening_dictation'].includes(surface));
+      assert.equal(config.next.route_ready, true, `${surface} dark route must stay available`);
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
     assert.ok(existsSync(path.join(
@@ -86,6 +85,14 @@ describe('current admission policy preserves behavior', () => {
     assert.equal(
       admitCorePlayer('listening_dictation', { test_id: 'test-1' }),
       '/core-player/launch?surface=listening_dictation&test_id=test-1',
+    );
+    assert.equal(
+      corePlayerUrl('speaking', 'next', { session_id: 'session-a' }),
+      '/practice/session?session_id=session-a',
+    );
+    assert.equal(
+      resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
+      '/pages/practice.html?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
@@ -181,6 +188,7 @@ describe('cutover and rollback drill', () => {
 
   test('an admission flip fails closed until its stable route is ready', () => {
     const unsafe = structuredClone(CORE_PLAYER_AFFINITY_POLICY);
+    unsafe.surfaces.speaking.next.route_ready = false;
     unsafe.surfaces.speaking.admit_new = 'next';
     assert.deepEqual(validateCorePlayerAffinityPolicy(unsafe), [
       'speaking:admission-route-not-ready',
@@ -299,7 +307,7 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /MECHANISM READY; LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL\s+PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);

@@ -24,17 +24,20 @@ const HEALTH = read('backend/routers/health.py');
 const FLOOR = '1'.repeat(40);
 const CUTOVER = '2'.repeat(40);
 const OTHER = '3'.repeat(40);
+const ROLLBACK = '4'.repeat(40);
 const LEGACY_SESSION = '11111111-1111-4111-8111-111111111111';
+const NEXT_SESSION = '22222222-2222-4222-8222-222222222222';
 
 describe('Speaking coexistence drill contract', () => {
   test('manifest pins the three ordered phases and required handoff identities', () => {
-    assert.equal(MANIFEST.drill_id, 'gate-e-speaking-coexistence-v1');
+    assert.equal(MANIFEST.drill_id, 'gate-e-speaking-coexistence-v2');
     assert.deepEqual(MANIFEST.phases.map((item) => item.phase), ['floor', 'cutover', 'rollback']);
     assert.deepEqual(MANIFEST.phases.map((item) => item.expected_admission), ['legacy', 'next', 'legacy']);
     assert.equal(MANIFEST.phases[1].required_previous_session, 'legacy_session_id');
     assert.equal(MANIFEST.phases[2].required_previous_session, 'next_session_id');
     assert.ok(!MANIFEST.required_evidence.includes('floor_dark_next_url'));
     assert.deepEqual(MANIFEST.conditional_evidence.floor, ['floor_dark_next_url']);
+    assert.deepEqual(MANIFEST.conditional_evidence.rollback, ['rollback_mode']);
     assert.match(MANIFEST.status, /artifacts-pending/);
   });
 
@@ -46,7 +49,9 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(SPEC, /deployedFrontend[\s\S]*?toBe\(SOURCE_SHA\)/);
     assert.match(SPEC, /PHASE === 'floor'[\s\S]*?SOURCE_SHA\)\.toBe\(FLOOR_SHA\)/);
     assert.match(SPEC, /PHASE === 'cutover'[\s\S]*?SOURCE_SHA\)\.not\.toBe\(FLOOR_SHA\)/);
-    assert.match(SPEC, /PHASE === 'rollback'[\s\S]*?SOURCE_SHA\)\.toBe\(FLOOR_SHA\)/);
+    assert.doesNotMatch(SPEC, /PHASE === 'rollback'[\s\S]*?SOURCE_SHA\)\.toBe\(FLOOR_SHA\)/);
+    assert.match(SPEC, /LINEAGE_ROLLBACK_MODE[\s\S]*?SOURCE_SHA === FLOOR_SHA \? 'exact-floor' : 'forward-revert'/);
+    assert.match(SPEC, /rollback_mode: LINEAGE_ROLLBACK_MODE/);
     assert.match(SPEC, /LINEAGE_VERIFIED\)\.toBe\('true'\)/);
     assert.match(SPEC, /HANDOFF_VERIFIED\)\.toBe\('true'\)/);
     assert.match(SPEC, /assertEvidenceContract\(evidence\)/);
@@ -87,7 +92,9 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(WORKFLOW, /gh run download "\$PREVIOUS_PHASE_RUN_ID" --name "\$artifact_name"/);
     assert.doesNotMatch(WORKFLOW, /gh run download[\s\S]*?--pattern/);
     assert.match(WORKFLOW, /Verify previous phase handoff/);
+    assert.match(WORKFLOW, /Verify previous phase handoff[\s\S]*?GATE_E_SOURCE_SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
     assert.match(WORKFLOW, /GATE_E_LINEAGE_VERIFIED: \$\{\{ steps\.lineage\.outputs\.verified \}\}/);
+    assert.match(WORKFLOW, /GATE_E_ROLLBACK_MODE: \$\{\{ steps\.lineage\.outputs\.rollback_mode \}\}/);
     assert.match(WORKFLOW, /GATE_E_HANDOFF_VERIFIED: \$\{\{ steps\.handoff\.outputs\.verified \}\}/);
     assert.match(WORKFLOW, /STAGING_BYPASS: \$\{\{ secrets\.STAGING_PROTECTION_BYPASS \}\}/);
     assert.match(WORKFLOW, /E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
@@ -104,8 +111,10 @@ describe('Speaking coexistence drill contract', () => {
     assert.doesNotMatch(SPEC, /access_token:\s*auth\.access_token/);
   });
 
-  test('lineage rejects pre-floor, unrelated and non-floor rollback sources', () => {
-    const isAncestor = (ancestor, descendant) => ancestor === FLOOR && descendant === CUTOVER;
+  test('lineage accepts exact-floor or forward rollback and rejects unrelated sources', () => {
+    const isAncestor = (ancestor, descendant) => (
+      ancestor === FLOOR && [CUTOVER, ROLLBACK].includes(descendant)
+    );
     assert.equal(validatePhaseLineage({
       phase: 'floor', sourceSha: FLOOR, floorSha: FLOOR, isAncestor,
     }).verified, true);
@@ -114,7 +123,10 @@ describe('Speaking coexistence drill contract', () => {
     }).verified, true);
     assert.equal(validatePhaseLineage({
       phase: 'rollback', sourceSha: FLOOR, floorSha: FLOOR, isAncestor,
-    }).verified, true);
+    }).rollback_mode, 'exact-floor');
+    assert.equal(validatePhaseLineage({
+      phase: 'rollback', sourceSha: ROLLBACK, floorSha: FLOOR, isAncestor,
+    }).rollback_mode, 'forward-revert');
     assert.throws(() => validatePhaseLineage({
       phase: 'cutover', sourceSha: OTHER, floorSha: FLOOR, isAncestor,
     }), /not-floor-descendant/);
@@ -122,9 +134,10 @@ describe('Speaking coexistence drill contract', () => {
       phase: 'cutover', sourceSha: FLOOR, floorSha: CUTOVER, isAncestor,
     }), /not-floor-descendant/);
     assert.throws(() => validatePhaseLineage({
-      phase: 'rollback', sourceSha: CUTOVER, floorSha: FLOOR, isAncestor,
-    }), /must-equal-rollback-floor/);
+      phase: 'rollback', sourceSha: OTHER, floorSha: FLOOR, isAncestor,
+    }), /not-floor-descendant/);
     assert.match(LINEAGE, /git', \['merge-base', '--is-ancestor'/);
+    assert.match(LINEAGE, /rollback_mode=\$\{evidence\.rollback_mode\}/);
   });
 
   test('handoff binds the prior successful workflow artifact and canonical release', () => {
@@ -136,7 +149,7 @@ describe('Speaking coexistence drill contract', () => {
     };
     const previousEvidence = {
       schema_version: 1,
-      drill_id: 'gate-e-speaking-coexistence-v1',
+      drill_id: 'gate-e-speaking-coexistence-v2',
       phase: 'floor',
       status: 'passed',
       ok: true,
@@ -152,7 +165,7 @@ describe('Speaking coexistence drill contract', () => {
       created_session_id: LEGACY_SESSION,
     };
     const input = {
-      phase: 'cutover', floorSha: FLOOR, previousRunId: '12345',
+      phase: 'cutover', sourceSha: CUTOVER, floorSha: FLOOR, previousRunId: '12345',
       previousLegacySessionId: LEGACY_SESSION, previousNextSessionId: '',
       runMetadata, previousEvidence,
     };
@@ -166,7 +179,34 @@ describe('Speaking coexistence drill contract', () => {
     assert.throws(() => validatePreviousPhaseHandoff({
       ...input, runMetadata: { ...runMetadata, headBranch: 'feature' },
     }), /previous-run-provenance-invalid/);
+
+    const cutoverEvidence = {
+      ...previousEvidence,
+      phase: 'cutover',
+      expected_admission: 'next',
+      source_sha: CUTOVER,
+      deployed_frontend_sha: CUTOVER,
+      backend_release: CUTOVER,
+      created_session_id: NEXT_SESSION,
+    };
+    const rollbackInput = {
+      phase: 'rollback', sourceSha: ROLLBACK, floorSha: FLOOR, previousRunId: '12346',
+      previousLegacySessionId: '', previousNextSessionId: NEXT_SESSION,
+      runMetadata, previousEvidence: cutoverEvidence,
+      isAncestor: (ancestor, descendant) => ancestor === CUTOVER && descendant === ROLLBACK,
+    };
+    assert.equal(validatePreviousPhaseHandoff(rollbackInput).verified, true);
+    assert.throws(() => validatePreviousPhaseHandoff({
+      ...rollbackInput, sourceSha: CUTOVER,
+    }), /rollback-source-must-differ-from-cutover/);
+    assert.throws(() => validatePreviousPhaseHandoff({
+      ...rollbackInput, sourceSha: OTHER,
+    }), /forward-rollback-source-is-not-cutover-descendant/);
+    assert.equal(validatePreviousPhaseHandoff({
+      ...rollbackInput, sourceSha: FLOOR, isAncestor: () => false,
+    }).verified, true, 'an exact-floor deployment rollback remains valid');
     assert.match(HANDOFF, /gh', \[[\s\S]*?'run', 'view'/);
+    assert.match(HANDOFF, /git', \['merge-base', '--is-ancestor'/);
   });
 
   test('docs keep the live drill pending until all real phase artifacts exist', () => {

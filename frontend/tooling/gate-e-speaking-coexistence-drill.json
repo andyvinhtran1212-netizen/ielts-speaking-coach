@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "drill_id": "gate-e-speaking-coexistence-v1",
+  "drill_id": "gate-e-speaking-coexistence-v2",
   "strategy_id": "stable-player-url-admission-switch-v1",
   "surface": "speaking",
   "phases": [
@@ -46,6 +46,9 @@
   "conditional_evidence": {
     "floor": [
       "floor_dark_next_url"
+    ],
+    "rollback": [
+      "rollback_mode"
     ]
   },
   "retention_days": 30,

@@ -1,7 +1,8 @@
 # Gate E active-session affinity — 2026-08-09
 
-**Trạng thái:** MECHANISM READY; LIVE CORE DRILL PENDING. Batch này không tuyên
-bố Gate E PASS và không giả lập một player Next chưa tồn tại thành evidence thật.
+**Trạng thái:** FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL
+PENDING. Batch này không tuyên bố Gate E PASS và không dùng dark-route readiness
+thay cho evidence vận hành thật.
 
 ## Finding
 
@@ -21,8 +22,9 @@ bố Gate E PASS và không giả lập một player Next chưa tồn tại thà
   runtime no-store `frontend/app/core-player/launch/route.ts`. Bundle launcher
   chỉ giữ surface/query, không giữ quyết định `legacy`/`next`; deployment đang
   nhận navigation mới là nơi đọc `admit_new`. Hiện admission vẫn là `legacy`,
-  nên hành vi production không đổi. Target Next bị fail-closed bằng
-  `route_ready: false` cho tới khi dark route thật và browser tests tồn tại.
+  nên hành vi production không đổi. Cả bốn target Next nay `route_ready: true`
+  sau khi có native route và browser failure/cross-version tests; admission vẫn
+  fail-closed ở Legacy cho tới release cutover riêng.
 - **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi
   qua cutover/rollback nhưng runtime hiện tại đổi được đích Next về legacy;
   legacy-start và Next-start vẫn giữ URL implementation-specific của chính nó.
@@ -41,10 +43,10 @@ Mỗi implementation có URL ổn định riêng:
 
 | Surface | Legacy stable URL | Next stable URL | Admission hiện tại |
 |---|---|---|---|
-| Speaking | `/pages/practice.html` | `/practice/session` | legacy |
+| Speaking | `/pages/practice.html` | `/practice/session` | legacy — Next dark route ready; real-device/coexistence evidence pending |
 | Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
-| Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy |
+| Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Writing dashboard | `/pages/writing-dashboard.html` | `/writing/dashboard` | Next — cutover trước batch này |
 
 URL chỉ chọn renderer; backend auth/ownership vẫn quyết định ai được đọc hoặc
@@ -87,7 +89,9 @@ operational evidence.
    coexistence floor SHA. Launcher đã cache từ release cutover vẫn gọi cùng
    endpoint và request mới quay về legacy; attempt Next đang mở vẫn dùng URL
    Next. Không xoá dark route, không rollback về deployment trước floor, không
-   chuyển renderer giữa attempt.
+   chuyển renderer giữa attempt. Ưu tiên forward-revert commit hậu duệ của floor
+   để không rewrite/force-push lịch sử `staging`; runner v2 ghi rõ
+   `rollback_mode=forward-revert` hoặc `exact-floor`.
 5. **Retirement:** chỉ retire legacy sau Gate F khi telemetry của stable legacy
    URL chứng minh zero legitimate request trong cửa sổ bắt buộc. Vì hiện không
    có finite maximum active-session TTL toàn hệ thống, không được suy diễn rằng
@@ -129,8 +133,10 @@ policy thật và kiểm:
 Speaking đã có versioned **three-phase runner** ở
 `.github/workflows/speaking-coexistence-drill.yml`. Runner checkout đúng nhánh
 `staging`, dùng chung concurrency gate với staging E2E, và xuất artifact riêng
-cho `floor → cutover → rollback`. Floor và rollback bắt buộc checkout đúng
-rollback floor SHA; cutover phải là descendant của floor. Cutover/rollback còn
+cho `floor → cutover → rollback`. Floor bắt buộc checkout đúng rollback floor
+SHA; cutover phải là descendant của floor. Rollback chấp nhận đúng floor hoặc
+một forward-revert descendant của chính cutover, nhưng không chấp nhận lại
+cutover SHA; browser vẫn phải chứng minh admission đã về Legacy. Cutover/rollback còn
 phải tải artifact của workflow run ngay trước, kiểm phase, floor SHA, source ↔
 frontend/backend release, nhánh `staging` và session ID handoff trước khi mở
 browser. Mỗi phase tạo attempt qua admission thật, mở lại implementation URL của
@@ -142,12 +148,12 @@ floor SHA và mỗi provenance JSON có `ok:true`; không tuyên bố Gate E PAS
 contract/local test của runner. Vì request mang credential staging thật, runner
 tắt trace/screenshot và không upload browser report có thể giữ header bí mật.
 
-- Speaking đã có `/practice/session` dưới App Router và React đã sở hữu auth,
-  bootstrap session/question, MediaRecorder, submission cùng Full Test
-  retry/resume/finalize; backend đã pin đủ ba part, cùng sitting, đúng 9/1/5 và
-  exact `question_id` coverage; DOM player/effect orchestration vẫn ở `practice.js`,
-  `route_ready: false`; cần native player Next hoàn chỉnh cùng browser-backed
-  canonical backend-state assertions.
+- Speaking đã có `/practice/session` dưới App Router và React sở hữu auth,
+  bootstrap session/question, MediaRecorder, submission, Full Test
+  retry/resume/finalize, player lifecycle và structured renderer; backend pin đủ
+  ba part, cùng sitting, đúng 9/1/5 và exact `question_id` coverage. Browser
+  fixture/failure/cross-version matrix đã xác lập `route_ready: true`; real
+  Safari/iOS và live canonical drill vẫn chặn `admit_new=next`.
 - Mọi entry point tạo attempt của cluster phải đi theo admission decision hoặc
   được ghi rõ là một cohort legacy có chủ đích; không suy rộng sáu launcher thành
   global coverage.

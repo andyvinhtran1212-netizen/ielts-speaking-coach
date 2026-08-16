@@ -1,4 +1,4 @@
-/** Gate E Speaking: stable App Router dark URL without a false native/cutover claim. */
+/** Gate E Speaking: ready App Router dark URL without a false admission/cutover claim. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -178,10 +178,10 @@ describe('/practice/session transitional dark route', () => {
     assert.match(BOOT, /practice_native_bootstrap_failed/);
   });
 
-  test('dark route exists but admission remains fail-closed on legacy', () => {
+  test('dark route is ready but admission remains fail-closed on legacy', () => {
     const speaking = CORE_PLAYER_AFFINITY_POLICY.surfaces.speaking;
     assert.equal(speaking.next.path, '/practice/session');
-    assert.equal(speaking.next.route_ready, false);
+    assert.equal(speaking.next.route_ready, true);
     assert.equal(speaking.admit_new, 'legacy');
     assert.match(
       DOC,
@@ -189,8 +189,8 @@ describe('/practice/session transitional dark route', () => {
     );
     assert.match(DOC, /NATIVE JSX\/FEEDBACK\/PRONUNCIATION RENDERERS/);
     assert.match(DOC, /không dùng `dangerouslySetInnerHTML`/);
-    assert.match(DOC, /JSX ownership vẫn chưa đủ để\s+tuyên bố route ready/);
-    assert.match(DOC, /`route_ready=false` giữ nguyên/);
+    assert.match(DOC, /`route_ready=true` chỉ xác nhận dark route/);
+    assert.match(DOC, /`admit_new=legacy` giữ nguyên/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {

@@ -1,5 +1,5 @@
-// Speaking core dark route. App Router owns the stable URL, but admission stays
-// legacy until the behavior is native and Gate E live drills are complete.
+// Speaking core dark route. The stable Next URL is rollback-floor ready, while
+// admission stays Legacy until Gate E real-device and live coexistence evidence pass.
 import type { Metadata } from 'next';
 
 import { PracticeFullTestBridge } from './practice-full-test-bridge';
