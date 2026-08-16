@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  isReviewedAncestorComparison,
+  isReviewedSourceComparison,
   verifyFrozenDirs,
   verifyFrozenFiles,
 } from './gate-e-streak-lib.mjs';
@@ -41,7 +41,7 @@ const auditorSha = process.env.GATE_E_AUDITOR_SHA || '';
 const repository = process.env.GITHUB_REPOSITORY || '';
 const token = process.env.GITHUB_TOKEN || '';
 
-async function isReviewedMainAncestor() {
+async function isReviewedMainSource() {
   if (!shaPattern.test(testedSha) || !shaPattern.test(auditorSha) || !repository || !token) {
     return false;
   }
@@ -59,7 +59,7 @@ async function isReviewedMainAncestor() {
     );
     if (!response.ok) return false;
     const payload = await response.json();
-    return isReviewedAncestorComparison(payload, testedSha);
+    return isReviewedSourceComparison(payload, testedSha);
   } catch {
     return false;
   }
@@ -68,10 +68,10 @@ async function isReviewedMainAncestor() {
 if (fatalErrors.length) {
   for (const error of fatalErrors) console.error(`Gate E frozen-suite preflight: ${error}`);
   process.exitCode = 1;
-} else if (frozenErrors.length && await isReviewedMainAncestor()) {
+} else if (frozenErrors.length && await isReviewedMainSource()) {
   for (const error of frozenErrors) console.warn(`Gate E frozen-suite preflight: ${error}`);
   console.warn(
-    'Gate E frozen-suite preflight: reviewed main ancestor; execution allowed but streak will reset',
+    'Gate E frozen-suite preflight: reviewed main source; execution allowed but streak will reset',
   );
 } else if (frozenErrors.length) {
   for (const error of frozenErrors) console.error(`Gate E frozen-suite preflight: ${error}`);

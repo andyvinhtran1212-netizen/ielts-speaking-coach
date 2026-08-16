@@ -45,9 +45,13 @@ cách lặng lẽ đổi runner/test nhưng giữ đủ số lượng. Frozen-di
 cũng cấm file/symlink mới ngoài allowlist trong `tests/staging-e2e`, nên spec mới
 không thể lọt qua chỉ vì các file cũ vẫn giữ hash. Auditor kiểm các contract này
 và cấm `.npmrc` trong tested tree trước `npm ci`/Playwright, không đợi tới sau
-khi code đã nhận secret. Nếu hashes lệch nhưng GitHub chứng minh staging SHA là ancestor
-đã qua `main`, suite vẫn chạy để giữ giá trị chẩn đoán nhưng ledger reset; source
-không thuộc lịch sử `main` hoặc không xác minh được thì hard-stop. Ledger cũng
+khi code đã nhận secret. Nếu hashes lệch, suite chỉ được chạy chẩn đoán và reset
+ledger khi GitHub chứng minh staging SHA là ancestor đã qua `main`, hoặc cây Git
+của staging sync commit trùng tuyệt đối với cây của merge-base thuộc lịch sử
+`main`. Điều kiện thứ hai xử lý branch được đồng bộ bằng merge commit mà không
+tin riêng lịch sử commit; chỉ một thay đổi nội dung ngoài `main` cũng làm tree
+khác và hard-stop. Source không thuộc nội dung `main` đã review hoặc không xác
+minh được cũng hard-stop. Ledger cũng
 lưu SHA-256 của toàn manifest contract; mọi thay đổi manifest giữa chuỗi đều tạo
 `manifest-changed` và khởi động lại streak tại 1.
 

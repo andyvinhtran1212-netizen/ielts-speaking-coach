@@ -9,6 +9,7 @@ import {
   advanceStreak,
   digestManifestContract,
   isReviewedAncestorComparison,
+  isReviewedSourceComparison,
   selectPreviousWorkflowRun,
   selectWorkflowJobConclusion,
   verifyFrozenDirs,
@@ -365,6 +366,46 @@ describe('trusted-source ancestry', () => {
       merge_base_commit: { sha: SHA_B },
     }, SHA_A), false);
   });
+
+  test('allows a staging sync commit only when its tree equals the reviewed merge base', () => {
+    assert.equal(isReviewedSourceComparison({
+      status: 'ahead',
+      merge_base_commit: { sha: SHA_A },
+    }, SHA_A), true);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), true);
+    assert.equal(isReviewedSourceComparison({
+      status: 'behind',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), true);
+  });
+
+  test('rejects divergent staging content, mismatched commits and malformed tree SHAs', () => {
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: 'd'.repeat(40) } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_B, commit: { tree: { sha: SHA_A } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_A } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: 'not-a-git-tree' } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: 'not-a-git-tree' } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'unknown',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), false);
+  });
 });
 
 describe('workflow and provenance contract', () => {
@@ -397,7 +438,7 @@ describe('workflow and provenance contract', () => {
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
-    assert.match(PREFLIGHT, /isReviewedAncestorComparison\(payload, testedSha\)/);
+    assert.match(PREFLIGHT, /isReviewedSourceComparison\(payload, testedSha\)/);
   });
 
   test('cache is transport; ledger and provenance have independent validated artifacts', () => {

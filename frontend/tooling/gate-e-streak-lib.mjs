@@ -64,6 +64,17 @@ export function isReviewedAncestorComparison(payload, testedSha) {
     payload?.merge_base_commit?.sha === testedSha;
 }
 
+export function isReviewedSourceComparison(payload, testedSha) {
+  if (isReviewedAncestorComparison(payload, testedSha)) return true;
+
+  const testedTreeSha = payload?.base_commit?.commit?.tree?.sha;
+  const reviewedTreeSha = payload?.merge_base_commit?.commit?.tree?.sha;
+  return ['behind', 'diverged'].includes(payload?.status) &&
+    payload?.base_commit?.sha === testedSha &&
+    /^[a-f0-9]{40}$/.test(String(testedTreeSha || '')) &&
+    testedTreeSha === reviewedTreeSha;
+}
+
 export function selectPreviousWorkflowRun(workflowRuns, currentRunId, currentRunNumber) {
   const currentNumber = Number(currentRunNumber);
   if (!currentRunId || currentRunNumber === null || currentRunNumber === undefined ||
