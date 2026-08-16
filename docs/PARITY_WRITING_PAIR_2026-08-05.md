@@ -87,6 +87,24 @@ hai shell khớp ở nhánh đó trên desktop/mobile. Muốn phủ hai drill ca
 
 ---
 
+# Vì sao `/instructor` dùng browser contract thay cho visual parity (2026-08-16)
+
+Tài khoản probe G1 không có role giảng viên. Bản legacy dựng phần lớn shell tĩnh
+trước khi role gate hoàn tất, còn route Next chặn ở canonical `/auth/me` trước
+mọi `/instructor/*` read. So hai ảnh ở trạng thái này không chứng minh roster,
+lớp/mã, giao bài, hàng chờ chấm hay admin impersonation; nó còn khuyến khích bản
+Next render dữ liệu trước khi xác thực chỉ để giống baseline cũ.
+
+Vì vậy `/pages/instructor/index.html` ↔ `/instructor` không nằm trong
+`parity-pairs-authed.json`. Thay vào đó,
+`verify-instructor-dashboard-flow.mjs` chạy trên production build với session và
+backend fixture, kiểm role admin/student, đủ sáu collection owner-scoped,
+`as_instructor` trên từng request, canonical reload không replay sau mutation,
+drawer học viên, escaping và tràn ngang mobile/desktop. Legacy HTML vẫn được giữ
+làm rollback artifact tới Gate F; chi tiết chấm bài vẫn là route legacy riêng.
+
+---
+
 # Vì sao `/pricing` không có cặp visual parity (2026-08-15)
 
 `/pricing` đang được khóa có chủ ý trước launch. Bản legacy

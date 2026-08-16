@@ -101,6 +101,6 @@ describe('admin instructor payload truth', () => {
     assert.equal(filterInstructors(payload.rows, 'TEACHER@').length, 1);
     assert.equal(filterInstructors(payload.rows, 'gv-2').length, 1);
     assert.equal(instructorLabel(payload.rows[1]), 'gv-2');
-    assert.equal(instructorWorkspaceHref('gv/a b'), '/pages/instructor/index.html?as_instructor=gv%2Fa%20b');
+    assert.equal(instructorWorkspaceHref('gv/a b'), '/instructor?as_instructor=gv%2Fa%20b');
   });
 });
