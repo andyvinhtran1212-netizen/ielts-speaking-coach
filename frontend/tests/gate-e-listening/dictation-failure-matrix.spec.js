@@ -90,8 +90,9 @@ test('listening-dictation-core-player-reload-receipt-resume', async ({ page }) =
   await page.reload();
   await expect(page.getByText('✓ Đã lưu & xác nhận', { exact: true })).toBeVisible();
   expect(state.completionCalls).toHaveLength(2);
-  expect(state.completionCalls[1].client_request_id).toBe(pending.requestId);
+  expect(state.completionCalls[1]).toEqual(pending.submission);
   expect(state.sessions).toHaveLength(1);
+  expect(state.sessions[0].body).toEqual(pending.submission);
   expect(state.sessions[0].report.client_request_id).toBe(pending.requestId);
   expect(await page.evaluate((key) => localStorage.getItem(key), RECEIPT_KEY)).toBeNull();
   await expectNoDictationHarnessErrors(harness);
