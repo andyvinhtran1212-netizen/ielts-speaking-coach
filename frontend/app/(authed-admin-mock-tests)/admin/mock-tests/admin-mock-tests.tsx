@@ -51,6 +51,7 @@ export function AdminMockTests() {
   const params = useSearchParams();
   const initialTab = useMemo(() => mockTestsTab(params?.get('tab')) as Tab, [params]);
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [frameEpoch, setFrameEpoch] = useState(0);
   const [stage, setStage] = useState<Stage>('all');
   const [exams, setExams] = useState<Exam[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -147,6 +148,7 @@ export function AdminMockTests() {
   }, [frame]);
 
   const activateTab = (next: Tab) => {
+    if (next === tab) setFrameEpoch((current) => current + 1);
     setTab(next);
     window.history.replaceState(window.history.state, '', mockTestsHref(next));
   };
@@ -205,7 +207,7 @@ export function AdminMockTests() {
           <div id="mts-panel" className="mts-frame-wrap" role="tabpanel" aria-labelledby={`mts-tab-${tab}`} tabIndex={0}>
             {!frame
               ? <div className="mts-need-exam"><strong>{liveDraftBlocked ? 'Đề chưa được publish' : 'Chưa chọn đề thi'}</strong><span>{liveDraftBlocked ? 'Publish đề trong tab Quản lý trước khi mở phòng thi trực tiếp.' : `Chọn một đề ở danh sách bên trái để ${tab === 'live' ? 'mở phòng thi trực tiếp' : 'duyệt bài thi'}.`}</span></div>
-              : <iframe ref={frameRef} key={frame} className="mts-frame" src={frame} title={FRAME_TITLE[tab]} />}
+              : <iframe ref={frameRef} key={`${frame}:${frameEpoch}`} className="mts-frame" src={frame} title={FRAME_TITLE[tab]} />}
           </div>
         </section>
       </div>

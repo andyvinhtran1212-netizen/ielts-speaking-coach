@@ -75,6 +75,12 @@ check('tab query shareable và review frame giữ exact identity', new URL(page.
 
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 check('Writing dùng native queue thay vì legacy file', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1');
+await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
+await page.locator('iframe').evaluate((node) => node.contentWindow.history.pushState({}, '', '/admin/writing/grade?essay_id=fixture-child'));
+check('fixture đã đi sâu khỏi Writing queue', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/grade'));
+await page.getByRole('tab', { name: 'Chấm Writing' }).click();
+await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
+check('bấm lại tab hiện tại trả iframe về workspace gốc', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/queue'));
 
 await page.getByRole('tab', { name: 'Chấm Writing' }).press('Home');
 check('tablist hỗ trợ Home/End/arrow mà không tự kích hoạt iframe', await page.getByRole('tab', { name: 'Quản lý đề' }).evaluate((node) => node === document.activeElement) && new URL(page.url()).searchParams.get('tab') === 'writing');

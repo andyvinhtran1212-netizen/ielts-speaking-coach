@@ -68,7 +68,7 @@ describe('/admin/mock-tests native ownership and UX', () => {
   });
 
   test('keeps canonical selection truth, live safety and account-scoped refresh', () => {
-    for (const token of ['/admin/mock-exams', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'normalizeMockExamList', 'liveDraftBlocked', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'MODULE ROLLBACK']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['/admin/mock-exams', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'normalizeMockExamList', 'liveDraftBlocked', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'MODULE ROLLBACK']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|window\.api\.(post|patch|delete)/);
   });
 
