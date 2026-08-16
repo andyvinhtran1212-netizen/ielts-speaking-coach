@@ -17,6 +17,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'instructor', 'compare', 'page.tsx'), 'utf8');
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'instructor', 'compare', 'instructor-compare.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'layout.tsx'), 'utf8');
+const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
 
 function feedback(version, bands) {
   return {
@@ -104,6 +105,10 @@ describe('/instructor/compare native route contracts', () => {
     assert.match(LAYOUT, /instructor-compare-next\.css/);
     assert.match(VIEW, /window\.WritingRenderers/);
     assert.doesNotMatch(VIEW, /window\.location\.href\s*=\s*['"]\/pages\/instructor\/compare\.html/);
+  });
+
+  test('reruns the compare gate when its backend route contract changes', () => {
+    assert.match(PARITY_WORKFLOW, /- 'backend\/routers\/instructor\.py'/);
   });
 
   test('role-gates before owner reads and propagates impersonation through the shared helper', () => {

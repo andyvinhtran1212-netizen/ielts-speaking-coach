@@ -305,6 +305,7 @@ on:
       - 'frontend/public/js/instructor-grade.js'
       - 'frontend/tests/instructor-compare-next.test.mjs'
       - 'frontend/tests/f2-compare-mix.test.mjs'
+      - 'backend/routers/instructor.py'
       - 'backend/services/essay_service.py'
       - 'backend/tests/test_f2_compose_versions.py'
       # User/activity usage has an admin gate and fixture-backed read contract.
