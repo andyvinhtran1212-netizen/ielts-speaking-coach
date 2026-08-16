@@ -89,7 +89,9 @@ operational evidence.
    coexistence floor SHA. Launcher đã cache từ release cutover vẫn gọi cùng
    endpoint và request mới quay về legacy; attempt Next đang mở vẫn dùng URL
    Next. Không xoá dark route, không rollback về deployment trước floor, không
-   chuyển renderer giữa attempt.
+   chuyển renderer giữa attempt. Ưu tiên forward-revert commit hậu duệ của floor
+   để không rewrite/force-push lịch sử `staging`; runner v2 ghi rõ
+   `rollback_mode=forward-revert` hoặc `exact-floor`.
 5. **Retirement:** chỉ retire legacy sau Gate F khi telemetry của stable legacy
    URL chứng minh zero legitimate request trong cửa sổ bắt buộc. Vì hiện không
    có finite maximum active-session TTL toàn hệ thống, không được suy diễn rằng
@@ -131,8 +133,10 @@ policy thật và kiểm:
 Speaking đã có versioned **three-phase runner** ở
 `.github/workflows/speaking-coexistence-drill.yml`. Runner checkout đúng nhánh
 `staging`, dùng chung concurrency gate với staging E2E, và xuất artifact riêng
-cho `floor → cutover → rollback`. Floor và rollback bắt buộc checkout đúng
-rollback floor SHA; cutover phải là descendant của floor. Cutover/rollback còn
+cho `floor → cutover → rollback`. Floor bắt buộc checkout đúng rollback floor
+SHA; cutover phải là descendant của floor. Rollback chấp nhận đúng floor hoặc
+một forward-revert descendant của chính cutover, nhưng không chấp nhận lại
+cutover SHA; browser vẫn phải chứng minh admission đã về Legacy. Cutover/rollback còn
 phải tải artifact của workflow run ngay trước, kiểm phase, floor SHA, source ↔
 frontend/backend release, nhánh `staging` và session ID handoff trước khi mở
 browser. Mỗi phase tạo attempt qua admission thật, mở lại implementation URL của
