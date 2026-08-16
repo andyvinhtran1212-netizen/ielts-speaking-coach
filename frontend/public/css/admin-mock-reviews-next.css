@@ -142,7 +142,6 @@
   .mrr-context, .mrr-state { align-items: stretch; flex-direction: column; }
 }
 @media print {
-  aver-admin-chrome, .mrr-report-actions { display: contents; }
   .mrr-report-actions { display: none; }
   .mrr-report-shell { padding: 0; }
   .mrr-report-card { border: 0; box-shadow: none; }

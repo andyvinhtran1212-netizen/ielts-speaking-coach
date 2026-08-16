@@ -382,6 +382,14 @@ const STYLE = /* css */ `
   .admin-header { gap: var(--av-space-2); }
 }
 
+/* The chrome owns its shadow tree, so document-level print CSS cannot reliably
+   hide these elements. Keep the slotted page and remove every navigation layer. */
+@media print {
+  .admin-header, .sidebar, .backdrop { display: none !important; }
+  .admin-body { display: block; min-height: 0; }
+  .content { padding: 0; background: transparent; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar { transition: none; }
 }

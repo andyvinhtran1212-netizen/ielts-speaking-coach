@@ -128,6 +128,23 @@ const speakingScore = page.locator('.mrr-report-score').filter({ hasText: 'Speak
 const overallScore = page.locator('.mrr-report-score').filter({ hasText: 'Overall' });
 check('report LRW vẫn hiện Speaking extra và overall canonical', await speakingScore.getByText('7.0', { exact: true }).count() === 1 && await overallScore.getByText('7.0', { exact: true }).count() === 1);
 
+await page.emulateMedia({ media: 'print' });
+const printLayout = await page.evaluate(() => {
+  const chrome = document.querySelector('aver-admin-chrome');
+  const root = chrome?.shadowRoot;
+  return {
+    header: root ? getComputedStyle(root.querySelector('.admin-header')).display : null,
+    sidebar: root ? getComputedStyle(root.querySelector('.sidebar')).display : null,
+    backdrop: root ? getComputedStyle(root.querySelector('.backdrop')).display : null,
+    body: root ? getComputedStyle(root.querySelector('.admin-body')).display : null,
+    contentPadding: root ? getComputedStyle(root.querySelector('.content')).padding : null,
+    report: getComputedStyle(document.querySelector('.mrr-report-card')).display,
+    actions: getComputedStyle(document.querySelector('.mrr-report-actions')).display,
+  };
+});
+check('print media chỉ giữ report card, shadow admin chrome bị ẩn tại nguồn', printLayout.header === 'none' && printLayout.sidebar === 'none' && printLayout.backdrop === 'none' && printLayout.body === 'block' && printLayout.contentPadding === '0px' && printLayout.report !== 'none' && printLayout.actions === 'none', JSON.stringify(printLayout));
+await page.emulateMedia({ media: 'screen' });
+
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
 check('mobile không tràn ngang', mobile.width <= mobile.viewport, `${mobile.width}/${mobile.viewport}`);

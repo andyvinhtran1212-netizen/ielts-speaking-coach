@@ -11,6 +11,7 @@ const REPORT = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews
 const PAGE = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'page.tsx');
 const LAYOUT = read('app', '(authed-admin-mock-reviews)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-mock-reviews-next.css');
+const ADMIN_CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const COCKPIT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const MODEL = read('lib', 'admin-mock-tests-model.mjs');
 
@@ -44,6 +45,8 @@ describe('/admin/mock-reviews native ownership', () => {
 
   test('ships responsive accessible styles rather than an iframe-sized legacy surface', () => {
     for (const token of ['@media (max-width: 900px)', '@media (max-width: 640px)', '@media print', '.mrr-band-grid', '.mrr-report-grid']) assert.ok(CSS.includes(token), token);
+    assert.doesNotMatch(CSS, /aver-admin-chrome\s*,\s*\.mrr-report-actions\s*\{\s*display:\s*contents/);
+    assert.match(ADMIN_CHROME, /@media print\s*\{[\s\S]*\.admin-header, \.sidebar, \.backdrop \{ display: none !important; \}[\s\S]*\.admin-body \{ display: block; min-height: 0; \}/);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|<iframe/);
   });
 });
