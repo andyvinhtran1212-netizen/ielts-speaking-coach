@@ -14,7 +14,9 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),
-      next: Object.freeze({ path: '/practice/session', route_ready: false }),
+      // Dark-route floor only. New attempts remain on Legacy until the live
+      // coexistence drill and real Safari/iOS evidence pass in later releases.
+      next: Object.freeze({ path: '/practice/session', route_ready: true }),
     }),
     reading_exam: Object.freeze({
       admit_new: 'legacy',

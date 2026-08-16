@@ -25,7 +25,8 @@ thiết bị thật. Active-session affinity mới có foundation và unit-level
 chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
 implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
 contract. Speaking đã có stable hybrid Next player route với native bootstrap,
-recorder, submission, Full Test state và player lifecycle. Reading đã có native
+recorder, submission, Full Test state, player lifecycle và dark-route readiness;
+admission vẫn Legacy. Reading đã có native
 player cùng failure matrix versioned 12 case trên Chromium/WebKit desktop và
 WebKit/iPhone emulation. Listening cũng có native core player và matrix 12 case
 tương ứng. Writing cũng đã có matrix 12 case cùng idempotent submit/readback;
@@ -111,16 +112,16 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
   admission endpoint no-store để bundle launcher cũ hỏi policy tại thời điểm
   navigation, rồi chạy unit-level URL/state-machine contract. Speaking đã có
   `/practice/session` với native bootstrap/recorder/submission/Full Test/player
-  lifecycle, nhưng chưa có live drill; các core domain còn lại chưa đủ player
-  Next để drill.
+  lifecycle và dark-route floor, nhưng chưa có live drill; Reading/Listening
+  cũng đã có dark routes nhưng chưa có domain-specific live coexistence drill.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
   `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
   các core route và state keys được liệt kê dưới đây.
-- **Suggested minimal fix còn lại:** hoàn tất native renderer và browser evidence
-  cho Speaking; mỗi core cluster phải tạo stable Next player route, pin
-  coexistence rollback floor SHA có cả runtime admission endpoint rồi drill
+- **Suggested minimal fix còn lại:** deploy release Speaking dark-route-ready làm
+  coexistence rollback floor SHA có cả runtime admission endpoint; sau đó mỗi
+  core cluster phải pin floor tương ứng rồi drill
   staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab cũ,
   reload, tab mới và canonical state sau handoff.
 - **Verification:** run artifact ghi release trước/sau, session/attempt ID,

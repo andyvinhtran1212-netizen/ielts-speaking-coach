@@ -10,7 +10,8 @@ event handler và SVG, đồng thời render view-model cho header, loading/erro
 test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
 Full Test completion, feedback/pronunciation và inline test results. `practice.js`
 chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
-nguyên vẹn cho URL legacy rollback. Route chưa ready và không nhận attempt mới.
+nguyên vẹn cho URL legacy rollback. Dark route đã `route_ready=true`, nhưng
+`admit_new=legacy` nên chưa nhận attempt mới qua admission runtime.
 
 ## Finding
 
@@ -39,7 +40,8 @@ nguyên vẹn cho URL legacy rollback. Route chưa ready và không nhận attem
   blob thật vẫn ở retry queue. Backend chỉ nhận chain ba session đúng part/cùng
   sitting, bộ câu hỏi đúng 9/1/5, và đối chiếu chấm theo từng `question_id` thay
   vì đếm response. Legacy URL giữ orchestration cũ.
-  Admission và `route_ready` vẫn Legacy/false.
+  Admission vẫn Legacy; `route_ready=true` chỉ xác nhận dark route đủ điều kiện
+  làm coexistence rollback floor, không phải canonical cutover.
 - **Verification:** controller tests pin owner isolation, restore/truncate,
   canonical receipts, pending/retry blob identity, finalize barrier, ambiguous
   reconciliation và destroy semantics; backend test pin sealed redaction; source
@@ -66,8 +68,9 @@ async callbacks dùng generation guard, còn mutation tạo Part đã được s
 vẫn ghi chain qua controller captured trước khi ngừng render. Feedback, transcript
 highlight, grammar recommendation, pronunciation drill-down và test cards đều
 được React dựng từ dữ liệu có cấu trúc, không dùng `dangerouslySetInnerHTML`;
-điểm thiếu vẫn là dấu gạch chứ không được suy diễn. JSX ownership vẫn chưa đủ để
-tuyên bố route ready khi chưa có browser/live evidence.
+điểm thiếu vẫn là dấu gạch chứ không được suy diễn. Browser fixture, mutation,
+cross-version và synthetic device matrix cho phép xác lập dark-route floor;
+chúng vẫn chưa đủ để đổi admission hoặc tuyên bố Gate E PASS.
 
 Browser baseline đã có fixture cô lập chạy trên chính route Next đã hydrate:
 practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đều
@@ -91,7 +94,7 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   commit, reconcile sealed receipt, reload vào câu kế tiếp, retry đúng blob,
   retry finalize và reconcile finalize đã commit mà không POST lần hai.
 
-## Exit còn lại trước khi `route_ready: true`
+## Dark-route readiness và exit còn lại trước khi đổi admission
 
 1. ✅ Browser fixture baseline: practice, `test_part`, `test_full`, Part 2,
    assignment sheet và sealed mock — 6/6 trên hydrated `/practice/session`,
@@ -125,10 +128,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
    `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
    không được tính thay hai artifact thật.
-4. Pin coexistence rollback floor SHA, rồi drill tab Legacy cũ, tab Next mới,
-   reload/copy URL/admission rollback với canonical backend assertions.
-5. Chỉ sau các bước trên mới đổi `next.route_ready` và `admit_new`; Legacy URL
-   tiếp tục sống đến Gate F.
+4. ✅ `next.route_ready=true` ở release riêng trong khi `admit_new=legacy`; commit
+   đã deploy của release này mới được ghi làm coexistence rollback floor SHA.
+5. Thu Safari/iOS thật và chạy drill tab Legacy cũ, tab Next mới,
+   reload/copy URL/admission rollback với canonical backend assertions. Chỉ PR
+   hậu duệ sau khi các evidence này pass mới được đổi `admit_new=next`; Legacy
+   URL tiếp tục sống đến Gate F.
 
 ## Batch player lifecycle
 
@@ -183,8 +188,9 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
   baseline sáu shape, bảy mutation/recovery flow, một cross-version
   coexistence flow và automated
-  device/microphone matrix. Real Safari/iOS cùng rollback live drill vẫn là exit
-  riêng, nên `route_ready=false` giữ nguyên.
+  device/microphone matrix. Vì vậy `route_ready=true` chỉ xác nhận dark route;
+  Real Safari/iOS cùng rollback live drill vẫn là exit riêng, nên
+  `admit_new=legacy` giữ nguyên.
 
 Verification trực tiếp của batch:
 
