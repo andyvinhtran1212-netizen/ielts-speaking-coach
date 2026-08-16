@@ -3787,7 +3787,8 @@ export interface paths {
         /**
          * List Essay Versions
          * @description F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
-         *     the budget so the picker can pre-disable mix when no slot is free.
+         *     full feedback for a truthful learner preview and the budget so the picker
+         *     can pre-disable mix when no slot is free.
          */
         get: operations["list_essay_versions_instructor_essays__essay_id__versions_get"];
         put?: never;
