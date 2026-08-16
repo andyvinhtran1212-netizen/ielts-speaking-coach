@@ -55,6 +55,8 @@ await page.route('**/*', async (route) => {
     sections: { listening: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 }, reading: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 }, writing: { submitted: 0, working: 0, absent: 0, missed: 0, expected: 0 } },
     students: [], server_time: '2026-08-16T08:00:00Z',
   });
+  if (parsed.pathname === '/admin/mock-exams/live-1/roster') return json({ roster: [] });
+  if (parsed.pathname === '/admin/mock-exams/live-1/retest-summary') return json({ total_sittings: 0, reviewed_sittings: 0, needs_retest_count: 0, per_skill: { listening: 0, reading: 0, writing: 0, speaking: 0 }, students: [] });
   return json({ detail: 'unhandled fixture route' }, 500);
 });
 
@@ -68,7 +70,7 @@ await page.getByRole('button', { name: /MOCK-LIVE/ }).click();
 await page.locator('iframe').waitFor();
 check('live frame giữ đúng selected exam identity và dùng route native', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement.getAttribute('data-theme') === 'dark');
+await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark');
 check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement.getAttribute('data-theme') === 'dark'));
 
 await page.getByRole('button', { name: 'Đang thi', exact: true }).click();
@@ -77,7 +79,8 @@ await page.getByRole('button', { name: 'Đã đóng', exact: true }).click();
 check('lọc không tự đổi đề đang thao tác', await page.getByText('Đề đang thao tác bị ẩn bởi bộ lọc').count() === 1 && (await page.locator('iframe').getAttribute('src'))?.includes('exam_id=live-1'));
 
 await page.getByRole('tab', { name: /Duyệt bài thi/ }).click();
-check('tab query shareable và review frame giữ exact identity', new URL(page.url()).searchParams.get('tab') === 'review' && (await page.locator('iframe').getAttribute('src')) === '/pages/admin/mock-reviews/index.html?mock_exam_id=live-1&embed=1');
+await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-reviews');
+check('tab query shareable và review frame giữ exact identity native', new URL(page.url()).searchParams.get('tab') === 'review' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-reviews?mock_exam_id=live-1&embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
 
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 check('Writing dùng native queue thay vì legacy file', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1');
