@@ -178,7 +178,7 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
   const topRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
-  const detailExists = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
+  const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
     || solution.why_correct || solution.script || solution.trap);
   const win = item.audio_window;
   const timestamp = win
@@ -187,7 +187,7 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
   const keyToggle = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((event.key === 'Enter' || event.key === ' ') && !(event.target as HTMLElement).closest('button')) {
       event.preventDefault();
-      if (detailExists) onToggle();
+      onToggle();
     }
   };
 
@@ -202,17 +202,17 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
     <div
       ref={topRef}
       className="lr-card__top"
-      role={detailExists ? 'button' : undefined}
-      tabIndex={detailExists ? 0 : undefined}
-      aria-expanded={detailExists ? expanded : undefined}
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
       onClick={(event) => {
-        if (detailExists && !(event.target as HTMLElement).closest('button, a')) onToggle();
+        if (!(event.target as HTMLElement).closest('button, a')) onToggle();
       }}
       onKeyDown={keyToggle}
     >
       <span className="lr-card__num">Câu {item.q_num}</span>
       {!preview ? <span className="lr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
-      {detailExists ? <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span> : null}
+      <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
     <div className="lr-card__answers">
@@ -220,14 +220,16 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{item.expected || '—'}</code></div>
     </div>
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}>🔊 {timestamp}</button></div> : null}
-    {detailExists ? <div className="lr-card__detail" hidden={!expanded}>
-      <SolutionSection label="Dịch đoạn chứa đáp án">{solution.translation_vi ? <p>{inlineNodes(solution.translation_vi)}</p> : null}</SolutionSection>
-      <SolutionSection label="Từ vựng">{vocab.length ? <ul className="lr-sol__bullets">{vocab.map((row) => <li key={row}>{inlineNodes(row)}</li>)}</ul> : null}</SolutionSection>
-      <SolutionSection label="Paraphrase">{solution.paraphrase ? <p>{inlineNodes(solution.paraphrase)}</p> : null}</SolutionSection>
-      <SolutionSection label="Vì sao đúng">{solution.why_correct ? <WhyCorrect value={solution.why_correct} /> : null}</SolutionSection>
-      <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
-      <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
-    </div> : null}
+    <div className="lr-card__detail" hidden={!expanded}>
+      {hasSolutionDetail ? <>
+        <SolutionSection label="Dịch đoạn chứa đáp án">{solution.translation_vi ? <p>{inlineNodes(solution.translation_vi)}</p> : null}</SolutionSection>
+        <SolutionSection label="Từ vựng">{vocab.length ? <ul className="lr-sol__bullets">{vocab.map((row) => <li key={row}>{inlineNodes(row)}</li>)}</ul> : null}</SolutionSection>
+        <SolutionSection label="Paraphrase">{solution.paraphrase ? <p>{inlineNodes(solution.paraphrase)}</p> : null}</SolutionSection>
+        <SolutionSection label="Vì sao đúng">{solution.why_correct ? <WhyCorrect value={solution.why_correct} /> : null}</SolutionSection>
+        <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
+        <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
+      </> : <p className="lr-sol__empty">Chưa có lời giải chi tiết.</p>}
+    </div>
   </article>;
 }
 

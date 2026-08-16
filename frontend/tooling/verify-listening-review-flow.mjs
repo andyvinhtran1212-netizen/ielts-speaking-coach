@@ -169,6 +169,9 @@ await page.getByRole('button', { name: 'Câu 2 — đúng' }).click();
 check('palette jump reveals a card hidden by the active filter',
   await page.locator('#listening-review-q-2').isVisible()
     && await page.getByRole('button', { name: 'Tất cả' }).getAttribute('aria-pressed') === 'true');
+check('an empty authored solution preserves the explicit expandable fallback',
+  await page.locator('#listening-review-q-2').getByText('Chưa có lời giải chi tiết.', { exact: true }).isVisible()
+    && await page.locator('#listening-review-q-2 .lr-card__top').getAttribute('aria-expanded') === 'true');
 
 await page.setViewportSize({ width: 375, height: 812 });
 check('mobile review stays within the viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));

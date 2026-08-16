@@ -142,6 +142,12 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /AverFeedback\?\.mountSurvey/);
     assert.match(CLIENT, /hasAudio:\s*true/);
   });
+
+  test('keeps an expandable fallback when a submitted item has no authored solution', () => {
+    assert.match(CLIENT, /hasSolutionDetail/);
+    assert.match(CLIENT, /Chưa có lời giải chi tiết\./);
+    assert.match(CLIENT, /aria-expanded=\{expanded\}/);
+  });
 });
 
 describe('Listening review route ownership and rollback', () => {
