@@ -26,17 +26,17 @@ vậy lịch sử nhiều workflow xanh không đủ chứng minh “20 consecut
   backend test khóa `/health` public không có `release`/`git_branch`, còn
   frontend contract test khóa capture chỉ gọi `/health/runtime` bằng admin token.
 
-## Frozen critical suite v2
+## Frozen critical suite v5
 
 Canonical manifest: `frontend/tooling/gate-e-critical-suite.json`.
 
 | Project | Số test bắt buộc | Vai trò |
 |---|---:|---|
-| `staging-core-chromium` | 27 | auth, persistence, mutation, isolation, N/N−1, kill-switch, staging/platform |
+| `staging-core-chromium` | 28 | auth, persistence, mutation, isolation, N/N−1, kill-switch, staging/platform, live failure injection |
 | `matrix-chromium-148-desktop` | 2 | browser seam + private fail-close/overflow |
 | `matrix-webkit-26.4-desktop` | 2 | cùng journey trên synthetic WebKit desktop |
 | `matrix-webkit-26.4-iphone13` | 2 | cùng journey trên synthetic WebKit mobile |
-| **Tổng** | **33** | mọi test thực thi phải pass; chỉ modal core đã whitelist được phép skip |
+| **Tổng** | **34** | mọi test thực thi phải pass; chỉ modal core đã whitelist được phép skip |
 
 Manifest pin SHA-256 của package manifest/lockfile, Playwright config, matrix
 manifest, shared helper và cả 9 spec. Thay dependency, command, test/helper/config
@@ -59,7 +59,7 @@ lưu SHA-256 của toàn manifest contract; mọi thay đổi manifest giữa ch
 
 Một run chỉ được cộng streak khi đồng thời:
 
-1. Playwright outcome `success`, đúng 33 test và exact project counts;
+1. Playwright outcome `success`, đúng 34 test và exact project counts;
 2. pass rate 100% trên test đã thực thi, `unexpected=0`, `flaky=0`; tối đa một
    skip khớp chính xác project + title + spec file + Playwright skip-annotation
    của modal core có điều kiện. Cùng test nhưng skip vì route/network lỗi vẫn
@@ -111,7 +111,7 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   timeout 20 phút, bốn failure matrix có timeout 10 phút mỗi bước, còn setup,
   verifier, provenance, ledger, cache và từng artifact upload đều có trần 1–5
   phút. Contract test cộng cả ba nhánh streak/reset upload vốn loại trừ nhau để
-  lấy trường hợp bảo thủ 144 phút; job vẫn dành thêm 36 phút ngoài toàn bộ tổng
+  lấy trường hợp bảo thủ 149 phút; job vẫn dành thêm 31 phút ngoài toàn bộ tổng
   đó. Vì vậy một runner chạm timeout riêng vẫn không tước thời gian của ledger
   và artifact finalization.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
@@ -121,9 +121,9 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   đều có timeout 20 giây để ledger/reset artifact còn đủ thời gian hoàn tất
   trước job timeout.
 
-## Failure-injection: bốn automated domain slices có đủ, Gate E vẫn PARTIAL
+## Failure-injection: synthetic + live staging đã đủ, real device vẫn độc lập
 
-Suite v2 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
+Suite v5 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
 N/N−1 replay, two-user isolation và zero production egress. Bốn nhánh
 core-player từng còn thiếu — ambiguous commit, partial persistence,
 reload/resume và bidirectional cross-version — chạy bằng production Next build
@@ -159,12 +159,21 @@ exact in-memory text được submit dù PATCH latest 422; reload/resume và
 Legacy → Next → Legacy cùng đọc một draft/start state. Verifier semantic và
 artifact upload cũng chạy trước ledger.
 
-Đây là completion của bốn **automated synthetic slices**, không phải global
-failure-injection hay real-device completion. Live-staging failure injection
-vẫn chưa có; WebKit synthetic không thay Safari/iOS thật và hai requirement đó
-vẫn `pending`. Vì vậy `failure_injection.status` vẫn là `partial`, `missing`
-chứa `live-staging-core-player-failure-injection-evidence`, và tooling không thể
-tuyên bố Gate E đủ evidence.
+Live staging bổ sung một journey Speaking trên chính `/practice/session` đã
+deploy: tạo session + question thật, gửi multipart qua native
+`SpeakingSubmissionController`, cho Railway commit response rồi reset kết nối
+trước khi browser nhận 200. Client phải GET canonical session, trả đúng cùng
+`response_id` và giữ `upload_attempts=1`; production egress và page error đều
+bằng 0. Test ghi artifact
+`gate-e-live-staging-failure-injection.json`, còn trusted auditor khóa source
+SHA/origin/route/UUID/commit status/reconcile count/response identity/freshness
+và cấm token, password, audio, transcript trong artifact. Verifier chạy trước
+metadata/ledger; thiếu hoặc sai evidence làm `GATE_E_RUN_OUTCOME=failure`.
+
+Vì vậy `failure_injection.status=complete` và `missing=[]` chỉ nói matrix
+failure-injection đã đủ khi run hiện tại xanh. Nó **không** thay Safari/iOS thật,
+20-run streak hay active-session drill; Gate E vẫn NOT READY cho tới khi các cờ
+độc lập còn lại hoàn tất.
 
 Vì vậy ledger tách ba cờ:
 
@@ -179,8 +188,8 @@ vẫn không được phép tuyên bố Gate E đủ evidence.
 
 1. Đồng bộ stack xuống branch/deployment `staging` để Vercel + Railway cùng SHA.
 2. Manual dispatch workflow từ default branch; kiểm artifact đầu tiên có
-   provenance `ok=true`, 33/33 và `streak_count=1`.
+   provenance `ok=true`, 34/34, live failure artifact hợp lệ và `streak_count=1`.
 3. Để nightly/manual runs tiếp tục; bất kỳ reset nào phải được điều tra từ
    `reset_reasons`, không chỉnh ledger bằng tay.
-4. Thu hai real-device artifact, chạy live-staging failure injection và các
-   active-session drill; chỉ sau đó mới đánh giá Gate E.
+4. Thu hai real-device artifact và chạy active-session drill; chỉ sau đó mới
+   đánh giá Gate E.

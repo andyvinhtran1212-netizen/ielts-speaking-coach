@@ -59,7 +59,7 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(workflowCode, /playwright install --with-deps chromium/);
     assert.equal(hasWebkitProject, installsWebkit, 'staging config and browser install must add/remove WebKit together');
     assert.equal(claimsChromiumOnly, !hasWebkitProject, 'update preflight when staging WebKit coverage changes');
-    assert.match(PREFLIGHT, /Critical-suite v2 freeze 33 tests/);
+    assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
   });
 
   test('automated matrix and ledger are partial, without inventing qualifying evidence', () => {
@@ -69,7 +69,7 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PARTIAL\*\*/);
     assert.match(PREFLIGHT, /Run `31348712238` trên SHA `bff32975`/);
     assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
-    assert.match(PREFLIGHT, /Critical-suite v2 freeze 33 tests/);
+    assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
     assert.match(PREFLIGHT, /Chưa có qualifying 20-run artifact/);
   });
 
