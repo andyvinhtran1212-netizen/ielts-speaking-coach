@@ -43,10 +43,12 @@ await page.route('**/*', async (route) => {
 
 await page.goto(`${BASE}/admin/grammar/analytics?days=14`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Analytics snapshot', exact: true }).waitFor({ state: 'visible' });
+const analyticsTable = page.locator('.gax-table-wrap table').first();
+await analyticsTable.waitFor({ state: 'visible' });
 check('admin gate và canonical days query chạy', requests.some((value) => value === 'GET /auth/me') && requests.some((value) => value === 'GET /admin/grammar/analytics?days=14'));
 check('hostile title được React escape', await page.locator('.gax-shell script').count() === 0 && await page.getByText('Past <script>alert(1)</script> Perfect', { exact: true }).count() === 1);
 check('schema basis được giải thích trung thực', await page.getByText(/không phải số lượt xem phát sinh theo ngày/).count() === 1);
-check('mobile table thành cards không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.gax-table-wrap table')).display === 'block' && document.documentElement.scrollWidth <= window.innerWidth));
+check('mobile table thành cards không tràn ngang', await analyticsTable.evaluate((table) => getComputedStyle(table).display === 'block') && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
 await page.getByRole('combobox', { name: 'Cửa sổ', exact: true }).selectOption('30');
 await page.waitForURL((url) => url.searchParams.get('days') === '30');
@@ -67,7 +69,8 @@ unavailableViews = false;
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Analytics snapshot', exact: true }).waitFor({ state: 'visible' });
-check('desktop dùng table và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.gax-table-wrap table')).display === 'table' && document.documentElement.scrollWidth <= window.innerWidth));
+await analyticsTable.waitFor({ state: 'visible' });
+check('desktop dùng table và không tràn ngang', await analyticsTable.evaluate((table) => getComputedStyle(table).display === 'table') && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
 rollbackState = 'unavailable';
 await page.goto(`${BASE}/pages/admin/grammar/analytics.html?days=30`, { waitUntil: 'domcontentloaded' });

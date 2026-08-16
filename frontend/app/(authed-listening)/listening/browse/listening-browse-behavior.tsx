@@ -10,9 +10,9 @@ const MAX_PAGES = 20;
 
 const MODE_LINKS = [
   ['dictation', 'Chép chính tả', '/pages/listening-dictation.html'],
-  ['gist', 'Ý chính', '/pages/listening-gist.html'],
-  ['true_false', 'Đúng/Sai', '/pages/listening-tf.html'],
-  ['mcq', 'Trắc nghiệm', '/pages/listening-mcq.html'],
+  ['gist', 'Ý chính', '/listening/gist'],
+  ['true_false', 'Đúng/Sai', '/listening/tf'],
+  ['mcq', 'Trắc nghiệm', '/listening/mcq'],
 ] as const;
 
 interface Filters {

@@ -552,11 +552,28 @@ class ListeningExerciseUpsertRequest(BaseModel):
 # ── User route — single content fetch ─────────────────────────────────────────
 
 
+_STUDENT_LISTENING_CONTENT_FIELDS = (
+    "id",
+    "title",
+    "accent_tag",
+    "cefr_level",
+    "ielts_section",
+    "topic_tags",
+    "audio_duration_seconds",
+)
+
+
 def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
-    """Return one published listening_content row with a fresh signed audio URL."""
+    """Return student-safe metadata plus a fresh signed audio URL.
+
+    The row also stores the reference transcript and alignment artifacts used
+    by graders/admin tooling. Those are answer material and must never ride the
+    learner boot response, even when the current UI happens to ignore them.
+    """
     res = (
         supabase_admin.table("listening_content")
-        .select("*")
+        .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
+                          "audio_storage_path,status")))
         .eq("id", content_id)
         .eq("status", "published")
         .limit(1)
@@ -575,7 +592,7 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         ).create_signed_url(row["audio_storage_path"], 3600)
         # Supabase Python SDK returns dict with 'signedURL' (snake_case
         # 'signed_url' historically — handle both for forward-compat).
-        row["audio_signed_url"] = signed.get("signedURL") or signed.get("signed_url")
+        audio_signed_url = signed.get("signedURL") or signed.get("signed_url")
     except Exception as e:
         # Bucket-not-found path mirrors grading.py:240-250 pattern.
         logger.error(
@@ -587,7 +604,9 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
             "Listening audio storage not configured. See migration 056 header.",
         )
 
-    return row
+    safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
+    safe["audio_signed_url"] = audio_signed_url
+    return safe
 
 
 def _fetch_published_exercises_for_student(

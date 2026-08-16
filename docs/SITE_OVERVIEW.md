@@ -94,7 +94,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 |---|---|---|
 | `pages/listening.html` | student | Listening hub. |
 | `pages/listening-browse.html` · `pages/listening-tests.html` | student | Browse exercises / Cambridge full tests (`GET /api/listening/*`). |
-| `pages/listening-dictation.html` · `pages/listening-gist.html` · `pages/listening-tf.html` · `pages/listening-mcq.html` | student | Per-type players — play audio, answer, auto-score (`/api/listening/*`). |
+| `/listening/gist` · `/listening/tf` · `/listening/mcq` (native React) · `pages/listening-dictation.html` (legacy owner) · corresponding `pages/listening-{gist,tf,mcq}.html` rollback pages | student | Standalone per-type players keyed by canonical `content_id` — play audio, submit one server-graded attempt and render canonical feedback (`/api/listening/content/*`, `/api/listening/exercises`, `/api/listening/attempts`). |
 | `pages/listening-test.html` · `pages/listening-mini-test.html` | student | Full / mini test players (attempt + score). |
 | `pages/listening-skills.html` | student | Skills Practice — skill drills grouped by question type (`GET /api/listening/tests?test_type=drill`); each drill reuses the mini-test player + review. |
 | `pages/listening-test-dictation.html` | student | Chép chính tả — per-sentence dictation on a test's audio (auto-clip when timed), completion report (time/accuracy/error trends) + content-error flagging (`/api/listening/tests/dictation/*`). |
