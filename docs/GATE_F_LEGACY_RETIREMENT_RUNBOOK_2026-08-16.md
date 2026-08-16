@@ -40,6 +40,21 @@ rollback trực tiếp đều có beacon Gate F.
   `max(14 ngày, full business/revisit cycle, maximum active-session TTL)`.
   Core player còn active phải có zero-active query hoặc exception có owner;
   thời gian trôi một mình không đủ.
+- Sau khi admission đã chuyển sang Next, gọi admin endpoint
+  `/admin/error-logs/legacy-active-session-drain?cutover_at=<UTC-ISO>` bằng
+  exact timestamp của release cutover đã lưu trong evidence. Chỉ
+  `exact=true`, `stateful_legacy_drain_zero=true` và
+  `legacy_blocking_total=0` mới đóng được phần stateful drain. Speaking,
+  Reading exam và Listening test đọc đúng ba bảng canonical; row
+  `started_at=NULL` bị tính là blocker. Dictation không có in-progress row nên
+  vẫn dùng zero-beacon window và coexistence evidence, không được biến thành
+  một số 0 giả trong endpoint này.
+- Kết quả endpoint không tự cho phép retirement: trường
+  `retirement_decision=pending-additional-gate-f-evidence` cố ý giữ 14 ngày,
+  full business/revisit cycle, health invariants và deletion audit là các cổng
+  riêng. Nếu `legacy_blocking_total>0`, phải chờ drain hoặc ghi exception có
+  owner/resource scope; không được sửa hoặc abandon dữ liệu người học chỉ để
+  đạt số 0.
 - Mọi phép đọc phải `window_clamped=false`, exposure `exact=true`, không có
   Sev1/2 và không có persistence invariant violation.
 - Permanent redirects, replacement invariant/test mapping và deletion

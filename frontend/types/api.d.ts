@@ -2459,6 +2459,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/error-logs/legacy-active-session-drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gate F Legacy Active Session Drain
+         * @description Gate F exact inventory of stateful attempts admitted before cutover.
+         *
+         *     Before the admission flip every core-player launch resolves to Legacy, so
+         *     an ``in_progress`` row whose ``started_at`` is at or before the verified
+         *     cutover timestamp remains a possible Legacy renderer dependency. Missing
+         *     timestamps fail closed and count as blockers. This endpoint is read-only;
+         *     a non-zero result must drain naturally or be covered by a versioned,
+         *     owner-approved exception before any Legacy player is retired.
+         *
+         *     The result deliberately does not claim that Gate F passed. Zero stateful
+         *     rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
+         *     rollback health and deletion audit remain separate evidence.
+         */
+        get: operations["gate_f_legacy_active_session_drain_admin_error_logs_legacy_active_session_drain_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/error-logs/stats": {
         parameters: {
             query?: never;
@@ -17468,6 +17499,39 @@ export interface operations {
                 match?: string;
                 baseline_error_rate?: number | null;
                 baseline_lcp_ms?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gate_f_legacy_active_session_drain_admin_error_logs_legacy_active_session_drain_get: {
+        parameters: {
+            query: {
+                cutover_at: string;
             };
             header?: {
                 authorization?: string | null;
