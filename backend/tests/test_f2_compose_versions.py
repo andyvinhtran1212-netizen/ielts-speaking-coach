@@ -131,7 +131,8 @@ def test_get_live_versions_returns_lineage_compare_shape():
     assert [r["version"] for r in out] == [2, 1]                 # newest first
     assert out[0]["source"] == "ai_pro"
     assert out[0]["criteriaFeedback"]["grammaticalRange"]["bandScore"] == 7
-    assert "feedback_json" not in out[0]                          # compare-shape only
+    assert out[0]["feedback_json"]["improvedEssay"] == "improved-v2"
+    assert out[1]["feedback_json"]["overallBandScoreSummary"] == "summary-v1"
 
 
 # ── compose_version ───────────────────────────────────────────────────

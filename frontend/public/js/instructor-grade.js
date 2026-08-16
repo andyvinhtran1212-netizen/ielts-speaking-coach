@@ -127,7 +127,7 @@ async function wireCompare() {
     const data = await api.get('/instructor/essays/' + encodeURIComponent(ESSAY_ID) + '/versions');
     const liveCount = (data && data.budget && data.budget.live_count) || 0;
     if (liveCount >= 2) {
-      let href = '/pages/instructor/compare.html?essay_id=' + encodeURIComponent(ESSAY_ID);
+      let href = '/instructor/compare?essay_id=' + encodeURIComponent(ESSAY_ID);
       if (_AS) href += '&as_instructor=' + encodeURIComponent(_AS);   // propagate impersonation
       btn.href = href;
       btn.hidden = false;

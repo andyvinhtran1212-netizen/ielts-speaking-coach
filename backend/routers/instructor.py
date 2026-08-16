@@ -310,7 +310,8 @@ async def get_essay(request: Request, essay_id: UUID, authorization: str | None 
 @router.get("/essays/{essay_id}/versions")
 async def list_essay_versions(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
     """F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
-    the budget so the picker can pre-disable mix when no slot is free."""
+    full feedback for a truthful learner preview and the budget so the picker
+    can pre-disable mix when no slot is free."""
     me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)               # → 403 if not owned
     versions = essay_service.get_live_versions(str(essay_id))

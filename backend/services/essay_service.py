@@ -717,7 +717,11 @@ _MIX_CRITERIA = ("mainCriterion", "coherenceCohesion", "lexicalResource", "gramm
 def get_live_versions(essay_id: str) -> list[dict]:
     """F2 compare-data: the LIVE versions (current + ancestor chain) as
     compare-shaped rows for side-by-side per-criterion display, newest first.
-    Each = {version, source, overall_band_score, created_at, criteriaFeedback}."""
+    Each row also carries the canonical ``feedback_json`` so the compose screen
+    can preview base-derived sections (overview, mistakes, improved essay, ...)
+    exactly as they will be persisted.  The previous criteria-only response
+    made that preview silently incomplete even though compose_version itself
+    correctly read the full server-side feedback payload."""
     live = _ancestor_versions(essay_id)
     if not live:
         return []
@@ -737,6 +741,7 @@ def get_live_versions(essay_id: str) -> list[dict]:
             "overall_band_score": r.get("overall_band_score"),
             "created_at":         r.get("created_at"),
             "criteriaFeedback":   fj.get("criteriaFeedback"),
+            "feedback_json":      fj,
         })
     return out
 
