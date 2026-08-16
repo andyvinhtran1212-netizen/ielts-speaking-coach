@@ -6,12 +6,16 @@ rollback trực tiếp đều có beacon Gate F.
 
 ## Root cause và phạm vi
 
-- 125 HTML rollback vẫn render trực tiếp, nhưng trước batch này chỉ 12 trang có
+- 121 HTML rollback vẫn render trực tiếp, nhưng trước batch này chỉ 12 trang có
   `analytics-beacon.js`. Vì vậy số 0 trên dashboard không phân biệt được “không
   ai mở fallback” với “trang đó chưa bao giờ gửi telemetry”.
-- `public/js/legacy-retirement-beacon.js` nay là lớp coverage fail-soft cho mọi
-  HTML rollback. Nó chờ beacon chuẩn chạy trước, chỉ gửi `page_view` khi trang
-  chưa gửi, và không bao giờ gửi query string/referrer.
+- `public/js/legacy-retirement-beacon.js` nay gửi event riêng
+  `legacy_retirement_page_view` cho mọi HTML rollback renderable. Event này
+  không tham gia foot traffic/error-rate denominator, chạy ngay khi defer script
+  được thực thi và không bao giờ gửi query string/referrer.
+- Bốn client redirect stub được đánh dấu `aver-legacy-artifact=redirect-stub`
+  và loại khỏi tập renderable; chúng chuyển trang trước khi một beacon deferred
+  có thể chạy nên không được phép tạo false-zero cho Gate F.
 - `node tooling/next-migration-status.mjs --json` là bằng chứng tĩnh. Chỉ khi
   `gateFObservationReady=true` trên đúng release production mới ghi
   `coverage_started_at`.
@@ -28,8 +32,10 @@ rollback trực tiếp đều có beacon Gate F.
 
 - Với từng path trong `legacyHtml.renderablePaths`, dùng endpoint admin
   `/admin/error-logs/rollback-metrics?route=<encoded-path>&window_minutes=20160`
-  và kiểm implementation `legacy` trong đúng cửa sổ kể từ
-  `coverage_started_at`.
+  và đọc `legacy_retirement_exposure.legacy_views` trong đúng cửa sổ kể từ
+  `coverage_started_at`. Bắt buộc `legacy_retirement_exposure.exact=true`;
+  trường `implementations.*.page_views` là product traffic và không phải bằng
+  chứng retirement.
 - Cửa sổ phải đạt
   `max(14 ngày, full business/revisit cycle, maximum active-session TTL)`.
   Core player còn active phải có zero-active query hoặc exception có owner;

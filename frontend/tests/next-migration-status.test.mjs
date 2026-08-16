@@ -25,8 +25,13 @@ test('only treats actual Next redirects as compatibility redirects', () => {
   `;
   const redirects = redirectSourcesFromConfig(config);
   assert.deepEqual([...redirects.keys()], ['/legacy.html', '/old.html']);
-  assert.deepEqual(classifyLegacyHtml(['/legacy.html', '/served.html'], redirects), {
+  assert.deepEqual(classifyLegacyHtml(
+    ['/client-stub.html', '/legacy.html', '/served.html'],
+    redirects,
+    ['/client-stub.html'],
+  ), {
     redirected: ['/legacy.html'],
+    clientRedirected: ['/client-stub.html'],
     renderable: ['/served.html'],
   });
 });
@@ -46,6 +51,13 @@ test('repository report is internally consistent and cannot overclaim completion
   const report = collectNextMigrationStatus();
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
+  assert.equal(report.legacyHtml.serverRedirected, 4);
+  assert.deepEqual(report.legacyHtml.clientRedirectStubPaths, [
+    '/admin.html',
+    '/pages/admin/cohorts/index.html',
+    '/pages/admin/students/index.html',
+    '/pricing.html',
+  ]);
   assert.equal(report.legacyHtml.telemetryInstrumented, report.legacyHtml.directlyRenderable);
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);

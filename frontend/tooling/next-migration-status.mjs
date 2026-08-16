@@ -21,6 +21,7 @@ export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
 
 export const LEGACY_RETIREMENT_BEACON = '/js/legacy-retirement-beacon.js';
 export const RUNTIME_CONFIG_SCRIPT = 'runtime-config.js';
+export const CLIENT_REDIRECT_STUB_MARKER = 'name="aver-legacy-artifact" content="redirect-stub"';
 
 function walkFiles(root, accept, prefix = '') {
   const files = [];
@@ -52,14 +53,17 @@ export function redirectSourcesFromConfig(source) {
   return redirects;
 }
 
-export function classifyLegacyHtml(publicHtmlPaths, redirectSources) {
+export function classifyLegacyHtml(publicHtmlPaths, redirectSources, clientRedirectPaths = []) {
   const redirected = [];
+  const clientRedirected = [];
   const renderable = [];
+  const clientRedirectSet = new Set(clientRedirectPaths);
   for (const publicPath of [...publicHtmlPaths].sort()) {
     if (redirectSources.has(publicPath)) redirected.push(publicPath);
+    else if (clientRedirectSet.has(publicPath)) clientRedirected.push(publicPath);
     else renderable.push(publicPath);
   }
-  return { redirected, renderable };
+  return { redirected, clientRedirected, renderable };
 }
 
 export function summarizeCorePlayers(policy = CORE_PLAYER_AFFINITY_POLICY) {
@@ -88,7 +92,11 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     .map((relative) => `/${relative}`)
     .sort();
   const redirects = redirectSourcesFromConfig(readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8'));
-  const legacyHtml = classifyLegacyHtml(publicHtmlPaths, redirects);
+  const clientRedirectPaths = publicHtmlPaths.filter((publicPath) => (
+    readFileSync(path.join(frontendRoot, 'public', publicPath.slice(1)), 'utf8')
+      .includes(CLIENT_REDIRECT_STUB_MARKER)
+  ));
+  const legacyHtml = classifyLegacyHtml(publicHtmlPaths, redirects, clientRedirectPaths);
   const telemetryMissingPaths = legacyHtml.renderable.filter((publicPath) => {
     const source = readFileSync(path.join(frontendRoot, 'public', publicPath.slice(1)), 'utf8');
     return !source.includes(`src="${LEGACY_RETIREMENT_BEACON}"`)
@@ -124,11 +132,15 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     },
     legacyHtml: {
       total: publicHtmlPaths.length,
-      compatibilityRedirected: legacyHtml.redirected.length,
+      compatibilityRedirected: legacyHtml.redirected.length + legacyHtml.clientRedirected.length,
+      serverRedirected: legacyHtml.redirected.length,
+      clientRedirectStubs: legacyHtml.clientRedirected.length,
       directlyRenderable: legacyHtml.renderable.length,
       telemetryInstrumented: legacyHtml.renderable.length - telemetryMissingPaths.length,
       telemetryMissingPaths,
-      redirectedPaths: legacyHtml.redirected,
+      redirectedPaths: [...legacyHtml.redirected, ...legacyHtml.clientRedirected].sort(),
+      serverRedirectedPaths: legacyHtml.redirected,
+      clientRedirectStubPaths: legacyHtml.clientRedirected,
       renderablePaths: legacyHtml.renderable,
     },
     corePlayers,
@@ -142,7 +154,7 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
 function printHuman(report) {
   console.log('Next.js migration static inventory');
   console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
-  console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.compatibilityRedirected} redirected; ${report.legacyHtml.directlyRenderable} still directly renderable`);
+  console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.serverRedirected} server-redirected; ${report.legacyHtml.clientRedirectStubs} client redirect stubs; ${report.legacyHtml.directlyRenderable} still directly renderable`);
   console.log(`  Gate F telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
   console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
   console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);

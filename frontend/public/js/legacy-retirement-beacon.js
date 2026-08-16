@@ -1,11 +1,11 @@
 /**
  * Gate F legacy-retirement telemetry.
  *
- * Every directly renderable HTML rollback artifact loads this file. Existing
- * pages that already sent the shared `page_view` beacon are left untouched;
- * this is only the fail-soft coverage layer for legacy pages that never loaded
- * analytics-beacon.js. It intentionally records pathname only — query strings
- * can contain capabilities, attempt ids or other private data.
+ * Every directly renderable HTML rollback artifact loads this file. It emits a
+ * dedicated event rather than the product `page_view`, so retirement evidence
+ * cannot alter foot-traffic or rollback-rate denominators. It intentionally
+ * records pathname only — query strings can contain capabilities, attempt ids
+ * or other private data.
  */
 (function () {
   'use strict';
@@ -24,9 +24,9 @@
     return 'production';
   }
 
-  function sendFallbackPageView() {
+  function sendRetirementPageView() {
     window.aver = window.aver || {};
-    if (window.aver._pageViewSent || window.aver._legacyRetirementBeaconStarted) return;
+    if (window.aver._legacyRetirementBeaconStarted) return true;
 
     var config = runtimeConfig();
     var hostname = window.location.hostname;
@@ -34,14 +34,11 @@
     // loaded api.js may provide the same value for local/manual pages; never
     // guess a production backend from the hostname in this fallback layer.
     var apiBase = config.apiBase || (window.api && window.api.base) || null;
-    if (!apiBase) return;
+    if (!apiBase) return false;
     window.aver._legacyRetirementBeaconStarted = true;
-    // Share the canonical sent marker so a late analytics-beacon load cannot
-    // double the denominator used by rollback and retirement reports.
-    window.aver._pageViewSent = true;
 
     var payload = {
-      event_name: 'page_view',
+      event_name: 'legacy_retirement_page_view',
       event_data: {
         path: window.location.pathname,
         implementation: 'legacy',
@@ -61,11 +58,15 @@
         keepalive: true,
       }).catch(function () { /* telemetry must never affect the page */ });
     } catch (_) { /* telemetry must never affect the page */ }
+    return true;
   }
 
-  // analytics-beacon.js fires at DOMContentLoaded. Waiting until `load` lets
-  // that canonical path win on the pages that already have it, while still
-  // covering every other HTML artifact once the document is fully usable.
-  if (document.readyState === 'complete') sendFallbackPageView();
-  else window.addEventListener('load', sendFallbackPageView, { once: true });
+  // This file is deferred. It runs after parsing (and after any non-deferred
+  // runtime-config script later in the document) but before DOMContentLoaded.
+  // Send immediately: waiting for `load` loses evidence when page code performs
+  // a DOM-ready redirect. Pure synchronous redirect stubs are excluded from the
+  // renderable inventory and intentionally do not load this file.
+  if (!sendRetirementPageView() && document.readyState !== 'complete') {
+    document.addEventListener('DOMContentLoaded', sendRetirementPageView, { once: true });
+  }
 })();
