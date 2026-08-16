@@ -300,6 +300,7 @@ ROLLBACK_VITALS_WINDOW_MIN = 1440
 # reaches 90 days; the verdict windows above stay pinned exactly as they were.
 ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
 ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
+LEGACY_RETIREMENT_EVENT_NAME = "legacy_retirement_page_view"
 
 
 def _p75(values: list[float]) -> float | None:
@@ -608,11 +609,16 @@ async def error_log_rollback_metrics(
     # test stub answers any chain, so it cannot prove this syntax works.
     exposure_cutoff = (now - timedelta(minutes=window_minutes)).isoformat()
 
-    def _exposure_count_one(impl: str | None, *, prefix: bool) -> int | None:
+    def _exposure_count_one(
+        impl: str | None,
+        *,
+        prefix: bool,
+        event_name: str = "page_view",
+    ) -> int | None:
         q = (
             supabase_admin.table("analytics_events")
             .select("id", count="exact")
-            .eq("event_name", "page_view")
+            .eq("event_name", event_name)
             .gte("created_at", exposure_cutoff)
         )
         # DEBT-2026-07-29-L — two scoped exact counts (route itself, then the
@@ -627,9 +633,13 @@ async def error_log_rollback_metrics(
             q = q.eq("event_data->>implementation", impl)
         return q.limit(1).execute().count
 
-    def _exposure_count(impl: str | None) -> int | None:
+    def _exposure_count(
+        impl: str | None,
+        *,
+        event_name: str = "page_view",
+    ) -> int | None:
         if route_prefix is None:
-            return _exposure_count_one(impl, prefix=False)
+            return _exposure_count_one(impl, prefix=False, event_name=event_name)
         # Review #879 — `%` and `_` are LIKE wildcards. They are also legal path
         # characters, and `_route_matches()` (which produces the TABLE numbers)
         # treats them literally. PostgREST exposes no ESCAPE clause, so a route
@@ -645,11 +655,11 @@ async def error_log_rollback_metrics(
         # covers the route too. Adding an exact count on top double-counted it
         # against a table that counts it once.
         if route == route_prefix:
-            return _exposure_count_one(impl, prefix=True)
-        own = _exposure_count_one(impl, prefix=False)
+            return _exposure_count_one(impl, prefix=True, event_name=event_name)
+        own = _exposure_count_one(impl, prefix=False, event_name=event_name)
         if own is None:
             return None
-        below = _exposure_count_one(impl, prefix=True)
+        below = _exposure_count_one(impl, prefix=True, event_name=event_name)
         return None if below is None else own + below
 
     try:
@@ -686,6 +696,27 @@ async def error_log_rollback_metrics(
         "window_minutes": window_minutes,
     }
 
+    # Gate F retirement uses its own event namespace. It must never increase
+    # product foot-traffic, error-rate denominators or their legacy baseline.
+    # Keep the count exact and fail closed: unlike the operational rollback
+    # table, a lower bound cannot prove zero legitimate fallback traffic.
+    try:
+        retirement_legacy_views = _exposure_count(
+            "legacy",
+            event_name=LEGACY_RETIREMENT_EVENT_NAME,
+        )
+        retirement_exact = retirement_legacy_views is not None
+    except Exception as exc:
+        logger.warning("rollback-metrics: exact retirement count failed: %s", exc)
+        retirement_legacy_views = None
+        retirement_exact = False
+    retirement_exposure = {
+        "event_name": LEGACY_RETIREMENT_EVENT_NAME,
+        "legacy_views": retirement_legacy_views,
+        "exact": retirement_exact,
+        "window_minutes": window_minutes,
+    }
+
     return {
         "route": route,
         # DEBT-2026-07-29-L — say which matching rule produced these numbers, so
@@ -712,6 +743,7 @@ async def error_log_rollback_metrics(
         # half and never this one. See _exposure() for why it is NOT a sum over
         # the scanned table.
         "exposure": exposure,
+        "legacy_retirement_exposure": retirement_exposure,
         "implementations": implementations,
         "error_verdict": error_verdict,
         "vitals_verdict": vitals_verdict,
