@@ -62,9 +62,12 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
   assert.deepEqual(report.routeOwnershipCollisions, []);
+  assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
+  assert.equal(report.corePlayers.admittedToNext, 0);
   assert.equal(report.staticCutoverReady, false, 'remove this pin only in the intentional final static cutover');
   assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-html-renderable'));
   assert.ok(report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
+  assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-next-route-not-ready'));
   assert.ok(!report.blockers.some((blocker) => blocker.code === 'legacy-retirement-telemetry-missing'));
   assert.match(report.scopeNote, /operational evidence/i);
 });
