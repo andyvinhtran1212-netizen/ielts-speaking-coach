@@ -31,6 +31,21 @@ async function fetchCategory(slug: string): Promise<any | null> {
   return getPublicJson(`/api/grammar/category/${encodeURIComponent(slug)}`);
 }
 
+/** Tìm tối đa 20 bài theo hợp đồng public `/api/grammar/search`. */
+async function fetchSearch(query: string): Promise<any[] | null> {
+  return getPublicJson(`/api/grammar/search?q=${encodeURIComponent(query)}`);
+}
+
+/** Hai bài viết đầy đủ cho route so sánh `<left>-vs-<right>`. */
+async function fetchCompare(slug: string): Promise<any | null> {
+  return getPublicJson(`/api/grammar/compare/${encodeURIComponent(slug)}`);
+}
+
+/** Lộ trình bài viết của một category công khai. */
+async function fetchRoadmap(slug: string): Promise<any | null> {
+  return getPublicJson(`/api/grammar/roadmap/${encodeURIComponent(slug)}`);
+}
+
 // React `cache()`: generateMetadata và thân trang dùng CHUNG một lần fetch cho
 // mỗi request (ADR-008: "generateMetadata và page body phải dùng cùng memoized
 // loader"). Loader mới cũng phải đi qua đây, không gọi thẳng backend.
@@ -38,3 +53,6 @@ export const getArticle = cache(fetchArticle);
 export const getHome = cache(fetchHome);
 export const getGroups = cache(fetchGroups);
 export const getCategory = cache(fetchCategory);
+export const getSearch = cache(fetchSearch);
+export const getCompare = cache(fetchCompare);
+export const getRoadmap = cache(fetchRoadmap);

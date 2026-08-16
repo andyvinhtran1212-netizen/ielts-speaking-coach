@@ -38,6 +38,13 @@ const KP = FX.kp;
 // (`reading-review.js:149-152`) rồi `sort` — thiếu là `undefined.sort` và cả
 // trang vào màn lỗi. Bỏ sót vì tôi chỉ nhìn phần render micro-check.
 const REVIEW = {
+  attempt_id: ATTEMPT,
+  status: 'submitted',
+  test_id: 'RD-WRITE-FLOW-1',
+  title: 'Reading review write-flow fixture',
+  score: 0,
+  max_score: 1,
+  band_estimate: 3,
   passages: [{ passage_order: 1, title: 'Đoạn 1', body_markdown: 'Nội dung đoạn đọc.' }],
   skill_breakdown: { tfng: { correct: 0, total: 1 } },
   review: [{
@@ -57,9 +64,8 @@ const REVIEW = {
 
 export default {
   name: 'reading-review — trả lời micro-check SAI',
-  route: '/reading/review',
+  route: `/reading/review?attempt_id=${ATTEMPT}`,
   legacyRoute: `/pages/reading-review.html?attempt_id=${ATTEMPT}`,
-  nextPending: 'trang Next chưa tồn tại — bản khai dựng TRƯỚC khi port',
   settleMs: 900,
   drainMs: 1500,
 
@@ -79,7 +85,10 @@ export default {
     { click: '[data-mc] [data-letter="A"]' },
     { wait: 400 },
     // Bấm LẦN NỮA: chốt `mc.dataset.done` phải chặn, không sinh thêm lần ghi.
-    { click: '[data-mc] [data-letter="B"]' },
+    // Phát click theo DOM để vẫn thử được chốt one-shot sau khi UI đánh dấu
+    // lựa chọn là aria-disabled. Cả legacy listener lẫn React handler đều phải
+    // nhận sự kiện nhưng không được sinh lần ghi thứ hai.
+    { dispatch: ['[data-mc] [data-letter="B"]', 'click'] },
     { wait: 400 },
   ],
 

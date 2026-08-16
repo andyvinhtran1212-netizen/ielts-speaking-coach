@@ -43,6 +43,29 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      # Pricing pre-launch không có cặp ảnh hợp lệ vì cả hai vế cùng redirect
+      # về `/`; job vẫn phải chạy verifier HTTP riêng ở cuối.
+      - 'frontend/app/(marketing)/pricing/**'
+      - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
+      # Public auth entry has a signed-out parity pair plus a fixture-backed
+      # callback/activation verifier. Keep the rollback HTML in the trigger.
+      - 'frontend/app/(public-auth)/**'
+      - 'frontend/lib/login-model.mjs'
+      - 'frontend/public/login.html'
+      - 'frontend/public/css/login-next.css'
+      - 'frontend/public/js/exam-player.js'
+      - 'frontend/public/js/practice.js'
+      - 'frontend/tests/login-next-behavior.test.mjs'
+      - 'frontend/tests/login-next-model.test.mjs'
+      - 'frontend/tooling/verify-login-flow.mjs'
+      # Authenticated account-setup owner and its rollback artifact.
+      - 'frontend/app/(authed-onboarding)/**'
+      - 'frontend/lib/onboarding-model.mjs'
+      - 'frontend/public/onboarding.html'
+      - 'frontend/public/css/onboarding.css'
+      - 'frontend/tests/onboarding-next-behavior.test.mjs'
+      - 'frontend/tests/onboarding-next-model.test.mjs'
+      - 'frontend/tooling/verify-onboarding-flow.mjs'
       - 'frontend/public/pages/grammar-exercises.html'
       - 'frontend/public/js/grammar-exercises.js'
       # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
@@ -99,6 +122,30 @@ on:
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
+      # Vế kết quả Writing: legacy rollback page ↔ native React route. Các
+      # renderer/highlight/lightbox là mã chạy chung nên đổi chúng cũng phải
+      # chạy lại parity + write-flow yêu cầu chấm lại.
+      - 'frontend/app/(authed-writing-result)/**'
+      - 'frontend/public/pages/writing-result.html'
+      - 'frontend/public/css/writing-result.css'
+      - 'frontend/public/css/writing-renderers.css'
+      - 'frontend/public/css/writing-highlight.css'
+      - 'frontend/public/css/image-lightbox.css'
+      - 'frontend/public/css/markdown.css'
+      - 'frontend/public/js/writing-renderers.js'
+      - 'frontend/public/js/writing-highlight.js'
+      - 'frontend/public/js/image-lightbox.js'
+      - 'frontend/public/js/markdown.js'
+      # Admin Writing Grade: G1 ghim fail-closed role guard; browser write-flow
+      # riêng ghim workspace + mutation vì probe parity không có role admin.
+      - 'frontend/app/(authed-admin-writing-grade)/**'
+      - 'frontend/public/pages/admin/writing/grade.html'
+      - 'frontend/public/css/admin-writing.css'
+      - 'frontend/public/css/admin-writing-grade.css'
+      - 'frontend/public/css/aver-design/admin-surface.css'
+      - 'frontend/public/js/writing-admin.js'
+      - 'frontend/public/js/toast.js'
+      - 'frontend/public/js/components/aver-admin-chrome.js'
       # Vế Reading (cặp `/pages/reading-vocab.html` ↔ `/reading/vocab`). Nhóm
       # trang chỉ-đọc KHÔNG có tệp hành vi riêng — cả hai vế nạp CHÍNH
       # `public/js/reading-vocab.js`, nên tệp đó cũng phải kích hoạt cổng.
@@ -107,11 +154,17 @@ on:
       # Nhóm chỉ-đọc dùng CHÍNH module legacy cho cả hai vế, nên tệp JS đó cũng
       # phải kích hoạt cổng — nó là mã CHUNG chứ không phải mã của riêng vế nào.
       - 'frontend/public/pages/reading-vocab.html'
+      - 'frontend/public/pages/reading-vocab-passage.html'
       - 'frontend/public/pages/reading-skill.html'
+      - 'frontend/public/pages/reading-skill-exercise.html'
       - 'frontend/public/pages/reading-test.html'
       - 'frontend/public/pages/reading-mini-test.html'
       - 'frontend/public/pages/listening-tests.html'
       - 'frontend/public/css/reading-vocab.css'
+      - 'frontend/public/js/reading-vocab-passage.js'
+      - 'frontend/public/js/reading-skill-exercise.js'
+      - 'frontend/public/js/components/reading-questions.js'
+      - 'frontend/public/js/components/reading-passage-panes.js'
       - 'frontend/public/css/listening.css'
       # Tách từ khối <style> nội tuyến của `listening-tests.html`; CẢ HAI vế
       # cùng link nó, nên nó là mã CHUNG và phải kích hoạt cổng. Bộ dò tĩnh
@@ -147,6 +200,7 @@ on:
       # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
       - 'frontend/app/(authed-full-test)/**'
       - 'frontend/app/(authed-vocab-practice)/**'
+      - 'frontend/app/(authed-quiz-player)/**'
       - 'frontend/app/(authed-speaking-result)/**'
       - 'frontend/app/(authed-quiz-progress)/**'
       - 'frontend/app/(authed-mock-result)/**'
@@ -160,6 +214,11 @@ on:
       - 'frontend/public/pages/quiz-progress.html'
       - 'frontend/public/js/quiz-progress.js'
       - 'frontend/public/css/quiz-progress.css'
+      - 'frontend/public/pages/quiz.html'
+      - 'frontend/public/css/quiz-player.css'
+      - 'frontend/tests/quiz-player-next-behavior.test.mjs'
+      - 'frontend/tests/quiz-player-next-model.test.mjs'
+      - 'frontend/tooling/verify-quiz-flow.mjs'
       - 'frontend/public/pages/speaking-result.html'
       - 'frontend/public/js/speaking-result.js'
       - 'frontend/public/css/speaking-result.css'
@@ -205,9 +264,432 @@ on:
       - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
+      # Listening review has no stable production attempt for a useful parity
+      # pair. Keep it outside the authed-pair block above: these paths trigger
+      # the hermetic browser verifier, not a secret-backed empty parity run.
+      - 'frontend/app/(authed-listening-review)/**'
+      - 'frontend/lib/listening-review-model.mjs'
+      - 'frontend/public/pages/listening-review.html'
+      - 'frontend/public/js/listening-review.js'
+      - 'frontend/public/css/listening-review.css'
+      - 'frontend/public/css/listening-review-next.css'
+      - 'frontend/tests/listening-review-next-behavior.test.mjs'
+      # Admin Overview không có cặp parity đáng tin cậy: cả hai vế cần role
+      # admin. Nó có browser read-flow với phiên/backend giả ở dưới, nên group
+      # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
+      - 'frontend/app/(authed-admin-overview)/**'
+      - 'frontend/public/css/admin-overview.css'
+      - 'frontend/public/js/admin-overview.js'
+      - 'backend/routers/admin_overview.py'
+      - 'backend/tests/test_admin_overview.py'
+      # System admin có role gate + verifier fixture-backed riêng. Đổi page,
+      # layout hoặc CSS phải chạy lại chính các browser contract đó.
+      - 'frontend/app/(authed-admin-system)/**'
+      - 'frontend/public/css/admin-alerts-next.css'
+      - 'frontend/public/css/admin-ai-usage-next.css'
+      # Instructor oversight và workspace có role gate + browser contract riêng.
+      # Probe G1 không có role instructor, nên các route này chạy fixture verifier
+      # thay vì mở một cặp visual parity không quan sát được dữ liệu thật.
+      - 'frontend/app/(authed-admin-instructors)/**'
+      - 'frontend/lib/admin-instructors-model.mjs'
+      - 'frontend/public/css/admin-instructors-next.css'
+      - 'frontend/app/(authed-instructor)/**'
+      - 'frontend/lib/instructor-dashboard-model.mjs'
+      - 'frontend/public/css/instructor-next.css'
+      - 'frontend/tests/instructor-dashboard-next.test.mjs'
+      - 'frontend/app/(authed-instructor-compare)/**'
+      - 'frontend/lib/instructor-compare-model.mjs'
+      - 'frontend/public/css/instructor-compare-next.css'
+      - 'frontend/public/js/instructor-compose.js'
+      - 'frontend/public/js/instructor-compose-util.js'
+      - 'frontend/public/js/instructor-grade.js'
+      - 'frontend/tests/instructor-compare-next.test.mjs'
+      - 'frontend/tests/f2-compare-mix.test.mjs'
+      - 'backend/routers/instructor.py'
+      - 'backend/services/essay_service.py'
+      - 'backend/tests/test_f2_compose_versions.py'
+      - 'frontend/app/(authed-instructor-grade)/**'
+      - 'frontend/lib/instructor-grade-model.mjs'
+      - 'frontend/public/css/instructor-grade-next.css'
+      - 'frontend/tests/instructor-grade-next.test.mjs'
+      - 'frontend/tooling/verify-instructor-grade-flow.mjs'
+      - 'frontend/tooling/write-flows/instructor-deliver.mjs'
+      - 'backend/services/instructor_workflow.py'
+      - 'backend/tests/test_instructor_workflow.py'
+      - 'backend/tests/test_instructor_routes_isolation.py'
+      # User/activity usage has an admin gate and fixture-backed read contract.
+      # Route, model, responsive table and canonical access-code/overview links
+      # must all rerun the same verifier.
+      - 'frontend/app/(authed-admin-usage)/**'
+      - 'frontend/lib/admin-usage-model.mjs'
+      - 'frontend/public/css/admin-usage-next.css'
+      # Foot-traffic has truthful complete/partial/unavailable semantics and a
+      # fixture-backed browser contract for filters, stale data and responsive UI.
+      - 'frontend/app/(authed-admin-foot-traffic)/**'
+      - 'frontend/lib/admin-foot-traffic-model.mjs'
+      - 'frontend/public/css/admin-foot-traffic-next.css'
+      # Feedback inbox mutates resolution state and must reconcile from the
+      # canonical GET. Fixture also pins URL filters and degraded read truth.
+      - 'frontend/app/(authed-admin-feedback)/**'
+      - 'frontend/lib/admin-feedback-model.mjs'
+      - 'frontend/public/css/admin-feedback-next.css'
+      - 'frontend/public/pages/admin/feedback/index.html'
+      - 'frontend/public/js/admin-feedback.js'
+      # Reading attempts has a frozen snapshot + complete/partial/unavailable
+      # contract and a fixture-backed native + rollback browser verifier.
+      - 'frontend/app/(authed-admin-reading-attempts)/**'
+      - 'frontend/lib/admin-reading-attempts-model.mjs'
+      - 'frontend/public/css/admin-reading-attempts-next.css'
+      - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
+      - 'frontend/public/js/admin-reading-attempts.js'
+      # Reading hub, content manager and paper QA preview own clean routes.
+      # Direct HTML files remain explicit rollback targets.
+      - 'frontend/app/(authed-admin-reading)/**'
+      - 'frontend/public/css/admin-reading-hub-next.css'
+      - 'frontend/app/(authed-admin-reading-content)/**'
+      - 'frontend/lib/admin-reading-content-model.mjs'
+      - 'frontend/public/css/admin-reading-content-next.css'
+      - 'frontend/app/(authed-admin-reading-preview)/**'
+      - 'frontend/lib/admin-reading-preview-model.mjs'
+      - 'frontend/public/css/admin-reading-preview-next.css'
+      - 'frontend/public/pages/admin/reading/content.html'
+      - 'frontend/public/pages/admin/reading/preview.html'
+      - 'frontend/tooling/verify-admin-reading-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
+      # Listening inventory owns the clean route; direct HTML stays rollback.
+      - 'frontend/app/(authed-admin-listening)/**'
+      - 'frontend/lib/admin-listening-content-model.mjs'
+      - 'frontend/lib/admin-listening-content-editor-model.mjs'
+      - 'frontend/public/css/admin-listening-content-next.css'
+      - 'frontend/public/css/admin-listening-content-editor-next.css'
+      - 'frontend/public/pages/admin/listening/index.html'
+      - 'frontend/public/js/admin-listening-content-list.js'
+      - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
+      - 'frontend/public/css/admin-listening-tests-next.css'
+      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
+      - 'frontend/lib/admin-listening-test-detail-model.mjs'
+      - 'frontend/public/css/admin-listening-test-detail-next.css'
+      - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+      - 'frontend/lib/admin-listening-attempts-model.mjs'
+      - 'frontend/public/css/admin-listening-attempts-next.css'
+      - 'frontend/public/pages/admin/listening/attempts.html'
+      - 'frontend/public/js/admin-listening-attempts.js'
+      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+      - 'backend/routers/listening.py'
+      - 'backend/tests/test_admin_listening_attempts.py'
+      - 'frontend/lib/admin-listening-dictation-model.mjs'
+      - 'frontend/public/css/admin-listening-dictation-next.css'
+      - 'frontend/public/pages/admin/listening/dictation-reports.html'
+      - 'frontend/public/js/admin-listening-dictation-reports.js'
+      - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
+      - 'backend/tests/test_listening_test_dictation.py'
+      - 'backend/migrations/210_dictation_session_idempotency.sql'
+      - 'backend/tests/test_migration_210_dictation_idempotency.py'
+      - 'frontend/app/(authed-listening-dictation)/**'
+      - 'frontend/lib/listening-dictation-controller.mjs'
+      - 'frontend/public/css/listening-dictation-next.css'
+      - 'frontend/tests/listening-dictation-next-behavior.test.mjs'
+      - 'frontend/tooling/verify-listening-dictation-session-flow.mjs'
+      - 'backend/tests/test_admin_listening_content_patch.py'
+      - 'frontend/lib/admin-listening-segments-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
+      - 'frontend/public/css/admin-listening-segments-next.css'
+      - 'frontend/public/pages/admin/listening/segments.html'
+      - 'frontend/public/js/admin-listening-segments.js'
+      - 'frontend/public/js/components/audio-player.js'
+      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
+      - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
+      - 'backend/tests/test_listening_segments.py'
+      - 'backend/migrations/208_listening_exercise_block_identity.sql'
+      - 'backend/migrations/209_listening_single_published_standalone_block.sql'
+      - 'frontend/lib/admin-listening-gist-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/gist/**'
+      - 'frontend/public/css/admin-listening-gist-next.css'
+      - 'frontend/public/pages/admin/listening/gist.html'
+      - 'frontend/public/js/admin-listening-gist.js'
+      - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
+      - 'frontend/tests/admin-listening-gist-next-behavior.test.mjs'
+      - 'backend/tests/test_listening_gist_tf.py'
+      - 'frontend/lib/admin-listening-true-false-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/tf/**'
+      - 'frontend/public/css/admin-listening-true-false-next.css'
+      - 'frontend/public/pages/admin/listening/tf.html'
+      - 'frontend/public/js/admin-listening-tf.js'
+      - 'frontend/tooling/verify-admin-listening-true-false-flow.mjs'
+      - 'frontend/tests/admin-listening-true-false-next-behavior.test.mjs'
+      - 'frontend/lib/admin-listening-mcq-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/mcq/**'
+      - 'frontend/public/css/admin-listening-mcq-next.css'
+      - 'frontend/public/pages/admin/listening/mcq.html'
+      - 'frontend/public/js/admin-listening-mcq.js'
+      - 'frontend/tooling/verify-admin-listening-mcq-flow.mjs'
+      - 'frontend/tests/admin-listening-mcq-next-behavior.test.mjs'
+      - 'frontend/lib/admin-listening-fulltest-import-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/import-fulltest/**'
+      - 'frontend/public/css/admin-listening-fulltest-import-next.css'
+      - 'frontend/public/pages/admin/listening/import-fulltest.html'
+      - 'frontend/public/js/admin-listening-fulltest-import.js'
+      - 'frontend/tooling/verify-admin-listening-fulltest-import-flow.mjs'
+      - 'frontend/tests/admin-listening-fulltest-import-next-behavior.test.mjs'
+      - 'frontend/tests/admin-listening-fulltest-import.test.mjs'
+      - 'backend/tests/test_listening_fulltest_import.py'
+      - 'frontend/lib/admin-listening-drill-import-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/import-drills/**'
+      - 'frontend/public/css/admin-listening-drill-import-next.css'
+      - 'frontend/public/pages/admin/listening/import-drills.html'
+      - 'frontend/public/js/admin-listening-drills-import.js'
+      - 'frontend/tooling/verify-admin-listening-drill-import-flow.mjs'
+      - 'frontend/tests/admin-listening-drill-import-next-behavior.test.mjs'
+      - 'frontend/tests/admin-listening-drills-import.test.mjs'
+      - 'backend/services/listening_drill_import.py'
+      - 'backend/tests/test_listening_drill_import.py'
+      - 'frontend/lib/admin-listening-audit-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/audit/**'
+      - 'frontend/public/css/admin-listening-audit-next.css'
+      - 'frontend/public/pages/admin/listening/audit.html'
+      - 'frontend/public/js/admin-listening-audit.js'
+      - 'frontend/tooling/verify-admin-listening-audit-flow.mjs'
+      - 'frontend/tests/admin-listening-audit-next-behavior.test.mjs'
+      - 'frontend/tests/admin-listening-audit-paging.test.mjs'
+      - 'frontend/tests/admin-listening-audit.test.mjs'
+      - 'backend/services/listening_audit.py'
+      - 'backend/routers/listening.py'
+      - 'backend/tests/test_listening_audit.py'
+      - 'frontend/lib/admin-listening-audit-detail-model.mjs'
+      - 'frontend/app/(authed-admin-listening)/admin/listening/audit-detail/**'
+      - 'frontend/public/css/admin-listening-audit-detail-next.css'
+      - 'frontend/public/pages/admin/listening/audit-detail.html'
+      - 'frontend/public/js/admin-listening-audit-detail.js'
+      - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
+      - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
+      # Vocabulary hub, Stats, Topics, Quick-Check Quiz, D1 Curation and Lemma Overrides are native. The
+      # fixture pins backend-owned admin auth, exact payload/ACK shapes,
+      # mutation locks and canonical GET readback; rollback HTML stays live.
+      - 'frontend/app/(authed-admin-vocab)/**'
+      - 'frontend/lib/admin-vocab-stats-model.mjs'
+      - 'frontend/lib/admin-vocab-curation-model.mjs'
+      - 'frontend/lib/admin-vocab-quiz-analytics-model.mjs'
+      - 'frontend/lib/admin-vocab-topics-quiz-model.mjs'
+      - 'frontend/public/css/admin-vocab-next.css'
+      - 'frontend/public/pages/admin/vocab/index.html'
+      - 'frontend/public/pages/admin/vocab/stats.html'
+      - 'frontend/public/pages/admin/vocab/d1-curation.html'
+      - 'frontend/public/pages/admin/vocab/lemmas.html'
+      - 'frontend/public/pages/admin/vocab/quiz-analytics.html'
+      - 'frontend/public/pages/admin/vocab/topics.html'
+      - 'frontend/public/pages/admin/vocab/quiz.html'
+      - 'frontend/public/js/admin-vocab-stats.js'
+      - 'frontend/public/js/admin-vocab-d1.js'
+      - 'frontend/public/js/admin-vocab-lemmas.js'
+      - 'frontend/tooling/verify-admin-vocab-flow.mjs'
+      - 'frontend/tests/admin-vocab-next-behavior.test.mjs'
+      - 'frontend/tests/admin-vocab-next-model.test.mjs'
+      - 'frontend/tests/admin-vocab-curation-next-behavior.test.mjs'
+      - 'frontend/tests/admin-vocab-curation-next-model.test.mjs'
+      - 'frontend/tests/admin-vocab-quiz-analytics-next-behavior.test.mjs'
+      - 'frontend/tests/admin-vocab-quiz-analytics-next-model.test.mjs'
+      - 'frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs'
+      - 'frontend/tests/admin-vocab-topics-quiz-next-model.test.mjs'
+      # Grammar hub is a native, read-only routing surface. Its fixture-backed
+      # browser contract pins admin auth, destination truth and responsive UI.
+      - 'frontend/app/(authed-admin-grammar)/**'
+      - 'frontend/public/css/aver-design/admin-components.css'
+      - 'frontend/public/css/aver-design/admin-buttons.css'
+      - 'frontend/public/css/aver-design/admin-status.css'
+      - 'frontend/public/css/admin-grammar-hub-next.css'
+      - 'frontend/public/pages/admin/grammar/index.html'
+      - 'frontend/public/pages/admin/index.html'
+      # Speaking hub, Sessions and Topics are native. Sessions/Topics have
+      # fixture-backed mutation verifiers; direct HTML stays as rollback.
+      - 'frontend/app/(authed-admin-speaking)/**'
+      - 'frontend/app/(authed-admin-speaking-sessions)/**'
+      - 'frontend/app/(authed-admin-speaking-topics)/**'
+      - 'frontend/lib/admin-speaking-sessions-model.mjs'
+      - 'frontend/lib/admin-speaking-topics-model.mjs'
+      - 'frontend/public/css/admin-speaking-hub-next.css'
+      - 'frontend/public/css/admin-speaking-sessions-next.css'
+      - 'frontend/public/css/admin-speaking-topics-next.css'
+      - 'frontend/public/pages/admin/speaking/index.html'
+      - 'frontend/public/pages/admin/speaking/sessions.html'
+      - 'frontend/public/pages/admin/speaking/topics.html'
+      - 'frontend/public/js/admin-speaking-sessions.js'
+      - 'frontend/public/js/admin-speaking-topics.js'
+      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+      # Mock Tests cockpit owns orchestration; Manage, Live/Pacing and
+      # Reviews/Report are native while direct HTML remains rollback evidence.
+      - 'frontend/app/(authed-admin-mock-tests)/**'
+      - 'frontend/lib/admin-mock-tests-model.mjs'
+      - 'frontend/public/css/admin-mock-tests-next.css'
+      - 'frontend/public/pages/admin/mock-tests/index.html'
+      - 'frontend/public/js/admin-mock-tests.js'
+      - 'frontend/tooling/verify-admin-mock-tests-flow.mjs'
+      - 'frontend/tests/admin-mock-tests-next-behavior.test.mjs'
+      - 'frontend/app/(authed-admin-mock-exams)/**'
+      - 'frontend/lib/admin-mock-exams-model.mjs'
+      - 'frontend/public/css/admin-mock-exams-next.css'
+      - 'frontend/public/pages/admin/mock-exams/index.html'
+      - 'frontend/public/js/admin-mock-exams.js'
+      - 'frontend/public/js/admin-exam-content.js'
+      - 'frontend/tooling/verify-admin-mock-exams-flow.mjs'
+      - 'frontend/tests/admin-mock-exams-next-model.test.mjs'
+      - 'frontend/app/(authed-admin-mock-live)/**'
+      - 'frontend/lib/admin-mock-live-model.mjs'
+      - 'frontend/public/css/admin-mock-live-next.css'
+      - 'frontend/public/pages/admin/mock-live/index.html'
+      - 'frontend/public/pages/admin/mock-pacing/index.html'
+      - 'frontend/public/js/admin-mock-live.js'
+      - 'frontend/public/js/admin-mock-pacing.js'
+      - 'frontend/tooling/verify-admin-mock-live-flow.mjs'
+      - 'frontend/tests/admin-mock-live-next-model.test.mjs'
+      - 'frontend/app/(authed-admin-mock-reviews)/**'
+      - 'frontend/lib/admin-mock-reviews-model.mjs'
+      - 'frontend/public/css/admin-mock-reviews-next.css'
+      - 'frontend/public/pages/admin/mock-reviews/index.html'
+      - 'frontend/public/pages/admin/mock-reviews/report.html'
+      - 'frontend/public/js/admin-mock-reviews.js'
+      - 'frontend/public/js/admin-mock-report.js'
+      - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
+      - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
+      - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
+      # Writing hub is a native, read-only workflow map. Direct HTML remains
+      # rollback; the fixture pins admin auth, destination truth and layout.
+      - 'frontend/app/(authed-admin-writing)/**'
+      - 'frontend/app/(authed-admin-writing-queue)/**'
+      - 'frontend/app/(authed-admin-writing-status)/**'
+      - 'frontend/app/(authed-admin-writing-prompts)/**'
+      - 'frontend/app/(authed-admin-writing-regrade)/**'
+      - 'frontend/app/(authed-admin-writing-assignments)/**'
+      - 'frontend/app/(authed-admin-writing-cohorts)/**'
+      - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
+      - 'frontend/app/(authed-admin-writing-new)/**'
+      - 'backend/routers/admin_writing.py'
+      - 'backend/routers/admin_writing_prompts.py'
+      - 'backend/services/student_service.py'
+      - 'backend/tests/test_admin_writing.py'
+      - 'backend/tests/test_admin_writing_extract.py'
+      - 'backend/tests/test_admin_writing_prompts.py'
+      - 'backend/routers/admin_instructor_queue.py'
+      - 'backend/models/instructor_review.py'
+      - 'backend/services/instructor_workflow.py'
+      - 'backend/routers/admin_writing_assignments.py'
+      - 'backend/routers/admin_writing_cohorts.py'
+      - 'backend/migrations/206_writing_assignment_idempotency.sql'
+      - 'backend/tests/test_admin_writing_assignments.py'
+      - 'frontend/lib/admin-writing-queue-model.mjs'
+      - 'frontend/lib/admin-writing-status-model.mjs'
+      - 'frontend/lib/admin-writing-prompts-model.mjs'
+      - 'frontend/lib/admin-writing-regrade-model.mjs'
+      - 'frontend/lib/admin-writing-assignments-model.mjs'
+      - 'frontend/lib/admin-writing-cohorts-model.mjs'
+      - 'frontend/lib/admin-writing-instructor-queue-model.mjs'
+      - 'frontend/lib/admin-writing-new-model.mjs'
+      - 'frontend/public/css/admin-writing-hub-next.css'
+      - 'frontend/public/css/admin-writing-queue-next.css'
+      - 'frontend/public/css/admin-writing-status-next.css'
+      - 'frontend/public/css/admin-writing-prompts-next.css'
+      - 'frontend/public/css/admin-writing-regrade-next.css'
+      - 'frontend/public/css/admin-writing-assignments-next.css'
+      - 'frontend/public/css/admin-writing-cohorts-next.css'
+      - 'frontend/public/css/admin-writing-instructor-queue-next.css'
+      - 'frontend/public/css/admin-writing-new-next.css'
+      - 'frontend/public/pages/admin/writing/index.html'
+      - 'frontend/public/pages/admin/writing/queue.html'
+      - 'frontend/public/pages/admin/writing/status.html'
+      - 'frontend/public/pages/admin/writing/prompts.html'
+      - 'frontend/public/pages/admin/writing/regrade-requests.html'
+      - 'frontend/public/pages/admin/writing/new.html'
+      - 'frontend/public/pages/admin/writing/cohorts.html'
+      - 'frontend/public/pages/admin/writing/instructor-queue.html'
+      - 'frontend/public/js/admin-writing-queue.js'
+      - 'frontend/tooling/verify-admin-writing-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-new-flow.mjs'
+      - 'backend/routers/admin_writing_tips.py'
+      - 'backend/tests/test_admin_writing_tips.py'
+      - 'frontend/app/(authed-admin-writing-tips)/**'
+      - 'frontend/public/css/admin-writing-tips-next.css'
+      - 'frontend/public/pages/admin/writing/tips.html'
+      - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
+      # Grammar Articles owns the clean inventory route and retains a direct
+      # legacy rollback. Backend status fields prevent analytics outages from
+      # masquerading as zero engagement.
+      - 'backend/routers/admin.py'
+      - 'backend/tests/test_admin_grammar.py'
+      - 'frontend/app/(authed-admin-grammar-articles)/**'
+      - 'frontend/lib/admin-grammar-articles-model.mjs'
+      - 'frontend/public/css/admin-grammar-articles-next.css'
+      - 'frontend/public/pages/admin/grammar/articles.html'
+      - 'frontend/public/js/admin-grammar-articles.js'
+      # Grammar Analytics distinguishes complete data from unavailable sources,
+      # paginates canonical rows and defines recent activity without inventing events.
+      - 'frontend/app/(authed-admin-grammar-analytics)/**'
+      - 'frontend/lib/admin-grammar-analytics-model.mjs'
+      - 'frontend/public/css/admin-grammar-analytics-next.css'
+      - 'frontend/public/pages/admin/grammar/analytics.html'
+      - 'frontend/public/js/admin-grammar-analytics.js'
+      - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
+      # Grammar Recommendation lab mirrors production draft suppression and
+      # anchor routing without persisting synthetic recommendations.
+      - 'frontend/app/(authed-admin-grammar-recommend)/**'
+      - 'frontend/lib/admin-grammar-recommend-model.mjs'
+      - 'frontend/public/css/admin-grammar-recommend-next.css'
+      - 'frontend/public/pages/admin/grammar/recommend-test.html'
+      - 'frontend/public/js/admin-grammar-recommend.js'
+      - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
+      # Error-log admin có role gate + mutations triage fixture-backed riêng;
+      # không thể dùng snapshot parity bằng tài khoản thường.
+      - 'frontend/app/(authed-admin-error-logs)/**'
+      - 'frontend/lib/admin-error-logs-model.mjs'
+      - 'frontend/public/css/admin-error-logs-next.css'
+      # Users + Access Codes có 8 mutation vận hành và admin-only role gate;
+      # browser contract fixture-backed riêng kiểm canonical reload/invariants.
+      - 'frontend/app/(authed-admin-users)/**'
+      - 'frontend/lib/admin-users-model.mjs'
+      - 'frontend/public/css/admin-users-next.css'
+      # Class directory có rollup/course truth + CRUD/soft archive; browser
+      # fixture kiểm failure states, orphan course preservation và reload chuẩn.
+      - 'frontend/app/(authed-admin-classes)/**'
+      - 'frontend/app/(authed-admin-students)/**'
+      - 'frontend/lib/admin-class-detail-model.mjs'
+      - 'frontend/lib/admin-class-homework-model.mjs'
+      - 'frontend/lib/admin-class-submissions-model.mjs'
+      - 'frontend/lib/admin-class-student-work-model.mjs'
+      - 'frontend/lib/admin-classes-model.mjs'
+      - 'frontend/public/css/admin-class-detail-next.css'
+      - 'frontend/public/css/admin-class-homework-next.css'
+      - 'frontend/public/css/admin-class-submissions-next.css'
+      - 'frontend/public/css/admin-class-student-work-next.css'
+      - 'frontend/public/css/admin-classes-next.css'
+      - 'frontend/public/css/admin-students-next.css'
+      - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
+      - 'frontend/tests/admin-class-homework-next-behavior.test.mjs'
+      - 'frontend/tests/admin-class-submissions-next-behavior.test.mjs'
+      - 'frontend/tests/admin-class-student-work-next-behavior.test.mjs'
       - 'frontend/public/grammar.html'
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
+      - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
+      # Public Vocabulary Wiki owns server bootstrap plus client-side
+      # master/detail interactions; legacy HTML remains the parity/rollback leg.
+      - 'frontend/app/(public-content)/vocabulary/**'
+      - 'frontend/lib/vocabulary-api.ts'
+      - 'frontend/lib/vocabulary-model.mjs'
+      - 'frontend/public/vocabulary.html'
+      - 'frontend/public/pages/vocab-article.html'
+      - 'frontend/public/js/vocabulary.js'
+      - 'frontend/public/css/vocab-wiki.css'
+      - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
       # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
       # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
@@ -221,6 +703,7 @@ on:
       - 'frontend/tooling/verify-speaking-flow.mjs'
       - 'frontend/tooling/verify-reading-vocab-flow.mjs'
       - 'frontend/tooling/verify-reading-skill-flow.mjs'
+      - 'frontend/tooling/verify-reading-detail-flow.mjs'
       - 'frontend/tooling/verify-reading-test-flow.mjs'
       - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
       - 'frontend/tooling/verify-listening-tests-flow.mjs'
@@ -229,26 +712,64 @@ on:
       - 'frontend/tooling/verify-listening-practice-flow.mjs'
       - 'frontend/tooling/verify-listening-landing-flow.mjs'
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
+      - 'frontend/tooling/verify-listening-standalone-flow.mjs'
+      - 'frontend/tooling/verify-listening-standalone-dictation-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
+      - 'frontend/tooling/verify-listening-test-session-flow.mjs'
+      - 'frontend/tooling/verify-listening-review-flow.mjs'
+      - 'frontend/tooling/verify-admin-overview-flow.mjs'
+      - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
+      - 'frontend/tooling/verify-admin-alerts-flow.mjs'
+      - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
+      - 'frontend/tooling/verify-admin-instructors-flow.mjs'
+      - 'frontend/tooling/verify-instructor-dashboard-flow.mjs'
+      - 'frontend/tooling/verify-instructor-compare-flow.mjs'
+      - 'frontend/tooling/verify-admin-usage-flow.mjs'
+      - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
+      - 'frontend/tooling/verify-admin-feedback-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
+      - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
+      - 'frontend/tooling/verify-admin-grammar-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+      - 'frontend/tooling/verify-admin-writing-flow.mjs'
+      - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
+      - 'frontend/tooling/verify-admin-users-flow.mjs'
+      - 'frontend/tooling/verify-admin-classes-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
+      - 'frontend/tooling/verify-admin-class-student-work-flow.mjs'
+      - 'frontend/tooling/verify-admin-students-flow.mjs'
       # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
       # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
-      # Các tệp dưới đây thuộc ba trang `listening-mcq` / `-tf` / `-gist`, đều chỉ
-      # được che bằng CỔNG
-      # ĐƯỜNG-GHI (chưa port sang Next nên chưa có cặp trong
-      # `parity-pairs-authed.json`). Chúng CỐ Ý nằm NGOÀI khối glob authed ở
-      # trên: có mặt trong `paths` để job + cổng ghi chạy, nhưng KHÔNG được
-      # regex authed bắt — mở lượt authed cho một trang không có cặp nào nghĩa
-      # là tốn một lượt cần secret để so đúng con số không (bot bắt ở #962).
-      # Khi trang lên Next và có cặp, chuyển chúng NGƯỢC lên khối authed.
+      # Các tệp dưới đây là rollback của bốn route native `listening-dictation`
+      # / `-mcq` / `-tf` / `-gist`. Chúng vẫn có đường ghi nên tiếp tục kích hoạt cổng write-flow;
+      # route Next được kiểm bằng runner fixture riêng (không có content UUID
+      # production ổn định để lập một cặp parity tĩnh trung thực).
+      - 'frontend/public/css/listening-standalone-next.css'
       - 'frontend/public/pages/listening-mcq.html'
       - 'frontend/public/js/listening-mcq.js'
       - 'frontend/public/pages/listening-tf.html'
       - 'frontend/public/js/listening-tf.js'
       - 'frontend/public/pages/listening-gist.html'
       - 'frontend/public/js/listening-gist.js'
+      - 'frontend/public/pages/listening-dictation.html'
+      - 'frontend/public/js/listening-dictation.js'
       # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
       # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
       # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt
@@ -259,6 +780,11 @@ on:
       # `feedback.css` tạo hình. Thiếu tệp này thì PR chỉ sửa CSS đó không chạy
       # cổng ghi, dù nó đủ sức làm nút không bấm được (bot bắt ở #962 vòng 3).
       - 'frontend/public/css/feedback.css'
+      # Listening core dark route chưa thuộc cặp parity tĩnh: browser runner
+      # riêng bên dưới kiểm start → autosave → reload/resume → submit trên mã
+      # React thật, còn admission vẫn Legacy cho tới Gate E.
+      - 'frontend/app/(authed-listening-player)/**'
+      - 'frontend/public/css/listening-test-next.css'
       # ── Bài thi Đọc ──────────────────────────────────────────────────────
       # `reading-exam` cũng chưa có cặp parity, nên nằm cùng khối này. Trang nạp
       # 5 tệp dưới lúc chạy mà `reading-exam.js` KHÔNG import chúng, nên bộ dò
@@ -468,7 +994,7 @@ jobs:
           # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
           # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
           # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/css/(speaking|practice|speaking-assignment)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|perf-hints)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(home|mock-hub|writing-dashboard)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|reading-vocab|reading-skill|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-skill|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tooling/(supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
+          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-writing-result|authed-admin-writing-grade|authed-reading|authed-listening|authed-exercises|authed-flashcards|authed-vocab-exam|authed-full-test|authed-vocab-practice|authed-quiz-player|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/pages/admin/writing/grade\.html|frontend/public/css/(speaking|practice|speaking-assignment|quiz-player|admin-writing|admin-writing-grade|aver-design/admin-surface)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt|writing-admin|toast)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|api|feedback-widgets|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(aver-chrome|aver-admin-chrome|glossary-popover|perf-hints|reading-questions|reading-passage-panes)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(feedback|home|mock-hub|writing-dashboard|writing-result|writing-renderers|writing-highlight|image-lightbox|markdown)\.css|frontend/public/pages/(exercises|flashcards|vocab-exam|full-test|vocab-practice|quiz|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|writing-result|reading-vocab|reading-vocab-passage|reading-skill|reading-skill-exercise|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-vocab-passage|reading-skill|reading-skill-exercise|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-landing|listening-browse|listening-analytics|writing-renderers|writing-highlight|image-lightbox|markdown)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tests/quiz-player-next-(behavior|model)\.test\.mjs|frontend/tooling/(verify-quiz-flow\.mjs|supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
             echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
             echo "authed=true" >> "$GITHUB_OUTPUT"
           else
@@ -578,6 +1104,24 @@ jobs:
       # cần secret nào. Bản đầu tôi gác nó và chính PR thêm nó đã KHÔNG chạy nó
       # (`authed` false vì chỉ sửa workflow + tooling) — đúng lớp lỗi Codex bắt
       # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
+      - name: Kiểm boundary Pricing pre-launch
+        run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Login needs interaction evidence beyond the signed-out parity frame:
+      # implicit callback cleanup, backend-canonical activation truth and the
+      # lost-ACK reconciliation path are all exercised with a fake backend.
+      - name: Kiểm luồng Login/Auth native
+        run: node tooling/verify-login-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Onboarding native
+        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Player Quiz có state ghi thích ứng; cặp parity tĩnh chỉ phủ nhánh thiếu
+      # bank. Fixture này chứng minh answer/advance locks, retry outbox,
+      # non-destructive review, reset reconcile và summary ngay trong browser.
+      - name: Kiểm luồng Quiz native
+        run: node tooling/verify-quiz-flow.mjs "http://localhost:$PARITY_PORT"
+
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
 
@@ -589,10 +1133,27 @@ jobs:
       - name: Kiểm luồng Reading Vocab native
         run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
 
+      # `/grammar/roadmap?slug=` được G1 public parity phủ; mode không slug là
+      # private/account-keyed nên cần fixture riêng để kiểm auth, lỗi-vs-rỗng,
+      # authored-text escaping và responsive layout mà không ghi production.
+      - name: Kiểm luồng Grammar Roadmap cá nhân native
+        run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Public parity khóa nội dung ban đầu; fixture browser này khóa các hành
+      # vi sau hydrate: filter, compound deep-link, feedback và mobile sheet.
+      - name: Kiểm luồng Vocabulary Wiki native
+        run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$PARITY_PORT"
+
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
       - name: Kiểm luồng Reading Skill native
         run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Hai detail route dùng chung một workspace React. Runner này ghim
+      # answer-key fail-close, bốn loại control L1/L2, retry/sync lock,
+      # tabs/dialog keyboard, feedback flag và mobile containment.
+      - name: Kiểm luồng Reading Detail native
+        run: node tooling/verify-reading-detail-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
       # total, test_type=full, reset và response cũ ngay trên production build.
@@ -629,10 +1190,344 @@ jobs:
       - name: Kiểm luồng Listening Browse native
         run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
 
+      # Ba exercise lẻ dùng chung contract đọc/ghi nhưng khác payload. Runner
+      # fixture kiểm cả MCQ, T/F và Gist trên mã React thật, gồm answer-leak,
+      # identity, submit, reset, lỗi thân thiện và mobile containment.
+      - name: Kiểm luồng Listening exercises native
+        run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Standalone Dictation uses content_id and per-segment writes; it is not
+      # the test-linked core player below. The fixture pins transcript secrecy,
+      # clipped iteration, retry truth, completion and soft-navigation reset.
+      - name: Kiểm luồng Listening standalone Dictation native
+        run: node tooling/verify-listening-standalone-dictation-flow.mjs "http://localhost:$PARITY_PORT"
+
       # Analytics khóa range contract, weighted denominators và trạng thái
       # recent/empty/error trên browser thật.
       - name: Kiểm luồng Listening Analytics native
         run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Core player không thể so bằng snapshot tĩnh: canonical attempt chỉ lộ
+      # khi bấm, reload và submit. Runner dùng phiên/backend giả, không ghi dữ
+      # liệu thật và fail nếu partial save vẫn cho phép finalization.
+      - name: Kiểm luồng Listening Test native
+        run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Review has no deterministic production attempt for static parity.
+      # This hermetic fixture pins submitted/auth gates, preview neutrality,
+      # filters, transcript/audio sync, escaping and responsive containment.
+      - name: Kiểm luồng Listening Review native
+        run: node tooling/verify-listening-review-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Dictation player owns multi-section practice and a durable completion
+      # receipt. The fixture commits then drops the POST acknowledgement and
+      # requires exact request-id GET reconciliation before success is shown.
+      - name: Kiểm luồng Listening Dictation native
+        run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
+      # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
+      # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
+      - name: Kiểm luồng Admin Overview native
+        run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/error-logs` có cả read dashboard và mutations dismiss/undo/test.
+      # Runner fixture backend, kiểm canonical reload + rollback metrics và cấm
+      # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
+      - name: Kiểm luồng Admin Error Logs native
+        run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/system/alerts` là read-only operational triage. Runner ghim
+      # canonical dedupe/partial identity, scope URL, escaping và cấm mutation.
+      - name: Kiểm luồng Admin Alerts native
+        run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/system/ai-usage` là read-only cost report. Runner ghim period,
+      # service lạ, safety cap/truncation, escaping và cấm mutation.
+      - name: Kiểm luồng Admin AI Usage native
+        run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/instructors` là read-only ownership/cost oversight. Runner ghim
+      # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
+      - name: Kiểm luồng Admin Instructors native
+        run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/instructor` dùng role-aware fixture thay cho G1 probe không có role.
+      # Runner ghim owner scope, impersonation, canonical reload và responsive UI.
+      - name: Kiểm luồng Instructor Dashboard native
+        run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/instructor/compare` dùng role-aware fixture và mutation readback giả.
+      # Runner ghim full-feedback preview, owner scope, impersonation và no-replay.
+      - name: Kiểm luồng Instructor Compare native
+        run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Instructor Grade native
+        run: node tooling/verify-instructor-grade-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
+      # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.
+      - name: Kiểm luồng Admin Usage native
+        run: node tooling/verify-admin-usage-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/foot-traffic` is read-only analytics. Fixture pins inclusive
+      # date filters, exact route, partial/unavailable truth and responsive UI.
+      - name: Kiểm luồng Admin Foot Traffic native
+        run: node tooling/verify-admin-foot-traffic-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/feedback` has a canonical status mutation. The fixture proves
+      # URL filtering, hostile-content escaping, degraded states and GET
+      # readback after each PATCH without touching production data.
+      - name: Kiểm luồng Admin Feedback native
+        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Reading Attempts native + rollback
+        run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/reading` is the read-only routing hub. Fixture pins role gate,
+      # truthful native/legacy destinations and responsive visual containment.
+      - name: Kiểm luồng Admin Reading hub native
+        run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Content manager mutates canonical Reading data. Fixture pins dry-run
+      # structure, route ownership, responsive table and GET readback after write.
+      - name: Kiểm luồng Admin Reading content native
+        run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Paper QA exposes answer keys and mutates shared diagram images. Fixture
+      # pins block ownership, sanitized Markdown and canonical readback after write.
+      - name: Kiểm luồng Admin Reading preview native
+        run: node tooling/verify-admin-reading-preview-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Listening inventory is read-only. Fixture pins filter URL, canonical
+      # paging, per-row exercise partial failures and responsive containment.
+      - name: Kiểm luồng Admin Listening content native
+        run: node tooling/verify-admin-listening-content-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Content detail separates metadata/exercise reads, confirms publication
+      # changes and reconciles every write through the canonical content GET.
+      - name: Kiểm luồng Admin Listening content detail native
+        run: node tooling/verify-admin-listening-content-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Metadata editor sends only deltas, uses an atomic version token and
+      # concludes success only after exact canonical GET reconciliation.
+      - name: Kiểm luồng Admin Listening content editor native
+        run: node tooling/verify-admin-listening-content-editor-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Test inventory mutates publication and exam-only visibility. Fixture
+      # pins URL filters, stale-ACK rejection and exact GET + list readback.
+      - name: Kiểm luồng Admin Listening tests native
+        run: node tooling/verify-admin-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Test detail owns audio/map/publication/delete mutations. Fixture pins
+      # stale-ACK rejection, mode rollback, cascade archive and typed hard delete.
+      - name: Kiểm luồng Admin Listening test detail native
+        run: node tooling/verify-admin-listening-test-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Attempt inventory is read-only but association truth is operationally
+      # sensitive. Fixture pins canonical filters, lookup-failure visibility,
+      # exact detail identity, pagination and responsive containment.
+      - name: Kiểm luồng Admin Listening attempts native
+        run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Dictation reports are read-only but aggregate scope and learner
+      # association truth are operationally sensitive. The fixture pins
+      # stale-response rejection, full-scope aggregate, exact session detail,
+      # independent failure states, pagination and responsive containment.
+      - name: Kiểm luồng Admin Listening dictation native
+        run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Segment authoring mutates exact Dictation blocks. The fixture pins
+      # multi-block identity, version conflicts, durable receipts, canonical
+      # GET reconciliation, the public audio-time API and responsive containment.
+      - name: Kiểm luồng Admin Listening segments native
+        run: node tooling/verify-admin-listening-segments-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Gist authoring mutates exact rubric blocks. The fixture pins strict
+      # keywords, version conflicts, durable receipts and canonical readback.
+      - name: Kiểm luồng Admin Listening Gist native
+        run: node tooling/verify-admin-listening-gist-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # True/False authoring mutates exact answer-key blocks. The fixture pins
+      # T/F/NG ground truth, version conflicts, durable receipts and readback.
+      - name: Kiểm luồng Admin Listening True False native
+        run: node tooling/verify-admin-listening-true-false-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # MCQ authoring mutates exact answer-key blocks. The fixture pins four
+      # option truth, version conflicts, receipts, focus stability and readback.
+      - name: Kiểm luồng Admin Listening MCQ native
+        run: node tooling/verify-admin-listening-mcq-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Full-test import is a four-file write boundary. The fixture pins SHA-256
+      # invalidation, duplicate fail-closed behavior, upload progress, durable
+      # receipts, GET-only ambiguity reconciliation and publication readback.
+      - name: Kiểm luồng Admin Listening full-test import native
+        run: node tooling/verify-admin-listening-fulltest-import-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Skill-drill import is a client-side batch write boundary. The fixture
+      # pins deterministic grouping, duplicate locks, sequential receipts,
+      # upload progress and GET-only ambiguity reconciliation.
+      - name: Kiểm luồng Admin Listening skill-drill import native
+        run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Quality audit distinguishes live structural evidence, persisted full
+      # audit and lookup failure across the complete paginated test inventory.
+      - name: Kiểm luồng Admin Listening quality audit native
+        run: node tooling/verify-admin-listening-audit-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # The detail workspace is a versioned repair boundary. The fixture pins
+      # exact section audio, canonical readback, paid-run receipts and triage.
+      - name: Kiểm luồng Admin Listening audit detail native
+        run: node tooling/verify-admin-listening-audit-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar` is a read-only content-operations hub. The fixture
+      # proves backend role gating, canonical destinations and mobile/desktop UI.
+      - name: Kiểm luồng Admin Grammar hub native
+        run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Vocabulary Stats, D1 and Lemma contain admin mutations. The fixture
+      # asserts exact bodies, in-flight locks and canonical GET readbacks.
+      - name: Kiểm luồng Admin Vocabulary native
+        run: node tooling/verify-admin-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Speaking hub native
+        run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Sessions mutates grading and summary state. The fixture pins URL/deep
+      # links, stale-request suppression, accessible confirmations, partial
+      # failure truth and canonical GET readback after every write.
+      - name: Kiểm luồng Admin Speaking Sessions native
+        run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Topics mutates topic/question libraries and AI rotation. The fixture
+      # pins safe missing-only semantics, exact payloads and canonical readback.
+      - name: Kiểm luồng Admin Speaking Topics native
+        run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Writing hub native
+        run: node tooling/verify-admin-writing-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Queue mutates reviewed and Mock essay state. Fixture pins exact ACKs,
+      # canonical readback, stale snapshots, hostile data and responsive cards.
+      - name: Kiểm luồng Admin Writing Queue native
+        run: node tooling/verify-admin-writing-queue-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Status is a read-only per-essay job monitor. The fixture pins exact
+      # identity, sequential polling, stale snapshot truth, terminal hops,
+      # embedded Mock flags, hostile retry data and responsive layout.
+      - name: Kiểm luồng Admin Writing Status native
+        run: node tooling/verify-admin-writing-status-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Prompts mutates content, storage images, archive and answer-key state.
+      # The fixture pins exact ACKs, canonical readback and mobile layout.
+      - name: Kiểm luồng Admin Writing Prompts native
+        run: node tooling/verify-admin-writing-prompts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Regrade Requests mutates essay visibility and request lifecycle. The
+      # fixture pins exact ACKs, atomic state, readback retry and mobile layout.
+      - name: Kiểm luồng Admin Writing Regrade Requests native
+        run: node tooling/verify-admin-writing-regrade-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Assignments fan-out can duplicate hundreds of writes when a client
+      # retries POST after a readback failure. This fixture pins immutable
+      # receipts, GET-only reconciliation and source-specific picker errors.
+      - name: Kiểm luồng Admin Writing Assignments native
+        run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Cohorts is a read-only operational matrix. The fixture pins repeated
+      # prompt gives, canonical essay links, stale truth and mobile containment.
+      - name: Kiểm luồng Admin Writing Cohorts native
+        run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Instructor Queue mutates ownership. The fixture pins edited-lane
+      # visibility, exact ACK + canonical readback, ambiguous response
+      # reconciliation without POST replay, embed flags and mobile containment.
+      - name: Kiểm luồng Admin Writing Instructor Queue native
+        run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Writing Tips combines CRUD with dry-run→commit Markdown import. The
+      # fixture pins sanitized preview, exact ACK + canonical readback,
+      # account-keyed receipts, no mutation replay and responsive containment.
+      - name: Kiểm luồng Admin Writing Tips native
+        run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Independent grading has no idempotency key. The fixture pins exact
+      # ACK redirect, definitive 4xx recovery, ambiguous-write receipt/no retry,
+      # extraction/upload contracts and responsive containment.
+      - name: Kiểm luồng Admin Writing New native
+        run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native Mock Test orchestration is read-only. This fixture pins the
+      # backend-owned role gate, canonical selection, draft-live safety,
+      # shareable tabs, exact child identity and mobile containment.
+      - name: Kiểm luồng Admin Mock Tests native
+        run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native definition workspace exercises canonical exam/progress reads,
+      # guarded sequential writes, retake assignment and content-library truth.
+      - name: Kiểm luồng Admin Mock Exams native
+        run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native invigilator operations keep irreversible controls canonical;
+      # pacing remains read-only and states its timestamp limits explicitly.
+      - name: Kiểm luồng Admin Mock Live và Pacing native
+        run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native review console pins lookup failure truth, per-skill review,
+      # canonical mutation readbacks, release confirmation and report bands.
+      - name: Kiểm luồng Admin Mock Reviews và Report native
+        run: node tooling/verify-admin-mock-reviews-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
+      # pins URL filters, analytics availability, sandboxed previews and layout.
+      - name: Kiểm luồng Admin Grammar Articles native
+        run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
+      # pins URL windows, stale snapshots, degraded sources and responsive tables.
+      - name: Kiểm luồng Admin Grammar Analytics native
+        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm luồng Admin Grammar Recommendation lab native
+        run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
+      # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi
+      # UI báo thành công; không chạm dữ liệu thật.
+      - name: Kiểm luồng Admin Users native
+        run: node tooling/verify-admin-users-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
+      # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
+      # và edit lớp có course mồ côi không âm thầm tháo liên kết.
+      - name: Kiểm luồng Admin Classes native
+        run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
+      # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và
+      # canonical reload; homework/marking được kiểm bằng hai runner kế tiếp.
+      - name: Kiểm luồng Admin Class Detail native
+        run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Assignment lifecycle là boundary ghi riêng: fixture ghim subset/class,
+      # mastery config, backfill, compare-and-confirm hạn và canonical reload.
+      - name: Kiểm luồng Admin Class Homework native
+        run: node tooling/verify-admin-class-homework-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Tally/effort/bài từng em là các mặt đọc khác nhau của cùng sổ bài giao;
+      # runner còn ghim trả bài phải reload canonical tally và audit status.
+      - name: Kiểm luồng Admin Class Submissions native
+        run: node tooling/verify-admin-class-submissions-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Từ một học viên, runner đọc lịch sử xuyên bài giao, chỉ mở artifact có
+      # bằng chứng và quay lại đúng hồ sơ sau khi xem bài từng em.
+      - name: Kiểm luồng Admin Class Student Work native
+        run: node tooling/verify-admin-class-student-work-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # `/admin/students` có search, CSV và mutation roster. Fixture ghim
+      # canonical reload, nullable clears, partial profile failure và cấm hard delete.
+      - name: Kiểm luồng Admin Students native
+        run: node tooling/verify-admin-students-flow.mjs "http://localhost:$PARITY_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm

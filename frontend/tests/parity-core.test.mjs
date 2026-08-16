@@ -81,7 +81,22 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('đưa link legacy về dạng canonical', () => {
     assert.equal(canonicalHref('/grammar.html'), '/grammar');
     assert.equal(canonicalHref('/index.html'), '/');
+    assert.equal(canonicalHref('/login.html'), '/login');
+    assert.equal(canonicalHref('/onboarding.html'), '/onboarding');
     assert.equal(canonicalHref('/pages/profile.html'), '/profile');
+    assert.equal(
+      canonicalHref('/pages/quiz.html?bank=bank-1'),
+      '/quiz?bank=bank-1');
+    assert.equal(
+      canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),
+      '/grammar/compare?slug=past-perfect-vs-past-simple');
+    assert.equal(canonicalHref('/pricing.html'), '/pricing');
+    assert.equal(
+      canonicalHref('/pages/grammar-roadmap.html?slug=tenses'),
+      '/grammar/roadmap?slug=tenses');
+    assert.equal(
+      canonicalHref('/vocabulary.html?cat=technology&slug=cutting-edge'),
+      '/vocabulary?cat=technology&slug=cutting-edge');
     assert.equal(
       canonicalHref('/pages/grammar-article.html?category=tenses&slug=present-perfect'),
       '/grammar/tenses/present-perfect');
@@ -367,7 +382,7 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
   test('#5 phân giải ../ theo URL trang, không nối chuỗi', () => {
     const base2 = 'https://x/pages/grammar-article.html?category=tenses&slug=present-perfect';
     assert.equal(canonicalHref('../grammar.html', { base: base2 }), '/grammar');
-    assert.equal(canonicalHref('./grammar-search.html', { base: base2 }), '/pages/grammar-search.html');
+    assert.equal(canonicalHref('./grammar-search.html?q=tenses', { base: base2 }), '/grammar/search?q=tenses');
     // Chốt chặn: dạng cũ nối chuỗi sẽ ra '/../grammar.html'.
     assert.ok(!String(canonicalHref('../grammar.html', { base: base2 })).includes('..'));
   });
@@ -652,7 +667,7 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
   // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
   // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
-  const KNOWN_NO_PAIR = ['/writing/dashboard'];
+  const KNOWN_NO_PAIR = ['/pricing', '/writing/dashboard'];
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
@@ -664,7 +679,12 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   // đọc đi thêm một tên vào `KNOWN_NO_PAIR`, tức tự tay tạo ra đúng lỗ mà chốt
   // sinh ra để chặn. Mô hình của chốt phải phủ CẢ HAI nơi khai cặp.
   const diffSrc = readFileSync(path.join(ROOT, 'frontend/tooling/parity-diff.mjs'), 'utf8');
-  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => m[1]);
+  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => {
+    // Một cặp có thể cần query fixture để chạm đúng state hữu ích (ví dụ
+    // Grammar Search). Quyền sở hữu route vẫn là pathname; so cả `?q=` ở đây
+    // sẽ báo giả rằng route đã cutover nhưng chưa có cặp.
+    return new URL(m[1], 'https://parity.local').pathname;
+  });
   assert.ok(publicPairs.length >= 1, 'không đọc được cặp công khai nào — bộ dò hỏng?');
   for (const r of publicPairs) paired.add(r);
 
@@ -738,7 +758,8 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
-  const paired = new Set(pairs.map((x) => path.basename(x.legacy, '.html')));
+  const paired = new Set(pairs.map((x) => path.basename(
+    new URL(x.legacy, 'https://parity.invalid').pathname, '.html')));
   const documented = readFileSync(
     path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
 
@@ -814,8 +835,9 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
   const loadedLocalDependencies = new Set();
   for (const pair of pairs) {
+    const legacyPathname = new URL(pair.legacy, 'https://parity.invalid').pathname;
     const legacyPage = readFileSync(
-      path.join(ROOT, 'frontend/public', pair.legacy.replace(/^\//, '')),
+      path.join(ROOT, 'frontend/public', legacyPathname.replace(/^\//, '')),
       'utf8',
     );
     const assetUrls = [];
@@ -830,7 +852,7 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     }
     for (const raw of assetUrls) {
       if (/^(?:https?:)?\/\//.test(raw) || /^(?:data|blob|mailto):/.test(raw)) continue;
-      const pathname = new URL(raw, `https://parity.invalid${pair.legacy}`).pathname;
+      const pathname = new URL(raw, `https://parity.invalid${legacyPathname}`).pathname;
       const dependency = `frontend/public${pathname}`;
       if (existsSync(path.join(ROOT, dependency))) loadedLocalDependencies.add(dependency);
     }

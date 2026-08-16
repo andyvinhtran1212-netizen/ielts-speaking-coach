@@ -32,15 +32,14 @@
 
   <script>
     (function () {
-      // Preserve whatever query the old link carried, then force tab=students.
+      // Preserve search terms when consolidating the retired alias.
       var params = new URLSearchParams(window.location.search || '');
-      params.set('tab', 'students');
       // replace() so Back does not bounce the admin straight back here.
-      window.location.replace('/pages/admin/classes/index.html?' + params.toString());
+      window.location.replace('/admin/students' + (params.toString() ? '?' + params.toString() : ''));
     })();
   </script>
 
-  <link rel="canonical" href="/pages/admin/classes/index.html?tab=students" />
+  <link rel="canonical" href="/admin/students" />
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
@@ -81,7 +80,7 @@
   <div class="closure-card">
     <h1>Học viên đã chuyển</h1>
     <p>Lớp và học viên nay nằm chung một trang.</p>
-    <a href="/pages/admin/classes/index.html?tab=students">Mở Lớp &amp; Học viên</a>
+    <a href="/admin/students">Mở danh bạ học viên</a>
   </div>
 </body>
 </html>

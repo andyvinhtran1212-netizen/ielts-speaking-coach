@@ -23,21 +23,28 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
         'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
-      next: Object.freeze({ path: '/reading/exam/session', route_ready: false }),
+      // Native App Router player exists as a dark route. Admission stays
+      // legacy until Gate E's Reading failure matrix and coexistence drill pass.
+      next: Object.freeze({ path: '/reading/exam/session', route_ready: true }),
     }),
     listening_test: Object.freeze({
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['id']),
       allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
-      next: Object.freeze({ path: '/listening/test/session', route_ready: false }),
+      // Native App Router player is dark-ready. Admission stays legacy until
+      // the Listening Gate E failure matrix and coexistence drill pass.
+      next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['test_id']),
       allowed_query: Object.freeze(['test_id', 'section']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
-      next: Object.freeze({ path: '/listening/dictation/session', route_ready: false }),
+      // Native App Router player owns the complete dark-route flow, including
+      // durable completion reconciliation. Admission stays legacy until its
+      // Gate E browser/failure matrix passes.
+      next: Object.freeze({ path: '/listening/dictation/session', route_ready: true }),
     }),
   }),
 });
@@ -209,4 +216,44 @@ export function admitCorePlayer(
     params.set(key, value);
   }
   return `${RUNTIME_ADMISSION_PATH}?${params.toString()}`;
+}
+
+/**
+ * Convert an N-1 backend's implementation-specific URL into a fresh runtime
+ * admission decision. Compatibility parsing lives here so callers never need
+ * to copy legacy player paths and silently bypass a later cutover/rollback.
+ */
+export function admitCorePlayerFromLegacyUrl(
+  surface,
+  legacyUrl,
+  expectedQuery = {},
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const config = surfacePolicy(surface, policy);
+  if (typeof legacyUrl !== 'string' || !legacyUrl.startsWith('/')) {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(legacyUrl, 'https://aver.invalid');
+  } catch {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  if (parsed.origin !== 'https://aver.invalid' || parsed.pathname !== config.legacy.path
+      || parsed.hash || parsed.username || parsed.password) {
+    throw new Error(`invalid-core-player-legacy-url:${surface}`);
+  }
+  const entries = [...parsed.searchParams.entries()];
+  const keys = new Set();
+  for (const [key] of entries) {
+    if (keys.has(key)) throw new Error(`invalid-core-player-legacy-query:${surface}`);
+    keys.add(key);
+  }
+  const query = Object.fromEntries(entries);
+  for (const [key, value] of Object.entries(expectedQuery || {})) {
+    if (query[key] !== scalarQueryValue(value, key)) {
+      throw new Error(`mismatched-core-player-legacy-query:${surface}:${key}`);
+    }
+  }
+  return admitCorePlayer(surface, query, policy);
 }

@@ -20,7 +20,10 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import re
 import uuid
 from typing import Any, Optional
 
@@ -84,6 +87,93 @@ _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
 
 
 _TF_VALID = {"T", "F", "NG"}
+MAX_LISTENING_SEGMENTS = 500
+MAX_MCQ_STEM_LENGTH = 1_000
+MAX_MCQ_OPTION_LENGTH = 500
+_SINGLE_PUBLISHED_EXERCISE_TYPES = frozenset({"gist", "true_false", "mcq"})
+
+
+def _is_standalone_authoring_exercise(row: dict) -> bool:
+    """Identify legacy/native standalone blocks that must never join a test.
+
+    Imported test blocks carry ``template_kind`` and q_num-based questions.
+    Standalone authoring uses a separate gist/T-F/MCQ payload contract; mixing
+    those rows into a test section produces blank or malformed player blocks.
+    """
+    payload = row.get("payload") or {}
+    if not isinstance(payload, dict) or payload.get("template_kind"):
+        return False
+    exercise_type = row.get("exercise_type")
+    if exercise_type == "gist":
+        return "question" in payload
+    if exercise_type == "true_false":
+        return "statements" in payload
+    if exercise_type == "mcq":
+        questions = payload.get("questions")
+        return isinstance(questions, list) and any(
+            isinstance(question, dict) and ("idx" in question or "stem" in question)
+            for question in questions
+        )
+    return False
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """Recognize PostgREST/PostgreSQL uniqueness failures in both SDK shapes."""
+    message = str(exc).lower()
+    code = getattr(exc, "code", None)
+    if code is None and exc.args and isinstance(exc.args[0], dict):
+        code = exc.args[0].get("code")
+    # SQLSTATE is stable across PostgREST client exception shapes. Do not infer
+    # uniqueness from prose such as "duplicate key": that can misclassify an
+    # unrelated future constraint as a block-identity conflict.
+    return str(code or "") == "23505" or bool(re.search(r"\b23505\b", message))
+
+
+def _published_standalone_orders(
+    content_id: str,
+    exercise_type: str,
+    *,
+    exclude_id: str | None = None,
+) -> list[int]:
+    """Return canonical live competitors for one standalone learner mode."""
+    if exercise_type not in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        return []
+    result = (
+        supabase_admin.table("listening_exercises")
+        .select("id,order_num")
+        .eq("content_id", content_id)
+        .eq("exercise_type", exercise_type)
+        .eq("status", "published")
+        .execute()
+    )
+    orders: set[int] = set()
+    for row in result.data or []:
+        if exclude_id and str(row.get("id")) == exclude_id:
+            continue
+        try:
+            orders.add(int(row.get("order_num")))
+        except (TypeError, ValueError):
+            continue
+    return sorted(orders)
+
+
+def _single_published_conflict_detail(exercise_type: str, live_orders: list[int]) -> str:
+    return (
+        f"Only one published {exercise_type} block is reachable per content. "
+        f"Archive or draft the live block at order {live_orders} before publishing this one."
+    )
+
+
+def _same_timestamp(left: object, right: object) -> bool:
+    """Compare Postgres timestamptz tokens without serialization false conflicts."""
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(str(left).replace("Z", "+00:00")) == datetime.fromisoformat(
+            str(right).replace("Z", "+00:00"),
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 def _validate_gist_payload(payload: dict) -> dict:
@@ -94,16 +184,42 @@ def _validate_gist_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "Gist payload must be a JSON object.")
-    prompt = str(payload.get("prompt_text") or "").strip()
-    model_answer = str(payload.get("model_answer") or "").strip()
+    prompt_value = payload.get("prompt_text")
+    model_answer_value = payload.get("model_answer")
+    if not isinstance(prompt_value, str):
+        raise HTTPException(422, "Gist payload prompt_text must be a string.")
+    if not isinstance(model_answer_value, str):
+        raise HTTPException(422, "Gist payload model_answer must be a string.")
+    prompt = prompt_value.strip()
+    model_answer = model_answer_value.strip()
     if not prompt:
         raise HTTPException(422, "Gist payload missing prompt_text.")
     if not model_answer:
         raise HTTPException(422, "Gist payload missing model_answer.")
-    raw_keywords = payload.get("rubric_keywords") or []
+    if len(prompt) > 1_000:
+        raise HTTPException(422, "Gist prompt_text must not exceed 1000 characters.")
+    if len(model_answer) > 5_000:
+        raise HTTPException(422, "Gist model_answer must not exceed 5000 characters.")
+    raw_keywords = payload.get("rubric_keywords", [])
     if not isinstance(raw_keywords, list):
         raise HTTPException(422, "rubric_keywords must be a list of strings.")
-    keywords = [str(k).strip() for k in raw_keywords if str(k).strip()][:10]
+    if len(raw_keywords) > 10:
+        raise HTTPException(422, "rubric_keywords must contain at most 10 items.")
+    keywords: list[str] = []
+    seen: set[str] = set()
+    for index, raw_keyword in enumerate(raw_keywords):
+        if not isinstance(raw_keyword, str):
+            raise HTTPException(422, f"rubric_keywords[{index}] must be a string.")
+        keyword = raw_keyword.strip()
+        if not keyword:
+            raise HTTPException(422, f"rubric_keywords[{index}] must not be empty.")
+        if len(keyword) > 100:
+            raise HTTPException(422, f"rubric_keywords[{index}] must not exceed 100 characters.")
+        normalized = keyword.casefold()
+        if normalized in seen:
+            raise HTTPException(422, f"rubric_keywords[{index}] duplicates another keyword.")
+        seen.add(normalized)
+        keywords.append(keyword)
     return {
         "prompt_text":     prompt,
         "model_answer":    model_answer,
@@ -122,7 +238,9 @@ def _validate_true_false_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "true_false payload must be a JSON object.")
-    raw = payload.get("statements") or []
+    if "statements" not in payload:
+        raise HTTPException(422, "true_false payload missing statements.")
+    raw = payload.get("statements")
     if not isinstance(raw, list):
         raise HTTPException(422, "true_false payload statements must be a list.")
     if not (3 <= len(raw) <= 12):
@@ -135,19 +253,26 @@ def _validate_true_false_payload(payload: dict) -> dict:
     for i, raw_stmt in enumerate(raw):
         if not isinstance(raw_stmt, dict):
             raise HTTPException(422, f"Statement {i} must be a JSON object.")
-        try:
-            idx_v = int(raw_stmt.get("idx"))
-        except (TypeError, ValueError):
+        idx_v = raw_stmt.get("idx")
+        if isinstance(idx_v, bool) or not isinstance(idx_v, int):
             raise HTTPException(422, f"Statement {i} idx invalid.")
         if idx_v != i:
             raise HTTPException(
                 422,
                 f"Statement idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
             )
-        text = str(raw_stmt.get("text") or "").strip()
+        text_value = raw_stmt.get("text")
+        if not isinstance(text_value, str):
+            raise HTTPException(422, f"Statement {i} text must be a string.")
+        text = text_value.strip()
         if not text:
             raise HTTPException(422, f"Statement {i} text is empty.")
-        ans = str(raw_stmt.get("answer") or "").upper().strip()
+        if len(text) > 1_000:
+            raise HTTPException(422, f"Statement {i} text must not exceed 1000 characters.")
+        answer_value = raw_stmt.get("answer")
+        if not isinstance(answer_value, str):
+            raise HTTPException(422, f"Statement {i} answer must be a string.")
+        ans = answer_value.upper().strip()
         if ans in {"TRUE"}: ans = "T"
         elif ans in {"FALSE"}: ans = "F"
         elif ans in {"NOT GIVEN", "NOTGIVEN", "N/G"}: ans = "NG"
@@ -172,7 +297,9 @@ def _validate_mcq_payload(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         raise HTTPException(422, "mcq payload must be a JSON object.")
-    raw = payload.get("questions") or []
+    if "questions" not in payload:
+        raise HTTPException(422, "mcq payload missing questions.")
+    raw = payload.get("questions")
     if not isinstance(raw, list):
         raise HTTPException(422, "mcq payload questions must be a list.")
     if not (1 <= len(raw) <= 20):
@@ -184,31 +311,49 @@ def _validate_mcq_payload(payload: dict) -> dict:
     for i, raw_q in enumerate(raw):
         if not isinstance(raw_q, dict):
             raise HTTPException(422, f"Question {i} must be a JSON object.")
-        try:
-            idx_v = int(raw_q.get("idx"))
-        except (TypeError, ValueError):
+        idx_v = raw_q.get("idx")
+        if isinstance(idx_v, bool) or not isinstance(idx_v, int):
             raise HTTPException(422, f"Question {i} idx invalid.")
         if idx_v != i:
             raise HTTPException(
                 422,
                 f"Question idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
             )
-        stem = str(raw_q.get("stem") or "").strip()
+        stem_value = raw_q.get("stem")
+        if not isinstance(stem_value, str):
+            raise HTTPException(422, f"Question {i} stem must be a string.")
+        stem = stem_value.strip()
         if not stem:
             raise HTTPException(422, f"Question {i} stem is empty.")
-        opts_raw = raw_q.get("options") or []
+        if len(stem) > MAX_MCQ_STEM_LENGTH:
+            raise HTTPException(
+                422,
+                f"Question {i} stem must not exceed {MAX_MCQ_STEM_LENGTH} characters.",
+            )
+        opts_raw = raw_q.get("options")
         if not isinstance(opts_raw, list) or len(opts_raw) != 4:
             raise HTTPException(
                 422,
                 f"Question {i} requires exactly 4 options (got {len(opts_raw) if isinstance(opts_raw, list) else 'non-list'}).",
             )
-        options = [str(o).strip() for o in opts_raw]
-        for j, o in enumerate(options):
+        options: list[str] = []
+        for j, raw_option in enumerate(opts_raw):
+            if not isinstance(raw_option, str):
+                raise HTTPException(422, f"Question {i} option {j} must be a string.")
+            o = raw_option.strip()
             if not o:
                 raise HTTPException(422, f"Question {i} option {j} is empty.")
-        try:
-            answer_idx = int(raw_q.get("answer_idx"))
-        except (TypeError, ValueError):
+            if len(o) > MAX_MCQ_OPTION_LENGTH:
+                raise HTTPException(
+                    422,
+                    f"Question {i} option {j} must not exceed {MAX_MCQ_OPTION_LENGTH} characters.",
+                )
+            options.append(o)
+        normalized_options = [option.casefold() for option in options]
+        if len(set(normalized_options)) != len(normalized_options):
+            raise HTTPException(422, f"Question {i} options must be distinct.")
+        answer_idx = raw_q.get("answer_idx")
+        if isinstance(answer_idx, bool) or not isinstance(answer_idx, int):
             raise HTTPException(422, f"Question {i} answer_idx invalid.")
         if not (0 <= answer_idx <= 3):
             raise HTTPException(
@@ -238,6 +383,11 @@ def _validate_dictation_segments(
     """
     if not isinstance(segments, list) or not segments:
         raise HTTPException(422, "Dictation exercises require at least one segment.")
+    if len(segments) > MAX_LISTENING_SEGMENTS:
+        raise HTTPException(
+            422,
+            f"Dictation exercises support at most {MAX_LISTENING_SEGMENTS} segments.",
+        )
 
     out: list[dict] = []
     prev_end = -1.0
@@ -356,6 +506,7 @@ class ListeningContentMetadataPatchRequest(BaseModel):
     is_premium: bool | None = Field(default=None)
     external_license: str | None = Field(default=None, max_length=120)
     external_source_url: str | None = Field(default=None, max_length=500)
+    expected_updated_at: str | None = Field(default=None, max_length=80)
 
 
 class ListeningContentStatusPatchRequest(BaseModel):
@@ -388,21 +539,41 @@ class ListeningExerciseUpsertRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     content_id: str = Field(min_length=1, max_length=64)
+    exercise_id: str | None = Field(default=None, max_length=64)
     exercise_type: str = Field(default="dictation")
     segments: list[dict] = Field(default_factory=list)
     payload: dict = Field(default_factory=dict)
     order_num: int = Field(default=1, ge=1, le=200)
     status: str = Field(default="draft")
+    expected_updated_at: str | None = Field(default=None, max_length=80)
+    expected_absent: bool = Field(default=False)
 
 
 # ── User route — single content fetch ─────────────────────────────────────────
 
 
+_STUDENT_LISTENING_CONTENT_FIELDS = (
+    "id",
+    "title",
+    "accent_tag",
+    "cefr_level",
+    "ielts_section",
+    "topic_tags",
+    "audio_duration_seconds",
+)
+
+
 def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
-    """Return one published listening_content row with a fresh signed audio URL."""
+    """Return student-safe metadata plus a fresh signed audio URL.
+
+    The row also stores the reference transcript and alignment artifacts used
+    by graders/admin tooling. Those are answer material and must never ride the
+    learner boot response, even when the current UI happens to ignore them.
+    """
     res = (
         supabase_admin.table("listening_content")
-        .select("*")
+        .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
+                          "audio_storage_path,status")))
         .eq("id", content_id)
         .eq("status", "published")
         .limit(1)
@@ -421,7 +592,7 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         ).create_signed_url(row["audio_storage_path"], 3600)
         # Supabase Python SDK returns dict with 'signedURL' (snake_case
         # 'signed_url' historically — handle both for forward-compat).
-        row["audio_signed_url"] = signed.get("signedURL") or signed.get("signed_url")
+        audio_signed_url = signed.get("signedURL") or signed.get("signed_url")
     except Exception as e:
         # Bucket-not-found path mirrors grading.py:240-250 pattern.
         logger.error(
@@ -433,7 +604,9 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
             "Listening audio storage not configured. See migration 056 header.",
         )
 
-    return row
+    safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
+    safe["audio_signed_url"] = audio_signed_url
+    return safe
 
 
 def _fetch_published_exercises_for_student(
@@ -473,7 +646,30 @@ def _fetch_published_exercises_for_student(
         .execute()
     )
     from services import listening_test_grader as grader
-    return grader.strip_answer_keys(res.data or [])
+    rows = grader.strip_answer_keys(res.data or [])
+    if exercise_type != "dictation":
+        return rows
+
+    # A dictation transcript is the answer itself. The legacy boot used to
+    # send segments[].transcript before the learner typed anything, which made
+    # the full key visible in DevTools even though the page hid it. The grader
+    # reads the raw database row through _resolve_attempt_target(), so learner
+    # boot only needs the clip identity and timing window.
+    safe_rows: list[dict] = []
+    for row in rows:
+        safe_row = dict(row)
+        raw_segments = row.get("segments")
+        safe_row["segments"] = [
+            {
+                "idx": segment.get("idx"),
+                "start_sec": segment.get("start_sec"),
+                "end_sec": segment.get("end_sec"),
+            }
+            for segment in (raw_segments if isinstance(raw_segments, list) else [])
+            if isinstance(segment, dict)
+        ]
+        safe_rows.append(safe_row)
+    return safe_rows
 
 
 @user_router.get("/content/{content_id}")
@@ -541,6 +737,7 @@ def _ensure_dictation_exercise(content_id: str) -> str:
         .select("id")
         .eq("content_id", content_id)
         .eq("exercise_type", "dictation")
+        .order("order_num")
         .limit(1)
         .execute()
     )
@@ -548,14 +745,37 @@ def _ensure_dictation_exercise(content_id: str) -> str:
         return existing.data[0]["id"]
 
     exercise_id = str(uuid.uuid4())
-    supabase_admin.table("listening_exercises").insert({
-        "id":            exercise_id,
-        "content_id":    content_id,
-        "exercise_type": "dictation",
-        "payload":       {},
-        "order_num":     1,
-        "status":        "published",
-    }).execute()
+    try:
+        supabase_admin.table("listening_exercises").insert({
+            "id":            exercise_id,
+            "content_id":    content_id,
+            "exercise_type": "dictation",
+            "payload":       {},
+            "segments":      [],
+            "order_num":     1,
+            "status":        "published",
+        }).execute()
+    except Exception as exc:
+        if not _is_unique_violation(exc):
+            raise
+        # Two first attempts can both miss the preflight SELECT. Migration 208
+        # serializes the INSERTs through the logical block key; after 23505,
+        # adopt the winner instead of surfacing an incidental learner-facing 500.
+        winner = (
+            supabase_admin.table("listening_exercises")
+            .select("id")
+            .eq("content_id", content_id)
+            .eq("exercise_type", "dictation")
+            .order("order_num")
+            .limit(1)
+            .execute()
+        )
+        if winner.data:
+            return winner.data[0]["id"]
+        raise HTTPException(
+            409,
+            "Dictation exercise was created concurrently; retry the attempt.",
+        ) from None
     return exercise_id
 
 
@@ -677,6 +897,7 @@ def _resolve_attempt_target(
             .eq("content_id", content_id)
             .eq("exercise_type", body.mode)
             .eq("status", "published")
+            .order("order_num", desc=False)
             .limit(1)
             .execute()
         )
@@ -694,6 +915,7 @@ def _resolve_attempt_target(
             .eq("content_id", content_id)
             .eq("exercise_type", "dictation")
             .eq("status", "published")
+            .order("order_num", desc=False)
             .limit(1)
             .execute()
         )
@@ -1030,23 +1252,15 @@ async def get_listening_exercises(
     if not c.data:
         raise HTTPException(404, "Listening content not found or not published")
 
-    res = (
-        supabase_admin.table("listening_exercises")
-        .select("*")
-        .eq("content_id", content_id)
-        .eq("exercise_type", exercise_type)
-        .eq("status", "published")
-        .order("order_num", desc=False)
-        .execute()
-    )
-    # Sprint 13.5 đã dựng chốt này cho `/tests/{id}`, nhưng route bài LẺ vẫn trả
-    # `select("*")` nguyên vẹn — tức `payload.questions[].answer_idx` (mcq),
-    # `payload.statements[].answer` (T/F) và `payload.model_answer` +
-    # `rubric_keywords` (gist) đều đi thẳng tới trình duyệt. Ba trang đó tự xoá ở
-    # client ("user must NOT see it in DOM", `listening-mcq.js:81`) nên trên màn
-    # hình không thấy gì, nhưng tab Network thì thấy đủ.
-    from services import listening_test_grader as grader
-    return {"exercises": grader.strip_answer_keys(res.data or [])}
+    # Keep every learner exercise surface on the same answer-stripping path.
+    # Besides payload answer keys, Dictation must also withhold the reference
+    # transcript stored in the top-level `segments` column.
+    return {
+        "exercises": _fetch_published_exercises_for_student(
+            content_id=content_id,
+            exercise_type=exercise_type,
+        ),
+    }
 
 
 # ── Admin routes — content preview + list ─────────────────────────────────────
@@ -1168,52 +1382,81 @@ async def admin_patch_listening_content(
     if not existing.data:
         raise HTTPException(404, "Listening content not found")
     current = existing.data[0]
+    fields = body.model_fields_set
+    expected_updated_at = (body.expected_updated_at or "").strip() or None
+    if expected_updated_at and not _same_timestamp(current.get("updated_at"), expected_updated_at):
+        raise HTTPException(
+            409,
+            "Listening content changed after this editor was opened. Reload canonical data before saving.",
+        )
 
     update: dict = {}
 
-    if body.title is not None:
-        title = body.title.strip()
+    if "title" in fields:
+        title = (body.title or "").strip()
         if not title:
             raise HTTPException(422, "title must not be empty")
         update["title"] = title
 
-    if body.transcript is not None:
-        transcript = body.transcript
+    if "transcript" in fields:
+        transcript = body.transcript or ""
         if not transcript.strip():
             raise HTTPException(422, "transcript must not be empty")
         update["transcript"] = transcript
 
-    if body.accent_tag is not None:
+    if "accent_tag" in fields:
         if body.accent_tag not in _ACCENT_VALUES:
             raise HTTPException(
                 422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
             )
         update["accent_tag"] = body.accent_tag
 
-    if body.cefr_level is not None:
-        if body.cefr_level not in _CEFR_VALUES:
+    if "cefr_level" in fields:
+        if body.cefr_level is not None and body.cefr_level not in _CEFR_VALUES:
             raise HTTPException(
                 422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
             )
         update["cefr_level"] = body.cefr_level
 
-    if body.ielts_section is not None:
-        if not (1 <= body.ielts_section <= 4):
+    if "ielts_section" in fields:
+        if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
             raise HTTPException(422, "ielts_section must be 1-4")
         update["ielts_section"] = body.ielts_section
 
-    if body.topic_tags is not None:
-        tags = [str(t).strip() for t in body.topic_tags if str(t).strip()]
+    if "topic_tags" in fields:
+        if body.topic_tags is None:
+            raise HTTPException(422, "topic_tags must be an array")
+        tags: list[str] = []
+        seen_tags: set[str] = set()
+        for raw_tag in body.topic_tags:
+            tag = str(raw_tag).strip()
+            # Keep this fold in lock-step with the browser editor's
+            # String.prototype.toLowerCase(). Python's casefold() is more
+            # aggressive (for example, ß -> ss), which made a successful
+            # write differ from the exact delta the editor later reconciles.
+            folded = tag.lower()
+            if tag and folded not in seen_tags:
+                seen_tags.add(folded)
+                tags.append(tag)
         update["topic_tags"] = tags
 
-    if body.is_premium is not None:
+    if "is_premium" in fields:
+        if body.is_premium is None:
+            raise HTTPException(422, "is_premium must be true or false")
         update["is_premium"] = bool(body.is_premium)
 
-    if body.external_license is not None:
-        update["external_license"] = body.external_license or None
+    if "external_license" in fields:
+        update["external_license"] = (body.external_license or "").strip() or None
 
-    if body.external_source_url is not None:
-        update["external_source_url"] = body.external_source_url or None
+    if "external_source_url" in fields:
+        from urllib.parse import urlparse
+        source_url = (body.external_source_url or "").strip() or None
+        if source_url:
+            parsed = urlparse(source_url)
+            if (parsed.scheme not in {"http", "https"} or not parsed.netloc
+                    or any(char.isspace() for char in source_url)):
+                raise HTTPException(422, "external_source_url must be an HTTP(S) URL")
+        update["external_source_url"] = source_url
 
     # Cross-field rules — evaluated against the merged shape (current row
     # + this PATCH's deltas) so partial updates can't slip past Sprint
@@ -1228,7 +1471,10 @@ async def admin_patch_listening_content(
     if (
         merged.get("is_premium")
         and merged.get("external_license")
-        and "NC" in str(merged["external_license"])
+        and re.search(
+            r"(^|[^A-Z0-9])NC([^A-Z0-9]|$)",
+            str(merged["external_license"]).upper(),
+        )
     ):
         raise HTTPException(
             422,
@@ -1242,14 +1488,25 @@ async def admin_patch_listening_content(
         # can refresh consistently.
         return current
 
-    res = (
-        supabase_admin.table("listening_content")
-        .update(update)
-        .eq("id", content_id)
-        .execute()
-    )
+    from datetime import datetime, timezone
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    mutation = (supabase_admin.table("listening_content")
+                .update(update).eq("id", content_id))
+    if expected_updated_at:
+        mutation = mutation.eq("updated_at", expected_updated_at)
+    res = mutation.execute()
     rows = res.data or []
-    return rows[0] if rows else {**current, **update}
+    if not rows:
+        if expected_updated_at:
+            raise HTTPException(
+                409,
+                "Listening content changed while saving. Reload canonical data before retrying.",
+            )
+        raise HTTPException(
+            500,
+            "Listening content update was not confirmed by the database.",
+        )
+    return rows[0]
 
 
 @admin_router.patch("/content/{content_id}/status")
@@ -1311,10 +1568,11 @@ async def admin_upsert_listening_exercise(
       - non-overlapping
       - transcript non-empty
 
-    Upsert semantics: if a row with the same (content_id, exercise_type)
-    pair already exists, the row is UPDATEd in place (preserves the
-    exercise_id so existing attempt rows keep referencing it). Otherwise
-    a new row is INSERTed.
+    Legacy callers that omit order_num retain their original "first block of
+    this type" semantics. Callers that provide order_num use the complete
+    (content_id, exercise_type, order_num) block identity. Native editors
+    update an exact exercise_id with an expected_updated_at version token so
+    existing attempt rows keep referencing the same exercise.
     """
     await require_admin(authorization)
 
@@ -1330,19 +1588,27 @@ async def admin_upsert_listening_exercise(
     # ── Resolve parent content (we need its duration for validation) ─────────
     c = (
         supabase_admin.table("listening_content")
-        .select("id,audio_duration_seconds")
+        .select("id,audio_duration_seconds,test_id")
         .eq("id", body.content_id)
         .limit(1)
         .execute()
     )
     if not c.data:
         raise HTTPException(404, "Listening content not found")
-    duration = c.data[0]["audio_duration_seconds"]
+    content_row = c.data[0]
+    duration = content_row["audio_duration_seconds"]
+    if content_row.get("test_id") and body.exercise_type in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        raise HTTPException(
+            409,
+            "Content này thuộc test/drill importer; hãy sửa block trong Listening Tests, không tạo block standalone.",
+        )
 
     # ── Validate per-type payload + segments (Sprint 11.3 + 11.4) ──────────
     validated_segments: list[dict] = []
     validated_payload: dict = dict(body.payload or {})
     if body.exercise_type == "dictation":
+        if "segments" not in body.model_fields_set:
+            raise HTTPException(422, "segments is required for a dictation save")
         validated_segments = _validate_dictation_segments(
             body.segments,
             audio_duration_seconds=duration,
@@ -1354,36 +1620,191 @@ async def admin_upsert_listening_exercise(
     elif body.exercise_type == "mcq":
         validated_payload = _validate_mcq_payload(validated_payload)
 
-    # ── Upsert: look up existing row by (content_id, exercise_type) ──────────
-    existing = (
+    if body.expected_absent and body.expected_updated_at:
+        raise HTTPException(
+            422,
+            "expected_absent and expected_updated_at are mutually exclusive",
+        )
+    if body.expected_absent and "order_num" not in body.model_fields_set:
+        raise HTTPException(422, "order_num is required with expected_absent")
+    if body.exercise_id:
+        try:
+            uuid.UUID(body.exercise_id)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(422, "exercise_id must be a valid UUID") from None
+        if body.expected_absent:
+            raise HTTPException(422, "exercise_id cannot be combined with expected_absent")
+        if not body.expected_updated_at:
+            raise HTTPException(422, "expected_updated_at is required with exercise_id")
+    elif body.expected_updated_at:
+        raise HTTPException(422, "exercise_id is required with expected_updated_at")
+
+    # Exact exercise identity is first-class for native editors. Older Gist,
+    # T/F and MCQ editors omit both exercise_id and order_num; preserve their
+    # first-block semantics so imported blocks at order 2+ are updated rather
+    # than shadowed by a new order-1 row.
+    explicit_order = "order_num" in body.model_fields_set
+    existing_query = (
         supabase_admin.table("listening_exercises")
-        .select("id")
-        .eq("content_id", body.content_id)
-        .eq("exercise_type", body.exercise_type)
-        .limit(1)
-        .execute()
+        .select("id,content_id,exercise_type,order_num,updated_at,payload")
     )
+    if body.exercise_id:
+        existing_query = existing_query.eq("id", body.exercise_id)
+    else:
+        existing_query = (
+            existing_query
+            .eq("content_id", body.content_id)
+            .eq("exercise_type", body.exercise_type)
+        )
+        if explicit_order:
+            existing_query = existing_query.eq("order_num", body.order_num)
+        else:
+            existing_query = existing_query.order("order_num")
+    existing = existing_query.limit(1).execute()
+    current_exercise = (existing.data or [None])[0]
+    resolved_order = body.order_num
+    if current_exercise and not body.exercise_id and not explicit_order:
+        resolved_order = int(current_exercise.get("order_num") or 1)
+
+    if body.exercise_id and not current_exercise:
+        raise HTTPException(
+            409,
+            "Exercise no longer exists. Reload canonical data before saving.",
+        )
+    if current_exercise and (
+        str(current_exercise.get("content_id")) != body.content_id
+        or current_exercise.get("exercise_type") != body.exercise_type
+        or int(current_exercise.get("order_num") or 0) != resolved_order
+    ):
+        raise HTTPException(
+            409,
+            "Exercise identity no longer matches this content/type/order block.",
+        )
+    if body.expected_absent and current_exercise:
+        raise HTTPException(
+            409,
+            "Exercise block was created elsewhere. Reload canonical data before saving.",
+        )
+    if body.expected_updated_at:
+        if not current_exercise or not _same_timestamp(
+            current_exercise.get("updated_at"), body.expected_updated_at,
+        ):
+            raise HTTPException(
+                409,
+                "Exercise block changed after this editor was opened. Reload canonical data before saving.",
+            )
+
+    # Standalone learner pages resolve one published block per mode. This
+    # preflight gives admins an actionable 409; migration 209 is the atomic
+    # backstop when concurrent requests both pass this SELECT.
+    current_id = str(current_exercise.get("id")) if current_exercise else None
+    if body.status == "published" and body.exercise_type in _SINGLE_PUBLISHED_EXERCISE_TYPES:
+        live_orders = _published_standalone_orders(
+            body.content_id,
+            body.exercise_type,
+            exclude_id=current_id,
+        )
+        if live_orders:
+            raise HTTPException(
+                409,
+                _single_published_conflict_detail(body.exercise_type, live_orders),
+            )
+
+    # The native Dictation editor owns segments, not the type-specific JSONB
+    # configuration. Preserve an existing payload unless the caller explicitly
+    # supplied that field; otherwise a segments-only save would erase importer
+    # provenance or future playback/tolerance settings.
+    if (
+        body.exercise_type == "dictation"
+        and current_exercise
+        and "payload" not in body.model_fields_set
+    ):
+        validated_payload = dict(current_exercise.get("payload") or {})
 
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
         "payload":       validated_payload,
-        "order_num":     body.order_num,
+        "order_num":     resolved_order,
         "status":        body.status,
         "segments":      validated_segments,
     }
 
-    if existing.data:
-        exercise_id = existing.data[0]["id"]
-        supabase_admin.table("listening_exercises").update(payload).eq(
-            "id", exercise_id,
-        ).execute()
-        return {"ok": True, "exercise_id": exercise_id, "created": False}
+    from datetime import datetime, timezone
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    if current_exercise:
+        exercise_id = current_exercise["id"]
+        mutation = (
+            supabase_admin.table("listening_exercises")
+            .update(payload)
+            .eq("id", exercise_id)
+        )
+        if body.expected_updated_at:
+            mutation = mutation.eq("updated_at", body.expected_updated_at)
+        try:
+            result = mutation.execute()
+        except Exception as exc:
+            if not _is_unique_violation(exc):
+                raise
+            live_orders = _published_standalone_orders(
+                body.content_id,
+                body.exercise_type,
+                exclude_id=str(exercise_id),
+            ) if body.status == "published" else []
+            if live_orders:
+                raise HTTPException(
+                    409,
+                    _single_published_conflict_detail(body.exercise_type, live_orders),
+                ) from None
+            raise HTTPException(
+                409,
+                "Exercise block changed concurrently. Reload canonical data before retrying.",
+            ) from None
+        rows = result.data or []
+        if not rows:
+            if body.expected_updated_at:
+                raise HTTPException(
+                    409,
+                    "Exercise block changed while saving. Reload canonical data before retrying.",
+                )
+            raise HTTPException(500, "Exercise update was not confirmed by the database.")
+        return {
+            "ok": True,
+            "exercise_id": exercise_id,
+            "created": False,
+            "updated_at": rows[0].get("updated_at"),
+        }
 
     exercise_id = str(uuid.uuid4())
     payload["id"] = exercise_id
-    supabase_admin.table("listening_exercises").insert(payload).execute()
-    return {"ok": True, "exercise_id": exercise_id, "created": True}
+    try:
+        result = supabase_admin.table("listening_exercises").insert(payload).execute()
+    except Exception as exc:
+        if _is_unique_violation(exc):
+            live_orders = _published_standalone_orders(
+                body.content_id,
+                body.exercise_type,
+            ) if body.status == "published" else []
+            if live_orders:
+                raise HTTPException(
+                    409,
+                    _single_published_conflict_detail(body.exercise_type, live_orders),
+                ) from None
+            raise HTTPException(
+                409,
+                "Exercise block was created concurrently. Reload canonical data before retrying.",
+            ) from None
+        raise
+    rows = result.data or []
+    if not rows:
+        raise HTTPException(500, "Exercise insert was not confirmed by the database.")
+    return {
+        "ok": True,
+        "exercise_id": exercise_id,
+        "created": True,
+        "updated_at": rows[0].get("updated_at"),
+    }
 
 
 @admin_router.get("/exercises")
@@ -1436,8 +1857,12 @@ async def admin_delete_listening_exercise(
     if not res.data:
         raise HTTPException(404, "Exercise not found")
 
+    from datetime import datetime, timezone
     supabase_admin.table("listening_exercises").update({
         "status": "archived",
+        # Keep the API truthful even during a rolling deploy before migration
+        # 208's trigger is present on every environment.
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", exercise_id).execute()
 
     return {"ok": True, "exercise_id": exercise_id, "status": "archived"}
@@ -2834,18 +3259,25 @@ async def admin_get_test_audit(
     h = listening_audit_svc.hydrate_test(test, contents, exercises)
     report = listening_audit_svc.run_structural(h)
     saved = _load_audit_row(test_id)
+    if saved:
+        saved = {**saved, "issues": listening_audit_svc.with_issue_sources(saved.get("issues"))}
     # Editor view — the fields the audit-detail page renders + edits inline.
     editor_sections = [{
         "section_num": s["section_num"],
         "content_id":  s["content_id"],
+        "content_updated_at": s["content_updated_at"],
+        "audio_offset": s["audio_offset"],
         "transcript":  s["transcript"],
         "questions": [{
             "q_num":         q["q_num"],
             "exercise_id":   q["exercise_id"],
+            "exercise_updated_at": q["exercise_updated_at"],
             "template_kind": q["template_kind"],
             "prompt":        q["prompt"],
+            "options":       q["options"],
             "answer":        q["answer"],
             "alternatives":  q["alternatives"],
+            "trap_mechanisms": q["trap_mechanisms"],
             "solution":      q["notes"],
             "audio_window":  q["audio_window"],
         } for q in s["questions"]],
@@ -2855,7 +3287,7 @@ async def admin_get_test_audit(
         "uuid":        test_id,
         "title":       test.get("title"),
         "status":      test.get("status"),
-        "test_type":   test.get("test_type"),
+        "test_type":   h.get("test_type"),
         "question_count": len(h["all_questions"]),
         "section_count":  len(h["sections"]),
         "sections":    editor_sections,   # for the inline editor
@@ -2874,9 +3306,21 @@ def _audit_provider():
         return None
 
 
+class AuditRunRequest(BaseModel):
+    """Optional client identity for a paid/non-idempotent full audit run.
+
+    Legacy rollback callers may omit it. Native callers persist a UUID in their
+    durable receipt and reconcile only against the same request_id in health.
+    """
+    model_config = ConfigDict(extra="forbid")
+    request_id: str | None = Field(default=None, min_length=8, max_length=80,
+                                   pattern=r"^[A-Za-z0-9_-]+$")
+
+
 @admin_router.post("/tests/{test_id}/audit/run")
 async def admin_run_test_audit(
     test_id: str,
+    body: AuditRunRequest | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Full audit: structural + audio-bounds + LLM content pass. PERSISTS the
@@ -2895,31 +3339,42 @@ async def admin_run_test_audit(
     if provider is None:
         issues.append({"q_num": None, "dimension": "solution", "severity": "warning",
                        "code": "llm_skipped", "resolved": False,
+                       "source": "llm",
                        "message": "Chưa cấu hình model audit (LISTENING_AUDIT_MODEL/API key) — bỏ qua LLM pass."})
     else:
         issues.extend(await listening_audit_svc.llm_content_audit(h, provider.invoke))
 
+    from uuid import uuid4
+    request_id = body.request_id if body and body.request_id else str(uuid4())
     health = {**listening_audit_svc.summarize(issues),
               "question_count": len(h["all_questions"]),
-              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None}
+              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None,
+              "request_id": request_id}
     status = health["status"]
-
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
     row = {
         "test_id":  test_id,
         "status":   status,
         "health":   health,
         "issues":   issues,
         "auditor":  (user or {}).get("id") or (user or {}).get("email"),
+        "audited_at": now_iso,
+        "updated_at": now_iso,
     }
     # upsert on the unique test_id
     existing = _load_audit_row(test_id)
     if existing:
-        supabase_admin.table("listening_audit").update(row).eq("test_id", test_id).execute()
+        result = (supabase_admin.table("listening_audit").update(row)
+                  .eq("test_id", test_id).execute())
     else:
-        supabase_admin.table("listening_audit").insert(row).execute()
+        result = supabase_admin.table("listening_audit").insert(row).execute()
+    if not (result.data or []):
+        raise HTTPException(500, "Listening audit write was not confirmed by the database.")
 
     return {"test_id": test.get("test_id"), "uuid": test_id,
-            "health": health, "issues": issues, "status": status}
+            "health": health, "issues": issues, "status": status,
+            "audited_at": now_iso, "request_id": request_id}
 
 
 class AuditTriageRequest(BaseModel):
@@ -2929,6 +3384,7 @@ class AuditTriageRequest(BaseModel):
     status:          str | None = None       # 'pending'|'passed'|'has_issues'|'fixed'
     notes:           str | None = None
     resolved_indexes: list[int] | None = None
+    expected_updated_at: str = Field(min_length=8, max_length=80)
 
 
 _AUDIT_STATUSES = {"pending", "passed", "has_issues", "fixed"}
@@ -2946,6 +3402,11 @@ async def admin_triage_test_audit(
     row = _load_audit_row(test_id)
     if not row:
         raise HTTPException(404, "Chưa có bản audit cho test này — chạy audit trước.")
+    if not _same_timestamp(row.get("updated_at"), body.expected_updated_at):
+        raise HTTPException(
+            409,
+            "Listening audit changed after this triage was opened. Reload canonical data before saving.",
+        )
     patch: dict[str, Any] = {}
     if body.status is not None:
         if body.status not in _AUDIT_STATUSES:
@@ -2955,13 +3416,33 @@ async def admin_triage_test_audit(
         patch["notes"] = body.notes
     if body.resolved_indexes is not None:
         issues = list(row.get("issues") or [])
-        for i in body.resolved_indexes:
-            if 0 <= i < len(issues):
-                issues[i] = {**issues[i], "resolved": True}
+        requested = body.resolved_indexes
+        if len(set(requested)) != len(requested) or any(i < 0 or i >= len(issues) for i in requested):
+            raise HTTPException(422, "resolved_indexes chứa vị trí không hợp lệ hoặc bị trùng.")
+        for i in requested:
+            issues[i] = {**issues[i], "resolved": True}
         patch["issues"] = issues
+    candidate_issues = patch.get("issues", list(row.get("issues") or []))
+    if patch.get("status") in {"passed", "fixed"} and any(
+        issue.get("severity") == "error" and not issue.get("resolved")
+        for issue in candidate_issues if isinstance(issue, dict)
+    ):
+        raise HTTPException(
+            422,
+            "Không thể đánh dấu passed/fixed khi vẫn còn lỗi chưa được xử lý.",
+        )
     if not patch:
         raise HTTPException(422, "Không có gì để cập nhật.")
-    supabase_admin.table("listening_audit").update(patch).eq("test_id", test_id).execute()
+    from datetime import datetime, timezone
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
+    result = (supabase_admin.table("listening_audit").update(patch)
+              .eq("test_id", test_id)
+              .eq("updated_at", body.expected_updated_at).execute())
+    if not (result.data or []):
+        raise HTTPException(
+            409,
+            "Listening audit changed while saving triage. Reload canonical data before retrying.",
+        )
     return {"test_id": test_id, **patch}
 
 
@@ -2976,6 +3457,7 @@ class QuestionEditRequest(BaseModel):
     trap_mechanisms: list[str] | None = None
     audio_window:    dict[str, Any] | None = None  # {start, end, section?}
     options:         list[dict[str, Any]] | None = None  # MCQ options [{letter,text}]; [] clears → short-answer
+    expected_updated_at: str | None = Field(default=None, max_length=80)
 
 
 def _fetch_exercise_ctx(exercise_id: str) -> tuple[dict, dict, dict]:
@@ -3015,6 +3497,12 @@ async def admin_edit_exercise_question(
     a fresh structural/audio re-check for it."""
     await require_admin(authorization)
     ex, content, test = _fetch_exercise_ctx(exercise_id)
+    expected_updated_at = (body.expected_updated_at or "").strip() or None
+    if expected_updated_at and not _same_timestamp(ex.get("updated_at"), expected_updated_at):
+        raise HTTPException(
+            409,
+            "Listening exercise changed after this editor was opened. Reload canonical data before saving.",
+        )
     payload = dict(ex.get("payload") or {})
 
     def _int(x):
@@ -3029,16 +3517,25 @@ async def admin_edit_exercise_question(
     a_idx = next((i for i, a in enumerate(answers) if _int(a.get("q_num")) == q_num), None)
 
     changed: list[str] = []
+    shared_option_bank = payload.get("template_kind") in {"matching", "mcq_multi"}
     if body.prompt is not None:
         questions[q_idx] = {**questions[q_idx], "prompt": body.prompt}
         changed.append("prompt")
     if body.options is not None:
-        q_obj = dict(questions[q_idx])
-        if body.options:
-            q_obj["options"] = body.options
+        if shared_option_bank:
+            metadata = dict(payload.get("metadata") or {})
+            if body.options:
+                metadata["match_options"] = body.options
+            else:
+                metadata.pop("match_options", None)
+            payload["metadata"] = metadata
         else:
-            q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
-        questions[q_idx] = q_obj
+            q_obj = dict(questions[q_idx])
+            if body.options:
+                q_obj["options"] = body.options
+            else:
+                q_obj.pop("options", None)   # empty → het-block short-answer (text gap)
+            questions[q_idx] = q_obj
         changed.append("options")
 
     if a_idx is not None:
@@ -3067,36 +3564,62 @@ async def admin_edit_exercise_question(
         sols[str(q_num)] = cur
         payload["solutions"] = sols
 
-    if body.audio_window is not None:
-        w = body.audio_window
-        s, e = w.get("start"), w.get("end")
-        if s is None or e is None:
-            raise HTTPException(422, "audio_window cần cả start và end.")
-        try:
-            s, e = float(s), float(e)
-        except (TypeError, ValueError):
-            raise HTTPException(422, "audio_window start/end phải là số.")
-        if e <= s:
-            raise HTTPException(422, f"audio_window không hợp lệ (end ≤ start: {s}–{e}).")
+    if "audio_window" in body.model_fields_set:
         wins = dict(payload.get("audio_windows") or {})
-        new_w = {"start": round(s, 2), "end": round(e, 2)}
-        if w.get("section"):
-            new_w["section"] = w["section"]
-        elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
-            new_w["section"] = wins[str(q_num)]["section"]
-        wins[str(q_num)] = new_w
+        if body.audio_window is None:
+            wins.pop(str(q_num), None)
+            wins.pop(q_num, None)
+        else:
+            w = body.audio_window
+            s, e = w.get("start"), w.get("end")
+            if s is None or e is None:
+                raise HTTPException(422, "audio_window cần cả start và end.")
+            try:
+                s, e = float(s), float(e)
+            except (TypeError, ValueError):
+                raise HTTPException(422, "audio_window start/end phải là số.")
+            if s < 0 or e <= s:
+                raise HTTPException(422, f"audio_window không hợp lệ (cần start ≥ 0, end > start: {s}–{e}).")
+            new_w = {"start": round(s, 2), "end": round(e, 2)}
+            if w.get("section"):
+                new_w["section"] = w["section"]
+            elif isinstance(wins.get(str(q_num)), dict) and wins[str(q_num)].get("section"):
+                new_w["section"] = wins[str(q_num)]["section"]
+            else:
+                section_num = _int(content.get("section_num"))
+                if section_num is None or section_num < 1:
+                    raise HTTPException(422, "Không xác định được section cho audio_window mới.")
+                new_w["section"] = f"S{section_num}"
+            wins[str(q_num)] = new_w
         payload["audio_windows"] = wins
         changed.append("audio_window")
 
     if not changed:
         raise HTTPException(422, "Không có trường nào để sửa.")
 
-    supabase_admin.table("listening_exercises").update(
-        {"payload": payload}).eq("id", exercise_id).execute()
+    from datetime import datetime, timezone
+    updated_at = datetime.now(timezone.utc).isoformat()
+    mutation = (supabase_admin.table("listening_exercises")
+                .update({"payload": payload, "updated_at": updated_at})
+                .eq("id", exercise_id))
+    if expected_updated_at:
+        mutation = mutation.eq("updated_at", expected_updated_at)
+    result = mutation.execute()
+    rows = result.data or []
+    if not rows:
+        if expected_updated_at:
+            raise HTTPException(
+                409,
+                "Listening exercise changed while saving. Reload canonical data before retrying.",
+            )
+        raise HTTPException(
+            500,
+            "Listening exercise update was not confirmed by the database.",
+        )
 
     # Re-check just this question (structural + audio bounds) so the editor can
     # show whether the fix cleared the issue.
-    updated_ex = {**ex, "payload": payload}
+    updated_ex = {**ex, "payload": payload, "updated_at": updated_at}
     h = listening_audit_svc.hydrate_test(test or {"id": content.get("test_id")},
                                          [content] if content else [], [updated_ex])
     issues = [i for i in (listening_audit_svc.structural_checks(h)
@@ -3108,6 +3631,7 @@ async def admin_edit_exercise_question(
         "exercise_id": exercise_id,
         "q_num":       q_num,
         "changed":     changed,
+        "updated_at":  updated_at,
         "question":    q_view,
         "issues":      issues,
         "ok":          not any(i["severity"] == "error" for i in issues),
@@ -4247,7 +4771,10 @@ async def get_published_listening_test(
         .order("order_num")
         .execute() if section_ids else None
     )
-    exercises_raw = (ex_res.data if ex_res else []) or []
+    exercises_raw = [
+        exercise for exercise in ((ex_res.data if ex_res else []) or [])
+        if not _is_standalone_authoring_exercise(exercise)
+    ]
     # Sprint 13.5 security guard — strip answer keys.
     exercises_safe = grader.strip_answer_keys(exercises_raw)
     # Sprint 13.5.6 — inject a fresh 2h signed URL for any plan-label
@@ -4536,15 +5063,62 @@ class DictationSentenceSubmit(BaseModel):
     sentence_idx:    int = Field(ge=0)
     user_transcript: str = Field(default="", max_length=10_000)
     listen_count:    int = Field(default=0, ge=0)
-    time_seconds:    int | None = None
+    time_seconds:    int | None = Field(default=None, ge=0)
 
 
 class DictationSessionRequest(BaseModel):
-    test_id:            str
-    section_num:        int
+    test_id:            str = Field(min_length=1, max_length=100)
+    section_num:        int = Field(ge=1)
+    client_request_id:  uuid.UUID | None = None
     started_at:         str | None = None
     total_time_seconds: int | None = Field(default=None, ge=0)
     sentences:          list[DictationSentenceSubmit] = Field(default_factory=list, max_length=200)
+
+
+def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
+    """Bind an idempotency key to one exact canonical submission payload."""
+    payload = body.model_dump(mode="json", exclude={"client_request_id"})
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _dictation_session_response(row: dict, test_title: str | None = None) -> dict:
+    """Return the stable completion contract from a persisted canonical row."""
+    return {
+        "session_id":         row.get("id"),
+        "client_request_id":  row.get("client_request_id"),
+        "test_title":         test_title,
+        "section_num":        row.get("section_num"),
+        "total_time_seconds": row.get("total_time_seconds"),
+        "total_sentences":    row.get("total_sentences", 0),
+        "correct_count":      row.get("correct_count", 0),
+        "accuracy":           row.get("accuracy", 0),
+        "total_words":        row.get("total_words", 0),
+        "correct_words":      row.get("correct_words", 0),
+        "error_trends":       row.get("error_trends") or {},
+        "results":            row.get("results") or [],
+    }
+
+
+def _dictation_session_by_request(user_id: str, request_id: uuid.UUID) -> dict | None:
+    res = (
+        supabase_admin.table("dictation_sessions").select("*")
+        .eq("user_id", user_id).eq("client_request_id", str(request_id))
+        .limit(1).execute()
+    )
+    return res.data[0] if res.data else None
+
+
+def _assert_dictation_request_replay(
+    row: dict,
+    body: DictationSessionRequest,
+    fingerprint: str,
+) -> None:
+    if row.get("test_id") != body.test_id or row.get("section_num") != body.section_num:
+        raise HTTPException(409, "Mã gửi lại đã được dùng cho một bài chép chính tả khác.")
+    stored_fingerprint = row.get("submission_fingerprint")
+    if stored_fingerprint and stored_fingerprint != fingerprint:
+        raise HTTPException(409, "Nội dung gửi lại không khớp với lần nộp đầu tiên.")
 
 
 @user_router.post("/tests/dictation/session")
@@ -4564,6 +5138,13 @@ async def submit_listening_dictation_session(
     user = await _require_auth(authorization)
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
+
+    fingerprint = _dictation_submission_fingerprint(body)
+    if body.client_request_id:
+        existing = _dictation_session_by_request(user["id"], body.client_request_id)
+        if existing:
+            _assert_dictation_request_replay(existing, body, fingerprint)
+            return _dictation_session_response(existing)
 
     test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
@@ -4603,6 +5184,7 @@ async def submit_listening_dictation_session(
             "score":         g["score"],
             "correct_words": g["correct_words"],
             "total_words":   g["total_words"],
+            "diff":          g["diff"],
             "listen_count":  s.listen_count,
             "time_seconds":  s.time_seconds,
             "ops":           ops,
@@ -4628,19 +5210,39 @@ async def submit_listening_dictation_session(
         "started_at":         body.started_at,
         "completed_at":       datetime.now(timezone.utc).isoformat(),
     }
+    # Preserve the legacy no-receipt write shape during a migration-first
+    # rollout: old clients keep working even if code reaches an instance before
+    # migration 210, while the dark Next route remains gated until schema-ready.
+    if body.client_request_id:
+        row.update({
+            "client_request_id": str(body.client_request_id),
+            "submission_fingerprint": fingerprint,
+        })
     try:
         supabase_admin.table("dictation_sessions").insert(row).execute()
     except Exception as exc:  # pragma: no cover
+        if body.client_request_id and _is_unique_violation(exc):
+            existing = _dictation_session_by_request(user["id"], body.client_request_id)
+            if existing:
+                _assert_dictation_request_replay(existing, body, fingerprint)
+                return _dictation_session_response(existing, test.get("title"))
         logger.error("[dictation] session insert failed: %s", exc)
         raise HTTPException(500, "Không lưu được kết quả chép chính tả.")
 
-    return {
-        "session_id":         session_id,
-        "test_title":         test.get("title"),
-        "section_num":        body.section_num,
-        "total_time_seconds": body.total_time_seconds,
-        **report,
-    }
+    return _dictation_session_response(row, test.get("title"))
+
+
+@user_router.get("/tests/dictation/session/by-request/{client_request_id}")
+async def get_listening_dictation_session_by_request(
+    client_request_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """Reconcile an ambiguous completion POST by its durable client receipt."""
+    user = await _require_auth(authorization)
+    row = _dictation_session_by_request(user["id"], client_request_id)
+    if not row:
+        raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
+    return _dictation_session_response(row)
 
 
 @user_router.get("/tests/dictation/session/{session_id}")
@@ -4710,6 +5312,71 @@ async def flag_listening_dictation(
     return {"id": flag_id, "status": "new"}
 
 
+def _all_dictation_user_ids(user_query: str) -> list:
+    """Resolve every matching learner ID without a silent search cap."""
+    user_ids: list = []
+    page_size = 1000
+    offset = 0
+    while True:
+        page = (supabase_admin.table("users").select("id")
+                .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
+                .order("id")
+                .range(offset, offset + page_size - 1).execute().data or [])
+        user_ids.extend(row["id"] for row in page if row.get("id"))
+        if len(page) < page_size:
+            return list(dict.fromkeys(user_ids))
+        offset += page_size
+
+
+_DICTATION_USER_FILTER_BATCH_SIZE = 100
+
+
+def _dictation_user_batches(user_ids: list | None) -> list[list | None]:
+    """Keep PostgREST ``in`` filters below practical URL-length limits."""
+    if user_ids is None:
+        return [None]
+    return [user_ids[start:start + _DICTATION_USER_FILTER_BATCH_SIZE]
+            for start in range(0, len(user_ids), _DICTATION_USER_FILTER_BATCH_SIZE)]
+
+
+def _dictation_list_rows_for_users(
+    select_fields: str,
+    test_id: str | None,
+    user_ids: list,
+    candidate_limit: int,
+) -> tuple[list[dict], int]:
+    """Read ordered per-batch candidates and sum disjoint exact totals.
+
+    The global first N rows must be contained in the first N rows of every
+    disjoint user batch, so this avoids loading the entire filtered history.
+    """
+    rows: list[dict] = []
+    total = 0
+    page_size = 1000
+    for user_batch in _dictation_user_batches(user_ids):
+        offset = 0
+        remaining = candidate_limit
+        batch_total: int | None = None
+        while remaining > 0:
+            take = min(page_size, remaining)
+            q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+            if test_id:
+                q = q.eq("test_id_external", test_id)
+            response = (q.in_("user_id", user_batch)
+                        .order("created_at", desc=True).order("id", desc=True)
+                        .range(offset, offset + take - 1).execute())
+            page = response.data or []
+            if batch_total is None:
+                batch_total = getattr(response, "count", None) or 0
+                total += batch_total
+            rows.extend(page)
+            if len(page) < take:
+                break
+            offset += take
+            remaining -= take
+    return rows, total
+
+
 @admin_router.get("/dictation-reports")
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
@@ -4723,30 +5390,63 @@ async def admin_list_dictation_reports(
     học viên (audit 2026-07-17: list từng trả user_id trần — admin không biết
     "học viên nào"). Returns {items, total, limit, offset}."""
     await require_admin(authorization)
-    q = (supabase_admin.table("dictation_sessions")
-         .select("id,user_id,test_id_external,section_num,section_title,"
-                 "total_sentences,correct_count,accuracy,total_time_seconds,"
-                 "completed_at,created_at", count="exact"))
-    if test_id:
-        q = q.eq("test_id_external", test_id)
+    select_fields = ("id,user_id,test_id_external,section_num,section_title,"
+                     "total_sentences,correct_count,accuracy,total_time_seconds,"
+                     "completed_at,created_at")
     if user_query:
-        u_res = (supabase_admin.table("users").select("id")
-                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
-                 .limit(200).execute())
-        uids = [r["id"] for r in (u_res.data or [])]
+        uids = _all_dictation_user_ids(user_query)
         if not uids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
-        q = q.in_("user_id", uids)
-    res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-    items = res.data or []
+            return {"items": [], "total": 0, "limit": limit, "offset": offset,
+                    "association_lookup_failed": False,
+                    "association_lookup_failures": []}
+        matching_rows, total = _dictation_list_rows_for_users(
+            select_fields, test_id, uids, offset + limit)
+        matching_rows.sort(
+            key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
+            reverse=True,
+        )
+        items = matching_rows[offset:offset + limit]
+    else:
+        q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+        if test_id:
+            q = q.eq("test_id_external", test_id)
+        res = (q.order("created_at", desc=True).order("id", desc=True)
+               .range(offset, offset + limit - 1).execute())
+        items = res.data or []
+        total = getattr(res, "count", None) or 0
+    lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in items],
-                        "id,email,display_name")
+                        "id,email,display_name", lookup_failures=lookup_failures)
     for r in items:
         u = users.get(r.get("user_id")) or {}
         r["user"] = {"id": r.get("user_id"), "email": u.get("email"),
                      "display_name": u.get("display_name")}
-    return {"items": items, "total": getattr(res, "count", None) or 0,
-            "limit": limit, "offset": offset}
+    return {"items": items, "total": total,
+            "limit": limit, "offset": offset,
+            "association_lookup_failed": bool(lookup_failures),
+            "association_lookup_failures": sorted(lookup_failures)}
+
+
+def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) -> list[dict]:
+    """Read the complete aggregate scope in bounded ID and row pages."""
+    rows: list[dict] = []
+    page_size = 1000
+    for user_batch in _dictation_user_batches(user_ids):
+        offset = 0
+        while True:
+            q = supabase_admin.table("dictation_sessions").select(
+                "test_id_external,section_num,accuracy,total_sentences,error_trends")
+            if test_id:
+                q = q.eq("test_id_external", test_id)
+            if user_batch is not None:
+                q = q.in_("user_id", user_batch)
+            page = q.order("id").range(
+                offset, offset + page_size - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < page_size:
+                break
+            offset += page_size
+    return rows
 
 
 @admin_router.get("/dictation-reports/aggregate")
@@ -4760,20 +5460,13 @@ async def admin_dictation_reports_aggregate(
     Nhận CÙNG bộ lọc với list (test_id + user_query) — số tổng hợp phải cùng
     phạm vi với bảng phiên, không được lệch (review P2, PR #809)."""
     await require_admin(authorization)
-    q = supabase_admin.table("dictation_sessions").select(
-        "test_id_external,section_num,accuracy,total_sentences,error_trends")
-    if test_id:
-        q = q.eq("test_id_external", test_id)
+    user_ids = None
     if user_query:
-        u_res = (supabase_admin.table("users").select("id")
-                 .or_(ilike_or_filter(["email", "display_name"], user_query.strip()))
-                 .limit(200).execute())
-        uids = [r["id"] for r in (u_res.data or [])]
-        if not uids:
+        user_ids = _all_dictation_user_ids(user_query)
+        if not user_ids:
             return {"session_count": 0, "mean_accuracy": 0.0,
                     "top_missed": [], "top_wrong": []}
-        q = q.in_("user_id", uids)
-    rows = q.limit(2000).execute().data or []
+    rows = _all_dictation_aggregate_rows(test_id, user_ids)
 
     # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
     # not a truncated top list — a word below any single session's top-N would
@@ -4811,7 +5504,16 @@ async def admin_get_dictation_report(
            .eq("id", session_id).limit(1).execute())
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
-    return res.data[0]
+    row = dict(res.data[0])
+    lookup_failures: set[str] = set()
+    users = _rows_by_id("users", [row.get("user_id")], "id,email,display_name",
+                        lookup_failures=lookup_failures)
+    user = users.get(row.get("user_id")) or {}
+    row["user"] = {"id": row.get("user_id"), "email": user.get("email"),
+                   "display_name": user.get("display_name")}
+    row["association_lookup_failed"] = bool(lookup_failures)
+    row["association_lookup_failures"] = sorted(lookup_failures)
+    return row
 
 
 # ── Admin: lượt làm bài nghe của học viên (mini/drill/full) ──────────────────
@@ -4839,7 +5541,13 @@ def _attempt_duration_seconds(row: dict) -> int | None:
     return max(0, int((b - a).total_seconds()))
 
 
-def _rows_by_id(table: str, ids: list, cols: str) -> dict:
+def _rows_by_id(
+    table: str,
+    ids: list,
+    cols: str,
+    *,
+    lookup_failures: set[str] | None = None,
+) -> dict:
     """Batch-resolve id → row (lô 100/lần — tránh URL dài + PostgREST cap)."""
     out: dict = {}
     uniq = sorted({i for i in ids if i})
@@ -4849,6 +5557,8 @@ def _rows_by_id(table: str, ids: list, cols: str) -> dict:
                    .in_("id", uniq[i:i + 100]).execute())
         except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
             logger.warning("[listening] admin join %s failed: %s", table, exc)
+            if lookup_failures is not None:
+                lookup_failures.add(table)
             return out
         for r in (res.data or []):
             out[r["id"]] = r
@@ -4917,7 +5627,11 @@ async def admin_list_listening_attempts(
                  .limit(200).execute())
         user_ids = [r["id"] for r in (u_res.data or [])]
         if not user_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+            return {
+                "items": [], "total": 0, "limit": limit, "offset": offset,
+                "association_lookup_failed": False,
+                "association_lookup_failures": [],
+            }
 
     test_ids: list | None = None
     if test_query or test_type:
@@ -4929,7 +5643,11 @@ async def admin_list_listening_attempts(
         t_res = t_q.limit(1000).execute()
         test_ids = [r["id"] for r in (t_res.data or [])]
         if not test_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+            return {
+                "items": [], "total": 0, "limit": limit, "offset": offset,
+                "association_lookup_failed": False,
+                "association_lookup_failures": [],
+            }
 
     q = (supabase_admin.table("listening_test_attempts")
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
@@ -4943,14 +5661,19 @@ async def admin_list_listening_attempts(
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     rows = res.data or []
 
+    lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in rows],
-                        "id,email,display_name")
+                        "id,email,display_name", lookup_failures=lookup_failures)
     tests = _rows_by_id("listening_tests", [r.get("test_id") for r in rows],
-                        "id,test_id,title,test_type")
+                        "id,test_id,title,test_type", lookup_failures=lookup_failures)
     return {
         "items": [_attempt_public_shape(r, users, tests) for r in rows],
         "total": getattr(res, "count", None) or 0,
         "limit": limit, "offset": offset,
+        # Không được biến lỗi join thành danh tính/bài thật sự trống. UI admin
+        # cần phân biệt canonical absence với visibility/read failure.
+        "association_lookup_failed": bool(lookup_failures),
+        "association_lookup_failures": sorted(lookup_failures),
     }
 
 
@@ -4967,13 +5690,17 @@ async def admin_get_listening_attempt(
     if not res.data:
         raise HTTPException(404, "Không tìm thấy lượt làm bài.")
     r = res.data[0]
-    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name")
+    lookup_failures: set[str] = set()
+    users = _rows_by_id("users", [r.get("user_id")], "id,email,display_name",
+                        lookup_failures=lookup_failures)
     tests = _rows_by_id("listening_tests", [r.get("test_id")],
-                        "id,test_id,title,test_type")
+                        "id,test_id,title,test_type", lookup_failures=lookup_failures)
     out = _attempt_public_shape(r, users, tests)
     out["grading_details"] = r.get("grading_details") or []
     out["trap_analytics"] = r.get("trap_analytics") or {}
     out["band_estimate"] = r.get("band_estimate")
+    out["association_lookup_failed"] = bool(lookup_failures)
+    out["association_lookup_failures"] = sorted(lookup_failures)
     return out
 
 

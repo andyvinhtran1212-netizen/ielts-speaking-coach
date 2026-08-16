@@ -210,8 +210,15 @@ describe('onboarding.html / JS-coupled selectors preserved byte-identical', () =
     );
   });
 
-  test('init() preserves no-session redirect to login.html', () => {
-    assert.match(html, /if\s*\(\s*!session\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]login\.html['"]/);
+  test('init() redirects no-session state to canonical /login', () => {
+    assert.match(html, /if\s*\(\s*!session\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]\/login['"]/);
+  });
+
+  test('every inline script parses (guards the showStep brace contract)', () => {
+    const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+      .map((match) => match[1])
+      .filter((source) => source.trim());
+    for (const source of scripts) assert.doesNotThrow(() => new Function(source));
   });
 
   test('init() preserves already-onboarded redirect to /home', () => {
@@ -219,7 +226,7 @@ describe('onboarding.html / JS-coupled selectors preserved byte-identical', () =
     assert.match(html, /api\.get\(\s*['"]\/auth\/me['"]\s*\)/);
     assert.match(
       html,
-      /if\s*\(\s*user\s*&&\s*user\.onboarding_completed\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]\/home['"]/,
+      /else\s+if\s*\(\s*user\.onboarding_completed\s*\)\s*\{\s*window\.location\.href\s*=\s*['"]\/home['"]/,
     );
   });
 

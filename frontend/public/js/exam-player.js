@@ -28,7 +28,7 @@
   async function init() {
     var sb = getSupabase();
     var sess = await sb.auth.getSession();
-    if (!sess.data.session) { window.location.href = '/login.html'; return; }
+    if (!sess.data.session) { window.location.href = '/login'; return; }
     var params = new URLSearchParams(window.location.search);
     var id = params.get('id');
     if (id) loadExam(id); else loadList(params.get('source'));

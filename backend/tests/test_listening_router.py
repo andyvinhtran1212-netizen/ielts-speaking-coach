@@ -4,7 +4,7 @@ MODULE foundation 1/5).
 Contracts under test:
 
   1. GET /api/listening/content/{id} happy path: published row returns
-     full payload + a fresh audio_signed_url.
+     student-safe metadata + a fresh audio_signed_url, never transcript truth.
   2. GET 404 when the row is in draft status (admin-only visibility).
   3. GET 404 when the row doesn't exist.
   4. POST /admin/listening/upload happy path → source_type='upload_mp3',
@@ -190,6 +190,8 @@ def test_get_listening_content_happy_path(monkeypatch):
     assert "audio_signed_url" in out
     assert "storage.test/listening-audio/ai/c1.mp3" in out["audio_signed_url"]
     assert "ttl=3600" in out["audio_signed_url"]
+    assert "transcript" not in out
+    assert "audio_storage_path" not in out
 
 
 def test_get_listening_content_404_for_draft(monkeypatch):
@@ -257,8 +259,12 @@ def test_boot_listening_dictation_combines_content_and_exercises(monkeypatch):
 
     assert out["content"]["id"] == "c1"
     assert out["content"]["audio_signed_url"].startswith("https://storage.test/")
+    assert "transcript" not in out["content"]
+    assert "audio_storage_path" not in out["content"]
     assert out["exercises"][0]["id"] == "ex1"
-    assert out["exercises"][0]["segments"][0]["transcript"] == "Full transcript"
+    assert out["exercises"][0]["segments"] == [{
+        "idx": 0, "start_sec": None, "end_sec": None,
+    }]
     assert "attempts" not in out
     assert "listening_attempts" not in fake.table_calls
 

@@ -20,7 +20,6 @@ dependency (same approach as admin_writing_cohorts.py).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -39,10 +38,6 @@ router = APIRouter(
 
 _STATUS_PATTERN = r"^(pending|accepted|rejected|fulfilled)$"
 _PROMPT_SNIPPET = 80
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 class RegradeAction(BaseModel):
@@ -126,28 +121,23 @@ async def list_regrade_requests(
     + cohort filters. `cohort_id` resolves to its students first (19.2 pattern)."""
     await require_admin(authorization)
 
-    cohort_student_ids: Optional[list[str]] = None
-    if cohort_id:
-        srows = (
-            supabase_admin.table("students").select("id")
-            .eq("cohort_id", str(cohort_id)).execute()
-        ).data or []
-        cohort_student_ids = [s["id"] for s in srows]
-        if not cohort_student_ids:
-            return {"requests": []}
+    # Migration 205 ranks/caps each lane in one SQL statement. Four separate
+    # HTTP reads can observe four different snapshots around a concurrent PATCH
+    # and silently omit or duplicate a request across lanes.
+    try:
+        raw = supabase_admin.rpc("fn_list_writing_regrade_requests", {
+            "p_status": status,
+            "p_cohort_id": str(cohort_id) if cohort_id else None,
+        }).execute().data
+    except Exception as exc:
+        logger.error("[regrade] canonical list failed status=%s cohort=%s: %s", status, cohort_id, exc)
+        raise HTTPException(500, "Không thể đọc danh sách yêu cầu chấm lại.")
 
-    q = (
-        supabase_admin.table("essay_regrade_requests")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(300)
-    )
-    if status:
-        q = q.eq("status", status)
-    if cohort_student_ids is not None:
-        q = q.in_("student_id", cohort_student_ids)
-
-    return {"requests": _decorate(q.execute().data or [])}
+    result = raw[0] if isinstance(raw, list) and raw else raw
+    if not isinstance(result, dict) or not isinstance(result.get("requests"), list) \
+            or not isinstance(result.get("capped"), bool):
+        raise HTTPException(500, "Máy chủ không trả về danh sách chấm lại hợp lệ.")
+    return {"requests": _decorate(result["requests"]), "capped": result["capped"]}
 
 
 @router.get("/{request_id}")
@@ -172,51 +162,44 @@ async def action_regrade_request(
     (terminal, requires a response shown to the student)."""
     admin = await require_admin(authorization)
 
-    rows = (
-        supabase_admin.table("essay_regrade_requests")
-        .select("*").eq("id", str(request_id)).limit(1).execute()
-    ).data
-    if not rows:
-        raise HTTPException(404, "Không tìm thấy yêu cầu chấm lại.")
-    req = rows[0]
-    if req["status"] != "pending":
-        raise HTTPException(409, f"Yêu cầu đã được xử lý (trạng thái: {req['status']}).")
-
-    patch = {"admin_id": admin["id"], "actioned_at": _now_iso()}
-
     if body.action == "reject":
         if not (body.response or "").strip():
             raise HTTPException(400, "Vui lòng nhập lý do từ chối.")
-        patch["status"] = "rejected"
-        patch["admin_response"] = body.response.strip()
-    else:  # accept
-        # Un-deliver the essay so the student stops seeing final feedback and
-        # the admin can re-handle it. The conditional update only matches a
-        # currently-'delivered' essay; if it matched NO row (the essay moved
-        # off 'delivered' concurrently), accept is a no-op — abort 409 and
-        # DO NOT mark the request accepted (Codex C1: previously the request
-        # flipped to accepted regardless, a silent contract hole).
-        try:
-            res = (
-                supabase_admin.table("writing_essays").update(
-                    {"status": "reviewed", "delivered_at": None}
-                ).eq("id", req["essay_id"]).eq("status", "delivered").execute()
-            )
-        except Exception as exc:
-            logger.error("[regrade] essay un-deliver failed essay=%s: %s", req["essay_id"], exc)
-            raise HTTPException(500, "Không thể đặt lại trạng thái bài viết.")
-        if not res.data:
+
+    # Migration 205 owns the cross-table state transition. Reading and then
+    # updating the request/essay through separate PostgREST calls creates a saga:
+    # a failure or concurrent action can leave the essay hidden while the request
+    # remains pending/rejected. The RPC locks and changes both rows atomically.
+    try:
+        raw = supabase_admin.rpc("fn_action_writing_regrade_request", {
+            "p_request_id": str(request_id),
+            "p_admin_id": admin["id"],
+            "p_action": body.action,
+            "p_response": body.response.strip() if body.response else None,
+        }).execute().data
+    except Exception as exc:
+        logger.error("[regrade] atomic action failed request=%s: %s", request_id, exc)
+        raise HTTPException(500, "Không thể xử lý yêu cầu chấm lại.")
+
+    result = raw[0] if isinstance(raw, list) and raw else raw
+    if not isinstance(result, dict):
+        raise HTTPException(500, "Máy chủ không trả về kết quả xử lý hợp lệ.")
+    if not result.get("ok"):
+        reason = result.get("reason")
+        if reason in {"not_found", "essay_not_found"}:
+            raise HTTPException(404, "Không tìm thấy yêu cầu hoặc bài viết liên quan.")
+        if reason == "response_required":
+            raise HTTPException(400, "Vui lòng nhập lý do từ chối.")
+        if reason == "already_actioned":
+            raise HTTPException(409, f"Yêu cầu đã được xử lý (trạng thái: {result.get('status')}).")
+        if reason == "essay_not_delivered":
             raise HTTPException(
                 409,
                 "Bài viết không còn ở trạng thái 'đã trả' — không thể chấp nhận yêu cầu chấm lại.",
             )
-        patch["status"] = "accepted"
-        # TODO(19.4 email deferred): notify the student their regrade was accepted.
+        raise HTTPException(400, "Hành động xử lý yêu cầu không hợp lệ.")
 
-    updated = (
-        supabase_admin.table("essay_regrade_requests")
-        .update(patch).eq("id", str(request_id)).execute()
-    ).data
-    if not updated:
-        raise HTTPException(404, "Không tìm thấy yêu cầu chấm lại.")
-    return _decorate(updated)[0]
+    request = result.get("request")
+    if not isinstance(request, dict) or str(request.get("id")) != str(request_id):
+        raise HTTPException(500, "Máy chủ không xác nhận đúng yêu cầu vừa xử lý.")
+    return _decorate([request])[0]

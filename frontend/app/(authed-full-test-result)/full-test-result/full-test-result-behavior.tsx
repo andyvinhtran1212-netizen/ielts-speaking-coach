@@ -339,7 +339,7 @@ export function FullTestResultBehavior() {
   const error = errorState?.key === requestKey ? errorState.value : null;
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

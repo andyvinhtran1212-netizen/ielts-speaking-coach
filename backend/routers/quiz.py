@@ -138,6 +138,12 @@ class CourseWritingBody(BaseModel):
     answers: dict[str, str] = {}
 
 
+class CourseReadingBody(BaseModel):
+    bank_id: str
+    # Chỉ dùng làm chốt “đã thử đủ câu”; phần đọc không chấm và không lưu điểm.
+    answers: dict[str, str] = {}
+
+
 @router.get("/course/writing")
 async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
@@ -167,6 +173,16 @@ async def save_course_writing_draft(
     user = await get_supabase_user(authorization)
     return quiz_service.save_course_writing_draft(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+    )
+
+
+@router.post("/course/reading-solution")
+async def course_reading_solution(body: CourseReadingBody,
+                                  authorization: str | None = Header(None)):
+    """Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_reading_solution(
+        user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
     )
 
 

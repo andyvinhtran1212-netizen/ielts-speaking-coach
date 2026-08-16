@@ -120,7 +120,12 @@ def test_d6_admin_list_l3_returns_the_imported_test():
     """After import, the L3 filter on the admin list must show the test row.
     The 20.8 endpoint queries reading_tests directly for library=l3_test."""
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value
+    ordered = mock_db.table.return_value.select.return_value.order.return_value
+    # The list uses updated_at plus id as its stable order. Keep the fluent
+    # mock on one builder across both order() calls so execute() returns the
+    # exact-count response required by the fail-closed endpoint.
+    ordered.order.return_value = ordered
+    chain = ordered.range.return_value
     chain.execute.return_value = MagicMock(
         data=[{
             "id": "test-uuid", "test_id": "INT-LIVE-001", "title": "Integration Live Test",

@@ -133,6 +133,40 @@ def test_review_rating_validation():
         fc.ReviewRequest(rating="perfect")
 
 
+def test_review_client_id_is_uuid_when_supplied():
+    fc = _import_flashcards()
+    value = fc.ReviewRequest(
+        rating="good",
+        client_review_id="00000000-0000-4000-8000-000000000101",
+    )
+    assert str(value.client_review_id) == "00000000-0000-4000-8000-000000000101"
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        fc.ReviewRequest(rating="good", client_review_id="not-a-uuid")
+
+
+def test_review_idempotency_conflict_uses_structured_postgrest_error():
+    fc = _import_flashcards()
+
+    class StructuredError(Exception):
+        code = "22023"
+        message = "client_review_id is already bound to different input"
+
+    assert fc._is_review_idempotency_conflict(StructuredError()) is True
+    assert fc._is_review_idempotency_conflict(Exception(
+        "client_review_id is already bound to different input"
+    )) is False
+
+    dict_error = Exception({
+        "code": "22023",
+        "message": "client_review_id is already bound to different input",
+    })
+    assert fc._is_review_idempotency_conflict(dict_error) is True
+    assert fc._is_review_idempotency_conflict(Exception({
+        "code": "22023", "message": "Vocabulary entry is not reviewable",
+    })) is False
+
+
 # ── Uncategorized topic filter (audit Wave 2 MEDIUM #1) ──────────────────────
 
 

@@ -26,6 +26,7 @@ duyệt" placeholder without a separate poll.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
@@ -581,15 +582,132 @@ class SubmitEssay(BaseModel):
     (10000) so a student who pastes a giant document gets a clean 422
     instead of an opaque DB error downstream."""
     essay_text: Optional[str] = Field(default=None, max_length=10000)
+    request_id: Optional[UUID] = None
+
+
+def _submit_text_sha256(essay_text: str) -> str:
+    """Stable digest for the exact normalized text promoted to an essay."""
+    return hashlib.sha256(essay_text.encode("utf-8")).hexdigest()
+
+
+def _submission_receipt(assignment: dict, *, replayed: bool) -> dict:
+    """Read the canonical assignment → essay → first-job receipt.
+
+    The assignment has already been ownership-filtered by student_id.  This
+    helper never trusts a client-supplied essay id and never schedules a job:
+    readback must be side-effect free so a lost POST response cannot duplicate
+    grading work.
+    """
+    essay_id = assignment.get("essay_id")
+    if not essay_id:
+        raise HTTPException(
+            503,
+            "Bài nộp đang được đối chiếu. Vui lòng thử lại sau ít phút.",
+        )
+
+    try:
+        essay_result = (
+            supabase_admin.table("writing_essays")
+            .select("id, status, is_flagged, flag_reasons, error_message")
+            .eq("id", str(essay_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] submission receipt essay lookup failed "
+            "assignment=%s essay=%s: %s",
+            assignment.get("id"), essay_id, exc,
+        )
+        raise HTTPException(503, "Chưa đối chiếu được bài nộp. Vui lòng thử lại.")
+    if not essay_result.data:
+        raise HTTPException(503, "Bài nộp đang được đối chiếu. Vui lòng thử lại.")
+
+    essay = essay_result.data[0]
+    job_id = None
+    try:
+        job_result = (
+            supabase_admin.table("writing_jobs")
+            .select("id")
+            .eq("essay_id", str(essay_id))
+            .order("created_at")
+            .limit(1)
+            .execute()
+        )
+        if job_result.data:
+            job_id = job_result.data[0].get("id")
+    except Exception as exc:
+        # A missing job is already a supported terminal of the submit SAGA:
+        # admin can requeue it. Receipt truth is the assignment→essay link.
+        logger.warning(
+            "[writing-student] submission receipt job lookup failed essay=%s: %s",
+            essay_id, exc,
+        )
+
+    is_flagged = bool(essay.get("is_flagged"))
+    explanation = str(essay.get("error_message") or "").strip()
+    message = (
+        (
+            f"Bài đã nộp nhưng không được chấm do {explanation}. "
+            "Em vui lòng kiểm tra lại bài viết."
+        )
+        if is_flagged and explanation else
+        "Bài đã nộp nhưng không được chấm. Em vui lòng liên hệ giảng viên."
+        if is_flagged else
+        "Bài viết đã được nộp. Em sẽ nhận kết quả sớm."
+    )
+    return {
+        "essay_id": str(essay_id),
+        "job_id": job_id,
+        "assignment_id": str(assignment["id"]),
+        "status": assignment.get("status") or essay.get("status"),
+        "is_flagged": is_flagged,
+        "flag_reasons": essay.get("flag_reasons") or [],
+        "message": message,
+        "replayed": replayed,
+    }
+
+
+def _replay_committed_submission(
+    assignment: dict,
+    *,
+    request_id: Optional[UUID],
+    explicit_essay_text: Optional[str],
+) -> Optional[dict]:
+    """Return canonical receipt for the same committed request.
+
+    Active assignments return ``None`` and continue through the submit SAGA.
+    A terminal assignment is never speculatively written again: it either
+    matches the stored request+payload and replays, or returns a truthful 409.
+    """
+    if assignment.get("status") in _ACTIVE_ASSIGNMENT_STATES:
+        return None
+
+    stored_request = assignment.get("student_submit_request_id")
+    if request_id is None or not stored_request or str(request_id) != str(stored_request):
+        raise HTTPException(
+            409,
+            f"Không thể nộp — trạng thái bài là '{assignment.get('status', 'unknown')}' "
+            "(bài có thể đã được nộp ở tab khác).",
+        )
+
+    if explicit_essay_text is not None:
+        normalized = explicit_essay_text.strip()
+        if _submit_text_sha256(normalized) != assignment.get("student_submit_text_sha256"):
+            raise HTTPException(
+                409,
+                "Mã yêu cầu nộp bài đã được dùng với nội dung khác.",
+            )
+    return _submission_receipt(assignment, replayed=True)
 
 
 def _rollback_orphan_essay(essay_id: str) -> None:
     """Sprint 2.7.1: best-effort cleanup of a writing_essays row whose
     SAGA never reached the assignment-link UPDATE.
 
-    Used by both the clean and the flagged submit paths after a lost
-    race or a UPDATE round-trip failure.  Failure here is logged
-    loudly but never re-raised — the student already sees a 409/500,
+    Used by both the clean and the flagged submit paths after a lost race, or
+    after canonical readback proves a failed UPDATE round-trip did not commit.
+    Failure here is logged loudly but never re-raised — the student sees 409/500,
     and an orphan row is recoverable by admin (a periodic job that
     DELETEs `writing_essays WHERE id NOT IN (SELECT essay_id FROM
     writing_assignments WHERE essay_id IS NOT NULL)` is the safety
@@ -609,6 +727,51 @@ def _rollback_orphan_essay(essay_id: str) -> None:
         )
 
 
+def _recover_claim_after_transport_error(
+    *,
+    assignment_id: UUID,
+    student_id: str,
+    essay_id: str,
+) -> bool:
+    """Resolve whether a failed claim round-trip actually committed.
+
+    A PostgREST/Supabase exception does not prove the UPDATE rolled back: the
+    database may have committed and only the response may have been lost.  It
+    is therefore unsafe to delete the speculative essay until canonical
+    readback proves the assignment does not point to it.
+
+    Returns ``True`` for the exact assignment→essay link this request attempted.
+    Status is intentionally not pinned: grading/admin delivery may advance it
+    before this readback. A readable different/unlinked row returns ``False``
+    and makes orphan cleanup safe. An unreadable row raises 503 and deliberately
+    preserves the essay for later reconciliation/admin repair.
+    """
+    try:
+        fresh = (
+            supabase_admin.table("writing_assignments")
+            .select("id, status, essay_id")
+            .eq("id", str(assignment_id))
+            .eq("student_id", student_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error(
+            "[writing-student] claim readback failed; preserving essay "
+            "assignment=%s essay=%s: %s",
+            assignment_id, essay_id, exc,
+        )
+        raise HTTPException(
+            503,
+            "Bài nộp đang được đối chiếu. Vui lòng tải lại sau ít phút.",
+        )
+
+    if not fresh.data:
+        return False
+    row = fresh.data[0]
+    return str(row.get("essay_id") or "") == str(essay_id)
+
+
 def _persist_flagged_submission(
     *,
     assignment_id: UUID,
@@ -621,6 +784,8 @@ def _persist_flagged_submission(
     flags: list[str],
     paste_events: Optional[list] = None,
     suspicious_paste: bool = False,
+    request_id: Optional[UUID] = None,
+    submit_text_sha256: Optional[str] = None,
 ) -> dict:
     """Phase 2.6 + Sprint 2.7.1: write the row tree for a flagged
     submission, in SAGA order.
@@ -703,16 +868,23 @@ def _persist_flagged_submission(
     # the row never enters the grading queue, so the admin
     # dashboard's "submitted = needs grading" filter shouldn't
     # surface it.
+    claim_recovered = False
     try:
+        claim_payload = {
+            "essay_id":       essay_id,
+            "status":         "delivered",
+            "submitted_at":   now_iso,
+            "delivered_at":   now_iso,
+            "auto_submitted": auto_submitted_flag,
+        }
+        if request_id is not None:
+            claim_payload.update({
+                "student_submit_request_id": str(request_id),
+                "student_submit_text_sha256": submit_text_sha256,
+            })
         claim_resp = (
             supabase_admin.table("writing_assignments")
-            .update({
-                "essay_id":       essay_id,
-                "status":         "delivered",
-                "submitted_at":   now_iso,
-                "delivered_at":   now_iso,
-                "auto_submitted": auto_submitted_flag,
-            })
+            .update(claim_payload)
             .eq("id", str(assignment_id))
             .eq("student_id", student_id)
             .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
@@ -724,10 +896,21 @@ def _persist_flagged_submission(
             "essay=%s assignment=%s: %s",
             essay_id, assignment_id, exc,
         )
-        _rollback_orphan_essay(essay_id)
-        raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
+        if not _recover_claim_after_transport_error(
+            assignment_id=assignment_id,
+            student_id=student_id,
+            essay_id=essay_id,
+        ):
+            _rollback_orphan_essay(essay_id)
+            raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
+        logger.warning(
+            "[writing-student] recovered committed flagged claim after "
+            "transport error assignment=%s essay=%s",
+            assignment_id, essay_id,
+        )
+        claim_recovered = True
 
-    if not claim_resp.data:
+    if not claim_recovered and not claim_resp.data:
         # Lost the race — another tab already moved the row past an
         # active state.  Roll the orphan flagged essay back so the
         # moderation queue doesn't surface a row that no longer
@@ -741,13 +924,26 @@ def _persist_flagged_submission(
         try:
             fresh = (
                 supabase_admin.table("writing_assignments")
-                .select("status")
+                .select(
+                    "id, status, essay_id, student_submit_request_id, "
+                    "student_submit_text_sha256"
+                )
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
                 .limit(1)
                 .execute()
             )
+            if fresh.data:
+                replay = _replay_committed_submission(
+                    fresh.data[0],
+                    request_id=request_id,
+                    explicit_essay_text=essay_text,
+                )
+                if replay is not None:
+                    return replay
             cur = fresh.data[0]["status"] if fresh.data else "unknown"
+        except HTTPException:
+            raise
         except Exception:
             cur = "unknown"
         raise HTTPException(
@@ -832,6 +1028,7 @@ def _persist_flagged_submission(
             f"Bài đã nộp nhưng không được chấm do {explanation_vi}. "
             f"Em vui lòng kiểm tra lại bài viết."
         ),
+        "replayed":       False,
     }
 
 
@@ -888,6 +1085,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "essay_id, prompt_id, assigned_by, "
             "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "student_submit_request_id, student_submit_text_sha256, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url, "
             "prompt_image_analysis, prompt_image_analysis_reviewed)"
         )
@@ -1152,6 +1350,14 @@ async def submit_my_assignment(
 
     assignment = _resolve_active_assignment(student_id, str(assignment_id))
 
+    replay = _replay_committed_submission(
+        assignment,
+        request_id=body.request_id,
+        explicit_essay_text=body.essay_text,
+    )
+    if replay is not None:
+        return replay
+
     prompt = assignment.get("writing_prompts") or {}
     prompt_text = prompt.get("prompt_text")
     task_type   = prompt.get("task_type")
@@ -1208,6 +1414,7 @@ async def submit_my_assignment(
     suspicious_paste = any(
         (e or {}).get("char_count", 0) >= 50 for e in paste_events
     )
+    submit_text_sha256 = _submit_text_sha256(essay_text)
 
     # Phase 2.6 spam gate. Flagged path forks here so the SAGA flow
     # below only handles the clean grading-bound submission.
@@ -1224,6 +1431,8 @@ async def submit_my_assignment(
             flags            = flags,
             paste_events     = paste_events,
             suspicious_paste = suspicious_paste,
+            request_id        = body.request_id,
+            submit_text_sha256 = submit_text_sha256,
         )
 
     # ── Sprint 2.7.1 SAGA: essay row first, then atomic claim+link ─
@@ -1286,33 +1495,51 @@ async def submit_my_assignment(
     # filter on the current status is the "did I win the race" gate;
     # an empty `data` response means another tab beat us.
     now_iso = datetime.now(timezone.utc).isoformat()
+    claim_recovered = False
     try:
+        claim_payload = {
+            "status":         "submitted",
+            "submitted_at":   now_iso,
+            "auto_submitted": auto_submitted_flag,
+            "essay_id":       essay_id,
+        }
+        if body.request_id is not None:
+            claim_payload.update({
+                "student_submit_request_id": str(body.request_id),
+                "student_submit_text_sha256": submit_text_sha256,
+            })
         claim_resp = (
             supabase_admin.table("writing_assignments")
-            .update({
-                "status":         "submitted",
-                "submitted_at":   now_iso,
-                "auto_submitted": auto_submitted_flag,
-                "essay_id":       essay_id,
-            })
+            .update(claim_payload)
             .eq("id", str(assignment_id))
             .eq("student_id", student_id)
             .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
             .execute()
         )
     except Exception as exc:
-        # The UPDATE round-trip itself blew up — could be a network
-        # blip or a transient Postgres error. Roll the orphan essay
-        # back so the student can retry on a clean slate.
+        # The UPDATE round-trip itself blew up — this may be a transient DB
+        # failure OR a committed update whose response was lost. Read canonical
+        # state before deciding whether orphan rollback is safe.
         logger.error(
             "[writing-student] atomic claim+link failed "
             "essay=%s assignment=%s: %s",
             essay_id, assignment_id, exc,
         )
-        _rollback_orphan_essay(essay_id)
-        raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
+        if not _recover_claim_after_transport_error(
+            assignment_id=assignment_id,
+            student_id=student_id,
+            essay_id=essay_id,
+        ):
+            _rollback_orphan_essay(essay_id)
+            raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
+        logger.warning(
+            "[writing-student] recovered committed claim after transport "
+            "error assignment=%s essay=%s",
+            assignment_id, essay_id,
+        )
+        claim_recovered = True
 
-    if not claim_resp.data:
+    if not claim_recovered and not claim_resp.data:
         # Lost the race (or the row drifted out of an active state
         # between resolve and claim).  Roll the orphan essay back so
         # the moderation queue isn't poisoned by a row that points
@@ -1327,13 +1554,26 @@ async def submit_my_assignment(
         try:
             fresh = (
                 supabase_admin.table("writing_assignments")
-                .select("status")
+                .select(
+                    "id, status, essay_id, student_submit_request_id, "
+                    "student_submit_text_sha256"
+                )
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
                 .limit(1)
                 .execute()
             )
+            if fresh.data:
+                replay = _replay_committed_submission(
+                    fresh.data[0],
+                    request_id=body.request_id,
+                    explicit_essay_text=essay_text,
+                )
+                if replay is not None:
+                    return replay
             cur = fresh.data[0]["status"] if fresh.data else "unknown"
+        except HTTPException:
+            raise
         except Exception:
             cur = "unknown"
         raise HTTPException(
@@ -1394,7 +1634,28 @@ async def submit_my_assignment(
         "status":        "submitted",
         "eta_seconds":   eta,
         "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
+        "replayed":      False,
     }
+
+
+@router.get("/my-assignments/{assignment_id}/submission")
+async def get_my_assignment_submission(
+    assignment_id: UUID,
+    request_id: UUID = Query(...),
+    student: dict = Depends(require_writing_permission),
+):
+    """Side-effect-free reconciliation for an ambiguous submit response."""
+    assignment = _resolve_active_assignment(student["id"], str(assignment_id))
+    if assignment.get("status") in _ACTIVE_ASSIGNMENT_STATES:
+        raise HTTPException(404, "Chưa ghi nhận bài nộp cho yêu cầu này.")
+    receipt = _replay_committed_submission(
+        assignment,
+        request_id=request_id,
+        explicit_essay_text=None,
+    )
+    if receipt is None:  # defensive; active state returned above
+        raise HTTPException(404, "Chưa ghi nhận bài nộp cho yêu cầu này.")
+    return receipt
 
 
 # ── Phase 2.3c-3 — IELTS-mode timer state ────────────────────────────

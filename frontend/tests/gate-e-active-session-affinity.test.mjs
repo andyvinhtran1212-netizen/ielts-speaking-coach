@@ -50,11 +50,24 @@ function readyNextPolicy() {
 describe('current admission policy preserves behavior', () => {
   test('policy is internally valid and every ready legacy target exists', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
-    for (const config of Object.values(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
+    for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
       assert.equal(config.admit_new, 'legacy');
-      assert.equal(config.next.route_ready, false);
+      assert.equal(config.next.route_ready,
+        ['reading_exam', 'listening_test', 'listening_dictation'].includes(surface));
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-reading-player)/reading/exam/session/page.tsx',
+    )));
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-listening-player)/listening/test/session/page.tsx',
+    )));
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-listening-dictation)/listening/dictation/session/page.tsx',
+    )));
   });
 
   test('launchers use the runtime endpoint and the current server policy preserves legacy semantics', () => {

@@ -156,7 +156,7 @@ function ReviewLinks({ data, sittingId }: {
       icon: '🎧',
       title: 'Chữa bài Listening',
       hint: 'Xem lại từng câu + transcript',
-      href: `/pages/listening-review.html?attempt_id=${encodeURIComponent(data.listening_attempt_id)}${mockOrigin}`,
+      href: `/listening/review?attempt_id=${encodeURIComponent(data.listening_attempt_id)}${mockOrigin}`,
     });
   }
   if (data.reading_attempt_id) {
@@ -164,7 +164,7 @@ function ReviewLinks({ data, sittingId }: {
       icon: '📖',
       title: 'Chữa bài Reading',
       hint: 'Xem lại từng câu + bài đọc',
-      href: `/pages/reading-review.html?attempt_id=${encodeURIComponent(data.reading_attempt_id)}${mockOrigin}`,
+      href: `/reading/review?attempt_id=${encodeURIComponent(data.reading_attempt_id)}${mockOrigin}`,
     });
   }
   (data.writing_tasks || []).forEach((task) => {
@@ -389,7 +389,7 @@ export function MockResultBehavior() {
       setResultState(null);
       setErrorState(null);
       setPendingKey(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

@@ -69,7 +69,7 @@ describe('Sprint 20.2 — library JS (reading-vocab.js)', () => {
     assert.match(js, /window\.api\.get\(`?\/api\/reading\/vocab/);
   });
   test('deep-links to the passage page by slug', () => {
-    assert.match(js, /reading-vocab-passage\.html\?slug=/);
+    assert.match(js, /\/reading\/vocab\/\$\{encodeURIComponent\(p\.slug\)\}/);
   });
   test('escapes interpolated card content (XSS guard)', () => {
     assert.match(js, /function escapeHtml/);

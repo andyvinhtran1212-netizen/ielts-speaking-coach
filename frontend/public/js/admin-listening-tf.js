@@ -24,6 +24,8 @@ const MAX_STATEMENTS = 12;
 const STATE = {
   contentId:   null,
   exerciseId:  null,
+  exerciseUpdatedAt: null,
+  orderNum: 1,
   statements:  [],   // [{text, answer: "T"|"F"|"NG"}]
 };
 
@@ -36,6 +38,11 @@ function showBanner(text, kind = 'info') {
 function getContentIdFromUrl() {
   const sp = new URLSearchParams(window.location.search);
   return (sp.get('content_id') || '').trim() || null;
+}
+
+function getExerciseIdFromUrl() {
+  const sp = new URLSearchParams(window.location.search);
+  return (sp.get('exercise_id') || '').trim() || null;
 }
 
 
@@ -63,9 +70,18 @@ async function load() {
     const exRes = await window.api.get(
       `/admin/listening/exercises?content_id=${encodeURIComponent(contentId)}&exercise_type=true_false`,
     );
-    const ex = (exRes && exRes.exercises || [])[0];
+    const exercises = (exRes && exRes.exercises || []);
+    const requestedExerciseId = getExerciseIdFromUrl();
+    const ex = requestedExerciseId
+      ? exercises.find((candidate) => candidate.id === requestedExerciseId)
+      : exercises[0];
+    if (requestedExerciseId && !ex) {
+      throw new Error('exercise_id không thuộc content True / False này.');
+    }
     if (ex) {
       STATE.exerciseId = ex.id;
+      STATE.exerciseUpdatedAt = ex.updated_at;
+      STATE.orderNum = ex.order_num || 1;
       const raw = (ex.payload && ex.payload.statements) || [];
       STATE.statements = raw.slice().sort((a, b) => (a.idx || 0) - (b.idx || 0))
         .map((s) => ({ text: s.text || '', answer: s.answer || 'T' }));
@@ -75,6 +91,9 @@ async function load() {
         'info',
       );
     } else {
+      STATE.exerciseId = null;
+      STATE.exerciseUpdatedAt = null;
+      STATE.orderNum = 1;
       // Seed with the minimum number of empty statement rows.
       STATE.statements = Array.from({ length: MIN_STATEMENTS },
         () => ({ text: '', answer: 'T' }));
@@ -176,12 +195,20 @@ function buildPayload(status) {
     text:   (s.text || '').trim(),
     answer: s.answer,
   }));
-  return {
+  const payload = {
     content_id:    STATE.contentId,
     exercise_type: 'true_false',
+    order_num:     STATE.orderNum,
     payload:       { statements },
     status,
   };
+  if (STATE.exerciseId) {
+    payload.exercise_id = STATE.exerciseId;
+    payload.expected_updated_at = STATE.exerciseUpdatedAt;
+  } else {
+    payload.expected_absent = true;
+  }
+  return payload;
 }
 
 
@@ -197,6 +224,7 @@ async function save(status) {
       '/admin/listening/exercises', buildPayload(status),
     );
     STATE.exerciseId = out.exercise_id;
+    STATE.exerciseUpdatedAt = out.updated_at || STATE.exerciseUpdatedAt;
     showBanner(
       `Đã ${out.created ? 'tạo' : 'cập nhật'} T/F exercise (${out.exercise_id}, status=${status}).`,
       'success',

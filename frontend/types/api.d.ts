@@ -599,7 +599,10 @@ export interface paths {
          * Foot Traffic
          * @description Aggregated page-view foot traffic for the admin dashboard. Default window:
          *     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
-         *     Pattern #29: a query failure returns zeroed metrics, never a 500.
+         *
+         *     The response explicitly distinguishes complete, partial and unavailable
+         *     reads. An upstream failure must never masquerade as a real zero-traffic
+         *     window in the admin UI.
          */
         get: operations["foot_traffic_admin_analytics_foot_traffic_get"];
         put?: never;
@@ -671,7 +674,10 @@ export interface paths {
          *     `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
          *     APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
          *     returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
-         *     a query outage yields ok=false, never a 500. Cache-Control: 300s.
+         *     response distinguishes complete, partial and unavailable reads. Counts and
+         *     rows are frozen at one UTC watermark; a query outage yields unavailable or
+         *     partial data, never a false zero. The private response is never cached so
+         *     the explicit refresh action always obtains a new canonical snapshot.
          */
         get: operations["dashboard_reading_attempts_admin_dashboard_reading_attempts_get"];
         put?: never;
@@ -1075,7 +1081,8 @@ export interface paths {
         /**
          * Admin List Sessions
          * @description List all sessions across users (admin only).
-         *     Supports filtering by user_id, mode, status, error_code, has_error, date range.
+         *     Supports filtering by user_id or exact user_email, mode, status,
+         *     error_code, has_error, date range.
          *     Returns sessions enriched with user email.
          */
         get: operations["admin_list_sessions_admin_sessions_get"];
@@ -1458,7 +1465,7 @@ export interface paths {
          *
          *     Returns:
          *       - views_total              (sum of view_count across article_views)
-         *       - views_recent             (sum where last_viewed_at >= now-days)
+         *       - active_view_records_recent (user/article records active in the window)
          *       - saves_total              (count of saved_articles rows)
          *       - top_viewed[]             (top 20 by total views)
          *       - top_saved[]              (top 5 by save count)
@@ -3120,6 +3127,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/prompts/discard-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Unattached Image
+         * @description Best-effort cleanup for an upload whose following prompt write failed.
+         *
+         *     Only paths minted by ``upload_prompt_image`` are accepted. This endpoint is
+         *     deliberately not a general-purpose storage delete surface.
+         */
+        post: operations["discard_unattached_image_admin_writing_prompts_discard_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/prompts/{prompt_id}": {
         parameters: {
             query?: never;
@@ -3140,12 +3170,10 @@ export interface paths {
          *     the row, so old assignments / submissions referencing this prompt
          *     keep their context.  PATCH with is_active=true to restore.
          *
-         *     Phase 2.3c-1: also deletes the Supabase Storage object and clears
-         *     the image columns. Soft-deleted prompts are never re-shown to admins
-         *     (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
-         *     image objects "just in case" of restore would steadily accumulate
-         *     storage. If a restore is ever needed, admin can re-upload the image
-         *     alongside the PATCH `is_active=true`.
+         *     The prompt's image columns and analysis are cleared, but a published
+         *     Storage object is retained as immutable evidence for historical essays
+         *     and in-flight submissions that snapshot its public URL. If restored,
+         *     the admin can attach a new image.
          */
         delete: operations["soft_delete_prompt_admin_writing_prompts__prompt_id__delete"];
         options?: never;
@@ -3319,9 +3347,9 @@ export interface paths {
          * Cohort Detail
          * @description Student × assignment matrix for one cohort.
          *
-         *     matrix[student_id][prompt_id] = {assignment_id, status, essay_id,
-         *     deadline, band}. Columns = distinct prompts assigned to the cohort,
-         *     ordered by earliest assignment. Sparse: a missing (student, prompt)
+         *     matrix[student_id][column_id] = {assignment_id, status, essay_id,
+         *     deadline, band}. Columns are distinct give/group × prompt identities,
+         *     ordered by earliest assignment. Sparse: a missing (student, give × prompt)
          *     pair simply has no key (the UI renders '—').
          */
         get: operations["cohort_detail_admin_writing_cohorts__cohort_id__get"];
@@ -3461,6 +3489,32 @@ export interface paths {
          *     these prompts (allow + warn — re-giving in a new Buổi is intended).
          */
         post: operations["fan_out_to_cohort_admin_writing_assignments_fan_out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/assignments/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Assignment Request
+         * @description Read back every assignment named by an idempotent request receipt.
+         *
+         *     A single representative row cannot prove that a bulk Cartesian insert is
+         *     still complete. This endpoint binds the immutable admin-owned receipt to
+         *     the current canonical assignment rows and returns the exact IDs that still
+         *     belong to the recorded group; the client keeps reconciliation pending
+         *     unless the complete set matches.
+         */
+        get: operations["verify_assignment_request_admin_writing_assignments_requests__request_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3733,7 +3787,8 @@ export interface paths {
         /**
          * List Essay Versions
          * @description F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
-         *     the budget so the picker can pre-disable mix when no slot is free.
+         *     full feedback for a truthful learner preview and the budget so the picker
+         *     can pre-disable mix when no slot is free.
          */
         get: operations["list_essay_versions_instructor_essays__essay_id__versions_get"];
         put?: never;
@@ -4177,6 +4232,10 @@ export interface paths {
         /**
          * Update Student
          * @description Update student profile. Empty body → 400.
+         *
+         *     ``exclude_unset`` is intentional: optional profile fields can be cleared by
+         *     sending JSON ``null``. Required identity fields may be omitted, but may not
+         *     be explicitly cleared.
          */
         patch: operations["update_student_admin_students__student_id__patch"];
         trace?: never;
@@ -4397,6 +4456,26 @@ export interface paths {
          *     submitted" — holds; renaming it is queued for a later sprint.
          */
         post: operations["submit_my_assignment_api_writing_my_assignments__assignment_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Assignment Submission
+         * @description Side-effect-free reconciliation for an ambiguous submit response.
+         */
+        get: operations["get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5491,9 +5570,9 @@ export interface paths {
          * Submit D1 Attempt
          * @description D1 free tier: 50 attempts/day to prevent abuse.
          *
-         *     The decorator above runs BEFORE this handler and raises HTTP 429 with a
-         *     machine-readable detail (error, limit, used, reset_at) once the user has
-         *     submitted 50 D1 attempts in the current UTC day.
+         *     Idempotency replay is checked before the daily limit. This matters for a
+         *     lost ACK on the 50th persisted attempt: retrying that same client key must
+         *     return the existing row, not become an artificial 429.
          *
          *     Sprint 10.5 Phase 2 — exercise_id may reference either a personalized
          *     question (user_d1_questions) or an admin-pool exercise
@@ -5582,8 +5661,8 @@ export interface paths {
          * @description Mark a session completed and return a per-item correct/wrong summary so
          *     the UI can render the results screen without making a separate request.
          *
-         *     Idempotent: calling this twice on the same session just re-derives the
-         *     summary from the attempt rows; the second update is a no-op.
+         *     Idempotent in result: calling this twice re-derives the same summary and
+         *     persists the same canonical status/count.
          */
         post: operations["complete_d1_session_api_exercises_d1_sessions__session_id__complete_post"];
         delete?: never;
@@ -5958,19 +6037,16 @@ export interface paths {
         put?: never;
         /**
          * Submit Review
-         * @description Self-rate a card.  Updates SRS state via services.srs.update_srs and
-         *     appends a row to flashcard_review_log so the next call's rate-limit
-         *     counter sees this review.
+         * @description Self-rate a card. The client operation ID, rate-limit receipt, and SRS
+         *     state are committed as one replay-safe transaction by migration 212.
          *
          *     Two-step flow:
          *       1. Look up the existing flashcard_reviews row (or fall back to
          *          per-vocab defaults — ease=2.5, interval=1, count=0, lapse=0).
          *          Validates that the vocab belongs to the caller via the SELECT
          *          on user_vocabulary (RLS hides foreign rows).
-         *       2. Compute next state + UPSERT (UNIQUE(user_id, vocabulary_id)).
-         *
-         *     Failure to write the audit log is non-fatal — SRS still updated, just
-         *     means the daily counter under-reports by one.
+         *       2. Compute the next derived state and let the RPC atomically claim the
+         *          operation ID + UPSERT the shared SRS row.
          */
         post: operations["submit_review_api_flashcards__vocab_id__review_post"];
         delete?: never;
@@ -6336,6 +6412,26 @@ export interface paths {
          *     dictation_sessions row. Returns the report the completion screen renders.
          */
         post: operations["submit_listening_dictation_session_api_listening_tests_dictation_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/session/by-request/{client_request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Dictation Session By Request
+         * @description Reconcile an ambiguous completion POST by its durable client receipt.
+         */
+        get: operations["get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6750,10 +6846,11 @@ export interface paths {
          *       - non-overlapping
          *       - transcript non-empty
          *
-         *     Upsert semantics: if a row with the same (content_id, exercise_type)
-         *     pair already exists, the row is UPDATEd in place (preserves the
-         *     exercise_id so existing attempt rows keep referencing it). Otherwise
-         *     a new row is INSERTed.
+         *     Legacy callers that omit order_num retain their original "first block of
+         *     this type" semantics. Callers that provide order_num use the complete
+         *     (content_id, exercise_type, order_num) block identity. Native editors
+         *     update an exact exercise_id with an expected_updated_at version token so
+         *     existing attempt rows keep referencing the same exercise.
          */
         post: operations["admin_upsert_listening_exercise_admin_listening_exercises_post"];
         delete?: never;
@@ -8350,6 +8447,26 @@ export interface paths {
          *     trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
          */
         post: operations["save_course_writing_draft_api_quiz_course_writing_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/reading-solution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Reading Solution
+         * @description Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này.
+         */
+        post: operations["course_reading_solution_api_quiz_course_reading_solution_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10438,6 +10555,99 @@ export interface components {
             /** Action */
             action: string;
         };
+        /** AdminFeedbackGroupOut */
+        AdminFeedbackGroupOut: {
+            /** Test Id */
+            test_id?: string | null;
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /** New Count */
+            new_count: number;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+        };
+        /** AdminFeedbackInboxOut */
+        AdminFeedbackInboxOut: {
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Skill */
+            skill?: string | null;
+            /** Feedback Type */
+            feedback_type?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+            /** Count */
+            count: number | null;
+            /** Groups */
+            groups: components["schemas"]["AdminFeedbackGroupOut"][];
+            /** Truncated */
+            truncated: boolean;
+            /** Malformed Count */
+            malformed_count: number;
+        };
+        /** AdminFeedbackItemOut */
+        AdminFeedbackItemOut: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "rating" | "report" | "flag";
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+            /** Test Id */
+            test_id?: string | null;
+            /** Q Num */
+            q_num?: number | null;
+            /** Rating De */
+            rating_de?: number | null;
+            /** Rating Audio */
+            rating_audio?: number | null;
+            /** Category */
+            category?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Anon Id */
+            anon_id?: "redacted" | null;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "user" | "anonymous" | "unknown";
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** AdminFeedbackStatusOut */
+        AdminFeedbackStatusOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+        };
         /** AdminGenerateBatchRequest */
         AdminGenerateBatchRequest: {
             /** Words */
@@ -10551,6 +10761,17 @@ export interface components {
             url: string;
         };
         /**
+         * AuditRunRequest
+         * @description Optional client identity for a paid/non-idempotent full audit run.
+         *
+         *     Legacy rollback callers may omit it. Native callers persist a UUID in their
+         *     durable receipt and reconcile only against the same request_id in health.
+         */
+        AuditRunRequest: {
+            /** Request Id */
+            request_id?: string | null;
+        };
+        /**
          * AuditTriageRequest
          * @description Human triage of a persisted audit: update reviewer status / notes and/or
          *     mark specific issues resolved (by index into the saved issues array).
@@ -10562,6 +10783,8 @@ export interface components {
             notes?: string | null;
             /** Resolved Indexes */
             resolved_indexes?: number[] | null;
+            /** Expected Updated At */
+            expected_updated_at: string;
         };
         /**
          * BackfillBody
@@ -10942,6 +11165,18 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** CourseReadingBody */
+        CourseReadingBody: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Answers
+             * @default {}
+             */
+            answers: {
+                [key: string]: string;
+            };
+        };
         /** CourseVerdictBody */
         CourseVerdictBody: {
             /** Bank Id */
@@ -11071,7 +11306,7 @@ export interface components {
              * Category
              * @default
              */
-            category: string;
+            category: string | null;
             /** Part */
             part: number;
         };
@@ -11098,6 +11333,8 @@ export interface components {
             user_answer: string;
             /** Session Id */
             session_id?: string | null;
+            /** Client Attempt Id */
+            client_attempt_id?: string | null;
         };
         /** D1QuestionPatchPayload */
         D1QuestionPatchPayload: {
@@ -11154,12 +11391,19 @@ export interface components {
             test_id: string;
             /** Section Num */
             section_num: number;
+            /** Client Request Id */
+            client_request_id?: string | null;
             /** Started At */
             started_at?: string | null;
             /** Total Time Seconds */
             total_time_seconds?: number | null;
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
+        };
+        /** DiscardImageRequest */
+        DiscardImageRequest: {
+            /** Public Id */
+            public_id: string;
         };
         /**
          * DraftUpsert
@@ -11385,6 +11629,10 @@ export interface components {
          *     `prompt_ids`.
          */
         FanOutCreate: {
+            /** Request Id */
+            request_id?: string | null;
+            /** Expected Student Count */
+            expected_student_count?: number | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -11477,6 +11725,50 @@ export interface components {
             enabled: boolean;
             /** Note */
             note?: string | null;
+        };
+        /** FootTrafficDayRow */
+        FootTrafficDayRow: {
+            /** Date */
+            date: string;
+            /** Views */
+            views: number;
+        };
+        /** FootTrafficOut */
+        FootTrafficOut: {
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to?: string | null;
+            /** Route */
+            route?: string | null;
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Effective To */
+            effective_to: string;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Total Views */
+            total_views?: number | null;
+            /** Unique Visitors */
+            unique_visitors?: number | null;
+            /** Anonymous Hits */
+            anonymous_hits?: number | null;
+            /** Top Pages */
+            top_pages: components["schemas"]["FootTrafficPageRow"][];
+            /** Daily */
+            daily: components["schemas"]["FootTrafficDayRow"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** FootTrafficPageRow */
+        FootTrafficPageRow: {
+            /** Path */
+            path: string;
+            /** Views */
+            views: number;
         };
         /** FullPronRequest */
         FullPronRequest: {
@@ -11606,7 +11898,7 @@ export interface components {
             /**
              * Mode
              * @description missing_only | replace_all
-             * @default replace_all
+             * @default missing_only
              */
             mode: string;
         };
@@ -11629,6 +11921,21 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InstructorDeliverBody */
+        InstructorDeliverBody: {
+            /**
+             * Essay Id
+             * Format: uuid
+             * @description Essay identity bound to this review
+             */
+            essay_id: string;
+            /**
+             * Instructor Note
+             * @description Teacher comment copied to the review audit row and student-visible essay
+             * @default
+             */
+            instructor_note: string;
         };
         /** InstructorNoteBody */
         InstructorNoteBody: {
@@ -11902,6 +12209,8 @@ export interface components {
             external_license?: string | null;
             /** External Source Url */
             external_source_url?: string | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /**
          * ListeningContentStatusPatchRequest
@@ -11932,6 +12241,8 @@ export interface components {
         ListeningExerciseUpsertRequest: {
             /** Content Id */
             content_id: string;
+            /** Exercise Id */
+            exercise_id?: string | null;
             /**
              * Exercise Type
              * @default dictation
@@ -11955,6 +12266,13 @@ export interface components {
              * @default draft
              */
             status: string;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+            /**
+             * Expected Absent
+             * @default false
+             */
+            expected_absent: boolean;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -12153,6 +12471,11 @@ export interface components {
              * @default true
              */
             reviewed: boolean;
+            /**
+             * Expected Image Public Id
+             * @description Optimistic-concurrency fingerprint for the chart being reviewed.
+             */
+            expected_image_public_id: string;
         };
         /**
          * PromptCreate
@@ -12160,11 +12483,8 @@ export interface components {
          *     the migration's CHECK constraints + writing_essays size caps.
          *
          *     Phase 2.3c-1: `prompt_image_url` + `prompt_image_public_id`
-         *     plumbed for Task 1 Academic charts/diagrams.  Both NULL on
-         *     text-only prompts.  Admin UI hides the upload field unless
-         *     `task_type == 'task1_academic'`; the schema doesn't enforce
-         *     the pairing yet (intentional flexibility for content edge
-         *     cases — see migration 038's comment).
+         *     plumbed for Task 1 Academic charts/diagrams. Both are NULL on
+         *     text-only prompts and the route validates them as one storage pair.
          */
         PromptCreate: {
             /** Task Type */
@@ -12285,6 +12605,129 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+        };
+        /** ReadingAttemptTotalsOut */
+        ReadingAttemptTotalsOut: {
+            /** Submitted All Time */
+            submitted_all_time: number | null;
+            /** Submitted Window */
+            submitted_window: number | null;
+            /** Auth Attempts */
+            auth_attempts: number | null;
+            /** Anon Attempts */
+            anon_attempts: number | null;
+            /** Auth Distinct Users */
+            auth_distinct_users: number | null;
+            /** Anon Distinct Sources */
+            anon_distinct_sources: number | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** ReadingAttemptsDashboardOut */
+        ReadingAttemptsDashboardOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Snapshot To
+             * Format: date-time
+             */
+            snapshot_to: string;
+            totals: components["schemas"]["ReadingAttemptTotalsOut"];
+            /** Band Distribution */
+            band_distribution: components["schemas"]["ReadingBandBucketOut"][];
+            /** Skill Performance */
+            skill_performance: components["schemas"]["ReadingSkillPerformanceOut"][];
+            time_stats: components["schemas"]["ReadingTimeStatsOut"];
+            /** Per Test */
+            per_test: components["schemas"]["ReadingPerTestOut"][];
+            /** Recent */
+            recent: components["schemas"]["ReadingRecentAttemptOut"][];
+            /** Malformed Count */
+            malformed_count: number;
+            /** Lookup Failures */
+            lookup_failures: ("all_time_count" | "window_count" | "test_titles" | "recent_identities")[];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** ReadingBandBucketOut */
+        ReadingBandBucketOut: {
+            /** Band */
+            band: number;
+            /** Count */
+            count: number;
+        };
+        /** ReadingPerTestOut */
+        ReadingPerTestOut: {
+            /** Test Id */
+            test_id: string;
+            /** Title */
+            title: string;
+            /** Attempts */
+            attempts: number;
+            /** Auth */
+            auth: number;
+            /** Anon */
+            anon: number;
+            /** Avg Band */
+            avg_band?: number | null;
+        };
+        /** ReadingRecentAttemptOut */
+        ReadingRecentAttemptOut: {
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Test Title */
+            test_title: string;
+            /** Who */
+            who: string;
+            /** Is Anonymous */
+            is_anonymous: boolean;
+            /** Band */
+            band?: number | null;
+            /** Time Minutes */
+            time_minutes?: number | null;
+        };
+        /** ReadingSkillPerformanceOut */
+        ReadingSkillPerformanceOut: {
+            /** Skill Tag */
+            skill_tag: string;
+            /** Correct */
+            correct: number;
+            /** Total */
+            total: number;
+            /** Accuracy */
+            accuracy?: number | null;
+        };
+        /** ReadingTimeStatsOut */
+        ReadingTimeStatsOut: {
+            /** Avg Minutes */
+            avg_minutes?: number | null;
+            /** Median Minutes */
+            median_minutes?: number | null;
+            /** Count */
+            count: number;
         };
         /** ReassignRequest */
         ReassignRequest: {
@@ -12356,6 +12799,8 @@ export interface components {
         ReviewRequest: {
             /** Rating */
             rating: string;
+            /** Client Review Id */
+            client_review_id?: string | null;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
@@ -12449,6 +12894,8 @@ export interface components {
         SubmitEssay: {
             /** Essay Text */
             essay_text?: string | null;
+            /** Request Id */
+            request_id?: string | null;
         };
         /** TTSRequest */
         TTSRequest: {
@@ -12582,6 +13029,8 @@ export interface components {
         };
         /** UpdateTopicQuestionRequest */
         UpdateTopicQuestionRequest: {
+            /** Part */
+            part?: number | null;
             /** Question Text */
             question_text?: string | null;
             /** Question Type */
@@ -12597,9 +13046,10 @@ export interface components {
          * UploadImageResponse
          * @description Response shape for `POST .../upload-image`. `url` is the public
          *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
-         *     is the storage path (persisted into `prompt_image_public_id`, used to
-         *     delete the object on prompt delete). `width`/`height` are null — we
-         *     don't decode dimensions server-side (no Pillow dependency).
+         *     is the storage path persisted into `prompt_image_public_id`. Published
+         *     objects are retained as immutable grading evidence; only unattached
+         *     uploads may be discarded. `width`/`height` are null — we don't decode
+         *     dimensions server-side (no Pillow dependency).
          */
         UploadImageResponse: {
             /** Url */
@@ -12901,6 +13351,8 @@ export interface components {
          *     constraint enforces at the DB layer.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
+            /** Request Id */
+            request_id?: string | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -13935,6 +14387,7 @@ export interface operations {
             query?: {
                 date_from?: string | null;
                 date_to?: string | null;
+                route?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -13950,7 +14403,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FootTrafficOut"];
                 };
             };
             /** @description Validation Error */
@@ -14049,7 +14502,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingAttemptsDashboardOut"];
                 };
             };
             /** @description Validation Error */
@@ -14890,6 +15343,7 @@ export interface operations {
         parameters: {
             query?: {
                 user_id?: string | null;
+                user_email?: string | null;
                 mode?: string | null;
                 status?: string | null;
                 error_code?: string | null;
@@ -18036,6 +18490,41 @@ export interface operations {
             };
         };
     };
+    discard_unattached_image_admin_writing_prompts_discard_image_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscardImageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_prompt_admin_writing_prompts__prompt_id__get: {
         parameters: {
             query?: never;
@@ -18214,6 +18703,7 @@ export interface operations {
             query?: {
                 task_type?: string | null;
                 published?: boolean | null;
+                slug?: string | null;
                 limit?: number;
             };
             header?: {
@@ -18710,6 +19200,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_assignment_request_admin_writing_assignments_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20104,7 +20627,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstructorDeliverBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -20610,6 +21137,41 @@ export interface operations {
                 "application/json": components["schemas"]["SubmitEssay"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get: {
+        parameters: {
+            query: {
+                request_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -23524,6 +24086,39 @@ export interface operations {
             };
         };
     };
+    get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                client_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_listening_dictation_session_api_listening_tests_dictation_session__session_id__get: {
         parameters: {
             query?: never;
@@ -24579,7 +25174,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuditRunRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -25107,6 +25706,7 @@ export interface operations {
             query?: {
                 library?: string | null;
                 status?: string | null;
+                identity?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -26701,6 +27301,41 @@ export interface operations {
             };
         };
     };
+    course_reading_solution_api_quiz_course_reading_solution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseReadingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     course_answer_report_api_quiz_course_report_get: {
         parameters: {
             query: {
@@ -27538,7 +28173,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackInboxOut"];
                 };
             };
             /** @description Validation Error */
@@ -27575,7 +28210,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackStatusOut"];
                 };
             };
             /** @description Validation Error */

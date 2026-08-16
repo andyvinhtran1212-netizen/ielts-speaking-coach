@@ -53,16 +53,17 @@ export function validateSpeakingFailureJson(manifest, report) {
   }
   const actualCounts = Object.fromEntries(expectedProjects.map((project) => [project, 0]));
   for (const test of tests) {
-    if (!Object.hasOwn(actualCounts, test.projectName)) {
-      fail(`JSON contains unexpected project ${test.projectName || '<missing>'}`);
+    const projectName = test.projectName || test.projectId;
+    if (!Object.hasOwn(actualCounts, projectName)) {
+      fail(`JSON contains unexpected project ${projectName || '<missing>'}`);
     }
     if (test.status !== 'expected') {
-      fail(`${test.projectName} contains non-passing test status ${test.status || '<missing>'}`);
+      fail(`${projectName} contains non-passing test status ${test.status || '<missing>'}`);
     }
     if (!Array.isArray(test.results) || test.results.length !== 1 || test.results[0]?.status !== 'passed') {
-      fail(`${test.projectName} must contain exactly one passed result per test`);
+      fail(`${projectName} must contain exactly one passed result per test`);
     }
-    actualCounts[test.projectName] += 1;
+    actualCounts[projectName] += 1;
   }
   for (const [project, expected] of Object.entries(expectedCounts)) {
     if (actualCounts[project] !== expected) {

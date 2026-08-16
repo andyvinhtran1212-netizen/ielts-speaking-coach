@@ -265,6 +265,41 @@ def _bg_essay_responses() -> dict:
 
 
 @pytest.mark.asyncio
+async def test_bg_grade_essay_does_not_fallback_to_new_chart_for_historical_snapshot():
+    responses = _bg_essay_responses()
+    responses[("writing_essays", "select")][0].update({
+        "task_type": "task1_academic",
+        "prompt_image_url": "https://old/chart-a.png",
+        "prompt_image_analysis": None,
+    })
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(), model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+
+    fake_grader.grade_essay = fake_grade
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory", return_value=None), \
+         patch.object(essay_service, "get_sentence_structure_history", return_value=None), \
+         patch.object(essay_service, "current_prompt_image_for_essay",
+                      return_value="https://new/chart-b.png") as fallback:
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    assert captured["config"].prompt_image_url == "https://old/chart-a.png"
+    assert captured["config"].prompt_image_url_fallback is None
+    fallback.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     fake = _FakeSupabase(responses=_bg_essay_responses())
     fake_grader = MagicMock()
@@ -1347,12 +1382,13 @@ def _detail_responses(task_type, snapshot, live_img):
     }
 
 
-def test_detail_exposes_fallback_when_snapshot_differs():
+def test_detail_does_not_replace_historical_snapshot_with_current_prompt_image():
     fake = _FakeSupabase(responses=_detail_responses(
         "task1_academic", snapshot="https://old/dead.png", live_img=_LIVE_IMG))
     with patch.object(essay_service, "supabase_admin", fake):
         out = essay_service.get_essay_with_feedback(_ESSAY_ID)
-    assert out["prompt_image_url_fallback"] == _LIVE_IMG
+    assert "prompt_image_url_fallback" not in out
+    assert not any(c["table"] == "writing_assignments" for c in fake.calls)
 
 
 def test_detail_omits_fallback_when_snapshot_matches_live():
@@ -1361,6 +1397,14 @@ def test_detail_omits_fallback_when_snapshot_matches_live():
     with patch.object(essay_service, "supabase_admin", fake):
         out = essay_service.get_essay_with_feedback(_ESSAY_ID)
     assert "prompt_image_url_fallback" not in out
+
+
+def test_detail_exposes_current_prompt_image_only_for_legacy_missing_snapshot():
+    fake = _FakeSupabase(responses=_detail_responses(
+        "task1_academic", snapshot=None, live_img=_LIVE_IMG))
+    with patch.object(essay_service, "supabase_admin", fake):
+        out = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert out["prompt_image_url_fallback"] == _LIVE_IMG
 
 
 def test_detail_skips_fallback_for_non_task1_academic():

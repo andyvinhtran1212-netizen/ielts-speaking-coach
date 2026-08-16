@@ -103,14 +103,17 @@ def list_students(
     # cohorts.name) via ONE batched lookup (no N+1; mirrors the access-code
     # list's cohort_name precedent). Unassigned → cohort_name None so the UI
     # renders "—" rather than silently dropping it.
-    _attach_cohort_names(rows)
+    cohort_lookup_failed = not _attach_cohort_names(rows)
+    for row in rows:
+        row["cohort_lookup_failed"] = cohort_lookup_failed
     return rows
 
 
-def _attach_cohort_names(rows: list[dict]) -> None:
+def _attach_cohort_names(rows: list[dict]) -> bool:
     """Set `cohort_name` on each row from its `cohort_id` (in place). One
-    batched cohorts query; a lookup failure leaves cohort_name=None (UI shows
-    "—") and never blocks the list."""
+    batched cohorts query. Returns whether the lookup completed. A lookup
+    failure leaves cohort_name=None but is explicitly exposed by list_students
+    as cohort_lookup_failed so assigned students never look unassigned."""
     cohort_ids = list({r.get("cohort_id") for r in rows if r.get("cohort_id")})
     names: dict[str, str] = {}
     if cohort_ids:
@@ -124,8 +127,14 @@ def _attach_cohort_names(rows: list[dict]) -> None:
             names = {c["id"]: (c.get("name") or "") for c in (cr.data or [])}
         except Exception:
             names = {}
+            lookup_ok = False
+        else:
+            lookup_ok = True
+    else:
+        lookup_ok = True
     for r in rows:
         r["cohort_name"] = names.get(r.get("cohort_id"))
+    return lookup_ok
 
 
 def _iso_to_dt(s):

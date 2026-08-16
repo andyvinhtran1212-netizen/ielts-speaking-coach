@@ -310,7 +310,8 @@ async def get_essay(request: Request, essay_id: UUID, authorization: str | None 
 @router.get("/essays/{essay_id}/versions")
 async def list_essay_versions(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
     """F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
-    the budget so the picker can pre-disable mix when no slot is free."""
+    full feedback for a truthful learner preview and the budget so the picker
+    can pre-disable mix when no slot is free."""
     me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)               # → 403 if not owned
     versions = essay_service.get_live_versions(str(essay_id))
@@ -358,7 +359,17 @@ async def compose_essay_version(request: Request, essay_id: UUID, body: ComposeB
 
 
 class InstructorNoteBody(BaseModel):
-    instructor_note: str = Field(default="", description="teacher-comment (student-visible)")
+    instructor_note: str = Field(
+        default="", max_length=5000, description="teacher-comment (student-visible)",
+    )
+
+
+class InstructorDeliverBody(BaseModel):
+    essay_id: UUID = Field(description="Essay identity bound to this review")
+    instructor_note: str = Field(
+        default="", max_length=5000,
+        description="Teacher comment copied to the review audit row and student-visible essay",
+    )
 
 
 class RegradeBody(BaseModel):
@@ -696,10 +707,19 @@ async def release_review(request: Request, review_id: UUID, authorization: str |
 
 
 @router.post("/reviews/{review_id}/deliver")
-async def deliver_review(request: Request, review_id: UUID, authorization: str | None = Header(None)):
+async def deliver_review(request: Request, review_id: UUID, body: InstructorDeliverBody,
+                         authorization: str | None = Header(None)):
     me = await _me(authorization, request)
+    # Bind the review mutation to the essay currently shown in the UI. This
+    # prevents a stale/mixed URL from delivering review B while rendering essay A.
+    assert_essay_owned(me, body.essay_id)
     try:
-        return instructor_workflow.deliver(review_id, me)
+        return instructor_workflow.deliver(
+            review_id,
+            me,
+            instructor_note=body.instructor_note,
+            expected_essay_id=body.essay_id,
+        )
     except NotFoundError:
         raise HTTPException(404, "Không tìm thấy.")
     except ConflictError as e:

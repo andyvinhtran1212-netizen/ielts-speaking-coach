@@ -195,7 +195,7 @@ export function ListeningLandingBehavior() {
   const { status, user } = useAuth();
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   if (status !== 'signed-in' || !user?.id) {

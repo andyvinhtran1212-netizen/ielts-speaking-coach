@@ -14,12 +14,13 @@ import math
 import random
 import string
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 import uuid as _uuid
-from typing import Any
-from pydantic import BaseModel, Field
+from typing import Any, Literal
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -184,9 +185,11 @@ def _max_iso(*values: str | None) -> str | None:
     return max(parsed).isoformat()
 
 
-def _topic_status(topic: dict, question_count: int) -> tuple[str, str]:
+def _topic_status(topic: dict, question_count: int | None) -> tuple[str, str]:
     if not topic.get("is_active", True):
         return "inactive", "Inactive"
+    if question_count is None:
+        return "metadata_unavailable", "Question status unavailable"
     if question_count <= 0:
         return "no_questions", "No questions"
     if topic.get("last_rotated_at"):
@@ -440,7 +443,7 @@ def _validate_code_type_combo(code_type: str, cohort_id: str | None) -> None:
 
 class CreateTopicRequest(BaseModel):
     title:    str
-    category: str = ""   # kept for DB compat, not shown in UI
+    category: str | None = ""   # nullable for legacy clients; persisted as ""
     part:     int = Field(ge=1, le=3)
 
 
@@ -457,7 +460,7 @@ class BulkAddTopicsRequest(BaseModel):
 
 
 class GenerateTopicQuestionsRequest(BaseModel):
-    mode: str = Field(default="replace_all", description="missing_only | replace_all")
+    mode: str = Field(default="missing_only", description="missing_only | replace_all")
 
 
 class BulkTopicIdsRequest(BaseModel):
@@ -473,15 +476,16 @@ class CreateTopicQuestionRequest(BaseModel):
     part:                int   = Field(ge=1, le=3)
     question_text:       str
     question_type:       str   = ""
-    order_num:           int   = 0
+    order_num:           int   = Field(default=0, ge=0)
     cue_card_bullets:    list[str] | None = None
     cue_card_reflection: str | None       = None
 
 
 class UpdateTopicQuestionRequest(BaseModel):
+    part:                int | None        = Field(default=None, ge=1, le=3)
     question_text:       str | None       = None
     question_type:       str | None       = None
-    order_num:           int | None       = None
+    order_num:           int | None       = Field(default=None, ge=1)
     cue_card_bullets:    list[str] | None = None
     cue_card_reflection: str | None       = None
 
@@ -494,6 +498,7 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
     topic_ids = [t["id"] for t in rows if t.get("id")]
     question_counts: dict[str, int] = {}
     latest_question_at: dict[str, str] = {}
+    question_metadata_lookup_failed = False
 
     if topic_ids:
         try:
@@ -514,15 +519,17 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
                     q.get("created_at"),
                 ) or latest_question_at.get(topic_id)
         except Exception:
+            question_metadata_lookup_failed = True
             logger.warning("[admin.topics] failed to aggregate question metadata", exc_info=True)
 
     enriched: list[dict] = []
     for topic in rows:
         item = dict(topic)
         topic_id = item.get("id")
-        count = question_counts.get(topic_id, 0)
+        count = None if question_metadata_lookup_failed else question_counts.get(topic_id, 0)
         status_code, status_label = _topic_status(item, count)
         item["question_count"] = count
+        item["question_metadata_lookup_failed"] = question_metadata_lookup_failed
         item["status"] = status_code
         item["status_label"] = status_label
         item["last_question_created_at"] = latest_question_at.get(topic_id)
@@ -1189,32 +1196,82 @@ async def list_unassigned_codes(authorization: str | None = Header(default=None)
 
 # ── Sprint 17.2 — usage log (per-user + per-code activity rollups) ────────────────
 
+_USAGE_PAGE = 1000
+_USAGE_ID_CHUNK = 200
+
+
+def _usage_paged(build_query) -> list[dict]:
+    """Read a complete PostgREST result with an ``id`` keyset cursor.
+
+    Usage rollups are operational truth, so the implicit ~1000-row response cap
+    must not silently turn a real total into a plausible-looking lower number.
+    OFFSET pagination is deliberately avoided: concurrent inserts/deletes can
+    shift offsets and duplicate or skip existing rows. ``build_query`` returns
+    a fresh mutable builder for every page and every selected shape includes id.
+    """
+    rows: list[dict] = []
+    cursor: str | None = None
+    while True:
+        query = build_query().order("id").limit(_USAGE_PAGE)
+        if cursor is not None:
+            query = query.gt("id", cursor)
+        page = query.execute().data or []
+        rows.extend(page)
+        if len(page) < _USAGE_PAGE:
+            return rows
+        next_cursor = page[-1].get("id")
+        if not isinstance(next_cursor, str) or not next_cursor or next_cursor == cursor:
+            raise RuntimeError("usage pagination requires a progressing id cursor")
+        cursor = next_cursor
+
+
+def _usage_id_chunks(user_ids: list[str]):
+    for start in range(0, len(user_ids), _USAGE_ID_CHUNK):
+        yield user_ids[start : start + _USAGE_ID_CHUNK]
+
 def _aggregate_usage_for_users(
     user_ids: list[str], date_from: str | None = None, date_to: str | None = None
 ) -> dict[str, dict]:
     """Per-user {sessions, last_active, ai_cost_usd} for the given users.
 
-    Batched: ONE sessions query + ONE ai_usage_logs query regardless of user count
-    (no N+1). Pattern #29: a failed sub-query degrades THAT metric to None rather
-    than failing the whole rollup. ISO-UTC timestamps compare lexicographically.
+    Batched in bounded user-id chunks (no per-user N+1), and every source page is
+    read past PostgREST's response cap. Pattern #29: a failed sub-query degrades
+    THAT metric to None rather than failing the whole rollup. ISO-UTC timestamps
+    compare lexicographically.
     """
     out = {uid: {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0} for uid in user_ids}
     if not user_ids:
         return out
 
+    # Freeze both source sets at one request watermark. Without it, a normal
+    # practice/log insert whose random UUID sorts into an already-read page can
+    # shift later OFFSET ranges and make a pre-existing row appear twice or not
+    # at all. New production rows use server/current timestamps, so excluding
+    # timestamps after this boundary gives every page the same logical snapshot.
+    snapshot_to = datetime.now(timezone.utc).isoformat()
+
     try:
-        sq = supabase_admin.table("sessions").select("user_id, started_at").in_("user_id", user_ids)
-        if date_from:
-            sq = sq.gte("started_at", date_from)
-        if date_to:
-            sq = sq.lte("started_at", date_to)
-        for row in (sq.execute().data or []):
-            uid, ts = row.get("user_id"), row.get("started_at")
-            if uid not in out:
-                continue
-            out[uid]["sessions"] += 1
-            if ts and (out[uid]["last_active"] is None or ts > out[uid]["last_active"]):
-                out[uid]["last_active"] = ts
+        for id_chunk in _usage_id_chunks(user_ids):
+            def sessions_query():
+                query = (
+                    supabase_admin.table("sessions")
+                    .select("id, user_id, started_at")
+                    .in_("user_id", id_chunk)
+                    .lte("started_at", snapshot_to)
+                )
+                if date_from:
+                    query = query.gte("started_at", date_from)
+                if date_to:
+                    query = query.lte("started_at", date_to)
+                return query
+
+            for row in _usage_paged(sessions_query):
+                uid, ts = row.get("user_id"), row.get("started_at")
+                if uid not in out:
+                    continue
+                out[uid]["sessions"] += 1
+                if ts and (out[uid]["last_active"] is None or ts > out[uid]["last_active"]):
+                    out[uid]["last_active"] = ts
     except Exception as exc:
         logger.warning("usage: sessions aggregate failed: %s", exc)
         for uid in out:
@@ -1222,15 +1279,24 @@ def _aggregate_usage_for_users(
             out[uid]["last_active"] = None
 
     try:
-        cq = supabase_admin.table("ai_usage_logs").select("user_id, cost_usd_est").in_("user_id", user_ids)
-        if date_from:
-            cq = cq.gte("created_at", date_from)
-        if date_to:
-            cq = cq.lte("created_at", date_to)
-        for row in (cq.execute().data or []):
-            uid = row.get("user_id")
-            if uid in out and out[uid]["ai_cost_usd"] is not None:
-                out[uid]["ai_cost_usd"] += float(row.get("cost_usd_est") or 0)
+        for id_chunk in _usage_id_chunks(user_ids):
+            def costs_query():
+                query = (
+                    supabase_admin.table("ai_usage_logs")
+                    .select("id, user_id, cost_usd_est")
+                    .in_("user_id", id_chunk)
+                    .lte("created_at", snapshot_to)
+                )
+                if date_from:
+                    query = query.gte("created_at", date_from)
+                if date_to:
+                    query = query.lte("created_at", date_to)
+                return query
+
+            for row in _usage_paged(costs_query):
+                uid = row.get("user_id")
+                if uid in out and out[uid]["ai_cost_usd"] is not None:
+                    out[uid]["ai_cost_usd"] += float(row.get("cost_usd_est") or 0)
     except Exception as exc:
         logger.warning("usage: ai cost aggregate failed: %s", exc)
         for uid in out:
@@ -1252,14 +1318,13 @@ async def usage_by_user(
     session count, last activity, and AI cost. Batched (no N+1)."""
     await require_admin(authorization)
     try:
-        users = (
-            supabase_admin.table("users")
+        users = _usage_paged(
+            lambda: supabase_admin.table("users")
             .select("id, email, display_name, role")
-            .execute()
-            .data
-        ) or []
+        )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải users: {exc}")
+        logger.warning("usage: users list failed: %s", exc)
+        raise HTTPException(500, "Không thể tải dữ liệu hoạt động") from exc
 
     agg = _aggregate_usage_for_users([u["id"] for u in users], date_from, date_to)
     return [
@@ -1291,22 +1356,23 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
         raise HTTPException(404, "Mã không tồn tại")
     code = code_rows[0]
 
-    asgn = (
-        supabase_admin.table("user_code_assignments")
-        .select("user_id, assigned_at")
+    asgn = _usage_paged(
+        lambda: supabase_admin.table("user_code_assignments")
+        .select("id, user_id, assigned_at")
         .eq("code_id", code_id)
         .eq("is_active", True)   # only active assignments count toward the rollup
-        .execute()
-        .data
-    ) or []
+    )
     uids = [a["user_id"] for a in asgn]
 
     users: dict[str, dict] = {}
     if uids:
-        for u in (
-            supabase_admin.table("users").select("id, email, display_name").in_("id", uids).execute().data or []
-        ):
-            users[u["id"]] = u
+        for id_chunk in _usage_id_chunks(uids):
+            for u in _usage_paged(
+                lambda id_chunk=id_chunk: supabase_admin.table("users")
+                .select("id, email, display_name, role")
+                .in_("id", id_chunk)
+            ):
+                users[u["id"]] = u
 
     agg = _aggregate_usage_for_users(uids)
     per_user = [
@@ -1314,12 +1380,24 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
             "user_id": uid,
             "email": (users.get(uid) or {}).get("email") or "",
             "name": (users.get(uid) or {}).get("display_name") or "",
+            "role": (users.get(uid) or {}).get("role"),
             **agg.get(uid, {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}),
         }
         for uid in uids
     ]
-    total_sessions = sum((p["sessions"] or 0) for p in per_user)
-    total_cost = round(sum((p["ai_cost_usd"] or 0) for p in per_user), 4)
+    # A failed source query degrades every corresponding per-user metric to
+    # None. Preserve that truth at aggregate level; coercing None to zero would
+    # tell admins "no activity/cost" when the backend actually could not read it.
+    total_sessions = (
+        None
+        if any(p["sessions"] is None for p in per_user)
+        else sum(p["sessions"] for p in per_user)
+    )
+    total_cost = (
+        None
+        if any(p["ai_cost_usd"] is None for p in per_user)
+        else round(sum(p["ai_cost_usd"] for p in per_user), 4)
+    )
     return {
         "code": code,
         "assigned_users": per_user,
@@ -1341,55 +1419,137 @@ FOOT_TRAFFIC_PAGE = 1000
 FOOT_TRAFFIC_MAX_ROWS = 200_000
 
 
-@router.get("/analytics/foot-traffic")
+class FootTrafficPageRow(BaseModel):
+    path: str
+    views: int
+
+
+class FootTrafficDayRow(BaseModel):
+    date: str
+    views: int
+
+
+class FootTrafficOut(BaseModel):
+    date_from: str
+    date_to: str | None = None
+    route: str | None = None
+    snapshot_to: str
+    effective_to: str
+    data_status: Literal["complete", "partial", "unavailable"]
+    total_views: int | None = None
+    unique_visitors: int | None = None
+    anonymous_hits: int | None = None
+    top_pages: list[FootTrafficPageRow]
+    daily: list[FootTrafficDayRow]
+    truncated: bool
+
+
+def _foot_traffic_bound(value: str | None, *, end_of_day: bool = False) -> datetime | None:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        raise HTTPException(422, "Khoảng ngày không hợp lệ")
+    try:
+        if len(raw) == 10:
+            point = datetime.strptime(raw, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if end_of_day:
+                point += timedelta(days=1) - timedelta(microseconds=1)
+        else:
+            point = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if point.tzinfo is None:
+                point = point.replace(tzinfo=timezone.utc)
+            point = point.astimezone(timezone.utc)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, "Khoảng ngày không hợp lệ") from exc
+    return point
+
+
+@router.get("/analytics/foot-traffic", response_model=FootTrafficOut)
 async def foot_traffic(
     authorization: str | None = Header(default=None),
     date_from: str | None = None,
     date_to: str | None = None,
+    route: str | None = None,
 ):
     """Aggregated page-view foot traffic for the admin dashboard. Default window:
     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
-    Pattern #29: a query failure returns zeroed metrics, never a 500."""
+
+    The response explicitly distinguishes complete, partial and unavailable
+    reads. An upstream failure must never masquerade as a real zero-traffic
+    window in the admin UI.
+    """
     await require_admin(authorization)
-    if not date_from:
-        date_from = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # A small lag keeps transactions that started just before the request from
+    # committing behind an already-read keyset page. The response exposes this
+    # exact boundary as effective_to instead of implying it reaches wall-clock now.
+    snapshot_point = datetime.now(timezone.utc) - timedelta(seconds=5)
+    snapshot_to = snapshot_point.isoformat()
+    date_to_point = _foot_traffic_bound(date_to, end_of_day=True)
+    date_from_point = _foot_traffic_bound(date_from)
+    if date_from_point is None:
+        date_from_point = (date_to_point or snapshot_point) - timedelta(days=30)
+    if date_to_point and date_from_point > date_to_point:
+        raise HTTPException(422, "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc")
+    effective_to_point = min(date_to_point, snapshot_point) if date_to_point else snapshot_point
+    if date_from_point > effective_to_point:
+        raise HTTPException(422, "Ngày bắt đầu không được nằm sau thời điểm dữ liệu hiện có")
+    date_from = date_from_point.isoformat()
+    date_to = date_to_point.isoformat() if date_to_point else None
+    effective_to = effective_to_point.isoformat()
 
     rows: list[dict] = []
     truncated = False
+    data_status = "complete"
     try:
         # DEBT-2026-07-22-G — this read used to be a bare .select() with no
-        # .range(), so PostgREST capped the response at ~1000 rows and every
+        # pagination, so PostgREST capped the response at ~1000 rows and every
         # number below (total views, unique visitors, per-path counts, the daily
         # chart) was computed from an arbitrary 1000-row slice. Measured on prod
         # 2026-07-22: the 30-day view reported exactly 1000 views and charted
         # only 22–27/06 — the oldest days — so the panel was WRONG, not just
-        # incomplete. Page through with a stable (created_at, id) sort; without
-        # the ORDER BY, paging can repeat or skip rows between pages.
-        offset = 0
+        # incomplete. Page through the frozen request window using an id keyset;
+        # offset paging can repeat or skip rows while this hot table is written.
+        cursor_created_at: str | None = None
+        cursor_id: Any = None
         while True:
             q = (
                 supabase_admin.table("analytics_events")
-                .select("user_id, event_data, created_at")
+                .select("id, user_id, event_data, created_at")
                 .eq("event_name", "page_view")
                 .gte("created_at", date_from)
+                .lte("created_at", effective_to)
             )
-            if date_to:
-                q = q.lte("created_at", date_to)
+            if route:
+                q = q.contains("event_data", {"path": route})
+            if cursor_created_at is not None:
+                q = q.or_(
+                    f"created_at.gt.{cursor_created_at},"
+                    f"and(created_at.eq.{cursor_created_at},id.gt.{cursor_id})"
+                )
+            page_size = min(FOOT_TRAFFIC_PAGE, FOOT_TRAFFIC_MAX_ROWS - len(rows))
             batch = (
                 q.order("created_at")
                 .order("id")
-                .range(offset, offset + FOOT_TRAFFIC_PAGE - 1)
+                .limit(page_size)
                 .execute()
                 .data
                 or []
             )
-            rows.extend(batch)
-            if len(batch) < FOOT_TRAFFIC_PAGE:
+            if not batch:
                 break
-            offset += FOOT_TRAFFIC_PAGE
-            if offset >= FOOT_TRAFFIC_MAX_ROWS:
+            rows.extend(batch)
+            next_created_at = batch[-1].get("created_at")
+            next_id = batch[-1].get("id")
+            if not next_created_at or next_id is None or (
+                next_created_at == cursor_created_at and next_id == cursor_id
+            ):
+                raise RuntimeError("foot-traffic pagination cursor did not advance")
+            cursor_created_at, cursor_id = str(next_created_at), next_id
+            if len(rows) >= FOOT_TRAFFIC_MAX_ROWS:
                 # Never silent — the caller is told the window was cut.
                 truncated = True
+                data_status = "partial"
                 logger.warning(
                     "foot_traffic: hit the %d-row ceiling; results truncated",
                     FOOT_TRAFFIC_MAX_ROWS,
@@ -1404,6 +1564,9 @@ async def foot_traffic(
         logger.warning("foot_traffic: query failed: %s", exc)
         if rows:
             truncated = True
+            data_status = "partial"
+        else:
+            data_status = "unavailable"
 
     unique_users: set = set()
     anonymous_hits = 0
@@ -1417,7 +1580,7 @@ async def foot_traffic(
             anonymous_hits += 1
         ed = r.get("event_data") or {}
         path = ed.get("path") if isinstance(ed, dict) else None
-        if path:
+        if isinstance(path, str) and path:
             page_counts[path] = page_counts.get(path, 0) + 1
         ts = r.get("created_at")
         if ts:
@@ -1429,19 +1592,30 @@ async def foot_traffic(
         key=lambda x: x["views"], reverse=True,
     )[:10]
     daily_series = [{"date": d, "views": daily[d]} for d in sorted(daily)]
+    coverage_to = effective_to
+    if data_status == "partial" and rows:
+        last_read = rows[-1].get("created_at")
+        if isinstance(last_read, str) and last_read:
+            coverage_to = last_read
 
     return {
         "date_from": date_from,
         "date_to": date_to,
-        "total_views": len(rows),
-        "unique_visitors": len(unique_users),
-        "anonymous_hits": anonymous_hits,
+        "route": route,
+        "snapshot_to": snapshot_to,
+        # For partial reads this is the last successfully scanned event, not
+        # the requested watermark. Never imply unread days had zero traffic.
+        "effective_to": coverage_to,
+        "data_status": data_status,
+        "total_views": None if data_status == "unavailable" else len(rows),
+        "unique_visitors": None if data_status == "unavailable" else len(unique_users),
+        "anonymous_hits": None if data_status == "unavailable" else anonymous_hits,
         "top_pages": top_pages,
         "daily": daily_series,
         # DEBT-2026-07-22-G — true only if the MAX_ROWS ceiling bit. The admin
         # panel renders a warning on it; a truncated count must never read as a
         # complete one.
-        "truncated": truncated,
+        "truncated": data_status == "partial",
     }
 
 
@@ -1478,8 +1652,114 @@ async def dashboard_trends(
 
 # ── reading-access-tracking C — GET /admin/dashboard/reading-attempts ─────────
 
-@router.get("/dashboard/reading-attempts")
+
+class ReadingAttemptTotalsOut(BaseModel):
+    submitted_all_time: int | None = Field(ge=0)
+    submitted_window: int | None = Field(ge=0)
+    auth_attempts: int | None = Field(ge=0)
+    anon_attempts: int | None = Field(ge=0)
+    auth_distinct_users: int | None = Field(ge=0)
+    anon_distinct_sources: int | None = Field(ge=0)
+    truncated: bool
+
+
+class ReadingBandBucketOut(BaseModel):
+    band: float = Field(ge=0, le=9)
+    count: int = Field(ge=0)
+
+
+class ReadingSkillPerformanceOut(BaseModel):
+    skill_tag: str
+    correct: int = Field(ge=0)
+    total: int = Field(gt=0)
+    accuracy: float | None = Field(default=None, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_aggregate(self):
+        if self.correct > self.total:
+            raise ValueError("correct cannot exceed total")
+        return self
+
+
+class ReadingTimeStatsOut(BaseModel):
+    avg_minutes: float | None = Field(default=None, ge=0)
+    median_minutes: float | None = Field(default=None, ge=0)
+    count: int = Field(ge=0)
+
+
+class ReadingPerTestOut(BaseModel):
+    test_id: str
+    title: str
+    attempts: int = Field(ge=0)
+    auth: int = Field(ge=0)
+    anon: int = Field(ge=0)
+    avg_band: float | None = Field(default=None, ge=0, le=9)
+
+    @model_validator(mode="after")
+    def validate_split(self):
+        if self.auth + self.anon != self.attempts:
+            raise ValueError("auth + anon must equal attempts")
+        return self
+
+
+class ReadingRecentAttemptOut(BaseModel):
+    submitted_at: datetime
+    test_title: str
+    who: str
+    is_anonymous: bool
+    band: float | None = Field(default=None, ge=0, le=9)
+    time_minutes: float | None = Field(default=None, ge=0)
+
+
+class ReadingAttemptsDashboardOut(BaseModel):
+    ok: bool
+    data_status: Literal["complete", "partial", "unavailable"]
+    window_days: Literal[7, 30, 90]
+    window_start: datetime
+    snapshot_to: datetime
+    totals: ReadingAttemptTotalsOut
+    band_distribution: list[ReadingBandBucketOut]
+    skill_performance: list[ReadingSkillPerformanceOut]
+    time_stats: ReadingTimeStatsOut
+    per_test: list[ReadingPerTestOut]
+    recent: list[ReadingRecentAttemptOut]
+    malformed_count: int = Field(ge=0)
+    lookup_failures: list[Literal[
+        "all_time_count", "window_count", "test_titles", "recent_identities"
+    ]]
+    computed_at: datetime
+
+    @model_validator(mode="after")
+    def validate_coverage_contract(self):
+        row_counts = (
+            self.totals.submitted_window,
+            self.totals.auth_attempts,
+            self.totals.anon_attempts,
+            self.totals.auth_distinct_users,
+            self.totals.anon_distinct_sources,
+        )
+        if self.data_status == "unavailable":
+            if self.ok or any(value is not None for value in row_counts):
+                raise ValueError("unavailable data must not expose false row counts")
+            if self.band_distribution or self.skill_performance or self.per_test or self.recent:
+                raise ValueError("unavailable data must not expose row-derived collections")
+            return self
+        if not self.ok or any(value is None for value in row_counts):
+            raise ValueError("available data requires non-null row counts")
+        derived = self.totals.auth_attempts + self.totals.anon_attempts
+        if derived > self.totals.submitted_window:
+            raise ValueError("derived attempt count cannot exceed submitted total")
+        degraded = bool(self.totals.truncated or self.malformed_count or self.lookup_failures)
+        if (self.data_status == "partial") != degraded:
+            raise ValueError("partial status must match a declared degradation reason")
+        if self.data_status == "complete" and derived != self.totals.submitted_window:
+            raise ValueError("complete attempt split must equal submitted total")
+        return self
+
+
+@router.get("/dashboard/reading-attempts", response_model=ReadingAttemptsDashboardOut)
 async def dashboard_reading_attempts(
+    response: Response,
     authorization: str | None = Header(default=None),
     days: int = 30,
 ):
@@ -1489,10 +1769,13 @@ async def dashboard_reading_attempts(
     `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
     APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
     returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
-    a query outage yields ok=false, never a 500. Cache-Control: 300s."""
+    response distinguishes complete, partial and unavailable reads. Counts and
+    rows are frozen at one UTC watermark; a query outage yields unavailable or
+    partial data, never a false zero. The private response is never cached so
+    the explicit refresh action always obtains a new canonical snapshot."""
     await require_admin(authorization)
-    body = admin_reading_dashboard.compute_reading_attempts_dashboard(days=days)
-    return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
+    response.headers["Cache-Control"] = "private, no-store"
+    return admin_reading_dashboard.compute_reading_attempts_dashboard(days=days)
 
 
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────
@@ -2135,13 +2418,16 @@ async def create_topic(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(400, "Tên topic không được để trống")
 
     try:
         res = (
             supabase_admin.table("topics")
             .insert({
-                "title":     body.title.strip(),
-                "category":  body.category.strip(),
+                "title":     title,
+                "category":  (body.category or "").strip(),
                 "part":      body.part,
                 "is_active": True,
             })
@@ -2164,7 +2450,11 @@ async def patch_topic(
     await require_admin(authorization)
 
     update: dict = {}
-    if body.title     is not None: update["title"]     = body.title.strip()
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(400, "Tên topic không được để trống")
+        update["title"] = title
     if body.category  is not None: update["category"]  = body.category.strip()
     if body.part      is not None: update["part"]       = body.part
     if body.is_active is not None: update["is_active"]  = body.is_active
@@ -2199,8 +2489,17 @@ async def delete_topic(
     await require_admin(authorization)
     try:
         supabase_admin.table("topics").delete().eq("id", topic_id).execute()
+        remaining = (
+            supabase_admin.table("topics")
+            .select("id")
+            .eq("id", topic_id)
+            .limit(1)
+            .execute()
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa topic: {exc}")
+    if remaining.data:
+        raise HTTPException(500, "Topic chưa được xóa hoàn tất")
 
 
 @router.post("/topics/bulk-delete")
@@ -2346,6 +2645,9 @@ async def create_topic_question(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
+    question_text = body.question_text.strip()
+    if not question_text:
+        raise HTTPException(400, "Câu hỏi không được để trống")
 
     # Auto order_num if not provided
     order = body.order_num
@@ -2360,17 +2662,23 @@ async def create_topic_question(
                 .execute()
             )
             order = (cnt.count or 0) + 1
-        except Exception:
-            order = 1
+        except Exception as exc:
+            raise HTTPException(500, f"Không xác định được thứ tự câu hỏi: {exc}")
+
+    cue_card_bullets = [item.strip() for item in (body.cue_card_bullets or []) if item.strip()] or None
+    cue_card_reflection = (body.cue_card_reflection or "").strip() or None
+    if body.part != 2:
+        cue_card_bullets = None
+        cue_card_reflection = None
 
     row = {
         "topic_id":            topic_id,
         "part":                body.part,
         "order_num":           order,
-        "question_text":       body.question_text.strip(),
-        "question_type":       body.question_type,
-        "cue_card_bullets":    body.cue_card_bullets,
-        "cue_card_reflection": body.cue_card_reflection,
+        "question_text":       question_text,
+        "question_type":       body.question_type.strip(),
+        "cue_card_bullets":    cue_card_bullets,
+        "cue_card_reflection": cue_card_reflection,
     }
     try:
         res = supabase_admin.table("topic_questions").insert(row).execute()
@@ -2391,9 +2699,32 @@ async def update_topic_question(
 ):
     await require_admin(authorization)
 
+    try:
+        current_res = (
+            supabase_admin.table("topic_questions")
+            .select("id, part, question_text, cue_card_bullets, cue_card_reflection")
+            .eq("id", question_id)
+            .eq("topic_id", topic_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải question hiện tại: {exc}")
+    if not current_res.data:
+        raise HTTPException(404, "Question không tồn tại")
+    current = current_res.data[0]
+
+    if not body.model_fields_set:
+        raise HTTPException(400, "Không có trường nào để cập nhật")
+
     update: dict = {}
-    if body.question_text       is not None:
-        update["question_text"] = body.question_text.strip()
+    part_changed = body.part is not None and body.part != current.get("part")
+    if body.part                is not None: update["part"]                = body.part
+    if body.question_text is not None:
+        question_text = body.question_text.strip()
+        if not question_text:
+            raise HTTPException(400, "Câu hỏi không được để trống")
+        update["question_text"] = question_text
         # ĐỔI LỜI CÂU HỎI THÌ BẢN ĐỌC CŨ HẾT GIÁ TRỊ. Không xoá thì audio vẫn đọc
         # đề CŨ trong khi bộ chấm đọc đề MỚI: học viên trả lời cái mình nghe rồi
         # bị chấm theo một câu khác — nhận xét sai mà không ai truy ra được vì
@@ -2402,12 +2733,25 @@ async def update_topic_question(
         # Xoá chứ không render lại tại đây: render mất vài giây và endpoint này
         # là một lần bấm Lưu của admin. Xoá làm câu đó lập tức KHÔNG giao được
         # (backend chặn), và mẻ render sau sẽ dựng lại.
+        if question_text != (current.get("question_text") or "").strip():
+            update["audio_url"] = None
+            update["audio_path"] = None
+    # Part là một phần của script TTS (lời dẫn/cấu trúc cue-card khác nhau), nên
+    # giữ audio cũ sau khi chuyển Part cũng nguy hiểm như giữ audio của lời cũ.
+    if part_changed:
         update["audio_url"] = None
         update["audio_path"] = None
-    if body.question_type       is not None: update["question_type"]       = body.question_type
+    if body.question_type       is not None: update["question_type"]       = body.question_type.strip()
     if body.order_num           is not None: update["order_num"]           = body.order_num
-    if body.cue_card_bullets    is not None: update["cue_card_bullets"]    = body.cue_card_bullets
-    if body.cue_card_reflection is not None: update["cue_card_reflection"] = body.cue_card_reflection
+    effective_part = body.part if body.part is not None else current.get("part")
+    if effective_part != 2:
+        update["cue_card_bullets"] = None
+        update["cue_card_reflection"] = None
+    else:
+        if "cue_card_bullets" in body.model_fields_set:
+            update["cue_card_bullets"] = [item.strip() for item in (body.cue_card_bullets or []) if item.strip()] or None
+        if "cue_card_reflection" in body.model_fields_set:
+            update["cue_card_reflection"] = (body.cue_card_reflection or "").strip() or None
 
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
@@ -2440,8 +2784,18 @@ async def delete_topic_question(
     await require_admin(authorization)
     try:
         supabase_admin.table("topic_questions").delete().eq("id", question_id).eq("topic_id", topic_id).execute()
+        remaining = (
+            supabase_admin.table("topic_questions")
+            .select("id")
+            .eq("id", question_id)
+            .eq("topic_id", topic_id)
+            .limit(1)
+            .execute()
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa question: {exc}")
+    if remaining.data:
+        raise HTTPException(500, "Question chưa được xóa hoàn tất")
     _touch_topic(topic_id)
 
 
@@ -2459,7 +2813,7 @@ async def generate_topic_questions(
     - mode=replace_all: delete current questions, then generate a fresh set.
     """
     auth_user = await require_admin(authorization)
-    mode = (body.mode if body else "replace_all").strip().lower()
+    mode = (body.mode if body else "missing_only").strip().lower()
     if mode not in {"missing_only", "replace_all"}:
         raise HTTPException(400, "mode phải là missing_only hoặc replace_all")
 
@@ -2691,6 +3045,7 @@ async def get_ai_usage(
 async def admin_list_sessions(
     authorization: str | None = Header(default=None),
     user_id:    str | None = None,
+    user_email: str | None = None,
     mode:       str | None = None,
     status:     str | None = None,
     error_code: str | None = None,
@@ -2702,10 +3057,33 @@ async def admin_list_sessions(
 ):
     """
     List all sessions across users (admin only).
-    Supports filtering by user_id, mode, status, error_code, has_error, date range.
+    Supports filtering by user_id or exact user_email, mode, status,
+    error_code, has_error, date range.
     Returns sessions enriched with user email.
     """
     await require_admin(authorization)
+
+    # Resolve an exact email on the server. Fetching the whole user directory in
+    # the browser is incomplete once PostgREST applies its row cap. A lookup
+    # outage must fail visibly instead of looking like zero matching sessions.
+    if not user_id and user_email and user_email.strip():
+        try:
+            matches = (
+                supabase_admin.table("users")
+                .select("id")
+                .eq("email", user_email.strip().lower())
+                .limit(2)
+                .execute()
+            ).data or []
+        except Exception as exc:
+            raise HTTPException(500, f"Lỗi khi tra email học viên: {exc}")
+        if len(matches) > 1:
+            raise HTTPException(409, "Có nhiều tài khoản dùng email này; hãy lọc bằng User ID.")
+        if not matches:
+            return []
+        user_id = matches[0].get("id")
+        if not user_id:
+            raise HTTPException(500, "Kết quả tra email học viên không có User ID.")
 
     q = (
         supabase_admin.table("sessions")
@@ -2728,7 +3106,13 @@ async def admin_list_sessions(
     elif has_error is False:
         q = q.is_("error_code", "null")
     if date_from:  q = q.gte("started_at", date_from)
-    if date_to:    q = q.lte("started_at", date_to + "T23:59:59Z")
+    if date_to:
+        try:
+            next_day = (datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)).date().isoformat()
+        except ValueError:
+            raise HTTPException(400, "date_to phải theo định dạng YYYY-MM-DD")
+        # Exclusive next-day bound includes timestamps with fractional seconds.
+        q = q.lt("started_at", next_day)
 
     try:
         res = q.execute()
@@ -2740,6 +3124,7 @@ async def admin_list_sessions(
     # Enrich with user email
     uids = list({s["user_id"] for s in sessions if s.get("user_id")})
     email_map: dict[str, str] = {}
+    user_lookup_failed = False
     if uids:
         try:
             ur = (
@@ -2751,10 +3136,13 @@ async def admin_list_sessions(
             for u in (ur.data or []):
                 email_map[u["id"]] = u.get("email") or ""
         except Exception:
-            pass
+            user_lookup_failed = True
 
     for s in sessions:
         s["user_email"] = email_map.get(s.get("user_id") or "", "")
+        # An empty email and a failed enrichment query are different truths.
+        # The admin UI must not present an outage as "this user has no email".
+        s["user_lookup_failed"] = user_lookup_failed
 
     return sessions
 
@@ -2789,9 +3177,50 @@ async def admin_get_session(
 
     session = s_res.data[0]
 
+    # A full-test session is only one part of the canonical attempt. Resolve the
+    # other parts server-side instead of relying on non-existent p2/p3 columns
+    # on the selected row. Keep the lookup scoped to the same user as a second
+    # guard against ever exposing another learner's session ID.
+    session["p1_session_id"] = None
+    session["p2_session_id"] = None
+    session["p3_session_id"] = None
+    session["full_test_siblings_lookup_failed"] = False
+    if session.get("mode") == "test_full" and session.get("full_test_attempt_id"):
+        try:
+            siblings_query = (
+                supabase_admin.table("sessions")
+                .select("id, user_id, mode, part, full_test_attempt_id")
+                .eq("full_test_attempt_id", session["full_test_attempt_id"])
+                .eq("mode", "test_full")
+            )
+            if not session.get("user_id"):
+                raise ValueError("full-test session has no user_id")
+            siblings_query = siblings_query.eq("user_id", session["user_id"])
+            sibling_rows = siblings_query.execute().data or []
+            ids_by_part: dict[int, str] = {}
+            duplicate_part = False
+            for sibling in sibling_rows:
+                part = sibling.get("part")
+                sibling_id = sibling.get("id")
+                if part not in (1, 2, 3) or not sibling_id:
+                    continue
+                if part in ids_by_part and ids_by_part[part] != sibling_id:
+                    duplicate_part = True
+                    continue
+                ids_by_part[part] = sibling_id
+            if duplicate_part:
+                session["full_test_siblings_lookup_failed"] = True
+            else:
+                session["p1_session_id"] = ids_by_part.get(1)
+                session["p2_session_id"] = ids_by_part.get(2)
+                session["p3_session_id"] = ids_by_part.get(3)
+        except Exception:
+            session["full_test_siblings_lookup_failed"] = True
+
     # Enrich with user email
     uid = session.get("user_id")
     session["user_email"] = ""
+    session["user_lookup_failed"] = False
     if uid:
         try:
             ur = (
@@ -2805,7 +3234,7 @@ async def admin_get_session(
                 session["user_email"]        = ur.data[0].get("email") or ""
                 session["user_display_name"] = ur.data[0].get("display_name") or ""
         except Exception:
-            pass
+            session["user_lookup_failed"] = True
 
     # Questions
     try:
@@ -2819,6 +3248,9 @@ async def admin_get_session(
         questions = q_res.data or []
     except Exception:
         questions = []
+        session["questions_lookup_failed"] = True
+    else:
+        session["questions_lookup_failed"] = False
 
     # Responses (includes transcript, feedback, band scores, status fields)
     try:
@@ -2834,6 +3266,9 @@ async def admin_get_session(
         responses = r_res.data or []
     except Exception:
         responses = []
+        session["responses_lookup_failed"] = True
+    else:
+        session["responses_lookup_failed"] = False
 
     for response in responses:
         playback_url = _sign_storage_url(_REGRADE_AUDIO_BUCKET, response.get("audio_storage_path"))
@@ -3084,6 +3519,41 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
     return {"overall_band": overall, "band_fc": band_fc, "band_lr": band_lr, "band_gra": band_gra, "band_p": band_p}
 
 
+def _regrade_incomplete_response_ids(session_id: str) -> list[str]:
+    """Return persisted or missing responses that prevent canonical completion."""
+    question_result = (
+        supabase_admin.table("questions")
+        .select("id")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    response_result = (
+        supabase_admin.table("responses")
+        .select("id, question_id, grading_status, overall_band")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = response_result.data or []
+    question_ids = {row.get("id") for row in (question_result.data or []) if row.get("id")}
+    incomplete = [
+        row.get("id") or "unknown"
+        for row in responses
+        if row.get("grading_status") == "failed" or row.get("overall_band") is None
+    ]
+    answered_question_ids = {row.get("question_id") for row in responses if row.get("question_id")}
+    incomplete.extend(
+        f"question:{question_id}:missing_response"
+        for question_id in (row.get("id") for row in (question_result.data or []))
+        if question_id and question_id not in answered_question_ids
+    )
+    incomplete.extend(
+        f"response:{row.get('id') or 'unknown'}:unknown_question"
+        for row in responses
+        if not row.get("question_id") or row.get("question_id") not in question_ids
+    )
+    return list(dict.fromkeys(incomplete))
+
+
 async def _run_regrade_response(
     resp: dict,
     session: dict,
@@ -3235,19 +3705,29 @@ async def admin_regrade_response(
     # Use the same canonical gate as complete_session(): only block if ALL band values are None.
     bands = _regrade_compute_session_bands(session_id)
     session_updated = False
+    incomplete_ids = _regrade_incomplete_response_ids(session_id)
     all_band_vals = [bands.get("overall_band")] + [
         bands.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")
     ]
     if not all(v is None for v in all_band_vals):
         now = datetime.now(timezone.utc).isoformat()
-        sess_update: dict = {
-            **bands,
-            "status": "completed",
-            "error_code": None,
-            "error_message": None,
-            "failed_step": None,
-            "last_error_at": None,
-        }
+        sess_update: dict = {**bands}
+        if incomplete_ids:
+            sess_update.update({
+                "status": "grading_failed",
+                "error_code": "grading_failed",
+                "error_message": f"Admin regrade còn {len(incomplete_ids)} response lỗi hoặc thiếu band.",
+                "failed_step": "admin_regrade_response",
+                "last_error_at": now,
+            })
+        else:
+            sess_update.update({
+                "status": "completed",
+                "error_code": None,
+                "error_message": None,
+                "failed_step": None,
+                "last_error_at": None,
+            })
         try:
             supabase_admin.table("sessions").update({
                 **sess_update,
@@ -3256,10 +3736,11 @@ async def admin_regrade_response(
             }).eq("id", session_id).execute()
         except Exception:
             supabase_admin.table("sessions").update(sess_update).eq("id", session_id).execute()
-        session_updated = True
+        session_updated = not incomplete_ids
         logger.info("[admin/regrade-response] session bands updated session=%s overall_band=%s", session_id, bands["overall_band"])
-        # GĐ 2 — keep a class assignment's score in step with the regraded band.
-        sync_class_item_score(supabase_admin, session_id)
+        # Only a canonical-complete result may replace the class ledger score.
+        if session_updated:
+            sync_class_item_score(supabase_admin, session_id)
 
     return {
         "ok":              True,
@@ -3268,6 +3749,7 @@ async def admin_regrade_response(
         "overall_band":    result["overall_band"],
         "re_transcribed":  result["re_transcribed"],
         "session_updated": session_updated,
+        "remaining_failed": len(incomplete_ids),
         "session_band":    bands["overall_band"],
     }
 
@@ -3342,6 +3824,9 @@ async def admin_regrade_session(
                 session_id, len(all_responses), len(to_regrade), skip_count, admin_email)
 
     regraded, failed_ids, failed_errors = 0, [], []
+    if not all_responses:
+        failed_ids.append("session:no_responses")
+        failed_errors.append("Session không có response để chấm hoặc tổng hợp")
     for resp in to_regrade:
         qid = resp.get("question_id")
         question_text = question_map.get(qid)
@@ -3359,15 +3844,19 @@ async def admin_regrade_session(
             failed_ids.append(resp["id"])
             failed_errors.append(f"{resp['id']}: {exc}")
 
-    # force=True with any failures: the session contains a mix of fresh and stale
-    # scores — do NOT finalize it as a clean completed session.
-    force_partial_failure = force and len(failed_ids) > 0
+    # Read persisted truth back after the loop. A grader call can return without
+    # producing a usable row, and a response outside the immediate exception
+    # list may still be failed/missing-band. Neither repair mode may finalize
+    # the session while any such row remains.
+    remaining_ids = _regrade_incomplete_response_ids(session_id)
+    failed_ids = list(dict.fromkeys([*failed_ids, *remaining_ids]))
+    partial_failure = len(failed_ids) > 0
 
     # Recompute session-level bands from all responses (including already-good ones)
     bands = _regrade_compute_session_bands(session_id)
     now = datetime.now(timezone.utc).isoformat()
 
-    if force_partial_failure:
+    if partial_failure:
         # Mark session as degraded so the admin knows it needs attention.
         # Do NOT restore status="completed" — the band scores are untrustworthy
         # because some responses kept their old scores.
@@ -3400,14 +3889,15 @@ async def admin_regrade_session(
             "regrade_count":    ((supabase_admin.table("sessions").select("regrade_count").eq("id", session_id).limit(1).execute().data or [{}])[0].get("regrade_count") or 0) + 1,
         }
         supabase_admin.table("sessions").update(full_sess_update).eq("id", session_id).execute()
-        # GĐ 2 — same for a whole-session regrade.
-        sync_class_item_score(supabase_admin, session_id)
+        # Only a canonical-complete result may replace the class ledger score.
+        if not partial_failure:
+            sync_class_item_score(supabase_admin, session_id)
     except Exception:
         supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
 
     return {
-        "ok":               not force_partial_failure,
-        "partial_failure":  force_partial_failure,
+        "ok":               not partial_failure,
+        "partial_failure":  partial_failure,
         "session_id":       session_id,
         "regraded":         regraded,
         "skipped":          skip_count,
@@ -3443,14 +3933,37 @@ async def admin_rebuild_summary(
     # Verify sessions exist
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, mode, status")
+        .select("id, user_id, mode, part, status, full_test_attempt_id")
         .in_("id", all_ids)
         .execute()
     )
-    found_ids = {s["id"] for s in (s_res.data or [])}
+    found_rows = s_res.data or []
+    found_ids = {s["id"] for s in found_rows}
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
         raise HTTPException(404, f"Session không tồn tại: {missing}")
+
+    # A multi-part rebuild is allowed only for one canonical Full Test. Never
+    # let caller-supplied IDs aggregate unrelated learners or attempts.
+    if p2_id or p3_id:
+        if not p2_id or not p3_id or len(set(all_ids)) != 3:
+            raise HTTPException(400, "Full Test rebuild cần ba session P1/P2/P3 khác nhau")
+        rows_by_id = {row.get("id"): row for row in found_rows}
+        expected = ((session_id, 1), (p2_id, 2), (p3_id, 3))
+        primary = rows_by_id.get(session_id) or {}
+        attempt_id = primary.get("full_test_attempt_id")
+        user_id = primary.get("user_id")
+        valid = bool(attempt_id and user_id)
+        for sid, part in expected:
+            row = rows_by_id.get(sid) or {}
+            valid = valid and (
+                row.get("mode") == "test_full"
+                and row.get("part") == part
+                and row.get("full_test_attempt_id") == attempt_id
+                and row.get("user_id") == user_id
+            )
+        if not valid:
+            raise HTTPException(409, "Ba session không thuộc cùng một Full Test canonical")
 
     logger.info("[admin/rebuild-summary] sessions=%s by=%s", all_ids, admin_email)
 
@@ -3463,9 +3976,35 @@ async def admin_rebuild_summary(
             results.append({"session_id": sid, "ok": False, "error": "Không có đủ dữ liệu response để tính band"})
             continue
 
+        incomplete_ids = _regrade_incomplete_response_ids(sid)
+        if incomplete_ids:
+            # Rebuild does not call AI, so it cannot repair failed/missing rows.
+            # Persist the recalculated partial bands but keep the session visibly
+            # degraded instead of laundering it into a completed result.
+            now = datetime.now(timezone.utc).isoformat()
+            supabase_admin.table("sessions").update({
+                **bands,
+                "status": "grading_failed",
+                "error_code": "grading_failed",
+                "error_message": f"Tổng hợp còn {len(incomplete_ids)} response lỗi hoặc thiếu band.",
+                "failed_step": "admin_rebuild_summary",
+                "last_error_at": now,
+            }).eq("id", sid).execute()
+            results.append({
+                "session_id": sid,
+                "ok": False,
+                "error": f"Còn {len(incomplete_ids)} response lỗi hoặc thiếu band",
+                **bands,
+            })
+            continue
+
         sess_update: dict = {
             **bands,
             "status": "completed",
+            "error_code": None,
+            "error_message": None,
+            "failed_step": None,
+            "last_error_at": None,
         }
         try:
             full_update = {
@@ -3476,6 +4015,10 @@ async def admin_rebuild_summary(
             supabase_admin.table("sessions").update(full_update).eq("id", sid).execute()
         except Exception:
             supabase_admin.table("sessions").update(sess_update).eq("id", sid).execute()
+
+        # Rebuild is another canonical score write-path. Keep a linked class
+        # assignment in step just like response/session regrade does.
+        sync_class_item_score(supabase_admin, sid)
 
         results.append({"session_id": sid, "ok": True, **bands})
 
@@ -4223,6 +4766,47 @@ async def admin_delete_lemma_override(
 # pipeline.
 
 
+GRAMMAR_ARTICLE_METRIC_PAGE = 1000
+
+
+def _grammar_article_metric_rows(table: str, columns: str, slugs: list[str]) -> list[dict]:
+    """Read every metric row for the requested slugs.
+
+    PostgREST caps bare selects, so a single response cannot prove a metric is
+    complete. Keyset paging on the immutable primary key avoids offset drift
+    while rows are inserted or saves are removed. Any page failure aborts the
+    source instead of returning a partial total labelled complete.
+    """
+    if not slugs:
+        return []
+
+    rows: list[dict] = []
+    cursor_id: str | None = None
+    while True:
+        query = (
+            supabase_admin.table(table)
+            .select(f"id,{columns}")
+            .in_("article_slug", slugs)
+            .order("id")
+            .limit(GRAMMAR_ARTICLE_METRIC_PAGE)
+        )
+        if cursor_id is not None:
+            query = query.gt("id", cursor_id)
+        batch = (
+            query
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(batch)
+        if len(batch) < GRAMMAR_ARTICLE_METRIC_PAGE:
+            return rows
+        next_id = batch[-1].get("id")
+        if not next_id or next_id == cursor_id:
+            raise RuntimeError(f"{table} pagination cursor did not advance")
+        cursor_id = str(next_id)
+
+
 @router.get("/grammar/articles")
 async def admin_list_grammar_articles(
     category: str | None = Query(default=None, description="filter to a single category slug"),
@@ -4247,7 +4831,9 @@ async def admin_list_grammar_articles(
     except Exception as exc:
         raise HTTPException(500, f"grammar service unavailable: {exc}")
 
-    articles = list((grammar_service.articles_by_slug or {}).values())
+    all_articles = list((grammar_service.articles_by_slug or {}).values())
+    categories = sorted({a.get("category") for a in all_articles if a.get("category")})
+    articles = all_articles
 
     if category:
         articles = [a for a in articles if a.get("category") == category]
@@ -4262,35 +4848,30 @@ async def admin_list_grammar_articles(
 
     view_count: dict[str, int] = {}
     save_count: dict[str, int] = {}
+    analytics_status = {"views": "complete", "saves": "complete"}
     if slugs:
         try:
-            v_res = (
-                supabase_admin.table("article_views")
-                .select("article_slug, view_count")
-                .in_("article_slug", slugs)
-                .execute()
-            )
-            for row in (v_res.data or []):
+            for row in _grammar_article_metric_rows(
+                "article_views", "article_slug,view_count", slugs
+            ):
                 s = row.get("article_slug")
                 if not s:
                     continue
                 view_count[s] = view_count.get(s, 0) + int(row.get("view_count") or 0)
         except Exception as exc:
             logger.warning("[admin] grammar view aggregate failed: %s", exc)
+            analytics_status["views"] = "unavailable"
         try:
-            s_res = (
-                supabase_admin.table("saved_articles")
-                .select("article_slug")
-                .in_("article_slug", slugs)
-                .execute()
-            )
-            for row in (s_res.data or []):
+            for row in _grammar_article_metric_rows(
+                "saved_articles", "article_slug", slugs
+            ):
                 s = row.get("article_slug")
                 if not s:
                     continue
                 save_count[s] = save_count.get(s, 0) + 1
         except Exception as exc:
             logger.warning("[admin] grammar save aggregate failed: %s", exc)
+            analytics_status["saves"] = "unavailable"
 
     items = []
     for a in articles:
@@ -4303,19 +4884,19 @@ async def admin_list_grammar_articles(
             "band":          a.get("band"),
             "order":         a.get("order"),
             "tags":          a.get("tags") or [],
-            "view_count":    view_count.get(slug, 0),
-            "save_count":    save_count.get(slug, 0),
+            "view_count":    view_count.get(slug, 0) if analytics_status["views"] == "complete" else None,
+            "save_count":    save_count.get(slug, 0) if analytics_status["saves"] == "complete" else None,
             "source_path":   f"backend/content/{a.get('category', '')}/{slug}.md",
         })
 
     items.sort(key=lambda r: (r.get("category") or "", r.get("order") or 999, r.get("title") or ""))
 
-    categories = sorted({a.get("category") for a in articles if a.get("category")})
-
     return {
         "items":      items,
         "total":      len(items),
+        "available_total": len(all_articles),
         "categories": categories,
+        "analytics_status": analytics_status,
     }
 
 
@@ -4349,7 +4930,7 @@ async def admin_grammar_analytics(
 
     Returns:
       - views_total              (sum of view_count across article_views)
-      - views_recent             (sum where last_viewed_at >= now-days)
+      - active_view_records_recent (user/article records active in the window)
       - saves_total              (count of saved_articles rows)
       - top_viewed[]             (top 20 by total views)
       - top_saved[]              (top 5 by save count)
@@ -4374,44 +4955,59 @@ async def admin_grammar_analytics(
         for s, a in (grammar_service.articles_by_slug or {}).items()
     }
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     views_per_slug: dict[str, int] = {}
-    views_recent_per_slug: dict[str, int] = {}
+    active_view_records_recent = 0
+    analytics_status = {
+        "views": "complete",
+        "recent_activity": "complete",
+        "saves": "complete",
+    }
     try:
-        # Pull all view rows. Set is small (~thousands at most for current scale)
-        # so a single fetch + Python aggregation is cheaper than a SQL view.
-        v_res = (
-            supabase_admin.table("article_views")
-            .select("article_slug, view_count, last_viewed_at")
-            .execute()
+        view_rows = _grammar_article_metric_rows(
+            "article_views", "article_slug,view_count,last_viewed_at", list(all_slugs)
         )
-        for row in (v_res.data or []):
+        for row in view_rows:
             s = row.get("article_slug")
             if not s:
                 continue
-            n = int(row.get("view_count") or 0)
+            raw_count = row.get("view_count")
+            if raw_count is None:
+                raise ValueError("article_views.view_count is null")
+            n = int(raw_count)
+            if n < 0:
+                raise ValueError("article_views.view_count is negative")
             views_per_slug[s] = views_per_slug.get(s, 0) + n
-            last = row.get("last_viewed_at") or ""
-            if last >= cutoff:
-                views_recent_per_slug[s] = views_recent_per_slug.get(s, 0) + n
+            last = row.get("last_viewed_at")
+            if not last:
+                analytics_status["recent_activity"] = "unavailable"
+                continue
+            try:
+                viewed_at = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+                if viewed_at.tzinfo is None:
+                    viewed_at = viewed_at.replace(tzinfo=timezone.utc)
+                if viewed_at >= cutoff:
+                    active_view_records_recent += 1
+            except (TypeError, ValueError):
+                analytics_status["recent_activity"] = "unavailable"
     except Exception as exc:
         logger.warning("[admin] grammar views fetch failed: %s", exc)
+        analytics_status["views"] = "unavailable"
+        analytics_status["recent_activity"] = "unavailable"
 
     saves_per_slug: dict[str, int] = {}
     try:
-        s_res = (
-            supabase_admin.table("saved_articles")
-            .select("article_slug")
-            .execute()
-        )
-        for row in (s_res.data or []):
+        for row in _grammar_article_metric_rows(
+            "saved_articles", "article_slug", list(all_slugs)
+        ):
             s = row.get("article_slug")
             if not s:
                 continue
             saves_per_slug[s] = saves_per_slug.get(s, 0) + 1
     except Exception as exc:
         logger.warning("[admin] grammar saves fetch failed: %s", exc)
+        analytics_status["saves"] = "unavailable"
 
     def _decorate(slug: str, count: int) -> dict:
         return {
@@ -4421,22 +5017,27 @@ async def admin_grammar_analytics(
             "count":    count,
         }
 
-    top_viewed = sorted(views_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:20]
-    top_saved  = sorted(saves_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    top_viewed = sorted(views_per_slug.items(), key=lambda kv: (-kv[1], kv[0]))[:20]
+    top_saved = sorted(saves_per_slug.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
 
     seen_slugs = set(views_per_slug.keys())
     zero_view_slugs = sorted(all_slugs - seen_slugs)[:30]
+    views_available = analytics_status["views"] == "complete"
+    saves_available = analytics_status["saves"] == "complete"
+    recent_available = analytics_status["recent_activity"] == "complete"
 
     return {
-        "views_total":      sum(views_per_slug.values()),
-        "views_recent":     sum(views_recent_per_slug.values()),
-        "saves_total":      sum(saves_per_slug.values()),
+        "views_total":      sum(views_per_slug.values()) if views_available else None,
+        "active_view_records_recent": active_view_records_recent if recent_available else None,
+        "saves_total":      sum(saves_per_slug.values()) if saves_available else None,
         "articles_total":   len(all_slugs),
-        "top_viewed":       [_decorate(s, c) for s, c in top_viewed],
-        "top_saved":        [_decorate(s, c) for s, c in top_saved],
-        "zero_view_slugs":  [_decorate(s, 0) for s in zero_view_slugs],
-        "zero_view_total":  len(all_slugs - seen_slugs),
+        "top_viewed":       [_decorate(s, c) for s, c in top_viewed] if views_available else None,
+        "top_saved":        [_decorate(s, c) for s, c in top_saved] if saves_available else None,
+        "zero_view_slugs":  [_decorate(s, 0) for s in zero_view_slugs] if views_available else None,
+        "zero_view_total":  len(all_slugs - seen_slugs) if views_available else None,
         "days":             days,
+        "analytics_status": analytics_status,
+        "recent_activity_basis": "user_article_records_with_last_viewed_at_in_window",
     }
 
 
@@ -4470,18 +5071,49 @@ async def admin_grammar_recommend_test(
 
     match = grammar_service.find_best_match(issue)
     if not match:
-        return {"issue": issue, "match": None}
+        return {"issue": issue, "outcome": "below_threshold", "match": None, "candidate": None}
 
-    full = grammar_service.get_article_by_slug(match.get("slug") or "")
+    slug = match.get("slug")
+    full = grammar_service.get_article_by_slug(slug or "")
+    if not slug or not full:
+        raise HTTPException(500, "matcher returned an article that is not in the canonical content index")
+    category = full.get("category") or match.get("category")
+    title = full.get("title") or match.get("title")
+    score = match.get("score")
+    if (
+        not category
+        or not title
+        or isinstance(score, bool)
+        or not isinstance(score, (int, float))
+        or not math.isfinite(score)
+        or score < 0
+        or score > 1
+    ):
+        raise HTTPException(500, "matcher returned an incomplete recommendation contract")
+    anchor = grammar_service.find_best_anchor(issue, slug)
+    url = f"/grammar/{quote(str(category), safe='')}/{quote(str(slug), safe='')}"
+    if anchor:
+        url += f"#{quote(str(anchor), safe='')}"
+    candidate = {
+        "slug": slug,
+        "category": category,
+        "title": title,
+        "score": score,
+        "summary": full.get("summary"),
+        "anchor": anchor,
+        "status": full.get("status") or "complete",
+        "url": url,
+    }
+    if candidate["status"] == "draft":
+        return {
+            "issue": issue,
+            "outcome": "draft_suppressed",
+            "match": None,
+            "candidate": candidate,
+        }
     return {
         "issue": issue,
-        "match": {
-            "slug":     match.get("slug"),
-            "category": match.get("category"),
-            "title":    match.get("title"),
-            "score":    match.get("score"),
-            "summary":  (full or {}).get("summary"),
-            "url":      f"/pages/grammar-article.html?slug={match.get('slug')}",
-        },
+        "outcome": "matched",
+        "match": candidate,
+        "candidate": candidate,
     }
-

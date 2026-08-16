@@ -67,6 +67,8 @@ _DANG = ("A1", "A2", "A3", "B1", "B2", "B3",
 
 _SKILL_AREA = "course"
 
+_READING_KIND = "reading"
+
 
 def _lesson_no(path: Path, override: int | None) -> int:
     if override:
@@ -163,7 +165,118 @@ def _essay_row(r: dict, order: int) -> dict:
     }
 
 
-def _normalise(rows: list[dict]) -> list[dict]:
+def _required_text(value, label: str, reading_id: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise SystemExit(f"[{reading_id}] bài đọc thiếu {label}.")
+    return text
+
+
+def _reading_prompt(value, input_type: str, number: int, reading_id: str) -> str:
+    prompt = _required_text(value, f"đề câu {number}", reading_id)
+    # Nguồn in giấy mang sẵn ô “→ T / F / NG” và “→ …”. Giao diện web dựng
+    # radio/input thật, nên giữ đuôi ấy sẽ hiện hai lần cùng một điều khiển.
+    if input_type == "tfng":
+        prompt = re.sub(r"\s*→\s*T\s*/\s*F\s*/\s*NG\s*$", "", prompt,
+                        flags=re.IGNORECASE)
+    else:
+        prompt = re.sub(r"\s*→\s*…+\s*$", "", prompt)
+    return prompt.strip()
+
+
+def _reading_meta(r: dict) -> dict:
+    """Chuẩn hoá bài đọc thêm ở cấp BANK, không trộn vào 100 câu chấm điểm.
+
+    Bản dịch và đáp án vẫn được lưu cùng nguồn canonical, nhưng đường phát đề
+    cho học viên sẽ lọc chúng ra. Chỉ endpoint đối chiếu mới trả hai phần ấy.
+    """
+    reading_id = (r.get("id") or "").strip()
+    if not reading_id:
+        raise SystemExit("Bài đọc không có id.")
+    passage = _required_text(r.get("bai_doc"), "nội dung", reading_id)
+    translation = _required_text(r.get("ban_dich"), "bản dịch", reading_id)
+
+    vocabulary = r.get("tu_vung")
+    if not isinstance(vocabulary, list) or not vocabulary:
+        raise SystemExit(f"[{reading_id}] bài đọc không có danh sách từ vựng.")
+    vocab_rows = []
+    for i, item in enumerate(vocabulary, 1):
+        if not isinstance(item, dict):
+            raise SystemExit(f"[{reading_id}] từ vựng thứ {i} không hợp lệ.")
+        vocab_rows.append({
+            "term": _required_text(item.get("tu"), f"từ vựng thứ {i}", reading_id),
+            "part_of_speech": _required_text(
+                item.get("loai"), f"loại từ của từ vựng thứ {i}", reading_id),
+            "meaning": _required_text(
+                item.get("nghia"), f"nghĩa của từ vựng thứ {i}", reading_id),
+        })
+
+    question_source = r.get("cau_hoi") or {}
+    answer_source = r.get("dap_an") or {}
+    group_specs = (
+        ("content", "Đọc hiểu", "tfng", "phan1_noi_dung"),
+        ("structure", "Soi cấu trúc câu", "short_text", "phan2_cau_truc"),
+    )
+    groups, answers = [], []
+    next_number = 1
+    for group_id, title, input_type, source_key in group_specs:
+        prompts = question_source.get(source_key)
+        keys = answer_source.get(source_key)
+        if not isinstance(prompts, list) or not prompts:
+            raise SystemExit(f"[{reading_id}] thiếu nhóm câu hỏi {title!r}.")
+        if not isinstance(keys, list) or len(keys) != len(prompts):
+            raise SystemExit(
+                f"[{reading_id}] nhóm {title!r} có {len(prompts)} câu nhưng "
+                f"{len(keys) if isinstance(keys, list) else 0} đáp án.")
+        questions = []
+        for offset, prompt in enumerate(prompts):
+            number = next_number + offset
+            key = keys[offset]
+            if not isinstance(key, dict) or key.get("cau") != number:
+                raise SystemExit(
+                    f"[{reading_id}] đáp án câu {number} sai số thứ tự.")
+            questions.append({
+                "id": f"{reading_id}-{number:02d}",
+                "number": number,
+                "prompt": _reading_prompt(prompt, input_type, number, reading_id),
+            })
+            answers.append({
+                "id": f"{reading_id}-{number:02d}",
+                "number": number,
+                "answer": _required_text(
+                    key.get("dap_an"), f"đáp án câu {number}", reading_id),
+                "explanation": _required_text(
+                    key.get("giai_thich"), f"giải thích câu {number}", reading_id),
+            })
+        groups.append({
+            "id": group_id,
+            "title": title,
+            "input_type": input_type,
+            "questions": questions,
+        })
+        next_number += len(prompts)
+
+    declared_words = r.get("so_tu")
+    actual_words = len(passage.split())
+    if declared_words != actual_words:
+        raise SystemExit(
+            f"[{reading_id}] ghi {declared_words!r} từ nhưng đếm được {actual_words}.")
+
+    return {
+        "id": reading_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", reading_id),
+        "title": _required_text(r.get("chu_de"), "chủ đề", reading_id),
+        "focus": _required_text(r.get("cau_truc_trong_tam"), "trọng tâm", reading_id),
+        "word_count": actual_words,
+        "passage": passage,
+        "vocabulary": vocab_rows,
+        "question_groups": groups,
+        "translation": translation,
+        "answers": answers,
+    }
+
+
+def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None]:
     """Kiểm TOÀN BỘ tệp trước khi ghi dòng đầu tiên.
 
     RPC `quiz_replace_questions` xoá sạch câu cũ rồi ghi lại — nên một tệp hỏng
@@ -172,7 +285,13 @@ def _normalise(rows: list[dict]) -> list[dict]:
     rõ dòng nào hỏng.
     """
     out, seen = [], set()
+    reading = None
     for i, r in enumerate(rows, 1):
+        if r.get("kind") == _READING_KIND:
+            if reading is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một bài đọc thêm.")
+            reading = _reading_meta(r)
+            continue
         qid = (r.get("id") or "").strip()
         if not qid:
             raise SystemExit(f"Câu thứ {i} không có id.")
@@ -215,7 +334,7 @@ def _normalise(rows: list[dict]) -> list[dict]:
         if errs:
             raise SystemExit(f"[{qid}] " + " · ".join(errs))
         out.append(row)
-    return out
+    return out, reading
 
 
 def main() -> int:
@@ -237,8 +356,10 @@ def main() -> int:
         raise SystemExit(f"Không thấy tệp {path}.")
     raw = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     lesson = _lesson_no(path, args.lesson)
+    rows, reading = _normalise(raw)
+    # Kiểm hết nội dung trước khi đụng tới kho dữ liệu — tệp hỏng phải dừng ở
+    # nguồn, không phụ thuộc kết nối production có đang sống hay không.
     course = _course(args.course)
-    rows = _normalise(raw)
 
     code = f"{course['code']}-B{lesson:02d}"
     title = args.title or f"Buổi {lesson} — bài tập"
@@ -253,6 +374,11 @@ def main() -> int:
         by_dang[r["subtype"]] = by_dang.get(r["subtype"], 0) + 1
     logger.info("Dạng: %s", ", ".join(f"{k}×{v}" for k, v in sorted(by_dang.items())))
     logger.info("Trục kiến thức: %d nhóm", len({r["item_key"] for r in rows if r["item_key"]}))
+    if reading:
+        reading_questions = sum(len(g["questions"]) for g in reading["question_groups"])
+        logger.info("Bài đọc thêm: %s · %d từ · %d từ vựng · %d câu tự đối chiếu",
+                    reading["title"], reading["word_count"],
+                    len(reading["vocabulary"]), reading_questions)
 
     if not commit:
         logger.info("\n-- THỬ KHÔ. Một câu mẫu: --")
@@ -279,7 +405,11 @@ def main() -> int:
         # mà bank đã published sẽ để lại một bài tập RỖNG mà học viên mở được.
         # Cờ --publish được áp SAU khi RPC ghi câu thành công.
         "is_published": False,
-        "meta": {"nguon": path.name, "so_tu_luan": len(essay)},
+        "meta": {
+            "nguon": path.name,
+            "so_tu_luan": len(essay),
+            **({"short_reading": reading} if reading else {}),
+        },
     }
     if existing:
         bank_id = existing[0]["id"]

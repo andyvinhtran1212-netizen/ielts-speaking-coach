@@ -149,15 +149,20 @@ describe('W-6b-1 — instructor shell never calls /admin/*', () => {
     join(__dirname, '..', 'js', 'instructor-app.js'),
     join(__dirname, '..', 'js', 'instructor-grade.js'),
   ];
-  // a quoted admin-path literal in a fetch/api call (',",` then /admin) = cross-tenant leak
+  // A quoted admin-path literal is normally a cross-tenant leak. The one
+  // sanctioned exception is the static "Thoát" anchor inside the admin-only
+  // impersonation banner: it performs no API call and returns the admin to the
+  // canonical oversight route.
   const ADMIN_CALL = /['"`]\/admin\//;
+  const ADMIN_EXIT = /<a href="\/admin\/instructors" class="ins-link" style="color:var\(--av-warning\);">Thoát<\/a>/;
   // W-6b-3: the instructor must NEVER mutate AI feedback → no admin_edits_json anywhere
   const AI_EDIT = /admin_edits_json/;
 
   for (const f of FILES) {
     it(`${f.split('/frontend/')[1]} has zero quoted /admin/ call literals`, () => {
       const src = readFileSync(f, 'utf8');
-      const m = src.match(ADMIN_CALL);
+      const withoutSanctionedExit = src.replace(ADMIN_EXIT, '');
+      const m = withoutSanctionedExit.match(ADMIN_CALL);
       assert.equal(m, null, `cross-tenant leak: ${f} references ${m && m[0]} — must use /instructor/*`);
     });
     it(`${f.split('/frontend/')[1]} never references admin_edits_json (AI immutable)`, () => {

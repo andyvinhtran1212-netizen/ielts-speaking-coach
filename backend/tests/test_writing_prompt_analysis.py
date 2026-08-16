@@ -98,7 +98,37 @@ def test_image_needs_analysis_matrix():
     assert wpa.image_needs_analysis({**base, "prompt_image_url": None}) is False                 # no image
 
 
-def _run_store(prompt_row, analysis=None, raise_exc=None):
+def test_mark_analysis_pending_is_scoped_to_expected_image_and_returns_token():
+    db = MagicMock()
+    query = db.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.return_value
+    query.execute.return_value = MagicMock(data=[{"id": "p1"}])
+    with patch("database.supabase_admin", db), patch.object(wpa, "_now_iso", return_value="pending-token"):
+        token = wpa.mark_analysis_pending("p1", "prompts/c.png")
+    assert token == "pending-token"
+    db.table.return_value.update.return_value.eq.assert_called_once_with("id", "p1")
+    db.table.return_value.update.return_value.eq.return_value.eq.assert_called_once_with(
+        "task_type", "task1_academic",
+    )
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.assert_called_once_with(
+        "prompt_image_public_id", "prompts/c.png",
+    )
+
+
+def test_mark_analysis_pending_returns_none_when_image_changed():
+    db = MagicMock()
+    (db.table.return_value.update.return_value.eq.return_value.eq.return_value
+     .eq.return_value.execute.return_value) = MagicMock(data=[])
+    with patch("database.supabase_admin", db):
+        assert wpa.mark_analysis_pending("p1", "prompts/old.png") is None
+
+
+def _run_store(
+    prompt_row,
+    analysis=None,
+    raise_exc=None,
+    return_db=False,
+    expected_pending_at=None,
+):
     """Drive run_and_store_analysis with a mocked DB + extraction; return the
     dict written to the FINAL update() call."""
     db = MagicMock()
@@ -112,9 +142,10 @@ def _run_store(prompt_row, analysis=None, raise_exc=None):
 
     with patch("database.supabase_admin", db), \
          patch.object(wpa, "analyze_prompt_image", _analyze):
-        _run(wpa.run_and_store_analysis(prompt_row["id"]))
+        _run(wpa.run_and_store_analysis(prompt_row["id"], expected_pending_at))
     # last update payload
-    return db.table.return_value.update.call_args[0][0] if db.table.return_value.update.call_args else None
+    payload = db.table.return_value.update.call_args[0][0] if db.table.return_value.update.call_args else None
+    return (payload, db) if return_db else payload
 
 
 def test_run_and_store_success_writes_ready_unreviewed():
@@ -128,12 +159,82 @@ def test_run_and_store_success_writes_ready_unreviewed():
     assert payload["prompt_image_analysis"]["overview"] == "Tổng quan"
 
 
+def test_run_and_store_success_is_scoped_to_original_image_fingerprint():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/c.png", "prompt_image_public_id": "prompts/c.png"}
+    analysis = PromptImageAnalysis(overview="Tổng quan")
+    _payload, db = _run_store(row, analysis=analysis, return_db=True)
+    update_eq = db.table.return_value.update.return_value.eq
+    update_eq.assert_called_once_with("id", "p1")
+    update_eq.return_value.eq.assert_called_once_with(
+        "prompt_image_public_id", "prompts/c.png",
+    )
+
+
+def test_run_and_store_success_is_scoped_to_latest_reanalysis_token():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/c.png", "prompt_image_public_id": "prompts/c.png",
+           "prompt_image_analysis_at": "pending-token"}
+    analysis = PromptImageAnalysis(overview="Tổng quan")
+    _payload, db = _run_store(
+        row,
+        analysis=analysis,
+        return_db=True,
+        expected_pending_at="pending-token",
+    )
+    image_eq = db.table.return_value.update.return_value.eq.return_value.eq
+    image_eq.return_value.eq.assert_called_once_with(
+        "prompt_image_analysis_at", "pending-token",
+    )
+
+
+def test_run_and_store_skips_ai_when_pending_token_is_already_stale():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/c.png", "prompt_image_public_id": "prompts/c.png",
+           "prompt_image_analysis_at": "newer-token"}
+    db = MagicMock()
+    (db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[row])
+    with patch("database.supabase_admin", db), \
+         patch.object(wpa, "analyze_prompt_image") as analyze:
+        _run(wpa.run_and_store_analysis("p1", "older-token"))
+    analyze.assert_not_called()
+    db.table.return_value.update.assert_not_called()
+
+
 def test_run_and_store_failure_records_failed():
     row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
            "prompt_image_url": "https://x/dead.png", "prompt_image_public_id": "prompts/d.png"}
     payload = _run_store(row, raise_exc=RuntimeError("fetch failed: HTTP 404"))
     assert payload["prompt_image_analysis_status"] == "failed"
     assert "404" in payload["prompt_image_analysis_error"]
+
+
+def test_run_and_store_failure_is_scoped_to_original_image_fingerprint():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/dead.png", "prompt_image_public_id": "prompts/dead.png"}
+    _payload, db = _run_store(row, raise_exc=RuntimeError("fetch failed"), return_db=True)
+    update_eq = db.table.return_value.update.return_value.eq
+    update_eq.assert_called_once_with("id", "p1")
+    update_eq.return_value.eq.assert_called_once_with(
+        "prompt_image_public_id", "prompts/dead.png",
+    )
+
+
+def test_run_and_store_failure_is_scoped_to_latest_reanalysis_token():
+    row = {"id": "p1", "task_type": "task1_academic", "prompt_text": "x",
+           "prompt_image_url": "https://x/dead.png", "prompt_image_public_id": "prompts/dead.png",
+           "prompt_image_analysis_at": "pending-token"}
+    _payload, db = _run_store(
+        row,
+        raise_exc=RuntimeError("fetch failed"),
+        return_db=True,
+        expected_pending_at="pending-token",
+    )
+    image_eq = db.table.return_value.update.return_value.eq.return_value.eq
+    image_eq.return_value.eq.assert_called_once_with(
+        "prompt_image_analysis_at", "pending-token",
+    )
 
 
 def test_run_and_store_skips_non_task1():

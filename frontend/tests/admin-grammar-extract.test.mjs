@@ -41,9 +41,10 @@ describe('Sprint 12.7 — grammar landing (pages/admin/grammar/index.html)', () 
   });
 
   it('links to the 3 grammar admin child pages', () => {
-    assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/articles\.html["']/);
-    assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/analytics\.html["']/);
-    assert.match(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/recommend-test\.html["']/);
+    assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/articles["']/);
+    assert.doesNotMatch(GRM_INDEX, /href=["']\/pages\/admin\/grammar\/articles\.html["']/);
+    assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/analytics["']/);
+    assert.match(GRM_INDEX, /href=["']\/admin\/grammar\/recommend-test["']/);
   });
 
   it('carries the hybrid file-based banner explaining workflow', () => {
@@ -189,6 +190,8 @@ describe('Sprint 12.7 — grammar JS controllers', () => {
 
   it('recommend controller posts to /admin/grammar/recommend-test', () => {
     assert.match(JS_RECOMMEND, /api\.post\(['"]\/admin\/grammar\/recommend-test['"]/);
+    assert.match(JS_RECOMMEND, /draft_suppressed/);
+    assert.match(JS_RECOMMEND, /requestId !== runSequence/);
   });
 });
 
@@ -207,7 +210,7 @@ describe('Sprint 12.7 regression — admin.html closure (post Sprint 12.8)', () 
     // The previously-pinned "still-monolith" panels (vocab_exercises,
     // alerts, ai_usage) all carved out in Sprint 12.8. The redirect now
     // owns admin.html.
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-alerts["']/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-ai_usage["']/);

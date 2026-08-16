@@ -44,17 +44,17 @@ const ATTEMPT = FX.attempt_id;
 
 export default {
   name: 'listening-test — làm bài giao của lớp, giữ được class_item',
-  route: '/listening/test',
+  route: `/listening/test/session?id=${TEST}&class_item=${ITEM}`,
   legacyRoute: `/pages/listening-test.html?id=${TEST}&class_item=${ITEM}`,
-  nextPending: 'trang Next chưa tồn tại — bản khai dựng TRƯỚC khi port',
   settleMs: 900,
   drainMs: 1800,
 
   canned: [
-    // Không có lượt làm dở: buộc trang đi đường TẠO MỚI (đường mang class_item),
-    // chứ không phải đường TIẾP TỤC — đường tiếp tục cố ý KHÔNG đóng dấu lần
-    // giao (`listening-test-player.js:280-286`), nên nếu bản khai vô tình rơi
-    // vào đó thì nó chẳng kiểm được gì.
+    // Trả một lượt canonical đang mở để cả legacy lẫn Next cùng hiển thị nút
+    // BẮT ĐẦU LẠI. Bản khai bấm nút restart (không bấm Resume), nên vẫn buộc
+    // trang đi qua POST TẠO MỚI mang `class_item`. Next đọc lại endpoint này
+    // sau POST để reconcile attempt vừa tạo; trả cùng ATTEMPT giữ fixture tĩnh
+    // nhưng vẫn chứng minh bước reconcile bắt buộc đó.
     // THỨ TỰ CÓ NGHĨA: bộ chạy lấy mẫu KHỚP ĐẦU TIÊN, nên mẫu rộng nhất
     // (chi tiết đề) phải đứng CUỐI, không thì nó nuốt cả các URL con.
     //
@@ -62,10 +62,17 @@ export default {
     // — trong khi URL thật là `…/attempts?class_item=…`, nên nó không khớp,
     // `res.attempt_id` thành `undefined`, và trang đi nộp bài tới
     // `…/attempts/undefined/submit`. Lượt chạy đầu tiên bắt đúng chuyện đó.
-    [/\/attempts\/in-progress(\?|$)/, { attempt: null }],
+    [/\/attempts\/in-progress(\?|$)/, { attempt: {
+      attempt_id: ATTEMPT,
+      started_at: '2026-08-11T00:00:00Z',
+      answers: [],
+    } }],
     [/\/tests\/[^/?]+\/attempts(\?|$)/, { attempt_id: ATTEMPT }],
     [/\/answers(\?|$)/, {}],
-    [/\/submit(\?|$)/, { score: 3, total: 3, correct: 3, band: 9 }],
+    [/\/submit(\?|$)/, {
+      score: 3, max_score: 3, total: 3, correct: 3,
+      band: 9, band_estimate: 9, per_question: [], section_breakdown: {},
+    }],
     [/\/api\/listening\/tests\/[^/?]+(\?|$)/, FX.test],
   ],
 
@@ -82,6 +89,10 @@ export default {
     { fill: ['.ft-q-input[data-q-num="3"]', FX.answers[2].user_answer] },
     { wait: 2000 },
     { click: "#btn-submit" },
+    // Legacy dùng `window.confirm()` và runner tự đồng ý; Next dùng modal đẹp
+    // hơn nên cần click thêm. Nếu modal Next biến mất/hỏng, POST `/submit` bên
+    // dưới vẫn thiếu và cổng đỏ — optional ở đây không làm yếu hợp đồng ghi.
+    { clickIfPresent: '.listening-next-modal-panel .ft-control-btn:not(.ghost)' },
     { wait: 600 },
   ],
 

@@ -39,7 +39,7 @@ export function VocabPracticeBehavior() {
     if (status === 'signed-out') {
       setBanksState(null);
       setErrorState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 
@@ -103,7 +103,7 @@ export function VocabPracticeBehavior() {
             return (
               <a
                 className="mode-card"
-                href={`/pages/quiz.html?bank=${encodeURIComponent(bank.id)}`}
+                href={`/quiz?bank=${encodeURIComponent(bank.id)}`}
                 key={bank.id}
               >
                 <div className="head">

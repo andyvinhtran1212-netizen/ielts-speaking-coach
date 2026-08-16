@@ -27,7 +27,7 @@ describe('/listening/browse — native React behavior', () => {
   test('uses shared auth, fails closed and scopes filters/results by account', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
-    assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
@@ -56,10 +56,10 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
   });
 
-  test('offers only backend-reported modes in the legacy pedagogical order', () => {
+  test('offers only backend-reported modes in pedagogical order through current route owners', () => {
     assert.match(
       BEHAVIOR,
-      /\['dictation', 'Chép chính tả', '\/pages\/listening-dictation\.html'\][\s\S]*\['gist', 'Ý chính', '\/pages\/listening-gist\.html'\][\s\S]*\['true_false', 'Đúng\/Sai', '\/pages\/listening-tf\.html'\][\s\S]*\['mcq', 'Trắc nghiệm', '\/pages\/listening-mcq\.html'\]/,
+      /\['dictation', 'Chép chính tả', '\/listening\/dictation'\][\s\S]*\['gist', 'Ý chính', '\/listening\/gist'\][\s\S]*\['true_false', 'Đúng\/Sai', '\/listening\/tf'\][\s\S]*\['mcq', 'Trắc nghiệm', '\/listening\/mcq'\]/,
     );
     assert.match(BEHAVIOR, /MODE_LINKS\.filter\(\(\[mode\]\) => item\.availableModes\?\.includes\(mode\)\)/);
     assert.match(BEHAVIOR, /\?content_id=\$\{encodeURIComponent\(item\.id\)\}/);

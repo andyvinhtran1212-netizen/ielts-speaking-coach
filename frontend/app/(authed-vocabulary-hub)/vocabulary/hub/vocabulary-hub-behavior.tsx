@@ -289,7 +289,7 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
         {visibleCategories.map(({ category, count, slug }) => {
           const encodedSlug = encodeURIComponent(slug);
           const linkedTopicId = topicId(category);
-          const practiceHref = `/pages/quiz.html?skill_area=vocab${
+          const practiceHref = `/quiz?skill_area=vocab${
             linkedTopicId ? `&topic_id=${encodeURIComponent(linkedTopicId)}` : ''
           }`;
           return (
@@ -304,8 +304,8 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
                 </span>
               </div>
               <div className="vtc-actions">
-                <a className="vtc-act vtc-act--browse" href={`/vocabulary.html?cat=${encodedSlug}`}>Khám phá</a>
-                <a className="vtc-act vtc-act--study" href={`/pages/flashcard-study.html?stack=wiki:${encodedSlug}`}>🃏 Flashcards</a>
+                <a className="vtc-act vtc-act--browse" href={`/vocabulary?cat=${encodedSlug}`}>Khám phá</a>
+                <a className="vtc-act vtc-act--study" href={`/flashcard-study?stack=wiki:${encodedSlug}`}>🃏 Flashcards</a>
                 <a className="vtc-act vtc-act--ex" href={practiceHref}>✍️ Luyện tập</a>
               </div>
             </article>
@@ -342,7 +342,7 @@ export function VocabularyHubBehavior() {
   }, []);
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

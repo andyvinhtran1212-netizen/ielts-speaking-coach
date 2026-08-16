@@ -35,7 +35,7 @@ describe('backend — "Tất cả" groups L3 into test rows', () => {
 
   test('no-filter view excludes raw L3 passages and splices in the test rows', () => {
     assert.match(router, /\.neq\(\s*"library",\s*"l3_test"\s*\)/);
-    assert.match(router, /_l3_test_rows\(status\)/);
+    assert.match(router, /_l3_test_rows\(status, fetch_count - 1\)/);
     // merged + sorted by recency so L1/L2/L3 interleave by updated_at
     assert.match(router, /merged\.sort\([\s\S]{0,80}updated_at/);
   });

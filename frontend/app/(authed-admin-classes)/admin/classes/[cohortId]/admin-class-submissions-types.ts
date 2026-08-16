@@ -1,0 +1,14 @@
+import type { ClassAssignment } from './admin-class-homework-types';
+
+export type SubmissionAssignment = Pick<ClassAssignment, 'id' | 'title' | 'skill' | 'status' | 'due_at' | 'content_id'>;
+export type SubmissionStudent = { studentId: string | null; userId: string | null; name: string; hasWriting: boolean };
+
+export type SubmissionFlag = { severity: string; label: string; why: string; action: string };
+export type TallyStudent = { student_id: string; name: string; student_code: string | null; status: string; submitted_at: string | null; score: number | null; flags: SubmissionFlag[]; flag_level: string | null; passed_at: string | null; retakes: number; verdicts: number; artifact_kind: string | null; artifact_id: string | null; has_writing: boolean; writing_expected: boolean };
+export type TallyPayload = { assignment: { id: string; title: string; skill: string; due_at: string | null }; sealed: boolean; homework_stale: boolean; writing_total: number; students: TallyStudent[]; counts: { total: number; submitted: number; late: number; missing: number; no_account: number; flagged: number } };
+export type EffortStudent = { student_id: string | null; user_id: string | null; state: string; wrote: boolean; stages_done: number; minutes: number | null; questions: number; correct: number; accuracy: number | null; median_sec: number | null; idle_sec: number; last_at: string | null };
+export type EffortPayload = { stale: boolean; stages_total: number; writing_total: number; students: EffortStudent[]; axes: { axis: string; wrong: number; median_sec: number | null }[] };
+export type ReportQuestion = { qid: string | null; item_key: string; prompt: string; picked: number | null; picked_text: string | null; answer: number | null; answer_text: string | null; is_correct: boolean; why_wrong: string | null; explain: string | null; seconds: number | null };
+export type StudentReport = { stale: boolean; locked: boolean; threshold: number | null; totals: { answered: number; correct: number; median_sec: number | null; active_sec: number | null; idle_sec: number | null; bank_title: string | null }; history: { number: number; phase: string; session_count: number; pct: number | null; next_action: string; at: string | null }[]; questions: ReportQuestion[] };
+export type WritingPayload = { student: { id: string; name: string; code: string | null }; assignment: { id: string; title: string }; submission: null | { clean: number; total: number; model: string | null; graded_at: string | null; items: Record<string, unknown>[] } };
+export type SubmissionWorkspaceProps = { cohortId: string; assignment: SubmissionAssignment; initialStudent?: SubmissionStudent | null; backLabel?: string; memberNames: Record<string, string>; memberUserIds: Record<string, string | null>; memberNamesAvailable: boolean; onBack: () => void; onMutation: () => void | Promise<void> };

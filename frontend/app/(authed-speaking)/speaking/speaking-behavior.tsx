@@ -33,7 +33,7 @@ import {
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
-const LOGIN_URL = '/login.html';
+const LOGIN_URL = '/login';
 
 const $ = (id: string) => document.getElementById(id);
 const val = (id: string) => ($(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? '';
@@ -424,7 +424,7 @@ export function SpeakingBehavior() {
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
-  // `../login.html` khi không có phiên.
+  // `../login` khi không có phiên.
   useEffect(() => {
     if (status === 'signed-out') window.location.replace(LOGIN_URL);
   }, [status]);

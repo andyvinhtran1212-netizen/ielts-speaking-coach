@@ -110,6 +110,20 @@ main { position: relative; z-index: 1; }
   font-size: 13px;
 }
 
+.wd-submit-notice {
+  margin-bottom: var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+  line-height: 1.55;
+}
+.wd-submit-notice.is-success { border-color: var(--av-success); }
+.wd-submit-notice.is-warning { border-color: var(--av-warning); }
+.wd-submit-notice.is-error { border-color: var(--av-error); }
+
 
 /* ── Tab nav (Phase 2.3b: Bài giao / Bài đã nộp) ─────────────────── */
 

@@ -49,9 +49,10 @@ export function CourseBehavior() {
     let onHide: (() => void) | null = null;
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, CR, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, CR, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
+        import(/* webpackIgnore: true */ '/js/course-reading.js' as any),
         // Bộ vẽ báo cáo — CHUNG với mặt đọc của giáo viên.
         import(/* webpackIgnore: true */ '/js/course-report.js' as any),
         waitForApi(),
@@ -100,10 +101,17 @@ export function CourseBehavior() {
       if (title) title.textContent = runner.bank.title || 'Bài tập theo buổi';
       const titleMeta = $('cx-title-meta');
       if (titleMeta) {
+        const shortReading = runner.bank?.meta?.short_reading;
         titleMeta.textContent = `${runner.total} câu trắc nghiệm`
           + (runner.hasWriting ? ` · ${runner.writing.length} câu tự luận` : '')
-          + ' · đáp án và giải thích hiện ngay sau mỗi câu.';
+          + (shortReading ? ' · 1 bài đọc ngắn' : '')
+          + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
+
+      const reading = RD.createReading({
+        api, storage: window.localStorage, userId: user.id,
+      });
+      reading.load(runner.bank);
 
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
@@ -154,6 +162,7 @@ export function CourseBehavior() {
       }
 
       function renderQuestion() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const q = runner.current();
         if (!q) return renderDone();
         setSaveState(runner.sessionFailed ? 'error'
@@ -248,6 +257,7 @@ export function CourseBehavior() {
       }
 
       async function renderDone() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         setSaveState('saving');
         const res = await runner.finishStage();
         setSaveState(res.persisted ? 'saved' : 'error');
@@ -336,6 +346,9 @@ export function CourseBehavior() {
           : (writingReady && writing.submitted
               ? '<button class="av-button av-button-secondary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
+        const readMore = reading.exists
+          ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">'
+            + `Làm bài đọc ngắn (${reading.count} câu)</button>` : '';
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
         //
         // Màn này phát ra đáp án đúng của từng câu kèm lời giải, mà kỳ kiểm tra
@@ -372,7 +385,7 @@ export function CourseBehavior() {
               ? 'Hoàn thành phần tự luận để bài được ghi nhận là đã nộp.'
               : 'Mở báo cáo để xem đáp án, lời giải và những trục cần củng cố.'}</li>`
             + '<li data-step="2">Lịch sử full session và revision được giữ nguyên bên dưới.</li>'
-            + '</ul><div class="cx-verdict__actions">' + seeReport + more + '</div>'
+            + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + '</div>'
             + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
@@ -391,7 +404,7 @@ export function CourseBehavior() {
             + 'nhưng bạn cần hoàn thành lại toàn bộ câu của full session.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">'
-            + 'Bắt đầu full session mới</button>' + seeReport + more + '</div>'
+            + 'Bắt đầu full session mới</button>' + seeReport + more + readMore + '</div>'
             + history + '</div></div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
@@ -410,7 +423,7 @@ export function CourseBehavior() {
             + 'không được cộng vào lượt này.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + '</div>'
+            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + readMore + '</div>'
             + history + '</div></div>';
         }
       }
@@ -444,6 +457,7 @@ export function CourseBehavior() {
 
       /** Màn TỰ LUẬN — cả cụm một lần, nộp một lần. */
       function renderWriting() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         const done = $('cx-done')!;
@@ -456,6 +470,33 @@ export function CourseBehavior() {
         if (!writing.submitted) syncWritingNote();
         const st = $('cx-stage'); if (st) st.hidden = true;
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      function renderReading() {
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = true;
+        $('cx-report')!.hidden = true;
+        const box = $('cx-reading')!;
+        box.hidden = false;
+        box.innerHTML = reading.render();
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      async function revealReading() {
+        const btn = $('cr-check') as HTMLButtonElement | null;
+        if (reading.missing.length) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang mở lời giải…'; }
+        try {
+          await reading.reveal();
+          renderReading();
+        } catch (err: any) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Thử mở lời giải lại'; }
+          const bar = $('cr-bar');
+          if (bar) bar.insertAdjacentHTML('afterbegin',
+            `<p class="cr-error">Chưa mở được lời giải: ${esc(err?.message || err)}</p>`);
+        }
       }
 
       // Vẽ lại CẢ thanh nộp, không chỉ dòng chữ: nút và trạng thái tắt/bật nằm
@@ -611,6 +652,14 @@ export function CourseBehavior() {
         if (t.id === 'cx-resend') return void renderDone();
         if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
+        if (t.id === 'cx-reading-open') return renderReading();
+        if (t.id === 'cr-back') {
+          $('cx-reading')!.hidden = true;
+          $('cx-done')!.hidden = false;
+          window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+          return;
+        }
+        if (t.id === 'cr-check') return void revealReading();
         // Hai nút, hai việc: `cw-submit` mở bước xác nhận, `cw-confirm` mới nộp
         // thật. Dùng chung một id cho cả hai là dựng lại đúng cú bấm-một-nhát.
         if (t.id === 'cw-submit') return onWritingArm();
@@ -623,6 +672,19 @@ export function CourseBehavior() {
       // một lần lỡ tay đóng tab thì học viên sẽ không viết lại lần hai.
       onInput = (e: Event) => {
         const el = e.target as HTMLTextAreaElement;
+        if (el?.classList?.contains('cr-input')) {
+          reading.write(el.dataset.qid, el.value);
+          // Vẽ lại footer để số câu thiếu và trạng thái nút luôn đúng, nhưng
+          // không dựng lại toàn bài (dựng lại sẽ giật focus khỏi ô đang gõ).
+          const bar = $('cr-bar');
+          if (bar) {
+            const shell = document.createElement('div');
+            shell.innerHTML = reading.render();
+            const fresh = shell.querySelector('#cr-bar');
+            if (fresh) bar.replaceWith(fresh);
+          }
+          return;
+        }
         if (!el || !el.classList || !el.classList.contains('cw-write')) return;
         writing.write(el.dataset.qid, el.value);
         const card = el.closest('.cw-item') as HTMLElement | null;

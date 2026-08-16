@@ -34,12 +34,12 @@ describe('writing dashboard — every tile → a functional page', () => {
     ['Soạn bài viết',        '/pages/admin/writing/new.html'],
     ['Thư viện prompt',      '/pages/admin/writing/prompts.html'],
     ['Mẹo viết',             '/pages/admin/writing/tips.html'],
-    ['Hàng chờ chấm',        '/pages/admin/writing/queue.html'],
+    ['Hàng chờ chấm',        '/admin/writing/queue'],
     ['Yêu cầu chấm lại',     '/pages/admin/writing/regrade-requests.html'],
     ['Hàng đợi Instructor',  '/pages/admin/writing/instructor-queue.html'],
     ['Gán bài tập',          '/pages/admin/writing/assignments.html'],
     ['Lớp học',              '/pages/admin/writing/cohorts.html'],
-    ['Học viên',             '/pages/admin/classes/index.html?tab=students'],   // GĐ 1b
+    ['Học viên',             '/admin/students'],
   ];
   for (const [label, href] of TILES) {
     test(`tile "${label}" → ${href}`, () => {

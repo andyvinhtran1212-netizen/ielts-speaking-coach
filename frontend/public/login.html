@@ -74,11 +74,6 @@
       min-height: 100vh;
     }
 
-    @media (max-width: 767px) {
-      .lx-shell { grid-template-columns: 1fr; }
-      .lx-pitch { display: none; }
-    }
-
     /* ── Pitch panel (always-dark) ─────────────────── */
     .lx-pitch {
       background: var(--lx-pitch-bg);
@@ -99,6 +94,7 @@
       letter-spacing: -0.02em;
       margin-bottom: 3.5rem;
       color: var(--lx-pitch-text-full);
+      text-decoration: none;
     }
     .lx-logo span { color: var(--av-brand-teal-500); }
 
@@ -489,6 +485,14 @@
     }
 
     .lx-modal-hint span { color: var(--av-text-secondary); }
+
+    /* Keep the responsive override after the base `.lx-pitch` declaration.
+       The old placement came first and lost the cascade, so rollback Login
+       still showed the full pitch column in a 375px viewport. */
+    @media (max-width: 767px) {
+      .lx-shell { grid-template-columns: 1fr; }
+      .lx-pitch { display: none; }
+    }
   </style>
 
   <!-- Tailwind utilities LAST (hidden, flex, etc.) -->
@@ -501,10 +505,10 @@
     <!-- ── LEFT: pitch panel (always-dark) ──────────── -->
     <aside class="lx-pitch">
 
-      <div class="lx-logo">Aver<span>Learning</span></div>
+      <a class="lx-logo" href="/">Aver<span>Learning</span></a>
 
       <p class="lx-eyebrow">Nền tảng luyện IELTS cùng AI</p>
-      <h1 class="lx-headline">Mở khóa cả 6 kỹ năng IELTS trong&nbsp;một nền tảng</h1>
+      <h2 class="lx-headline">Mở khóa cả 6 kỹ năng IELTS trong&nbsp;một nền tảng</h2>
 
       <div class="lx-skills">
         <div class="lx-skill-row">
@@ -568,7 +572,7 @@
       <main class="lx-form-main">
         <div class="lx-form-card">
 
-          <h2 class="lx-form-heading">Bắt đầu luyện tập</h2>
+          <h1 class="lx-form-heading">Bắt đầu luyện tập</h1>
           <p class="lx-form-subheading">
             Đăng ký miễn phí — <strong>kích hoạt bằng access code</strong> để bắt đầu.
           </p>
@@ -647,16 +651,19 @@
   </div>
 
 
-  <!-- SCRIPTS: order matters — supabase CDN → api.js → inline -->
+  <!-- SCRIPTS: order matters — config → reporter → api/telemetry → inline -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="js/runtime-config.js"></script>
+  <script src="js/error-reporter.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/analytics-beacon.js"></script>
+  <script src="js/rum-vitals.js"></script>
   <script>
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
     var DASHBOARD_URL  = '/home';
-    var ONBOARDING_URL = 'onboarding.html';
+    var ONBOARDING_URL = '/onboarding';
 
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
     var sb = getSupabase();

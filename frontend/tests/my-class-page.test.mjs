@@ -679,7 +679,7 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
     join(HERE, '..', 'public', 'js', 'components', 'aver-chrome.js'), 'utf8');
 
   test('đổi nhãn thành MY CLASS và trỏ đúng trang', () => {
-    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class">MY CLASS<\/a>/);
+    assert.match(CHROME, /href="\/my-class" data-tab="class">MY CLASS<\/a>/);
   });
 
   test('MY CLASS có active state thật, không chỉ có data-tab', () => {
@@ -692,7 +692,7 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
   });
 
   test('được nạp trước như các mục điều hướng khác', () => {
-    assert.match(CHROME, /href_matches: '\/pages\/my-class\.html'/);
+    assert.match(CHROME, /href_matches: '\/my-class'/);
   });
 });
 

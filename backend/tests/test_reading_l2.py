@@ -138,7 +138,8 @@ def test_admin_list_requires_auth():
 def test_admin_list_returns_items_with_library_filter():
     mock_db = MagicMock()
     chain = mock_db.table.return_value.select.return_value
-    chain.order.return_value.range.return_value.eq.return_value.execute.return_value = \
+    chain.order.return_value = chain
+    chain.range.return_value.eq.return_value.execute.return_value = \
         MagicMock(data=[{"id": "p1", "slug": "x", "library": "l2_skill", "title": "X",
                           "status": "draft", "skill_focus": "skimming"}], count=1)
 
@@ -150,7 +151,7 @@ def test_admin_list_returns_items_with_library_filter():
     body = r.json()
     assert body["items"][0]["library"] == "l2_skill"
     # The .eq() chain must have applied the library filter.
-    eq_calls = mock_db.table.return_value.select.return_value.order.return_value.range.return_value.eq.call_args_list
+    eq_calls = chain.range.return_value.eq.call_args_list
     assert any(c.args[:2] == ("library", "l2_skill") for c in eq_calls)
 
 

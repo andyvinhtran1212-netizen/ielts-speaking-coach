@@ -25,6 +25,14 @@ import type { ReactNode } from 'react';
 
 import { AuthProvider } from '@/lib/auth/auth-provider';
 
+type PageStylesheet =
+  | string
+  | {
+      href: string;
+      /** Prevents aver-admin-chrome from appending this stylesheet again. */
+      dataAverAdminSurface?: boolean;
+    };
+
 // Bootstrap chống nháy theme (DESIGN_SYSTEM §13) — phải chạy TRƯỚC mọi
 // stylesheet để `[data-theme]` có mặt trên <html> trước lượt vẽ đầu tiên.
 const ANTI_FLASH = `
@@ -98,6 +106,9 @@ export function AuthedShell({
   pageStylesheets,
   extraScripts,
   utilityLayer = true,
+  tailwindLayer = utilityLayer,
+  chrome = 'student',
+  authGated = true,
   bodyClass = 'av-page font-sans min-h-screen',
   children,
 }: {
@@ -105,11 +116,11 @@ export function AuthedShell({
    * CSS riêng của trang, chèn giữa `ds.css` và `tailwind.build.css`.
    * Nhiều tệp thì theo đúng thứ tự trang legacy nạp chúng.
    */
-  pageStylesheets: string[];
+  pageStylesheets: PageStylesheet[];
   /**
    * Thẻ script thêm cho riêng route-group. CHỈ dùng cho script KHÔNG tự gọi
    * API lúc nạp — một script tự-khởi-động-và-gọi-API sẽ bắn request trước khi
-   * phiên sẵn sàng → 401 → `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến
+   * phiên sẵn sàng → 401 → `api.js:130` đẩy sang `/login` và CẢ TRANG biến
    * mất (đã xảy ra thật với `home-mock-tiles.js`, cổng parity bắt được ở PR
    * #930). Loại đó phải port vào tầng behavior, chạy sau khi xác nhận đăng nhập.
    */
@@ -128,6 +139,19 @@ export function AuthedShell({
    */
   utilityLayer?: boolean;
   /**
+   * Tailwind utilities can be retained without `ds.css` for legacy admin
+   * surfaces whose measured cascade is tokens → components → page CSS →
+   * Tailwind. Defaults to `utilityLayer` so every existing route is byte-stable.
+   */
+  tailwindLayer?: boolean;
+  /** Shared coexistence chrome. Admin routes use the canonical admin component. */
+  chrome?: 'student' | 'admin' | 'none';
+  /**
+   * Whether the whole route requires a signed-in account. Hybrid surfaces can
+   * still consume AuthProvider while leaving their public modes accessible.
+   */
+  authGated?: boolean;
+  /**
    * Class gắn vào `<body>`. Mặc định giữ nguyên chuỗi cũ để ba trang đã port
    * không đổi. Trang legacy có body class KHÁC NHAU (`reading-vocab` chỉ có
    * `av-page`, `speaking` có tận sáu class) nên nó phải là tham số; ghi cứng
@@ -138,6 +162,10 @@ export function AuthedShell({
 }) {
   return (
     <>
+      {/* Route-scoped hint for the adaptive student chrome. Without it the
+          Vocabulary target waits on a second Supabase poll and can briefly
+          disagree with an authenticated native page. */}
+      {authGated && <meta name="aver-auth-gated" content="1" />}
       <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
 
       {/* Font preconnects + faces — bộ của trang cần đăng nhập, KHÔNG phải bộ
@@ -154,10 +182,23 @@ export function AuthedShell({
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       {utilityLayer && <link rel="stylesheet" href="/css/ds.css" />}
-      {pageStylesheets.map((href) => (
-        <link key={href} rel="stylesheet" href={href} />
-      ))}
-      {utilityLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
+      {pageStylesheets.map((stylesheet) => {
+        const href = typeof stylesheet === 'string' ? stylesheet : stylesheet.href;
+        const dataAverAdminSurface = typeof stylesheet === 'string'
+          ? undefined
+          : stylesheet.dataAverAdminSurface
+            ? '1'
+            : undefined;
+        return (
+          <link
+            key={href}
+            rel="stylesheet"
+            href={href}
+            data-aver-admin-surface={dataAverAdminSurface}
+          />
+        );
+      })}
+      {tailwindLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
 
       {/* Cùng CDN pin với legacy (lucide@1.17.0, supabase-js@2.107.0) */}
       <script src="https://unpkg.com/lucide@1.17.0" defer />
@@ -183,8 +224,10 @@ export function AuthedShell({
       <script dangerouslySetInnerHTML={{ __html: SUPABASE_INIT }} />
       <script dangerouslySetInnerHTML={{ __html: LUCIDE_HYDRATE }} />
 
-      {/* Canonical chrome Web Component (Sprint 7.13) */}
-      <script type="module" src="/js/components/aver-chrome.js" />
+      {/* Canonical coexistence chrome. Existing student layouts keep the exact
+          default script; the first native admin route opts into admin chrome. */}
+      {chrome === 'student' && <script type="module" src="/js/components/aver-chrome.js" />}
+      {chrome === 'admin' && <script type="module" src="/js/components/aver-admin-chrome.js" />}
 
       {/* CSS trang / ds.css bọc luật dưới class của <body> — React KHÔNG được
           sở hữu thuộc tính của <body> (root layout mới sở hữu), nên class được

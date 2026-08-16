@@ -69,7 +69,7 @@
     <!-- Sticky header -->
     <header class="grade-header">
       <div class="header-left">
-        <a href="/pages/admin/writing/index.html" class="back-link">← Writing Coach</a>
+        <a href="/admin/writing" class="back-link">← Writing Coach</a>
         <div class="essay-meta min-w-0">
           <h1 id="header-student">—</h1>
           <p class="meta-line">
@@ -1821,7 +1821,7 @@
       var status      = review.status;
       var isMine      = !!_currentAdminId && review.claimed_by === _currentAdminId;
 
-      panel.classList.remove('locked', 'delivered');
+      panel.classList.remove('hidden', 'locked', 'delivered');
       panel.style.display = '';
 
       if (status === 'delivered') {

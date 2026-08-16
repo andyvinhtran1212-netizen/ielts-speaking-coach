@@ -19,7 +19,7 @@
  *     pricing free, pricing popular, pricing intensive, final cta,
  *     final signin, footer signin, footer signup)
  *   - 2 links target /grammar.html (nav + footer)
- *   - 1 link targets /pricing.html (price-note inline link)
+ *   - 1 link targets /pricing (price-note inline link)
  *   - 1 footer link targets /frontend/pages/home.html
  *   - 3 in-page anchors preserved: #features, #how-it-works, #pricing
  *   - Pricing section keeps inline style="display:none" (pre-launch hide)
@@ -148,8 +148,9 @@ describe('index.html / conversion flow preserved byte-identical', () => {
     assert.equal(count, 3, `Expected 3 /grammar links (nav + skill card + footer); found ${count}`);
   });
 
-  test('href="/pricing.html" inline link preserved (price-note)', () => {
-    assert.match(html, /href=["']\/pricing\.html["']/);
+  test('price-note enters the canonical Next pricing boundary', () => {
+    assert.match(html, /href=["']\/pricing["']/);
+    assert.doesNotMatch(html, /href=["']\/pricing\.html["']/);
   });
 
   test('href="/home" footer dashboard link preserved', () => {

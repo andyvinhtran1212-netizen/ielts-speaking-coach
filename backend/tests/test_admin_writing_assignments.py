@@ -106,6 +106,23 @@ def test_list_assignments_returns_joined_payload():
     body = r.json()
     assert "assignments" in body
     assert body["assignments"][0]["writing_prompts"]["title"] == "Test prompt"
+    assert body["capped"] is False
+    assert mock_db.table.return_value.select.return_value.order.return_value.limit.call_args.args == (201,)
+
+
+def test_list_assignments_reports_and_removes_sentinel_row():
+    """A 501st row proves truncation without leaking beyond the public cap."""
+    mock_db = MagicMock()
+    chain = (mock_db.table.return_value.select.return_value.order.return_value.limit.return_value)
+    chain.execute.return_value = MagicMock(data=[
+        {"id": f"assignment-{index}"} for index in range(501)
+    ])
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().get("/admin/writing/assignments?limit=500", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["capped"] is True
+    assert len(r.json()["assignments"]) == 500
 
 
 def test_create_single_assignment_returns_count_one_no_duplicates():
@@ -140,6 +157,160 @@ def test_create_single_assignment_returns_count_one_no_duplicates():
     insert_payload = mock_db.table.return_value.insert.call_args[0][0]
     assert insert_payload[0]["assigned_by"] == _ADMIN_USER["id"]
     assert insert_payload[0]["student_id"]  == _STUDENT_ID
+
+
+def test_create_with_request_id_uses_atomic_idempotency_rpc():
+    """Native create never uses the legacy insert path; a client UUID owns
+    one atomic request ledger + assignment receipt."""
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "created": [{"id": _ASSIGN_ID}], "created_count": 1,
+        "group_id": "00000000-0000-4000-8000-000000000999",
+        "duplicates_warning": [], "replayed": False,
+    })
+    request_id = "00000000-0000-4000-8000-000000000123"
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"request_id": request_id, "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 201
+    assert r.json()["count"] == 1
+    assert r.json()["replayed"] is False
+    name, args = mock_db.rpc.call_args.args
+    assert name == "fn_create_writing_assignments_idempotent"
+    assert args["p_request_id"] == request_id
+    assert args["p_student_ids"] == [_STUDENT_ID]
+    mock_db.table.return_value.insert.assert_not_called()
+
+
+def test_create_request_id_replay_returns_same_receipt():
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "created": [{"id": _ASSIGN_ID}], "created_count": 1,
+        "group_id": "00000000-0000-4000-8000-000000000999",
+        "duplicates_warning": [_STUDENT_ID], "replayed": True,
+    })
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"request_id": "00000000-0000-4000-8000-000000000123", "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 201
+    assert r.json()["replayed"] is True
+    assert r.json()["duplicates_warning"] == [_STUDENT_ID]
+
+
+def test_fanout_request_id_rejects_changed_cohort_size_before_rpc():
+    """Review arithmetic is a precondition, not decorative copy."""
+    mock_db = MagicMock()
+    ledger = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    ledger.execute.return_value = MagicMock(data=[])
+    students = mock_db.table.return_value.select.return_value.eq.return_value
+    students.execute.return_value = MagicMock(data=[{"id": _STUDENT_ID}, {"id": _STUDENT_ID_2}])
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={
+                "request_id": "00000000-0000-4000-8000-000000000123",
+                "prompt_id": _PROMPT_ID,
+                "cohort_id": "00000000-0000-0000-0000-00000000eeee",
+                "expected_student_count": 1,
+            },
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Sĩ số lớp đã đổi từ 1 thành 2" in r.json()["detail"]
+    mock_db.rpc.assert_not_called()
+
+
+def test_fanout_replay_returns_original_receipt_before_reading_changed_cohort():
+    """A lost-response retry is governed by its immutable request receipt,
+    not by cohort membership that may have changed after the original commit."""
+    mock_db = MagicMock()
+    request_id = "00000000-0000-4000-8000-000000000123"
+    request_payload = {
+        "expected_student_count": 1,
+        "prompt_ids": [_PROMPT_ID],
+        "cohort_id": "00000000-0000-0000-0000-00000000eeee",
+        "name": None,
+        "allow_soft_check": False,
+        "deadline": None,
+        "instructions": None,
+        "is_timed": False,
+        "time_limit_minutes": None,
+        "analysis_level": 3,
+    }
+    receipt = {
+        "created": [{"id": _ASSIGN_ID}],
+        "assignment_ids": [_ASSIGN_ID],
+        "created_count": 1,
+        "student_count": 1,
+        "group_id": "00000000-0000-4000-8000-000000000999",
+        "duplicates_warning": [],
+        "replayed": False,
+    }
+    ledger = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    ledger.execute.return_value = MagicMock(data=[{
+        "assigned_by": _ADMIN_USER["id"],
+        "request_payload": request_payload,
+        "receipt": receipt,
+    }])
+
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={
+                "request_id": request_id,
+                "prompt_id": _PROMPT_ID,
+                "cohort_id": request_payload["cohort_id"],
+                "expected_student_count": 1,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 201
+    assert r.json()["replayed"] is True
+    assert r.json()["assignment_ids"] == [_ASSIGN_ID]
+    mock_db.rpc.assert_not_called()
+    mock_db.table.assert_called_once_with("writing_assignment_requests")
+
+
+def test_verify_request_returns_only_rows_still_in_receipt_group():
+    request_id = "00000000-0000-4000-8000-000000000123"
+    group_id = "00000000-0000-4000-8000-000000000999"
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "request_id": request_id,
+        "group_id": group_id,
+        "expected_count": 2,
+        "assignment_ids": [_ASSIGN_ID],
+    })
+
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().get(
+            f"/admin/writing/assignments/requests/{request_id}",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "request_id": request_id,
+        "group_id": group_id,
+        "expected_count": 2,
+        "assignment_ids": [_ASSIGN_ID],
+    }
+    mock_db.rpc.assert_called_once_with("fn_verify_writing_assignment_request", {
+        "p_request_id": request_id,
+        "p_assigned_by": _ADMIN_USER["id"],
+    })
 
 
 def test_create_bulk_assignment_surfaces_duplicate_warning():

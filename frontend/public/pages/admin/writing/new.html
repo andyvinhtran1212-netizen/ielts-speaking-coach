@@ -195,7 +195,7 @@
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <a href="/pages/admin/writing/index.html" class="aw-btn-cancel px-4 py-2 text-sm">Hủy</a>
+        <a href="/admin/writing" class="aw-btn-cancel px-4 py-2 text-sm">Hủy</a>
         <button type="submit" id="btn-submit" class="aw-btn-primary">Submit for grading</button>
       </div>
     </form>
@@ -219,7 +219,7 @@
         var rows = await window.api.get('/admin/students?limit=200');
         if (!rows || !rows.length) {
           sel.innerHTML = '<option value="">— Chưa có học viên —</option>';
-          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin/classes/index.html?tab=students');
+          setAlert('warn', 'Bạn cần tạo học viên trước tại /admin/students.');
           return;
         }
         sel.innerHTML = '<option value="">— Chọn học viên —</option>' + rows.map(function (r) {
@@ -285,7 +285,7 @@
         var res = await window.api.post('/admin/writing/essays', payload);
         // Pre-warm notification permission so the status page can notify on graded.
         WC.requestNotifyPermission();
-        window.location.href = '/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(res.essay_id);
+        window.location.href = '/admin/writing/status?essay_id=' + encodeURIComponent(res.essay_id);
       } catch (err) {
         setAlert('error', err.message);
         btn.disabled = false; btn.textContent = 'Submit for grading';

@@ -50,6 +50,28 @@ def _essay(qid="B01-E1-01", **over):
     return r
 
 
+def _reading(**over):
+    r = {
+        "kind": "reading", "id": "TM20-B01-DOC", "vai_tro": "bài về nhà",
+        "chu_de": "MỘT NGÀY Ở THƯ VIỆN", "cau_truc_trong_tam": "mạo từ",
+        "so_tu": 4, "bai_doc": "Mai reads a book.",
+        "tu_vung": [{"tu": "book", "loai": "n", "nghia": "sách"}],
+        "cau_hoi": {
+            "phan1_noi_dung": ["Mai reads. → T / F / NG"],
+            "phan2_cau_truc": ["Chọn mạo từ đúng. → …"],
+        },
+        "dap_an": {
+            "phan1_noi_dung": [
+                {"cau": 1, "dap_an": "T", "giai_thich": "Đúng nguyên văn."}],
+            "phan2_cau_truc": [
+                {"cau": 2, "dap_an": "a", "giai_thich": "Danh từ số ít."}],
+        },
+        "ban_dich": "Mai đọc một cuốn sách.",
+    }
+    r.update(over)
+    return r
+
+
 def _run(tmp_path, db, rows, *flags, name="KBT-buoi-01.jsonl"):
     p = tmp_path / name
     p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
@@ -114,6 +136,33 @@ def test_the_teaching_axis_becomes_the_grouping_key(tmp_path):
     """`item_key` là chỗ sổ lỗi gom "em này sai ở đâu". Trục kiến thức mịn hơn
     mã dạng, nên nó mới trả lời được câu ấy."""
     assert mod._mcq_row(_mcq(), 0)["item_key"] == "cụm giới từ độn thêm"
+
+
+def test_a_short_reading_is_bank_metadata_not_a_scored_question(tmp_path):
+    db = _db()
+    _run(tmp_path, db, [_mcq(), _essay(), _reading()], "--commit")
+    bank = db.tables["quiz_banks"][0]
+    reading = bank["meta"]["short_reading"]
+    assert bank["words_count"] == 2
+    assert reading["word_count"] == 4
+    assert len(reading["question_groups"]) == 2
+    assert len(reading["answers"]) == 2
+    assert "T / F / NG" not in reading["question_groups"][0]["questions"][0]["prompt"]
+    assert len(_rpc_rows(db)[0][2]["p_rows"]) == 2
+
+
+@pytest.mark.parametrize("broken", [
+    {"bai_doc": ""},
+    {"so_tu": 99},
+    {"ban_dich": ""},
+    {"tu_vung": []},
+    {"dap_an": {"phan1_noi_dung": [], "phan2_cau_truc": []}},
+])
+def test_a_broken_short_reading_is_refused_before_any_write(tmp_path, broken):
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), _reading(**broken)], "--commit")
+    assert db.writes == []
 
 
 def test_difficulty_becomes_points(tmp_path):

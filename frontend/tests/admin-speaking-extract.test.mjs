@@ -41,19 +41,17 @@ describe('Sprint 12.5 — speaking landing (pages/admin/speaking/index.html)', (
   });
 
   it('links Sessions + Topics child pages with LIVE tag', () => {
-    assert.match(SPK_INDEX, /href=["']\/pages\/admin\/speaking\/sessions\.html["']/);
-    assert.match(SPK_INDEX, /href=["']\/pages\/admin\/speaking\/topics\.html["']/);
+    assert.match(SPK_INDEX, /href=["']\/admin\/speaking\/sessions["']/);
+    assert.match(SPK_INDEX, /href=["']\/admin\/speaking\/topics["']/);
     // Both LIVE — at least two LIVE tags present.
     const liveTags = SPK_INDEX.match(/class="adm-status-pill is-live"\s*>\s*LIVE/g) || [];  // design-fix-2: hub tags reuse .adm-status-pill
     assert.ok(liveTags.length >= 2,
       `expected at least 2 LIVE tags on speaking landing; got ${liveTags.length}`);
   });
 
-  it('AI Usage card still flagged as Sprint 12.8 placeholder', () => {
-    // Until cluster close, AI usage stays under the monolith — landing
-    // should advertise that, not pretend it carved already.
-    assert.match(SPK_INDEX, /Sprint 12\.8/);
-    assert.match(SPK_INDEX, /adm-status-pill is-soon/);  // design-fix-2: hub tags reuse .adm-status-pill
+  it('AI Usage card points to the native System workspace', () => {
+    assert.match(SPK_INDEX, /href=["']\/admin\/system["']/);
+    assert.doesNotMatch(SPK_INDEX, /Sprint 12\.8|href=["']\/admin\.html["']/);
   });
 
   it('loads the aver-admin-chrome module + error-reporter', () => {
@@ -214,7 +212,7 @@ describe('Sprint 12.5 — speaking carve survives Sprint 12.8 monolith closure',
   });
 
   it('admin.html redirects to the new IA (where Speaking lives)', () => {
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
   });
 });
 

@@ -49,6 +49,11 @@ function authedLayouts() {
 }
 
 describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () => {
+  test('đánh dấu route auth-gated để chrome chọn đích Vocabulary ổn định', () => {
+    assert.match(SHELL, /authGated = true/);
+    assert.match(SHELL, /authGated && <meta name="aver-auth-gated" content="1" \/>/);
+  });
+
   test('có ít nhất hai route-group và MỌI layout đều đi qua AuthedShell', () => {
     const layouts = authedLayouts();
     assert.ok(layouts.length >= 2, 'phải có ≥2 route-group authed, nếu không test này vô nghĩa');
@@ -112,6 +117,6 @@ describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () =
     for (const css of ['profile.css', 'home.css', 'speaking.css']) {
       assert.ok(!SHELL.includes(css), `${css} không được hardcode trong AuthedShell`);
     }
-    assert.match(SHELL, /pageStylesheets: string\[\]/);
+    assert.match(SHELL, /pageStylesheets: PageStylesheet\[\]/);
   });
 });

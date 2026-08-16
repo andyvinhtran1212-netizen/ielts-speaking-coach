@@ -122,7 +122,7 @@ describe('lưới ngày', () => {
                            cell('missing')] }],
     }));
     const body = nodes['board-body'].innerHTML;
-    assert.match(body, /sessions\.html\?session=sess-9/);
+    assert.match(body, /admin\/speaking\/sessions\?session=sess-9/);
     // Ô không có bài thì KHÔNG có liên kết dẫn tới trang trống.
     assert.equal((body.match(/<a /g) || []).length, 1);
   });
@@ -206,13 +206,13 @@ describe('mở thẳng bài làm từ bảng tổng kết', () => {
 
   test('có phiên thì có nút Nghe & xem', () => {
     const html = tallyRow(row({ artifact_kind: 'session', artifact_id: 'sess-9' }), 'speaking');
-    assert.match(html, /sessions\.html\?session=sess-9/);
+    assert.match(html, /admin\/speaking\/sessions\?session=sess-9/);
     assert.match(html, /Nghe/);
   });
 
   test('chưa có bài thì KHÔNG có liên kết dẫn tới trang trống', () => {
     assert.doesNotMatch(tallyRow(row({ status: 'missing', score: null }), 'speaking'),
-      /sessions\.html/);
+      /admin\/speaking\/sessions/);
   });
 
   test('bài KHÔNG phải Speaking không mở bằng trang phiên Speaking', () => {
@@ -275,9 +275,14 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
     const inv = SRC.indexOf('function invalidateProgress');
     assert.ok(/_dailyBoardLoaded = false/.test(SRC.slice(inv, inv + 700)),
       'invalidateProgress phải làm cũ cả bảng ngày');
-    // Mỗi lần nạp lại bảng bài tập là một lần dữ liệu bài giao vừa đổi.
-    const loads = (SRC.match(/await loadHomework\(\);/g) || []).length;
-    const paired = (SRC.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
+    // Deep-link từ directory Next chỉ ĐỌC danh sách để tìm assignment rồi mở
+    // workspace chấm; nó không đổi dữ liệu nên không được tính như mutation.
+    const seamStart = SRC.indexOf('async function openAssignmentDeepLink');
+    const seamEnd = seamStart < 0 ? seamStart : SRC.indexOf('\n}', seamStart) + 2;
+    const mutationSource = seamStart < 0 ? SRC : SRC.slice(0, seamStart) + SRC.slice(seamEnd);
+    // Mỗi lần nạp lại bảng bài tập SAU MUTATION là một lần dữ liệu vừa đổi.
+    const loads = (mutationSource.match(/await loadHomework\(\);/g) || []).length;
+    const paired = (mutationSource.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
     assert.equal(paired, loads,
       `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
   });

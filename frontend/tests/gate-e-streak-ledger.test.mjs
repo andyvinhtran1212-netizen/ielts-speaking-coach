@@ -9,6 +9,7 @@ import {
   advanceStreak,
   digestManifestContract,
   isReviewedAncestorComparison,
+  isReviewedSourceComparison,
   selectPreviousWorkflowRun,
   selectWorkflowJobConclusion,
   verifyFrozenDirs,
@@ -365,6 +366,46 @@ describe('trusted-source ancestry', () => {
       merge_base_commit: { sha: SHA_B },
     }, SHA_A), false);
   });
+
+  test('allows a staging sync commit only when its tree equals the reviewed merge base', () => {
+    assert.equal(isReviewedSourceComparison({
+      status: 'ahead',
+      merge_base_commit: { sha: SHA_A },
+    }, SHA_A), true);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), true);
+    assert.equal(isReviewedSourceComparison({
+      status: 'behind',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), true);
+  });
+
+  test('rejects divergent staging content, mismatched commits and malformed tree SHAs', () => {
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: 'd'.repeat(40) } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_B, commit: { tree: { sha: SHA_A } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_A } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'diverged',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: 'not-a-git-tree' } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: 'not-a-git-tree' } } },
+    }, SHA_A), false);
+    assert.equal(isReviewedSourceComparison({
+      status: 'unknown',
+      base_commit: { sha: SHA_A, commit: { tree: { sha: SHA_B } } },
+      merge_base_commit: { sha: 'c'.repeat(40), commit: { tree: { sha: SHA_B } } },
+    }, SHA_A), false);
+  });
 });
 
 describe('workflow and provenance contract', () => {
@@ -382,19 +423,42 @@ describe('workflow and provenance contract', () => {
     assert.match(CAPTURE, /if \(!shaPattern\.test\(sourceSha\)\) throw new Error\('source-sha-invalid'\)/);
     for (const tool of [
       'verify-gate-e-speaking-failure-evidence.mjs',
+      'verify-gate-e-reading-failure-evidence.mjs',
+      'verify-gate-e-listening-failure-evidence.mjs',
+      'verify-gate-e-writing-failure-evidence.mjs',
       'write-gate-e-device-matrix-evidence.mjs',
       'capture-gate-e-staging-provenance.mjs',
       'update-gate-e-streak-ledger.mjs',
     ]) assert.ok(WORKFLOW.includes(`.gate-e-auditor/frontend/tooling/${tool}`));
-    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 5);
+    assert.equal((WORKFLOW.match(/GATE_E_TESTED_ROOT: \$\{\{ github\.workspace \}\}/g) || []).length, 8);
     assert.match(WORKFLOW, /name: Run staging E2E[\s\S]*?timeout-minutes: 20[\s\S]*?E2E_PASSWORD/);
-    assert.match(WORKFLOW, /^\s*timeout-minutes:\s*60\s*$/m);
-    assert.match(DOC, /Job có timeout 60 phút/);
-    assert.match(DOC, /Speaking failure\s+matrix có timeout 10 phút/);
+    const gateJob = WORKFLOW.slice(
+      WORKFLOW.indexOf('  staging-e2e:'),
+      WORKFLOW.indexOf('  production-release-drift:'),
+    );
+    const jobTimeout = Number(gateJob.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
+    const stepStarts = [...gateJob.matchAll(/^ {6}- (?:name|uses):/gm)]
+      .map((match) => match.index);
+    const stepBlocks = stepStarts.map((start, index) => gateJob.slice(
+      start,
+      stepStarts[index + 1] ?? gateJob.length,
+    ));
+    const missingTimeouts = stepBlocks
+      .filter((block) => !/^ {8}timeout-minutes:\s*\d+\s*$/m.test(block))
+      .map((block) => block.match(/^ {6}- (?:name|uses):\s*(.+)$/m)?.[1]);
+    assert.deepEqual(missingTimeouts, [], `uncapped Gate E steps: ${missingTimeouts.join(', ')}`);
+    const allStepTimeouts = stepBlocks.map((block) => Number(
+      block.match(/^ {8}timeout-minutes:\s*(\d+)\s*$/m)?.[1],
+    ));
+    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 144);
+    assert.ok(jobTimeout >= allStepTimeouts.reduce((total, value) => total + value, 0) + 30);
+    assert.match(DOC, /Job có timeout 180 phút/);
+    assert.match(DOC, /mọi step có timeout riêng/);
+    assert.match(DOC, /bốn failure\s+matrix có timeout 10 phút mỗi bước/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
-    assert.match(PREFLIGHT, /isReviewedAncestorComparison\(payload, testedSha\)/);
+    assert.match(PREFLIGHT, /isReviewedSourceComparison\(payload, testedSha\)/);
   });
 
   test('cache is transport; ledger and provenance have independent validated artifacts', () => {
@@ -402,16 +466,28 @@ describe('workflow and provenance contract', () => {
     const preflight = WORKFLOW.indexOf('Verify frozen Gate E suite before executing staging code');
     const install = WORKFLOW.indexOf('Install frontend deps');
     const verifySpeakingPins = WORKFLOW.indexOf('Verify Speaking Gate E matrix pins');
+    const verifyReadingPins = WORKFLOW.indexOf('Verify Reading Gate E matrix pins');
+    const verifyListeningPins = WORKFLOW.indexOf('Verify Listening Gate E matrix pins');
+    const verifyWritingPins = WORKFLOW.indexOf('Verify Writing Gate E matrix pins');
     const run = WORKFLOW.indexOf('Run staging E2E');
     const failureMatrix = WORKFLOW.indexOf('Run Gate E Speaking failure matrix');
     const failureEvidence = WORKFLOW.indexOf('Verify Speaking failure-matrix evidence');
+    const readingFailureMatrix = WORKFLOW.indexOf('Run Gate E Reading failure matrix');
+    const readingFailureEvidence = WORKFLOW.indexOf('Verify Reading failure-matrix evidence');
+    const listeningFailureMatrix = WORKFLOW.indexOf('Run Gate E Listening failure matrix');
+    const listeningFailureEvidence = WORKFLOW.indexOf('Verify Listening failure-matrix evidence');
+    const writingFailureMatrix = WORKFLOW.indexOf('Run Gate E Writing failure matrix');
+    const writingFailureEvidence = WORKFLOW.indexOf('Verify Writing failure-matrix evidence');
     const update = WORKFLOW.indexOf('Update Gate E streak ledger');
     const save = WORKFLOW.indexOf('Save Gate E streak state');
     assert.ok(
       restore < preflight && preflight < install && install < verifySpeakingPins &&
-      verifySpeakingPins < run &&
+      verifySpeakingPins < verifyReadingPins && verifyReadingPins < verifyListeningPins && verifyListeningPins < verifyWritingPins && verifyWritingPins < run &&
       run < failureMatrix && failureMatrix < failureEvidence &&
-      failureEvidence < update && update < save,
+      failureEvidence < readingFailureMatrix && readingFailureMatrix < readingFailureEvidence &&
+      readingFailureEvidence < listeningFailureMatrix && listeningFailureMatrix < listeningFailureEvidence &&
+      listeningFailureEvidence < writingFailureMatrix && writingFailureMatrix < writingFailureEvidence &&
+      writingFailureEvidence < update && update < save,
     );
     for (const artifact of [
       'gate-e-staging-provenance.json',
@@ -422,15 +498,30 @@ describe('workflow and provenance contract', () => {
     assert.match(WORKFLOW, /Verify frozen Gate E suite before executing staging code\n\s+id: frozen_preflight/);
     assert.match(WORKFLOW, /runs-on: ubuntu-24\.04/);
     assert.match(WORKFLOW, /Verify Speaking Gate E matrix pins[\s\S]*?GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64[\s\S]*?verify-gate-e-speaking-device-matrix\.mjs/);
+    assert.match(WORKFLOW, /Verify Reading Gate E matrix pins[\s\S]*?GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64[\s\S]*?verify-gate-e-reading-device-matrix\.mjs/);
+    assert.match(WORKFLOW, /Verify Listening Gate E matrix pins[\s\S]*?GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64[\s\S]*?verify-gate-e-listening-device-matrix\.mjs/);
+    assert.match(WORKFLOW, /Verify Writing Gate E matrix pins[\s\S]*?GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64[\s\S]*?verify-gate-e-writing-device-matrix\.mjs/);
     assert.match(
       WORKFLOW,
       /Run Gate E Speaking failure matrix[\s\S]*?id: speaking_failure_matrix[\s\S]*?if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'[\s\S]*?npm run test:e2e:gate-e/,
     );
+    assert.equal((WORKFLOW.match(
+      /if: always\(\) && steps\.frozen_preflight\.outcome == 'success' && steps\.staging_e2e\.outcome != 'skipped'/g,
+    ) || []).length, 4);
+    for (const id of ['matrix_evidence', 'staging_provenance', 'streak_ledger']) {
+      assert.match(WORKFLOW, new RegExp(`id: ${id}\\n\\s+if: always\\(\\)`));
+    }
     assert.match(
       WORKFLOW,
-      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
+      /GATE_E_RUN_OUTCOME: \$\{\{ steps\.staging_e2e\.outcome == 'success' && steps\.speaking_failure_matrix\.outcome == 'success' && steps\.speaking_failure_evidence\.outcome == 'success' && steps\.reading_failure_matrix\.outcome == 'success' && steps\.reading_failure_evidence\.outcome == 'success' && steps\.listening_failure_matrix\.outcome == 'success' && steps\.listening_failure_evidence\.outcome == 'success' && steps\.writing_failure_matrix\.outcome == 'success' && steps\.writing_failure_evidence\.outcome == 'success' && 'success' \|\| 'failure' \}\}/,
     );
     assert.match(WORKFLOW, /Upload Speaking failure-matrix evidence[\s\S]*?gate-e-speaking-failure-matrix-/);
+    assert.match(WORKFLOW, /Run Gate E Reading failure matrix[\s\S]*?npm run test:e2e:gate-e:reading/);
+    assert.match(WORKFLOW, /Upload Reading failure-matrix evidence[\s\S]*?gate-e-reading-failure-matrix-/);
+    assert.match(WORKFLOW, /Run Gate E Listening failure matrix[\s\S]*?npm run test:e2e:gate-e:listening/);
+    assert.match(WORKFLOW, /Upload Listening failure-matrix evidence[\s\S]*?gate-e-listening-failure-matrix-/);
+    assert.match(WORKFLOW, /Run Gate E Writing failure matrix[\s\S]*?npm run test:e2e:gate-e:writing/);
+    assert.match(WORKFLOW, /Upload Writing failure-matrix evidence[\s\S]*?gate-e-writing-failure-matrix-/);
     assert.match(WORKFLOW, /Save Gate E streak state\n\s+if: always\(\) && steps\.streak_ledger\.outcome == 'success'/);
     assert.equal((WORKFLOW.match(/path: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/g) || []).length, 2);
     assert.match(WORKFLOW, /GATE_E_STATE_ROOT: \$\{\{ runner\.temp \}\}\/gate-e-streak-state/);

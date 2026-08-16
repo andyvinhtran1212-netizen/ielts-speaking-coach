@@ -97,9 +97,9 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     assert.match(CHROME_JS, /localStorage\.(getItem|setItem|removeItem)/);
   });
 
-  it('renders sidebar with all 5 content sections in order', () => {
+  it('renders sidebar with all 6 content sections in order', () => {
     // sidebar Nội dung group items in source order
-    const orderRegex = /speaking[\s\S]*?writing[\s\S]*?listening[\s\S]*?vocab[\s\S]*?grammar/;
+    const orderRegex = /speaking[\s\S]*?writing[\s\S]*?listening[\s\S]*?reading[\s\S]*?vocab[\s\S]*?grammar/;
     assert.match(CHROME_JS, orderRegex);
   });
 
@@ -271,26 +271,26 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
 
 describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', () => {
   // Sprint 12.4 reshaped this landing from 11 link cards into a real
-  // dashboard: 4 stat tiles + 5 skill cards + activity feed. Hard pins
+  // dashboard: 4 stat tiles + 6 skill cards + activity feed. Hard pins
   // on shape moved into admin-overview.test.mjs; the assertions kept
   // here pin only the cluster-stable contract.
   it('embeds <aver-admin-chrome active="overview">', () => {
     assert.match(ADMIN_INDEX, /<aver-admin-chrome\s+active=["']overview["']/);
   });
 
-  it('renders 5 skill cards (ov-card class with data-skill attribute)', () => {
+  it('renders 6 skill cards (ov-card class with data-skill attribute)', () => {
     const cards = ADMIN_INDEX.match(/class="admin-hub-card(?: is-placeholder)?"\s+data-skill="/g) || [];  // design-fix-2 B4
-    assert.equal(cards.length, 5,
-      `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
+    assert.equal(cards.length, 6,
+      `expected 6 skill cards (Speaking/Writing/Reading/Listening/Vocab/Grammar); got ${cards.length}`);
   });
 
-  it('marks all 5 skill cards LIVE (no remaining is-soon skill placeholders)', () => {
+  it('marks all 6 skill cards LIVE (no remaining is-soon skill placeholders)', () => {
     // Sprint 12.7 graduated Grammar — the last skill placeholder. All
-    // 5 skill cards are now LIVE. Remaining `is-soon` tags belong only
+    // 6 skill cards are now LIVE. Remaining `is-soon` tags belong only
     // to Phase B sections (cohorts/usage/system) shown in the footer.
     const liveTags = ADMIN_INDEX.match(/is-live[^"]*">[^<]*LIVE[^<]*</g) || [];
-    assert.ok(liveTags.length >= 5,
-      `expected at least 5 LIVE tags (Speaking + Writing + Listening + Vocab + Grammar); got ${liveTags.length}`);
+    assert.ok(liveTags.length >= 6,
+      `expected at least 6 LIVE tags (Speaking + Writing + Reading + Listening + Vocab + Grammar); got ${liveTags.length}`);
     // Sprint-12.7 ref must be gone from any skill card meta block.
     assert.doesNotMatch(ADMIN_INDEX, /is-placeholder"\s+data-skill="grammar"/);
   });
@@ -369,8 +369,8 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.match(html, /<aver-admin-chrome\s+active=["']speaking["']/);
     assert.doesNotMatch(html, /Sắp ra mắt/);
     // Real landing must link to its two child pages (sessions + topics).
-    assert.match(html, /\/pages\/admin\/speaking\/sessions\.html/);
-    assert.match(html, /\/pages\/admin\/speaking\/topics\.html/);
+    assert.match(html, /\/admin\/speaking\/sessions/);
+    assert.match(html, /\/admin\/speaking\/topics/);
   });
 
   it('Sprint 12.6 — vocab index is a real landing (not a stub)', () => {
@@ -378,9 +378,12 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.match(html, /<aver-admin-chrome\s+active=["']vocab["']/);
     assert.doesNotMatch(html, /Sắp ra mắt/);
     // Real landing must link to its three child pages.
-    assert.match(html, /\/pages\/admin\/vocab\/stats\.html/);
-    assert.match(html, /\/pages\/admin\/vocab\/d1-curation\.html/);
-    assert.match(html, /\/pages\/admin\/vocab\/lemmas\.html/);
+    assert.match(html, /\/admin\/vocab\/stats/);
+    assert.doesNotMatch(html, /\/pages\/admin\/vocab\/stats\.html/);
+    assert.match(html, /\/admin\/vocab\/d1-curation/);
+    assert.doesNotMatch(html, /\/pages\/admin\/vocab\/d1-curation\.html/);
+    assert.match(html, /\/admin\/vocab\/lemmas/);
+    assert.doesNotMatch(html, /\/pages\/admin\/vocab\/lemmas\.html/);
   });
 
   it('Sprint 12.7 — grammar index is a real landing (not a stub)', () => {
@@ -388,9 +391,12 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     assert.match(html, /<aver-admin-chrome\s+active=["']grammar["']/);
     assert.doesNotMatch(html, /Sắp ra mắt/);
     // Real landing must link to its three child pages.
-    assert.match(html, /\/pages\/admin\/grammar\/articles\.html/);
-    assert.match(html, /\/pages\/admin\/grammar\/analytics\.html/);
-    assert.match(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
+    assert.match(html, /\/admin\/grammar\/articles/);
+    assert.doesNotMatch(html, /\/pages\/admin\/grammar\/articles\.html/);
+    assert.match(html, /\/admin\/grammar\/analytics/);
+    assert.doesNotMatch(html, /\/pages\/admin\/grammar\/analytics\.html/);
+    assert.match(html, /\/admin\/grammar\/recommend-test/);
+    assert.doesNotMatch(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
     // Hybrid file-based banner must surface the workflow.
     assert.match(html, /backend\/content/);
   });
@@ -442,12 +448,14 @@ describe('Sprint 12.1 — next.config.ts carries 12 admin redirects', () => {
     }
   });
 
-  it('updates two existing /admin/writing rewrites to nested paths', () => {
+  it('cuts prompts, regrade requests and assignments to Next', () => {
     const json = routeConfig;
     const prompts = json.rewrites.find((r) => r.source === '/admin/writing/prompts');
+    const regrades = json.rewrites.find((r) => r.source === '/admin/writing/regrade-requests');
     const assignments = json.rewrites.find((r) => r.source === '/admin/writing/assignments');
-    assert.equal(prompts.destination,     '/pages/admin/writing/prompts.html');
-    assert.equal(assignments.destination, '/pages/admin/writing/assignments.html');
+    assert.equal(prompts, undefined);
+    assert.equal(regrades, undefined);
+    assert.equal(assignments, undefined);
   });
 });
 
@@ -459,18 +467,18 @@ describe('Sprint 12.8 — admin.html is a pure redirect to the new IA', () => {
   // (cluster closure) flips admin.html into a pure redirect — the banner
   // becomes a redirect card. Both meta refresh and JS location.replace()
   // target the new IA landing.
-  it('links to /pages/admin/index.html', () => {
-    assert.match(ADMIN_LEGACY, /href=["']\/pages\/admin\/index\.html["']/);
+  it('links to canonical /admin', () => {
+    assert.match(ADMIN_LEGACY, /href=["']\/admin["']/);
   });
 
   it('uses meta refresh + JS replace() for bookmark + JS-off fallback', () => {
     assert.match(
       ADMIN_LEGACY,
-      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/pages\/admin\/index\.html/,
+      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/admin/,
     );
     assert.match(
       ADMIN_LEGACY,
-      /window\.location\.replace\(\s*['"]\/pages\/admin\/index\.html['"]\s*\)/,
+      /window\.location\.replace\(\s*['"]\/admin['"]\s*\)/,
     );
   });
 
@@ -595,14 +603,11 @@ describe('GĐ 1 — merged class area highlights in the sidebar', () => {
     );
   });
 
-  for (const slug of ['classes', 'students']) {
-    it(`child link '${slug}' exists and points into the merged page`, () => {
-      assert.match(CHROME_JS, new RegExp(`slug:\\s*'${slug}'`));
-      assert.match(
-        CHROME_JS,
-        new RegExp(`slug:\\s*'${slug}'[^}]*/pages/admin/classes/index\\.html`),
-        `child '${slug}' must link into the merged page, not the retired one`,
-      );
-    });
-  }
+  it('class directory points to its native owner', () => {
+    assert.match(CHROME_JS, /slug:\s*'classes'[^}]*href:\s*'\/admin\/classes'/);
+  });
+
+  it('student directory points to its native owner', () => {
+    assert.match(CHROME_JS, /slug:\s*'students'[^}]*href:\s*'\/admin\/students'/);
+  });
 });

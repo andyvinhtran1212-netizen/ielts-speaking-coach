@@ -21,7 +21,7 @@ export function CourseShell() {
       <aver-chrome active="class"></aver-chrome>
 
       <main className="cx-wrap">
-        <a className="cx-back" href="/pages/my-class.html">← Quay lại My Class</a>
+        <a className="cx-back" href="/my-class">← Quay lại My Class</a>
 
         <header className="cx-page-head">
           <div>
@@ -59,6 +59,11 @@ export function CourseShell() {
 
         {/* Hết chặng */}
         <section id="cx-done" className="cx-done" hidden></section>
+
+        {/* Bài đọc thêm là một nhịp học riêng: passage + từ vựng + 10 câu tự
+            đối chiếu. Giữ khung riêng để màn session không phải gánh bố cục
+            đọc dài và để bài đọc có thể rộng hơn thẻ quiz. */}
+        <section id="cx-reading" className="cx-reading" hidden></section>
 
         {/* Báo cáo: yếu trục nào, sai câu nào, chọn nhầm gì. Một khối RIÊNG chứ
             không nhét vào `cx-done` — màn kết chặng bị vẽ lại sau mỗi chặng, và

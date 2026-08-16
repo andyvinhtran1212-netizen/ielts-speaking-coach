@@ -194,19 +194,47 @@ def test_patch_prompt_partial_update_only_writes_provided_fields():
     assert update_payload == {"title": "New title"}
 
 
+def test_patch_prompt_clears_nullable_difficulty():
+    """An explicit JSON null clears a nullable column; omission still means no-op."""
+    mock_db = MagicMock()
+    mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": _PROMPT_ID, "difficulty": None, "is_active": True}],
+    )
+
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}",
+            json={"difficulty": None},
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    assert mock_db.table.return_value.update.call_args[0][0] == {"difficulty": None}
+
+
+def test_patch_prompt_rejects_null_for_required_field():
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", MagicMock()):
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}",
+            json={"title": None},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+
+
 def test_delete_soft_deletes_via_is_active_false():
     """DELETE flips is_active to false; row is NOT physically removed.
 
-    Phase 2.3c-1 extends this to also clear `prompt_image_url` /
-    `prompt_image_public_id` and clean up the Cloudinary asset
-    when one exists. The orchestration is:
+    It also clears `prompt_image_url` / `prompt_image_public_id`, while any
+    published Storage object remains immutable for historical essays. The
+    orchestration is:
 
         1. SELECT prompt_image_public_id (404 if missing)
         2. UPDATE is_active=false + null both image columns
-        3. (best-effort) Cloudinary delete by public_id
-
-    For this test we use a text-only prompt (no image) so the
-    Cloudinary path is exercised via the next test.
     """
     mock_db = MagicMock()
     # Step 1 — pre-read returns a row with no image.
@@ -223,8 +251,7 @@ def test_delete_soft_deletes_via_is_active_false():
 
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
-         patch("routers.admin_writing_prompts.delete_prompt_image") as mock_del:
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
         r = _client().delete(
             f"/admin/writing/prompts/{_PROMPT_ID}",
             headers=_ADMIN_AUTH,
@@ -239,18 +266,20 @@ def test_delete_soft_deletes_via_is_active_false():
         "is_active":              False,
         "prompt_image_url":       None,
         "prompt_image_public_id": None,
+        "prompt_image_analysis": None,
+        "prompt_image_analysis_status": None,
+        "prompt_image_analysis_reviewed": False,
+        "prompt_image_analysis_model": None,
+        "prompt_image_analysis_public_id": None,
+        "prompt_image_analysis_error": None,
+        "prompt_image_analysis_at": None,
     }
     mock_db.table.return_value.delete.assert_not_called()
-    # No public_id on the row → no Cloudinary delete.
-    mock_del.assert_not_called()
 
 
-def test_delete_also_cleans_up_cloudinary_when_image_exists():
-    """Soft-delete on a prompt that has an image must call
-    `delete_prompt_image(public_id)` so the Cloudinary asset isn't
-    orphaned on the free tier (storage is the binding cost). The
-    cleanup is best-effort — failure here doesn't block the
-    soft-delete response."""
+def test_delete_retains_published_storage_object_when_image_exists():
+    """Archiving clears the prompt reference but never destroys a chart
+    URL that a historical or in-flight essay may already have snapshotted."""
     mock_db = MagicMock()
     select_chain = (mock_db.table.return_value.select.return_value
                     .eq.return_value.limit.return_value)
@@ -265,21 +294,21 @@ def test_delete_also_cleans_up_cloudinary_when_image_exists():
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
-         patch("routers.admin_writing_prompts.delete_prompt_image") as mock_del:
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove:
         r = _client().delete(
             f"/admin/writing/prompts/{_PROMPT_ID}",
             headers=_ADMIN_AUTH,
         )
 
     assert r.status_code == 200
-    mock_del.assert_called_once_with("aver/writing/prompt_images/abc")
+    remove.assert_not_called()
 
 
 # ── Phase 2.3c-1 — image upload + image-on-create ───────────────────
 
 
 def test_upload_image_happy_path_returns_url_and_public_id():
-    """Admin uploads a PNG, gets back the Cloudinary URL +
+    """Admin uploads a PNG, gets back the public Storage URL +
     public_id. The admin UI then passes both through the next
     create/PATCH so the row stores them."""
     fake_response = {
@@ -338,6 +367,53 @@ def test_upload_image_requires_auth_header():
     mock_upload.assert_not_called()
 
 
+def test_discard_unattached_prompt_image_is_admin_only_and_path_scoped():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[])
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
+         patch("routers.admin_writing_prompts.delete_prompt_image",
+               return_value=True) as remove:
+        r = _client().post(
+            "/admin/writing/prompts/discard-image",
+            json={"public_id": "prompts/orphan.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert r.json() == {"discarded": True, "public_id": "prompts/orphan.png"}
+    remove.assert_called_once_with("prompts/orphan.png")
+
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove:
+        rejected = _client().post(
+            "/admin/writing/prompts/discard-image",
+            json={"public_id": "other-bucket/file.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert rejected.status_code == 400
+    remove.assert_not_called()
+
+
+def test_discard_image_refuses_path_still_referenced_by_prompt():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[{"id": _PROMPT_ID}])
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove:
+        r = _client().post(
+            "/admin/writing/prompts/discard-image",
+            json={"public_id": "prompts/live.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    remove.assert_not_called()
+
+
 def test_create_prompt_persists_image_fields_when_provided():
     """POST /prompts with image_url + public_id sends both into the
     Supabase insert payload. Pinning this protects the data path
@@ -384,6 +460,16 @@ def test_create_prompt_persists_image_fields_when_provided():
     assert sent["created_by"] == _ADMIN_USER["id"]
 
 
+def test_create_prompt_rejects_unpaired_image_fields():
+    body = _t1_create_body()
+    body["prompt_image_public_id"] = None
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", MagicMock()):
+        r = _client().post("/admin/writing/prompts", json=body, headers=_ADMIN_AUTH)
+    assert r.status_code == 422
+
+
 # ── Task 1 answer-key: extraction trigger + review endpoints ──────────
 
 def _t1_create_body() -> dict:
@@ -416,11 +502,12 @@ def test_create_task1_prompt_triggers_analysis():
          patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
          patch("services.writing_prompt_analysis.mark_analysis_pending") as mark, \
          patch("services.writing_prompt_analysis.run_and_store_analysis") as run:
+        mark.return_value = "pending-token"
         r = _client().post("/admin/writing/prompts", json=_t1_create_body(), headers=_ADMIN_AUTH)
 
     assert r.status_code == 201
-    mark.assert_called_once_with(_PROMPT_ID)
-    run.assert_called_once_with(_PROMPT_ID)   # scheduled as the BG task
+    mark.assert_called_once_with(_PROMPT_ID, "prompts/new.png")
+    run.assert_called_once_with(_PROMPT_ID, "pending-token")
 
 
 def test_create_task2_prompt_does_not_trigger_analysis():
@@ -441,14 +528,14 @@ def test_create_task2_prompt_does_not_trigger_analysis():
 
 
 def test_patch_title_only_does_not_retrigger_analysis():
-    """PATCH returning a row whose image public_id already matches the analysis
-    public_id must NOT re-run extraction (title-only edit)."""
+    """A title edit while image analysis is pending must not duplicate the AI call."""
     mock_db = MagicMock()
     mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
         data=[{"id": _PROMPT_ID, "task_type": "task1_academic",
                "prompt_image_url": "https://cur/x.png",
                "prompt_image_public_id": "prompts/x.png",
-               "prompt_image_analysis_public_id": "prompts/x.png",  # unchanged
+               "prompt_image_analysis_public_id": None,
+               "prompt_image_analysis_status": "pending",
                "title": "New title", "is_active": True}])
 
     with patch("routers.admin_writing_prompts.require_admin",
@@ -464,24 +551,107 @@ def test_patch_title_only_does_not_retrigger_analysis():
     run.assert_not_called()
 
 
+def test_patch_remove_image_clears_analysis_and_retains_old_storage_object():
+    mock_db = MagicMock()
+    select_chain = (mock_db.table.return_value.select.return_value
+                    .eq.return_value.limit.return_value)
+    select_chain.execute.return_value = MagicMock(data=[{
+        "id": _PROMPT_ID,
+        "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/old.png",
+        "prompt_image_public_id": "prompts/old.png",
+        "prompt_image_analysis_public_id": "prompts/old.png",
+    }])
+    update_chain = mock_db.table.return_value.update.return_value.eq.return_value
+    update_chain.execute.return_value = MagicMock(data=[{
+        "id": _PROMPT_ID,
+        "task_type": "task1_academic",
+        "prompt_image_url": None,
+        "prompt_image_public_id": None,
+        "prompt_image_analysis_public_id": None,
+    }])
+
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove, \
+         patch("services.writing_prompt_analysis.mark_analysis_pending") as mark:
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}",
+            json={"prompt_image_url": None, "prompt_image_public_id": None},
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    payload = mock_db.table.return_value.update.call_args[0][0]
+    assert payload["prompt_image_analysis"] is None
+    assert payload["prompt_image_analysis_reviewed"] is False
+    assert payload["prompt_image_analysis_public_id"] is None
+    remove.assert_not_called()
+    mark.assert_not_called()
+
+
+def test_patch_replace_image_retains_old_object_and_triggers_new_analysis():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[{
+        "id": _PROMPT_ID,
+        "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/old.png",
+        "prompt_image_public_id": "prompts/old.png",
+        "prompt_image_analysis_public_id": "prompts/old.png",
+    }])
+    (mock_db.table.return_value.update.return_value.eq.return_value
+     .eq.return_value.eq.return_value.execute.return_value) = MagicMock(data=[{
+        "id": _PROMPT_ID,
+        "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/new.png",
+        "prompt_image_public_id": "prompts/new.png",
+        "prompt_image_analysis_public_id": None,
+    }])
+
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
+         patch("routers.admin_writing_prompts.delete_prompt_image") as remove, \
+         patch("services.writing_prompt_analysis.mark_analysis_pending") as mark, \
+         patch("services.writing_prompt_analysis.run_and_store_analysis") as run:
+        mark.return_value = "pending-token"
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}",
+            json={
+                "prompt_image_url": "https://cur/new.png",
+                "prompt_image_public_id": "prompts/new.png",
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    remove.assert_not_called()
+    mark.assert_called_once_with(_PROMPT_ID, "prompts/new.png")
+    run.assert_called_once_with(_PROMPT_ID, "pending-token")
+
+
 def test_reanalyze_endpoint_schedules_for_task1():
     mock_db = MagicMock()
     (mock_db.table.return_value.select.return_value.eq.return_value
      .limit.return_value.execute.return_value) = MagicMock(
         data=[{"id": _PROMPT_ID, "task_type": "task1_academic",
-               "prompt_image_url": "https://cur/x.png"}])
+               "prompt_image_url": "https://cur/x.png",
+               "prompt_image_public_id": "prompts/x.png"}])
 
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_prompts.supabase_admin", mock_db), \
          patch("services.writing_prompt_analysis.mark_analysis_pending") as mark, \
          patch("services.writing_prompt_analysis.run_and_store_analysis") as run:
+        mark.return_value = "pending-token"
         r = _client().post(f"/admin/writing/prompts/{_PROMPT_ID}/reanalyze", headers=_ADMIN_AUTH)
 
     assert r.status_code == 202
     assert r.json()["status"] == "pending"
-    mark.assert_called_once_with(str(_PROMPT_ID))
-    run.assert_called_once_with(str(_PROMPT_ID))
+    mark.assert_called_once_with(str(_PROMPT_ID), "prompts/x.png")
+    run.assert_called_once_with(str(_PROMPT_ID), "pending-token")
 
 
 def test_reanalyze_rejects_non_task1():
@@ -500,7 +670,16 @@ def test_reanalyze_rejects_non_task1():
 
 def test_review_analysis_approves_and_sets_ready():
     mock_db = MagicMock()
-    update_chain = mock_db.table.return_value.update.return_value.eq.return_value
+    select_chain = (mock_db.table.return_value.select.return_value
+                    .eq.return_value.limit.return_value)
+    select_chain.execute.return_value = MagicMock(data=[{
+        "id": _PROMPT_ID, "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/x.png",
+        "prompt_image_public_id": "prompts/x.png",
+        "prompt_image_analysis_status": "ready",
+    }])
+    update_chain = (mock_db.table.return_value.update.return_value
+                    .eq.return_value.eq.return_value.eq.return_value)
     update_chain.execute.return_value = MagicMock(data=[
         {"id": _PROMPT_ID, "prompt_image_analysis_reviewed": True,
          "prompt_image_analysis_status": "ready"}])
@@ -509,7 +688,8 @@ def test_review_analysis_approves_and_sets_ready():
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_prompts.supabase_admin", mock_db):
         r = _client().patch(f"/admin/writing/prompts/{_PROMPT_ID}/analysis",
-                            json={"analysis": _valid_analysis(), "reviewed": True},
+                            json={"analysis": _valid_analysis(), "reviewed": True,
+                                  "expected_image_public_id": "prompts/x.png"},
                             headers=_ADMIN_AUTH)
 
     assert r.status_code == 200
@@ -517,6 +697,49 @@ def test_review_analysis_approves_and_sets_ready():
     assert payload["prompt_image_analysis_reviewed"] is True
     assert payload["prompt_image_analysis_status"] == "ready"
     assert payload["prompt_image_analysis"]["overview"].startswith("Tiêu thụ")
+
+
+def test_review_analysis_rejects_while_reanalysis_is_pending():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[{
+        "id": _PROMPT_ID, "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/x.png",
+        "prompt_image_public_id": "prompts/x.png",
+        "prompt_image_analysis_status": "pending",
+    }])
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}/analysis",
+            json={"analysis": _valid_analysis(), "reviewed": True,
+                  "expected_image_public_id": "prompts/x.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    mock_db.table.return_value.update.assert_not_called()
+
+
+def test_review_analysis_rejects_stale_image_fingerprint():
+    mock_db = MagicMock()
+    (mock_db.table.return_value.select.return_value.eq.return_value
+     .limit.return_value.execute.return_value) = MagicMock(data=[{
+        "id": _PROMPT_ID, "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/new.png",
+        "prompt_image_public_id": "prompts/new.png",
+    }])
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}/analysis",
+            json={"analysis": _valid_analysis(), "reviewed": True,
+                  "expected_image_public_id": "prompts/old.png"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    mock_db.table.return_value.update.assert_not_called()
 
 
 def test_review_analysis_rejects_invalid_schema():

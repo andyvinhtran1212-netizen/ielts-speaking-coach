@@ -132,7 +132,7 @@ describe('B2 — exam share mode: expired/invalid link + diagnostic + review CTA
     assert.match(examJs, /SESSION\.share_mode && _getAnonId\(\)/);
     assert.match(examJs, /'&anon=' \+ encodeURIComponent\(_getAnonId\(\)\)/);
     // authed CTA literal preserved (reading-rich-chuabai contract)
-    assert.match(examJs, /reading-review\.html\?attempt_id=' \+ encodeURIComponent\(result\.attempt_id\)/);
+    assert.match(examJs, /\/reading\/review\?attempt_id=' \+ encodeURIComponent\(result\.attempt_id\)/);
   });
 });
 

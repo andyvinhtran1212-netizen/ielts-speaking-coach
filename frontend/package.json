@@ -6,6 +6,9 @@
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:gate-e": "playwright test -c playwright.gate-e.config.js",
+    "test:e2e:gate-e:reading": "playwright test -c playwright.gate-e-reading.config.js",
+    "test:e2e:gate-e:listening": "playwright test -c playwright.gate-e-listening.config.js",
+    "test:e2e:gate-e:writing": "playwright test -c playwright.gate-e-writing.config.js",
     "build:css:setup": "npm --prefix tooling/css ci",
     "build:css": "npm run build:css:plusjakarta && npm run build:css:inter",
     "build:css:plusjakarta": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify",

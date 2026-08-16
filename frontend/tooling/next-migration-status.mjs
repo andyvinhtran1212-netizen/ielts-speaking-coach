@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+// Machine-readable static inventory for the final Next.js cutover.
+//
+// This intentionally does not claim that Gate D/E/F operational evidence is
+// complete. It freezes the code-side exit criteria that can be derived from
+// the repository: product App Router pages, legacy HTML files that are still
+// directly renderable, route ownership collisions and core-player admission.
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
+import { findCollisions } from './route-ownership-check.mjs';
+
+const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
+  '/next-probe',
+  '/recorder-spike',
+]);
+
+function walkFiles(root, accept, prefix = '') {
+  const files = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) files.push(...walkFiles(path.join(root, entry.name), accept, relative));
+    else if (accept(entry.name)) files.push(relative);
+  }
+  return files;
+}
+
+export function appPageRoute(relativeFile) {
+  const normalized = String(relativeFile || '').replaceAll('\\', '/');
+  if (!/(^|\/)page\.(tsx|ts)$/.test(normalized)) return null;
+  const segments = normalized.split('/').slice(0, -1);
+  if (segments.some((segment) => segment.startsWith('_'))) return null;
+  const routeSegments = segments.filter((segment) => (
+    !segment.startsWith('@') && !(segment.startsWith('(') && segment.endsWith(')'))
+  ));
+  return `/${routeSegments.join('/')}`;
+}
+
+export function redirectSourcesFromConfig(source) {
+  const redirects = new Map();
+  const pattern = /\{\s*source:\s*'([^']+)'\s*,\s*destination:\s*'([^']+)'\s*,\s*permanent:\s*(true|false)\s*\}/g;
+  for (const match of String(source || '').matchAll(pattern)) {
+    redirects.set(match[1], { destination: match[2], permanent: match[3] === 'true' });
+  }
+  return redirects;
+}
+
+export function classifyLegacyHtml(publicHtmlPaths, redirectSources) {
+  const redirected = [];
+  const renderable = [];
+  for (const publicPath of [...publicHtmlPaths].sort()) {
+    if (redirectSources.has(publicPath)) redirected.push(publicPath);
+    else renderable.push(publicPath);
+  }
+  return { redirected, renderable };
+}
+
+export function summarizeCorePlayers(policy = CORE_PLAYER_AFFINITY_POLICY) {
+  const entries = Object.entries(policy?.surfaces || {}).map(([surface, config]) => ({
+    surface,
+    nextPath: config?.next?.path || null,
+    nextRouteReady: config?.next?.route_ready === true,
+    admitNew: config?.admit_new || null,
+  }));
+  return {
+    total: entries.length,
+    nextReady: entries.filter((entry) => entry.nextRouteReady).length,
+    admittedToNext: entries.filter((entry) => entry.admitNew === 'next').length,
+    entries,
+  };
+}
+
+export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
+  const sourceAppPages = [...new Set(walkFiles(path.join(frontendRoot, 'app'), (name) => /^page\.(tsx|ts)$/.test(name))
+    .map(appPageRoute)
+    .filter(Boolean))]
+    .sort();
+  const excludedAppPages = sourceAppPages.filter((route) => NON_PRODUCT_APP_PAGE_ROUTES.includes(route));
+  const productAppPages = sourceAppPages.filter((route) => !NON_PRODUCT_APP_PAGE_ROUTES.includes(route));
+  const publicHtmlPaths = walkFiles(path.join(frontendRoot, 'public'), (name) => name.endsWith('.html'))
+    .map((relative) => `/${relative}`)
+    .sort();
+  const redirects = redirectSourcesFromConfig(readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8'));
+  const legacyHtml = classifyLegacyHtml(publicHtmlPaths, redirects);
+  const corePlayers = summarizeCorePlayers();
+  const ownership = findCollisions();
+  const blockers = [];
+  if (legacyHtml.renderable.length) blockers.push({
+    code: 'legacy-html-renderable',
+    count: legacyHtml.renderable.length,
+    paths: legacyHtml.renderable,
+  });
+  const coreNotReady = corePlayers.entries.filter((entry) => !entry.nextRouteReady).map((entry) => entry.surface);
+  if (coreNotReady.length) blockers.push({ code: 'core-next-route-not-ready', count: coreNotReady.length, surfaces: coreNotReady });
+  const coreStillLegacy = corePlayers.entries.filter((entry) => entry.admitNew !== 'next').map((entry) => entry.surface);
+  if (coreStillLegacy.length) blockers.push({ code: 'core-admission-still-legacy', count: coreStillLegacy.length, surfaces: coreStillLegacy });
+  if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
+
+  return {
+    schemaVersion: 1,
+    scope: 'static-code-cutover',
+    scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
+    appPages: {
+      source: sourceAppPages.length,
+      product: productAppPages.length,
+      excluded: excludedAppPages,
+    },
+    legacyHtml: {
+      total: publicHtmlPaths.length,
+      compatibilityRedirected: legacyHtml.redirected.length,
+      directlyRenderable: legacyHtml.renderable.length,
+      redirectedPaths: legacyHtml.redirected,
+      renderablePaths: legacyHtml.renderable,
+    },
+    corePlayers,
+    routeOwnershipCollisions: ownership.collisions,
+    staticCutoverReady: blockers.length === 0,
+    blockers,
+  };
+}
+
+function printHuman(report) {
+  console.log('Next.js migration static inventory');
+  console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
+  console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.compatibilityRedirected} redirected; ${report.legacyHtml.directlyRenderable} still directly renderable`);
+  console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
+  console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);
+  console.log(`  Static cutover ready: ${report.staticCutoverReady ? 'YES' : 'NO'}`);
+  if (report.blockers.length) {
+    console.log('  Blockers:');
+    for (const blocker of report.blockers) console.log(`    - ${blocker.code}: ${blocker.count}`);
+  }
+  console.log(`  Note: ${report.scopeNote}`);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const report = collectNextMigrationStatus();
+  if (process.argv.includes('--json')) console.log(JSON.stringify(report, null, 2));
+  else printHuman(report);
+  if (process.argv.includes('--assert-static-complete') && !report.staticCutoverReady) process.exitCode = 1;
+}

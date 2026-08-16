@@ -110,7 +110,7 @@ export function ReadingSkillBehavior() {
   const { status, user } = useAuth();
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   const accountKey = status === 'signed-in' && user?.id ? user.id : null;
@@ -255,7 +255,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
                 <a
                   aria-label={`Luyện bài ${exercise.title}`}
                   className="rv-card"
-                  href={`/pages/reading-skill-exercise.html?slug=${encodeURIComponent(exercise.slug)}`}
+                  href={`/reading/skill/${encodeURIComponent(exercise.slug)}`}
                   key={exercise.key}
                 >
                   <div className="rv-card__top">

@@ -153,12 +153,12 @@
     // through to the throw path below. The default (authed) behaviour is
     // unchanged: bounce to login on 401.
     if (response.status === 401 && !(opts && opts.noRedirect)) {
-      // Sprint 13.4.1 hotfix — login.html lives at the site root
-      // (/login.html). The previous _appRoot+'login.html' build
+      // The canonical login entry lives at the site root (/login). The
+      // previous _appRoot+'login.html' build
       // resolved correctly for /pages/X.html but broke for any deeper
       // path (e.g. /pages/admin/listening/X.html → 404). Use an
       // absolute path so redirect works from any depth.
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return null;
     }
 

@@ -117,6 +117,15 @@ describe('Speaking failure evidence is semantic and fail-closed', () => {
     );
   });
 
+  test('accepts Playwright reports that identify projects with projectId', () => {
+    const report = validReport();
+    for (const item of report.suites[0].specs[0].tests) {
+      item.projectId = item.projectName;
+      delete item.projectName;
+    }
+    assert.equal(validateSpeakingFailureJson(MANIFEST, report).total_tests, 46);
+  });
+
   test('rejects a truncated or semantically empty HTML report', () => {
     assert.throws(() => validateSpeakingFailureHtml('<!DOCTYPE html><html><body></body>'), /embedded report bundle/);
     const truncated = validHtml().replace(/.{12}<\/template>$/, '</template>');

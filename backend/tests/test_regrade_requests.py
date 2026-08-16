@@ -63,6 +63,12 @@ def _routed_db(table_data: dict) -> MagicMock:
     return db
 
 
+def _rpc_db(result: dict) -> MagicMock:
+    db = MagicMock()
+    db.rpc.return_value.execute.return_value = MagicMock(data=result)
+    return db
+
+
 # ── Student POST ──────────────────────────────────────────────────────
 
 
@@ -161,25 +167,59 @@ def test_admin_list_requires_auth():
     assert TestClient(_app()).get("/admin/writing/regrade-requests").status_code == 401
 
 
-def test_admin_accept_un_delivers_essay():
-    db = _routed_db({
-        "essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}],
-        "writing_essays": [{"id": _ESSAY}],   # conditional un-deliver matched a delivered row
+def test_admin_list_reports_cap_with_301st_sentinel():
+    source = [{"id": f"r-{index}", "status": "pending"} for index in range(301)]
+    db = _rpc_db({"requests": source[:300], "capped": True})
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db), \
+         patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
+        r = TestClient(_app()).get(
+            "/admin/writing/regrade-requests?status=pending", headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert len(r.json()["requests"]) == 300
+    assert r.json()["capped"] is True
+    db.rpc.assert_called_once_with("fn_list_writing_regrade_requests", {
+        "p_status": "pending", "p_cohort_id": None,
     })
+
+
+def test_admin_list_reads_all_lanes_from_one_rpc_snapshot():
+    source = [
+        {"id": "pending-1", "status": "pending"},
+        {"id": "accepted-1", "status": "accepted"},
+        {"id": "rejected-1", "status": "rejected"},
+        {"id": "fulfilled-1", "status": "fulfilled"},
+    ]
+    db = _rpc_db({"requests": source, "capped": False})
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db), \
+         patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
+        r = TestClient(_app()).get("/admin/writing/regrade-requests", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert [row["id"] for row in r.json()["requests"]] == [row["id"] for row in source]
+    db.rpc.assert_called_once_with("fn_list_writing_regrade_requests", {
+        "p_status": None, "p_cohort_id": None,
+    })
+
+
+def test_admin_accept_un_delivers_essay():
+    db = _rpc_db({"ok": True, "request": {"id": _REQ, "status": "accepted", "essay_id": _ESSAY}})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
         r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
                                      json={"action": "accept"}, headers=_ADMIN_AUTH)
     assert r.status_code == 200
-    # The essay was un-delivered to 'reviewed'.
-    essay_update = db._cache["writing_essays"].update.call_args[0][0]
-    assert essay_update["status"] == "reviewed"
-    assert essay_update["delivered_at"] is None
+    assert r.json()["status"] == "accepted"
+    db.rpc.assert_called_once_with("fn_action_writing_regrade_request", {
+        "p_request_id": _REQ, "p_admin_id": _ADMIN_USER["id"],
+        "p_action": "accept", "p_response": None,
+    })
 
 
 def test_admin_reject_requires_response():
-    db = _routed_db({"essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}]})
+    db = MagicMock()
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
@@ -189,7 +229,10 @@ def test_admin_reject_requires_response():
 
 
 def test_admin_reject_persists_response():
-    db = _routed_db({"essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}]})
+    db = _rpc_db({"ok": True, "request": {
+        "id": _REQ, "status": "rejected", "essay_id": _ESSAY,
+        "admin_response": "Band đã đúng theo descriptor.",
+    }})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
@@ -197,13 +240,12 @@ def test_admin_reject_persists_response():
                                      json={"action": "reject", "response": "Band đã đúng theo descriptor."},
                                      headers=_ADMIN_AUTH)
     assert r.status_code == 200
-    upd = db._cache["essay_regrade_requests"].update.call_args[0][0]
-    assert upd["status"] == "rejected"
-    assert upd["admin_response"] == "Band đã đúng theo descriptor."
+    assert r.json()["admin_response"] == "Band đã đúng theo descriptor."
+    assert db.rpc.call_args.args[1]["p_response"] == "Band đã đúng theo descriptor."
 
 
 def test_admin_action_non_pending_409():
-    db = _routed_db({"essay_regrade_requests": [{"id": _REQ, "status": "accepted", "essay_id": _ESSAY}]})
+    db = _rpc_db({"ok": False, "reason": "already_actioned", "status": "accepted"})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
@@ -218,18 +260,24 @@ def test_admin_accept_noop_when_essay_not_delivered_409():
     matched 0 rows → no silent accept)."""
     # essay_regrade_requests: request lookup returns pending; the essay
     # un-deliver update returns data=[] (matched no delivered row).
-    db = _routed_db({
-        "essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}],
-        "writing_essays": [],   # conditional update (WHERE status='delivered') matched nothing
-    })
+    db = _rpc_db({"ok": False, "reason": "essay_not_delivered", "essay_status": "reviewed"})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
         r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
                                      json={"action": "accept"}, headers=_ADMIN_AUTH)
     assert r.status_code == 409
-    # The request must NOT have been patched to 'accepted'.
-    assert db._cache["essay_regrade_requests"].update.call_count == 0
+
+
+def test_admin_action_rejects_malformed_rpc_acknowledgement():
+    db = _rpc_db({"ok": True, "request": {"id": "wrong", "status": "accepted"}})
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db):
+        r = TestClient(_app()).patch(
+            f"/admin/writing/regrade-requests/{_REQ}",
+            json={"action": "accept"}, headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 500
 
 
 def test_migration_085_declares_reason_check():
@@ -240,3 +288,17 @@ def test_migration_085_declares_reason_check():
         "migrations", "085_essay_regrade_reason_check.sql").read_text()
     assert "essay_regrade_reason_length" in sql
     assert "char_length(reason) BETWEEN 50 AND 500" in sql
+
+
+def test_migration_205_makes_action_and_delivery_atomic_service_role_only():
+    import pathlib
+    sql = pathlib.Path(__file__).resolve().parents[1].joinpath(
+        "migrations", "205_writing_regrade_atomic_transitions.sql").read_text()
+    assert "fn_action_writing_regrade_request" in sql
+    assert "fn_deliver_writing_essay" in sql
+    assert "fn_fulfil_writing_regrade_on_delivery" in sql
+    assert "AFTER UPDATE OF status ON writing_essays" in sql
+    assert "FOR UPDATE" in sql
+    assert "Global lock order is essay → request" in sql
+    assert "REVOKE EXECUTE" in sql
+    assert "TO service_role" in sql

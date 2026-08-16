@@ -106,7 +106,11 @@ export default {
     {
       method: 'POST',
       path: `/api/writing/my-assignments/${ASSIGNMENT}/submit`,
-      body: { essay_text: ESSAY + PASTED },
+      body: {
+        essay_text: ESSAY + PASTED,
+        request_id: (value) => typeof value === 'string' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+      },
     },
   ],
 };

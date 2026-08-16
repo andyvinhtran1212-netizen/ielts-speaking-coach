@@ -181,7 +181,7 @@ describe('Phase B — item 8: dedup shared-window questions + band floor', () =>
 describe('Phase B — CTA from the test result → this attempt review', () => {
   test('results screen has a chữa-bài CTA the player points at the attempt', () => {
     assert.match(playerHtml, /id="res-chuabai"/);
-    assert.match(playerJs, /res-chuabai[\s\S]{0,160}listening-review\.html\?attempt_id='\s*\+\s*encodeURIComponent\(STATE\.attemptId\)/);
+    assert.match(playerJs, /res-chuabai[\s\S]{0,160}\/listening\/review\?attempt_id='\s*\+\s*encodeURIComponent\(STATE\.attemptId\)/);
   });
 });
 

@@ -27,7 +27,7 @@ describe('/listening — native React behavior', () => {
   test('uses shared auth, fails closed and remounts state per account', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /status === 'signed-out'/);
-    assert.match(BEHAVIOR, /window\.location\.replace\('\/login\.html'\)/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
     assert.match(BEHAVIOR, /accountKey=\{user\.id\} key=\{user\.id\}/);
     assert.match(BEHAVIOR, /\[accountKey\]/);
   });

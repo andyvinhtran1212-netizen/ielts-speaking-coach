@@ -149,7 +149,7 @@ export function HomeShell() {
           <span className="rule" aria-hidden="true" />
           <span className="meta" id="class-strip-meta" />
         </div>
-        <a className="skill-card" id="class-strip-card" href="/pages/my-class.html">
+        <a className="skill-card" id="class-strip-card" href="/my-class">
           <div className="head">
             <div className="icon">◎</div>
             <span className="arrow">→</span>

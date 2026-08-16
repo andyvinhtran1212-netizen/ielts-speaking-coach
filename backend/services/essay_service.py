@@ -717,7 +717,11 @@ _MIX_CRITERIA = ("mainCriterion", "coherenceCohesion", "lexicalResource", "gramm
 def get_live_versions(essay_id: str) -> list[dict]:
     """F2 compare-data: the LIVE versions (current + ancestor chain) as
     compare-shaped rows for side-by-side per-criterion display, newest first.
-    Each = {version, source, overall_band_score, created_at, criteriaFeedback}."""
+    Each row also carries the canonical ``feedback_json`` so the compose screen
+    can preview base-derived sections (overview, mistakes, improved essay, ...)
+    exactly as they will be persisted.  The previous criteria-only response
+    made that preview silently incomplete even though compose_version itself
+    correctly read the full server-side feedback payload."""
     live = _ancestor_versions(essay_id)
     if not live:
         return []
@@ -737,6 +741,7 @@ def get_live_versions(essay_id: str) -> list[dict]:
             "overall_band_score": r.get("overall_band_score"),
             "created_at":         r.get("created_at"),
             "criteriaFeedback":   fj.get("criteriaFeedback"),
+            "feedback_json":      fj,
         })
     return out
 
@@ -915,15 +920,13 @@ async def _bg_grade_essay(
             # persisted on the essay row at submit time (mig 033); the grader
             # ignores it for non-task1_academic and on fetch failure (D7).
             prompt_image_url=essay.get("prompt_image_url"),
-            # Stale-snapshot fallback: the source prompt's CURRENT image. The
-            # grader tries this only when the snapshot above is missing or fails
-            # to fetch — so a regrade of an essay whose chart was replaced after
-            # submission still grades WITH the image instead of text-only + D7.
-            # Resolved only for task1_academic (cheap 2-query lookup, skipped
-            # otherwise).
+            # Legacy fallback only: use the source prompt's current image when
+            # this essay predates submit-time image snapshots. Never substitute
+            # a new chart for a historical snapshot that fails to load.
             prompt_image_url_fallback=(
                 current_prompt_image_for_essay(essay_id)
-                if essay["task_type"] == "task1_academic" else None
+                if essay["task_type"] == "task1_academic"
+                and not essay.get("prompt_image_url") else None
             ),
             # Verified Task 1 answer key (reviewed) — anchors Task Achievement
             # accuracy. Gated on the feature flag; snapshot-first, prompt
@@ -1466,15 +1469,11 @@ def _feedback_flags_missing_image(feedback_json) -> bool:
 
 
 def current_prompt_image_for_essay(essay_id: str) -> Optional[str]:
-    """The image URL CURRENTLY on the source prompt for this essay, resolved via
-    the writing_assignments(essay_id) → writing_prompts link.
+    """The source prompt image for an essay with no submit-time snapshot.
 
-    Used as a fallback for a STALE essay snapshot: writing_essays.prompt_image_url
-    is captured at submit time, so if the prompt's chart is later replaced or its
-    storage object is deleted, the snapshot URL 404s while the prompt still points
-    at a live image. Returns None when the essay has no assignment/prompt link
-    (e.g. admin-created essays) or the prompt carries no image. Never raises — a
-    fallback lookup must not break the detail read or a grading run."""
+    It must never substitute chart B for a historical essay answered against
+    chart A. Returns None when the link/image is unavailable and never raises.
+    """
     try:
         a = (
             supabase_admin.table("writing_assignments")
@@ -1565,15 +1564,12 @@ def get_essay_with_feedback(essay_id: str) -> dict:
         raise HTTPException(404, "Essay not found")
     essay = dict(er.data[0])
 
-    # Task 1 Academic stale-snapshot fallback: expose the source prompt's CURRENT
-    # image so the grade page can swap to it when the essay's snapshot URL 404s
-    # (chart replaced/deleted after submission). Only for task1_academic, only
-    # when a live prompt image exists AND differs from the snapshot — otherwise
-    # the field stays absent (no redundant swap). The frontend swaps only on
-    # <img> load error, so a healthy snapshot never uses this.
-    if essay.get("task_type") == "task1_academic":
+    # Legacy rows created before image snapshotting may borrow the source
+    # prompt's current image. Once a snapshot exists it is immutable evidence:
+    # never replace it with a different current chart after a fetch failure.
+    if essay.get("task_type") == "task1_academic" and not essay.get("prompt_image_url"):
         fallback = current_prompt_image_for_essay(essay_id)
-        if fallback and fallback != essay.get("prompt_image_url"):
+        if fallback:
             essay["prompt_image_url_fallback"] = fallback
 
     fr = (

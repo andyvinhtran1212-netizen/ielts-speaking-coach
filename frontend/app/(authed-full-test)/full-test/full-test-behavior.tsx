@@ -91,7 +91,7 @@ export function FullTestBehavior() {
     if (status === 'signed-out') {
       setExamState(null);
       setErrorState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

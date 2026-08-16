@@ -49,8 +49,8 @@ describe('admin quiz-analytics.html — chrome + endpoints', () => {
   });
 });
 
-describe('admin vocab hub links to the analytics page', () => {
-  test('hub card points at quiz-analytics.html', () => {
-    assert.match(HUB, /href="\/pages\/admin\/vocab\/quiz-analytics\.html"/);
+describe('admin vocab rollback hub links to the native analytics route', () => {
+  test('hub card points at the clean route', () => {
+    assert.match(HUB, /href="\/admin\/vocab\/quiz-analytics"/);
   });
 });

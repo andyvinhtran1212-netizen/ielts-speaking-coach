@@ -182,6 +182,27 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // ── Hợp đồng URL: legacy → canonical ───────────────────────────────────
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
+  // `/login` owns authentication entry after the native cutover. Keep the
+  // HTML page directly reachable as a rollback/parity reference, but compare
+  // every link according to the canonical owner.
+  else if (path === '/login.html') path = '/login';
+  else if (path === '/onboarding.html') path = '/onboarding';
+  // `/grammar/search` cutover 2026-08-15. Giữ trang HTML làm rollback/parity,
+  // nhưng mọi link tới nó phải so theo chủ sở hữu canonical mới; query `q`
+  // vẫn được giữ nguyên ở bước dựng URL bên dưới.
+  else if (path === '/pages/grammar-search.html') path = '/grammar/search';
+  // `/grammar/compare` cutover 2026-08-15. Query `slug` là một phần của hợp
+  // đồng backend và được giữ nguyên ở bước dựng URL bên dưới.
+  else if (path === '/pages/grammar-compare.html') path = '/grammar/compare';
+  // `/grammar/roadmap` giữ hai mode trên cùng URL: `?slug=` public và không
+  // query là lộ trình cá nhân. Canonicalization chỉ đổi owner, không đổi mode.
+  else if (path === '/pages/grammar-roadmap.html') path = '/grammar/roadmap';
+  // Pricing remains intentionally closed before launch. The Next route owns
+  // that server redirect; the legacy HTML is now rollback-only.
+  else if (path === '/pricing.html') path = '/pricing';
+  // `/vocabulary` là wiki công khai; `cat` + `slug` tạo identity kép vì một
+  // slug có thể thuộc nhiều category. Giữ nguyên query khi đổi owner.
+  else if (path === '/vocabulary.html') path = '/vocabulary';
   else if (path === '/pages/profile.html') path = '/profile';
   // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
   // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)
@@ -189,6 +210,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // Bot bắt ở #958. Giữ ánh xạ để neo trong trang và mọi link còn sót vẫn khớp.
   else if (path === '/pages/exercises.html') path = '/exercises';
   else if (path === '/pages/flashcards.html') path = '/flashcards';
+  // `/quiz` cutover 2026-08-15. Grammar articles and Vocabulary Practice still
+  // expose the rollback link on their legacy side while the native side points
+  // at the clean owner. Without this mapping the parity gate reports every
+  // migrated launcher as a missing/extra pair even though the bank query is
+  // identical — and then skips the browser write-flow that proves the player.
+  else if (path === '/pages/quiz.html') path = '/quiz';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
@@ -199,6 +226,7 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
   // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.
   else if (path === '/pages/speaking.html') path = '/speaking';
+  else if (path === '/pages/admin/writing/grade.html') path = '/admin/writing/grade';
   else if (path === '/pages/grammar-article.html') {
     const c = params.get('category');
     const s = params.get('slug');

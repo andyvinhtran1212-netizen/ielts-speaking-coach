@@ -210,7 +210,7 @@ describe('Lớp & Học viên handcrafted workspace — class dialog and hierarc
 
   test('back breadcrumb names its destination', () => {
     assert.match(PAGE, /<nav class="cl-back cl-breadcrumb" aria-label="Đường dẫn">/);
-    assert.match(PAGE, /<a href="\/pages\/admin\/classes\/index\.html">Lớp &amp; Học viên<\/a>/);
+    assert.match(PAGE, /<a href="\/admin\/classes">Lớp &amp; Học viên<\/a>/);
     assert.match(PAGE, /<strong aria-current="page">Chi tiết lớp<\/strong>/);
   });
 

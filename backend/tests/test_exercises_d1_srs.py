@@ -68,6 +68,8 @@ class _Builder:
     def neq(self, *_a, **_k): return self
 
     def insert(self, row):
+        if self._table == "vocabulary_exercise_attempts" and not row.get("id"):
+            row = {**row, "id": f"attempt-{len(self._parent.inserts) + 1}"}
         self._parent.inserts.append((self._table, row))
 
         class _Exec:
@@ -113,6 +115,46 @@ class _Client:
     def table(self, name=None, *_a, **_k):
         return _Builder(self, name)
 
+    def rpc(self, name, params):
+        assert name == "fn_finalize_d1_attempt"
+        client = self
+
+        class _Exec:
+            def execute(self_inner):
+                attempt = next(
+                    row for table, row in reversed(client.inserts)
+                    if table == "vocabulary_exercise_attempts"
+                    and row.get("id") == params["p_attempt_id"]
+                )
+                finalized = not attempt.get("post_processed_at")
+                if not attempt.get("post_processed_at"):
+                    vocab_id = params.get("p_vocab_id")
+                    if vocab_id:
+                        prior = (client.canned.get("flashcard_reviews") or [None])[0]
+                        prior = prior or {}
+                        review_row = {
+                            "user_id": "user-A",
+                            "vocabulary_id": vocab_id,
+                            "interval_days": params["p_interval"],
+                            "ease_factor": params["p_ease"],
+                            "review_count": int(prior.get("review_count", 0)) + 1,
+                            "lapse_count": int(prior.get("lapse_count", 0)) + int(params.get("p_lapse_delta") or 0),
+                            "last_reviewed_at": params["p_last_reviewed_at"],
+                            "next_review_at": params["p_next_review_at"],
+                        }
+                        client.upserts.append((
+                            "flashcard_reviews", review_row, "user_id,vocabulary_id",
+                        ))
+                    attempt["feedback"] = params["p_feedback"]
+                    attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
+
+                class _R:
+                    data = {"attempt": attempt, "finalized": finalized}
+                    count = None
+                return _R()
+
+        return _Exec()
+
     # The D1 handler hits sb.postgrest.auth(token) indirectly via
     # _user_sb in the real code; we patch _user_sb itself in the
     # test fixture so postgrest isn't touched.
@@ -125,11 +167,8 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
     async def _fake_auth(_authz):
         return {"id": user_id}
 
-    # The rate-limit decorator (services/rate_limit.py) does its own
-    # `from routers.auth import get_supabase_user` at call time and
-    # then verifies the user via that imported function. So we must
-    # patch the source module — patching `ex.get_supabase_user` won't
-    # reach the decorator's lazy re-import.
+    # Keep the auth source patched too because other exercised helpers import
+    # it lazily even though submit_d1_attempt now enforces quota imperatively.
     from routers import auth as auth_mod
     monkeypatch.setattr(auth_mod, "get_supabase_user", _fake_auth)
     monkeypatch.setattr(ex, "get_supabase_user", _fake_auth)
@@ -141,10 +180,7 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
 
 @pytest.fixture(autouse=True)
 def _bypass_rate_limit(monkeypatch):
-    """Disable the rate-limit usage counter so tests don't need to
-    stub a daily-usage Supabase row. The decorator is applied at
-    import time on the handler so we can't replace the decorator
-    itself; instead we patch the enforcement function it calls."""
+    """Disable the daily-usage counter so these tests stay focused on SRS."""
     from services import rate_limit
     monkeypatch.setattr(rate_limit, "enforce_exercise_rate_limit", lambda **_k: None)
 

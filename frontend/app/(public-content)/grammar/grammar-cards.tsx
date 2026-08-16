@@ -79,6 +79,18 @@ export function UpdatingBadge() {
   );
 }
 
+function prettifySlug(slug: string) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function CategoryBadge({ category }: { category: string }) {
+  return (
+    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/8 text-white/50">
+      {prettifySlug(category)}
+    </span>
+  );
+}
+
 const BookIcon = ({ className, style }: { className: string; style?: React.CSSProperties }) => (
   <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -114,6 +126,48 @@ export function FeaturedCards({ articles }: { articles?: Article[] }) {
           <div className="flex items-center gap-3 text-xs text-white/30">
             <span>{a.category}</span>
             <span>{a.reading_time || 1} phút</span>
+          </div>
+        </a>
+      ))}
+    </>
+  );
+}
+
+/** Thẻ kết quả tìm kiếm — cùng hình dạng với `renderSearchCards` của rollback. */
+export function SearchResultCards({ articles, query }: { articles?: Article[]; query: string }) {
+  const list = (articles || []).filter((a) => a && a.slug && a.title && a.category);
+  if (!list.length) {
+    return (
+      <div className="col-span-3 py-12 text-center">
+        <p className="text-white/40 mb-2">
+          Không tìm thấy kết quả cho &quot;<strong className="text-white/80">{query}</strong>&quot;
+        </p>
+        <p className="text-white/30 text-sm">
+          Thử từ khóa khác:{' '}
+          <a href="/grammar/search?q=present+perfect" className="text-teal-light hover:underline">present perfect</a>,{' '}
+          <a href="/grammar/search?q=conditionals" className="text-teal-light hover:underline">conditionals</a>,{' '}
+          <a href="/grammar/search?q=passive" className="text-teal-light hover:underline">passive voice</a>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {list.map((article) => (
+        <a
+          key={`${article.category}/${article.slug}`}
+          href={articleUrl(article.category, article.slug)}
+          className="block p-4 rounded-xl border border-white/8 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200"
+        >
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h4 className="font-semibold text-white text-sm leading-snug">{article.title}</h4>
+            {article.status === 'updating' ? <UpdatingBadge /> : <LevelBadge level={article.level} />}
+          </div>
+          <p className="text-xs text-white/50 line-clamp-2 mb-3">{article.summary || ''}</p>
+          <div className="flex items-center gap-2">
+            <CategoryBadge category={article.category} />
+            <span className="text-xs text-white/25">{article.reading_time || 1} phút</span>
           </div>
         </a>
       ))}

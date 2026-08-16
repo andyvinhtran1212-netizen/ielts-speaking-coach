@@ -47,6 +47,6 @@ test('landing stats are answered by the STAGING API', async ({ page }) => {
 });
 
 test('login page renders its chrome', async ({ page }) => {
-  await page.goto('/login.html');
+  await page.goto('/login');
   await expect(page.locator('body')).toContainText(/averlearning|Đăng nhập|Google/i);
 });

@@ -45,9 +45,13 @@ cách lặng lẽ đổi runner/test nhưng giữ đủ số lượng. Frozen-di
 cũng cấm file/symlink mới ngoài allowlist trong `tests/staging-e2e`, nên spec mới
 không thể lọt qua chỉ vì các file cũ vẫn giữ hash. Auditor kiểm các contract này
 và cấm `.npmrc` trong tested tree trước `npm ci`/Playwright, không đợi tới sau
-khi code đã nhận secret. Nếu hashes lệch nhưng GitHub chứng minh staging SHA là ancestor
-đã qua `main`, suite vẫn chạy để giữ giá trị chẩn đoán nhưng ledger reset; source
-không thuộc lịch sử `main` hoặc không xác minh được thì hard-stop. Ledger cũng
+khi code đã nhận secret. Nếu hashes lệch, suite chỉ được chạy chẩn đoán và reset
+ledger khi GitHub chứng minh staging SHA là ancestor đã qua `main`, hoặc cây Git
+của staging sync commit trùng tuyệt đối với cây của merge-base thuộc lịch sử
+`main`. Điều kiện thứ hai xử lý branch được đồng bộ bằng merge commit mà không
+tin riêng lịch sử commit; chỉ một thay đổi nội dung ngoài `main` cũng làm tree
+khác và hard-stop. Source không thuộc nội dung `main` đã review hoặc không xác
+minh được cũng hard-stop. Ledger cũng
 lưu SHA-256 của toàn manifest contract; mọi thay đổi manifest giữa chuỗi đều tạo
 `manifest-changed` và khởi động lại streak tại 1.
 
@@ -103,10 +107,13 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
 - Ledger giữ tối đa 50 entries, đủ thấy chuỗi 20 và lần reset gần nhất.
 - Nếu một run chết trước khi save cache/artifact, run kế tiếp không khớp GitHub
   history với `last_run_id` và reset fail-closed.
-- Job có timeout 60 phút: live staging E2E có timeout 20 phút, Speaking failure
-  matrix có timeout 10 phút, còn `npm ci` và browser install có timeout 5 phút
-  mỗi bước. Phần ngân sách còn lại dành cho semantic evidence verification,
-  provenance, reset ledger, cache save và artifact uploads.
+- Job có timeout 180 phút và mọi step có timeout riêng: live staging E2E có
+  timeout 20 phút, bốn failure matrix có timeout 10 phút mỗi bước, còn setup,
+  verifier, provenance, ledger, cache và từng artifact upload đều có trần 1–5
+  phút. Contract test cộng cả ba nhánh streak/reset upload vốn loại trừ nhau để
+  lấy trường hợp bảo thủ 144 phút; job vẫn dành thêm 36 phút ngoài toàn bộ tổng
+  đó. Vì vậy một runner chạm timeout riêng vẫn không tước thời gian của ledger
+  và artifact finalization.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
   lúc query/capture; không được serialize vào artifact hoặc log. Bypass chỉ gửi
   tới canonical Vercel staging origin; password grant chỉ gửi tới canonical
@@ -114,7 +121,7 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   đều có timeout 20 giây để ledger/reset artifact còn đủ thời gian hoàn tất
   trước job timeout.
 
-## Failure-injection: Speaking COMPLETE, Gate E toàn cục vẫn PARTIAL
+## Failure-injection: bốn automated domain slices có đủ, Gate E vẫn PARTIAL
 
 Suite v2 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
 N/N−1 replay, two-user isolation và zero production egress. Bốn nhánh
@@ -129,11 +136,35 @@ Trước khi tạo metadata hay cập nhật ledger, trusted auditor parse JSON 
 trước bước này. JSON + HTML report được upload thành artifact riêng, còn toàn bộ
 config/harness/spec/verifier được frozen bằng hash và directory allowlist.
 
-Đây chỉ là completion của slice Speaking, không phải global failure matrix hay
-real-device completion: Reading/Listening/Writing còn đủ bốn nhánh tương ứng;
-WebKit synthetic không thay Safari/iOS thật và hai requirement đó vẫn
-`pending`. Vì vậy `failure_injection.status` vẫn là `partial` và tooling không
-thể tuyên bố Gate E đủ evidence.
+Reading nay có slice độc lập `npm run test:e2e:gate-e:reading`: đúng bốn failure
+path trên Chromium desktop, WebKit desktop và WebKit/iPhone synthetic, tổng 12
+case. Ambiguous commit chứng minh retry idempotent sau connection reset; partial
+persistence chứng minh full in-memory submit không bị chấm thiếu khi một PATCH
+422; reload/resume giữ server clock; Legacy → Next → Legacy cùng đọc một attempt
+và answer ledger. Trusted verifier bắt exact title/project counts, zero
+skip/fail/flake và HTML ZIP hoàn chỉnh. Reading suite hoặc verifier đỏ cũng làm
+`GATE_E_RUN_OUTCOME=failure` trước khi ledger được cập nhật.
+
+Listening nay có slice thứ ba `npm run test:e2e:gate-e:listening`, cũng gồm 12
+case trên ba project. Partial persistence cố ý khác Reading: Listening submit
+chỉ gửi `{}`, nên test bắt buộc client chặn submit khi PATCH 422 và chỉ cho nộp
+sau khi `Thử lại` đã đưa đủ answer lên canonical state. Reload/resume còn kiểm
+full-test audio bám `started_at`; Legacy → Next → Legacy dùng chung attempt.
+Verifier semantic và artifact upload chạy trước ledger như hai slice trước.
+
+Writing nay có slice thứ tư `npm run test:e2e:gate-e:writing`, 12 case trên ba
+project. Ambiguous commit commit canonical essay/job rồi reset connection và
+được GET readback đối chiếu mà không replay POST; partial persistence chứng minh
+exact in-memory text được submit dù PATCH latest 422; reload/resume và
+Legacy → Next → Legacy cùng đọc một draft/start state. Verifier semantic và
+artifact upload cũng chạy trước ledger.
+
+Đây là completion của bốn **automated synthetic slices**, không phải global
+failure-injection hay real-device completion. Live-staging failure injection
+vẫn chưa có; WebKit synthetic không thay Safari/iOS thật và hai requirement đó
+vẫn `pending`. Vì vậy `failure_injection.status` vẫn là `partial`, `missing`
+chứa `live-staging-core-player-failure-injection-evidence`, và tooling không thể
+tuyên bố Gate E đủ evidence.
 
 Vì vậy ledger tách ba cờ:
 
@@ -151,5 +182,5 @@ vẫn không được phép tuyên bố Gate E đủ evidence.
    provenance `ok=true`, 33/33 và `streak_count=1`.
 3. Để nightly/manual runs tiếp tục; bất kỳ reset nào phải được điều tra từ
    `reset_reasons`, không chỉnh ledger bằng tay.
-4. Thu hai real-device artifact và hoàn tất failure matrix của ba core cluster
-   còn lại; chỉ sau đó mới đánh giá Gate E.
+4. Thu hai real-device artifact, chạy live-staging failure injection và các
+   active-session drill; chỉ sau đó mới đánh giá Gate E.

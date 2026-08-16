@@ -227,6 +227,97 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Native `/instructor/grade` migration (2026-08-16)
+
+- Replaced the legacy stacked cards and browser confirmations with a focused
+  review workspace: sticky teacher-note/action rail, readable essay canvas,
+  shared learner feedback renderers and accessible confirmation dialogs.
+- Made uncertainty visible. Version-budget and active-review lookup failures no
+  longer silently hide actions; delivery is disabled with an explicit reason.
+- Bound delivery to both `review_id` and `essay_id`, persisted the same note in
+  the audit review and student-visible essay, and enforced the server transition
+  from `claimed/edited` exactly once.
+- Every note, delivery, regrade and revoke mutation is followed by canonical
+  readback. Ambiguous state locks further writes and offers a read-only
+  reconciliation action; no POST is replayed automatically.
+
+### Native `/admin/writing/instructor-queue` migration (2026-08-13)
+
+- Replaced the compressed legacy table with a readable FIFO operations lane,
+  explicit ownership copy, SLA age, mobile cards and a focused release dialog.
+- Corrected the active-state contract: `edited` reviews remain visible in both
+  All Active and My Claims instead of disappearing before delivery.
+- Added account-keyed pending receipts for claim/release. Exact mutation ACKs
+  are followed by canonical GET readback; ambiguous responses reconcile with
+  reads only and never replay the ownership-changing POST.
+- Preserved visible-tab 30-second polling, stale/malformed truth, cockpit
+  `embed`/`mocklane` flags and the direct legacy HTML rollback target.
+
+### Native `/admin/writing/queue` migration (2026-08-13)
+
+- Replaced the compressed tab/table with a six-lane operations surface that
+  distinguishes AI work, human review, release readiness, delivered history
+  and Mock Writing decisions without mixing their mutation rules.
+- Preserved canonical contracts: only reviewed essays can be bulk delivered;
+  pending Mock essays can be graded; only genuinely short pending Mock essays
+  offer skip. Every mutation validates the resource acknowledgement and reads
+  the queue again before success is shown.
+- Made partial truth visible. Malformed rows are excluded with a warning,
+  cohort lookup failures no longer disappear, a failed refresh retains and
+  labels the matching prior snapshot, and the 200-row API cap is disclosed.
+- Added URL-restorable lane/cohort/overdue state, visible-tab polling only for
+  the live grading lane, accessible confirmation dialogs, 44px controls and a
+  desktop-table-to-mobile-card layout. Direct legacy HTML remains rollback.
+
+### Native `/admin/writing` hub migration (2026-08-13)
+
+- Replaced the flat emoji tile dashboard with a workflow map: prepare inputs,
+  control grading quality, then assign and track learner work.
+- Made the route-ownership transition visible rather than implied: native
+  Grade/Students destinations and still-migrating child workspaces carry
+  explicit status labels, while the hub itself uses the backend admin gate.
+- Added canonical learner preview, full-card keyboard targets, 44px controls,
+  one/two-column responsive layouts, dark-theme token discipline and
+  reduced-motion behavior. Legacy HTML remains directly reachable for rollback.
+
+### Native `/admin/speaking` hub migration (2026-08-13)
+
+- Replaced sprint-history copy and the obsolete `/admin.html` operations link
+  with a task-first workspace for session QA, content management and pipeline
+  diagnostics.
+- Kept Sessions and Topics on their directly reachable rollback HTML until
+  each mutation-heavy child is migrated in its own PR; the hub labels that
+  ownership truth instead of implying the child routes are already native.
+- Promoted Sessions as the primary QA workflow, added a canonical learner
+  preview, backend-owned admin gate, full-card keyboard targets, responsive
+  one/two/three-column layouts and reduced-motion behavior.
+
+### Native `/admin/grammar` hub migration (2026-08-13)
+
+- Reframed the landing as a content-operations workspace: publishing truth and
+  the repository workflow appear before the four operational destinations.
+- Kept the canonical file-based contract visible and added no fake counts or
+  editing affordances. Articles, analytics, recommendation testing and the
+  shared Grammar exercise console are clearly distinguished by purpose.
+- Added a direct learner-view link, semantic status labels, full-card keyboard
+  targets, responsive one-column composition and reduced-motion fallbacks.
+- The backend-owned admin role gate now fails closed before the native surface;
+  the legacy HTML remains directly reachable as the rollback target.
+
+### Native `/admin/foot-traffic` migration (2026-08-12)
+
+- Replaced the legacy all-at-once surface with an operational hierarchy: clear
+  analytics context, URL-restorable date/route filters, three restrained KPI
+  cells, one dominant daily trend, then ranked route detail.
+- Preserved semantic Aver tokens and shared admin primitives; added mobile KPI
+  stacking, scroll-contained daily bars, card-like route rows and visible focus.
+- Correctness drives presentation: unavailable analytics is never rendered as
+  zero; partial reads use `≥` and an explicit warning; the inclusive end date
+  covers the whole selected calendar day.
+- The reporting window and daily buckets are UTC by contract. Legacy
+  `date_range` bookmarks fall back to the default 30-day window; new filters
+  persist as `from`, `to`, and an exact `route` value.
+
 ### Batch A — shell and foundations (completed)
 
 - Added the statically loaded, token-only `admin-surface.css` baseline to all
@@ -757,6 +848,229 @@ None found that require a schema or grading rewrite.
   confirm one passage remains truthful and no `/40` or `60 phút` value is
   invented when the endpoint omits those fields.
 
+## Admin Class student work history — 2026-08-12
+
+### Issue: the native class workspace cannot answer “this learner has done what?”
+
+- **Root cause:** the roster and four-skill progress table expose class-level
+  metrics but no student-level action. The native homework area starts from an
+  assignment, while the canonical cross-assignment endpoint starts from a
+  student; only the rollback page connected that second direction.
+- **Severity:** Medium.
+- **Impact:** an admin must remember an assignment first or leave the native
+  workspace to inspect one learner's submitted, late, missing and archived
+  work. That interrupts the common intervention flow and makes the Next route
+  look complete while an operational read remains legacy-only.
+- **Impacted files:** the native class detail, submission workspace and shared
+  dialog component; `admin-class-student-work-model.mjs`; the dedicated CSS,
+  behavior test and fixture-backed browser verifier.
+- **Suggested minimal fix:** add one consistent “Xem bài” action to roster and
+  progress rows; render the canonical per-student endpoint in a focus-trapped
+  responsive dialog; show explicit loading/error/empty/partial states; expose
+  actions only for real artifacts; carry `student_id` through the URL and
+  return to the same learner after native marking.
+- **Verification:** open the workspace from both source tables; inspect
+  submitted/late/missing/archived and stale fixtures; verify an absent artifact
+  has no false link, Speaking opens its existing session surface, Course opens
+  the selected native student report plus writing, Back restores the learner,
+  Close clears the deep-link, payload text is escaped, and no unexpected write
+  occurs at desktop or narrow widths.
+
+## Admin operational alerts — 2026-08-12
+
+### Issue: the legacy alert tables flatten incident priority and overstate available actions
+
+- **Root cause:** session errors and response grading failures are rendered as
+  two wide tables with equal visual weight, truncated messages and no mobile
+  reading hierarchy. The route ledger also described dismissal although the
+  backend exposes only `GET /admin/alerts`; adding that control in the UI would
+  invent persistence that does not exist.
+- **Severity:** Medium.
+- **Impact:** admins must horizontally scan identifiers before understanding
+  the failure, long messages are hidden, and narrow screens become a table
+  viewport. A misleading dismissal control would make operational state diverge
+  from canonical backend truth.
+- **Impacted files:** native `/admin/system/alerts` page and model, system hub
+  link/layout, dedicated responsive CSS, route ledger, contract tests and
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** keep the endpoint read-only; present each incident
+  as a message-first card with explicit type, learner identity, step, timestamp
+  and real session link; preserve backend deduplication, expose client-only
+  session/response scope in the URL, and surface malformed or missing identity
+  as partial data rather than an empty value.
+- **Verification:** verify the admin gate and canonical `limit=30` request,
+  session/response counts, malicious payload escaping, malformed-row warning,
+  URL scope restoration, refresh, both real session links, no unexpected write,
+  and no horizontal overflow at 390px.
+
+## Admin AI usage — 2026-08-12
+
+### Issue: the legacy cost summary presents a capped estimate as an exact bill
+
+- **Root cause:** the backend intentionally caps aggregation at 10,000 log rows
+  and returns `meta.truncated`, but the legacy page ignores all metadata and
+  labels the resulting sum “Tổng cộng”. It also hardcodes four service buckets,
+  so a new backend service silently disappears from the breakdown.
+- **Severity:** Medium.
+- **Impact:** admins can under-read total AI consumption while believing the
+  number is complete, and cannot reconcile the overall total when a new or
+  unknown provider contributes cost.
+- **Impacted files:** native `/admin/system/ai-usage` route, model and responsive
+  CSS; system hub link/layout; route ledger, contract test and browser verifier.
+- **Suggested minimal fix:** preserve the canonical read-only endpoint and
+  period options; render every service key returned by the backend; surface
+  exact/unknown/truncated coverage from `meta`; distinguish estimates from
+  provider invoices; reject malformed top-level totals rather than defaulting
+  them to zero.
+- **Verification:** test exact and truncated meta, unknown service keys,
+  malformed totals and per-user rows; switch `days` and confirm URL/request;
+  escape authored identity fields; verify no write and no horizontal overflow
+  at 390px.
+
+## Admin instructor oversight — 2026-08-12
+
+### Issue: the legacy table hides one canonical metric and implies unsupported management
+
+- **Root cause:** the eight-column table omits `regrade_events`, compresses the
+  distinction between regraded essays and regrade volume into a footnote, and
+  the route ledger calls the surface instructor/cohort management even though
+  `GET /admin/instructors` is read-only oversight. The table also overflows on
+  narrow screens.
+- **Severity:** Medium.
+- **Impact:** admins cannot see how repeated regrades differ from the number of
+  affected essays, may attribute those regrades to the roster owner, and may
+  expect assignment controls that have no canonical mutation contract.
+- **Impacted files:** native `/admin/instructors` route/model/CSS, admin chrome,
+  instructor workspace exit link, route ledger, source tests and fixture-backed
+  browser verifier.
+- **Suggested minimal fix:** keep the endpoint read-only; validate every metric
+  fail-closed; present responsive instructor cards with explicit student,
+  prompt, delivered, regraded-essay, regrade-event, all-version token and cost
+  facts; label the drill-down as audited impersonation and retain the legacy
+  HTML only as rollback.
+- **Verification:** verify the admin gate and exact canonical GET, malformed and
+  duplicate exclusion, metric distinction, malicious identity escaping, client
+  search URL, sanctioned encoded `as_instructor` link, no unexpected write and
+  no page overflow at 390px, and the two-column card hierarchy at 1440px; run
+  the backend aggregation and impersonation audit tests separately.
+
+## Admin user activity — 2026-08-12
+
+### Issue: the legacy activity log confuses read failures with no activity
+
+- **Root cause:** the default legacy controller catches a failed
+  `/admin/usage/users` request, replaces the response with an empty array and
+  renders “Chưa có hoạt động nào”. Its per-code summary also coerces degraded
+  `null` session/cost metrics to zero, while unpaged PostgREST reads can silently
+  stop at the default row cap. The route ledger separately mislabels this
+  contract as DAU/MAU analytics.
+- **Severity:** Medium.
+- **Impact:** admins can treat an unavailable or truncated source as proof of no
+  usage, underestimate total activity/cost, and misunderstand what the page is
+  measuring. On mobile the wide table also requires horizontal scanning.
+- **Impacted files:** backend usage aggregation and focused tests; native
+  `/admin/usage` route/model/CSS; Admin Overview and Access Code entry links;
+  route ledger, behavior test and fixture-backed browser verifier.
+- **Suggested minimal fix:** retain the two canonical read-only endpoints;
+  page stable queries past backend caps; preserve degraded aggregate metrics as
+  unknown; separate loading/error/empty/stale-data states; expose `code_id`,
+  search and sort in the URL; turn rows into labeled cards at narrow widths;
+  keep the HTML page as rollback only.
+- **Verification:** test more than 1,000 source rows and partial source failure;
+  validate duplicate/malformed identities; open both global and code drill-down
+  fixtures; confirm canonical endpoint selection, exact null messaging, stale
+  retry, URL search/sort, malicious identity escaping, no unexpected write, and
+  no horizontal overflow with populated rows at 390px and a table at 1440px.
+
+## Admin learner-feedback triage — 2026-08-12
+
+### Issue: the legacy inbox makes incomplete reads and optimistic status look canonical
+
+- **Root cause:** the legacy controller reads the whole `user_feedback` table in
+  one unpaged request, groups only by `test_id`, defaults to mixing resolved and
+  new work, and mutates rows optimistically before the backend is read again.
+- **Severity:** Medium.
+- **Impact:** PostgREST caps can hide older feedback without warning; equal
+  Reading/Listening identifiers can merge unrelated work; and a successful-looking
+  toggle can disagree with a full reload. Filter state also disappears on refresh.
+- **Impacted files:** feedback backend route/tests; native `/admin/feedback`
+  route/model/CSS; admin chrome link; route ledger, behavior test and
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** page a frozen backend snapshot using the
+  `(created_at,id)` keyset; return typed complete/partial/unavailable coverage;
+  redact anonymous capability tokens; group by `(skill,test_id)`; default the
+  native inbox to new work; keep type/skill/status in the URL; reload canonical
+  GET state after every PATCH; retain the HTML page as rollback.
+- **Verification:** cross the simulated response cap; collide a test id across
+  skills; reject malformed/unknown coverage; verify admin gate, URL filters,
+  hostile note escaping, partial/unavailable messaging, 44px mobile actions,
+  no overflow, and PATCH→GET reconciliation on resolve and reopen.
+
+## Admin Reading-attempt analytics — 2026-08-13
+
+### Issue: the legacy dashboard presents capped and unavailable reads as exact truth
+
+- **Root cause:** the backend aggregates one capped attempt read without a
+  common upper snapshot bound, performs an unbounded title lookup, and returns
+  only a `truncated` boolean. The legacy controller then renders zero/empty
+  metrics when the source read fails and continues to show averages from an
+  incomplete sample.
+- **Severity:** Medium.
+- **Impact:** an admin can interpret a lower-bound sample as the exact number of
+  submissions or learners, treat an unavailable source as proof of no activity,
+  and act on biased band, duration, or skill averages. The wide tables also
+  overflow instead of becoming scan-friendly records on mobile.
+- **Impacted files:** Reading-attempt aggregation route/service/tests; native
+  `/admin/dashboard/reading-attempts` route/model/CSS; rollback controller;
+  admin navigation, route documentation, contract tests and fixture-backed
+  browser verifier.
+- **Suggested minimal fix:** freeze every source read at one UTC snapshot;
+  validate and exclude malformed rows; chunk exact title lookups; return a typed
+  `complete`/`partial`/`unavailable` contract with nullable unknowns; use `≥`
+  for incomplete derived counts and hide derived rates; keep the exact window
+  total exact when its count succeeds; make refresh `private, no-store`; retain
+  the legacy page only as a truthful rollback target.
+- **Verification:** cross the simulated row cap; fail the primary and each
+  auxiliary source separately; inject malformed rows and skill groups; confirm
+  no anonymous hash reaches the response; verify the admin gate, 7/30/90-day
+  URL/request contract, stale-refresh retention, hostile text escaping,
+  accessible band data, and populated table-to-card layouts without horizontal
+  page overflow at 390px and 1440px.
+
+## Admin Speaking Sessions — 2026-08-13
+
+### Issue: legacy session triage can hide partial data and stale mutation results
+
+- **Root cause:** the legacy controller lets older list/detail requests overwrite
+  newer state, treats enrichment failures as empty related data, uses native
+  alert/confirm dialogs, and refreshes only the open detail after repair or
+  rebuild mutations. The targeted backend repair path could also mark a session
+  completed while some failed responses remained. Single-response regrade and
+  summary rebuild had the same completion-laundering path because they accepted
+  any computable aggregate band without checking every persisted response.
+- **Severity:** Critical for grading truth; Medium for the interaction defects.
+- **Impact:** an admin can see a completed status that disagrees with persisted
+  response failures, mistake unavailable user/question/response enrichment for
+  genuine absence, or see a stale list row after a successful-looking repair.
+  Filter and deep-link state is also lost across refreshes.
+- **Impacted files:** admin session list/detail/regrade/rebuild routes and focused
+  tests; native `/admin/speaking/sessions` route/model/CSS; Speaking hub, System
+  Alerts and class-work entry links; route docs, contract tests and the
+  fixture-backed browser verifier.
+- **Suggested minimal fix:** keep the existing canonical endpoints; expose
+  enrichment lookup failures, require every regrade/rebuild path to verify that
+  no response remains failed or missing-band before clearing errors or syncing
+  a class score; add request
+  sequence guards, URL-backed filters, safe audio validation, an accessible
+  detail/confirmation flow and mandatory detail plus list GET readback after
+  every mutation. Retain the HTML page as rollback only.
+- **Verification:** cover partial targeted repair, summary error clearing and
+  class-score sync at route level; reject malformed responses and unsafe audio;
+  race list/detail requests; verify failed-only versus explicit full regrade,
+  duplicate-submit prevention, PATCH/POST→detail/list reconciliation, keyboard
+  dialog behavior, hostile text escaping, deep links and populated layouts at
+  390px and 1440px without horizontal overflow.
+
 ## Learner Reading passage workspace — 2026-08-09
 
 ### Issue: passage detail pages hide orientation data and fragment the reading flow
@@ -785,3 +1099,1199 @@ None found that require a schema or grading rewrite.
   available reading panes, inspect glossary and image lightbox, check every
   supported question type plus feedback flag, and verify independent desktop
   pane scrolling versus normal mobile document flow in light and dark themes.
+
+### Native migration update — 2026-08-15
+
+- `/reading/vocab/[slug]` and `/reading/skill/[slug]` now share one native React
+  workspace. The implementation keeps the canonical GET/check contracts and
+  rollback HTML, rejects malformed or answer-bearing detail payloads, and only
+  locks a question after a valid server grading result.
+- The design-system audit changed the legacy tabs into a labelled tablist with
+  roving keyboard focus, kept the compact orientation header and independent
+  desktop panes, and added focus-contained glossary/image dialogs. The active
+  library cards now link directly to the native routes.
+- Verification is pinned by model/route tests, a fixture-backed browser flow,
+  the production Next build, and authenticated Legacy↔Next parity pairs.
+## Admin Speaking Topics — 2026-08-13
+
+### Summary
+
+The legacy Topics page mixed dense row actions, browser-native confirmation dialogs,
+and an inline question expansion into one desktop table. The native redesign makes
+the inventory and question library separate but connected workspaces, keeps Part and
+search state in the URL, and exposes the backend bulk operations that were previously
+described as future work.
+
+### Critical issues resolved
+
+- **AI generation copy contradicted the write contract.** The old control promised to
+  add only missing questions while an empty request selected the backend's destructive
+  `replace_all` default. The API and UI now default to `missing_only`; rotation is a
+  separately labelled destructive action with an accessible confirmation dialog.
+- **Question creation omitted canonical Part.** The old form sent no `part`, producing
+  a 422 response, and it hid Part 3 follow-ups inside a Part 2 topic. The new editor
+  sends and displays each question's actual Part, type, order, cue-card bullets and
+  reflection.
+- **Metadata lookup failure appeared as zero questions.** A failed aggregate query
+  previously produced `question_count=0`, inviting unsafe generation. The response now
+  carries `question_metadata_lookup_failed`, renders the count as unknown and disables
+  missing-only actions until the source can be read.
+
+### High-priority improvements implemented
+
+- Replaced `confirm()` and duplicated modal CSS with the shared focus-trapped `Dialog`,
+  including Escape, focus return and busy-state close prevention.
+- Added a mutation lock and canonical list/question readback after create, edit, toggle,
+  delete, generation and bulk operations. Acknowledgements must identify the exact
+  written records before success is shown.
+- Preserved the last valid topic snapshot on refresh failure and kept question-fetch
+  failure distinct from a genuinely empty topic.
+- Added responsive card rows below 768px, a non-sticky stacked detail surface on narrow
+  screens, 40px+ actions, visible focus rings and reduced-motion handling.
+- Warned that editing question text invalidates old audio, matching the backend's
+  deliberate audio reset behavior.
+
+### Positive observations preserved
+
+- The Part 1/2/3 mental model and direct topic/question CRUD remain familiar.
+- The legacy HTML page stays available as an explicit rollback artifact while the
+  clean route is owned by Next.js.
+## Admin Writing Status — native job monitor (2026-08-13)
+
+### Summary
+
+The legacy `/pages/admin/writing/status.html` was audited against its backend contract and migrated to the clean `/admin/writing/status` route. The screen is a read-only monitor for one `essay_id`, not the daily aggregate dashboard previously described by the route ledger.
+
+### Critical issue resolved: ownership metadata contradicted the product
+
+**Current state**: The ledger claimed `date_range`, `metric`, charts and a daily dashboard, while the implementation only calls `GET /admin/writing/essays/{id}/status`.
+**Problem**: Migration planning could invent filters and analytics that no canonical backend supports.
+**Recommendation implemented**: The route now exposes one essay identity, canonical state, retry evidence and operational next steps; the ledger was corrected to the real contract.
+**Impact**: Admins see backend truth and future batches cannot rely on fictional API behavior.
+
+### High priority issue resolved: overlapping poll responses
+
+**Current state**: The legacy page used an unconditional `setInterval(5000)`.
+**Problem**: A slow request can overlap the next interval and a late response can overwrite a newer state.
+**Recommendation implemented**: The native monitor schedules the next poll only after the current read settles, keys responses by admin account and essay, pauses while hidden, and stops at terminal status.
+**Impact**: The displayed state cannot regress because of overlapping requests or an account/essay switch.
+
+### High priority issue resolved: simulated progress looked canonical
+
+**Current state**: A time-derived percentage was presented as a normal progress bar.
+**Problem**: The backend reports an ETA, not realtime completion percentage or actual Deep-tier pass telemetry.
+**Recommendation implemented**: The UI labels both the bar and Deep-tier phase as time estimates, caps active progress below completion, and distinguishes canonical status from perceived wait time.
+**Impact**: Operators can judge waiting time without mistaking an animation for backend processing truth.
+
+### Medium priority improvements implemented
+
+- Poll failures keep the last matching snapshot and label it stale instead of replacing the status with an error string.
+- Retry count and the latest persisted failure are separated into a reliability ledger; malformed optional details are excluded visibly.
+- Terminal success links to the native Grade workspace; failure links back to the correct Queue or embedded Mock lane.
+- Responsive timeline/cards, keyboard focus, reduced-motion behavior and text-safe rendering are included in the native surface.
+
+### Positive observations preserved
+
+- Five-second polling cadence and terminal states remain compatible with the existing backend.
+- `embed` and `mocklane` survive the complete Queue → Status → Grade/Queue flow.
+- Direct legacy HTML remains available as the rollback artifact.
+
+## Admin Writing Prompts — native content workspace (2026-08-13)
+
+### Root causes and severity
+
+- **Critical — explicit clears were silently discarded.** `PromptUpdate` accepted
+  JSON `null`, but the route removed every `None` before sending the PATCH to
+  Supabase. Clearing difficulty, removing a chart or changing away from Task 1
+  Academic therefore left canonical database values unchanged while the legacy UI
+  reported success. The route now distinguishes omitted fields from explicit nulls,
+  permits null only for declared nullable fields and rejects null on required fields.
+- **Critical — stale answer keys could outlive their image.** Image replacement,
+  removal and soft-delete did not clear all analysis columns, and review writes did
+  not prove they still referred to the chart the admin opened. The backend now
+  invalidates the full analysis record whenever image/task identity changes, retains
+  every published Storage object as immutable historical grading evidence and uses
+  `expected_image_public_id` plus analysis status as optimistic-concurrency guards
+  on approval.
+- **Medium — archive was effectively irreversible.** The API supported inactive rows
+  and restore, but the UI only loaded active prompts and labelled soft-delete as
+  deletion. The native workspace provides explicit Active and Archived views with
+  canonical readback after archive and restore.
+- **Medium — answer-key editing dropped schema data.** The legacy form omitted
+  `axes_or_categories`; saving an otherwise valid extraction could erase the axes,
+  categories or time frame used by grading. The native editor includes every
+  `PromptImageAnalysis` field and preserves the image fingerprint when saving.
+- **Medium — async writes lacked operational truth.** Browser-native confirms,
+  non-awaited list reloads and a “close and reopen” reanalysis message could present
+  stale state as success. Mutations are now locked, exact acknowledgements validated,
+  and both lifecycle lists read back before success appears. Pending analysis polls
+  sequentially only while visible; failed refreshes keep and label the last snapshot.
+
+### Design improvements implemented
+
+- A manually composed content workspace separates server filters, local search and
+  student/exam visibility without inventing backend search semantics. A visible cap
+  warning explains that local search covers at most the loaded 500 records.
+- Prompt cards combine Task, difficulty, audience and answer-key state into a compact
+  visual hierarchy; archived content gets one safe restore action.
+- Prompt content, image upload and verified answer-key editing live in distinct,
+  focus-trapped dialogs. Files accept only PNG/JPG/WebP and upload on Save, avoiding
+  abandoned objects when a user merely previews or cancels a form.
+- Responsive layouts collapse overview metrics, filters and cards without horizontal
+  overflow; keyboard focus and reduced-motion behavior follow the governed admin
+  token system.
+
+### Verification
+
+- Backend route tests cover nullable clears, required-null rejection, paired image
+  validation, published-object retention, full analysis invalidation, discard path
+  scoping, pending-worker exclusion and stale image-fingerprint rejection.
+- Frontend model tests reject malformed canonical payloads and pin URL filters plus
+  exact mutation acknowledgements.
+- The fixture-backed browser flow covers admin gate, active/archive reads, hostile
+  text escaping, answer-key approval, student/exam changes, create, archive, restore,
+  stale snapshot preservation and 390px layout.
+
+## Admin Writing Regrade Requests — atomic decision workspace (2026-08-13)
+
+### Root causes and severity
+
+- **Critical — Accept was a non-atomic two-table saga.** The legacy route first
+  moved `writing_essays` from delivered to reviewed, then separately marked
+  `essay_regrade_requests` accepted. A write failure or concurrent admin decision
+  could hide feedback from the learner while the request remained pending or was
+  rejected. Migration 205 now locks both rows and applies accept/reject through a
+  service-role-only RPC in one transaction.
+- **Critical — re-delivery could leave an accepted request open.** Standard delivery
+  previously updated the essay and then fulfilled the request best-effort; Instructor
+  delivery did not close it at all. Migration 205 adds an atomic delivery RPC plus a
+  database trigger that fulfils every accepted request in the same transaction as any
+  essay transition to delivered.
+- **Medium — list completeness and malformed data were invisible.** The endpoint
+  silently capped at 300, while the legacy UI trusted every response row and showed
+  no stale state. The API reads a 301st sentinel and reports `capped`; the native UI
+  also labels stale snapshots and excluded contract violations.
+- **Medium — decisions lacked canonical reconciliation.** The legacy modal accepted
+  any PATCH response, closed immediately and reloaded one filtered lane. The native
+  flow validates the exact request/status acknowledgement, then reads both detail and
+  the all-status snapshot back before showing success. A transient post-write failure
+  exposes a readback-only retry and never repeats the PATCH.
+
+### Design improvements implemented
+
+- Four lifecycle tabs keep counts from four status-scoped canonical snapshots, with local search over
+  learner, cohort, prompt and reason. Cards prioritize the learner's reason beside the
+  exact task, band and essay state instead of compressing the decision into a table row.
+- A visible three-step strip explains request → atomic decision → re-delivery, and an
+  accepted detail links directly to the native grade workspace for the next action.
+- The focus-trapped dialog fetches fresh detail before enabling action, requires a
+  written rejection reason and removes browser-native confirm/alert behavior.
+- Responsive cards collapse to one column at mobile width, with 44px targets, visible
+  keyboard focus and reduced-motion support.
+
+### Verification
+
+- Backend tests cover RPC parameter truth, malformed acknowledgements, lifecycle 409s,
+  atomic migration sentinels and standard delivery through the new RPC.
+- Frontend model tests reject invalid identity/status/band values, pin exact decision
+  acknowledgements, URL filters, native ownership and governed styles.
+- The fixture-backed production browser flow covers hostile text, fresh detail reads,
+  Accept followed by a failed readback without a duplicate PATCH, retry reconciliation,
+  native grade handoff, stale snapshot preservation and 390px no-overflow layout.
+
+## 2026-08-13 — Admin Writing Assignments native redesign
+
+### Root causes and severity
+
+- **Critical — a successful fan-out could be repeated after readback failure.** The
+  legacy flow used a single `try` around POST plus list reload and had no durable
+  acknowledgement state. A network failure after the insert left the same “Giao
+  bài” action available, so retrying could create the full Cartesian product again.
+  The native flow persists a client request UUID before POST; migration 206 owns
+  the request ledger and Cartesian insert in one transaction. An ambiguous retry
+  with the same UUID returns the original receipt instead of inserting again. Once
+  acknowledged, the client stores that receipt separately and exposes only GET
+  reconciliation.
+- **Medium — list completeness was invisible.** The assignment endpoint silently
+  returned at most 200/500 rows, so counts and search could look complete while old
+  assignments were omitted. It now reads a sentinel row and returns `capped`; the
+  UI labels the scope rather than presenting partial data as canonical totals.
+- **Medium — cohort failures masqueraded as an empty catalog.** The legacy
+  `loadCohorts()` swallowed every error and replaced the source with `[]`. The new
+  composer loads prompts, students and cohorts independently with source-specific
+  errors, excludes malformed rows and never enables a stale failed source.
+- **Medium — the destructive scale of fan-out was hidden behind browser confirm.**
+  Admins selected inputs in one long modal, then saw a generic native confirmation.
+  A dedicated review step now shows `đề × học viên = bài sẽ tạo`, the exact class,
+  timing, feedback depth and duplicate policy before POST. The reviewed cohort
+  count is also sent as a backend precondition; a membership change returns 409
+  and forces a fresh review instead of silently changing fan-out scale.
+
+### Design improvements implemented
+
+- Grouped register cards mirror one give-action and expose per-row learner, prompt,
+  timer/deadline, lifecycle state and the next grade action without a wide table.
+- The composer keeps individual, cohort, multi-prompt, Student Hub deep-link,
+  soft-check, IELTS timer and L1–L5 capabilities, with searchable bounded pickers.
+- URL-backed status, cohort and local query filters are shareable; stale snapshots,
+  caps and malformed rows remain visible instead of collapsing to empty states.
+- The focus-trapped two-stage dialog, 44px controls, visible keyboard focus,
+  reduced-motion treatment and 390px single-column layout replace `alert/confirm`.
+
+### Verification
+
+- Backend tests pin the 501st sentinel and confirm the public response remains at
+  500 rows with an explicit `capped=true` signal.
+- Model tests reject impossible timer/status identities, duplicate IDs, partial
+  receipt verification and malformed receipts, and cover grouping, URL normalization
+  and server caps. The browser fixture also proves a missing non-first assignment
+  keeps reconciliation pending and a definitive 422 returns the admin to editing.
+- The fixture-backed browser flow checks hostile text, partial picker failure,
+  exact review arithmetic, successful POST followed by failed readback, GET-only
+  retry reconciliation, and mobile overflow.
+## 2026-08-13 — Admin Writing Cohorts native redesign
+
+### Summary
+
+The clean `/admin/writing/cohorts` route now owns a native React operational
+workspace while the direct legacy HTML remains the rollback target. The audit
+found a canonical contract bug before visual work: the backend keyed columns by
+`prompt_id`, although product policy permits assigning the same prompt in a new
+lesson. A later give could therefore overwrite an earlier one in the matrix.
+
+### Critical issues resolved
+
+- **Repeated gives no longer disappear.** Columns now use the real
+  assignment-group × prompt identity, with immutable assignment-id fallback for
+  legacy standalone rows. Every give remains independently visible and links to
+  its own essay.
+- **Deadline truth uses instants.** Overdue calculation parses timezone-aware
+  timestamps instead of comparing differently formatted ISO strings.
+- **Read failures never masquerade as empty state.** List and detail requests
+  preserve their last account-keyed snapshot, label it stale, and expose retry;
+  malformed rows/cells are counted visibly.
+
+### High-priority UX improvements
+
+- Replaced emoji-only tooltip cells with readable status labels, deadline/band
+  context, a persistent legend and URL-restorable activity/status/query filters.
+- Added a responsive master/detail hierarchy, compact cohort summaries, sticky
+  student/header context and 44px controls. Mobile keeps the matrix horizontally
+  scrollable without overflowing the page shell.
+- Grade actions are rendered only for canonical cells carrying an `essay_id`;
+  empty assignments remain truthful non-actions.
+
+### Positive observations preserved
+
+- Full backend admin statuses remain visible rather than collapsing to the
+  learner-facing lifecycle.
+- The legacy rollback page and direct URL stay available for parity verification.
+## 2026-08-14 — Native `/admin/reading/preview` migration
+
+### Root causes and severity
+
+- **Critical — image writes could look complete before canonical truth was known.**
+  The legacy preview treated any resolved upload/delete request plus a reload as
+  success, without validating the mutation identity or the exact persisted image
+  path. The native flow validates the question-bound ACK and only reports success
+  after the full test GET confirms the canonical question payload. Ambiguous
+  responses are reconciled with GET and never replay the non-idempotent upload.
+- **Medium — paper QA and student preview were conflated.** The old workspace
+  rendered an admin-specific answer-key inspector but documentation described it
+  as the student view. The native page labels itself as Paper QA, while a separate
+  link opens the exact student review renderer through `admin_test_id` without
+  creating an attempt.
+- **Medium — malformed content was silently absorbed.** Invalid passage/question
+  identities, count drift, malformed IMG-PROMPT records and duplicate question
+  numbers could disappear into the render. The normalizer now excludes only rows
+  that cannot be identified and exposes each contract issue visibly.
+- **Medium — long papers lacked a usable information hierarchy.** Passages,
+  questions, answer keys and diagram tooling ran as one long column. The new
+  workspace separates reading rhythm from QA inspection and adds passage-level
+  sticky navigation.
+
+### Design improvements implemented
+
+- A restrained test hero, explicit admin-QA banner and compact truth metrics make
+  scope/status visible before the paper body.
+- Passage text uses a bounded reading measure; the question inspector separates
+  prompt/options, parsed template, diagram workflow and canonical answer evidence.
+- Consecutive diagram/flow questions expose exactly one image owner, matching the
+  student renderer. IMG-PROMPT metadata is collapsible and copyable beside it.
+- Mobile navigation becomes a contained horizontal passage strip; cards collapse
+  to one column without page overflow. Controls retain 44px targets, visible focus,
+  focus-trapped delete confirmation, dark tokens and reduced-motion behavior.
+- The legacy HTML remains an explicit rollback link; content-library and Reading
+  feedback deep links now target the clean native route.
+
+### Verification
+
+- Model/source tests cover nullable-number truth, malformed/count drift, duplicate
+  identity reporting, block ownership, IMG-PROMPT matching and exact mutation ACKs.
+- A fixture-backed browser flow proves admin gating, sanitized hostile Markdown,
+  answer/explanation visibility, one image manager per block, multipart upload and
+  delete followed by canonical readback, student-like preview URL, mobile/desktop
+  containment, dark mode and absence of unexpected writes.
+
+## 2026-08-14 — Native `/admin/listening` content inventory
+
+### Root causes and severity
+
+- **Medium — lookup failure looked like missing authoring.** The legacy table
+  rendered a bare `?` when a per-row exercise request failed. This made an API
+  outage indistinguishable from an incomplete lesson. The native inventory has
+  explicit loading, ready and unavailable states; unavailable copy states that it
+  does not mean “chưa có”.
+- **Medium — malformed payloads could become a false empty screen.** The legacy
+  controller defaulted absent `items` and `total` to empty values. The native
+  normalizer rejects an invalid envelope, excludes only malformed identified rows
+  and keeps the backend total visible.
+- **Medium — filter and page context were not restorable.** Status and offset lived
+  only in memory, so refresh/back lost the admin’s place. Native status and page
+  live in the clean URL and reset coherently when the filter changes.
+- **Low — the nine-column table hid the authoring workflow.** The inventory listed
+  raw fields and six tiny actions with little hierarchy. A four-step authoring map,
+  grouped audio/status/exercise evidence and clearer primary identity reduce scan
+  cost without inventing aggregate metrics.
+
+### Design improvements implemented
+
+- A compact operational hero separates Cambridge test management and learner
+  preview from the canonical content list; the legacy page remains an explicit
+  rollback link rather than a competing primary destination.
+- Each row exposes content identity, classification, audio readiness, publication
+  status and all four exercise types. Exercise chips retain draft/published/archive
+  truth and report malformed or duplicate records instead of silently collapsing.
+- At tablet widths the table becomes labelled record cards; mobile actions retain
+  44px targets. Focus-visible states, token-only dark surfaces and reduced-motion
+  behavior follow the governed admin language.
+- This batch is intentionally read-only. Detail, status and metadata mutations stay
+  on their existing workspaces until separately audited and migrated.
+
+### Verification
+
+- Model tests cover filter normalization, canonical list invariants, malformed-row
+  reporting, exercise ownership/status/duplicates, audio sentinels and durations.
+- A fixture-backed browser flow proves admin gating, URL state, escaped hostile
+  titles, per-row partial failure truth, deep-link identity, mobile/desktop
+  containment, dark mode and zero business writes.
+
+## 2026-08-14 — Native `/admin/listening/content/[contentId]` detail
+
+### Root causes and severity
+
+- **Critical — publication writes could be shown optimistically.** The legacy
+  workspace merged the PATCH response into local state, so a stale or partial ACK
+  could disagree with persisted backend truth. The native flow requires an explicit
+  confirmation and only reports success after a canonical content GET confirms the
+  requested state.
+- **Medium — an exercise outage erased otherwise valid metadata.** Content and
+  exercise requests previously shared one `Promise.all`; either failure collapsed
+  the whole page. They now load independently, and an exercise failure explicitly
+  says that it is not evidence of an empty lesson.
+- **Medium — malformed and cross-content exercise rows were treated as empty.**
+  The shared normalizer validates ownership, aggregates duplicate blocks, exposes
+  mixed publication status and counts supplemental mini-tests separately.
+- **Medium — audio provenance and render waiting were ambiguous.** Content audio,
+  parent-test audio, pending ElevenLabs output and failed/unknown states now remain
+  distinct. Automatic polling is bounded to 60 seconds and exposes its expiry.
+
+### Design improvements implemented
+
+- The page uses a canonical metadata hero, compact truth cards, a four-type
+  exercise matrix and a readable transcript surface instead of an undifferentiated
+  editor column.
+- Publication actions explain learner visibility and attempt-history preservation
+  before mutation. The accessible dialog traps/restores focus, supports Escape and
+  stacks into a mobile sheet with 44px controls.
+- The native detail owns the clean path identity. Existing metadata and exercise
+  editors remain explicit links, and the legacy detail remains an explicit rollback
+  target rather than being silently removed.
+- Responsive grids collapse without horizontal page overflow; hostile title and
+  transcript text remain escaped by React. Dark surfaces, focus-visible states and
+  reduced-motion behavior use the governed admin tokens.
+
+### Verification
+
+- Model/source tests cover identity validation, safe signed-audio URLs, independent
+  reads, status readback, bounded polling, rollback/editor links and responsive CSS.
+- A fixture-backed browser flow proves partial exercise failure, escaped hostile
+  data, mobile/desktop containment, focused confirmation, exactly one PATCH and
+  canonical GET reconciliation against a deliberately stale mutation response.
+
+## 2026-08-14 — Native `/admin/listening/tests` inventory
+
+### Root causes and severity
+
+- **Critical — a resolved PATCH was treated as the final truth.** The legacy list
+  refetched broadly but never proved that the exact test carried the requested
+  status or `exam_only` flag. Native mutations use a confirmation dialog, ignore
+  the PATCH payload and validate an exact test GET before refreshing the list.
+- **Medium — malformed list envelopes became empty inventories.** Missing `items`,
+  invalid counts and malformed test rows were defaulted or rendered as absence.
+  The normalizer now rejects invalid envelopes, excludes only bad rows and keeps
+  the backend total plus a visible contract warning.
+- **Medium — operational context disappeared on refresh.** Status, type, search
+  and page lived only in JavaScript memory. They now round-trip through the clean
+  URL, with a bounded debounced search and coherent page reset.
+- **Medium — publication and learner visibility were visually conflated.** A
+  published `exam_only` test is valid but absent from the practice library. The
+  native page presents lifecycle and scope as separate canonical dimensions.
+
+### Design improvements implemented
+
+- A visibility-boundary explainer precedes the inventory, then each responsive
+  record groups identity, type/scope, section/audio completeness and lifecycle.
+- Import actions remain direct legacy workspaces and test detail remains an
+  explicit legacy link; the old tests list is retained as a rollback target.
+- Mutation copy explains the backend audio publish gate and the possible 409 when
+  returning a test that an active mock exam still owns. The UI distinguishes a
+  confirmed backend write from a failed follow-up list refresh.
+- Mobile cards avoid page overflow, keep 44px actions and preserve visible focus;
+  dark surfaces and reduced-motion behavior stay on shared admin tokens.
+
+### Verification
+
+- Model/source tests cover URL normalization, row/envelope invariants, backend
+  total preservation, identity-bound readback, dialog ownership and responsive CSS.
+- The fixture-backed browser flow uses hostile text and deliberately stale PATCH
+  responses to prove no optimistic state, then validates status and exam-only via
+  exact GET plus list refresh on mobile and desktop.
+
+## 2026-08-14 — Native `/admin/listening/tests/[testId]` workspace
+
+### Root causes and severity
+
+- **Critical — audio mode could disagree with persisted truth.** The legacy page
+  changed local state before PATCH and deliberately kept that selection after a
+  failed write. The native selector may preview the requested panel while saving,
+  but a rejected mutation rereads the test and returns to the canonical mode.
+- **Critical — destructive and publication ACKs were trusted too broadly.** Audio,
+  map, status and cascade-archive writes now ignore their mutation payload and
+  require an exact test GET. Hard delete cannot be read back, so it requires the
+  UUID, human Test ID and complete non-negative cascade summary in its ACK. A
+  profile-keyed one-shot receipt carries cleanup totals or storage-orphan warnings
+  to the inventory without being consumed twice by React Strict Effects.
+- **Medium — concurrent actions could double-submit.** Upload, assemble, map,
+  lifecycle and delete controls now share one operation lock; dialogs remain busy
+  until canonical reconciliation finishes.
+- **Medium — preview-signing failure looked like missing media.** Test audio and
+  map storage truth is rendered separately from signed URLs. A stored asset whose
+  preview cannot be minted is reported as an operational error, never as absence.
+- **Medium — archive semantics were visually conflated.** Parent-only lifecycle
+  changes are now separated from “Lưu trữ toàn bundle”, which verifies every
+  returned section is archived while preserving attempts.
+
+### Design improvements implemented
+
+- A canonical hero and metadata strip lead into an audio pipeline workspace, then
+  section ownership, cue timeline, map assets, publication and a dedicated danger
+  zone. Test identity and learner/exam scope remain visible at the top.
+- Audio modes expose only relevant upload controls. Full and section assets show
+  canonical storage paths independently from playable signed previews; assemble
+  stays disabled until sections 1–4 are actually ready.
+- Plan-label cards retain manual-upload provenance, local image preview, MIME/size
+  validation and explicit $0 API copy. Existing API-generated assets remain
+  identifiable even though generation itself is decommissioned.
+- Confirmations use the shared focused dialog. Hard delete requires typing the
+  human Test ID; mobile grids collapse without page overflow and all controls keep
+  visible focus, reduced-motion support and token-governed surfaces.
+- `/admin/listening/tests/[testId]` owns the clean identity. The direct HTML page
+  remains an explicit rollback link; import and specialized editors remain direct
+  legacy workspaces until their own audited batches.
+
+### Verification
+
+- Model/source tests cover identity, duplicate/malformed children, mutation
+  readbacks, safe media URLs, upload constraints, publish gates, hard-delete ACKs,
+  route ownership, responsive CSS and dialog boundaries.
+- A fixture-backed browser flow proves escaped hostile data, mobile/desktop
+  containment, explicit map-signing failure, failed-mode rollback, stale-ACK
+  rejection, busy locking, map deletion, cascade archive and typed hard delete.
+- TypeScript strict and the production Next.js build include the dynamic route;
+  legacy test-detail behavior tests remain green as rollback coverage.
+
+## 2026-08-14 — Native `/admin/listening/attempts` evidence inventory
+
+### Root causes and severity
+
+- **Critical — association lookup failure was rendered as canonical absence.**
+  `_rows_by_id()` swallowed `users` or `listening_tests` read failures and returned
+  empty maps, so the admin saw dashes indistinguishable from genuinely deleted
+  associations. The backend now returns an explicit failure flag plus the failed
+  tables; list and detail surfaces render a warning and mark affected cells.
+- **Medium — malformed grading data could become a plausible result.** The legacy
+  renderer trusted list/detail envelopes, score ratios and question objects. The
+  native normalizer checks exact attempt identity, score/total/accuracy agreement,
+  lookup flags and per-question scalar/bool contracts, then reports excluded rows
+  without replacing the backend total.
+- **Medium — filter and detail context disappeared on navigation.** User, test,
+  type, status, page and selected attempt now round-trip through the clean URL.
+  List reads are keyed by admin account and filter scope; detail reads have their
+  own sequence guard so a late response cannot overwrite another attempt.
+- **Low — the route was missing from migration truth.** The deployed HTML page
+  existed but was absent from the route ledger. The ledger, site overview,
+  invariant matrix, sidebar and overview activity links now name the native owner.
+
+### Design improvements implemented
+
+- A compact evidence map explains identity, result and per-question layers before
+  the inventory. Filters are fully labeled and grouped; the table presents human
+  identity, test provenance, lifecycle, score/accuracy and elapsed time.
+- Selecting a row opens an inline evidence workspace with summary cards, trap
+  totals and a separate per-question table. Closing it removes only the attempt
+  identity from the URL while preserving active filters.
+- Missing association and failed lookup are visually distinct. Mobile tables
+  become labeled cards rather than horizontal page overflow; desktop retains dense
+  scanning, visible focus and token-governed dark/reduced-motion behavior.
+- The direct HTML page remains an explicit rollback link and preserves the one
+  filter (`user`) that the legacy runtime actually supports.
+
+### Verification
+
+- Backend tests cover list/detail failure flags and prove missing join data is no
+  longer silently presented as empty truth.
+- Model/source tests cover URL ownership, strict envelopes, identity and score
+  drift, lookup consistency, duration formatting, admin gate and native links.
+- The fixture-backed browser flow proves hostile React escaping, malformed-row and
+  lookup warnings, exact detail URL identity, trap evidence, canonical pagination
+  and mobile/desktop containment with no JavaScript errors.
+
+## 2026-08-14 — Native `/admin/listening/dictation` evidence workspace
+
+### Root causes and severity
+
+- **Critical — aggregate silently sampled a capped result set.** The legacy
+  endpoint requested one 2,000-row batch, still subject to PostgREST row caps,
+  then labelled it as the full session count and mean. The backend now pages the
+  complete filtered scope in bounded 1,000-row reads before aggregating.
+- **Critical — broad learner filters stopped after 200 matched accounts.** Both
+  list and aggregate could omit valid sessions without warning. Learner ID lookup
+  now uses the same bounded complete-scope pagination and is regression-tested
+  beyond 1,000 matches.
+- **Critical — learner lookup failure looked like an empty association.** User
+  enrichment reused a helper that swallowed lookup failures. List and detail now
+  expose an explicit `association_lookup_failed` contract and preserve the user
+  ID while the native UI marks affected identity cells.
+- **Medium — detail omitted the reference sentence and learner identity.** An
+  admin could see a score and typed text but not what the learner was expected to
+  hear. The detail endpoint now includes canonical user identity; the workspace
+  presents reference and learner text side by side with word/error evidence.
+- **Medium — one failed read erased unrelated evidence.** Legacy `Promise.all`
+  hid the valid list when aggregate failed. Native list and aggregate reads are
+  independently scoped, guarded and retryable.
+
+### Design and verification
+
+- Filters, page and selected session round-trip through the clean URL. A three-step
+  evidence map leads from aggregate trends to session rows and then sentence detail.
+- Accuracy always carries a textual interpretation, tables become labeled cards on
+  mobile, selection is a real button, and focus moves to exact session detail.
+- Backend tests prove user-lookup truth and aggregation beyond 1,000 rows. Model,
+  source and fixture-backed browser contracts cover malformed data, stale-response
+  rejection, independent failures, exact identity, hostile text escaping,
+  pagination, responsive containment and rollback behavior.
+
+## 2026-08-14 — Native `/admin/listening/content/[contentId]/edit` metadata editor
+
+### Critical issues resolved
+
+- **Explicit clears were silently ignored.** The PATCH schema accepted `null`, but
+  the route checked values instead of Pydantic's provided-field set. Clearing an
+  existing license, source URL, CEFR or IELTS section therefore produced no DB
+  update. The route now distinguishes omitted from explicit `null` and tests each
+  nullable field as canonical API behavior.
+- **Concurrent editors could overwrite each other.** The legacy form sent all nine
+  fields from a potentially stale snapshot and the backend did not update
+  `updated_at`. The native editor computes a field delta, sends the snapshot's
+  `expected_updated_at`, and the backend applies the write through the same version
+  filter while minting a new UTC timestamp. A 409 locks the editor before reload.
+
+### High-priority improvements
+
+- **Known-bad license data could pass differently by casing or URL scheme.** The
+  server now trims license/source values, blocks NC case-insensitively and accepts
+  only HTTP(S) attribution URLs. Topic tags are trimmed and deduplicated using a
+  case-insensitive key; the client mirrors these rules before network activity.
+- **Mutation success was inferred from the PATCH response.** Every save now writes
+  an account/content receipt, ignores the ACK as truth and performs an exact GET.
+  Ambiguous responses keep the form locked and expose a GET-only reconciliation;
+  the request is never automatically replayed.
+
+### Design improvements implemented
+
+- The editor is organized into core content, classification, discovery and rights
+  cards, with a read-only provenance rail and sticky delta summary. Nullable CEFR
+  and IELTS section start visibly unassigned instead of receiving fabricated
+  defaults.
+- Transcript length, topic-tag preview, attribution dependencies and paid-tier
+  incompatibility are visible beside the controls they affect. Reset, leaving,
+  pending-receipt discard and conflict reload use explicit confirmation boundaries.
+- Mobile collapses the form and provenance rail to one column, keeps 44px actions,
+  avoids horizontal page overflow and honors focus and reduced-motion preferences.
+  The HTML editor remains directly available as the rollback path.
+
+### Verification
+
+- Backend route tests cover explicit nulls, tag normalization, lowercase NC,
+  non-HTTP URL rejection, version conflict and fresh `updated_at` truth.
+- Model/source tests cover exact transcript preservation, nullable fields, delta
+  construction, receipt scope, canonical comparison, route ownership and token-only
+  responsive CSS. The browser fixture covers successful readback, 409 conflict and
+  an after-commit 503 reconciled without a second PATCH.
+
+## 2026-08-14 — Native `/admin/listening/segments` Dictation authoring
+
+### Root causes and severity
+
+- **Critical — saving could update the wrong Dictation block.** Production has
+  many legitimate `(content_id, exercise_type)` pairs with different
+  `order_num` values, while the legacy backend selected only the first row and
+  ignored order identity. Native saves carry exact `exercise_id`, content, type,
+  order and `updated_at`; legacy fallback lookup is also scoped by order.
+- **Critical — write success was not canonical truth.** The old editor trusted a
+  small POST acknowledgement and the backend returned success even when an UPDATE
+  matched no rows. Update/insert results must now contain a persisted row, and the
+  browser reports success only after a complete Dictation GET matches every field.
+- **Critical — concurrent editors could silently overwrite or duplicate a block.**
+  Updates now apply an atomic version filter; creates declare `expected_absent`.
+  Migration 208 enforces the verified logical block key
+  `(content_id, exercise_type, order_num)` without forbidding multiple orders.
+- **Critical — a segments-only save could erase unrelated JSONB configuration.**
+  The shared upsert previously defaulted omitted `payload` to `{}` and wrote it
+  over the stored row. Exact Dictation updates now preserve canonical payload
+  unless the caller explicitly supplies that field, with a regression test.
+- **Critical — a deleted exact identity could silently become a new exercise.**
+  `exercise_id` now requires a valid UUID and `expected_updated_at`; a missing or
+  mismatched row is a 409 and never falls through to INSERT.
+- **Medium — timestamp tooling depended on private audio internals.** The legacy
+  page polled `_audio.currentTime`, continued polling across pause and coupled the
+  editor to an implementation detail. The shared player now exposes the additive
+  `getCurrentTime()` public method used by the native route.
+- **Medium — whitespace-tolerant alignment could map to the wrong character.**
+  The previous fallback searched a collapsed transcript but reused that index in
+  the original alignment arrays. The model carries collapsed-to-original offsets
+  and alignment-token offsets, including multi-character and surrogate-pair data.
+- **Medium — an acknowledged POST followed by a failed GET lost reconciliation
+  truth.** The receipt now distinguishes write acknowledgement from readback; a
+  later 403/404 keeps the form locked and permits GET-only reconciliation without
+  replaying the POST.
+- **Medium — malformed inventory rows could masquerade as an absent order.** The
+  native editor now fails closed when any Dictation row cannot be normalized, so
+  it never offers an `expected_absent` create against incomplete canonical truth.
+- **Medium — only existing blocks were reachable.** Admins can now create the next
+  ordered Dictation block through the native UI. The create uses `expected_absent`,
+  remains locked behind a pre-write receipt, and installs the block only after a
+  canonical GET confirms it.
+- **Medium — the learner lazy-create path could race the new unique key.** Two
+  simultaneous first attempts can both miss the preflight lookup. The loser now
+  recognizes PostgreSQL `23505`, reads the canonical order-one winner and proceeds
+  without an incidental learner-facing 500. The other insert paths were audited:
+  full-test/drill imports derive globally distinct `idx + 1` orders per content
+  and roll back the entire import on persistence failure.
+- **Low — migration truth named the wrong query contract.** The ledger documented
+  `section_id/status`, while the live tool requires `content_id`. Route, inventory,
+  detail and sidebar now use the clean native entry and retain exact HTML rollback.
+
+### Design and verification
+
+- The editor follows an explicit listen → draft → verify sequence. Canonical audio,
+  transcript parsing, segment text/timestamps, block identity and publication are
+  visually separated while a sticky action boundary keeps save truth visible.
+- Multiple Dictation blocks are selectable by order and status; unsaved switching,
+  replacement parsing, deletion, leaving, receipt discard and conflict reload use
+  focused confirmation dialogs. Draft, published and archived states round-trip
+  without coercion. Missing/malformed/duplicate data fails visibly.
+- The global “Chia cắt audio” navigation returns to the native content inventory,
+  where every row carries its exact `content_id`; opening the parameterized route
+  without that identity also redirects there instead of rendering a dead editor.
+- The source transcript is explicitly read-only canonical evidence. Admins edit it
+  in the native Metadata screen, then regenerate segments, so the authoring form
+  no longer implies that an unpersisted scratch edit changed the content record.
+- Pending receipts intentionally use `sessionStorage`, scoped by admin and content.
+  This keeps simultaneous tabs from overwriting one another's mutation receipt;
+  dirty or pending tabs also register a close warning. A browser restart can lose
+  the receipt, so POST acknowledgement is never inferred from storage alone and
+  every visible success still requires canonical GET readback.
+- Production preflight on 2026-08-14 found 666 `listening_exercises` rows, zero
+  duplicate identity groups and zero NULL `updated_at` values. Migration 208 uses
+  a plain transactional unique index because the migration helper may wrap files
+  in a transaction (where `CONCURRENTLY` is invalid) and the measured table is
+  small enough for the bounded one-time lock.
+- Deployment must apply migration 208 before exposing the new backend/frontend;
+  `expected_absent` relies on that unique index as the atomic backstop between its
+  preflight read and insert.
+- Alignment is preferred when valid, character-proportional estimates are labeled
+  as estimates, and every row exposes manual start/end marking plus clip preview.
+  Mobile collapses to one column with 44px actions and no horizontal overflow.
+- Backend tests cover exact block/version/expected-absent behavior and unconfirmed
+  writes, payload preservation, structured uniqueness conflicts, missing/mismatched
+  exact identities, order-scoped legacy callers and complete GET shape. Model/source
+  tests cover normalization, token-aware alignment mapping, precision-safe time
+  formatting, over-limit transcript reporting, receipts, native links and token-only
+  CSS. The fixture browser flow covers draft/published/archived blocks, native
+  next-order creation, canonical readback, dirty switching, 409 conflict,
+  after-commit 503, POST-200/readback-403 reconciliation, storage failure, public
+  audio API and responsive containment.
+
+## 2026-08-14 — Native `/admin/listening/gist` rubric authoring
+
+### Root causes and severity
+
+- **Critical — the editor could mutate the wrong Gist block.** Legacy load chose
+  the first result and save omitted `exercise_id`, `order_num` and a version token.
+  The native route exposes every ordered block and writes one exact identity with
+  `expected_updated_at`, or declares `expected_absent` for a new order.
+- **Critical — a POST acknowledgement was treated as persisted truth.** The old
+  form immediately announced success without reading the exercise back. The new
+  editor records the complete intended operation before POST and only reports
+  success after canonical GET matches prompt, model answer, keyword order, status
+  and block identity.
+- **Critical — concurrent work could overwrite a newer rubric.** Existing blocks
+  now use atomic optimistic concurrency and lock on 409. Ambiguous writes retain
+  a per-admin, per-content session receipt and expose GET-only reconciliation;
+  they are never automatically replayed.
+- **Medium — keyword overflow was silently discarded.** Backend validation used
+  `[:10]`, so an admin could believe all anchors were saved while the final five
+  disappeared. The API now rejects more than ten, empty, non-string, oversized or
+  case-insensitively duplicated keywords. The chip editor makes the count visible
+  and reports rejected additions without changing the accepted list.
+- **Medium — the screen hid grading behavior.** Admins saw “AI semantic” but not
+  that the non-AI fallback is capped at 60 or that learner success requires 80.
+  Those three rules now sit beside the rubric they affect; no fake preview score
+  is shown because there is no canonical preview endpoint.
+- **Medium — malformed rows could look like an empty block slot.** Complete block
+  normalization now fails closed on invalid payloads, versions, statuses or
+  duplicate orders so the UI cannot offer a misleading create over unknown data.
+- **Low — route documentation named a nonexistent `section_id` contract.** The
+  actual editor requires `content_id`; the native ledger, content inventory,
+  content detail and rollback link now preserve that exact query identity.
+
+### Design and verification
+
+- The workspace follows source → rubric → fallback anchors. Audio and a collapsed,
+  read-only transcript provide context without mixing content metadata writes into
+  the exercise mutation. Prompt and ground truth have visible counts and adjacent
+  validation; keywords use removable chips rather than an opaque comma string.
+- A provenance rail exposes block count, exact exercise ID, order, version, source
+  and publication state. Draft, published and archived blocks round-trip without
+  coercion; creating the next order is explicit and unsaved switching is confirmed.
+- The sticky save boundary states dirty/canonical truth. Leaving, switching,
+  creating a block, discarding a receipt and loading after conflict use focused
+  dialogs. Mobile collapses the rail and actions to one column with 44px controls,
+  visible focus and reduced-motion support.
+- Backend tests pin strict length/type/count/deduplication validation. Model/source
+  tests pin canonical normalization, exact operations, receipts, route ownership,
+  scoring copy and token-only responsive CSS. The fixture browser flow covers
+  draft/published/archived blocks, exact update, next-order create, dirty switching,
+  409 conflict, after-commit 503, POST-200/readback-403 reconciliation, storage
+  failure, canonical success truth and mobile/desktop containment.
+
+## 2026-08-14 — Native `/admin/listening/tf` answer-key authoring
+
+### Root causes and severity
+
+- **Critical — legacy saves could overwrite the wrong ordered block.** Load selected
+  the first row while POST omitted exact exercise identity, order and version. The
+  native editor lists every canonical block and uses `exercise_id` plus
+  `expected_updated_at`, or `expected_absent` for a new order.
+- **Critical — acknowledged POST was presented as canonical success.** A durable
+  per-admin/content receipt now precedes every write. Success requires a GET that
+  matches block identity, status, statement order, text and every T/F/NG answer;
+  ambiguous writes are reconciled by GET only and never replayed automatically.
+- **Critical — concurrent answer-key changes had no conflict boundary.** A 409 now
+  locks editing and preserves the newer canonical version until the admin chooses
+  to reload it.
+- **Medium — malformed field types were silently coerced.** Backend validation no
+  longer turns boolean/string indices, numeric statement text or numeric answers
+  into apparently valid data. Statements require contiguous integer indices,
+  string text of at most 1000 characters and an explicit T/F/NG value.
+- **Medium — the old form did not explain the distinction between F and NG.** Each
+  ground-truth option now states whether the audio confirms, contradicts or omits
+  the claim, reducing invalid answer keys.
+- **Medium — completion semantics were hidden.** The authoring screen states that
+  per-question marking is exact, blanks are wrong and backend `is_correct` becomes
+  true only at 100% for the block.
+
+### Design and verification
+
+- The workspace follows evidence → statements → publication. Audio and collapsed
+  transcript stay read-only; each numbered statement has adjacent validation,
+  explicit answer cards, reorder controls and a guarded delete boundary.
+- The provenance rail exposes exact block ID, order, version, source and lifecycle.
+  Dirty switching, leaving, new-block creation, receipt discard and conflict reload
+  use focused dialogs; no native `alert` or `confirm` is used.
+- Mobile stacks answer options and actions without horizontal overflow, preserves
+  44px controls and visible focus, and honors reduced motion. Legacy HTML remains
+  an explicit watchdog/manual rollback.
+- Production and staging preflight on 2026-08-14 found zero content/type groups
+  with more than one published Gist, T/F or MCQ block. Migration 209 therefore
+  adds a partial unique index as the atomic backstop for concurrent publishers;
+  the backend maps its `23505` to the same actionable 409 as the preflight guard.
+- Backend, model/source and fixture-browser tests pin strict payloads, multi-block
+  identity, draft/published/archived round-trip, exact update/create, 409, 503 after
+  commit, POST-200/readback-403, storage failure, GET-only reconciliation,
+  lowest-order learner fallback, keyboard-focus-stable reorder, add/remove/minimum
+  interactions and responsive containment.
+
+## 2026-08-14 — Native `/admin/listening/mcq` answer-key authoring
+
+### Root causes and severity
+
+- **Critical — the legacy editor can mutate the wrong MCQ block.** Its GET takes
+  `exercises[0]`, while POST omits `exercise_id`, `order_num` and a version token.
+  The native route must list every ordered block and update one exact identity,
+  or create the next explicit order with `expected_absent`.
+- **Critical — a POST response is treated as saved truth.** The old page shows
+  success without reading the canonical row back. The native route must create a
+  per-admin/content receipt before POST, require a complete GET match before
+  success, and reconcile ambiguous outcomes with GET only.
+- **Critical — concurrent answer-key edits can overwrite one another.** Existing
+  MCQ saves have no `expected_updated_at`; the native editor must lock on 409 and
+  reload the exact conflicted block instead of silently switching to order one.
+- **High — question editing loses context and focus.** Selecting a correct radio
+  re-renders the entire legacy list, deletion has no confirmation/undo boundary,
+  and questions cannot be reordered. Stable row keys, focus-preserving reorder,
+  inline validation and a live announcement are required.
+- **Medium — backend validation coerces malformed fields.** String or boolean
+  indices, numeric stems/options and coercible answer indices can become valid
+  persisted answer keys. MCQ writes must require exact JSON types and bounded
+  stem/option text while still loading oversized legacy rows for in-place repair.
+- **Medium — scoring and publication truth are hidden.** The screen must state
+  that one exact option is correct per question, unanswered questions are wrong,
+  and backend completion is true only at 100%. Multiple drafts remain valid, but
+  migration 209 permits only one learner-reachable published MCQ block.
+
+### Target interaction and verification
+
+- Use the established evidence → questions → publication workspace: canonical
+  audio/transcript stay read-only, each question groups its stem and four labeled
+  A/B/C/D options, and the right rail exposes exact block ID/order/version/status.
+- Support 1–20 questions, stable keyboard reorder, minimum-aware delete, add,
+  draft/publish/archive, dirty-switch/leave confirmations, receipt recovery,
+  exact-block conflict reload and explicit HTML rollback.
+- Pin the pure payload model, strict backend validator, migration-209 publication
+  backstop, native route ownership and a fixture-backed production browser flow
+  covering 401/409/503/readback failure, focus, add/remove/reorder and responsive
+  containment. Run Claude review after the major revamp before publishing the PR.
+
+## 2026-08-14 — Native `/admin/listening/import-fulltest`
+
+### Summary
+
+The legacy importer exposes the right parser and upload progress, but presents a
+four-file ingestion job as a collection of drop zones and browser-side mutations.
+The native redesign organizes it as pack identity → parser evidence → canonical
+readback, so an operator can tell which bytes were reviewed, what will be written
+and whether the backend actually persisted or published the test.
+
+### Critical issues
+
+#### Issue: Duplicate replacement crosses multiple browser mutations
+
+**Current State**: “Archive bản cũ & Import” PATCHes every matching active row,
+then starts a large upload and restores prior statuses when the commit reports an
+error.
+
+**Problem**: A lost upload ACK is not proof that commit failed. Restoring the old
+row while the server is still completing can create two active identities or hide
+which bundle is canonical.
+
+**Recommendation**: Do not archive inside the upload workflow. A duplicate Test ID
+must block commit and hand off to Kho test, where status changes already use a
+confirmation plus exact GET readback. The operator then reruns dry-run.
+
+**Impact**: A network failure cannot silently remove the only live paper or cause
+the importer to guess persisted truth.
+
+**Implementation Notes**: Keep the existing backend duplicate guard. Remove the
+combined action only from the native owner; retain HTML as explicit rollback.
+
+#### Issue: Dry-run is not cryptographically tied to the committed files
+
+**Current State**: The browser retains four mutable slot references, while dry-run
+sends only three and commit later reparses all four.
+
+**Problem**: The UI cannot prove that the file set being committed is the set the
+operator reviewed, especially after a replacement or Mini/Full mode change.
+
+**Recommendation**: Compute SHA-256 for all four files and include mode in one pack
+fingerprint. Invalidate preview whenever a slot or mode changes; allow commit only
+while the validated fingerprint remains current.
+
+**Impact**: The visual preview and the commit action refer to the same local bytes.
+
+**Implementation Notes**: Hash locally with Web Crypto; never upload or persist
+file contents in localStorage.
+
+#### Issue: Ambiguous POST can be replayed
+
+**Current State**: A network failure returns the page to an enabled import button.
+
+**Problem**: The original request may already have created a draft and uploaded
+audio. Repeating it can hit duplicate guards or produce uncertain cleanup work.
+
+**Recommendation**: Persist an account-scoped receipt before POST, including Test
+ID, pack fingerprint and exact baseline row IDs. A 5xx/network failure locks new
+POSTs; recovery searches by exact Test ID, excludes baseline IDs and reads the one
+candidate by UUID. Never replay the upload automatically.
+
+**Impact**: Reloads and transport failures become recoverable without duplicate
+writes.
+
+**Implementation Notes**: Treat 4xx as a definitive rejection; keep receipts for
+5xx, transport errors, malformed ACKs and failed GET readbacks.
+
+### High-priority improvements
+
+- **Evidence hierarchy**: Show parser errors, warnings, every question/answer and
+  contiguous IMG-PROMPT block before the commit control.
+- **Publication separation**: Commit creates Draft only. Published requires its own
+  focused dialog and exact UUID/status GET readback.
+- **Operational truth**: Expose file inventory, limits, Test ID, parser counts,
+  upload progress and canonical result in distinct regions instead of one mutable
+  banner.
+
+### Medium-priority enhancements
+
+- Route a four-file drop by extension/name while preserving explicit individual
+  pickers and per-slot errors.
+- Keep template downloads adjacent to the pack inventory.
+- Provide a one-click copy action per contiguous IMG-PROMPT block and a direct link
+  to the native test workspace after import.
+
+### Positive observations
+
+- Backend commit reparses the authoritative source files and already performs
+  fail-loud answer/timing validation.
+- The 60 MB cap, real XHR upload progress, automatic admin bearer token and
+  Draft-first lifecycle are worth preserving.
+- The existing canonical test inventory already supplies the safe duplicate-status
+  workflow needed by the redesign.
+
+### Verification
+
+- Model tests pin file routing/limits, SHA-256 descriptor shape, strict dry-run and
+  ACK contracts, section/image grouping, baseline reconciliation and account scope.
+- Fixture-browser coverage pins happy import/publish, duplicate blocking, 503
+  recovery without POST replay, storage failure before POST and mobile containment.
+- Full frontend tests, TypeScript, production build and focused backend importer
+  tests must pass; Claude review runs after browser verification and before commit.
+
+## 2026-08-14 — Native `/admin/listening/import-drills`
+
+### Summary
+
+The legacy batch table compressed file grouping, parser results and persistence
+into one optimistic surface. The native redesign uses four explicit evidence
+stages: inventory, dry-run, sequential commit and canonical result. It keeps the
+existing backend parser while making every uncertain relationship visible and
+non-actionable.
+
+### Critical issues resolved
+
+#### Issue: Loose multi-file selection can associate media with the wrong drill
+
+**Current State**: Directory paths are usable, but a loose selection has no
+reliable `audio_output/<TEST_ID>` owner and duplicate slots overwrite silently.
+
+**Problem**: The operator can validate one Source JSON while timings/audio from
+another drill are committed.
+
+**Recommendation**: Treat directory paths as canonical. Attach loose accessories
+only when exactly one Source JSON exists; surface unassigned and duplicate files
+as blocking inventory findings.
+
+**Impact**: No bundle is created by inference when the browser cannot prove file
+ownership.
+
+**Implementation Notes**: The pure grouping model returns bundles, unassigned
+files, ignored files and global errors separately.
+
+#### Issue: Audio without timings is silently downgraded to metadata-only
+
+**Current State**: The legacy controller simply omits the selected mp3 from the
+commit form when `timings.json` is absent.
+
+**Problem**: Admin intent and persisted truth diverge; the visible audio file is
+discarded without consent.
+
+**Recommendation**: Block the bundle before dry-run and explain that per-question
+replay windows require timings. Metadata-only is valid only when no audio was
+selected.
+
+**Impact**: “Audio-ready” and “Metadata-only” become truthful, mutually exclusive
+states.
+
+#### Issue: Batch POST results are replayable after transport ambiguity
+
+**Current State**: A network/5xx failure leaves the row available to retry and a
+successful ACK is not checked against canonical test detail.
+
+**Problem**: The backend may already have created a draft; a retry can collide or
+leave the operator unsure which row is authoritative.
+
+**Recommendation**: Commit selected rows sequentially. Before every POST, save an
+account-scoped receipt containing Test ID, SHA-256 fingerprint and baseline IDs.
+Keep it for all ambiguous outcomes, stop the whole queue, and reconcile by exact
+list/detail GET without replay.
+
+**Impact**: A batch can recover safely after reload, timeout or malformed ACK.
+
+### High-priority improvements implemented
+
+- Duplicate active Test IDs are never selectable and link to the native Kho test.
+- Canonical readback requires one exercised section, exact drill metadata and
+  top-level `full_audio_*` truth.
+- The confirmation dialog reports audio-ready versus metadata-only counts before
+  a write begins.
+- The table becomes stacked evidence cards on small screens; pickers and CTAs have
+  visible focus treatment and 44px touch targets.
+- Upload progress uses finite `progressbar` semantics outside a live region.
+
+### Positive observations preserved
+
+- The backend parser remains the canonical validator and commit still reparses
+  the uploaded bytes.
+- Metadata-only Drafts remain supported for planned audio production.
+- The HTML implementation stays reachable as a watchdog/manual rollback target.
+
+### Verification
+
+- Model tests cover deterministic grouping, limits, fingerprints, strict dry-run,
+  ACK/detail contracts, baseline reconciliation and account-scoped receipts.
+- Fixture-browser coverage exercises audio-ready, metadata-only, duplicate,
+  audio-without-timings, sequential success→503 stop, GET-only reconciliation,
+  localStorage failure before POST, focus and mobile containment.
+- TypeScript, production build, frontend contracts and backend drill importer
+  tests run before Claude review and publication.
+
+## 2026-08-14 — Native `/admin/listening/audit`
+
+### Summary
+
+The legacy dashboard visually flattened three different states: a successful
+live structural scan, the last persisted structural-plus-LLM audit, and a GET
+failure. The native redesign treats them as separate evidence clocks and closes
+the complete test inventory before presenting quality coverage.
+
+### Critical issues resolved
+
+#### Issue: Failed per-test reads look like an empty or unknown health pill
+
+**Current State**: Every rejected audit GET is converted to `null`; the row then
+shows `?` and `—` beside genuinely unaudited rows.
+
+**Problem**: An outage, permission problem or malformed response can be read as
+“nothing to inspect”, and aggregate health has no denominator for failed reads.
+
+**Recommendation**: Give every row a typed `loading`, `ready` or `lookup failed`
+state. Exclude lookup failures from clean health, show their count in the summary
+and provide a GET-only retry.
+
+**Impact**: Admins cannot confuse missing evidence with passing evidence.
+
+**Implementation Notes**: Response normalization binds UUID, Test ID, lifecycle,
+test type, question/section counts, issue counts and saved-audit identity.
+
+#### Issue: A paging guard can silently publish partial coverage
+
+**Current State**: The legacy controller stops after 30 pages, logs a console
+warning and renders the partial rows as though the dashboard covered every test.
+
+**Problem**: The screen's operational promise is “all tests”; an omitted older
+test may retain broken audio or answer evidence without appearing anywhere.
+
+**Recommendation**: Require a stable canonical total across pages. Reject an
+early short page, duplicate UUID, malformed row, changing total or guard overflow
+before replacing the last complete snapshot.
+
+**Impact**: The inventory is either demonstrably complete or visibly blocked.
+
+### High-priority improvements implemented
+
+- Live structural health is labelled as current no-LLM evidence; saved full audit
+  is labelled as a persisted snapshot from the last explicit full run.
+- Search, test type, live health and saved status are encoded in the URL.
+- Per-test audit GETs run in bounded batches of eight with a determinate progress
+  bar; account/request sequence guards prevent stale responses replacing state.
+- Summary cards expose canonical total, tests with errors, warnings and lookup
+  failures before the operator opens a detail workspace.
+- Desktop rows become labelled cards below 700px, action targets remain at least
+  44px and reduced-motion users do not receive progress animation.
+
+### Positive observations preserved
+
+- The backend structural/audio-bounds engine stays the canonical fast scanner.
+- The direct HTML audit detail remains an explicit watchdog/manual rollback.
+- Direct HTML dashboard remains the watchdog/manual rollback target.
+
+## 2026-08-14 — Admin Listening audit detail native repair workspace
+
+### Root causes closed
+
+- The legacy editor wrote transcript/question payloads without version tokens
+  and treated mutation ACK copy as canonical truth. The native workspace sends
+  `expected_updated_at` and requires an exact GET readback after every PATCH.
+- Its audio fallback selected the first section track for every question. Audio
+  now resolves assembled → full → the exact `section_num`; missing section audio
+  remains visible and never borrows another section.
+- Full audit is a paid, non-idempotent LLM POST but previously had no durable
+  ambiguity boundary. An account/test/request-scoped receipt is now written
+  before POST; timeout/5xx recovery is GET-only against the exact persisted
+  `health.request_id`, so another tab's run cannot close this receipt. A
+  confirmation-only discard path prevents an unpersisted 5xx from locking the
+  workspace forever and states that a retry can incur another charge.
+- Structural and LLM findings were inferred from code names in the browser.
+  Backend responses now expose `source`, including deterministic backfill for
+  older saved rows, and the UI labels both evidence types explicitly.
+- Triage formerly ignored invalid issue indexes and allowed `fixed` while errors
+  remained. Backend and UI now reject those states, require
+  `expected_updated_at`, and lock preserved inputs when another reviewer changes
+  the saved audit.
+
+### Interaction and responsive decisions
+
+- One section is edited at a time through keyboard-accessible tabs; transcript
+  and each question pin the version used for the write. An external edit to the
+  same canonical fields preserves the local draft but locks Save until the admin
+  explicitly reloads; unrelated readbacks preserve triage inputs. Inactive
+  section panels remain mounted, so mouse/arrow tab navigation never discards
+  transcript or question drafts.
+- Question forms include prompt, answer, alternatives, MCQ options, traps,
+  solution and optional audio bounds in one repair card. Full/assembled audio
+  keeps absolute windows; exact-section fallback subtracts a verified
+  `audio_offset`, cross-checks the declared section, and fails closed when the
+  timebase is unknown. Malformed option/window rows remain open for repair;
+  unreadable list fields must be explicitly re-entered so an unrelated fix
+  cannot clear grading data. Clearing both bounds on an existing window emits
+  explicit `null` and requires canonical GET confirmation. Non-audio repairs
+  on a question that never had a window may leave both bounds empty. Live and saved findings stay
+  visually separate instead of being merged into a false current snapshot.
+- Invalid or duplicate `q_num` values no longer close the whole workspace. The
+  ambiguous cards remain visible but read-only because the positional PATCH
+  would be unsafe; valid cards and transcript repair remain available.
+- Alternatives and trap mechanisms use newline-delimited fields, while option
+  text with embedded newlines round-trips through an escaped JSON string. A
+  comma inside a valid answer is never silently split into two grading keys.
+- The verification player is fixed but collapses on mobile; all primary controls
+  retain 44px touch targets, visible focus, reduced-motion support and no page
+  overflow at 390px.
+
+### Verification
+
+- Pure model coverage pins strict identity/count/version contracts, exact section
+  audio, option parsing, canonical matchers and durable receipt reconciliation.
+- Fixture browser coverage pins transcript/question versioned PATCH + GET,
+  ambiguous full-audit recovery without POST replay, triage guards and responsive
+  containment. Backend focused coverage pins source provenance and truthful writes.
+
+### Verification
+
+- Pure model tests cover filter URLs, complete inventory pages, exact identity,
+  live issue/count consistency, saved evidence and lookup-vs-clean summaries.
+- Fixture browser coverage uses 101 tests to prove offset 0/100 pagination,
+  bounded per-test reads, hostile-text escaping, lookup failure, URL filters,
+  GET-only retry, mobile containment and desktop restoration.
+- TypeScript, production build, full frontend contracts and the backend audit
+  engine suite run before Claude review and publication.

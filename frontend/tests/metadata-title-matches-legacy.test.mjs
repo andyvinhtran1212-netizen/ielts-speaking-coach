@@ -38,6 +38,26 @@ function routeIndex(dir = APP, out = new Map()) {
 
 const ROUTES = routeIndex();
 
+function pathnameOf(url) {
+  return new URL(url, 'https://parity.invalid').pathname;
+}
+
+function routeFile(url) {
+  const pathname = pathnameOf(url);
+  const exact = ROUTES.get(pathname);
+  if (exact) return exact;
+
+  const pathSegments = pathname.split('/');
+  for (const [route, file] of ROUTES) {
+    const routeSegments = route.split('/');
+    if (routeSegments.length !== pathSegments.length) continue;
+    if (routeSegments.every((segment, index) => (
+      /^\[[^/]+\]$/.test(segment) || segment === pathSegments[index]
+    ))) return file;
+  }
+  return null;
+}
+
 describe('metadata.title khớp <title> của bản legacy', () => {
   test('đọc được cặp parity và cây route', () => {
     // Một trong hai rỗng ⇒ khẳng định dưới thành xanh-rỗng.
@@ -48,13 +68,16 @@ describe('metadata.title khớp <title> của bản legacy', () => {
   test('không cặp nào lệch title', () => {
     const bad = [];
     for (const p of pairs) {
-      const file = ROUTES.get(p.next);
+      const file = routeFile(p.next);
       if (!file) { bad.push(`${p.next}: không tìm thấy page.tsx`); continue; }
 
       const m = /title:\s*'([^']+)'/.exec(readFileSync(file, 'utf8'));
       if (!m) { bad.push(`${p.next}: page.tsx không khai metadata.title`); continue; }
 
-      const html = readFileSync(path.join(ROOT, 'frontend/public' + p.legacy), 'utf8');
+      const html = readFileSync(
+        path.join(ROOT, 'frontend/public' + pathnameOf(p.legacy)),
+        'utf8',
+      );
       const t = /<title>([^<]*)<\/title>/.exec(html);
       if (!t) { bad.push(`${p.legacy}: không có <title>`); continue; }
 

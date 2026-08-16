@@ -7,9 +7,9 @@
   <title>Dashboard — Đang chuyển hướng</title>
 
   <!-- dashboard-consolidation — the ops Dashboard (6-metric overview + trends
-       + "Cần chú ý") was merged INTO Tổng quan at /pages/admin/index.html as
-       the "Vận hành" tab. This page is now a pure redirect; vercel.json also
-       301s the path server-side. Anti-flash IIFE kept so the redirect never
+       + "Cần chú ý") was merged INTO Tổng quan at /admin as
+       the "Vận hành" tab. This page is now a pure redirect; Next config also
+       redirects the path temporarily during the pilot. Anti-flash IIFE kept so the redirect never
        flashes the wrong theme and old bookmarks land cleanly. -->
 
   <script>
@@ -26,8 +26,8 @@
     })();
   </script>
 
-  <meta http-equiv="refresh" content="0; url=/pages/admin/index.html" />
-  <link rel="canonical" href="/pages/admin/index.html" />
+  <meta http-equiv="refresh" content="0; url=/admin" />
+  <link rel="canonical" href="/admin" />
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
@@ -46,8 +46,8 @@
 <body class="av-page av-admin-surface">
   <p class="redirect-note">
     Dashboard đã gộp vào Tổng quan.
-    <a href="/pages/admin/index.html">Mở Tổng quan →</a>
+    <a href="/admin">Mở Tổng quan →</a>
   </p>
-  <script>window.location.replace('/pages/admin/index.html');</script>
+  <script>window.location.replace('/admin');</script>
 </body>
 </html>

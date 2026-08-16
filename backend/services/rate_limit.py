@@ -121,6 +121,51 @@ def enforce_exercise_rate_limit(
         )
 
 
+def enforce_exercise_session_capacity(
+    user_id: str,
+    exercise_type: str,
+    daily_limit: int,
+    requested: int,
+) -> None:
+    """Reject a session that cannot fit in today's remaining attempt quota.
+
+    Attempt-level enforcement remains authoritative for races and other tabs;
+    this preflight prevents the normal 49/50 case from creating a 10-item
+    session the learner cannot finish.
+    """
+    if requested <= 0:
+        return
+    if daily_limit <= 0:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "feature_disabled",
+                "message": f"{exercise_type} exercises are not currently enabled.",
+            },
+        )
+    used = count_attempts_today(user_id, exercise_type)
+    remaining = max(0, daily_limit - used)
+    if requested > remaining:
+        reset_at = _utc_tomorrow_start().isoformat()
+        logger.info(
+            "[rate_limit] BLOCK session user=%s type=%s used=%d requested=%d "
+            "limit=%d reset_at=%s",
+            user_id, exercise_type, used, requested, daily_limit, reset_at,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "insufficient_session_quota",
+                "message": "Not enough daily attempts remain to finish this session.",
+                "exercise_type": exercise_type,
+                "limit": daily_limit,
+                "used": used,
+                "remaining": remaining,
+                "requested": requested,
+                "reset_at": reset_at,
+            },
+        )
+
 def count_flashcard_reviews_today(user_id: str) -> int:
     """
     Number of flashcard reviews this user has logged since UTC midnight.

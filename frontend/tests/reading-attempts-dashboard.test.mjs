@@ -70,7 +70,7 @@ describe('C — page controller (admin-reading-attempts.js)', () => {
     assert.match(js, /\/admin\/dashboard\/reading-attempts\?days='\s*\+\s*encodeURIComponent\(win\)/);
   });
   test('renders the auth-vs-anonymous split honestly', () => {
-    assert.match(js, /đăng nhập[\s\S]{0,40}ẩn danh/);
+    assert.match(js, /đăng nhập[\s\S]{0,120}ẩn danh/);
     assert.match(js, /auth_distinct_users/);
     assert.match(js, /anon_distinct_sources/);
   });
@@ -102,14 +102,14 @@ describe('C — navigation registration', () => {
   test('Dashboard nav item carries the reading-attempts subsection', () => {
     // dashboard-consolidation — reading-attempts subsection moved under 'overview'.
     assert.match(chromeJs, /section:\s*['"]overview['"][\s\S]{0,400}slug:\s*['"]reading-attempts['"]/);
-    assert.match(chromeJs, /reading-attempts\.html/);
+    assert.match(chromeJs, /href:\s*['"]\/admin\/dashboard\/reading-attempts['"]/);
   });
 });
 
 
 describe('C — backend cross-ref', () => {
   test('admin endpoint + service + admin gate exist', () => {
-    assert.match(adminRouter, /@router\.get\("\/dashboard\/reading-attempts"\)/);
+    assert.match(adminRouter, /@router\.get\("\/dashboard\/reading-attempts",\s*response_model=ReadingAttemptsDashboardOut\)/);
     assert.match(adminRouter, /await require_admin\(authorization\)/);
     assert.match(adminRouter, /compute_reading_attempts_dashboard\(days=days\)/);
   });

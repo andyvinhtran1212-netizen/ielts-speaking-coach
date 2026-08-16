@@ -106,9 +106,9 @@ check('chỉ render mode được backend báo theo thứ tự sư phạm',
     && (await modeLinks.nth(1).innerText()) === 'Trắc nghiệm');
 check('mode links encode đúng content id',
   (await modeLinks.nth(0).getAttribute('href'))
-    === '/pages/listening-dictation.html?content_id=content-one'
+    === '/listening/dictation?content_id=content-one'
     && (await modeLinks.nth(1).getAttribute('href'))
-    === '/pages/listening-mcq.html?content_id=content-one');
+    === '/listening/mcq?content_id=content-one');
 check('empty array là no-mode thật',
   (await page.locator('[data-content-id="content-empty"] .mode-empty').innerText())
     .includes('Chưa có dạng luyện nào'));

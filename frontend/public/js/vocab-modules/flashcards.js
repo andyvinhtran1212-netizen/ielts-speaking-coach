@@ -7,8 +7,8 @@
  *   mount(container, opts) → Promise<{ unmount }>
  *
  * This module is the stack-list page (NOT the per-card flip surface —
- * that lives at /pages/flashcard-study.html and is out of scope). On
- * click, a stack card navigates to flashcard-study.html.
+ * that lives at the native /flashcard-study route). On click, a stack card
+ * navigates to that shared player.
  *
  * Cleanup needs on unmount (more than my-vocab):
  *   - Cancel _state.previewTimer (debounced create-stack preview).
@@ -351,7 +351,7 @@ export async function mount(container, opts = {}) {
   }
 
   function navigateToStudy(stackId) {
-    const url = '/pages/flashcard-study.html?stack=' + encodeURIComponent(stackId);
+    const url = '/flashcard-study?stack=' + encodeURIComponent(stackId);
     if (embedded && window.top && window.top !== window) {
       try { window.top.location.href = url; return; } catch (_) {}
     }

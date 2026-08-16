@@ -9,10 +9,10 @@ const PAGE_LIMIT = 100;
 const MAX_PAGES = 20;
 
 const MODE_LINKS = [
-  ['dictation', 'Chép chính tả', '/pages/listening-dictation.html'],
-  ['gist', 'Ý chính', '/pages/listening-gist.html'],
-  ['true_false', 'Đúng/Sai', '/pages/listening-tf.html'],
-  ['mcq', 'Trắc nghiệm', '/pages/listening-mcq.html'],
+  ['dictation', 'Chép chính tả', '/listening/dictation'],
+  ['gist', 'Ý chính', '/listening/gist'],
+  ['true_false', 'Đúng/Sai', '/listening/tf'],
+  ['mcq', 'Trắc nghiệm', '/listening/mcq'],
 ] as const;
 
 interface Filters {
@@ -202,7 +202,7 @@ export function ListeningBrowseBehavior() {
   const { status, user } = useAuth();
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   const accountKey = status === 'signed-in' && user?.id ? user.id : null;

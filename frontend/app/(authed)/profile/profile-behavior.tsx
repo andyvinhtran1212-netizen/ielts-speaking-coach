@@ -57,7 +57,7 @@ export function ProfileBehavior() {
     if (status === 'signed-out') {
       inflightRef.current.forEach((c) => c.abort());
       inflightRef.current.clear();
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 

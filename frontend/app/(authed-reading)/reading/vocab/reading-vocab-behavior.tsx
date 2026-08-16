@@ -87,7 +87,7 @@ export function ReadingVocabBehavior() {
   const { status, user } = useAuth();
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   const accountKey = status === 'signed-in' && user?.id ? user.id : null;
@@ -227,7 +227,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
                 <a
                   aria-label={`Đọc bài ${passage.title}`}
                   className="rv-card"
-                  href={`/pages/reading-vocab-passage.html?slug=${encodeURIComponent(passage.slug)}`}
+                  href={`/reading/vocab/${encodeURIComponent(passage.slug)}`}
                   key={passage.key}
                 >
                   <div className="rv-card__top">

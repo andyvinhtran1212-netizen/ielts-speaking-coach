@@ -120,7 +120,7 @@ describe('regression — endpoint reuse, security, results link, XSS, tokens', (
   });
   test('exam results panel still links to the review', () => {
     assert.match(examHtml, /id="results-chuabai-link"/);
-    assert.match(examJs, /reading-review\.html\?attempt_id=' \+ encodeURIComponent\(result\.attempt_id\)/);
+    assert.match(examJs, /\/reading\/review\?attempt_id=' \+ encodeURIComponent\(result\.attempt_id\)/);
   });
   test('token-clean: no undefined --av-space, no --av-fs-md / --av-on-primary', () => {
     const live = css.replace(/\/\*[\s\S]*?\*\//g, '');

@@ -113,6 +113,7 @@
 
     <!-- Main content -->
     <div id="content">
+      <div id="writing-submit-notice" class="wd-submit-notice hidden" role="status"></div>
       <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
            revealed when GET /api/student/permissions returns writing=false). -->
       <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 flex items-start gap-3">
@@ -289,6 +290,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="../js/runtime-config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/writing-submit-receipt.js"></script>
   <script src="../js/analytics-beacon.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -642,6 +644,7 @@
     // 50–200 chars: allow + log.  <50 chars: silent (no log either).
     var modalState = {
       assignmentId:      null,
+      accountId:         null,
       autoSaveTimer:     null,
       countdownInterval: null,
       allowSoftCheck:    false,   // W-SOFTCHECK — per-assignment opt-in flag
@@ -667,6 +670,77 @@
       toast.textContent = message;
       document.body.appendChild(toast);
       setTimeout(function () { toast.remove(); }, 5000);
+    }
+
+    function showSubmissionNotice(kind, message) {
+      var notice = document.getElementById('writing-submit-notice');
+      if (!notice) return;
+      notice.className = 'wd-submit-notice is-' + kind;
+      notice.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      notice.textContent = message;
+      notice.classList.remove('hidden');
+    }
+
+    function hideSubmissionNotice() {
+      var notice = document.getElementById('writing-submit-notice');
+      if (notice) notice.classList.add('hidden');
+    }
+
+    function submitStatus(err) {
+      var value = Number(err && err.status);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function definitiveSubmitRejection(err) {
+      var status = submitStatus(err);
+      return status !== null && status >= 400 && status < 500 &&
+        status !== 408 && status !== 429;
+    }
+
+    async function reconcileSubmission(receipt) {
+      try {
+        var raw = await window.api.get(
+          '/api/writing/my-assignments/' + encodeURIComponent(receipt.assignmentId) +
+          '/submission?request_id=' + encodeURIComponent(receipt.requestId)
+        );
+        var ack = window.WritingSubmitReceipt.normalizeAck(raw, receipt.assignmentId);
+        if (!ack) throw new Error('Biên nhận nộp bài không khớp assignment.');
+        window.WritingSubmitReceipt.remove(receipt.account, receipt.assignmentId);
+        return ack;
+      } catch (err) {
+        if (submitStatus(err) === 404) return null;
+        throw err;
+      }
+    }
+
+    async function reconcilePendingSubmissions(accountId) {
+      var pending = window.WritingSubmitReceipt.list(accountId);
+      var confirmed = 0;
+      var superseded = 0;
+      for (var i = 0; i < pending.length; i += 1) {
+        try {
+          if (await reconcileSubmission(pending[i])) confirmed += 1;
+        } catch (err) {
+          if (submitStatus(err) === 409) {
+            window.WritingSubmitReceipt.remove(accountId, pending[i].assignmentId);
+            superseded += 1;
+          }
+        }
+      }
+      if (confirmed > 0 || superseded > 0) {
+        showSubmissionNotice(
+          confirmed > 0 ? 'success' : 'warning',
+          confirmed > 0
+            ? 'Đã đối chiếu: bài viết của em đã được nộp thành công.'
+            : 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.'
+        );
+        await Promise.all([loadAssignments(), loadEssays()]);
+      } else if (pending.length > 0) {
+        showSubmissionNotice(
+          'warning',
+          'Có một bài nộp chưa nhận được xác nhận. Mở lại bài để đối chiếu hoặc gửi lại an toàn với cùng mã yêu cầu.'
+        );
+      }
     }
 
     function formatRelativeTime(iso) {
@@ -1177,6 +1251,18 @@
       document.getElementById('modal-content').classList.add('hidden');
 
       try {
+        var pending = modalState.accountId
+          ? window.WritingSubmitReceipt.read(modalState.accountId, assignmentId)
+          : null;
+        if (pending) {
+          var ack = await reconcileSubmission(pending);
+          if (ack) {
+            showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+            closeModal();
+            await Promise.all([loadAssignments(), loadEssays()]);
+            return;
+          }
+        }
         // 1. Stamp started_at + transition pending → in_progress.
         //    Returns the fresh timer state we render the banner from.
         var startResult = await window.api.post(
@@ -1193,9 +1279,21 @@
         document.getElementById('modal-loading').classList.add('hidden');
         document.getElementById('modal-content').classList.remove('hidden');
 
-        document.getElementById('modal-essay-textarea').focus();
+        var textarea = document.getElementById('modal-essay-textarea');
+        var pendingAfterLoad = modalState.accountId
+          ? window.WritingSubmitReceipt.read(modalState.accountId, assignmentId)
+          : null;
+        if (pendingAfterLoad) textarea.value = pendingAfterLoad.essayText;
+        updateModalWordCount();
+        textarea.focus();
       } catch (err) {
-        alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+        if (submitStatus(err) === 409 && modalState.accountId) {
+          window.WritingSubmitReceipt.remove(modalState.accountId, assignmentId);
+          showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else {
+          alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+        }
         closeModal();
       }
     }
@@ -1506,7 +1604,12 @@
     }
 
     async function submitFromModal(force) {
-      if (!modalState.assignmentId) return;
+      if (!modalState.assignmentId || !modalState.accountId) return;
+      var assignmentId = modalState.assignmentId;
+      var accountId = modalState.accountId;
+      function isCurrentSubmission() {
+        return modalState.accountId === accountId && modalState.assignmentId === assignmentId;
+      }
       var textarea = document.getElementById('modal-essay-textarea');
       var text     = textarea.value;
       var wc       = countWords(text);
@@ -1518,6 +1621,7 @@
       if (!force && modalState.allowSoftCheck) {
         var spellIssues = [];
         try { spellIssues = await runSpellCheck(text); } catch (e) { spellIssues = []; }
+        if (!isCurrentSubmission()) return;
         if (spellIssues.length) { showSpellPanel(spellIssues); return; }
       }
 
@@ -1543,12 +1647,28 @@
         modalState.autoSaveTimer = null;
       }
 
-      try {
-        var result = await window.api.post(
-          '/api/writing/my-assignments/'
-            + encodeURIComponent(modalState.assignmentId) + '/submit',
-          { essay_text: text }
+      var receipt = window.WritingSubmitReceipt.begin(
+        accountId,
+        assignmentId,
+        text
+      );
+      if (receipt.essayText !== text) {
+        showSubmissionNotice(
+          'warning',
+          'Đang có một lần nộp chưa xác nhận với nội dung trước đó. Hệ thống sẽ đối chiếu lần đó trước.'
         );
+      }
+
+      try {
+        var raw = await window.api.post(
+          '/api/writing/my-assignments/'
+            + encodeURIComponent(assignmentId) + '/submit',
+          { essay_text: receipt.essayText, request_id: receipt.requestId }
+        );
+        var result = window.WritingSubmitReceipt.normalizeAck(raw, assignmentId);
+        if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
+        window.WritingSubmitReceipt.remove(accountId, assignmentId);
+        if (!isCurrentSubmission()) return;
 
         if (modalState.countdownInterval) {
           clearInterval(modalState.countdownInterval);
@@ -1558,25 +1678,53 @@
         // Phase 2.6: flagged path surfaces a friendlier alert
         // (Vietnamese explanation from the backend) instead of the
         // generic success copy.
-        if (result && result.is_flagged) {
-          alert(
-            '⚠ ' + (result.message || 'Bài đã nộp nhưng không được chấm.')
-            + '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+        if (result.isFlagged) {
+          showSubmissionNotice(
+            'warning',
+            (result.message || 'Bài đã nộp nhưng không được chấm.') +
+              ' Nếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
           );
         } else if (!force) {
           // Deliverable 4: confirmation frames the workflow as
           // "submit → instructor reviews → returns" with no mention of
           // the AI grading step running in the background.
-          alert('✓ Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
+          showSubmissionNotice('success', 'Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
         }
 
         closeModal();
         await Promise.all([loadAssignments(), loadEssays()]);
       } catch (err) {
-        alert('Lỗi nộp bài: ' + ((err && err.message) || 'không xác định'));
+        var reconciled = null;
+        try { reconciled = await reconcileSubmission(receipt); } catch (_) {}
+        if (reconciled) {
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+          closeModal();
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else if (submitStatus(err) === 409) {
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('warning', 'Bài đã đổi trạng thái hoặc được nộp ở tab khác. Danh sách đã được đồng bộ lại.');
+          closeModal();
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else if (definitiveSubmitRejection(err)) {
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
+        } else {
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice(
+            'warning',
+            'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; em có thể thử lại an toàn hoặc tải lại để đối chiếu.'
+          );
+        }
       } finally {
-        if (submitBtn) submitBtn.disabled = false;
-        if (saveBtn)   saveBtn.disabled   = false;
+        // Success closes the current modal (assignmentId becomes null). A late
+        // callback from assignment A must not enable controls for assignment B.
+        var mayResetControls = modalState.accountId === accountId &&
+          (modalState.assignmentId === assignmentId || modalState.assignmentId === null);
+        if (mayResetControls && submitBtn) submitBtn.disabled = false;
+        if (mayResetControls && saveBtn)   saveBtn.disabled   = false;
       }
     }
 
@@ -1711,10 +1859,20 @@
 
     async function main() {
       try {
+        var auth = await getSupabase().auth.getSession();
+        var session = auth && auth.data && auth.data.session;
+        if (!session || !session.user) {
+          window.location.replace('/login.html');
+          return;
+        }
+        modalState.accountId = session.user.id;
+
         // Default tab is "Bài giao". Both lists load in parallel so
         // the badge counts populate immediately even if the user
         // switches tabs before either request completes.
         await Promise.all([loadAssignments(), loadEssays()]);
+        hideSubmissionNotice();
+        await reconcilePendingSubmissions(modalState.accountId);
 
         // Apply Writing permission gating AFTER the lists render — the
         // start-assignment buttons we disable are rendered by

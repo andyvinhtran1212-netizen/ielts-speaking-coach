@@ -32,17 +32,19 @@ Nội dung listening được import trọn gói (audio + đề + script + bài 
 (5) Đóng                      →  PATCH /admin/listening/tests/{id}/audit  {status:'fixed', notes, resolved_indexes}
 ```
 
-Vào từ **Admin → Listening tests → 🔎 Audit nội dung** (`audit.html`) → mở 1 test (`audit-detail.html`).
+Vào từ **Admin → Listening tests → Audit nội dung** (`/admin/listening/audit`) → mở
+workspace native `/admin/listening/audit-detail?id={test_uuid}`. HTML tương ứng chỉ
+còn là watchdog/manual rollback.
 
 ## 5. Cơ chế sửa tại chỗ (thay cho re-import)
 
 | Sửa gì | Endpoint | Ghi chú |
 |--------|----------|---------|
-| 1 câu: prompt / đáp án / alternatives / bài giải / window | `PATCH /admin/listening/exercises/{exercise_id}/questions/{q_num}` | ghi thẳng `payload` JSONB; giữ mcq_multi group; trả re-check của câu |
-| Transcript section | `PATCH /admin/listening/content/{content_id}` | sẵn có |
+| 1 câu: prompt / đáp án / alternatives / options / traps / bài giải / window | `PATCH /admin/listening/exercises/{exercise_id}/questions/{q_num}` | yêu cầu `expected_updated_at`; ghi thẳng `payload` JSONB; giữ mcq_multi group; UI đọc lại canonical GET; draft giữ nguyên nhưng bị khóa nếu row đã đổi từ tab khác |
+| Transcript section | `PATCH /admin/listening/content/{content_id}` | yêu cầu `expected_updated_at`; UI đọc lại canonical GET |
 | Metadata test | `PATCH /admin/listening/tests/{test_id}` | sẵn có |
 | Audio 1 section | `POST /admin/listening/tests/{id}/audio/section/{n}` + `…/assemble` | **không** tự tính lại window → audit cờ `window_past_end` để chỉnh window tay |
-| Trạng thái/ghi chú audit | `PATCH /admin/listening/tests/{id}/audit` | reviewer triage |
+| Trạng thái/ghi chú audit | `PATCH /admin/listening/tests/{id}/audit` | bắt buộc `expected_updated_at`; reviewer triage; index sai/trùng bị từ chối; không `passed/fixed` khi còn error |
 
 ## 6. Engine
 
@@ -61,5 +63,24 @@ Dashboard hiện **health** (kết quả nhanh) + **trạng thái audit đã lư
 ## 8. Nguyên tắc
 
 - LLM chỉ **cảnh báo**, không tự sửa — người duyệt quyết định (giữ chuẩn feedback truthful).
+- Full-audit POST ghi receipt có `request_id` trước khi gọi; timeout/5xx chỉ được
+  reconcile bằng GET có đúng `health.request_id`, không tự replay một lượt LLM
+  có tính phí. Receipt chỉ được bỏ qua hộp xác nhận cảnh báo lượt chạy mới có
+  thể phát sinh thêm chi phí.
+- Window trong dữ liệu full test dùng timebase tuyệt đối. Player assembled/full
+  phát nguyên mốc; khi fallback sang track section thì trừ `audio_offset` của
+  chính section đó. Section >1 thiếu offset hoặc window khai sai section sẽ bị
+  khóa playback thay vì phát một đoạn nghe có vẻ hợp lệ nhưng sai. Câu không
+  cần audio vẫn sửa được khi để trống cả hai mốc.
+- Editor vẫn mở câu có option/window canonical hỏng, giữ dữ liệu đọc được và
+  hiện cảnh báo sửa tại card. Field list sai shape phải được nhập lại trước khi
+  Save, nên sửa một field khác không thể vô tình ghi đè đáp án/options thành
+  mảng rỗng. Xóa cả hai mốc của window đang tồn tại gửi explicit `null` và được
+  GET xác nhận. Alternatives/traps dùng mỗi dòng một giá trị để không làm vỡ
+  đáp án chứa dấu phẩy.
+- `q_num` hỏng/trùng không làm sập workspace: card mơ hồ bị khóa read-only vì
+  PATCH theo số câu không an toàn, còn transcript và card có identity hợp lệ
+  vẫn sửa được. Các section editor luôn được giữ mounted nên chuyển tab/keyboard
+  không làm mất draft chưa lưu.
 - Sửa đáp án/transcript = tác động học viên → sửa sau khi xác nhận; không tự đổi status publish của test.
 - Không sửa/skip test để ép xanh; test đỏ → sửa code.
