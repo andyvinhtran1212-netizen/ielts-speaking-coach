@@ -122,24 +122,19 @@ def test_van_giu_thu_trang_can_de_ve(monkeypatch, etype):
         assert payload["prompt_text"]
 
 
-def test_chep_chinh_ta_van_giu_transcript(monkeypatch):
-    """Chép chính tả vẫn chạy được: `segments` phải nguyên vẹn.
-
-    Bản đầu của test này seed `payload.segments` — SAI hình dạng. `segments` là
-    CỘT MỨC ĐỈNH của bảng (mig 057) và trang đọc `e.segments`
-    (`listening-dictation.js:101,112`), nên bản cũ xanh với một response mà trang
-    thật sẽ coi là "chưa cắt đoạn": nó không bảo vệ điều nó tự nhận là bảo vệ.
-
-    Sửa lại còn cho thấy một điều tôi đã hiểu sai: bộ lọc chỉ đụng `payload`, nên
-    nó CHƯA TỪNG đe doạ `segments`. Lý do an toàn không phải "tôi cố ý chừa ra"
-    mà là "nó nằm ngoài tầm với" (codex cục bộ #967 vòng 2).
-    """
+def test_chep_chinh_ta_chi_giu_timing_khong_gui_transcript(monkeypatch):
+    """Learner boot needs clip timing, never the reference transcript."""
     fake, authz = _patch(monkeypatch)
     cid = _seed(fake, "dictation", {"variant": "dictation_gap_fill"},
-                segments=[{"idx": 0, "transcript": "giữ nguyên"}])
+                segments=[{
+                    "idx": 0, "start_sec": 1.5, "end_sec": 4.25,
+                    "transcript": "ĐÂY LÀ ĐÁP ÁN",
+                }])
     res = _run(listening_router.get_listening_exercises(
         content_id=cid, exercise_type="dictation", authorization=authz))
-    assert res["exercises"][0]["segments"][0]["transcript"] == "giữ nguyên"
+    assert res["exercises"][0]["segments"] == [{
+        "idx": 0, "start_sec": 1.5, "end_sec": 4.25,
+    }]
 
 
 def _seed_dictation_with_key(fake):
@@ -173,18 +168,15 @@ def test_route_boot_chep_chinh_ta_khong_gui_dap_an(monkeypatch):
     assert leaked == [], f"route boot gửi đáp án xuống trình duyệt: {leaked}"
 
 
-def test_route_boot_van_giu_segments(monkeypatch):
-    """Chiều ngược: lọc quá tay là trang chép chính tả không chạy được.
-
-    Trang tìm bài bằng `Array.isArray(e.segments) && e.segments.length > 0`
-    (`listening-dictation.js:101`) — mất cột này là nó báo "chưa cắt đoạn".
-    """
+def test_route_boot_giu_segment_identity_nhung_khong_gui_transcript(monkeypatch):
+    """Boot preserves the iterator contract without exposing answer text."""
     fake, authz = _patch(monkeypatch)
     cid = _seed_dictation_with_key(fake)
     res = _run(listening_router.boot_listening_dictation(
         content_id=cid, authorization=authz))
     segs = res["exercises"][0]["segments"]
-    assert segs and segs[0]["transcript"] == "giữ nguyên"
+    assert segs and segs[0]["idx"] == 0
+    assert "transcript" not in segs[0]
 
 
 @pytest.mark.parametrize("bad", [None, "chuỗi json hợp lệ", 42, ["mảng"], True])

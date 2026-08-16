@@ -59,7 +59,7 @@ describe('/listening/browse — native React behavior', () => {
   test('offers only backend-reported modes in pedagogical order through current route owners', () => {
     assert.match(
       BEHAVIOR,
-      /\['dictation', 'Chép chính tả', '\/pages\/listening-dictation\.html'\][\s\S]*\['gist', 'Ý chính', '\/listening\/gist'\][\s\S]*\['true_false', 'Đúng\/Sai', '\/listening\/tf'\][\s\S]*\['mcq', 'Trắc nghiệm', '\/listening\/mcq'\]/,
+      /\['dictation', 'Chép chính tả', '\/listening\/dictation'\][\s\S]*\['gist', 'Ý chính', '\/listening\/gist'\][\s\S]*\['true_false', 'Đúng\/Sai', '\/listening\/tf'\][\s\S]*\['mcq', 'Trắc nghiệm', '\/listening\/mcq'\]/,
     );
     assert.match(BEHAVIOR, /MODE_LINKS\.filter\(\(\[mode\]\) => item\.availableModes\?\.includes\(mode\)\)/);
     assert.match(BEHAVIOR, /\?content_id=\$\{encodeURIComponent\(item\.id\)\}/);

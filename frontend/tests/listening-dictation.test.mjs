@@ -153,6 +153,11 @@ describe('Sprint 11.2 — dictation JS contract', () => {
     assert.match(JS, /r\.score/);
   });
 
+  it('does not require pre-submit segment transcripts and rebuilds reference from grade diff', () => {
+    assert.match(JS, /referenceFromDiff\(result\.diff\)/);
+    assert.doesNotMatch(JS, /seg\.transcript/);
+  });
+
   it('Sprint 11.3 — completion tab toggle (results + transcript)', () => {
     assert.match(JS, /tab-results/);
     assert.match(JS, /tab-transcript/);

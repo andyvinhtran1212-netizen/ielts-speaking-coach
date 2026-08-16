@@ -653,6 +653,7 @@ on:
       - 'frontend/tooling/verify-listening-landing-flow.mjs'
       - 'frontend/tooling/verify-listening-browse-flow.mjs'
       - 'frontend/tooling/verify-listening-standalone-flow.mjs'
+      - 'frontend/tooling/verify-listening-standalone-dictation-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
       - 'frontend/tooling/verify-listening-review-flow.mjs'
@@ -694,8 +695,8 @@ on:
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
       # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
-      # Các tệp dưới đây là rollback của ba route native `listening-mcq` / `-tf`
-      # / `-gist`. Chúng vẫn có đường ghi nên tiếp tục kích hoạt cổng write-flow;
+      # Các tệp dưới đây là rollback của bốn route native `listening-dictation`
+      # / `-mcq` / `-tf` / `-gist`. Chúng vẫn có đường ghi nên tiếp tục kích hoạt cổng write-flow;
       # route Next được kiểm bằng runner fixture riêng (không có content UUID
       # production ổn định để lập một cặp parity tĩnh trung thực).
       - 'frontend/public/css/listening-standalone-next.css'
@@ -705,6 +706,8 @@ on:
       - 'frontend/public/js/listening-tf.js'
       - 'frontend/public/pages/listening-gist.html'
       - 'frontend/public/js/listening-gist.js'
+      - 'frontend/public/pages/listening-dictation.html'
+      - 'frontend/public/js/listening-dictation.js'
       # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
       # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
       # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt
@@ -1130,6 +1133,12 @@ jobs:
       # identity, submit, reset, lỗi thân thiện và mobile containment.
       - name: Kiểm luồng Listening exercises native
         run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Standalone Dictation uses content_id and per-segment writes; it is not
+      # the test-linked core player below. The fixture pins transcript secrecy,
+      # clipped iteration, retry truth, completion and soft-navigation reset.
+      - name: Kiểm luồng Listening standalone Dictation native
+        run: node tooling/verify-listening-standalone-dictation-flow.mjs "http://localhost:$PARITY_PORT"
 
       # Analytics khóa range contract, weighted denominators và trạng thái
       # recent/empty/error trên browser thật.

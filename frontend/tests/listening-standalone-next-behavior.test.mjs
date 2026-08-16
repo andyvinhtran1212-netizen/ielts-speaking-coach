@@ -114,8 +114,8 @@ describe('Listening standalone native route contract', () => {
     assert.doesNotMatch(CLIENT, /innerHTML|dangerouslySetInnerHTML|eval\(/);
   });
 
-  test('browse sends migrated modes to clean routes and retains dictation rollback until its batch', () => {
-    assert.match(BROWSE, /\['dictation', 'Chép chính tả', '\/pages\/listening-dictation\.html'\]/);
+  test('browse sends every standalone mode to its clean native route', () => {
+    assert.match(BROWSE, /\['dictation', 'Chép chính tả', '\/listening\/dictation'\]/);
     assert.match(BROWSE, /\['gist', 'Ý chính', '\/listening\/gist'\]/);
     assert.match(BROWSE, /\['true_false', 'Đúng\/Sai', '\/listening\/tf'\]/);
     assert.match(BROWSE, /\['mcq', 'Trắc nghiệm', '\/listening\/mcq'\]/);

@@ -240,6 +240,7 @@ async function submitAttempt() {
       correct_words:   result.correct_words,
       total_words:     result.total_words,
       diff:            result.diff,
+      reference:       referenceFromDiff(result.diff),
       user_text:       userText,
       is_first_attempt: result.is_first_attempt,
     };
@@ -301,6 +302,17 @@ function renderDiffToken(op) {
 }
 
 
+function referenceFromDiff(diff) {
+  // The learner boot intentionally withholds segments[].transcript. A grade
+  // response reveals the canonical expected tokens for this submitted segment,
+  // so the completion transcript can be rebuilt only after that write succeeds.
+  return (Array.isArray(diff) ? diff : [])
+    .map((op) => op && typeof op.expected === 'string' ? op.expected.trim() : '')
+    .filter(Boolean)
+    .join(' ');
+}
+
+
 // ── Advance ─────────────────────────────────────────────────────────
 
 
@@ -338,7 +350,7 @@ function renderCompletion() {
           <span class="seg-label">Câu ${i + 1}</span>
           <span class="seg-score is-low">Chưa làm</span>
         </div>
-        <div class="seg-transcript">${escapeHtml(seg.transcript)}</div>
+        <div class="seg-transcript">Chưa có đối chiếu.</div>
       </li>`;
     }
     const pct = Math.round((r.score || 0) * 100);
@@ -350,7 +362,7 @@ function renderCompletion() {
         <span class="seg-label">Câu ${i + 1}</span>
         <span class="seg-score ${cls}">${pct}%  ·  ${r.correct_words}/${r.total_words}</span>
       </div>
-      <div class="seg-transcript">${escapeHtml(seg.transcript)}</div>
+      <div class="seg-transcript">${escapeHtml(r.reference)}</div>
     </li>`;
   }).join('');
 
@@ -359,7 +371,7 @@ function renderCompletion() {
     const r = SESSION.results[i];
     return `<div class="review-segment">
       <span class="review-label">Câu ${i + 1}</span>
-      <div class="review-reference">${escapeHtml(seg.transcript)}</div>
+      <div class="review-reference">${escapeHtml((r && r.reference) || 'Chưa có đối chiếu.')}</div>
       <div>${(r && r.diff ? r.diff.map(renderDiffToken).join('') : '<em style="color:var(--av-text-muted)">Chưa làm</em>')}</div>
     </div>`;
   }).join('');
