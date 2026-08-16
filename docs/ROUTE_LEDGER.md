@@ -363,6 +363,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
+| `/admin/mock-tests` | `/pages/admin/mock-tests/index.html` remains rollback target | `app/(authed-admin-mock-tests)/admin/mock-tests/page.tsx` — native React ownership 2026-08-16 | Admin | `tab=manage\|live\|review\|writing`; client stage filter | AuthProvider + backend-owned `/auth/me` role guard; strict canonical `/admin/mock-exams` list; account/request-keyed stale guards; visible-tab 15s refresh | M | Native orchestration cockpit with truthful exam identity, stage rail, shareable accessible tabs and published-only live admission. Manage/live/review child modules remain explicitly labelled embedded rollback surfaces pending their own native batches; Writing embeds the native queue. |
 | `/admin/mock-exams` | — | `pages/admin/mock-exams/index.html` | Admin | none | localStorage (theme), fetch (exam API) | M | Mock exam (placeholder); integrated into reading/writing/listening |
 | `/admin/mock-reviews` | — | `pages/admin/mock-reviews/index.html` | Admin | `status` (pending, approved), `type` (speaking, writing) | localStorage (theme), fetch (review API) | M | Instructor review queue (sealed submission flow) |
 | `/admin/mock-reviews/report` | — | `pages/admin/mock-reviews/report.html` | Admin | `review_id` | localStorage (theme), fetch (review data) | M | Review detail + decision + feedback |

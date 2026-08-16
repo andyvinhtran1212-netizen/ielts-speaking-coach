@@ -583,7 +583,7 @@ export function AdminOverview() {
               <SkillStat label="Tổng" value={skills.vocab?.words_total} />
             </SkillCard>
             <SkillCard name="grammar"><SkillStat label="Đề xuất 7d" value={skills.grammar?.articles_viewed_7d} /></SkillCard>
-            <a href="/pages/admin/mock-tests/index.html" className="admin-hub-card">
+            <a href="/admin/mock-tests" className="admin-hub-card">
               <h3>Thi thử (Mock Test) — 4 kỹ năng</h3>
               <div className="skill-stats"><div><span className="stat-label">Quản lý đề · phòng thi trực tiếp · duyệt bài · chấm Writing — trong một khu</span></div></div>
               <div className="meta"><span className="adm-status-pill is-live">LIVE</span></div>

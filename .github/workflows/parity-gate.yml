@@ -520,6 +520,16 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+      # Mock Tests cockpit owns the clean orchestration route. The child
+      # manage/live/review modules remain explicit rollback frames until their
+      # focused native batches; the fixture pins selection and admission truth.
+      - 'frontend/app/(authed-admin-mock-tests)/**'
+      - 'frontend/lib/admin-mock-tests-model.mjs'
+      - 'frontend/public/css/admin-mock-tests-next.css'
+      - 'frontend/public/pages/admin/mock-tests/index.html'
+      - 'frontend/public/js/admin-mock-tests.js'
+      - 'frontend/tooling/verify-admin-mock-tests-flow.mjs'
+      - 'frontend/tests/admin-mock-tests-next-behavior.test.mjs'
       # Writing hub is a native, read-only workflow map. Direct HTML remains
       # rollback; the fixture pins admin auth, destination truth and layout.
       - 'frontend/app/(authed-admin-writing)/**'
@@ -1420,6 +1430,12 @@ jobs:
       # extraction/upload contracts and responsive containment.
       - name: Kiểm luồng Admin Writing New native
         run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$PARITY_PORT"
+
+      # Native Mock Test orchestration is read-only. This fixture pins the
+      # backend-owned role gate, canonical selection, draft-live safety,
+      # shareable tabs, exact child identity and mobile containment.
+      - name: Kiểm luồng Admin Mock Tests native
+        run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$PARITY_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
