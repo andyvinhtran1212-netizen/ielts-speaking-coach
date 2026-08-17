@@ -3042,9 +3042,9 @@ def advance_section(exam_id: str, admin_id: str,
     """Admin advances the shared classroom clock to the NEXT configured section.
 
     not_started → listening → reading → writing → done (skipping any section
-    the exam has no test/prompt for). Force-collects stragglers of the section
-    being closed, then stamps `{next}_started_at` — every sitting under this
-    exam picks up the new section on its next poll.
+    the exam has no test/prompt for). Every transition out of LRW requires the
+    explicit collect flow to have completed its ACK-gated sweep; only then is
+    `{next}_started_at` stamped for every sitting's next poll.
     """
     exam = get_published_exam_by_id(exam_id)
     if not exam:
@@ -3074,7 +3074,12 @@ def advance_section(exam_id: str, admin_id: str,
             f"Màn hình của bạn đang hiển thị phần {expected_section!r} nhưng kỳ thi "
             f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
         )
-    if (exam.get("collected_section") == current
+    if current in _LRW_ORDER and exam.get("collected_section") != current:
+        raise SittingConflictError(
+            "Phải thu phần thi hiện tại và chờ lưu câu trả lời cuối trước khi "
+            "mở phần tiếp theo."
+        )
+    if (current in _LRW_ORDER
             and exam.get("collection_sweep_completed_section") != current):
         raise SittingConflictError(
             "Hệ thống đang chờ lưu câu trả lời cuối và thu đủ bài của phần này. "
@@ -3109,7 +3114,13 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         raise SittingConflictError("Kỳ thi đã kết thúc tất cả các phần.")
 
     paused = exam.get("collected_section") == current
-    if paused and exam.get("collection_sweep_completed_section") != current:
+    if current in _LRW_ORDER and not paused:
+        raise SittingConflictError(
+            "Phải thu phần thi hiện tại và chờ lưu câu trả lời cuối trước khi "
+            "mở phần tiếp theo."
+        )
+    if (current in _LRW_ORDER
+            and exam.get("collection_sweep_completed_section") != current):
         raise SittingConflictError(
             "Hệ thống đang chờ lưu câu trả lời cuối và thu đủ bài của phần này. "
             "Chỉ mở phần tiếp theo sau khi bảng theo dõi xác nhận đã thu xong."
@@ -3162,9 +3173,9 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     query = supabase_admin.table("mock_exams").update(update).eq(
         "id", str(exam_id),
     ).eq("active_section", current).neq("exam_mode", "retake")
-    # Close the collect/advance TOCTOU gap. If collect wins after this function
-    # reads the exam, advance must not clear its marker. If the coordinated
-    # sweep already finished, both marker and completion token must still match.
+    # Close the collect/advance TOCTOU gap. Every transition out of an LRW
+    # section requires BOTH the collected marker and the completed sweep token;
+    # direct Advance can therefore never bypass the final-save ACK grace.
     if paused:
         query = query.eq("collected_section", current).eq(
             "collection_sweep_completed_section", current,
@@ -3196,17 +3207,10 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         exam_id, current, nxt, admin_id,
     )
     out = dict(resp.data[0])
-    # B3 — the straggler sweep used to run INSIDE this request: one loop over
-    # every unsubmitted sitting, fully grading each L/R attempt inline. For a
-    # class of 25-30 that is a very long request with no progress feedback, and
-    # a timeout left the papers collected but active_section unmoved, with the
-    # admin unable to tell what had happened.
-    #
-    # The transition above is now the fast, atomic part; the caller queues the
-    # sweep as a background task. Safe in this order because submit_section
-    # gates on active_section, so a straggler can only get a 409 in the gap, and
-    # _collect_section_for_sitting is idempotent.
-    out["sweep_section"] = current if current in _LRW_ORDER else None
+    # Collection is now an explicit prerequisite for LRW transitions. The
+    # ACK-gated sweep has already completed, so Advance must never queue a
+    # second, uncoordinated sweep against the section it just closed.
+    out["sweep_section"] = None
     return out
 
 

@@ -140,7 +140,7 @@ test('native routes own auth, exact identities, irreversible guards and accessib
   ]) assert.ok(existsSync(join(ROOT, ...path)), path.join('/'));
   assert.match(livePage, /AdminAccessGate/);
   assert.match(pacingPage, /AdminAccessGate/);
-  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'collectionSweepCompletedSection', 'collecting', 'Đang thu bài…', 'loadSnapshot(examId)', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
+  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'collectionSweepCompletedSection', 'collecting', 'readyToAdvance', 'Đang thu bài…', 'Thu bài trước', 'loadSnapshot(examId)', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
   assert.doesNotMatch(live, /prompt\s*\(/);
   assert.match(dialog, /import \{ Dialog \}/);
   assert.match(dialog, /<Dialog/);

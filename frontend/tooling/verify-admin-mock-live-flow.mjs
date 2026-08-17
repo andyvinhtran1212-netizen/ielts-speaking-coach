@@ -136,7 +136,7 @@ await page.getByText('LIVE-1', { exact: true }).first().waitFor();
 check('admin gate, published inventory và exact live snapshot chạy', ['/auth/me', '/admin/mock-exams', '/admin/mock-exams/exam-1/live'].every((path) => requests.some((item) => item.path === path)));
 check('blank persisted state lọt vào danh sách cần chú ý', await page.getByRole('button', { name: /Cần chú ý 1/ }).count() === 1 && await page.getByText('trắng', { exact: true }).count() >= 1);
 
-await page.getByRole('button', { name: /Thu bài/ }).click();
+await page.getByRole('button', { name: /^Thu bài \(/ }).click();
 await page.getByText('Đã đóng phần Listening và xếp hàng thu bài.').waitFor();
 check('collect gửi exact from_section và khóa advance khi sweep chưa xong',
   requests.some((item) => item.path === '/admin/mock-exams/exam-1/collect' && item.search.includes('from_section=listening'))

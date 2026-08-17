@@ -413,18 +413,20 @@ def test_advance_section_past_done_raises(fake_db, svc):
 
 
 def _advance_and_sweep(svc, exam_id, admin):
-    """What the ROUTER does on POST /advance: the fast, atomic transition, then
-    the straggler sweep.
+    """Run the production two-step: coordinated collect, then Advance.
 
-    Since B3 the sweep is a BackgroundTask queued by the router rather than part
-    of the service call — a class of 25-30 made it a very long request, and a
-    timeout left papers collected but the section unmoved. Production behaviour
-    ("admin advances → stragglers collected") is unchanged, so tests that assert
-    on collection run both halves, exactly as the request does.
+    The initial not_started transition has no paper to collect. Every LRW
+    transition closes admissions, sweeps after the client flush/ACK grace, and
+    publishes completion before the next clock may start.
     """
+    current = (svc.get_published_exam_by_id(exam_id) or {}).get(
+        "active_section") or "not_started"
+    if current in ("listening", "reading", "writing"):
+        assert svc.mark_section_collected(exam_id, current) is True
+        svc._force_collect_section(exam_id, current, strict=True)
+        assert svc.mark_collection_sweep_completed(exam_id, current) is True
     out = svc.advance_section(exam_id, admin)
-    if out.get("sweep_section"):
-        svc._force_collect_section(exam_id, out["sweep_section"])
+    assert out.get("sweep_section") is None
     return out
 
 
@@ -1301,7 +1303,7 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
     s3 = svc.create_sitting(u3, "MOCK-TEST-A")
 
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin_id)
+        _advance_and_sweep(svc, exam["id"], admin_id)
         _expire_section(fake_db, exam["id"], section)
         for sid, u in ((s1["id"], u1), (s2["id"], u2), (s3["id"], u3)):
             if section == "writing":
@@ -1369,7 +1371,7 @@ def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
 
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin_id)
+        _advance_and_sweep(svc, exam["id"], admin_id)
         _expire_section(fake_db, exam["id"], section)
         for sid, u in ((s1["id"], u1), (s2["id"], u2)):
             if section == "writing":
@@ -2596,6 +2598,25 @@ def test_advance_waits_for_the_coordinated_collection_sweep(fake_db, svc):
     assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
 
 
+def test_direct_advance_cannot_bypass_collect_and_flush_grace(fake_db, svc):
+    """A live LRW paper must first enter the same ACK-gated collection flow.
+
+    This pins the direct API/admin-button path: without a collected marker it
+    cannot transition or manufacture a sweep after the next clock has started.
+    """
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    with pytest.raises(svc.SittingConflictError, match="Phải thu"):
+        svc.advance_section(exam["id"], "admin-1", "listening")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"
+    assert after.get("collected_section") is None
+    assert fake_db.rows("mock_exam_sittings")[0].get("listening_submitted_at") is None
+
+
 def test_collect_rejects_a_stale_screen(fake_db, svc):
     """Codex #843 (correct): a monitor still showing Listening — because another
     invigilator advanced during the confirm dialog or inside the 5s poll —
@@ -2605,6 +2626,7 @@ def test_collect_rejects_a_stale_screen(fake_db, svc):
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     svc.advance_section(exam["id"], "admin-1")     # → listening
+    svc.collect_section(exam["id"], "admin-1")     # coordinated pause complete
     svc.advance_section(exam["id"], "admin-1")     # → reading (other invigilator)
 
     with pytest.raises(svc.SittingConflictError):
@@ -2732,7 +2754,7 @@ def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatc
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     for _ in range(3):
-        svc.advance_section(exam["id"], "admin-1")        # → writing
+        _advance_and_sweep(svc, exam["id"], "admin-1")   # → writing
     row = dict(fake_db.rows("mock_exam_sittings")[0])
 
     promoted = []
@@ -2786,7 +2808,7 @@ def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     for _ in range(4):                                    # → done
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
 
     after = svc.get_published_exam_by_id(exam["id"])
     assert after["active_section"] == "done"
@@ -3138,10 +3160,10 @@ def test_advance_conflict_message_names_the_current_section(fake_db, svc):
 
 
 def test_advance_still_walks_the_configured_sequence(fake_db, svc):
-    """The guard must not change the normal one-at-a-time walk."""
+    """The coordinated two-step still walks the configured sequence."""
     exam = _seed_exam(fake_db)
     for expected in ("listening", "reading", "writing", "done"):
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
         assert svc.get_published_exam_by_id(exam["id"])["active_section"] == expected
 
 
@@ -5156,7 +5178,7 @@ def test_the_final_advance_closes_the_room(fake_db, svc):
     fake_db.table("mock_exams").update({"is_open": True}).eq(
         "id", exam["id"]).execute()
     for _ in range(4):                       # → listening → reading → writing → done
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
     fresh = svc.get_published_exam_by_id(exam["id"])
     assert fresh["active_section"] == "done"
     assert fresh["is_open"] is False

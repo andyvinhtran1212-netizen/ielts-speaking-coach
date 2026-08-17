@@ -211,7 +211,10 @@ export function AdminMockExams() {
           const next = nextExamSection(exam, active);
           const isRetake = exam.examMode === 'retake';
           const busy = busyKey.startsWith(`${exam.id}:`);
-          const canAdvance = !isRetake && exam.status === 'published' && Boolean(snapshot) && active !== 'done' && Boolean(next);
+          // Starting an exam is safe here. Every later transition must happen
+          // in the live room, where the canonical collect/sweep token is
+          // visible and Advance stays locked until final-save ACKs settle.
+          const canAdvance = !isRetake && exam.status === 'published' && Boolean(snapshot) && active === 'not_started' && Boolean(next);
           return <article className="mex-card mex-exam" key={exam.id}>
             <div className="mex-exam-head"><div><strong>{exam.code || 'Chưa có mã'}</strong><h3>{exam.title || 'Chưa có tiêu đề'}</h3></div><div className="mex-pill-row"><span className={`mex-pill is-${exam.status}`}>{exam.status}</span><span className="mex-pill">{isRetake ? 'Retake' : 'Sequential'}</span>{!isRetake && <span className={`mex-pill ${exam.isOpen ? 'is-open' : ''}`}>{exam.isOpen ? 'Đang mở' : 'Đóng'}</span>}</div></div>
             <dl className="mex-meta"><div><dt>Lớp</dt><dd>{exam.cohortId ? cohortNames.get(exam.cohortId) || exam.cohortId : isRetake ? 'Gán từng học viên' : 'Chưa gán'}</dd></div><div><dt>Phần hiện tại</dt><dd>{SECTION_LABEL[active] || active}</dd></div></dl>
@@ -223,6 +226,7 @@ export function AdminMockExams() {
                 {!(active === 'done' && !exam.isOpen) && <button className={exam.isOpen ? 'adm-btn-secondary' : 'adm-btn-primary'} type="button" onClick={() => void toggleOpen(exam)} disabled={busy || (exam.status !== 'published' && !exam.isOpen)}>{exam.isOpen ? 'Đóng kỳ' : 'Mở kỳ'}</button>}
                 {active === 'done' && !exam.isOpen && <span className="mex-ended">Kỳ thi đã kết thúc</span>}
                 {canAdvance && <button className="adm-btn-primary" type="button" onClick={() => void advance(exam, active, snapshot)} disabled={busy}>{busyKey === `${exam.id}:advance` ? 'Đang chuyển…' : `Mở ${SECTION_LABEL[next || '']}`}</button>}
+                {!isRetake && active !== 'not_started' && active !== 'done' && <span className="mex-ended">Thu bài và chuyển phần tại Phòng thi trực tiếp</span>}
                 {exam.status === 'published' && <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=live&exam_id=${encodeURIComponent(exam.id)}`}>Phòng thi trực tiếp</a>}
               </>}
               <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(exam.id)}`}>Duyệt bài</a>

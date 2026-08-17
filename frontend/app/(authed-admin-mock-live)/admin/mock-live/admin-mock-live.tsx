@@ -262,6 +262,10 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
   const problems = snapshot ? snapshot.students.filter(liveStudentNeedsAttention).length : 0;
   const paused = Boolean(snapshot && snapshot.exam.examMode !== 'retake' && snapshot.exam.collectedSection === snapshot.exam.activeSection);
   const collecting = Boolean(paused && snapshot?.exam.collectionSweepCompletedSection !== snapshot?.exam.activeSection);
+  const readyToAdvance = Boolean(snapshot && (
+    snapshot.exam.activeSection === 'not_started'
+    || (paused && snapshot.exam.collectionSweepCompletedSection === snapshot.exam.activeSection)
+  ));
   const seconds = paused ? null : clockSeconds(clockAnchorRef.current, clockNow);
   const speakingShown = snapshot?.students.some((student) => student.speaking.required) || false;
   const nextSection = snapshot ? nextConfiguredSection(snapshot.exam) : null;
@@ -289,9 +293,8 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
             <div className="mlv-actions">
               {snapshot.exam.examMode !== 'retake' && <>
                 {!(snapshot.exam.activeSection === 'done' && !snapshot.exam.isOpen) ? <button type="button" className="adm-btn-secondary" onClick={() => void toggleOpen()} disabled={Boolean(busyKey)}>{snapshot.exam.isOpen ? 'Đóng kỳ' : 'Mở kỳ'}</button> : <span className="mlv-ended">Kỳ thi đã kết thúc</span>}
-                {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && (snapshot.sections[snapshot.exam.activeSection]?.working || 0) > 0 && <button type="button" className="adm-btn-primary" onClick={() => void collect()} disabled={Boolean(busyKey)}>Thu bài ({snapshot.sections[snapshot.exam.activeSection].working} đang làm)</button>}
-                {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && (snapshot.sections[snapshot.exam.activeSection]?.working || 0) === 0 && <span className="mlv-pill is-live">Đã thu đủ</span>}
-                {nextSection && <button type="button" className="adm-btn-primary" onClick={() => void advance()} disabled={Boolean(busyKey) || collecting}>{collecting ? 'Đang thu bài…' : snapshot.exam.activeSection === 'not_started' ? `Bắt đầu · mở ${LABEL[nextSection]}` : `Mở ${LABEL[nextSection]} →`}</button>}
+                {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && <button type="button" className="adm-btn-primary" onClick={() => void collect()} disabled={Boolean(busyKey)}>Thu bài ({snapshot.sections[snapshot.exam.activeSection]?.working || 0} đang làm)</button>}
+                {nextSection && <button type="button" className="adm-btn-primary" onClick={() => void advance()} disabled={Boolean(busyKey) || !readyToAdvance}>{collecting ? 'Đang thu bài…' : !readyToAdvance ? 'Thu bài trước' : snapshot.exam.activeSection === 'not_started' ? `Bắt đầu · mở ${LABEL[nextSection]}` : `Mở ${LABEL[nextSection]} →`}</button>}
               </>}
               <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(snapshot.exam.id)}`} target={embedded ? '_top' : undefined}>Duyệt bài →</a>
             </div>

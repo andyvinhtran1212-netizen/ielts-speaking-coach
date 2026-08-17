@@ -217,21 +217,16 @@ async def set_open(
 async def advance_section(
     exam_id: str,
     body: AdvanceBody,
-    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
     not_started → listening → reading → writing → done.
 
-    The transition returns immediately; the straggler sweep for the section
-    being closed is QUEUED (B3). It used to run inline — one loop over every
-    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
-    made this a very long request, and a timeout left papers collected but the
-    section unmoved with no way for the admin to tell.
-
-    The live console polls every 5s, so the papers visibly land one by one. If
-    the sweep dies (a restart mid-task), the console flags the section as
-    "chưa thu đủ" and POST /collect?section=… re-runs it."""
+    The initial transition opens the first paper. Every later transition is
+    accepted only after POST /collect has closed the current paper, waited for
+    final-save ACKs, swept outstanding sittings, and published completion. This
+    keeps direct API calls from bypassing the same coordination as the live UI.
+    """
     admin = await require_admin(authorization)
     try:
         out = svc.advance_section(exam_id, admin["id"], body.from_section)
@@ -241,10 +236,6 @@ async def advance_section(
         raise HTTPException(409, str(e))
     except svc.MockExamError as e:
         raise HTTPException(503, str(e))
-    if out.get("sweep_section"):
-        background_tasks.add_task(
-            svc._force_collect_section, exam_id, out["sweep_section"],
-        )
     return out
 
 
