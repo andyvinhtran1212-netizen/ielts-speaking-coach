@@ -65,6 +65,9 @@ describe('Reading coexistence drill contract', () => {
     assert.match(spec, /getByRole\('button', \{ name: 'Bắt đầu bài thi' \}\)/);
     assert.match(spec, /page\.once\('dialog', \(dialog\) => dialog\.accept\(\)\)/);
     assert.match(spec, /page\.locator\('#exam-start-btn'\)/);
+    assert.match(spec, /page\.on\('response', captureClaim\)/);
+    assert.match(spec, /claimPaths\.includes\(expectedClaim\)/);
+    assert.match(spec, /body\.attempt_id\}\/renderer-affinity/);
     assert.match(spec, /renderer_affinity_protocol: 'claim-v1'/);
     assert.match(spec, /floor_dark_next_affinity_before/);
     assert.match(spec, /floor_dark_next_affinity_after/);
