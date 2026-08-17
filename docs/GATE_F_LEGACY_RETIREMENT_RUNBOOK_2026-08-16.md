@@ -1,8 +1,10 @@
 # Gate F — Legacy HTML retirement runbook — 2026-08-16
 
-**Trạng thái:** TELEMETRY PREPARED; OBSERVATION NOT STARTED. Không được tính thời
-gian trước deployment đầu tiên mà `next-migration-status.mjs` xác nhận mọi HTML
-rollback trực tiếp đều có beacon Gate F.
+**Trạng thái:** OBSERVATION STARTED; RETIREMENT NO-GO. Cửa sổ bắt đầu tại
+`2026-08-17T00:15:22Z` trên production release
+`05e2cc54499fb6fc8d8f980567632e39fc9fe808`; evidence versioned nằm tại
+`GATE_F_OBSERVATION_START_EVIDENCE_2026-08-17.md`. Không được tính thời gian
+trước mốc này và mốc 14 ngày không tự cho phép retirement.
 
 ## Root cause và phạm vi
 
@@ -27,6 +29,10 @@ rollback trực tiếp đều có beacon Gate F.
 3. Chạy `node tooling/next-migration-status.mjs --json`; lưu artifact với
    `gateFObservationReady=true`, `telemetryMissingPaths=[]` và SHA release.
 4. Ghi UTC của bước 2–3 làm `coverage_started_at`. Không backdate.
+
+Các bước trên đã hoàn tất cho release ghi ở đầu tài liệu. Mốc 14 ngày sớm nhất
+là `2026-08-31T00:15:22Z`; full business/revisit cycle, Gate E, cutover drain và
+các điều kiện bên dưới vẫn có thể đẩy quyết định retirement muộn hơn.
 
 ## Điều kiện retirement
 
