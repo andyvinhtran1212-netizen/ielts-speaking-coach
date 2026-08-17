@@ -17,8 +17,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NO_BODY } from '../write-flow-core.mjs';
-
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/reading-exam.json'), 'utf8'));
 
@@ -28,6 +26,8 @@ const ATTEMPT = FX.attempt_id;
 const STARTED_AT = new Date().toISOString();
 const A1 = 'con mèo';
 const A2 = 'hai giờ';
+const RENDERER = process.env.WF_LEGACY ? 'legacy' : 'next';
+const START_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
 
 export default {
   name: 'reading-exam — làm qua liên kết chia sẻ (ẩn danh)',
@@ -50,6 +50,7 @@ export default {
       attempt_id: ATTEMPT, anon_id: ANON,
       started_at: STARTED_AT, time_limit_minutes: 60,
     }],
+    [/\/renderer-affinity$/, { renderer_affinity: RENDERER }],
     [/\/answers$/, { ok: true }],
     [/\/submit$/, { score: 2, total: 2, correct: 2 }],
   ],
@@ -79,7 +80,7 @@ export default {
     {
       method: 'POST',
       path: `/api/reading/test/share/${TOKEN}/attempts`,
-      body: NO_BODY,
+      body: START_PROTOCOL,
       // CHƯA có danh tính lúc này — máy chủ mới là bên cấp. Một bản port tự nghĩ
       // ra id rồi gửi kèm là tự tạo quyền sở hữu, nên ghim là PHẢI VẮNG.
       headers: {
@@ -88,6 +89,12 @@ export default {
         // port lỡ gắn phiên vào đây sẽ đỏ.
         Authorization: (v) => v === undefined,
       },
+    },
+    {
+      method: 'POST',
+      path: `/api/reading/test/attempts/${ATTEMPT}/renderer-affinity`,
+      body: { renderer_affinity: RENDERER },
+      headers: { 'X-Reading-Anon': ANON, Authorization: (v) => v === undefined },
     },
     {
       method: 'PATCH',
