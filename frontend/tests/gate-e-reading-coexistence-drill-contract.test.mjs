@@ -40,6 +40,11 @@ describe('Reading coexistence drill contract', () => {
 
   test('browser evidence proves admission, persisted affinity and stable reopen', () => {
     assert.match(spec, /core-player\/launch\?surface=reading_exam/);
+    assert.match(spec, /expectedPath === '\/reading\/exam\/session'/);
+    assert.match(spec, /getByRole\('button', \{ name: 'Bắt đầu lại từ đầu' \}\)/);
+    assert.match(spec, /getByRole\('button', \{ name: 'Bắt đầu bài thi' \}\)/);
+    assert.match(spec, /page\.once\('dialog', \(dialog\) => dialog\.accept\(\)\)/);
+    assert.match(spec, /page\.locator\('#exam-start-btn'\)/);
     assert.match(spec, /renderer_affinity_protocol: 'claim-v1'/);
     assert.match(spec, /floor_dark_next_affinity_before/);
     assert.match(spec, /floor_dark_next_affinity_after/);

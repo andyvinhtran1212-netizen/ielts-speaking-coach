@@ -99,9 +99,21 @@ async function startThroughAdmission(page, testId) {
     new URL(r.url()).pathname === `/api/reading/test/${testId}/attempts`);
   const claimed = page.waitForResponse((r) => r.request().method() === 'POST' &&
     new URL(r.url()).pathname.endsWith('/renderer-affinity'));
-  await page.locator('#exam-start-btn').click();
-  if (await page.locator('#exam-restart-confirm').isVisible().catch(() => false)) {
-    await page.locator('#exam-restart-confirm').click();
+  if (expectedPath === '/reading/exam/session') {
+    // The native player deliberately owns its controls and uses an accessible
+    // text button + window.confirm instead of the Legacy modal ids.
+    const restart = page.getByRole('button', { name: 'Bắt đầu lại từ đầu' });
+    if (await restart.isVisible().catch(() => false)) {
+      page.once('dialog', (dialog) => dialog.accept());
+      await restart.click();
+    } else {
+      await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+    }
+  } else {
+    await page.locator('#exam-start-btn').click();
+    if (await page.locator('#exam-restart-confirm').isVisible().catch(() => false)) {
+      await page.locator('#exam-restart-confirm').click();
+    }
   }
   const response = await started;
   expect(response.status(), await response.text()).toBe(200);
