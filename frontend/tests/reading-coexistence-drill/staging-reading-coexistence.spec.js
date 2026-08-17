@@ -61,7 +61,7 @@ async function accessibleTests(request, token, excluded = [], compatibleRenderer
   });
   expect(list.status(), await list.text()).toBe(200);
   const items = (await list.json()).items || [];
-  const result = [];
+  const candidates = [];
   for (const item of items) {
     const testId = String(item.test_id || '');
     if (!testId || excluded.includes(testId)) continue;
@@ -75,13 +75,21 @@ async function accessibleTests(request, token, excluded = [], compatibleRenderer
     // A prior drill may leave a legitimate in-progress attempt behind. The
     // stable player must honor that affinity, so selecting an incompatible
     // test here would correctly redirect away from the phase under test and
-    // would not exercise a new admission at all.
+    // would not exercise a new admission at all. Prefer an already-compatible
+    // attempt over an empty fixture: it is deterministic across repeated
+    // cutover/rollback drills and cannot be claimed by the opposite player in
+    // the gap between this preflight and page boot.
     if (inProgress && affinity !== null && compatibleRenderer && affinity !== compatibleRenderer) {
       continue;
     }
-    result.push(testId);
-    if (result.length >= 3) break;
+    const rank = compatibleRenderer
+      ? (affinity === compatibleRenderer ? 0 : !inProgress ? 1 : 2)
+      : (!inProgress ? 0 : affinity === null ? 1 : 2);
+    if (rank === 0) return [testId];
+    candidates.push({ testId, rank });
   }
+  const result = candidates.sort((a, b) => a.rank - b.rank)
+    .slice(0, 3).map(({ testId }) => testId);
   expect(result.length, 'staging needs at least one accessible published Reading test').toBeGreaterThan(0);
   return result;
 }
@@ -121,11 +129,21 @@ async function startThroughAdmission(page, testId) {
     // The native player deliberately owns its controls and uses an accessible
     // text button + window.confirm instead of the Legacy modal ids.
     const restart = page.getByRole('button', { name: 'Bắt đầu lại từ đầu' });
+    const start = page.getByRole('button', { name: 'Bắt đầu bài thi' });
+    await expect.poll(async () => {
+      const pathname = new URL(page.url()).pathname;
+      if (pathname !== expectedPath) return `redirect:${pathname}`;
+      if (await restart.isVisible().catch(() => false)) return 'restart';
+      if (await start.isVisible().catch(() => false)) return 'start';
+      const alert = await page.getByRole('alert').textContent().catch(() => '');
+      return alert ? `error:${alert.trim()}` : 'waiting';
+    }, { timeout: 15_000, message: 'Next Reading prestart controls did not become ready' })
+      .toMatch(/^(restart|start)$/);
     if (await restart.isVisible().catch(() => false)) {
       page.once('dialog', (dialog) => dialog.accept());
       await restart.click();
     } else {
-      await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+      await start.click();
     }
   } else {
     await page.locator('#exam-start-btn').click();
