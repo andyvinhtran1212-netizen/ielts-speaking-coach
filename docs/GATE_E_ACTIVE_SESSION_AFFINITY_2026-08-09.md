@@ -23,9 +23,12 @@ atomic first-player claim; không tuyên bố Gate E PASS hoặc production cuto
   runtime no-store `frontend/app/core-player/launch/route.ts`. Bundle launcher
   chỉ giữ surface/query, không giữ quyết định `legacy`/`next`; deployment đang
   nhận navigation mới là nơi đọc `admit_new`. `sessions.renderer_affinity` được
-  backfill Legacy cho session cũ; session mới để NULL cho tới stable player đầu
-  tiên claim atomically. Reopen dùng claim canonical thay vì re-admit. Production
-  và floor staging đều giữ Legacy; cả bốn target Next vẫn `route_ready: true`.
+  backfill Legacy cho session cũ. Migration 216 đặt default `legacy` cho mọi
+  insert N−1/unversioned; chỉ `api.js` hiện tại gửi protocol `claim-v1` để RPC v3
+  tạo atomically một row NULL cho stable player đầu tiên claim. Vì vậy cả tab cũ
+  mở sau migration lẫn tab mới đều giữ đúng renderer. Reopen dùng claim canonical
+  thay vì re-admit. Production và floor staging đều giữ Legacy; cả bốn target
+  Next vẫn `route_ready: true`.
 - **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi
   qua cutover/rollback nhưng runtime hiện tại đổi được đích Next về legacy;
   legacy-start và Next-start vẫn giữ URL implementation-specific của chính nó.
@@ -161,7 +164,8 @@ tắt trace/screenshot và không upload browser report có thể giữ header b
   retry/resume/finalize, player lifecycle và structured renderer; backend pin đủ
   ba part, cùng sitting, đúng 9/1/5 và exact `question_id` coverage. Browser
   fixture/failure/cross-version matrix đã xác lập `route_ready: true`; floor cũ
-  đã pass và persisted-affinity floor mới đang chờ deploy. Real Safari/iOS cùng
+  đã pass; persisted-affinity floor mới gồm cả create protocol N−1-safe đang chờ
+  deploy. Real Safari/iOS cùng
   đủ ba phase live vẫn chặn Gate E và production cutover.
 - Mọi entry point tạo attempt của cluster phải đi theo admission decision hoặc
   được ghi rõ là một cohort legacy có chủ đích; không suy rộng sáu launcher thành

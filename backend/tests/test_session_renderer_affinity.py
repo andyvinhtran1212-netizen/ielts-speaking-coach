@@ -15,6 +15,11 @@ MIGRATION = (
     / "migrations"
     / "215_speaking_session_renderer_affinity.sql"
 ).read_text()
+CREATE_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "migrations"
+    / "216_version_session_renderer_affinity_create.sql"
+).read_text()
 SID = UUID("11111111-1111-4111-8111-111111111111")
 
 
@@ -66,6 +71,16 @@ def test_migration_backfills_only_preexisting_sessions_and_claims_atomically():
     assert "DEFAULT 'legacy'" not in MIGRATION
 
 
+def test_create_protocol_pins_n_minus_one_and_versions_affinity_aware_inserts():
+    assert "ALTER COLUMN renderer_affinity SET DEFAULT 'legacy'" in CREATE_MIGRATION
+    assert "fn_create_session_daily_capped_v3" in CREATE_MIGRATION
+    assert "p_renderer_affinity" in CREATE_MIGRATION
+    assert "status, renderer_affinity" in CREATE_MIGRATION
+    assert "p_renderer_affinity\n    )" in CREATE_MIGRATION
+    assert "TO service_role" in CREATE_MIGRATION
+    assert "FROM PUBLIC, anon, authenticated" in CREATE_MIGRATION
+
+
 @pytest.mark.asyncio
 async def test_claim_returns_the_canonical_renderer_and_owner_scopes_the_rpc():
     db = _Db([{"session_id": str(SID), "renderer_affinity": "next"}])
@@ -94,4 +109,3 @@ async def test_missing_or_failed_claim_never_invents_an_affinity():
     with pytest.raises(HTTPException) as failed:
         await _claim(_Db(error=RuntimeError("db down")))
     assert failed.value.status_code == 500
-

@@ -21,6 +21,8 @@ const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
 const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
 const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
 const AFFINITY_MIGRATION = read('backend/migrations/215_speaking_session_renderer_affinity.sql');
+const CREATE_PROTOCOL_MIGRATION = read('backend/migrations/216_version_session_renderer_affinity_create.sql');
+const API_CLIENT = read('frontend/public/js/api.js');
 const SESSION_ROUTER = read('backend/routers/sessions.py');
 const CLASS_STUDENT_ROUTER = read('backend/routers/class_student.py');
 const PRACTICE_BOOTSTRAP = read('frontend/lib/practice-session-bootstrap.mjs');
@@ -148,6 +150,11 @@ describe('current admission policy preserves behavior', () => {
       /COALESCE\(target\.renderer_affinity, p_renderer_affinity\)/);
     assert.match(AFFINITY_MIGRATION, /target\.user_id = p_user_id/);
     assert.match(SESSION_ROUTER, /fn_claim_session_renderer_affinity/);
+    assert.match(CREATE_PROTOCOL_MIGRATION,
+      /ALTER COLUMN renderer_affinity SET DEFAULT 'legacy'/);
+    assert.match(CREATE_PROTOCOL_MIGRATION, /fn_create_session_daily_capped_v3/);
+    assert.match(SESSION_ROUTER, /renderer_affinity_protocol: Literal\["claim-v1"\]/);
+    assert.match(API_CLIENT, /renderer_affinity_protocol = 'claim-v1'/);
     assert.match(CLASS_STUDENT_ROUTER,
       /"renderer_affinity": existing\["renderer_affinity"\]/);
     const nextClaim = PRACTICE_BOOTSTRAP.indexOf("'/renderer-affinity'");

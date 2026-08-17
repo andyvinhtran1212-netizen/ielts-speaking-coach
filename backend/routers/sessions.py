@@ -5,7 +5,7 @@ import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
@@ -213,6 +213,11 @@ class CreateSessionBody(BaseModel):
     # second daily slot. Linked class/mock creates keep their established path
     # until their post-create hooks can report replay state explicitly.
     client_session_id: UUID | None = None
+    # Capability marker added with migration 216. Browsers that do not send it
+    # are N-1 and must be pinned Legacy at INSERT time; current players send
+    # claim-v1 and receive an unclaimed row which their stable player claims
+    # before any canonical read/write.
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
 
     @field_validator("mode")
     @classmethod
@@ -572,10 +577,15 @@ async def create_session(
     # lock, so concurrent POST /sessions can't both slip under the daily cap.
     # Admins bypass the cap via an effectively-unlimited ceiling.
     max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
+    affinity_aware = body.renderer_affinity_protocol == "claim-v1"
     rpc_name = (
-        "fn_create_session_daily_capped_v2"
-        if body.client_session_id
-        else "fn_create_session_daily_capped"
+        "fn_create_session_daily_capped_v3"
+        if affinity_aware
+        else (
+            "fn_create_session_daily_capped_v2"
+            if body.client_session_id
+            else "fn_create_session_daily_capped"
+        )
     )
     rpc_params = {
         "p_user_id":   user_id,
@@ -585,7 +595,13 @@ async def create_session(
         "p_day_start": today_start,
         "p_max_daily": max_daily,
     }
-    if body.client_session_id:
+    if affinity_aware:
+        # v3 explicitly inserts NULL. Migration 216 gives every legacy/v1/v2
+        # insert a database default of Legacy, including requests handled by an
+        # N-1 backend instance during a rolling deployment.
+        rpc_params["p_session_id"] = str(body.client_session_id or uuid4())
+        rpc_params["p_renderer_affinity"] = None
+    elif body.client_session_id:
         rpc_params["p_session_id"] = str(body.client_session_id)
 
     try:

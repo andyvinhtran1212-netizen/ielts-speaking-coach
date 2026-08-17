@@ -135,7 +135,8 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    run `32019415351` đã pin rollback SHA
    `a7462ab291f029bb2979e3a41216fa41d8f72e52`, session Legacy thật và matching
    frontend/backend staging provenance.
-5. Đang dựng floor hậu duệ có `sessions.renderer_affinity` + atomic claim và
+5. Đang dựng floor hậu duệ có `sessions.renderer_affinity` + atomic claim,
+   create protocol N−1-safe (`legacy` default; `claim-v1` → RPC v3 NULL) và
    reopen stable URL. Sau khi floor deploy/verify mới mở staging-only cutover để
    thu tab Legacy cũ, tab Next mới, reload/copy URL và canonical backend
    assertions; sau đó forward-revert về Legacy. Safari/iOS thật và đủ ba artifact

@@ -11324,6 +11324,8 @@ export interface components {
             class_assignment_item_id?: string | null;
             /** Client Session Id */
             client_session_id?: string | null;
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
