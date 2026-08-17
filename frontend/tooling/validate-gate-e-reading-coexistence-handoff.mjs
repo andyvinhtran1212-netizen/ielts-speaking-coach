@@ -19,9 +19,13 @@ export function validateReadingPreviousPhaseHandoff(input) {
     return { verified: true, previous_phase: null, previous_run_id: null };
   }
   if (!/^\d+$/.test(previousRunId || '')) throw new Error('previous-run-id-invalid');
+  const validTrigger = (runMetadata?.event === 'workflow_dispatch' &&
+      ['main', 'staging'].includes(runMetadata?.headBranch)) ||
+    (runMetadata?.event === 'push' && runMetadata?.headBranch === 'staging');
   if (runMetadata?.workflowName !== 'Reading Gate E coexistence drill' ||
-      runMetadata?.event !== 'workflow_dispatch' || runMetadata?.headBranch !== 'main' ||
-      runMetadata?.conclusion !== 'success') throw new Error('previous-run-provenance-invalid');
+      !validTrigger || runMetadata?.conclusion !== 'success') {
+    throw new Error('previous-run-provenance-invalid');
+  }
   const cutover = phase === 'cutover';
   const attemptId = cutover ? previousLegacyAttemptId : previousNextAttemptId;
   const testId = cutover ? previousLegacyTestId : previousNextTestId;

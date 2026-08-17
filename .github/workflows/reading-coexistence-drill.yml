@@ -12,7 +12,9 @@ on:
       - 'frontend/playwright.reading-coexistence.config.js'
       - 'frontend/tests/reading-coexistence-drill/**'
       - 'frontend/tooling/gate-e-reading-coexistence-*'
+      - 'frontend/tooling/resolve-gate-e-reading-push-phase.mjs'
       - 'frontend/tooling/validate-gate-e-reading-coexistence-handoff.mjs'
+      - 'frontend/lib/core-player-affinity.mjs'
   workflow_dispatch:
     inputs:
       phase:
@@ -53,8 +55,8 @@ jobs:
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = push ]; then
-            echo "phase=floor" >> "$GITHUB_OUTPUT"
-            echo "floor_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+            cd frontend
+            node tooling/resolve-gate-e-reading-push-phase.mjs
           else
             echo "phase=$INPUT_PHASE" >> "$GITHUB_OUTPUT"
             echo "floor_sha=$INPUT_FLOOR_SHA" >> "$GITHUB_OUTPUT"

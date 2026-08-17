@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateReadingPhaseLineage } from '../tooling/gate-e-reading-coexistence-lineage.mjs';
 import { validateReadingPreviousPhaseHandoff } from '../tooling/validate-gate-e-reading-coexistence-handoff.mjs';
+import { resolveReadingPushPhase } from '../tooling/resolve-gate-e-reading-push-phase.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ROOT = path.dirname(FRONTEND);
@@ -29,13 +30,32 @@ describe('Reading coexistence drill contract', () => {
   test('workflow is staging-bound, serial and always uploads provenance', () => {
     assert.match(workflow, /ref: staging/);
     assert.match(workflow, /push:\n\s+branches: \[staging\]/);
-    assert.match(workflow, /GITHUB_EVENT_NAME" = push[\s\S]*?phase=floor/);
+    assert.match(workflow, /GITHUB_EVENT_NAME" = push[\s\S]*?resolve-gate-e-reading-push-phase\.mjs/);
     assert.match(workflow, /group: staging-e2e-shared-env/);
     assert.match(workflow, /cancel-in-progress: false/);
     assert.match(workflow, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
     assert.match(workflow, /Upload phase evidence\n\s+if: always\(\)/);
     assert.match(workflow, /if-no-files-found: error/);
     assert.doesNotMatch(workflow, /playwright-report|trace\.zip/);
+  });
+
+  test('push resolver derives floor, cutover and rollback from policy + checked handoff', () => {
+    const empty = { schema_version: 1, rollback_floor_sha: null,
+      previous_phase_run_id: null, previous_legacy_attempt_id: null,
+      previous_legacy_test_id: null, previous_next_attempt_id: null,
+      previous_next_test_id: null };
+    assert.equal(resolveReadingPushPhase({ sourceSha: FLOOR, admission: 'legacy',
+      inputs: empty }).phase, 'floor');
+    const cutover = { ...empty, rollback_floor_sha: FLOOR, previous_phase_run_id: '123',
+      previous_legacy_attempt_id: LEGACY, previous_legacy_test_id: 'READ-1' };
+    assert.equal(resolveReadingPushPhase({ sourceSha: CUTOVER, admission: 'next',
+      inputs: cutover }).phase, 'cutover');
+    const rollback = { ...empty, rollback_floor_sha: FLOOR, previous_phase_run_id: '124',
+      previous_next_attempt_id: NEXT, previous_next_test_id: 'READ-2' };
+    assert.equal(resolveReadingPushPhase({ sourceSha: ROLLBACK, admission: 'legacy',
+      inputs: rollback }).phase, 'rollback');
+    assert.throws(() => resolveReadingPushPhase({ sourceSha: CUTOVER, admission: 'next',
+      inputs: empty }), /cutover-push-input-invalid/);
   });
 
   test('browser evidence proves admission, persisted affinity and stable reopen', () => {
@@ -91,5 +111,16 @@ describe('Reading coexistence drill contract', () => {
       floorSha: FLOOR, previousRunId: '123', previousLegacyAttemptId: LEGACY,
       previousLegacyTestId: 'WRONG', previousNextAttemptId: '', previousNextTestId: '',
       runMetadata: metadata, previousEvidence: evidence }), /evidence-invalid/);
+    const pushMetadata = { ...metadata, event: 'push', headBranch: 'staging' };
+    assert.equal(validateReadingPreviousPhaseHandoff({ phase: 'cutover', sourceSha: CUTOVER,
+      floorSha: FLOOR, previousRunId: '123', previousLegacyAttemptId: LEGACY,
+      previousLegacyTestId: 'READ-1', previousNextAttemptId: '', previousNextTestId: '',
+      runMetadata: pushMetadata, previousEvidence: evidence }).verified, true);
+    assert.throws(() => validateReadingPreviousPhaseHandoff({ phase: 'cutover',
+      sourceSha: CUTOVER, floorSha: FLOOR, previousRunId: '123',
+      previousLegacyAttemptId: LEGACY, previousLegacyTestId: 'READ-1',
+      previousNextAttemptId: '', previousNextTestId: '',
+      runMetadata: { ...pushMetadata, headBranch: 'main' }, previousEvidence: evidence }),
+    /provenance-invalid/);
   });
 });
