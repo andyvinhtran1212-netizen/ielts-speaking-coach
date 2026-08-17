@@ -547,6 +547,7 @@ export function MockExamRunner() {
   const [openingSpeaking, setOpeningSpeaking] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const stateRef = useRef<MockState | null>(null);
+  const stateReadGenerationRef = useRef(0);
   const bootRef = useRef(0);
   const ownerRef = useRef<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
@@ -578,6 +579,7 @@ export function MockExamRunner() {
 
   useEffect(() => {
     if (!params.error) return;
+    stateReadGenerationRef.current += 1;
     controllerRef.current?.abort();
     setState(null);
     setFatal(params.error);
@@ -608,10 +610,13 @@ export function MockExamRunner() {
   const loadState = useCallback(async (sittingId?: string, signal?: AbortSignal) => {
     const id = sittingId || currentSittingRef.current;
     if (!id) throw new Error('missing-mock-sitting');
+    const generation = ++stateReadGenerationRef.current;
     const payload = signal
       ? await window.api.getWith(`/api/mock-exams/sittings/${encodeURIComponent(id)}`, undefined, { signal })
       : await window.api.get(`/api/mock-exams/sittings/${encodeURIComponent(id)}`);
-    return commitState(normalizeMockExamState(payload, id) as MockState);
+    const next = normalizeMockExamState(payload, id) as MockState;
+    if (generation !== stateReadGenerationRef.current) return next;
+    return commitState(next);
   }, [commitState]);
 
   const integrityKey = useCallback(() => currentSittingRef.current ? `mock-integrity:${currentSittingRef.current}` : null, []);
@@ -645,6 +650,7 @@ export function MockExamRunner() {
   useEffect(() => {
     if (status !== 'signed-in' || !user?.id || !params.value) return undefined;
     const boot = ++bootRef.current;
+    stateReadGenerationRef.current += 1;
     ownerRef.current = user.id;
     controllerRef.current?.abort();
     const controller = new AbortController();

@@ -34,6 +34,11 @@ describe('/mock-exam native runner ownership', () => {
     assert.equal((integrity.match(/values\[key\]\s*=/g) || []).length, 1);
   });
 
+  test('ignores an older sitting-state response after a newer read starts', () => {
+    assert.match(RUNNER, /const generation = \+\+stateReadGenerationRef\.current/);
+    assert.match(RUNNER, /generation !== stateReadGenerationRef\.current[\s\S]*return next[\s\S]*return commitState\(next\)/);
+  });
+
   test('uses the server clock and never exposes an early manual submit', () => {
     assert.match(RUNNER, /sectionTimeLeftSeconds/);
     assert.match(RUNNER, /timerAnchorRef/);

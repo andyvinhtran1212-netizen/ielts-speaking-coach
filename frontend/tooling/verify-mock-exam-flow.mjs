@@ -64,6 +64,7 @@ async function launch() {
 async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
+  deferStateGet = null,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -83,6 +84,10 @@ async function fixturePage(browser, initialState, {
     current: structuredClone(initialState), creates: 0, stateGets: 0,
     writingDrafts: [], writingFinals: [],
   };
+  let markDeferredReady;
+  let markDeferredDelivered;
+  state.deferredReady = new Promise((resolve) => { markDeferredReady = resolve; });
+  state.deferredDelivered = new Promise((resolve) => { markDeferredDelivered = resolve; });
   page.on('pageerror', (error) => errors.push(String(error)));
   page.on('dialog', async (dialog) => dialog.dismiss());
   await page.route('**/*', async (route) => {
@@ -109,6 +114,16 @@ async function fixturePage(browser, initialState, {
     }
     if (request.method() === 'GET' && url.pathname === `/api/mock-exams/sittings/${SITTING_ID}`) {
       state.stateGets += 1;
+      if (state.stateGets === deferStateGet) {
+        const snapshot = structuredClone(state.current);
+        await new Promise((resolve) => {
+          state.releaseDeferredState = resolve;
+          markDeferredReady();
+        });
+        await route.fulfill(json(snapshot));
+        markDeferredDelivered();
+        return;
+      }
       return route.fulfill(json(state.current));
     }
     if (request.method() === 'POST' && url.pathname === `/api/mock-exams/sittings/${SITTING_ID}/integrity`) {
@@ -197,6 +212,24 @@ check('retake starts only an explicitly assigned section',
   retake.calls.join(',') === 'start-writing'
     && await retake.page.getByRole('button', { name: /Listening|Reading/ }).count() === 0);
 await retake.context.close();
+
+const staleReadState = mockState({
+  exam_mode: 'retake', assigned_skills: ['writing'], active_section: 'not_started',
+});
+const staleRead = await fixturePage(browser, staleReadState, { deferStateGet: 2, fakeClock: true });
+await staleRead.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).waitFor();
+await staleRead.page.clock.runFor(8_001);
+await staleRead.state.deferredReady;
+await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).click();
+await staleRead.page.getByLabel('Bài viết Task 1').waitFor();
+staleRead.state.releaseDeferredState();
+await staleRead.state.deferredDelivered;
+await new Promise((resolve) => setTimeout(resolve, 50));
+check('a stale poll response cannot overwrite newer post-action sitting state',
+  await staleRead.page.getByLabel('Bài viết Task 1').isVisible()
+    && await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).count() === 0);
+await staleRead.context.close();
 
 const listeningState = mockState({
   active_section: 'listening', section_time_left_seconds: 1, section_duration_seconds: 60,
@@ -296,11 +329,12 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, listening, writing, forceCollected, boundedFailure]
+  [waiting, retake, staleRead, listening, writing, forceCollected, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
-  [...waiting.egress, ...retake.egress, ...listening.egress, ...writing.egress,
+  [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...writing.egress,
     ...forceCollected.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
-    ...listening.errors, ...writing.errors, ...forceCollected.errors, ...boundedFailure.errors][0] || '');
+    ...staleRead.errors, ...listening.errors, ...writing.errors, ...forceCollected.errors,
+    ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();
 
