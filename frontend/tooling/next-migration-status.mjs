@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
+import { buildLegacyReplacementInventory } from './gate-f-route-replacement-inventory.mjs';
 import { findCollisions } from './route-ownership-check.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -104,6 +105,10 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
   });
   const corePlayers = summarizeCorePlayers();
   const ownership = findCollisions();
+  const legacyReplacement = buildLegacyReplacementInventory(
+    legacyHtml.renderable,
+    productAppPages,
+  );
   const blockers = [];
   if (legacyHtml.renderable.length) blockers.push({
     code: 'legacy-html-renderable',
@@ -115,6 +120,11 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     count: telemetryMissingPaths.length,
     paths: telemetryMissingPaths,
   });
+  if (legacyReplacement.missingNextRoutes.length) blockers.push({
+    code: 'legacy-next-replacement-missing',
+    count: legacyReplacement.missingNextRoutes.length,
+    routes: legacyReplacement.missingNextRoutes,
+  });
   const coreNotReady = corePlayers.entries.filter((entry) => !entry.nextRouteReady).map((entry) => entry.surface);
   if (coreNotReady.length) blockers.push({ code: 'core-next-route-not-ready', count: coreNotReady.length, surfaces: coreNotReady });
   const coreStillLegacy = corePlayers.entries.filter((entry) => entry.admitNew !== 'next').map((entry) => entry.surface);
@@ -122,7 +132,7 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
   if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     scope: 'static-code-cutover',
     scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
     appPages: {
@@ -143,6 +153,7 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
       clientRedirectStubPaths: legacyHtml.clientRedirected,
       renderablePaths: legacyHtml.renderable,
     },
+    legacyReplacement,
     corePlayers,
     routeOwnershipCollisions: ownership.collisions,
     gateFObservationReady: telemetryMissingPaths.length === 0,
@@ -156,6 +167,7 @@ function printHuman(report) {
   console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
   console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.serverRedirected} server-redirected; ${report.legacyHtml.clientRedirectStubs} client redirect stubs; ${report.legacyHtml.directlyRenderable} still directly renderable`);
   console.log(`  Gate F telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
+  console.log(`  Legacy replacements: ${report.legacyReplacement.nextRoutePresent}/${report.legacyReplacement.total} renderable paths have an App Router owner`);
   console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
   console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);
   console.log(`  Static cutover ready: ${report.staticCutoverReady ? 'YES' : 'NO'}`);
