@@ -47,7 +47,10 @@ export default {
   // Nộp xong PHẢI bàn giao lại cho trang điều phối kỳ thi. Trả sẵn
   // `{received:true}` chỉ kiểm ĐẦU VÀO của nhánh niêm phong; không có dòng này
   // thì trang có thể nhận response rồi đứng im mà bản khai vẫn xanh.
-  expectFinalUrl: new RegExp(`/pages/mock-exam\\.html\\?sitting=${SITTING}&done=reading$`),
+  // Cả hai renderer đều bàn giao về App Router canonical. Player legacy chỉ là
+  // renderer rollback; sau khi `/mock-exam` sở hữu vòng đời sitting, nó không
+  // được quay lại orchestrator legacy.
+  expectFinalUrl: new RegExp(`/mock-exam\\?sitting=${SITTING}&done=reading$`),
 
   writes: [
     base.writes[0],

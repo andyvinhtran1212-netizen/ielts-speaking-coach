@@ -442,7 +442,7 @@ describe('shared player knows the practice library', () => {
     // `practice` back target above stays as a safety net for links minted
     // before the switch — it is no longer the path the library takes.
     const js = read('js', 'listening-practice.js');
-    assert.match(js, /\/pages\/listening-practice-run\.html\?id=/);
+    assert.match(js, /\/listening\/practice-run\?id=/);
     assert.doesNotMatch(js, /listening-test\.html/,
       'the practice library must not send learners into the full-test player');
   });

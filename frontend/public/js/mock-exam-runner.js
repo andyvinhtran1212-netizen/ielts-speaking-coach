@@ -73,7 +73,7 @@
     try {
       var createdNow = false;
       if (!S.sittingId) {
-        if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');
+        if (!S.code) return fail('Thiếu mã kỳ thi (?code=) hoặc mã lượt thi (?sitting=).');
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
         // The BACKEND says which happened. Inferring it from mutable sitting

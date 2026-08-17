@@ -216,12 +216,24 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // migrated launcher as a missing/extra pair even though the bank query is
   // identical — and then skips the browser write-flow that proves the player.
   else if (path === '/pages/quiz.html') path = '/quiz';
+  // `/listening/practice-run` is the canonical light-practice runner. Preserve
+  // `id` and any future source query while comparing rollback links.
+  else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // `/exam` owns the standalone exam list/player after the native cutover.
+  // Keep every identity-bearing query (`id`, `source`, and any future key)
+  // intact: the mapping only changes the route owner. Without it, the live G1
+  // list fixture reports every correctly migrated card as one missing legacy
+  // link plus one extra native link and blocks the player write-flow entirely.
+  else if (path === '/pages/exam.html') path = '/exam';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
   // `/pages/home.html#x` và `/home#x` không bao giờ khớp. Đó đúng là lý do khu
   // Grammar khớp được (`/grammar.html` → `/grammar`) còn nơi khác thì không.
   else if (path === '/pages/home.html') path = '/home';
+  // `/mock-exam` owns the student runner; the HTML surface remains the
+  // rollback/parity reference until Gate F retirement.
+  else if (path === '/pages/mock-exam.html') path = '/mock-exam';
   // `/speaking` cutover 2026-08-05 — cùng lý do: NEO TRONG TRANG.
   // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
   // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.

@@ -59,6 +59,7 @@ test('maps legacy aliases and nested filename families to canonical Next routes'
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/listening/content-detail.html'), '/admin/listening/content/[contentId]');
   assert.equal(canonicalNextRouteForLegacy('/pages/vocabulary.html'), '/vocabulary/hub');
   assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
+  assert.equal(buildLegacyReplacementInventory(['/pages/exam.html'], ['/exam']).entries[0].owner, 'exam-platform');
   assert.equal(canonicalNextRouteForLegacy('not-a-route'), null);
 });
 
@@ -93,19 +94,15 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
   assert.equal(report.legacyReplacement.total, report.legacyHtml.directlyRenderable);
-  assert.equal(report.legacyReplacement.nextRoutePresent, 118);
-  assert.deepEqual(report.legacyReplacement.missingNextRoutes, [
-    { legacyPath: '/pages/exam.html', nextPath: '/exam', owner: 'course-exercises' },
-    { legacyPath: '/pages/listening-practice-run.html', nextPath: '/listening/practice-run', owner: 'listening' },
-    { legacyPath: '/pages/mock-exam.html', nextPath: '/mock-exam', owner: 'mock-exam' },
-  ]);
+  assert.equal(report.legacyReplacement.nextRoutePresent, 121);
+  assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.deepEqual(report.routeOwnershipCollisions, []);
   assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
   assert.equal(report.corePlayers.admittedToNext, 0);
   assert.equal(report.staticCutoverReady, false, 'remove this pin only in the intentional final static cutover');
   assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-html-renderable'));
   assert.ok(report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
-  assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-next-replacement-missing'));
+  assert.ok(!report.blockers.some((blocker) => blocker.code === 'legacy-next-replacement-missing'));
   assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-next-route-not-ready'));
   assert.ok(!report.blockers.some((blocker) => blocker.code === 'legacy-retirement-telemetry-missing'));
   assert.match(report.scopeNote, /operational evidence/i);

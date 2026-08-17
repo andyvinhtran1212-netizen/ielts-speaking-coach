@@ -27,10 +27,10 @@ fails while any legacy HTML is directly renderable, any HTML lacks an App
 Router replacement, any core Next player is not ready, any core surface still
 admits new sessions to legacy, or any route ownership collision exists.
 
-Current replacement denominator: 118/121. The three explicit gaps are
-`/exam`, `/listening/practice-run` and `/mock-exam`; the report must keep
-`legacy-next-replacement-missing` non-zero until behavior-equivalent App Router
-owners exist. A nearby landing page is not a valid replacement for a player.
+Current replacement denominator: 121/121. Every directly renderable legacy HTML
+path now has a behavior-equivalent App Router owner, so
+`legacy-next-replacement-missing` must stay absent. This closes route ownership,
+not operational cutover or legacy retirement.
 
 This static gate does not replace Preview/staging, persistence, failure-mode,
 device, accessibility, performance, rollback, drain or soak evidence. Those
