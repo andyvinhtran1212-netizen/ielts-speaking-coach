@@ -354,7 +354,7 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /SPEAKING FLOOR \+ CUTOVER PASSED; STAGING FORWARD ROLLBACK\s+DEPLOYMENT PENDING; LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /SPEAKING THREE-PHASE LIVE CORE DRILL PASSED; REAL DEVICE \+ GATE E\s+PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
@@ -364,5 +364,6 @@ describe('evidence truth', () => {
     assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PARTIAL\*\*/);
     assert.match(PREFLIGHT, /floor run `32043317793`/);
     assert.match(PREFLIGHT, /cutover run `32045284608`/);
+    assert.match(PREFLIGHT, /rollback run `32047774312`/);
   });
 });

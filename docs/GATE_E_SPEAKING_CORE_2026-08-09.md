@@ -1,7 +1,7 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION/FULL-TEST RESULTS; PERSISTED-AFFINITY FLOOR, GATE E PENDING. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION/FULL-TEST RESULTS; THREE-PHASE LIVE AFFINITY DRILL PASSED, GATE E PENDING. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
@@ -10,10 +10,10 @@ event handler và SVG, đồng thời render view-model cho header, loading/erro
 test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
 Full Test completion, feedback/pronunciation và inline test results. `practice.js`
 chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
-nguyên vẹn cho URL legacy rollback. Persisted-affinity floor run `32043317793`
-và cutover run `32045284608` đã pass; branch hậu duệ này forward-revert staging
-`admit_new=legacy` để thu rollback artifact. Active Next session vẫn giữ stable
-Next URL; production chưa đổi.
+nguyên vẹn cho URL legacy rollback. Persisted-affinity floor run `32043317793`,
+cutover run `32045284608` và forward rollback run `32047774312` đã pass. Staging
+hiện `admit_new=legacy`; active Next session vẫn giữ stable Next URL. Production
+chưa đổi.
 
 ## Finding
 
@@ -139,11 +139,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 5. ✅ Cutover run `32045284608` trên `staging@1398c50` giữ Legacy session
    `b8964c1e-686e-460d-a531-457b07b6dea7`, tạo Next session
    `64c53046-4889-4008-a1b0-768af1a00a7d` và pass reload/copy/provenance.
-6. 🟡 Branch hậu duệ forward-revert staging `admit_new=legacy`; sau deploy sẽ
-   reopen Next session từ cutover và tạo session Legacy mới để thu rollback
-   artifact. Safari/iOS
-   thật và đủ ba artifact vẫn chặn Gate E/production cutover; Legacy URL tiếp
-   tục sống đến Gate F.
+6. ✅ Forward rollback run `32047774312` trên `staging@28b23569` reopen Next
+   session từ cutover, tạo Legacy session
+   `b2afe17c-f752-42aa-be5e-74a846d1455e`, pass reload/copy/provenance và ghi
+   `rollback_mode=forward-revert`.
+7. 🟡 Safari/iOS thật vẫn chặn Gate E/production cutover; Legacy URL tiếp tục
+   sống đến Gate F.
 
 ## Batch player lifecycle
 
@@ -200,8 +201,8 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   coexistence flow và automated
   device/microphone matrix. Rollback floor `e96c2cdcc999979f645d16432f5cfd007d8383e8`
   và cutover `1398c50eb57f7469984a06b070baa84e0682aacb` đã được verify riêng;
-  `admit_new=legacy` trên branch hậu duệ là forward rollback. Real Safari/iOS
-  cùng rollback live drill vẫn là exit riêng.
+  forward rollback `28b2356913e1760c8e1afc196086f70b45a1454e` cũng đã pass.
+  Real Safari/iOS vẫn là exit riêng.
 
 Verification trực tiếp của batch:
 
