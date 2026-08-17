@@ -22,14 +22,17 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       next: Object.freeze({ path: '/practice/session', route_ready: true }),
     }),
     reading_exam: Object.freeze({
-      admit_new: 'legacy',
+      // Reading coexistence floor 7a6bdb9 (run 32060549833 attempt 3) proved
+      // canonical Legacy + dark Next affinity on matching staging provenance.
+      // New staging admissions now cut over to Next; both stable URLs remain.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id', 'share']),
       allowed_query: Object.freeze([
         'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
-      // Native App Router player exists as a dark route. Admission stays
-      // legacy until Gate E's Reading failure matrix and coexistence drill pass.
+      // Native App Router player owns new staging admissions. This is evidence
+      // collection for Gate E, not a production cutover or Legacy retirement.
       next: Object.freeze({ path: '/reading/exam/session', route_ready: true }),
     }),
     listening_test: Object.freeze({

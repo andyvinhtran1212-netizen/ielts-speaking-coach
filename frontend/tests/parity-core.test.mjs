@@ -91,6 +91,9 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       canonicalHref('/pages/listening-practice-run.html?source=library&id=test-1'),
       '/listening/practice-run?id=test-1&source=library');
     assert.equal(
+      canonicalHref('/pages/reading-exam.html?from=mini&test_id=AVR-1'),
+      '/reading/exam/session?from=mini&test_id=AVR-1');
+    assert.equal(
       canonicalHref('/pages/exam.html?id=exam-1&source=toeic_rc'),
       '/exam?id=exam-1&source=toeic_rc');
     assert.equal(
@@ -121,7 +124,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       ],
       [
         '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
-        '/pages/reading-exam.html?test_id=AVR-1&from=full&class_item=homework-1',
+        '/reading/exam/session?test_id=AVR-1&from=full&class_item=homework-1',
       ],
       [
         '/core-player/launch?surface=listening_test&id=test-1&from=mini',

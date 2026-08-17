@@ -62,7 +62,7 @@ describe('current admission policy preserves behavior', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     const expectedAdmission = {
       speaking: 'legacy',
-      reading_exam: 'legacy',
+      reading_exam: 'next',
       listening_test: 'legacy',
       listening_dictation: 'legacy',
     };
@@ -85,7 +85,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('launchers use the runtime endpoint while Speaking staging rolls forward to Legacy', () => {
+  test('runtime admission follows each staging surface policy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -112,7 +112,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
-      '/pages/reading-exam.html?test_id=AVR-1&class_item=homework-1',
+      '/reading/exam/session?test_id=AVR-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),

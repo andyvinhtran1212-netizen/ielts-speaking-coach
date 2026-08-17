@@ -219,6 +219,11 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/listening/practice-run` is the canonical light-practice runner. Preserve
   // `id` and any future source query while comparing rollback links.
   else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // Reading exam admissions now resolve to the native stable player on
+  // staging, while the HTML URL remains intentionally reachable for active
+  // Legacy attempts and rollback. Compare links by canonical route ownership;
+  // this does not rewrite either implementation-specific player at runtime.
+  else if (path === '/pages/reading-exam.html') path = '/reading/exam/session';
   // `/exam` owns the standalone exam list/player after the native cutover.
   // Keep every identity-bearing query (`id`, `source`, and any future key)
   // intact: the mapping only changes the route owner. Without it, the live G1

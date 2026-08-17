@@ -98,7 +98,7 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.deepEqual(report.routeOwnershipCollisions, []);
   assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
-  assert.equal(report.corePlayers.admittedToNext, 0);
+  assert.equal(report.corePlayers.admittedToNext, 1);
   assert.equal(report.staticCutoverReady, false, 'remove this pin only in the intentional final static cutover');
   assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-html-renderable'));
   assert.ok(report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
