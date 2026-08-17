@@ -10,10 +10,10 @@ event handler và SVG, đồng thời render view-model cho header, loading/erro
 test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
 Full Test completion, feedback/pronunciation và inline test results. `practice.js`
 chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
-nguyên vẹn cho URL legacy rollback. Persisted-affinity floor đã
-`route_ready=true` và pass run `32043317793`; branch hậu duệ này đổi staging
-`admit_new=next` để thu cutover artifact. Production chưa đổi và Legacy URL vẫn
-là rollback target.
+nguyên vẹn cho URL legacy rollback. Persisted-affinity floor run `32043317793`
+và cutover run `32045284608` đã pass; branch hậu duệ này forward-revert staging
+`admit_new=legacy` để thu rollback artifact. Active Next session vẫn giữ stable
+Next URL; production chưa đổi.
 
 ## Finding
 
@@ -136,9 +136,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    `e96c2cdcc999979f645d16432f5cfd007d8383e8` giữ `admit_new=legacy`; run
    `32043317793` chứng minh session Legacy thật, dark Next claim `null → next`,
    reload/copy và matching frontend/backend staging provenance.
-5. 🟡 Branch hậu duệ đổi riêng staging `admit_new=next`; sau deploy sẽ dùng
-   Legacy session `b8964c1e-686e-460d-a531-457b07b6dea7` từ floor để thu artifact
-   cutover, rồi forward-revert về Legacy và thu rollback artifact. Safari/iOS
+5. ✅ Cutover run `32045284608` trên `staging@1398c50` giữ Legacy session
+   `b8964c1e-686e-460d-a531-457b07b6dea7`, tạo Next session
+   `64c53046-4889-4008-a1b0-768af1a00a7d` và pass reload/copy/provenance.
+6. 🟡 Branch hậu duệ forward-revert staging `admit_new=legacy`; sau deploy sẽ
+   reopen Next session từ cutover và tạo session Legacy mới để thu rollback
+   artifact. Safari/iOS
    thật và đủ ba artifact vẫn chặn Gate E/production cutover; Legacy URL tiếp
    tục sống đến Gate F.
 
@@ -196,8 +199,9 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   baseline sáu shape, bảy mutation/recovery flow, một cross-version
   coexistence flow và automated
   device/microphone matrix. Rollback floor `e96c2cdcc999979f645d16432f5cfd007d8383e8`
-  đã được verify riêng; `admit_new=next` chỉ áp dụng cho staging cutover hậu duệ.
-  Real Safari/iOS cùng rollback live drill vẫn là exit riêng.
+  và cutover `1398c50eb57f7469984a06b070baa84e0682aacb` đã được verify riêng;
+  `admit_new=legacy` trên branch hậu duệ là forward rollback. Real Safari/iOS
+  cùng rollback live drill vẫn là exit riêng.
 
 Verification trực tiếp của batch:
 

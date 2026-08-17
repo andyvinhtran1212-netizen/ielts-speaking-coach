@@ -10,10 +10,10 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   strategy_id: 'stable-player-url-admission-switch-v1',
   surfaces: Object.freeze({
     speaking: Object.freeze({
-      // Persisted-affinity floor e96c2cd was deployed and verified separately.
-      // This descendant staging release admits fresh sessions to Next; claimed
-      // sessions keep their stable implementation URL through rollback.
-      admit_new: 'next',
+      // Floor e96c2cd and cutover 1398c50 were verified separately. This
+      // descendant forward rollback returns fresh staging admission to Legacy;
+      // claimed sessions keep their stable implementation URL.
+      admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),
