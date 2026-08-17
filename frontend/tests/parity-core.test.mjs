@@ -124,7 +124,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       ],
       [
         '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
-        '/reading/exam/session?test_id=AVR-1&from=full&class_item=homework-1',
+        '/pages/reading-exam.html?test_id=AVR-1&from=full&class_item=homework-1',
       ],
       [
         '/core-player/launch?surface=listening_test&id=test-1&from=mini',

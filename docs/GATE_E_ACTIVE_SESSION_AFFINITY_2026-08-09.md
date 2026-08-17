@@ -4,9 +4,10 @@
 PENDING. Speaking floor `32043317793`, cutover `32045284608` và forward rollback
 `32047774312` đã chứng minh hai renderer giữ affinity canonical trên matching
 frontend/backend staging provenance. Reading floor `32060549833` attempt 3 trên
-SHA `7a6bdb9cafdc405226f1d85ffbaf366ff5841adb` cũng đã pass; staging Reading hiện
-`admit_new=next` để thu bằng chứng cutover, còn cutover/forward-rollback artifact
-chưa được xác nhận. Production và ba surface còn lại vẫn `admit_new=legacy`;
+SHA `7a6bdb9cafdc405226f1d85ffbaf366ff5841adb` và cutover `32072244886` attempt 2
+trên `0599a8f33340593452a3372c755eb27931939645` đều đã pass; staging Reading hiện
+`admit_new=legacy` trong forward-rollback candidate, còn rollback artifact chưa
+được xác nhận. Production và ba surface còn lại vẫn `admit_new=legacy`;
 không tuyên bố Gate E PASS hoặc production cutover.
 
 ## Finding
@@ -34,8 +35,8 @@ không tuyên bố Gate E PASS hoặc production cutover.
   tab cũ mở sau migration lẫn tab mới đều giữ đúng renderer. Reopen dùng claim canonical
   thay vì re-admit. Production vẫn giữ Legacy. Reading coexistence floor
   `7a6bdb9cafdc405226f1d85ffbaf366ff5841adb` giữ Legacy và đã verify trước khi
-  staging Reading chuyển admission sang Next; cả bốn target Next vẫn
-  `route_ready: true`.
+  staging Reading chuyển admission sang Next. Cutover đã pass và candidate hiện
+  forward-rollback admission về Legacy; cả bốn target Next vẫn `route_ready: true`.
 - **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi
   qua cutover/rollback nhưng runtime hiện tại đổi được đích Next về legacy;
   legacy-start và Next-start vẫn giữ URL implementation-specific của chính nó.
@@ -55,7 +56,7 @@ Mỗi implementation có URL ổn định riêng:
 | Surface | Legacy stable URL | Next stable URL | Admission hiện tại |
 |---|---|---|---|
 | Speaking | `/pages/practice.html` | `/practice/session` | legacy trên staging sau forward rollback đã verify; active Next session vẫn giữ `/practice/session`; production chưa đổi |
-| Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | next trên staging để chạy cutover drill; floor run `32060549833` attempt 3 tại `7a6bdb9c` đã verify matching provenance + Legacy/dark-Next affinity; cutover/forward-rollback artifact còn pending; production chưa đổi |
+| Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy trên staging trong forward-rollback candidate; floor `32060549833` attempt 3 và cutover `32072244886` attempt 2 đã verify matching provenance + Legacy/Next affinity; forward-rollback artifact còn pending; production chưa đổi |
 | Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Writing dashboard | `/pages/writing-dashboard.html` | `/writing/dashboard` | Next — cutover trước batch này |

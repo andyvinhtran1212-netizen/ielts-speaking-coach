@@ -62,7 +62,7 @@ describe('current admission policy preserves behavior', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     const expectedAdmission = {
       speaking: 'legacy',
-      reading_exam: 'next',
+      reading_exam: 'legacy',
       listening_test: 'legacy',
       listening_dictation: 'legacy',
     };
@@ -112,7 +112,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
-      '/reading/exam/session?test_id=AVR-1&class_item=homework-1',
+      '/pages/reading-exam.html?test_id=AVR-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),
