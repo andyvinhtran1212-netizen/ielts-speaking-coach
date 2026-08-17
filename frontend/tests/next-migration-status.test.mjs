@@ -93,10 +93,9 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
   assert.equal(report.legacyReplacement.total, report.legacyHtml.directlyRenderable);
-  assert.equal(report.legacyReplacement.nextRoutePresent, 118);
+  assert.equal(report.legacyReplacement.nextRoutePresent, 119);
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, [
     { legacyPath: '/pages/exam.html', nextPath: '/exam', owner: 'course-exercises' },
-    { legacyPath: '/pages/listening-practice-run.html', nextPath: '/listening/practice-run', owner: 'listening' },
     { legacyPath: '/pages/mock-exam.html', nextPath: '/mock-exam', owner: 'mock-exam' },
   ]);
   assert.deepEqual(report.routeOwnershipCollisions, []);

@@ -66,10 +66,12 @@ các điều kiện bên dưới vẫn có thể đẩy quyết định retireme
 - Permanent redirects, replacement invariant/test mapping và deletion
   checklist phải được review trước khi xóa HTML/JS.
 - Static replacement inventory hiện fail closed với blocker
-  `legacy-next-replacement-missing`: 118/121 HTML renderable có App Router owner;
-  `/pages/exam.html`, `/pages/listening-practice-run.html` và
-  `/pages/mock-exam.html` chưa có replacement route. Không được tạo redirect giả
-  sang một page gần giống hoặc gọi ba artifact này là rollback-only trước khi
+  `legacy-next-replacement-missing`: 119/121 HTML renderable có App Router owner;
+  `/pages/exam.html` và `/pages/mock-exam.html` chưa có replacement route.
+  `/pages/listening-practice-run.html` đã có native owner
+  `/listening/practice-run`, nhưng vẫn là rollback/parity artifact cho tới Gate
+  F. Không được tạo redirect giả sang một page gần giống hoặc gọi hai artifact
+  còn thiếu là rollback-only trước khi
   behavior tương ứng được migrate và verify.
 
 ## Verification hiện tại

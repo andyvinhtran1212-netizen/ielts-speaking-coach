@@ -88,6 +88,14 @@
     "allow": []
   },
   {
+    "name": "listening-practice-run-missing-id",
+    "legacy": "/pages/listening-practice-run.html",
+    "next": "/listening/practice-run",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?id=` thì cả hai vế fail closed ở trạng thái thiếu mã. Cặp này ghim owner, shell, copy và style desktop/mobile; fixture `verify-listening-practice-run-flow.mjs` mới phủ resume/start/check/reveal/submit và mobile containment bằng dữ liệu kín."
+  },
+  {
     "name": "listening-landing",
     "legacy": "/pages/listening.html",
     "next": "/listening",
