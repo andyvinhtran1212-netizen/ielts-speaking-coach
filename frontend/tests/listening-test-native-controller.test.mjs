@@ -13,6 +13,7 @@ import {
   listeningInlineTokens,
   listeningLibraryHref,
   listeningQuestions,
+  listeningRendererHref,
   listeningResumeOffsetSeconds,
   listeningReviewHref,
   listeningTableCellLines,
@@ -55,10 +56,14 @@ describe('native Listening test controller', () => {
     assert.deepEqual(listeningQuestions(normalized).map((row) => row.question.q_num), [1, 2]);
     const resume = normalizeListeningResume({ attempt: {
       attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z',
-      answers: [{ q_num: 2, user_answer: 'B' }],
+      answers: [{ q_num: 2, user_answer: 'B' }], renderer_affinity: 'next',
     } });
     assert.deepEqual([...listeningAnswersFromRows(resume.answers)], [[2, 'B']]);
+    assert.equal(resume.renderer_affinity, 'next');
     assert.equal(normalizeListeningResume({ attempt: null }), null);
+    assert.throws(() => normalizeListeningResume({ attempt: {
+      attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z', renderer_affinity: 'other',
+    } }), /invalid-listening-renderer-affinity/);
   });
 
   test('anchors resumed audio to server started_at', () => {
@@ -75,6 +80,14 @@ describe('native Listening test controller', () => {
     assert.equal(listeningReviewHref('a 1', 'mini'), '/listening/review?attempt_id=a+1&from=mini');
     assert.equal(listeningReviewHref('a1', 'https://evil.test'), '/listening/review?attempt_id=a1&from=full');
     assert.equal(listeningDictationHref('t/1'), '/core-player/launch?surface=listening_dictation&test_id=t%2F1');
+    assert.equal(
+      listeningRendererHref('legacy', '?id=t%2F1&from=mini&ignored=x'),
+      '/pages/listening-test.html?id=t%2F1&from=mini',
+    );
+    assert.equal(
+      listeningRendererHref('next', '?id=t1&sitting_id=s1&mock_embed=1'),
+      '/listening/test/session?id=t1&sitting_id=s1&mock_embed=1',
+    );
   });
 
   test('places the answer control at the first authored blank token', () => {
@@ -223,6 +236,10 @@ describe('native Listening test route contract', () => {
     assert.match(page, /\/attempts\/in-progress/);
     assert.match(page, /\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/answers/);
     assert.match(page, /\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/submit/);
+    assert.match(page, /\/renderer-affinity/);
+    assert.match(page, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(page, /renderer_affinity: 'next'/);
+    assert.match(page, /window\.location\.replace\(listeningRendererHref/);
   });
 
   test('preserves mock sealing, canonical resume and submit safety', () => {

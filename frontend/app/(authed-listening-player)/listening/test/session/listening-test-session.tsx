@@ -11,6 +11,7 @@ import {
   listeningInlineTokens,
   listeningLibraryHref,
   listeningQuestions,
+  listeningRendererHref,
   listeningResumeOffsetSeconds,
   listeningReviewHref,
   listeningTableCellLines,
@@ -23,7 +24,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
 type SaveMap = Map<number, 'retrying' | 'failed'>;
-type Attempt = { attempt_id: string; started_at: string; answers?: any[] };
+type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null };
 type ListeningTest = any;
 
 function withQuery(path: string, pairs: Array<[string, string | null]>) {
@@ -341,6 +342,20 @@ export function ListeningTestSession() {
     ]);
   }, [params]);
 
+  const claimNextRenderer = useCallback(async (attemptId: string) => {
+    const claimed: any = await window.api.post(
+      `/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/renderer-affinity`,
+      { renderer_affinity: 'next' },
+    );
+    const canonical = String(claimed?.renderer_affinity || '');
+    if (!['legacy', 'next'].includes(canonical)) throw new Error('Renderer của attempt không hợp lệ.');
+    if (canonical !== 'next') {
+      window.location.replace(listeningRendererHref(canonical, window.location.search));
+      return null;
+    }
+    return canonical as 'next';
+  }, []);
+
   const boot = useCallback(async () => {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Listening test)');
@@ -355,16 +370,19 @@ export function ListeningTestSession() {
     setTestData(normalizedTest);
     setActiveSection(firstSection);
     if (normalizedAttempt) {
-      const restored = listeningAnswersFromRows(normalizedAttempt.answers);
+      const affinity = await claimNextRenderer(normalizedAttempt.attempt_id);
+      if (!affinity) return;
+      const ownedAttempt = { ...normalizedAttempt, renderer_affinity: affinity };
+      const restored = listeningAnswersFromRows(ownedAttempt.answers);
       answersRef.current = restored;
       setAnswers(new Map(restored));
-      setAttempt(normalizedAttempt);
+      setAttempt(ownedAttempt);
       setResumeAvailable(true);
     } else {
       answersRef.current = new Map(); setAnswers(new Map()); setAttempt(null); setResumeAvailable(false);
     }
     setPhase('prestart');
-  }, [params, resumePath]);
+  }, [claimNextRenderer, params, resumePath]);
 
   const bootWithRecovery = useCallback(async () => {
     setPhase('loading'); setError('');
@@ -442,15 +460,19 @@ export function ListeningTestSession() {
     setPhase('loading');
     try {
       const started: any = await window.api.post(
-        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}/attempts`, [['class_item', params.classItem]]), {},
+        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}/attempts`, [['class_item', params.classItem]]),
+        { renderer_affinity_protocol: 'claim-v1' },
       );
+      const affinity = await claimNextRenderer(String(started.attempt_id));
+      if (!affinity) return;
       const hook = (window as any).MockHook;
       if (params.sittingId && typeof hook?.attach === 'function') await hook.attach('listening', started.attempt_id);
       const canonical = normalizeListeningResume(await window.api.get(resumePath(params)));
       if (!canonical || canonical.attempt_id !== String(started.attempt_id)) throw new Error('Không xác nhận được attempt vừa tạo.');
-      await enterAttempt(canonical, new Map(), false);
+      const ownedAttempt = { ...canonical, renderer_affinity: affinity };
+      await enterAttempt(ownedAttempt, new Map(), false);
     } catch (caught: any) { setError(`Không bắt đầu được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [enterAttempt, params, resumePath]);
+  }, [claimNextRenderer, enterAttempt, params, resumePath]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;

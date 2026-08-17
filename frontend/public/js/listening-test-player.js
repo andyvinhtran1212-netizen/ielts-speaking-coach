@@ -76,6 +76,40 @@ const STATE = {
   sectionQCounts: {},         // section_num → question count (for tab "n/m")
 };
 
+function listeningRendererUrl(renderer) {
+  const path = renderer === 'legacy'
+    ? '/pages/listening-test.html'
+    : renderer === 'next'
+      ? '/listening/test/session'
+      : null;
+  if (!path) throw new Error('invalid-listening-renderer');
+  const source = new URLSearchParams(window.location.search);
+  const query = new URLSearchParams();
+  for (const key of ['id', 'sitting_id', 'mock_embed', 'from', 'class_item']) {
+    const value = source.get(key);
+    if (value) query.set(key, value);
+  }
+  if (!query.get('id') && STATE.testId) query.set('id', STATE.testId);
+  if (!query.get('id')) throw new Error('missing-listening-test-identity');
+  return `${path}?${query.toString()}`;
+}
+
+async function claimListeningRenderer(attemptId) {
+  const claim = await window.api.post(
+    `/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/renderer-affinity`,
+    { renderer_affinity: 'legacy' },
+  );
+  const canonical = claim && claim.renderer_affinity;
+  if (canonical !== 'legacy' && canonical !== 'next') {
+    throw new Error('Renderer của attempt không hợp lệ.');
+  }
+  if (canonical !== 'legacy') {
+    window.location.replace(listeningRendererUrl(canonical));
+    return null;
+  }
+  return canonical;
+}
+
 // Derive the test's real shape (section count, total questions, q→section map,
 // per-section counts) from the loaded payload — NOT a hardcoded 4×10.
 function computeTestShape(test) {
@@ -316,6 +350,9 @@ async function detectResumable() {
     );
     const att = res && res.attempt;
     if (!att) return;
+    const affinity = await claimListeningRenderer(att.attempt_id);
+    if (!affinity) return;
+    att.renderer_affinity = affinity;
     STATE.resumable = att;
     const n = (att.answers || []).length;
     $('ft-resume-note').textContent = n
@@ -512,8 +549,10 @@ async function startAttempt() {
     const res = await window.api.post(
       `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`
         + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
-      {},
+      { renderer_affinity_protocol: 'claim-v1' },
     );
+    const affinity = await claimListeningRenderer(res.attempt_id);
+    if (!affinity) return;
     STATE.attemptId = res.attempt_id;
     startNothingSavedWatch();
     // Mock sitting: link this attempt so its submit is sealed server-side.

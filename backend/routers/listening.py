@@ -25,7 +25,7 @@ import json
 import logging
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import (
     APIRouter, File, Header, HTTPException, Query,
@@ -4361,6 +4361,21 @@ class PracticeCheckRequest(BaseModel):
     reveal:      bool = False
 
 
+class _ListeningAttemptStartRequest(BaseModel):
+    """Opt in to first-player renderer claiming for a new attempt.
+
+    A missing body is the N-1 contract and stays pinned to the database's
+    Legacy default. ``claim-v1`` inserts NULL so the stable player URL can
+    atomically own the attempt before any answer mutation.
+    """
+
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
+
+class _ListeningAttemptRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -5734,7 +5749,7 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     query = (
         supabase_admin.table("listening_test_attempts")
-        .select("id, started_at, created_at, answers")
+        .select("id, started_at, created_at, answers, renderer_affinity")
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
@@ -5777,6 +5792,7 @@ async def get_in_progress_listening_attempt(
                 a for a in (row.get("answers") or [])
                 if str(a.get("user_answer") or "").strip()
             ],
+            "renderer_affinity": row.get("renderer_affinity"),
         }
     }
 
@@ -5784,6 +5800,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
+    body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
@@ -5846,6 +5863,9 @@ async def start_listening_test_attempt(
         "status":  "in_progress",
         "answers": [],
     }
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if affinity_aware:
+        payload["renderer_affinity"] = None
     # Class homework: stamp WHICH task this is being done for, so the ledger
     # never has to work it out afterwards (mig 181).
     if class_item:
@@ -5855,7 +5875,11 @@ async def start_listening_test_attempt(
         .insert(payload)
         .execute()
     )
-    return {"attempt_id": attempt_id, "status": "in_progress"}
+    return {
+        "attempt_id": attempt_id,
+        "status": "in_progress",
+        "renderer_affinity": None if affinity_aware else "legacy",
+    }
 
 
 def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
@@ -5872,6 +5896,44 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@user_router.post("/tests/attempts/{attempt_id}/renderer-affinity")
+async def claim_listening_attempt_renderer_affinity(
+    attempt_id: uuid.UUID,
+    body: _ListeningAttemptRendererAffinityRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Claim a stable Listening player on first boot; never move it later."""
+    user = await _require_auth(authorization)
+    _fetch_attempt_or_404(str(attempt_id), user["id"])
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_listening_attempt_renderer_affinity",
+            {
+                "p_attempt_id": str(attempt_id),
+                "p_user_id": user["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[listening-renderer-affinity] claim failed attempt=%s renderer=%s: %s",
+            attempt_id,
+            body.renderer_affinity,
+            exc,
+        )
+        raise HTTPException(
+            500, "Không thể xác nhận phiên bản player. Hãy tải lại trang."
+        )
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Attempt không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Attempt chưa có renderer hợp lệ")
+    return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
 async def _is_admin(authorization: str | None) -> bool:

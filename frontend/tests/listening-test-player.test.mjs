@@ -144,6 +144,13 @@ describe('Sprint 13.5 — player JS contract', () => {
     );
   });
 
+  it('claims Legacy affinity before resuming or mutating a versioned attempt', () => {
+    assert.match(JS, /renderer_affinity_protocol:\s*'claim-v1'/);
+    assert.match(JS, /\/renderer-affinity/);
+    assert.match(JS, /renderer_affinity:\s*'legacy'/);
+    assert.match(JS, /window\.location\.replace\(listeningRendererUrl\(canonical\)\)/);
+  });
+
   it('confirms with the user before consuming an attempt slot', () => {
     assert.match(JS, /window\.confirm\(/);
     assert.match(JS, /Bắt đầu test\?/);
