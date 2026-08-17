@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
+  canDiscardWritingDrafts,
   chooseWritingDraft,
   configuredMockSections,
   formatMockTime,
@@ -76,6 +77,26 @@ test('writing recovery prefers an explicitly unsynced local deletion and otherwi
   assert.deepEqual(chooseWritingDraft({ text: 'server', submittedAt: '2026-08-17T00:00:00Z' }, unsyncedEmpty), { text: '', localWon: true });
   const oldLocal = parseLocalWritingDraft(JSON.stringify({ text: 'old', ts: 1, synced: null }));
   assert.deepEqual(chooseWritingDraft({ text: 'new', submittedAt: '2026-08-17T00:00:00Z' }, oldLocal), { text: 'new', localWon: false });
+});
+
+test('collection never discards a newer Writing draft that the server did not acknowledge', () => {
+  const server = {
+    task1: { text: 'older server copy' },
+    task2: { text: 'same copy' },
+  };
+  const unsynced = {
+    task1: parseLocalWritingDraft(JSON.stringify({ text: 'newer local copy', ts: 2, synced: false })),
+    task2: parseLocalWritingDraft(JSON.stringify({ text: 'same copy', ts: 2, synced: false })),
+  };
+  assert.equal(canDiscardWritingDrafts(server, unsynced), false);
+  assert.equal(canDiscardWritingDrafts(server, {
+    ...unsynced,
+    task1: parseLocalWritingDraft(JSON.stringify({ text: 'older server copy', ts: 2, synced: false })),
+  }), true);
+  assert.equal(canDiscardWritingDrafts(server, {
+    ...unsynced,
+    task1: parseLocalWritingDraft(JSON.stringify({ text: 'acknowledged copy', ts: 2, synced: true })),
+  }), false);
 });
 
 test('submit reconciliation treats Writing collect as settled only after its stamp', () => {

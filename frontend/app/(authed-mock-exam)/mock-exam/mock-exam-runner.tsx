@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   MOCK_LIVE_STATUSES,
   MOCK_SECTION_LABELS,
+  canDiscardWritingDrafts,
   chooseWritingDraft,
   configuredMockSections,
   formatMockTime,
@@ -587,8 +588,14 @@ export function MockExamRunner() {
       throw new Error('mock-sitting-owner-mismatch');
     }
     if (next.sitting.writingSubmittedAt) {
-      clearLocalDrafts(next.sitting.id);
-      finalWritingBodyRef.current = null;
+      const localDrafts = {
+        task1: readLocalDraft(next.sitting.id, 'task1'),
+        task2: readLocalDraft(next.sitting.id, 'task2'),
+      };
+      if (canDiscardWritingDrafts(next.sitting.writingSubmission, localDrafts)) {
+        clearLocalDrafts(next.sitting.id);
+        finalWritingBodyRef.current = null;
+      }
     }
     stateRef.current = next;
     setState(next);

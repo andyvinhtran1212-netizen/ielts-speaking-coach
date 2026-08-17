@@ -63,7 +63,7 @@ async function launch() {
 
 async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
-  finalWritingAlwaysFails = false, fakeClock = false,
+  finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -123,6 +123,9 @@ async function fixturePage(browser, initialState, {
     }
     if (request.method() === 'POST' && url.pathname === `/api/mock-exams/sittings/${SITTING_ID}/writing`) {
       state.writingDrafts.push(request.postDataJSON());
+      if (writingDraftAlwaysFails || state.current.sitting.writing_submitted_at) {
+        return route.fulfill(json({ detail: 'writing already collected' }, 409));
+      }
       return route.fulfill(json({ ok: true }));
     }
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/submit')) {
@@ -131,6 +134,10 @@ async function fixturePage(browser, initialState, {
       if (finalWritingAlwaysFails) return route.fulfill(json({ detail: 'temporary failure' }, 503));
       if (finalWritingLostAck && state.writingFinals.length === 1) {
         state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
+        state.current.sitting.writing_submission = {
+          task1: { text: body.task1_text, submitted_at: '2026-08-17T02:00:00Z' },
+          task2: { text: body.task2_text, submitted_at: '2026-08-17T02:00:00Z' },
+        };
         state.current.sitting.status = 'lrw_submitted';
         state.current.active_section = 'done';
         state.current.section_time_left_seconds = 0;
@@ -232,6 +239,34 @@ check('lost final ACK reuses one immutable Writing payload and reconciles canoni
     && writing.state.writingFinals[0].task1_text === localTask1
     && localDrafts.every((value) => value === null));
 
+const forceCollectedState = mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+});
+const forceCollectedDraft = 'Newer local text inside the debounce window.';
+const forceCollected = await fixturePage(browser, forceCollectedState, {
+  fakeClock: true,
+  writingDraftAlwaysFails: true,
+  drafts: {
+    task1: { text: forceCollectedDraft, ts: Date.now() + 10_000, synced: false },
+  },
+});
+await forceCollected.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await forceCollected.page.getByLabel('Bài viết Task 1').waitFor();
+forceCollected.state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
+forceCollected.state.current.sitting.status = 'lrw_submitted';
+forceCollected.state.current.active_section = 'done';
+forceCollected.state.current.section_time_left_seconds = 0;
+await forceCollected.page.clock.runFor(8_001);
+await forceCollected.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor();
+await forceCollected.page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+const forceCollectedLocal = await forceCollected.page.evaluate((id) => (
+  localStorage.getItem(`mock-writing:${id}:task1`)
+), SITTING_ID);
+check('admin collection preserves a newer unsynced Writing draft through poll and unmount',
+  JSON.parse(forceCollectedLocal || '{}').text === forceCollectedDraft
+    && JSON.parse(forceCollectedLocal || '{}').synced === false);
+await forceCollected.context.close();
+
 const boundedFailure = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
 }), { finalWritingAlwaysFails: true, fakeClock: true });
@@ -261,11 +296,11 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, listening, writing, boundedFailure]
+  [waiting, retake, listening, writing, forceCollected, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...listening.egress, ...writing.egress,
-    ...boundedFailure.egress, ...waiting.errors, ...retake.errors, ...listening.errors,
-    ...writing.errors, ...boundedFailure.errors][0] || '');
+    ...forceCollected.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
+    ...listening.errors, ...writing.errors, ...forceCollected.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();
 

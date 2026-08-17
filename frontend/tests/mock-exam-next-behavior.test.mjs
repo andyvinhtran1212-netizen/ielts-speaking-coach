@@ -56,7 +56,7 @@ describe('/mock-exam native runner ownership', () => {
   test('serializes Writing autosave and reuses one immutable final payload', () => {
     assert.match(RUNNER, /if \(active\) \{ try \{ await active; \}/);
     assert.match(RUNNER, /finalWritingBodyRef\.current/);
-    assert.match(RUNNER, /clearLocalDrafts\(next\.sitting\.id\)/);
+    assert.match(RUNNER, /canDiscardWritingDrafts\(next\.sitting\.writingSubmission, localDrafts\)[\s\S]*clearLocalDrafts\(next\.sitting\.id\)/);
     assert.match(RUNNER, /SUBMIT_RETRY_DELAYS/);
     assert.match(RUNNER, /isMockSubmitSettled/);
   });

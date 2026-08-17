@@ -257,6 +257,17 @@ export function chooseWritingDraft(serverBlob, localDraft) {
   return Object.freeze({ text: localDraft.text, localWon: true });
 }
 
+export function canDiscardWritingDrafts(serverSubmission, localDrafts) {
+  return ['task1', 'task2'].every((task) => {
+    const local = localDrafts?.[task];
+    if (!local) return true;
+    const serverText = typeof serverSubmission?.[task]?.text === 'string'
+      ? serverSubmission[task].text
+      : '';
+    return local.text === serverText;
+  });
+}
+
 export function isMockSubmitSettled(state, section) {
   if (!state) return false;
   const status = state.sitting.status;
