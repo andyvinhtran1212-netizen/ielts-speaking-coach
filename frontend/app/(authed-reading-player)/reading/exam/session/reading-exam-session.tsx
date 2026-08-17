@@ -505,6 +505,7 @@ export function ReadingExamSession() {
   const [displaySize, setDisplaySize] = useState('medium');
   const [displayTheme, setDisplayTheme] = useState('default');
   const coordinatorRef = useRef<any>(null);
+  const collectionFrozenRef = useRef(false);
   const ownerRef = useRef<string | null>(null);
   const bootKeyRef = useRef<string | null>(null);
   const autoSubmittedRef = useRef(false);
@@ -732,6 +733,7 @@ export function ReadingExamSession() {
   }, [params?.mockEmbed, phase, resume, resumeAvailable, startFresh]);
 
   const updateAnswer = useCallback((qNum: number, value: string) => {
+    if (collectionFrozenRef.current) return;
     const next = new Map(answersRef.current);
     if (value) next.set(qNum, value); else next.delete(qNum);
     answersRef.current = next;
@@ -740,6 +742,7 @@ export function ReadingExamSession() {
   }, []);
 
   const toggleFlag = useCallback((qNum: number) => {
+    if (collectionFrozenRef.current) return;
     setFlagged((previous) => {
       const next = new Set(previous);
       if (next.has(qNum)) next.delete(qNum); else next.add(qNum);
@@ -778,6 +781,12 @@ export function ReadingExamSession() {
       if (event.origin !== window.location.origin
           || event.source !== window.parent
           || event.data?.type !== 'mock-flush') return;
+      // Freeze before reading the coordinator snapshot. Any edit handled before
+      // this message is part of the flush; no edit handled after it can create
+      // a new debounce behind the ACK that releases the server sweep.
+      collectionFrozenRef.current = true;
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      document.body.inert = true;
       try { await coordinatorRef.current?.flush?.(); } catch {}
       const unsaved = coordinatorRef.current?.snapshot?.().size ?? saveStates.size;
       if (event.source) {

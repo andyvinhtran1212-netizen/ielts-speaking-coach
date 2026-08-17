@@ -239,6 +239,8 @@ async def advance_section(
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    except svc.MockExamError as e:
+        raise HTTPException(503, str(e))
     if out.get("sweep_section"):
         background_tasks.add_task(
             svc._force_collect_section, exam_id, out["sweep_section"],
@@ -299,7 +301,17 @@ async def collect_section(
         raise HTTPException(503, str(e))
     # Close admissions synchronously — the pause must hold from the moment the
     # request is accepted, not from whenever the queued sweep happens to run.
-    svc.mark_section_collected(exam_id, info["section"])
+    marked = svc.mark_section_collected(exam_id, info["section"])
+    # For a fresh collection, a false compare-and-set means advance won the
+    # race after preflight. Do not queue an uncoordinated sweep against the old
+    # section. Recovery re-sweeps intentionally target an earlier section, so
+    # their marker update is expected to be a no-op.
+    if info["section"] == from_section and not marked:
+        raise HTTPException(
+            409,
+            "Phần thi vừa được chuyển bởi thao tác khác; chưa xếp hàng thu bài. "
+            "Tải lại trang để đối chiếu.",
+        )
     background_tasks.add_task(
         # No from_section: the stale-screen check already ran, synchronously,
         # against the state at request time. Re-checking it inside the queued

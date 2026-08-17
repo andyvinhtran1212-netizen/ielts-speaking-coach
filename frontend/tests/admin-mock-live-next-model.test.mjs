@@ -21,6 +21,7 @@ const livePayload = () => ({
   exam: {
     id: 'exam-1', code: 'FT-1', title: 'Full Test 1', exam_mode: 'sequential', status: 'published',
     is_open: true, active_section: 'listening', collected_section: null,
+    collection_sweep_completed_section: null,
     section_started_at: '2026-08-16T08:00:00Z', section_duration_seconds: 1800,
     section_time_left_seconds: 600, configured_sections: ['listening', 'reading', 'writing'], cohort_id: 'cohort-1',
   },
@@ -90,6 +91,16 @@ test('section progression follows only configured papers and clock is locally in
   assert.equal(clockSeconds({ seconds: 3, at: 1_000 }, 9_000), 0);
 });
 
+test('live snapshot distinguishes a collecting pause from a completed pause', () => {
+  const collecting = livePayload();
+  collecting.exam.collected_section = 'listening';
+  assert.equal(normalizeLiveSnapshot(collecting).exam.collectionSweepCompletedSection, null);
+  collecting.exam.collection_sweep_completed_section = 'listening';
+  assert.equal(normalizeLiveSnapshot(collecting).exam.collectionSweepCompletedSection, 'listening');
+  collecting.exam.collection_sweep_completed_section = 'speaking';
+  assert.equal(normalizeLiveSnapshot(collecting), null);
+});
+
 test('pacing keeps clears as activity, derives long gaps and requires backend caveats', () => {
   const raw = {
     sitting_id: 'sit-1', exam_id: 'exam-1', student_name: 'An', exam_code: 'FT-1', status: 'released',
@@ -129,7 +140,7 @@ test('native routes own auth, exact identities, irreversible guards and accessib
   ]) assert.ok(existsSync(join(ROOT, ...path)), path.join('/'));
   assert.match(livePage, /AdminAccessGate/);
   assert.match(pacingPage, /AdminAccessGate/);
-  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'loadSnapshot(examId)', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
+  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'collectionSweepCompletedSection', 'collecting', 'Đang thu bài…', 'loadSnapshot(examId)', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
   assert.doesNotMatch(live, /prompt\s*\(/);
   assert.match(dialog, /import \{ Dialog \}/);
   assert.match(dialog, /<Dialog/);

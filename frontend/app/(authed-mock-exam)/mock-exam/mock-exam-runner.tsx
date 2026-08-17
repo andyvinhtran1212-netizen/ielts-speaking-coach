@@ -251,9 +251,10 @@ function SubmittedCard({ state, onSpeaking, openingSpeaking }: {
   );
 }
 
-function WritingWorkspace({ state, register }: {
+function WritingWorkspace({ state, register, locked = false }: {
   state: MockState;
   register(bridge: WritingBridge | null): void;
+  locked?: boolean;
 }) {
   const sittingId = state.sitting.id;
   const initial = useMemo(() => {
@@ -362,11 +363,12 @@ function WritingWorkspace({ state, register }: {
   }, [flush]);
 
   const edit = useCallback((which: 'task1' | 'task2', value: string) => {
+    if (locked) return;
     if (which === 'task1') { task1Ref.current = value; setTask1(value); }
     else { task2Ref.current = value; setTask2(value); }
     writeLocalDraft(sittingId, which, value, false);
     schedule();
-  }, [schedule, sittingId]);
+  }, [locked, schedule, sittingId]);
 
   useEffect(() => {
     if (initial.task1.localWon || initial.task2.localWon) void flush();
@@ -525,6 +527,7 @@ function WritingWorkspace({ state, register }: {
             aria-label={`Bài viết ${task === 'task1' ? 'Task 1' : 'Task 2'}`}
             className="me-essay"
             placeholder={`Viết ${task === 'task1' ? 'Task 1' : 'Task 2'}…`}
+            readOnly={locked}
             value={value}
             onChange={(event) => edit(task, event.target.value)}
           />
@@ -1047,9 +1050,9 @@ export function MockExamRunner() {
       {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">⚠ Sắp hết giờ phần này — bài sẽ tự nộp khi hết giờ.</div> : null}
       <section className="me-panels" aria-label={renderedSection ? `Phần thi ${renderedSection}` : 'Phần thi'}>
         {renderedSection === 'writing'
-          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} />
+          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} locked={awaitingCollectionFlush} />
           : frameSrc
-            ? <iframe ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
+            ? <iframe inert={awaitingCollectionFlush} ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
             : <ErrorCard message="Kỳ thi thiếu nội dung cho phần đang mở. Liên hệ giám thị." />}
       </section>
     </main>

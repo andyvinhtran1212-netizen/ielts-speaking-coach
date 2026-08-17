@@ -2578,6 +2578,24 @@ def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
     assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
 
 
+def test_advance_waits_for_the_coordinated_collection_sweep(fake_db, svc):
+    """The accepted collect marker closes the paper immediately, but opening
+    the next one is forbidden until the ACK-gated sweep publishes completion."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.mark_section_collected(exam["id"], "listening") is True
+
+    with pytest.raises(svc.SittingConflictError, match="đang chờ lưu"):
+        svc.advance_section(exam["id"], "admin-1", "listening")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "listening"
+
+    svc._force_collect_section(exam["id"], "listening", strict=True)
+    assert svc.mark_collection_sweep_completed(exam["id"], "listening") is True
+    svc.advance_section(exam["id"], "admin-1", "listening")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
+
+
 def test_collect_rejects_a_stale_screen(fake_db, svc):
     """Codex #843 (correct): a monitor still showing Listening — because another
     invigilator advanced during the confirm dialog or inside the 5s poll —

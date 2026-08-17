@@ -65,6 +65,7 @@ async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
   finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
+  deferFlushAck = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -88,10 +89,12 @@ async function fixturePage(browser, initialState, {
   let markDeferredDelivered;
   let markEmbedSaveReady;
   let markEmbedSavePersisted;
+  let markFlushAckReady;
   state.deferredReady = new Promise((resolve) => { markDeferredReady = resolve; });
   state.deferredDelivered = new Promise((resolve) => { markDeferredDelivered = resolve; });
   state.embedSaveReady = new Promise((resolve) => { markEmbedSaveReady = resolve; });
   state.embedSavePersisted = new Promise((resolve) => { markEmbedSavePersisted = resolve; });
+  state.flushAckReady = new Promise((resolve) => { markFlushAckReady = resolve; });
   state.embedAnswerBodies = [];
   page.on('pageerror', (error) => errors.push(String(error)));
   page.on('dialog', async (dialog) => dialog.dismiss());
@@ -154,6 +157,12 @@ async function fixturePage(browser, initialState, {
       const section = url.pathname.split('/').at(-2);
       state.flushAcks.push(section);
       state.collectionOrder.push(`flush-ack:${section}`);
+      if (deferFlushAck) {
+        await new Promise((resolve) => {
+          state.releaseFlushAck = resolve;
+          markFlushAckReady();
+        });
+      }
       return route.fulfill(json({ section, acknowledged: true, settled: false }));
     }
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/start')) {
@@ -293,7 +302,9 @@ const collectedListeningState = mockState({
   active_section: 'listening', section_time_left_seconds: 600, section_duration_seconds: 600,
 });
 collectedListeningState.sitting.listening_attempt_id = 'listening-attempt-1';
-const collectedListening = await fixturePage(browser, collectedListeningState, { deferEmbedSave: true });
+const collectedListening = await fixturePage(browser, collectedListeningState, {
+  deferEmbedSave: true, deferFlushAck: true,
+});
 await collectedListening.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
 const collectedFrame = collectedListening.page.locator('iframe');
 await collectedFrame.waitFor();
@@ -306,6 +317,10 @@ check('collection keeps the embedded paper mounted while its final answer PATCH 
     && await collectedListening.page.getByText(/Đang lưu câu trả lời cuối cùng/).isVisible());
 collectedListening.state.releaseEmbedSave();
 await collectedListening.state.embedSavePersisted;
+await collectedListening.state.flushAckReady;
+check('collection freezes the embedded paper before its server ACK returns',
+  await collectedFrame.evaluate((element) => element.inert === true));
+collectedListening.state.releaseFlushAck();
 await collectedListening.page.getByText(/Đã nộp phần trước/).waitFor();
 check('collection unmounts the paper only after the flush ACK persisted the latest answer',
   collectedListening.state.embedAnswerBodies.join(',') === 'latest-answer'
@@ -317,11 +332,15 @@ await collectedListening.context.close();
 const collectedWritingState = mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
 });
-const collectedWriting = await fixturePage(browser, collectedWritingState);
+const collectedWriting = await fixturePage(browser, collectedWritingState, { deferFlushAck: true });
 await collectedWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
 await collectedWriting.page.getByLabel('Bài viết Task 1').fill('Latest Writing text before collection.');
 collectedWriting.state.current.collected_section = 'writing';
 await collectedWriting.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await collectedWriting.state.flushAckReady;
+check('Writing becomes read-only before its server ACK returns',
+  !(await collectedWriting.page.getByLabel('Bài viết Task 1').isEditable()));
+collectedWriting.state.releaseFlushAck();
 await collectedWriting.page.getByText(/Đã nộp phần trước/).waitFor();
 check('Writing collection persists the latest draft before its server ACK',
   collectedWriting.state.writingDrafts.at(-1)?.task1_text === 'Latest Writing text before collection.'

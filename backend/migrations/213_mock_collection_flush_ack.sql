@@ -16,6 +16,9 @@
 ALTER TABLE mock_exam_sittings
     ADD COLUMN IF NOT EXISTS collection_flush_acks JSONB NOT NULL DEFAULT '{}'::jsonb;
 
+ALTER TABLE mock_exams
+    ADD COLUMN IF NOT EXISTS collection_sweep_completed_section TEXT;
+
 ALTER TABLE mock_exam_sittings
     DROP CONSTRAINT IF EXISTS mock_exam_sittings_collection_flush_acks_object;
 
@@ -28,8 +31,22 @@ COMMENT ON COLUMN mock_exam_sittings.collection_flush_acks IS
   'has flushed its final autosave. Admin collection waits for these ACKs for a '
   'bounded grace window before force-submitting outstanding papers.';
 
+ALTER TABLE mock_exams
+    DROP CONSTRAINT IF EXISTS mock_exams_collection_sweep_completed_section_check;
+
+ALTER TABLE mock_exams
+    ADD CONSTRAINT mock_exams_collection_sweep_completed_section_check
+    CHECK (collection_sweep_completed_section IS NULL
+           OR collection_sweep_completed_section IN ('listening', 'reading', 'writing'));
+
+COMMENT ON COLUMN mock_exams.collection_sweep_completed_section IS
+  'Sequential mode: the collected section whose coordinated per-sitting sweep '
+  'finished. Advance is rejected while collected_section is set but this value '
+  'does not match, preventing the next-section action from bypassing flush ACKs.';
+
 -- VERIFY (read-only):
 -- SELECT column_name, data_type, is_nullable, column_default
 --   FROM information_schema.columns
 --  WHERE table_name = 'mock_exam_sittings'
 --    AND column_name = 'collection_flush_acks';
+-- SELECT collection_sweep_completed_section FROM mock_exams LIMIT 1;

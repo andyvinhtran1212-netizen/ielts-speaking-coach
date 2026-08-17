@@ -59,6 +59,15 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /awaitingCollectionFlush[\s\S]*renderedSection/);
     assert.match(RUNNER, /await flushEmbed\(pendingCollectionSection\)[\s\S]*acknowledgeCollectionFlush\(pendingCollectionSection\)[\s\S]*setFlushedCollectionKey/);
     assert.match(RUNNER, /\/sections\/\$\{section\}\/flush-ack/);
+    assert.match(RUNNER, /<iframe inert=\{awaitingCollectionFlush\}/);
+    assert.match(RUNNER, /WritingWorkspace[\s\S]*locked=\{awaitingCollectionFlush\}/);
+    assert.match(RUNNER, /readOnly=\{locked\}/);
+    for (const player of [LISTENING_PLAYER, READING_PLAYER]) {
+      const handler = player.split("event.data?.type !== 'mock-flush'")[1];
+      assert.ok(handler.indexOf('collectionFrozenRef.current = true') < handler.indexOf('coordinatorRef.current?.flush?.()'));
+      assert.match(handler, /document\.body\.inert = true/);
+      assert.match(player, /if \(collectionFrozenRef\.current\) return/);
+    }
   });
 
   test('serializes Writing autosave and reuses one immutable final payload', () => {
