@@ -25,8 +25,9 @@ atomic first-player claim; không tuyên bố Gate E PASS hoặc production cuto
   nhận navigation mới là nơi đọc `admit_new`. `sessions.renderer_affinity` được
   backfill Legacy cho session cũ. Migration 216 đặt default `legacy` cho mọi
   insert N−1/unversioned; chỉ `api.js` hiện tại gửi protocol `claim-v1` để RPC v3
-  tạo atomically một row NULL cho stable player đầu tiên claim. Vì vậy cả tab cũ
-  mở sau migration lẫn tab mới đều giữ đúng renderer. Reopen dùng claim canonical
+  tạo atomically một row NULL cho stable player đầu tiên claim. Migration 217
+  backfill cả row NULL có thể lọt vào khoảng commit riêng giữa 215→216. Vì vậy cả
+  tab cũ mở sau migration lẫn tab mới đều giữ đúng renderer. Reopen dùng claim canonical
   thay vì re-admit. Production và floor staging đều giữ Legacy; cả bốn target
   Next vẫn `route_ready: true`.
 - **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi

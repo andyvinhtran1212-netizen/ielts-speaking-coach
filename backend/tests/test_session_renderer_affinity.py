@@ -20,6 +20,11 @@ CREATE_MIGRATION = (
     / "migrations"
     / "216_version_session_renderer_affinity_create.sql"
 ).read_text()
+GAP_BACKFILL_MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "migrations"
+    / "217_backfill_renderer_affinity_migration_gap.sql"
+).read_text()
 SID = UUID("11111111-1111-4111-8111-111111111111")
 
 
@@ -79,6 +84,8 @@ def test_create_protocol_pins_n_minus_one_and_versions_affinity_aware_inserts():
     assert "p_renderer_affinity\n    )" in CREATE_MIGRATION
     assert "TO service_role" in CREATE_MIGRATION
     assert "FROM PUBLIC, anon, authenticated" in CREATE_MIGRATION
+    assert "SET renderer_affinity = 'legacy'" in GAP_BACKFILL_MIGRATION
+    assert "WHERE renderer_affinity IS NULL" in GAP_BACKFILL_MIGRATION
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,7 @@ const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
 const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
 const AFFINITY_MIGRATION = read('backend/migrations/215_speaking_session_renderer_affinity.sql');
 const CREATE_PROTOCOL_MIGRATION = read('backend/migrations/216_version_session_renderer_affinity_create.sql');
+const GAP_BACKFILL_MIGRATION = read('backend/migrations/217_backfill_renderer_affinity_migration_gap.sql');
 const API_CLIENT = read('frontend/public/js/api.js');
 const SESSION_ROUTER = read('backend/routers/sessions.py');
 const CLASS_STUDENT_ROUTER = read('backend/routers/class_student.py');
@@ -153,6 +154,8 @@ describe('current admission policy preserves behavior', () => {
     assert.match(CREATE_PROTOCOL_MIGRATION,
       /ALTER COLUMN renderer_affinity SET DEFAULT 'legacy'/);
     assert.match(CREATE_PROTOCOL_MIGRATION, /fn_create_session_daily_capped_v3/);
+    assert.match(GAP_BACKFILL_MIGRATION,
+      /SET renderer_affinity = 'legacy'[\s\S]*WHERE renderer_affinity IS NULL/);
     assert.match(SESSION_ROUTER, /renderer_affinity_protocol: Literal\["claim-v1"\]/);
     assert.match(API_CLIENT, /renderer_affinity_protocol = 'claim-v1'/);
     assert.match(CLASS_STUDENT_ROUTER,

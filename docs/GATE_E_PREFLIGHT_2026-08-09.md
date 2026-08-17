@@ -29,7 +29,9 @@ chưa có renderer affinity canonical, nên admission đã được trả về L
 deploy một floor mới có claim atomic theo session trước khi thử cutover lại.
 Floor này version cả create contract: client N−1 hoặc backend N−1 nhận database
 default `legacy`, còn client hiện tại gửi `claim-v1` và dùng RPC v3 để tạo row
-NULL atomically cho stable player đầu tiên claim.
+NULL atomically cho stable player đầu tiên claim. Migration 217 sửa mọi row NULL
+có thể lọt vào khoảng commit riêng giữa backfill 215 và default 216 trước khi
+backend affinity-aware được deploy.
 Speaking đã có stable hybrid Next player route với native bootstrap,
 recorder, submission, Full Test state, player lifecycle và dark-route readiness;
 admission vẫn Legacy. Reading đã có native
