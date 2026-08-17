@@ -17,13 +17,20 @@ The report counts:
 - product `app/**/page.tsx` routes, excluding the two named engineering spikes;
 - every `public/**/*.html` artifact, split into compatibility redirects and
   HTML paths still directly rendered by production;
+- a canonical App Router replacement and domain owner for every directly
+  renderable HTML path;
 - route-ownership collisions;
 - Next readiness and live new-session admission for every core player.
 
 `--assert-static-complete` is the final code-cutover gate. It intentionally
-fails while any legacy HTML is directly renderable, any core Next player is
-not ready, any core surface still admits new sessions to legacy, or any route
-ownership collision exists.
+fails while any legacy HTML is directly renderable, any HTML lacks an App
+Router replacement, any core Next player is not ready, any core surface still
+admits new sessions to legacy, or any route ownership collision exists.
+
+Current replacement denominator: 118/121. The three explicit gaps are
+`/exam`, `/listening/practice-run` and `/mock-exam`; the report must keep
+`legacy-next-replacement-missing` non-zero until behavior-equivalent App Router
+owners exist. A nearby landing page is not a valid replacement for a player.
 
 This static gate does not replace Preview/staging, persistence, failure-mode,
 device, accessibility, performance, rollback, drain or soak evidence. Those
