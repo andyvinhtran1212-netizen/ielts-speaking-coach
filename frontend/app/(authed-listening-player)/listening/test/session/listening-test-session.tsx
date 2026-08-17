@@ -324,6 +324,7 @@ export function ListeningTestSession() {
   const [resumeOffset, setResumeOffset] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const coordinatorRef = useRef<any>(null);
+  const collectionFrozenRef = useRef(false);
   const bootKeyRef = useRef<string | null>(null);
   const autoEnteredMockRef = useRef(false);
 
@@ -458,6 +459,7 @@ export function ListeningTestSession() {
   }, [params?.mockEmbed, phase, resume, resumeAvailable, startFresh]);
 
   const updateAnswer = useCallback((qNum: number, value: string) => {
+    if (collectionFrozenRef.current) return;
     const next = new Map(answersRef.current);
     if (value) next.set(qNum, value); else next.delete(qNum);
     answersRef.current = next; setAnswers(next); setSubmitBlocked('');
@@ -487,8 +489,14 @@ export function ListeningTestSession() {
   }, [attempt, params?.mockEmbed, phase]);
 
   useEffect(() => {
+    if (!params?.mockEmbed) return undefined;
     const handler = async (event: MessageEvent) => {
-      if (!event.data || event.data.type !== 'mock-flush') return;
+      if (event.origin !== window.location.origin
+          || event.source !== window.parent
+          || event.data?.type !== 'mock-flush') return;
+      collectionFrozenRef.current = true;
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      document.body.inert = true;
       let clean = false;
       try { clean = !!await coordinatorRef.current?.flush?.(); } catch {}
       const unsaved = clean
@@ -497,13 +505,13 @@ export function ListeningTestSession() {
       if (event.source) {
         (event.source as WindowProxy).postMessage(
           { type: 'mock-flushed', section: 'listening', unsaved },
-          '*',
+          window.location.origin,
         );
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [saveStates.size]);
+  }, [params?.mockEmbed, saveStates.size]);
 
   const practice = !!testData && isPracticeListeningTest(testData);
   const startAudio = useCallback(async () => {

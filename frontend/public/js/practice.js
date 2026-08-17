@@ -3593,7 +3593,7 @@
     return _reportSpeakingToSitting(sittingId, [p1, p2, p3].filter(Boolean))
       .then(function () {
         if (renderUI !== false) {
-          window.location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(sittingId);
+          window.location.href = '/mock-exam?sitting=' + encodeURIComponent(sittingId);
         }
       });
   }

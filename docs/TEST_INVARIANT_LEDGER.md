@@ -229,6 +229,7 @@
 | `cue-card-part-router.test.mjs` | ✗ | `frontend/js/cue-card-part-router.js` | Router: map session_id + part → cue card; no cross-part leakage | dom-behavior | replace-by-types |
 | `cue-card-ui-wiring.test.mjs` | ✗ | `frontend/js/cue-card-ui-wiring.js` | Wiring: cue card loads on practice start, displays in sidebar, updates on part change | source-string-pin | keep-until-route-retired |
 | `exam-player.test.mjs` + `exam-player-next-{model,behavior}.test.mjs` + `verify-exam-flow.mjs` | ✓ | `/exam`; `frontend/pages/exam.html` retained for parity/rollback | Native player: canonical question identity/order, explicit unanswered values, serialized submit, caller-owned review retry, KP stepper/micro-check, auth/account stale guards and responsive containment | model/source + fixture-backed browser | legacy source-string test remains only while rollback renderer is live |
+| `mock-exam-next-{model,behavior}.test.mjs` + `verify-mock-exam-flow.mjs` + backend mock workflow/reconciliation tests | ✓ | `/mock-exam`; `frontend/pages/mock-exam.html` retained for parity/rollback | Native runner: exact sitting/owner state, server clock, admin collection pause, retake assignment, same-origin parent/iframe flush, sealed Reading/Listening lost-ACK receipts, local + server Writing autosave and immutable final payload reconciliation | backend + model/source + fixture-backed browser | native route owner; legacy runner remains rollback-only until Gate E/F |
 
 ### Miscellaneous (60 files, 25 in CI)
 

@@ -231,6 +231,9 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/pages/home.html#x` và `/home#x` không bao giờ khớp. Đó đúng là lý do khu
   // Grammar khớp được (`/grammar.html` → `/grammar`) còn nơi khác thì không.
   else if (path === '/pages/home.html') path = '/home';
+  // `/mock-exam` owns the student runner; the HTML surface remains the
+  // rollback/parity reference until Gate F retirement.
+  else if (path === '/pages/mock-exam.html') path = '/mock-exam';
   // `/speaking` cutover 2026-08-05 — cùng lý do: NEO TRONG TRANG.
   // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
   // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.

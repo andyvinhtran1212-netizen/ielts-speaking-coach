@@ -16,6 +16,7 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
 
   POST /api/mock-exams/{code}/sittings                    — open/resume a sitting
   GET  /api/mock-exams/sittings/{id}                       — sitting + exam state, time left
+  POST /api/mock-exams/sittings/{id}/sections/{section}/flush-ack — final autosave ACK
   POST /api/mock-exams/sittings/{id}/attach                — bind a domain attempt
   POST /api/mock-exams/sittings/{id}/sections/{section}/submit — collect one section
   POST /api/mock-exams/sittings/{id}/speaking               — attach speaking sessions
@@ -158,6 +159,26 @@ async def get_sitting_state(
             svc.section_duration_seconds(exam, active) if exam else None
         ),
     }
+
+
+@router.post("/sittings/{sitting_id}/sections/{section}/flush-ack")
+async def acknowledge_collection_flush(
+    sitting_id: str,
+    section: str,
+    authorization: str | None = Header(default=None),
+):
+    """ACK that this student's final autosave completed after admin collect.
+
+    The admin sweep waits for this canonical per-sitting signal for a bounded
+    grace window.  Auth ownership and the shared collected-section marker are
+    both enforced in the service; a client cannot ACK another sitting or a
+    section that is still open.
+    """
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.acknowledge_collection_flush(sitting_id, user["id"], section)
+    except Exception as e:  # noqa: BLE001
+        _raise_for(e)
 
 
 @router.post("/sittings/{sitting_id}/sections/{section}/start")

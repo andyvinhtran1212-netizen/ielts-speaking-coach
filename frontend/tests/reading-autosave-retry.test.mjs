@@ -67,6 +67,7 @@ function makeHarness({ responder, shareMode = false } = {}) {
     debounce_timers: new Map(),
     save_retry_timers: new Map(),
     inflight: new Map(),
+    inflight_waiters: [],
     save_gen: new Map(),
   };
 
@@ -96,6 +97,7 @@ function makeHarness({ responder, shareMode = false } = {}) {
   const factory = new Function(
     'SESSION', 'window', 'document', '$', '_updatePaletteAriaLabel', '_anonHeaders',
     SRC + '\nreturn { patchAnswer: patchAnswer, _flushPendingSaves: _flushPendingSaves,' +
+    ' _flushPendingSavesForMock: _flushPendingSavesForMock,' +
     ' _isRetriableSaveError: _isRetriableSaveError, _retryFailedSaves: _retryFailedSaves,' +
     ' delays: _SAVE_RETRY_DELAYS };',
   );
@@ -342,6 +344,42 @@ describe('#820 — an in-flight PATCH is flushed on unload', () => {
     h.api._flushPendingSaves();
     await new Promise((r) => setTimeout(r, 5));
     assert.equal(h.calls.length, 1, 'a settled save must not be flushed again');
+  });
+});
+
+describe('mock collection — the latest Reading answer is the definitive tail write', () => {
+  test('waits for older A before PATCHing and acknowledging frozen value B', async () => {
+    const deferred = [];
+    const h = makeHarness({
+      responder: () => new Promise((resolve, reject) => deferred.push({ resolve, reject })),
+    });
+    h.SESSION.answers.set(8, 'A');
+    h.api.patchAnswer(8, 'A');
+    h.SESSION.answers.set(8, 'B');
+    h.SESSION.debounce_timers.set(8, setTimeout(() => {
+      throw new Error('the frozen B debounce must be drained by collection');
+    }, 500));
+
+    let flushSettled = false;
+    const flush = h.api._flushPendingSavesForMock().then((clean) => {
+      flushSettled = true;
+      return clean;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(h.calls.length, 1,
+      'B must not race the older in-flight A request');
+    assert.equal(h.SESSION.debounce_timers.size, 0);
+    assert.equal(flushSettled, false, 'collection cannot ACK while A is unresolved');
+
+    deferred[0].resolve({ ok: true });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(h.calls.length, 2, 'a final tail PATCH must follow A');
+    assert.deepEqual(h.calls.map((call) => call.body.user_answer), ['A', 'B']);
+    assert.equal(flushSettled, false, 'collection cannot ACK before B persists');
+
+    deferred[1].resolve({ ok: true });
+    assert.equal(await flush, true);
+    assert.equal(h.SESSION.inflight.size, 0);
   });
 });
 

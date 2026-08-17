@@ -1161,6 +1161,16 @@ async def submit_reading_test_attempt(
     user = await _optional_auth(authorization)
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") == "submitted":
+        # A mock parent retries this exact request when the first response is
+        # lost. The grading write already committed, so returning the same
+        # sealed acknowledgement is the only safe reconciliation: a 422 leaves
+        # the parent unable to distinguish "already graded" from a malformed
+        # submit and it never stamps the section as collected.
+        sitting_id = attempt.get("sitting_id")
+        if sitting_id:
+            from services import mock_exam_service
+            if mock_exam_service.is_sealed(sitting_id):
+                return {"received": True, "sitting_id": sitting_id, "sealed": True}
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
