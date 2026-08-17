@@ -5,6 +5,9 @@
 // những thứ ngoài phạm vi ghi (điều hướng, modal, thông báo lỗi tại chỗ).
 // Bản khai này chỉ trả lời ĐÚNG MỘT câu: trang có gửi đúng những gì nó được
 // phép gửi, và KHÔNG gửi gì khác.
+const SESSION_ID = '11111111-1111-4111-8111-111111111111';
+const QUESTION_ID = '22222222-2222-4222-8222-222222222222';
+
 export default {
   name: 'speaking — bắt đầu luyện theo chủ đề',
   route: '/speaking',
@@ -17,7 +20,24 @@ export default {
     [/\/api\/grammar\/dashboard-data$/, {}],
     [/\/api\/mock-exams\/my-sittings$/, { sittings: [] }],
     [/\/api\/flashcards\/due\/count$/, { count: 0 }],
-    [/\/sessions$/, { id: 'sess-write-flow-1' }],
+    [new RegExp(`/sessions/${SESSION_ID}/questions$`), [{
+      id: QUESTION_ID,
+      part: 2,
+      order_num: 1,
+      question_text: 'Describe a useful skill you learned.',
+      cue_card_bullets: ['what the skill is', 'how you learned it', 'why it is useful'],
+      cue_card_reflection: 'and explain how it changed your daily life',
+    }]],
+    [new RegExp(`/sessions/${SESSION_ID}$`), {
+      id: SESSION_ID,
+      session_id: SESSION_ID,
+      mode: 'practice',
+      part: 2,
+      topic: 'Chủ đề kiểm cổng ghi',
+      status: 'in_progress',
+      responses: [],
+    }],
+    [/\/sessions$/, { id: SESSION_ID }],
   ],
 
   steps: [
