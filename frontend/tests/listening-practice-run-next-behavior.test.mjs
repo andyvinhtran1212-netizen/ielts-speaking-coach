@@ -27,6 +27,7 @@ describe('/listening/practice-run native ownership', () => {
     assert.match(PLAYER, /<h1>Luyện nhanh · …<\/h1>/);
     assert.match(PLAYER, /href="\/listening\/practice">← Quay lại Luyện nhanh<\/a>/);
     assert.match(PLAYER, /role="alert">Thiếu mã bài luyện\.<\/div>/);
+    assert.match(CSS, /\.lpr-next-back\s*\{[^}]*text-transform:\s*uppercase;/s);
   });
 
   test('loads abortably and binds every render to account plus test identity', () => {
