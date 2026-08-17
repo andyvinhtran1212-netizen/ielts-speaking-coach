@@ -55,7 +55,7 @@ async function installStudent(context, request, baseURL) {
   return session;
 }
 
-async function accessibleTests(request, token, excluded = []) {
+async function accessibleTests(request, token, excluded = [], compatibleRenderer = null) {
   const list = await request.get(`${STAGING_API}/api/reading/test?limit=100`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -68,7 +68,18 @@ async function accessibleTests(request, token, excluded = []) {
     const boot = await request.get(`${STAGING_API}/api/reading/test/${encodeURIComponent(testId)}/boot`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (boot.status() === 200) result.push(testId);
+    if (boot.status() !== 200) continue;
+    const payload = await boot.json();
+    const inProgress = payload?.in_progress;
+    const affinity = inProgress?.renderer_affinity ?? null;
+    // A prior drill may leave a legitimate in-progress attempt behind. The
+    // stable player must honor that affinity, so selecting an incompatible
+    // test here would correctly redirect away from the phase under test and
+    // would not exercise a new admission at all.
+    if (inProgress && affinity !== null && compatibleRenderer && affinity !== compatibleRenderer) {
+      continue;
+    }
+    result.push(testId);
     if (result.length >= 3) break;
   }
   expect(result.length, 'staging needs at least one accessible published Reading test').toBeGreaterThan(0);
@@ -200,7 +211,13 @@ test('live Reading floor → cutover → rollback preserves attempt affinity', a
     : PHASE === 'rollback' ? PREVIOUS_NEXT_ATTEMPT : '';
   const previousTest = PHASE === 'cutover' ? PREVIOUS_LEGACY_TEST
     : PHASE === 'rollback' ? PREVIOUS_NEXT_TEST : '';
-  const tests = await accessibleTests(request, auth.access_token, previousTest ? [previousTest] : []);
+  const expectedRenderer = PHASE === 'cutover' ? 'next' : 'legacy';
+  const tests = await accessibleTests(
+    request,
+    auth.access_token,
+    previousTest ? [previousTest] : [],
+    expectedRenderer,
+  );
   const created = await startThroughAdmission(page, tests[0]);
   const createdCanonical = await canonicalAttempt(request, auth.access_token, created.testId, created.attemptId);
   expect(createdCanonical.renderer_affinity).toBe(PHASE === 'cutover' ? 'next' : 'legacy');

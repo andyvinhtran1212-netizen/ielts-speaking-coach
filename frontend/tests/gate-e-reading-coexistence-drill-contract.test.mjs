@@ -68,6 +68,9 @@ describe('Reading coexistence drill contract', () => {
     assert.match(spec, /page\.on\('response', captureClaim\)/);
     assert.match(spec, /claimPaths\.includes\(expectedClaim\)/);
     assert.match(spec, /body\.attempt_id\}\/renderer-affinity/);
+    assert.match(spec, /const affinity = inProgress\?\.renderer_affinity \?\? null/);
+    assert.match(spec, /affinity !== compatibleRenderer/);
+    assert.match(spec, /PHASE === 'cutover' \? 'next' : 'legacy'/);
     assert.match(spec, /renderer_affinity_protocol: 'claim-v1'/);
     assert.match(spec, /floor_dark_next_affinity_before/);
     assert.match(spec, /floor_dark_next_affinity_after/);
