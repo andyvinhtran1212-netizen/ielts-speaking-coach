@@ -117,7 +117,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
     const pairs = [
       [
         '/core-player/launch?surface=speaking&session_id=session+1',
-        '/pages/practice.html?session_id=session+1',
+        '/practice/session?session_id=session+1',
       ],
       [
         '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
@@ -132,8 +132,8 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
         '/pages/listening-test-dictation.html?test_id=test-1&section=2',
       ],
     ];
-    for (const [launcher, directLegacy] of pairs) {
-      assert.equal(canonicalHref(launcher), canonicalHref(directLegacy), launcher);
+    for (const [launcher, admittedPlayer] of pairs) {
+      assert.equal(canonicalHref(launcher), canonicalHref(admittedPlayer), launcher);
     }
   });
 
