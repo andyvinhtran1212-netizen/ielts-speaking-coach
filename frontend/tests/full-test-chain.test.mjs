@@ -39,10 +39,12 @@ test('chain persists under the stable sessionStorage key', () => {
     SRC.indexOf('async function _startNextPartInFullTest(part)'),
     SRC.indexOf('function _finishTestAndShowResults()'),
   );
-  const childClaim = transition.indexOf("'/renderer-affinity'");
-  const chainCommit = transition.indexOf('var nextChain = priorChain.concat([newId])');
-  assert.ok(childClaim !== -1 && childClaim < chainCommit,
+  const childClaim = transition.indexOf('childAffinityClaim = await window.api.post(');
+  const successfulChainCommit = transition.indexOf('var playerStillOwnsRoute = persistCreatedChain()');
+  assert.ok(childClaim !== -1 && successfulChainCommit > childClaim,
     'each new Part must claim the current renderer before entering the durable chain');
+  assert.match(transition, /catch \(claimError\) \{\s*persistCreatedChain\(\);\s*throw claimError;/,
+    'a failed claim must preserve the already-created child for a later retry');
 });
 
 test('legacy delayed part creation extends only the unchanged stored chain', () => {
@@ -301,6 +303,119 @@ test('an opposite child affinity persists its predecessor chain before redirect'
 
   assert.equal(redirectedTo, '/practice/session?session_id=p2');
   assert.equal(questionGenerationCalled, false);
+});
+
+test('a stale affinity response still compare-and-swaps the committed child chain', async () => {
+  const transitionStart = SRC.indexOf('  async function _startNextPartInFullTest(part) {');
+  const transitionEnd = SRC.indexOf('  function _finishTestAndShowResults()', transitionStart);
+  const affinityRequest = deferred();
+  const entries = new Map([['ielts_ft_session_ids', JSON.stringify(['p1'])]]);
+  let affinityRequested = false;
+  let generationCalled = false;
+  const environment = {
+    _playerGeneration: 1,
+    _ftAllSessionIds: ['p1'],
+    _getNativeFullTest: () => null,
+    showState: () => {},
+    _setLoadingMessage: () => {},
+    _ftP2Topic: 'Part 2 topic',
+    _sessionData: { topic: 'General', mode: 'test_full' },
+    _sessionId: 'p1',
+    _rendererAffinity: 'legacy',
+    _sittingId: null,
+    window: {
+      api: {
+        async post(url) {
+          if (url === '/sessions') return { id: 'p2', part: 2, mode: 'test_full' };
+          if (url === '/sessions/p2/renderer-affinity') {
+            affinityRequested = true;
+            return affinityRequest.promise;
+          }
+          if (url.endsWith('/questions/generate')) generationCalled = true;
+          throw new Error(`unexpected request: ${url}`);
+        },
+      },
+      location: { replace() { throw new Error('stale player must not redirect'); } },
+    },
+    _replaceLegacyFtChainIfCurrent(prior, next) {
+      const current = JSON.parse(entries.get('ielts_ft_session_ids') || '[]');
+      if (JSON.stringify(current) !== JSON.stringify(prior)) return false;
+      entries.set('ielts_ft_session_ids', JSON.stringify(next));
+      return true;
+    },
+    sessionStorage: {
+      getItem(key) { return entries.get(key) || null; },
+      setItem(key, value) { entries.set(key, String(value)); },
+    },
+    FT_CHAIN_KEY: 'ielts_ft_session_ids',
+    _practiceSessionUrlForRenderer: () => '/unused',
+    showError: () => {},
+  };
+  const names = Object.keys(environment);
+  const makeController = new Function(...names, `
+    var _playerActive = true;
+    ${SRC.slice(transitionStart, transitionEnd)}
+    return {
+      transition: _startNextPartInFullTest,
+      destroy: function () { _playerActive = false; }
+    };
+  `);
+  const controller = makeController(...names.map((name) => environment[name]));
+
+  const pending = controller.transition(2);
+  await flushUntil(() => affinityRequested);
+  controller.destroy();
+  affinityRequest.resolve({ renderer_affinity: 'legacy' });
+  await pending;
+
+  assert.deepEqual(JSON.parse(entries.get('ielts_ft_session_ids')), ['p1', 'p2']);
+  assert.equal(generationCalled, false);
+});
+
+test('a failed child affinity claim preserves the committed chain for retry', async () => {
+  const transitionStart = SRC.indexOf('  async function _startNextPartInFullTest(part) {');
+  const transitionEnd = SRC.indexOf('  function _finishTestAndShowResults()', transitionStart);
+  const entries = new Map([['ielts_ft_session_ids', JSON.stringify(['p1'])]]);
+  const errors = [];
+  const environment = {
+    _playerGeneration: 1,
+    _ftAllSessionIds: ['p1'],
+    _getNativeFullTest: () => null,
+    showState: () => {},
+    _setLoadingMessage: () => {},
+    _ftP2Topic: 'Part 2 topic',
+    _sessionData: { topic: 'General', mode: 'test_full' },
+    _sessionId: 'p1',
+    _rendererAffinity: 'legacy',
+    _sittingId: null,
+    window: {
+      api: {
+        async post(url) {
+          if (url === '/sessions') return { id: 'p2', part: 2, mode: 'test_full' };
+          if (url === '/sessions/p2/renderer-affinity') throw new Error('claim unavailable');
+          throw new Error(`unexpected request: ${url}`);
+        },
+      },
+    },
+    _playerActive: true,
+    _replaceLegacyFtChainIfCurrent: () => false,
+    sessionStorage: {
+      getItem(key) { return entries.get(key) || null; },
+      setItem(key, value) { entries.set(key, String(value)); },
+    },
+    FT_CHAIN_KEY: 'ielts_ft_session_ids',
+    showError: (message) => errors.push(message),
+  };
+  const names = Object.keys(environment);
+  const makeTransition = new Function(...names, `
+    ${SRC.slice(transitionStart, transitionEnd)}
+    return _startNextPartInFullTest;
+  `);
+
+  await makeTransition(...names.map((name) => environment[name]))(2);
+
+  assert.deepEqual(JSON.parse(entries.get('ielts_ft_session_ids')), ['p1', 'p2']);
+  assert.match(errors[0], /claim unavailable/);
 });
 
 test('all Full Test parts reject a persisted short question set', () => {

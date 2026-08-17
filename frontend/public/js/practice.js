@@ -3820,6 +3820,12 @@
     showState('loading');
 
     try {
+      // Validate local routing state before creating a durable child session.
+      // After /sessions succeeds, every exit path below must preserve that child.
+      if (_rendererAffinity !== 'legacy' && _rendererAffinity !== 'next') {
+        throw new Error('Player chưa có renderer ổn định cho Part ' + part);
+      }
+
       // NOTE: do NOT complete the current session here.
       // All part sessions are completed together at the very end (_finishTestAndShowResults).
 
@@ -3843,39 +3849,45 @@
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
-      // Each Full Test part is a distinct persisted session. Claim the child
-      // before it enters the durable chain or becomes the routing source of
-      // truth, otherwise a policy flip/reload can let the other renderer win.
-      if (_rendererAffinity !== 'legacy' && _rendererAffinity !== 'next') {
-        throw new Error('Player chưa có renderer ổn định cho Part ' + part);
+      // Session creation is a committed mutation even if the claim below is
+      // slow or fails. Keep one guarded persistence path so a disposed player
+      // cannot orphan this child from its canonical predecessors.
+      var nextChain = priorChain.concat([newId]);
+      function persistCreatedChain() {
+        var stillOwnsRoute = _playerActive && generation === _playerGeneration;
+        if (nativeFullTest) {
+          if (stillOwnsRoute) nativeFullTest.replaceChain(nextChain);
+          else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
+        }
+        else {
+          if (stillOwnsRoute) {
+            try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+          } else {
+            _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
+          }
+        }
+        return stillOwnsRoute;
       }
-      var childAffinityClaim = await window.api.post(
-        '/sessions/' + encodeURIComponent(newId) + '/renderer-affinity',
-        { renderer_affinity: _rendererAffinity }
-      );
-      if (!_playerActive || generation !== _playerGeneration) return;
+
+      // On the normal path, claim the child before it enters the durable chain
+      // or becomes the routing source of truth. A failed claim is the exception:
+      // preserve the committed child so a later reload can retry it safely.
+      var childAffinityClaim;
+      try {
+        childAffinityClaim = await window.api.post(
+          '/sessions/' + encodeURIComponent(newId) + '/renderer-affinity',
+          { renderer_affinity: _rendererAffinity }
+        );
+      } catch (claimError) {
+        persistCreatedChain();
+        throw claimError;
+      }
+      var playerStillOwnsRoute = persistCreatedChain();
+      if (!playerStillOwnsRoute) return;
       var childRenderer = childAffinityClaim && childAffinityClaim.renderer_affinity;
       if (childRenderer !== 'legacy' && childRenderer !== 'next') {
         throw new Error('Server không trả về renderer hợp lệ cho Part ' + part);
       }
-
-      // Session creation is a mutation and cannot be assumed cancelled by a
-      // soft navigation. A disposed controller may extend shared storage only
-      // when no newer Full Test has replaced the exact chain it started from.
-      var nextChain = priorChain.concat([newId]);
-      var playerStillOwnsRoute = _playerActive && generation === _playerGeneration;
-      if (nativeFullTest) {
-        if (playerStillOwnsRoute) nativeFullTest.replaceChain(nextChain);
-        else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
-      }
-      else {
-        if (playerStillOwnsRoute) {
-          try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
-        } else {
-          _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
-        }
-      }
-      if (!playerStillOwnsRoute) return;
 
       // A replayed/concurrently opened child may already belong to the other
       // renderer. Its complete predecessor chain must be durable before the
