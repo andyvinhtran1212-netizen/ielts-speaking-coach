@@ -170,8 +170,14 @@ function normalizeStepper(value) {
   const distractors = [];
   for (const raw of value.distractors || []) {
     const option = text(raw?.option);
+    // `reading_solution.build_stepper()` intentionally emits option="" when
+    // it falls back from prose `trap_analysis`: the explanation is canonical,
+    // but it cannot be attributed to a specific choice. The legacy result
+    // simply has no labelled distractor card in that case. Omit that one row
+    // instead of rejecting the complete, already-persisted review payload.
+    if (!option) continue;
     const whyWrong = text(raw?.why_wrong_vi);
-    if (!option || !whyWrong || (raw?.kp_refs != null && !Array.isArray(raw.kp_refs))) return false;
+    if (!whyWrong || (raw?.kp_refs != null && !Array.isArray(raw.kp_refs))) return false;
     const refs = (raw.kp_refs || []).map(normalizeKnowledgeRef);
     if (refs.some((ref) => !ref)) return false;
     distractors.push({ option, why_wrong_vi: whyWrong, kp_refs: refs });

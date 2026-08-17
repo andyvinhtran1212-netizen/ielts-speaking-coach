@@ -92,6 +92,16 @@ test('attempt and review receipts require exact identities and complete score tr
   const invalidDistractor = structuredClone(payload);
   invalidDistractor.review[1].stepper.distractors[0].why_wrong_vi = '';
   assert.equal(normalizeExamReview(invalidDistractor, { attemptId: 'att-1', testId: 'exam-1', qNums: [2, 5] }), null);
+
+  const proseTrapFallback = structuredClone(payload);
+  proseTrapFallback.review[1].stepper.distractors = [{
+    option: '', why_wrong_vi: 'Bẫy dùng sai loại từ.', kp_refs: [],
+  }];
+  assert.deepEqual(
+    normalizeExamReview(proseTrapFallback, { attemptId: 'att-1', testId: 'exam-1', qNums: [2, 5] })
+      .review[1].stepper.distractors,
+    [],
+  );
 });
 
 test('builds only canonical grammar knowledge links', () => {
