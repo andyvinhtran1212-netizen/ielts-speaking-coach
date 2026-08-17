@@ -43,7 +43,7 @@ describe('Speaking coexistence drill contract', () => {
       'floor_dark_next_affinity_after',
     ]);
     assert.deepEqual(MANIFEST.conditional_evidence.rollback, ['rollback_mode']);
-    assert.match(MANIFEST.status, /artifacts-pending/);
+    assert.equal(MANIFEST.status, 'live-three-phase-artifacts-verified-gate-e-pending');
   });
 
   test('runner is serial, retry-free and checks deployed SHA before browser evidence', () => {
@@ -221,9 +221,13 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(HANDOFF, /git', \['merge-base', '--is-ancestor'/);
   });
 
-  test('docs keep the live drill pending until all real phase artifacts exist', () => {
+  test('docs record all real phase artifacts without overclaiming Gate E', () => {
     assert.match(DOC, /three-phase runner/i);
-    assert.match(DOC, /LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /THREE-PHASE LIVE CORE DRILL PASSED/);
+    assert.match(DOC, /32043317793/);
+    assert.match(DOC, /32045284608/);
+    assert.match(DOC, /32047774312/);
+    assert.match(DOC, /rollback_mode=forward-revert/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
   });
 });

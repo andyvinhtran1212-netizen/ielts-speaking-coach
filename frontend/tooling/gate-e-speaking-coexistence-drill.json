@@ -55,5 +55,5 @@
     ]
   },
   "retention_days": 30,
-  "status": "runner-ready-live-three-phase-artifacts-pending"
+  "status": "live-three-phase-artifacts-verified-gate-e-pending"
 }
