@@ -773,6 +773,25 @@ export function ReadingExamSession() {
   }, [anonHeaders, attempt, params?.mockEmbed, params?.share, phase]);
 
   useEffect(() => {
+    if (!params?.mockEmbed) return undefined;
+    const handler = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin
+          || event.source !== window.parent
+          || event.data?.type !== 'mock-flush') return;
+      try { await coordinatorRef.current?.flush?.(); } catch {}
+      const unsaved = coordinatorRef.current?.snapshot?.().size ?? saveStates.size;
+      if (event.source) {
+        (event.source as WindowProxy).postMessage(
+          { type: 'mock-flushed', section: 'reading', unsaved },
+          window.location.origin,
+        );
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [params?.mockEmbed, saveStates.size]);
+
+  useEffect(() => {
     if (phase !== 'inprogress' || !attempt || params?.mockEmbed) return undefined;
     const tick = () => {
       const next = readingRemainingSeconds(attempt.started_at, attempt.time_limit_minutes);

@@ -1,0 +1,68 @@
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
+const RUNNER = read('app', '(authed-mock-exam)', 'mock-exam', 'mock-exam-runner.tsx');
+const PAGE = read('app', '(authed-mock-exam)', 'mock-exam', 'page.tsx');
+const LAYOUT = read('app', '(authed-mock-exam)', 'layout.tsx');
+const CSS = read('public', 'css', 'mock-exam-next.css');
+const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const LISTENING_PLAYER = read('app', '(authed-listening-player)', 'listening', 'test', 'session', 'listening-test-session.tsx');
+const READING_PLAYER = read('app', '(authed-reading-player)', 'reading', 'exam', 'session', 'reading-exam-session.tsx');
+
+describe('/mock-exam native runner ownership', () => {
+  test('owns the App Router surface without booting the legacy runner', () => {
+    assert.match(PAGE, /MockExamRunner/);
+    assert.match(LAYOUT, /AuthedShell/);
+    assert.match(LAYOUT, /mock-exam-next\.css/);
+    assert.doesNotMatch(LAYOUT + PAGE, /mock-exam-runner\.js/);
+    assert.match(RUNNER, /status === 'signed-out'[\s\S]*window\.location\.replace\('\/login'\)/);
+  });
+
+  test('binds state to the authenticated owner and current query identity', () => {
+    assert.match(RUNNER, /mock-sitting-owner-mismatch/);
+    assert.match(RUNNER, /normalizeMockExamState\(payload, id\)/);
+    assert.match(RUNNER, /controllerRef\.current\?\.abort\(\)/);
+    assert.match(RUNNER, /if \(!params\.error\) return/);
+    const integrity = RUNNER.split('const bumpIntegrity')[1].split('const reportIntegrity')[0];
+    assert.equal((integrity.match(/values\[key\]\s*=/g) || []).length, 1);
+  });
+
+  test('uses the server clock and never exposes an early manual submit', () => {
+    assert.match(RUNNER, /sectionTimeLeftSeconds/);
+    assert.match(RUNNER, /timerAnchorRef/);
+    assert.match(RUNNER, /next === 0[\s\S]*submitRef\.current\(activeSection\)/);
+    assert.doesNotMatch(RUNNER, />\s*Nộp bài\s*</);
+  });
+
+  test('flushes same-origin child players before domain and sitting finalization', () => {
+    assert.match(RUNNER, /event\.origin !== window\.location\.origin/);
+    assert.match(RUNNER, /event\.source !== frame\.contentWindow/);
+    assert.match(RUNNER, /mock-embed-unsaved-answers/);
+    const submit = RUNNER.split('const doSubmit')[1].split('const submitSection')[0];
+    assert.ok(submit.indexOf('await flushEmbed(section)') < submit.indexOf('const domainPath'));
+    assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
+    assert.match(LISTENING_PLAYER, /event\.source !== window\.parent/);
+    assert.match(READING_PLAYER, /event\.source !== window\.parent/);
+  });
+
+  test('serializes Writing autosave and reuses one immutable final payload', () => {
+    assert.match(RUNNER, /if \(active\) \{ try \{ await active; \}/);
+    assert.match(RUNNER, /finalWritingBodyRef\.current/);
+    assert.match(RUNNER, /clearLocalDrafts\(next\.sitting\.id\)/);
+    assert.match(RUNNER, /SUBMIT_RETRY_DELAYS/);
+    assert.match(RUNNER, /isMockSubmitSettled/);
+  });
+
+  test('ships responsive accessible panes and a hermetic browser gate', () => {
+    assert.match(RUNNER, /role="separator"/);
+    assert.match(RUNNER, /aria-orientation=\{narrow/);
+    assert.match(CSS, /@media \(max-width: 860px\)/);
+    assert.doesNotMatch(CSS, /#[0-9a-fA-F]{3,8}\b/);
+    assert.match(WORKFLOW, /verify-mock-exam-flow\.mjs/);
+  });
+});

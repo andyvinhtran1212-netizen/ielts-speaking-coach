@@ -38,7 +38,7 @@ function ExamAction({ exam }: { exam: MockExamSummary }) {
         <a
           className="av-btn"
           style={{ display: 'inline-block' }}
-          href={`/pages/mock-exam.html?sitting=${encodeURIComponent(exam.blocked_by_sitting_id)}`}
+          href={`/mock-exam?sitting=${encodeURIComponent(exam.blocked_by_sitting_id)}`}
         >
           ← Quay lại bài đang thi
         </a>
@@ -47,8 +47,8 @@ function ExamAction({ exam }: { exam: MockExamSummary }) {
   }
 
   const target = exam.my_sitting_id
-    ? `/pages/mock-exam.html?sitting=${encodeURIComponent(exam.my_sitting_id)}`
-    : `/pages/mock-exam.html?code=${encodeURIComponent(exam.code)}`;
+    ? `/mock-exam?sitting=${encodeURIComponent(exam.my_sitting_id)}`
+    : `/mock-exam?code=${encodeURIComponent(exam.code)}`;
   return (
     <a className="av-btn av-btn--primary" style={{ display: 'inline-block' }} href={target}>
       {exam.my_sitting_id ? 'Tiếp tục bài đang làm →' : 'Bắt đầu →'}

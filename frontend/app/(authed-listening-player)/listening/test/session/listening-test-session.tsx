@@ -488,7 +488,9 @@ export function ListeningTestSession() {
 
   useEffect(() => {
     const handler = async (event: MessageEvent) => {
-      if (!event.data || event.data.type !== 'mock-flush') return;
+      if (event.origin !== window.location.origin
+          || event.source !== window.parent
+          || event.data?.type !== 'mock-flush') return;
       let clean = false;
       try { clean = !!await coordinatorRef.current?.flush?.(); } catch {}
       const unsaved = clean
@@ -497,7 +499,7 @@ export function ListeningTestSession() {
       if (event.source) {
         (event.source as WindowProxy).postMessage(
           { type: 'mock-flushed', section: 'listening', unsaved },
-          '*',
+          window.location.origin,
         );
       }
     };

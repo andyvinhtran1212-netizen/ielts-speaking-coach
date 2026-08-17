@@ -113,7 +113,7 @@ window.MockHook = (function () {
       '<div style="font-size:20px;font-weight:700;margin-bottom:8px">Đã thu bài ' + label + '</div>' +
       '<div style="opacity:.8">Đang quay lại kỳ thi…</div></div>';
     setTimeout(function () {
-      location.href = '/pages/mock-exam.html?sitting=' + encodeURIComponent(sid) + '&done=' + encodeURIComponent(section);
+      location.href = '/mock-exam?sitting=' + encodeURIComponent(sid) + '&done=' + encodeURIComponent(section);
     }, 1200);
   }
 
