@@ -35,6 +35,14 @@ test('chain persists under the stable sessionStorage key', () => {
     'the legacy fallback must retain the same compare-and-swap durability rule');
   assert.match(SRC, /_ftAllSessionIds = nextChain;\s*\n\s*_saveFtChain\(\);/,
     'the live player and persisted chain must commit the same session ids');
+  const transition = SRC.slice(
+    SRC.indexOf('async function _startNextPartInFullTest(part)'),
+    SRC.indexOf('function _finishTestAndShowResults()'),
+  );
+  const childClaim = transition.indexOf("'/renderer-affinity'");
+  const chainCommit = transition.indexOf('var nextChain = priorChain.concat([newId])');
+  assert.ok(childClaim !== -1 && childClaim < chainCommit,
+    'each new Part must claim the current renderer before entering the durable chain');
 });
 
 test('legacy delayed part creation extends only the unchanged stored chain', () => {
@@ -133,7 +141,7 @@ test('part swap keeps the URL as routing source of truth', () => {
     'chain + URL must commit before question generation so reload resumes the new session');
 });
 
-test('Part 1→2 and Part 2→3 loading copy stays in the React view during delayed requests', async () => {
+test('Legacy and Next claim each chained Part before continuing the Full Test', async () => {
   const helperStart = SRC.indexOf('  function _setLoadingMessage(message) {');
   const helperEnd = SRC.indexOf('  // ── Recording sub-state management', helperStart);
   const transitionStart = SRC.indexOf('  async function _startNextPartInFullTest(part) {');
@@ -141,12 +149,18 @@ test('Part 1→2 and Part 2→3 loading copy stays in the React view during dela
   assert.ok(helperStart !== -1 && helperEnd > helperStart);
   assert.ok(transitionStart !== -1 && transitionEnd > transitionStart);
 
-  for (const part of [2, 3]) {
+  for (const [part, renderer] of [
+    [2, 'legacy'],
+    [2, 'next'],
+    [3, 'legacy'],
+    [3, 'next'],
+  ]) {
     const createRequest = deferred();
     const questionRequest = deferred();
     const messages = [];
     const states = [];
     const errors = [];
+    const posts = [];
     let prepCalls = 0;
     const environment = {
       _playerGeneration: 1,
@@ -156,11 +170,17 @@ test('Part 1→2 and Part 2→3 loading copy stays in the React view during dela
       _ftP2Topic: 'Part 2 topic',
       _sessionData: { topic: 'General', mode: 'test_full' },
       _sessionId: `p${part - 1}`,
+      _rendererAffinity: renderer,
       _sittingId: null,
       window: {
+        location: { replace() { throw new Error('renderer unexpectedly changed'); } },
         api: {
-          post(url) {
+          post(url, body) {
+            posts.push([url, body]);
             if (url === '/sessions') return createRequest.promise;
+            if (url === `/sessions/p${part}/renderer-affinity`) {
+              return Promise.resolve({ renderer_affinity: renderer });
+            }
             if (url.endsWith('/questions/generate')) return questionRequest.promise;
             throw new Error(`unexpected request: ${url}`);
           },
@@ -172,6 +192,7 @@ test('Part 1→2 and Part 2→3 loading copy stays in the React view during dela
       FT_CHAIN_KEY: 'ielts_ft_session_ids',
       _ftCurrentPart: part - 1,
       _saveFtChain: () => {},
+      _practiceSessionUrlForRenderer: () => '/unused',
       history: { replaceState() {} },
       FULL_TEST_Q_COUNT: { 2: 1, 3: 5 },
       _questions: [],
@@ -199,6 +220,16 @@ test('Part 1→2 and Part 2→3 loading copy stays in the React view during dela
 
     createRequest.resolve({ id: `p${part}`, part, topic: 'General', mode: 'test_full' });
     await flushUntil(() => messages.at(-1) === `Đang tạo câu hỏi Part ${part}...`);
+    assert.deepEqual(posts.slice(0, 3), [
+      ['/sessions', {
+        mode: 'test_full',
+        part,
+        topic: part === 2 ? 'Part 2 topic' : 'General',
+        previous_session_id: `p${part - 1}`,
+      }],
+      [`/sessions/p${part}/renderer-affinity`, { renderer_affinity: renderer }],
+      [`/sessions/p${part}/questions/generate`, {}],
+    ]);
 
     questionRequest.resolve(Array.from(
       { length: environment.FULL_TEST_Q_COUNT[part] },

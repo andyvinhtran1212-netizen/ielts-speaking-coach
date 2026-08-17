@@ -35,6 +35,7 @@
 
   var _sessionId    = null;
   var _sessionData  = null;
+  var _rendererAffinity = null; // stable owner for every session in this player chain
   var _questions    = [];
   var _currentIdx   = 0;
   var _currentQ     = null;
@@ -231,6 +232,11 @@
     if (sessionIds[1]) url += '&p2=' + encodeURIComponent(sessionIds[1]);
     if (sessionIds[2]) url += '&p3=' + encodeURIComponent(sessionIds[2]);
     return url;
+  }
+
+  function _practiceSessionUrlForRenderer(sessionId, renderer) {
+    var path = renderer === 'next' ? '/practice/session' : '/pages/practice.html';
+    return path + '?session_id=' + encodeURIComponent(sessionId);
   }
 
   function _startManagedInterval(key, callback, milliseconds) {
@@ -3837,6 +3843,27 @@
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
+      // Each Full Test part is a distinct persisted session. Claim the child
+      // before it enters the durable chain or becomes the routing source of
+      // truth, otherwise a policy flip/reload can let the other renderer win.
+      if (_rendererAffinity !== 'legacy' && _rendererAffinity !== 'next') {
+        throw new Error('Player chưa có renderer ổn định cho Part ' + part);
+      }
+      var childAffinityClaim = await window.api.post(
+        '/sessions/' + encodeURIComponent(newId) + '/renderer-affinity',
+        { renderer_affinity: _rendererAffinity }
+      );
+      if (!_playerActive || generation !== _playerGeneration) return;
+      var childRenderer = childAffinityClaim && childAffinityClaim.renderer_affinity;
+      if (childRenderer === 'legacy' || childRenderer === 'next') {
+        if (childRenderer !== _rendererAffinity) {
+          window.location.replace(_practiceSessionUrlForRenderer(newId, childRenderer));
+          return;
+        }
+      } else {
+        throw new Error('Server không trả về renderer hợp lệ cho Part ' + part);
+      }
+
       // Session creation is a mutation and cannot be assumed cancelled by a
       // soft navigation. A disposed controller may extend shared storage only
       // when no newer Full Test has replaced the exact chain it started from.
@@ -5219,6 +5246,7 @@
     _recordedBlob = null;
     _sessionId = null;
     _sessionData = null;
+    _rendererAffinity = null;
     _questions = [];
     _currentQ = null;
     _currentIdx = 0;
@@ -5359,6 +5387,7 @@
     _sheetSubmitting = false;
     _fullTestRetryInFlight = false;
     _testMode = null;
+    _rendererAffinity = null;
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');
@@ -5382,6 +5411,7 @@
     if (hasNextBootstrap) {
       _currentUserId = bootstrap.userId || null;
       _sessionId = bootstrap.sessionId;
+      _rendererAffinity = 'next';
     } else {
       var sb = window.getSupabase && window.getSupabase();
       if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
@@ -5435,6 +5465,7 @@
         if (claimedRenderer !== 'legacy') {
           throw new Error('Server không trả về renderer hợp lệ cho session.');
         }
+        _rendererAffinity = claimedRenderer;
       }
       if (hasNextBootstrap) {
         _sessionData = bootstrap.sessionData;
