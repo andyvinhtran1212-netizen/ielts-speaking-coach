@@ -273,9 +273,11 @@ export function isMockSubmitSettled(state, section) {
   const status = state.sitting.status;
   const terminal = status === 'void' || status === 'released'
     || !MOCK_LIVE_STATUSES.includes(status);
+  if (section === 'writing') {
+    return terminal || Boolean(submittedAtFor(state, section));
+  }
   if (terminal || submittedAtFor(state, section) || state.activeSection !== section) return true;
-  return state.collectedSection === section
-    && (section !== 'writing' || Boolean(state.sitting.writingSubmittedAt));
+  return state.collectedSection === section;
 }
 
 /** @returns {Record<string, number>} */

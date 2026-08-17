@@ -64,6 +64,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /canDiscardWritingDrafts\(next\.sitting\.writingSubmission, localDrafts\)[\s\S]*clearLocalDrafts\(next\.sitting\.id\)/);
     assert.match(RUNNER, /SUBMIT_RETRY_DELAYS/);
     assert.match(RUNNER, /isMockSubmitSettled/);
+    assert.match(RUNNER, /const settled = isMockSubmitSettled\(state, 'writing'\)[\s\S]*activeSection === 'writing'/);
   });
 
   test('ships responsive accessible panes and a hermetic browser gate', () => {

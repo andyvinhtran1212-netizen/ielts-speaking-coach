@@ -64,7 +64,7 @@ async function launch() {
 async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
-  deferStateGet = null,
+  finalWritingCollectPause = false, deferStateGet = null,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -146,6 +146,21 @@ async function fixturePage(browser, initialState, {
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/submit')) {
       const body = request.postDataJSON();
       state.writingFinals.push(body);
+      if (finalWritingCollectPause && state.writingFinals.length === 1) {
+        state.current.collected_section = 'writing';
+        state.current.section_time_left_seconds = 0;
+        return route.fulfill(json({ detail: 'temporary failure during collection' }, 503));
+      }
+      if (finalWritingCollectPause) {
+        state.current.sitting.writing_submission = {
+          task1: { text: body.task1_text, submitted_at: '2026-08-17T02:00:00Z' },
+          task2: { text: body.task2_text, submitted_at: '2026-08-17T02:00:00Z' },
+        };
+        state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
+        state.current.sitting.status = 'lrw_submitted';
+        state.current.active_section = 'done';
+        return route.fulfill(json({ ok: true }));
+      }
       if (finalWritingAlwaysFails) return route.fulfill(json({ detail: 'temporary failure' }, 503));
       if (finalWritingLostAck && state.writingFinals.length === 1) {
         state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
@@ -300,6 +315,34 @@ check('admin collection preserves a newer unsynced Writing draft through poll an
     && JSON.parse(forceCollectedLocal || '{}').synced === false);
 await forceCollected.context.close();
 
+const pausedRetryTask1 = 'Task 1 must survive collection retry.';
+const pausedRetryTask2 = 'Task 2 must also survive collection retry.';
+const pausedRetry = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
+}), {
+  fakeClock: true,
+  finalWritingCollectPause: true,
+  drafts: {
+    task1: { text: pausedRetryTask1, ts: Date.now() + 10_000, synced: false },
+    task2: { text: pausedRetryTask2, ts: Date.now() + 10_000, synced: false },
+  },
+});
+await pausedRetry.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+const pausedRetryDeadline = Date.now() + 3_000;
+while (pausedRetry.state.writingFinals.length < 1 && Date.now() < pausedRetryDeadline) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+await pausedRetry.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await pausedRetry.page.getByText(/Đã nộp phần trước/).waitFor();
+await pausedRetry.page.clock.runFor(2_001);
+await pausedRetry.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor();
+check('Writing retry retains the immutable final payload after collect closes the workspace',
+  pausedRetry.state.writingFinals.length === 2
+    && JSON.stringify(pausedRetry.state.writingFinals[0]) === JSON.stringify(pausedRetry.state.writingFinals[1])
+    && pausedRetry.state.writingFinals[1].task1_text === pausedRetryTask1
+    && pausedRetry.state.writingFinals[1].task2_text === pausedRetryTask2);
+await pausedRetry.context.close();
+
 const boundedFailure = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
 }), { finalWritingAlwaysFails: true, fakeClock: true });
@@ -329,12 +372,12 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, staleRead, listening, writing, forceCollected, boundedFailure]
+  [waiting, retake, staleRead, listening, writing, forceCollected, pausedRetry, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...writing.egress,
-    ...forceCollected.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
+    ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
     ...staleRead.errors, ...listening.errors, ...writing.errors, ...forceCollected.errors,
-    ...boundedFailure.errors][0] || '');
+    ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();
 

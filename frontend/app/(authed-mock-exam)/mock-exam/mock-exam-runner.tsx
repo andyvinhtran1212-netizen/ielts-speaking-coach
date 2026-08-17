@@ -912,8 +912,11 @@ export function MockExamRunner() {
   }, [activeSection, state?.sectionTimeLeftSeconds]);
 
   useEffect(() => {
-    finalWritingBodyRef.current = null;
-  }, [activeSection]);
+    const settled = isMockSubmitSettled(state, 'writing');
+    if (settled || (activeSection === 'writing' && !submittingRef.current)) {
+      finalWritingBodyRef.current = null;
+    }
+  }, [activeSection, state?.activeSection, state?.sitting.status, state?.sitting.writingSubmittedAt]);
 
   const startRetake = useCallback(async (section: Section) => {
     const sittingId = stateRef.current?.sitting.id;

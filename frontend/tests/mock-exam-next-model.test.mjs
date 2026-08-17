@@ -102,6 +102,8 @@ test('collection never discards a newer Writing draft that the server did not ac
 test('submit reconciliation treats Writing collect as settled only after its stamp', () => {
   const collectedWriting = normalizeMockExamState(payload({ active_section: 'writing', collected_section: 'writing' }));
   assert.equal(isMockSubmitSettled(collectedWriting, 'writing'), false);
+  const movedWithoutStamp = normalizeMockExamState(payload({ active_section: 'done', section_time_left_seconds: 0 }));
+  assert.equal(isMockSubmitSettled(movedWithoutStamp, 'writing'), false);
   const stamped = normalizeMockExamState(payload({
     active_section: 'writing', collected_section: 'writing',
     sitting: { ...payload().sitting, writing_submitted_at: '2026-08-17T01:00:00Z' },
