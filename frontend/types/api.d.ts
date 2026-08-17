@@ -6595,6 +6595,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Listening Attempt Renderer Affinity
+         * @description Claim a stable Listening player on first boot; never move it later.
+         */
+        post: operations["claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/attempts/{attempt_id}/answers": {
         parameters: {
             query?: never;
@@ -13354,6 +13374,26 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ListeningAttemptRendererAffinityRequest */
+        _ListeningAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ListeningAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. ``claim-v1`` inserts NULL so the stable player URL can
+         *     atomically own the attempt before any answer mutation.
+         */
+        _ListeningAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** _ReadingAttemptRendererAffinityRequest */
         _ReadingAttemptRendererAffinityRequest: {
@@ -24431,7 +24471,48 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
