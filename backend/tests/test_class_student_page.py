@@ -286,6 +286,13 @@ class _StartTable:
         return self
     def limit(self, *_a): return self
     def update(self, patch): self._store.append(patch); return self
+    def order(self, field, desc=False):
+        self._rows.sort(key=lambda row: row.get(field) or "", reverse=desc)
+        return self
+    def in_(self, field, values):
+        allowed = {str(value) for value in values}
+        self._rows = [row for row in self._rows if str(row.get(field)) in allowed]
+        return self
 
     def execute(self): return _Resp(self._rows)
 
@@ -338,6 +345,23 @@ async def test_a_listening_task_opens_by_the_row_id():
     """Listening keys on the row id at both ends — one identifier throughout."""
     out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
     assert out["open_url"].startswith("/pages/listening-test.html?id=uuid-xyz")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("affinity", ["legacy", "next"])
+async def test_reopening_speaking_returns_the_persisted_renderer_affinity(affinity):
+    tables = {"sessions": [{
+        "id": "session-1",
+        "started_at": NOW.isoformat(),
+        "completed_at": NOW.isoformat(),
+        "status": "completed",
+        "class_assignment_item_id": "item-1",
+        "user_id": "u1",
+        "renderer_affinity": affinity,
+    }]}
+    out = await _start(_start_db(skill="speaking", content_id=None, tables=tables))
+    assert out["session_id"] == "session-1"
+    assert out["renderer_affinity"] == affinity
 
 
 @pytest.mark.asyncio

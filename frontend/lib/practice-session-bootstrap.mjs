@@ -8,6 +8,9 @@ export class PracticeBootstrapError extends Error {
     this.status = Number.isInteger(options.status) ? options.status : null;
     this.request_id = typeof options.request_id === 'string' ? options.request_id : null;
     this.ref = typeof options.ref === 'string' ? options.ref : null;
+    this.renderer_affinity = typeof options.renderer_affinity === 'string'
+      ? options.renderer_affinity
+      : null;
     if (options.cause !== undefined) this.cause = options.cause;
   }
 }
@@ -76,6 +79,35 @@ export async function loadPracticeBootstrap({ api, sessionId, userId, onPhase })
   const canonicalSessionId = sessionId.trim();
   const encodedSessionId = encodeURIComponent(canonicalSessionId);
   const phase = typeof onPhase === 'function' ? onPhase : () => {};
+
+  phase('Đang xác nhận phiên bản player...');
+  let affinityClaim;
+  try {
+    affinityClaim = await api.postWith(
+      '/sessions/' + encodedSessionId + '/renderer-affinity',
+      { renderer_affinity: 'next' },
+      undefined,
+      { noRedirect: true },
+    );
+  } catch (error) {
+    throw apiFailure(
+      'renderer_affinity_claim_failed',
+      error,
+      'Không thể xác nhận phiên bản player. Hãy tải lại trang.',
+    );
+  }
+  const claimedRenderer = affinityClaim?.renderer_affinity;
+  if (claimedRenderer !== 'legacy' && claimedRenderer !== 'next') {
+    throw new PracticeBootstrapError(
+      'invalid_renderer_affinity',
+      'Không thể xác nhận phiên bản player. Hãy tải lại trang.',
+    );
+  }
+  if (claimedRenderer !== 'next') {
+    throw new PracticeBootstrapError('renderer_affinity_mismatch', '', {
+      renderer_affinity: claimedRenderer,
+    });
+  }
 
   phase('Đang tải session...');
   let sessionData;
@@ -154,6 +186,7 @@ export async function loadPracticeBootstrap({ api, sessionId, userId, onPhase })
 
   return Object.freeze({
     source: BOOTSTRAP_SOURCE,
+    rendererAffinity: claimedRenderer,
     sessionId: canonicalSessionId,
     userId: typeof userId === 'string' && userId ? userId : null,
     sessionData,
@@ -164,6 +197,7 @@ export async function loadPracticeBootstrap({ api, sessionId, userId, onPhase })
 export function isNextPracticeBootstrap(value) {
   return !!value
     && value.source === BOOTSTRAP_SOURCE
+    && value.rendererAffinity === 'next'
     && typeof value.sessionId === 'string'
     && value.sessionId.length > 0
     && !!value.sessionData

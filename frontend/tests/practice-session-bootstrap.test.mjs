@@ -24,6 +24,7 @@ function fakeApi({
   session = { id: 's1', mode: 'practice' },
   questions = [{ id: 'q1' }],
   generated,
+  claimedRenderer = 'next',
   failAt,
   error,
 } = {}) {
@@ -36,7 +37,11 @@ function fakeApi({
   }
   async function runPost(url, body, opts) {
     calls.push(['post', url, body, opts]);
-    if (failAt === 'generation') throw error;
+    const stage = url.endsWith('/renderer-affinity') ? 'affinity' : 'generation';
+    if (failAt === stage) throw error;
+    if (stage === 'affinity') {
+      return { session_id: 's1', renderer_affinity: claimedRenderer };
+    }
     return generated;
   }
   return {
@@ -80,6 +85,7 @@ describe('native Speaking session bootstrap contract', () => {
     });
 
     assert.deepEqual(api.calls.map(([method, url]) => [method, url]), [
+      ['post', '/sessions/session%2Funsafe/renderer-affinity'],
       ['get', '/sessions/session%2Funsafe'],
       ['get', '/sessions/session%2Funsafe/questions'],
     ]);
@@ -87,8 +93,13 @@ describe('native Speaking session bootstrap contract', () => {
     assert.equal(result.sessionId, 'session/unsafe');
     assert.equal(result.userId, 'user-1');
     assert.equal(result.source, 'next-native-bootstrap-v1');
+    assert.equal(result.rendererAffinity, 'next');
     assert.ok(Object.isFrozen(result));
-    assert.deepEqual(phases, ['Đang tải session...', 'Đang tải câu hỏi...']);
+    assert.deepEqual(phases, [
+      'Đang xác nhận phiên bản player...',
+      'Đang tải session...',
+      'Đang tải câu hỏi...',
+    ]);
     assert.equal(isNextPracticeBootstrap(result), true);
   });
 
@@ -102,7 +113,7 @@ describe('native Speaking session bootstrap contract', () => {
       onPhase: (message) => phases.push(message),
     });
 
-    assert.equal(api.calls.filter(([method]) => method === 'post').length, 1);
+    assert.equal(api.calls.filter(([method]) => method === 'post').length, 2);
     assert.ok(api.calls.every((call) => call.at(-1)?.noRedirect === true));
     assert.deepEqual(result.questions, [{ id: 'generated-q' }]);
     assert.equal(phases.at(-1), 'Đang tạo câu hỏi với AI...');
@@ -119,11 +130,31 @@ describe('native Speaking session bootstrap contract', () => {
     );
   });
 
+  test('claims Next before canonical reads and redirects mismatched affinity without booting', async () => {
+    const legacy = fakeApi({ claimedRenderer: 'legacy' });
+    await assert.rejects(
+      loadPracticeBootstrap({ api: legacy, sessionId: 's1' }),
+      (error) => error instanceof PracticeBootstrapError
+        && error.code === 'renderer_affinity_mismatch'
+        && error.renderer_affinity === 'legacy',
+    );
+    assert.deepEqual(legacy.calls.map(([method, url]) => [method, url]), [
+      ['post', '/sessions/s1/renderer-affinity'],
+    ]);
+
+    await assert.rejects(
+      loadPracticeBootstrap({ api: fakeApi({ claimedRenderer: null }), sessionId: 's1' }),
+      (error) => error instanceof PracticeBootstrapError
+        && error.code === 'invalid_renderer_affinity',
+    );
+  });
+
   test('uses explicit 401 status and preserves auth correlation at every request stage', async () => {
     for (const [stage, expectedPosts] of [
-      ['session', 0],
-      ['questions', 0],
-      ['generation', 1],
+      ['affinity', 1],
+      ['session', 1],
+      ['questions', 1],
+      ['generation', 2],
     ]) {
       const unauthorized = new Error('expired token');
       unauthorized.status = 401;
@@ -152,7 +183,7 @@ describe('native Speaking session bootstrap contract', () => {
     const questionsApi = fakeApi({ questions: null, generated: [{ id: 'generated-q' }] });
     const result = await loadPracticeBootstrap({ api: questionsApi, sessionId: 's1' });
     assert.deepEqual(result.questions, [{ id: 'generated-q' }]);
-    assert.equal(questionsApi.calls.filter(([method]) => method === 'post').length, 1);
+    assert.equal(questionsApi.calls.filter(([method]) => method === 'post').length, 2);
 
     await assert.rejects(
       loadPracticeBootstrap({
@@ -198,6 +229,7 @@ describe('native Speaking session bootstrap contract', () => {
 
     const valid = Object.freeze({
       source: 'next-native-bootstrap-v1',
+      rendererAffinity: 'next',
       sessionId: 's1',
       userId: 'u1',
       sessionData: { id: 's1' },
@@ -207,6 +239,7 @@ describe('native Speaking session bootstrap contract', () => {
       valid,
       null,
       { ...valid, source: 'wrong' },
+      { ...valid, rendererAffinity: 'legacy' },
       { ...valid, sessionId: '' },
       { ...valid, sessionData: null },
       { ...valid, sessionData: undefined },
@@ -237,7 +270,10 @@ describe('native Speaking session bootstrap contract', () => {
       (error) => error instanceof PracticeBootstrapError
         && error.code === 'response_lookup_failed',
     );
-    assert.deepEqual(api.calls, [['get', '/sessions/s1', { noRedirect: true }]]);
+    assert.deepEqual(api.calls, [
+      ['post', '/sessions/s1/renderer-affinity', { renderer_affinity: 'next' }, { noRedirect: true }],
+      ['get', '/sessions/s1', { noRedirect: true }],
+    ]);
   });
 
   test('Next owns auth and data loading while legacy pages retain their bootstrap', () => {

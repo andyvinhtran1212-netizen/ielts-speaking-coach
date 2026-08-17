@@ -5329,6 +5329,7 @@
   function _isNextPracticeBootstrap(bootstrap) {
     return !!bootstrap
       && bootstrap.source === 'next-native-bootstrap-v1'
+      && bootstrap.rendererAffinity === 'next'
       && typeof bootstrap.sessionId === 'string'
       && bootstrap.sessionId.length > 0
       && !!bootstrap.sessionData
@@ -5418,6 +5419,23 @@
 
     try {
       var questions;
+      if (!hasNextBootstrap) {
+        var affinityClaim = await window.api.post(
+          '/sessions/' + encodeURIComponent(_sessionId) + '/renderer-affinity',
+          { renderer_affinity: 'legacy' }
+        );
+        if (!_playerActive || generation !== _playerGeneration) return;
+        var claimedRenderer = affinityClaim && affinityClaim.renderer_affinity;
+        if (claimedRenderer === 'next') {
+          window.location.replace(
+            '/practice/session?session_id=' + encodeURIComponent(_sessionId)
+          );
+          return;
+        }
+        if (claimedRenderer !== 'legacy') {
+          throw new Error('Server không trả về renderer hợp lệ cho session.');
+        }
+      }
       if (hasNextBootstrap) {
         _sessionData = bootstrap.sessionData;
         _assertFullTestResponseLookup(_sessionData);

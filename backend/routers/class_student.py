@@ -64,7 +64,7 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
-def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
+def _existing_speaking_session(item_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
 
     Của CHÍNH em ấy (`user_id`) chứ không chỉ theo mục: mục là của một học viên,
@@ -85,7 +85,9 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
     """
     try:
         rows = (
-            supabase_admin.table("sessions").select("id, started_at, completed_at, status")
+            supabase_admin.table("sessions").select(
+                "id, started_at, completed_at, status, renderer_affinity"
+            )
             .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
             .order("started_at", desc=True).limit(20).execute().data
         ) or []
@@ -95,7 +97,11 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
         done = [r for r in rows
                 if r.get("completed_at") or r.get("status") == "completed"]
         if done:
-            return done[0]["id"]
+            winner = done[0]
+            return {
+                "id": winner["id"],
+                "renderer_affinity": winner.get("renderer_affinity"),
+            }
 
         # Phiên nào ĐANG GIỮ bài. Một lượt đọc cho tất cả, không hỏi từng phiên.
         ids = [r["id"] for r in rows]
@@ -106,8 +112,15 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
         }
         for r in rows:                      # rows đã mới→cũ
             if r["id"] in with_work:
-                return r["id"]
-        return rows[0]["id"]
+                return {
+                    "id": r["id"],
+                    "renderer_affinity": r.get("renderer_affinity"),
+                }
+        winner = rows[0]
+        return {
+            "id": winner["id"],
+            "renderer_affinity": winner.get("renderer_affinity"),
+        }
     except Exception as exc:  # noqa: BLE001
         logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
         return None
@@ -379,7 +392,8 @@ async def start_assignment(
             "item_id":       item_id,
             "assignment_id": assignment["id"],
             "skill":         "speaking",
-            "session_id":    existing,
+            "session_id":    existing["id"],
+            "renderer_affinity": existing["renderer_affinity"],
             "accepting":     bool(is_accepting_submissions(assignment)),
         }
 

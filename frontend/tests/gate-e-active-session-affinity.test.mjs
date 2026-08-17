@@ -20,6 +20,12 @@ const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
 const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
 const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
 const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
+const AFFINITY_MIGRATION = read('backend/migrations/215_speaking_session_renderer_affinity.sql');
+const SESSION_ROUTER = read('backend/routers/sessions.py');
+const CLASS_STUDENT_ROUTER = read('backend/routers/class_student.py');
+const PRACTICE_BOOTSTRAP = read('frontend/lib/practice-session-bootstrap.mjs');
+const LEGACY_PRACTICE = read('frontend/public/js/practice.js');
+const MY_CLASS_MODEL = read('frontend/lib/my-class-model.mjs');
 
 const NEXT_LAUNCHERS = [
   'frontend/app/(authed-speaking)/speaking/speaking-behavior.tsx',
@@ -52,7 +58,7 @@ describe('current admission policy preserves behavior', () => {
   test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     const expectedAdmission = {
-      speaking: 'next',
+      speaking: 'legacy',
       reading_exam: 'legacy',
       listening_test: 'legacy',
       listening_dictation: 'legacy',
@@ -76,7 +82,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('launchers use the runtime endpoint and the staged policy cuts over Speaking only', () => {
+  test('launchers use the runtime endpoint while the affinity floor stays Legacy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -99,7 +105,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
-      '/practice/session?session_id=session-a',
+      '/pages/practice.html?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
@@ -134,6 +140,23 @@ describe('current admission policy preserves behavior', () => {
     assert.doesNotMatch(RUNTIME_ROUTE, /getAll\('surface'\)|hasDuplicate|key !== 'surface'/,
       'wire validation must stay centralized in the affinity module');
     assert.match(RUNTIME_ROUTE, /status: 400/);
+  });
+
+  test('session affinity is persisted on first player boot and honored on reopen', () => {
+    assert.match(AFFINITY_MIGRATION, /ADD COLUMN renderer_affinity TEXT/);
+    assert.match(AFFINITY_MIGRATION,
+      /COALESCE\(target\.renderer_affinity, p_renderer_affinity\)/);
+    assert.match(AFFINITY_MIGRATION, /target\.user_id = p_user_id/);
+    assert.match(SESSION_ROUTER, /fn_claim_session_renderer_affinity/);
+    assert.match(CLASS_STUDENT_ROUTER,
+      /"renderer_affinity": existing\["renderer_affinity"\]/);
+    const nextClaim = PRACTICE_BOOTSTRAP.indexOf("'/renderer-affinity'");
+    const nextRead = PRACTICE_BOOTSTRAP.indexOf("'/sessions/' + encodedSessionId,");
+    assert.ok(nextClaim !== -1 && nextClaim < nextRead,
+      'Next must claim before reading session/question state');
+    assert.match(LEGACY_PRACTICE, /renderer_affinity: 'legacy'/);
+    assert.match(MY_CLASS_MODEL, /kind: 'stable-player'/);
+    assert.match(MY_CLASS_MODEL, /corePlayerUrl\('speaking', implementation/);
   });
 
   test('canonical Next launchers use the policy, not scattered player literals', () => {
@@ -288,7 +311,7 @@ describe('cutover and rollback drill', () => {
       resolveCorePlayerAdmissionFromParams(
         new URLSearchParams('surface=speaking&session_id=x'),
       ),
-      '/practice/session?session_id=x',
+      '/pages/practice.html?session_id=x',
     );
     for (const query of [
       'session_id=x',
@@ -321,14 +344,14 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /FOUR DARK ROUTES READY; SPEAKING STAGING CUTOVER ACTIVE; LIVE\s+CORE DRILL PENDING/);
+    assert.match(DOC, /FOUR DARK ROUTES READY; SPEAKING AFFINITY FLOOR PENDING; LIVE\s+CORE DRILL PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
     assert.match(DOC, /rollback floor SHA/);
     assert.match(DOC, /khác PR và khác commit/i);
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
-    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*MISSING\*\*/);
-    assert.match(PREFLIGHT, /unit-level only; chưa có active attempt nào được drill/);
+    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /floor run `32019415351`/);
   });
 });

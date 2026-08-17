@@ -21,10 +21,13 @@ hình core suite trên Chromium và một browser seam giới hạn trên Chromi
 emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
 ghi đủ project counts/version/outcome. Critical-suite v5 và ledger đã được
 định nghĩa, nhưng chưa có qualifying 20-run artifact; vẫn chưa có Safari/iOS
-thiết bị thật. Active-session affinity mới có foundation và unit-level contract,
-chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
-implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
-contract. Speaking đã có stable hybrid Next player route với native bootstrap,
+thiết bị thật. Active-session affinity đã có runtime foundation, unit contract
+và floor run `32019415351` trên SHA `a7462ab2`: một session Legacy thật cùng
+hai stable URL đều reload/copy được với frontend/backend staging đồng nhất.
+Ba phase live vẫn chưa hoàn tất; review cutover còn phát hiện session mở lại
+chưa có renderer affinity canonical, nên admission đã được trả về Legacy để
+deploy một floor mới có claim atomic theo session trước khi thử cutover lại.
+Speaking đã có stable hybrid Next player route với native bootstrap,
 recorder, submission, Full Test state, player lifecycle và dark-route readiness;
 admission vẫn Legacy. Reading đã có native
 player cùng failure matrix versioned 12 case trên Chromium/WebKit desktop và
@@ -41,7 +44,7 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay | Chưa có successful artifact của live journey trên cùng frontend/backend staging SHA; source/tooling không được tính thay lần chạy thật. |
-| Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
+| Sticky active-session hoặc drain strategy đã drill | **PARTIAL** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking floor run `32019415351` trên SHA `a7462ab2` đã tạo session Legacy thật, reload/copy cả Legacy và dark Next URL, đồng thời chứng minh matching staging provenance. Remediation kế tiếp thêm `sessions.renderer_affinity` và atomic first-player claim; admission vẫn Legacy để lập floor mới. | Chưa có đủ cutover + rollback artifact trên floor có persisted affinity; Safari/iOS thật và các cluster Reading/Listening vẫn thiếu live drill. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v5 freeze 34 tests live-staging, gồm live failure injection; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và chưa có successful live-staging artifact từ release v5. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
@@ -104,27 +107,26 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.
 
-### GE-4 — Có affinity mechanism, active-session drill vẫn thiếu
+### GE-4 — Floor live đã có, persisted affinity và đủ ba phase vẫn thiếu
 
-- **Root cause:** trước batch affinity, coexistence/rollback drill chỉ chứng minh
-  deployment recovery, chưa chọn cách xử lý attempt đang làm dở khi ownership
-  đổi release. Batch đã chọn stable implementation-specific URL + runtime
-  admission endpoint no-store để bundle launcher cũ hỏi policy tại thời điểm
-  navigation, rồi chạy unit-level URL/state-machine contract. Speaking đã có
-  `/practice/session` với native bootstrap/recorder/submission/Full Test/player
-  lifecycle và dark-route floor, nhưng chưa có live drill; Reading/Listening
-  cũng đã có dark routes nhưng chưa có domain-specific live coexistence drill.
+- **Root cause:** runtime admission chỉ quyết định renderer cho một navigation;
+  trước remediation nó không persist renderer theo session. Vì vậy một bài lớp
+  đã có `session_id` có thể bị re-admit sang implementation mới khi mở lại.
+  Floor run đã chứng minh hai stable URL cùng phục vụ, nhưng chưa chứng minh
+  session giữ nguyên renderer qua launcher khác và qua rollback.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
   `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
   các core route và state keys được liệt kê dưới đây.
-- **Suggested minimal fix còn lại:** deploy release Speaking dark-route-ready làm
-  coexistence rollback floor SHA có cả runtime admission endpoint; sau đó mỗi
-  core cluster phải pin floor tương ứng rồi drill
+- **Suggested minimal fix còn lại:** deploy release Speaking dark-route-ready có
+  atomic first-player claim làm coexistence rollback floor mới; sau đó mỗi core
+  cluster phải pin floor tương ứng rồi drill
   staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab cũ,
   reload, tab mới và canonical state sau handoff.
-- **Verification:** run artifact ghi release trước/sau, session/attempt ID,
+- **Verification:** route test phải chứng minh Legacy session mở lại vẫn Legacy,
+  Next session mở lại vẫn Next và session chưa claim đi qua current admission;
+  run artifact ghi release trước/sau, session/attempt ID,
   persisted answers, canonical final state, TTL và recovery time; không có data
   invariant violation.
 

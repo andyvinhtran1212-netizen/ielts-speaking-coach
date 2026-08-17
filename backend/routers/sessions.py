@@ -4,7 +4,7 @@ import logging
 import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
@@ -213,6 +213,7 @@ class CreateSessionBody(BaseModel):
     # second daily slot. Linked class/mock creates keep their established path
     # until their post-create hooks can report replay state explicitly.
     client_session_id: UUID | None = None
+
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v):
@@ -243,6 +244,10 @@ class CreateSessionBody(BaseModel):
         if not session_id:
             raise ValueError("previous_session_id không được để trống")
         return session_id
+
+
+class ClaimRendererAffinityBody(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
 
 
 class FinalizeFullTestBody(BaseModel):
@@ -927,6 +932,40 @@ async def get_session_stats(
 
 
 # ── GET /sessions/{session_id} ─────────────────────────────────────────────────
+
+@router.post("/{session_id}/renderer-affinity")
+async def claim_renderer_affinity(
+    session_id: UUID,
+    body: ClaimRendererAffinityBody,
+    authorization: str | None = Header(default=None),
+):
+    """Claim the stable renderer on first player boot; never move it later."""
+    auth_user = await get_supabase_user(authorization)
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_session_renderer_affinity",
+            {
+                "p_session_id": str(session_id),
+                "p_user_id": auth_user["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[renderer-affinity] claim failed session=%s renderer=%s: %s",
+            session_id,
+            body.renderer_affinity,
+            exc,
+        )
+        raise HTTPException(500, "Không thể xác nhận phiên bản player. Hãy tải lại trang.")
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Session không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Session chưa có renderer hợp lệ")
+    return {"session_id": str(session_id), "renderer_affinity": affinity}
 
 @router.get("/{session_id}")
 async def get_session(

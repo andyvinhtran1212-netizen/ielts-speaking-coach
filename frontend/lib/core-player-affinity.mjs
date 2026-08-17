@@ -10,11 +10,10 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   strategy_id: 'stable-player-url-admission-switch-v1',
   surfaces: Object.freeze({
     speaking: Object.freeze({
-      // Gate E live coexistence drill: floor a7462ab2 proved Legacy admission;
-      // this descendant admits only fresh Speaking sessions to the stable Next
-      // URL. Both implementation-specific URLs remain available so active
-      // Legacy sessions stay pinned and the next release can forward-rollback.
-      admit_new: 'next',
+      // Gate E floor remains Legacy while the canonical first-player claim is
+      // deployed and verified separately. Only a descendant release may flip
+      // fresh admission to Next; claimed sessions keep their stable URL.
+      admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),

@@ -80,6 +80,12 @@ async function installHarness(page, {
       const handled = await handleApi({ route, request, path, calls, cors });
       if (handled) return;
     }
+    if (request.method() === 'POST' && path === `/sessions/${sessionId}/renderer-affinity`) {
+      return route.fulfill({
+        json: { session_id: sessionId, renderer_affinity: 'next' },
+        headers: cors,
+      });
+    }
     if (request.method() === 'GET' && path === `/sessions/${sessionId}`) {
       const payload = typeof session === 'function' ? session() : session;
       return route.fulfill({ json: payload, headers: cors });
