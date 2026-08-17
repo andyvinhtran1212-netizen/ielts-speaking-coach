@@ -1,0 +1,146 @@
+name: Reading Gate E coexistence drill
+
+permissions:
+  contents: read
+  actions: read
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/reading-coexistence-drill.yml'
+      - 'frontend/playwright.reading-coexistence.config.js'
+      - 'frontend/tests/reading-coexistence-drill/**'
+      - 'frontend/tooling/gate-e-reading-coexistence-*'
+      - 'frontend/tooling/validate-gate-e-reading-coexistence-handoff.mjs'
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        options: [floor, cutover, rollback]
+      rollback_floor_sha:
+        description: Exact 40-char Reading affinity floor SHA
+        required: true
+        type: string
+      previous_legacy_attempt_id: { required: false, type: string }
+      previous_legacy_test_id: { required: false, type: string }
+      previous_next_attempt_id: { required: false, type: string }
+      previous_next_test_id: { required: false, type: string }
+      previous_phase_run_id: { required: false, type: string }
+
+jobs:
+  reading-coexistence-drill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with: { ref: staging, fetch-depth: 0 }
+      - id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: config
+        env:
+          INPUT_PHASE: ${{ inputs.phase }}
+          INPUT_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
+          INPUT_LEGACY_ATTEMPT: ${{ inputs.previous_legacy_attempt_id }}
+          INPUT_LEGACY_TEST: ${{ inputs.previous_legacy_test_id }}
+          INPUT_NEXT_ATTEMPT: ${{ inputs.previous_next_attempt_id }}
+          INPUT_NEXT_TEST: ${{ inputs.previous_next_test_id }}
+          INPUT_PREVIOUS_RUN: ${{ inputs.previous_phase_run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            echo "phase=floor" >> "$GITHUB_OUTPUT"
+            echo "floor_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "phase=$INPUT_PHASE" >> "$GITHUB_OUTPUT"
+            echo "floor_sha=$INPUT_FLOOR_SHA" >> "$GITHUB_OUTPUT"
+            echo "legacy_attempt=$INPUT_LEGACY_ATTEMPT" >> "$GITHUB_OUTPUT"
+            echo "legacy_test=$INPUT_LEGACY_TEST" >> "$GITHUB_OUTPUT"
+            echo "next_attempt=$INPUT_NEXT_ATTEMPT" >> "$GITHUB_OUTPUT"
+            echo "next_test=$INPUT_NEXT_TEST" >> "$GITHUB_OUTPUT"
+            echo "previous_run=$INPUT_PREVIOUS_RUN" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v5
+        with: { node-version: '24' }
+      - id: lineage
+        working-directory: frontend
+        env:
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+        run: node tooling/gate-e-reading-coexistence-lineage.mjs
+      - name: Download previous phase evidence
+        if: steps.config.outputs.phase != 'floor'
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PHASE: ${{ steps.config.outputs.phase }}
+          PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+        run: |
+          mkdir -p test-results/gate-e-previous-phase
+          case "$PHASE" in cutover) previous_phase=floor ;; rollback) previous_phase=cutover ;; *) exit 1 ;; esac
+          previous_attempt="$(gh run view "$PREVIOUS_PHASE_RUN_ID" --json attempt --jq '.attempt')"
+          artifact="gate-e-reading-coexistence-${previous_phase}-${PREVIOUS_PHASE_RUN_ID}-${previous_attempt}"
+          gh run download "$PREVIOUS_PHASE_RUN_ID" --name "$artifact" --dir test-results/gate-e-previous-phase
+      - id: handoff
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+          GATE_E_PREVIOUS_LEGACY_ATTEMPT_ID: ${{ steps.config.outputs.legacy_attempt }}
+          GATE_E_PREVIOUS_LEGACY_TEST_ID: ${{ steps.config.outputs.legacy_test }}
+          GATE_E_PREVIOUS_NEXT_ATTEMPT_ID: ${{ steps.config.outputs.next_attempt }}
+          GATE_E_PREVIOUS_NEXT_TEST_ID: ${{ steps.config.outputs.next_test }}
+        run: node tooling/validate-gate-e-reading-coexistence-handoff.mjs
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+          GATE_E_PREVIOUS_LEGACY_ATTEMPT_ID: ${{ steps.config.outputs.legacy_attempt }}
+          GATE_E_PREVIOUS_LEGACY_TEST_ID: ${{ steps.config.outputs.legacy_test }}
+          GATE_E_PREVIOUS_NEXT_ATTEMPT_ID: ${{ steps.config.outputs.next_attempt }}
+          GATE_E_PREVIOUS_NEXT_TEST_ID: ${{ steps.config.outputs.next_test }}
+          GATE_E_LINEAGE_VERIFIED: ${{ steps.lineage.outputs.verified }}
+          GATE_E_ROLLBACK_MODE: ${{ steps.lineage.outputs.rollback_mode }}
+          GATE_E_HANDOFF_VERIFIED: ${{ steps.handoff.outputs.verified }}
+        run: npx playwright test -c playwright.reading-coexistence.config.js
+      - name: Capture staging release provenance
+        if: always()
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PROVENANCE_REQUIRED: 'true'
+        run: node tooling/capture-gate-e-staging-provenance.mjs
+      - name: Upload phase evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-reading-coexistence-${{ steps.config.outputs.phase }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/tooling/gate-e-reading-coexistence-drill.json
+            frontend/test-results/gate-e-reading-coexistence-evidence.json
+            frontend/test-results/gate-e-reading-coexistence-results.json
+            frontend/test-results/gate-e-reading-coexistence-lineage.json
+            frontend/test-results/gate-e-reading-coexistence-handoff.json
+            frontend/test-results/gate-e-staging-provenance.json
+          if-no-files-found: error
+          retention-days: 30
