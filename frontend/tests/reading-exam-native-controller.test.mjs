@@ -260,11 +260,11 @@ describe('native Reading exam route contract', () => {
   const page = read('frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx');
   const layout = read('frontend/app/(authed-reading-player)/layout.tsx');
 
-  test('stable route is dark-ready while new admissions remain legacy', () => {
+  test('stable route is ready and new staging admissions use Next', () => {
     const policy = CORE_PLAYER_AFFINITY_POLICY.surfaces.reading_exam;
     assert.equal(policy.next.path, '/reading/exam/session');
     assert.equal(policy.next.route_ready, true);
-    assert.equal(policy.admit_new, 'legacy');
+    assert.equal(policy.admit_new, 'next');
   });
 
   test('React owns the player and never boots the legacy reading-exam script', () => {
