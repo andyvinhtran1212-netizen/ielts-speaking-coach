@@ -546,6 +546,7 @@ export function MockExamRunner() {
   const [startError, setStartError] = useState<string | null>(null);
   const [openingSpeaking, setOpeningSpeaking] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [flushedCollectionKey, setFlushedCollectionKey] = useState<string | null>(null);
   const stateRef = useRef<MockState | null>(null);
   const stateReadGenerationRef = useRef(0);
   const bootRef = useRef(0);
@@ -570,6 +571,17 @@ export function MockExamRunner() {
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
   const activeSection = view === 'section' ? state?.activeSection as Section : null;
+  const collectedEmbedSection = state
+    && (state.collectedSection === 'listening' || state.collectedSection === 'reading')
+    && state.activeSection === state.collectedSection
+    && !submittedAtFor(state, state.collectedSection)
+    ? state.collectedSection
+    : null;
+  const collectionKey = collectedEmbedSection && state
+    ? `${state.sitting.id}:${collectedEmbedSection}`
+    : null;
+  const awaitingEmbedFlush = Boolean(collectionKey && collectionKey !== flushedCollectionKey);
+  const renderedSection = activeSection || (awaitingEmbedFlush ? collectedEmbedSection : null);
   activeSectionRef.current = activeSection;
   currentSittingRef.current = state?.sitting.id || null;
 
@@ -798,6 +810,29 @@ export function MockExamRunner() {
     window.setTimeout(() => finish(new Error('mock-embed-flush-timeout')), 3_000);
   }), []);
 
+  useEffect(() => {
+    if (!collectionKey || !collectedEmbedSection || !awaitingEmbedFlush) return undefined;
+    let disposed = false;
+    let retryTimer: number | null = null;
+    const drain = async () => {
+      try {
+        await flushEmbed(collectedEmbedSection);
+        if (!disposed) setFlushedCollectionKey(collectionKey);
+      } catch {
+        if (!disposed) retryTimer = window.setTimeout(() => { void drain(); }, 1_000);
+      }
+    };
+    void drain();
+    return () => {
+      disposed = true;
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+    };
+  }, [awaitingEmbedFlush, collectedEmbedSection, collectionKey, flushEmbed]);
+
+  useEffect(() => {
+    if (!collectionKey && flushedCollectionKey) setFlushedCollectionKey(null);
+  }, [collectionKey, flushedCollectionKey]);
+
   const doSubmit = useCallback(async (section: Section) => {
     const current = stateRef.current;
     if (!current) throw new Error('missing-mock-state');
@@ -958,15 +993,15 @@ export function MockExamRunner() {
     writingBridgeRef.current = bridge;
   }, []);
   const frameSrc = useMemo(() => {
-    if (!state || !activeSection || activeSection === 'writing') return null;
-    try { return mockPlayerHref(state, activeSection); } catch { return null; }
-  }, [activeSection, state?.exam.listeningTestId, state?.exam.readingTestCode, state?.sitting.id]);
+    if (!state || !renderedSection || renderedSection === 'writing') return null;
+    try { return mockPlayerHref(state, renderedSection); } catch { return null; }
+  }, [renderedSection, state?.exam.listeningTestId, state?.exam.readingTestCode, state?.sitting.id]);
 
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
   if (fatal) return <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
   if (!state) return <MockExamRunnerLoading />;
   if (view === 'void') return <ErrorCard message="Kỳ thi đã bị huỷ. Liên hệ giám khảo để được cấp lượt mới." />;
-  if (view === 'waiting' || view === 'retake-menu') {
+  if ((view === 'waiting' || view === 'retake-menu') && !awaitingEmbedFlush) {
     return (
       <>
         {connection ? <div className="me-conn-banner" role="status" aria-live="polite">{CONNECTION_MESSAGES[connection]}</div> : null}
@@ -980,17 +1015,18 @@ export function MockExamRunner() {
   return (
     <main className="me-test-shell">
       {connection ? <div className="me-conn-banner" role="status" aria-live="polite">{CONNECTION_MESSAGES[connection]}</div> : null}
+      {awaitingEmbedFlush ? <div className="me-conn-banner" role="status" aria-live="polite">Đang lưu câu trả lời cuối cùng…</div> : null}
       <header className="me-bar">
         <span className={`me-timer${remaining <= WARN_SECONDS ? ' warn' : ''}`} role="timer">{formatMockTime(remaining)}</span>
-        <div className="me-section-label">{activeSection ? MOCK_SECTION_LABELS[activeSection] : ''}</div>
+        <div className="me-section-label">{renderedSection ? MOCK_SECTION_LABELS[renderedSection] : ''}</div>
         <span className="me-save-note">Tự động lưu bài</span>
       </header>
       {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">⚠ Sắp hết giờ phần này — bài sẽ tự nộp khi hết giờ.</div> : null}
-      <section className="me-panels" aria-label={activeSection ? `Phần thi ${activeSection}` : 'Phần thi'}>
-        {activeSection === 'writing'
+      <section className="me-panels" aria-label={renderedSection ? `Phần thi ${renderedSection}` : 'Phần thi'}>
+        {renderedSection === 'writing'
           ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} />
           : frameSrc
-            ? <iframe ref={frameRef} src={frameSrc} title={`Bài thi ${activeSection}`} />
+            ? <iframe ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
             : <ErrorCard message="Kỳ thi thiếu nội dung cho phần đang mở. Liên hệ giám thị." />}
       </section>
     </main>

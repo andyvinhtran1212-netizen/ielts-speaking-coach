@@ -64,7 +64,7 @@ async function launch() {
 async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
-  finalWritingCollectPause = false, deferStateGet = null,
+  finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -86,8 +86,13 @@ async function fixturePage(browser, initialState, {
   };
   let markDeferredReady;
   let markDeferredDelivered;
+  let markEmbedSaveReady;
+  let markEmbedSavePersisted;
   state.deferredReady = new Promise((resolve) => { markDeferredReady = resolve; });
   state.deferredDelivered = new Promise((resolve) => { markDeferredDelivered = resolve; });
+  state.embedSaveReady = new Promise((resolve) => { markEmbedSaveReady = resolve; });
+  state.embedSavePersisted = new Promise((resolve) => { markEmbedSavePersisted = resolve; });
+  state.embedAnswerBodies = [];
   page.on('pageerror', (error) => errors.push(String(error)));
   page.on('dialog', async (dialog) => dialog.dismiss());
   await page.route('**/*', async (route) => {
@@ -97,8 +102,21 @@ async function fixturePage(browser, initialState, {
       return route.fulfill({
         status: 200,
         contentType: 'text/html',
-        body: `<script>addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush')parent.postMessage({type:'mock-flushed',section:'listening',unsaved:0},location.origin)})<\/script>`,
+        body: deferEmbedSave
+          ? `<script>window.embedReady=true;addEventListener('message',async e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush'){await fetch('/__mock-answer',{method:'PATCH',body:'latest-answer'});parent.postMessage({type:'mock-flushed',section:'listening',unsaved:0},location.origin)}})<\/script>`
+          : `<script>window.embedReady=true;addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush')parent.postMessage({type:'mock-flushed',section:'listening',unsaved:0},location.origin)})<\/script>`,
       });
+    }
+    if (deferEmbedSave && url.origin === BASE && url.pathname === '/__mock-answer'
+        && request.method() === 'PATCH') {
+      state.embedAnswerBodies.push(request.postData());
+      await new Promise((resolve) => {
+        state.releaseEmbedSave = resolve;
+        markEmbedSaveReady();
+      });
+      await route.fulfill(json({ ok: true }));
+      markEmbedSavePersisted();
+      return;
     }
     if (request.url().startsWith(BASE)) return route.continue();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
@@ -261,6 +279,29 @@ check('embedded Listening uses stable core admission and flushes before finaliza
     && listening.calls.join(',') === 'domain-listening,stamp-listening', listening.calls.join(','));
 await listening.context.close();
 
+const collectedListeningState = mockState({
+  active_section: 'listening', section_time_left_seconds: 600, section_duration_seconds: 600,
+});
+collectedListeningState.sitting.listening_attempt_id = 'listening-attempt-1';
+const collectedListening = await fixturePage(browser, collectedListeningState, { deferEmbedSave: true });
+await collectedListening.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+const collectedFrame = collectedListening.page.locator('iframe');
+await collectedFrame.waitFor();
+await collectedFrame.contentFrame().locator('body').waitFor();
+collectedListening.state.current.collected_section = 'listening';
+await collectedListening.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await collectedListening.state.embedSaveReady;
+check('collection keeps the embedded paper mounted while its final answer PATCH is pending',
+  await collectedFrame.count() === 1
+    && await collectedListening.page.getByText(/Đang lưu câu trả lời cuối cùng/).isVisible());
+collectedListening.state.releaseEmbedSave();
+await collectedListening.state.embedSavePersisted;
+await collectedListening.page.getByText(/Đã nộp phần trước/).waitFor();
+check('collection unmounts the paper only after the flush ACK persisted the latest answer',
+  collectedListening.state.embedAnswerBodies.join(',') === 'latest-answer'
+    && await collectedFrame.count() === 0);
+await collectedListening.context.close();
+
 const writingState = mockState({
   active_section: 'writing', section_time_left_seconds: 1, section_duration_seconds: 60,
 });
@@ -372,11 +413,11 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, staleRead, listening, writing, forceCollected, pausedRetry, boundedFailure]
+  [waiting, retake, staleRead, listening, collectedListening, writing, forceCollected, pausedRetry, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
-  [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...writing.egress,
+  [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
     ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
-    ...staleRead.errors, ...listening.errors, ...writing.errors, ...forceCollected.errors,
+    ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...writing.errors, ...forceCollected.errors,
     ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();

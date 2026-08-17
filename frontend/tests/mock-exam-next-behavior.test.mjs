@@ -56,6 +56,8 @@ describe('/mock-exam native runner ownership', () => {
     assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
     assert.match(LISTENING_PLAYER, /event\.source !== window\.parent/);
     assert.match(READING_PLAYER, /event\.source !== window\.parent/);
+    assert.match(RUNNER, /awaitingEmbedFlush[\s\S]*renderedSection/);
+    assert.match(RUNNER, /await flushEmbed\(collectedEmbedSection\)[\s\S]*setFlushedCollectionKey/);
   });
 
   test('serializes Writing autosave and reuses one immutable final payload', () => {
