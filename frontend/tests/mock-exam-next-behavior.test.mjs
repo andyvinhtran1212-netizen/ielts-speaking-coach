@@ -13,6 +13,7 @@ const CSS = read('public', 'css', 'mock-exam-next.css');
 const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const LISTENING_PLAYER = read('app', '(authed-listening-player)', 'listening', 'test', 'session', 'listening-test-session.tsx');
 const READING_PLAYER = read('app', '(authed-reading-player)', 'reading', 'exam', 'session', 'reading-exam-session.tsx');
+const LEGACY_RUNNER = read('public', 'js', 'mock-exam-runner.js');
 
 describe('/mock-exam native runner ownership', () => {
   test('owns the App Router surface without booting the legacy runner', () => {
@@ -21,6 +22,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(LAYOUT, /mock-exam-next\.css/);
     assert.doesNotMatch(LAYOUT + PAGE, /mock-exam-runner\.js/);
     assert.match(RUNNER, /status === 'signed-out'[\s\S]*window\.location\.replace\('\/login'\)/);
+    assert.match(LEGACY_RUNNER, /Thiếu mã kỳ thi \(\?code=\) hoặc mã lượt thi \(\?sitting=\)\./);
   });
 
   test('binds state to the authenticated owner and current query identity', () => {
