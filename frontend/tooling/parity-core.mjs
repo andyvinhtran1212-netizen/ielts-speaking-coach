@@ -216,6 +216,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // migrated launcher as a missing/extra pair even though the bank query is
   // identical — and then skips the browser write-flow that proves the player.
   else if (path === '/pages/quiz.html') path = '/quiz';
+  // `/exam` owns the standalone exam list/player after the native cutover.
+  // Keep every identity-bearing query (`id`, `source`, and any future key)
+  // intact: the mapping only changes the route owner. Without it, the live G1
+  // list fixture reports every correctly migrated card as one missing legacy
+  // link plus one extra native link and blocks the player write-flow entirely.
+  else if (path === '/pages/exam.html') path = '/exam';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
