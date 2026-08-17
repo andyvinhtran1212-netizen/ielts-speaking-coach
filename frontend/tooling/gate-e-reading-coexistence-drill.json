@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "drill_id": "gate-e-reading-coexistence-v1",
+  "strategy_id": "stable-player-url-admission-switch-v1",
+  "surface": "reading_exam",
+  "phases": [
+    { "phase": "floor", "expected_admission": "legacy", "required_previous_attempt": null, "emits_attempt": "legacy_attempt_id" },
+    { "phase": "cutover", "expected_admission": "next", "required_previous_attempt": "legacy_attempt_id", "emits_attempt": "next_attempt_id" },
+    { "phase": "rollback", "expected_admission": "legacy", "required_previous_attempt": "next_attempt_id", "emits_attempt": "post_rollback_legacy_attempt_id" }
+  ],
+  "required_evidence": [
+    "phase", "source_sha", "deployed_frontend_sha", "deployed_frontend_branch",
+    "rollback_floor_sha", "floor_lineage_verified", "previous_phase_handoff_verified",
+    "previous_phase_run_id", "backend_release", "backend_git_branch",
+    "backend_environment_name", "previous_attempt_id", "previous_test_id",
+    "created_attempt_id", "created_test_id", "created_attempt_url",
+    "previous_attempt_url", "canonical_attempts", "reload_and_copy_url_passed",
+    "captured_at"
+  ],
+  "conditional_evidence": {
+    "floor": [
+      "floor_dark_next_url", "floor_dark_next_attempt_id",
+      "floor_dark_next_affinity_before", "floor_dark_next_affinity_after"
+    ],
+    "rollback": ["rollback_mode"]
+  },
+  "retention_days": 30,
+  "status": "runner-ready-live-artifacts-pending"
+}
