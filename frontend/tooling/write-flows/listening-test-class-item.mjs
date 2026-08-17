@@ -41,6 +41,8 @@ const FX = JSON.parse(readFileSync(
 const TEST = FX.test_id;
 const ITEM = FX.class_item;
 const ATTEMPT = FX.attempt_id;
+const RENDERER = process.env.WF_LEGACY ? 'legacy' : 'next';
+const START_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
 
 export default {
   name: 'listening-test — làm bài giao của lớp, giữ được class_item',
@@ -65,9 +67,11 @@ export default {
     [/\/attempts\/in-progress(\?|$)/, { attempt: {
       attempt_id: ATTEMPT,
       started_at: '2026-08-11T00:00:00Z',
+      renderer_affinity: RENDERER,
       answers: [],
     } }],
     [/\/tests\/[^/?]+\/attempts(\?|$)/, { attempt_id: ATTEMPT }],
+    [/\/renderer-affinity(\?|$)/, { attempt_id: ATTEMPT, renderer_affinity: RENDERER }],
     [/\/answers(\?|$)/, {}],
     [/\/submit(\?|$)/, {
       score: 3, max_score: 3, total: 3, correct: 3,
@@ -100,6 +104,17 @@ export default {
 
   writes: [
     {
+      // Player idempotently confirms the already-open attempt during boot,
+      // then claims the newly-created replacement attempt. The two requests
+      // straddle POST /attempts, so this declaration is intentionally
+      // unordered; player/controller tests separately pin claim-before-mutate.
+      method: 'POST',
+      path: `/api/listening/tests/attempts/${ATTEMPT}/renderer-affinity`,
+      times: 2,
+      unordered: true,
+      body: { renderer_affinity: RENDERER },
+    },
+    {
       method: 'POST',
       path: `/api/listening/tests/${TEST}/attempts`,
       times: 1,
@@ -109,6 +124,7 @@ export default {
       // tham số đó khỏi URL nó VẪN XANH. Nó chưa từng kiểm điều nó tuyên bố;
       // chỉ đối chứng âm mới lộ ra. `query` là nguyên hàm thêm cùng PR này.
       query: { class_item: ITEM },
+      body: START_PROTOCOL,
     },
     {
       method: 'PATCH',
