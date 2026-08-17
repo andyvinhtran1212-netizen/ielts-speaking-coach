@@ -19,6 +19,7 @@ const read = (relativePath) => readFileSync(path.join(ROOT, relativePath), 'utf8
 const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
 const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
 const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
+const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
 
 const NEXT_LAUNCHERS = [
   'frontend/app/(authed-speaking)/speaking/speaking-behavior.tsx',
@@ -112,6 +113,13 @@ describe('current admission policy preserves behavior', () => {
       resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),
       '/pages/listening-test-dictation.html?test_id=test-1&section=3',
     );
+  });
+
+  test('the local Speaking flow verifier follows the deployed admission policy', () => {
+    assert.match(SPEAKING_FLOW, /import \{ resolveCorePlayerAdmission \}/);
+    assert.match(SPEAKING_FLOW, /resolveCorePlayerAdmission\('speaking', \{/);
+    assert.match(SPEAKING_FLOW, /page\.url\(\) === expectedPracticeUrl/);
+    assert.doesNotMatch(SPEAKING_FLOW, /practice\.html\?session_id=sess-verify-1/);
   });
 
   test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
