@@ -57,6 +57,14 @@ test('route state respects canonical status, collect pause and retake assignment
   assert.equal(mockExamView(retake), 'retake-menu');
 });
 
+test('reviewed sitting remains a valid submitted state while awaiting release', () => {
+  const reviewed = normalizeMockExamState(payload({
+    active_section: 'not_started',
+    sitting: { ...payload().sitting, status: 'reviewed' },
+  }));
+  assert.equal(mockExamView(reviewed), 'submitted');
+});
+
 test('player launch uses stable Gate E admission and preserves mock identity', () => {
   const state = normalizeMockExamState(payload());
   assert.equal(mockPlayerHref(state, 'listening'), '/core-player/launch?surface=listening_test&id=listen-test&sitting_id=sitting-1&mock_embed=1&from=mock');

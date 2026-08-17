@@ -3,7 +3,7 @@ import { admitCorePlayer } from './core-player-affinity.mjs';
 export const MOCK_SECTION_ORDER = Object.freeze(['listening', 'reading', 'writing']);
 export const MOCK_LIVE_STATUSES = Object.freeze(['registered', 'lrw_in_progress']);
 export const MOCK_TERMINAL_STATUSES = Object.freeze([
-  'lrw_submitted', 'speaking_pending', 'all_submitted', 'under_review', 'released', 'void',
+  'lrw_submitted', 'speaking_pending', 'all_submitted', 'under_review', 'reviewed', 'released', 'void',
 ]);
 export const MOCK_SECTION_LABELS = Object.freeze({
   listening: '🎧 Listening',
