@@ -9,6 +9,11 @@ const {
   installHarness,
 } = require('./native-speaking-harness');
 
+function isExpectedWebKitRedirectCancellation(message) {
+  return /(?:\/speaking\?_rsc=[^ ]+|\/localhost:8000\/auth\/me) due to access control checks\.$/
+    .test(message);
+}
+
 function questions() {
   return Array.from({ length: 9 }, (_, index) => ({
     id: `q${index + 1}`,
@@ -139,9 +144,8 @@ async function verifyNextClaimRejectsLegacyReopen(page) {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
   }, SID)).toEqual({ ownerId: OWNER, confirmed: ['q1', 'q2'] });
-  expect(pageErrors.filter((message) =>
-    !/\/speaking\?_rsc=[^ ]+ due to access control checks\.$/.test(message)
-  )).toEqual([]);
+  expect(pageErrors.filter((message) => !isExpectedWebKitRedirectCancellation(message)))
+    .toEqual([]);
 }
 
 test('persisted affinity resumes canonically in both Legacy and Next directions', async ({ page, context }) => {
@@ -244,13 +248,13 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
   }, SID)).toEqual({ ownerId: OWNER, confirmed: ['q1', 'q2'] });
   // The affinity mismatch intentionally performs an immediate full-document
   // redirect before App Router can settle its same-origin /speaking RSC
-  // prefetch. Synthetic iPhone WebKit reports only that cancelled prefetch as
-  // a pageerror even though the canonical redirect and player state are intact.
-  // Keep every other pageerror fail-closed; this exact transport-only message
+  // prefetch. Synthetic iPhone WebKit reports that cancelled prefetch, and on
+  // some runs the in-flight synthetic `/auth/me`, as pageerrors even though the
+  // canonical redirect and player state are intact. Keep every other pageerror
+  // fail-closed; these exact transport-only messages
   // is already covered by the final URL + canonical state assertions above.
-  expect(pageErrors.filter((message) =>
-    !/\/speaking\?_rsc=[^ ]+ due to access control checks\.$/.test(message)
-  )).toEqual([]);
+  expect(pageErrors.filter((message) => !isExpectedWebKitRedirectCancellation(message)))
+    .toEqual([]);
 
   const nextPage = await context.newPage();
   await verifyNextClaimRejectsLegacyReopen(nextPage);
