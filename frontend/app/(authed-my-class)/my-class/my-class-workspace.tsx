@@ -66,6 +66,7 @@ type Snapshot = { hasClass: false } | ClassSnapshot | null;
 type StartTarget =
   | { kind: 'course'; bankId: string }
   | { kind: 'player'; surface: string; query: Record<string, string> }
+  | { kind: 'stable-player'; url: string }
   | { kind: 'admission'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
@@ -507,6 +508,10 @@ export function MyClassWorkspace() {
       if (target.kind === 'player') {
         if (!isKnownPlayerSurface(target.surface)) throw new Error('Player không được hỗ trợ.');
         window.location.assign(admitCorePlayer(target.surface, target.query));
+        return;
+      }
+      if (target.kind === 'stable-player') {
+        window.location.assign(target.url);
         return;
       }
       if (target.kind === 'admission') {

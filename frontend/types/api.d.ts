@@ -129,6 +129,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Renderer Affinity
+         * @description Claim the stable renderer on first player boot; never move it later.
+         */
+        post: operations["claim_renderer_affinity_sessions__session_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -11129,6 +11149,14 @@ export interface components {
             /** Topic Ids */
             topic_ids: string[];
         };
+        /** ClaimRendererAffinityBody */
+        ClaimRendererAffinityBody: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** CodeMintBody */
         CodeMintBody: {
             /** Cohort Id */
@@ -11296,6 +11324,8 @@ export interface components {
             class_assignment_item_id?: string | null;
             /** Client Session Id */
             client_session_id?: string | null;
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
@@ -13734,6 +13764,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_renderer_affinity_sessions__session_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimRendererAffinityBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

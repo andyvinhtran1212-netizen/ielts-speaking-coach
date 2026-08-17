@@ -42,6 +42,32 @@ describe('bản khai luồng ghi', () => {
         `${file} hoãn vế Next mà KHÔNG có \`legacyRoute\` ⇒ luồng này không được kiểm ở đâu cả`);
     });
   }
+
+  test('Speaking dựng đủ canonical bootstrap qua affinity floor', () => {
+    const speaking = flows.find(({ file }) => file === 'speaking-start.mjs')?.flow;
+    assert.ok(speaking, 'thiếu bản khai speaking-start.mjs');
+
+    const created = (speaking.canned || []).find(([re]) => re.test('http://localhost:8000/sessions'))?.[1];
+    assert.match(created?.id || '', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      'session tạo mới phải dùng UUID hợp lệ như backend thật');
+
+    const detailUrl = `http://localhost:8000/sessions/${created.id}`;
+    const questionsUrl = `${detailUrl}/questions`;
+    const detail = speaking.canned.find(([re]) => re.test(detailUrl))?.[1];
+    const questions = speaking.canned.find(([re]) => re.test(questionsUrl))?.[1];
+    assert.equal(detail?.id, created.id, 'fixture phải dựng canonical session cho player Next');
+    assert.ok(Array.isArray(questions) && questions.length > 0,
+      'fixture phải dựng câu hỏi để player Next không rơi vào đường sinh AI');
+    assert.equal(speaking.expectFinalUrl,
+      `/pages/practice.html?session_id=${created.id}`,
+      'floor phải ghim URL player cuối; cutover test sẽ đổi theo policy');
+    assert.ok(speaking.steps.some((step) =>
+      step.expectText?.[0] === '#p2a-question'
+      && step.expectText?.[1] === 'Describe a useful skill you learned.'
+    ), 'luồng phải chờ player render câu hỏi, không chỉ chờ request tạo session');
+    assert.ok(!(speaking.ignoreWrites || []).includes('/api/error-logs'),
+      'không được tha error log — lỗi bootstrap thật phải làm cổng đỏ');
+  });
 });
 
 

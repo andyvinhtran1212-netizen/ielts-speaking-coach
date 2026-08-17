@@ -43,7 +43,108 @@ async function captureAudioAcrossNavigations(page) {
   return payloads;
 }
 
-test('Legacy → Next → Legacy resumes the first canonically unanswered question', async ({ page }) => {
+async function verifyNextClaimRejectsLegacyReopen(page) {
+  const persisted = [];
+  const uploads = [];
+  const audioPayloads = await captureAudioAcrossNavigations(page);
+  const session = () => ({
+    id: SID,
+    session_id: SID,
+    mode: 'test_full',
+    part: 1,
+    topic: 'Home|||Work|||Hobbies',
+    status: 'in_progress',
+    results_sealed: false,
+    responses: persisted.map((row) => ({ ...row })),
+    response_receipts: [],
+  });
+
+  const { calls, pageErrors } = await installHarness(page, {
+    session,
+    questions: questions(),
+    routePath: '/practice/session',
+    handleApi: async ({ route, request, path }) => {
+      if (request.method() === 'GET' && path === '/auth/me') {
+        await route.fulfill({
+          json: { id: OWNER, email: 'gate-e@test.local', full_name: 'Gate E Learner' },
+          headers: cors,
+        });
+        return true;
+      }
+      if (request.method() !== 'POST' || path !== `/sessions/${SID}/responses`) return false;
+      const body = request.postDataBuffer()?.toString('utf8') || '';
+      const questionId = body.match(/name="question_id"\r\n\r\n([^\r\n]+)/)?.[1] || 'missing';
+      uploads.push({ questionId });
+      if (!persisted.some((row) => row.question_id === questionId)) {
+        persisted.push({ id: `response-${questionId}`, question_id: questionId });
+      }
+      await route.fulfill({
+        json: { response_id: `response-${questionId}` },
+        headers: cors,
+      });
+      return true;
+    },
+  });
+
+  await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#prep-q-counter')).toHaveText('Câu 1 / 9');
+  expect(await page.evaluate(() => ({
+    hasNativePlayer: typeof window.PracticePlayer?.showState === 'function',
+    hasSubmission: typeof window.PracticeSubmission?.submit === 'function',
+    hasFullTest: typeof window.PracticeFullTest?.restore === 'function',
+  }))).toEqual({ hasNativePlayer: true, hasSubmission: true, hasFullTest: true });
+
+  await page.evaluate(async (sessionId) => {
+    await window.PracticeFullTest.submitAnswer({
+      sessionId,
+      questionId: 'q1',
+      blob: new Blob([new Uint8Array([4, 3, 2, 1])], { type: 'audio/webm' }),
+    });
+  }, SID);
+
+  await page.waitForLoadState('networkidle');
+  await page.goto(`/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
+  await page.waitForURL(`**/practice/session?session_id=${encodeURIComponent(SID)}`);
+  await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
+  await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
+  expect(await page.evaluate(() => typeof window.PracticePlayer?.showState === 'function')).toBe(true);
+  // Let the redirected App Router/auth reads settle before the deliberate
+  // reload. Synthetic iPhone WebKit otherwise reports the cancelled /auth/me
+  // transport as a pageerror even though the canonical redirect has finished.
+  await page.waitForLoadState('networkidle');
+
+  await page.evaluate(async (sessionId) => {
+    await window.PracticeFullTest.submitAnswer({
+      sessionId,
+      questionId: 'q2',
+      blob: new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/webm' }),
+    });
+  }, SID);
+
+  await page.waitForLoadState('networkidle');
+  await page.reload();
+  await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
+  await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#prep-q-counter')).toHaveText('Câu 3 / 9');
+
+  expect(uploads.map((upload) => upload.questionId)).toEqual(['q1', 'q2']);
+  expect(audioPayloads).toEqual([[4, 3, 2, 1], [1, 2, 3, 4]]);
+  expect(calls.filter((call) => call === `GET /sessions/${SID}`)).toHaveLength(3);
+  expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(3);
+  expect(calls.filter((call) =>
+    call === `POST /sessions/${SID}/renderer-affinity`
+  )).toHaveLength(4);
+  expect(await page.evaluate((sessionId) => {
+    const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
+    return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
+  }, SID)).toEqual({ ownerId: OWNER, confirmed: ['q1', 'q2'] });
+  expect(pageErrors.filter((message) =>
+    !/\/speaking\?_rsc=[^ ]+ due to access control checks\.$/.test(message)
+  )).toEqual([]);
+}
+
+test('persisted affinity resumes canonically in both Legacy and Next directions', async ({ page, context }) => {
   const persisted = [];
   const uploads = [];
   const audioPayloads = await captureAudioAcrossNavigations(page);
@@ -64,6 +165,13 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
     questions: questions(),
     routePath: '/pages/practice.html',
     handleApi: async ({ route, request, path }) => {
+      if (request.method() === 'GET' && path === '/auth/me') {
+        await route.fulfill({
+          json: { id: OWNER, email: 'gate-e@test.local', full_name: 'Gate E Learner' },
+          headers: cors,
+        });
+        return true;
+      }
       if (request.method() !== 'POST' || path !== `/sessions/${SID}/responses`) return false;
       const body = request.postDataBuffer()?.toString('utf8') || '';
       const questionId = body.match(/name="question_id"\r\n\r\n([^\r\n]+)/)?.[1] || 'missing';
@@ -96,10 +204,11 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   }, SID);
 
   await page.goto(`/practice/session?session_id=${encodeURIComponent(SID)}`);
+  await page.waitForURL(`**/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
-  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(false);
+  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(true);
 
   await page.evaluate(async (sessionId) => {
     await window.PracticeFullTest.submitAnswer({
@@ -126,9 +235,24 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   ]);
   expect(calls.filter((call) => call === `GET /sessions/${SID}`)).toHaveLength(3);
   expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(3);
+  expect(calls.filter((call) =>
+    call === `POST /sessions/${SID}/renderer-affinity`
+  )).toHaveLength(4);
   expect(await page.evaluate((sessionId) => {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
   }, SID)).toEqual({ ownerId: OWNER, confirmed: ['q1', 'q2'] });
-  expect(pageErrors).toEqual([]);
+  // The affinity mismatch intentionally performs an immediate full-document
+  // redirect before App Router can settle its same-origin /speaking RSC
+  // prefetch. Synthetic iPhone WebKit reports only that cancelled prefetch as
+  // a pageerror even though the canonical redirect and player state are intact.
+  // Keep every other pageerror fail-closed; this exact transport-only message
+  // is already covered by the final URL + canonical state assertions above.
+  expect(pageErrors.filter((message) =>
+    !/\/speaking\?_rsc=[^ ]+ due to access control checks\.$/.test(message)
+  )).toEqual([]);
+
+  const nextPage = await context.newPage();
+  await verifyNextClaimRejectsLegacyReopen(nextPage);
+  await nextPage.close();
 });

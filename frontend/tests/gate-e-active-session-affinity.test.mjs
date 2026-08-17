@@ -19,6 +19,16 @@ const read = (relativePath) => readFileSync(path.join(ROOT, relativePath), 'utf8
 const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
 const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
 const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
+const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
+const AFFINITY_MIGRATION = read('backend/migrations/215_speaking_session_renderer_affinity.sql');
+const CREATE_PROTOCOL_MIGRATION = read('backend/migrations/216_version_session_renderer_affinity_create.sql');
+const GAP_BACKFILL_MIGRATION = read('backend/migrations/217_backfill_renderer_affinity_migration_gap.sql');
+const API_CLIENT = read('frontend/public/js/api.js');
+const SESSION_ROUTER = read('backend/routers/sessions.py');
+const CLASS_STUDENT_ROUTER = read('backend/routers/class_student.py');
+const PRACTICE_BOOTSTRAP = read('frontend/lib/practice-session-bootstrap.mjs');
+const LEGACY_PRACTICE = read('frontend/public/js/practice.js');
+const MY_CLASS_MODEL = read('frontend/lib/my-class-model.mjs');
 
 const NEXT_LAUNCHERS = [
   'frontend/app/(authed-speaking)/speaking/speaking-behavior.tsx',
@@ -48,10 +58,16 @@ function readyNextPolicy() {
 }
 
 describe('current admission policy preserves behavior', () => {
-  test('policy is internally valid and every ready legacy target exists', () => {
+  test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
+    const expectedAdmission = {
+      speaking: 'legacy',
+      reading_exam: 'legacy',
+      listening_test: 'legacy',
+      listening_dictation: 'legacy',
+    };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
-      assert.equal(config.admit_new, 'legacy');
+      assert.equal(config.admit_new, expectedAdmission[surface]);
       assert.equal(config.next.route_ready, true, `${surface} dark route must stay available`);
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
@@ -69,7 +85,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('launchers use the runtime endpoint and the current server policy preserves legacy semantics', () => {
+  test('launchers use the runtime endpoint while the affinity floor stays Legacy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -108,6 +124,13 @@ describe('current admission policy preserves behavior', () => {
     );
   });
 
+  test('the local Speaking flow verifier follows the deployed admission policy', () => {
+    assert.match(SPEAKING_FLOW, /import \{ resolveCorePlayerAdmission \}/);
+    assert.match(SPEAKING_FLOW, /resolveCorePlayerAdmission\('speaking', \{/);
+    assert.match(SPEAKING_FLOW, /page\.url\(\) === expectedPracticeUrl/);
+    assert.doesNotMatch(SPEAKING_FLOW, /practice\.html\?session_id=sess-verify-1/);
+  });
+
   test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
     assert.match(RUNTIME_ROUTE,
       /resolveCorePlayerAdmissionFromParams\(request\.nextUrl\.searchParams\)/);
@@ -120,6 +143,30 @@ describe('current admission policy preserves behavior', () => {
     assert.doesNotMatch(RUNTIME_ROUTE, /getAll\('surface'\)|hasDuplicate|key !== 'surface'/,
       'wire validation must stay centralized in the affinity module');
     assert.match(RUNTIME_ROUTE, /status: 400/);
+  });
+
+  test('session affinity is persisted on first player boot and honored on reopen', () => {
+    assert.match(AFFINITY_MIGRATION, /ADD COLUMN renderer_affinity TEXT/);
+    assert.match(AFFINITY_MIGRATION,
+      /COALESCE\(target\.renderer_affinity, p_renderer_affinity\)/);
+    assert.match(AFFINITY_MIGRATION, /target\.user_id = p_user_id/);
+    assert.match(SESSION_ROUTER, /fn_claim_session_renderer_affinity/);
+    assert.match(CREATE_PROTOCOL_MIGRATION,
+      /ALTER COLUMN renderer_affinity SET DEFAULT 'legacy'/);
+    assert.match(CREATE_PROTOCOL_MIGRATION, /fn_create_session_daily_capped_v3/);
+    assert.match(GAP_BACKFILL_MIGRATION,
+      /SET renderer_affinity = 'legacy'[\s\S]*WHERE renderer_affinity IS NULL/);
+    assert.match(SESSION_ROUTER, /renderer_affinity_protocol: Literal\["claim-v1"\]/);
+    assert.match(API_CLIENT, /renderer_affinity_protocol = 'claim-v1'/);
+    assert.match(CLASS_STUDENT_ROUTER,
+      /"renderer_affinity": existing\["renderer_affinity"\]/);
+    const nextClaim = PRACTICE_BOOTSTRAP.indexOf("'/renderer-affinity'");
+    const nextRead = PRACTICE_BOOTSTRAP.indexOf("'/sessions/' + encodedSessionId,");
+    assert.ok(nextClaim !== -1 && nextClaim < nextRead,
+      'Next must claim before reading session/question state');
+    assert.match(LEGACY_PRACTICE, /renderer_affinity: 'legacy'/);
+    assert.match(MY_CLASS_MODEL, /kind: 'stable-player'/);
+    assert.match(MY_CLASS_MODEL, /corePlayerUrl\('speaking', implementation/);
   });
 
   test('canonical Next launchers use the policy, not scattered player literals', () => {
@@ -307,14 +354,14 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL\s+PENDING/);
+    assert.match(DOC, /FOUR DARK ROUTES READY; SPEAKING AFFINITY FLOOR PENDING; LIVE\s+CORE DRILL PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
     assert.match(DOC, /rollback floor SHA/);
     assert.match(DOC, /khác PR và khác commit/i);
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
-    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*MISSING\*\*/);
-    assert.match(PREFLIGHT, /unit-level only; chưa có active attempt nào được drill/);
+    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /floor run `32019415351`/);
   });
 });

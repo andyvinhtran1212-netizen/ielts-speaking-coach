@@ -27,6 +27,12 @@ async function openTestPart(page, answeredIds, tracker) {
     }
     if (tracker) tracker.push(req.method() + ' ' + url.replace('http://localhost:8000', ''));
     const cors = { 'access-control-allow-origin': '*' };
+    if (url.endsWith(`/sessions/${SID}/renderer-affinity`)) {
+      return route.fulfill({
+        json: { session_id: SID, renderer_affinity: 'legacy' },
+        headers: cors,
+      });
+    }
     if (url.endsWith(`/sessions/${SID}`)) {
       return route.fulfill({ json: {
         session_id: SID, id: SID, mode: 'test_part', part: 1, topic: 'Hobbies',

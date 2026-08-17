@@ -146,12 +146,37 @@ describe('deadline helpers', () => {
 });
 
 describe('assignment start contract', () => {
-  test('existing Speaking sessions go through the runtime admission switch', () => {
+  test('existing Speaking sessions keep their persisted stable renderer', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-1',
+      renderer_affinity: 'legacy',
     }, 'item-1'), {
-      kind: 'player', surface: 'speaking', query: { session_id: 'session-1' },
+      kind: 'stable-player', url: '/pages/practice.html?session_id=session-1',
     });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-2',
+      renderer_affinity: 'next',
+    }, 'item-1'), {
+      kind: 'stable-player', url: '/practice/session?session_id=session-2',
+    });
+  });
+
+  test('an unclaimed fresh Speaking session still asks runtime; N-1 sessions stay Legacy', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'fresh',
+      renderer_affinity: null,
+    }, 'item-1'), {
+      kind: 'player', surface: 'speaking', query: { session_id: 'fresh' },
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'old-backend',
+    }, 'item-1'), {
+      kind: 'stable-player', url: '/pages/practice.html?session_id=old-backend',
+    });
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'bad',
+      renderer_affinity: 'random',
+    }, 'item-1'), null);
   });
 
   test('new Speaking sessions retain the server-authorized class identity', () => {

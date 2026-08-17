@@ -1,8 +1,9 @@
 # Gate E active-session affinity — 2026-08-09
 
-**Trạng thái:** FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL
-PENDING. Batch này không tuyên bố Gate E PASS và không dùng dark-route readiness
-thay cho evidence vận hành thật.
+**Trạng thái:** FOUR DARK ROUTES READY; SPEAKING AFFINITY FLOOR PENDING; LIVE
+CORE DRILL PENDING. Review phase cutover phát hiện reopen session chưa có
+affinity canonical, nên branch này giữ `admit_new=legacy` và dựng floor mới có
+atomic first-player claim; không tuyên bố Gate E PASS hoặc production cutover.
 
 ## Finding
 
@@ -21,10 +22,14 @@ thay cho evidence vận hành thật.
   vào `frontend/lib/core-player-affinity.mjs` và buộc launcher đi qua endpoint
   runtime no-store `frontend/app/core-player/launch/route.ts`. Bundle launcher
   chỉ giữ surface/query, không giữ quyết định `legacy`/`next`; deployment đang
-  nhận navigation mới là nơi đọc `admit_new`. Hiện admission vẫn là `legacy`,
-  nên hành vi production không đổi. Cả bốn target Next nay `route_ready: true`
-  sau khi có native route và browser failure/cross-version tests; admission vẫn
-  fail-closed ở Legacy cho tới release cutover riêng.
+  nhận navigation mới là nơi đọc `admit_new`. `sessions.renderer_affinity` được
+  backfill Legacy cho session cũ. Migration 216 đặt default `legacy` cho mọi
+  insert N−1/unversioned; chỉ `api.js` hiện tại gửi protocol `claim-v1` để RPC v3
+  tạo atomically một row NULL cho stable player đầu tiên claim. Migration 217
+  backfill cả row NULL có thể lọt vào khoảng commit riêng giữa 215→216. Vì vậy cả
+  tab cũ mở sau migration lẫn tab mới đều giữ đúng renderer. Reopen dùng claim canonical
+  thay vì re-admit. Production và floor staging đều giữ Legacy; cả bốn target
+  Next vẫn `route_ready: true`.
 - **Verification:** Node contract chứng minh URL trong bundle đã cache không đổi
   qua cutover/rollback nhưng runtime hiện tại đổi được đích Next về legacy;
   legacy-start và Next-start vẫn giữ URL implementation-specific của chính nó.
@@ -43,7 +48,7 @@ Mỗi implementation có URL ổn định riêng:
 
 | Surface | Legacy stable URL | Next stable URL | Admission hiện tại |
 |---|---|---|---|
-| Speaking | `/pages/practice.html` | `/practice/session` | legacy — Next dark route ready; real-device/coexistence evidence pending |
+| Speaking | `/pages/practice.html` | `/practice/session` | legacy — persisted-affinity floor pending; cutover sẽ ở PR hậu duệ |
 | Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
@@ -83,8 +88,10 @@ operational evidence.
    này làm **rollback floor SHA**: mọi deployment rollback khi còn active Next
    attempt phải mới hơn hoặc bằng floor và còn phục vụ cả hai stable URL.
 3. **Cutover:** đổi `admit_new` sang Next. Kể cả launcher đã mở trước deployment,
-   click mới vẫn hỏi runtime hiện tại và nhận URL Next. Tab legacy đang mở hoặc
-   URL legacy được copy sang tab mới vẫn ở legacy.
+   click mới vẫn hỏi runtime hiện tại và nhận URL Next. Stable player đầu tiên
+   atomically claim renderer cho session mới; mọi reopen sau đó đọc claim này
+   và đi thẳng stable URL, không re-admit. Tab legacy đang mở hoặc URL legacy
+   được copy sang tab mới vẫn ở legacy.
 4. **Rollback:** đổi `admit_new` về legacy, hoặc deployment-rollback về đúng
    coexistence floor SHA. Launcher đã cache từ release cutover vẫn gọi cùng
    endpoint và request mới quay về legacy; attempt Next đang mở vẫn dùng URL
@@ -116,7 +123,7 @@ launcher cũ sẽ thành 404 trước khi policy có cơ hội đưa nó về le
 policy thật và kiểm:
 
 - launcher sinh URL runtime implementation-neutral cho bốn surface, còn resolver
-  phía deployment hiện tại sinh legacy URL có cùng path/query semantics;
+  phía deployment hiện tại chọn đúng renderer theo policy mà không đổi query semantics;
 - legacy attempt không đổi URL sau cutover;
 - Next attempt không đổi URL sau rollback;
 - cùng URL đã cache từ launcher cutover được runtime rollback đưa attempt mới về
@@ -142,18 +149,25 @@ frontend/backend release, nhánh `staging` và session ID handoff trước khi m
 browser. Mỗi phase tạo attempt qua admission thật, mở lại implementation URL của
 attempt cũ, reload/copy URL sang tab mới và đọc cùng session từ backend canonical.
 `floor_dark_next_url` chỉ bắt buộc ở phase floor; hai phase sau không giả lập
-evidence này bằng `null`. Đây mới là drill mechanism: trạng thái vẫn
-**LIVE CORE DRILL PENDING** cho tới khi đủ ba artifact thật dùng cùng rollback
-floor SHA và mỗi provenance JSON có `ok:true`; không tuyên bố Gate E PASS từ
-contract/local test của runner. Vì request mang credential staging thật, runner
+evidence này bằng `null`. Floor artifact run `32019415351` đã pass trên SHA
+`a7462ab291f029bb2979e3a41216fa41d8f72e52`: admission tạo session Legacy
+`b6181464-c494-4037-82a9-f0b36c28fa32`, cả Legacy URL và Next dark URL đều
+reload/copy được, frontend/backend provenance cùng trỏ `staging`. Trạng thái vẫn
+**LIVE CORE DRILL PENDING**; floor này có stable routes nhưng chưa có persisted
+claim, nên branch hiện tại phải tạo floor hậu duệ mới trước cutover. Chỉ khi đủ
+ba artifact thật dùng cùng rollback floor SHA và mỗi provenance JSON có
+`ok:true` mới được đóng live drill; không tuyên bố Gate E PASS từ contract/local
+test của runner. Vì request mang credential staging thật, runner
 tắt trace/screenshot và không upload browser report có thể giữ header bí mật.
 
 - Speaking đã có `/practice/session` dưới App Router và React sở hữu auth,
   bootstrap session/question, MediaRecorder, submission, Full Test
   retry/resume/finalize, player lifecycle và structured renderer; backend pin đủ
   ba part, cùng sitting, đúng 9/1/5 và exact `question_id` coverage. Browser
-  fixture/failure/cross-version matrix đã xác lập `route_ready: true`; real
-  Safari/iOS và live canonical drill vẫn chặn `admit_new=next`.
+  fixture/failure/cross-version matrix đã xác lập `route_ready: true`; floor cũ
+  đã pass; persisted-affinity floor mới gồm cả create protocol N−1-safe đang chờ
+  deploy. Real Safari/iOS cùng
+  đủ ba phase live vẫn chặn Gate E và production cutover.
 - Mọi entry point tạo attempt của cluster phải đi theo admission decision hoặc
   được ghi rõ là một cohort legacy có chủ đích; không suy rộng sáu launcher thành
   global coverage.

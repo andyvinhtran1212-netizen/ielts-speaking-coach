@@ -152,8 +152,10 @@ async function step(page, s, observed) {
     // HIỆN RA rồi mới xét chữ. `innerText()` vẫn trả chữ của một phần tử đang
     // `hidden`, nên chỉ so chữ thì một cảnh báo có nội dung nhưng KHÔNG hiện lên
     // vẫn qua — đúng thứ cảnh báo đó sinh ra để làm (phá thử bắt ở #970).
-    if (!(await el.isVisible().catch(() => false))) {
-      throw new Error(`«${sel}» không hiện ra (có thể đang bị ẩn)`);
+    try {
+      await el.waitFor({ state: 'visible', timeout: s.timeoutMs || 8000 });
+    } catch {
+      throw new Error(`không thấy «${sel}» sau ${s.timeoutMs || 8000}ms`);
     }
     const got = await el.innerText().catch(() => null);
     if (got == null || !got.includes(text)) {
@@ -410,7 +412,7 @@ for (const f of files) {
     continue;
   }
 
-  const { verdict, stepError, pageErrors, dialogs, urlError } =
+  const { verdict, stepError, pageErrors, observed, dialogs, urlError } =
     await runFlow(await browserFor(flow), flow);
   const bad = !verdict.pass || stepError || pageErrors.length || urlError;
   if (bad) failed += 1;
@@ -421,6 +423,12 @@ for (const f of files) {
   if (stepError) console.log(`  ✗ [bước] ${stepError.message}`);
   if (urlError) console.log(`  ✗ [đường dẫn cuối] ${urlError}`);
   for (const e of pageErrors) console.log(`  ✗ [lỗi JS] ${e.slice(0, 140)}`);
+  if (bad && observed.length) {
+    for (const r of observed) {
+      const u = new URL(r.url);
+      console.log(`  · [write đã thấy] ${r.method} ${u.pathname}${u.search}`);
+    }
+  }
   console.log(formatFindings(verdict.findings));
 }
 await browser.close();

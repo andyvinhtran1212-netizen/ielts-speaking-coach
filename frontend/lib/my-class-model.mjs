@@ -1,4 +1,4 @@
-import { admitCorePlayerFromLegacyUrl } from './core-player-affinity.mjs';
+import { admitCorePlayerFromLegacyUrl, corePlayerUrl } from './core-player-affinity.mjs';
 
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
@@ -295,7 +295,24 @@ export function normalizeClassStartResponse(value, expectedItemId) {
 
   const sessionId = textOf(row.session_id);
   if (sessionId && skill === 'speaking') {
-    return { kind: 'player', surface: 'speaking', query: { session_id: sessionId } };
+    // A NULL claim means the session was created but no stable player has
+    // opened it yet, so runtime admission may still choose the current target.
+    // Missing means an N-1 backend response: those sessions predate affinity
+    // persistence and therefore belong to Legacy.
+    if (row.renderer_affinity === null) {
+      return { kind: 'player', surface: 'speaking', query: { session_id: sessionId } };
+    }
+    const implementation = Object.hasOwn(row, 'renderer_affinity')
+      ? textOf(row.renderer_affinity)
+      : 'legacy';
+    try {
+      return {
+        kind: 'stable-player',
+        url: corePlayerUrl('speaking', implementation, { session_id: sessionId }),
+      };
+    } catch {
+      return null;
+    }
   }
   const bankId = textOf(row.bank_id);
   if (bankId && skill === 'course') return { kind: 'course', bankId };
