@@ -8911,6 +8911,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reading/test/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Reading Attempt Renderer Affinity
+         * @description Claim a stable Reading player on first boot; never move it later.
+         *
+         *     Both account-owned and anonymous share attempts use the same canonical
+         *     column. Ownership is checked before the RPC for precise HTTP errors and is
+         *     repeated inside the atomic UPDATE so a claim can never cross owners.
+         */
+        post: operations["claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reading/test/attempts/{attempt_id}/submit": {
         parameters: {
             query?: never;
@@ -13330,6 +13354,26 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ReadingAttemptRendererAffinityRequest */
+        _ReadingAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ReadingAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. `claim-v1` deliberately inserts NULL so the stable player
+         *     URL can atomically own the attempt before any answer mutation.
+         */
+        _ReadingAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -28030,7 +28074,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -28066,7 +28114,49 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

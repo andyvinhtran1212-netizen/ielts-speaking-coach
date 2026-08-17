@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 import {
   answersFromRows,
+  claimReadingAttemptRenderer,
   consecutiveReadingQuestionRuns,
   createReadingSaveCoordinator,
   isRetriableReadingSave,
   normalizeReadingBoot,
+  READING_RENDERER_AFFINITY_PROTOCOL,
   readingExamParams,
   readingLibraryHref,
+  readingPlayerQuery,
   readingQuestionInstruction,
   readingRemainingSeconds,
   readingReviewHref,
@@ -30,6 +33,12 @@ describe('native Reading exam controller', () => {
     });
     assert.equal(readingExamParams('?share=abc').share, 'abc');
     assert.throws(() => readingExamParams('?from=full'), /missing-reading-exam-identity/);
+    assert.deepEqual(readingPlayerQuery(readingExamParams(
+      '?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1&from=mock',
+    )), {
+      test_id: 'RD-1', class_item: 'homework-1', sitting_id: 's1',
+      mock_embed: '1', from: 'mock',
+    });
   });
 
   test('normalizes canonical boot + server-owned resume answers', () => {
@@ -42,12 +51,43 @@ describe('native Reading exam controller', () => {
       in_progress: {
         attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z',
         time_limit_minutes: 60,
+        renderer_affinity: 'next',
         answers: [{ q_num: 2, user_answer: 'B' }],
       },
     });
     assert.deepEqual(normalized.test.passages.map((p) => p.passage_order), [1, 2]);
     assert.deepEqual(normalized.test.questions.map((q) => q.q_num), [1, 2]);
     assert.deepEqual([...answersFromRows(normalized.inProgress.answers)], [[2, 'B']]);
+    assert.equal(normalized.inProgress.renderer_affinity, 'next');
+  });
+
+  test('claims the attempt renderer through the canonical endpoint', async () => {
+    const calls = [];
+    const canonical = await claimReadingAttemptRenderer({
+      api: {
+        postWith: async (...args) => {
+          calls.push(args);
+          return { attempt_id: 'a/1', renderer_affinity: 'legacy' };
+        },
+      },
+      attemptId: 'a/1',
+      renderer: 'next',
+      headers: { 'X-Reading-Anon': 'secret' },
+    });
+    assert.equal(canonical, 'legacy');
+    assert.deepEqual(calls, [[
+      '/api/reading/test/attempts/a%2F1/renderer-affinity',
+      { renderer_affinity: 'next' },
+      { 'X-Reading-Anon': 'secret' },
+      { noRedirect: true },
+    ]]);
+    await assert.rejects(
+      claimReadingAttemptRenderer({
+        api: { postWith: async () => ({ renderer_affinity: 'unknown' }) },
+        attemptId: 'a1', renderer: 'next',
+      }),
+      /invalid-reading-renderer-affinity/,
+    );
   });
 
   test('countdown is anchored to the backend started_at', () => {
@@ -238,7 +278,19 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /\/api\/reading\/test\/\$\{encodeURIComponent\(params\.testId!\)\}\/boot/);
     assert.match(page, /\/api\/reading\/test\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/answers/);
     assert.match(page, /\/api\/reading\/test\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/submit/);
+    assert.match(page, /claimReadingAttemptRenderer/);
+    assert.match(page, /READING_RENDERER_AFFINITY_PROTOCOL/);
+    assert.equal(READING_RENDERER_AFFINITY_PROTOCOL.renderer_affinity_protocol, 'claim-v1');
     assert.match(page, /\[\.\.\.answersRef\.current\]\.map/);
+  });
+
+  test('legacy and Next players claim before entering and redirect on mismatch', () => {
+    const legacy = read('frontend/public/js/reading-exam.js');
+    assert.match(legacy, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(legacy, /renderer_affinity: 'legacy'/);
+    assert.match(legacy, /window\.location\.replace\(_stableReadingPlayerHref\(canonical\)\)/);
+    assert.match(page, /renderer: 'next'/);
+    assert.match(page, /window\.location\.replace\(corePlayerUrl\('reading_exam', canonical/);
   });
 
   test('preserves anonymous capability, password and mock-sitting boundaries', () => {

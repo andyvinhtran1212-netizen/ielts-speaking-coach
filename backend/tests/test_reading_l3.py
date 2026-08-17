@@ -638,6 +638,7 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
             "answered_at": "2026-05-28T10:01:00+00:00",
         }],
         "time_limit_minutes": 60,
+        "renderer_affinity": None,
     }
     # The attempts query must remain user-scoped (RLS/application guard).
     assert any(c.args == ("user_id", _USER["id"]) for c in chain.eq.call_args_list)
