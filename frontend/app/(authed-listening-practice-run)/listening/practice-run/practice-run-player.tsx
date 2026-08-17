@@ -60,7 +60,13 @@ export function ListeningPracticeRun() {
     return <main className="lpr-next-shell"><p className="lpr-next-state">Đang xác thực…</p></main>;
   }
   if (!params) {
-    return <main className="lpr-next-shell"><div className="lpr-next-state is-error" role="alert">Thiếu mã bài luyện.</div></main>;
+    return <main className="lpr-next-shell">
+      <a className="lpr-next-back" href="/listening/practice">← Quay lại Luyện nhanh</a>
+      <header className="lpr-next-header">
+        <h1>Luyện nhanh · …</h1>
+      </header>
+      <div className="lpr-next-state is-error" role="alert">Thiếu mã bài luyện.</div>
+    </main>;
   }
   return <PracticeWorkspace accountId={user.id} testId={params.testId} key={`${user.id}:${params.testId}`} />;
 }

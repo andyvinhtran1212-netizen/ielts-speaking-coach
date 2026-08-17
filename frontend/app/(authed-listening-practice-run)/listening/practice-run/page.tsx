@@ -10,8 +10,11 @@ export const metadata: Metadata = {
 
 export default function ListeningPracticeRunPage() {
   return (
-    <Suspense fallback={<main className="lpr-next-shell"><p className="lpr-next-state">Đang mở bài luyện…</p></main>}>
-      <ListeningPracticeRun />
-    </Suspense>
+    <>
+      <aver-chrome active="listening" />
+      <Suspense fallback={<main className="lpr-next-shell"><p className="lpr-next-state">Đang mở bài luyện…</p></main>}>
+        <ListeningPracticeRun />
+      </Suspense>
+    </>
   );
 }

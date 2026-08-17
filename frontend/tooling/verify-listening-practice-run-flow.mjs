@@ -146,6 +146,18 @@ await signedOutPage.waitForURL('**/login');
 check('signed-out route fails closed to native login', new URL(signedOutPage.url()).pathname === '/login');
 await signedOut.close();
 
+const missingId = await authedPage(browser);
+await missingId.page.goto(`${BASE}/listening/practice-run`, { waitUntil: 'domcontentloaded' });
+await missingId.page.getByRole('heading', { name: 'Luyện nhanh · …' }).waitFor();
+check('missing-id state preserves chrome, heading and canonical back link',
+  await missingId.page.locator('aver-chrome').count() === 1
+    && await missingId.page.getByRole('link', { name: /Quay lại Luyện nhanh/i }).isVisible()
+    && await missingId.page.getByRole('alert').getByText('Thiếu mã bài luyện.').isVisible());
+check('missing-id state makes no attempt mutation or production egress',
+  missingId.state.startPosts === 0 && missingId.egress.length === 0 && missingId.errors.length === 0,
+  missingId.egress[0] || missingId.errors[0] || '');
+await missingId.context.close();
+
 const run = await authedPage(browser);
 await run.page.goto(`${BASE}/listening/practice-run?id=${TEST_ID}`, { waitUntil: 'domcontentloaded' });
 await run.page.getByRole('heading', { name: /Numbers <script>alert\(1\)<\/script>/ }).waitFor();

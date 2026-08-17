@@ -16,10 +16,17 @@ const PARITY = read('..', '.github', 'workflows', 'parity-gate.yml');
 describe('/listening/practice-run native ownership', () => {
   test('owns an authenticated App Router page with the audio dependency', () => {
     assert.match(PAGE, /ListeningPracticeRun/);
+    assert.match(PAGE, /<aver-chrome active="listening" \/>/);
     assert.match(LAYOUT, /AuthedShell/);
     assert.match(LAYOUT, /listening-practice-run-next\.css/);
     assert.match(LAYOUT, /audio-player\.js/);
     assert.match(LIBRARY, /href=\{`\/listening\/practice-run\?id=\$\{encodeURIComponent\(test\.id\)\}`\}/);
+  });
+
+  test('keeps the canonical runner shell visible when the test id is missing', () => {
+    assert.match(PLAYER, /<h1>Luyện nhanh · …<\/h1>/);
+    assert.match(PLAYER, /href="\/listening\/practice">← Quay lại Luyện nhanh<\/a>/);
+    assert.match(PLAYER, /role="alert">Thiếu mã bài luyện\.<\/div>/);
   });
 
   test('loads abortably and binds every render to account plus test identity', () => {
