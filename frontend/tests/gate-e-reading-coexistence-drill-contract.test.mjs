@@ -70,6 +70,15 @@ describe('Reading coexistence drill contract', () => {
     assert.match(spec, /body\.attempt_id\}\/renderer-affinity/);
     assert.match(spec, /const affinity = inProgress\?\.renderer_affinity \?\? null/);
     assert.match(spec, /affinity !== compatibleRenderer/);
+    assert.match(spec, /!inProgress \? 0 : affinity === compatibleRenderer \? 1/);
+    assert.match(spec, /if \(rank === 0\) return \[testId\]/);
+    assert.match(spec, /candidates\.sort\(\(a, b\) => a\.rank - b\.rank\)/);
+    assert.match(spec, /maxRedirects: 0/);
+    assert.match(spec, /response\.status\(\), await response\.text\(\)\)\.toBe\(307\)/);
+    assert.match(spec, /new URL\(location, baseURL\)\.pathname\)\.toBe\(expectedPath\)/);
+    assert.ok(manifest.required_evidence.includes('admission_location'));
+    assert.match(spec, /Next Reading prestart controls did not become ready/);
+    assert.match(spec, /return `redirect:\$\{pathname\}`/);
     assert.match(spec, /PHASE === 'cutover' \? 'next' : 'legacy'/);
     assert.match(spec, /renderer_affinity_protocol: 'claim-v1'/);
     assert.match(spec, /floor_dark_next_affinity_before/);

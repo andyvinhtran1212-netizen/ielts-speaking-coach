@@ -61,7 +61,7 @@ async function accessibleTests(request, token, excluded = [], compatibleRenderer
   });
   expect(list.status(), await list.text()).toBe(200);
   const items = (await list.json()).items || [];
-  const result = [];
+  const candidates = [];
   for (const item of items) {
     const testId = String(item.test_id || '');
     if (!testId || excluded.includes(testId)) continue;
@@ -75,15 +75,36 @@ async function accessibleTests(request, token, excluded = [], compatibleRenderer
     // A prior drill may leave a legitimate in-progress attempt behind. The
     // stable player must honor that affinity, so selecting an incompatible
     // test here would correctly redirect away from the phase under test and
-    // would not exercise a new admission at all.
+    // would not exercise the expected player lifecycle. Prefer a genuinely
+    // fresh test, then fall back to an already-compatible attempt so repeated
+    // staging drills remain deterministic. Admission itself is proven
+    // independently from the raw no-follow 307 Location response below, before
+    // attempt affinity can redirect either player.
     if (inProgress && affinity !== null && compatibleRenderer && affinity !== compatibleRenderer) {
       continue;
     }
-    result.push(testId);
-    if (result.length >= 3) break;
+    const rank = compatibleRenderer
+      ? (!inProgress ? 0 : affinity === compatibleRenderer ? 1 : 2)
+      : (!inProgress ? 0 : affinity === null ? 1 : 2);
+    if (rank === 0) return [testId];
+    candidates.push({ testId, rank });
   }
+  const result = candidates.sort((a, b) => a.rank - b.rank)
+    .slice(0, 3).map(({ testId }) => testId);
   expect(result.length, 'staging needs at least one accessible published Reading test').toBeGreaterThan(0);
   return result;
+}
+
+async function probeRuntimeAdmission(request, baseURL, testId, expectedPath) {
+  const response = await request.get(
+    `${baseURL}/core-player/launch?surface=reading_exam&test_id=${encodeURIComponent(testId)}&from=full`,
+    { headers: BYPASS_HEADERS, maxRedirects: 0 },
+  );
+  expect(response.status(), await response.text()).toBe(307);
+  const location = response.headers().location || '';
+  expect(location, 'runtime admission must emit a Location header').toBeTruthy();
+  expect(new URL(location, baseURL).pathname).toBe(expectedPath);
+  return { status: response.status(), location, expected_path: expectedPath };
 }
 
 async function canonicalAttempt(request, token, testId, attemptId) {
@@ -121,11 +142,21 @@ async function startThroughAdmission(page, testId) {
     // The native player deliberately owns its controls and uses an accessible
     // text button + window.confirm instead of the Legacy modal ids.
     const restart = page.getByRole('button', { name: 'Bắt đầu lại từ đầu' });
+    const start = page.getByRole('button', { name: 'Bắt đầu bài thi' });
+    await expect.poll(async () => {
+      const pathname = new URL(page.url()).pathname;
+      if (pathname !== expectedPath) return `redirect:${pathname}`;
+      if (await restart.isVisible().catch(() => false)) return 'restart';
+      if (await start.isVisible().catch(() => false)) return 'start';
+      const alert = await page.getByRole('alert').textContent().catch(() => '');
+      return alert ? `error:${alert.trim()}` : 'waiting';
+    }, { timeout: 15_000, message: 'Next Reading prestart controls did not become ready' })
+      .toMatch(/^(restart|start)$/);
     if (await restart.isVisible().catch(() => false)) {
       page.once('dialog', (dialog) => dialog.accept());
       await restart.click();
     } else {
-      await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+      await start.click();
     }
   } else {
     await page.locator('#exam-start-btn').click();
@@ -218,6 +249,9 @@ test('live Reading floor → cutover → rollback preserves attempt affinity', a
     previousTest ? [previousTest] : [],
     expectedRenderer,
   );
+  const expectedAdmissionPath = PHASE === 'cutover'
+    ? '/reading/exam/session' : '/pages/reading-exam.html';
+  const admission = await probeRuntimeAdmission(request, baseURL, tests[0], expectedAdmissionPath);
   const created = await startThroughAdmission(page, tests[0]);
   const createdCanonical = await canonicalAttempt(request, auth.access_token, created.testId, created.attemptId);
   expect(createdCanonical.renderer_affinity).toBe(PHASE === 'cutover' ? 'next' : 'legacy');
@@ -252,6 +286,8 @@ test('live Reading floor → cutover → rollback preserves attempt affinity', a
     previous_attempt_id: oldAttemptId, previous_test_id: oldTestId,
     created_attempt_id: created.attemptId, created_test_id: created.testId,
     created_attempt_url: created.url, previous_attempt_url: previousUrl,
+    admission_status: admission.status, admission_location: admission.location,
+    admission_expected_path: admission.expected_path,
     ...(dark ? { floor_dark_next_url: dark.url, floor_dark_next_attempt_id: dark.attemptId,
       floor_dark_next_affinity_before: dark.before.renderer_affinity,
       floor_dark_next_affinity_after: dark.after.renderer_affinity } : {}),
