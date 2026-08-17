@@ -59,6 +59,7 @@ test('maps legacy aliases and nested filename families to canonical Next routes'
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/listening/content-detail.html'), '/admin/listening/content/[contentId]');
   assert.equal(canonicalNextRouteForLegacy('/pages/vocabulary.html'), '/vocabulary/hub');
   assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
+  assert.equal(buildLegacyReplacementInventory(['/pages/exam.html'], ['/exam']).entries[0].owner, 'exam-platform');
   assert.equal(canonicalNextRouteForLegacy('not-a-route'), null);
 });
 
@@ -93,9 +94,8 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
   assert.equal(report.legacyReplacement.total, report.legacyHtml.directlyRenderable);
-  assert.equal(report.legacyReplacement.nextRoutePresent, 119);
+  assert.equal(report.legacyReplacement.nextRoutePresent, 120);
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, [
-    { legacyPath: '/pages/exam.html', nextPath: '/exam', owner: 'course-exercises' },
     { legacyPath: '/pages/mock-exam.html', nextPath: '/mock-exam', owner: 'mock-exam' },
   ]);
   assert.deepEqual(report.routeOwnershipCollisions, []);

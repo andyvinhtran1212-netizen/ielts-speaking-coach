@@ -219,6 +219,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/listening/practice-run` is the canonical light-practice runner. Preserve
   // `id` and any future source query while comparing rollback links.
   else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // `/exam` owns the standalone exam list/player after the native cutover.
+  // Keep every identity-bearing query (`id`, `source`, and any future key)
+  // intact: the mapping only changes the route owner. Without it, the live G1
+  // list fixture reports every correctly migrated card as one missing legacy
+  // link plus one extra native link and blocks the player write-flow entirely.
+  else if (path === '/pages/exam.html') path = '/exam';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì

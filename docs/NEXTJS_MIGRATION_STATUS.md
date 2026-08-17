@@ -27,8 +27,8 @@ fails while any legacy HTML is directly renderable, any HTML lacks an App
 Router replacement, any core Next player is not ready, any core surface still
 admits new sessions to legacy, or any route ownership collision exists.
 
-Current replacement denominator: 119/121. The two explicit gaps are `/exam`
-and `/mock-exam`; the report must keep
+Current replacement denominator: 120/121. The remaining explicit gap is
+`/mock-exam`; the report must keep
 `legacy-next-replacement-missing` non-zero until behavior-equivalent App Router
 owners exist. A nearby landing page is not a valid replacement for a player.
 
