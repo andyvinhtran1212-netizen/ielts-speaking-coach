@@ -43,7 +43,7 @@ async function captureAudioAcrossNavigations(page) {
   return payloads;
 }
 
-test('Legacy → Next → Legacy resumes the first canonically unanswered question', async ({ page }) => {
+test('a Legacy claim rejects a Next reopen and resumes canonically on Legacy', async ({ page }) => {
   const persisted = [];
   const uploads = [];
   const audioPayloads = await captureAudioAcrossNavigations(page);
@@ -96,10 +96,11 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   }, SID);
 
   await page.goto(`/practice/session?session_id=${encodeURIComponent(SID)}`);
+  await page.waitForURL(`**/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
-  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(false);
+  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(true);
 
   await page.evaluate(async (sessionId) => {
     await window.PracticeFullTest.submitAnswer({
@@ -126,9 +127,20 @@ test('Legacy → Next → Legacy resumes the first canonically unanswered questi
   ]);
   expect(calls.filter((call) => call === `GET /sessions/${SID}`)).toHaveLength(3);
   expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(3);
+  expect(calls.filter((call) =>
+    call === `POST /sessions/${SID}/renderer-affinity`
+  )).toHaveLength(4);
   expect(await page.evaluate((sessionId) => {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
   }, SID)).toEqual({ ownerId: OWNER, confirmed: ['q1', 'q2'] });
-  expect(pageErrors).toEqual([]);
+  // The affinity mismatch intentionally performs an immediate full-document
+  // redirect before App Router can settle its same-origin /speaking RSC
+  // prefetch. Synthetic iPhone WebKit reports only that cancelled prefetch as
+  // a pageerror even though the canonical redirect and player state are intact.
+  // Keep every other pageerror fail-closed; this exact transport-only message
+  // is already covered by the final URL + canonical state assertions above.
+  expect(pageErrors.filter((message) =>
+    !/\/speaking\?_rsc=[^ ]+ due to access control checks\.$/.test(message)
+  )).toEqual([]);
 });

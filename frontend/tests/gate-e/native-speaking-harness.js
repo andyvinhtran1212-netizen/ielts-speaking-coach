@@ -33,6 +33,7 @@ async function installHarness(page, {
 } = {}) {
   const calls = [];
   const pageErrors = [];
+  let claimedRenderer = null;
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.addInitScript(({ authSession, storage }) => {
@@ -81,8 +82,17 @@ async function installHarness(page, {
       if (handled) return;
     }
     if (request.method() === 'POST' && path === `/sessions/${sessionId}/renderer-affinity`) {
+      const requestedRenderer = request.postDataJSON()?.renderer_affinity;
+      if (requestedRenderer !== 'legacy' && requestedRenderer !== 'next') {
+        return route.fulfill({
+          status: 422,
+          json: { detail: 'invalid renderer fixture claim' },
+          headers: cors,
+        });
+      }
+      claimedRenderer ||= requestedRenderer;
       return route.fulfill({
-        json: { session_id: sessionId, renderer_affinity: 'next' },
+        json: { session_id: sessionId, renderer_affinity: claimedRenderer },
         headers: cors,
       });
     }
