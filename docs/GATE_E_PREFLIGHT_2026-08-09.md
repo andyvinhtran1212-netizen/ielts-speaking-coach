@@ -43,8 +43,9 @@ WebKit/iPhone emulation. Listening cũng có native core player và matrix 12 ca
 tương ứng. Writing cũng đã có matrix 12 case cùng idempotent submit/readback;
 đây vẫn là synthetic evidence. Live-staging failure-injection journey và
 trusted verifier đã được tích hợp nhưng chưa có artifact từ release đã merge;
-thiết bị Safari/iOS thật, active-session drill và qualifying streak chưa hoàn
-tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
+thiết bị Safari/iOS thật, active-session drill của Reading/Listening và
+qualifying streak chưa hoàn tất; Speaking three-phase live drill đã pass. Vì vậy
+canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 

@@ -43,7 +43,7 @@ describe('Speaking coexistence drill contract', () => {
       'floor_dark_next_affinity_after',
     ]);
     assert.deepEqual(MANIFEST.conditional_evidence.rollback, ['rollback_mode']);
-    assert.match(MANIFEST.status, /artifacts-pending/);
+    assert.equal(MANIFEST.status, 'live-three-phase-artifacts-verified-gate-e-pending');
   });
 
   test('runner is serial, retry-free and checks deployed SHA before browser evidence', () => {
