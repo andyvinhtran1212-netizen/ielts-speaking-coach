@@ -10,12 +10,16 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   strategy_id: 'stable-player-url-admission-switch-v1',
   surfaces: Object.freeze({
     speaking: Object.freeze({
-      admit_new: 'legacy',
+      // Gate E live coexistence drill: floor a7462ab2 proved Legacy admission;
+      // this descendant admits only fresh Speaking sessions to the stable Next
+      // URL. Both implementation-specific URLs remain available so active
+      // Legacy sessions stay pinned and the next release can forward-rollback.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),
-      // Dark-route floor only. New attempts remain on Legacy until the live
-      // coexistence drill and real Safari/iOS evidence pass in later releases.
+      // The dark route was established in a separate floor release. This
+      // staging-only cutover is evidence collection, not a production cutover.
       next: Object.freeze({ path: '/practice/session', route_ready: true }),
     }),
     reading_exam: Object.freeze({

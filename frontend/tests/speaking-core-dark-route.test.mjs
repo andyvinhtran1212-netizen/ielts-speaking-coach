@@ -178,11 +178,11 @@ describe('/practice/session transitional dark route', () => {
     assert.match(BOOT, /practice_native_bootstrap_failed/);
   });
 
-  test('dark route is ready but admission remains fail-closed on legacy', () => {
+  test('staging cutover admits fresh sessions to the ready dark route', () => {
     const speaking = CORE_PLAYER_AFFINITY_POLICY.surfaces.speaking;
     assert.equal(speaking.next.path, '/practice/session');
     assert.equal(speaking.next.route_ready, true);
-    assert.equal(speaking.admit_new, 'legacy');
+    assert.equal(speaking.admit_new, 'next');
     assert.match(
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
@@ -190,7 +190,7 @@ describe('/practice/session transitional dark route', () => {
     assert.match(DOC, /NATIVE JSX\/FEEDBACK\/PRONUNCIATION RENDERERS/);
     assert.match(DOC, /không dùng `dangerouslySetInnerHTML`/);
     assert.match(DOC, /`route_ready=true` chỉ xác nhận dark route/);
-    assert.match(DOC, /`admit_new=legacy` giữ nguyên/);
+    assert.match(DOC, /`admit_new=next`/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {

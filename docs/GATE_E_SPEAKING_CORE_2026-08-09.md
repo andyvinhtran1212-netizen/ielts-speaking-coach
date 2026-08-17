@@ -1,7 +1,7 @@
 # Gate E Speaking core — native Full Test state — 2026-08-09
 
 **Trạng thái:** NATIVE BOOTSTRAP + RECORDER + SUBMISSION + FULL-TEST STATE +
-PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION/FULL-TEST RESULTS; ADMISSION LEGACY. `/practice/session` đã là
+PLAYER LIFECYCLE + NATIVE JSX/FEEDBACK/PRONUNCIATION RENDERERS + NATIVE SESSION/FULL-TEST RESULTS; STAGING CUTOVER PHASE, GATE E PENDING. `/practice/session` đã là
 stable App Router URL; React sở hữu auth, session/question bootstrap, vòng đời
 MediaRecorder, transport upload/grading, chain/retry/resume/finalize của Full
 Test, top-level state activation và registry cleanup cho timer/countdown,
@@ -10,8 +10,9 @@ event handler và SVG, đồng thời render view-model cho header, loading/erro
 test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
 Full Test completion, feedback/pronunciation và inline test results. `practice.js`
 chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
-nguyên vẹn cho URL legacy rollback. Dark route đã `route_ready=true`, nhưng
-`admit_new=legacy` nên chưa nhận attempt mới qua admission runtime.
+nguyên vẹn cho URL legacy rollback. Dark route đã `route_ready=true`; branch
+staging của phase cutover đặt `admit_new=next` để thu bằng chứng live. Đây không
+phải production cutover và release rollback kế tiếp phải trả admission về Legacy.
 
 ## Finding
 
@@ -40,8 +41,8 @@ nguyên vẹn cho URL legacy rollback. Dark route đã `route_ready=true`, nhưn
   blob thật vẫn ở retry queue. Backend chỉ nhận chain ba session đúng part/cùng
   sitting, bộ câu hỏi đúng 9/1/5, và đối chiếu chấm theo từng `question_id` thay
   vì đếm response. Legacy URL giữ orchestration cũ.
-  Admission vẫn Legacy; `route_ready=true` chỉ xác nhận dark route đủ điều kiện
-  làm coexistence rollback floor, không phải canonical cutover.
+  Rollback floor giữ Legacy; release staging descendant này đổi riêng
+  `admit_new=next` để chạy phase cutover, không phải canonical production cutover.
 - **Verification:** controller tests pin owner isolation, restore/truncate,
   canonical receipts, pending/retry blob identity, finalize barrier, ambiguous
   reconciliation và destroy semantics; backend test pin sealed redaction; source
@@ -128,12 +129,14 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
    `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
    không được tính thay hai artifact thật.
-4. ✅ `next.route_ready=true` ở release riêng trong khi `admit_new=legacy`; commit
-   đã deploy của release này mới được ghi làm coexistence rollback floor SHA.
-5. Thu Safari/iOS thật và chạy drill tab Legacy cũ, tab Next mới,
-   reload/copy URL/admission rollback với canonical backend assertions. Chỉ PR
-   hậu duệ sau khi các evidence này pass mới được đổi `admit_new=next`; Legacy
-   URL tiếp tục sống đến Gate F.
+4. ✅ `next.route_ready=true` ở release riêng trong khi `admit_new=legacy`; floor
+   run `32019415351` đã pin rollback SHA
+   `a7462ab291f029bb2979e3a41216fa41d8f72e52`, session Legacy thật và matching
+   frontend/backend staging provenance.
+5. Đang chạy staging-only cutover descendant để thu tab Legacy cũ, tab Next mới,
+   reload/copy URL và canonical backend assertions; sau đó forward-revert về
+   Legacy để thu phase rollback. Safari/iOS thật và đủ ba artifact vẫn chặn Gate
+   E/production cutover; Legacy URL tiếp tục sống đến Gate F.
 
 ## Batch player lifecycle
 
@@ -189,8 +192,8 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
   baseline sáu shape, bảy mutation/recovery flow, một cross-version
   coexistence flow và automated
   device/microphone matrix. Vì vậy `route_ready=true` chỉ xác nhận dark route;
-  Real Safari/iOS cùng rollback live drill vẫn là exit riêng, nên
-  `admit_new=legacy` giữ nguyên.
+  Real Safari/iOS cùng rollback live drill vẫn là exit riêng. `admit_new=next`
+  chỉ tồn tại trong phase cutover staging và phải được forward-revert về Legacy.
 
 Verification trực tiếp của batch:
 

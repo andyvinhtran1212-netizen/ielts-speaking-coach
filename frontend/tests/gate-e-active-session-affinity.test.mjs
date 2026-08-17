@@ -48,10 +48,16 @@ function readyNextPolicy() {
 }
 
 describe('current admission policy preserves behavior', () => {
-  test('policy is internally valid and every ready legacy target exists', () => {
+  test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
+    const expectedAdmission = {
+      speaking: 'next',
+      reading_exam: 'legacy',
+      listening_test: 'legacy',
+      listening_dictation: 'legacy',
+    };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
-      assert.equal(config.admit_new, 'legacy');
+      assert.equal(config.admit_new, expectedAdmission[surface]);
       assert.equal(config.next.route_ready, true, `${surface} dark route must stay available`);
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
@@ -69,7 +75,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('launchers use the runtime endpoint and the current server policy preserves legacy semantics', () => {
+  test('launchers use the runtime endpoint and the staged policy cuts over Speaking only', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -92,7 +98,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
-      '/pages/practice.html?session_id=session-a',
+      '/practice/session?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
@@ -274,7 +280,7 @@ describe('cutover and rollback drill', () => {
       resolveCorePlayerAdmissionFromParams(
         new URLSearchParams('surface=speaking&session_id=x'),
       ),
-      '/pages/practice.html?session_id=x',
+      '/practice/session?session_id=x',
     );
     for (const query of [
       'session_id=x',
@@ -307,7 +313,7 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL\s+PENDING/);
+    assert.match(DOC, /FOUR DARK ROUTES READY; SPEAKING STAGING CUTOVER ACTIVE; LIVE\s+CORE DRILL PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
