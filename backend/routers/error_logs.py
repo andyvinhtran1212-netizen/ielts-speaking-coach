@@ -302,6 +302,17 @@ ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
 ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
 LEGACY_RETIREMENT_EVENT_NAME = "legacy_retirement_page_view"
 
+# Gate F stateful-player drain inventory. These three tables are the canonical
+# persistence sources for the core players that can keep an implementation-
+# specific URL alive across deployments. Dictation is intentionally absent:
+# its player is attempt-free and writes append-only per segment, so it has no
+# in-progress backend row that could truthfully be counted here.
+GATE_F_STATEFUL_PLAYER_TABLES = (
+    ("speaking", "sessions"),
+    ("reading_exam", "reading_test_attempts"),
+    ("listening_test", "listening_test_attempts"),
+)
+
 
 def _p75(values: list[float]) -> float | None:
     """Nearest-rank 75th percentile — deterministic, no interpolation."""
@@ -750,6 +761,112 @@ async def error_log_rollback_metrics(
         "min_sample": {"views": ROLLBACK_MIN_VIEWS, "vitals": ROLLBACK_MIN_VITALS},
         "scanned": {"analytics": len(analytics_rows), "errors": len(error_rows)},
         "truncated": truncated,
+    }
+
+
+def _gate_f_cutover_at(value: str) -> datetime:
+    """Parse a reproducible, timezone-aware Gate F admission cutoff."""
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        raise HTTPException(422, "cutover_at phải là ISO-8601 có múi giờ") from None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise HTTPException(422, "cutover_at phải là ISO-8601 có múi giờ")
+    normalized = parsed.astimezone(timezone.utc)
+    if normalized > datetime.now(timezone.utc):
+        raise HTTPException(422, "cutover_at không được nằm trong tương lai")
+    return normalized
+
+
+def _gate_f_exact_active_count(
+    table: str,
+    *,
+    cutover_at: str | None = None,
+    missing_started_at: bool = False,
+) -> int:
+    """Return one exact active count; never degrade to a scanned lower bound."""
+    query = (
+        supabase_admin.table(table)
+        .select("id", count="exact")
+        .eq("status", "in_progress")
+    )
+    if cutover_at is not None:
+        query = query.lte("started_at", cutover_at)
+    if missing_started_at:
+        query = query.is_("started_at", "null")
+    result = query.limit(1).execute()
+    if result.count is None:
+        raise RuntimeError(f"{table}: exact count unavailable")
+    return int(result.count)
+
+
+@_admin_router.get("/legacy-active-session-drain")
+async def gate_f_legacy_active_session_drain(
+    cutover_at: str,
+    authorization: str | None = Header(default=None),
+):
+    """Gate F exact inventory of stateful attempts admitted before cutover.
+
+    Before the admission flip every core-player launch resolves to Legacy, so
+    an ``in_progress`` row whose ``started_at`` is at or before the verified
+    cutover timestamp remains a possible Legacy renderer dependency. Missing
+    timestamps fail closed and count as blockers. This endpoint is read-only;
+    a non-zero result must drain naturally or be covered by a versioned,
+    owner-approved exception before any Legacy player is retired.
+
+    The result deliberately does not claim that Gate F passed. Zero stateful
+    rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
+    rollback health and deletion audit remain separate evidence.
+    """
+    await require_admin(authorization)
+    cutoff = _gate_f_cutover_at(cutover_at)
+    cutoff_iso = cutoff.isoformat()
+
+    surfaces: dict[str, dict] = {}
+    try:
+        for surface, table in GATE_F_STATEFUL_PLAYER_TABLES:
+            active_total = _gate_f_exact_active_count(table)
+            pre_cutover = _gate_f_exact_active_count(table, cutover_at=cutoff_iso)
+            missing_started = _gate_f_exact_active_count(table, missing_started_at=True)
+            blockers = pre_cutover + missing_started
+            post_cutover = active_total - blockers
+            if post_cutover < 0:
+                raise RuntimeError(f"{table}: inconsistent exact counts")
+            surfaces[surface] = {
+                "table": table,
+                "active_status": "in_progress",
+                "active_total": active_total,
+                "pre_cutover_active": pre_cutover,
+                "missing_started_at": missing_started,
+                "legacy_blocking": blockers,
+                "post_cutover_active": post_cutover,
+                "exact": True,
+            }
+    except Exception as exc:
+        logger.warning("Gate F active-session drain query failed: %s", exc)
+        raise HTTPException(
+            500,
+            "Không thể xác minh exact active-session drain cho Gate F",
+        ) from exc
+
+    legacy_blocking_total = sum(row["legacy_blocking"] for row in surfaces.values())
+    return {
+        "schema_version": 1,
+        "cutover_at": cutoff_iso,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "exact": True,
+        "stateful_legacy_drain_zero": legacy_blocking_total == 0,
+        "legacy_blocking_total": legacy_blocking_total,
+        "surfaces": {
+            **surfaces,
+            "listening_dictation": {
+                "lifecycle": "attempt-free",
+                "active_row_tracking": False,
+                "legacy_blocking": None,
+                "drain_evidence": LEGACY_RETIREMENT_EVENT_NAME,
+            },
+        },
+        "retirement_decision": "pending-additional-gate-f-evidence",
     }
 
 
