@@ -11,6 +11,7 @@ const errors = [];
 const results = [];
 let activeSection = 'listening';
 let collectedSection = null;
+let collectionSweepCompletedSection = null;
 let isOpen = true;
 let missedListening = 0;
 let sittingExists = true;
@@ -38,6 +39,7 @@ function liveSnapshot() {
     exam: {
       id: 'exam-1', code: 'LIVE-1', title: 'Lớp C1 · Full Test', exam_mode: 'sequential', status: 'published',
       is_open: isOpen, active_section: activeSection, collected_section: collectedSection,
+      collection_sweep_completed_section: collectionSweepCompletedSection,
       section_started_at: '2026-08-16T08:00:00Z', section_duration_seconds: 1800,
       section_time_left_seconds: collectedSection === activeSection ? null : 510,
       configured_sections: ['listening', 'reading', 'writing'], cohort_id: 'cohort-1',
@@ -106,13 +108,17 @@ await page.route('**/*', async (route) => {
   }
   if (parsed.pathname === '/admin/mock-exams/exam-1/collect' && method === 'POST') {
     const target = parsed.searchParams.get('section') || activeSection;
-    if (!parsed.searchParams.get('section')) collectedSection = activeSection;
+    if (!parsed.searchParams.get('section')) {
+      collectedSection = activeSection;
+      collectionSweepCompletedSection = null;
+    }
     return json({ queued: true, section: target, pending: 1 }, 202);
   }
   if (parsed.pathname === '/admin/mock-exams/exam-1/advance' && method === 'POST') {
     if (body?.from_section !== activeSection) return json({ detail: 'stale' }, 409);
     activeSection = activeSection === 'listening' ? 'reading' : 'writing';
     collectedSection = null;
+    collectionSweepCompletedSection = null;
     missedListening = 1;
     return json({ active_section: activeSection });
   }
@@ -132,7 +138,17 @@ check('blank persisted state lọt vào danh sách cần chú ý', await page.ge
 
 await page.getByRole('button', { name: /Thu bài/ }).click();
 await page.getByText('Đã đóng phần Listening và xếp hàng thu bài.').waitFor();
-check('collect gửi exact from_section rồi chờ canonical pause', requests.some((item) => item.path === '/admin/mock-exams/exam-1/collect' && item.search.includes('from_section=listening')) && await page.getByText(/đang nghỉ/).count() === 1);
+check('collect gửi exact from_section và khóa advance khi sweep chưa xong',
+  requests.some((item) => item.path === '/admin/mock-exams/exam-1/collect' && item.search.includes('from_section=listening'))
+    && await page.getByRole('button', { name: 'Đang thu bài…' }).isDisabled()
+    && await page.getByText(/Đang đồng bộ và thu Listening/).count() === 1);
+
+collectionSweepCompletedSection = 'listening';
+await page.getByRole('button', { name: 'Cập nhật ngay' }).click();
+await page.getByRole('button', { name: 'Mở Reading →' }).waitFor();
+check('canonical sweep completion mở lại advance và chuyển sang nhịp nghỉ',
+  await page.getByRole('button', { name: 'Mở Reading →' }).isEnabled()
+    && await page.getByText(/đang nghỉ/).count() === 1);
 
 await page.getByRole('button', { name: 'Mở Reading →' }).click();
 await page.getByText('Đã chuyển sang Reading.').waitFor();
