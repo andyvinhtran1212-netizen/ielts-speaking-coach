@@ -1,5 +1,9 @@
 const RETRY_DELAYS = Object.freeze([400, 1200, 3000]);
+export const READING_RENDERER_AFFINITY_PROTOCOL = Object.freeze({
+  renderer_affinity_protocol: 'claim-v1',
+});
 const READING_ORIGINS = new Set(['full', 'mini', 'mock']);
+const READING_RENDERERS = new Set(['legacy', 'next']);
 const WORD_LIMITS = new Set([
   'ONE WORD',
   'ONE WORD ONLY',
@@ -23,6 +27,37 @@ export function readingExamParams(search) {
     sittingId: (params.get('sitting_id') || '').trim() || null,
     mockEmbed: params.get('mock_embed') === '1',
   });
+}
+
+/** Preserve only the query contract accepted by the stable Reading players. */
+export function readingPlayerQuery(params) {
+  if (!params || (!params.testId && !params.share)) {
+    throw new Error('missing-reading-exam-identity');
+  }
+  return {
+    ...(params.testId ? { test_id: params.testId } : {}),
+    ...(params.share ? { share: params.share } : {}),
+    ...(params.sittingId ? { sitting_id: params.sittingId } : {}),
+    ...(params.mockEmbed ? { mock_embed: '1' } : {}),
+    ...(params.from ? { from: params.from } : {}),
+    ...(params.classItem ? { class_item: params.classItem } : {}),
+  };
+}
+
+/** Atomically claim an attempt and return the backend's canonical renderer. */
+export async function claimReadingAttemptRenderer({ api, attemptId, renderer, headers }) {
+  if (!api || typeof api.postWith !== 'function') throw new Error('reading-affinity-api-unavailable');
+  const id = requiredText(attemptId, 'missing-reading-attempt');
+  if (!READING_RENDERERS.has(renderer)) throw new Error('invalid-reading-renderer');
+  const response = await api.postWith(
+    `/api/reading/test/attempts/${encodeURIComponent(id)}/renderer-affinity`,
+    { renderer_affinity: renderer },
+    headers,
+    { noRedirect: true },
+  );
+  const canonical = response?.renderer_affinity;
+  if (!READING_RENDERERS.has(canonical)) throw new Error('invalid-reading-renderer-affinity');
+  return canonical;
 }
 
 /**
@@ -56,6 +91,7 @@ export function normalizeReadingBoot(payload, fallbackTestId = null) {
       started_at: requiredText(inProgress.started_at, 'invalid-reading-start-time'),
       time_limit_minutes: positiveInteger(inProgress.time_limit_minutes, positiveInteger(test.time_limit_minutes, 60)),
       answers: Array.isArray(inProgress.answers) ? inProgress.answers : [],
+      renderer_affinity: inProgress.renderer_affinity ?? null,
     } : null,
   };
 }

@@ -17,6 +17,7 @@ Three libraries, ten endpoints (all auth-gated, mirroring the listening user_rou
     GET   /api/reading/test/{test_id}                             — test + 3 passages + 40 Qs (keys stripped)
     POST  /api/reading/test/{test_id}/attempts                    — start: create attempt (started_at NOW)
     GET   /api/reading/test/{test_id}/attempts/in-progress  (20.6)— resume: user's open attempt for this test
+    POST  /api/reading/test/attempts/{attempt_id}/renderer-affinity— atomically pin Legacy/Next player
     PATCH /api/reading/test/attempts/{attempt_id}/answers   (20.6)— auto-save one answer (debounced client-side)
     POST  /api/reading/test/attempts/{attempt_id}/submit          — submit + grade + finalize attempt
 
@@ -34,7 +35,8 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -728,7 +730,9 @@ def _fetch_in_progress_payload(
     student is finishing the work they started, and the link they already
     earned goes on standing.
     """
-    q = supabase_admin.table("reading_test_attempts").select("id,started_at,status")
+    q = supabase_admin.table("reading_test_attempts").select(
+        "id,started_at,status,renderer_affinity"
+    )
     # Owner filter FIRST (the authed user_id, or the anonymous anon_id token),
     # then test + status. Exactly one ownership filter is applied.
     if anon_id is not None:
@@ -771,6 +775,7 @@ def _fetch_in_progress_payload(
         "started_at":         row.get("started_at"),
         "answers":            answers,
         "time_limit_minutes": test["time_limit_minutes"],
+        "renderer_affinity":  row.get("renderer_affinity"),
     }
 
 
@@ -923,10 +928,26 @@ async def boot_shared_reading_test(
     return {"test": detail, "in_progress": in_progress}
 
 
+class _ReadingAttemptStartRequest(BaseModel):
+    """Opt in to first-player renderer claiming for a new attempt.
+
+    A missing body is the N-1 contract and stays pinned to the database's
+    Legacy default. `claim-v1` deliberately inserts NULL so the stable player
+    URL can atomically own the attempt before any answer mutation.
+    """
+
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
+
+class _ReadingAttemptRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
 @router.post("/test/share/{share_token}/attempts")
 async def start_shared_reading_test_attempt(
     share_token: str,
     request: Request,
+    body: _ReadingAttemptStartRequest | None = None,
     x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     """Anonymous start via share-link. Validates the token, mints a NEW anon_id
@@ -956,7 +977,7 @@ async def start_shared_reading_test_attempt(
     )
     attempt_id = str(_uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
-    supabase_admin.table("reading_test_attempts").insert({
+    payload = {
         "id":          attempt_id,
         "test_id":     test_uuid,
         "user_id":     None,                       # anonymous
@@ -966,12 +987,17 @@ async def start_shared_reading_test_attempt(
         "status":      "in_progress",
         "answers":     [],
         "started_at":  started_at,
-    }).execute()
+    }
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if affinity_aware:
+        payload["renderer_affinity"] = None
+    supabase_admin.table("reading_test_attempts").insert(payload).execute()
     return {
         "attempt_id":         attempt_id,
         "anon_id":            anon_id,             # client MUST keep this (ownership)
         "started_at":         started_at,
         "time_limit_minutes": test.get("time_limit_minutes") or 60,
+        "renderer_affinity":   None if affinity_aware else "legacy",
     }
 
 
@@ -1022,6 +1048,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 @router.post("/test/{test_id}/attempts")
 async def start_reading_test_attempt(
     test_id: str,
+    body: _ReadingAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
@@ -1075,6 +1102,9 @@ async def start_reading_test_attempt(
             "answers":    [],
             "started_at": started_at,
         }
+        affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+        if affinity_aware:
+            payload["renderer_affinity"] = None
         # Class homework: stamp WHICH task this attempt is being done for, so
         # the ledger never has to work it out afterwards (mig 181). Validated
         # first — an unchecked id from the query string would let a student mark
@@ -1098,6 +1128,7 @@ async def start_reading_test_attempt(
             "status":             "in_progress",
             "started_at":         started_at,
             "time_limit_minutes": test["time_limit_minutes"],
+            "renderer_affinity":   None if affinity_aware else "legacy",
         }
 
     logger.error(
@@ -1122,6 +1153,52 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@router.post("/test/attempts/{attempt_id}/renderer-affinity")
+async def claim_reading_attempt_renderer_affinity(
+    attempt_id: UUID,
+    body: _ReadingAttemptRendererAffinityRequest,
+    authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Claim a stable Reading player on first boot; never move it later.
+
+    Both account-owned and anonymous share attempts use the same canonical
+    column. Ownership is checked before the RPC for precise HTTP errors and is
+    repeated inside the atomic UPDATE so a claim can never cross owners.
+    """
+    user = await _optional_auth(authorization)
+    owned_attempt = _fetch_attempt_owned(str(attempt_id), user, x_reading_anon)
+    owner_user_id = owned_attempt.get("user_id")
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_reading_attempt_renderer_affinity",
+            {
+                "p_attempt_id": str(attempt_id),
+                "p_user_id": owner_user_id,
+                "p_anon_id": x_reading_anon if owner_user_id is None else None,
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[reading-renderer-affinity] claim failed attempt=%s renderer=%s: %s",
+            attempt_id,
+            body.renderer_affinity,
+            exc,
+        )
+        raise HTTPException(
+            500, "Không thể xác nhận phiên bản player. Hãy tải lại trang."
+        )
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Attempt không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Attempt chưa có renderer hợp lệ")
+    return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
 class _SubmitAnswerItem(BaseModel):

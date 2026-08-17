@@ -34,11 +34,12 @@ export default {
   ],
   writes: [
     base.writes[0],
+    base.writes[1],
     {
-      ...base.writes[1],
+      ...base.writes[2],
       // 2 lần: câu 1 theo debounce, câu 2 do flush đẩy nốt lúc nộp.
       times: 2,
     },
-    base.writes[2],
+    base.writes[3],
   ],
 };

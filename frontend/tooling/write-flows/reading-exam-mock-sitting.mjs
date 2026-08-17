@@ -54,6 +54,7 @@ export default {
 
   writes: [
     base.writes[0],
+    base.writes[1],
     {
       method: 'POST',
       path: `/api/mock-exams/sittings/${SITTING}/attach`,
@@ -61,7 +62,7 @@ export default {
       // phong nhầm bài, mà bài thật thì vẫn nộp ra điểm (bot bắt ở #969).
       body: { section: 'reading', attempt_id: FX.attempt_id },
     },
-    base.writes[1],
     base.writes[2],
+    base.writes[3],
   ],
 };

@@ -197,6 +197,32 @@ def test_share_start_mints_anon_id_and_salted_src_no_raw_ip():
     assert row["anon_src"] and "203.0.113.9" not in row["anon_src"]   # salted, not raw IP
 
 
+def test_share_start_claim_v1_leaves_affinity_for_first_player_claim():
+    db = _DB({"reading_tests": [_shared_test()], "reading_test_attempts": []})
+    with patch("routers.reading_student.supabase_admin", db), \
+         patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        r = _client().post(
+            "/api/reading/test/share/TOK/attempts",
+            json={"renderer_affinity_protocol": "claim-v1"},
+        )
+    assert r.status_code == 200
+    assert r.json()["renderer_affinity"] is None
+    row = [p for (t, p) in db.inserts if t == "reading_test_attempts"][0]
+    assert "renderer_affinity" in row
+    assert row["renderer_affinity"] is None
+
+
+def test_share_start_unversioned_client_uses_database_legacy_default():
+    db = _DB({"reading_tests": [_shared_test()], "reading_test_attempts": []})
+    with patch("routers.reading_student.supabase_admin", db), \
+         patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        r = _client().post("/api/reading/test/share/TOK/attempts")
+    assert r.status_code == 200
+    assert r.json()["renderer_affinity"] == "legacy"
+    row = [p for (t, p) in db.inserts if t == "reading_test_attempts"][0]
+    assert "renderer_affinity" not in row
+
+
 # ── _fetch_attempt_owned: capability-token ownership ───────────────────
 
 def test_fetch_attempt_owned_anon_match_and_mismatch():

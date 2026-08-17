@@ -5,15 +5,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   answersFromRows,
+  claimReadingAttemptRenderer,
   consecutiveReadingQuestionRuns,
   createReadingSaveCoordinator,
   normalizeReadingBoot,
+  READING_RENDERER_AFFINITY_PROTOCOL,
   readingExamParams,
   readingLibraryHref,
+  readingPlayerQuery,
   readingQuestionInstruction,
   readingRemainingSeconds,
   readingReviewHref,
 } from '@/lib/reading-exam-controller.mjs';
+import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type AnswerMap = Map<number, string>;
@@ -59,6 +63,7 @@ type Attempt = {
   attempt_id: string;
   started_at: string;
   time_limit_minutes: number;
+  renderer_affinity?: 'legacy' | 'next' | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -554,6 +559,21 @@ export function ReadingExamSession() {
     } catch { return undefined; }
   }, [params?.testId]);
 
+  const claimAttempt = useCallback(async (attemptId: string) => {
+    if (!params) throw new Error('Không có định danh bài thi.');
+    const canonical = await claimReadingAttemptRenderer({
+      api: window.api,
+      attemptId,
+      renderer: 'next',
+      headers: params.share ? anonHeaders() : undefined,
+    });
+    if (canonical !== 'next') {
+      window.location.replace(corePlayerUrl('reading_exam', canonical, readingPlayerQuery(params)));
+      return false;
+    }
+    return true;
+  }, [anonHeaders, params]);
+
   const boot = useCallback(async () => {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (Reading exam)');
@@ -567,6 +587,7 @@ export function ReadingExamSession() {
       params.share ? { noRedirect: true } : undefined,
     );
     const normalized = normalizeReadingBoot(payload, params.testId) as { test: ReadingTest; inProgress: Attempt & { answers: any[] } | null };
+    if (normalized.inProgress && !await claimAttempt(normalized.inProgress.attempt_id)) return;
     setTest(normalized.test);
     setCurrentPart(Number(normalized.test.passages[0]?.passage_order || 1));
     if (normalized.inProgress) {
@@ -582,7 +603,7 @@ export function ReadingExamSession() {
       setResumeAvailable(false);
     }
     setPhase('prestart');
-  }, [anonHeaders, params, passwordHeaders]);
+  }, [anonHeaders, claimAttempt, params, passwordHeaders]);
 
   const bootWithRecovery = useCallback(async () => {
     if (!params) return;
@@ -700,7 +721,7 @@ export function ReadingExamSession() {
       if (params.share) {
         response = await window.api.postWith(
           `/api/reading/test/share/${encodeURIComponent(params.share)}/attempts`,
-          null,
+          READING_RENDERER_AFFINITY_PROTOCOL,
           anonHeaders(),
           { noRedirect: true },
         );
@@ -710,10 +731,11 @@ export function ReadingExamSession() {
       } else {
         response = await window.api.postWith(
           queryWithClassItem(`/api/reading/test/${encodeURIComponent(test.test_id)}/attempts`, params.classItem),
-          null,
+          READING_RENDERER_AFFINITY_PROTOCOL,
           passwordHeaders(),
         );
       }
+      if (!await claimAttempt(String(response.attempt_id))) return;
       const nextAttempt = {
         attempt_id: String(response.attempt_id),
         started_at: String(response.started_at),
@@ -724,7 +746,7 @@ export function ReadingExamSession() {
       setError(`Không bắt đầu được bài thi. ${caught?.message || ''}`);
       setPhase('error');
     }
-  }, [anonHeaders, enterAttempt, params, passwordHeaders, test]);
+  }, [anonHeaders, claimAttempt, enterAttempt, params, passwordHeaders, test]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;
