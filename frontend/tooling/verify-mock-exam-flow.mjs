@@ -258,7 +258,7 @@ forceCollected.state.current.active_section = 'done';
 forceCollected.state.current.section_time_left_seconds = 0;
 await forceCollected.page.clock.runFor(8_001);
 await forceCollected.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor();
-await forceCollected.page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+await forceCollected.page.goto(`${BASE}/next-probe`, { waitUntil: 'domcontentloaded' });
 const forceCollectedLocal = await forceCollected.page.evaluate((id) => (
   localStorage.getItem(`mock-writing:${id}:task1`)
 ), SITTING_ID);
