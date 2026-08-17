@@ -75,6 +75,7 @@ interface Prompt {
 }
 
 interface WritingBridge {
+  flush(): Promise<void>;
   finalize(): Promise<{ task1_text: string; task2_text: string }>;
 }
 
@@ -395,6 +396,10 @@ function WritingWorkspace({ state, register }: {
 
   useEffect(() => {
     const bridge: WritingBridge = {
+      async flush() {
+        await flush();
+        if (dirtyRef.current) throw new Error('mock-writing-flush-failed');
+      },
       async finalize() {
         finalizedRef.current = true;
         cancelTimer();
@@ -571,17 +576,19 @@ export function MockExamRunner() {
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
   const activeSection = view === 'section' ? state?.activeSection as Section : null;
-  const collectedEmbedSection = state
-    && (state.collectedSection === 'listening' || state.collectedSection === 'reading')
+  const pendingCollectionSection = state
+    && (state.collectedSection === 'listening'
+      || state.collectedSection === 'reading'
+      || state.collectedSection === 'writing')
     && state.activeSection === state.collectedSection
     && !submittedAtFor(state, state.collectedSection)
     ? state.collectedSection
     : null;
-  const collectionKey = collectedEmbedSection && state
-    ? `${state.sitting.id}:${collectedEmbedSection}`
+  const collectionKey = pendingCollectionSection && state
+    ? `${state.sitting.id}:${pendingCollectionSection}`
     : null;
-  const awaitingEmbedFlush = Boolean(collectionKey && collectionKey !== flushedCollectionKey);
-  const renderedSection = activeSection || (awaitingEmbedFlush ? collectedEmbedSection : null);
+  const awaitingCollectionFlush = Boolean(collectionKey && collectionKey !== flushedCollectionKey);
+  const renderedSection = activeSection || (awaitingCollectionFlush ? pendingCollectionSection : null);
   activeSectionRef.current = activeSection;
   currentSittingRef.current = state?.sitting.id || null;
 
@@ -810,13 +817,29 @@ export function MockExamRunner() {
     window.setTimeout(() => finish(new Error('mock-embed-flush-timeout')), 3_000);
   }), []);
 
+  const acknowledgeCollectionFlush = useCallback(async (section: Section) => {
+    const sittingId = currentSittingRef.current;
+    if (!sittingId) throw new Error('missing-mock-sitting');
+    await window.api.post(
+      `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/flush-ack`,
+      {},
+    );
+  }, []);
+
   useEffect(() => {
-    if (!collectionKey || !collectedEmbedSection || !awaitingEmbedFlush) return undefined;
+    if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush) return undefined;
     let disposed = false;
     let retryTimer: number | null = null;
     const drain = async () => {
       try {
-        await flushEmbed(collectedEmbedSection);
+        if (pendingCollectionSection === 'writing') {
+          const bridge = writingBridgeRef.current;
+          if (!bridge) throw new Error('missing-writing-bridge');
+          await bridge.flush();
+        } else {
+          await flushEmbed(pendingCollectionSection);
+        }
+        await acknowledgeCollectionFlush(pendingCollectionSection);
         if (!disposed) setFlushedCollectionKey(collectionKey);
       } catch {
         if (!disposed) retryTimer = window.setTimeout(() => { void drain(); }, 1_000);
@@ -827,7 +850,7 @@ export function MockExamRunner() {
       disposed = true;
       if (retryTimer != null) window.clearTimeout(retryTimer);
     };
-  }, [awaitingEmbedFlush, collectedEmbedSection, collectionKey, flushEmbed]);
+  }, [acknowledgeCollectionFlush, awaitingCollectionFlush, collectionKey, flushEmbed, pendingCollectionSection]);
 
   useEffect(() => {
     if (!collectionKey && flushedCollectionKey) setFlushedCollectionKey(null);
@@ -1001,7 +1024,7 @@ export function MockExamRunner() {
   if (fatal) return <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
   if (!state) return <MockExamRunnerLoading />;
   if (view === 'void') return <ErrorCard message="Kỳ thi đã bị huỷ. Liên hệ giám khảo để được cấp lượt mới." />;
-  if ((view === 'waiting' || view === 'retake-menu') && !awaitingEmbedFlush) {
+  if ((view === 'waiting' || view === 'retake-menu') && !awaitingCollectionFlush) {
     return (
       <>
         {connection ? <div className="me-conn-banner" role="status" aria-live="polite">{CONNECTION_MESSAGES[connection]}</div> : null}
@@ -1015,7 +1038,7 @@ export function MockExamRunner() {
   return (
     <main className="me-test-shell">
       {connection ? <div className="me-conn-banner" role="status" aria-live="polite">{CONNECTION_MESSAGES[connection]}</div> : null}
-      {awaitingEmbedFlush ? <div className="me-conn-banner" role="status" aria-live="polite">Đang lưu câu trả lời cuối cùng…</div> : null}
+      {awaitingCollectionFlush ? <div className="me-conn-banner" role="status" aria-live="polite">Đang lưu câu trả lời cuối cùng…</div> : null}
       <header className="me-bar">
         <span className={`me-timer${remaining <= WARN_SECONDS ? ' warn' : ''}`} role="timer">{formatMockTime(remaining)}</span>
         <div className="me-section-label">{renderedSection ? MOCK_SECTION_LABELS[renderedSection] : ''}</div>

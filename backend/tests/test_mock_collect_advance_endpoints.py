@@ -51,7 +51,7 @@ def test_collect_forwards_the_screen_section_and_queues_the_sweep():
          patch("routers.admin_mock_exams.svc.collect_preflight",
                return_value={"section": "listening", "pending": 3}) as mock_pre, \
          patch("routers.admin_mock_exams.svc.mark_section_collected") as mock_mark, \
-         patch("routers.admin_mock_exams.svc.collect_section") as mock_sweep:
+         patch("routers.admin_mock_exams.svc.collect_section_after_flush_grace") as mock_sweep:
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/collect?from_section=listening", headers=_AUTH)
     assert r.status_code == 202, r.text
@@ -119,7 +119,7 @@ def test_recovery_from_a_finished_exam_is_accepted():
          patch("routers.admin_mock_exams.svc.collect_preflight",
                return_value={"section": "writing", "pending": 2}), \
          patch("routers.admin_mock_exams.svc.mark_section_collected"), \
-         patch("routers.admin_mock_exams.svc.collect_section"):
+         patch("routers.admin_mock_exams.svc.collect_section_after_flush_grace"):
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/collect?section=writing&from_section=done",
             headers=_AUTH)

@@ -82,7 +82,7 @@ async function fixturePage(browser, initialState, {
   const calls = [];
   const state = {
     current: structuredClone(initialState), creates: 0, stateGets: 0,
-    writingDrafts: [], writingFinals: [],
+    writingDrafts: [], writingFinals: [], flushAcks: [], collectionOrder: [],
   };
   let markDeferredReady;
   let markDeferredDelivered;
@@ -115,6 +115,7 @@ async function fixturePage(browser, initialState, {
         markEmbedSaveReady();
       });
       await route.fulfill(json({ ok: true }));
+      state.collectionOrder.push('embed-save');
       markEmbedSavePersisted();
       return;
     }
@@ -147,6 +148,14 @@ async function fixturePage(browser, initialState, {
     if (request.method() === 'POST' && url.pathname === `/api/mock-exams/sittings/${SITTING_ID}/integrity`) {
       return route.fulfill(json({ ok: true }));
     }
+    if (request.method() === 'POST'
+        && url.pathname.startsWith(`/api/mock-exams/sittings/${SITTING_ID}/sections/`)
+        && url.pathname.endsWith('/flush-ack')) {
+      const section = url.pathname.split('/').at(-2);
+      state.flushAcks.push(section);
+      state.collectionOrder.push(`flush-ack:${section}`);
+      return route.fulfill(json({ section, acknowledged: true, settled: false }));
+    }
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/start')) {
       calls.push('start-writing');
       state.current.active_section = 'writing';
@@ -159,6 +168,7 @@ async function fixturePage(browser, initialState, {
       if (writingDraftAlwaysFails || state.current.sitting.writing_submitted_at) {
         return route.fulfill(json({ detail: 'writing already collected' }, 409));
       }
+      state.collectionOrder.push('writing-save');
       return route.fulfill(json({ ok: true }));
     }
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/submit')) {
@@ -299,8 +309,25 @@ await collectedListening.state.embedSavePersisted;
 await collectedListening.page.getByText(/Đã nộp phần trước/).waitFor();
 check('collection unmounts the paper only after the flush ACK persisted the latest answer',
   collectedListening.state.embedAnswerBodies.join(',') === 'latest-answer'
+    && collectedListening.state.flushAcks.join(',') === 'listening'
+    && collectedListening.state.collectionOrder.join(',') === 'embed-save,flush-ack:listening'
     && await collectedFrame.count() === 0);
 await collectedListening.context.close();
+
+const collectedWritingState = mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+});
+const collectedWriting = await fixturePage(browser, collectedWritingState);
+await collectedWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await collectedWriting.page.getByLabel('Bài viết Task 1').fill('Latest Writing text before collection.');
+collectedWriting.state.current.collected_section = 'writing';
+await collectedWriting.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await collectedWriting.page.getByText(/Đã nộp phần trước/).waitFor();
+check('Writing collection persists the latest draft before its server ACK',
+  collectedWriting.state.writingDrafts.at(-1)?.task1_text === 'Latest Writing text before collection.'
+    && collectedWriting.state.flushAcks.join(',') === 'writing'
+    && collectedWriting.state.collectionOrder.slice(-2).join(',') === 'writing-save,flush-ack:writing');
+await collectedWriting.context.close();
 
 const writingState = mockState({
   active_section: 'writing', section_time_left_seconds: 1, section_duration_seconds: 60,
@@ -413,11 +440,11 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, staleRead, listening, collectedListening, writing, forceCollected, pausedRetry, boundedFailure]
+  [waiting, retake, staleRead, listening, collectedListening, collectedWriting, writing, forceCollected, pausedRetry, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
-    ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
-    ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...writing.errors, ...forceCollected.errors,
+    ...collectedWriting.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
+    ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...collectedWriting.errors, ...writing.errors, ...forceCollected.errors,
     ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();

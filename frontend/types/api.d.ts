@@ -9337,6 +9337,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mock-exams/sittings/{sitting_id}/sections/{section}/flush-ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Collection Flush
+         * @description ACK that this student's final autosave completed after admin collect.
+         *
+         *     The admin sweep waits for this canonical per-sitting signal for a bounded
+         *     grace window.  Auth ownership and the shared collected-section marker are
+         *     both enforced in the service; a client cannot ACK another sitting or a
+         *     section that is still open.
+         */
+        post: operations["acknowledge_collection_flush_api_mock_exams_sittings__sitting_id__sections__section__flush_ack_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mock-exams/sittings/{sitting_id}/sections/{section}/start": {
         parameters: {
             query?: never;
@@ -28695,6 +28720,40 @@ export interface operations {
             };
             path: {
                 sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_collection_flush_api_mock_exams_sittings__sitting_id__sections__section__flush_ack_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+                section: string;
             };
             cookie?: never;
         };

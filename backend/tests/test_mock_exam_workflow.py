@@ -2465,6 +2465,90 @@ def test_retake_assign_rejects_inverted_window(fake_db):
 # ── B4: collect is separate from advance ──────────────────────────────
 
 
+def test_collection_flush_ack_is_canonical_per_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.mark_section_collected(exam["id"], "listening")
+
+    out = svc.acknowledge_collection_flush(
+        sitting["id"], str(user_id), "listening",
+    )
+
+    assert out == {
+        "section": "listening", "acknowledged": True, "settled": False,
+    }
+    persisted = svc.get_sitting(sitting["id"])
+    assert persisted["collection_flush_acks"]["listening"]
+    assert svc._pending_collection_flush_ids(exam["id"], "listening") == []
+
+
+def test_collection_flush_ack_rejects_wrong_owner_or_open_section(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    with pytest.raises(PermissionError):
+        svc.acknowledge_collection_flush(
+            sitting["id"], str(uuid4()), "listening",
+        )
+    with pytest.raises(svc.SittingConflictError):
+        svc.acknowledge_collection_flush(
+            sitting["id"], str(user_id), "listening",
+        )
+
+
+def test_collection_flush_wait_releases_on_ack(svc, monkeypatch):
+    snapshots = iter([["sitting-1"], []])
+    sleeps = []
+    monkeypatch.setattr(
+        svc, "_pending_collection_flush_ids", lambda *_a: next(snapshots),
+    )
+    monkeypatch.setattr(svc.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    assert svc.wait_for_collection_flush(
+        "exam-1", "reading", grace_seconds=15, poll_seconds=0.25,
+    ) == []
+    assert sleeps == [0.25]
+
+
+def test_collection_flush_wait_is_bounded_for_offline_tabs(svc, monkeypatch):
+    times = iter([0.0, 0.0, 2.0])
+    monkeypatch.setattr(svc.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(svc.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        svc, "_pending_collection_flush_ids", lambda *_a: ["offline-sitting"],
+    )
+
+    assert svc.wait_for_collection_flush(
+        "exam-1", "reading", grace_seconds=1, poll_seconds=0.25,
+    ) == ["offline-sitting"]
+
+
+def test_collection_sweep_waits_before_force_collect(svc, monkeypatch):
+    events = []
+    monkeypatch.setattr(
+        svc, "wait_for_collection_flush",
+        lambda exam_id, section: events.append(("wait", exam_id, section)),
+    )
+    monkeypatch.setattr(
+        svc, "collect_section",
+        lambda exam_id, admin_id, section: events.append(
+            ("collect", exam_id, admin_id, section),
+        ) or {"section": section, "collected": 1},
+    )
+
+    out = svc.collect_section_after_flush_grace("exam-1", "admin-1", "reading")
+
+    assert out == {"section": "reading", "collected": 1}
+    assert events == [
+        ("wait", "exam-1", "reading"),
+        ("collect", "exam-1", "admin-1", "reading"),
+    ]
+
+
 def test_collect_takes_papers_without_opening_the_next_section(fake_db, svc):
     """B4 — the whole point: papers in, class to the waiting room, and NO clock
     running until the admin decides to advance."""

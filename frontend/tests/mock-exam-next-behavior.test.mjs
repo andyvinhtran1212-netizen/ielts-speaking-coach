@@ -56,8 +56,9 @@ describe('/mock-exam native runner ownership', () => {
     assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
     assert.match(LISTENING_PLAYER, /event\.source !== window\.parent/);
     assert.match(READING_PLAYER, /event\.source !== window\.parent/);
-    assert.match(RUNNER, /awaitingEmbedFlush[\s\S]*renderedSection/);
-    assert.match(RUNNER, /await flushEmbed\(collectedEmbedSection\)[\s\S]*setFlushedCollectionKey/);
+    assert.match(RUNNER, /awaitingCollectionFlush[\s\S]*renderedSection/);
+    assert.match(RUNNER, /await flushEmbed\(pendingCollectionSection\)[\s\S]*acknowledgeCollectionFlush\(pendingCollectionSection\)[\s\S]*setFlushedCollectionKey/);
+    assert.match(RUNNER, /\/sections\/\$\{section\}\/flush-ack/);
   });
 
   test('serializes Writing autosave and reuses one immutable final payload', () => {
@@ -67,6 +68,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /SUBMIT_RETRY_DELAYS/);
     assert.match(RUNNER, /isMockSubmitSettled/);
     assert.match(RUNNER, /const settled = isMockSubmitSettled\(state, 'writing'\)[\s\S]*activeSection === 'writing'/);
+    assert.match(RUNNER, /pendingCollectionSection === 'writing'[\s\S]*await bridge\.flush\(\)[\s\S]*acknowledgeCollectionFlush/);
   });
 
   test('ships responsive accessible panes and a hermetic browser gate', () => {

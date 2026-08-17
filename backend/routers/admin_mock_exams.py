@@ -305,7 +305,8 @@ async def collect_section(
         # against the state at request time. Re-checking it inside the queued
         # task would fail the sweep whenever a legitimate advance happened in
         # between — losing the very papers this call accepted responsibility for.
-        svc.collect_section, exam_id, admin["id"], info["section"],
+        svc.collect_section_after_flush_grace,
+        exam_id, admin["id"], info["section"],
     )
     return {**info, "queued": True}
 
