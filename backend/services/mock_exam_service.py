@@ -32,6 +32,7 @@ in — regardless of order.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -58,6 +59,13 @@ _LISTENING_BUFFER_SECONDS = 120
 # clock has (about) run out. A few seconds of grace absorbs the gap between
 # the client's local tick hitting 0 and the request actually landing.
 _EARLY_SUBMIT_GRACE_SECONDS = 5
+# Student runners poll the shared collection marker every 8 seconds, then may
+# need up to 3 seconds to drain an embedded player's debounced requests.  Keep
+# the server-side sweep behind a larger bounded window; acknowledged clients
+# release the wait immediately, while closed/offline tabs cannot block a room
+# forever.
+_COLLECTION_FLUSH_GRACE_SECONDS = 15.0
+_COLLECTION_FLUSH_POLL_SECONDS = 0.25
 # Statuses from which _reconcile_terminal may still advance the sitting.
 # Once an admin has claimed (under_review) or beyond, we never downgrade.
 _PRE_REVIEW = {
@@ -2428,6 +2436,127 @@ def pending_in_section(exam_id: str, section: str) -> int:
     return len(rows.data or [])
 
 
+def _pending_collection_flush_ids(exam_id: str, section: str) -> list[str]:
+    """Outstanding papers whose clients have not ACKed their final autosave.
+
+    The exam marker is checked on every pass.  If another invigilator already
+    advanced, the advance path owns the idempotent recovery sweep and this
+    grace loop must not keep a background task asleep unnecessarily.
+    """
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        return []
+    exam = get_published_exam_by_id(str(exam_id)) or {}
+    if (exam.get("active_section") != section
+            or exam.get("collected_section") != section):
+        return []
+    rows = (
+        supabase_admin.table("mock_exam_sittings")
+        .select(f"id,{col},collection_flush_acks")
+        .eq("mock_exam_id", str(exam_id))
+        .is_(col, "null")
+        .not_.in_("status", ["released", "void"])
+        .execute().data or []
+    )
+    return [
+        str(row["id"])
+        for row in rows
+        if not (row.get("collection_flush_acks") or {}).get(section)
+    ]
+
+
+def wait_for_collection_flush(
+    exam_id: str,
+    section: str,
+    *,
+    grace_seconds: float = _COLLECTION_FLUSH_GRACE_SECONDS,
+    poll_seconds: float = _COLLECTION_FLUSH_POLL_SECONDS,
+) -> list[str]:
+    """Wait until final-save ACKs arrive, returning IDs that timed out.
+
+    This is intentionally bounded: a disconnected student still has their
+    server-held answers force-collected after the grace window.  Database read
+    failures consume the remaining grace instead of turning a transient lookup
+    failure into an immediate destructive sweep.
+    """
+    deadline = time.monotonic() + max(0.0, grace_seconds)
+    unacked: list[str] = []
+    while True:
+        try:
+            unacked = _pending_collection_flush_ids(exam_id, section)
+        except Exception:  # noqa: BLE001 — bounded retry before strict sweep
+            logger.exception(
+                "[mock-exam] collection-flush lookup failed exam=%s section=%s",
+                exam_id, section,
+            )
+            unacked = ["lookup-failed"]
+        if not unacked:
+            return []
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warning(
+                "[mock-exam] collection-flush grace expired exam=%s section=%s pending=%s",
+                exam_id, section, unacked,
+            )
+            return unacked
+        time.sleep(min(max(0.01, poll_seconds), remaining))
+
+
+def acknowledge_collection_flush(
+    sitting_id: str, user_id: str, section: str,
+) -> dict:
+    """Persist the owner's ACK after their final section autosave completes."""
+    col = _SUBMITTED_COL.get(section)
+    if not col:
+        raise SittingConflictError("Phần thi không hợp lệ.")
+    sitting = get_sitting(sitting_id)
+    if not sitting:
+        raise NotFoundError("Sitting không tồn tại.")
+    if str(sitting.get("user_id")) != str(user_id):
+        raise PermissionError("Sitting không thuộc về bạn.")
+
+    # A sweep can win the last millisecond race between the client's final save
+    # and this ACK.  Once the canonical section stamp exists, ACK is idempotently
+    # settled and the client may close its workspace.
+    if sitting.get(col):
+        return {"section": section, "acknowledged": True, "settled": True}
+
+    exam = get_published_exam_by_id(str(sitting["mock_exam_id"])) or {}
+    if is_retake(exam):
+        raise SittingConflictError("Bài test lại không dùng thu bài đồng loạt.")
+    if (exam.get("active_section") != section
+            or exam.get("collected_section") != section):
+        raise SittingConflictError("Phần thi này chưa ở trạng thái thu bài.")
+
+    acks = dict(sitting.get("collection_flush_acks") or {})
+    acks[section] = _now().isoformat()
+    updated = (
+        supabase_admin.table("mock_exam_sittings")
+        .update({"collection_flush_acks": acks})
+        .eq("id", str(sitting_id))
+        .eq("user_id", str(user_id))
+        .is_(col, "null")
+        .execute().data or []
+    )
+    if updated:
+        return {"section": section, "acknowledged": True, "settled": False}
+
+    # The strict update lost a race to collection.  Re-read canonical state;
+    # never manufacture a successful ACK from an empty update.
+    fresh = get_sitting(sitting_id) or {}
+    if fresh.get(col):
+        return {"section": section, "acknowledged": True, "settled": True}
+    raise SittingConflictError("Không ghi nhận được xác nhận lưu bài.")
+
+
+def collect_section_after_flush_grace(
+    exam_id: str, admin_id: str, section: str,
+) -> dict:
+    """Background collect that gives active clients a final-save handshake."""
+    wait_for_collection_flush(exam_id, section)
+    return collect_section(exam_id, admin_id, section)
+
+
 def collect_preflight(exam_id: str, section: Optional[str] = None,
                       from_section: Optional[str] = None) -> dict:
     """Validate a collect request and report what it will sweep.
@@ -2470,7 +2599,7 @@ def collect_preflight(exam_id: str, section: Optional[str] = None,
 
 
 
-def mark_section_collected(exam_id: str, section: str) -> None:
+def mark_section_collected(exam_id: str, section: str) -> bool:
     """CLOSE ADMISSIONS for `section` — the canonical "papers are in, next
     section not open yet" state (mig 166).
 
@@ -2484,9 +2613,24 @@ def mark_section_collected(exam_id: str, section: str) -> None:
     The `.eq("active_section", section)` is what keeps a RECOVERY re-sweep of an
     earlier section from pushing a live exam into a pause it is not in.
     """
-    supabase_admin.table("mock_exams").update({
+    updated = supabase_admin.table("mock_exams").update({
         "collected_section": section,
-    }).eq("id", str(exam_id)).eq("active_section", section).execute()
+        "collection_sweep_completed_section": None,
+    }).eq("id", str(exam_id)).eq("active_section", section).execute().data or []
+    return bool(updated)
+
+
+def mark_collection_sweep_completed(exam_id: str, section: str) -> bool:
+    """Publish that the ACK-gated sweep finished for the paused section."""
+    updated = (
+        supabase_admin.table("mock_exams")
+        .update({"collection_sweep_completed_section": section})
+        .eq("id", str(exam_id))
+        .eq("active_section", section)
+        .eq("collected_section", section)
+        .execute().data or []
+    )
+    return bool(updated)
 
 
 def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
@@ -2511,6 +2655,7 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
     target = collect_preflight(exam_id, section, from_section)["section"]
     mark_section_collected(exam_id, target)
     collected = _force_collect_section(exam_id, target, strict=True)
+    mark_collection_sweep_completed(exam_id, target)
     logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
                 exam_id, target, collected, admin_id)
     return {"section": target, "collected": collected}
@@ -2897,9 +3042,9 @@ def advance_section(exam_id: str, admin_id: str,
     """Admin advances the shared classroom clock to the NEXT configured section.
 
     not_started → listening → reading → writing → done (skipping any section
-    the exam has no test/prompt for). Force-collects stragglers of the section
-    being closed, then stamps `{next}_started_at` — every sitting under this
-    exam picks up the new section on its next poll.
+    the exam has no test/prompt for). Every transition out of LRW requires the
+    explicit collect flow to have completed its ACK-gated sweep; only then is
+    `{next}_started_at` stamped for every sitting's next poll.
     """
     exam = get_published_exam_by_id(exam_id)
     if not exam:
@@ -2929,6 +3074,17 @@ def advance_section(exam_id: str, admin_id: str,
             f"Màn hình của bạn đang hiển thị phần {expected_section!r} nhưng kỳ thi "
             f"đã ở phần {current!r} — có thao tác khác vừa chuyển phần. Tải lại trang."
         )
+    if current in _LRW_ORDER and exam.get("collected_section") != current:
+        raise SittingConflictError(
+            "Phải thu phần thi hiện tại và chờ lưu câu trả lời cuối trước khi "
+            "mở phần tiếp theo."
+        )
+    if (current in _LRW_ORDER
+            and exam.get("collection_sweep_completed_section") != current):
+        raise SittingConflictError(
+            "Hệ thống đang chờ lưu câu trả lời cuối và thu đủ bài của phần này. "
+            "Chỉ mở phần tiếp theo sau khi bảng theo dõi xác nhận đã thu xong."
+        )
     return _advance_from(exam_id, admin_id, current)
 
 
@@ -2957,6 +3113,19 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     if current == "done":
         raise SittingConflictError("Kỳ thi đã kết thúc tất cả các phần.")
 
+    paused = exam.get("collected_section") == current
+    if current in _LRW_ORDER and not paused:
+        raise SittingConflictError(
+            "Phải thu phần thi hiện tại và chờ lưu câu trả lời cuối trước khi "
+            "mở phần tiếp theo."
+        )
+    if (current in _LRW_ORDER
+            and exam.get("collection_sweep_completed_section") != current):
+        raise SittingConflictError(
+            "Hệ thống đang chờ lưu câu trả lời cuối và thu đủ bài của phần này. "
+            "Chỉ mở phần tiếp theo sau khi bảng theo dõi xác nhận đã thu xong."
+        )
+
     seq = _configured_sections(exam)
     if current == "not_started":
         nxt = seq[0] if seq else "done"
@@ -2970,7 +3139,11 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     # Opening the next section ENDS the collected-but-paused state, whatever it
     # was. Leaving it set would keep every sitting created afterwards born with
     # a stale section already stamped submitted.
-    update: dict = {"active_section": nxt, "collected_section": None}
+    update: dict = {
+        "active_section": nxt,
+        "collected_section": None,
+        "collection_sweep_completed_section": None,
+    }
     if nxt in _LRW_ORDER:
         update[f"{nxt}_started_at"] = _now_iso()
     elif nxt == "done":
@@ -2997,9 +3170,19 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     # the WRITE on the mode makes it impossible to advance a row that became a
     # retake in between. The column is NOT NULL DEFAULT 'sequential' (mig 154),
     # so this never silently excludes a legacy row.
-    resp = supabase_admin.table("mock_exams").update(update).eq(
+    query = supabase_admin.table("mock_exams").update(update).eq(
         "id", str(exam_id),
-    ).eq("active_section", current).neq("exam_mode", "retake").execute()
+    ).eq("active_section", current).neq("exam_mode", "retake")
+    # Close the collect/advance TOCTOU gap. Every transition out of an LRW
+    # section requires BOTH the collected marker and the completed sweep token;
+    # direct Advance can therefore never bypass the final-save ACK grace.
+    if paused:
+        query = query.eq("collected_section", current).eq(
+            "collection_sweep_completed_section", current,
+        )
+    else:
+        query = query.is_("collected_section", "null")
+    resp = query.execute()
     if not resp.data:
         # Someone else advanced between our read and our write. Report the state
         # that actually holds rather than pretending this call did it.
@@ -3008,6 +3191,12 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
             raise SittingConflictError(
                 "Đề vừa được chuyển sang chế độ test lại — không còn phần thi "
                 "chung để mở. Tải lại trang để xem trạng thái mới nhất."
+            )
+        if (fresh.get("collected_section") == current
+                and fresh.get("collection_sweep_completed_section") != current):
+            raise SittingConflictError(
+                "Phần thi vừa được thu và vẫn đang đồng bộ câu trả lời cuối. "
+                "Chờ xác nhận thu xong trước khi mở phần tiếp theo."
             )
         raise SittingConflictError(
             "Phần thi đã được mở bởi một thao tác khác (hiện đang ở: "
@@ -3018,17 +3207,10 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
         exam_id, current, nxt, admin_id,
     )
     out = dict(resp.data[0])
-    # B3 — the straggler sweep used to run INSIDE this request: one loop over
-    # every unsubmitted sitting, fully grading each L/R attempt inline. For a
-    # class of 25-30 that is a very long request with no progress feedback, and
-    # a timeout left the papers collected but active_section unmoved, with the
-    # admin unable to tell what had happened.
-    #
-    # The transition above is now the fast, atomic part; the caller queues the
-    # sweep as a background task. Safe in this order because submit_section
-    # gates on active_section, so a straggler can only get a 409 in the gap, and
-    # _collect_section_for_sitting is idempotent.
-    out["sweep_section"] = current if current in _LRW_ORDER else None
+    # Collection is now an explicit prerequisite for LRW transitions. The
+    # ACK-gated sweep has already completed, so Advance must never queue a
+    # second, uncoordinated sweep against the section it just closed.
+    out["sweep_section"] = None
     return out
 
 
@@ -3444,6 +3626,13 @@ def admin_live_monitor(exam_id: str) -> dict:
             # the clock-free break it had just told the invigilator about
             # (Codex review, PR #843).
             "collected_section": exam.get("collected_section"),
+            # A collected marker closes the paper immediately; this second
+            # token becomes equal only after the ACK-gated background sweep
+            # has finished. The console uses the distinction to keep Advance
+            # disabled while final client saves are still being coordinated.
+            "collection_sweep_completed_section": exam.get(
+                "collection_sweep_completed_section"
+            ),
             "section_started_at": exam.get(f"{active}_started_at") if active in _LRW_ORDER else None,
             "section_duration_seconds": (
                 _section_duration_seconds(exam, active) if active in _LRW_ORDER else None),

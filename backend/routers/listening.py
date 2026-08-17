@@ -6198,6 +6198,11 @@ async def submit_listening_test_attempt(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if attempt.get("status") == "submitted":
+        # Lost-ACK reconciliation for the 4-skill mock parent. Retrying a
+        # committed sealed submit must return the same opaque receipt; normal
+        # attempts keep the historical 422 and never expose a second result.
+        if _mock_sealed(attempt):
+            return {"received": True, "sitting_id": attempt["sitting_id"], "sealed": True}
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")

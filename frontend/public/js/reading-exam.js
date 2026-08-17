@@ -74,6 +74,7 @@
     unsaved: new Map(),
     save_retry_timers: new Map(),
     inflight: new Map(),
+    inflight_waiters: [],
     save_gen: new Map(),
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
@@ -1724,6 +1725,20 @@
       var n = (SESSION.inflight.get(qNum) || 1) - 1;
       if (n > 0) SESSION.inflight.set(qNum, n);
       else SESSION.inflight['delete'](qNum);
+      if (SESSION.inflight.size === 0 && SESSION.inflight_waiters.length) {
+        var waiters = SESSION.inflight_waiters.splice(0);
+        // Let the success/failure handler finish first. In particular, a
+        // failed request may enqueue its retry immediately after `settled()`;
+        // the mock flush must get a chance to cancel that timer before writing
+        // the final in-memory value.
+        Promise.resolve().then(function () {
+          if (SESSION.inflight.size) {
+            Array.prototype.push.apply(SESSION.inflight_waiters, waiters);
+            return;
+          }
+          waiters.forEach(function (resolve) { resolve(); });
+        });
+      }
     };
     // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
     // noRedirect (a transient 401 must not bounce an anon mid-test to login);
@@ -1798,6 +1813,56 @@
       // (Part swap) or be an out-of-card gap (summary / diagram), in which
       // case a DOM read would be null and the answer lost anyway.
       patchAnswer(qNum, SESSION.answers.get(qNum), { keepalive: true });
+    });
+  }
+
+  // The mock parent needs a PROVABLE clean boundary before it acknowledges
+  // collection to the server. Unlike the pagehide helper above, this returns a
+  // promise and reports false when any latest answer still has no canonical
+  // PATCH. A missing/failed result must never be presented as a clean flush.
+  function _waitForInflightSaves() {
+    if (SESSION.inflight.size === 0) return Promise.resolve();
+    return new Promise(function (resolve) { SESSION.inflight_waiters.push(resolve); });
+  }
+
+  function _flushPendingSavesForMock() {
+    if (!SESSION.attempt_id) return Promise.resolve(false);
+    var due = [];
+    var add = function (qNum) { if (due.indexOf(qNum) === -1) due.push(qNum); };
+    var drainDeferred = function () {
+      SESSION.debounce_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+      SESSION.debounce_timers.clear();
+      SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+      SESSION.save_retry_timers.clear();
+      SESSION.inflight.forEach(function (_n, qNum) { add(qNum); });
+      SESSION.unsaved.forEach(function (_state, qNum) { add(qNum); });
+    };
+    drainDeferred();
+
+    // Never race a final value B against an older in-flight value A. The
+    // answer endpoint is last-write-wins per q_num, so B completing first
+    // would let A overwrite it after the parent has already acknowledged the
+    // collection. Wait for every older request, cancel any retry it scheduled,
+    // then write the latest frozen in-memory value as the definitive tail.
+    return _waitForInflightSaves().then(function () {
+      drainDeferred();
+      var refused = false;
+      var pending = due.map(function (qNum) {
+        var latest = SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '';
+        var save = patchAnswer(qNum, latest);
+        if (!save || typeof save.then !== 'function') {
+          refused = true;
+          return Promise.resolve();
+        }
+        return save;
+      });
+      return Promise.all(pending).then(function () {
+        return !refused
+          && SESSION.inflight.size === 0
+          && SESSION.debounce_timers.size === 0
+          && SESSION.save_retry_timers.size === 0
+          && SESSION.unsaved.size === 0;
+      }, function () { return false; });
     });
   }
   function restoreAnswers() {
@@ -3122,19 +3187,14 @@
   // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
   window.addEventListener('message', function (ev) {
     if (!ev.data || ev.data.type !== 'mock-flush') return;
-    var pending = [];
-    try {
-      SESSION.debounce_timers.forEach(function (handle, qNum) {
-        clearTimeout(handle);
-        // Flush from the IN-MEMORY answer store (source of truth), not the DOM
-        // card — the card may be unmounted (student switched Part within the
-        // debounce window) or be a non-#q-N input (summary/diagram), in which
-        // case readAnswer(card) would be null and the answer silently lost.
-        pending.push(patchAnswer(qNum, SESSION.answers.get(qNum)));
-      });
-      SESSION.debounce_timers.clear();
-    } catch (e) { /* best-effort */ }
-    Promise.all(pending.map(function (p) { return (p && p.catch) ? p.catch(function () {}) : Promise.resolve(); }))
-      .then(function () { if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'reading' }, '*'); });
+    _flushPendingSavesForMock().then(function (clean) {
+      if (!ev.source) return;
+      ev.source.postMessage({
+        type: 'mock-flushed', section: 'reading',
+        // Explicit zero is a protocol guarantee. The parent rejects a missing,
+        // non-finite, or positive value and retries without sending flush-ack.
+        unsaved: clean ? 0 : Math.max(1, SESSION.unsaved.size),
+      }, '*');
+    });
   });
 })();

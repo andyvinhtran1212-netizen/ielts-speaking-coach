@@ -50,8 +50,8 @@ def test_collect_forwards_the_screen_section_and_queues_the_sweep():
     with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
          patch("routers.admin_mock_exams.svc.collect_preflight",
                return_value={"section": "listening", "pending": 3}) as mock_pre, \
-         patch("routers.admin_mock_exams.svc.mark_section_collected") as mock_mark, \
-         patch("routers.admin_mock_exams.svc.collect_section") as mock_sweep:
+         patch("routers.admin_mock_exams.svc.mark_section_collected", return_value=True) as mock_mark, \
+         patch("routers.admin_mock_exams.svc.collect_section_after_flush_grace") as mock_sweep:
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/collect?from_section=listening", headers=_AUTH)
     assert r.status_code == 202, r.text
@@ -61,6 +61,31 @@ def test_collect_forwards_the_screen_section_and_queues_the_sweep():
     # admissions close from the moment the request is ACCEPTED, not from
     # whenever the queued sweep happens to run
     mock_mark.assert_called_once_with(_EXAM, "listening")
+
+
+def test_collect_does_not_queue_when_advance_wins_the_marker_race():
+    """Preflight is only a read. If advance commits before the marker update,
+    collect must return a conflict instead of sweeping the old section."""
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.collect_preflight",
+               return_value={"section": "listening", "pending": 3}), \
+         patch("routers.admin_mock_exams.svc.mark_section_collected", return_value=False), \
+         patch("routers.admin_mock_exams.svc.collect_section_after_flush_grace") as mock_sweep:
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/collect?from_section=listening", headers=_AUTH)
+    assert r.status_code == 409, r.text
+    mock_sweep.assert_not_called()
+
+
+def test_advance_maps_collection_coordination_failure_to_409():
+    from services.mock_exam_service import SittingConflictError
+    with patch("routers.admin_mock_exams.require_admin", new=AsyncMock(return_value=_ADMIN)), \
+         patch("routers.admin_mock_exams.svc.advance_section",
+               side_effect=SittingConflictError("đang thu bài")):
+        r = _client().post(
+            f"/admin/mock-exams/{_EXAM}/advance",
+            json={"from_section": "listening"}, headers=_AUTH)
+    assert r.status_code == 409, r.text
 
 
 def test_collect_maps_a_stale_screen_to_409():
@@ -119,7 +144,7 @@ def test_recovery_from_a_finished_exam_is_accepted():
          patch("routers.admin_mock_exams.svc.collect_preflight",
                return_value={"section": "writing", "pending": 2}), \
          patch("routers.admin_mock_exams.svc.mark_section_collected"), \
-         patch("routers.admin_mock_exams.svc.collect_section"):
+         patch("routers.admin_mock_exams.svc.collect_section_after_flush_grace"):
         r = _client().post(
             f"/admin/mock-exams/{_EXAM}/collect?section=writing&from_section=done",
             headers=_AUTH)

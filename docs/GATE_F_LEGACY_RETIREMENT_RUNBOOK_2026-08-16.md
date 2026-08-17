@@ -65,12 +65,12 @@ các điều kiện bên dưới vẫn có thể đẩy quyết định retireme
   Sev1/2 và không có persistence invariant violation.
 - Permanent redirects, replacement invariant/test mapping và deletion
   checklist phải được review trước khi xóa HTML/JS.
-- Static replacement inventory hiện fail closed với blocker
-  `legacy-next-replacement-missing`: 118/121 HTML renderable có App Router owner;
+- Static replacement inventory hiện đạt 121/121 HTML renderable có App Router
+  owner; blocker `legacy-next-replacement-missing` phải bằng 0. Các trang
   `/pages/exam.html`, `/pages/listening-practice-run.html` và
-  `/pages/mock-exam.html` chưa có replacement route. Không được tạo redirect giả
-  sang một page gần giống hoặc gọi ba artifact này là rollback-only trước khi
-  behavior tương ứng được migrate và verify.
+  `/pages/mock-exam.html` vẫn là rollback/parity artifact cho tới Gate F; route
+  ownership đầy đủ không tự cho phép redirect hoặc xóa legacy trước khi Gate E,
+  drain và soak hoàn tất.
 
 ## Verification hiện tại
 

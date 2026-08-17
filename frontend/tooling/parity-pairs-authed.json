@@ -88,6 +88,14 @@
     "allow": []
   },
   {
+    "name": "listening-practice-run-missing-id",
+    "legacy": "/pages/listening-practice-run.html",
+    "next": "/listening/practice-run",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?id=` thì cả hai vế fail closed ở trạng thái thiếu mã. Cặp này ghim owner, shell, copy và style desktop/mobile; fixture `verify-listening-practice-run-flow.mjs` mới phủ resume/start/check/reveal/submit và mobile containment bằng dữ liệu kín."
+  },
+  {
     "name": "listening-landing",
     "legacy": "/pages/listening.html",
     "next": "/listening",
@@ -126,12 +134,28 @@
     "allow": []
   },
   {
+    "name": "exam-player-list",
+    "legacy": "/pages/exam.html",
+    "next": "/exam",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Cặp live G1 ghim route/shell/list published exams ở tài khoản probe. Player, submit, review retry, KP stepper và malformed contracts được chứng minh riêng bằng verify-exam-flow.mjs với fixture ổn định."
+  },
+  {
     "name": "full-test",
     "legacy": "/pages/full-test.html",
     "next": "/full-test",
     "allow": [],
     "minBaselineLines": 3,
     "note": "Tài khoản probe KHÔNG có kỳ thi thử nào, nên vế legacy chỉ render trạng thái RỖNG: tiêu đề + mô tả + câu 'chưa có kỳ thi nào'. Đó là 3 dòng và là nội dung ĐẦY ĐỦ của trạng thái đó, không phải vế tham chiếu hỏng. Cặp này vì thế mới chỉ chứng minh: hai vế khớp TIÊU ĐỀ, khớp từng dòng chữ, không lỗi console, và khớp getComputedStyle ở cả hai bề rộng — cho ĐÚNG trạng thái rỗng. Nó KHÔNG chứng minh gì về danh sách kỳ thi. Muốn phủ nốt: mở một kỳ thi cho tài khoản probe rồi bỏ `minBaselineLines`."
+  },
+  {
+    "name": "mock-exam-missing-identity",
+    "legacy": "/pages/mock-exam.html",
+    "next": "/mock-exam",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?code=` hoặc `?sitting=` thì cả hai runner fail closed với cùng thông báo thiếu định danh. Cặp tĩnh này ghim owner, title, lỗi console và responsive shell; `verify-mock-exam-flow.mjs` phủ create reconciliation, retake, embedded Listening, Writing autosave và final-submit lost ACK bằng backend kín."
   },
   {
     "name": "vocab-practice",

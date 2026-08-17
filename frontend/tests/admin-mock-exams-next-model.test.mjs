@@ -103,7 +103,7 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
   });
 
   test('forces canonical reconciliation and preserves irreversible guards', () => {
-    for (const token of ['loadExams(false, true)', 'loadExams(true, true)', 'chưa xác nhận được trạng thái backend', 'from_section: current', 'document.visibilityState', '15_000', 'Không có snapshot tiến độ; thao tác chuyển phần đã bị khóa']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['loadExams(false, true)', 'loadExams(true, true)', 'chưa xác nhận được trạng thái backend', 'from_section: current', 'active === \'not_started\'', 'Thu bài và chuyển phần tại Phòng thi trực tiếp', 'document.visibilityState', '15_000', 'Không có snapshot tiến độ; thao tác chuyển phần đã bị khóa']) assert.ok(COMPONENT.includes(token), token);
     for (const token of ['open_until: until', 'retakeServableSkills', 'mergeRetestCandidates', 'refresh_failed', 'assignmentRequestRef', 'assignmentError', 'Không xác nhận được assignment sau khi ghi']) assert.ok(ASSIGN.includes(token), token);
     for (const token of ['/admin/exam-content', 'failedKinds', 'cohort_ids: cohortDraft', 'exam_only: false', 'input.value = row.courseLevel']) assert.ok(CONTENT.includes(token), token);
     assert.doesNotMatch(`${COMPONENT}\n${ASSIGN}\n${CONTENT}`, /dangerouslySetInnerHTML|http:\/\/localhost:8000|railway\.app/);

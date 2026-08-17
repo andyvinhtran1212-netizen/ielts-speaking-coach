@@ -78,7 +78,7 @@ describe('/listening/practice — native React behavior', () => {
     assert.doesNotMatch(BEHAVIOR, /const (attempted|completed) = test\.attemptCount > 0/);
     assert.match(BEHAVIOR, /data-status=\{completed \? 'done' : 'new'\}/);
     assert.match(BEHAVIOR, /completed \? 'Làm lại' : 'Bắt đầu'/);
-    assert.match(BEHAVIOR, /listening-practice-run\.html\?id=\$\{encodeURIComponent\(test\.id\)\}/);
+    assert.match(BEHAVIOR, /\/listening\/practice-run\?id=\$\{encodeURIComponent\(test\.id\)\}/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 

@@ -131,7 +131,9 @@ export function normalizeLiveSnapshot(raw) {
   const userIds = students.map((student) => student.userId).filter(Boolean);
   if (new Set(sittingIds).size !== sittingIds.length || new Set(userIds).size !== userIds.length) return null;
   const collectedSection = TEXT(exam.collected_section) || null;
+  const collectionSweepCompletedSection = TEXT(exam.collection_sweep_completed_section) || null;
   if (collectedSection && !TEST_SECTION.has(collectedSection)) return null;
+  if (collectionSweepCompletedSection && !TEST_SECTION.has(collectionSweepCompletedSection)) return null;
   return {
     exam: {
       id,
@@ -142,6 +144,7 @@ export function normalizeLiveSnapshot(raw) {
       isOpen: exam.is_open === true,
       activeSection,
       collectedSection,
+      collectionSweepCompletedSection,
       sectionStartedAt: TEXT(exam.section_started_at) || null,
       sectionDurationSeconds: nullableNonNegative(exam.section_duration_seconds),
       sectionTimeLeftSeconds: nullableNonNegative(exam.section_time_left_seconds),
