@@ -106,9 +106,11 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    stale local confirmation, lỗi lookup trên URL Legacy giữ nguyên ledger và
    dừng trước khi tải câu hỏi, exact-blob retry + finalize barrier,
    failed-finalize retry, finalize network-after-commit reconcile không POST
-   trùng, và một hành trình cùng tab Legacy lưu câu 1 → Next resume câu 2 →
-   Next lưu câu 2 → Legacy resume câu 3 từ canonical response ledger. Đây là
-   runtime evidence, không phải source sentinel; full-stack
+   trùng, và hai hành trình affinity đối xứng trên browser: Legacy claim trước
+   chặn Next reopen rồi resume Legacy, cùng Next claim trước chặn Legacy reopen
+   rồi resume Next; cả hai lưu câu 1, mở URL renderer đối nghịch, lưu câu 2 và
+   reload vào câu 3 từ canonical response ledger. Đây là runtime evidence,
+   không phải source sentinel; full-stack
    staging failure-injection vẫn được theo dõi riêng trong critical suite.
 3. 🟡 Automated device/microphone matrix đã được version ở
    `frontend/tooling/gate-e-speaking-device-matrix.json`: mỗi project chạy thêm
