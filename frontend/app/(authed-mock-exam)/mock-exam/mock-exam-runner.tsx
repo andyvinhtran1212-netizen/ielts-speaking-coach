@@ -812,7 +812,11 @@ export function MockExamRunner() {
     const message = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
       if (event.data?.type !== 'mock-flushed' || event.data?.section !== section) return;
-      const unsaved = Number(event.data?.unsaved || 0);
+      const unsaved = event.data?.unsaved;
+      if (typeof unsaved !== 'number' || !Number.isFinite(unsaved) || unsaved < 0) {
+        finish(new Error('mock-embed-invalid-flush-response'));
+        return;
+      }
       finish(unsaved > 0 ? new Error('mock-embed-unsaved-answers') : undefined);
     };
     window.addEventListener('message', message);

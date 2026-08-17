@@ -1800,6 +1800,38 @@
       patchAnswer(qNum, SESSION.answers.get(qNum), { keepalive: true });
     });
   }
+
+  // The mock parent needs a PROVABLE clean boundary before it acknowledges
+  // collection to the server. Unlike the pagehide helper above, this returns a
+  // promise and reports false when any latest answer still has no canonical
+  // PATCH. A missing/failed result must never be presented as a clean flush.
+  function _flushPendingSavesForMock() {
+    if (!SESSION.attempt_id) return Promise.resolve(false);
+    var due = [];
+    var add = function (qNum) { if (due.indexOf(qNum) === -1) due.push(qNum); };
+    SESSION.debounce_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.debounce_timers.clear();
+    SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+    SESSION.save_retry_timers.clear();
+    SESSION.inflight.forEach(function (_n, qNum) { add(qNum); });
+    SESSION.unsaved.forEach(function (_state, qNum) { add(qNum); });
+
+    var refused = false;
+    var pending = due.map(function (qNum) {
+      var save = patchAnswer(qNum, SESSION.answers.get(qNum));
+      if (!save || typeof save.then !== 'function') {
+        refused = true;
+        return Promise.resolve();
+      }
+      return save;
+    });
+    return Promise.all(pending).then(function () {
+      return !refused
+        && SESSION.debounce_timers.size === 0
+        && SESSION.save_retry_timers.size === 0
+        && SESSION.unsaved.size === 0;
+    }, function () { return false; });
+  }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
       // Sprint 20.14e — flowing summary block: gaps live inside the
@@ -3122,19 +3154,14 @@
   // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
   window.addEventListener('message', function (ev) {
     if (!ev.data || ev.data.type !== 'mock-flush') return;
-    var pending = [];
-    try {
-      SESSION.debounce_timers.forEach(function (handle, qNum) {
-        clearTimeout(handle);
-        // Flush from the IN-MEMORY answer store (source of truth), not the DOM
-        // card — the card may be unmounted (student switched Part within the
-        // debounce window) or be a non-#q-N input (summary/diagram), in which
-        // case readAnswer(card) would be null and the answer silently lost.
-        pending.push(patchAnswer(qNum, SESSION.answers.get(qNum)));
-      });
-      SESSION.debounce_timers.clear();
-    } catch (e) { /* best-effort */ }
-    Promise.all(pending.map(function (p) { return (p && p.catch) ? p.catch(function () {}) : Promise.resolve(); }))
-      .then(function () { if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'reading' }, '*'); });
+    _flushPendingSavesForMock().then(function (clean) {
+      if (!ev.source) return;
+      ev.source.postMessage({
+        type: 'mock-flushed', section: 'reading',
+        // Explicit zero is a protocol guarantee. The parent rejects a missing,
+        // non-finite, or positive value and retries without sending flush-ack.
+        unsaved: clean ? 0 : Math.max(1, SESSION.unsaved.size),
+      }, '*');
+    });
   });
 })();

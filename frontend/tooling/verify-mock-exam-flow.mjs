@@ -65,7 +65,7 @@ async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
   finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
-  deferFlushAck = false,
+  deferFlushAck = false, readingFlushFailsOnce = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -89,11 +89,13 @@ async function fixturePage(browser, initialState, {
   let markDeferredDelivered;
   let markEmbedSaveReady;
   let markEmbedSavePersisted;
+  let markEmbedSaveFailed;
   let markFlushAckReady;
   state.deferredReady = new Promise((resolve) => { markDeferredReady = resolve; });
   state.deferredDelivered = new Promise((resolve) => { markDeferredDelivered = resolve; });
   state.embedSaveReady = new Promise((resolve) => { markEmbedSaveReady = resolve; });
   state.embedSavePersisted = new Promise((resolve) => { markEmbedSavePersisted = resolve; });
+  state.embedSaveFailed = new Promise((resolve) => { markEmbedSaveFailed = resolve; });
   state.flushAckReady = new Promise((resolve) => { markFlushAckReady = resolve; });
   state.embedAnswerBodies = [];
   page.on('pageerror', (error) => errors.push(String(error)));
@@ -105,10 +107,24 @@ async function fixturePage(browser, initialState, {
       return route.fulfill({
         status: 200,
         contentType: 'text/html',
-        body: deferEmbedSave
+        body: readingFlushFailsOnce
+          ? `<script>window.embedReady=true;let flushes=0;addEventListener('message',async e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush'){flushes+=1;let response;try{response=await fetch('/__mock-answer',{method:'PATCH',body:'latest-reading-answer'})}catch(_){}const message={type:'mock-flushed',section:'reading'};if(flushes>1)message.unsaved=response&&response.ok?0:1;parent.postMessage(message,location.origin)}})<\/script>`
+          : deferEmbedSave
           ? `<script>window.embedReady=true;addEventListener('message',async e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush'){await fetch('/__mock-answer',{method:'PATCH',body:'latest-answer'});parent.postMessage({type:'mock-flushed',section:'listening',unsaved:0},location.origin)}})<\/script>`
           : `<script>window.embedReady=true;addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.type==='mock-flush')parent.postMessage({type:'mock-flushed',section:'listening',unsaved:0},location.origin)})<\/script>`,
       });
+    }
+    if (readingFlushFailsOnce && url.origin === BASE && url.pathname === '/__mock-answer'
+        && request.method() === 'PATCH') {
+      state.embedAnswerBodies.push(request.postData());
+      if (state.embedAnswerBodies.length === 1) {
+        state.collectionOrder.push('embed-save-failed');
+        markEmbedSaveFailed();
+        return route.fulfill(json({ detail: 'temporary save failure' }, 503));
+      }
+      state.collectionOrder.push('embed-save');
+      markEmbedSavePersisted();
+      return route.fulfill(json({ ok: true }));
     }
     if (deferEmbedSave && url.origin === BASE && url.pathname === '/__mock-answer'
         && request.method() === 'PATCH') {
@@ -328,6 +344,34 @@ check('collection unmounts the paper only after the flush ACK persisted the late
     && collectedListening.state.collectionOrder.join(',') === 'embed-save,flush-ack:listening'
     && await collectedFrame.count() === 0);
 await collectedListening.context.close();
+
+const collectedReadingState = mockState({
+  active_section: 'reading', section_time_left_seconds: 600, section_duration_seconds: 600,
+});
+collectedReadingState.sitting.reading_attempt_id = 'reading-attempt-1';
+const collectedReading = await fixturePage(browser, collectedReadingState, {
+  readingFlushFailsOnce: true, deferFlushAck: true,
+});
+await collectedReading.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+const collectedReadingFrame = collectedReading.page.locator('iframe');
+await collectedReadingFrame.waitFor();
+await collectedReadingFrame.contentFrame().locator('body').waitFor();
+collectedReading.state.current.collected_section = 'reading';
+await collectedReading.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await collectedReading.state.embedSaveFailed;
+check('Reading flush thiếu unsaved sau PATCH lỗi không thể phát canonical ACK',
+  collectedReading.state.flushAcks.length === 0
+    && await collectedReadingFrame.count() === 1
+    && await collectedReading.page.getByText(/Đang lưu câu trả lời cuối cùng/).isVisible());
+await collectedReading.state.embedSavePersisted;
+await collectedReading.state.flushAckReady;
+check('Reading chỉ ACK sau retry PATCH thành công và explicit unsaved:0',
+  collectedReading.state.embedAnswerBodies.join(',') === 'latest-reading-answer,latest-reading-answer'
+    && collectedReading.state.collectionOrder.join(',') === 'embed-save-failed,embed-save,flush-ack:reading');
+collectedReading.state.releaseFlushAck();
+await collectedReading.page.getByText(/Đã nộp phần trước/).waitFor();
+check('Reading unmount sau canonical flush ACK', await collectedReadingFrame.count() === 0);
+await collectedReading.context.close();
 
 const collectedWritingState = mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,

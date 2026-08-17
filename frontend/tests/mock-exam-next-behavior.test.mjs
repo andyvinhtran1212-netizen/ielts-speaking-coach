@@ -14,6 +14,7 @@ const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const LISTENING_PLAYER = read('app', '(authed-listening-player)', 'listening', 'test', 'session', 'listening-test-session.tsx');
 const READING_PLAYER = read('app', '(authed-reading-player)', 'reading', 'exam', 'session', 'reading-exam-session.tsx');
 const LEGACY_RUNNER = read('public', 'js', 'mock-exam-runner.js');
+const LEGACY_READING = read('public', 'js', 'reading-exam.js');
 
 describe('/mock-exam native runner ownership', () => {
   test('owns the App Router surface without booting the legacy runner', () => {
@@ -51,6 +52,8 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /event\.origin !== window\.location\.origin/);
     assert.match(RUNNER, /event\.source !== frame\.contentWindow/);
     assert.match(RUNNER, /mock-embed-unsaved-answers/);
+    assert.match(RUNNER, /mock-embed-invalid-flush-response/);
+    assert.match(RUNNER, /typeof unsaved !== 'number'/);
     const submit = RUNNER.split('const doSubmit')[1].split('const submitSection')[0];
     assert.ok(submit.indexOf('await flushEmbed(section)') < submit.indexOf('const domainPath'));
     assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
@@ -68,6 +71,9 @@ describe('/mock-exam native runner ownership', () => {
       assert.match(handler, /document\.body\.inert = true/);
       assert.match(player, /if \(collectionFrozenRef\.current\) return/);
     }
+    assert.match(LEGACY_READING, /_flushPendingSavesForMock/);
+    assert.match(LEGACY_READING, /unsaved: clean \? 0 : Math\.max\(1, SESSION\.unsaved\.size\)/);
+    assert.doesNotMatch(LEGACY_READING, /mock-flushed', section: 'reading' \},/);
   });
 
   test('serializes Writing autosave and reuses one immutable final payload', () => {
