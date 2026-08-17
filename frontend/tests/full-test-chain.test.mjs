@@ -241,6 +241,68 @@ test('Legacy and Next claim each chained Part before continuing the Full Test', 
   }
 });
 
+test('an opposite child affinity persists its predecessor chain before redirect', async () => {
+  const transitionStart = SRC.indexOf('  async function _startNextPartInFullTest(part) {');
+  const transitionEnd = SRC.indexOf('  function _finishTestAndShowResults()', transitionStart);
+  const entries = new Map([['ielts_ft_session_ids', JSON.stringify(['p1'])]]);
+  let redirectedTo = null;
+  let questionGenerationCalled = false;
+  const environment = {
+    _playerGeneration: 1,
+    _ftAllSessionIds: ['p1'],
+    _getNativeFullTest: () => null,
+    showState: () => {},
+    _setLoadingMessage: () => {},
+    _ftP2Topic: 'Part 2 topic',
+    _sessionData: { topic: 'General', mode: 'test_full' },
+    _sessionId: 'p1',
+    _rendererAffinity: 'legacy',
+    _sittingId: null,
+    window: {
+      api: {
+        async post(url) {
+          if (url === '/sessions') return { id: 'p2', part: 2, mode: 'test_full' };
+          if (url === '/sessions/p2/renderer-affinity') {
+            return { renderer_affinity: 'next' };
+          }
+          if (url.endsWith('/questions/generate')) questionGenerationCalled = true;
+          throw new Error(`unexpected request: ${url}`);
+        },
+      },
+      location: {
+        replace(url) {
+          redirectedTo = url;
+          assert.deepEqual(
+            JSON.parse(entries.get('ielts_ft_session_ids')),
+            ['p1', 'p2'],
+            'the canonical destination must see the complete predecessor chain',
+          );
+        },
+      },
+    },
+    _playerActive: true,
+    _replaceLegacyFtChainIfCurrent: () => false,
+    sessionStorage: {
+      getItem(key) { return entries.get(key) || null; },
+      setItem(key, value) { entries.set(key, String(value)); },
+    },
+    FT_CHAIN_KEY: 'ielts_ft_session_ids',
+    _practiceSessionUrlForRenderer: (sessionId, renderer) => (
+      `${renderer === 'next' ? '/practice/session' : '/pages/practice.html'}?session_id=${sessionId}`
+    ),
+  };
+  const names = Object.keys(environment);
+  const makeTransition = new Function(...names, `
+    ${SRC.slice(transitionStart, transitionEnd)}
+    return _startNextPartInFullTest;
+  `);
+
+  await makeTransition(...names.map((name) => environment[name]))(2);
+
+  assert.equal(redirectedTo, '/practice/session?session_id=p2');
+  assert.equal(questionGenerationCalled, false);
+});
+
 test('all Full Test parts reject a persisted short question set', () => {
   assert.match(SRC, /_testMode === 'test_full' && questions\.length < maxQ/);
   assert.match(SRC, /Không tạo đủ câu hỏi cho Full Test Part/);

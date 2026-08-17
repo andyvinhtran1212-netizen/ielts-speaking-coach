@@ -64,6 +64,13 @@ async function verifyNextClaimRejectsLegacyReopen(page) {
     questions: questions(),
     routePath: '/practice/session',
     handleApi: async ({ route, request, path }) => {
+      if (request.method() === 'GET' && path === '/auth/me') {
+        await route.fulfill({
+          json: { id: OWNER, email: 'gate-e@test.local', full_name: 'Gate E Learner' },
+          headers: cors,
+        });
+        return true;
+      }
       if (request.method() !== 'POST' || path !== `/sessions/${SID}/responses`) return false;
       const body = request.postDataBuffer()?.toString('utf8') || '';
       const questionId = body.match(/name="question_id"\r\n\r\n([^\r\n]+)/)?.[1] || 'missing';
@@ -158,6 +165,13 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
     questions: questions(),
     routePath: '/pages/practice.html',
     handleApi: async ({ route, request, path }) => {
+      if (request.method() === 'GET' && path === '/auth/me') {
+        await route.fulfill({
+          json: { id: OWNER, email: 'gate-e@test.local', full_name: 'Gate E Learner' },
+          headers: cors,
+        });
+        return true;
+      }
       if (request.method() !== 'POST' || path !== `/sessions/${SID}/responses`) return false;
       const body = request.postDataBuffer()?.toString('utf8') || '';
       const questionId = body.match(/name="question_id"\r\n\r\n([^\r\n]+)/)?.[1] || 'missing';

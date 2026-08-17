@@ -3855,12 +3855,7 @@
       );
       if (!_playerActive || generation !== _playerGeneration) return;
       var childRenderer = childAffinityClaim && childAffinityClaim.renderer_affinity;
-      if (childRenderer === 'legacy' || childRenderer === 'next') {
-        if (childRenderer !== _rendererAffinity) {
-          window.location.replace(_practiceSessionUrlForRenderer(newId, childRenderer));
-          return;
-        }
-      } else {
+      if (childRenderer !== 'legacy' && childRenderer !== 'next') {
         throw new Error('Server không trả về renderer hợp lệ cho Part ' + part);
       }
 
@@ -3881,6 +3876,14 @@
         }
       }
       if (!playerStillOwnsRoute) return;
+
+      // A replayed/concurrently opened child may already belong to the other
+      // renderer. Its complete predecessor chain must be durable before the
+      // full-document handoff, or the destination will adopt [newId] alone.
+      if (childRenderer !== _rendererAffinity) {
+        window.location.replace(_practiceSessionUrlForRenderer(newId, childRenderer));
+        return;
+      }
 
       // Commit module, chain and URL state together before the next network
       // mutation. The error screen then also refers to the session that truly
