@@ -37,7 +37,8 @@ describe('/mock-exam native runner ownership', () => {
   test('uses the server clock and never exposes an early manual submit', () => {
     assert.match(RUNNER, /sectionTimeLeftSeconds/);
     assert.match(RUNNER, /timerAnchorRef/);
-    assert.match(RUNNER, /next === 0[\s\S]*submitRef\.current\(activeSection\)/);
+    assert.match(RUNNER, /next === 0[\s\S]*timerSubmitTriggeredRef\.current = activeSection[\s\S]*!alreadyTriggered[\s\S]*submitRef\.current\(activeSection\)/);
+    assert.match(RUNNER, /sectionTimeLeftSeconds > 0[\s\S]*timerSubmitTriggeredRef\.current = null/);
     assert.doesNotMatch(RUNNER, />\s*Nộp bài\s*</);
   });
 

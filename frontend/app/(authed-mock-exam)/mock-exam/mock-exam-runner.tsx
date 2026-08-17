@@ -559,6 +559,7 @@ export function MockExamRunner() {
   const writingBridgeRef = useRef<WritingBridge | null>(null);
   const finalWritingBodyRef = useRef<{ task1_text: string; task2_text: string } | null>(null);
   const timerAnchorRef = useRef({ section: null as Section | null, seconds: 0, at: 0 });
+  const timerSubmitTriggeredRef = useRef<Section | null>(null);
   const submitRef = useRef<(section: Section, attempt?: number) => Promise<void>>(async () => {});
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
@@ -873,13 +874,24 @@ export function MockExamRunner() {
 
   useEffect(() => {
     if (!activeSection || state?.sectionTimeLeftSeconds == null) return undefined;
+    // A fresh clock for the same retake section opens a new one-shot window.
+    // A zero-second poll refresh must not clear the latch and restart a retry
+    // ladder that already exhausted itself.
+    if (state.sectionTimeLeftSeconds > 0
+        && timerSubmitTriggeredRef.current === activeSection) {
+      timerSubmitTriggeredRef.current = null;
+    }
     timerAnchorRef.current = { section: activeSection, seconds: state.sectionTimeLeftSeconds, at: Date.now() };
     const tick = () => {
       const anchor = timerAnchorRef.current;
       if (anchor.section !== activeSection) return;
       const next = Math.max(0, anchor.seconds - Math.floor((Date.now() - anchor.at) / 1_000));
       setRemaining(next);
-      if (next === 0 && !submittingRef.current) void submitRef.current(activeSection);
+      if (next === 0) {
+        const alreadyTriggered = timerSubmitTriggeredRef.current === activeSection;
+        timerSubmitTriggeredRef.current = activeSection;
+        if (!alreadyTriggered && !submittingRef.current) void submitRef.current(activeSection);
+      }
     };
     tick();
     const interval = window.setInterval(tick, 500);

@@ -63,6 +63,7 @@ async function launch() {
 
 async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
+  finalWritingAlwaysFails = false, fakeClock = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
@@ -74,6 +75,7 @@ async function fixturePage(browser, initialState, {
     } catch (_) {}
   }, [storageKey(SB), session, SITTING_ID, drafts]);
   const page = await context.newPage();
+  if (fakeClock) await page.clock.install({ time: new Date() });
   const errors = [];
   const egress = [];
   const calls = [];
@@ -126,6 +128,7 @@ async function fixturePage(browser, initialState, {
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/submit')) {
       const body = request.postDataJSON();
       state.writingFinals.push(body);
+      if (finalWritingAlwaysFails) return route.fulfill(json({ detail: 'temporary failure' }, 503));
       if (finalWritingLostAck && state.writingFinals.length === 1) {
         state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
         state.current.sitting.status = 'lrw_submitted';
@@ -228,10 +231,42 @@ check('lost final ACK reuses one immutable Writing payload and reconciles canoni
     && JSON.stringify(writing.state.writingFinals[0]) === JSON.stringify(writing.state.writingFinals[1])
     && writing.state.writingFinals[0].task1_text === localTask1
     && localDrafts.every((value) => value === null));
+
+const boundedFailure = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
+}), { finalWritingAlwaysFails: true, fakeClock: true });
+await boundedFailure.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+const waitForWritingAttempts = async (count) => {
+  const deadline = Date.now() + 3_000;
+  while (boundedFailure.state.writingFinals.length < count && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+};
+await waitForWritingAttempts(1);
+for (const [index, delay] of [2_000, 5_000, 10_000, 20_000].entries()) {
+  await boundedFailure.page.clock.runFor(delay + 1);
+  await waitForWritingAttempts(index + 2);
+}
+await boundedFailure.page.getByText(/Chưa nộp được lên máy chủ/).waitFor();
+// Cover three 500 ms countdown ticks while remaining below the next 3 s
+// canonical-state poll. Polling and `online` are deliberate recovery signals;
+// the countdown itself must not start another retry ladder.
+await boundedFailure.page.clock.runFor(1_500);
+await new Promise((resolve) => setTimeout(resolve, 50));
+const attemptsAfterExhaustion = boundedFailure.state.writingFinals.length;
+check('permanent submit failure stops after one bounded retry ladder', attemptsAfterExhaustion === 5,
+  String(attemptsAfterExhaustion));
+await boundedFailure.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await waitForWritingAttempts(6);
+check('explicit online recovery may start one new submit attempt',
+  boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, listening, writing].every((run) => run.egress.length === 0 && run.errors.length === 0),
+  [waiting, retake, listening, writing, boundedFailure]
+    .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...listening.egress, ...writing.egress,
-    ...waiting.errors, ...retake.errors, ...listening.errors, ...writing.errors][0] || '');
+    ...boundedFailure.egress, ...waiting.errors, ...retake.errors, ...listening.errors,
+    ...writing.errors, ...boundedFailure.errors][0] || '');
+await boundedFailure.context.close();
 await writing.context.close();
 
 await browser.close();
