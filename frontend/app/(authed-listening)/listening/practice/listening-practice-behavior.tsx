@@ -382,7 +382,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
                             </div>
                             <a
                               className={completed ? 'lt-card-cta secondary' : 'lt-card-cta'}
-                              href={`/pages/listening-practice-run.html?id=${encodeURIComponent(test.id)}`}
+                              href={`/listening/practice-run?id=${encodeURIComponent(test.id)}`}
                             >
                               {completed ? 'Làm lại' : 'Bắt đầu'}
                             </a>

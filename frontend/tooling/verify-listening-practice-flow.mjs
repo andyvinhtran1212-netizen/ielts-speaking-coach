@@ -113,7 +113,7 @@ check('attempt dang dở chưa bị coi là hoàn thành',
     && (await page.locator('[data-test-id="section-draft"] .lt-card-cta').innerText()) === 'Bắt đầu');
 check('CTA giữ đúng lightweight runner destination',
   (await page.locator('[data-test-id="section-draft"] .lt-card-cta').getAttribute('href'))
-    === '/pages/listening-practice-run.html?id=section-draft');
+    === '/listening/practice-run?id=section-draft');
 
 await page.getByRole('button', { name: /Theo bẫy/ }).click();
 await page.locator('[data-test-id="trap-a"]').waitFor({ state: 'visible' });

@@ -88,6 +88,14 @@
     "allow": []
   },
   {
+    "name": "listening-practice-run-missing-id",
+    "legacy": "/pages/listening-practice-run.html",
+    "next": "/listening/practice-run",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?id=` thì cả hai vế fail closed ở trạng thái thiếu mã. Cặp này ghim owner, shell, copy và style desktop/mobile; fixture `verify-listening-practice-run-flow.mjs` mới phủ resume/start/check/reveal/submit và mobile containment bằng dữ liệu kín."
+  },
+  {
     "name": "listening-landing",
     "legacy": "/pages/listening.html",
     "next": "/listening",
@@ -124,6 +132,14 @@
     "legacy": "/pages/vocab-exam.html",
     "next": "/vocabulary/exam",
     "allow": []
+  },
+  {
+    "name": "exam-player-list",
+    "legacy": "/pages/exam.html",
+    "next": "/exam",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Cặp live G1 ghim route/shell/list published exams ở tài khoản probe. Player, submit, review retry, KP stepper và malformed contracts được chứng minh riêng bằng verify-exam-flow.mjs với fixture ổn định."
   },
   {
     "name": "full-test",

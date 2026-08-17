@@ -63,7 +63,8 @@ export function replacementOwner(nextPath) {
       || route === '/flashcards' || route === '/flashcard-study'
       || route === '/exercises' || route === '/d1-exercise'
       || route === '/quiz' || route.startsWith('/quiz/')) return 'vocabulary';
-  if (route === '/exam' || route === '/course-exercises') return 'course-exercises';
+  if (route === '/exam') return 'exam-platform';
+  if (route === '/course-exercises') return 'course-exercises';
   if (route === '/speaking' || route.startsWith('/speaking/')
       || route === '/practice/session' || route === '/result') return 'speaking';
   return 'learner-platform';
