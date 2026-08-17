@@ -151,14 +151,17 @@ async function createThroughAdmission(page) {
   await page.locator('#prac-topic-custom').fill(`Gate E ${PHASE} ${Date.now()}`);
   await page.locator('#prac-topic-start').click();
   const created = await post;
-  expect(created.status(), await created.text()).toBe(200);
-  const body = await created.json();
-  const sessionId = body.session_id;
-  expect(sessionId).toMatch(UUID);
+  expect(created.status()).toBe(200);
   const expectedPath = PHASE === 'cutover' ? '/practice/session' : '/pages/practice.html';
   await page.waitForURL((url) => (
-    url.pathname === expectedPath && url.searchParams.get('session_id') === sessionId
+    url.pathname === expectedPath && UUID.test(url.searchParams.get('session_id') || '')
   ));
+  // The POST immediately triggers a document navigation, so Chromium may evict
+  // its DevTools response body before Playwright can read text()/json(). The
+  // admitted URL is the browser-visible contract; canonicalSession() below
+  // independently proves that the emitted id was persisted by the backend.
+  const sessionId = new URL(page.url()).searchParams.get('session_id');
+  expect(sessionId).toMatch(UUID);
   return { sessionId, expectedPath, url: page.url() };
 }
 

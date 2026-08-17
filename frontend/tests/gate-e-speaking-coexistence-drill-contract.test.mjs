@@ -64,6 +64,9 @@ describe('Speaking coexistence drill contract', () => {
 
   test('each phase proves admission, old URL reload/copy and canonical backend truth', () => {
     assert.match(SPEC, /createThroughAdmission/);
+    assert.doesNotMatch(SPEC, /created\.(?:text|json)\(\)/);
+    assert.match(SPEC, /UUID\.test\(url\.searchParams\.get\('session_id'\)/);
+    assert.match(SPEC, /new URL\(page\.url\(\)\)\.searchParams\.get\('session_id'\)/);
     assert.match(SPEC, /probeStableUrl/);
     assert.match(SPEC, /PHASE === 'floor'[\s\S]*?previousPath = created\.expectedPath/);
     assert.match(SPEC, /probeStableUrl\(context, '\/practice\/session', created\.sessionId\)/);
