@@ -22,14 +22,14 @@ emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifa
 ghi đủ project counts/version/outcome. Critical-suite v5 và ledger đã được
 định nghĩa, nhưng chưa có qualifying 20-run artifact; vẫn chưa có Safari/iOS
 thiết bị thật. Active-session affinity đã có runtime foundation, unit contract
-và floor run `32019415351` trên SHA `a7462ab2`: một session Legacy thật cùng
-hai stable URL đều reload/copy được với frontend/backend staging đồng nhất.
-Ba phase live vẫn chưa hoàn tất; review cutover còn phát hiện session mở lại
-chưa có renderer affinity canonical, nên admission đã được trả về Legacy để
-deploy một floor mới có claim atomic theo session trước khi thử cutover lại.
-Floor này version cả create contract: client N−1 hoặc backend N−1 nhận database
-default `legacy`, còn client hiện tại gửi `claim-v1` và dùng RPC v3 để tạo row
-NULL atomically cho stable player đầu tiên claim. Migration 217 sửa mọi row NULL
+và persisted-affinity floor run `32043317793` trên SHA `e96c2cd`: session Legacy
+thật cùng dark Next claim `null → next`; hai stable URL đều reload/copy được với
+frontend/backend staging đồng nhất. Ba phase live vẫn chưa hoàn tất; branch hậu
+duệ này đổi riêng Speaking staging admission sang Next để thu cutover artifact,
+sau đó vẫn phải forward-revert về Legacy và thu rollback artifact. Floor version
+cả create contract: client N−1 hoặc backend N−1 nhận database default `legacy`,
+còn client hiện tại gửi `claim-v1` và dùng RPC v3 để tạo row NULL atomically cho
+stable player đầu tiên claim. Migration 217 sửa mọi row NULL
 có thể lọt vào khoảng commit riêng giữa backfill 215 và default 216 trước khi
 backend affinity-aware được deploy.
 Speaking đã có stable hybrid Next player route với native bootstrap,
@@ -49,7 +49,7 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence. WebKit/static scan không thay thế thiết bị thật. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay | Chưa có successful artifact của live journey trên cùng frontend/backend staging SHA; source/tooling không được tính thay lần chạy thật. |
-| Sticky active-session hoặc drain strategy đã drill | **PARTIAL** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking floor run `32019415351` trên SHA `a7462ab2` đã tạo session Legacy thật, reload/copy cả Legacy và dark Next URL, đồng thời chứng minh matching staging provenance. Floor kế tiếp thêm `sessions.renderer_affinity`, atomic first-player claim và create protocol ghim client/backend N−1 về Legacy; admission vẫn Legacy. | Chưa có đủ cutover + rollback artifact trên floor có persisted affinity; Safari/iOS thật và các cluster Reading/Listening vẫn thiếu live drill. |
+| Sticky active-session hoặc drain strategy đã drill | **PARTIAL** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Persisted-affinity floor run `32043317793` trên SHA `e96c2cd` đã tạo session Legacy thật, dark Next claim `null → next`, reload/copy cả hai stable URL và chứng minh matching frontend/backend staging provenance. Branch hậu duệ đổi riêng Speaking staging admission sang Next. | Chưa có đủ cutover + rollback artifact dùng cùng floor `e96c2cd`; Safari/iOS thật và các cluster Reading/Listening vẫn thiếu live drill. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v5 freeze 34 tests live-staging, gồm live failure injection; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và chưa có successful live-staging artifact từ release v5. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu

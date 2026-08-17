@@ -1,4 +1,4 @@
-/** Gate E Speaking: ready App Router dark URL without a false admission/cutover claim. */
+/** Gate E Speaking: staging Next admission descendant of the verified affinity floor. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -44,7 +44,7 @@ const LUCIDE_1_17_ICON_SIGNATURES = {
   'file-down': ['d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"', 'd="M14 2v5a1 1 0 0 0 1 1h5"', 'd="M12 18v-6"', 'd="m9 15 3 3 3-3"'],
 };
 
-describe('/practice/session transitional dark route', () => {
+describe('/practice/session staging cutover route', () => {
   test('native React shell owns every player state and preserves the legacy DOM ids', () => {
     for (const state of [
       'loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c',
@@ -178,19 +178,19 @@ describe('/practice/session transitional dark route', () => {
     assert.match(BOOT, /practice_native_bootstrap_failed/);
   });
 
-  test('the affinity floor keeps admission Legacy while the dark route stays ready', () => {
+  test('the verified affinity floor stays available while staging admits Next', () => {
     const speaking = CORE_PLAYER_AFFINITY_POLICY.surfaces.speaking;
     assert.equal(speaking.next.path, '/practice/session');
     assert.equal(speaking.next.route_ready, true);
-    assert.equal(speaking.admit_new, 'legacy');
+    assert.equal(speaking.admit_new, 'next');
     assert.match(
       DOC,
       /NATIVE BOOTSTRAP \+ RECORDER \+ SUBMISSION \+ FULL-TEST STATE \+[\s\S]{0,40}PLAYER LIFECYCLE/,
     );
     assert.match(DOC, /NATIVE JSX\/FEEDBACK\/PRONUNCIATION RENDERERS/);
     assert.match(DOC, /không dùng `dangerouslySetInnerHTML`/);
-    assert.match(DOC, /`route_ready=true` chỉ xác nhận dark route/);
-    assert.match(DOC, /`admit_new=legacy`/);
+    assert.match(DOC, /rollback floor\s+`e96c2cdcc999979f645d16432f5cfd007d8383e8`/);
+    assert.match(DOC, /`admit_new=next`/);
   });
 
   test('parity inventory includes the missing-session branch with an honest limitation', () => {

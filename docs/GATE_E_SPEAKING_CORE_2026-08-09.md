@@ -10,9 +10,10 @@ event handler và SVG, đồng thời render view-model cho header, loading/erro
 test progress, Part 1/3 prep, recording, processing, Part 2, assignment sheet,
 Full Test completion, feedback/pronunciation và inline test results. `practice.js`
 chỉ phát structured view-model trên route Next; đường DOM/`innerHTML` cũ còn
-nguyên vẹn cho URL legacy rollback. Dark route đã `route_ready=true`; branch
-staging giữ `admit_new=legacy` trong khi deploy atomic first-player claim. Cutover
-chỉ được mở ở PR hậu duệ sau khi floor mới đã deploy và được verify.
+nguyên vẹn cho URL legacy rollback. Persisted-affinity floor đã
+`route_ready=true` và pass run `32043317793`; branch hậu duệ này đổi staging
+`admit_new=next` để thu cutover artifact. Production chưa đổi và Legacy URL vẫn
+là rollback target.
 
 ## Finding
 
@@ -131,17 +132,15 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
    `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
    không được tính thay hai artifact thật.
-4. ✅ `next.route_ready=true` ở release riêng trong khi `admit_new=legacy`; floor
-   run `32019415351` đã pin rollback SHA
-   `a7462ab291f029bb2979e3a41216fa41d8f72e52`, session Legacy thật và matching
-   frontend/backend staging provenance.
-5. Đang dựng floor hậu duệ có `sessions.renderer_affinity` + atomic claim,
-   create protocol N−1-safe (`legacy` default; 217 vá gap 215→216;
-   `claim-v1` → RPC v3 NULL) và
-   reopen stable URL. Sau khi floor deploy/verify mới mở staging-only cutover để
-   thu tab Legacy cũ, tab Next mới, reload/copy URL và canonical backend
-   assertions; sau đó forward-revert về Legacy. Safari/iOS thật và đủ ba artifact
-   vẫn chặn Gate E/production cutover; Legacy URL tiếp tục sống đến Gate F.
+4. ✅ Persisted-affinity rollback floor
+   `e96c2cdcc999979f645d16432f5cfd007d8383e8` giữ `admit_new=legacy`; run
+   `32043317793` chứng minh session Legacy thật, dark Next claim `null → next`,
+   reload/copy và matching frontend/backend staging provenance.
+5. 🟡 Branch hậu duệ đổi riêng staging `admit_new=next`; sau deploy sẽ dùng
+   Legacy session `b8964c1e-686e-460d-a531-457b07b6dea7` từ floor để thu artifact
+   cutover, rồi forward-revert về Legacy và thu rollback artifact. Safari/iOS
+   thật và đủ ba artifact vẫn chặn Gate E/production cutover; Legacy URL tiếp
+   tục sống đến Gate F.
 
 ## Batch player lifecycle
 
@@ -196,9 +195,9 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
 - Bằng chứng hiện tại gồm unit/source contract, full build/suite, browser
   baseline sáu shape, bảy mutation/recovery flow, một cross-version
   coexistence flow và automated
-  device/microphone matrix. Vì vậy `route_ready=true` chỉ xác nhận dark route;
-  Real Safari/iOS cùng rollback live drill vẫn là exit riêng. `admit_new=legacy`
-  giữ nguyên trong floor này; cutover Next phải là release hậu duệ riêng.
+  device/microphone matrix. Rollback floor `e96c2cdcc999979f645d16432f5cfd007d8383e8`
+  đã được verify riêng; `admit_new=next` chỉ áp dụng cho staging cutover hậu duệ.
+  Real Safari/iOS cùng rollback live drill vẫn là exit riêng.
 
 Verification trực tiếp của batch:
 

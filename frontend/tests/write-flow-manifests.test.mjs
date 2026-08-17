@@ -43,7 +43,7 @@ describe('bản khai luồng ghi', () => {
     });
   }
 
-  test('Speaking dựng đủ canonical bootstrap qua affinity floor', () => {
+  test('Speaking dựng đủ canonical bootstrap qua staging admission hiện tại', () => {
     const speaking = flows.find(({ file }) => file === 'speaking-start.mjs')?.flow;
     assert.ok(speaking, 'thiếu bản khai speaking-start.mjs');
 
@@ -59,8 +59,8 @@ describe('bản khai luồng ghi', () => {
     assert.ok(Array.isArray(questions) && questions.length > 0,
       'fixture phải dựng câu hỏi để player Next không rơi vào đường sinh AI');
     assert.equal(speaking.expectFinalUrl,
-      `/pages/practice.html?session_id=${created.id}`,
-      'floor phải ghim URL player cuối; cutover test sẽ đổi theo policy');
+      `/practice/session?session_id=${created.id}`,
+      'staging cutover phải ghim URL player Next theo admission policy hiện tại');
     assert.ok(speaking.steps.some((step) =>
       step.expectText?.[0] === '#p2a-question'
       && step.expectText?.[1] === 'Describe a useful skill you learned.'
