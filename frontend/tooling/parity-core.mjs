@@ -216,6 +216,9 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // migrated launcher as a missing/extra pair even though the bank query is
   // identical — and then skips the browser write-flow that proves the player.
   else if (path === '/pages/quiz.html') path = '/quiz';
+  // `/listening/practice-run` is the canonical light-practice runner. Preserve
+  // `id` and any future source query while comparing rollback links.
+  else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
   // `/exam` owns the standalone exam list/player after the native cutover.
   // Keep every identity-bearing query (`id`, `source`, and any future key)
   // intact: the mapping only changes the route owner. Without it, the live G1
