@@ -90,6 +90,15 @@ async function canonicalAttempt(request, token, testId, attemptId) {
 
 async function startThroughAdmission(page, testId) {
   const expectedPath = PHASE === 'cutover' ? '/reading/exam/session' : '/pages/reading-exam.html';
+  const claimPaths = [];
+  const captureClaim = (response) => {
+    const request = response.request();
+    const pathname = new URL(response.url()).pathname;
+    if (request.method() === 'POST' && pathname.endsWith('/renderer-affinity')) {
+      claimPaths.push(pathname);
+    }
+  };
+  page.on('response', captureClaim);
   const boot = page.waitForResponse((r) => r.request().method() === 'GET' &&
     new URL(r.url()).pathname === `/api/reading/test/${testId}/boot`);
   await page.goto(`/core-player/launch?surface=reading_exam&test_id=${encodeURIComponent(testId)}&from=full`);
@@ -97,8 +106,6 @@ async function startThroughAdmission(page, testId) {
   expect(new URL(page.url()).pathname).toBe(expectedPath);
   const started = page.waitForResponse((r) => r.request().method() === 'POST' &&
     new URL(r.url()).pathname === `/api/reading/test/${testId}/attempts`);
-  const claimed = page.waitForResponse((r) => r.request().method() === 'POST' &&
-    new URL(r.url()).pathname.endsWith('/renderer-affinity'));
   if (expectedPath === '/reading/exam/session') {
     // The native player deliberately owns its controls and uses an accessible
     // text button + window.confirm instead of the Legacy modal ids.
@@ -119,8 +126,13 @@ async function startThroughAdmission(page, testId) {
   expect(response.status(), await response.text()).toBe(200);
   const body = await response.json();
   expect(body.attempt_id).toMatch(UUID);
-  expect(new URL((await claimed).url()).pathname)
-    .toBe(`/api/reading/test/attempts/${body.attempt_id}/renderer-affinity`);
+  const expectedClaim = `/api/reading/test/attempts/${body.attempt_id}/renderer-affinity`;
+  // A fixture may already have an in-progress attempt from a prior drill run.
+  // Booting it can claim that old attempt before the restart creates a new one,
+  // so correlate by the canonical attempt id instead of accepting the first
+  // renderer-affinity response observed on the page.
+  await expect.poll(() => claimPaths.includes(expectedClaim), { timeout: 10_000 }).toBe(true);
+  page.off('response', captureClaim);
   expect(new URL(page.url()).pathname).toBe(expectedPath);
   return { attemptId: body.attempt_id, testId, expectedPath, url: page.url() };
 }
