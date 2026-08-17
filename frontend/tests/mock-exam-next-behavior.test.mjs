@@ -72,6 +72,8 @@ describe('/mock-exam native runner ownership', () => {
       assert.match(player, /if \(collectionFrozenRef\.current\) return/);
     }
     assert.match(LEGACY_READING, /_flushPendingSavesForMock/);
+    assert.match(LEGACY_READING, /_waitForInflightSaves\(\)\.then/);
+    assert.match(LEGACY_READING, /SESSION\.inflight\.size === 0/);
     assert.match(LEGACY_READING, /unsaved: clean \? 0 : Math\.max\(1, SESSION\.unsaved\.size\)/);
     assert.doesNotMatch(LEGACY_READING, /mock-flushed', section: 'reading' \},/);
   });
