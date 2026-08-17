@@ -45,7 +45,10 @@
   ],
   "conditional_evidence": {
     "floor": [
-      "floor_dark_next_url"
+      "floor_dark_next_url",
+      "floor_dark_next_session_id",
+      "floor_dark_next_affinity_before",
+      "floor_dark_next_affinity_after"
     ],
     "rollback": [
       "rollback_mode"

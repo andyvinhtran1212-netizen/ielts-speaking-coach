@@ -36,7 +36,12 @@ describe('Speaking coexistence drill contract', () => {
     assert.equal(MANIFEST.phases[1].required_previous_session, 'legacy_session_id');
     assert.equal(MANIFEST.phases[2].required_previous_session, 'next_session_id');
     assert.ok(!MANIFEST.required_evidence.includes('floor_dark_next_url'));
-    assert.deepEqual(MANIFEST.conditional_evidence.floor, ['floor_dark_next_url']);
+    assert.deepEqual(MANIFEST.conditional_evidence.floor, [
+      'floor_dark_next_url',
+      'floor_dark_next_session_id',
+      'floor_dark_next_affinity_before',
+      'floor_dark_next_affinity_after',
+    ]);
     assert.deepEqual(MANIFEST.conditional_evidence.rollback, ['rollback_mode']);
     assert.match(MANIFEST.status, /artifacts-pending/);
   });
@@ -67,9 +72,13 @@ describe('Speaking coexistence drill contract', () => {
     assert.doesNotMatch(SPEC, /created\.(?:text|json)\(\)/);
     assert.match(SPEC, /UUID\.test\(url\.searchParams\.get\('session_id'\)/);
     assert.match(SPEC, /new URL\(page\.url\(\)\)\.searchParams\.get\('session_id'\)/);
+    assert.match(SPEC, /createdCanonical\.renderer_affinity\)\.toBe\([\s\S]*?PHASE === 'cutover' \? 'next' : 'legacy'/);
     assert.match(SPEC, /probeStableUrl/);
     assert.match(SPEC, /PHASE === 'floor'[\s\S]*?previousPath = created\.expectedPath/);
-    assert.match(SPEC, /probeStableUrl\(context, '\/practice\/session', created\.sessionId\)/);
+    assert.match(SPEC, /createUnclaimedSession/);
+    assert.match(SPEC, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(SPEC, /floorDarkNextBefore\.renderer_affinity\)\.toBeNull\(\)/);
+    assert.match(SPEC, /floorDarkNextAfter\.renderer_affinity\)\.toBe\('next'\)/);
     assert.match(SPEC, /await tab\.reload\(\)/);
     assert.match(SPEC, /await copied\.goto\(exactUrl\)/);
     assert.match(SPEC, /canonicalSession/);
@@ -77,7 +86,7 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(SPEC, /expect\(runtimeApiBase\)\.toBe\(STAGING_API\)/);
     assert.match(SPEC, /backend\.git_sha\)\.toBe\(SOURCE_SHA\)/);
     assert.match(SPEC, /backend\.git_branch\)\.toBe\('staging'\)/);
-    assert.match(SPEC, /PHASE === 'floor' \? \{ floor_dark_next_url: floorDarkNextUrl \} : \{\}/);
+    assert.match(SPEC, /PHASE === 'floor' \? \{[\s\S]*?floor_dark_next_url: floorDarkNextUrl,[\s\S]*?floor_dark_next_affinity_after: floorDarkNextAfter\.renderer_affinity/);
     assert.match(SPEC, /\/health\/runtime/);
     assert.match(SPEC, /reload_and_copy_url_passed:\s*true/);
   });

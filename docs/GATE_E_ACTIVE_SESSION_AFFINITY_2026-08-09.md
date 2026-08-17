@@ -148,8 +148,10 @@ phải tải artifact của workflow run ngay trước, kiểm phase, floor SHA,
 frontend/backend release, nhánh `staging` và session ID handoff trước khi mở
 browser. Mỗi phase tạo attempt qua admission thật, mở lại implementation URL của
 attempt cũ, reload/copy URL sang tab mới và đọc cùng session từ backend canonical.
-`floor_dark_next_url` chỉ bắt buộc ở phase floor; hai phase sau không giả lập
-evidence này bằng `null`. Floor artifact run `32019415351` đã pass trên SHA
+`floor_dark_next_url` cùng session id và affinity `null → next` chỉ bắt buộc ở
+phase floor; session admission đã claim Legacy không được tái dùng để giả lập
+dark Next. Hai phase sau không giả lập evidence này bằng `null`. Floor artifact
+run `32019415351` đã pass trên SHA
 `a7462ab291f029bb2979e3a41216fa41d8f72e52`: admission tạo session Legacy
 `b6181464-c494-4037-82a9-f0b36c28fa32`, cả Legacy URL và Next dark URL đều
 reload/copy được, frontend/backend provenance cùng trỏ `staging`. Trạng thái vẫn
