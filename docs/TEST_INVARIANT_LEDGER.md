@@ -228,7 +228,7 @@
 | `cue-card-length-warning.test.mjs` | ✗ | `frontend/js/cue-card-length-warning.js` | Warning: shows if prep time <1 min; dismissable | source-string-pin | keep-until-route-retired |
 | `cue-card-part-router.test.mjs` | ✗ | `frontend/js/cue-card-part-router.js` | Router: map session_id + part → cue card; no cross-part leakage | dom-behavior | replace-by-types |
 | `cue-card-ui-wiring.test.mjs` | ✗ | `frontend/js/cue-card-ui-wiring.js` | Wiring: cue card loads on practice start, displays in sidebar, updates on part change | source-string-pin | keep-until-route-retired |
-| `exam-player.test.mjs` | ✗ | `frontend/js/exam-player.js`, `frontend/pages/reading-exam.html` | Exam player: manages question order, answer state, time limit; no premature submit | dom-behavior | replace-by-e2e |
+| `exam-player.test.mjs` + `exam-player-next-{model,behavior}.test.mjs` + `verify-exam-flow.mjs` | ✓ | `/exam`; `frontend/pages/exam.html` retained for parity/rollback | Native player: canonical question identity/order, explicit unanswered values, serialized submit, caller-owned review retry, KP stepper/micro-check, auth/account stale guards and responsive containment | model/source + fixture-backed browser | legacy source-string test remains only while rollback renderer is live |
 
 ### Miscellaneous (60 files, 25 in CI)
 
@@ -430,7 +430,7 @@ currently matches.
 | admin-vocab-quiz-analytics | Vocab analytics hits `/admin/quiz/students?skill_area=vocab` (per-student) + `/admin/quiz/banks?skill_area=vocab` (hard-words) | replace-by-e2e |
 | kp-fe-widgets | Weak-grammar widget fetches `/api/me/kp-mastery?status=weak&kp_type=grammar`; reading review renders a KP stepper with grammar deep-links | replace-by-e2e |
 | kp-roadmap | Roadmap branches on slug: no-slug → `/api/me/roadmap`; has-slug → per-article; articles link `/grammar/{category}/{slug}` | replace-by-e2e |
-| exam-player | Exam player GETs `/api/exams`, `/api/exams/{id}`, POSTs attempts with answer data, renders KP review stepper | replace-by-e2e |
+| exam-player | Native `/exam` GETs list/detail, submits every canonical q_num once, retries only caller-owned review reads, and renders KP review/micro-check without exposing keys pre-submit | replaced-by-model-source-and-fixture-browser |
 | d1-srs-indicator | SRS indicator renders on `srs_updated=true`, branches on `srs_rating`, clears prior indicator before appending (response-schema-driven) | port-to-component-test |
 | admin-writing-new-redesign | New-essay form POSTs the 8-key payload (student_id, task_type, analysis_level, selected_model, form_of_address, grading_tier, prompt_text, essay_text) to the essays endpoint | port-to-component-test |
 | admin-writing-assignments-redesign | Assignment form creates via `/admin/writing/assignments` (cohort_id, prompt_id, deadline, instructions); status taxonomy pending/in_progress/submitted/graded/delivered | port-to-component-test |

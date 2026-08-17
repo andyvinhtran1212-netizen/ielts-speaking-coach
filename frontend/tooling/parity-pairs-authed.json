@@ -126,6 +126,14 @@
     "allow": []
   },
   {
+    "name": "exam-player-list",
+    "legacy": "/pages/exam.html",
+    "next": "/exam",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Cặp live G1 ghim route/shell/list published exams ở tài khoản probe. Player, submit, review retry, KP stepper và malformed contracts được chứng minh riêng bằng verify-exam-flow.mjs với fixture ổn định."
+  },
+  {
     "name": "full-test",
     "legacy": "/pages/full-test.html",
     "next": "/full-test",
