@@ -61,7 +61,7 @@ describe('current admission policy preserves behavior', () => {
   test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     const expectedAdmission = {
-      speaking: 'next',
+      speaking: 'legacy',
       reading_exam: 'legacy',
       listening_test: 'legacy',
       listening_dictation: 'legacy',
@@ -85,7 +85,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('launchers use the runtime endpoint while Speaking staging admits Next', () => {
+  test('launchers use the runtime endpoint while Speaking staging rolls forward to Legacy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -108,7 +108,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
-      '/practice/session?session_id=session-a',
+      '/pages/practice.html?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
@@ -321,7 +321,7 @@ describe('cutover and rollback drill', () => {
       resolveCorePlayerAdmissionFromParams(
         new URLSearchParams('surface=speaking&session_id=x'),
       ),
-      '/practice/session?session_id=x',
+      '/pages/practice.html?session_id=x',
     );
     for (const query of [
       'session_id=x',
@@ -354,7 +354,7 @@ describe('cutover and rollback drill', () => {
 
 describe('evidence truth', () => {
   test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /SPEAKING PERSISTED-AFFINITY FLOOR PASSED; STAGING CUTOVER\s+DEPLOYMENT PENDING; LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /SPEAKING FLOOR \+ CUTOVER PASSED; STAGING FORWARD ROLLBACK\s+DEPLOYMENT PENDING; LIVE CORE DRILL PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
@@ -363,5 +363,6 @@ describe('evidence truth', () => {
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
     assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PARTIAL\*\*/);
     assert.match(PREFLIGHT, /floor run `32043317793`/);
+    assert.match(PREFLIGHT, /cutover run `32045284608`/);
   });
 });
