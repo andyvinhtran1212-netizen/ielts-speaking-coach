@@ -8,12 +8,14 @@ const { mkdirSync, rmSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 const { test, expect } = require('@playwright/test');
 const {
+  cleanupE2ESession,
   PRODUCTION_ORIGINS,
   STAGING_API,
   STAGING_ANON,
   STAGING_SUPABASE,
   identityEmail,
   primeBypassCookie,
+  signIn,
 } = require('./helpers');
 
 const ROUTE = '/practice/session';
@@ -23,6 +25,7 @@ const EVIDENCE_PATH = path.join(
   'gate-e-live-staging-failure-injection.json',
 );
 const SHA_PATTERN = /^[a-f0-9]{40}$/;
+let createdSessionId;
 
 function auth(token) {
   return { Authorization: `Bearer ${token}` };
@@ -64,6 +67,13 @@ test.beforeAll(() => {
   rmSync(EVIDENCE_PATH, { force: true });
 });
 
+test.afterEach(async ({ request }) => {
+  if (!createdSessionId) return;
+  const adminToken = await signIn(request, 'admin');
+  await cleanupE2ESession(request, createdSessionId, adminToken);
+  createdSessionId = undefined;
+});
+
 test('live staging: response commits before reset and Next reconciles without replay', async ({
   page,
   context,
@@ -82,6 +92,7 @@ test('live staging: response commits before reset and Next reconciles without re
   });
   expect(created.status(), await created.text()).toBe(200);
   const sessionId = (await created.json()).session_id;
+  createdSessionId = sessionId;
 
   const generated = await request.post(`${STAGING_API}/sessions/${sessionId}/questions/generate`, {
     headers: auth(session.access_token),
@@ -194,6 +205,6 @@ test('live staging: response commits before reset and Next reconciles without re
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
   console.log(
     `[gate-e-live] committed + reconciled ${sessionId}/${questionId}; `
-      + 'session intentionally retained for staging audit',
+      + 'evidence captured before deterministic staging cleanup',
   );
 });
