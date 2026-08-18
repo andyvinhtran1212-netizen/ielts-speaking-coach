@@ -38,7 +38,8 @@ describe('Writing Gate E failure matrix is pinned and auditable', () => {
     assert.match(SPEC, /essayCount\)\.toBe\(1\)/);
     assert.match(SPEC, /jobCount\)\.toBe\(1\)/);
     assert.match(SPEC, /submittedText\)\.toBe\(LATEST\)/);
-    assert.ok((SPEC.match(/openLegacy\(page\)/g) || []).length >= 2);
+    assert.ok((SPEC.match(/openLegacyAssignment\(page\)/g) || []).length >= 2);
+    assert.ok((SPEC.match(/openNextAssignment\(page\)/g) || []).length >= 1);
     assert.match(HARNESS, /PRODUCTION_ORIGINS/);
     assert.match(SPEC, /WritingSubmitReceipt/);
   });

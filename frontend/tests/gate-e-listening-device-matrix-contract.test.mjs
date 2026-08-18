@@ -30,22 +30,22 @@ const runVerifier = (runnerImage) => spawnSync(
 );
 
 describe('Listening Gate E failure matrix is pinned and auditable', () => {
-  test('manifest matches lockfile, config projects and exact eight-path matrix', () => {
+  test('manifest matches lockfile, config projects and exact nine-path matrix', () => {
     assert.equal(MANIFEST.playwright_version, LOCK.packages['node_modules/@playwright/test'].version);
-    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v2');
-    assert.equal(MANIFEST.expected_total_tests, 24);
-    assert.equal(MANIFEST.expected_tests.length, 8);
+    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v3');
+    assert.equal(MANIFEST.expected_total_tests, 27);
+    assert.equal(MANIFEST.expected_tests.length, 9);
     for (const project of MANIFEST.automated_projects) {
       assert.match(CONFIG, new RegExp(`name: '${project.project}'`));
-      assert.equal(MANIFEST.expected_project_counts[project.project], 8);
+      assert.equal(MANIFEST.expected_project_counts[project.project], 9);
     }
-    for (const title of MANIFEST.expected_tests.slice(0, 4)) {
+    for (const title of MANIFEST.expected_tests.slice(0, 5)) {
       assert.match(SPEC, new RegExp(`test\\('${title}'`));
     }
-    for (const title of MANIFEST.expected_tests.slice(4)) {
+    for (const title of MANIFEST.expected_tests.slice(5)) {
       assert.match(DICTATION_SPEC, new RegExp(`test\\('${title}'`));
     }
-    assert.equal((SPEC.match(/^test\('/gm) || []).length, 4);
+    assert.equal((SPEC.match(/^test\('/gm) || []).length, 5);
     assert.equal((DICTATION_SPEC.match(/^test\('/gm) || []).length, 4);
     assert.match(CONFIG, /^\s*retries:\s*0,\s*$/m);
     assert.match(CONFIG, /gate-e-listening-device-matrix-results\.json/);
@@ -56,6 +56,8 @@ describe('Listening Gate E failure matrix is pinned and auditable', () => {
     assert.match(SPEC, /status: 422/);
     assert.match(SPEC, /submitCalls\)\.toHaveLength\(0\)/);
     assert.match(SPEC, /page\.reload\(\)/);
+    assert.match(SPEC, /allowCrossRendererFixture:\s*true/);
+    assert.match(SPEC, /rendererAffinity\)\.toBe\('legacy'\)/);
     assert.match(SPEC, /dispatchAudioMetadata/);
     assert.ok((SPEC.match(/openLegacy\(page\)/g) || []).length >= 3);
     assert.match(SPEC, /Object\.fromEntries\(state\.answers\)/);

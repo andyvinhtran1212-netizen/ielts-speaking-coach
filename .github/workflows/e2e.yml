@@ -47,6 +47,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
+      # The runner's Azure mirror stalled until timeout on 2026-08-18, while
+      # the canonical archive fallback answered in the same apt trace. WebKit
+      # still needs system libraries, so keep `--with-deps` but remove the
+      # unavailable mirror from apt's mirror list first.
+      - name: Pin responsive Ubuntu archive mirror
+        run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|' /etc/apt/apt-mirrors.txt
+
       - name: Install Chromium + WebKit (cached after first run)
         run: npx playwright install --with-deps chromium webkit
 
