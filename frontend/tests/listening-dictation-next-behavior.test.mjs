@@ -5,7 +5,8 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
-  dictationParams, dictationReceiptKey, dictationRequestId, formatDictationTime, isMissingReceipt,
+  dictationParams, dictationReceiptKey, dictationRendererHref, dictationRequestId,
+  formatDictationTime, isMissingReceipt, normalizeDictationAttempt,
   normalizeDictationBundle, normalizeDictationGrade, normalizeDictationReceipt,
   normalizeDictationReport, topDictationWords,
 } from '../lib/listening-dictation-controller.mjs';
@@ -41,6 +42,24 @@ describe('native Listening Dictation model', () => {
     assert.deepEqual(normalized.sections[0].hints, [['Brighton'], []]);
     assert.throws(() => normalizeDictationBundle({ ...bundle(), audio_url: 'javascript:alert(1)' }), /invalid-dictation-audio/);
     assert.throws(() => normalizeDictationBundle({ ...bundle(), sections: [] }), /empty-dictation-sections/);
+  });
+
+  test('normalizes canonical in-progress attempts and stable renderer URLs', () => {
+    const attempt = normalizeDictationAttempt({ attempt: {
+      attempt_id: 'a1', test_id: 't1', section_num: 2, status: 'in_progress',
+      renderer_affinity: 'next', started_at: '2026-08-18T00:00:00Z',
+      units: [{ text: 'Hello there.', start: 12, end: 15, hints: ['Brighton'] }],
+      answers: [{ sentence_idx: 0, user_transcript: 'hello', score: 1,
+        correct_words: 1, total_words: 1, diff: [] }],
+    } });
+    assert.equal(attempt.answers[0].user_text, 'hello');
+    assert.deepEqual(attempt.units[0], {
+      text: 'Hello there.', timing: { start: 12, end: 15 }, hints: ['Brighton'],
+    });
+    assert.equal(normalizeDictationAttempt({ attempt: null }), null);
+    assert.equal(dictationRendererHref('legacy', '?test_id=t%2F1&section=2'),
+      '/pages/listening-test-dictation.html?test_id=t%2F1&section=2');
+    assert.throws(() => dictationRendererHref('other', '?test_id=t'), /invalid-dictation-renderer/);
   });
 
   test('rejects malformed grade and canonical receipt responses', () => {
@@ -96,7 +115,12 @@ describe('native Listening Dictation ownership', () => {
 
   test('renders authored content through React and owns the full workflow', () => {
     assert.doesNotMatch(CLIENT, /dangerouslySetInnerHTML|innerHTML/);
-    assert.match(CLIENT, /dictation\/grade/);
+    assert.match(CLIENT, /dictation\/attempts\/in-progress/);
+    assert.match(CLIENT, /\/renderer-affinity/);
+    assert.match(CLIENT, /\/sentences\/\$\{sentenceIndex\}/);
+    assert.match(CLIENT, /attempt_id:\s*attempt\.attempt_id/);
+    assert.match(CLIENT, /setAnswer\(restored\[selectedIndex\]\?\.user_text \|\| ''\)/);
+    assert.match(CLIENT, /sentences:\s*canonicalAttempt\.units\.map/);
     assert.match(CLIENT, /dictation\/session\/by-request/);
     assert.match(CLIENT, /client_request_id/);
     assert.match(CLIENT, /localStorage\.setItem/);

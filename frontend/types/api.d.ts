@@ -6444,6 +6444,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/{test_id}/dictation/attempts/in-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get In Progress Dictation Attempt */
+        get: operations["get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/{test_id}/dictation/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Dictation Attempt
+         * @description Resume the one active section attempt, or create it without destroying progress.
+         */
+        post: operations["start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Dictation Attempt Renderer Affinity */
+        post: operations["claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grade And Save Dictation Attempt Sentence
+         * @description Grade and atomically upsert the latest canonical state of one sentence.
+         */
+        post: operations["grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/dictation/session": {
         parameters: {
             query?: never;
@@ -11480,6 +11554,34 @@ export interface components {
             /** Instructor Note */
             instructor_note?: string | null;
         };
+        /** DictationAttemptAnswerRequest */
+        DictationAttemptAnswerRequest: {
+            /**
+             * User Transcript
+             * @default
+             */
+            user_transcript: string;
+            /**
+             * Listen Count
+             * @default 0
+             */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+        };
+        /** DictationAttemptRendererAffinityRequest */
+        DictationAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** DictationAttemptStartRequest */
+        DictationAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
+        };
         /** DictationFlagRequest */
         DictationFlagRequest: {
             /** Test Id */
@@ -11512,6 +11614,8 @@ export interface components {
         };
         /** DictationSessionRequest */
         DictationSessionRequest: {
+            /** Attempt Id */
+            attempt_id?: string | null;
             /** Test Id */
             test_id: string;
             /** Section Num */
@@ -24263,6 +24367,155 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ListeningTestDictationGradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+                sentence_idx: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptAnswerRequest"];
             };
         };
         responses: {
