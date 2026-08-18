@@ -8504,6 +8504,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/listening-solution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Listening Solution
+         * @description Đáp án + transcript bài nghe; đề ban đầu không mang những phần này.
+         */
+        post: operations["course_listening_solution_api_quiz_course_listening_solution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/course/report": {
         parameters: {
             query?: never;
@@ -11202,6 +11222,18 @@ export interface components {
              * @default 0
              */
             sort_order: number;
+        };
+        /** CourseListeningBody */
+        CourseListeningBody: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Answers
+             * @default {}
+             */
+            answers: {
+                [key: string]: string;
+            };
         };
         /** CoursePatch */
         CoursePatch: {
@@ -27397,6 +27429,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CourseReadingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_listening_solution_api_quiz_course_listening_solution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseListeningBody"];
             };
         };
         responses: {

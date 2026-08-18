@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { createListening, listeningDraftKey } from '../public/js/course-listening.js';
+
+const bank = { id: 'bank-05', meta: { short_listening: {
+  title: 'Thành phố và nông thôn', focus: 'so sánh',
+  sections: [
+    { id: 'sound', label: 'A', title: 'Nhận diện âm', mode: 'question_audio', questions: [
+      { id: 'l-A1', number: 1, audio_url: 'https://signed/A1.mp3', options: ['city', 'pity'] },
+    ] },
+    { id: 'content', label: 'D', title: 'Nghe hiểu', mode: 'section_audio',
+      audio_url: 'https://signed/D.mp3', questions: [
+        { id: 'l-D1', number: 1, prompt: 'The city is bigger.', options: ['T', 'F', 'NG'] },
+      ] },
+  ],
+} } };
+
+function storage() {
+  const values = new Map();
+  return { getItem: (key) => values.get(key) || null,
+    setItem: (key, value) => values.set(key, value) };
+}
+
+test('renders question and section audio without exposing a solution', () => {
+  const listening = createListening({ api: {}, storage: storage(), userId: 'u1' });
+  assert.equal(listening.load(bank), true);
+  const html = listening.render();
+  assert.match(html, /https:\/\/signed\/A1\.mp3/);
+  assert.match(html, /https:\/\/signed\/D\.mp3/);
+  assert.match(html, /<strong>2<small>câu nghe/);
+  assert.match(html, /disabled>Đối chiếu bài nghe/);
+  assert.doesNotMatch(html, /Nghe được:/);
+});
+
+test('requests answer and transcript only after every response exists', async () => {
+  let calls = 0;
+  const api = { post: async (path, body) => {
+    calls += 1;
+    assert.equal(path, '/api/quiz/course/listening-solution');
+    assert.deepEqual(body.answers, { 'l-A1': 'A', 'l-D1': 'T' });
+    return { answers: [{ id: 'l-A1', answer: 'A', transcript: 'city' },
+      { id: 'l-D1', answer: 'T' }], talk_transcript: 'The city is bigger.',
+      talk_translation: 'Thành phố lớn hơn.' };
+  } };
+  const listening = createListening({ api, storage: storage(), userId: 'u1' });
+  listening.load(bank);
+  assert.equal(await listening.reveal(), false);
+  listening.write('l-A1', 'A'); listening.write('l-D1', 'T');
+  assert.equal(await listening.reveal(), true);
+  assert.equal(calls, 1);
+  assert.match(listening.render(), /Nghe được: “city”/);
+  assert.match(listening.render(), /Thành phố lớn hơn\./);
+});
+
+test('draft keys are isolated by learner', () => {
+  assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
+});

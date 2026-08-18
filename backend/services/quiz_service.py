@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
+from config import settings
 from services import course_writing_grader
 from services.class_assignment_service import (
     is_accepting_submissions,
@@ -41,6 +42,7 @@ _LESSON_SRC_RE = re.compile(r"^L\d")
 # stay byte-identical to the token quiz_import._commit_bank keys off, so import
 # and serve agree on which questions are audio questions.
 _AUDIO_TOKEN = "{{audio}}"
+_COURSE_LISTENING_TTL = 7200
 
 
 def _is_lesson_source(source) -> bool:
@@ -449,6 +451,49 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         meta["short_reading"] = reading_for_play
         bank = {**bank, "meta": meta}
 
+    # BÀI NGHE THÊM: đáp án/transcript không đi cùng đề. Audio nằm trong bucket
+    # riêng tư và chỉ được ký URL sau khi cổng bài-giao ở trên đã cho phép bank.
+    listening = meta.get("short_listening")
+    if isinstance(listening, dict):
+        listening_for_play = dict(listening)
+        listening_for_play.pop("solution", None)
+        listening_for_play["has_solution"] = True
+        sections = []
+        bucket_name = ((listening.get("audio_bundle") or {}).get("bucket")
+                       or settings.LISTENING_AUDIO_BUCKET)
+        bucket = supabase_admin.storage.from_(bucket_name)
+
+        def signed(path: str) -> str:
+            try:
+                response = bucket.create_signed_url(path, _COURSE_LISTENING_TTL)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[quiz] course listening audio sign failed path=%s: %s",
+                               path, exc)
+                raise HTTPException(500, "Không mở được audio bài nghe") from exc
+            url = ((response or {}).get("signedURL") or (response or {}).get("signedUrl")
+                   or (response or {}).get("signed_url"))
+            if not url:
+                raise HTTPException(500, "Không mở được audio bài nghe")
+            return url
+
+        for section in listening.get("sections") or []:
+            served_section = dict(section)
+            path = served_section.pop("audio_storage_path", None)
+            if path:
+                served_section["audio_url"] = signed(path)
+            questions_for_play = []
+            for question in section.get("questions") or []:
+                served_question = dict(question)
+                q_path = served_question.pop("audio_storage_path", None)
+                if q_path:
+                    served_question["audio_url"] = signed(q_path)
+                questions_for_play.append(served_question)
+            served_section["questions"] = questions_for_play
+            sections.append(served_section)
+        listening_for_play["sections"] = sections
+        meta["short_listening"] = listening_for_play
+        bank = {**bank, "meta": meta}
+
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
@@ -486,6 +531,34 @@ def course_reading_solution(*, user_id: str, bank_id: str,
             "missing": missing,
         })
     return {"translation": translation, "answers": answers}
+
+
+def course_listening_solution(*, user_id: str, bank_id: str,
+                              submitted_answers: dict) -> dict:
+    """Đáp án + transcript bài nghe, chỉ sau khi học viên làm đủ mọi câu."""
+    _bank_meta_or_404(bank_id, user_id)
+    try:
+        rows = (supabase_admin.table("quiz_banks").select("meta")
+                .eq("id", bank_id).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc đáp án bài nghe: {exc}")
+    listening = (((rows[0] if rows else {}).get("meta") or {}).get("short_listening"))
+    solution = listening.get("solution") if isinstance(listening, dict) else None
+    answers = solution.get("answers") if isinstance(solution, dict) else None
+    if not isinstance(answers, list) or not answers:
+        raise HTTPException(404, "Bài tập này không có bài nghe hoàn chỉnh")
+    expected = [str(row.get("id") or "") for row in answers if row.get("id")]
+    if len(expected) != len(answers):
+        raise HTTPException(500, "Đáp án bài nghe thiếu mã câu")
+    submitted = {str(k): str(v or "").strip()
+                 for k, v in (submitted_answers or {}).items()}
+    missing = [qid for qid in expected if not submitted.get(qid)]
+    if missing:
+        raise HTTPException(422, {
+            "message": f"Còn {len(missing)} câu bài nghe chưa trả lời.",
+            "missing": missing,
+        })
+    return solution
 
 
 def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:

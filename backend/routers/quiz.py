@@ -144,6 +144,12 @@ class CourseReadingBody(BaseModel):
     answers: dict[str, str] = {}
 
 
+class CourseListeningBody(BaseModel):
+    bank_id: str
+    # Chốt đã làm đủ; phần nghe tự luyện không tham gia điểm mastery.
+    answers: dict[str, str] = {}
+
+
 @router.get("/course/writing")
 async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
@@ -182,6 +188,16 @@ async def course_reading_solution(body: CourseReadingBody,
     """Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này."""
     user = await get_supabase_user(authorization)
     return quiz_service.course_reading_solution(
+        user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
+    )
+
+
+@router.post("/course/listening-solution")
+async def course_listening_solution(body: CourseListeningBody,
+                                    authorization: str | None = Header(None)):
+    """Đáp án + transcript bài nghe; đề ban đầu không mang những phần này."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_listening_solution(
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
     )
 
