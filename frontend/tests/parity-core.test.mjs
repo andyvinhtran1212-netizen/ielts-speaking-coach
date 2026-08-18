@@ -91,6 +91,12 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       canonicalHref('/pages/listening-practice-run.html?source=library&id=test-1'),
       '/listening/practice-run?id=test-1&source=library');
     assert.equal(
+      canonicalHref('/pages/listening-test.html?from=mini&id=test-1'),
+      '/listening/test/session?from=mini&id=test-1');
+    assert.equal(
+      canonicalHref('/pages/listening-test.html?id=test-1&from=mini'),
+      canonicalHref('/listening/test/session?from=mini&id=test-1'));
+    assert.equal(
       canonicalHref('/pages/reading-exam.html?from=mini&test_id=AVR-1'),
       '/reading/exam/session?from=mini&test_id=AVR-1');
     assert.equal(
@@ -128,7 +134,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       ],
       [
         '/core-player/launch?surface=listening_test&id=test-1&from=mini',
-        '/pages/listening-test.html?id=test-1&from=mini',
+        '/listening/test/session?id=test-1&from=mini',
       ],
       [
         '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',

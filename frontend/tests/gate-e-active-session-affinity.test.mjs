@@ -63,7 +63,7 @@ describe('current admission policy preserves behavior', () => {
     const expectedAdmission = {
       speaking: 'legacy',
       reading_exam: 'legacy',
-      listening_test: 'legacy',
+      listening_test: 'next',
       listening_dictation: 'legacy',
     };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
@@ -116,7 +116,7 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),
-      '/pages/listening-test.html?id=test-1&class_item=homework-1',
+      '/listening/test/session?id=test-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),

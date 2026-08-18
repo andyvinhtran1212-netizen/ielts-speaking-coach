@@ -219,6 +219,12 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/listening/practice-run` is the canonical light-practice runner. Preserve
   // `id` and any future source query while comparing rollback links.
   else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // Listening test admissions now resolve to the native stable player on
+  // staging, while affinity keeps already-started Legacy attempts on the HTML
+  // player. Dynamic browse-card links on both stacks still identify the same
+  // test through `id`/`from`; canonicalize only the route owner and preserve
+  // every query key so G1 compares the actual destination contract.
+  else if (path === '/pages/listening-test.html') path = '/listening/test/session';
   // Reading exam admissions now resolve to the native stable player on
   // staging, while the HTML URL remains intentionally reachable for active
   // Legacy attempts and rollback. Compare links by canonical route ownership;
