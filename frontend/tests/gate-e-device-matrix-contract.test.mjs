@@ -194,7 +194,12 @@ describe('Gate E device matrix is pinned and bounded', () => {
 
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {
     assert.match(HELPERS, /const PRODUCTION_ORIGINS = Object\.freeze/);
-    assert.match(HELPERS, /module\.exports = \{ BYPASS_HEADERS, PRODUCTION_ORIGINS, primeBypassCookie \}/);
+    assert.match(HELPERS, /'x-vercel-skip-toolbar': '1'/);
+    assert.match(HELPERS, /context\.route\(`\$\{origin\}\/\*\*`/);
+    assert.match(HELPERS, /headers: \{ \.\.\.route\.request\(\)\.headers\(\), \.\.\.TOOLBAR_HEADER \}/);
+    assert.match(HELPERS, /await installToolbarSkip\(context, baseURL\)/);
+    assert.doesNotMatch(configCode, /extraHTTPHeaders/,
+      'Vercel automation headers must remain origin-scoped to avoid cross-origin CORS preflights');
     assert.match(SPEC, /test\.afterEach\(async \(\{ page \}\) =>/);
     assert.match(SPEC, /productionRequestsByPage\.get\(page\)/);
     assert.match(SPEC, /gate-e-device-matrix\.json/);
