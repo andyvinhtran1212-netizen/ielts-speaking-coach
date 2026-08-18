@@ -103,6 +103,22 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(RECOVERY_SPEC, /return nativeFetch\(\.\.\.args\)/);
     assert.doesNotMatch(RECOVERY_SPEC, /postDataBuffer\(\)\?\.toString\('utf8'\)[\s\S]*?toContain\('only-copy-audio-q5'\)/);
   });
+
+  test('cross-version handoff does not wait on an unrelated App Router prefetch', () => {
+    const answerSubmitted = AFFINITY_SPEC.lastIndexOf("questionId: 'q2'");
+    const legacyNavigation = AFFINITY_SPEC.indexOf(
+      '/pages/practice.html?session_id=',
+      answerSubmitted,
+    );
+    assert.ok(answerSubmitted >= 0 && legacyNavigation > answerSubmitted);
+
+    const synchronizationBoundary = AFFINITY_SPEC.slice(answerSubmitted, legacyNavigation);
+    assert.doesNotMatch(synchronizationBoundary, /waitForLoadState\('networkidle'\)/);
+    assert.match(
+      AFFINITY_SPEC.slice(legacyNavigation),
+      /await expect\(page\.locator\('#state-prep'\)\)\.toHaveClass/,
+    );
+  });
 });
 
 describe('Synthetic WebKit never becomes real Safari/iOS evidence', () => {

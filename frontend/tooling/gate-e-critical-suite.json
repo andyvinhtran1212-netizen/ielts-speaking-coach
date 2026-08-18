@@ -106,7 +106,7 @@
     { "path": "frontend/tooling/gate-e-speaking-device-matrix.json", "sha256": "b5880a088dea16a6a5b636af7d25373e45a5ad5173000811ebbac9c65bfdab7d" },
     { "path": "frontend/tooling/verify-gate-e-speaking-device-matrix.mjs", "sha256": "64c34d5e35681cfe5d793ae9619ca606d0946c833f5ebf5627d154e059c0133b" },
     { "path": "frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs", "sha256": "158911ffaf036f39fb7573d38231deb54075f0d094481320e6ab3848f94757d6" },
-    { "path": "frontend/tests/gate-e/native-speaking-cross-version-resume.spec.js", "sha256": "f2b239fbbb8539b9fe654cdac96e85d5c119b06fcda943e1756483886ee88542" },
+    { "path": "frontend/tests/gate-e/native-speaking-cross-version-resume.spec.js", "sha256": "a195b74031ff24971819021aad47aae20b033b7dc57d87f6b0b6cee8f4b4c571" },
     { "path": "frontend/tests/gate-e/native-speaking-device-mic.spec.js", "sha256": "d2fa881a8cf97465e65441d74d01e803f92e2bd34ba39372f41cf805ac233678" },
     { "path": "frontend/tests/gate-e/native-speaking-fixtures.spec.js", "sha256": "cee829544ea7bae61855b1dbd0d8b1dbbf4191a4a971769e63ab0ee7c30a074f" },
     { "path": "frontend/tests/gate-e/native-speaking-harness.js", "sha256": "97ee7a69529daa91954d2653c01f14c04abfdb3bf165334d854554b554e96335" },
