@@ -62,7 +62,7 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
   });
 
-  test('automated matrix and ledger are partial, without inventing qualifying evidence', () => {
+  test('automated matrix is versioned and the truthful ledger remains below threshold', () => {
     assert.match(STAGING_CONFIG, /name: 'staging-core-chromium'/);
     assert.match(STAGING_CONFIG, /name: 'matrix-webkit-26\.4-desktop'/);
     assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium webkit/);
@@ -71,11 +71,14 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
     assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
     assert.match(PREFLIGHT, /Chưa có qualifying 20-run artifact/);
+    assert.match(PREFLIGHT, /trusted run `32136607306`/);
+    assert.match(PREFLIGHT, /\*\*1\/20\*\*/);
+    assert.match(PREFLIGHT, /failure_matrix_complete=true/);
   });
 
   test('retry-reset invariant is fail-closed at the staging runner', () => {
     assert.match(STAGING_CONFIG, /^\s*retries:\s*0,\s*$/m);
-    assert.match(PREFLIGHT, /ledger reset trên fail\/unexpected skip\/flake\/rerun/);
+    assert.match(PREFLIGHT, /[Ll]edger\s+reset trên fail\/unexpected skip\/flake\/rerun/);
   });
 });
 

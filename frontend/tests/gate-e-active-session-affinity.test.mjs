@@ -432,7 +432,7 @@ describe('cutover and rollback drill', () => {
 });
 
 describe('evidence truth', () => {
-  test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
+  test('records completed affinity drills without claiming global Gate E pass', () => {
     assert.match(DOC, /SPEAKING THREE-PHASE LIVE CORE DRILL PASSED; REAL DEVICE \+ GATE E\s+PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
@@ -440,7 +440,9 @@ describe('evidence truth', () => {
     assert.match(DOC, /rollback floor SHA/);
     assert.match(DOC, /khác PR và khác commit/i);
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
-    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PASS\*\*/);
+    assert.match(PREFLIGHT, /\*\*Trạng thái:\*\* NOT READY\./);
+    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
     assert.match(PREFLIGHT, /floor run `32043317793`/);
     assert.match(PREFLIGHT, /cutover run `32045284608`/);
     assert.match(PREFLIGHT, /rollback run `32047774312`/);
