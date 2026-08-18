@@ -454,9 +454,9 @@ describe('workflow and provenance contract', () => {
     const allStepTimeouts = stepBlocks.map((block) => Number(
       block.match(/^ {8}timeout-minutes:\s*(\d+)\s*$/m)?.[1],
     ));
-    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 149);
+    assert.equal(allStepTimeouts.reduce((total, value) => total + value, 0), 159);
     assert.ok(jobTimeout >= allStepTimeouts.reduce((total, value) => total + value, 0) + 30);
-    assert.match(DOC, /Job có timeout 180 phút/);
+    assert.match(DOC, /Job có timeout 190 phút/);
     assert.match(DOC, /mọi step có timeout riêng/);
     assert.match(DOC, /bốn failure\s+matrix có timeout 10 phút mỗi bước/);
     assert.match(UPDATER, /manifest = readJson\(path\.join\(AUDITOR_FRONTEND/);

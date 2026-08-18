@@ -48,9 +48,9 @@ jobs:
     runs-on: ubuntu-24.04
     # Every step below has its own timeout. Their deliberately conservative
     # total is 159 minutes even though the streak/reset uploads are mutually
-    # exclusive. Keep a further 21-minute job margin so a step-level timeout
+    # exclusive. Keep a further 31-minute job margin so a step-level timeout
     # can still produce the fail-closed ledger and evidence artifacts below.
-    timeout-minutes: 180
+    timeout-minutes: 190
     steps:
       - uses: actions/checkout@v4
         timeout-minutes: 3
