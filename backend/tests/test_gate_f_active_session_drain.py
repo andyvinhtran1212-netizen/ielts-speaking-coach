@@ -91,8 +91,13 @@ def _client(monkeypatch, tables, *, missing_count=False):
     return TestClient(app)
 
 
-def _row(*, status="in_progress", started_at):
-    return {"id": "resource", "status": status, "started_at": started_at}
+def _row(*, status="in_progress", started_at=None, renderer_affinity=None):
+    return {
+        "id": "resource",
+        "status": status,
+        "started_at": started_at,
+        "renderer_affinity": renderer_affinity,
+    }
 
 
 def _iso(value):
@@ -118,6 +123,13 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
             _row(started_at=new),
             _row(status="completed", started_at=old),
         ],
+        "writing_assignments": [
+            _row(status="pending", renderer_affinity="legacy"),
+            _row(status="in_progress", renderer_affinity="legacy"),
+            _row(status="in_progress", renderer_affinity=None),
+            _row(status="in_progress", renderer_affinity="next"),
+            _row(status="submitted", renderer_affinity="legacy"),
+        ],
     }
 
     response = _client(monkeypatch, tables).get(
@@ -128,7 +140,7 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["schema_version"] == 2
+    assert body["schema_version"] == 3
     speaking = body["surfaces"]["speaking"]
     assert speaking == {
         "table": "sessions",
@@ -151,7 +163,18 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
         "post_cutover_active": 1,
         "exact": True,
     }
-    assert body["legacy_blocking_total"] == 3
+    writing = body["surfaces"]["writing_assignment"]
+    assert writing == {
+        "table": "writing_assignments",
+        "blocking_renderer_affinities": ["legacy", None],
+        "active_statuses": ["pending", "in_progress"],
+        "legacy_pending": 1,
+        "legacy_in_progress": 1,
+        "unclaimed_in_progress": 1,
+        "legacy_blocking": 3,
+        "exact": True,
+    }
+    assert body["legacy_blocking_total"] == 6
     assert body["stateful_legacy_drain_zero"] is False
     assert body["retirement_decision"] == "pending-additional-gate-f-evidence"
 
@@ -165,6 +188,10 @@ def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeyp
         "reading_test_attempts": [],
         "listening_test_attempts": [_row(started_at=after)],
         "dictation_attempts": [_row(started_at=after)],
+        "writing_assignments": [
+            _row(status="pending", renderer_affinity="next"),
+            _row(status="submitted", renderer_affinity="legacy"),
+        ],
     }
 
     body = _client(monkeypatch, tables).get(
@@ -179,6 +206,7 @@ def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeyp
     assert body["surfaces"]["speaking"]["post_cutover_active"] == 1
     assert body["surfaces"]["listening_test"]["post_cutover_active"] == 1
     assert body["surfaces"]["listening_dictation"]["post_cutover_active"] == 1
+    assert body["surfaces"]["writing_assignment"]["legacy_blocking"] == 0
 
 
 def test_missing_exact_count_fails_closed(monkeypatch):

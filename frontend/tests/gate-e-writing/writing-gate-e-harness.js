@@ -27,6 +27,8 @@ function createWritingGateEState() {
     draftText: '',
     submittedText: null,
     requestId: null,
+    rendererAffinity: null,
+    claimCalls: [],
     startCalls: 0,
     draftCalls: [],
     submitCalls: [],
@@ -51,6 +53,7 @@ function assignmentPayload(state) {
     time_limit_minutes: 40,
     started_at: state.startedAt,
     auto_submitted: false,
+    renderer_affinity: state.rendererAffinity,
     writing_prompts: {
       id: '44444444-4444-4444-8444-444444444444',
       title: 'Canonical persistence',
@@ -197,6 +200,18 @@ async function installWritingGateEHarness(page, { state, handleApi = null } = {}
     if (request.method() === 'GET' && url.pathname === '/api/writing/tips') {
       return route.fulfill({ json: { tips: [] }, headers: cors });
     }
+    if (request.method() === 'POST' && url.pathname === `/api/writing/my-assignments/${ASSIGNMENT}/renderer-affinity`) {
+      const requested = String(body?.renderer_affinity || '');
+      state.claimCalls.push(requested);
+      if (requested !== 'legacy' && requested !== 'next') {
+        return route.fulfill({ status: 422, json: { detail: 'invalid renderer' }, headers: cors });
+      }
+      state.rendererAffinity = state.rendererAffinity || requested;
+      return route.fulfill({
+        json: { assignment_id: ASSIGNMENT, renderer_affinity: state.rendererAffinity },
+        headers: cors,
+      });
+    }
     if (request.method() === 'POST' && url.pathname === `/api/writing/my-assignments/${ASSIGNMENT}/start`) {
       state.startCalls += 1;
       if (!state.startedAt) state.startedAt = new Date(Date.now() - 10_000).toISOString();
@@ -260,7 +275,20 @@ async function openLegacy(page) {
 }
 
 async function openComposer(page) {
-  await page.locator(`.assignment-card[data-assignment-id="${ASSIGNMENT}"] .btn-start-assignment`).click();
+  const requested = new URL(page.url()).searchParams.get('assignment_id');
+  if (requested !== ASSIGNMENT) {
+    await page.locator(`.assignment-card[data-assignment-id="${ASSIGNMENT}"] .btn-start-assignment`).click();
+  }
+  await expect(page.locator('#modal-essay-textarea')).toBeVisible();
+}
+
+async function openLegacyAssignment(page) {
+  await page.goto(`/pages/writing-dashboard.html?assignment_id=${ASSIGNMENT}`);
+  await expect(page.locator('#modal-essay-textarea')).toBeVisible();
+}
+
+async function openNextAssignment(page) {
+  await page.goto(`/writing/dashboard?assignment_id=${ASSIGNMENT}`);
   await expect(page.locator('#modal-essay-textarea')).toBeVisible();
 }
 
@@ -281,5 +309,7 @@ module.exports = {
   installWritingGateEHarness,
   openComposer,
   openLegacy,
+  openLegacyAssignment,
   openNext,
+  openNextAssignment,
 };

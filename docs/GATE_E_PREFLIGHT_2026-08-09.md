@@ -129,24 +129,23 @@ core cutover vẫn bị chặn bởi Gate E.
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.
 
-### GE-4 — Persisted affinity đã drill; Writing còn thiếu implementation và live drill
+### GE-4 — Writing affinity đã implement; còn thiếu live drill
 
 - **Root cause lịch sử:** runtime admission từng chỉ quyết định renderer cho
   một navigation và không persist renderer theo session/attempt. Remediation
   đã thêm atomic first-player claim; Speaking, Reading, Listening test và
   Listening Dictation nay giữ affinity canonical qua launcher, reload và
-  forward rollback. Writing chưa có surface trong affinity policy/launcher,
-  canonical first-player claim hoặc live three-phase artifact tương ứng.
+  forward rollback. Writing hiện đã có surface trong affinity policy/launcher,
+  canonical first-player claim và synthetic cross-version matrix; chưa có live
+  three-phase artifact tương ứng trên staging.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
   `frontend/app/core-player/launch/route.ts`, canonical attempt/session tables
   và từng Gate E coexistence workflow.
-- **Suggested minimal fix còn lại:** thêm Writing vào centralized affinity
-  policy và required-surface contract, nối stable launcher với canonical atomic
-  first-player claim, rồi mới pin floor và drill staging cutover + forward
-  rollback với exact frontend/backend provenance; không mở rộng admission
-  production trong batch này.
+- **Suggested minimal fix còn lại:** áp dụng migration 221 vào staging, pin floor
+  rồi drill staging cutover + forward rollback với exact frontend/backend
+  provenance; không mở rộng hay redeploy production trong batch này.
 - **Verification:** Dictation floor `32103908150` attempt 2, cutover
   `32106478117` attempt 2 và rollback `32108579377` attempt 1 chứng minh fresh
   admission đổi đúng, prior Legacy/Next attempt giữ renderer, reload/copy URL

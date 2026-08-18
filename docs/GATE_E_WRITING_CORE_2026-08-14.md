@@ -1,6 +1,8 @@
 # Gate E — Writing submission failure matrix
 
-Ngày khóa contract: **2026-08-14**.
+Ngày khóa contract ban đầu: **2026-08-14**. Affinity contract được version lại
+ngày **2026-08-18**; thay đổi frozen-suite hash này bắt buộc khởi động lại
+candidate clean streak từ run staging đầu tiên sau merge.
 
 ## Phạm vi và kết luận
 
@@ -51,6 +53,14 @@ Readback không schedule job, không trust essay id từ client và chỉ trả 
 của student hiện tại. Payload khác nhưng dùng lại request UUID trả `409`.
 Flagged submit cũng dùng cùng contract và replay đúng thông điệp moderation.
 
+Migration `221_writing_assignment_renderer_affinity.sql` bổ sung affinity
+`legacy|next` nullable, không default/backfill lịch sử vì Writing đã Next-canonical
+trong lúc Legacy rollback URL vẫn còn sống. Renderer đầu tiên claim nguyên tử
+trên assignment đang `pending|in_progress`; cả hai dashboard claim trước `/start`
+và redirect về affinity canonical nếu mở nhầm stack. Assignment mới vẫn admit
+vào Next để giữ hành vi sản phẩm hiện tại; thay đổi này chỉ chuẩn bị staging
+coexistence/rollback, không đổi production deployment.
+
 ## Bốn failure path được đóng băng
 
 1. `writing-core-player-ambiguous-commit`: fixture commit essay + job rồi abort
@@ -59,8 +69,9 @@ Flagged submit cũng dùng cùng contract và replay đúng thông điệp moder
    422; submit vẫn dùng toàn bộ exact in-memory text, không chấm draft cũ.
 3. `writing-core-player-reload-resume`: reload khôi phục canonical draft và cùng
    `started_at`.
-4. `writing-bidirectional-cross-version-core-player`: Legacy lưu → Next khôi
-   phục/lưu → Legacy khôi phục cùng canonical draft.
+4. `writing-bidirectional-cross-version-core-player`: Legacy claim + lưu; direct
+   Next deep-link bị redirect về Legacy affinity rồi tiếp tục đúng canonical
+   draft. Reload/copy URL không đổi renderer giữa attempt.
 
 Mọi path fail nếu có production egress hoặc uncaught browser error.
 
@@ -72,11 +83,16 @@ Mọi path fail nếu có production egress hoặc uncaught browser error.
 - Manifest/pins: `verify-gate-e-writing-device-matrix.mjs`.
 - Semantic evidence: exact 12 tests/3 projects/four titles, zero
   skip/fail/flake và complete embedded Playwright ZIP.
+- Affinity/backend drain: 38 targeted tests pass; Gate F đếm cả assignment
+  `pending` hoặc `in_progress` đã pin Legacy, kể cả claim thành công nhưng
+  `/start` bị gián đoạn. Assignment `in_progress` còn affinity `NULL` từ client
+  N−1 cũng fail closed thành blocker; `pending + NULL` không bị tính vì có thể
+  chỉ là bài được giao nhưng chưa từng mở.
 - CI chạy Writing matrix + verifier trước metadata/ledger; suite/verifier đỏ
   đặt `GATE_E_RUN_OUTCOME=failure`.
 
 `frontend/tooling/gate-e-critical-suite.json` chuyển
 `failure_injection.status=complete` sau khi Speaking live-staging journey chứng
 minh commit-then-response-loss được canonical GET reconcile mà không replay.
-Gate E vẫn còn thiếu Safari/iOS thật, active-session drill và 20 consecutive
-clean runs.
+Gate E vẫn còn thiếu Safari/iOS thật, Writing live three-phase drill và 20
+consecutive clean runs trên frozen hash mới.

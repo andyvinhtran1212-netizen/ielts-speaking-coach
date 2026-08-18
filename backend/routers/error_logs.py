@@ -312,6 +312,13 @@ GATE_F_STATEFUL_PLAYER_TABLES = (
     ("listening_dictation", "dictation_attempts"),
 )
 
+# Writing claims its renderer before ``/start`` so a failed start can leave a
+# still-pending assignment pinned to Legacy. Count the canonical affinity
+# directly instead of inferring renderer ownership from ``started_at``.
+GATE_F_AFFINITY_PLAYER_TABLES = (
+    ("writing_assignment", "writing_assignments"),
+)
+
 
 def _p75(values: list[float]) -> float | None:
     """Nearest-rank 75th percentile — deterministic, no interpolation."""
@@ -799,6 +806,28 @@ def _gate_f_exact_active_count(
     return int(result.count)
 
 
+def _gate_f_exact_affinity_count(
+    table: str,
+    *,
+    status: str,
+    affinity: str | None,
+) -> int:
+    """Return an exact affinity-pinned count for one active workflow state."""
+    query = (
+        supabase_admin.table(table)
+        .select("id", count="exact")
+        .eq("status", status)
+    )
+    if affinity is None:
+        query = query.is_("renderer_affinity", "null")
+    else:
+        query = query.eq("renderer_affinity", affinity)
+    result = query.limit(1).execute()
+    if result.count is None:
+        raise RuntimeError(f"{table}: exact affinity count unavailable")
+    return int(result.count)
+
+
 @_admin_router.get("/legacy-active-session-drain")
 async def gate_f_legacy_active_session_drain(
     cutover_at: str,
@@ -841,6 +870,33 @@ async def gate_f_legacy_active_session_drain(
                 "post_cutover_active": post_cutover,
                 "exact": True,
             }
+        for surface, table in GATE_F_AFFINITY_PLAYER_TABLES:
+            legacy_pending = _gate_f_exact_affinity_count(
+                table,
+                status="pending",
+                affinity="legacy",
+            )
+            legacy_in_progress = _gate_f_exact_affinity_count(
+                table,
+                status="in_progress",
+                affinity="legacy",
+            )
+            unclaimed_in_progress = _gate_f_exact_affinity_count(
+                table,
+                status="in_progress",
+                affinity=None,
+            )
+            blockers = legacy_pending + legacy_in_progress + unclaimed_in_progress
+            surfaces[surface] = {
+                "table": table,
+                "blocking_renderer_affinities": ["legacy", None],
+                "active_statuses": ["pending", "in_progress"],
+                "legacy_pending": legacy_pending,
+                "legacy_in_progress": legacy_in_progress,
+                "unclaimed_in_progress": unclaimed_in_progress,
+                "legacy_blocking": blockers,
+                "exact": True,
+            }
     except Exception as exc:
         logger.warning("Gate F active-session drain query failed: %s", exc)
         raise HTTPException(
@@ -850,7 +906,7 @@ async def gate_f_legacy_active_session_drain(
 
     legacy_blocking_total = sum(row["legacy_blocking"] for row in surfaces.values())
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "cutover_at": cutoff_iso,
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "exact": True,

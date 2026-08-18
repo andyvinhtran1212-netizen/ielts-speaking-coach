@@ -68,6 +68,29 @@ describe('bản khai luồng ghi', () => {
     assert.ok(!(speaking.ignoreWrites || []).includes('/api/error-logs'),
       'không được tha error log — lỗi bootstrap thật phải làm cổng đỏ');
   });
+
+  test('Writing claim renderer Next trước khi mở lượt làm bài', () => {
+    const writing = flows.find(({ file }) => file === 'writing-submit.mjs')?.flow;
+    assert.ok(writing, 'thiếu bản khai writing-submit.mjs');
+
+    const claimPath = '/api/writing/my-assignments/asg-1/renderer-affinity';
+    const startPath = '/api/writing/my-assignments/asg-1/start';
+    const claimIndex = writing.writes.findIndex(({ method, path }) =>
+      method === 'POST' && path === claimPath);
+    const startIndex = writing.writes.findIndex(({ method, path }) =>
+      method === 'POST' && path === startPath);
+    assert.ok(claimIndex !== -1, 'phải khai write claim renderer affinity');
+    assert.ok(startIndex !== -1 && claimIndex < startIndex,
+      'claim renderer affinity phải đứng trước /start');
+    assert.deepEqual(writing.writes[claimIndex].body, { renderer_affinity: 'next' });
+
+    const cannedClaim = writing.canned.find(([re]) =>
+      re.test(`http://localhost:8000${claimPath}`))?.[1];
+    assert.deepEqual(cannedClaim, {
+      assignment_id: 'asg-1',
+      renderer_affinity: 'next',
+    }, 'fixture claim phải trả renderer canonical để client tiếp tục');
+  });
 });
 
 

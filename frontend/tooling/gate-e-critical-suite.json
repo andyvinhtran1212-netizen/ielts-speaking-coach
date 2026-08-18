@@ -130,7 +130,7 @@
     { "path": "frontend/tooling/gate-e-writing-device-matrix.json", "sha256": "8b122950dc95f16335a9cde585bde3af703287b2930be4b8834263cce543f02e" },
     { "path": "frontend/tooling/verify-gate-e-writing-device-matrix.mjs", "sha256": "4b34eb1853af3d887281b68381a5926e8dea787d2b5b5dcd7ad503ad01bf2401" },
     { "path": "frontend/tooling/verify-gate-e-writing-failure-evidence.mjs", "sha256": "1e962b7a7b96c651e46952cc95f671c4c0ce637bec70b61f51bc8ee22cd9fd11" },
-    { "path": "frontend/tests/gate-e-writing/writing-gate-e-harness.js", "sha256": "c8a550471e8e347d84df64b3d98a810d238b48192a241558891fbbd9caba5da2" },
-    { "path": "frontend/tests/gate-e-writing/writing-failure-matrix.spec.js", "sha256": "ce26038b1998419503ab444c20760e1d8891376357ca2a481d45e8bb5f65f8e4" }
+    { "path": "frontend/tests/gate-e-writing/writing-gate-e-harness.js", "sha256": "846560947be757783efdcc19f17f3f0d69345732d2ba867c3804c16f0f0cde3f" },
+    { "path": "frontend/tests/gate-e-writing/writing-failure-matrix.spec.js", "sha256": "630f1020a197d9f2ed242745e31fcc57c6fdb9e4e4ec66707aac76b7d5e92601" }
   ]
 }
