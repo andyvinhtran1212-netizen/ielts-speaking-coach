@@ -419,6 +419,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/e2e/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Admin Cleanup E2E Session
+         * @description Delete one synthetic Gate E session from the certified staging DB.
+         *
+         *     This deliberately is not a general session-delete API. It requires an
+         *     admin, refuses every non-staging runtime/project, and only accepts an
+         *     unassigned session owned by a staging-E2E identity with a frozen test
+         *     topic. The narrow route lets the soak suite release its daily-quota rows
+         *     without rotating identities or exposing the service key to GitHub Actions.
+         */
+        delete: operations["admin_cleanup_e2e_session_admin_e2e_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{user_id}/role": {
         parameters: {
             query?: never;
@@ -14215,6 +14241,37 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_cleanup_e2e_session_admin_e2e_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
