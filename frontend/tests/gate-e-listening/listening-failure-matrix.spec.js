@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const {
   ATTEMPT,
+  TEST_ID,
   cors,
   createListeningGateEState,
   dispatchAudioMetadata,
@@ -15,6 +16,7 @@ test('listening-core-player-ambiguous-commit', async ({ page }) => {
   let q1Writes = 0;
   const harness = await installListeningGateEHarness(page, {
     state,
+    allowCrossRendererFixture: true,
     handleApi: async ({ route, request, url, entry }) => {
       if (request.method() !== 'PATCH' || !url.pathname.endsWith(`/${ATTEMPT}/answers`)) return false;
       if (Number(entry.body?.q_num) !== 1) return false;
@@ -115,7 +117,10 @@ test('listening-core-player-reload-resume', async ({ page }) => {
 
 test('listening-bidirectional-cross-version-core-player', async ({ page }) => {
   const state = createListeningGateEState();
-  const harness = await installListeningGateEHarness(page, { state });
+  const harness = await installListeningGateEHarness(page, {
+    state,
+    allowCrossRendererFixture: true,
+  });
 
   await openLegacy(page);
   await page.locator('#btn-start').click();
@@ -135,5 +140,24 @@ test('listening-bidirectional-cross-version-core-player', async ({ page }) => {
   expect(state.attemptId).toBe(ATTEMPT);
   expect(state.startCount).toBe(1);
   expect(Object.fromEntries(state.answers)).toEqual({ 1: 'library', 2: 'blue' });
+  await expectNoHarnessErrors(harness);
+});
+
+test('listening-renderer-affinity-immutable-guard', async ({ page }) => {
+  const state = createListeningGateEState();
+  const harness = await installListeningGateEHarness(page, { state });
+
+  await openLegacy(page);
+  await page.locator('#btn-start').click();
+  await page.locator('.ft-q-input[data-q-num="1"]').fill('library');
+  await expect.poll(() => state.answers.get(1)).toBe('library');
+  expect(state.rendererAffinity).toBe('legacy');
+
+  await page.goto(`/listening/test/session?id=${TEST_ID}`);
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/pages/listening-test.html');
+  await page.locator('#ft-resume-btn').click();
+  await expect(page.locator('.ft-q-input[data-q-num="1"]')).toHaveValue('library');
+  expect(state.startCount).toBe(1);
+  expect(state.rendererAffinity).toBe('legacy');
   await expectNoHarnessErrors(harness);
 });

@@ -42,6 +42,7 @@ function dictationBundle() {
 
 function createDictationGateEState() {
   return {
+    attempts: [],
     sessions: [],
     byRequest: new Map(),
     completionCalls: [],
@@ -54,6 +55,7 @@ function canonicalReport(body, sessionId) {
   const requestId = body.client_request_id || null;
   return {
     session_id: sessionId,
+    attempt_id: body.attempt_id || null,
     client_request_id: requestId,
     test_title: 'Gate E Dictation fixture',
     section_num: 1,
@@ -91,6 +93,8 @@ async function installDictationGateEHarness(page, { state, handleApi = null } = 
     if (requestId && state.byRequest.has(requestId)) return state.byRequest.get(requestId);
     const report = canonicalReport(body, `dictation-session-${state.sessions.length + 1}`);
     state.sessions.push({ body: structuredClone(body), report });
+    const attempt = state.attempts.find((item) => item.attempt_id === body.attempt_id);
+    if (attempt) attempt.status = 'completed';
     if (requestId) state.byRequest.set(requestId, report);
     return report;
   };
@@ -147,6 +151,66 @@ async function installDictationGateEHarness(page, { state, handleApi = null } = 
     }
     if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}/dictation`) {
       await route.fulfill({ json: dictationBundle(), headers: cors });
+      return;
+    }
+    if (request.method() === 'GET'
+        && url.pathname === `/api/listening/tests/${TEST_ID}/dictation/attempts/in-progress`) {
+      const attempt = state.attempts.find((item) => item.status === 'in_progress') || null;
+      await route.fulfill({ json: { attempt }, headers: cors });
+      return;
+    }
+    if (request.method() === 'POST'
+        && url.pathname === `/api/listening/tests/${TEST_ID}/dictation/attempts`) {
+      const existing = state.attempts.find((item) => item.status === 'in_progress');
+      if (existing) {
+        await route.fulfill({ json: { ...existing, created: false }, headers: cors });
+        return;
+      }
+      const attempt = {
+        attempt_id: `10000000-0000-4000-8000-${String(state.attempts.length + 1).padStart(12, '0')}`,
+        test_id: TEST_ID, section_num: 1, status: 'in_progress',
+        renderer_affinity: body?.renderer_affinity_protocol === 'claim-v1' ? null : 'legacy',
+        started_at: '2026-08-18T00:00:00Z', answers: [], created: true,
+      };
+      state.attempts.push(attempt);
+      await route.fulfill({ json: attempt, headers: cors });
+      return;
+    }
+    const affinityMatch = url.pathname.match(/^\/api\/listening\/tests\/dictation\/attempts\/([^/]+)\/renderer-affinity$/);
+    if (request.method() === 'POST' && affinityMatch) {
+      const attempt = state.attempts.find((item) => item.attempt_id === decodeURIComponent(affinityMatch[1]));
+      if (!attempt || attempt.status !== 'in_progress') {
+        await route.fulfill({ status: 404, json: { detail: 'attempt missing' }, headers: cors });
+        return;
+      }
+      attempt.renderer_affinity = attempt.renderer_affinity || body?.renderer_affinity;
+      await route.fulfill({ json: { attempt_id: attempt.attempt_id,
+        renderer_affinity: attempt.renderer_affinity }, headers: cors });
+      return;
+    }
+    const sentenceMatch = url.pathname.match(/^\/api\/listening\/tests\/dictation\/attempts\/([^/]+)\/sentences\/(\d+)$/);
+    if (request.method() === 'POST' && sentenceMatch) {
+      const attempt = state.attempts.find((item) => item.attempt_id === decodeURIComponent(sentenceMatch[1]));
+      if (!attempt || attempt.status !== 'in_progress') {
+        await route.fulfill({ status: 404, json: { detail: 'attempt missing' }, headers: cors });
+        return;
+      }
+      const sentenceIdx = Number(sentenceMatch[2]);
+      state.gradeCalls.push({ test_id: TEST_ID, section_num: 1,
+        sentence_idx: sentenceIdx, user_transcript: body?.user_transcript });
+      const answer = {
+        sentence_idx: sentenceIdx, user_transcript: body?.user_transcript || '',
+        score: 1, is_correct: true, correct_words: 2, total_words: 2,
+        listen_count: Number(body?.listen_count) || 0,
+        time_seconds: Number(body?.time_seconds) || 0,
+        diff: [
+          { op: 'match', actual: 'Hello', expected: 'Hello' },
+          { op: 'match', actual: 'there.', expected: 'there.' },
+        ],
+      };
+      attempt.answers = attempt.answers.filter((item) => item.sentence_idx !== sentenceIdx);
+      attempt.answers.push(answer);
+      await route.fulfill({ json: answer, headers: cors });
       return;
     }
     if (request.method() === 'POST' && url.pathname === '/api/listening/tests/dictation/grade') {

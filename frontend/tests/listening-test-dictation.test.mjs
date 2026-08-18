@@ -84,10 +84,12 @@ describe('test-linked dictation — JS contract', () => {
     assert.match(JS, /sp\.get\('test_id'\)/);
   });
 
-  it('grades via POST /api/listening/tests/dictation/grade', () => {
-    assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/grade'/);
-    assert.match(JS, /section_num:/);
-    assert.match(JS, /sentence_idx:/);
+  it('resumes a canonical attempt and grades through the durable sentence endpoint', () => {
+    assert.match(JS, /dictation\/attempts\/in-progress/);
+    assert.match(JS, /renderer_affinity_protocol:\s*'claim-v1'/);
+    assert.match(JS, /run !== SESSION\.sectionRun/);
+    assert.match(JS, /\/renderer-affinity/);
+    assert.match(JS, /dictation\/attempts\/\$\{encodeURIComponent\(SESSION\.attemptId\)\}\/sentences/);
     assert.match(JS, /user_transcript:/);
   });
 
@@ -181,6 +183,8 @@ describe('completion report — persist + stats + trends', () => {
     assert.match(JS, /av-audio-play['"],\s*\(\)\s*=>\s*\{\s*SESSION\.listenCount/);
     assert.match(JS, /listen_count:\s*SESSION\.listenCount/);
     assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/session'/);
+    assert.match(JS, /attempt_id:\s*SESSION\.attemptId/);
+    assert.match(JS, /client_request_id:\s*dictationRequestId\(\)/);
     assert.match(JS, /function submitSessionAndRenderReport/);
   });
 

@@ -105,7 +105,8 @@ test('listening-dictation-legacy-next-canonical-coexistence', async ({ page }) =
   await openLegacyDictation(page);
   await completeLegacyDictation(page);
   await expect.poll(() => state.sessions.length).toBe(1);
-  expect(state.sessions[0].body.client_request_id).toBeUndefined();
+  expect(state.sessions[0].body.client_request_id).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(state.sessions[0].body.attempt_id).toBe(state.attempts[0].attempt_id);
 
   await openNextDictation(page);
   await completeNextDictation(page);
@@ -113,7 +114,8 @@ test('listening-dictation-legacy-next-canonical-coexistence', async ({ page }) =
 
   expect(state.sessions).toHaveLength(2);
   expect(state.sessions[1].body.client_request_id).toMatch(/^[0-9a-f-]{36}$/i);
-  expect(state.byRequest.size).toBe(1);
+  expect(state.sessions[1].body.attempt_id).toBe(state.attempts[1].attempt_id);
+  expect(state.byRequest.size).toBe(2);
   expect(state.gradeCalls).toHaveLength(2);
   expect(state.sessions.map(({ report }) => report.accuracy)).toEqual([1, 1]);
   await expectNoDictationHarnessErrors(harness);

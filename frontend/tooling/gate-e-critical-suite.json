@@ -64,6 +64,7 @@
       "listening-core-player-partial-persistence",
       "listening-core-player-reload-resume",
       "listening-bidirectional-cross-version-core-player",
+      "listening-renderer-affinity-immutable-guard",
       "listening-dictation-core-player-ambiguous-commit",
       "listening-dictation-core-player-pre-commit-failure-retry",
       "listening-dictation-core-player-reload-receipt-resume",

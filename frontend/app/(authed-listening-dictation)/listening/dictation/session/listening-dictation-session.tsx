@@ -7,10 +7,12 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   dictationParams,
   dictationReceiptKey,
+  dictationRendererHref,
   dictationRequestId,
   formatDictationTime,
   isMissingReceipt,
   normalizeDictationBundle,
+  normalizeDictationAttempt,
   normalizeDictationGrade,
   normalizeDictationReceipt,
   normalizeDictationReport,
@@ -92,6 +94,7 @@ export function ListeningDictationSession() {
   const [error, setError] = useState('');
   const [bundle, setBundle] = useState<any>(null);
   const [section, setSection] = useState<any>(null);
+  const [attempt, setAttempt] = useState<any>(null);
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [results, setResults] = useState<Array<Result | null>>([]);
@@ -200,10 +203,12 @@ export function ListeningDictationSession() {
     }
   }, [clearReceipt, confirmReceipt]);
 
-  const selectSection = useCallback((selected: any) => {
+  const selectSection = useCallback(async (selected: any) => {
     sectionRunRef.current += 1;
+    const run = sectionRunRef.current;
     audioRef.current?.pause?.();
     setSection(selected); setSentenceIndex(0); setAnswer(''); setGrading(false);
+    setAttempt(null);
     setResults(new Array(selected.sentences.length).fill(null));
     setReport(null); setError(''); setInlineError(''); setSaveState('idle');
     setPendingReceipt(null); setFlagged(new Set());
@@ -222,8 +227,49 @@ export function ListeningDictationSession() {
       if (receipt.localReport) setReport(receipt.localReport);
       setPhase('complete');
       void reconcile(receipt, selected);
+      return;
     }
-  }, [readReceipt, reconcile]);
+    setPhase('loading');
+    try {
+      const testId = params?.testId;
+      if (!testId) throw new Error('Thiếu mã bài chép chính tả.');
+      const query = `section_num=${encodeURIComponent(selected.section_num)}`;
+      const inProgress = normalizeDictationAttempt(await window.api.get(
+        `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
+      ));
+      const canonicalAttempt = inProgress || normalizeDictationAttempt(await window.api.post(
+        `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts?${query}`,
+        { renderer_affinity_protocol: 'claim-v1' },
+      ));
+      if (!canonicalAttempt) throw new Error('Máy chủ không trả về lượt làm bài.');
+      const claim: any = await window.api.post(
+        `/api/listening/tests/dictation/attempts/${encodeURIComponent(canonicalAttempt.attempt_id)}/renderer-affinity`,
+        { renderer_affinity: 'next' },
+      );
+      const affinity = String(claim?.renderer_affinity || '');
+      if (!['legacy', 'next'].includes(affinity)) throw new Error('Renderer của lượt làm bài không hợp lệ.');
+      if (affinity !== 'next') {
+        window.location.replace(dictationRendererHref(affinity, `?test_id=${encodeURIComponent(testId)}&section=${selected.section_num}`));
+        return;
+      }
+      if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
+      const restored = new Array(selected.sentences.length).fill(null);
+      for (const saved of canonicalAttempt.answers) {
+        if (saved.sentence_idx < restored.length) restored[saved.sentence_idx] = saved;
+      }
+      const firstOpen = restored.findIndex((item) => !item);
+      setAttempt({ ...canonicalAttempt, renderer_affinity: affinity });
+      setResults(restored); setSentenceIndex(firstOpen < 0 ? restored.length - 1 : firstOpen);
+      startedAtRef.current = canonicalAttempt.started_at
+        ? Date.parse(canonicalAttempt.started_at) : Date.now();
+      sentenceStartedAtRef.current = Date.now(); listenCountRef.current = 0;
+      setPhase('ready');
+    } catch (caught: any) {
+      if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
+      setError(`Không khôi phục được tiến độ chép chính tả. ${caught?.message || ''}`);
+      setPhase('error');
+    }
+  }, [params?.testId, readReceipt, reconcile, user?.id]);
 
   const boot = useCallback(async (sequence: number, accountId: string) => {
     if (!params) throw new Error('Thiếu mã bài test hoặc section không hợp lệ.');
@@ -236,7 +282,7 @@ export function ListeningDictationSession() {
     setBundle(normalized);
     const wanted = params.section == null ? null : normalized.sections.find((item: any) => item.section_num === params.section);
     if (params.section != null && !wanted) throw new Error('Section được chọn không có transcript.');
-    if (wanted || normalized.sections.length === 1) selectSection(wanted || normalized.sections[0]);
+    if (wanted || normalized.sections.length === 1) await selectSection(wanted || normalized.sections[0]);
     else setPhase('picker');
   }, [params, selectSection]);
 
@@ -276,37 +322,41 @@ export function ListeningDictationSession() {
   const hints = section?.hints?.[sentenceIndex] || [];
 
   const grade = useCallback(async () => {
-    if (!section || grading || currentResult) return;
+    if (!section || !attempt || grading || currentResult) return;
     if (!answer.trim()) { setInlineError('Hãy gõ câu trả lời trước khi kiểm tra.'); return; }
     const run = sectionRunRef.current;
     setGrading(true); setInlineError('');
     try {
-      const canonical = normalizeDictationGrade(await window.api.post('/api/listening/tests/dictation/grade', {
-        test_id: params?.testId, section_num: section.section_num,
-        sentence_idx: sentenceIndex, user_transcript: answer,
-      }));
+      const timeSeconds = Math.max(0, Math.round(
+        (Date.now() - (sentenceStartedAtRef.current || Date.now())) / 1000,
+      ));
+      const canonical = normalizeDictationGrade(await window.api.post(
+        `/api/listening/tests/dictation/attempts/${encodeURIComponent(attempt.attempt_id)}/sentences/${sentenceIndex}`,
+        { user_transcript: answer, listen_count: listenCountRef.current, time_seconds: timeSeconds },
+      ));
       if (sectionRunRef.current !== run) return;
       const next = [...results];
       next[sentenceIndex] = {
         ...canonical, diff: [...canonical.diff], user_text: answer,
         listen_count: listenCountRef.current,
-        time_seconds: Math.max(0, Math.round((Date.now() - (sentenceStartedAtRef.current || Date.now())) / 1000)),
+        time_seconds: timeSeconds,
       };
       setResults(next);
     } catch (caught: any) { if (sectionRunRef.current === run) setInlineError(`Không chấm được câu trả lời. ${caught?.message || ''}`); }
     finally { if (sectionRunRef.current === run) setGrading(false); }
-  }, [answer, currentResult, grading, params?.testId, results, section, sentenceIndex]);
+  }, [answer, attempt, currentResult, grading, results, section, sentenceIndex]);
 
   const resetCurrent = useCallback(() => {
     const next = [...results]; next[sentenceIndex] = null; setResults(next); setInlineError('');
   }, [results, sentenceIndex]);
 
   const complete = useCallback(async () => {
-    if (!section || !user?.id || !params) return;
+    if (!section || !attempt || !user?.id || !params) return;
     const totalTime = startedAtRef.current ? Math.max(0, Math.round((Date.now() - startedAtRef.current) / 1000)) : null;
     const requestId = dictationRequestId();
     const submission = {
-      client_request_id: requestId, test_id: params.testId, section_num: section.section_num,
+      client_request_id: requestId, attempt_id: attempt.attempt_id,
+      test_id: params.testId, section_num: section.section_num,
       started_at: startedAtRef.current ? new Date(startedAtRef.current).toISOString() : null,
       total_time_seconds: totalTime,
       sentences: results.map((result, index) => ({
@@ -335,7 +385,7 @@ export function ListeningDictationSession() {
       return;
     }
     await reconcile(receipt, section);
-  }, [params, persistReceipt, reconcile, results, section, user?.id]);
+  }, [attempt, params, persistReceipt, reconcile, results, section, user?.id]);
 
   const advance = useCallback(() => {
     if (!section || !currentResult) return;

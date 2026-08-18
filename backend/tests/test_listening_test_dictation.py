@@ -11,7 +11,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -183,6 +183,7 @@ class _Q:
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
     def insert(self, p): self._mode = "insert"; self._payload = p; return self
+    def upsert(self, p, **_kw): self._mode = "upsert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vals):
@@ -230,6 +231,20 @@ class _Q:
                 rows.append(dict(p))
             return _Resp(payloads)
         matched = [r for r in rows if self._match(r)]
+        if self._mode == "upsert":
+            payload = dict(self._payload)
+            keys = ("attempt_id", "sentence_idx")
+            current = next((r for r in rows if all(r.get(k) == payload.get(k) for k in keys)), None)
+            if current is None:
+                rows.append(payload)
+                current = payload
+            else:
+                current.update(payload)
+            return _Resp([current])
+        if self._mode == "update":
+            for row in matched:
+                row.update(self._payload)
+            return _Resp(matched)
         for column, desc in reversed(self._orders):
             matched.sort(key=lambda row: str(row.get(column) or ""), reverse=desc)
         total = len(matched)
@@ -252,13 +267,33 @@ class _Storage:
 class _Fake:
     def __init__(self):
         self.tables = {"listening_tests": [], "listening_content": [],
-                       "dictation_sessions": [], "user_feedback": [], "users": []}
+                       "dictation_sessions": [], "dictation_attempts": [],
+                       "dictation_attempt_answers": [],
+                       "user_feedback": [], "users": []}
         self.fail_tables: set[str] = set()
         self.in_filter_sizes: list[tuple[str, str, int]] = []
         self.range_orderings: list[tuple[str, tuple[tuple[str, bool], ...], tuple[int, int]]] = []
         self.storage = _Storage()
 
     def table(self, name): return _Q(self, name)
+
+    def rpc(self, name, params):
+        if name != "fn_claim_dictation_attempt_renderer_affinity":
+            raise AssertionError(f"unexpected rpc {name}")
+        row = next((item for item in self.tables["dictation_attempts"]
+                    if item.get("id") == params["p_attempt_id"]
+                    and item.get("user_id") == params["p_user_id"]
+                    and item.get("status") == "in_progress"), None)
+        if not row:
+            return _RpcResult([])
+        row["renderer_affinity"] = row.get("renderer_affinity") or params["p_renderer_affinity"]
+        return _RpcResult([{"attempt_id": row["id"],
+                            "renderer_affinity": row["renderer_affinity"]}])
+
+
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
 
 
 def _patch(monkeypatch, user_id="user-1"):
@@ -586,6 +621,91 @@ def _submit_session(test_id, section_num, sentences, authz, **kw):
         sentences=[listening_router.DictationSentenceSubmit(**s) for s in sentences], **kw)
     return _run(listening_router.submit_listening_dictation_session(
         body=body, authorization=authz))
+
+
+def test_dictation_attempt_resumes_saves_and_claims_renderer(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton. It opens at ten.")
+    start_body = listening_router.DictationAttemptStartRequest(
+        renderer_affinity_protocol="claim-v1")
+
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1, body=start_body, authorization=authz))
+    assert started["created"] is True
+    assert started["renderer_affinity"] is None
+
+    claimed = _run(listening_router.claim_dictation_attempt_renderer_affinity(
+        UUID(started["attempt_id"]),
+        listening_router.DictationAttemptRendererAffinityRequest(
+            renderer_affinity="next"),
+        authorization=authz,
+    ))
+    assert claimed["renderer_affinity"] == "next"
+
+    saved = _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        UUID(started["attempt_id"]), 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="the address is brighton", listen_count=2,
+            time_seconds=9,
+        ),
+        authorization=authz,
+    ))
+    assert saved["score"] == 1
+    resumed = _run(listening_router.get_in_progress_dictation_attempt(
+        test["id"], section_num=1, authorization=authz))
+    assert resumed["attempt"]["attempt_id"] == started["attempt_id"]
+    assert resumed["attempt"]["renderer_affinity"] == "next"
+    assert resumed["attempt"]["answers"][0]["user_transcript"] == "the address is brighton"
+
+    reopened = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1, body=start_body, authorization=authz))
+    assert reopened["created"] is False
+    assert reopened["attempt_id"] == started["attempt_id"]
+
+
+def test_dictation_attempt_completion_requires_saved_canonical_answers(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1,
+        body=listening_router.DictationAttemptStartRequest(
+            renderer_affinity_protocol="claim-v1"),
+        authorization=authz,
+    ))
+    attempt_id = UUID(started["attempt_id"])
+    submission = [{"sentence_idx": 0, "user_transcript": "hello there",
+                   "listen_count": 1, "time_seconds": 4}]
+
+    with pytest.raises(HTTPException) as unsaved:
+        _submit_session(
+            test["id"], 1, submission, authz,
+            attempt_id=attempt_id, client_request_id=uuid4(),
+        )
+    assert unsaved.value.status_code == 409
+
+    _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        attempt_id, 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="hello there", listen_count=1, time_seconds=4),
+        authorization=authz,
+    ))
+    request_id = uuid4()
+    completed = _submit_session(
+        test["id"], 1, submission, authz,
+        attempt_id=attempt_id, client_request_id=request_id,
+    )
+    assert completed["attempt_id"] == str(attempt_id)
+    assert fake.tables["dictation_attempts"][0]["status"] == "completed"
+    assert fake.tables["dictation_sessions"][0]["attempt_id"] == str(attempt_id)
+
+    replay = _submit_session(
+        test["id"], 1, submission, authz,
+        attempt_id=attempt_id, client_request_id=request_id,
+    )
+    assert replay["session_id"] == completed["session_id"]
+    assert len(fake.tables["dictation_sessions"]) == 1
 
 
 def test_submit_dictation_session_persists_and_reports(monkeypatch):

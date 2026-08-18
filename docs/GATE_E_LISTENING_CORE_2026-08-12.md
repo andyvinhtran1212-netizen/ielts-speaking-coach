@@ -13,8 +13,8 @@ trên canonical API:
   `/listening/dictation/session?test_id=<test_id>` và legacy fallback
   `/pages/listening-test-dictation.html?test_id=<test_id>`.
 
-Gate E slice này chạy đúng tám failure path trên Chromium desktop, WebKit
-desktop và WebKit/iPhone 13 emulation, tổng cộng **24 test**, `workers: 1`,
+Gate E slice này chạy đúng chín failure path trên Chromium desktop, WebKit
+desktop và WebKit/iPhone 13 emulation, tổng cộng **27 test**, `workers: 1`,
 `retries: 0`, dùng production Next build và fixture server-state dùng chung cho
 cả hai implementation. Đây là automated synthetic evidence; không được gọi là
 Safari/iOS thiết bị thật.
@@ -33,7 +33,7 @@ Safari/iOS thiết bị thật.
   `flushAllPendingSaves()/confirmSubmit()`; cùng Dictation durable receipt,
   `/dictation/session/by-request/{client_request_id}` và legacy no-receipt POST.
 
-## Tám failure path đã đóng băng
+## Chín failure path đã đóng băng
 
 1. `listening-core-player-ambiguous-commit`
    - PATCH đầu tiên commit vào canonical fixture rồi connection reset.
@@ -50,21 +50,27 @@ Safari/iOS thiết bị thật.
 4. `listening-bidirectional-cross-version-core-player`
    - Legacy tạo attempt/lưu câu 1 → Next resume/lưu câu 2 → legacy resume lại.
    - Hai stack cùng đọc một `attempt_id` và một canonical answer map.
-5. `listening-dictation-core-player-ambiguous-commit`
+5. `listening-renderer-affinity-immutable-guard`
+   - Legacy claim attempt và lưu câu 1; direct Next stable URL phải đọc claim
+     canonical rồi quay về Legacy trước khi cho phép mutation.
+   - Attempt id, answer map và renderer Legacy giữ nguyên qua redirect/reload.
+6. `listening-dictation-core-player-ambiguous-commit`
    - Completion đã commit nhưng response bị reset.
    - Next read-back đúng `client_request_id`, chỉ có một canonical session và
      chỉ xoá receipt sau khi server xác nhận.
-6. `listening-dictation-core-player-pre-commit-failure-retry`
+7. `listening-dictation-core-player-pre-commit-failure-retry`
    - POST đầu trả 503 trước commit; canonical store vẫn rỗng và receipt còn bền.
    - CTA retry gửi lại cùng request id, tạo đúng một session rồi xoá receipt.
-7. `listening-dictation-core-player-reload-receipt-resume`
+8. `listening-dictation-core-player-reload-receipt-resume`
    - Connection reset trước commit, sau đó reload toàn trang.
    - Next khôi phục exact payload từ receipt theo account/test/section, gửi lại
      cùng request id và nhận canonical report mà không tạo session trùng.
-8. `listening-dictation-legacy-next-canonical-coexistence`
-   - Legacy no-receipt POST và Next receipt POST đều hoạt động qua cùng endpoint.
-   - Hai lượt học có chủ ý tạo hai canonical session; chỉ lượt Next tham gia
-     request-id reconciliation, không làm hỏng rollback client.
+9. `listening-dictation-legacy-next-canonical-coexistence`
+   - Legacy và Next đều tạo/claim attempt riêng, lưu từng câu rồi hoàn tất qua
+     cùng canonical endpoint với durable request id.
+   - Hai lượt học có chủ ý tạo hai canonical session; mỗi session liên kết đúng
+     attempt và cùng tham gia request-id reconciliation. Client N−1 không gọi
+     attempt API vẫn giữ completion contract cũ.
 
 Mọi path đều fail nếu có request tới Railway/Supabase production origin hoặc có
 uncaught browser error.
@@ -78,7 +84,7 @@ uncaught browser error.
 - Semantic verifier:
   `frontend/tooling/verify-gate-e-listening-failure-evidence.mjs`
 
-Verifier chỉ nhận exact 24 test/3 project/eight title, zero skip/fail/flake, mỗi
+Verifier chỉ nhận exact 27 test/3 project/nine title, zero skip/fail/flake, mỗi
 test đúng một passed result và HTML có embedded ZIP hoàn chỉnh chứa
 `report.json`. CI chạy verifier trước metadata/ledger; matrix hoặc verifier đỏ
 đều đặt `GATE_E_RUN_OUTCOME=failure`.
