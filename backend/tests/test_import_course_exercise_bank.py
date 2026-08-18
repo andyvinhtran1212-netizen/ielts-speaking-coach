@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from unittest.mock import patch
 
 import pytest
@@ -70,6 +71,33 @@ def _reading(**over):
     }
     r.update(over)
     return r
+
+
+def _listening(**over):
+    r = {
+        "kind": "listening", "id": "TM20-B01-NGHE", "vai_tro": "bài luyện nghe",
+        "chu_de": "THÀNH PHỐ", "cau_truc_trong_tam": "so sánh", "lang": "en-GB",
+        "audio_zip": "audio.zip",
+        "phan_A_am": [{"so": 1, "audio": "A1.mp3", "lua_chon": ["city", "pity"],
+                        "dap_an": "A", "nghe_duoc": "city"}],
+        "phan_B_chu": [{"so": 1, "audio": "B1.mp3", "lua_chon": ["noise", "nose"],
+                         "dap_an": "A", "nghe_duoc": "noise"}],
+        "phan_C_cau": [{"so": 1, "audio": "C1.mp3", "lua_chon": ["City", "Country"],
+                         "dap_an": "A", "nghe_duoc": "Which is bigger?"}],
+        "phan_D_noi_dung": {
+            "audio": "D.mp3", "doan_noi": "The city is bigger.",
+            "ban_dich": "Thành phố lớn hơn.",
+            "cau_hoi": [{"so": 1, "prompt": "The city is bigger.", "dap_an": "T"}],
+        },
+    }
+    r.update(over)
+    return r
+
+
+def _audio_zip(path, names=("A1.mp3", "B1.mp3", "C1.mp3", "D.mp3")):
+    with zipfile.ZipFile(path, "w") as archive:
+        for name in names:
+            archive.writestr(name, b"ID3" + name.encode())
 
 
 def _run(tmp_path, db, rows, *flags, name="KBT-buoi-01.jsonl"):
@@ -163,6 +191,32 @@ def test_a_broken_short_reading_is_refused_before_any_write(tmp_path, broken):
     with pytest.raises(SystemExit):
         _run(tmp_path, db, [_mcq(), _reading(**broken)], "--commit")
     assert db.writes == []
+
+
+def test_listening_is_bank_metadata_and_audio_paths_are_hash_scoped(tmp_path):
+    _audio_zip(tmp_path / "audio.zip")
+    rows, _reading_meta, listening = mod._normalise([_mcq(), _listening()])
+    prepared, uploads = mod._prepare_listening_audio(
+        listening, tmp_path / "KBT-buoi-01.jsonl")
+    assert len(rows) == 1
+    assert len(uploads) == 4
+    assert len(prepared["sections"]) == 4
+    assert len(prepared["solution"]["answers"]) == 4
+    assert prepared["audio_bundle"]["file_count"] == 4
+    assert all(path.startswith("course/") for path, _data in uploads)
+    assert "audio_file" not in prepared["sections"][0]["questions"][0]
+
+
+@pytest.mark.parametrize("names", [
+    ("A1.mp3", "B1.mp3", "C1.mp3"),
+    ("A1.mp3", "B1.mp3", "C1.mp3", "D.mp3", "extra.mp3"),
+    ("../A1.mp3", "B1.mp3", "C1.mp3", "D.mp3"),
+])
+def test_listening_zip_must_exactly_match_jsonl_before_any_write(tmp_path, names):
+    _audio_zip(tmp_path / "audio.zip", names)
+    _rows, _reading_meta, listening = mod._normalise([_mcq(), _listening()])
+    with pytest.raises(SystemExit):
+        mod._prepare_listening_audio(listening, tmp_path / "KBT-buoi-01.jsonl")
 
 
 def test_difficulty_becomes_points(tmp_path):

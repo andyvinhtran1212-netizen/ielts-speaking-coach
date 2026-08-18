@@ -49,10 +49,11 @@ export function CourseBehavior() {
     let onHide: (() => void) | null = null;
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, CR, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, LD, CR, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
         import(/* webpackIgnore: true */ '/js/course-reading.js' as any),
+        import(/* webpackIgnore: true */ '/js/course-listening.js' as any),
         // Bộ vẽ báo cáo — CHUNG với mặt đọc của giáo viên.
         import(/* webpackIgnore: true */ '/js/course-report.js' as any),
         waitForApi(),
@@ -102,9 +103,11 @@ export function CourseBehavior() {
       const titleMeta = $('cx-title-meta');
       if (titleMeta) {
         const shortReading = runner.bank?.meta?.short_reading;
+        const shortListening = runner.bank?.meta?.short_listening;
         titleMeta.textContent = `${runner.total} câu trắc nghiệm`
           + (runner.hasWriting ? ` · ${runner.writing.length} câu tự luận` : '')
           + (shortReading ? ' · 1 bài đọc ngắn' : '')
+          + (shortListening ? ' · 1 bài nghe' : '')
           + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
 
@@ -112,6 +115,10 @@ export function CourseBehavior() {
         api, storage: window.localStorage, userId: user.id,
       });
       reading.load(runner.bank);
+      const listening = LD.createListening({
+        api, storage: window.localStorage, userId: user.id,
+      });
+      listening.load(runner.bank);
 
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
@@ -163,6 +170,7 @@ export function CourseBehavior() {
 
       function renderQuestion() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         const q = runner.current();
         if (!q) return renderDone();
         setSaveState(runner.sessionFailed ? 'error'
@@ -258,6 +266,7 @@ export function CourseBehavior() {
 
       async function renderDone() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         setSaveState('saving');
         const res = await runner.finishStage();
         setSaveState(res.persisted ? 'saved' : 'error');
@@ -349,6 +358,9 @@ export function CourseBehavior() {
         const readMore = reading.exists
           ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">'
             + `Làm bài đọc ngắn (${reading.count} câu)</button>` : '';
+        const listenMore = listening.exists
+          ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">'
+            + `Làm bài nghe (${listening.count} câu)</button>` : '';
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
         //
         // Màn này phát ra đáp án đúng của từng câu kèm lời giải, mà kỳ kiểm tra
@@ -385,7 +397,7 @@ export function CourseBehavior() {
               ? 'Hoàn thành phần tự luận để bài được ghi nhận là đã nộp.'
               : 'Mở báo cáo để xem đáp án, lời giải và những trục cần củng cố.'}</li>`
             + '<li data-step="2">Lịch sử full session và revision được giữ nguyên bên dưới.</li>'
-            + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + '</div>'
+            + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + listenMore + '</div>'
             + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
@@ -404,7 +416,7 @@ export function CourseBehavior() {
             + 'nhưng bạn cần hoàn thành lại toàn bộ câu của full session.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">'
-            + 'Bắt đầu full session mới</button>' + seeReport + more + readMore + '</div>'
+            + 'Bắt đầu full session mới</button>' + seeReport + more + readMore + listenMore + '</div>'
             + history + '</div></div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
@@ -423,7 +435,7 @@ export function CourseBehavior() {
             + 'không được cộng vào lượt này.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + readMore + '</div>'
+            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + readMore + listenMore + '</div>'
             + history + '</div></div>';
         }
       }
@@ -458,6 +470,7 @@ export function CourseBehavior() {
       /** Màn TỰ LUẬN — cả cụm một lần, nộp một lần. */
       function renderWriting() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         const done = $('cx-done')!;
@@ -473,6 +486,7 @@ export function CourseBehavior() {
       }
 
       function renderReading() {
+        const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = true;
@@ -496,6 +510,55 @@ export function CourseBehavior() {
           const bar = $('cr-bar');
           if (bar) bar.insertAdjacentHTML('afterbegin',
             `<p class="cr-error">Chưa mở được lời giải: ${esc(err?.message || err)}</p>`);
+        }
+      }
+
+      function renderListening() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = true;
+        $('cx-report')!.hidden = true;
+        const box = $('cx-listening')!;
+        box.hidden = false;
+        box.innerHTML = listening.render();
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      async function openListening() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = true;
+        $('cx-report')!.hidden = true;
+        const box = $('cx-listening')!;
+        box.hidden = false;
+        box.innerHTML = '<p class="cx-empty">Đang làm mới audio bài nghe…</p>';
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        try {
+          await listening.refreshAudio();
+          renderListening();
+        } catch (err: any) {
+          box.innerHTML = '<p class="cx-empty">Chưa mở được audio bài nghe: '
+            + esc(err?.message || err) + '. Hãy thử lại.</p>'
+            + '<button class="av-button av-button-secondary" id="cl-back" type="button">Quay lại tổng kết</button>';
+        }
+      }
+
+      async function revealListening() {
+        const btn = $('cl-check') as HTMLButtonElement | null;
+        if (listening.missing.length) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang mở đáp án…'; }
+        try {
+          await listening.reveal();
+          renderListening();
+        } catch (err: any) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Thử mở đáp án lại'; }
+          const bar = $('cl-bar');
+          if (bar) bar.insertAdjacentHTML('afterbegin',
+            `<p class="cl-error">Chưa mở được đáp án: ${esc(err?.message || err)}</p>`);
         }
       }
 
@@ -653,6 +716,7 @@ export function CourseBehavior() {
         if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
         if (t.id === 'cx-reading-open') return renderReading();
+        if (t.id === 'cx-listening-open') return void openListening();
         if (t.id === 'cr-back') {
           $('cx-reading')!.hidden = true;
           $('cx-done')!.hidden = false;
@@ -660,6 +724,13 @@ export function CourseBehavior() {
           return;
         }
         if (t.id === 'cr-check') return void revealReading();
+        if (t.id === 'cl-back') {
+          $('cx-listening')!.hidden = true;
+          $('cx-done')!.hidden = false;
+          window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+          return;
+        }
+        if (t.id === 'cl-check') return void revealListening();
         // Hai nút, hai việc: `cw-submit` mở bước xác nhận, `cw-confirm` mới nộp
         // thật. Dùng chung một id cho cả hai là dựng lại đúng cú bấm-một-nhát.
         if (t.id === 'cw-submit') return onWritingArm();
@@ -671,7 +742,18 @@ export function CourseBehavior() {
       // Lưu nháp NGAY khi gõ: mười ô nhập là một buổi ngồi viết, và mất nó vì
       // một lần lỡ tay đóng tab thì học viên sẽ không viết lại lần hai.
       onInput = (e: Event) => {
-        const el = e.target as HTMLTextAreaElement;
+        const el = e.target as HTMLInputElement;
+        if (el?.classList?.contains('cl-input')) {
+          listening.write(el.dataset.qid, el.value);
+          const bar = $('cl-bar');
+          if (bar) {
+            const shell = document.createElement('div');
+            shell.innerHTML = listening.render();
+            const fresh = shell.querySelector('#cl-bar');
+            if (fresh) bar.replaceWith(fresh);
+          }
+          return;
+        }
         if (el?.classList?.contains('cr-input')) {
           reading.write(el.dataset.qid, el.value);
           // Vẽ lại footer để số câu thiếu và trạng thái nút luôn đúng, nhưng

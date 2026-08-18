@@ -41,12 +41,15 @@ vào tỷ lệ đúng.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
 import sys
+import zipfile
 from pathlib import Path
 
+from config import settings
 from database import supabase_admin
 from services import quiz_why_wrong
 
@@ -68,6 +71,9 @@ _DANG = ("A1", "A2", "A3", "B1", "B2", "B3",
 _SKILL_AREA = "course"
 
 _READING_KIND = "reading"
+_LISTENING_KIND = "listening"
+_AUDIO_BUCKET = settings.LISTENING_AUDIO_BUCKET
+_MP3_MAGIC = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 
 
 def _lesson_no(path: Path, override: int | None) -> int:
@@ -276,7 +282,108 @@ def _reading_meta(r: dict) -> dict:
     }
 
 
-def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None]:
+def _choice_answer(value, options: list, label: str, listening_id: str) -> str:
+    answer = _required_text(value, f"đáp án {label}", listening_id).upper()
+    if len(answer) != 1:
+        raise SystemExit(f"[{listening_id}] đáp án {label} không khớp lựa chọn: {answer!r}.")
+    index = ord(answer) - ord("A")
+    if not 0 <= index < len(options):
+        raise SystemExit(f"[{listening_id}] đáp án {label} không khớp lựa chọn: {answer!r}.")
+    return answer
+
+
+def _listening_meta(r: dict) -> dict:
+    """Chuẩn hoá phần nghe cấp bank; đáp án/transcript được giữ riêng để lọc."""
+    listening_id = (r.get("id") or "").strip()
+    if not listening_id:
+        raise SystemExit("Bài nghe không có id.")
+
+    specs = (
+        ("sound", "A", "Nhận diện âm", r.get("phan_A_am")),
+        ("spelling", "B", "Nghe chữ và từ", r.get("phan_B_chu")),
+        ("sentence", "C", "Nghe câu và chọn phản hồi", r.get("phan_C_cau")),
+    )
+    sections, answers, audio_files = [], [], []
+    for section_id, label, title, source in specs:
+        if not isinstance(source, list) or not source:
+            raise SystemExit(f"[{listening_id}] thiếu phần nghe {label}.")
+        questions = []
+        for position, item in enumerate(source, 1):
+            if not isinstance(item, dict) or item.get("so") != position:
+                raise SystemExit(f"[{listening_id}] phần {label} sai số thứ tự câu {position}.")
+            options = item.get("lua_chon")
+            if not isinstance(options, list) or len(options) < 2 or any(
+                    not str(option or "").strip() for option in options):
+                raise SystemExit(f"[{listening_id}] phần {label} câu {position} thiếu lựa chọn.")
+            audio = _required_text(item.get("audio"), f"audio {label}{position}", listening_id)
+            if Path(audio).name != audio or not audio.lower().endswith(".mp3"):
+                raise SystemExit(f"[{listening_id}] tên audio không an toàn: {audio!r}.")
+            qid = f"{listening_id}-{label}{position}"
+            questions.append({
+                "id": qid, "number": position, "audio_file": audio,
+                "options": [str(option).strip() for option in options],
+            })
+            answers.append({
+                "id": qid,
+                "answer": _choice_answer(item.get("dap_an"), options,
+                                           f"{label}{position}", listening_id),
+                "transcript": _required_text(
+                    item.get("nghe_duoc"), f"transcript {label}{position}", listening_id),
+            })
+            audio_files.append(audio)
+        sections.append({
+            "id": section_id, "label": label, "title": title,
+            "mode": "question_audio", "questions": questions,
+        })
+
+    talk = r.get("phan_D_noi_dung")
+    if not isinstance(talk, dict):
+        raise SystemExit(f"[{listening_id}] thiếu phần nghe D.")
+    talk_audio = _required_text(talk.get("audio"), "audio phần D", listening_id)
+    if Path(talk_audio).name != talk_audio or not talk_audio.lower().endswith(".mp3"):
+        raise SystemExit(f"[{listening_id}] tên audio không an toàn: {talk_audio!r}.")
+    talk_questions = talk.get("cau_hoi")
+    if not isinstance(talk_questions, list) or not talk_questions:
+        raise SystemExit(f"[{listening_id}] phần D không có câu hỏi.")
+    questions = []
+    for position, item in enumerate(talk_questions, 1):
+        if not isinstance(item, dict) or item.get("so") != position:
+            raise SystemExit(f"[{listening_id}] phần D sai số thứ tự câu {position}.")
+        qid = f"{listening_id}-D{position}"
+        questions.append({
+            "id": qid, "number": position,
+            "prompt": _required_text(item.get("prompt"), f"đề D{position}", listening_id),
+            "options": ["T", "F", "NG"],
+        })
+        answer = _required_text(item.get("dap_an"), f"đáp án D{position}", listening_id).upper()
+        if answer not in ("T", "F", "NG"):
+            raise SystemExit(f"[{listening_id}] đáp án D{position} phải là T/F/NG.")
+        answers.append({"id": qid, "answer": answer})
+    sections.append({
+        "id": "content", "label": "D", "title": "Nghe hiểu nội dung",
+        "mode": "section_audio", "audio_file": talk_audio, "questions": questions,
+    })
+    audio_files.append(talk_audio)
+    if len(set(audio_files)) != len(audio_files):
+        raise SystemExit(f"[{listening_id}] có tên file audio bị dùng trùng.")
+
+    return {
+        "id": listening_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", listening_id),
+        "title": _required_text(r.get("chu_de"), "chủ đề", listening_id),
+        "focus": _required_text(r.get("cau_truc_trong_tam"), "trọng tâm", listening_id),
+        "language": _required_text(r.get("lang"), "ngôn ngữ", listening_id),
+        "audio_zip": _required_text(r.get("audio_zip"), "tên gói audio", listening_id),
+        "sections": sections,
+        "solution": {
+            "answers": answers,
+            "talk_transcript": _required_text(talk.get("doan_noi"), "transcript phần D", listening_id),
+            "talk_translation": _required_text(talk.get("ban_dich"), "bản dịch phần D", listening_id),
+        },
+    }
+
+
+def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None, dict | None]:
     """Kiểm TOÀN BỘ tệp trước khi ghi dòng đầu tiên.
 
     RPC `quiz_replace_questions` xoá sạch câu cũ rồi ghi lại — nên một tệp hỏng
@@ -286,11 +393,17 @@ def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None]:
     """
     out, seen = [], set()
     reading = None
+    listening = None
     for i, r in enumerate(rows, 1):
         if r.get("kind") == _READING_KIND:
             if reading is not None:
                 raise SystemExit("Mỗi buổi chỉ nhận một bài đọc thêm.")
             reading = _reading_meta(r)
+            continue
+        if r.get("kind") == _LISTENING_KIND:
+            if listening is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một bài nghe thêm.")
+            listening = _listening_meta(r)
             continue
         qid = (r.get("id") or "").strip()
         if not qid:
@@ -334,7 +447,58 @@ def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None]:
         if errs:
             raise SystemExit(f"[{qid}] " + " · ".join(errs))
         out.append(row)
-    return out, reading
+    return out, reading, listening
+
+
+def _prepare_listening_audio(listening: dict, jsonl_path: Path,
+                             override: str | None = None) -> tuple[dict, list[tuple[str, bytes]]]:
+    """Kiểm ZIP đầy đủ trước mọi write và gắn storage path bất biến theo hash."""
+    zip_path = Path(override) if override else jsonl_path.parent / listening["audio_zip"]
+    if not zip_path.is_file():
+        raise SystemExit(f"Không thấy gói audio {zip_path}.")
+    blob = zip_path.read_bytes()
+    bundle_hash = hashlib.sha256(blob).hexdigest()[:16]
+    expected = {
+        q["audio_file"] for section in listening["sections"]
+        for q in section.get("questions", []) if q.get("audio_file")
+    }
+    expected.update(section["audio_file"] for section in listening["sections"]
+                    if section.get("audio_file"))
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            names = {info.filename for info in archive.infolist() if not info.is_dir()}
+            unsafe = [name for name in names if Path(name).name != name]
+            if unsafe:
+                raise SystemExit(f"ZIP audio chứa đường dẫn không an toàn: {unsafe[0]!r}.")
+            missing, extra = expected - names, names - expected
+            if missing or extra:
+                raise SystemExit(
+                    f"ZIP audio không khớp JSONL: thiếu {sorted(missing)} · thừa {sorted(extra)}.")
+            if archive.testzip():
+                raise SystemExit(f"ZIP audio hỏng CRC ở {archive.testzip()!r}.")
+            audio = []
+            for name in sorted(expected):
+                data = archive.read(name)
+                if not data.startswith(_MP3_MAGIC):
+                    raise SystemExit(f"File {name!r} không phải MP3 hợp lệ.")
+                storage_path = f"course/{bundle_hash}/{name}"
+                audio.append((storage_path, data))
+    except zipfile.BadZipFile as exc:
+        raise SystemExit(f"Không đọc được ZIP audio {zip_path}: {exc}") from exc
+
+    prepared = json.loads(json.dumps(listening))
+    for section in prepared["sections"]:
+        if section.get("audio_file"):
+            section["audio_storage_path"] = f"course/{bundle_hash}/{section.pop('audio_file')}"
+        for question in section.get("questions", []):
+            if question.get("audio_file"):
+                question["audio_storage_path"] = f"course/{bundle_hash}/{question.pop('audio_file')}"
+    prepared.pop("audio_zip", None)
+    prepared["audio_bundle"] = {
+        "bucket": _AUDIO_BUCKET, "sha256": hashlib.sha256(blob).hexdigest(),
+        "file_count": len(audio), "source": zip_path.name,
+    }
+    return prepared, audio
 
 
 def main() -> int:
@@ -343,6 +507,7 @@ def main() -> int:
     ap.add_argument("--course", required=True, help="Mã khoá, ví dụ C1.")
     ap.add_argument("--lesson", type=int, help="Số buổi (mặc định đoán từ tên tệp).")
     ap.add_argument("--title", help="Tên bank (mặc định 'Buổi N — bài tập').")
+    ap.add_argument("--audio-zip", help="ZIP audio (mặc định lấy cạnh JSONL).")
     ap.add_argument("--publish", action="store_true",
                     help="Xuất bản luôn. Mặc định nạp ở trạng thái NHÁP.")
     ap.add_argument("--commit", action="store_true", help="Ghi thật.")
@@ -356,7 +521,11 @@ def main() -> int:
         raise SystemExit(f"Không thấy tệp {path}.")
     raw = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     lesson = _lesson_no(path, args.lesson)
-    rows, reading = _normalise(raw)
+    rows, reading, listening = _normalise(raw)
+    audio_uploads: list[tuple[str, bytes]] = []
+    if listening:
+        listening, audio_uploads = _prepare_listening_audio(
+            listening, path, args.audio_zip)
     # Kiểm hết nội dung trước khi đụng tới kho dữ liệu — tệp hỏng phải dừng ở
     # nguồn, không phụ thuộc kết nối production có đang sống hay không.
     course = _course(args.course)
@@ -379,6 +548,11 @@ def main() -> int:
         logger.info("Bài đọc thêm: %s · %d từ · %d từ vựng · %d câu tự đối chiếu",
                     reading["title"], reading["word_count"],
                     len(reading["vocabulary"]), reading_questions)
+    if listening:
+        listening_questions = sum(len(s["questions"]) for s in listening["sections"])
+        logger.info("Bài nghe thêm: %s · %d phần · %d câu · %d file MP3 đã kiểm",
+                    listening["title"], len(listening["sections"]),
+                    listening_questions, len(audio_uploads))
 
     if not commit:
         logger.info("\n-- THỬ KHÔ. Một câu mẫu: --")
@@ -409,8 +583,16 @@ def main() -> int:
             "nguon": path.name,
             "so_tu_luan": len(essay),
             **({"short_reading": reading} if reading else {}),
+            **({"short_listening": listening} if listening else {}),
         },
     }
+    # Audio dùng prefix theo hash nội dung. Upload hoàn tất trước khi metadata
+    # của bank trỏ tới prefix ấy; nếu request sau hỏng, bank cũ vẫn không trỏ
+    # tới một gói dở dang. x-upsert làm lệnh chạy lại idempotent.
+    for storage_path, audio_bytes in audio_uploads:
+        supabase_admin.storage.from_(_AUDIO_BUCKET).upload(
+            storage_path, audio_bytes,
+            {"content-type": "audio/mpeg", "x-upsert": "true"})
     if existing:
         bank_id = existing[0]["id"]
         supabase_admin.table("quiz_banks").update(payload).eq("id", bank_id).execute()

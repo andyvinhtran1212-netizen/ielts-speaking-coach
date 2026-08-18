@@ -24,12 +24,25 @@ class _FakeSupabase:
     def __init__(self, responses=None):
         self.responses = responses or {}
         self.calls = []
+        self.storage = _FakeStorage(self)
 
     def table(self, name):
         return _FakeQuery(self, name)
 
     def rpc(self, name, params):
         return _FakeRpc(self, name)
+
+
+class _FakeStorage:
+    def __init__(self, parent): self._parent = parent
+    def from_(self, bucket): return _FakeBucket(self._parent, bucket)
+
+
+class _FakeBucket:
+    def __init__(self, parent, bucket): self._parent = parent; self._bucket = bucket
+    def create_signed_url(self, path, ttl):
+        self._parent.calls.append({"storage": self._bucket, "path": path, "ttl": ttl})
+        return {"signedURL": f"https://signed/{path}"}
 
 
 class _FakeRpc:
@@ -239,6 +252,35 @@ def test_get_bank_for_play_hides_short_reading_solution():
     assert "answers" not in served
 
 
+def test_get_bank_for_play_hides_listening_solution_and_signs_private_audio():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [
+            {"id": "sound", "questions": [
+                {"id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+                 "options": ["city", "pity"]}]},
+            {"id": "content", "audio_storage_path": "course/hash/D.mp3",
+             "questions": [{"id": "l-D1", "options": ["T", "F", "NG"]}]},
+        ],
+        "solution": {"answers": [{"id": "l-A1", "answer": "A"}]},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": listening},
+        }],
+        ("quiz_questions", "select"): [{"qid": "g1"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    served = out["bank"]["meta"]["short_listening"]
+    assert "solution" not in served
+    assert "audio_storage_path" not in str(served)
+    assert served["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert served["sections"][1]["audio_url"].startswith("https://signed/")
+    assert len([call for call in fake.calls if call.get("storage")]) == 2
+
+
 def test_course_reading_solution_uses_a_separate_guarded_read():
     reading = {
         "translation": "Mai đọc.",
@@ -277,6 +319,52 @@ def test_course_reading_solution_rejects_an_incomplete_attempt():
                 user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
     assert exc.value.status_code == 422
     assert exc.value.detail["missing"] == ["r-02"]
+
+
+def test_course_listening_solution_is_guarded_and_requires_every_answer():
+    solution = {
+        "answers": [{"id": "l-A1", "answer": "A", "transcript": "city"},
+                    {"id": "l-D1", "answer": "T"}],
+        "talk_transcript": "The city is bigger.",
+        "talk_translation": "Thành phố lớn hơn.",
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": {"solution": solution}},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.course_listening_solution(
+                user_id=_USER, bank_id=_BANK, submitted_answers={"l-A1": "A"})
+        assert exc.value.status_code == 422
+        out = quiz_service.course_listening_solution(
+            user_id=_USER, bank_id=_BANK,
+            submitted_answers={"l-A1": "A", "l-D1": "T"})
+    assert out == solution
+
+
+def test_course_listening_audio_refreshes_urls_without_leaking_solution():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [{"id": "sound", "questions": [{
+            "id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+            "options": ["city", "pity"],
+        }]}],
+        "solution": {"answers": [{"id": "l-A1", "answer": "A"}]},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": listening},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.course_listening_audio(user_id=_USER, bank_id=_BANK)
+    assert "solution" not in out
+    assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert len([call for call in fake.calls if call.get("storage")]) == 1
 
 
 # ── start session + resume ───────────────────────────────────────────
