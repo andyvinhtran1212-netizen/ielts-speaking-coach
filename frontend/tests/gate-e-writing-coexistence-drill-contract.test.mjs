@@ -24,6 +24,10 @@ const ROLLBACK = '2'.repeat(40);
 const RESTORE = '3'.repeat(40);
 const NEXT_ASSIGNMENT = '11111111-1111-4111-8111-111111111111';
 const LEGACY_ASSIGNMENT = '22222222-2222-4222-8222-222222222222';
+const EMPTY_INPUTS = {
+  schema_version: 1, rollback_floor_sha: null, previous_phase_run_id: null,
+  previous_legacy_assignment_id: null, previous_next_assignment_id: null,
+};
 
 describe('Writing coexistence drill contract', () => {
   test('pins product-aligned floor, rollback and restore phases', () => {
@@ -37,22 +41,30 @@ describe('Writing coexistence drill contract', () => {
     assert.match(config, /trace: 'off'/);
   });
 
-  test('floor inputs are empty and resolver requires exact phase handoffs', () => {
+  test('rollback inputs bind the successful Writing floor evidence', () => {
     assert.deepEqual(inputs, {
-      schema_version: 1, rollback_floor_sha: null, previous_phase_run_id: null,
-      previous_legacy_assignment_id: null, previous_next_assignment_id: null,
+      schema_version: 1,
+      rollback_floor_sha: 'fe9000fdfa4e6c5d801ce8c13b7f1723a23455a4',
+      previous_phase_run_id: '32121670793',
+      previous_legacy_assignment_id: null,
+      previous_next_assignment_id: '5ebe88a2-f3da-44fb-a141-400d0c5cf3ff',
     });
-    assert.equal(resolveWritingPushPhase({ sourceSha: FLOOR, admission: 'next', inputs }).phase, 'floor');
-    const rollback = { ...inputs, rollback_floor_sha: FLOOR, previous_phase_run_id: '123',
+  });
+
+  test('resolver requires exact phase handoffs', () => {
+    const empty = { ...EMPTY_INPUTS };
+    assert.equal(resolveWritingPushPhase({ sourceSha: FLOOR, admission: 'next',
+      inputs: empty }).phase, 'floor');
+    const rollback = { ...empty, rollback_floor_sha: FLOOR, previous_phase_run_id: '123',
       previous_next_assignment_id: NEXT_ASSIGNMENT };
     assert.equal(resolveWritingPushPhase({ sourceSha: ROLLBACK, admission: 'legacy',
       inputs: rollback }).phase, 'rollback');
-    const restore = { ...inputs, rollback_floor_sha: FLOOR, previous_phase_run_id: '124',
+    const restore = { ...empty, rollback_floor_sha: FLOOR, previous_phase_run_id: '124',
       previous_legacy_assignment_id: LEGACY_ASSIGNMENT };
     assert.equal(resolveWritingPushPhase({ sourceSha: RESTORE, admission: 'next',
       inputs: restore }).phase, 'restore');
     assert.throws(() => resolveWritingPushPhase({ sourceSha: ROLLBACK, admission: 'legacy',
-      inputs }), /writing-floor-push-input-invalid/);
+      inputs: empty }), /writing-floor-push-input-invalid/);
   });
 
   test('workflow is staging-bound, serial and always uploads evidence', () => {

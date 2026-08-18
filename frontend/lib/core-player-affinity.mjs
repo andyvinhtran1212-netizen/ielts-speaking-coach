@@ -83,8 +83,10 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
 // override is activated only for Vercel's exact preview deployment of the
 // `staging` branch; every other environment fails closed to `admit_new` above.
 export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
-  // No active override after the Dictation forward rollback. Keep this
-  // deployment-scoped hook so later staged cutovers cannot alter production.
+  // Writing floor fe9000f (run 32121670793 attempt 3) proved canonical Next
+  // admission plus sticky dark Legacy affinity. Exercise the forward rollback
+  // only on the exact staging deployment; production remains Next-canonical.
+  writing_assignment: 'legacy',
 });
 
 const IMPLEMENTATIONS = new Set(['legacy', 'next']);
