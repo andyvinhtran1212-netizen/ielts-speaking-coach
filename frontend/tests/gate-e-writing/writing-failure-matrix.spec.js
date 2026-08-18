@@ -8,8 +8,9 @@ const {
   expectNoHarnessErrors,
   installWritingGateEHarness,
   openComposer,
-  openLegacy,
+  openLegacyAssignment,
   openNext,
+  openNextAssignment,
 } = require('./writing-gate-e-harness');
 
 const FIRST = 'A durable first server draft with enough meaningful words for the autosave contract.';
@@ -115,22 +116,23 @@ test('writing-bidirectional-cross-version-core-player', async ({ page }) => {
   const state = createWritingGateEState();
   const harness = await installWritingGateEHarness(page, { state });
 
-  await openLegacy(page);
-  await openComposer(page);
+  await openLegacyAssignment(page);
   await page.locator('#modal-essay-textarea').fill(FIRST);
   await page.locator('#modal-btn-save').click();
   await expect.poll(() => state.draftText).toBe(FIRST);
+  expect(state.rendererAffinity).toBe('legacy');
 
-  await openNext(page);
-  await openComposer(page);
+  await openNextAssignment(page);
+  await expect(page).toHaveURL(new RegExp(`/pages/writing-dashboard\\.html\\?assignment_id=${ASSIGNMENT}$`));
   await expect(page.locator('#modal-essay-textarea')).toHaveValue(FIRST);
   await page.locator('#modal-essay-textarea').fill(LATEST);
   await page.locator('#modal-btn-save').click();
   await expect.poll(() => state.draftText).toBe(LATEST);
 
-  await openLegacy(page);
-  await openComposer(page);
+  await openLegacyAssignment(page);
   await expect(page.locator('#modal-essay-textarea')).toHaveValue(LATEST);
+  expect(state.rendererAffinity).toBe('legacy');
+  expect(state.claimCalls).toContain('next');
   expect(state.essayCount).toBe(0);
   expect(state.jobCount).toBe(0);
   expect(state.startedAt).not.toBeNull();

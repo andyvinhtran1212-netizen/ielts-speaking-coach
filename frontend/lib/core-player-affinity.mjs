@@ -66,6 +66,16 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       // Gate E browser/failure matrix passes.
       next: Object.freeze({ path: '/listening/dictation/session', route_ready: true }),
     }),
+    writing_assignment: Object.freeze({
+      // Writing dashboard admission was already Next-canonical before Gate E
+      // affinity existed. Preserve that product behavior while the per-
+      // assignment claim makes direct Legacy rollback URLs sticky and safe.
+      admit_new: 'next',
+      identity_query_any_of: Object.freeze(['assignment_id']),
+      allowed_query: Object.freeze(['assignment_id']),
+      legacy: Object.freeze({ path: '/pages/writing-dashboard.html', route_ready: true }),
+      next: Object.freeze({ path: '/writing/dashboard', route_ready: true }),
+    }),
   }),
 });
 
@@ -83,6 +93,7 @@ const REQUIRED_SURFACES = Object.freeze([
   'reading_exam',
   'listening_test',
   'listening_dictation',
+  'writing_assignment',
 ]);
 const RUNTIME_ADMISSION_PATH = '/core-player/launch';
 

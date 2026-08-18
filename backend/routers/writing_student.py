@@ -30,7 +30,7 @@ import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile
@@ -575,6 +575,15 @@ class DraftUpsert(BaseModel):
     draft_text: str = Field(default="", max_length=15000)
 
 
+class WritingAssignmentRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
+class WritingAssignmentRendererAffinityResponse(BaseModel):
+    assignment_id: UUID
+    renderer_affinity: Literal["legacy", "next"]
+
+
 class SubmitEssay(BaseModel):
     """Body for POST .../submit. `essay_text` is optional — when
     omitted, the endpoint pulls the student's last saved draft from
@@ -1084,7 +1093,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, assigned_by, "
             "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
-            "is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
             "student_submit_request_id, student_submit_text_sha256, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url, "
             "prompt_image_analysis, prompt_image_analysis_reviewed)"
@@ -1122,7 +1131,7 @@ async def list_my_assignments(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, essay_id, "
             "assignment_group_id, name, allow_soft_check, "
-            "is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
         .eq("student_id", student_id)
@@ -1211,6 +1220,59 @@ async def get_my_assignment(
         "assignment": assignment,
         "draft":      (d.data[0] if (d and d.data) else None),
         "timer":      _compute_timer_state(assignment),
+    }
+
+
+@router.post(
+    "/my-assignments/{assignment_id}/renderer-affinity",
+    response_model=WritingAssignmentRendererAffinityResponse,
+)
+async def claim_writing_assignment_renderer_affinity(
+    assignment_id: UUID,
+    body: WritingAssignmentRendererAffinityRequest,
+    student: dict = Depends(require_writing_permission),
+):
+    """Atomically pin an active Writing workspace to Legacy or Next.
+
+    The ownership-filtered pre-read preserves the endpoint's symmetric 404
+    contract. The RPC repeats ownership + active-status checks at the mutation
+    boundary so a concurrent submit cannot claim or reopen a terminal row.
+    """
+    assignment = _resolve_active_assignment(student["id"], str(assignment_id))
+    if assignment["status"] not in _ACTIVE_ASSIGNMENT_STATES:
+        raise HTTPException(
+            409,
+            f"Không thể mở trình soạn thảo — trạng thái bài là '{assignment['status']}'.",
+        )
+
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_writing_assignment_renderer_affinity",
+            {
+                "p_assignment_id": str(assignment_id),
+                "p_student_id": student["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] renderer affinity claim failed assignment=%s: %s",
+            assignment_id,
+            exc,
+        )
+        raise HTTPException(500, "Không thể xác minh phiên làm bài") from exc
+
+    rows = result.data or []
+    if not rows:
+        # The ownership pre-read succeeded, so an empty atomic UPDATE means the
+        # row became terminal before the claim committed. Never invent affinity.
+        raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in ("legacy", "next"):
+        raise HTTPException(500, "Phiên làm bài không có renderer hợp lệ")
+    return {
+        "assignment_id": str(assignment_id),
+        "renderer_affinity": affinity,
     }
 
 

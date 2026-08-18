@@ -51,8 +51,13 @@ các điều kiện bên dưới vẫn có thể đẩy quyết định retireme
   exact timestamp của release cutover đã lưu trong evidence. Chỉ
   `exact=true`, `stateful_legacy_drain_zero=true` và
   `legacy_blocking_total=0` mới đóng được phần stateful drain. Speaking,
-  Reading exam, Listening test và Listening Dictation đọc đúng bốn bảng
-  canonical; row `started_at=NULL` bị tính là blocker. Dictation đọc
+  Reading exam, Listening test và Listening Dictation đọc bốn bảng attempt
+  canonical; row `started_at=NULL` bị tính là blocker. Writing đọc affinity
+  canonical trên `writing_assignments` và tính cả `pending` lẫn `in_progress`
+  đã pin Legacy, nên claim thành công nhưng `/start` gián đoạn không thành số 0
+  giả. Row Writing `in_progress` nhưng affinity `NULL` từ client N−1 cũng là
+  blocker fail-closed; `pending + NULL` không phải bằng chứng bài đã được mở và
+  không bị tính. Dictation đọc
   `dictation_attempts` từ migration 220; query/count lỗi phải fail closed, không
   được biến thành một số 0 giả trong endpoint này.
 - Kết quả endpoint không tự cho phép retirement: trường

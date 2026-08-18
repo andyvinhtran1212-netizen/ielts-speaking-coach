@@ -4450,6 +4450,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/writing/my-assignments/{assignment_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Writing Assignment Renderer Affinity
+         * @description Atomically pin an active Writing workspace to Legacy or Next.
+         *
+         *     The ownership-filtered pre-read preserves the endpoint's symmetric 404
+         *     contract. The RPC repeats ownership + active-status checks at the mutation
+         *     boundary so a concurrent submit cannot claim or reopen a terminal row.
+         */
+        post: operations["claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/writing/my-assignments/{assignment_id}/draft": {
         parameters: {
             query?: never;
@@ -13423,6 +13447,27 @@ export interface components {
              */
             reason: string;
         };
+        /** WritingAssignmentRendererAffinityRequest */
+        WritingAssignmentRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** WritingAssignmentRendererAffinityResponse */
+        WritingAssignmentRendererAffinityResponse: {
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** WritingBody */
         WritingBody: {
             /**
@@ -21410,6 +21455,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAssignmentRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAssignmentRendererAffinityResponse"];
                 };
             };
             /** @description Validation Error */

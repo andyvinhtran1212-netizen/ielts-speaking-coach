@@ -67,6 +67,7 @@ describe('current admission policy preserves behavior', () => {
       reading_exam: 'legacy',
       listening_test: 'legacy',
       listening_dictation: 'legacy',
+      writing_assignment: 'next',
     };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
       assert.equal(config.admit_new, expectedAdmission[surface]);
@@ -84,6 +85,10 @@ describe('current admission policy preserves behavior', () => {
     assert.ok(existsSync(path.join(
       FRONTEND,
       'app/(authed-listening-dictation)/listening/dictation/session/page.tsx',
+    )));
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-writing)/writing/dashboard/page.tsx',
     )));
   });
 
@@ -105,6 +110,10 @@ describe('current admission policy preserves behavior', () => {
       '/core-player/launch?surface=listening_dictation&test_id=test-1',
     );
     assert.equal(
+      admitCorePlayer('writing_assignment', { assignment_id: 'assignment-1' }),
+      '/core-player/launch?surface=writing_assignment&assignment_id=assignment-1',
+    );
+    assert.equal(
       corePlayerUrl('speaking', 'next', { session_id: 'session-a' }),
       '/practice/session?session_id=session-a',
     );
@@ -123,6 +132,10 @@ describe('current admission policy preserves behavior', () => {
     assert.equal(
       resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),
       '/pages/listening-test-dictation.html?test_id=test-1&section=3',
+    );
+    assert.equal(
+      resolveCorePlayerAdmission('writing_assignment', { assignment_id: 'assignment-1' }),
+      '/writing/dashboard?assignment_id=assignment-1',
     );
   });
 
