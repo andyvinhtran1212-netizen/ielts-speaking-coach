@@ -47,8 +47,8 @@ jobs:
       queue: max
     runs-on: ubuntu-24.04
     # Every step below has its own timeout. Their deliberately conservative
-    # total is 149 minutes even though the streak/reset uploads are mutually
-    # exclusive. Keep a further 31-minute job margin so a step-level timeout
+    # total is 159 minutes even though the streak/reset uploads are mutually
+    # exclusive. Keep a further 21-minute job margin so a step-level timeout
     # can still produce the fail-closed ledger and evidence artifacts below.
     timeout-minutes: 180
     steps:
@@ -144,7 +144,10 @@ jobs:
 
       - name: Install Playwright matrix engines
         working-directory: frontend
-        timeout-minutes: 5
+        # `--with-deps` downloads Ubuntu packages from the runner's regional
+        # mirror. A slow mirror must not reset an otherwise clean Gate E streak
+        # while packages are still making forward progress (run #84).
+        timeout-minutes: 15
         run: npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
