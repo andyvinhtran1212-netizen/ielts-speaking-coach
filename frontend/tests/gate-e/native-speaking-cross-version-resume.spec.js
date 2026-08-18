@@ -232,11 +232,11 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
     });
   }, SID);
 
-  // Let App Router finish same-origin link prefetches before the deliberate
-  // full-document handoff. WebKit reports a navigation-cancelled RSC prefetch
-  // as a pageerror even though canonical state and the destination are intact.
-  // Waiting preserves the strict zero-pageerror assertion instead of hiding it.
-  await page.waitForLoadState('networkidle');
+  // Do not wait for global networkidle before this deliberate full-document
+  // handoff. App Router may keep the unrelated /speaking RSC prefetch open;
+  // the destination load plus canonical state assertions below are the actual
+  // synchronization boundary. The exact WebKit cancellation remains filtered
+  // fail-closed at the end of the test.
   await page.goto(`/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
@@ -261,8 +261,8 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
   // prefetch. Synthetic iPhone WebKit reports that cancelled prefetch, and on
   // some runs the in-flight synthetic `/auth/me`, as pageerrors even though the
   // canonical redirect and player state are intact. Keep every other pageerror
-  // fail-closed; these exact transport-only messages
-  // is already covered by the final URL + canonical state assertions above.
+  // fail-closed; these exact transport-only cancellations are already bounded
+  // by the final URL + canonical state assertions above.
   expect(pageErrors.filter((message) => !isExpectedWebKitRedirectCancellation(message)))
     .toEqual([]);
 
