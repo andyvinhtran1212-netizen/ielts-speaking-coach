@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-08-18 the highest is `220`, so the next new
-migration is `221`.
+sequence is dense. As of 2026-08-18 the highest is `221`, so the next new
+migration is `222`.
 
 ## Conventions
 
@@ -55,3 +55,26 @@ file in 173–204 would still replay. A second invocation is a read-only no-op.
 The reconciler and `apply_migrations.sh` share a PostgreSQL advisory lock;
 the forward runner re-checks every previously missing ledger row after it owns
 that lock, so a stale pre-lock snapshot cannot replay reconciled history.
+
+## Staging Next.js ledger reconciliation (215–221 only)
+
+Staging received the durable renderer-affinity contracts before their ledger
+rows were consistently recorded. Do **not** replay the range or use
+`--baseline`: migration 217's one-time backfill would now misclassify a fresh
+claim-v1 Speaking session whose affinity is legitimately still `NULL`.
+
+Use the staging-pinned, fail-closed procedure instead:
+
+```bash
+# Read-only contract verification and exact ledger plan.
+DRY_RUN=1 python backend/scripts/reconcile_staging_nextjs_migrations.py "$DATABASE_URL"
+
+# Record only the six audited missing rows after locked verification.
+python backend/scripts/reconcile_staging_nextjs_migrations.py "$DATABASE_URL"
+```
+
+The procedure refuses every database except the pinned staging project,
+requires migrations 205–214 and 219 to already exist in the ledger, verifies
+the final 215–221 schema/function/ACL/RLS/trigger contracts, and records only
+215–218 plus 220–221. It shares the forward runner's advisory lock and finishes
+with the standard migration dry-run; no migration in 215–221 may remain pending.
