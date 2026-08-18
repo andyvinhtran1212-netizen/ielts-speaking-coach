@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "drill_id": "gate-e-writing-coexistence-v1",
+  "strategy_id": "stable-player-url-admission-switch-v1",
+  "surface": "writing_assignment",
+  "phases": [
+    { "phase": "floor", "expected_admission": "next", "required_previous_assignment": null, "emits_assignment": "next_assignment_id" },
+    { "phase": "rollback", "expected_admission": "legacy", "required_previous_assignment": "next_assignment_id", "emits_assignment": "legacy_assignment_id" },
+    { "phase": "restore", "expected_admission": "next", "required_previous_assignment": "legacy_assignment_id", "emits_assignment": "restored_next_assignment_id" }
+  ],
+  "required_evidence": [
+    "phase", "source_sha", "deployed_frontend_sha", "deployed_frontend_branch",
+    "rollback_floor_sha", "floor_lineage_verified", "previous_phase_handoff_verified",
+    "previous_phase_run_id", "backend_release", "backend_git_branch",
+    "backend_environment_name", "previous_assignment_id", "previous_assignment_url",
+    "previous_draft_text", "created_assignment_id", "created_assignment_url",
+    "created_draft_text", "admission_status", "admission_location",
+    "admission_expected_path", "canonical_assignments",
+    "reload_and_copy_url_passed", "captured_at"
+  ],
+  "conditional_evidence": {
+    "floor": [
+      "floor_dark_legacy_url", "floor_dark_legacy_assignment_id",
+      "floor_dark_legacy_affinity_before", "floor_dark_legacy_affinity_after"
+    ],
+    "rollback": ["transition_mode"],
+    "restore": ["transition_mode"]
+  },
+  "retention_days": 30,
+  "status": "runner-ready-live-artifacts-pending"
+}

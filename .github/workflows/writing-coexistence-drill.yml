@@ -1,0 +1,137 @@
+name: Writing Gate E coexistence drill
+
+permissions:
+  contents: read
+  actions: read
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/writing-coexistence-drill.yml'
+      - 'backend/scripts/seed_staging_writing_coexistence.py'
+      - 'frontend/playwright.writing-coexistence.config.js'
+      - 'frontend/tests/writing-coexistence-drill/**'
+      - 'frontend/tooling/gate-e-writing-coexistence*'
+      - 'frontend/lib/core-player-affinity.mjs'
+  workflow_dispatch:
+    inputs:
+      phase:
+        required: true
+        type: choice
+        options: [floor, rollback, restore]
+      rollback_floor_sha:
+        description: Exact 40-char Writing affinity floor SHA
+        required: true
+        type: string
+      previous_legacy_assignment_id: { required: false, type: string }
+      previous_next_assignment_id: { required: false, type: string }
+      previous_phase_run_id: { required: false, type: string }
+
+jobs:
+  writing-coexistence-drill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with: { ref: staging, fetch-depth: 0 }
+      - id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: config
+        env:
+          INPUT_PHASE: ${{ inputs.phase }}
+          INPUT_FLOOR_SHA: ${{ inputs.rollback_floor_sha }}
+          INPUT_LEGACY_ASSIGNMENT: ${{ inputs.previous_legacy_assignment_id }}
+          INPUT_NEXT_ASSIGNMENT: ${{ inputs.previous_next_assignment_id }}
+          INPUT_PREVIOUS_RUN: ${{ inputs.previous_phase_run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            cd frontend
+            node tooling/gate-e-writing-coexistence.mjs resolve
+          else
+            echo "phase=$INPUT_PHASE" >> "$GITHUB_OUTPUT"
+            echo "floor_sha=$INPUT_FLOOR_SHA" >> "$GITHUB_OUTPUT"
+            echo "legacy_assignment=$INPUT_LEGACY_ASSIGNMENT" >> "$GITHUB_OUTPUT"
+            echo "next_assignment=$INPUT_NEXT_ASSIGNMENT" >> "$GITHUB_OUTPUT"
+            echo "previous_run=$INPUT_PREVIOUS_RUN" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v5
+        with: { node-version: '24' }
+      - id: lineage
+        working-directory: frontend
+        env:
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+        run: node tooling/gate-e-writing-coexistence.mjs lineage
+      - name: Download previous phase evidence
+        if: steps.config.outputs.phase != 'floor'
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PHASE: ${{ steps.config.outputs.phase }}
+          PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+        run: |
+          mkdir -p test-results/gate-e-previous-phase
+          case "$PHASE" in rollback) previous_phase=floor ;; restore) previous_phase=rollback ;; *) exit 1 ;; esac
+          previous_attempt="$(gh run view "$PREVIOUS_PHASE_RUN_ID" --json attempt --jq '.attempt')"
+          artifact="gate-e-writing-coexistence-${previous_phase}-${PREVIOUS_PHASE_RUN_ID}-${previous_attempt}"
+          gh run download "$PREVIOUS_PHASE_RUN_ID" --name "$artifact" --dir test-results/gate-e-previous-phase
+      - id: handoff
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+          GATE_E_PREVIOUS_LEGACY_ASSIGNMENT_ID: ${{ steps.config.outputs.legacy_assignment }}
+          GATE_E_PREVIOUS_NEXT_ASSIGNMENT_ID: ${{ steps.config.outputs.next_assignment }}
+        run: node tooling/gate-e-writing-coexistence.mjs handoff
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx playwright install chromium
+      - working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PREVIOUS_PHASE_RUN_ID: ${{ steps.config.outputs.previous_run }}
+          GATE_E_PREVIOUS_LEGACY_ASSIGNMENT_ID: ${{ steps.config.outputs.legacy_assignment }}
+          GATE_E_PREVIOUS_NEXT_ASSIGNMENT_ID: ${{ steps.config.outputs.next_assignment }}
+          GATE_E_LINEAGE_VERIFIED: ${{ steps.lineage.outputs.verified }}
+          GATE_E_TRANSITION_MODE: ${{ steps.lineage.outputs.transition_mode }}
+          GATE_E_HANDOFF_VERIFIED: ${{ steps.handoff.outputs.verified }}
+        run: npx playwright test -c playwright.writing-coexistence.config.js
+      - name: Capture staging release provenance
+        if: always()
+        working-directory: frontend
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_DRILL_PHASE: ${{ steps.config.outputs.phase }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
+          GATE_E_PROVENANCE_REQUIRED: 'true'
+        run: node tooling/capture-gate-e-staging-provenance.mjs
+      - name: Upload phase evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-writing-coexistence-${{ steps.config.outputs.phase }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/tooling/gate-e-writing-coexistence-drill.json
+            frontend/test-results/gate-e-writing-coexistence-evidence.json
+            frontend/test-results/gate-e-writing-coexistence-results.json
+            frontend/test-results/gate-e-writing-coexistence-lineage.json
+            frontend/test-results/gate-e-writing-coexistence-handoff.json
+            frontend/test-results/gate-e-staging-provenance.json
+          if-no-files-found: error
+          retention-days: 30
