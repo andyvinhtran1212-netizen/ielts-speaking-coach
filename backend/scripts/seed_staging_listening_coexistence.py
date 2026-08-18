@@ -4,8 +4,8 @@
 This operations script is intentionally STAGING-only. It refuses every
 Supabase project except the known staging project before writing database or
 storage state. Deterministic ids and storage paths make repeated runs converge,
-while three separate tests keep each coexistence phase from replacing the
-previous phase's in-progress attempt.
+while four separate tests keep the Dictation floor's dark-Next proof and each
+coexistence phase from replacing a previous in-progress attempt.
 
 Run from the repository root (``STAGING_ENV_FILE`` is only needed from a git
 worktree whose ignored env file lives in the primary checkout):
@@ -48,6 +48,12 @@ FIXTURES = (
         "test_uuid": "ee300003-0000-4000-8000-000000000003",
         "content_uuid": "ee400003-0000-4000-8000-000000000003",
         "exercise_uuid": "ee500003-0000-4000-8000-000000000003",
+    },
+    {
+        "test_id": "GATE-E-LISTENING-COEXISTENCE-4",
+        "test_uuid": "ee300004-0000-4000-8000-000000000004",
+        "content_uuid": "ee400004-0000-4000-8000-000000000004",
+        "exercise_uuid": "ee500004-0000-4000-8000-000000000004",
     },
 )
 
