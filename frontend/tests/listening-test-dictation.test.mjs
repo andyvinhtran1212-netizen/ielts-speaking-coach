@@ -88,6 +88,7 @@ describe('test-linked dictation — JS contract', () => {
     assert.match(JS, /dictation\/attempts\/in-progress/);
     assert.match(JS, /renderer_affinity_protocol:\s*'claim-v1'/);
     assert.match(JS, /run !== SESSION\.sectionRun/);
+    assert.match(JS, /section\.sentences = attempt\.units\.map/);
     assert.match(JS, /\/renderer-affinity/);
     assert.match(JS, /dictation\/attempts\/\$\{encodeURIComponent\(SESSION\.attemptId\)\}\/sentences/);
     assert.match(JS, /user_transcript:/);

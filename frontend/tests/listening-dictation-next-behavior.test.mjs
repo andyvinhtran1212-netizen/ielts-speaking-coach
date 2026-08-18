@@ -48,10 +48,14 @@ describe('native Listening Dictation model', () => {
     const attempt = normalizeDictationAttempt({ attempt: {
       attempt_id: 'a1', test_id: 't1', section_num: 2, status: 'in_progress',
       renderer_affinity: 'next', started_at: '2026-08-18T00:00:00Z',
+      units: [{ text: 'Hello there.', start: 12, end: 15, hints: ['Brighton'] }],
       answers: [{ sentence_idx: 0, user_transcript: 'hello', score: 1,
         correct_words: 1, total_words: 1, diff: [] }],
     } });
     assert.equal(attempt.answers[0].user_text, 'hello');
+    assert.deepEqual(attempt.units[0], {
+      text: 'Hello there.', timing: { start: 12, end: 15 }, hints: ['Brighton'],
+    });
     assert.equal(normalizeDictationAttempt({ attempt: null }), null);
     assert.equal(dictationRendererHref('legacy', '?test_id=t%2F1&section=2'),
       '/pages/listening-test-dictation.html?test_id=t%2F1&section=2');
@@ -115,6 +119,8 @@ describe('native Listening Dictation ownership', () => {
     assert.match(CLIENT, /\/renderer-affinity/);
     assert.match(CLIENT, /\/sentences\/\$\{sentenceIndex\}/);
     assert.match(CLIENT, /attempt_id:\s*attempt\.attempt_id/);
+    assert.match(CLIENT, /setAnswer\(restored\[selectedIndex\]\?\.user_text \|\| ''\)/);
+    assert.match(CLIENT, /sentences:\s*canonicalAttempt\.units\.map/);
     assert.match(CLIENT, /dictation\/session\/by-request/);
     assert.match(CLIENT, /client_request_id/);
     assert.match(CLIENT, /localStorage\.setItem/);

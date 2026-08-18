@@ -253,13 +253,22 @@ export function ListeningDictationSession() {
         return;
       }
       if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
-      const restored = new Array(selected.sentences.length).fill(null);
+      const pinnedSection = {
+        ...selected,
+        sentences: canonicalAttempt.units.map((unit: any) => unit.text),
+        timings: canonicalAttempt.units.map((unit: any) => unit.timing),
+        hints: canonicalAttempt.units.map((unit: any) => unit.hints),
+      };
+      const restored = new Array(pinnedSection.sentences.length).fill(null);
       for (const saved of canonicalAttempt.answers) {
         if (saved.sentence_idx < restored.length) restored[saved.sentence_idx] = saved;
       }
       const firstOpen = restored.findIndex((item) => !item);
+      const selectedIndex = firstOpen < 0 ? restored.length - 1 : firstOpen;
+      setSection(pinnedSection);
       setAttempt({ ...canonicalAttempt, renderer_affinity: affinity });
-      setResults(restored); setSentenceIndex(firstOpen < 0 ? restored.length - 1 : firstOpen);
+      setResults(restored); setSentenceIndex(selectedIndex);
+      setAnswer(restored[selectedIndex]?.user_text || '');
       startedAtRef.current = canonicalAttempt.started_at
         ? Date.parse(canonicalAttempt.started_at) : Date.now();
       sentenceStartedAtRef.current = Date.now(); listenCountRef.current = 0;
@@ -390,9 +399,10 @@ export function ListeningDictationSession() {
   const advance = useCallback(() => {
     if (!section || !currentResult) return;
     if (sentenceIndex + 1 >= section.sentences.length) { void complete(); return; }
-    setSentenceIndex((value) => value + 1); setAnswer(''); setInlineError('');
+    const nextIndex = sentenceIndex + 1;
+    setSentenceIndex(nextIndex); setAnswer(results[nextIndex]?.user_text || ''); setInlineError('');
     sentenceStartedAtRef.current = Date.now(); listenCountRef.current = 0; audioRef.current?.pause?.();
-  }, [complete, currentResult, section, sentenceIndex]);
+  }, [complete, currentResult, results, section, sentenceIndex]);
 
   const onAnswerKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {

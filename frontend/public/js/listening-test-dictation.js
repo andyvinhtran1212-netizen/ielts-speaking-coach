@@ -68,13 +68,26 @@ function normalizeAttempt(payload) {
       || (affinity !== null && affinity !== 'legacy' && affinity !== 'next')) {
     throw new Error('Lượt làm bài canonical không hợp lệ.');
   }
+  const units = (Array.isArray(source.units) ? source.units : []).map((unit) => {
+    const text = String(unit && unit.text || '').trim();
+    if (!text) return null;
+    const start = Number(unit.start);
+    const end = Number(unit.end);
+    return {
+      text,
+      timing: Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
+        ? { start, end } : null,
+      hints: Array.isArray(unit.hints) ? unit.hints.map(String).filter(Boolean).slice(0, 12) : [],
+    };
+  }).filter(Boolean);
+  if (!units.length) throw new Error('Snapshot nội dung lượt làm bài không hợp lệ.');
   const answers = (Array.isArray(source.answers) ? source.answers : []).map((answer) => ({
     ...answer,
     is_correct: Number(answer.score) >= 1,
     user_text: String(answer.user_transcript || ''),
     diff: Array.isArray(answer.diff) ? answer.diff : [],
   }));
-  return { ...source, renderer_affinity: affinity, answers };
+  return { ...source, renderer_affinity: affinity, units, answers };
 }
 
 const STATE = {
@@ -258,6 +271,9 @@ async function startSection(idx) {
         affinity, SESSION.testId, section.section_num));
       return;
     }
+    section.sentences = attempt.units.map((unit) => unit.text);
+    section.timings = attempt.units.map((unit) => unit.timing);
+    section.hints = attempt.units.map((unit) => unit.hints);
     SESSION.attemptId = attempt.attempt_id;
     SESSION.startedAt = attempt.started_at ? Date.parse(attempt.started_at) : Date.now();
     SESSION.results = new Array(section.sentences.length).fill(null);

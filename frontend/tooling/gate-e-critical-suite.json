@@ -124,7 +124,7 @@
     { "path": "frontend/tooling/verify-gate-e-listening-failure-evidence.mjs", "sha256": "af9bec13ebdc88df525f1aad1a25e62af64699e4aceeaf97f643a9dfff10bf32" },
     { "path": "frontend/tests/gate-e-listening/listening-gate-e-harness.js", "sha256": "f546a9e81bd8117fff8dec3738e89345a353d7a340bbb33e31fa89ee8defb13e" },
     { "path": "frontend/tests/gate-e-listening/listening-failure-matrix.spec.js", "sha256": "268febf8a907aa6defe17a02a7a553c108afae02457e8539eb40750f5835e310" },
-    { "path": "frontend/tests/gate-e-listening/dictation-gate-e-harness.js", "sha256": "1e719479f77249f1510c529812cba431162c7d2be5487b14c6b4f94c1602917e" },
+    { "path": "frontend/tests/gate-e-listening/dictation-gate-e-harness.js", "sha256": "9216e4e9e35c5c517ea6ff1dd507e62f3a1de22194b972ae685a41c1b8653f53" },
     { "path": "frontend/tests/gate-e-listening/dictation-failure-matrix.spec.js", "sha256": "4a385374e528eacb61b219d3c6f05b8fef04705a857c4b382d41d5140e75898a" },
     { "path": "frontend/playwright.gate-e-writing.config.js", "sha256": "a2c932207b297415ea10477b0fcdcc98002e429c98019df083cc178e9beed6d3" },
     { "path": "frontend/tooling/gate-e-writing-device-matrix.json", "sha256": "8b122950dc95f16335a9cde585bde3af703287b2930be4b8834263cce543f02e" },

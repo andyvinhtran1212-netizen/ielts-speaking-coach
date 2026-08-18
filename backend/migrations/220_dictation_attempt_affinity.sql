@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS public.dictation_attempts (
     section_num        INTEGER NOT NULL CHECK (section_num >= 1),
     status             TEXT NOT NULL DEFAULT 'in_progress'
                        CHECK (status IN ('in_progress', 'completed', 'abandoned')),
+    units_snapshot     JSONB NOT NULL
+                       CHECK (jsonb_typeof(units_snapshot) = 'array'
+                              AND jsonb_array_length(units_snapshot) > 0),
     renderer_affinity  TEXT DEFAULT 'legacy'
                        CHECK (renderer_affinity IN ('legacy', 'next')),
     started_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -249,7 +252,7 @@ REVOKE ALL ON FUNCTION public.fn_finalize_dictation_attempt_from_session()
     FROM PUBLIC, anon, authenticated;
 
 COMMENT ON TABLE public.dictation_attempts IS
-    'Canonical in-progress test-linked Dictation runs. Existing/unversioned clients default Legacy; claim-v1 inserts NULL until first stable player boot.';
+    'Canonical in-progress test-linked Dictation runs with immutable grading units. Existing/unversioned clients default Legacy; claim-v1 inserts NULL until first stable player boot.';
 COMMENT ON TABLE public.dictation_attempt_answers IS
     'Latest server-graded sentence state for a canonical Dictation attempt.';
 COMMENT ON COLUMN public.dictation_sessions.attempt_id IS

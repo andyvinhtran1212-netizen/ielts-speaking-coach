@@ -62,6 +62,18 @@ export function normalizeDictationAttempt(payload) {
       || status !== 'in_progress' || (affinity !== null && !DICTATION_RENDERERS.has(affinity))) {
     throw new Error('invalid-dictation-attempt');
   }
+  const units = (Array.isArray(source.units) ? source.units : []).map((unit) => {
+    const unitText = text(unit?.text);
+    if (!unitText) return null;
+    const start = Number(unit?.start);
+    const end = Number(unit?.end);
+    const timing = Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
+      ? Object.freeze({ start, end }) : null;
+    const hints = Array.isArray(unit?.hints)
+      ? unit.hints.map(text).filter(Boolean).slice(0, 12) : [];
+    return Object.freeze({ text: unitText, timing, hints: Object.freeze(hints) });
+  }).filter(Boolean);
+  if (!units.length) throw new Error('invalid-dictation-attempt-units');
   const answers = (Array.isArray(source.answers) ? source.answers : []).map((answer) => {
     const sentenceIdx = Number(answer?.sentence_idx);
     if (!Number.isInteger(sentenceIdx) || sentenceIdx < 0) return null;
@@ -87,6 +99,7 @@ export function normalizeDictationAttempt(payload) {
     status,
     renderer_affinity: affinity,
     started_at: text(source.started_at) || null,
+    units: Object.freeze(units),
     answers: Object.freeze(answers),
   });
 }

@@ -634,6 +634,8 @@ def test_dictation_attempt_resumes_saves_and_claims_renderer(monkeypatch):
         test["id"], section_num=1, body=start_body, authorization=authz))
     assert started["created"] is True
     assert started["renderer_affinity"] is None
+    assert [unit["text"] for unit in started["units"]] == [
+        "The address is Brighton.", "It opens at ten."]
 
     claimed = _run(listening_router.claim_dictation_attempt_renderer_affinity(
         UUID(started["attempt_id"]),
@@ -657,6 +659,19 @@ def test_dictation_attempt_resumes_saves_and_claims_renderer(monkeypatch):
     assert resumed["attempt"]["attempt_id"] == started["attempt_id"]
     assert resumed["attempt"]["renderer_affinity"] == "next"
     assert resumed["attempt"]["answers"][0]["user_transcript"] == "the address is brighton"
+
+    # Published content may be edited while a learner is mid-run. The attempt
+    # keeps grading and rendering the immutable units it started with.
+    fake.tables["listening_content"][0]["transcript"] = "Completely changed text."
+    second = _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        UUID(started["attempt_id"]), 1,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="it opens at ten", listen_count=1,
+            time_seconds=5,
+        ),
+        authorization=authz,
+    ))
+    assert second["score"] == 1
 
     reopened = _run(listening_router.start_dictation_attempt(
         test["id"], section_num=1, body=start_body, authorization=authz))
@@ -691,6 +706,7 @@ def test_dictation_attempt_completion_requires_saved_canonical_answers(monkeypat
             user_transcript="hello there", listen_count=1, time_seconds=4),
         authorization=authz,
     ))
+    fake.tables["listening_content"][0]["transcript"] = "Edited after the learner saved."
     request_id = uuid4()
     completed = _submit_session(
         test["id"], 1, submission, authz,
@@ -699,6 +715,7 @@ def test_dictation_attempt_completion_requires_saved_canonical_answers(monkeypat
     assert completed["attempt_id"] == str(attempt_id)
     assert fake.tables["dictation_attempts"][0]["status"] == "completed"
     assert fake.tables["dictation_sessions"][0]["attempt_id"] == str(attempt_id)
+    assert completed["results"][0]["reference"] == "Hello there."
 
     replay = _submit_session(
         test["id"], 1, submission, authz,

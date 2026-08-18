@@ -170,6 +170,7 @@ async function installDictationGateEHarness(page, { state, handleApi = null } = 
         attempt_id: `10000000-0000-4000-8000-${String(state.attempts.length + 1).padStart(12, '0')}`,
         test_id: TEST_ID, section_num: 1, status: 'in_progress',
         renderer_affinity: body?.renderer_affinity_protocol === 'claim-v1' ? null : 'legacy',
+        units: [{ text: 'Hello there.', start: null, end: null, hints: [] }],
         started_at: '2026-08-18T00:00:00Z', answers: [], created: true,
       };
       state.attempts.push(attempt);

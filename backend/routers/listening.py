@@ -5175,6 +5175,7 @@ def _dictation_attempt_response(row: dict) -> dict:
         "status": row.get("status"),
         "renderer_affinity": row.get("renderer_affinity"),
         "started_at": row.get("started_at") or row.get("created_at"),
+        "units": row.get("units_snapshot") or [],
         "answers": _dictation_attempt_answers(str(row.get("id"))),
     }
 
@@ -5193,14 +5194,26 @@ def _find_in_progress_dictation_attempt(
     return res.data[0] if res.data else None
 
 
-def _assert_dictation_section_exists(test_id: str, section_num: int) -> None:
+def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[dict]:
     sec_res = (
         supabase_admin.table("listening_content").select("transcript,metadata")
         .eq("test_id", test_id).eq("section_num", section_num)
         .limit(1).execute()
     )
-    if not sec_res.data or not _dictation_units(sec_res.data[0]):
+    if not sec_res.data:
         raise HTTPException(404, "Section không có nội dung chép chính tả.")
+    units = _dictation_units(sec_res.data[0])
+    if not units:
+        raise HTTPException(404, "Section không có nội dung chép chính tả.")
+    return [
+        {
+            "text": unit["text"],
+            "start": unit.get("start"),
+            "end": unit.get("end"),
+            "hints": proper_noun_hints(unit["text"]) or [],
+        }
+        for unit in units
+    ]
 
 
 @user_router.get("/tests/{test_id}/dictation/attempts/in-progress")
@@ -5225,11 +5238,11 @@ async def start_dictation_attempt(
     """Resume the one active section attempt, or create it without destroying progress."""
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"))
-    _assert_dictation_section_exists(test_id, section_num)
     existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
     if existing:
         return {**_dictation_attempt_response(existing), "created": False}
 
+    units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
     now = datetime.now(timezone.utc).isoformat()
     attempt_id = str(uuid.uuid4())
     payload = {
@@ -5238,6 +5251,7 @@ async def start_dictation_attempt(
         "test_id": test_id,
         "section_num": section_num,
         "status": "in_progress",
+        "units_snapshot": units_snapshot,
         "started_at": now,
         "created_at": now,
         "updated_at": now,
@@ -5306,14 +5320,9 @@ async def grade_and_save_dictation_attempt_sentence(
         str(attempt_id), user["id"], require_in_progress=True,
     )
     _published_test_for_dictation(attempt["test_id"], user.get("id"))
-    sec_res = (
-        supabase_admin.table("listening_content").select("transcript,metadata")
-        .eq("test_id", attempt["test_id"])
-        .eq("section_num", attempt["section_num"]).limit(1).execute()
-    )
-    if not sec_res.data:
-        raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = _dictation_units(sec_res.data[0])
+    units = attempt.get("units_snapshot") or []
+    if not units:
+        raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
     if sentence_idx >= len(units):
         raise HTTPException(422, f"sentence_idx {sentence_idx} ngoài phạm vi.")
     grade = grade_dictation(
@@ -5467,9 +5476,11 @@ async def submit_listening_dictation_session(
         .eq("test_id", body.test_id).eq("section_num", body.section_num)
         .limit(1).execute()
     )
-    if not sec_res.data:
+    if not sec_res.data and not attempt:
         raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = _dictation_units(sec_res.data[0])
+    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units(sec_res.data[0])
+    if not units:
+        raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
 
     # A completion report must cover the WHOLE section exactly once. Reject a
     # subset / duplicate / out-of-range index set so a client can't persist a
@@ -5513,7 +5524,7 @@ async def submit_listening_dictation_session(
         "test_id":            body.test_id,
         "test_id_external":   test.get("test_id"),
         "section_num":        body.section_num,
-        "section_title":      sec_res.data[0].get("title"),
+        "section_title":      sec_res.data[0].get("title") if sec_res.data else None,
         "total_sentences":    report["total_sentences"],
         "correct_count":      report["correct_count"],
         "accuracy":           report["accuracy"],

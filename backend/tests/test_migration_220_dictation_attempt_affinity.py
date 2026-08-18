@@ -14,6 +14,8 @@ def test_dictation_attempt_schema_has_one_active_run_and_atomic_affinity():
     assert "CREATE TABLE IF NOT EXISTS public.dictation_attempts" in SQL
     assert "WHERE status = 'in_progress'" in SQL
     assert "renderer_affinity  TEXT DEFAULT 'legacy'" in SQL
+    assert "units_snapshot     JSONB NOT NULL" in SQL
+    assert "jsonb_array_length(units_snapshot) > 0" in SQL
     assert "CHECK (renderer_affinity IN ('legacy', 'next'))" in SQL
     assert "COALESCE(target.renderer_affinity, p_renderer_affinity)" in SQL
     assert "target.user_id = p_user_id" in SQL
