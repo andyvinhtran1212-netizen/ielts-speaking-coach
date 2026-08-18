@@ -47,6 +47,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
+      # The runner's Azure mirror stalled until timeout on 2026-08-18, while
+      # the canonical archive fallback answered in the same apt trace. WebKit
+      # still needs system libraries, so keep `--with-deps` but remove the
+      # unavailable mirror from apt's mirror list first.
+      - name: Pin responsive Ubuntu archive mirror
+        run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|' /etc/apt/apt-mirrors.txt
+
       - name: Install Chromium + WebKit (cached after first run)
         run: npx playwright install --with-deps chromium webkit
 
@@ -56,6 +63,8 @@ jobs:
       - name: Run Speaking Gate E native fixtures
         id: speaking_gate_e
         if: always()
+        env:
+          GATE_E_REQUIRE_AFFINITY: ${{ (github.event.pull_request.base.ref == 'staging' || github.ref_name == 'staging') && 'true' || 'false' }}
         run: npm run test:e2e:gate-e
 
       - name: Upload Speaking Gate E device-matrix evidence

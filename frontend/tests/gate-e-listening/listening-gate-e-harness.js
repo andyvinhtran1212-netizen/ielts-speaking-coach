@@ -64,6 +64,7 @@ function createListeningGateEState({
 } = {}) {
   return {
     attemptId: ATTEMPT,
+    rendererAffinity: null,
     status,
     startedAt,
     answers: new Map(answers.map(({ q_num, user_answer }) => [Number(q_num), String(user_answer)])),
@@ -82,6 +83,7 @@ function inProgressPayload(state) {
       attempt_id: state.attemptId,
       started_at: state.startedAt,
       answers: [...state.answers].map(([q_num, user_answer]) => ({ q_num, user_answer })),
+      renderer_affinity: state.rendererAffinity,
     },
   };
 }
@@ -108,7 +110,11 @@ function resultPayload(state) {
   };
 }
 
-async function installListeningGateEHarness(page, { state, handleApi = null } = {}) {
+async function installListeningGateEHarness(page, {
+  state,
+  handleApi = null,
+  allowCrossRendererFixture = false,
+} = {}) {
   if (!state) throw new TypeError('state is required');
   const calls = [];
   const pageErrors = [];
@@ -188,10 +194,28 @@ async function installListeningGateEHarness(page, { state, handleApi = null } = 
       state.status = 'in_progress';
       state.startedAt = new Date(Date.now() - 30_000).toISOString();
       state.answers.clear();
+      state.rendererAffinity = body?.renderer_affinity_protocol === 'claim-v1' ? null : 'legacy';
       await route.fulfill({
-        json: { attempt_id: state.attemptId, status: 'in_progress' },
+        json: { attempt_id: state.attemptId, status: 'in_progress',
+          renderer_affinity: state.rendererAffinity },
         headers: cors,
       });
+      return;
+    }
+    if (request.method() === 'POST'
+        && url.pathname === `/api/listening/tests/attempts/${state.attemptId}/renderer-affinity`) {
+      if (allowCrossRendererFixture) {
+        // This explicit synthetic seam keeps the bidirectional wire-compatibility
+        // test capable of exercising both implementations on one canonical
+        // attempt. Production paths never set it; the separate immutable guard
+        // below verifies the real first-claim-wins renderer policy.
+        await route.fulfill({ json: { attempt_id: state.attemptId,
+          renderer_affinity: body?.renderer_affinity }, headers: cors });
+        return;
+      }
+      state.rendererAffinity = state.rendererAffinity || body?.renderer_affinity;
+      await route.fulfill({ json: { attempt_id: state.attemptId,
+        renderer_affinity: state.rendererAffinity }, headers: cors });
       return;
     }
     if (request.method() === 'PATCH' && url.pathname === `/api/listening/tests/attempts/${state.attemptId}/answers`) {
