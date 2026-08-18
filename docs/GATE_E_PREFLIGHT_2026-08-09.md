@@ -129,28 +129,30 @@ core cutover vẫn bị chặn bởi Gate E.
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.
 
-### GE-4 — Floor live đã có, persisted affinity và đủ ba phase vẫn thiếu
+### GE-4 — Persisted affinity đã drill; Writing còn thiếu implementation và live drill
 
-- **Root cause:** runtime admission chỉ quyết định renderer cho một navigation;
-  trước remediation nó không persist renderer theo session. Vì vậy một bài lớp
-  đã có `session_id` có thể bị re-admit sang implementation mới khi mở lại.
-  Floor run đã chứng minh hai stable URL cùng phục vụ, nhưng chưa chứng minh
-  session giữ nguyên renderer qua launcher khác và qua rollback.
+- **Root cause lịch sử:** runtime admission từng chỉ quyết định renderer cho
+  một navigation và không persist renderer theo session/attempt. Remediation
+  đã thêm atomic first-player claim; Speaking, Reading, Listening test và
+  Listening Dictation nay giữ affinity canonical qua launcher, reload và
+  forward rollback. Writing chưa có surface trong affinity policy/launcher,
+  canonical first-player claim hoặc live three-phase artifact tương ứng.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
-  `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
-  các core route và state keys được liệt kê dưới đây.
-- **Suggested minimal fix còn lại:** deploy release Speaking dark-route-ready có
-  atomic first-player claim làm coexistence rollback floor mới; sau đó mỗi core
-  cluster phải pin floor tương ứng rồi drill
-  staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab cũ,
-  reload, tab mới và canonical state sau handoff.
-- **Verification:** route test phải chứng minh Legacy session mở lại vẫn Legacy,
-  Next session mở lại vẫn Next và session chưa claim đi qua current admission;
-  run artifact ghi release trước/sau, session/attempt ID,
-  persisted answers, canonical final state, TTL và recovery time; không có data
-  invariant violation.
+  `frontend/app/core-player/launch/route.ts`, canonical attempt/session tables
+  và từng Gate E coexistence workflow.
+- **Suggested minimal fix còn lại:** thêm Writing vào centralized affinity
+  policy và required-surface contract, nối stable launcher với canonical atomic
+  first-player claim, rồi mới pin floor và drill staging cutover + forward
+  rollback với exact frontend/backend provenance; không mở rộng admission
+  production trong batch này.
+- **Verification:** Dictation floor `32103908150` attempt 2, cutover
+  `32106478117` attempt 2 và rollback `32108579377` attempt 1 chứng minh fresh
+  admission đổi đúng, prior Legacy/Next attempt giữ renderer, reload/copy URL
+  pass và không có data invariant violation. Writing phải cung cấp cùng loại
+  implementation/claim tests trước, sau đó mới thu cùng loại live artifact để
+  GE-4 có thể PASS toàn cục.
 
 ## Core-flow inventory còn phải đóng
 
