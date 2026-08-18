@@ -26,6 +26,9 @@ BACKEND = Path(__file__).resolve().parent.parent
 STAGING_REF = "zjphffoujxkpltixsbzj"
 PRODUCTION_REF = "huwsmtubwulikhlmcirx"
 STUDENT_EMAIL = "e2e-student-smoke@staging-e2e.averlearning.com"
+STUDENT_ID = "ee800001-0000-4000-8000-000000000001"
+STUDENT_CODE = "GATE-E-WRITING"
+STUDENT_NAME = "[STAGING] Gate E Writing Student"
 PROMPT_ID = "ee700001-0000-4000-8000-000000000001"
 ASSIGNMENT_ID = "ee600001-0000-4000-8000-000000000001"
 PROMPT_TITLE = "[STAGING] Gate E Writing Coexistence"
@@ -74,10 +77,52 @@ def seed() -> None:
         sb.table("users").select("id,email").eq("email", STUDENT_EMAIL).execute().data or [],
         f"synthetic user {STUDENT_EMAIL}",
     )
-    student = _single(
-        sb.table("students").select("id,user_id").eq("user_id", user["id"]).execute().data or [],
-        f"student profile for {STUDENT_EMAIL}",
+    student_by_user = (
+        sb.table("students")
+        .select("id,user_id,student_code,full_name")
+        .eq("user_id", user["id"])
+        .execute().data or []
     )
+    if len(student_by_user) > 1:
+        sys.exit(f"REFUSED: synthetic user {STUDENT_EMAIL} has multiple student profiles")
+    if student_by_user and student_by_user[0].get("id") != STUDENT_ID:
+        sys.exit("REFUSED: synthetic user belongs to another student profile")
+    student_by_code = (
+        sb.table("students")
+        .select("id,user_id,student_code,full_name")
+        .eq("student_code", STUDENT_CODE)
+        .execute().data or []
+    )
+    if student_by_code and any(row.get("id") != STUDENT_ID for row in student_by_code):
+        sys.exit("REFUSED: Writing fixture student code belongs to another profile")
+    student_by_id = (
+        sb.table("students")
+        .select("id,user_id,student_code,full_name")
+        .eq("id", STUDENT_ID)
+        .limit(1)
+        .execute().data or []
+    )
+    if student_by_id:
+        student = student_by_id[0]
+        expected_student = {
+            "user_id": user["id"],
+            "student_code": STUDENT_CODE,
+            "full_name": STUDENT_NAME,
+        }
+        if any(student.get(key) != value for key, value in expected_student.items()):
+            sys.exit("REFUSED: Writing fixture student UUID belongs to unrelated state")
+        print(f"= Writing synthetic student exists ({STUDENT_ID})")
+    else:
+        inserted = sb.table("students").insert(
+            {
+                "id": STUDENT_ID,
+                "user_id": user["id"],
+                "student_code": STUDENT_CODE,
+                "full_name": STUDENT_NAME,
+            }
+        ).execute().data or []
+        student = _single(inserted, "inserted Writing synthetic student")
+        print(f"+ Writing synthetic student created ({STUDENT_ID})")
 
     title_rows = (
         sb.table("writing_prompts").select("id,title").eq("title", PROMPT_TITLE).execute().data or []
