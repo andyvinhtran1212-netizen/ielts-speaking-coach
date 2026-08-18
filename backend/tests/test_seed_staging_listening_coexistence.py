@@ -18,11 +18,11 @@ def test_seed_is_pinned_to_staging_and_rejects_production() -> None:
     assert 'os.environ.get("STAGING_ENV_FILE"' in SOURCE
 
 
-def test_seed_is_idempotent_and_has_three_distinct_published_tests() -> None:
-    assert SOURCE.count('"test_id": "GATE-E-LISTENING-COEXISTENCE-') == 3
-    assert SOURCE.count('"test_uuid":') == 3
-    assert SOURCE.count('"content_uuid":') == 3
-    assert SOURCE.count('"exercise_uuid":') == 3
+def test_seed_is_idempotent_and_has_four_distinct_published_tests() -> None:
+    assert SOURCE.count('"test_id": "GATE-E-LISTENING-COEXISTENCE-') == 4
+    assert SOURCE.count('"test_uuid":') == 4
+    assert SOURCE.count('"content_uuid":') == 4
+    assert SOURCE.count('"exercise_uuid":') == 4
     assert '"x-upsert": "true"' in SOURCE
     assert 'on_conflict="id"' in SOURCE
     assert '"status": "published"' in SOURCE
