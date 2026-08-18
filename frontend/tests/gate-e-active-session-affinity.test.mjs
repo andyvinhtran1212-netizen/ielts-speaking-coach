@@ -170,17 +170,17 @@ describe('current admission policy preserves behavior', () => {
     }
   });
 
-  test('Writing rollback is isolated to the exact Vercel staging deployment', () => {
+  test('Writing forward restore leaves every deployment on Next admission', () => {
     assert.equal(corePlayerAdmissionForDeployment('writing_assignment', {
       vercelEnv: 'preview', gitRef: 'staging',
-    }), 'legacy');
+    }), 'next');
     assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces.writing_assignment.admit_new, 'next');
     const params = new URLSearchParams('surface=writing_assignment&assignment_id=assignment-1');
     assert.equal(
       resolveCorePlayerAdmissionFromParamsForDeployment(params, {
         vercelEnv: 'preview', gitRef: 'staging',
       }),
-      '/pages/writing-dashboard.html?assignment_id=assignment-1',
+      '/writing/dashboard?assignment_id=assignment-1',
     );
     assert.equal(
       resolveCorePlayerAdmissionFromParamsForDeployment(params, {
@@ -189,6 +189,7 @@ describe('current admission policy preserves behavior', () => {
       '/writing/dashboard?assignment_id=assignment-1',
     );
     for (const deployment of [
+      { vercelEnv: 'production', gitRef: 'main' },
       { vercelEnv: 'production', gitRef: 'staging' },
       { vercelEnv: 'preview', gitRef: 'feature-branch' },
       { vercelEnv: '', gitRef: 'staging' },
