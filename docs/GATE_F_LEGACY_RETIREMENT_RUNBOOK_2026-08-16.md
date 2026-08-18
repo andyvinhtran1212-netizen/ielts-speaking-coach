@@ -51,10 +51,10 @@ các điều kiện bên dưới vẫn có thể đẩy quyết định retireme
   exact timestamp của release cutover đã lưu trong evidence. Chỉ
   `exact=true`, `stateful_legacy_drain_zero=true` và
   `legacy_blocking_total=0` mới đóng được phần stateful drain. Speaking,
-  Reading exam và Listening test đọc đúng ba bảng canonical; row
-  `started_at=NULL` bị tính là blocker. Dictation không có in-progress row nên
-  vẫn dùng zero-beacon window và coexistence evidence, không được biến thành
-  một số 0 giả trong endpoint này.
+  Reading exam, Listening test và Listening Dictation đọc đúng bốn bảng
+  canonical; row `started_at=NULL` bị tính là blocker. Dictation đọc
+  `dictation_attempts` từ migration 220; query/count lỗi phải fail closed, không
+  được biến thành một số 0 giả trong endpoint này.
 - Kết quả endpoint không tự cho phép retirement: trường
   `retirement_decision=pending-additional-gate-f-evidence` cố ý giữ 14 ngày,
   full business/revisit cycle, health invariants và deletion audit là các cổng

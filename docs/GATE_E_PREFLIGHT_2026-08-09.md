@@ -50,22 +50,23 @@ floor `32084645112` attempt 2 và cutover `32093601359` attempt 2 đã pass trê
 matching frontend/backend staging provenance. Forward rollback `32095451591`
 attempt 1 cũng đã pass trên `f60df75f8ff68ffd49d68da00e73a8ff5c1bbb54`;
 Listening test đã đủ three-phase và staging admission hiện trở về Legacy.
-Writing cũng
-đã có matrix 12 case cùng idempotent submit/readback; đây vẫn là synthetic
-evidence. Live-staging failure-injection journey và trusted verifier đã được tích
-hợp nhưng chưa có artifact từ release đã merge; thiết bị Safari/iOS thật,
-active-session drill của Listening Dictation, live coexistence/rollback drill
-của Writing và
-qualifying streak chưa hoàn tất; Speaking three-phase live drill đã pass. Vì vậy
-canonical core cutover vẫn bị chặn bởi Gate E.
+Listening Dictation cũng đã đủ three-phase qua floor `32103908150` attempt 2,
+cutover `32106478117` attempt 2 và forward rollback `32108579377` attempt 1;
+staging admission hiện trở về Legacy và prior Next attempt vẫn sticky Next.
+Writing cũng đã có matrix 12 case cùng idempotent submit/readback; đây vẫn là
+synthetic evidence. Live-staging failure-injection journey và trusted verifier
+đã được tích hợp nhưng chưa có artifact từ release đã merge; thiết bị
+Safari/iOS thật, live coexistence/rollback drill của Writing và qualifying
+streak chưa hoàn tất; Speaking three-phase live drill đã pass. Vì vậy canonical
+core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence. WebKit/static scan không thay thế thiết bị thật. |
-| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay; Reading và Listening test đã đủ live three-phase trên matching frontend/backend staging SHA | Listening Dictation và Writing chưa có successful live three-phase journey artifact. Source/tooling không được tính thay lần chạy thật. |
-| Sticky active-session hoặc drain strategy đã drill | **PARTIAL** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking, Reading và Listening test đều đã đủ three-phase trên matching provenance. Listening rollback `32095451591` attempt 1 verify fresh Legacy attempt `153ef00d…` và sticky prior Next attempt `6f67fa07…`, `rollback_mode=forward-revert`. | Listening Dictation còn thiếu three-phase drill; Writing còn thiếu coexistence rollback floor + live staging drill; Safari/iOS thật vẫn thiếu nên hàng cross-core này còn PARTIAL. |
+| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay; Reading, Listening test và Listening Dictation đã đủ live three-phase trên matching frontend/backend staging SHA | Writing chưa có successful live three-phase journey artifact. Source/tooling không được tính thay lần chạy thật. |
+| Sticky active-session hoặc drain strategy đã drill | **PARTIAL** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking, Reading, Listening test và Listening Dictation đều đã đủ three-phase trên matching provenance. Dictation rollback `32108579377` attempt 1 verify fresh Legacy attempt `e93f1e94…` và sticky prior Next attempt `4beb8dfd…`, `rollback_mode=forward-revert`. | Writing còn thiếu coexistence rollback floor + live staging drill; Safari/iOS thật vẫn thiếu nên hàng cross-core này còn PARTIAL. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v5 freeze 34 tests live-staging, gồm live failure injection; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và chưa có successful live-staging artifact từ release v5. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
