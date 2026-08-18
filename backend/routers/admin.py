@@ -14,7 +14,7 @@ import math
 import random
 import string
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
@@ -46,6 +46,12 @@ from services.whisper import transcribe_from_bytes
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+_STAGING_E2E_SUPABASE_HOST = "zjphffoujxkpltixsbzj.supabase.co"
+_STAGING_E2E_EMAIL_SUFFIX = "@staging-e2e.averlearning.com"
+_STAGING_E2E_TOPICS = frozenset({
+    "Gate E live failure injection",
+    "Work and career",
+})
 _db_engine: AsyncEngine | None = (
     create_async_engine(settings.ASYNC_DATABASE_URL)
     if settings.ASYNC_DATABASE_URL
@@ -679,6 +685,85 @@ async def _generate_questions_for_topic(
 
 
 _VALID_ROLES = {"admin", "instructor", "student"}
+
+
+def _staging_e2e_cleanup_enabled() -> bool:
+    """Fail closed unless this is the one certified staging project."""
+    environment = (settings.ENVIRONMENT or "").strip().lower()
+    try:
+        supabase_host = (urlparse(settings.SUPABASE_URL).hostname or "").lower()
+    except ValueError:
+        return False
+    return environment == "staging" and supabase_host == _STAGING_E2E_SUPABASE_HOST
+
+
+def _is_staging_e2e_topic(topic: object) -> bool:
+    value = str(topic or "")
+    return value in _STAGING_E2E_TOPICS or value.startswith("E2E chủ đề ")
+
+
+@router.delete("/e2e/sessions/{session_id}", status_code=204)
+async def admin_cleanup_e2e_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Delete one synthetic Gate E session from the certified staging DB.
+
+    This deliberately is not a general session-delete API. It requires an
+    admin, refuses every non-staging runtime/project, and only accepts an
+    unassigned session owned by a staging-E2E identity with a frozen test
+    topic. The narrow route lets the soak suite release its daily-quota rows
+    without rotating identities or exposing the service key to GitHub Actions.
+    """
+    await require_admin(authorization)
+    if not _staging_e2e_cleanup_enabled():
+        raise HTTPException(404, "Not found")
+
+    try:
+        session_result = (
+            supabase_admin.table("sessions")
+            .select("id, user_id, topic, sitting_id, class_assignment_item_id")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Không thể kiểm tra E2E session: {exc}")
+
+    rows = session_result.data or []
+    if not rows:
+        return Response(status_code=204)
+    session = rows[0]
+    if session.get("sitting_id") or session.get("class_assignment_item_id"):
+        raise HTTPException(403, "Session có liên kết nghiệp vụ, không được cleanup")
+    if not _is_staging_e2e_topic(session.get("topic")):
+        raise HTTPException(403, "Session không thuộc Gate E")
+
+    try:
+        owner_result = (
+            supabase_admin.table("users")
+            .select("email")
+            .eq("id", session.get("user_id"))
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Không thể kiểm tra chủ E2E session: {exc}")
+    owner_rows = owner_result.data or []
+    owner_email = str(owner_rows[0].get("email") or "").lower() if owner_rows else ""
+    if not owner_email.endswith(_STAGING_E2E_EMAIL_SUFFIX):
+        raise HTTPException(403, "Session không thuộc tài khoản staging E2E")
+
+    try:
+        # This FK predates the later CASCADE conventions and is NO ACTION.
+        # Questions/responses cascade; usage/vocabulary references SET NULL.
+        supabase_admin.table("grammar_recommendations").delete().eq(
+            "session_id", session_id,
+        ).execute()
+        supabase_admin.table("sessions").delete().eq("id", session_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Không thể cleanup E2E session: {exc}")
+    return Response(status_code=204)
 
 
 class UserRolePayload(BaseModel):
