@@ -47,8 +47,11 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
+      # System libraries are part of the pinned ubuntu-24.04 runner image.
+      # `--with-deps` unnecessarily enters apt and makes this evidence job
+      # depend on the Azure Ubuntu mirror before any browser test can run.
       - name: Install Chromium + WebKit (cached after first run)
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install chromium webkit
 
       - name: Run modal smoke tests
         run: npx playwright test
