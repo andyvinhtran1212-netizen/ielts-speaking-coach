@@ -134,7 +134,7 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
       ],
       [
         '/core-player/launch?surface=listening_test&id=test-1&from=mini',
-        '/listening/test/session?id=test-1&from=mini',
+        '/pages/listening-test.html?id=test-1&from=mini',
       ],
       [
         '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',
