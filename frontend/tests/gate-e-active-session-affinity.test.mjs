@@ -126,17 +126,17 @@ describe('current admission policy preserves behavior', () => {
     );
   });
 
-  test('Dictation cutover is isolated to the exact Vercel staging deployment', () => {
+  test('Dictation forward rollback leaves every deployment on Legacy admission', () => {
     assert.equal(corePlayerAdmissionForDeployment('listening_dictation', {
       vercelEnv: 'preview', gitRef: 'staging',
-    }), 'next');
+    }), 'legacy');
     assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_dictation.admit_new, 'legacy');
     const params = new URLSearchParams('surface=listening_dictation&test_id=test-1&section=1');
     assert.equal(
       resolveCorePlayerAdmissionFromParamsForDeployment(params, {
         vercelEnv: 'preview', gitRef: 'staging',
       }),
-      '/listening/dictation/session?test_id=test-1&section=1',
+      '/pages/listening-test-dictation.html?test_id=test-1&section=1',
     );
     assert.equal(
       resolveCorePlayerAdmissionFromParamsForDeployment(params, {

@@ -52,6 +52,11 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
+      // Dictation coexistence floor 4ae5106 (run 32103908150 attempt 2)
+      // proved canonical Legacy + dark Next affinity. Cutover run 32106478117
+      // attempt 2 proved new Next admission on e30f489 with matching staging
+      // provenance. This descendant is the forward-rollback candidate: fresh
+      // admissions return to Legacy while claimed attempts stay sticky.
       admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['test_id']),
       allowed_query: Object.freeze(['test_id', 'section']),
@@ -68,7 +73,8 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
 // override is activated only for Vercel's exact preview deployment of the
 // `staging` branch; every other environment fails closed to `admit_new` above.
 export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
-  listening_dictation: 'next',
+  // No active override after the Dictation forward rollback. Keep this
+  // deployment-scoped hook so later staged cutovers cannot alter production.
 });
 
 const IMPLEMENTATIONS = new Set(['legacy', 'next']);
