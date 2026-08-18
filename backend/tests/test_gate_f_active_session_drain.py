@@ -65,7 +65,7 @@ class _Admin:
         self._missing_count = missing_count
 
     def table(self, name):
-        if self._missing_count and name == "reading_test_attempts":
+        if self._missing_count and name == "dictation_attempts":
             query = _Query(self._tables.get(name, []))
 
             def _execute():
@@ -113,6 +113,11 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
         ],
         "reading_test_attempts": [_row(started_at=new)],
         "listening_test_attempts": [],
+        "dictation_attempts": [
+            _row(started_at=old),
+            _row(started_at=new),
+            _row(status="completed", started_at=old),
+        ],
     }
 
     response = _client(monkeypatch, tables).get(
@@ -123,6 +128,7 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
 
     assert response.status_code == 200, response.text
     body = response.json()
+    assert body["schema_version"] == 2
     speaking = body["surfaces"]["speaking"]
     assert speaking == {
         "table": "sessions",
@@ -134,15 +140,20 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
         "post_cutover_active": 1,
         "exact": True,
     }
-    assert body["legacy_blocking_total"] == 2
+    dictation = body["surfaces"]["listening_dictation"]
+    assert dictation == {
+        "table": "dictation_attempts",
+        "active_status": "in_progress",
+        "active_total": 2,
+        "pre_cutover_active": 1,
+        "missing_started_at": 0,
+        "legacy_blocking": 1,
+        "post_cutover_active": 1,
+        "exact": True,
+    }
+    assert body["legacy_blocking_total"] == 3
     assert body["stateful_legacy_drain_zero"] is False
     assert body["retirement_decision"] == "pending-additional-gate-f-evidence"
-    assert body["surfaces"]["listening_dictation"] == {
-        "lifecycle": "attempt-free",
-        "active_row_tracking": False,
-        "legacy_blocking": None,
-        "drain_evidence": "legacy_retirement_page_view",
-    }
 
 
 def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeypatch):
@@ -153,6 +164,7 @@ def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeyp
         "sessions": [_row(started_at=after)],
         "reading_test_attempts": [],
         "listening_test_attempts": [_row(started_at=after)],
+        "dictation_attempts": [_row(started_at=after)],
     }
 
     body = _client(monkeypatch, tables).get(
@@ -166,6 +178,7 @@ def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeyp
     assert body["stateful_legacy_drain_zero"] is True
     assert body["surfaces"]["speaking"]["post_cutover_active"] == 1
     assert body["surfaces"]["listening_test"]["post_cutover_active"] == 1
+    assert body["surfaces"]["listening_dictation"]["post_cutover_active"] == 1
 
 
 def test_missing_exact_count_fails_closed(monkeypatch):

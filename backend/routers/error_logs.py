@@ -302,15 +302,14 @@ ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
 ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
 LEGACY_RETIREMENT_EVENT_NAME = "legacy_retirement_page_view"
 
-# Gate F stateful-player drain inventory. These three tables are the canonical
+# Gate F stateful-player drain inventory. These tables are the canonical
 # persistence sources for the core players that can keep an implementation-
-# specific URL alive across deployments. Dictation is intentionally absent:
-# its player is attempt-free and writes append-only per segment, so it has no
-# in-progress backend row that could truthfully be counted here.
+# specific URL alive across deployments.
 GATE_F_STATEFUL_PLAYER_TABLES = (
     ("speaking", "sessions"),
     ("reading_exam", "reading_test_attempts"),
     ("listening_test", "listening_test_attempts"),
+    ("listening_dictation", "dictation_attempts"),
 )
 
 
@@ -851,21 +850,13 @@ async def gate_f_legacy_active_session_drain(
 
     legacy_blocking_total = sum(row["legacy_blocking"] for row in surfaces.values())
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "cutover_at": cutoff_iso,
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "exact": True,
         "stateful_legacy_drain_zero": legacy_blocking_total == 0,
         "legacy_blocking_total": legacy_blocking_total,
-        "surfaces": {
-            **surfaces,
-            "listening_dictation": {
-                "lifecycle": "attempt-free",
-                "active_row_tracking": False,
-                "legacy_blocking": None,
-                "drain_evidence": LEGACY_RETIREMENT_EVENT_NAME,
-            },
-        },
+        "surfaces": surfaces,
         "retirement_decision": "pending-additional-gate-f-evidence",
     }
 

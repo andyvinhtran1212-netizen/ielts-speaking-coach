@@ -107,12 +107,31 @@ Listening test đã đóng đủ live three-phase drill trên staging:
 
 Cả ba phase đều có raw `307` đúng stable player path, reload/copy URL pass và
 frontend/Railway backend cùng exact staging SHA. Production admission không đổi.
-Test-linked Dictation là core surface riêng và chưa có three-phase live artifact.
+
+### Live active-session coexistence — Listening Dictation
+
+Test-linked Dictation cũng đã đóng đủ live three-phase drill trên staging:
+
+- floor `32103908150` attempt 2 tại
+  `4ae51064e49a83210910fa2a7e86c0a5402a164f` chứng minh fresh Legacy admission,
+  dark Next claim và reload/copy trên matching frontend/backend provenance;
+- cutover `32106478117` attempt 2 tại
+  `e30f48969f5c0709384e84495db43ba692370b6b` tạo attempt Next
+  `4beb8dfd-6e5e-4925-a8f7-2ae4c0f350ec` trong khi prior Legacy attempt
+  `b4ad6dbf-283a-4d25-9570-b2cf1d469e45` vẫn sticky Legacy;
+- forward rollback `32108579377` attempt 1 tại
+  `ae2025e6d41781c2bd789592977f2a7d8aec5fac` tạo fresh Legacy attempt
+  `e93f1e94-2bbd-45a2-9480-6f92b2ef46ba` trong khi attempt Next trên vẫn sticky
+  Next, `rollback_mode=forward-revert`.
+
+Cả ba phase đều có raw `307` đúng stable player path, reload/copy URL pass,
+canonical affinity đúng và frontend/Railway backend cùng exact staging SHA.
+Production admission không đổi.
 
 ## Trạng thái global Gate E
 
 Batch này hoàn tất Listening slice, không hoàn tất global Gate E. Writing đã
 có automated synthetic matrix riêng ngày 2026-08-14; Speaking live-staging
 ambiguous-commit evidence sau đó đóng failure-injection matrix. Global gate vẫn
-thiếu Safari/iOS real-device evidence, active-session drill của Listening
-Dictation và 20 consecutive clean critical-suite executions.
+thiếu Safari/iOS real-device evidence và 20 consecutive clean critical-suite
+executions.
