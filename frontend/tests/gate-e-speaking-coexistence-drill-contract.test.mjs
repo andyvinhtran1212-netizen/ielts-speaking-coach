@@ -112,6 +112,15 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(WORKFLOW, /E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
     assert.match(WORKFLOW, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
     assert.match(WORKFLOW, /Capture staging release provenance[\s\S]*?E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
+    assert.match(WORKFLOW, /Preserve verified preflight evidence/);
+    assert.match(WORKFLOW, /runner\.temp \}\}\/gate-e-speaking-preflight/);
+    assert.match(WORKFLOW, /Verify complete phase evidence bundle\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /test -f "\$EVIDENCE_DIR\/gate-e-speaking-coexistence-lineage\.json"/);
+    assert.match(WORKFLOW, /test -f "\$EVIDENCE_DIR\/gate-e-speaking-coexistence-handoff\.json"/);
+    assert.ok(WORKFLOW.indexOf('Preserve verified preflight evidence') <
+      WORKFLOW.indexOf('npx playwright test -c playwright.speaking-coexistence.config.js'));
+    assert.ok(WORKFLOW.indexOf('Verify complete phase evidence bundle') <
+      WORKFLOW.indexOf('Upload phase evidence'));
     assert.match(WORKFLOW, /Upload phase evidence\n\s+if: always\(\)/);
     assert.match(WORKFLOW, /if-no-files-found: error/);
     assert.doesNotMatch(WORKFLOW, /playwright-report/);

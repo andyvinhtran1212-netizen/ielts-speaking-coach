@@ -101,6 +101,13 @@ jobs:
           GATE_E_PREVIOUS_NEXT_ATTEMPT_ID: ${{ steps.config.outputs.next_attempt }}
           GATE_E_PREVIOUS_NEXT_TEST_ID: ${{ steps.config.outputs.next_test }}
         run: node tooling/validate-gate-e-listening-coexistence-handoff.mjs
+      - name: Preserve verified preflight evidence
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-listening-preflight
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          cp frontend/test-results/gate-e-listening-coexistence-lineage.json "$EVIDENCE_DIR/"
+          cp frontend/test-results/gate-e-listening-coexistence-handoff.json "$EVIDENCE_DIR/"
       - working-directory: frontend
         run: npm ci
       # GitHub's ubuntu-24.04 image already carries Chromium's shared-library
@@ -136,6 +143,17 @@ jobs:
           GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
           GATE_E_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-gate-e-staging-provenance.mjs
+      - name: Verify complete phase evidence bundle
+        if: always()
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-listening-preflight
+        run: |
+          test -f frontend/tooling/gate-e-listening-coexistence-drill.json
+          test -f frontend/test-results/gate-e-listening-coexistence-evidence.json
+          test -f frontend/test-results/gate-e-listening-coexistence-results.json
+          test -f "$EVIDENCE_DIR/gate-e-listening-coexistence-lineage.json"
+          test -f "$EVIDENCE_DIR/gate-e-listening-coexistence-handoff.json"
+          test -f frontend/test-results/gate-e-staging-provenance.json
       - name: Upload phase evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -145,8 +163,8 @@ jobs:
             frontend/tooling/gate-e-listening-coexistence-drill.json
             frontend/test-results/gate-e-listening-coexistence-evidence.json
             frontend/test-results/gate-e-listening-coexistence-results.json
-            frontend/test-results/gate-e-listening-coexistence-lineage.json
-            frontend/test-results/gate-e-listening-coexistence-handoff.json
+            ${{ runner.temp }}/gate-e-listening-preflight/gate-e-listening-coexistence-lineage.json
+            ${{ runner.temp }}/gate-e-listening-preflight/gate-e-listening-coexistence-handoff.json
             frontend/test-results/gate-e-staging-provenance.json
           if-no-files-found: error
           retention-days: 30

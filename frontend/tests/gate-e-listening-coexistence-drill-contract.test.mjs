@@ -34,6 +34,15 @@ describe('Listening coexistence drill contract', () => {
     assert.match(workflow, /group: staging-e2e-shared-env/);
     assert.match(workflow, /cancel-in-progress: false/);
     assert.match(workflow, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
+    assert.match(workflow, /Preserve verified preflight evidence/);
+    assert.match(workflow, /runner\.temp \}\}\/gate-e-listening-preflight/);
+    assert.match(workflow, /Verify complete phase evidence bundle\n\s+if: always\(\)/);
+    assert.match(workflow, /test -f "\$EVIDENCE_DIR\/gate-e-listening-coexistence-lineage\.json"/);
+    assert.match(workflow, /test -f "\$EVIDENCE_DIR\/gate-e-listening-coexistence-handoff\.json"/);
+    assert.ok(workflow.indexOf('Preserve verified preflight evidence') <
+      workflow.indexOf('npx playwright test -c playwright.listening-coexistence.config.js'));
+    assert.ok(workflow.indexOf('Verify complete phase evidence bundle') <
+      workflow.indexOf('Upload phase evidence'));
     assert.match(workflow, /Upload phase evidence\n\s+if: always\(\)/);
     assert.match(workflow, /if-no-files-found: error/);
     assert.match(workflow, /run: npx playwright install chromium/);
