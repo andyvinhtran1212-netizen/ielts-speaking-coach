@@ -101,6 +101,13 @@ jobs:
           GATE_E_PREVIOUS_NEXT_ATTEMPT_ID: ${{ steps.config.outputs.next_attempt }}
           GATE_E_PREVIOUS_NEXT_TEST_ID: ${{ steps.config.outputs.next_test }}
         run: node tooling/validate-gate-e-reading-coexistence-handoff.mjs
+      - name: Preserve verified preflight evidence
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-reading-preflight
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          cp frontend/test-results/gate-e-reading-coexistence-lineage.json "$EVIDENCE_DIR/"
+          cp frontend/test-results/gate-e-reading-coexistence-handoff.json "$EVIDENCE_DIR/"
       - working-directory: frontend
         run: npm ci
       - working-directory: frontend
@@ -132,6 +139,17 @@ jobs:
           GATE_E_ROLLBACK_FLOOR_SHA: ${{ steps.config.outputs.floor_sha }}
           GATE_E_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-gate-e-staging-provenance.mjs
+      - name: Verify complete phase evidence bundle
+        if: always()
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-reading-preflight
+        run: |
+          test -f frontend/tooling/gate-e-reading-coexistence-drill.json
+          test -f frontend/test-results/gate-e-reading-coexistence-evidence.json
+          test -f frontend/test-results/gate-e-reading-coexistence-results.json
+          test -f "$EVIDENCE_DIR/gate-e-reading-coexistence-lineage.json"
+          test -f "$EVIDENCE_DIR/gate-e-reading-coexistence-handoff.json"
+          test -f frontend/test-results/gate-e-staging-provenance.json
       - name: Upload phase evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -141,8 +159,8 @@ jobs:
             frontend/tooling/gate-e-reading-coexistence-drill.json
             frontend/test-results/gate-e-reading-coexistence-evidence.json
             frontend/test-results/gate-e-reading-coexistence-results.json
-            frontend/test-results/gate-e-reading-coexistence-lineage.json
-            frontend/test-results/gate-e-reading-coexistence-handoff.json
+            ${{ runner.temp }}/gate-e-reading-preflight/gate-e-reading-coexistence-lineage.json
+            ${{ runner.temp }}/gate-e-reading-preflight/gate-e-reading-coexistence-handoff.json
             frontend/test-results/gate-e-staging-provenance.json
           if-no-files-found: error
           retention-days: 30
