@@ -41,13 +41,13 @@ describe('Writing coexistence drill contract', () => {
     assert.match(config, /trace: 'off'/);
   });
 
-  test('rollback inputs bind the successful Writing floor evidence', () => {
+  test('restore inputs bind the successful Writing rollback evidence', () => {
     assert.deepEqual(inputs, {
       schema_version: 1,
       rollback_floor_sha: 'fe9000fdfa4e6c5d801ce8c13b7f1723a23455a4',
-      previous_phase_run_id: '32121670793',
-      previous_legacy_assignment_id: null,
-      previous_next_assignment_id: '5ebe88a2-f3da-44fb-a141-400d0c5cf3ff',
+      previous_phase_run_id: '32126575888',
+      previous_legacy_assignment_id: 'bdae92c5-714b-40a2-b330-0e865ff10254',
+      previous_next_assignment_id: null,
     });
   });
 
