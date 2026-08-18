@@ -68,8 +68,11 @@ admit, đọc lại canonical affinity/draft và mở lại assignment phase tr�
 stable URL. Floor còn mở một assignment mới trực tiếp bằng Legacy URL để chứng
 minh first claim `NULL → legacy`. Runner bind phase sau vào successful artifact,
 assignment UUID và descendant SHA của phase trước; evidence không chứa access
-token. Source contract đã sẵn sàng nhưng chưa được tính là live evidence trước
-khi ba workflow run trên staging cùng frontend/backend provenance đều pass.
+token. Ba workflow run đã pass với matching frontend/backend staging
+provenance: floor `32121670793` attempt 3 trên
+`fe9000fdfa4e6c5d801ce8c13b7f1723a23455a4`, rollback `32126575888` attempt 2
+trên `c800dfedf4c2f5faa921b8230aadfd60d98059b7` và restore `32128868942` attempt
+2 trên `b07e8325edc3854e1dbd0f2702f32e4108577839`.
 
 ## Bốn failure path được đóng băng
 
@@ -104,5 +107,5 @@ Mọi path fail nếu có production egress hoặc uncaught browser error.
 `frontend/tooling/gate-e-critical-suite.json` chuyển
 `failure_injection.status=complete` sau khi Speaking live-staging journey chứng
 minh commit-then-response-loss được canonical GET reconcile mà không replay.
-Gate E vẫn còn thiếu Safari/iOS thật, Writing live three-phase drill và 20
-consecutive clean runs trên frozen hash mới.
+Gate E vẫn còn thiếu Safari/iOS thật và 19 clean run còn lại: trusted run
+`32136607306` là candidate **1/20** trên frozen hash mới.
