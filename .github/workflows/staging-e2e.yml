@@ -47,10 +47,10 @@ jobs:
       queue: max
     runs-on: ubuntu-24.04
     # Every step below has its own timeout. Their deliberately conservative
-    # total is 149 minutes even though the streak/reset uploads are mutually
+    # total is 159 minutes even though the streak/reset uploads are mutually
     # exclusive. Keep a further 31-minute job margin so a step-level timeout
     # can still produce the fail-closed ledger and evidence artifacts below.
-    timeout-minutes: 180
+    timeout-minutes: 190
     steps:
       - uses: actions/checkout@v4
         timeout-minutes: 3
@@ -144,13 +144,28 @@ jobs:
 
       - name: Install Playwright matrix engines
         working-directory: frontend
-        timeout-minutes: 5
-        run: npx playwright install --with-deps chromium webkit
+        # Runs #84 and #85 both stalled in apt before any browser download:
+        # the ubuntu-24.04 mirror list kept retrying azure.archive.ubuntu.com.
+        # Keep Playwright's supported `--with-deps` path, but replace the
+        # ephemeral runner's regional mirror with Ubuntu's canonical HTTPS
+        # archive and bound every apt network attempt. A real outage still
+        # fails closed without consuming the whole evidence job.
+        timeout-minutes: 15
+        run: |
+          test -f /etc/apt/apt-mirrors.txt
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu' \
+            | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "15";' \
+            'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/99-gate-e-network >/dev/null
+          npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
         id: staging_e2e
         working-directory: frontend
-        # Leave enough of the 180-minute job budget for all four frozen
+        # Leave enough of the 190-minute job budget for all four frozen
         # matrices plus fail-closed evidence finalization.
         timeout-minutes: 20
         env:

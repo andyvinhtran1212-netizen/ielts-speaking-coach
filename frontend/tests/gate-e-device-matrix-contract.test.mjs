@@ -121,7 +121,12 @@ describe('Gate E device matrix is pinned and bounded', () => {
   });
 
   test('CI installs both engines and uploads only validated machine-readable evidence', () => {
-    assert.match(workflowCode, /^\s*run:\s*npx playwright install --with-deps chromium webkit\s*$/m);
+    assert.match(workflowCode, /name: Install Playwright matrix engines[\s\S]*?timeout-minutes: 15/);
+    assert.match(workflowCode, /test -f \/etc\/apt\/apt-mirrors\.txt/);
+    assert.match(workflowCode, /https:\/\/archive\.ubuntu\.com\/ubuntu/);
+    assert.match(workflowCode, /Acquire::Retries "2";/);
+    assert.match(workflowCode, /Acquire::https::Timeout "15";/);
+    assert.match(workflowCode, /npx playwright install --with-deps chromium webkit/);
     assert.match(CONFIG, /staging-e2e-results\.json/);
     assert.match(WORKFLOW, /id: staging_e2e/);
     assert.match(WORKFLOW, /steps\.staging_e2e\.outcome/);
@@ -129,7 +134,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(evidenceUploadCode, /^      - name: Upload device-matrix evidence\n\s+if: always\(\) && steps\.matrix_evidence\.outcome == 'success'\n\s+uses: actions\/upload-artifact@v4/);
     assert.match(evidenceUploadCode, /gate-e-device-matrix-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(evidenceUploadCode, /^\s*if-no-files-found:\s*error\s*$/m);
-    assert.match(stagingJobCode, /^\s*timeout-minutes:\s*180\s*$/m);
+    assert.match(stagingJobCode, /^\s*timeout-minutes:\s*190\s*$/m);
     assert.match(WRITER, /GATE_E_RUN_OUTCOME/);
     assert.match(WRITER, /if \(!existsSync\(browsersPath\)\) \{[\s\S]*?throw new Error/);
     assert.match(WRITER, /if \(!existsSync\(resultPath\)\) \{[\s\S]*?throw new Error/);
