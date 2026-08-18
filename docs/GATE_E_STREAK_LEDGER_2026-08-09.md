@@ -107,11 +107,11 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
 - Ledger giữ tối đa 50 entries, đủ thấy chuỗi 20 và lần reset gần nhất.
 - Nếu một run chết trước khi save cache/artifact, run kế tiếp không khớp GitHub
   history với `last_run_id` và reset fail-closed.
-- Job có timeout 180 phút và mọi step có timeout riêng: live staging E2E có
+- Job có timeout 190 phút và mọi step có timeout riêng: live staging E2E có
   timeout 20 phút, bốn failure matrix có timeout 10 phút mỗi bước, còn setup,
   verifier, provenance, ledger, cache và từng artifact upload đều có trần 1–5
   phút. Contract test cộng cả ba nhánh streak/reset upload vốn loại trừ nhau để
-  lấy trường hợp bảo thủ 149 phút; job vẫn dành thêm 31 phút ngoài toàn bộ tổng
+  lấy trường hợp bảo thủ 159 phút; job vẫn dành thêm 31 phút ngoài toàn bộ tổng
   đó. Vì vậy một runner chạm timeout riêng vẫn không tước thời gian của ledger
   và artifact finalization.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
