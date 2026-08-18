@@ -214,11 +214,11 @@ describe('native Listening test route contract', () => {
   const page = read('frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx');
   const layout = read('frontend/app/(authed-listening-player)/layout.tsx');
 
-  test('stable route is dark-ready while admissions stay legacy', () => {
+  test('stable route owns new staging admissions after the coexistence floor', () => {
     const policy = CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_test;
     assert.equal(policy.next.path, '/listening/test/session');
     assert.equal(policy.next.route_ready, true);
-    assert.equal(policy.admit_new, 'legacy');
+    assert.equal(policy.admit_new, 'next');
   });
 
   test('React owns state, audio and persistence without loading the legacy player', () => {
