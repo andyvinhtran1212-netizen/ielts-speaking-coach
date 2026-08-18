@@ -6,10 +6,11 @@
 //
 // `x-vercel-protection-bypass` is sent once through APIRequestContext to mint
 // the `_vercel_jwt` cookie. `x-vercel-skip-toolbar` is installed through an
-// origin-scoped browser route, per Vercel's documented E2E contract. Without
-// it, Preview Feedback can inject `<vercel-live-feedback>` into `<body>` before
-// React hydrates and create a nondeterministic React #418 that is not emitted
-// by the application under test.
+// origin-scoped browser route, per Vercel's documented E2E contract. Vercel can
+// still inject `<vercel-live-feedback>` on the staging custom alias even when
+// the document request carries that header, so an init script also removes the
+// platform-owned element before React hydrates. This keeps Gate E scoped to the
+// application under test instead of accepting a third-party React #418.
 // @ts-check
 
 const BYPASS = process.env.STAGING_BYPASS || '';
@@ -22,12 +23,36 @@ const BYPASS_HEADERS = BYPASS
   ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' }
   : {};
 const TOOLBAR_HEADER = Object.freeze({ 'x-vercel-skip-toolbar': '1' });
+const TOOLBAR_TAG = 'vercel-live-feedback';
 const toolbarScopedContexts = new WeakSet();
+
+/** Runs before page scripts and synchronously rejects Vercel's injected node. */
+function suppressInjectedVercelToolbar(tagName) {
+  document.querySelectorAll(tagName).forEach((node) => node.remove());
+  if (!globalThis.customElements || !globalThis.HTMLElement) return;
+
+  const registry = globalThis.customElements;
+  const nativeDefine = registry.define.bind(registry);
+  if (!registry.get(tagName)) {
+    nativeDefine(tagName, class extends globalThis.HTMLElement {
+      connectedCallback() { this.remove(); }
+    });
+  }
+
+  // The platform script may attempt to register its implementation after our
+  // inert element. Ignore only that duplicate while preserving the registry
+  // contract for every application-owned custom element.
+  registry.define = (name, constructor, options) => {
+    if (String(name).toLowerCase() === tagName) return;
+    nativeDefine(name, constructor, options);
+  };
+}
 
 /** Install Vercel's automation-only toolbar opt-out on the frontend origin. */
 async function installToolbarSkip(context, baseURL) {
   if (toolbarScopedContexts.has(context)) return;
   const origin = new URL(baseURL).origin;
+  await context.addInitScript(suppressInjectedVercelToolbar, TOOLBAR_TAG);
   await context.route(`${origin}/**`, async (route) => {
     await route.continue({
       headers: { ...route.request().headers(), ...TOOLBAR_HEADER },
@@ -48,6 +73,7 @@ module.exports = {
   BYPASS_HEADERS,
   PRODUCTION_ORIGINS,
   TOOLBAR_HEADER,
+  TOOLBAR_TAG,
   installToolbarSkip,
   primeBypassCookie,
 };
