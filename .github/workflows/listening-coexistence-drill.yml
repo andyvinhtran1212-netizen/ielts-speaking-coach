@@ -103,8 +103,12 @@ jobs:
         run: node tooling/validate-gate-e-listening-coexistence-handoff.mjs
       - working-directory: frontend
         run: npm ci
+      # GitHub's ubuntu-24.04 image already carries Chromium's shared-library
+      # dependencies. Avoid `--with-deps`: on 2026-08-18 the Azure apt mirror
+      # stalled twice until this entire 15-minute evidence job was cancelled,
+      # before Playwright or any staging assertion could run.
       - working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - working-directory: frontend
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
@@ -146,4 +150,3 @@ jobs:
             frontend/test-results/gate-e-staging-provenance.json
           if-no-files-found: error
           retention-days: 30
-
