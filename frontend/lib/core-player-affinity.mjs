@@ -39,15 +39,16 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
     }),
     listening_test: Object.freeze({
       // Listening coexistence floor eacba4f (run 32084645112 attempt 2)
-      // proved canonical Legacy + dark Next affinity on matching staging
-      // provenance. New staging admissions now cut over to Next; both stable
-      // URLs remain available for already-claimed attempts.
-      admit_new: 'next',
+      // proved canonical Legacy + dark Next affinity. Cutover run 32093601359
+      // attempt 2 proved new Next admission on 1328db32 with matching staging
+      // provenance. This descendant is the forward-rollback candidate: fresh
+      // staging admissions return to Legacy while claimed attempts stay sticky.
+      admit_new: 'legacy',
       identity_query_any_of: Object.freeze(['id']),
       allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
-      // Native App Router player owns new staging admissions. This is evidence
-      // collection for Gate E, not a production cutover or Legacy retirement.
+      // Native App Router player remains dark-ready and owns attempts already
+      // claimed during cutover. Production admission was never changed.
       next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
