@@ -31,6 +31,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 APPLY_MIGRATIONS = BACKEND_ROOT / "scripts" / "apply_migrations.sh"
 VERIFY_SQL = BACKEND_ROOT / "scripts" / "verify_staging_nextjs_reconcile.sql"
 STAGING_PROJECT_REF = "zjphffoujxkpltixsbzj"
+STAGING_POOLER_HOSTS = frozenset({
+    "aws-1-ap-northeast-1.pooler.supabase.com",
+})
 MIGRATION_ADVISORY_LOCK = (173204, 1)
 
 # These entries prove the target is the staging ledger audited immediately
@@ -99,8 +102,11 @@ def _assert_staging_target(database_url: str) -> None:
     hostname = (parsed.hostname or "").lower()
     username = parsed.username or ""
     direct_host = hostname == f"db.{STAGING_PROJECT_REF}.supabase.co"
-    pooler_user = username == f"postgres.{STAGING_PROJECT_REF}"
-    if not (direct_host or pooler_user):
+    pinned_pooler = (
+        hostname in STAGING_POOLER_HOSTS
+        and username == f"postgres.{STAGING_PROJECT_REF}"
+    )
+    if not (direct_host or pinned_pooler):
         raise ReconciliationError(
             "target is not the pinned staging Supabase project"
         )

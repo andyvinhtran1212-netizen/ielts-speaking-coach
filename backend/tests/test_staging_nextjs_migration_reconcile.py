@@ -20,7 +20,8 @@ _SPEC.loader.exec_module(RECONCILE)
 def _staging_url() -> str:
     return (
         "postgresql://postgres."
-        f"{RECONCILE.STAGING_PROJECT_REF}:secret@pooler.example/postgres"
+        f"{RECONCILE.STAGING_PROJECT_REF}:secret@"
+        f"{next(iter(RECONCILE.STAGING_POOLER_HOSTS))}/postgres"
     )
 
 
@@ -66,6 +67,20 @@ def test_staging_ref_in_password_cannot_bypass_target_pin(monkeypatch):
     spoofed = (
         "postgresql://postgres:password-"
         f"{RECONCILE.STAGING_PROJECT_REF}@production.example/postgres"
+    )
+    with pytest.raises(RECONCILE.ReconciliationError, match="pinned staging"):
+        RECONCILE.reconcile(spoofed, dry_run=True)
+
+
+def test_staging_pooler_username_on_arbitrary_host_is_rejected(monkeypatch):
+    monkeypatch.setattr(
+        RECONCILE,
+        "_read_ledger",
+        lambda _url: pytest.fail("must refuse before database access"),
+    )
+    spoofed = (
+        "postgresql://postgres."
+        f"{RECONCILE.STAGING_PROJECT_REF}:secret@production.example/postgres"
     )
     with pytest.raises(RECONCILE.ReconciliationError, match="pinned staging"):
         RECONCILE.reconcile(spoofed, dry_run=True)
