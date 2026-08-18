@@ -36,6 +36,8 @@ describe('Listening coexistence drill contract', () => {
     assert.match(workflow, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
     assert.match(workflow, /Upload phase evidence\n\s+if: always\(\)/);
     assert.match(workflow, /if-no-files-found: error/);
+    assert.match(workflow, /run: npx playwright install chromium/);
+    assert.doesNotMatch(workflow, /playwright install --with-deps chromium/);
     assert.doesNotMatch(workflow, /playwright-report|trace\.zip/);
   });
 
