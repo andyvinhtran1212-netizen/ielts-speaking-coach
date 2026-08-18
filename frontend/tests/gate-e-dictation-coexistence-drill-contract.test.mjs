@@ -34,14 +34,14 @@ describe('Dictation coexistence drill contract', () => {
     assert.match(config, /screenshot: 'off'/); assert.match(config, /trace: 'off'/);
   });
 
-  test('cutover push inputs bind the successful Dictation floor evidence', () => {
+  test('rollback push inputs bind the successful Dictation cutover evidence', () => {
     assert.deepEqual(pushInputs, {
       schema_version: 1,
       rollback_floor_sha: '4ae51064e49a83210910fa2a7e86c0a5402a164f',
-      previous_phase_run_id: '32103908150',
-      previous_legacy_attempt_id: 'b4ad6dbf-283a-4d25-9570-b2cf1d469e45',
-      previous_legacy_test_id: 'ee300001-0000-4000-8000-000000000001',
-      previous_next_attempt_id: null, previous_next_test_id: null,
+      previous_phase_run_id: '32106478117',
+      previous_legacy_attempt_id: null, previous_legacy_test_id: null,
+      previous_next_attempt_id: '4beb8dfd-6e5e-4925-a8f7-2ae4c0f350ec',
+      previous_next_test_id: 'ee300003-0000-4000-8000-000000000003',
     });
     assert.match(workflow, /gate-e-dictation-coexistence-/);
     assert.doesNotMatch(workflow, /gate-e-listening-coexistence-\$\{\{/);
