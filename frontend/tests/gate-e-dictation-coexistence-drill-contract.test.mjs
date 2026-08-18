@@ -18,6 +18,11 @@ const pushInputs = JSON.parse(read('frontend/tooling/gate-e-dictation-coexistenc
 const FLOOR = '1'.repeat(40); const CUTOVER = '2'.repeat(40); const ROLLBACK = '3'.repeat(40);
 const LEGACY = '11111111-1111-4111-8111-111111111111';
 const NEXT = '22222222-2222-4222-8222-222222222222';
+const EMPTY_INPUTS = {
+  schema_version: 1, rollback_floor_sha: null, previous_phase_run_id: null,
+  previous_legacy_attempt_id: null, previous_legacy_test_id: null,
+  previous_next_attempt_id: null, previous_next_test_id: null,
+};
 
 describe('Dictation coexistence drill contract', () => {
   test('pins ordered floor, cutover and rollback phases', () => {
@@ -29,10 +34,13 @@ describe('Dictation coexistence drill contract', () => {
     assert.match(config, /screenshot: 'off'/); assert.match(config, /trace: 'off'/);
   });
 
-  test('floor push inputs start empty and cannot inherit Listening-test evidence', () => {
+  test('cutover push inputs bind the successful Dictation floor evidence', () => {
     assert.deepEqual(pushInputs, {
-      schema_version: 1, rollback_floor_sha: null, previous_phase_run_id: null,
-      previous_legacy_attempt_id: null, previous_legacy_test_id: null,
+      schema_version: 1,
+      rollback_floor_sha: '4ae51064e49a83210910fa2a7e86c0a5402a164f',
+      previous_phase_run_id: '32103908150',
+      previous_legacy_attempt_id: 'b4ad6dbf-283a-4d25-9570-b2cf1d469e45',
+      previous_legacy_test_id: 'ee300001-0000-4000-8000-000000000001',
       previous_next_attempt_id: null, previous_next_test_id: null,
     });
     assert.match(workflow, /gate-e-dictation-coexistence-/);
@@ -55,7 +63,7 @@ describe('Dictation coexistence drill contract', () => {
   });
 
   test('push resolver derives all phases from Dictation admission plus checked handoff', () => {
-    const empty = { ...pushInputs };
+    const empty = { ...EMPTY_INPUTS };
     assert.equal(resolveDictationPushPhase({ sourceSha: FLOOR, admission: 'legacy',
       inputs: empty }).phase, 'floor');
     const cutover = { ...empty, rollback_floor_sha: FLOOR, previous_phase_run_id: '123',

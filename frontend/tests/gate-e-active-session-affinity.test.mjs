@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 import {
   CORE_PLAYER_AFFINITY_POLICY,
   admitCorePlayer,
+  corePlayerAdmissionForDeployment,
   corePlayerUrl,
   resolveCorePlayerAdmission,
   resolveCorePlayerAdmissionFromParams,
+  resolveCorePlayerAdmissionFromParamsForDeployment,
   validateCorePlayerAffinityPolicy,
 } from '../lib/core-player-affinity.mjs';
 
@@ -124,6 +126,37 @@ describe('current admission policy preserves behavior', () => {
     );
   });
 
+  test('Dictation cutover is isolated to the exact Vercel staging deployment', () => {
+    assert.equal(corePlayerAdmissionForDeployment('listening_dictation', {
+      vercelEnv: 'preview', gitRef: 'staging',
+    }), 'next');
+    assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_dictation.admit_new, 'legacy');
+    const params = new URLSearchParams('surface=listening_dictation&test_id=test-1&section=1');
+    assert.equal(
+      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
+        vercelEnv: 'preview', gitRef: 'staging',
+      }),
+      '/listening/dictation/session?test_id=test-1&section=1',
+    );
+    assert.equal(
+      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
+        vercelEnv: 'production', gitRef: 'main',
+      }),
+      '/pages/listening-test-dictation.html?test_id=test-1&section=1',
+    );
+    for (const deployment of [
+      { vercelEnv: 'production', gitRef: 'main' },
+      { vercelEnv: 'production', gitRef: 'staging' },
+      { vercelEnv: 'preview', gitRef: 'feature-branch' },
+      { vercelEnv: '', gitRef: 'staging' },
+    ]) {
+      assert.equal(
+        corePlayerAdmissionForDeployment('listening_dictation', deployment),
+        'legacy',
+      );
+    }
+  });
+
   test('the local Speaking flow verifier follows the deployed admission policy', () => {
     assert.match(SPEAKING_FLOW, /import \{ resolveCorePlayerAdmission \}/);
     assert.match(SPEAKING_FLOW, /resolveCorePlayerAdmission\('speaking', \{/);
@@ -133,7 +166,9 @@ describe('current admission policy preserves behavior', () => {
 
   test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
     assert.match(RUNTIME_ROUTE,
-      /resolveCorePlayerAdmissionFromParams\(request\.nextUrl\.searchParams\)/);
+      /resolveCorePlayerAdmissionFromParamsForDeployment\([\s\S]*request\.nextUrl\.searchParams/);
+    assert.match(RUNTIME_ROUTE, /vercelEnv: process\.env\.VERCEL_ENV/);
+    assert.match(RUNTIME_ROUTE, /gitRef: process\.env\.VERCEL_GIT_COMMIT_REF/);
     assert.match(RUNTIME_ROUTE, /new NextResponse\(null, \{[\s\S]*status: 307/);
     assert.match(RUNTIME_ROUTE, /headers: \{ Location: destination, \.\.\.NO_STORE_HEADERS \}/);
     assert.doesNotMatch(RUNTIME_ROUTE, /request\.nextUrl\.origin/);
