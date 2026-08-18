@@ -64,6 +64,13 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   }),
 });
 
+// Staging cutovers must never change the default/production policy. The
+// override is activated only for Vercel's exact preview deployment of the
+// `staging` branch; every other environment fails closed to `admit_new` above.
+export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
+  listening_dictation: 'next',
+});
+
 const IMPLEMENTATIONS = new Set(['legacy', 'next']);
 const REQUIRED_SURFACES = Object.freeze([
   'speaking',
@@ -80,6 +87,17 @@ function surfacePolicy(surface, policy) {
     : null;
   if (!found) throw new Error(`unknown-core-player-surface:${surface}`);
   return found;
+}
+
+export function corePlayerAdmissionForDeployment(
+  surface,
+  { vercelEnv = '', gitRef = '' } = {},
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const config = surfacePolicy(surface, policy);
+  const override = STAGING_CORE_PLAYER_ADMISSION_OVERRIDES[surface];
+  if (vercelEnv === 'preview' && gitRef === 'staging' && override) return override;
+  return config.admit_new;
 }
 
 function scalarQueryValue(value, key) {
@@ -186,11 +204,7 @@ export function resolveCorePlayerAdmission(
   return corePlayerUrl(surface, config.admit_new, query, policy);
 }
 
-/** Parse and resolve the exact query-string contract accepted by the runtime route. */
-export function resolveCorePlayerAdmissionFromParams(
-  searchParams,
-  policy = CORE_PLAYER_AFFINITY_POLICY,
-) {
+function parseCorePlayerAdmissionParams(searchParams) {
   const entries = [...searchParams.entries()];
   const seen = new Set();
   const hasDuplicate = entries.some(([key]) => {
@@ -202,9 +216,36 @@ export function resolveCorePlayerAdmissionFromParams(
   if (hasDuplicate || surfaces.length !== 1) {
     throw new Error('invalid-core-player-admission-query');
   }
+  return {
+    surface: surfaces[0],
+    query: Object.fromEntries(entries.filter(([key]) => key !== 'surface')),
+  };
+}
+
+/** Parse and resolve the exact query-string contract accepted by the runtime route. */
+export function resolveCorePlayerAdmissionFromParams(
+  searchParams,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const { surface, query } = parseCorePlayerAdmissionParams(searchParams);
   return resolveCorePlayerAdmission(
-    surfaces[0],
-    Object.fromEntries(entries.filter(([key]) => key !== 'surface')),
+    surface,
+    query,
+    policy,
+  );
+}
+
+/** Resolve a deployment-scoped override without mutating the default policy. */
+export function resolveCorePlayerAdmissionFromParamsForDeployment(
+  searchParams,
+  deployment,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const { surface, query } = parseCorePlayerAdmissionParams(searchParams);
+  return corePlayerUrl(
+    surface,
+    corePlayerAdmissionForDeployment(surface, deployment, policy),
+    query,
     policy,
   );
 }
