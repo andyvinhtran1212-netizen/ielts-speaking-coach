@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 _STAGING_E2E_SUPABASE_HOST = "zjphffoujxkpltixsbzj.supabase.co"
 _STAGING_E2E_EMAIL_SUFFIX = "@staging-e2e.averlearning.com"
+_STAGING_E2E_AUDIO_BUCKET = "audio-responses"
 _STAGING_E2E_TOPICS = frozenset({
     "Gate E live failure injection",
     "Work and career",
@@ -755,6 +756,29 @@ async def admin_cleanup_e2e_session(
         raise HTTPException(403, "Session không thuộc tài khoản staging E2E")
 
     try:
+        response_result = (
+            supabase_admin.table("responses")
+            .select("audio_storage_path")
+            .eq("session_id", session_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Không thể kiểm tra audio E2E session: {exc}")
+    audio_paths = sorted({
+        str(row.get("audio_storage_path"))
+        for row in (response_result.data or [])
+        if row.get("audio_storage_path")
+    })
+    expected_prefix = f"{session.get('user_id')}/{session_id}/"
+    if any(not path.startswith(expected_prefix) for path in audio_paths):
+        raise HTTPException(409, "Audio path của E2E session không hợp lệ")
+
+    try:
+        # Storage-first is intentional. If object removal fails, keep the DB
+        # paths so the cleanup remains discoverable and retryable rather than
+        # creating permanent orphans outside the retention sweep's reach.
+        if audio_paths:
+            supabase_admin.storage.from_(_STAGING_E2E_AUDIO_BUCKET).remove(audio_paths)
         # This FK predates the later CASCADE conventions and is NO ACTION.
         # Questions/responses cascade; usage/vocabulary references SET NULL.
         supabase_admin.table("grammar_recommendations").delete().eq(
