@@ -9,10 +9,10 @@ trên `0599a8f33340593452a3372c755eb27931939645` và forward rollback
 `32076013600` attempt 2 trên `14e3855501e31037a84eec6118ac7e45f75a0d26`
 đều đã pass. Reading đã đóng đủ live three-phase drill trên staging và hiện
 `admit_new=legacy`. Listening floor `32084645112` attempt 2 và cutover
-`32093601359` attempt 2 cũng đã pass trên matching provenance; staging Listening
-hiện `admit_new=legacy` trong forward-rollback candidate, còn rollback artifact
-chưa được xác nhận. Production không đổi; không tuyên bố Gate E PASS hoặc
-production cutover.
+`32093601359` attempt 2 cùng forward rollback `32095451591` attempt 1 cũng đã
+pass trên matching provenance. Listening test đã đóng đủ live three-phase drill
+và hiện `admit_new=legacy`; test-linked Dictation vẫn pending. Production không
+đổi; không tuyên bố Gate E PASS hoặc production cutover.
 
 ## Finding
 
@@ -62,7 +62,7 @@ Mỗi implementation có URL ổn định riêng:
 |---|---|---|---|
 | Speaking | `/pages/practice.html` | `/practice/session` | legacy trên staging sau forward rollback đã verify; active Next session vẫn giữ `/practice/session`; production chưa đổi |
 | Reading exam | `/pages/reading-exam.html` | `/reading/exam/session` | legacy trên staging sau forward rollback đã verify; floor `32060549833` attempt 3, cutover `32072244886` attempt 2 và rollback `32076013600` attempt 2 đều có matching provenance; fresh Legacy attempt `eb9da2a4…` và prior Next attempt `b753bb78…` giữ đúng affinity; production chưa đổi |
-| Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy trên staging trong forward-rollback candidate; floor `32084645112` attempt 2 và cutover `32093601359` attempt 2 đã verify matching provenance + Legacy/Next affinity; forward-rollback artifact còn pending; production chưa đổi |
+| Listening test | `/pages/listening-test.html` | `/listening/test/session` | legacy trên staging sau forward rollback đã verify; floor `32084645112` attempt 2, cutover `32093601359` attempt 2 và rollback `32095451591` attempt 1 đều có matching provenance; fresh Legacy attempt `153ef00d…` và prior Next attempt `6f67fa07…` giữ đúng affinity; production chưa đổi |
 | Listening dictation | `/pages/listening-test-dictation.html` | `/listening/dictation/session` | legacy — Next dark route ready; failure/coexistence evidence pending |
 | Writing dashboard | `/pages/writing-dashboard.html` | `/writing/dashboard` | Next — cutover trước batch này |
 

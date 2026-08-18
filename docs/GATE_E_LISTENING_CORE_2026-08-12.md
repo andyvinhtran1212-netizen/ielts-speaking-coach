@@ -83,10 +83,30 @@ test đúng một passed result và HTML có embedded ZIP hoàn chỉnh chứa
 `report.json`. CI chạy verifier trước metadata/ledger; matrix hoặc verifier đỏ
 đều đặt `GATE_E_RUN_OUTCOME=failure`.
 
+### Live active-session coexistence — Listening test
+
+Listening test đã đóng đủ live three-phase drill trên staging:
+
+- floor `32084645112` attempt 2 tại
+  `eacba4f3bc822f72e6685b9543507b7c7b3035fb` chứng minh fresh Legacy admission,
+  dark Next claim và reload/copy trên matching frontend/backend provenance;
+- cutover `32093601359` attempt 2 tại
+  `1328db32f18b522a3823a580be0024f2167f62c5` tạo attempt Next
+  `6f67fa07-a3f6-4973-99aa-2ccffea70918` trong khi prior Legacy attempt vẫn
+  sticky Legacy;
+- forward rollback `32095451591` attempt 1 tại
+  `f60df75f8ff68ffd49d68da00e73a8ff5c1bbb54` tạo fresh Legacy attempt
+  `153ef00d-d8ea-4915-8ba5-2b27b7cfd4c7` trong khi attempt Next trên vẫn sticky
+  Next, `rollback_mode=forward-revert`.
+
+Cả ba phase đều có raw `307` đúng stable player path, reload/copy URL pass và
+frontend/Railway backend cùng exact staging SHA. Production admission không đổi.
+Test-linked Dictation là core surface riêng và chưa có three-phase live artifact.
+
 ## Trạng thái global Gate E
 
 Batch này hoàn tất Listening slice, không hoàn tất global Gate E. Writing đã
 có automated synthetic matrix riêng ngày 2026-08-14; Speaking live-staging
 ambiguous-commit evidence sau đó đóng failure-injection matrix. Global gate vẫn
-thiếu Safari/iOS real-device evidence, active-session drill và 20 consecutive
-clean critical-suite executions.
+thiếu Safari/iOS real-device evidence, active-session drill của Listening
+Dictation và 20 consecutive clean critical-suite executions.
