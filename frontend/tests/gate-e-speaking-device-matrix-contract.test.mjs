@@ -44,8 +44,8 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
   });
 
   test('CI installs both engines and always uploads the versioned result', () => {
-    assert.match(WORKFLOW, /playwright install chromium webkit/);
-    assert.doesNotMatch(WORKFLOW, /playwright install --with-deps chromium webkit/);
+    assert.match(WORKFLOW, /sed -i '[^']*azure\.archive\.ubuntu\.com[^']*archive\.ubuntu\.com[^']*' \/etc\/apt\/apt-mirrors\.txt/);
+    assert.match(WORKFLOW, /playwright install --with-deps chromium webkit/);
     assert.match(WORKFLOW, /runs-on: ubuntu-24\.04/);
     assert.match(WORKFLOW, /node tooling\/verify-gate-e-speaking-device-matrix\.mjs/);
     assert.match(WORKFLOW, /GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64/);
