@@ -1,11 +1,15 @@
 // Vercel Deployment Protection bypass for staging-e2e (plan §12/§7.1).
 //
-// The bypass header must only ever reach the STAGING origin: sending it
-// browser-wide breaks CORS on every cross-origin request (custom headers
-// force preflights that Railway/fonts don't allow). So we make ONE
-// request-level call with the header + x-vercel-set-bypass-cookie, which
-// drops a `_vercel_jwt` cookie into the context — after that the browser
-// navigates the protected deployment with no special headers at all.
+// Both Vercel automation headers must only ever reach the STAGING frontend
+// origin: sending either browser-wide breaks CORS on cross-origin requests
+// (Railway/fonts do not allow arbitrary custom headers).
+//
+// `x-vercel-protection-bypass` is sent once through APIRequestContext to mint
+// the `_vercel_jwt` cookie. `x-vercel-skip-toolbar` is installed through an
+// origin-scoped browser route, per Vercel's documented E2E contract. Without
+// it, Preview Feedback can inject `<vercel-live-feedback>` into `<body>` before
+// React hydrates and create a nondeterministic React #418 that is not emitted
+// by the application under test.
 // @ts-check
 
 const BYPASS = process.env.STAGING_BYPASS || '';
@@ -17,15 +21,36 @@ const PRODUCTION_ORIGINS = Object.freeze([
 const BYPASS_HEADERS = BYPASS
   ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' }
   : {};
+const TOOLBAR_HEADER = Object.freeze({ 'x-vercel-skip-toolbar': '1' });
+const toolbarScopedContexts = new WeakSet();
+
+/** Install Vercel's automation-only toolbar opt-out on the frontend origin. */
+async function installToolbarSkip(context, baseURL) {
+  if (toolbarScopedContexts.has(context)) return;
+  const origin = new URL(baseURL).origin;
+  await context.route(`${origin}/**`, async (route) => {
+    await route.continue({
+      headers: { ...route.request().headers(), ...TOOLBAR_HEADER },
+    });
+  });
+  toolbarScopedContexts.add(context);
+}
 
 /** Prime the protection-bypass cookie into a browser context. */
 async function primeBypassCookie(context, baseURL) {
+  await installToolbarSkip(context, baseURL);
   if (!BYPASS) return;
   const res = await context.request.get(baseURL + '/', { headers: BYPASS_HEADERS });
   if (!res.ok()) throw new Error(`bypass priming failed: HTTP ${res.status()}`);
 }
 
-module.exports = { BYPASS_HEADERS, PRODUCTION_ORIGINS, primeBypassCookie };
+module.exports = {
+  BYPASS_HEADERS,
+  PRODUCTION_ORIGINS,
+  TOOLBAR_HEADER,
+  installToolbarSkip,
+  primeBypassCookie,
+};
 
 // ── Shared staging API helpers (Gate A flows) ────────────────────────────
 
