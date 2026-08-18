@@ -45,12 +45,34 @@ class _Query:
 
 
 class _DB:
-    def __init__(self, tables):
+    def __init__(self, tables, *, fail_storage=False):
         self.tables = {name: list(rows) for name, rows in tables.items()}
         self.calls = []
+        self.storage = _Storage(self, fail=fail_storage)
 
     def table(self, name):
         return _Query(self, name)
+
+
+class _Bucket:
+    def __init__(self, db, name, *, fail=False):
+        self.db = db
+        self.name = name
+        self.fail = fail
+
+    def remove(self, paths):
+        self.db.calls.append(("storage", "remove", self.name, tuple(paths)))
+        if self.fail:
+            raise RuntimeError("storage unavailable")
+
+
+class _Storage:
+    def __init__(self, db, *, fail=False):
+        self.db = db
+        self.fail = fail
+
+    def from_(self, name):
+        return _Bucket(self.db, name, fail=self.fail)
 
 
 async def _admin(_authorization):
@@ -61,12 +83,25 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def _install(monkeypatch, session, *, email="e2e-student-smoke@staging-e2e.averlearning.com"):
+def _install(
+    monkeypatch,
+    session,
+    *,
+    email="e2e-student-smoke@staging-e2e.averlearning.com",
+    audio_paths=None,
+    fail_storage=False,
+):
+    if audio_paths is None:
+        audio_paths = [f"{session['user_id']}/{session['id']}/question-1.webm"]
     db = _DB({
         "sessions": [session],
         "users": [{"id": session["user_id"], "email": email}],
+        "responses": [
+            {"session_id": session["id"], "audio_storage_path": path}
+            for path in audio_paths
+        ],
         "grammar_recommendations": [{"id": "rec-1", "session_id": session["id"]}],
-    })
+    }, fail_storage=fail_storage)
     monkeypatch.setattr(admin, "supabase_admin", db)
     monkeypatch.setattr(admin, "require_admin", _admin)
     monkeypatch.setattr(admin.settings, "ENVIRONMENT", "staging")
@@ -96,13 +131,49 @@ def test_cleanup_deletes_only_dependency_then_session(monkeypatch):
     response = _run(admin.admin_cleanup_e2e_session("session-1", "Bearer admin"))
 
     assert response.status_code == 204
-    deletes = [(table, filters) for table, action, filters in db.calls if action == "delete"]
+    storage_calls = [call for call in db.calls if call[0] == "storage"]
+    assert storage_calls == [(
+        "storage",
+        "remove",
+        "audio-responses",
+        ("student-1/session-1/question-1.webm",),
+    )]
+    deletes = [(call[0], call[2]) for call in db.calls if call[1] == "delete"]
     assert deletes == [
         ("grammar_recommendations", (("session_id", "session-1"),)),
         ("sessions", (("id", "session-1"),)),
     ]
     assert db.tables["sessions"] == []
     assert db.tables["grammar_recommendations"] == []
+
+
+def test_storage_failure_preserves_database_rows_for_retry(monkeypatch):
+    db = _install(monkeypatch, _session(), fail_storage=True)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(admin.admin_cleanup_e2e_session("session-1", "Bearer admin"))
+
+    assert exc.value.status_code == 500
+    assert db.tables["sessions"] == [_session()]
+    assert db.tables["grammar_recommendations"] == [
+        {"id": "rec-1", "session_id": "session-1"},
+    ]
+    assert not [call for call in db.calls if len(call) > 1 and call[1] == "delete"]
+
+
+def test_cleanup_rejects_audio_path_outside_session_prefix(monkeypatch):
+    db = _install(
+        monkeypatch,
+        _session(),
+        audio_paths=["another-user/another-session/question.webm"],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(admin.admin_cleanup_e2e_session("session-1", "Bearer admin"))
+
+    assert exc.value.status_code == 409
+    assert not [call for call in db.calls if call[0] == "storage"]
+    assert not [call for call in db.calls if len(call) > 1 and call[1] == "delete"]
 
 
 def test_cleanup_is_idempotent_when_session_is_absent(monkeypatch):
