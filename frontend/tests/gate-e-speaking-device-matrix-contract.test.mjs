@@ -18,6 +18,7 @@ const WORKFLOW = read('.github/workflows/e2e.yml');
 const SPEC = read('frontend/tests/gate-e/native-speaking-device-mic.spec.js');
 const RECOVERY_SPEC = read('frontend/tests/gate-e/native-speaking-resume-finalize.spec.js');
 const WEBKIT_SPEC = read('frontend/tests/gate-e/native-speaking-webkit-capability.spec.js');
+const AFFINITY_SPEC = read('frontend/tests/gate-e/native-speaking-cross-version-resume.spec.js');
 const DOC = read('docs/GATE_E_SPEAKING_CORE_2026-08-09.md');
 const VERIFIER = read('frontend/tooling/verify-gate-e-speaking-device-matrix.mjs');
 const runVerifier = (runnerImage) => spawnSync(
@@ -50,6 +51,12 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(WORKFLOW, /node tooling\/verify-gate-e-speaking-device-matrix\.mjs/);
     assert.match(WORKFLOW, /GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64/);
     assert.match(WORKFLOW, /Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: always\(\)/);
+    assert.match(
+      WORKFLOW,
+      /GATE_E_REQUIRE_AFFINITY: \$\{\{ \(github\.event\.pull_request\.base\.ref == 'staging' \|\| github\.ref_name == 'staging'\) && 'true' \|\| 'false' \}\}/,
+    );
+    assert.match(AFFINITY_SPEC, /process\.env\.GATE_E_REQUIRE_AFFINITY/);
+    assert.match(AFFINITY_SPEC, /if \(requireAffinity\)/);
     assert.match(WORKFLOW, /Upload Speaking Gate E device-matrix evidence\n\s+if: always\(\)/);
     assert.match(WORKFLOW, /gate-e-speaking-device-matrix-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(WORKFLOW, /if-no-files-found: error/);

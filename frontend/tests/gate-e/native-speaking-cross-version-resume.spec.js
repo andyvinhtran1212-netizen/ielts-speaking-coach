@@ -9,6 +9,12 @@ const {
   installHarness,
 } = require('./native-speaking-harness');
 
+const affinityRequirement = process.env.GATE_E_REQUIRE_AFFINITY;
+if (affinityRequirement && !['true', 'false'].includes(affinityRequirement)) {
+  throw new Error('GATE_E_REQUIRE_AFFINITY must be true or false when set');
+}
+const requireAffinity = affinityRequirement === 'true';
+
 function isExpectedWebKitRedirectCancellation(message) {
   return /(?:\/speaking\?_rsc=[^ ]+|\/localhost:8000\/auth\/me) due to access control checks\.$/
     .test(message);
@@ -208,11 +214,15 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
   }, SID);
 
   await page.goto(`/practice/session?session_id=${encodeURIComponent(SID)}`);
-  await page.waitForURL(`**/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
+  if (requireAffinity) {
+    await page.waitForURL(`**/pages/practice.html?session_id=${encodeURIComponent(SID)}`);
+  } else {
+    await page.waitForURL(`**/practice/session?session_id=${encodeURIComponent(SID)}`);
+  }
   await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
   await expect(page.locator('#state-prep')).toHaveClass(/\bactive\b/);
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
-  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(true);
+  expect(await page.evaluate(() => !!window.PracticeLegacyRuntime)).toBe(requireAffinity);
 
   await page.evaluate(async (sessionId) => {
     await window.PracticeFullTest.submitAnswer({
@@ -241,7 +251,7 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
   expect(calls.filter((call) => call === `GET /sessions/${SID}/questions`)).toHaveLength(3);
   expect(calls.filter((call) =>
     call === `POST /sessions/${SID}/renderer-affinity`
-  )).toHaveLength(4);
+  )).toHaveLength(requireAffinity ? 4 : 0);
   expect(await page.evaluate((sessionId) => {
     const state = JSON.parse(sessionStorage.getItem('ielts_ft_state_v2') || 'null');
     return { ownerId: state?.owner_id, confirmed: state?.confirmed?.[sessionId] };
@@ -256,7 +266,11 @@ test('persisted affinity resumes canonically in both Legacy and Next directions'
   expect(pageErrors.filter((message) => !isExpectedWebKitRedirectCancellation(message)))
     .toEqual([]);
 
-  const nextPage = await context.newPage();
-  await verifyNextClaimRejectsLegacyReopen(nextPage);
-  await nextPage.close();
+  // The trusted main auditor validates the N-1 runtime before affinity ships
+  // there. Staging workflows always opt into this stricter two-way handoff.
+  if (requireAffinity) {
+    const nextPage = await context.newPage();
+    await verifyNextClaimRejectsLegacyReopen(nextPage);
+    await nextPage.close();
+  }
 });
