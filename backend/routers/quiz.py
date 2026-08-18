@@ -150,6 +150,10 @@ class CourseListeningBody(BaseModel):
     answers: dict[str, str] = {}
 
 
+class CourseListeningAudioBody(BaseModel):
+    bank_id: str
+
+
 @router.get("/course/writing")
 async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
@@ -199,6 +203,16 @@ async def course_listening_solution(body: CourseListeningBody,
     user = await get_supabase_user(authorization)
     return quiz_service.course_listening_solution(
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
+    )
+
+
+@router.post("/course/listening-audio")
+async def course_listening_audio(body: CourseListeningAudioBody,
+                                 authorization: str | None = Header(None)):
+    """Cấp URL audio mới ngay khi học viên mở phần nghe."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_listening_audio(
+        user_id=user["id"], bank_id=body.bank_id,
     )
 
 

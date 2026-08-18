@@ -345,6 +345,28 @@ def test_course_listening_solution_is_guarded_and_requires_every_answer():
     assert out == solution
 
 
+def test_course_listening_audio_refreshes_urls_without_leaking_solution():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [{"id": "sound", "questions": [{
+            "id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+            "options": ["city", "pity"],
+        }]}],
+        "solution": {"answers": [{"id": "l-A1", "answer": "A"}]},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": listening},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.course_listening_audio(user_id=_USER, bank_id=_BANK)
+    assert "solution" not in out
+    assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert len([call for call in fake.calls if call.get("storage")]) == 1
+
+
 # ── start session + resume ───────────────────────────────────────────
 
 def test_start_session_fails_closed_when_resume_read_errors():

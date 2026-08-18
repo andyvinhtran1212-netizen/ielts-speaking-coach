@@ -120,6 +120,11 @@ export function createListening({ api, storage, userId }) {
       });
       return true;
     },
+    async refreshAudio() {
+      if (!data || !bankId) return false;
+      data = await api.post('/api/quiz/course/listening-audio', { bank_id: bankId });
+      return true;
+    },
     render,
   };
 }

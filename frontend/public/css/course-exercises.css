@@ -532,7 +532,7 @@
 .cl-section__label { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: var(--av-radius-pill); background: var(--av-primary-soft); color: var(--av-primary); font: var(--av-fw-bold) var(--av-fs-sm)/1 var(--av-font-mono); }
 .cl-section h3 { margin: 0; font-size: var(--av-fs-lg); }
 .cl-section header p { margin: var(--av-space-1) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed); }
-.cl-section ol { display: grid; gap: var(--av-space-5); margin: 0; padding: 0; list-style: none; }
+.cl-section ol { display: grid; gap: var(--av-space-6); margin: 0; padding: 0; list-style: none; }
 .cl-question { padding-top: var(--av-space-4); border-top: 1px solid var(--av-border-subtle); }
 .cl-question__head { display: flex; align-items: center; justify-content: space-between; gap: var(--av-space-3); margin-bottom: var(--av-space-3); color: var(--av-text-muted); font: var(--av-fw-semibold) var(--av-fs-xs)/1 var(--av-font-mono); text-transform: uppercase; }
 .cl-audio { width: min(18rem, 75%); height: 40px; }

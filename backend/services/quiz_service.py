@@ -48,6 +48,47 @@ _COURSE_LISTENING_TTL = 7200
 def _is_lesson_source(source) -> bool:
     return bool(_LESSON_SRC_RE.match((source or "").strip()))
 
+
+def _course_listening_for_play(listening: dict) -> dict:
+    """Lọc lời giải và ký URL mới cho một bài nghe đã qua cổng truy cập bank."""
+    listening_for_play = dict(listening)
+    listening_for_play.pop("solution", None)
+    listening_for_play["has_solution"] = True
+    sections = []
+    bucket_name = ((listening.get("audio_bundle") or {}).get("bucket")
+                   or settings.LISTENING_AUDIO_BUCKET)
+    bucket = supabase_admin.storage.from_(bucket_name)
+
+    def signed(path: str) -> str:
+        try:
+            response = bucket.create_signed_url(path, _COURSE_LISTENING_TTL)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] course listening audio sign failed path=%s: %s",
+                           path, exc)
+            raise HTTPException(500, "Không mở được audio bài nghe") from exc
+        url = ((response or {}).get("signedURL") or (response or {}).get("signedUrl")
+               or (response or {}).get("signed_url"))
+        if not url:
+            raise HTTPException(500, "Không mở được audio bài nghe")
+        return url
+
+    for section in listening.get("sections") or []:
+        served_section = dict(section)
+        path = served_section.pop("audio_storage_path", None)
+        if path:
+            served_section["audio_url"] = signed(path)
+        questions_for_play = []
+        for question in section.get("questions") or []:
+            served_question = dict(question)
+            q_path = served_question.pop("audio_storage_path", None)
+            if q_path:
+                served_question["audio_url"] = signed(q_path)
+            questions_for_play.append(served_question)
+        served_section["questions"] = questions_for_play
+        sections.append(served_section)
+    listening_for_play["sections"] = sections
+    return listening_for_play
+
 _ATTEMPT_FIELDS = ("client_id", "item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
@@ -455,43 +496,7 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
     # riêng tư và chỉ được ký URL sau khi cổng bài-giao ở trên đã cho phép bank.
     listening = meta.get("short_listening")
     if isinstance(listening, dict):
-        listening_for_play = dict(listening)
-        listening_for_play.pop("solution", None)
-        listening_for_play["has_solution"] = True
-        sections = []
-        bucket_name = ((listening.get("audio_bundle") or {}).get("bucket")
-                       or settings.LISTENING_AUDIO_BUCKET)
-        bucket = supabase_admin.storage.from_(bucket_name)
-
-        def signed(path: str) -> str:
-            try:
-                response = bucket.create_signed_url(path, _COURSE_LISTENING_TTL)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("[quiz] course listening audio sign failed path=%s: %s",
-                               path, exc)
-                raise HTTPException(500, "Không mở được audio bài nghe") from exc
-            url = ((response or {}).get("signedURL") or (response or {}).get("signedUrl")
-                   or (response or {}).get("signed_url"))
-            if not url:
-                raise HTTPException(500, "Không mở được audio bài nghe")
-            return url
-
-        for section in listening.get("sections") or []:
-            served_section = dict(section)
-            path = served_section.pop("audio_storage_path", None)
-            if path:
-                served_section["audio_url"] = signed(path)
-            questions_for_play = []
-            for question in section.get("questions") or []:
-                served_question = dict(question)
-                q_path = served_question.pop("audio_storage_path", None)
-                if q_path:
-                    served_question["audio_url"] = signed(q_path)
-                questions_for_play.append(served_question)
-            served_section["questions"] = questions_for_play
-            sections.append(served_section)
-        listening_for_play["sections"] = sections
-        meta["short_listening"] = listening_for_play
+        meta["short_listening"] = _course_listening_for_play(listening)
         bank = {**bank, "meta": meta}
 
     word_cards = _word_cards_for(bank)
@@ -559,6 +564,20 @@ def course_listening_solution(*, user_id: str, bank_id: str,
             "missing": missing,
         })
     return solution
+
+
+def course_listening_audio(*, user_id: str, bank_id: str) -> dict:
+    """Tái ký URL ngay khi mở phần nghe; bank/assignment được kiểm tra lại."""
+    _bank_meta_or_404(bank_id, user_id)
+    try:
+        rows = (supabase_admin.table("quiz_banks").select("meta")
+                .eq("id", bank_id).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, "Không tải được audio bài nghe") from exc
+    listening = (((rows[0] if rows else {}).get("meta") or {}).get("short_listening"))
+    if not isinstance(listening, dict):
+        raise HTTPException(404, "Bài tập này không có bài nghe")
+    return _course_listening_for_play(listening)
 
 
 def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:

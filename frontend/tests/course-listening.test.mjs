@@ -53,6 +53,27 @@ test('requests answer and transcript only after every response exists', async ()
   assert.match(listening.render(), /Thành phố lớn hơn\./);
 });
 
+test('refreshes signed audio when the learner opens the listening flow', async () => {
+  const calls = [];
+  const api = { post: async (path, body) => {
+    calls.push({ path, body });
+    return { ...bank.meta.short_listening, sections: [{
+      ...bank.meta.short_listening.sections[0], questions: [{
+        ...bank.meta.short_listening.sections[0].questions[0],
+        audio_url: 'https://signed/fresh-A1.mp3',
+      }],
+    }] };
+  } };
+  const listening = createListening({ api, storage: storage(), userId: 'u1' });
+  listening.load(bank);
+  assert.equal(await listening.refreshAudio(), true);
+  assert.deepEqual(calls, [{
+    path: '/api/quiz/course/listening-audio', body: { bank_id: 'bank-05' },
+  }]);
+  assert.match(listening.render(), /fresh-A1\.mp3/);
+  assert.doesNotMatch(listening.render(), /Nghe được:/);
+});
+
 test('draft keys are isolated by learner', () => {
   assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
 });

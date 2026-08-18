@@ -8524,6 +8524,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/listening-audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Listening Audio
+         * @description Cấp URL audio mới ngay khi học viên mở phần nghe.
+         */
+        post: operations["course_listening_audio_api_quiz_course_listening_audio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/course/report": {
         parameters: {
             query?: never;
@@ -11222,6 +11242,11 @@ export interface components {
              * @default 0
              */
             sort_order: number;
+        };
+        /** CourseListeningAudioBody */
+        CourseListeningAudioBody: {
+            /** Bank Id */
+            bank_id: string;
         };
         /** CourseListeningBody */
         CourseListeningBody: {
@@ -27464,6 +27489,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CourseListeningBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_listening_audio_api_quiz_course_listening_audio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseListeningAudioBody"];
             };
         };
         responses: {

@@ -526,6 +526,27 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
+      async function openListening() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = true;
+        $('cx-report')!.hidden = true;
+        const box = $('cx-listening')!;
+        box.hidden = false;
+        box.innerHTML = '<p class="cx-empty">Đang làm mới audio bài nghe…</p>';
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        try {
+          await listening.refreshAudio();
+          renderListening();
+        } catch (err: any) {
+          box.innerHTML = '<p class="cx-empty">Chưa mở được audio bài nghe: '
+            + esc(err?.message || err) + '. Hãy thử lại.</p>'
+            + '<button class="av-button av-button-secondary" id="cl-back" type="button">Quay lại tổng kết</button>';
+        }
+      }
+
       async function revealListening() {
         const btn = $('cl-check') as HTMLButtonElement | null;
         if (listening.missing.length) return;
@@ -695,7 +716,7 @@ export function CourseBehavior() {
         if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
         if (t.id === 'cx-reading-open') return renderReading();
-        if (t.id === 'cx-listening-open') return renderListening();
+        if (t.id === 'cx-listening-open') return void openListening();
         if (t.id === 'cr-back') {
           $('cx-reading')!.hidden = true;
           $('cx-done')!.hidden = false;
