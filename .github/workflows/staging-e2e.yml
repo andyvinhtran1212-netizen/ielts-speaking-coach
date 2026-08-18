@@ -153,7 +153,7 @@ jobs:
       - name: Run staging E2E
         id: staging_e2e
         working-directory: frontend
-        # Leave enough of the 180-minute job budget for all four frozen
+        # Leave enough of the 190-minute job budget for all four frozen
         # matrices plus fail-closed evidence finalization.
         timeout-minutes: 20
         env:
