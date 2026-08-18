@@ -14,6 +14,7 @@ test('reading-core-player-ambiguous-commit', async ({ page }) => {
   let q1Writes = 0;
   const harness = await installReadingGateEHarness(page, {
     state,
+    allowCrossRendererFixture: true,
     handleApi: async ({ route, request, url, entry }) => {
       if (request.method() !== 'PATCH' || !url.pathname.endsWith(`/${ATTEMPT}/answers`)) return false;
       if (Number(entry.body?.q_num) !== 1) return false;
@@ -110,7 +111,10 @@ test('reading-core-player-reload-resume', async ({ page }) => {
 
 test('reading-bidirectional-cross-version-core-player', async ({ page }) => {
   const state = createReadingGateEState();
-  const harness = await installReadingGateEHarness(page, { state });
+  const harness = await installReadingGateEHarness(page, {
+    state,
+    allowCrossRendererFixture: true,
+  });
 
   await openLegacy(page);
   await page.locator('#exam-start-btn').click();
