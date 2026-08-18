@@ -1,3 +1,5 @@
+import { corePlayerUrl } from './core-player-affinity.mjs';
+
 const RETRY_DELAYS = Object.freeze([400, 1200, 3000]);
 const LISTENING_ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock']);
 const LISTENING_GAP_TOKEN_RE = /_{2,}|…+|\.{4,}/;
@@ -153,11 +155,26 @@ export function normalizeListeningTest(payload) {
 export function normalizeListeningResume(payload) {
   const attempt = payload?.attempt;
   if (!attempt) return null;
+  const rendererAffinity = attempt.renderer_affinity ?? null;
+  if (rendererAffinity !== null && !['legacy', 'next'].includes(rendererAffinity)) {
+    throw new Error('invalid-listening-renderer-affinity');
+  }
   return {
     attempt_id: requiredText(attempt.attempt_id, 'invalid-listening-attempt'),
     started_at: requiredText(attempt.started_at, 'invalid-listening-start-time'),
     answers: Array.isArray(attempt.answers) ? attempt.answers : [],
+    renderer_affinity: rendererAffinity,
   };
+}
+
+export function listeningRendererHref(renderer, search) {
+  const source = new URLSearchParams(search || '');
+  const query = {};
+  for (const key of ['id', 'sitting_id', 'mock_embed', 'from', 'class_item']) {
+    const value = source.get(key);
+    if (value) query[key] = value;
+  }
+  return corePlayerUrl('listening_test', renderer, query);
 }
 
 export function listeningAnswersFromRows(rows) {

@@ -38,7 +38,8 @@ const state = {
   status: 'not_started',
   startedAt: '2026-08-11T15:00:00.000Z',
   answers: new Map(),
-  starts: 0, patches: [], submits: 0, rejectQ2: true,
+  rendererAffinity: null,
+  starts: 0, claims: 0, patches: [], submits: 0, rejectQ2: true,
 };
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -108,14 +109,26 @@ await page.route('**/*', async (route) => {
     interceptedApiRequests += 1;
     const attempt = state.status === 'in_progress' ? {
       attempt_id: ATTEMPT_ID, started_at: state.startedAt,
+      renderer_affinity: state.rendererAffinity,
       answers: [...state.answers].map(([q_num, user_answer]) => ({ q_num, user_answer })),
     } : null;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ attempt }), headers: cors });
   }
   if (request.method() === 'POST' && url.pathname === `/api/listening/tests/${TEST_ID}/attempts`) {
     interceptedApiRequests += 1;
-    state.starts += 1; state.status = 'in_progress'; state.answers.clear();
+    state.starts += 1; state.status = 'in_progress'; state.answers.clear(); state.rendererAffinity = null;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ attempt_id: ATTEMPT_ID, status: 'in_progress' }), headers: cors });
+  }
+  if (request.method() === 'POST' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/renderer-affinity`) {
+    interceptedApiRequests += 1;
+    const body = request.postDataJSON();
+    state.claims += 1;
+    if (state.rendererAffinity === null) state.rendererAffinity = String(body.renderer_affinity || '');
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ attempt_id: ATTEMPT_ID, renderer_affinity: state.rendererAffinity }),
+      headers: cors,
+    });
   }
   if (request.method() === 'PATCH' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/answers`) {
     interceptedApiRequests += 1;
@@ -160,7 +173,10 @@ await page.getByRole('button', { name: 'Bắt đầu test' }).click();
 await page.getByLabel('Answer 1').fill('library');
 await page.waitForFunction(() => true, null, { timeout: 600 });
 await page.waitForTimeout(700);
-check('start creates one attempt and autosave reaches canonical state', state.starts === 1 && state.answers.get(1) === 'library');
+check(
+  'start claims Next once and autosave reaches canonical state',
+  state.starts === 1 && state.claims === 1 && state.rendererAffinity === 'next' && state.answers.get(1) === 'library',
+);
 
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
@@ -180,7 +196,7 @@ await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').l
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
 await page.getByRole('button', { name: 'Nộp bài' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
-await page.getByText('2/2', { exact: true }).waitFor();
+await page.locator('.listening-next-score strong').filter({ hasText: /^2\/2$/ }).waitFor();
 check('clean submit renders canonical result once', state.submits === 1);
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(
