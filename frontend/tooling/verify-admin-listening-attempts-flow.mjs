@@ -59,6 +59,11 @@ check('mobile cards không tràn ngang', await page.evaluate(() => getComputedSt
 
 await page.getByRole('button', { name: 'Xem từng câu' }).click();
 await page.getByRole('heading', { name: 'Chi tiết lượt làm bài' }).waitFor();
+// The drawer heading is part of the static loading shell. Wait for both
+// canonical side effects of the detail read before asserting them; otherwise
+// a slower CI runner can inspect the shell between click and fetch commit.
+await page.waitForFunction(() => new URL(location.href).searchParams.get('attempt') === 'attempt-1');
+await page.getByText('<script>', { exact: true }).waitFor();
 check('detail dùng exact attempt identity và ghi vào URL', detailReads.length === 1 && new URL(page.url()).searchParams.get('attempt') === 'attempt-1');
 check('hostile answer được escape', await page.locator('script').filter({ hasText: '<script>' }).count() === 0 && await page.getByText('<script>', { exact: true }).count() === 1);
 check('question contract lỗi được báo riêng', await page.getByText(/Đã loại 1 dòng chấm sai contract/).count() === 1);
