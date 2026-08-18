@@ -54,6 +54,10 @@ describe('Reading Gate E failure matrix is pinned and auditable', () => {
     assert.match(HARNESS, /PRODUCTION_ORIGINS/);
     assert.match(HARNESS, /productionRequests/);
     assert.match(HARNESS, /state\.answers\.set/);
+    assert.match(HARNESS, /renderer_affinity_protocol === 'claim-v1'/);
+    assert.match(HARNESS, /\/renderer-affinity/);
+    assert.match(HARNESS, /allowCrossRendererFixture = false/);
+    assert.equal((SPEC.match(/allowCrossRendererFixture: true/g) || []).length, 2);
   });
 
   test('workflow runs and semantically verifies Reading before streak metadata', () => {

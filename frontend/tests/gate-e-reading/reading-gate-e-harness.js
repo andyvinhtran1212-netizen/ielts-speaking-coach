@@ -67,6 +67,7 @@ function createReadingGateEState({
 } = {}) {
   return {
     attemptId: ATTEMPT,
+    rendererAffinity: null,
     status,
     startedAt,
     timeLimitMinutes: 60,
@@ -84,6 +85,7 @@ function inProgressPayload(state) {
     attempt_id: state.attemptId,
     started_at: state.startedAt,
     time_limit_minutes: state.timeLimitMinutes,
+    renderer_affinity: state.rendererAffinity,
     answers: [...state.answers].map(([q_num, user_answer]) => ({ q_num, user_answer })),
   };
 }
@@ -108,7 +110,11 @@ function resultPayload(state) {
   };
 }
 
-async function installReadingGateEHarness(page, { state, handleApi = null } = {}) {
+async function installReadingGateEHarness(page, {
+  state,
+  handleApi = null,
+  allowCrossRendererFixture = false,
+} = {}) {
   if (!state) throw new TypeError('state is required');
   const calls = [];
   const pageErrors = [];
@@ -179,12 +185,33 @@ async function installReadingGateEHarness(page, { state, handleApi = null } = {}
       state.status = 'in_progress';
       state.startedAt = new Date(Date.now() - 10_000).toISOString();
       state.answers.clear();
+      state.rendererAffinity = body?.renderer_affinity_protocol === 'claim-v1' ? null : 'legacy';
       await route.fulfill({
         json: {
           attempt_id: state.attemptId,
           started_at: state.startedAt,
           time_limit_minutes: state.timeLimitMinutes,
+          renderer_affinity: state.rendererAffinity,
         },
+        headers: cors,
+      });
+      return;
+    }
+    if (request.method() === 'POST'
+        && url.pathname === `/api/reading/test/attempts/${state.attemptId}/renderer-affinity`) {
+      if (allowCrossRendererFixture) {
+        // This explicit synthetic seam exercises wire compatibility across
+        // both implementations. Production never enables it; the live
+        // coexistence drill separately proves first-claim-wins affinity.
+        await route.fulfill({
+          json: { attempt_id: state.attemptId, renderer_affinity: body?.renderer_affinity },
+          headers: cors,
+        });
+        return;
+      }
+      state.rendererAffinity = state.rendererAffinity || body?.renderer_affinity;
+      await route.fulfill({
+        json: { attempt_id: state.attemptId, renderer_affinity: state.rendererAffinity },
         headers: cors,
       });
       return;
