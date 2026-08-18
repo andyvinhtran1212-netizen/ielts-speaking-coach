@@ -111,7 +111,7 @@ luôn checkout `staging`, thay vì vô tình test staging deployment bằng sour
   timeout 20 phút, bốn failure matrix có timeout 10 phút mỗi bước, còn setup,
   verifier, provenance, ledger, cache và từng artifact upload đều có trần 1–5
   phút. Contract test cộng cả ba nhánh streak/reset upload vốn loại trừ nhau để
-  lấy trường hợp bảo thủ 149 phút; job vẫn dành thêm 31 phút ngoài toàn bộ tổng
+  lấy trường hợp bảo thủ 159 phút; job vẫn dành thêm 31 phút ngoài toàn bộ tổng
   đó. Vì vậy một runner chạm timeout riêng vẫn không tước thời gian của ledger
   và artifact finalization.
 - Token GitHub, Vercel bypass, `E2E_PASSWORD` và Supabase admin session chỉ dùng
