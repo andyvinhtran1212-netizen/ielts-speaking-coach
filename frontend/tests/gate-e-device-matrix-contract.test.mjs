@@ -22,6 +22,8 @@ const SPEC = read('frontend/tests/staging-e2e/device-matrix.spec.js');
 const LIVE_FAILURE_SPEC = read(
   'frontend/tests/staging-e2e/core-player-failure-injection.spec.js',
 );
+const GATE_A_SPEC = read('frontend/tests/staging-e2e/gate-a-flows.spec.js');
+const SPEAKING_START_SPEC = read('frontend/tests/staging-e2e/speaking-start-flow.spec.js');
 const HELPERS = read('frontend/tests/staging-e2e/helpers.js');
 const WRITER = read('frontend/tooling/write-gate-e-device-matrix-evidence.mjs');
 const DOC = read('docs/GATE_E_DEVICE_MATRIX_2026-08-09.md');
@@ -121,6 +123,19 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.deepEqual(configProjects, manifestProjects, 'every configured project must be versioned in the manifest');
     assert.match(configCode, /^\s*workers:\s*1,\s*$/m);
     assert.match(configCode, /^\s*retries:\s*0,\s*$/m);
+  });
+
+  test('every core session writer uses the fail-loud staging-only cleanup seam', () => {
+    assert.match(
+      HELPERS,
+      /request\.delete\([\s\S]*?\/admin\/e2e\/sessions\/\$\{encodeURIComponent\(sessionId\)\}/,
+    );
+    assert.match(HELPERS, /if \(response\.status\(\) !== 204\)[\s\S]*?throw new Error/);
+    for (const source of [GATE_A_SPEC, SPEAKING_START_SPEC, LIVE_FAILURE_SPEC]) {
+      assert.match(source, /cleanupE2ESession\(request, [^,]+, adminToken\)/);
+    }
+    assert.match(SPEAKING_START_SPEC, /page\.waitForResponse\([\s\S]*?created\.push\(createdSessionId\)/);
+    assert.match(LIVE_FAILURE_SPEC, /test\.afterEach\([\s\S]*?cleanupE2ESession/);
   });
 
   test('CI installs both engines and uploads only validated machine-readable evidence', () => {

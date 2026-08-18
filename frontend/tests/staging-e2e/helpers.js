@@ -109,8 +109,28 @@ async function signIn(request, role) {
   return (await res.json()).access_token;
 }
 
+/**
+ * Remove one synthetic Speaking session through the staging-only admin seam.
+ * Cleanup is intentionally fail-loud: a green soak run must not consume a
+ * hidden daily-quota slot that makes a later run fail for accumulated state.
+ */
+async function cleanupE2ESession(request, sessionId, adminToken) {
+  if (!sessionId) return;
+  const response = await request.delete(
+    `${STAGING_API}/admin/e2e/sessions/${encodeURIComponent(sessionId)}`,
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  if (response.status() !== 204) {
+    throw new Error(
+      `E2E session cleanup failed for ${sessionId}: `
+        + `HTTP ${response.status()} ${await response.text()}`,
+    );
+  }
+}
+
 module.exports.STAGING_API = STAGING_API;
 module.exports.STAGING_SUPABASE = STAGING_SUPABASE;
 module.exports.STAGING_ANON = STAGING_ANON;
 module.exports.signIn = signIn;
 module.exports.identityEmail = identityEmail;
+module.exports.cleanupE2ESession = cleanupE2ESession;
