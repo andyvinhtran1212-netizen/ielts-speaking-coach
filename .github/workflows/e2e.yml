@@ -63,6 +63,8 @@ jobs:
       - name: Run Speaking Gate E native fixtures
         id: speaking_gate_e
         if: always()
+        env:
+          GATE_E_REQUIRE_AFFINITY: ${{ (github.event.pull_request.base.ref == 'staging' || github.ref_name == 'staging') && 'true' || 'false' }}
         run: npm run test:e2e:gate-e
 
       - name: Upload Speaking Gate E device-matrix evidence

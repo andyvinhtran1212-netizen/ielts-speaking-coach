@@ -179,6 +179,8 @@ jobs:
         if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
         working-directory: frontend
         timeout-minutes: 10
+        env:
+          GATE_E_REQUIRE_AFFINITY: 'true'
         run: npm run test:e2e:gate-e
 
       # Validate reporter semantics before any metadata or ledger state can be

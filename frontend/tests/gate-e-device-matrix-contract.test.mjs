@@ -142,6 +142,10 @@ describe('Gate E device matrix is pinned and bounded', () => {
   });
 
   test('all core failure evidence is semantically verified before any streak state advances', () => {
+    assert.match(
+      WORKFLOW,
+      /Run Gate E Speaking failure matrix[\s\S]*?GATE_E_REQUIRE_AFFINITY: 'true'[\s\S]*?npm run test:e2e:gate-e/,
+    );
     assert.match(liveFailureEvidenceCheckCode, /id: live_staging_failure_evidence/);
     assert.match(liveFailureEvidenceCheckCode, /GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}/);
     assert.match(
