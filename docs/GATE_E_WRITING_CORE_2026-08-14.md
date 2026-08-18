@@ -61,6 +61,16 @@ và redirect về affinity canonical nếu mở nhầm stack. Assignment mới v
 vào Next để giữ hành vi sản phẩm hiện tại; thay đổi này chỉ chuẩn bị staging
 coexistence/rollback, không đổi production deployment.
 
+Live coexistence runner dùng chuỗi phù hợp với trạng thái sản phẩm hiện tại:
+`floor (Next) → rollback override (Legacy) → restore (Next)`. Mỗi phase tạo một
+assignment mới qua canonical admin API, lưu draft qua chính player đang được
+admit, đọc lại canonical affinity/draft và mở lại assignment phase trước bằng
+stable URL. Floor còn mở một assignment mới trực tiếp bằng Legacy URL để chứng
+minh first claim `NULL → legacy`. Runner bind phase sau vào successful artifact,
+assignment UUID và descendant SHA của phase trước; evidence không chứa access
+token. Source contract đã sẵn sàng nhưng chưa được tính là live evidence trước
+khi ba workflow run trên staging cùng frontend/backend provenance đều pass.
+
 ## Bốn failure path được đóng băng
 
 1. `writing-core-player-ambiguous-commit`: fixture commit essay + job rồi abort

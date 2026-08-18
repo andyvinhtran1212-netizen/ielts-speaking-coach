@@ -54,11 +54,10 @@ Listening Dictation cũng đã đủ three-phase qua floor `32103908150` attempt
 cutover `32106478117` attempt 2 và forward rollback `32108579377` attempt 1;
 staging admission hiện trở về Legacy và prior Next attempt vẫn sticky Next.
 Writing cũng đã có matrix 12 case cùng idempotent submit/readback; đây vẫn là
-synthetic evidence. Live-staging failure-injection journey và trusted verifier
-đã được tích hợp nhưng chưa có artifact từ release đã merge; thiết bị
-Safari/iOS thật, live coexistence/rollback drill của Writing và qualifying
-streak chưa hoàn tất; Speaking three-phase live drill đã pass. Vì vậy canonical
-core cutover vẫn bị chặn bởi Gate E.
+synthetic evidence. Live-staging failure-injection journey, trusted verifier và
+runner coexistence `Next → Legacy → Next` đã được tích hợp ở source nhưng chưa
+có đủ ba artifact từ release đã merge; thiết bị Safari/iOS thật và qualifying
+streak cũng chưa hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
@@ -136,16 +135,18 @@ core cutover vẫn bị chặn bởi Gate E.
   đã thêm atomic first-player claim; Speaking, Reading, Listening test và
   Listening Dictation nay giữ affinity canonical qua launcher, reload và
   forward rollback. Writing hiện đã có surface trong affinity policy/launcher,
-  canonical first-player claim và synthetic cross-version matrix; chưa có live
-  three-phase artifact tương ứng trên staging.
+  canonical first-player claim, synthetic cross-version matrix và live runner
+  contract; chưa có đủ ba phase artifact tương ứng trên staging.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
   `frontend/app/core-player/launch/route.ts`, canonical attempt/session tables
   và từng Gate E coexistence workflow.
-- **Suggested minimal fix còn lại:** áp dụng migration 221 vào staging, pin floor
-  rồi drill staging cutover + forward rollback với exact frontend/backend
-  provenance; không mở rộng hay redeploy production trong batch này.
+- **Suggested minimal fix còn lại:** migration 221 đã được áp dụng và xác minh
+  trên staging. Seed fixture anchor, merge runner rồi thu lần lượt floor Next,
+  staging rollback override Legacy và forward restore Next với exact
+  frontend/backend provenance; không mở rộng hay redeploy production trong
+  batch này.
 - **Verification:** Dictation floor `32103908150` attempt 2, cutover
   `32106478117` attempt 2 và rollback `32108579377` attempt 1 chứng minh fresh
   admission đổi đúng, prior Legacy/Next attempt giữ renderer, reload/copy URL
@@ -160,7 +161,7 @@ core cutover vẫn bị chặn bởi Gate E.
 | Speaking | `/practice`, `/result`, `/full-test-result` | MediaRecorder blob, awaited grade, full-test chain, finalize ambiguity, result aggregation |
 | Reading | `/reading/exam`, `/reading/skill/:exercise_id`, `/reading/vocab/:passage_id`, `/reading/review` | timer, answers, in-progress attempt, submit/reconcile, review truth |
 | Listening | `/listening/mcq`, `/listening/gist`, `/listening/tf`, `/listening/dictation`, `/listening/test-dictation`, `/listening/review` | audio lifecycle, answer persistence, attempt section, submit/review aggregation |
-| Writing | `/writing/dashboard` (Next đã cutover; legacy stable URL vẫn sống), `/writing/result`, `/admin/writing/grade` | automated modal/autosave/submit matrix đã có; còn live-staging canonical submission/regrade agreement và rollback drill không thấp hơn coexistence floor |
+| Writing | `/writing/dashboard` (Next đã cutover; legacy stable URL vẫn sống), `/writing/result`, `/admin/writing/grade` | automated modal/autosave/submit matrix và three-phase runner đã có; còn ba live-staging artifacts cùng canonical submission/regrade agreement |
 
 Route ownership hoặc React launcher không được dùng thay bằng chứng player flow.
 Legacy retirement thuộc Gate F; không xóa rollback target trong Gate E.
