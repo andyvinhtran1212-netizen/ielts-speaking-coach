@@ -144,11 +144,23 @@ jobs:
 
       - name: Install Playwright matrix engines
         working-directory: frontend
-        # `--with-deps` downloads Ubuntu packages from the runner's regional
-        # mirror. A slow mirror must not reset an otherwise clean Gate E streak
-        # while packages are still making forward progress (run #84).
+        # Runs #84 and #85 both stalled in apt before any browser download:
+        # the ubuntu-24.04 mirror list kept retrying azure.archive.ubuntu.com.
+        # Keep Playwright's supported `--with-deps` path, but replace the
+        # ephemeral runner's regional mirror with Ubuntu's canonical HTTPS
+        # archive and bound every apt network attempt. A real outage still
+        # fails closed without consuming the whole evidence job.
         timeout-minutes: 15
-        run: npx playwright install --with-deps chromium webkit
+        run: |
+          test -f /etc/apt/apt-mirrors.txt
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu' \
+            | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "15";' \
+            'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/99-gate-e-network >/dev/null
+          npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
         id: staging_e2e
