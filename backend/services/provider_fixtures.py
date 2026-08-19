@@ -77,16 +77,21 @@ _TRANSCRIPT = (
 def fixture_transcription(filename: str = "audio.webm") -> dict:
     """Production-shaped Whisper result (services/whisper.transcribe_*)."""
     words = _TRANSCRIPT.split()
+    # 90.0 clears every MIN_DURATION_BY_PART floor (part 2 = 80s). The old
+    # 45.0 made EVERY part-2 fixture submission 422 on staging once Sprint
+    # 14.2 shipped the floor — discovered by the Gate E real-device journey
+    # 2026-08-19 (a healthy 92.5s Safari m4a was rejected as "45.0s").
+    # test_provider_fixtures pins this against the real constant.
     return {
         "transcript": _TRANSCRIPT,
-        "duration_seconds": 45.0,
+        "duration_seconds": 90.0,
         "language": "en",
         "confidence": 0.92,
         "transcript_model": "fixture",
         "segments": [
-            {"start": 0.0, "end": 22.5, "text": " ".join(words[: len(words) // 2]),
+            {"start": 0.0, "end": 45.0, "text": " ".join(words[: len(words) // 2]),
              "avg_logprob": -0.18, "no_speech_prob": 0.01},
-            {"start": 22.5, "end": 45.0, "text": " ".join(words[len(words) // 2:]),
+            {"start": 45.0, "end": 90.0, "text": " ".join(words[len(words) // 2:]),
              "avg_logprob": -0.22, "no_speech_prob": 0.02},
         ],
     }
