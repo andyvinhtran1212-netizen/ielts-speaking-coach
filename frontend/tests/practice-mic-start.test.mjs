@@ -30,6 +30,10 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
   const start = JS.indexOf('  function _getNativeRecorder() {');
   const end = JS.indexOf('  // ── Recording: stop ─');
   assert.ok(start !== -1 && end > start, 'không tìm thấy khối startRecording');
+  // startRecording nay chọn container qua _mimeCandidates() (làn mp4 cho
+  // WebKit thật) — sandbox phải mang theo dependency đó.
+  const mimeFn = JS.match(/  function _mimeCandidates\(\) \{[\s\S]*?\n  \}/);
+  assert.ok(mimeFn, 'không tìm thấy _mimeCandidates trong practice.js');
 
   const shown = [];
   const states = [];
@@ -92,6 +96,7 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
     var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
     var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
     var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };
+    ${mimeFn[0]}
     ${JS.slice(start, end)}
     return startRecording;
   `);
@@ -544,6 +549,7 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
       var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
       var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
       var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };
+      ${(JS.match(/  function _mimeCandidates\(\) \{[\s\S]*?\n  \}/) || [''])[0]}
       ${JS.slice(s1, e1)}
       ${JS.slice(s2, e2)}
       return (async () => {
