@@ -37,7 +37,7 @@ function fixture(requirementId, runId = '501') {
       observed_backend_release_sha: SHA,
       observed_platform: requirement.platform,
       observed_browser: requirement.browser,
-      device_model: requirementId === 'safari-desktop' ? 'MacBook Pro' : 'iPhone 17 Pro',
+      device_model: requirement.device_model,
       operator: 'Gate E operator',
       journey_started_at: '2026-08-11T00:10:00Z',
       observed_at: '2026-08-11T00:30:00Z',
@@ -98,6 +98,19 @@ describe('Speaking Gate E real-device evidence validator', () => {
       );
       assert.deepEqual(result.evidence.console_errors, []);
       assert.doesNotMatch(JSON.stringify(result.evidence), /token|password|transcript|feedback/i);
+    }
+  });
+
+  test('rejects evidence attested from a different physical device model', () => {
+    for (const [requirementId, wrongModel] of [
+      ['ios-safari', 'iPad Pro 11-inch'],
+      ['safari-desktop', 'Mac mini (Mac14,3)'],
+    ]) {
+      const wrongDevice = fixture(requirementId);
+      wrongDevice.input.device_model = wrongModel;
+      const result = validateSpeakingRealDeviceEvidence(wrongDevice);
+      assert.equal(result.ok, false);
+      assert.ok(result.errors.includes('device-model-mismatch'));
     }
   });
 

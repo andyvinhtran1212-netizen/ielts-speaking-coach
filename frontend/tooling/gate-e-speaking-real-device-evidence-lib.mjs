@@ -68,6 +68,9 @@ export function validateSpeakingRealDeviceEvidence({
   if (!cleanText(input.device_model) || cleanText(input.device_model).length > 120) {
     errors.push('device-model-invalid');
   }
+  if (cleanText(input.device_model) !== cleanText(requirement?.device_model)) {
+    errors.push('device-model-mismatch');
+  }
   if (!cleanText(input.operator) || cleanText(input.operator).length > 80) {
     errors.push('operator-invalid');
   }

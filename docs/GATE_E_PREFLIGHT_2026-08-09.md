@@ -3,6 +3,13 @@
 **Trạng thái:** NOT READY. Tài liệu này là inventory và remediation order, không
 phải waiver hay tuyên bố Gate E đã pass.
 
+> **Amendment 2026-08-19:** mọi nhắc tới real-device "Safari 15.6/iOS 15.8.5"
+> trong bảng dưới là snapshot tại baseline 09/08. Hai hàng real-device đã được
+> re-pin sang `safari-desktop` (MacBook Pro Mac14,9 · macOS 26.5.2 · Safari
+> 26.5.2) và `ios-safari` (iPhone 17 Pro · iOS 26.6) — xem
+> `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`. Yêu cầu "cần real-device
+> evidence" vẫn nguyên hiệu lực, chỉ đổi thiết bị đích.
+
 **Nguồn chuẩn:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §16,
 `docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại baseline
 `main@d292de38919fa5b79854142d4b5053241642cbcd`. Gate E chỉ được đổi sang PASS

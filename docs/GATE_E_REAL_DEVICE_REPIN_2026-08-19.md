@@ -9,8 +9,14 @@ KHÔNG thu evidence, không đổi `route_ready`/`admit_new`, không đóng Gate
 
 | Hàng cũ | Hàng mới |
 |---|---|
-| `safari-floor` — macOS 12.5 · Safari 15.6 | `safari-desktop` — macOS 26.5.2 · Safari 26.5.2 |
+| `safari-floor` — macOS 12.5 · Safari 15.6 | `safari-desktop` — MacBook Pro (Mac14,9) · macOS 26.5.2 · Safari 26.5.2 |
 | `ios-safari-floor` — iOS 15.8.5 · bundled Mobile Safari | `ios-safari` — iPhone 17 Pro · iOS 26.6 · bundled Mobile Safari |
+
+Hai hàng mới còn pin thêm `device_model` (trường mới trong manifest) và
+validator so exact chuỗi model — hàng cũ chấp nhận mọi `device_model` không
+rỗng, nghĩa là evidence từ phần cứng khác vẫn lọt (Codex review #1258 P2).
+Negative test: `rejects evidence attested from a different physical device
+model` trong `frontend/tests/gate-e-speaking-real-device-evidence.test.mjs`.
 
 Files: `frontend/tooling/gate-e-speaking-device-matrix.json`,
 `frontend/tooling/gate-e-device-matrix.json`,
@@ -26,12 +32,17 @@ từng hàng giữ nguyên từng chữ.
 1. **Nguồn gốc floor:** hai hàng cũ pin theo sự cố production 28/07 — một
    người dùng iOS 15.8.5 không parse được chunk Next chứa class `static{}`
    (Safari < 16.4), xem master plan §12.6 DEBT-2026-07-29-K.
-2. **Lo ngại đó nay được canh bằng máy, không cần thiết bị:** browserslist đã
+2. **Lo ngại đó nay được canh bằng máy ở mức chữ-ký-đã-biết:** browserslist đã
    hạ target về `safari 15` / `ios_saf 15` và
    `frontend/tooling/legacy-browser-scan.mjs` +
-   `frontend/tests/legacy-browser-floor.test.mjs` quét cú pháp bundle theo sàn
-   đó trong CI. Lỗi parse-trên-Safari-cũ tái xuất sẽ đỏ CI trước khi deploy —
-   một thiết bị iOS 15.8.5 thật không thêm tín hiệu parse nào mà CI chưa có.
+   `frontend/tests/legacy-browser-floor.test.mjs` quét bundle trong CI. Nói
+   chính xác: scan KHÔNG phải một parser Safari 15 tổng quát — nó bắt các họ
+   cú pháp/API đã ghi danh (class `static{}` block, lookbehind regex, danh
+   sách API cố định). Họ cú pháp mới chưa ghi danh vẫn có thể lọt; khi có sự
+   cố mới, quy trình là thêm chữ ký vào scan (như đã làm với `static{}`), và
+   lớp đỡ là telemetry lỗi theo UA (ADR-012) + trang legacy còn nguyên tới
+   Gate F. Một thiết bị iOS 15.8.5 thật cũng chỉ phát hiện lỗi parse khi
+   NGƯỜI THẬT mở đúng trang hỏng — không phải một cổng hồi quy tự động.
 3. **Giá trị thật của hàng real-device là hành vi media/Safari thật** —
    getUserMedia, MediaRecorder, permission prompt, backgrounding, mic
    indicator, persistence — thứ Playwright WebKit không chứng minh được. Các

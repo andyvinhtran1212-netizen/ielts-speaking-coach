@@ -69,6 +69,7 @@
       "id": "safari-desktop",
       "platform": "macOS 26.5.2",
       "browser": "Safari 26.5.2",
+      "device_model": "MacBook Pro (Mac14,9)",
       "status": "pending",
       "required_scope": [
         "real-microphone-permission-denied-and-retry",
@@ -82,6 +83,7 @@
       "id": "ios-safari",
       "platform": "iOS 26.6",
       "browser": "Mobile Safari bundled with iOS 26.6",
+      "device_model": "iPhone 17 Pro",
       "status": "pending",
       "required_scope": [
         "touch-record-stop-playback",

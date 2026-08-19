@@ -39,9 +39,10 @@
    phải cùng phục vụ exact SHA đó. Workflow sẽ kiểm lại, không nhận khai báo tay.
 2. Dùng tài khoản synthetic `e2e-student-smoke@staging-e2e.averlearning.com`.
    Không ghi password, token, transcript hoặc feedback vào input/artifact.
-3. Thiết bị phải đúng một trong hai hàng versioned:
-   - `safari-desktop`: macOS 26.5.2, Safari 26.5.2;
-   - `ios-safari`: iOS 26.6, Mobile Safari đi kèm (iPhone 17 Pro).
+3. Thiết bị phải đúng một trong hai hàng versioned (validator so exact cả ba
+   trường platform/browser/device_model):
+   - `safari-desktop`: macOS 26.5.2, Safari 26.5.2, model `MacBook Pro (Mac14,9)`;
+   - `ios-safari`: iOS 26.6, Mobile Safari đi kèm, model `iPhone 17 Pro`.
 4. Bật Safari Web Inspector để theo dõi console và network. Một lỗi console hay
    request thất bại liên quan journey làm artifact không đủ điều kiện; sửa lỗi
    rồi chạy journey mới, không sửa attestation cũ.
@@ -97,7 +98,7 @@ Hoàn tất đủ sáu scope:
 Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** từ
 branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout candidate
 `staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
-Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
+Nhập platform/browser/device_model đúng nguyên văn trong matrix, session ID, UTC
 `journey_started_at`, `observed_at`, `canonical_response_id`,
 `observed_release_sha`, `observed_backend_release_sha` đã ghi trong journey,
 operator và JSON scope. Ví dụ Safari:
