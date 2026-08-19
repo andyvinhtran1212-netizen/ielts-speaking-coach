@@ -2295,3 +2295,70 @@ before replacing the last complete snapshot.
   GET-only retry, mobile containment and desktop restoration.
 - TypeScript, production build, full frontend contracts and the backend audit
   engine suite run before Claude review and publication.
+
+---
+
+# Course B05 pronunciation and shadowing UI review
+
+> Audit date: 2026-08-19
+> Scope: learner flow for 12 fixed B05 sentences, cached reference audio,
+> per-sentence recording, one final submission and persisted results.
+
+## Summary
+
+The implemented flow keeps the learner on one sentence at a time while retaining
+a visible 12-sentence queue. Reference playback, speed control and recording are
+co-located; submission stays disabled until every sentence has a recording and
+the active recorder has stopped. Draft audio is isolated by user and bank in
+IndexedDB, survives a failed grading request, and is removed after a confirmed
+successful result.
+
+## Critical issues resolved
+
+### Issue: Microphone could remain active after navigation
+
+**Current State**: Every back, previous, next and queue-navigation action first
+waits for the active `MediaRecorder` to stop and persist its blob.
+
+**Problem**: Re-rendering a different sentence while the old recorder remained
+active would hide the real microphone state and could submit an older blob.
+
+**Recommendation**: Preserve the single `stopRecording()` boundary now used by
+all navigation paths; do not reintroduce DOM-only state for recording.
+
+**Impact**: The visible sentence, microphone indicator and submitted audio cannot
+drift apart.
+
+**Implementation Notes**: Final submission is also disabled while recording,
+and component teardown discards an unfinished blob and releases every track.
+
+## High priority improvements implemented
+
+- All recording and navigation targets are at least 44px and have visible
+  keyboard focus; the record control expands to full width on small screens.
+- The mobile layout becomes one column for playback, recording, queue, score
+  metrics and submission rather than forcing horizontal containment.
+- The result hierarchy leads with the aggregate score, then accuracy/fluency/
+  completeness, then the three weakest sentences and word-level focus.
+- Provider names and infrastructure limits are absent from learner-facing copy;
+  errors explain the next action and explicitly state that recordings remain.
+- Reduced-motion mode removes progress animation while retaining state changes.
+
+## Positive observations to preserve
+
+- `0.85×` is the default shadowing speed and `1×` remains one tap away.
+- The full authored sentence is always visible in the active card; the compact
+  queue supports orientation without duplicating twelve large cards.
+- A grading retry reuses one stable client ID, and concurrent retries cannot
+  produce duplicate paid grading calls.
+- Reference audio is cached course content; learner recordings are not uploaded
+  to permanent storage and only normalized feedback is returned to the browser.
+
+## Verification
+
+- Node tests cover practice, navigation, persisted failure and result states.
+- Backend tests cover the 12-sentence contract, 3-sentence/28-second batching,
+  omissions, invalid audio and retry concurrency.
+- Full TypeScript, OpenAPI drift generation and 640px responsive CSS rules are
+  checked before publication; a signed-in device pass remains the deployment
+  check for real microphone permission and Safari `audio/mp4` capture.

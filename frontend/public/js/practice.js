@@ -17,6 +17,22 @@
   // backend/services/audio_validation.py — sentinel pins both sides.
   var MIN_RECORD_SEC = { 1: 15, 2: 80, 3: 25 };
 
+  // Safari 26 claims MediaRecorder webm/opus support but emits WebM with
+  // broken packet timestamps (20ms Opus frames written at ~2.5ms PTS): a 90s
+  // Part-2 take decoded to a 2.6s container holding ~21s of frames, and the
+  // backend measured 45s (Gate E real-device journey, 2026-08-19). Real
+  // WebKit must therefore keep recording on its long-proven audio/mp4 lane;
+  // Chromium-family engines keep webm first. iOS is WebKit regardless of the
+  // browser shell (CriOS/FxiOS), so the device check comes first.
+  function _mimeCandidates() {
+    var ua = String((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+    var isRealWebKit = /iP(hone|ad|od)/.test(ua)
+      || (/AppleWebKit\//.test(ua) && /Version\/\d/.test(ua) && !/Chrom/.test(ua));
+    return isRealWebKit
+      ? ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+      : ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  }
+
   var P2_PREP_SEC  = 60;   // Part 2 prep countdown (seconds)
   var P2_SPEAK_SEC = 120;  // Part 2 speaking countdown (seconds)
 
@@ -817,9 +833,9 @@
       _analyser = null;
     }
 
-    // Pick supported MIME type
+    // Pick supported MIME type (engine-aware — see _mimeCandidates)
     var mimeType = '';
-    var candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+    var candidates = _mimeCandidates();
     for (var i = 0; i < candidates.length; i++) {
       if (MediaRecorder.isTypeSupported(candidates[i])) { mimeType = candidates[i]; break; }
     }
@@ -3250,7 +3266,7 @@
     }
 
     var mimeType = '';
-    var candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+    var candidates = _mimeCandidates();
     for (var i = 0; i < candidates.length; i++) {
       if (MediaRecorder.isTypeSupported(candidates[i])) { mimeType = candidates[i]; break; }
     }

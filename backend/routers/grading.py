@@ -443,7 +443,7 @@ def _apply_off_topic_penalty(grading: dict, verdict, is_practice: bool) -> bool:
 async def grade_response_endpoint(
     session_id:  str,
     question_id: str       = Form(..., description="UUID of the question being answered"),
-    audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG)"),
+    audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)"),
     authorization: str | None = Header(default=None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ):

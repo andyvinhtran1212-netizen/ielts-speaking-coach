@@ -8785,6 +8785,40 @@ export interface paths {
         patch: operations["end_session_api_quiz_sessions__session_id__patch"];
         trace?: never;
     };
+    "/api/quiz/course/pronunciation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pronunciation State */
+        get: operations["pronunciation_state_api_quiz_course_pronunciation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/pronunciation/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Pronunciation */
+        post: operations["submit_pronunciation_api_quiz_course_pronunciation_submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reading/vocab": {
         parameters: {
             query?: never;
@@ -11211,7 +11245,7 @@ export interface components {
             /**
              * Audio File
              * Format: binary
-             * @description Audio recording (MP3 / WAV / WebM / OGG)
+             * @description Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)
              */
             audio_file: string;
         };
@@ -11268,6 +11302,23 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /** Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post */
+        Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post: {
+            /**
+             * Bank Id
+             * Format: uuid
+             */
+            bank_id: string;
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Sentence Ids */
+            sentence_ids: string;
+            /** Recordings */
+            recordings: string[];
         };
         /** Body_upload_image_admin_writing_prompts_upload_image_post */
         Body_upload_image_admin_writing_prompts_upload_image_post: {
@@ -28250,6 +28301,74 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EndSessionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pronunciation_state_api_quiz_course_pronunciation_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_pronunciation_api_quiz_course_pronunciation_submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post"];
             };
         };
         responses: {
