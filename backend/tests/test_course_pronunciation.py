@@ -15,7 +15,10 @@ from scripts.setup_course_pronunciation import _load
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT = ROOT / "data" / "course_pronunciation" / "C1-B05.json"
-MIGRATION = ROOT / "migrations" / "215_course_pronunciation_submissions.sql"
+MIGRATION = ROOT / "migrations" / "222_course_pronunciation_submissions.sql"
+HARDENING_MIGRATION = (
+    ROOT / "migrations" / "223_course_pronunciation_service_role_grants.sql"
+)
 
 
 def _decoded(order: int, *, duration_ms: int = 4_000, text: str | None = None):
@@ -133,6 +136,25 @@ def test_migration_keeps_results_service_role_only_and_preserves_history():
     assert "UNIQUE (user_id, client_id)" in sql
     assert "course_pronunciation_sets(id) ON DELETE SET NULL" in sql
     assert "CREATE POLICY" not in sql
+
+
+def test_course_migration_uses_the_next_unique_forward_number():
+    assert MIGRATION.exists()
+    assert not (ROOT / "migrations" / "215_course_pronunciation_submissions.sql").exists()
+    assert [path.name for path in sorted((ROOT / "migrations").glob("222_*.sql"))] == [
+        MIGRATION.name,
+    ]
+    assert [path.name for path in sorted((ROOT / "migrations").glob("223_*.sql"))] == [
+        HARDENING_MIGRATION.name,
+    ]
+
+
+def test_course_tables_revoke_every_direct_client_role_privilege():
+    sql = HARDENING_MIGRATION.read_text(encoding="utf-8")
+    for table in ("course_pronunciation_sets", "course_pronunciation_submissions"):
+        assert f"REVOKE ALL ON TABLE public.{table}" in sql
+        assert f"GRANT ALL ON TABLE public.{table} TO service_role" in sql
+    assert "FROM PUBLIC, anon, authenticated" in sql
 
 
 def test_router_is_mounted_on_the_backend_app():
