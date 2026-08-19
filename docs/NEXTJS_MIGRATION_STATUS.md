@@ -38,10 +38,12 @@ operational gates must also be closed before the migration can be called done.
 
 Operational checkpoint **2026-08-19**: all core coexistence three-phase drills
 are complete. Real-device Safari desktop and iOS Safari evidence is complete,
-with pair verification PASS. That evidence changed the frozen manifest to
-critical-suite v8, so no earlier clean candidate can carry forward: the current
-qualifying streak is **0/20**. Railway staging is active on
-`6078d2bb438459cebded2e28b1c367714f2b6e0d`; the first v8 canary must prove
-matching frontend/backend provenance before the remaining streak can accrue.
+with pair verification PASS. Gate E canary `32232288966` then exposed a
+Playwright-only response-body race in the Speaking launcher assertion, so the
+corrected frozen manifest is critical-suite v9 and no earlier clean candidate
+can carry forward: the current qualifying streak remains **0/20**. Railway and
+Vercel staging are active on `0a17fad15bc0723992967d8fbc06f0504802530c`;
+the first v9 canary must prove matching frontend/backend provenance before the
+remaining streak can accrue.
 Gate F observation began at `2026-08-17T00:15:22Z`, but retirement/permanent
 redirects must not start before its operational and time-window criteria close.
