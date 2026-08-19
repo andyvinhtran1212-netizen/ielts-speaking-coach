@@ -36,10 +36,12 @@ This static gate does not replace Preview/staging, persistence, failure-mode,
 device, accessibility, performance, rollback, drain or soak evidence. Those
 operational gates must also be closed before the migration can be called done.
 
-Operational checkpoint **2026-08-18**: all core coexistence three-phase drills
-are complete and trusted Staging E2E run `32136607306` passed the live suite,
-all frozen failure matrices and exact frontend/backend staging provenance at
-`37e9b882b192a5abb068e01abd98feeb39c8f9f2`. Gate E remains open because the
-clean streak is **1/20** and real-device Safari 15.6/iOS 15.8.5 evidence is
-still missing. Gate F retirement/permanent redirects must not start from this
-checkpoint alone.
+Operational checkpoint **2026-08-19**: all core coexistence three-phase drills
+are complete. Real-device Safari desktop and iOS Safari evidence is complete,
+with pair verification PASS. That evidence changed the frozen manifest to
+critical-suite v8, so no earlier clean candidate can carry forward: the current
+qualifying streak is **0/20**. Railway staging is active on
+`6078d2bb438459cebded2e28b1c367714f2b6e0d`; the first v8 canary must prove
+matching frontend/backend provenance before the remaining streak can accrue.
+Gate F observation began at `2026-08-17T00:15:22Z`, but retirement/permanent
+redirects must not start before its operational and time-window criteria close.

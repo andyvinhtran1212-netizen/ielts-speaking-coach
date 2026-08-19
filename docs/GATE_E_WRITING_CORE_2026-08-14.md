@@ -107,5 +107,7 @@ Mọi path fail nếu có production egress hoặc uncaught browser error.
 `frontend/tooling/gate-e-critical-suite.json` chuyển
 `failure_injection.status=complete` sau khi Speaking live-staging journey chứng
 minh commit-then-response-loss được canonical GET reconcile mà không replay.
-Gate E vẫn còn thiếu Safari/iOS thật và 19 clean run còn lại: trusted run
-`32136607306` là candidate **1/20** trên frozen hash mới.
+Tại checkpoint 14/08, Gate E còn thiếu Safari/iOS thật và trusted run
+`32136607306` là candidate 1/20 của frozen manifest khi đó. Trạng thái này đã
+được supersede ngày 19/08: real-device evidence đã COMPLETE, manifest đổi sang
+critical-suite v8 và qualifying streak bắt buộc reset về **0/20**.
