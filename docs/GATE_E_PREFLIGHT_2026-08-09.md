@@ -29,13 +29,16 @@ khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn c
 Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
 hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
 emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
-ghi đủ project counts/version/outcome. Critical-suite v8 freeze 34 tests (33
+ghi đủ project counts/version/outcome. Critical-suite v9 freeze 34 tests (33
 pass + 1 intentional skip). Trusted run `32136607306` trên staging SHA
 `37e9b882b192a5abb068e01abd98feeb39c8f9f2` đã pass live suite, toàn bộ failure
 matrix/verifier và matching frontend/backend provenance, nhưng thuộc frozen
 manifest cũ nên không được carry forward. Safari/iOS thiết bị thật đã COMPLETE
 2026-08-19 (xem amendment đầu tài liệu); chuỗi bắt buộc đếm lại từ
-critical-suite v8 và hiện là **0/20**. Active-session affinity đã có
+critical-suite v9 và hiện là **0/20**. Canary v8 `32232288966` đã reset đúng về
+0 sau khi 32 test pass, 1 intentional skip và assertion launcher gặp race khi
+đọc lại response body sau điều hướng; v9 chỉ sửa cách assertion thu evidence,
+không đổi contract sản phẩm. Active-session affinity đã có
 runtime foundation, unit contract
 và persisted-affinity floor run `32043317793` trên SHA `e96c2cd`: session Legacy
 thật cùng dark Next claim `null → next`; hai stable URL đều reload/copy được với
@@ -76,7 +79,7 @@ trên `c800dfedf4c2f5faa921b8230aadfd60d98059b7`, restore `32128868942` attempt 
 trên `b07e8325edc3854e1dbd0f2702f32e4108577839`; cả ba phase có matching
 frontend/backend staging provenance.
 Thiết bị Safari/iOS thật đã hoàn tất 2026-08-19; qualifying streak đếm lại từ
-critical-suite v8 nên chưa có run nào tích lũy. Vì vậy canonical core cutover
+critical-suite v9 nên chưa có run nào tích lũy. Vì vậy canonical core cutover
 vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
@@ -86,7 +89,7 @@ vẫn bị chặn bởi Gate E.
 | Versioned Safari/iOS/Chromium device matrix xanh | **PASS** (2026-08-19) | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier; real-device COMPLETE: safari-desktop `32225845849` + ios-safari `32226876978`, pair `32227093444` (`docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`) | Không còn cho hàng này — WebKit/static scan vẫn không được tính thay thiết bị thật ở các lần thu lại sau. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PASS** | Bốn domain đều có automated four-path matrix; trusted run `32136607306` pass Speaking 46, Reading 12, Listening 27 và Writing 12 case, kèm semantic verifier; Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ live three-phase trên matching frontend/backend staging SHA | Không còn khoảng trống cho tiêu chí automated/cross-version này; real-device requirement được theo dõi ở hàng riêng. |
 | Sticky active-session hoặc drain strategy đã drill | **PASS** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ three-phase trên matching provenance. Writing floor `32121670793` attempt 3, rollback `32126575888` attempt 2 và restore `32128868942` attempt 2 đều pass. | Không còn khoảng trống affinity/drain cho năm surface; giữ regression evidence cho tới Gate F. |
-| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Trusted run `32136607306` pass 33 + 1 intentional skip live-staging tests, Speaking 46, Reading 12, Listening 27 và Writing 12 case; provenance frontend/backend đều đúng `37e9b882…`; `failure_matrix_complete=true`, nhưng run thuộc frozen manifest trước v8 và không được tính vào streak hiện tại | Ledger hiện **0/20**; còn thiếu 20 consecutive clean run thật trên critical-suite v8. Cơ chế đếm không thay thế các lần chạy thật. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Trusted run `32136607306` pass 33 + 1 intentional skip live-staging tests, Speaking 46, Reading 12, Listening 27 và Writing 12 case; provenance frontend/backend đều đúng `37e9b882…`; `failure_matrix_complete=true`, nhưng run thuộc frozen manifest trước v9 và không được tính vào streak hiện tại. Canary v8 `32232288966` fail-closed do response-body race trong test launcher. | Ledger hiện **0/20**; còn thiếu 20 consecutive clean run thật trên critical-suite v9. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -132,14 +135,15 @@ vẫn bị chặn bởi Gate E.
   provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; Speaking
   failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Ledger
   reset trên fail/unexpected skip/flake/rerun, history gap hoặc release drift.
-  Frozen manifest đã đổi sang v8 sau khi thu real-device evidence, nên candidate
-  thuộc manifest trước không được carry forward. Chưa có qualifying run nào sau
-  lần reset bắt buộc; ledger hiện là **0/20**.
+  Frozen manifest đã đổi sang v9 sau khi canary v8 phát hiện response-body race
+  trong test launcher, nên candidate thuộc manifest trước không được carry
+  forward. Chưa có qualifying run nào sau lần reset bắt buộc; ledger hiện là
+  **0/20**.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
   thư mục `frontend/tests/staging-e2e/`.
-- **Suggested minimal fix còn lại:** giữ frozen manifest v8 ổn định, chạy một
+- **Suggested minimal fix còn lại:** giữ frozen manifest v9 ổn định, chạy một
   canary có matching frontend/backend provenance rồi để nightly workflow tích
   lũy đủ 20 clean run. Không backfill run trước
   khi ledger/provenance tồn tại và không tính run có retry/history gap.
