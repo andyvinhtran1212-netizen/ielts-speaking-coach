@@ -1,6 +1,10 @@
 # Gate E Speaking — real-device evidence runbook — 2026-08-11
 
-**Trạng thái:** RUNNER READY; SAFARI/iOS ARTIFACTS PENDING. Batch này không đổi
+**Trạng thái:** SAFARI/iOS ARTIFACTS COMPLETE 2026-08-19 — safari-desktop run
+`32225845849` + ios-safari run `32226876978`, pair `32227093444` PASS trên
+staging `3dce244f`; hồ sơ `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`.
+Runbook này giữ nguyên làm quy trình chuẩn cho mọi lần thu lại (đổi thiết bị/
+version đích phải sửa manifest bằng PR trước). Batch gốc không đổi
 `route_ready` hoặc `admit_new`, và không coi Playwright WebKit là Safari/iOS thật.
 
 > **Amendment 2026-08-19:** hai hàng real-device được re-pin từ floor hardware

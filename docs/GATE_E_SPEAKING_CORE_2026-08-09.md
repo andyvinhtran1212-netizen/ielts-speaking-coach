@@ -124,10 +124,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
    không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
    Safari shipping, nên đây không phải bằng chứng background/microphone thật.
-   Safari/iOS thật vẫn PENDING và phải chạy đúng `real_device_requirements` trong
-   manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
-   `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
-   không được tính thay hai artifact thật.
+   Safari/iOS thật đã COMPLETE 2026-08-19: hai artifact thật thu theo
+   `real_device_requirements` (safari-desktop run `32225845849`, ios-safari run
+   `32226876978`, pair verification `32227093444`, staging SHA `3dce244f`) —
+   hồ sơ tại `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`. Schema/validator/
+   workflow manual tại `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`;
+   runner-ready trước đó không được tính thay hai artifact thật.
 4. ✅ `next.route_ready=true` ở release riêng trong khi `admit_new=legacy`; commit
    đã deploy của release này mới được ghi làm coexistence rollback floor SHA.
 5. Thu Safari/iOS thật và chạy drill tab Legacy cũ, tab Next mới,
