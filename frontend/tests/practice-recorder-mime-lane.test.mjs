@@ -32,18 +32,22 @@ function candidatesFor(userAgent) {
 const SAFARI_26_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15';
 const SAFARI_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6 Mobile/15E148 Safari/604.1';
 const CHROME_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/139.0.0.0 Mobile/15E148 Safari/604.1';
+const FIREFOX_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/142.0 Mobile/15E148 Safari/605.1.15';
 const CHROME_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36';
 const EDGE_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0';
+const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0';
+const SAMSUNG_ANDROID = 'Mozilla/5.0 (Linux; Android 16; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/140.0.0.0 Mobile Safari/537.36';
+const OPERA_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 OPR/114.0.0.0';
 
 describe('recorder MIME lane per engine', () => {
   test('real WebKit records on the audio/mp4 lane first', () => {
-    for (const ua of [SAFARI_26_MAC, SAFARI_IOS, CHROME_IOS]) {
+    for (const ua of [SAFARI_26_MAC, SAFARI_IOS, CHROME_IOS, FIREFOX_IOS]) {
       assert.equal(candidatesFor(ua)[0], 'audio/mp4', ua);
     }
   });
 
-  test('Chromium-family keeps webm/opus first with mp4 as final fallback', () => {
-    for (const ua of [CHROME_MAC, EDGE_WIN]) {
+  test('non-WebKit engines keep webm/opus first with mp4 as final fallback', () => {
+    for (const ua of [CHROME_MAC, EDGE_WIN, FIREFOX_MAC, SAMSUNG_ANDROID, OPERA_WIN]) {
       const c = candidatesFor(ua);
       assert.equal(c[0], 'audio/webm;codecs=opus', ua);
       assert.equal(c[c.length - 1], 'audio/mp4', ua);
@@ -93,11 +97,12 @@ describe('the wire: native SpeakingRecorderController lane', () => {
   }
 
   test('pickSpeakingRecorderMime is engine-aware', () => {
-    assert.equal(pickSpeakingRecorderMime(OmniRecorder, SAFARI_26_MAC), 'audio/mp4');
-    assert.equal(pickSpeakingRecorderMime(OmniRecorder, SAFARI_IOS), 'audio/mp4');
-    assert.equal(pickSpeakingRecorderMime(OmniRecorder, CHROME_IOS), 'audio/mp4');
-    assert.equal(pickSpeakingRecorderMime(OmniRecorder, CHROME_MAC), 'audio/webm;codecs=opus');
-    assert.equal(pickSpeakingRecorderMime(OmniRecorder, EDGE_WIN), 'audio/webm;codecs=opus');
+    for (const ua of [SAFARI_26_MAC, SAFARI_IOS, CHROME_IOS, FIREFOX_IOS]) {
+      assert.equal(pickSpeakingRecorderMime(OmniRecorder, ua), 'audio/mp4', ua);
+    }
+    for (const ua of [CHROME_MAC, EDGE_WIN, FIREFOX_MAC, SAMSUNG_ANDROID, OPERA_WIN]) {
+      assert.equal(pickSpeakingRecorderMime(OmniRecorder, ua), 'audio/webm;codecs=opus', ua);
+    }
   });
 
   test('a controller started under a Safari UA constructs MediaRecorder with audio/mp4', async () => {
