@@ -132,6 +132,11 @@ describe('Gate E device matrix is pinned and bounded', () => {
       assert.match(source, /cleanupE2ESession\(request, [^,]+, adminToken\)/);
     }
     assert.match(SPEAKING_START_SPEC, /page\.waitForResponse\([\s\S]*?created\.push\(createdSessionId\)/);
+    assert.match(
+      SPEAKING_START_SPEC,
+      /const startClick[\s\S]*?created\.push\(createdSessionId\)[\s\S]*?await startClick[\s\S]*?page\.waitForURL/,
+      'session cleanup must be registered before click/navigation failure can surface',
+    );
     assert.match(LIVE_FAILURE_SPEC, /test\.afterEach\([\s\S]*?cleanupE2ESession/);
   });
 
