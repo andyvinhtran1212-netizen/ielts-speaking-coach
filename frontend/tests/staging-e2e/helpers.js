@@ -24,6 +24,7 @@ const BYPASS_HEADERS = BYPASS
   : {};
 const TOOLBAR_HEADER = Object.freeze({ 'x-vercel-skip-toolbar': '1' });
 const TOOLBAR_TAG = 'vercel-live-feedback';
+const TOOLBAR_SCRIPT_PATTERN = 'https://vercel.live/_next-live/**';
 const toolbarScopedContexts = new WeakSet();
 
 /** Runs before page scripts and synchronously rejects Vercel's injected node. */
@@ -53,6 +54,17 @@ async function installToolbarSkip(context, baseURL) {
   if (toolbarScopedContexts.has(context)) return;
   const origin = new URL(baseURL).origin;
   await context.addInitScript(suppressInjectedVercelToolbar, TOOLBAR_TAG);
+  // Vercel can ignore the skip header on a custom Preview alias and inject a
+  // script that retries hundreds of times. Neutralize only the platform toolbar
+  // namespace so application requests and the production-egress guard remain
+  // observable while load/networkidle can settle deterministically.
+  await context.route(TOOLBAR_SCRIPT_PATTERN, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: '',
+    });
+  });
   await context.route(`${origin}/**`, async (route) => {
     await route.continue({
       headers: { ...route.request().headers(), ...TOOLBAR_HEADER },
@@ -73,6 +85,7 @@ module.exports = {
   BYPASS_HEADERS,
   PRODUCTION_ORIGINS,
   TOOLBAR_HEADER,
+  TOOLBAR_SCRIPT_PATTERN,
   TOOLBAR_TAG,
   installToolbarSkip,
   primeBypassCookie,
