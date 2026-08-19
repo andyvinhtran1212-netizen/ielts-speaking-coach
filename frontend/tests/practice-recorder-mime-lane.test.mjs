@@ -12,6 +12,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
+import {
+  SpeakingRecorderController,
+  pickSpeakingRecorderMime,
+} from '../lib/speaking-recorder-controller.mjs';
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = readFileSync(path.join(root, 'public/js/practice.js'), 'utf8');
 
@@ -64,5 +69,63 @@ describe('the wire: both recorder sites use the shared helper', () => {
 
   test('upload path maps audio/mp4 to a Whisper-safe filename', () => {
     assert.match(SRC, /'audio\/mp4': 'm4a'/);
+  });
+});
+
+// The Next /practice/session route records through PracticeRecorderBridge →
+// SpeakingRecorderController, NOT through practice.js's inline recorder
+// (review #1261 P1: the first fix round covered only the legacy sites).
+// Pin the native path with the SHIPPED module, end to end through start().
+describe('the wire: native SpeakingRecorderController lane', () => {
+  class OmniRecorder {
+    static instances = [];
+    static isTypeSupported() { return true; }
+    constructor(stream, options = {}) {
+      this.stream = stream;
+      this.mimeType = options.mimeType || '';
+      this.state = 'inactive';
+      this.ondataavailable = null;
+      this.onstop = null;
+      OmniRecorder.instances.push(this);
+    }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; if (this.onstop) this.onstop(); }
+  }
+
+  test('pickSpeakingRecorderMime is engine-aware', () => {
+    assert.equal(pickSpeakingRecorderMime(OmniRecorder, SAFARI_26_MAC), 'audio/mp4');
+    assert.equal(pickSpeakingRecorderMime(OmniRecorder, SAFARI_IOS), 'audio/mp4');
+    assert.equal(pickSpeakingRecorderMime(OmniRecorder, CHROME_IOS), 'audio/mp4');
+    assert.equal(pickSpeakingRecorderMime(OmniRecorder, CHROME_MAC), 'audio/webm;codecs=opus');
+    assert.equal(pickSpeakingRecorderMime(OmniRecorder, EDGE_WIN), 'audio/webm;codecs=opus');
+  });
+
+  test('a controller started under a Safari UA constructs MediaRecorder with audio/mp4', async () => {
+    for (const [ua, expected] of [
+      [SAFARI_26_MAC, 'audio/mp4'],
+      [CHROME_MAC, 'audio/webm;codecs=opus'],
+    ]) {
+      OmniRecorder.instances.length = 0;
+      const track = { stop() {} };
+      const controller = new SpeakingRecorderController({
+        userAgent: ua,
+        mediaDevices: { getUserMedia: async () => ({ active: true, getTracks: () => [track] }) },
+        MediaRecorderCtor: OmniRecorder,
+        AudioContextCtor: function () { throw new Error('no audio ctx in node'); },
+        BlobCtor: globalThis.Blob,
+        setIntervalFn: () => 1,
+        clearIntervalFn: () => {},
+      });
+      await controller.start({});
+      assert.equal(OmniRecorder.instances.length, 1, ua);
+      assert.equal(OmniRecorder.instances[0].mimeType, expected, ua);
+      controller.reset();
+    }
+  });
+
+  test('the bridge leaves the environment default so the real browser UA decides', () => {
+    const bridge = readFileSync(
+      path.join(root, 'app/(authed-practice)/practice/session/practice-recorder-bridge.tsx'), 'utf8');
+    assert.match(bridge, /new SpeakingRecorderController\(\)/);
   });
 });

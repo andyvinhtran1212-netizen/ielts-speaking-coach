@@ -1,9 +1,29 @@
-const MIME_CANDIDATES = Object.freeze([
+// Safari 26 claims MediaRecorder webm/opus support but emits WebM with
+// broken packet timestamps (20ms Opus frames at ~2.5ms PTS — Gate E
+// real-device journey 2026-08-19: a 90s take decoded to 2.6s of container
+// holding ~21s of frames; backend measured 45s). Real WebKit must record on
+// its long-proven audio/mp4 lane; Chromium engines keep webm first. iOS is
+// WebKit regardless of browser shell (CriOS/FxiOS), so the device check
+// comes first. Mirrors _mimeCandidates() in public/js/practice.js.
+const CHROMIUM_MIME_CANDIDATES = Object.freeze([
   'audio/webm;codecs=opus',
   'audio/webm',
   'audio/ogg;codecs=opus',
   'audio/mp4',
 ]);
+
+const WEBKIT_MIME_CANDIDATES = Object.freeze([
+  'audio/mp4',
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+]);
+
+export function isRealWebKitUserAgent(userAgent) {
+  const ua = String(userAgent || '');
+  return /iP(hone|ad|od)/.test(ua)
+    || (/AppleWebKit\//.test(ua) && /Version\/\d/.test(ua) && !/Chrom/.test(ua));
+}
 
 export class SpeakingRecorderError extends Error {
   constructor(code, message, cause) {
@@ -51,9 +71,12 @@ function stopTracks(stream) {
   });
 }
 
-export function pickSpeakingRecorderMime(MediaRecorderCtor) {
+export function pickSpeakingRecorderMime(MediaRecorderCtor, userAgent) {
   if (!MediaRecorderCtor || typeof MediaRecorderCtor.isTypeSupported !== 'function') return '';
-  for (const candidate of MIME_CANDIDATES) {
+  const candidates = isRealWebKitUserAgent(userAgent)
+    ? WEBKIT_MIME_CANDIDATES
+    : CHROMIUM_MIME_CANDIDATES;
+  for (const candidate of candidates) {
     try {
       if (MediaRecorderCtor.isTypeSupported(candidate)) return candidate;
     } catch { /* old engines may throw for a candidate */ }
@@ -66,6 +89,7 @@ export class SpeakingRecorderController {
     const browser = environment.window || globalThis.window || globalThis;
     this.mediaDevices = environment.mediaDevices || browser.navigator?.mediaDevices || null;
     this.MediaRecorderCtor = environment.MediaRecorderCtor || browser.MediaRecorder || null;
+    this.userAgent = environment.userAgent || browser.navigator?.userAgent || '';
     this.AudioContextCtor = environment.AudioContextCtor
       || browser.AudioContext
       || browser.webkitAudioContext
@@ -162,7 +186,7 @@ export class SpeakingRecorderController {
       this.onTick = typeof onTick === 'function' ? onTick : null;
       this.onRecorded = typeof onRecorded === 'function' ? onRecorded : null;
 
-      const mimeType = pickSpeakingRecorderMime(this.MediaRecorderCtor);
+      const mimeType = pickSpeakingRecorderMime(this.MediaRecorderCtor, this.userAgent);
       let recorder;
       try {
         recorder = new this.MediaRecorderCtor(
