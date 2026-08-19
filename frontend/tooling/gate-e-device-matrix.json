@@ -40,16 +40,16 @@
   ],
   "real_device_requirements": [
     {
-      "id": "safari-floor",
-      "platform": "macOS 12.5",
-      "browser": "Safari 15.6",
+      "id": "safari-desktop",
+      "platform": "macOS 26.5.2",
+      "browser": "Safari 26.5.2",
       "status": "pending",
       "evidence_class": "manual-or-cloud-real-device"
     },
     {
-      "id": "ios-safari-floor",
-      "platform": "iOS 15.8.5",
-      "browser": "Mobile Safari bundled with iOS 15.8.5",
+      "id": "ios-safari",
+      "platform": "iOS 26.6",
+      "browser": "Mobile Safari bundled with iOS 26.6",
       "status": "pending",
       "evidence_class": "manual-or-cloud-real-device"
     }

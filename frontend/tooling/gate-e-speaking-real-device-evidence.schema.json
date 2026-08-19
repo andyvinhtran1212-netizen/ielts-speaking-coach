@@ -35,7 +35,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "matrix_id": { "const": "gate-e-speaking-device-matrix-v1" },
-    "requirement_id": { "enum": ["safari-floor", "ios-safari-floor"] },
+    "requirement_id": { "enum": ["safari-desktop", "ios-safari"] },
     "status": { "const": "complete" },
     "evidence_class": { "const": "manual-real-device" },
     "source_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },

@@ -37,7 +37,7 @@ function fixture(requirementId, runId = '501') {
       observed_backend_release_sha: SHA,
       observed_platform: requirement.platform,
       observed_browser: requirement.browser,
-      device_model: requirementId === 'safari-floor' ? 'MacBook Air M1' : 'iPhone 6s',
+      device_model: requirementId === 'safari-desktop' ? 'MacBook Pro' : 'iPhone 17 Pro',
       operator: 'Gate E operator',
       journey_started_at: '2026-08-11T00:10:00Z',
       observed_at: '2026-08-11T00:30:00Z',
@@ -82,7 +82,7 @@ function fixture(requirementId, runId = '501') {
 
 describe('Speaking Gate E real-device evidence validator', () => {
   test('accepts each exact physical-device row and emits secret-free canonical evidence', () => {
-    for (const id of ['safari-floor', 'ios-safari-floor']) {
+    for (const id of ['safari-desktop', 'ios-safari']) {
       const result = validateSpeakingRealDeviceEvidence(fixture(id));
       assert.equal(result.ok, true, result.errors.join(','));
       assert.equal(result.evidence.requirement_id, id);
@@ -102,7 +102,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects a partial journey, synthetic version, runtime errors and stale attestation', () => {
-    const partial = fixture('safari-floor');
+    const partial = fixture('safari-desktop');
     delete partial.input.scope_results['route-exit-microphone-release'];
     partial.input.observed_platform = 'macOS 14';
     partial.input.console_errors = ['NotAllowedError'];
@@ -123,7 +123,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects release drift, a session without persisted truth and rerun cherry-picking', () => {
-    const unsafe = fixture('ios-safari-floor');
+    const unsafe = fixture('ios-safari');
     unsafe.provenance.backend_release = 'b'.repeat(40);
     unsafe.input.observed_release_sha = 'b'.repeat(40);
     unsafe.canonicalSession.started_at = '2026-08-10T00:00:00Z';
@@ -139,7 +139,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects backend deployment drift between the persisted journey and later provenance', () => {
-    const drifted = fixture('safari-floor');
+    const drifted = fixture('safari-desktop');
     drifted.input.observed_backend_release_sha = 'b'.repeat(40);
     const result = validateSpeakingRealDeviceEvidence(drifted);
     assert.equal(result.ok, false);
@@ -148,7 +148,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects a pre-existing session or a response not submitted in the journey', () => {
-    const reused = fixture('safari-floor');
+    const reused = fixture('safari-desktop');
     reused.canonicalSession.started_at = '2026-08-11T00:09:59Z';
     reused.canonicalSession.evidence_response_id = '323e4567-e89b-42d3-a456-426614174002';
     const result = validateSpeakingRealDeviceEvidence(reused);
@@ -158,13 +158,13 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects a canonical response persisted after the attested journey ended', () => {
-    const late = fixture('safari-floor');
+    const late = fixture('safari-desktop');
     late.canonicalSession.evidence_response_persisted_at = '2026-08-11T00:30:00.001Z';
     const result = validateSpeakingRealDeviceEvidence(late);
     assert.equal(result.ok, false);
     assert.ok(result.errors.includes('canonical-response-time-mismatch'));
 
-    const early = fixture('safari-floor');
+    const early = fixture('safari-desktop');
     early.canonicalSession.evidence_response_persisted_at = '2026-08-11T00:09:59.999Z';
     const earlyResult = validateSpeakingRealDeviceEvidence(early);
     assert.equal(earlyResult.ok, false);
@@ -172,7 +172,7 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('rejects a canonical session outside Practice Part 2', () => {
-    const wrongJourney = fixture('safari-floor');
+    const wrongJourney = fixture('safari-desktop');
     wrongJourney.canonicalSession.mode = 'full_test';
     wrongJourney.canonicalSession.part = '2';
     const result = validateSpeakingRealDeviceEvidence(wrongJourney);
@@ -182,8 +182,8 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('requires both distinct device artifacts from one exact staging source', () => {
-    const safari = validateSpeakingRealDeviceEvidence(fixture('safari-floor', '501')).evidence;
-    const ios = validateSpeakingRealDeviceEvidence(fixture('ios-safari-floor', '502')).evidence;
+    const safari = validateSpeakingRealDeviceEvidence(fixture('safari-desktop', '501')).evidence;
+    const ios = validateSpeakingRealDeviceEvidence(fixture('ios-safari', '502')).evidence;
     assert.deepEqual(validateSpeakingRealDeviceEvidencePair(MANIFEST, [safari, ios], SHA), {
       ok: true,
       errors: [],
@@ -198,8 +198,8 @@ describe('Speaking Gate E real-device evidence validator', () => {
   });
 
   test('revalidates complete artifact semantics before accepting a plausible pair', () => {
-    const safari = validateSpeakingRealDeviceEvidence(fixture('safari-floor', '501')).evidence;
-    const ios = validateSpeakingRealDeviceEvidence(fixture('ios-safari-floor', '502')).evidence;
+    const safari = validateSpeakingRealDeviceEvidence(fixture('safari-desktop', '501')).evidence;
+    const ios = validateSpeakingRealDeviceEvidence(fixture('ios-safari', '502')).evidence;
     safari.scope_results['record-stop-playback'] = 'failed';
     safari.console_errors = ['NotAllowedError'];
     safari.canonical_session.persisted_response_count = 0;
@@ -212,14 +212,14 @@ describe('Speaking Gate E real-device evidence validator', () => {
     assert.ok(artifact.errors.includes('workflow-shape-mismatch'));
     const pair = validateSpeakingRealDeviceEvidencePair(MANIFEST, [safari, ios], SHA);
     assert.equal(pair.ok, false);
-    assert.ok(pair.errors.includes('safari-floor:scope-not-passed'));
-    assert.ok(pair.errors.includes('safari-floor:console-errors-present'));
-    assert.ok(pair.errors.includes('safari-floor:canonical-response-missing'));
-    assert.ok(pair.errors.includes('safari-floor:workflow-shape-mismatch'));
+    assert.ok(pair.errors.includes('safari-desktop:scope-not-passed'));
+    assert.ok(pair.errors.includes('safari-desktop:console-errors-present'));
+    assert.ok(pair.errors.includes('safari-desktop:canonical-response-missing'));
+    assert.ok(pair.errors.includes('safari-desktop:workflow-shape-mismatch'));
   });
 
   test('binds each artifact to a successful immutable GitHub workflow run', () => {
-    const evidence = validateSpeakingRealDeviceEvidence(fixture('safari-floor', '501')).evidence;
+    const evidence = validateSpeakingRealDeviceEvidence(fixture('safari-desktop', '501')).evidence;
     const run = {
       id: 501,
       name: 'Speaking Gate E real-device evidence',

@@ -329,7 +329,7 @@ export function validateSpeakingRealDeviceEvidencePair(
 ) {
   const errors = [];
   const items = Array.isArray(evidenceList) ? evidenceList : [];
-  const expectedIds = ['ios-safari-floor', 'safari-floor'];
+  const expectedIds = ['ios-safari', 'safari-desktop'];
   const actualIds = items.map((item) => item?.requirement_id).sort();
   if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
     errors.push('requirement-pair-mismatch');
