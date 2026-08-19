@@ -44,6 +44,7 @@ export function CourseBehavior() {
 
     let runner: any = null;
     let pronunciation: any = null;
+    let pronunciationVisible = false;
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
@@ -587,6 +588,7 @@ export function CourseBehavior() {
       }
 
       function renderPronunciation() {
+        if (!pronunciationVisible) return;
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         $('cx-q')!.hidden = true;
@@ -602,8 +604,12 @@ export function CourseBehavior() {
       }
 
       async function openPronunciation() {
+        pronunciationVisible = true;
         await pronunciationLoaded;
-        if (!pronunciationReady || !pronunciation.exists) return;
+        if (!pronunciationReady || !pronunciation.exists) {
+          pronunciationVisible = false;
+          return;
+        }
         renderPronunciation();
       }
 
@@ -613,6 +619,9 @@ export function CourseBehavior() {
       }
 
       async function closePronunciation() {
+        // Hide ownership before awaiting stop/getUserMedia cancellation. Any
+        // older async click handler may finish, but must not reopen this screen.
+        pronunciationVisible = false;
         await pronunciation.stopRecording();
         $('cx-pronunciation')!.hidden = true;
         $('cx-done')!.hidden = false;
@@ -635,6 +644,11 @@ export function CourseBehavior() {
         const pending = pronunciation.submit();
         renderPronunciation();
         await pending;
+        renderPronunciation();
+      }
+
+      async function startNewPronunciationAttempt() {
+        await pronunciation.newAttempt();
         renderPronunciation();
       }
 
@@ -828,7 +842,7 @@ export function CourseBehavior() {
         if (t.id === 'cp-next') return void movePronunciation(1);
         if (t.closest?.('#cp-record')) return void togglePronunciationRecording();
         if (t.id === 'cp-submit') return void submitPronunciation();
-        if (t.id === 'cp-new') return void pronunciation.newAttempt().then(renderPronunciation);
+        if (t.id === 'cp-new') return void startNewPronunciationAttempt();
         // Hai nút, hai việc: `cw-submit` mở bước xác nhận, `cw-confirm` mới nộp
         // thật. Dùng chung một id cho cả hai là dựng lại đúng cú bấm-một-nhát.
         if (t.id === 'cw-submit') return onWritingArm();
@@ -888,6 +902,7 @@ export function CourseBehavior() {
     })();
 
     return () => {
+      pronunciationVisible = false;
       if (pronunciation) pronunciation.destroy();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);

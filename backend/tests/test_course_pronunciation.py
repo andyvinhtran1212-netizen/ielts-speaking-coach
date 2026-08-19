@@ -141,6 +141,17 @@ def test_router_is_mounted_on_the_backend_app():
     assert "app.include_router(course_pronunciation_router)" in main_source
 
 
+def test_public_attempt_returns_idempotency_key_without_provider_payloads():
+    public = cp._public_attempt({
+        "id": "sub-1",
+        "client_id": "client-1",
+        "status": "completed",
+        "results": {"sentences": [], "provider_payloads": [{"private": True}]},
+    })
+    assert public["client_id"] == "client-1"
+    assert "provider_payloads" not in public["results"]
+
+
 @pytest.mark.asyncio
 async def test_two_retries_cannot_both_spend_azure_calls(monkeypatch):
     failed = {"id": "sub-1", "bank_id": "bank-1", "status": "failed"}

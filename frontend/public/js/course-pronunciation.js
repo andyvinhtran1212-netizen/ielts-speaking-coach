@@ -22,13 +22,13 @@ function openDb() {
   });
 }
 
-async function dbPut(key, blob) {
+async function dbPut(key, value) {
   try {
     const db = await openDb();
     if (!db) return;
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(blob, key);
+      tx.objectStore(STORE).put(value, key);
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
@@ -92,7 +92,9 @@ function uuid() {
   });
 }
 
-export function createPronunciation({ api, userId }) {
+const indexedDbDraftStore = { put: dbPut, get: dbGet, delete: dbDelete };
+
+export function createPronunciation({ api, userId, draftStore = indexedDbDraftStore }) {
   let bankId = null;
   let exercise = null;
   let latest = null;
@@ -105,6 +107,8 @@ export function createPronunciation({ api, userId }) {
   let stopPromise = null;
   let finishStop = null;
   let destroyed = false;
+  let microphoneGeneration = 0;
+  let startingMicrophone = false;
   let clientId = null;
   let submitting = false;
   let errorMessage = '';
@@ -113,6 +117,11 @@ export function createPronunciation({ api, userId }) {
 
   const sentences = () => exercise?.sentences || [];
   const cacheKey = (id) => `${userId}:${bankId}:${id}`;
+  const attemptKey = (name) => `${userId}:${bankId}:attempt:${name}`;
+  const attemptCacheKeys = () => [
+    ...sentences().map((sentence) => cacheKey(sentence.id)),
+    attemptKey('active'), attemptKey('client-id'),
+  ];
 
   function setBlob(id, blob) {
     const old = objectUrls.get(id);
@@ -123,9 +132,27 @@ export function createPronunciation({ api, userId }) {
 
   async function restore() {
     for (const sentence of sentences()) {
-      const blob = await dbGet(cacheKey(sentence.id));
+      const blob = await draftStore.get(cacheKey(sentence.id));
       if (blob instanceof Blob && blob.size) setBlob(sentence.id, blob);
     }
+  }
+
+  function clearRecordings() {
+    objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    recordings.clear();
+    objectUrls.clear();
+  }
+
+  async function persistActiveAttempt() {
+    clientId = clientId || uuid();
+    await Promise.all([
+      draftStore.put(attemptKey('active'), true),
+      draftStore.put(attemptKey('client-id'), clientId),
+    ]);
+  }
+
+  async function clearAttemptCache() {
+    await draftStore.delete(attemptCacheKeys());
   }
 
   function stopStream() {
@@ -230,6 +257,10 @@ export function createPronunciation({ api, userId }) {
   }
 
   async function stopRecording() {
+    // Also invalidates an unresolved getUserMedia() request. Browsers do not
+    // expose an AbortSignal here, so a generation guard owns cancellation.
+    microphoneGeneration += 1;
+    startingMicrophone = false;
     if (recorder && recorder.state === 'recording') {
       recorder.stop();
       await stopPromise;
@@ -242,15 +273,28 @@ export function createPronunciation({ api, userId }) {
       await stopRecording();
       return false;
     }
+    if (startingMicrophone) {
+      await stopRecording();
+      return false;
+    }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       errorMessage = 'Trình duyệt này chưa hỗ trợ ghi âm. Hãy dùng Chrome, Safari hoặc Edge phiên bản mới.';
       return false;
     }
     const sentence = sentences()[selected];
+    const generation = ++microphoneGeneration;
+    let requestedStream = null;
+    startingMicrophone = true;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: {
+      requestedStream = await navigator.mediaDevices.getUserMedia({ audio: {
         echoCancellation: true, noiseSuppression: true, autoGainControl: true,
       } });
+      if (destroyed || generation !== microphoneGeneration) {
+        requestedStream.getTracks().forEach((track) => track.stop());
+        return false;
+      }
+      stream = requestedStream;
+      startingMicrophone = false;
       chunks = [];
       recorder = new MediaRecorder(stream, recorderOptions());
       recordingId = sentence.id;
@@ -263,7 +307,7 @@ export function createPronunciation({ api, userId }) {
           const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
           if (!destroyed && blob.size) {
             setBlob(sentence.id, blob);
-            await dbPut(cacheKey(sentence.id), blob);
+            await draftStore.put(cacheKey(sentence.id), blob);
           }
         } finally {
           chunks = [];
@@ -278,10 +322,14 @@ export function createPronunciation({ api, userId }) {
       recorder.start();
       return true;
     } catch (_error) {
-      stopStream();
-      recordingId = null;
-      errorMessage = 'Chưa mở được micro. Hãy cho phép truy cập micro rồi thử lại.';
+      requestedStream?.getTracks().forEach((track) => track.stop());
+      if (generation === microphoneGeneration && !destroyed) {
+        recordingId = null;
+        errorMessage = 'Chưa mở được micro. Hãy cho phép truy cập micro rồi thử lại.';
+      }
       return false;
+    } finally {
+      if (generation === microphoneGeneration) startingMicrophone = false;
     }
   }
 
@@ -289,7 +337,7 @@ export function createPronunciation({ api, userId }) {
     if (!exercise || recordings.size !== sentences().length || submitting || recordingId) return false;
     submitting = true;
     errorMessage = '';
-    clientId = clientId || uuid();
+    await persistActiveAttempt();
     const ids = sentences().map((sentence) => sentence.id);
     const form = new FormData();
     form.append('bank_id', bankId);
@@ -303,7 +351,7 @@ export function createPronunciation({ api, userId }) {
     try {
       latest = await api.upload('/api/quiz/course/pronunciation/submit', form);
       if (latest?.status === 'completed') {
-        await dbDelete(ids.map(cacheKey));
+        await clearAttemptCache();
         clientId = null;
       }
       return true;
@@ -321,9 +369,34 @@ export function createPronunciation({ api, userId }) {
       const state = await api.get('/api/quiz/course/pronunciation?bank_id=' + encodeURIComponent(bankId));
       exercise = state?.exercise || null;
       latest = state?.latest_attempt || null;
-      errorMessage = latest?.status === 'failed' ? String(latest.error_message || '') : '';
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
-      if (exercise && latest?.status !== 'completed') await restore();
+      if (exercise) {
+        const [cachedActive, cachedClientId] = await Promise.all([
+          draftStore.get(attemptKey('active')),
+          draftStore.get(attemptKey('client-id')),
+        ]);
+        await restore();
+        const hasDraft = recordings.size > 0;
+        if (cachedActive === true || hasDraft) {
+          if (latest?.status === 'completed'
+              && cachedClientId && latest.client_id === cachedClientId) {
+            // The same request finished while this tab was away. Its server
+            // result is canonical; the cached upload is no longer a new draft.
+            clearRecordings();
+            await clearAttemptCache();
+            clientId = null;
+          } else {
+            // A newer local retry must win over an older completed result.
+            clientId = cachedClientId || uuid();
+            await persistActiveAttempt();
+            if (latest?.status === 'completed') latest = null;
+          }
+        } else if (latest?.status !== 'completed') {
+          clientId = latest?.client_id || uuid();
+          await persistActiveAttempt();
+        }
+      }
+      errorMessage = latest?.status === 'failed' ? String(latest.error_message || '') : '';
       return !!exercise;
     } catch (error) {
       if (error?.status === 404) { exercise = null; return false; }
@@ -353,19 +426,18 @@ export function createPronunciation({ api, userId }) {
     async newAttempt() {
       latest = null;
       selected = 0;
-      clientId = null;
-      recordings.forEach((_blob, id) => {
-        const url = objectUrls.get(id); if (url) URL.revokeObjectURL(url);
-      });
-      recordings.clear(); objectUrls.clear();
-      await dbDelete(sentences().map((sentence) => cacheKey(sentence.id)));
+      clearRecordings();
+      await clearAttemptCache();
+      clientId = uuid();
+      await persistActiveAttempt();
     },
     destroy() {
       destroyed = true;
+      microphoneGeneration += 1;
+      startingMicrophone = false;
       if (recorder?.state === 'recording') recorder.stop();
       stopStream();
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
-      objectUrls.clear();
+      clearRecordings();
     },
   };
 }

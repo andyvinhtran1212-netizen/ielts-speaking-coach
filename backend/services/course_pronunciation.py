@@ -135,6 +135,9 @@ def _public_attempt(row: dict | None) -> dict | None:
     safe_results = {k: v for k, v in results.items() if k != "provider_payloads"}
     return {
         "id": row.get("id"),
+        # The learner reuses this persisted key after a reload so a retry cannot
+        # bypass the database idempotency constraint and spend another AI call.
+        "client_id": row.get("client_id"),
         "status": row.get("status"),
         "batch_count": row.get("batch_count") or 0,
         "pronunciation_score": row.get("pronunciation_score"),
