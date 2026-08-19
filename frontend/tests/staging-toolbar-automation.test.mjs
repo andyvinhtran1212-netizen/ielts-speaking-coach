@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   TOOLBAR_HEADER,
+  TOOLBAR_SCRIPT_PATTERN,
   TOOLBAR_TAG,
   installToolbarSkip,
   primeBypassCookie,
@@ -32,17 +33,28 @@ function fakeContext() {
 }
 
 describe('Vercel Toolbar automation isolation', () => {
-  test('installs the documented skip header only on the staging frontend origin', async () => {
+  test('keeps the skip header origin-scoped and neutralizes only the injected toolbar script', async () => {
     const context = fakeContext();
     await installToolbarSkip(context, 'https://staging.averlearning.com/path?ignored=1');
 
-    assert.equal(context.routes.length, 1);
-    assert.equal(context.routes[0].pattern, 'https://staging.averlearning.com/**');
+    assert.equal(context.routes.length, 2);
+    assert.equal(context.routes[0].pattern, TOOLBAR_SCRIPT_PATTERN);
+    assert.equal(context.routes[1].pattern, 'https://staging.averlearning.com/**');
     assert.equal(context.initScripts.length, 1);
     assert.equal(context.initScripts[0].arg, TOOLBAR_TAG);
 
-    let continuedHeaders = null;
+    let fulfilledResponse = null;
     await context.routes[0].handler({
+      fulfill: async (response) => { fulfilledResponse = response; },
+    });
+    assert.deepEqual(fulfilledResponse, {
+      status: 200,
+      contentType: 'application/javascript',
+      body: '',
+    });
+
+    let continuedHeaders = null;
+    await context.routes[1].handler({
       request: () => ({ headers: () => ({ accept: 'text/html' }) }),
       continue: async ({ headers }) => { continuedHeaders = headers; },
     });
@@ -57,7 +69,7 @@ describe('Vercel Toolbar automation isolation', () => {
     const context = fakeContext();
     await primeBypassCookie(context, 'https://staging.averlearning.com');
     await primeBypassCookie(context, 'https://staging.averlearning.com');
-    assert.equal(context.routes.length, 1);
+    assert.equal(context.routes.length, 2);
     assert.equal(context.initScripts.length, 1);
   });
 

@@ -220,6 +220,8 @@ describe('Gate E device matrix is pinned and bounded', () => {
   test('every bounded matrix journey enforces the shared production-egress denylist', () => {
     assert.match(HELPERS, /const PRODUCTION_ORIGINS = Object\.freeze/);
     assert.match(HELPERS, /'x-vercel-skip-toolbar': '1'/);
+    assert.match(HELPERS, /https:\/\/vercel\.live\/_next-live\/\*\*/);
+    assert.match(HELPERS, /route\.fulfill\(\{[\s\S]*?contentType: 'application\/javascript'[\s\S]*?body: ''/);
     assert.match(HELPERS, /context\.route\(`\$\{origin\}\/\*\*`/);
     assert.match(HELPERS, /headers: \{ \.\.\.route\.request\(\)\.headers\(\), \.\.\.TOOLBAR_HEADER \}/);
     assert.match(HELPERS, /await installToolbarSkip\(context, baseURL\)/);
