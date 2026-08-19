@@ -40,10 +40,12 @@ Operational checkpoint **2026-08-19**: all core coexistence three-phase drills
 are complete. Real-device Safari desktop and iOS Safari evidence is complete,
 with pair verification PASS. Gate E canary `32232288966` then exposed a
 Playwright-only response-body race in the Speaking launcher assertion, so the
-corrected frozen manifest is critical-suite v9 and no earlier clean candidate
-can carry forward: the current qualifying streak remains **0/20**. Railway and
-Vercel staging are active on `0a17fad15bc0723992967d8fbc06f0504802530c`;
-the first v9 canary must prove matching frontend/backend provenance before the
-remaining streak can accrue.
+corrected frozen manifest first moved to v9. Canary v9 `32243889759` then proved
+the product routes rendered the correct `30bedcda…` release but exposed Vercel
+Toolbar injection retrying its feedback script and preventing browser load
+states from settling. The isolated-toolbar manifest is now critical-suite v10;
+no earlier candidate can carry forward and the qualifying streak remains
+**0/20**. The first v10 canary must prove matching frontend/backend provenance
+before the remaining streak can accrue.
 Gate F observation began at `2026-08-17T00:15:22Z`, but retirement/permanent
 redirects must not start before its operational and time-window criteria close.
