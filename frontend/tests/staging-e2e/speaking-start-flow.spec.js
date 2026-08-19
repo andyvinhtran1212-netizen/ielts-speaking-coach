@@ -107,26 +107,55 @@ test.describe('luồng bắt đầu luyện tập trên /speaking (bản Next)',
     // Nhập chủ đề tự do — không phụ thuộc danh sách chủ đề của staging.
     const topic = `E2E chủ đề ${Date.now()}`;
     await page.locator('#prac-topic-custom').fill(topic);
-    await page.locator('#prac-topic-start').click();
+    // Không await trực tiếp: click có thể chờ navigation. Ta phải đăng ký ID
+    // cleanup ngay sau POST, trước khi bất kỳ lỗi/timeout navigation nào nổ ra.
+    const startClick = page.locator('#prac-topic-start').click().then(
+      () => null,
+      (error) => error,
+    );
 
     const [req, postResponse] = await Promise.all([postPromise, responsePromise]);
     const body = JSON.parse(req.postData() || '{}');
     expect(body, 'thân request phải mang đúng state của trang')
       .toMatchObject({ mode: 'practice', part: 2, topic });
 
-    expect(postResponse.status(), await postResponse.text()).toBe(200);
-    const createdSessionId = (await postResponse.json()).session_id;
-    expect(createdSessionId, 'backend phải trả session_id').toBeTruthy();
+    const postStatus = postResponse.status();
+    let postFailure = `POST /sessions trả HTTP ${postStatus}`;
+    if (postStatus !== 200) {
+      try {
+        postFailure += `: ${await postResponse.text()}`;
+      } catch {
+        postFailure += ' (response body không còn khả dụng sau điều hướng)';
+      }
+    }
+    expect(postStatus, postFailure).toBe(200);
+
+    // Tra lại bằng topic duy nhất qua API canonical để cleanup không phụ thuộc
+    // response body của document cũ hay navigation thành công.
+    const lookup = await request.get(
+      `${STAGING_API}/sessions?status=in_progress&page=1&page_size=5&search=${encodeURIComponent(topic)}`,
+      { headers: { Authorization: `Bearer ${session.access_token}` } },
+    );
+    const lookupText = await lookup.text();
+    expect(lookup.status(), lookupText).toBe(200);
+    const lookupBody = JSON.parse(lookupText);
+    const matches = (lookupBody.sessions || []).filter((row) => (
+      row.topic === topic && row.mode === 'practice' && row.part === 2
+    ));
+    expect(matches, 'phải tìm đúng một session vừa tạo để đăng ký cleanup').toHaveLength(1);
+    const createdSessionId = matches[0].id;
     created.push(createdSessionId);
 
     // Và phải ĐI TỚI trang luyện tập với session_id — nửa sau của luồng.
+    const clickError = await startClick;
+    if (clickError) throw clickError;
     await page.waitForURL(/practice\.html\?session_id=/, { timeout: 30_000 });
-    const sessionId = new URL(page.url()).searchParams.get('session_id');
-    expect(sessionId, 'phải mang session_id sang trang luyện tập').toBeTruthy();
-    expect(sessionId).toBe(createdSessionId);
+    const routedSessionId = new URL(page.url()).searchParams.get('session_id');
+    expect(routedSessionId, 'phải mang session_id sang trang luyện tập').toBeTruthy();
+    expect(routedSessionId).toBe(createdSessionId);
 
     // Phiên có thật ở backend, và mang đúng thuộc tính — không chỉ là một URL.
-    const check = await request.get(`${STAGING_API}/sessions/${sessionId}`, {
+    const check = await request.get(`${STAGING_API}/sessions/${createdSessionId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     expect(check.status()).toBe(200);
