@@ -43,17 +43,19 @@ export function CourseBehavior() {
     bootedFor.current = user.id;
 
     let runner: any = null;
+    let pronunciation: any = null;
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, LD, CR, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, LD, PD, CR, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
         import(/* webpackIgnore: true */ '/js/course-reading.js' as any),
         import(/* webpackIgnore: true */ '/js/course-listening.js' as any),
+        import(/* webpackIgnore: true */ '/js/course-pronunciation.js' as any),
         // Bộ vẽ báo cáo — CHUNG với mặt đọc của giáo viên.
         import(/* webpackIgnore: true */ '/js/course-report.js' as any),
         waitForApi(),
@@ -119,6 +121,18 @@ export function CourseBehavior() {
         api, storage: window.localStorage, userId: user.id,
       });
       listening.load(runner.bank);
+      pronunciation = PD.createPronunciation({ api, userId: user.id });
+      let pronunciationReady = false;
+      const pronunciationLoaded = pronunciation.load(bankId)
+        .then(() => {
+          pronunciationReady = true;
+          if (pronunciation.exists && titleMeta) {
+            titleMeta.textContent = titleMeta.textContent.replace(
+              '. Trắc nghiệm', ` · ${pronunciation.count} câu phát âm. Trắc nghiệm`,
+            );
+          }
+        })
+        .catch(() => { pronunciationReady = false; });
 
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
@@ -171,6 +185,7 @@ export function CourseBehavior() {
       function renderQuestion() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         const q = runner.current();
         if (!q) return renderDone();
         setSaveState(runner.sessionFailed ? 'error'
@@ -267,6 +282,7 @@ export function CourseBehavior() {
       async function renderDone() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         setSaveState('saving');
         const res = await runner.finishStage();
         setSaveState(res.persisted ? 'saved' : 'error');
@@ -336,6 +352,7 @@ export function CourseBehavior() {
         // Chờ phần tự luận biết mình có gì trước khi vẽ — nút của nó nằm trong
         // chính khối này. Hỏng thì `catch` ở trên đã nuốt, nên không treo.
         await writingLoaded;
+        await pronunciationLoaded;
         let v: any = null;
         try {
           v = await runner.verdict();
@@ -361,6 +378,9 @@ export function CourseBehavior() {
         const listenMore = listening.exists
           ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">'
             + `Làm bài nghe (${listening.count} câu)</button>` : '';
+        const pronunciationMore = pronunciationReady && pronunciation.exists
+          ? '<button class="av-button av-button-secondary" id="cx-pronunciation-open" type="button">'
+            + `Luyện phát âm (${pronunciation.count} câu)</button>` : '';
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
         //
         // Màn này phát ra đáp án đúng của từng câu kèm lời giải, mà kỳ kiểm tra
@@ -397,7 +417,7 @@ export function CourseBehavior() {
               ? 'Hoàn thành phần tự luận để bài được ghi nhận là đã nộp.'
               : 'Mở báo cáo để xem đáp án, lời giải và những trục cần củng cố.'}</li>`
             + '<li data-step="2">Lịch sử full session và revision được giữ nguyên bên dưới.</li>'
-            + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + listenMore + '</div>'
+            + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + listenMore + pronunciationMore + '</div>'
             + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
@@ -416,7 +436,7 @@ export function CourseBehavior() {
             + 'nhưng bạn cần hoàn thành lại toàn bộ câu của full session.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">'
-            + 'Bắt đầu full session mới</button>' + seeReport + more + readMore + listenMore + '</div>'
+            + 'Bắt đầu full session mới</button>' + seeReport + more + readMore + listenMore + pronunciationMore + '</div>'
             + history + '</div></div>';
         } else {
           box.innerHTML = '<div class="cx-verdict" data-v="fail">'
@@ -435,7 +455,7 @@ export function CourseBehavior() {
             + 'không được cộng vào lượt này.</p>'
             + '<div class="cx-verdict__actions">'
             + '<button class="av-button av-button-primary" id="cx-retake" type="button">'
-            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + readMore + listenMore + '</div>'
+            + `Bắt đầu revision (${v.retake_size} câu)</button>` + seeReport + more + readMore + listenMore + pronunciationMore + '</div>'
             + history + '</div></div>';
         }
       }
@@ -471,6 +491,7 @@ export function CourseBehavior() {
       function renderWriting() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         const done = $('cx-done')!;
@@ -487,6 +508,7 @@ export function CourseBehavior() {
 
       function renderReading() {
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = true;
@@ -515,6 +537,7 @@ export function CourseBehavior() {
 
       function renderListening() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = true;
@@ -528,6 +551,7 @@ export function CourseBehavior() {
 
       async function openListening() {
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
         $('cx-next')!.hidden = true;
         $('cx-done')!.hidden = true;
@@ -560,6 +584,58 @@ export function CourseBehavior() {
           if (bar) bar.insertAdjacentHTML('afterbegin',
             `<p class="cl-error">Chưa mở được đáp án: ${esc(err?.message || err)}</p>`);
         }
+      }
+
+      function renderPronunciation() {
+        const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
+        const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
+        $('cx-q')!.hidden = true;
+        $('cx-next')!.hidden = true;
+        $('cx-done')!.hidden = true;
+        $('cx-report')!.hidden = true;
+        const box = $('cx-pronunciation')!;
+        box.hidden = false;
+        box.innerHTML = pronunciation.render();
+        pronunciation.applySpeed();
+        const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      async function openPronunciation() {
+        await pronunciationLoaded;
+        if (!pronunciationReady || !pronunciation.exists) return;
+        renderPronunciation();
+      }
+
+      async function togglePronunciationRecording() {
+        await pronunciation.toggleRecording();
+        renderPronunciation();
+      }
+
+      async function closePronunciation() {
+        await pronunciation.stopRecording();
+        $('cx-pronunciation')!.hidden = true;
+        $('cx-done')!.hidden = false;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      async function selectPronunciation(index: number) {
+        await pronunciation.stopRecording();
+        pronunciation.select(index);
+        renderPronunciation();
+      }
+
+      async function movePronunciation(delta: number) {
+        await pronunciation.stopRecording();
+        pronunciation.move(delta);
+        renderPronunciation();
+      }
+
+      async function submitPronunciation() {
+        const pending = pronunciation.submit();
+        renderPronunciation();
+        await pending;
+        renderPronunciation();
       }
 
       // Vẽ lại CẢ thanh nộp, không chỉ dòng chữ: nút và trạng thái tắt/bật nằm
@@ -717,6 +793,7 @@ export function CourseBehavior() {
         if (t.id === 'cx-writing') return renderWriting();
         if (t.id === 'cx-reading-open') return renderReading();
         if (t.id === 'cx-listening-open') return void openListening();
+        if (t.id === 'cx-pronunciation-open') return void openPronunciation();
         if (t.id === 'cr-back') {
           $('cx-reading')!.hidden = true;
           $('cx-done')!.hidden = false;
@@ -731,6 +808,27 @@ export function CourseBehavior() {
           return;
         }
         if (t.id === 'cl-check') return void revealListening();
+        if (t.id === 'cp-back') {
+          return void closePronunciation();
+        }
+        const pronunciationIndex = t.closest?.('[data-cp-index]') as HTMLElement | null;
+        if (pronunciationIndex) {
+          return void selectPronunciation(Number(pronunciationIndex.dataset.cpIndex));
+        }
+        const speedButton = t.closest?.('[data-cp-rate]') as HTMLElement | null;
+        if (speedButton) {
+          pronunciation.setSpeed(Number(speedButton.dataset.cpRate));
+          pronunciation.applySpeed();
+          document.querySelectorAll('[data-cp-rate]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button === speedButton));
+          });
+          return;
+        }
+        if (t.id === 'cp-prev') return void movePronunciation(-1);
+        if (t.id === 'cp-next') return void movePronunciation(1);
+        if (t.closest?.('#cp-record')) return void togglePronunciationRecording();
+        if (t.id === 'cp-submit') return void submitPronunciation();
+        if (t.id === 'cp-new') return void pronunciation.newAttempt().then(renderPronunciation);
         // Hai nút, hai việc: `cw-submit` mở bước xác nhận, `cw-confirm` mới nộp
         // thật. Dùng chung một id cho cả hai là dựng lại đúng cú bấm-một-nhát.
         if (t.id === 'cw-submit') return onWritingArm();
@@ -790,6 +888,7 @@ export function CourseBehavior() {
     })();
 
     return () => {
+      if (pronunciation) pronunciation.destroy();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
