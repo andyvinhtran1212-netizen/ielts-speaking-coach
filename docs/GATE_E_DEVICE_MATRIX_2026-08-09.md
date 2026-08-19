@@ -98,8 +98,14 @@ Hai hàng sau vẫn **PENDING** và bắt buộc trước Gate E PASS:
 
 | ID | Thiết bị/version tối thiểu | Evidence phải ghi |
 |---|---|---|
-| `safari-floor` | macOS 12.5 · Safari 15.6 | device/browser version, SHA, matrix id, route journey, console/network, reload/resume result, operator + timestamp |
-| `ios-safari-floor` | iOS 15.8.5 · bundled Mobile Safari | device model, OS/browser version, SHA, matrix id, touch/audio/storage/reload result, operator + timestamp |
+| `safari-desktop` | macOS 26.5.2 · Safari 26.5.2 | device/browser version, SHA, matrix id, route journey, console/network, reload/resume result, operator + timestamp |
+| `ios-safari` | iPhone 17 Pro · iOS 26.6 · bundled Mobile Safari | device model, OS/browser version, SHA, matrix id, touch/audio/storage/reload result, operator + timestamp |
+
+> Re-pin 2026-08-19: hai hàng này ban đầu pin floor hardware (macOS
+> 12.5/Safari 15.6 và iOS 15.8.5) theo sự cố parse `static{}` 28/07. Sàn parse
+> nay được canh tự động bởi `tooling/legacy-browser-scan.mjs` (browserslist
+> safari 15/ios_saf 15), nên hai hàng real-device được re-pin sang thiết bị
+> thật đang có. Quyết định + waiver: `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`.
 
 Không được đổi `status: pending` trong manifest chỉ vì CI WebKit xanh. Schema,
 validator và workflow attestation cho Speaking được định nghĩa tại

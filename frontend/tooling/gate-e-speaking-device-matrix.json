@@ -66,9 +66,10 @@
   },
   "real_device_requirements": [
     {
-      "id": "safari-floor",
-      "platform": "macOS 12.5",
-      "browser": "Safari 15.6",
+      "id": "safari-desktop",
+      "platform": "macOS 26.5.2",
+      "browser": "Safari 26.5.2",
+      "device_model": "MacBook Pro (Mac14,9)",
       "status": "pending",
       "required_scope": [
         "real-microphone-permission-denied-and-retry",
@@ -79,9 +80,10 @@
       ]
     },
     {
-      "id": "ios-safari-floor",
-      "platform": "iOS 15.8.5",
-      "browser": "Mobile Safari bundled with iOS 15.8.5",
+      "id": "ios-safari",
+      "platform": "iOS 26.6",
+      "browser": "Mobile Safari bundled with iOS 26.6",
+      "device_model": "iPhone 17 Pro",
       "status": "pending",
       "required_scope": [
         "touch-record-stop-playback",

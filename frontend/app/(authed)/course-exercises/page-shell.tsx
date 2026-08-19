@@ -65,6 +65,10 @@ export function CourseShell() {
             đọc dài và để bài đọc có thể rộng hơn thẻ quiz. */}
         <section id="cx-reading" className="cx-reading" hidden></section>
 
+        {/* Bài nghe dùng khung riêng để audio và lựa chọn không chen vào flow
+            mastery. Đáp án/transcript được tải riêng sau khi làm đủ 20 câu. */}
+        <section id="cx-listening" className="cx-listening" hidden></section>
+
         {/* Báo cáo: yếu trục nào, sai câu nào, chọn nhầm gì. Một khối RIÊNG chứ
             không nhét vào `cx-done` — màn kết chặng bị vẽ lại sau mỗi chặng, và
             báo cáo thì phải ở lại khi học viên đang đọc nó. */}
