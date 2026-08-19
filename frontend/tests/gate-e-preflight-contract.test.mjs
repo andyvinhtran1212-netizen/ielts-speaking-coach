@@ -62,15 +62,15 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
   });
 
-  test('automated matrix is versioned and the truthful ledger remains below threshold', () => {
+  test('device matrix is PASS with real evidence; ledger stays honest about the streak', () => {
     assert.match(STAGING_CONFIG, /name: 'staging-core-chromium'/);
     assert.match(STAGING_CONFIG, /name: 'matrix-webkit-26\.4-desktop'/);
     assert.match(STAGING_WORKFLOW, /playwright install --with-deps chromium webkit/);
-    assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PARTIAL\*\*/);
+    assert.match(PREFLIGHT, /\| Versioned Safari\/iOS\/Chromium device matrix xanh \| \*\*PASS\*\* \(2026-08-19\)/);
     assert.match(PREFLIGHT, /Run `31348712238` trên SHA `bff32975`/);
-    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
+    assert.match(PREFLIGHT, /real-device COMPLETE: safari-desktop `32225845849` \+ ios-safari `32226876978`, pair `32227093444`/);
+    assert.doesNotMatch(PREFLIGHT, /Chưa có real-device/);
     assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
-    assert.match(PREFLIGHT, /Chưa có qualifying 20-run artifact/);
     assert.match(PREFLIGHT, /trusted run `32136607306`/);
     assert.match(PREFLIGHT, /\*\*1\/20\*\*/);
     assert.match(PREFLIGHT, /failure_matrix_complete=true/);

@@ -128,10 +128,12 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    overflow và Next soft-navigation thực sự gọi `track.stop()`. Headless tab
    không phát một `visibilityState=hidden` đáng tin, Playwright WebKit không phải
    Safari shipping, nên đây không phải bằng chứng background/microphone thật.
-   Safari/iOS thật vẫn PENDING và phải chạy đúng `real_device_requirements` trong
-   manifest trước khi đóng mục 3. Schema/validator/workflow manual đã có tại
-   `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`, nhưng runner-ready
-   không được tính thay hai artifact thật.
+   Safari/iOS thật đã COMPLETE 2026-08-19: hai artifact thật thu theo
+   `real_device_requirements` (safari-desktop run `32225845849`, ios-safari run
+   `32226876978`, pair verification `32227093444`, staging SHA `3dce244f`) —
+   hồ sơ tại `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`. Schema/validator/
+   workflow manual tại `docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`;
+   runner-ready trước đó không được tính thay hai artifact thật.
 4. ✅ Persisted-affinity rollback floor
    `e96c2cdcc999979f645d16432f5cfd007d8383e8` giữ `admit_new=legacy`; run
    `32043317793` chứng minh session Legacy thật, dark Next claim `null → next`,
@@ -143,8 +145,9 @@ practice, `test_part`, `test_full`, Part 2, assignment sheet và sealed mock đ�
    session từ cutover, tạo Legacy session
    `b2afe17c-f752-42aa-be5e-74a846d1455e`, pass reload/copy/provenance và ghi
    `rollback_mode=forward-revert`.
-7. 🟡 Safari/iOS thật vẫn chặn Gate E/production cutover; Legacy URL tiếp tục
-   sống đến Gate F.
+7. ✅ Safari/iOS thật đã COMPLETE 2026-08-19 (xem mục 3); Gate E còn chặn bởi
+   qualifying streak — đếm lại từ critical-suite v8 sau PR evidence. Legacy URL
+   tiếp tục sống đến Gate F.
 
 ## Batch player lifecycle
 
