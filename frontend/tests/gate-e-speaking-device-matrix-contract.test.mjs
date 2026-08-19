@@ -125,7 +125,7 @@ describe('Synthetic WebKit never becomes real Safari/iOS evidence', () => {
   test('both real-device rows remain pending and documented', () => {
     assert.deepEqual(
       MANIFEST.real_device_requirements.map((item) => item.id),
-      ['safari-floor', 'ios-safari-floor'],
+      ['safari-desktop', 'ios-safari'],
     );
     assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
     assert.match(DOC, /Safari\/iOS thật vẫn PENDING/);

@@ -87,8 +87,8 @@ const metadata = (runId, sha = SHA_A, attempt = '1') => ({
   run_attempt: attempt,
   run_outcome: 'success',
   real_device_requirements: [
-    { id: 'safari-floor', status: 'pending' },
-    { id: 'ios-safari-floor', status: 'pending' },
+    { id: 'safari-desktop', status: 'pending' },
+    { id: 'ios-safari', status: 'pending' },
   ],
 });
 

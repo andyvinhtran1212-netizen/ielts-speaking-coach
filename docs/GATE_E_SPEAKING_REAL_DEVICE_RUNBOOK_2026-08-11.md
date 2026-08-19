@@ -3,6 +3,13 @@
 **Trạng thái:** RUNNER READY; SAFARI/iOS ARTIFACTS PENDING. Batch này không đổi
 `route_ready` hoặc `admit_new`, và không coi Playwright WebKit là Safari/iOS thật.
 
+> **Amendment 2026-08-19:** hai hàng real-device được re-pin từ floor hardware
+> (macOS 12.5/Safari 15.6, iOS 15.8.5) sang thiết bị thật đang có
+> (`safari-desktop` = macOS 26.5.2/Safari 26.5.2, `ios-safari` = iPhone 17 Pro,
+> iOS 26.6). Quyết định owner + waiver floor-hardware ghi tại
+> `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`. Mọi nhắc tới Safari 15.6/iOS
+> 15.8.5 trong phần Finding bên dưới là lịch sử của batch 2026-08-11.
+
 ## Finding
 
 - **Root cause:** matrix đã liệt kê Safari 15.6 và iOS 15.8.5 nhưng chỉ có hai
@@ -32,9 +39,10 @@
    phải cùng phục vụ exact SHA đó. Workflow sẽ kiểm lại, không nhận khai báo tay.
 2. Dùng tài khoản synthetic `e2e-student-smoke@staging-e2e.averlearning.com`.
    Không ghi password, token, transcript hoặc feedback vào input/artifact.
-3. Thiết bị phải đúng một trong hai hàng versioned:
-   - `safari-floor`: macOS 12.5, Safari 15.6;
-   - `ios-safari-floor`: iOS 15.8.5, Mobile Safari đi kèm.
+3. Thiết bị phải đúng một trong hai hàng versioned (validator so exact cả ba
+   trường platform/browser/device_model):
+   - `safari-desktop`: macOS 26.5.2, Safari 26.5.2, model `MacBook Pro (Mac14,9)`;
+   - `ios-safari`: iOS 26.6, Mobile Safari đi kèm, model `iPhone 17 Pro`.
 4. Bật Safari Web Inspector để theo dõi console và network. Một lỗi console hay
    request thất bại liên quan journey làm artifact không đủ điều kiện; sửa lỗi
    rồi chạy journey mới, không sửa attestation cũ.
@@ -60,7 +68,7 @@ exact giá trị 40 ký tự của trường `release` làm `observed_release_sh
 release marker đổi trước khi hoàn tất các scope, bỏ journey đó và chạy lại trên
 một release ổn định; không dùng marker đọc sau journey để chứng nhận thao tác cũ.
 
-### Safari 15.6
+### Safari desktop (`safari-desktop`, macOS 26.5.2 · Safari 26.5.2)
 
 Hoàn tất đủ năm scope sau:
 
@@ -74,7 +82,7 @@ Hoàn tất đủ năm scope sau:
 5. `route-exit-microphone-release` — rời route và xác nhận chỉ báo microphone
    tắt/track đã được giải phóng.
 
-### iOS 15.8.5 Mobile Safari
+### iOS Mobile Safari (`ios-safari`, iPhone 17 Pro · iOS 26.6)
 
 Hoàn tất đủ sáu scope:
 
@@ -90,7 +98,7 @@ Hoàn tất đủ sáu scope:
 Trong GitHub Actions, chạy workflow **Speaking Gate E real-device evidence** từ
 branch `main`. Workflow dùng code kiểm định ở `main`, tự checkout candidate
 `staging` riêng để kiểm release đang phục vụ; dispatch từ branch khác sẽ fail.
-Nhập platform/browser đúng nguyên văn trong matrix, session ID, UTC
+Nhập platform/browser/device_model đúng nguyên văn trong matrix, session ID, UTC
 `journey_started_at`, `observed_at`, `canonical_response_id`,
 `observed_release_sha`, `observed_backend_release_sha` đã ghi trong journey,
 operator và JSON scope. Ví dụ Safari:

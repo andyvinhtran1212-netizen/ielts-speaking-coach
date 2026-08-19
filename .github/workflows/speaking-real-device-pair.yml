@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       safari_run_id:
-        description: Successful safari-floor evidence workflow run ID
+        description: Successful safari-desktop evidence workflow run ID
         required: true
         type: string
       ios_run_id:
-        description: Successful ios-safari-floor evidence workflow run ID
+        description: Successful ios-safari evidence workflow run ID
         required: true
         type: string
       expected_source_sha:
@@ -42,7 +42,7 @@ jobs:
       - name: Download Safari artifact from its exact workflow run
         uses: actions/download-artifact@v5
         with:
-          name: gate-e-speaking-real-device-safari-floor-${{ inputs.safari_run_id }}-1
+          name: gate-e-speaking-real-device-safari-desktop-${{ inputs.safari_run_id }}-1
           path: test-results/safari
           github-token: ${{ github.token }}
           run-id: ${{ inputs.safari_run_id }}
@@ -50,7 +50,7 @@ jobs:
       - name: Download iOS artifact from its exact workflow run
         uses: actions/download-artifact@v5
         with:
-          name: gate-e-speaking-real-device-ios-safari-floor-${{ inputs.ios_run_id }}-1
+          name: gate-e-speaking-real-device-ios-safari-${{ inputs.ios_run_id }}-1
           path: test-results/ios
           github-token: ${{ github.token }}
           run-id: ${{ inputs.ios_run_id }}
