@@ -10,9 +10,9 @@ on:
         description: Exact real-device matrix row
         required: true
         type: choice
-        options: [safari-floor, ios-safari-floor]
+        options: [safari-desktop, ios-safari]
       observed_platform:
-        description: Exact observed platform (for example macOS 12.5)
+        description: Exact observed platform (for example macOS 26.5.2)
         required: true
         type: string
       observed_browser:

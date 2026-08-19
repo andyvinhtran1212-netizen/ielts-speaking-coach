@@ -139,12 +139,13 @@ describe('Gate E device matrix is pinned and bounded', () => {
   });
 
   test('CI installs both engines and uploads only validated machine-readable evidence', () => {
+    assert.match(workflowCode, /name: Install Playwright matrix engines[\s\S]*?timeout-minutes: 15/);
     assert.match(playwrightInstallCode, /^\s*npx playwright install --with-deps chromium webkit\s*$/m);
     assert.match(playwrightInstallCode, /test -f \/etc\/apt\/apt-mirrors\.txt/);
     assert.match(playwrightInstallCode, /https:\/\/archive\.ubuntu\.com\/ubuntu/);
-    assert.match(playwrightInstallCode, /Acquire::Retries "2"/);
-    assert.match(playwrightInstallCode, /Acquire::http::Timeout "15"/);
-    assert.match(playwrightInstallCode, /Acquire::https::Timeout "15"/);
+    assert.match(playwrightInstallCode, /Acquire::Retries "2";/);
+    assert.match(playwrightInstallCode, /Acquire::http::Timeout "15";/);
+    assert.match(playwrightInstallCode, /Acquire::https::Timeout "15";/);
     assert.doesNotMatch(playwrightInstallCode, /azure\.archive\.ubuntu\.com/);
     assert.match(CONFIG, /staging-e2e-results\.json/);
     assert.match(WORKFLOW, /id: staging_e2e/);
@@ -329,7 +330,7 @@ describe('Synthetic WebKit is never reported as real Safari/iOS', () => {
   test('real-device requirements remain explicitly pending', () => {
     assert.deepEqual(
       MANIFEST.real_device_requirements.map((item) => item.id),
-      ['safari-floor', 'ios-safari-floor'],
+      ['safari-desktop', 'ios-safari'],
     );
     assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
     assert.match(DOC, /AUTOMATED MATRIX EXECUTED; REAL SAFARI\/iOS PENDING/);
