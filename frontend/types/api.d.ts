@@ -11083,7 +11083,7 @@ export interface components {
             /**
              * Audio File
              * Format: binary
-             * @description Audio recording (MP3 / WAV / WebM / OGG)
+             * @description Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)
              */
             audio_file: string;
         };
