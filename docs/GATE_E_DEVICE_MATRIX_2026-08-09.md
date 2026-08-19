@@ -1,7 +1,10 @@
 # Gate E device matrix v1 — 2026-08-09
 
-**Trạng thái:** AUTOMATED MATRIX EXECUTED; REAL SAFARI/iOS PENDING. Tài liệu
-này không tuyên bố Gate E PASS.
+**Trạng thái:** AUTOMATED MATRIX EXECUTED; REAL SAFARI/iOS COMPLETE
+(2026-08-19 — safari-desktop run `32225845849` + ios-safari run `32226876978`,
+pair `32227093444`, staging SHA `3dce244f`; hồ sơ
+`docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`). Tài liệu này không tuyên bố
+Gate E PASS — chuỗi 20 clean run bắt đầu đếm lại sau PR evidence này.
 
 ## Root cause và phạm vi sửa
 
@@ -91,15 +94,19 @@ state. Failure message có thể chứa nội dung public của runtime config (
 Supabase anon key); không được coi artifact là nơi lưu secret hoặc dữ liệu tài
 khoản.
 
-## Real-device requirements còn mở
+## Real-device requirements — COMPLETE 2026-08-19
 
-WebKit không phải Safari shipping và device emulation không phải iPhone thật.
-Hai hàng sau vẫn **PENDING** và bắt buộc trước Gate E PASS:
+WebKit không phải Safari shipping và device emulation không phải iPhone thật —
+vì vậy hai hàng sau đã được thu bằng thiết bị thật, xác minh qua workflow
+attestation + pair verification (staging SHA `3dce244f51ee…`):
 
-| ID | Thiết bị/version tối thiểu | Evidence phải ghi |
+| ID | Thiết bị | Evidence |
 |---|---|---|
-| `safari-desktop` | macOS 26.5.2 · Safari 26.5.2 | device/browser version, SHA, matrix id, route journey, console/network, reload/resume result, operator + timestamp |
-| `ios-safari` | iPhone 17 Pro · iOS 26.6 · bundled Mobile Safari | device model, OS/browser version, SHA, matrix id, touch/audio/storage/reload result, operator + timestamp |
+| `safari-desktop` | MacBook Pro (Mac14,9) · macOS 26.5.2 · Safari 26.5.2 | run `32225845849` — 5/5 scope passed, artifact `status: complete` |
+| `ios-safari` | iPhone 17 Pro · iOS 26.6 · bundled Mobile Safari | run `32226876978` — 6/6 scope passed, artifact `status: complete` |
+
+Pair verification: run `32227093444` PASS. Hồ sơ đầy đủ (kèm 2 bug tìm được
+trên đường đi): `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`.
 
 > Re-pin 2026-08-19: hai hàng này ban đầu pin floor hardware (macOS
 > 12.5/Safari 15.6 và iOS 15.8.5) theo sự cố parse `static{}` 28/07. Sàn parse
@@ -107,8 +114,8 @@ Hai hàng sau vẫn **PENDING** và bắt buộc trước Gate E PASS:
 > safari 15/ios_saf 15), nên hai hàng real-device được re-pin sang thiết bị
 > thật đang có. Quyết định + waiver: `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`.
 
-Không được đổi `status: pending` trong manifest chỉ vì CI WebKit xanh. Schema,
-validator và workflow attestation cho Speaking được định nghĩa tại
-`docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`; hai artifact thiết bị
-thật vẫn chưa được thu. Core player coverage tiếp tục mở rộng theo từng migration
-cluster.
+`status: complete` chỉ được ghi sau khi pair verifier xanh (nguyên tắc giữ
+nguyên: CI WebKit xanh không bao giờ đủ). Schema, validator và workflow
+attestation cho Speaking được định nghĩa tại
+`docs/GATE_E_SPEAKING_REAL_DEVICE_RUNBOOK_2026-08-11.md`. Core player coverage
+tiếp tục mở rộng theo từng migration cluster.

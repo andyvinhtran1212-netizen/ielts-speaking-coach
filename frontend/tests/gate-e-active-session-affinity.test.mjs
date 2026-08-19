@@ -442,7 +442,7 @@ describe('evidence truth', () => {
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
     assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PASS\*\*/);
     assert.match(PREFLIGHT, /\*\*Trạng thái:\*\* NOT READY\./);
-    assert.match(PREFLIGHT, /Chưa có real-device Safari 15\.6\/iOS 15\.8\.5 evidence/);
+    assert.match(PREFLIGHT, /real-device COMPLETE: safari-desktop `32225845849` \+ ios-safari `32226876978`/);
     assert.match(PREFLIGHT, /floor run `32043317793`/);
     assert.match(PREFLIGHT, /cutover run `32045284608`/);
     assert.match(PREFLIGHT, /rollback run `32047774312`/);

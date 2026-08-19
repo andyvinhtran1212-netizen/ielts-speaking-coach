@@ -122,13 +122,22 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
 });
 
 describe('Synthetic WebKit never becomes real Safari/iOS evidence', () => {
-  test('both real-device rows remain pending and documented', () => {
+  test('both real-device rows are complete with attested evidence run ids', () => {
     assert.deepEqual(
       MANIFEST.real_device_requirements.map((item) => item.id),
       ['safari-desktop', 'ios-safari'],
     );
-    assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
-    assert.match(DOC, /Safari\/iOS thật vẫn PENDING/);
+    for (const item of MANIFEST.real_device_requirements) {
+      assert.equal(item.status, 'complete', item.id);
+      assert.match(String(item.evidence_run_id), /^\d+$/, item.id);
+      assert.equal(item.evidence_pair_run_id, '32227093444', item.id);
+      assert.match(String(item.evidence_source_sha), /^[0-9a-f]{40}$/, item.id);
+    }
+    assert.notEqual(
+      MANIFEST.real_device_requirements[0].evidence_run_id,
+      MANIFEST.real_device_requirements[1].evidence_run_id,
+    );
+    assert.match(DOC, /Safari\/iOS thật đã COMPLETE 2026-08-19/);
     assert.match(DOC, /không phải bằng chứng background\/microphone thật/);
   });
 });

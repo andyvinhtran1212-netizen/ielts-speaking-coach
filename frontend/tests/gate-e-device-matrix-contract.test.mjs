@@ -327,13 +327,15 @@ describe('Gate E device matrix is pinned and bounded', () => {
 });
 
 describe('Synthetic WebKit is never reported as real Safari/iOS', () => {
-  test('real-device requirements remain explicitly pending', () => {
+  test('real-device requirements are complete with attested evidence', () => {
     assert.deepEqual(
       MANIFEST.real_device_requirements.map((item) => item.id),
       ['safari-desktop', 'ios-safari'],
     );
-    assert.ok(MANIFEST.real_device_requirements.every((item) => item.status === 'pending'));
-    assert.match(DOC, /AUTOMATED MATRIX EXECUTED; REAL SAFARI\/iOS PENDING/);
+    assert.ok(MANIFEST.real_device_requirements.every(
+      (item) => item.status === 'complete' && /^\d+$/.test(String(item.evidence_run_id)),
+    ));
+    assert.match(DOC, /AUTOMATED MATRIX EXECUTED; REAL SAFARI\/iOS COMPLETE/);
     assert.match(DOC, /31348712238/);
     assert.match(DOC, /`matrix_complete: true`/);
     assert.match(DOC, /WebKit không phải Safari shipping/);

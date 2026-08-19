@@ -70,7 +70,10 @@
       "platform": "macOS 26.5.2",
       "browser": "Safari 26.5.2",
       "device_model": "MacBook Pro (Mac14,9)",
-      "status": "pending",
+      "status": "complete",
+      "evidence_run_id": "32225845849",
+      "evidence_pair_run_id": "32227093444",
+      "evidence_source_sha": "3dce244f51ee2ae221d8a55a1facb23f99119070",
       "required_scope": [
         "real-microphone-permission-denied-and-retry",
         "record-stop-playback",
@@ -84,7 +87,10 @@
       "platform": "iOS 26.6",
       "browser": "Mobile Safari bundled with iOS 26.6",
       "device_model": "iPhone 17 Pro",
-      "status": "pending",
+      "status": "complete",
+      "evidence_run_id": "32226876978",
+      "evidence_pair_run_id": "32227093444",
+      "evidence_source_sha": "3dce244f51ee2ae221d8a55a1facb23f99119070",
       "required_scope": [
         "touch-record-stop-playback",
         "real-microphone-permission-denied-and-retry",

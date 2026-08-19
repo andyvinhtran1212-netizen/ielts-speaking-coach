@@ -7,8 +7,11 @@ phải waiver hay tuyên bố Gate E đã pass.
 > trong bảng dưới là snapshot tại baseline 09/08. Hai hàng real-device đã được
 > re-pin sang `safari-desktop` (MacBook Pro Mac14,9 · macOS 26.5.2 · Safari
 > 26.5.2) và `ios-safari` (iPhone 17 Pro · iOS 26.6) — xem
-> `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`. Yêu cầu "cần real-device
-> evidence" vẫn nguyên hiệu lực, chỉ đổi thiết bị đích.
+> `docs/GATE_E_REAL_DEVICE_REPIN_2026-08-19.md`. **Cập nhật cùng ngày:** hai
+> artifact real-device ĐÃ THU và pair verification PASS (safari-desktop
+> `32225845849`, ios-safari `32226876978`, pair `32227093444`, staging
+> `3dce244f`) — xem `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`. Mọi câu
+> "chưa có thiết bị thật" còn lại trong snapshot dưới là lịch sử 09/08.
 
 **Nguồn chuẩn:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §16,
 `docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại baseline
@@ -31,7 +34,8 @@ pass + 1 intentional skip) và ledger đã có clean candidate đầu tiên: tru
 run `32136607306` trên staging SHA
 `37e9b882b192a5abb068e01abd98feeb39c8f9f2` pass live suite, toàn bộ failure
 matrix/verifier và matching frontend/backend provenance; ledger hiện là
-**1/20**. Vẫn chưa có Safari/iOS thiết bị thật. Active-session affinity đã có
+**1/20**. Safari/iOS thiết bị thật đã COMPLETE 2026-08-19 (xem amendment đầu tài liệu);
+chuỗi đếm lại từ critical-suite v8 sau PR evidence. Active-session affinity đã có
 runtime foundation, unit contract
 và persisted-affinity floor run `32043317793` trên SHA `e96c2cd`: session Legacy
 thật cùng dark Next claim `null → next`; hai stable URL đều reload/copy được với
@@ -71,14 +75,15 @@ three-phase: floor `32121670793` attempt 3 trên
 trên `c800dfedf4c2f5faa921b8230aadfd60d98059b7`, restore `32128868942` attempt 2
 trên `b07e8325edc3854e1dbd0f2702f32e4108577839`; cả ba phase có matching
 frontend/backend staging provenance.
-Thiết bị Safari/iOS thật và 19 clean run còn lại của qualifying streak vẫn chưa
-hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
+Thiết bị Safari/iOS thật đã hoàn tất 2026-08-19; qualifying streak đếm lại từ
+critical-suite v8 nên chưa có run nào tích lũy. Vì vậy canonical core cutover
+vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
-| Versioned Safari/iOS/Chromium device matrix xanh | **PARTIAL** | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier | Chưa có real-device Safari 15.6/iOS 15.8.5 evidence. WebKit/static scan không thay thế thiết bị thật. |
+| Versioned Safari/iOS/Chromium device matrix xanh | **PASS** (2026-08-19) | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier; real-device COMPLETE: safari-desktop `32225845849` + ios-safari `32226876978`, pair `32227093444` (`docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`) | Không còn cho hàng này — WebKit/static scan vẫn không được tính thay thiết bị thật ở các lần thu lại sau. |
 | Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PASS** | Bốn domain đều có automated four-path matrix; trusted run `32136607306` pass Speaking 46, Reading 12, Listening 27 và Writing 12 case, kèm semantic verifier; Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ live three-phase trên matching frontend/backend staging SHA | Không còn khoảng trống cho tiêu chí automated/cross-version này; real-device requirement được theo dõi ở hàng riêng. |
 | Sticky active-session hoặc drain strategy đã drill | **PASS** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ three-phase trên matching provenance. Writing floor `32121670793` attempt 3, rollback `32126575888` attempt 2 và restore `32128868942` attempt 2 đều pass. | Không còn khoảng trống affinity/drain cho năm surface; giữ regression evidence cho tới Gate F. |
 | Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Trusted run `32136607306` pass 33 + 1 intentional skip live-staging tests, Speaking 46, Reading 12, Listening 27 và Writing 12 case; provenance frontend/backend đều đúng `37e9b882…`; `failure_matrix_complete=true`; ledger candidate **1/20** | Còn thiếu 19 consecutive clean run thật. Cơ chế đếm không thay thế các lần chạy thật. |
@@ -95,9 +100,10 @@ hoàn tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 - **Impacted files/functions:** `frontend/playwright.staging.config.js` phần
   `projects`; `.github/workflows/staging-e2e.yml` bước cài browser/chạy suite;
   `frontend/playwright.spike.config.js` chỉ là spike evidence.
-- **Suggested minimal fix còn lại:** thu real-device Safari/iOS evidence theo
-  `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md`, rồi mở rộng matrix spec bằng core
-  flow của từng migration cluster; không gọi WebKit là Safari thật.
+- **Suggested minimal fix còn lại:** ~~thu real-device Safari/iOS evidence~~ —
+  ĐÃ XONG 2026-08-19 theo `docs/GATE_E_DEVICE_MATRIX_2026-08-09.md` (evidence
+  `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`); còn mở rộng matrix spec
+  bằng core flow của từng migration cluster; không gọi WebKit là Safari thật.
 - **Verification:** workflow chạy đủ project + upload JSON evidence; Safari/iOS
   real-device artifact khớp frozen matrix và SHA trước khi đổi tiêu chí sang PASS.
 
