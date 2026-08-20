@@ -1,3 +1,5 @@
+import { createActiveTimer } from './course-active-timer.js';
+
 /**
  * Bài đọc ngắn đi kèm bài tập theo buổi.
  *
@@ -23,7 +25,7 @@ export function createReading({ api, storage, userId, now = () => Date.now() }) 
   let data = null;
   let draft = {};
   let solution = null;
-  let startedAt = 0;
+  const activeTimer = createActiveTimer(now);
 
   function questions() {
     return (data && data.question_groups || []).flatMap((group) => group.questions || []);
@@ -145,9 +147,10 @@ export function createReading({ api, storage, userId, now = () => Date.now() }) 
       data = bank && bank.meta && bank.meta.short_reading || null;
       draft = data ? loadDraft() : {};
       solution = null;
-      startedAt = now();
+      activeTimer.reset();
       return !!data;
     },
+    setActive(active) { activeTimer.setActive(active); },
     write(qid, value) {
       if (!data || !questions().some((q) => q.id === qid)) return;
       draft[qid] = String(value || '');
@@ -157,8 +160,9 @@ export function createReading({ api, storage, userId, now = () => Date.now() }) 
       if (!data || missing().length) return false;
       solution = await api.post('/api/quiz/course/reading-solution', {
         bank_id: bankId, answers: { ...draft },
-        duration_sec: Math.max(0, Math.round((now() - startedAt) / 1000)),
+        duration_sec: activeTimer.seconds(),
       });
+      activeTimer.setActive(false);
       return true;
     },
     render,

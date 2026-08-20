@@ -481,6 +481,19 @@ def test_a_bank_WITH_writing_is_not_closed_by_finishing_a_stage():
     assert _end(_stage_db(stages_done=2, has_writing=True)) == []
 
 
+def test_multisection_bank_is_never_closed_by_mcq_session_end():
+    """MCQ đủ câu vẫn chỉ là MỘT phần của bài nhiều phần.
+
+    `submitted_at` là bất biến và lần tải lại dùng nó để bật review-only, nên
+    đường kết phiên legacy tuyệt đối không được gọi `mark_item_submitted` ở
+    đây. Cổng hợp nhất sẽ chốt đúng một lần sau khi đủ mọi phần.
+    """
+    with patch.object(mod, "course_bank_is_multisection", return_value=True) as gate:
+        marked = _end(_stage_db(stages_done=2))
+    assert marked == []
+    gate.assert_called_once_with("bank-course")
+
+
 def test_finishing_ONE_of_TWO_stages_does_not_close_it():
     """Ca em Minh Ngoc Võ: 3/9 chặng mà sổ đã ghi "đã nộp" điểm 60. Vá lần một
     chỉ chắn bộ đề CÓ tự luận nên ca này vẫn lọt."""

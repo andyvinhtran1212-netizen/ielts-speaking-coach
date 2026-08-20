@@ -49,6 +49,7 @@ export function CourseBehavior() {
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
+    let pauseSectionTimers: () => void = () => {};
 
     (async () => {
       const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, LD, PD, CR, api] = await Promise.all([
@@ -155,6 +156,27 @@ export function CourseBehavior() {
         .then(() => { writingReady = true; })
         .catch(() => { writingReady = false; });
 
+      type CourseSection = 'reading' | 'listening' | 'writing' | 'pronunciation';
+      let activeSection: CourseSection | null = null;
+      pauseSectionTimers = () => {
+        reading.setActive(false);
+        listening.setActive(false);
+        writing.setActive(false);
+        pronunciation.setActive(false);
+      };
+      function syncSectionTimers() {
+        pauseSectionTimers();
+        if (document.visibilityState === 'hidden' || !activeSection) return;
+        if (activeSection === 'reading') reading.setActive(true);
+        if (activeSection === 'listening') listening.setActive(true);
+        if (activeSection === 'writing') writing.setActive(true);
+        if (activeSection === 'pronunciation') pronunciation.setActive(true);
+      }
+      const setActiveSection = (section: CourseSection | null) => {
+        activeSection = section;
+        syncSectionTimers();
+      };
+
       // ── Vẽ ──────────────────────────────────────────────────────────────
       const dots = (n: number) => {
         let out = '';
@@ -186,6 +208,7 @@ export function CourseBehavior() {
       }
 
       function renderQuestion() {
+        setActiveSection(null);
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
@@ -283,6 +306,7 @@ export function CourseBehavior() {
       }
 
       async function renderDone() {
+        setActiveSection(null);
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
@@ -350,6 +374,7 @@ export function CourseBehavior() {
        * đang xét → ĐẠT (chốt bài) → hoặc CHƯA ĐẠT kèm đúng một việc phải làm.
        */
       async function renderVerdict() {
+        setActiveSection(null);
         const box = $('cx-verdict'); if (!box) return;
         box.innerHTML = '<p class="cx-empty">Đang xét kết quả…</p>';
         // Chờ phần tự luận biết mình có gì trước khi vẽ — nút của nó nằm trong
@@ -488,6 +513,7 @@ export function CourseBehavior() {
        * một lượt gọi mạng lúc mở trang làm chậm đúng thứ học viên đang chờ.
        */
       async function showReport() {
+        setActiveSection(null);
         const box = $('cx-report');
         if (!box) return;
         box.hidden = false;
@@ -512,6 +538,7 @@ export function CourseBehavior() {
 
       /** Màn TỰ LUẬN — cả cụm một lần, nộp một lần. */
       function renderWriting() {
+        setActiveSection(writing.submitted ? null : 'writing');
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
@@ -536,6 +563,7 @@ export function CourseBehavior() {
 
       /** Landing chỉ-đọc: giữ cả báo cáo MCQ lẫn phần viết trong tầm tay. */
       function renderReviewHub() {
+        setActiveSection(null);
         const q = $('cx-q'); if (q) q.hidden = true;
         const next = $('cx-next'); if (next) next.hidden = true;
         const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
@@ -558,6 +586,7 @@ export function CourseBehavior() {
       }
 
       function renderReading() {
+        setActiveSection(reading.revealed ? null : 'reading');
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
@@ -587,6 +616,7 @@ export function CourseBehavior() {
       }
 
       function renderListening() {
+        setActiveSection(listening.revealed ? null : 'listening');
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
@@ -601,6 +631,7 @@ export function CourseBehavior() {
       }
 
       async function openListening() {
+        setActiveSection('listening');
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         $('cx-q')!.hidden = true;
@@ -639,6 +670,7 @@ export function CourseBehavior() {
 
       function renderPronunciation() {
         if (!pronunciationVisible) return;
+        setActiveSection(pronunciation.completed ? null : 'pronunciation');
         const readingBox = $('cx-reading'); if (readingBox) readingBox.hidden = true;
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
         $('cx-q')!.hidden = true;
@@ -672,6 +704,7 @@ export function CourseBehavior() {
         // Hide ownership before awaiting stop/getUserMedia cancellation. Any
         // older async click handler may finish, but must not reopen this screen.
         pronunciationVisible = false;
+        setActiveSection(null);
         await pronunciation.stopRecording();
         $('cx-pronunciation')!.hidden = true;
         $('cx-done')!.hidden = false;
@@ -958,8 +991,9 @@ export function CourseBehavior() {
       // lúc cần đẩy: những câu chưa tới máy chủ thì mở lại KHÔNG khôi phục được.
       // Rời trang: đẩy nốt CẢ lượt làm trắc nghiệm LẪN nháp tự luận. Bỏ sót vế
       // thứ hai thì đoạn học viên vừa gõ chỉ còn trong trình duyệt này.
-      onLeave = () => { runner.leave(); writing.flushDraft(); };
+      onLeave = () => { pauseSectionTimers(); runner.leave(); writing.flushDraft(); };
       onHide = () => {
+        syncSectionTimers();
         if (document.visibilityState === 'hidden') { runner.leave(); writing.flushDraft(); }
       };
       window.addEventListener('pagehide', onLeave);
@@ -968,6 +1002,7 @@ export function CourseBehavior() {
 
     return () => {
       pronunciationVisible = false;
+      pauseSectionTimers();
       if (pronunciation) pronunciation.destroy();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);

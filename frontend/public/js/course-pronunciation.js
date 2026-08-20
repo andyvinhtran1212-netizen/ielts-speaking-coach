@@ -1,3 +1,5 @@
+import { createActiveTimer } from './course-active-timer.js';
+
 /** Course pronunciation + shadowing: one sentence at a time, one final submit. */
 
 const esc = (value) => String(value == null ? '' : value)
@@ -112,7 +114,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
   let clientId = null;
   let submitting = false;
   let errorMessage = '';
-  let startedAt = 0;
+  const activeTimer = createActiveTimer(now);
   const recordings = new Map();
   const objectUrls = new Map();
 
@@ -344,7 +346,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     form.append('bank_id', bankId);
     form.append('client_id', clientId);
     form.append('sentence_ids', JSON.stringify(ids));
-    form.append('duration_sec', String(Math.max(0, Math.round((now() - startedAt) / 1000))));
+    form.append('duration_sec', String(activeTimer.seconds()));
     ids.forEach((id) => {
       const blob = recordings.get(id);
       const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
@@ -353,6 +355,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     try {
       latest = await api.upload('/api/quiz/course/pronunciation/submit', form);
       if (latest?.status === 'completed') {
+        activeTimer.setActive(false);
         await clearAttemptCache();
         clientId = null;
       }
@@ -371,7 +374,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
       const state = await api.get('/api/quiz/course/pronunciation?bank_id=' + encodeURIComponent(bankId));
       exercise = state?.exercise || null;
       latest = state?.latest_attempt || null;
-      startedAt = now();
+      activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
         const [cachedActive, cachedClientId] = await Promise.all([
@@ -412,9 +415,11 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     get count() { return sentences().length; },
     get isRecording() { return !!recordingId; },
     get submitting() { return submitting; },
+    get completed() { return latest?.status === 'completed'; },
     get course() { return latest?.course || null; },
     load,
     render,
+    setActive(active) { activeTimer.setActive(active); },
     select(index) { selected = Math.max(0, Math.min(sentences().length - 1, Number(index) || 0)); },
     move(delta) { selected = Math.max(0, Math.min(sentences().length - 1, selected + Number(delta || 0))); },
     setSpeed(rate) { speed = Number(rate) || 0.85; },
@@ -433,7 +438,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
       clearRecordings();
       await clearAttemptCache();
       clientId = uuid();
-      startedAt = now();
+      activeTimer.reset();
       await persistActiveAttempt();
     },
     destroy() {

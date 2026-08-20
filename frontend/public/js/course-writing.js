@@ -11,6 +11,8 @@
  *   · chưa chấm được KHÁC HẲN câu-của-em-đúng.
  */
 
+import { createActiveTimer } from './course-active-timer.js';
+
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml(s)
   : String(s == null ? '' : s)
@@ -107,7 +109,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // `{}` lên đè bản dự phòng đang có — chỉ cần mở trang trên mạng chậm rồi
   // chuyển app.
   let ready = false;
-  let startedAt = 0;
+  const activeTimer = createActiveTimer(now);
 
   function loadDraft() {
     if (!storage) return {};
@@ -270,7 +272,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const remote = (!submitted && r && r.draft && r.draft.answers) || null;
       draft = Object.keys(local).length ? local : { ...(remote || {}) };
       ready = true;
-      startedAt = now();
+      activeTimer.reset();
       if (!submitted) {
         saveDraft();
         // Máy này có bài mà bản dự phòng khác đi (hoặc chưa có) thì gửi lên
@@ -283,6 +285,8 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       }
       return { submitted, count: questions.length };
     },
+
+    setActive(active) { activeTimer.setActive(active); },
 
     /**
      * Đẩy nốt nháp NGAY. Gọi khi rời trang.
@@ -326,10 +330,11 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const r = await api.post('/api/quiz/course/writing', {
         bank_id: bankId,
         answers,
-        duration_sec: Math.max(0, Math.round((now() - startedAt) / 1000)),
+        duration_sec: activeTimer.seconds(),
       });
       submitted = true;
       submission = r;
+      activeTimer.setActive(false);
       if (storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }

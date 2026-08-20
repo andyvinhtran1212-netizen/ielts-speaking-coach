@@ -1615,8 +1615,14 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     # Best-effort: hỏng ở đây KHÔNG được làm đổ lệnh kết phiên — điểm đã ghi rồi,
     # và chốt sổ có thể vá lại bằng lượt đối chiếu.
     item_id = (session or {}).get("class_assignment_item_id")
-    if item_id and ended_by == "completed" and _course_work_is_done(
-            session or {}, item_id):
+    # Ngân hàng nhiều phần chỉ được chốt bởi `refresh_course_completion` sau
+    # khi đọc/nghe/viết/phát âm đều có bằng chứng canonical. Nếu vẫn đi qua
+    # đường legacy này, riêng việc phủ đủ MCQ sẽ đóng `submitted_at` bất biến
+    # và lần tải lại kế tiếp khoá các phần còn thiếu ở chế độ review-only.
+    bank_id = (session or {}).get("bank_id")
+    if (item_id and ended_by == "completed"
+            and not course_bank_is_multisection(bank_id)
+            and _course_work_is_done(session or {}, item_id)):
         try:
             mark_item_submitted(
                 supabase_admin, item_id=item_id,

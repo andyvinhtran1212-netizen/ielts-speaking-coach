@@ -1,3 +1,5 @@
+import { createActiveTimer } from './course-active-timer.js';
+
 /** Bài nghe ngắn: draft nhẹ ở máy, nộp đủ một lần và tính vào điểm tổng hợp. */
 
 const esc = (value) => String(value == null ? '' : value)
@@ -12,7 +14,7 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
   let data = null;
   let draft = {};
   let solution = null;
-  let startedAt = 0;
+  const activeTimer = createActiveTimer(now);
 
   const questions = () => (data?.sections || [])
     .flatMap((section) => section.questions || []);
@@ -103,6 +105,7 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
     get exists() { return !!data; },
     get count() { return questions().length; },
     get missing() { return missing(); },
+    get revealed() { return !!solution; },
     get result() { return solution?.result || null; },
     get course() { return solution?.result?.course || null; },
     load(bank) {
@@ -110,9 +113,10 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
       data = bank?.meta?.short_listening || null;
       draft = data ? loadDraft() : {};
       solution = null;
-      startedAt = now();
+      activeTimer.reset();
       return !!data;
     },
+    setActive(active) { activeTimer.setActive(active); },
     write(qid, value) {
       if (!questions().some((q) => q.id === qid)) return;
       draft[qid] = String(value || '');
@@ -122,8 +126,9 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
       if (!data || missing().length) return false;
       solution = await api.post('/api/quiz/course/listening-solution', {
         bank_id: bankId, answers: { ...draft },
-        duration_sec: Math.max(0, Math.round((now() - startedAt) / 1000)),
+        duration_sec: activeTimer.seconds(),
       });
+      activeTimer.setActive(false);
       return true;
     },
     async refreshAudio() {

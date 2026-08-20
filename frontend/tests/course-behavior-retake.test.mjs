@@ -141,6 +141,22 @@ describe('cổng hoàn thành bài nhiều phần', () => {
   });
 });
 
+describe('thời lượng từng phần chỉ tính khi màn đang hiện', () => {
+  test('mọi màn chuyển ownership qua một cổng timer duy nhất', () => {
+    assert.match(SRC, /setActiveSection\(writing\.submitted \? null : 'writing'\)/);
+    assert.match(SRC, /setActiveSection\(reading\.revealed \? null : 'reading'\)/);
+    assert.match(SRC, /setActiveSection\(listening\.revealed \? null : 'listening'\)/);
+    assert.match(SRC, /setActiveSection\(pronunciation\.completed \? null : 'pronunciation'\)/);
+  });
+
+  test('ẩn tab tạm dừng và hiện lại tiếp tục đúng section đang mở', () => {
+    const body = functionBody('syncSectionTimers');
+    assert.match(body, /pauseSectionTimers\(\)/);
+    assert.match(body, /document\.visibilityState === 'hidden'/);
+    assert.match(SRC, /onHide = \(\) => \{\s*syncSectionTimers\(\)/);
+  });
+});
+
 describe('chỉ báo lưu phản ánh persistence thật', () => {
   test('shell bắt đầu trung tính, không khẳng định đã tự động lưu', () => {
     assert.match(SHELL, /id="cx-save-note"[\s\S]*data-state="idle"/);
