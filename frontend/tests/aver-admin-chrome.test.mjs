@@ -529,6 +529,22 @@ describe('Sprint 12.2 F2 — <aver-admin-chrome> subsection attribute', () => {
     assert.match(CHROME_JS, /slug:\s*['"]queue['"][^}]*label:\s*['"]Hàng chờ chấm['"]/);
     assert.doesNotMatch(CHROME_JS, /slug:\s*['"]grade['"]/);
   });
+
+  it('navigation uses native owners and omits contextless Listening editors', () => {
+    assert.match(CHROME_JS, /label:\s*'Soạn bài viết'[^}]*href:\s*'\/admin\/writing\/new'/);
+    assert.match(CHROME_JS, /label:\s*'Lớp học'[^}]*href:\s*'\/admin\/writing\/cohorts'/);
+    for (const legacy of [
+      '/pages/admin/writing/new.html', '/pages/admin/writing/cohorts.html',
+    ]) assert.ok(!CHROME_JS.includes(legacy), legacy);
+    for (const slug of ['create', 'segments', 'gist', 'tf', 'mcq']) {
+      assert.doesNotMatch(CHROME_JS, new RegExp(`slug:\\s*['"]${slug}['"]`),
+        `${slug} cần content_id nên không phải điểm vào từ sidebar`);
+    }
+    for (const href of [
+      '/admin/listening/import-drills', '/admin/listening/import-fulltest',
+      '/admin/listening/audit',
+    ]) assert.ok(CHROME_JS.includes(href), href);
+  });
 });
 
 

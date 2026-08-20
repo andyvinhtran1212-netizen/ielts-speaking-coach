@@ -477,7 +477,7 @@ describe('hết chặng', () => {
 
 // ── Cổng thuộc bài: kiểm tra lại (mẫu nhỏ, trộn câu + trộn đáp án) ──────────
 
-import { retakeClone, shuffled } from '../js/course-runner.js';
+import { retakeClone, seededRng, shuffled } from '../js/course-runner.js';
 
 /** LCG — rng tái lập được cho test. */
 function lcg(seed) {
@@ -515,6 +515,16 @@ describe('retakeClone — trộn đáp án mà không đổi nghĩa', () => {
 });
 
 describe('bài kiểm tra lại', () => {
+  test('cùng session id luôn dựng lại cùng câu và cùng hoán vị đáp án', () => {
+    const questions = Array.from({ length: 30 }, (_, i) => mcq(i));
+    const build = () => {
+      const rng = seededRng('6b1df028-f32a-4d09-a2c5-d6f8d4d74636');
+      return shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    };
+    const shape = (list) => list.map((q) => ({ qid: q.qid, perm: q._perm }));
+    assert.deepEqual(shape(build()), shape(build()));
+  });
+
   test('số lần retake khôi phục từ sổ server', async () => {
     const { r } = await run({
       questions: Array.from({ length: 6 }, (_, i) => mcq(i)),
@@ -575,6 +585,55 @@ describe('bài kiểm tra lại', () => {
     assert.equal(out.hasMore, false, 'kiểm tra lại chỉ có MỘT chặng');
     assert.equal(store.getItem('cx:b1'), savedBefore,
       'trạng thái lượt chính không được đè trong lúc kiểm tra lại');
+  });
+
+  test('reload giữa revision nhận lại đúng mẫu và đúng câu kế tiếp từ server', async () => {
+    const questions = Array.from({ length: 30 }, (_, i) => mcq(i));
+    const rng = seededRng('revision-1');
+    const expected = shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    const resume = {
+      item_id: 'it-1', completed: ['run-1'], stage: 3,
+      retake: {
+        session_id: 'revision-1', completed: false,
+        answered: expected.slice(0, 2).map((q, i) => ({ qid: q.qid, is_correct: i === 0 })),
+      },
+    };
+    const { r, api } = await run({
+      questions, resume,
+      mastery: { item_id: 'it-1', retakes: 2, retake_size: 20 },
+    });
+    assert.equal(r.mode, 'retake');
+    assert.equal(r.retakeNo, 3);
+    assert.equal(r.at, 2);
+    assert.equal(r.current().qid, expected[2].qid);
+    assert.deepEqual(r.stageQuestions().map((q) => q.qid), expected.map((q) => q.qid));
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 0,
+      'đã có revision dở thì không được mở phiên mới');
+  });
+
+  test('revision đã chốt nhưng verdict rớt mạng được gửi lại mà không PATCH lần hai', async () => {
+    const questions = Array.from({ length: 25 }, (_, i) => mcq(i));
+    const rng = seededRng('revision-done');
+    const expected = shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    const { r, api } = await run({
+      questions,
+      mastery: { item_id: 'it-1', retakes: 0, retake_size: 20 },
+      resume: {
+        item_id: 'it-1', completed: ['run-1'], stage: 3,
+        retake: {
+          session_id: 'revision-done', completed: true, right: 16, graded: 20,
+          answered: expected.map((q, i) => ({ qid: q.qid, is_correct: i < 16 })),
+        },
+      },
+    });
+    assert.equal(r.isStageDone(), true);
+    const result = await r.finishStage();
+    assert.equal(result.persisted, true);
+    assert.equal(result.right, 16);
+    assert.equal(api.calls.patch.length, 0, 'phiên đã chốt không được chốt lại');
+    await r.verdict();
+    const verdict = api.calls.post.find((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(verdict.body.session_ids, ['revision-done']);
   });
 
   test('failed attempt khởi động lại một lượt đầy đủ sạch', async () => {

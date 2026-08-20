@@ -238,6 +238,16 @@ function statusCode(err: any): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function loadFailureMessage(err: any, fallback: string): string {
+  const status = statusCode(err);
+  const message = typeof err?.message === 'string' ? err.message.trim() : '';
+  // These two list endpoints use 403 for the one actionable learner-facing
+  // explanation (account not linked / Writing permission missing). Do not echo
+  // arbitrary 4xx/5xx details: validation or transport text may be internal.
+  if (status === 403 && message) return message;
+  return fallback;
+}
+
 function isDefinitiveSubmitRejection(err: any): boolean {
   const status = statusCode(err);
   return status !== null && status >= 400 && status < 500 && status !== 408 && status !== 429;
@@ -780,7 +790,13 @@ function renderDeadlines(assignments: any[]) {
   if (!surface || !list) return;
 
   const withDeadline = (assignments || [])
-    .filter((a: any) => a.deadline)
+    // Khối này có tên “sắp đến hạn”. Bài đã quá hạn vẫn xuất hiện ở thẻ bài
+    // chính với trạng thái riêng; trộn nó vào đây khiến tiêu đề nói sai.
+    .filter((a: any) => {
+      if (!a.deadline) return false;
+      const deadline = new Date(a.deadline).getTime();
+      return Number.isFinite(deadline) && deadline >= Date.now();
+    })
     .sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
   if (withDeadline.length === 0) {
@@ -1434,8 +1450,10 @@ async function loadAssignments(api: any) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('assignments-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài giao: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài giao. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }
@@ -1455,8 +1473,10 @@ async function loadEssays(api: any) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('essays-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài viết: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài viết. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }

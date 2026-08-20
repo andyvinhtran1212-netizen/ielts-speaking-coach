@@ -233,6 +233,14 @@ describe('/writing/dashboard — idempotent submit and account lifecycle', () =>
     assert.match(behavior, /Bài đã được nộp ở một tab khác/);
     assert.match(html, /WritingSubmitReceipt\.remove\(accountId, pending\[i\]\.assignmentId\)/);
   });
+
+  test('load failures preserve actionable 4xx copy but hide raw transport errors', () => {
+    assert.match(behavior, /function loadFailureMessage/);
+    assert.match(behavior, /status === 403 && message/);
+    assert.match(behavior, /Không tải được bài giao\. Vui lòng thử lại\./);
+    assert.match(behavior, /Không tải được bài viết\. Vui lòng thử lại\./);
+    assert.doesNotMatch(behavior, /Không tải được bài giao: ' \+/);
+  });
 });
 
 
@@ -750,6 +758,8 @@ describe('writing-dashboard / Sprint 19.1A refinement', () => {
     assert.match(html, /function\s+renderDeadlines\s*\(/);
     assert.match(html, /function\s+formatDeadline\s*\(/);
     assert.match(html, /renderDeadlines\(active\)/);
+    assert.match(behavior, /deadline\s*>=\s*Date\.now\(\)/,
+      '“Bài sắp đến hạn” không được trộn bài đã quá hạn');
   });
 
   test('D3: per-card .docx download affordance wired', () => {

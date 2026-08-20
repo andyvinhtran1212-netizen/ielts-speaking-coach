@@ -230,8 +230,9 @@ def _resume(*, sessions, attempts, questions=None, mastery=None):
         return qs.get_course_resume(user_id=USER, bank_id=BANK)
 
 
-def _sess(sid, *, ended_by=None, created="2026-08-06T01:00:00+00:00", tq=None, tc=None):
-    return {"id": sid, "user_id": USER, "bank_id": BANK, "kind": "run",
+def _sess(sid, *, ended_by=None, created="2026-08-06T01:00:00+00:00", tq=None, tc=None,
+          kind="run"):
+    return {"id": sid, "user_id": USER, "bank_id": BANK, "kind": kind,
             "class_assignment_item_id": ITEM, "created_at": created,
             "ended_at": None if ended_by is None else created,
             "ended_by": ended_by, "total_questions": tq, "total_correct": tc}
@@ -331,6 +332,108 @@ def test_near_pass_rerun_keeps_the_prior_full_retry_boundary_on_reload():
     )
     assert sv["completed"] == ["new-1", "new-2"]
     assert sv["stage"] == 2
+
+
+def test_an_unrecorded_retake_is_resumable_without_polluting_the_full_run():
+    mastery = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 70.0, "at": "2026-08-06T03:00:00+00:00",
+        "sessions": ["run-1"], "next_action": "retake",
+    }]}
+    sv = _resume(
+        sessions=[
+            _sess("run-1", ended_by="completed", tq=10, tc=7),
+            _sess("revision-1", kind="retake", created="2026-08-06T04:00:00+00:00"),
+        ],
+        attempts=[
+            {"session_id": "run-1", "qid": f"q{i:02d}"} for i in range(10)
+        ] + [
+            {"session_id": "revision-1", "qid": q, "is_correct": ok}
+            for q, ok in (("q42", True), ("q07", False), ("q61", True))
+        ],
+        mastery=mastery,
+    )
+    assert sv["completed"] == ["run-1"], "revision không được lẫn vào full run"
+    assert sv["retake"] == {
+        "session_id": "revision-1",
+        "answered": [
+            {"qid": "q42", "is_correct": True},
+            {"qid": "q07", "is_correct": False},
+            {"qid": "q61", "is_correct": True},
+        ],
+        "completed": False, "right": 0, "graded": 0,
+    }
+
+
+def test_a_completed_retake_without_a_ledger_row_can_retry_verdict_after_reload():
+    mastery = {"threshold": 75, "attempts": [{
+        "phase": "run", "pct": 70.0, "at": "2026-08-06T03:00:00+00:00",
+        "sessions": ["run-1"], "next_action": "retake",
+    }]}
+    sv = _resume(
+        sessions=[_sess("revision-1", kind="retake", ended_by="completed",
+                        created="2026-08-06T04:00:00+00:00", tq=20, tc=16)],
+        attempts=[{"session_id": "revision-1", "qid": f"q{i:02d}",
+                   "is_correct": i < 16} for i in range(20)],
+        mastery=mastery,
+    )
+    assert sv["retake"]["completed"] is True
+    assert sv["retake"]["right"] == 16 and sv["retake"]["graded"] == 20
+
+
+def test_a_retake_already_in_the_mastery_ledger_is_not_resumed():
+    mastery = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 70.0, "at": "2026-08-06T03:00:00+00:00",
+         "sessions": ["run-1"], "next_action": "retake"},
+        {"phase": "retake", "pct": 70.0, "at": "2026-08-06T05:00:00+00:00",
+         "sessions": ["revision-1"], "next_action": "retake"},
+    ]}
+    sv = _resume(
+        sessions=[_sess("revision-1", kind="retake", ended_by="completed",
+                        created="2026-08-06T04:00:00+00:00", tq=20, tc=14)],
+        attempts=[], mastery=mastery,
+    )
+    assert sv["retake"] is None
+
+
+def test_an_older_unrecorded_retake_is_superseded_by_the_latest_ledger_verdict():
+    """Hai tab có thể mở hai revision. Khi tab mới đã được chấm, revision dở
+    của tab cũ không còn là "lượt đang làm" hợp lệ dù id của nó chưa vào sổ."""
+    mastery = {"threshold": 75, "attempts": [
+        {"phase": "run", "pct": 70.0, "at": "2026-08-06T03:00:00+00:00",
+         "sessions": ["run-1"], "next_action": "retake"},
+        {"phase": "retake", "pct": 70.0, "at": "2026-08-06T05:00:00+00:00",
+         "sessions": ["revision-new"], "next_action": "retake"},
+    ]}
+    sv = _resume(
+        sessions=[
+            _sess("revision-old", kind="retake", created="2026-08-06T04:00:00+00:00"),
+            _sess("revision-new", kind="retake", ended_by="completed",
+                  created="2026-08-06T04:30:00+00:00", tq=20, tc=14),
+        ],
+        attempts=[{"session_id": "revision-old", "qid": "q01", "is_correct": True}],
+        mastery=mastery,
+    )
+    assert sv["retake"] is None
+
+
+def test_only_an_unrecorded_retake_after_the_latest_verdict_is_resumable():
+    mastery = {"threshold": 75, "attempts": [
+        {"phase": "retake", "pct": 70.0, "at": "2026-08-06T05:00:00+00:00",
+         "sessions": ["revision-recorded"], "next_action": "retake"},
+    ]}
+    sv = _resume(
+        sessions=[
+            _sess("revision-stale", kind="retake", created="2026-08-06T04:00:00+00:00"),
+            _sess("revision-current", kind="retake", created="2026-08-06T06:00:00+00:00"),
+        ],
+        attempts=[
+            {"session_id": "revision-stale", "qid": "q01", "is_correct": False},
+            {"session_id": "revision-current", "qid": "q02", "is_correct": True},
+        ],
+        mastery=mastery,
+    )
+    assert sv["retake"]["session_id"] == "revision-current"
+    assert sv["retake"]["answered"] == [{"qid": "q02", "is_correct": True}]
 
 
 def test_an_unreadable_attempt_table_does_NOT_send_a_finished_student_to_stage_0():

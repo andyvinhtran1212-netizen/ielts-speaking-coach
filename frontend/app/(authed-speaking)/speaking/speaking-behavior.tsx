@@ -269,12 +269,24 @@ function switchTopicTab(tab: State['activeTopicTab'], st: State) {
   if (err) err.textContent = '';
 }
 
+let topicModalTrigger: HTMLElement | null = null;
+
 function closeTopicModal() {
-  $('topic-modal')?.classList.remove('open');
+  const modal = $('topic-modal');
+  modal?.classList.remove('open');
+  modal?.setAttribute('aria-hidden', 'true');
+  if (modal) {
+    modal.inert = true;
+    modal.hidden = true;
+  }
   document.body.style.overflow = '';
+  topicModalTrigger?.focus();
+  topicModalTrigger = null;
 }
 
 async function openTopicModal(part: number, mode: string, st: State, api: any) {
+  topicModalTrigger = document.activeElement instanceof HTMLElement
+    ? document.activeElement : null;
   st.modalPart = part;
   st.modalMode = mode || 'practice';
 
@@ -293,8 +305,15 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
     select.innerHTML = '<option value="" disabled selected>— Đang tải danh sách... —</option>';
     select.disabled = true;
   }
-  $('topic-modal')?.classList.add('open');
+  const modal = $('topic-modal');
+  if (modal) {
+    modal.hidden = false;
+    modal.inert = false;
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.add('open');
+  }
   document.body.style.overflow = 'hidden';
+  ($('modal-close') as HTMLButtonElement | null)?.focus();
 
   try {
     const topics = await api.get('/topics?part=' + part);
@@ -489,6 +508,35 @@ export function SpeakingBehavior() {
       // ── Modal chủ đề ────────────────────────────────────────────────────
       on($('topic-modal'), 'click', (e: any) => {
         if (e.target === $('topic-modal')) closeTopicModal();
+      });
+      on(document, 'keydown', (e: KeyboardEvent) => {
+        const modal = $('topic-modal');
+        if (!modal || !modal.classList.contains('open')) return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeTopicModal();
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        const focusable = Array.from(modal.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), select:not([disabled]), input:not([disabled]), '
+          + 'textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        )).filter((el) => !el.hidden && el.getAttribute('aria-hidden') !== 'true'
+          && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+        if (!focusable.length) {
+          e.preventDefault();
+          modal.querySelector<HTMLElement>('[role="dialog"]')?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       });
       // Modal chỉ có MỘT nút đóng trong bản legacy — không có nút "Huỷ" riêng.
       // Bản đầu của tệp này gắn thêm `modal-cancel`, một id không tồn tại ở đâu

@@ -434,7 +434,7 @@ const NAV_GROUPS = [
       },
       { section: 'writing',   label: 'Writing',   href: '/admin/writing',   icon: 'pen',
         subsections: [
-          { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },
+          { slug: 'new',              label: 'Soạn bài viết',     href: '/admin/writing/new' },
           // F4 nav-dedup — "Chấm bài viết" was a duplicate of "Hàng chờ chấm"
           // (both → queue.html after F3), so it's removed. grade.html now sets
           // subsection="queue" so the grade view highlights "Hàng chờ chấm".
@@ -445,7 +445,7 @@ const NAV_GROUPS = [
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/admin/writing/assignments' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/admin/writing/prompts' },
           { slug: 'tips',             label: 'Mẹo viết',          href: '/admin/writing/tips' },
-          { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
+          { slug: 'cohorts',          label: 'Lớp học',           href: '/admin/writing/cohorts' },
           { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
           { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/admin/writing/regrade-requests' },
           { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/admin/writing/instructor-queue' },
@@ -462,12 +462,13 @@ const NAV_GROUPS = [
       { section: 'listening', label: 'Listening', href: '/admin/listening', icon: 'headphones',
         subsections: [
           { slug: 'content',   label: 'Quản lý nội dung', href: '/admin/listening' },
-          { slug: 'create',    label: 'Tạo bài',          href: '/admin/listening' },
           { slug: 'tests',     label: 'Cambridge tests',  href: '/admin/listening/tests' },
-          { slug: 'segments',  label: 'Chia cắt audio',   href: '/admin/listening' },
-          { slug: 'gist',      label: 'Bài Gist',         href: '/admin/listening' },
-          { slug: 'tf',        label: 'Bài True/False',   href: '/admin/listening' },
-          { slug: 'mcq',       label: 'Bài MCQ',          href: '/admin/listening' },
+          // Editors segment/gist/tf/mcq cần content_id, nên chúng chỉ xuất hiện
+          // trong action của đúng content. Đưa vào sidebar không có context chỉ
+          // dẫn tới màn lỗi “Thiếu content_id”.
+          { slug: 'import-drills', label: 'Import bài luyện', href: '/admin/listening/import-drills' },
+          { slug: 'import-fulltest', label: 'Import Cambridge', href: '/admin/listening/import-fulltest' },
+          { slug: 'audit',      label: 'Audit nội dung',    href: '/admin/listening/audit' },
           { slug: 'attempts',  label: 'Lượt làm bài',     href: '/admin/listening/attempts' },
           { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/admin/listening/dictation' },
         ],

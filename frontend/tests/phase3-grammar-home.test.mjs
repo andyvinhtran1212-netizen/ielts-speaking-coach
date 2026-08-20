@@ -129,6 +129,16 @@ describe('parity với trang legacy', () => {
     assert.match(CARDS, /\/grammar\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
   });
 
+  test('mỗi nhóm chỉ mở trước một phần danh sách và cho mở rộng bằng details native', () => {
+    const legacyJs = readFileSync(path.join(FRONTEND, 'public', 'js', 'grammar.js'), 'utf8');
+    assert.match(CARDS, /const GROUP_ARTICLE_PREVIEW = 5/);
+    assert.match(CARDS, /<details className="gw-group-more">/);
+    assert.match(CARDS, /<summary>Xem thêm \{remaining\.length\} bài<\/summary>/);
+    assert.match(legacyJs, /var GROUP_ARTICLE_PREVIEW = 5/);
+    assert.match(legacyJs, /<details class="gw-group-more">/);
+    assert.match(legacyJs, /articles\.slice\(0, GROUP_ARTICLE_PREVIEW\)/);
+  });
+
   test('mọi điểm vào tìm kiếm đều trỏ route Next canonical', () => {
     assert.match(PAGE, /href="\/grammar\/search\?q=ielts"/);
     assert.match(SEARCH, /window\.location\.assign\(`\/grammar\/search\?q=/);

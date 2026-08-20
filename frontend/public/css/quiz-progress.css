@@ -15,7 +15,7 @@
   gap: var(--av-space-3); margin-top: var(--av-space-6); }
 .pg-stat { padding: var(--av-space-4); }
 .pg-stat__label { font-size: var(--av-fs-xs); text-transform: uppercase;
-  letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint); font-weight: var(--av-fw-semibold); }
+  letter-spacing: var(--av-tracking-wide); color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
 .pg-stat__val { font-family: var(--av-font-mono); font-size: var(--av-fs-3xl);
   font-weight: var(--av-fw-medium); color: var(--av-text-primary);
   letter-spacing: var(--av-tracking-tight); line-height: var(--av-lh-tight); margin-top: var(--av-space-1); }
@@ -36,7 +36,7 @@
 /* Recent-sessions table */
 table.pg-sess { width: 100%; border-collapse: collapse; margin-top: var(--av-space-3);
   font-size: var(--av-fs-sm); }
-table.pg-sess th { text-align: left; color: var(--av-text-faint); font-weight: var(--av-fw-semibold);
+table.pg-sess th { text-align: left; color: var(--av-text-muted); font-weight: var(--av-fw-semibold);
   font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
 table.pg-sess td, table.pg-sess th { padding: var(--av-space-3) var(--av-space-2);
   border-bottom: 1px solid var(--av-border-subtle); }
@@ -69,6 +69,6 @@ table.pg-sess td { color: var(--av-text-secondary); font-variant-numeric: tabula
 .pg-mk__explain { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
   color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
 .pg-mk__hint { margin-top: var(--av-space-1); font-size: var(--av-fs-sm);
-  color: var(--av-text-faint); }
+  color: var(--av-text-muted); }
 .pg-cap { color: var(--av-text-faint); font-size: var(--av-fs-xs);
   margin-top: var(--av-space-3); }

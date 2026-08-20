@@ -45,6 +45,9 @@ describe('/quiz/progress — native React behavior', () => {
     assert.match(BEHAVIOR, /setProgressState\(\{ key: requestKey, value: payload \}\)/);
     assert.match(BEHAVIOR, /setMistakesError/);
     assert.match(BEHAVIOR, /Mistakes là enrichment độc lập/);
+    assert.match(BEHAVIOR, /Không tải được thống kê\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /Không tải được danh sách câu sai\. Vui lòng thử lại\./);
+    assert.doesNotMatch(BEHAVIOR, /Không tải được thống kê: \{progressError\}/);
   });
 
   test('renders authored prompt formatting without accepting raw HTML', () => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the read-only production postcondition audit for migrations 213-224.
+"""Run the read-only production postcondition audit for migrations 213-225.
 
 The forward migration runner remains the only writer. This wrapper pins the
 configured Supabase production target, invokes psql with a read-only SQL file
@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-VERIFY_SQL = BACKEND_ROOT / "scripts" / "verify_prod_nextjs_migrations_213_224.sql"
+VERIFY_SQL = BACKEND_ROOT / "scripts" / "verify_prod_nextjs_migrations_213_225.sql"
 PRODUCTION_PROJECT_REF = "huwsmtubwulikhlmcirx"
 PRODUCTION_POOLER_HOSTS = frozenset({
     "aws-1-ap-southeast-1.pooler.supabase.com",

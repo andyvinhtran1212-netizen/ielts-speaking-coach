@@ -533,9 +533,10 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
 
   test('bài quá hạn CHƯA TỪNG mở thì không có nút', () => {
     // Không có gì để xem, và bấm chỉ để nhận 409 sau một vòng gọi mạng.
-    assert.doesNotMatch(
-      itemRow(row({ is_missing: true, state: 'assigned' }), { action: true }),
-      /data-action="start"/);
+    const html = itemRow(row({ is_missing: true, state: 'assigned' }), { action: true });
+    assert.doesNotMatch(html, /data-action="start"/);
+    assert.match(html, /Liên hệ giảng viên nếu bạn cần được mở lại bài/,
+      'khoá bài phải kèm bước tiếp theo, không để học viên ở ngõ cụt');
   });
 
   test('bài quá hạn ĐÃ LÀM DỞ vẫn mở xem lại được', () => {

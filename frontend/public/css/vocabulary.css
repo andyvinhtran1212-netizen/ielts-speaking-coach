@@ -109,7 +109,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--av-text-faint);
+  color: var(--av-text-muted);
   font-weight: var(--av-fw-semibold);
 }
 .stat .value {
@@ -131,7 +131,7 @@ a { color: inherit; text-decoration: none; }
 .stat.heat .value { color: var(--av-warning); }
 
 .stat-unavailable {
-  color: var(--av-text-faint);
+  color: var(--av-text-muted);
 }
 
 .vocab-stats-error {

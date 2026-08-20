@@ -75,9 +75,11 @@ def _writing_renderer_lease_active(assignment: dict, *, now: datetime | None = N
     return expiry > (now or datetime.now(timezone.utc))
 
 
-def _effective_writing_renderer(assignment: dict) -> dict:
+def _effective_writing_renderer(
+    assignment: dict, *, now: datetime | None = None,
+) -> dict:
     """Hide an expired lease without changing the assignment or its draft."""
-    if _writing_renderer_lease_active(assignment):
+    if _writing_renderer_lease_active(assignment, now=now):
         return assignment
     return {
         **assignment,

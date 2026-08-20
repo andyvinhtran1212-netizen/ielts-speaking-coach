@@ -40,7 +40,8 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 const $ = (id) => document.getElementById(id);
 
-const STATE = { items: [] };
+const PAGE_SIZE = 24;
+const STATE = { items: [], offset: 0, total: 0, loadMoreError: false };
 
 const VIEWS = {
   loading: $('state-loading'),
@@ -58,11 +59,45 @@ function showState(name) {
   VIEWS.empty.hidden   = name !== 'empty';
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.grid.hidden    = name !== 'ready';
+  const more = $('rv-load-more');
+  if (more) more.hidden = name !== 'ready';
 }
 function showError(msg) {
   VIEWS.error.textContent = msg;
   if (VIEWS.result) VIEWS.result.textContent = 'Không thể tải danh sách';
   showState('error');
+}
+
+function ensureLoadMore() {
+  let wrap = $('rv-load-more');
+  if (wrap) return wrap;
+  wrap = document.createElement('div');
+  wrap.id = 'rv-load-more';
+  wrap.className = 'rv-load-more';
+  wrap.hidden = true;
+  wrap.innerHTML = '<p role="alert" hidden>Chưa tải được trang tiếp theo.</p>' +
+    '<button type="button">Xem thêm</button>';
+  VIEWS.grid.insertAdjacentElement('afterend', wrap);
+  wrap.querySelector('button').addEventListener('click', () => {
+    if (!STATE.loadMoreError) STATE.offset += PAGE_SIZE;
+    load({ append: true });
+  });
+  return wrap;
+}
+
+function renderLoadMore({ loading = false } = {}) {
+  const wrap = ensureLoadMore();
+  const alert = wrap.querySelector('[role="alert"]');
+  const button = wrap.querySelector('button');
+  const hasMore = STATE.items.length < STATE.total;
+  wrap.hidden = !hasMore;
+  alert.hidden = !STATE.loadMoreError;
+  button.disabled = loading;
+  button.textContent = loading
+    ? 'Đang tải…'
+    : STATE.loadMoreError
+      ? 'Thử lại'
+      : `Xem thêm (${STATE.items.length}/${STATE.total})`;
 }
 
 function revealActiveLibraryTab() {
@@ -106,8 +141,15 @@ function displaySkillTitle(p) {
   return parts.length > 1 ? parts[parts.length - 1] : raw;
 }
 
-async function load() {
-  showState('loading');
+async function load({ append = false } = {}) {
+  if (!append) {
+    STATE.offset = 0;
+    STATE.items = [];
+    showState('loading');
+  } else {
+    renderLoadMore({ loading: true });
+  }
+  STATE.loadMoreError = false;
   const difficulty = ($('filter-difficulty').value || '').trim();
   const skill = ($('filter-skill').value || '').trim();
   VIEWS.result.textContent = 'Đang cập nhật danh sách…';
@@ -115,25 +157,37 @@ async function load() {
   const qs = new URLSearchParams();
   if (difficulty) qs.set('difficulty', difficulty);
   if (skill) qs.set('skill', skill);
-  qs.set('limit', '50');
+  qs.set('limit', String(PAGE_SIZE));
+  qs.set('offset', String(STATE.offset));
 
   try {
     const res = await window.api.get(`/api/reading/skill?${qs.toString()}`);
-    STATE.items = (res && res.items) || [];
+    const incoming = (res && Array.isArray(res.items)) ? res.items : [];
+    STATE.items = (append ? STATE.items.concat(incoming) : incoming)
+      .filter((item, index, all) =>
+        all.findIndex((candidate) => candidate.slug === item.slug) === index);
+    STATE.total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+      ? res.total
+      : STATE.offset + incoming.length;
     renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
+    renderLoadMore();
   } catch (e) {
-    showError('Không tải được thư viện. ' + (e && e.message ? e.message : ''));
+    if (append) {
+      STATE.loadMoreError = true;
+      showState('ready');
+      renderLoadMore();
+    } else {
+      showError('Không tải được thư viện. ' + (e && e.message ? e.message : ''));
+    }
   }
 }
 
 function renderSummary(res) {
   const shown = STATE.items.length;
-  const total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
-    ? res.total
-    : shown;
+  const total = STATE.total;
   const focusCount = new Set(STATE.items.map((p) => p.skill_focus).filter(Boolean)).size;
   VIEWS.total.textContent = String(total);
   VIEWS.focus.textContent = String(focusCount);

@@ -15,13 +15,25 @@ interface VocabBank {
   words_count?: number | null;
 }
 
+interface VocabBankProgress {
+  bank_id: string;
+  words_count?: number | null;
+  mastered?: number | null;
+  in_progress?: number | null;
+}
+
+interface VocabProgressPayload {
+  banks?: VocabBankProgress[];
+}
+
 interface KeyedState<T> {
   key: string;
   value: T;
 }
 
-function errorMessage(caught: unknown) {
-  return caught instanceof Error ? caught.message : String(caught);
+function nonNegativeNumber(value: unknown) {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
 }
 
 export function VocabPracticeBehavior() {
@@ -29,16 +41,23 @@ export function VocabPracticeBehavior() {
   const requestKey = status === 'signed-in' && user?.id ? user.id : null;
   const [banksState, setBanksState] = useState<KeyedState<VocabBank[]> | null>(null);
   const [errorState, setErrorState] = useState<KeyedState<string> | null>(null);
+  const [progressState, setProgressState] = useState<KeyedState<Map<string, VocabBankProgress>> | null>(null);
+  const [progressErrorState, setProgressErrorState] = useState<KeyedState<boolean> | null>(null);
 
   // Không render dữ liệu cũ trong frame giữa lúc account đã đổi và effect kế
   // tiếp chưa chạy.
   const banks = banksState?.key === requestKey ? banksState.value : null;
   const error = errorState?.key === requestKey ? errorState.value : null;
+  const progress = progressState?.key === requestKey ? progressState.value : null;
+  const progressError = progressErrorState?.key === requestKey
+    ? progressErrorState.value : false;
 
   useEffect(() => {
     if (status === 'signed-out') {
       setBanksState(null);
       setErrorState(null);
+      setProgressState(null);
+      setProgressErrorState(null);
       window.location.replace('/login');
     }
   }, [status]);
@@ -50,6 +69,8 @@ export function VocabPracticeBehavior() {
     let disposed = false;
     setBanksState(null);
     setErrorState(null);
+    setProgressState(null);
+    setProgressErrorState(null);
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -64,22 +85,43 @@ export function VocabPracticeBehavior() {
         return;
       }
 
-      try {
-        const payload = await window.api.getWith<VocabBank[]>(
-          '/api/quiz/banks?skill_area=vocab',
-          undefined,
-          { signal: controller.signal },
-        );
-        if (!disposed) {
-          setBanksState({ key: requestKey, value: Array.isArray(payload) ? payload : [] });
-        }
-      } catch (caught: unknown) {
-        if (!disposed && !(caught instanceof DOMException && caught.name === 'AbortError')) {
+      const [banksResult, progressResult] = await Promise.allSettled([
+        window.api.getWith<VocabBank[]>(
+          '/api/quiz/banks?skill_area=vocab', undefined, { signal: controller.signal },
+        ),
+        window.api.getWith<VocabProgressPayload>(
+          '/api/quiz/progress?skill_area=vocab', undefined, { signal: controller.signal },
+        ),
+      ]);
+      if (disposed) return;
+
+      if (banksResult.status === 'rejected') {
+        const caught = banksResult.reason;
+        if (!(caught instanceof DOMException && caught.name === 'AbortError')) {
           setErrorState({
             key: requestKey,
-            value: `Không tải được danh sách bài luyện: ${errorMessage(caught)}`,
+            value: 'Không tải được danh sách bài luyện. Vui lòng thử lại.',
           });
         }
+        return;
+      }
+
+      setBanksState({
+        key: requestKey,
+        value: Array.isArray(banksResult.value) ? banksResult.value : [],
+      });
+      if (progressResult.status === 'fulfilled') {
+        const rows = Array.isArray(progressResult.value?.banks)
+          ? progressResult.value.banks : [];
+        setProgressState({
+          key: requestKey,
+          value: new Map(rows.filter((row) => row?.bank_id).map((row) => [row.bank_id, row])),
+        });
+        setProgressErrorState({ key: requestKey, value: false });
+      } else if (!(progressResult.reason instanceof DOMException
+          && progressResult.reason.name === 'AbortError')) {
+        // Tiến độ là enrichment: lỗi ở đây không được biến cả kho bài thành lỗi.
+        setProgressErrorState({ key: requestKey, value: true });
       }
     })();
 
@@ -100,6 +142,15 @@ export function VocabPracticeBehavior() {
             const wordsCount = typeof bank.words_count === 'number' && Number.isFinite(bank.words_count)
               ? Math.max(0, bank.words_count)
               : 0;
+            const bankProgress = progress?.get(bank.id);
+            const mastered = nonNegativeNumber(bankProgress?.mastered);
+            const tracked = nonNegativeNumber(bankProgress?.in_progress);
+            const total = Math.max(
+              wordsCount,
+              nonNegativeNumber(bankProgress?.words_count),
+              mastered + tracked,
+            );
+            const percent = total ? Math.min(100, Math.round(mastered / total * 100)) : 0;
             return (
               <a
                 className="mode-card"
@@ -115,6 +166,25 @@ export function VocabPracticeBehavior() {
                   {bank.code ? <><span className="vp-code">{bank.code}</span> · </> : null}
                   {wordsCount} từ · học tới khi thuộc
                 </p>
+                {progressError ? (
+                  <p className="vp-bank-progress is-unavailable">Chưa đọc được tiến độ</p>
+                ) : progress ? (
+                  <div className="vp-bank-progress">
+                    <div className="vp-bank-progress__row">
+                      <span>Đã thuộc {mastered}/{total}</span><strong>{percent}%</strong>
+                    </div>
+                    <span
+                      className="vp-bank-progress__track"
+                      role="progressbar"
+                      aria-label={`Tiến độ ${bank.title || bank.code || 'bài luyện'}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={percent}
+                    >
+                      <span style={{ width: `${percent}%` }} />
+                    </span>
+                  </div>
+                ) : null}
               </a>
             );
           })}
@@ -122,6 +192,12 @@ export function VocabPracticeBehavior() {
       ) : (
         <p className="vp-status">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
       )}
+
+      {progressError && banks.length > 0 ? (
+        <p className="vp-progress-warning" role="status">
+          Danh sách bài vẫn dùng được, nhưng tiến độ từng bài chưa đồng bộ.
+        </p>
+      ) : null}
 
       <a className="vp-progress-link" href="/quiz/progress?skill_area=vocab">
         📊 Xem tiến độ của tôi →

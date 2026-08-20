@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-08-20 the highest is `224`, so the next new
-migration is `225`.
+sequence is dense. As of 2026-08-20 the highest is `225`, so the next new
+migration is `226`.
 
 ## Conventions
 
@@ -79,7 +79,7 @@ the final 215–221 schema/function/ACL/RLS/trigger contracts, and records only
 215–218 plus 220–221. It shares the forward runner's advisory lock and finishes
 with the standard migration dry-run; no migration in 215–221 may remain pending.
 
-## Production forward scope 213–224
+## Production forward scope 213–225
 
 Production applies this range only through the standard locked forward runner.
 Migration 222 is safe to encounter when its two tables already exist outside
@@ -104,6 +104,12 @@ terminal records. The postcondition verifier checks columns, bounded
 constraints, indexes, pre/post-224 function fingerprints, security/ACLs,
 triggers and live data.
 
+Migration 225 is the forward-only correction for an admitted Speaking grading
+request racing `finalize-full-test`: an unexpired response INSERT may finish
+after its parent becomes `submitted`, while the router continues to reject any
+new request that starts after submission. This prevents a valid in-flight grade
+from being dropped and later misclassified as `analysis_failed`.
+
 ```bash
 ALLOW_PROD=1 DRY_RUN=1 ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
 ALLOW_PROD=1 ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
@@ -111,7 +117,7 @@ python backend/scripts/verify_prod_nextjs_migrations.py "$DATABASE_URL"
 ```
 
 The verifier refuses every database except the pinned production Supabase
-project and executes `verify_prod_nextjs_migrations_213_224.sql` inside a
-read-only transaction. It proves the exact 213–224 ledger range, Mock
+project and executes `verify_prod_nextjs_migrations_213_225.sql` inside a
+read-only transaction. It proves the exact 213–225 ledger range, Mock
 collection columns/constraints, affinity functions/tables/policies/triggers,
 pronunciation table fingerprints, RLS/table grants and the TTL/lease contract.
