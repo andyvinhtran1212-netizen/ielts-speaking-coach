@@ -187,8 +187,8 @@ await page.waitForTimeout(250);
 check('response filter cũ không ghi đè response mới',
   await page.getByText('Kết quả mới', { exact: true }).count() === 1
     && await page.getByText('Kết quả cũ', { exact: true }).count() === 0);
-check('mỗi request giữ limit=50 và đúng filter',
-  observedQueries.every((query) => query.limit === '50')
+check('mỗi request giữ limit=24 và đúng filter',
+  observedQueries.every((query) => query.limit === '24')
     && observedQueries.some((query) => query.difficulty === 'foundation')
     && observedQueries.some((query) => query.difficulty === 'advanced'));
 
