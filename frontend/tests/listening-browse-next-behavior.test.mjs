@@ -45,6 +45,7 @@ describe('/listening/browse — native React behavior', () => {
   });
 
   test('pages the content endpoint and aborts stale filter/account requests', () => {
+    assert.match(BEHAVIOR, /const PAGE_LIMIT = 24/);
     assert.match(BEHAVIOR, /`\/api\/listening\/content\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_LIMIT\)\)/);
     assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
