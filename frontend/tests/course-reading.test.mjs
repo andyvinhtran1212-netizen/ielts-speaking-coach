@@ -40,7 +40,7 @@ test('renderer keeps passage, vocabulary and both question modes', () => {
   assert.match(html, /book/);
   assert.match(html, /type="radio"/);
   assert.match(html, /type="text"/);
-  assert.match(html, /disabled>Đối chiếu bài đọc/);
+  assert.match(html, /disabled>Nộp phần đọc/);
   assert.match(html, /id="cr-back"/);
   assert.match(html, /cr-question__prompt/);
   assert.match(html, /hoàn thành đủ 2 câu/);
@@ -51,6 +51,7 @@ test('solution is requested only after every reading answer exists', async () =>
   const api = { post: async (_path, body) => {
     calls += 1;
     assert.deepEqual(body.answers, { 'r-01': 'T', 'r-02': 'a' });
+    assert.equal(typeof body.duration_sec, 'number');
     return { translation: 'Mai đọc sách.', answers: [
       { id: 'r-01', answer: 'T', explanation: 'Đúng.' },
       { id: 'r-02', answer: 'a', explanation: 'Phụ âm.' },
@@ -67,6 +68,34 @@ test('solution is requested only after every reading answer exists', async () =>
   assert.equal(calls, 1);
   assert.match(reading.render(), /Mai đọc sách\./);
   assert.match(reading.render(), /Đáp án · T/);
+});
+
+test('duration counts only intervals while the reading section is visible', async () => {
+  let clock = 0;
+  let duration = null;
+  const api = { post: async (_path, body) => {
+    duration = body.duration_sec;
+    return { translation: '', answers: [] };
+  } };
+  const reading = createReading({
+    api, storage: storage(), userId: 'u1', now: () => clock,
+  });
+  reading.load(bank);
+
+  // Mười phút làm quiz trước khi mở phần đọc không được tính.
+  clock = 600_000;
+  reading.setActive(true);
+  clock += 30_000;
+  reading.setActive(false);
+  // Mười phút để tab ẩn cũng không được tính.
+  clock += 600_000;
+  reading.setActive(true);
+  clock += 15_000;
+  reading.write('r-01', 'T');
+  reading.write('r-02', 'a');
+  await reading.reveal();
+
+  assert.equal(duration, 45);
 });
 
 test('draft keys are isolated by learner and markdown escapes HTML first', () => {

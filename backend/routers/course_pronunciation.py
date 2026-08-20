@@ -34,6 +34,7 @@ async def submit_pronunciation(
     bank_id: UUID = Form(...),
     client_id: UUID = Form(...),
     sentence_ids: str = Form(...),
+    duration_sec: int = Form(default=0, ge=0, le=12 * 60 * 60),
     recordings: list[UploadFile] = File(...),
     authorization: str | None = Header(default=None),
 ):
@@ -70,6 +71,7 @@ async def submit_pronunciation(
             bank_id=str(bank_id),
             client_id=str(client_id),
             recordings=loaded,
+            duration_sec=duration_sec,
         )
     except course_pronunciation.CoursePronunciationError as exc:
         _raise(exc)

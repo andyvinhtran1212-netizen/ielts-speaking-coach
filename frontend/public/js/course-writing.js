@@ -11,6 +11,8 @@
  *   · chưa chấm được KHÁC HẲN câu-của-em-đúng.
  */
 
+import { createActiveTimer } from './course-active-timer.js';
+
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml(s)
   : String(s == null ? '' : s)
@@ -107,6 +109,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // `{}` lên đè bản dự phòng đang có — chỉ cần mở trang trên mạng chậm rồi
   // chuyển app.
   let ready = false;
+  const activeTimer = createActiveTimer(now);
 
   function loadDraft() {
     if (!storage) return {};
@@ -229,6 +232,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     get questions() { return questions.slice(); },
     get missing() { return missing(); },
     get draft() { return { ...draft }; },
+    get course() { return submission?.course || null; },
     /** Đang ở bước XÁC NHẬN (đã bấm Nộp một lần). */
     get armed() { return armed; },
 
@@ -268,6 +272,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const remote = (!submitted && r && r.draft && r.draft.answers) || null;
       draft = Object.keys(local).length ? local : { ...(remote || {}) };
       ready = true;
+      activeTimer.reset();
       if (!submitted) {
         saveDraft();
         // Máy này có bài mà bản dự phòng khác đi (hoặc chưa có) thì gửi lên
@@ -280,6 +285,8 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       }
       return { submitted, count: questions.length };
     },
+
+    setActive(active) { activeTimer.setActive(active); },
 
     /**
      * Đẩy nốt nháp NGAY. Gọi khi rời trang.
@@ -320,9 +327,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       if (!armed) return { needsConfirm: true };
       const answers = {};
       questions.forEach((q) => { answers[q.qid] = String(draft[q.qid] || '').trim(); });
-      const r = await api.post('/api/quiz/course/writing', { bank_id: bankId, answers });
+      const r = await api.post('/api/quiz/course/writing', {
+        bank_id: bankId,
+        answers,
+        duration_sec: activeTimer.seconds(),
+      });
       submitted = true;
       submission = r;
+      activeTimer.setActive(false);
       if (storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }

@@ -121,6 +121,42 @@ describe('kết luận gọi đúng lượt đã giúp học viên đạt', () =
   });
 });
 
+describe('cổng hoàn thành bài nhiều phần', () => {
+  test('không vẽ đạt hoặc không đạt khi vẫn còn phần bắt buộc', () => {
+    assert.match(SRC, /v\.completed === false/);
+    assert.match(SRC, /chỉ kết luận đạt hoặc chưa đạt sau khi đủ tất cả các phần/);
+    assert.match(SRC, /cx-section-checklist/);
+    assert.match(SRC, /sectionRows\.filter/);
+  });
+
+  test('chỉ mở hành động cho phần chưa hoàn thành', () => {
+    for (const key of ['writingDone', 'readingDone', 'listeningDone', 'pronunciationDone']) {
+      assert.match(SRC, new RegExp(`!${key}`));
+    }
+  });
+
+  test('quay lại từ từng phần sẽ đọc lại kết luận canonical', () => {
+    assert.match(SRC, /t\.id === 'cr-back'[\s\S]{0,180}renderVerdict\(\)/);
+    assert.match(SRC, /t\.id === 'cl-back'[\s\S]{0,180}renderVerdict\(\)/);
+  });
+});
+
+describe('thời lượng từng phần chỉ tính khi màn đang hiện', () => {
+  test('mọi màn chuyển ownership qua một cổng timer duy nhất', () => {
+    assert.match(SRC, /setActiveSection\(writing\.submitted \? null : 'writing'\)/);
+    assert.match(SRC, /setActiveSection\(reading\.revealed \? null : 'reading'\)/);
+    assert.match(SRC, /setActiveSection\(listening\.revealed \? null : 'listening'\)/);
+    assert.match(SRC, /setActiveSection\(pronunciation\.completed \? null : 'pronunciation'\)/);
+  });
+
+  test('ẩn tab tạm dừng và hiện lại tiếp tục đúng section đang mở', () => {
+    const body = functionBody('syncSectionTimers');
+    assert.match(body, /pauseSectionTimers\(\)/);
+    assert.match(body, /document\.visibilityState === 'hidden'/);
+    assert.match(SRC, /onHide = \(\) => \{\s*syncSectionTimers\(\)/);
+  });
+});
+
 describe('chỉ báo lưu phản ánh persistence thật', () => {
   test('shell bắt đầu trung tính, không khẳng định đã tự động lưu', () => {
     assert.match(SHELL, /id="cx-save-note"[\s\S]*data-state="idle"/);

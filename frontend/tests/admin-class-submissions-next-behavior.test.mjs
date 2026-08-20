@@ -36,10 +36,37 @@ describe('admin class submissions model', () => {
     assert.equal(out.axes[0].wrong, 3);
   });
 
+  test('keeps aggregate attempt count, duration and per-section scores', () => {
+    const out = normalizeEffort({ students: [{
+      student_id: 's1', user_id: 'u1', state: 'needs_retry', stages_done: 9,
+      attempts: 2, combined_pct: 74.5, sections_done: 5, sections_total: 5,
+      attempt_minutes: 42.3,
+      section_results: [{ key: 'listening', label: 'Nghe hiểu', pct: 80, duration_sec: 360 }],
+    }], axes: [] });
+    assert.equal(out.students[0].attempts, 2);
+    assert.equal(out.students[0].combined_pct, 74.5);
+    assert.equal(out.students[0].attempt_minutes, 42.3);
+    assert.deepEqual(out.students[0].section_results[0], {
+      key: 'listening', label: 'Nghe hiểu', pct: 80, duration_sec: 360, carried: false,
+    });
+  });
+
   test('groups report questions by canonical axis and preserves mastery history', () => {
     const report = normalizeStudentReport({ questions: [{ qid: 'q1', item_key: 'Articles', is_correct: false }, { qid: 'q2', item_key: 'Articles', is_correct: true }], history: [{ number: 1, phase: 'full', pct: 70, next_action: 'retake' }], totals: { answered: 2, correct: 1 } });
     assert.equal(groupReportQuestions(report.questions)[0].wrong, 1);
     assert.equal(report.history[0].next_action, 'retake');
+  });
+
+  test('preserves incomplete attempts and their section timing in student history', () => {
+    const report = normalizeStudentReport({ questions: [], totals: {}, history: [{
+      number: 1, phase: 'run', completed: false, pct: null, duration_sec: 900,
+      sections: [{ key: 'quiz', label: 'Trắc nghiệm', pct: 85, duration_sec: 900 }],
+    }] });
+    assert.equal(report.history[0].completed, false);
+    assert.equal(report.history[0].pct, null);
+    assert.equal(report.history[0].duration_sec, 900);
+    assert.equal(report.history[0].sections[0].pct, 85);
+    assert.equal(report.history[0].sections[0].carried, false);
   });
 
   test('distinguishes no writing submission from an empty graded submission', () => {
@@ -62,6 +89,13 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /\/writing\/\$\{encodeURIComponent\(studentId\)\}/);
     assert.match(UI, /\/return\/\$\{encodeURIComponent\(row\.student_id\)\}/);
     assert.doesNotMatch(HOMEWORK, /Nhận bài · legacy|markingHref/);
+  });
+
+  test('shows canonical attempt history with per-section score and duration', () => {
+    assert.match(UI, /Từng lượt và từng phần/);
+    assert.match(UI, /row\.sections\.map/);
+    assert.match(UI, /row\.duration_sec/);
+    assert.match(UI, /Điểm tổng chỉ có sau khi mọi phần bắt buộc hoàn thành/);
   });
 
   test('deep-links an assignment natively and reloads canonical truth after return', () => {

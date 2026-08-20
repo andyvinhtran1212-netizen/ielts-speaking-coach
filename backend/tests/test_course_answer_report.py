@@ -444,6 +444,9 @@ def test_the_learner_report_uses_the_canonical_mastery_history():
         "at": "2026-08-06T01:10:00+00:00",
         "session_count": 1,
         "next_action": "retake",
+        "completed": True,
+        "duration_sec": 0,
+        "sections": [],
     }]
 
 
