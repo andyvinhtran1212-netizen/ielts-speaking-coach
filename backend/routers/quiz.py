@@ -155,10 +155,15 @@ class CourseListeningAudioBody(BaseModel):
 
 
 @router.get("/course/writing")
-async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
+async def course_writing_state(
+    bank_id: str, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_writing_state(user_id=user["id"], bank_id=bank_id)
+    return quiz_service.course_writing_state(
+        user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
+    )
 
 
 @router.post("/course/writing")
@@ -217,14 +222,19 @@ async def course_listening_audio(body: CourseListeningAudioBody,
 
 
 @router.get("/course/report")
-async def course_answer_report(bank_id: str, authorization: str | None = Header(None)):
+async def course_answer_report(
+    bank_id: str, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Bài làm chi tiết của CHÍNH học viên: câu nào sai, em chọn gì, đáp án gì.
 
     Cùng một bộ dựng với mặt đọc của giáo viên — hai bộ dựng cho cùng một nội
     dung là hai chỗ để trôi khỏi nhau.
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.course_answer_report(user_id=user["id"], bank_id=bank_id)
+    return quiz_service.course_answer_report(
+        user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
+    )
 
 
 @router.post("/course/verdict")

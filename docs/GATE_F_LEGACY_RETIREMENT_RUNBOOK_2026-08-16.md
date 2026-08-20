@@ -34,6 +34,60 @@ Các bước trên đã hoàn tất cho release ghi ở đầu tài liệu. Mố
 là `2026-08-31T00:15:22Z`; full business/revisit cycle, Gate E, cutover drain và
 các điều kiện bên dưới vẫn có thể đẩy quyết định retirement muộn hơn.
 
+## Chuỗi release bắt buộc trước core cutover
+
+Gate E phải chứng minh đúng bản remediation cuối cùng, không phải một ancestor
+thiếu các sửa lỗi runtime/schema rồi mới ghép chúng vào commit cutover:
+
+1. **Remediation floor:** gồm toàn bộ thay đổi backend, frontend runtime và
+   migration 224 cần cho cutover; bốn surface Speaking, Reading exam, Listening
+   test và Listening Dictation vẫn giữ `admit_new=legacy` (Writing đã là Next).
+   Apply/verify migration 224 trên staging trước lượt sạch đầu tiên của floor.
+2. **Freeze floor:** frontend release và backend release phải cùng đúng SHA của
+   floor. Tích lũy 20/20 lượt sạch trên SHA đó; ledger tự khởi động lại ở 1 nếu
+   một trong hai release đổi.
+3. **Cutover descendant tối thiểu:** chỉ sau 20/20 mới tạo commit hậu duệ đổi
+   bốn giá trị `admit_new` sang `next`, cùng assertion/route-ledger tương ứng.
+   Commit này không được chứa runtime, API, schema, migration hay cleanup khác.
+4. **Handoff:** xác minh floor là ancestor của cutover, cả năm surface nhận
+   session mới vào Next, session đã claim vẫn giữ renderer, rồi mới ghi chính
+   xác `cutover_at` cho Gate F drain.
+
+Trước khi deploy descendant, chạy verifier fail-closed bằng hai commit SHA:
+
+```bash
+node frontend/tooling/verify-core-cutover-diff.mjs <floor-sha> <cutover-sha>
+```
+
+Kết quả phải có `verified=true`; verifier từ chối backend, migration, App
+Router runtime hoặc tài liệu ngoài evidence/route ledger trong commit cutover.
+
+Bất kỳ thay đổi runtime/backend/schema nào sau khi đạt ngưỡng đều tạo một
+remediation floor mới và phải tích lũy lại 20 lượt. Permanent redirects và xóa
+artifact Legacy là release sau Gate F, không thuộc commit admission cutover.
+
+## Migration 224 — staging preflight 2026-08-20
+
+Read-only preflight trên staging trước khi apply cho thấy ledger 213–223 đều
+đã hiện diện, hai bảng pronunciation của 222–223 tồn tại, chỉ 224 còn thiếu và
+không có row nào thiếu canonical timestamp anchor:
+
+| Bảng | Tổng row | Open | Anchor NULL | Open còn trong 24h |
+|---|---:|---:|---:|---:|
+| `sessions` | 112 | 47 | 0 | 0 |
+| `reading_test_attempts` | 11 | 3 | 0 | 0 |
+| `listening_test_attempts` | 7 | 4 | 0 | 0 |
+| `dictation_attempts` | 4 | 4 | 0 | 0 |
+| `writing_assignments` | 6 | 6 | 0 | 0 |
+
+Vì toàn bộ open row hiện tại đã cũ hơn 24 giờ, backfill sẽ giữ nguyên dữ liệu
+nhưng làm chúng hết quyền resume ngay khi 224 được apply. Đây là tác động dự
+kiến của hard TTL, không phải quyền xóa/abandon row. Năm Writing row
+`in_progress` (Legacy 2, Next 3) nhận lease đã hết hạn; một row `pending + NULL`
+vẫn unclaimed theo đúng migration. Gate E floor chỉ bắt đầu đếm sau khi apply +
+postcondition verifier xanh và fixture tạo attempt mới; streak 3/20 trên SHA cũ
+không được kế thừa.
+
 ## Điều kiện retirement
 
 - Với từng path trong `legacyHtml.renderablePaths`, dùng endpoint admin
@@ -44,20 +98,39 @@ các điều kiện bên dưới vẫn có thể đẩy quyết định retireme
   chứng retirement.
 - Cửa sổ phải đạt
   `max(14 ngày, full business/revisit cycle, maximum active-session TTL)`.
-  Core player còn active phải có zero-active query hoặc exception có owner;
-  thời gian trôi một mình không đủ.
+  Migration 224 đặt maximum active-player TTL là **24 giờ** cho Speaking,
+  Reading exam, Listening test và Listening Dictation; hết TTL chỉ khóa
+  resume/mutation, không xóa row/answer/response. Guard nằm cả ở router và DB
+  child-write/RPC và parent-status trigger để instance N−1 không đi vòng được;
+  Writing chỉ chặn learner-finalizer gắn `essay_id`, nên admin status override
+  không bịa essay vẫn hoạt động sau khi lease hết;
+  completion report Dictation còn bị guard trước DB finalizer. Admin regrade
+  trên dữ liệu terminal vẫn hợp lệ. Các finalizer hiện hành gắn điều kiện
+  expiry vào terminal mutation, còn parent trigger chặn cả finalizer N−1, nên
+  request bắt đầu trước hạn nhưng ghi sau hạn cũng không thể vượt ranh giới.
+  Retention chuyển session Speaking quá TTL sang `abandoned` trước
+  khi scrub. Writing giữ assignment + draft nhưng lease renderer hết sau 24 giờ
+  và có thể được player hiện hành claim lại. Core player còn active phải có
+  exact zero query hoặc exception có
+  owner; thời gian trôi một mình không đủ.
 - Sau khi admission đã chuyển sang Next, gọi admin endpoint
   `/admin/error-logs/legacy-active-session-drain?cutover_at=<UTC-ISO>` bằng
   exact timestamp của release cutover đã lưu trong evidence. Chỉ
   `exact=true`, `stateful_legacy_drain_zero=true` và
   `legacy_blocking_total=0` mới đóng được phần stateful drain. Speaking,
   Reading exam, Listening test và Listening Dictation đọc bốn bảng attempt
-  canonical; row `started_at=NULL` bị tính là blocker. Writing đọc affinity
-  canonical trên `writing_assignments` và tính cả `pending` lẫn `in_progress`
-  đã pin Legacy, nên claim thành công nhưng `/start` gián đoạn không thành số 0
-  giả. Row Writing `in_progress` nhưng affinity `NULL` từ client N−1 cũng là
-  blocker fail-closed; `pending + NULL` không phải bằng chứng bài đã được mở và
-  không bị tính. Dictation đọc
+  canonical. Endpoint schema v4 đếm Legacy/NULL chỉ khi
+  `resume_expires_at > observed_at`; thiếu expiry vẫn là blocker fail-closed,
+  còn row `in_progress` đã hết TTL được báo riêng là `expired_audit_rows` và
+  không bị giả làm dependency còn sống. Writing đọc affinity + lease canonical
+  trên `writing_assignments` và tính cả `pending` lẫn `in_progress` đã pin
+  Legacy trong lease, nên claim thành công nhưng `/start` gián đoạn không thành
+  số 0 giả. Row Writing `in_progress` nhưng affinity `NULL` từ client N−1 chỉ
+  block trong lease; autosave N−1 đầu tiên tự tạo đúng một lease tương thích 24
+  giờ mà không bịa affinity. `pending + NULL` không phải bằng chứng bài đã được
+  mở và không bị tính; nếu autosave cũ chuyển nó sang `in_progress`, endpoint sẽ
+  tính lease đó. Thiếu lease trên một row lẽ ra đã claim vẫn fail closed.
+  Dictation đọc
   `dictation_attempts` từ migration 220; query/count lỗi phải fail closed, không
   được biến thành một số 0 giả trong endpoint này.
 - Kết quả endpoint không tự cho phép retirement: trường

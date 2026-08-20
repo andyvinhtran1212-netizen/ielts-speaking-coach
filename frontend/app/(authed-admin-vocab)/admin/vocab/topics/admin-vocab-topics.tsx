@@ -265,7 +265,7 @@ export function AdminVocabTopics() {
             {analyticsBankId ? <div className="avv-inline-analytics">{!analytics ? <p>Đang tải phân tích…</p> : <><header><strong>Từ dễ sai</strong><span>{analytics.sessionCount} phiên</span></header>{analytics.items.length ? <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Từ / điểm</th><th>Sai</th><th>Lần</th><th>Tỉ lệ sai</th></tr></thead><tbody>{analytics.items.slice(0, 10).map((row) => <tr key={row.label}><td data-label="Từ / điểm"><strong>{row.label}</strong></td><td data-label="Sai">{row.wrong}</td><td data-label="Lần">{row.total}</td><td data-label="Tỉ lệ sai">{Math.round(row.errorRate * 100)}%</td></tr>)}</tbody></table></div> : <p>Chưa có lượt làm nào.</p>}{analytics.skills.length ? <p className="avv-skill-summary">Theo kỹ năng: {analytics.skills.map((row) => `${row.label} ${Math.round(row.errorRate * 100)}%`).join(' · ')}</p> : null}</>}</div> : null}
           </section>
 
-          {skill === 'vocab' ? <section className="avv-linked-section avv-linked-section--compact"><div><p className="avv-eyebrow">Kho từ vựng</p><h3>{bundle.counts.vocabCards} từ đang liên kết</h3></div><a className="btn-secondary" href={`/pages/admin/vocab/content.html?category=${encodeURIComponent(bundle.topic.slug)}`}>Quản lý từ vựng →</a></section> : null}
+          {skill === 'vocab' ? <section className="avv-linked-section avv-linked-section--compact"><div><p className="avv-eyebrow">Kho từ vựng</p><h3>{bundle.counts.vocabCards} từ đang liên kết</h3></div><a className="btn-secondary" href={`/admin/vocab/content?category=${encodeURIComponent(bundle.topic.slug)}`}>Quản lý từ vựng →</a></section> : null}
         </>}
       </section>
     </div>

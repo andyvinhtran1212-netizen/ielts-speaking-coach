@@ -149,8 +149,8 @@ export function canonicalReadingShareUrl(token, locationLike) {
   if (host === 'averlearning.com') host = 'www.averlearning.com';
   const protocol = textOf(locationLike.protocol) || 'https:';
   const port = textOf(locationLike.port);
-  const legacyExamPath = `/pages/${['reading', 'exam'].join('-')}.html`;
-  return `${protocol}//${host}${port ? `:${port}` : ''}${legacyExamPath}?share=${encodeURIComponent(cleanToken)}`;
+  const admissionPath = '/core-player/launch';
+  return `${protocol}//${host}${port ? `:${port}` : ''}${admissionPath}?surface=reading_exam&share=${encodeURIComponent(cleanToken)}`;
 }
 
 export function formatReadingContentDate(value) {

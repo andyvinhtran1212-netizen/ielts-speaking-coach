@@ -39,6 +39,8 @@ describe('Admin Topics + Quick-Check native ownership', () => {
     assert.match(TOPICS, /requestedAllowed = isUuid\(requested\) && rows\.some/);
     assert.match(QUIZ, /admitted = isUuid\(requested\) && topicRows\.some/);
     assert.match(QUIZ, /topics\.some\(\(topic\) => topic\.id === selectedTopic\)/);
+    assert.match(TOPICS, /href=\{`\/admin\/vocab\/content\?category=/);
+    assert.doesNotMatch(TOPICS, /pages\/admin\/vocab\/content\.html/);
   });
 
   test('quiz commit is one-shot, strict, locked and followed by canonical readback', () => {

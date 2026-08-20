@@ -108,7 +108,7 @@ export function feedbackDeepLink(item) {
   // Listening feedback stores the human-facing test_id, while the detail page
   // requires the row UUID. The list is the nearest truthful destination until
   // that surface supports a test_id search param; do not invent a dead query.
-  return item.skill === 'listening' ? '/pages/admin/listening/tests.html' : null;
+  return item.skill === 'listening' ? '/admin/listening/tests' : null;
 }
 
 export function formatFeedbackTime(value, now = new Date()) {

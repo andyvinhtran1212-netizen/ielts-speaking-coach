@@ -333,6 +333,9 @@ async def _start(db):
 @pytest.mark.asyncio
 async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
     out = await _start(_start_db(skill="reading", content_id="uuid-abc"))
+    assert out["open_url"].startswith(
+        "/core-player/launch?surface=reading_exam&"
+    )
     assert "test_id=CAM19-T3" in out["open_url"]
     assert "uuid-abc" not in out["open_url"], (
         "the reader resolves ?test_id= against reading_tests.test_id; handing it "
@@ -344,12 +347,33 @@ async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
 async def test_a_listening_task_opens_by_the_row_id():
     """Listening keys on the row id at both ends — one identifier throughout."""
     out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
-    assert out["open_url"].startswith("/pages/listening-test.html?id=uuid-xyz")
+    assert out["open_url"].startswith(
+        "/core-player/launch?surface=listening_test&id=uuid-xyz"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "skill,content,surface,identity_key,identity",
+    [
+        ("reading", "uuid-abc", "reading_exam", "test_id", "CAM19-T3"),
+        ("listening", "uuid-xyz", "listening_test", "id", "uuid-xyz"),
+    ],
+)
+async def test_reader_contract_includes_canonical_semantic_player_identity(
+    skill, content, surface, identity_key, identity,
+):
+    out = await _start(_start_db(skill=skill, content_id=content))
+    assert out["player_surface"] == surface
+    assert out["player_query"] == {
+        identity_key: identity,
+        "class_item": "item-1",
+    }
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("affinity", ["legacy", "next"])
-async def test_reopening_speaking_returns_the_persisted_renderer_affinity(affinity):
+async def test_completed_speaking_ignores_historical_renderer_and_opens_result(affinity):
     tables = {"sessions": [{
         "id": "session-1",
         "started_at": NOW.isoformat(),
@@ -360,8 +384,9 @@ async def test_reopening_speaking_returns_the_persisted_renderer_affinity(affini
         "renderer_affinity": affinity,
     }]}
     out = await _start(_start_db(skill="speaking", content_id=None, tables=tables))
-    assert out["session_id"] == "session-1"
-    assert out["renderer_affinity"] == affinity
+    assert out["result_session_id"] == "session-1"
+    assert "session_id" not in out
+    assert "renderer_affinity" not in out
 
 
 @pytest.mark.asyncio

@@ -220,6 +220,7 @@ class _Q:
         self._eq: list[tuple[str, object]] = []
         self._in: list[tuple[str, list]] = []
         self._is: list[tuple[str, object]] = []
+        self._gt: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
@@ -232,6 +233,7 @@ class _Q:
     # mock attempts. Modelled rather than stubbed so the test exercises the real
     # filter: an absent key and an explicit None both count as NULL.
     def is_(self, c, v): self._is.append((c, v)); return self
+    def gt(self, c, v): self._gt.append((c, v)); return self
     # Mig 157 — the list endpoint filters eq("test_type", ...) on the real
     # column; seed rows carry test_type='full' so the eq-match keeps them.
     def or_(self, *_a, **_kw): return self
@@ -252,6 +254,9 @@ class _Q:
                 return False
             if str(v).lower() != "null" and is_null:
                 return False
+        for c, v in self._gt:
+            if r.get(c) is None or not (r.get(c) > v):
+                return False
         return True
 
     def execute(self):
@@ -263,6 +268,12 @@ class _Q:
                 rows.append(dict(p))
             return _Resp(payloads)
         if self._mode == "update":
+            if (self.name == "listening_test_attempts" and self._gt
+                    and self.fake.expire_on_guarded_finalize):
+                self.fake.expire_on_guarded_finalize = False
+                for row in rows:
+                    if all(row.get(c) == v for c, v in self._eq):
+                        row["resume_expires_at"] = "2000-01-01T00:00:00+00:00"
             matched = [r for r in rows if self._match(r)]
             for r in matched:
                 r.update(self._payload or {})
@@ -286,15 +297,24 @@ class _Storage:
     def from_(self, name): return _StorageBucket(self.fake, name)
 
 
+class _AttemptRows(list):
+    """Model migration 224's N-1 INSERT trigger for otherwise legacy fixtures."""
+
+    def append(self, row):
+        row.setdefault("resume_expires_at", "2999-01-01T00:00:00+00:00")
+        super().append(row)
+
+
 class _Fake:
     def __init__(self):
         self.tables = {
             "listening_tests":           [],
             "listening_content":         [],
             "listening_exercises":       [],
-            "listening_test_attempts":   [],
+            "listening_test_attempts":   _AttemptRows(),
         }
         self.storage = _Storage(self)
+        self.expire_on_guarded_finalize = False
 
     def table(self, name): return _Q(self, name)
 
@@ -859,6 +879,28 @@ def test_submit_grades_and_writes_attempt_row(monkeypatch):
     row = fake.tables["listening_test_attempts"][0]
     assert row["status"] == "submitted"
     assert row["score"] == 40
+
+
+def test_submit_rechecks_resume_deadline_on_atomic_finalize(monkeypatch):
+    """A request admitted before TTL must not commit after TTL passes."""
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_sections_with_exercises(fake, test["id"])
+    fake.tables["listening_test_attempts"].append({
+        "id": "att", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [],
+    })
+    fake.expire_on_guarded_finalize = True
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.submit_listening_test_attempt(
+            attempt_id="att", authorization=authz,
+        ))
+
+    assert excinfo.value.status_code == 410
+    row = fake.tables["listening_test_attempts"][0]
+    assert row["status"] == "in_progress"
+    assert row.get("score") is None
 
 
 def test_submit_blocks_re_submit(monkeypatch):

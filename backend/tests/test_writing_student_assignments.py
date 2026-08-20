@@ -42,6 +42,7 @@ _STUDENT_ID      = "student-uuid-bbbb"
 _ASSIGNMENT_ID   = "assign-uuid-cccc"
 _PROMPT_ID       = "prompt-uuid-dddd"
 _OTHER_ASSIGNMENT_ID = "assign-uuid-other"
+_ACTIVE_RENDERER_LEASE = "2099-01-01T00:00:00+00:00"
 
 
 def _run(coro):
@@ -80,6 +81,7 @@ class _Builder:
         # a row whose current status is outside the list yields zero
         # affected rows, which is how the router detects a lost race.
         self._in: tuple[str, list] | None = None
+        self._gt: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw):
         self._action = "select"
@@ -115,6 +117,10 @@ class _Builder:
         self._in = (col, list(vals))
         return self
 
+    def gt(self, col, val):
+        self._gt = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -122,6 +128,7 @@ class _Builder:
             "payload": self._payload,
             "filters": list(self._filters),
             "in":      self._in,
+            "gt":      self._gt,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -136,7 +143,14 @@ class _Client:
         essays_data:      list[dict] | None = None,
         jobs_data:        list[dict] | None = None,
     ):
-        self._assignments = assignments_data or []
+        self._assignments = []
+        for assignment in assignments_data or []:
+            row = dict(assignment)
+            if row.get("status") in {"pending", "in_progress"}:
+                row.setdefault("renderer_affinity", "legacy")
+                row.setdefault("renderer_affinity_claimed_at", "2026-05-01T00:00:00+00:00")
+                row.setdefault("renderer_affinity_expires_at", _ACTIVE_RENDERER_LEASE)
+            self._assignments.append(row)
         self._drafts      = drafts_data or []
         self._essays      = essays_data or []
         self._jobs        = jobs_data or []
@@ -171,6 +185,11 @@ class _Client:
                     for col, val in rec["filters"]:
                         matches = [a for a in matches if str(a.get(col)) == str(val)]
                     if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
+                if rec.get("gt"):
+                    gt_col, gt_val = rec["gt"]
+                    if matches[0].get(gt_col) is None or not (matches[0].get(gt_col) > gt_val):
                         r.data = []
                         return r
                 # Echo the patch + id back as if Supabase returned it.
@@ -282,7 +301,11 @@ def test_draft_upsert_auto_transitions_pending_to_in_progress(monkeypatch):
     update_calls = [c for c in client.calls
                     if c["table"] == "writing_assignments" and c["action"] == "update"]
     assert update_calls, "expected a writing_assignments update for the auto-transition"
-    assert update_calls[0]["payload"] == {"status": "in_progress"}
+    transition = next(
+        c for c in update_calls
+        if (c["payload"] or {}).get("status") == "in_progress"
+    )
+    assert transition["payload"] == {"status": "in_progress"}
 
 
 def test_draft_upsert_blocked_when_status_past_in_progress(monkeypatch):

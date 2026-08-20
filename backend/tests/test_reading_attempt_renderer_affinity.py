@@ -16,6 +16,10 @@ MIGRATION = (
     / "218_reading_attempt_renderer_affinity.sql"
 ).read_text()
 AID = UUID("11111111-1111-4111-8111-111111111111")
+ACTIVE_ATTEMPT = {
+    "status": "in_progress",
+    "resume_expires_at": "2099-01-01T00:00:00+00:00",
+}
 
 
 class _Result:
@@ -109,7 +113,7 @@ async def test_authenticated_claim_returns_canonical_affinity_and_owner_scopes_r
     db = _Db([{"attempt_id": str(AID), "renderer_affinity": "next"}])
     with patch.object(mod, "_optional_auth", AsyncMock(return_value={"id": "user-1"})), \
          patch.object(mod, "_fetch_attempt_owned", return_value={
-             "id": str(AID), "user_id": "user-1",
+             "id": str(AID), "user_id": "user-1", **ACTIVE_ATTEMPT,
          }), \
          patch.object(mod, "supabase_admin", db):
         out = await mod.claim_reading_attempt_renderer_affinity(
@@ -133,6 +137,7 @@ async def test_signed_in_share_claim_still_uses_only_the_anonymous_capability_ow
     with patch.object(mod, "_optional_auth", AsyncMock(return_value={"id": "signed-in-user"})), \
          patch.object(mod, "_fetch_attempt_owned", return_value={
              "id": str(AID), "user_id": None, "anon_id": "secret-capability",
+             **ACTIVE_ATTEMPT,
          }), \
          patch.object(mod, "supabase_admin", db):
         out = await mod.claim_reading_attempt_renderer_affinity(
@@ -155,7 +160,7 @@ async def test_missing_or_failed_claim_never_invents_an_affinity():
     async def run(db):
         with patch.object(mod, "_optional_auth", AsyncMock(return_value={"id": "user-1"})), \
              patch.object(mod, "_fetch_attempt_owned", return_value={
-                 "id": str(AID), "user_id": "user-1",
+                 "id": str(AID), "user_id": "user-1", **ACTIVE_ATTEMPT,
              }), \
              patch.object(mod, "supabase_admin", db):
             return await mod.claim_reading_attempt_renderer_affinity(
@@ -171,3 +176,7 @@ async def test_missing_or_failed_claim_never_invents_an_affinity():
     with pytest.raises(HTTPException) as failed:
         await run(_Db(error=RuntimeError("db down")))
     assert failed.value.status_code == 500
+
+    with pytest.raises(HTTPException) as expired:
+        await run(_Db(error=RuntimeError("active_player_expired")))
+    assert expired.value.status_code == 410

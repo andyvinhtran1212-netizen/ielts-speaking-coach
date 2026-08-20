@@ -11,6 +11,10 @@ import { fileURLToPath } from 'node:url';
 
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
 import { buildLegacyReplacementInventory } from './gate-f-route-replacement-inventory.mjs';
+import {
+  buildLegacyRetirementRedirects,
+  RETIREMENT_ARTIFACT_SET,
+} from './gate-f-retirement-redirects.mjs';
 import { findCollisions } from './route-ownership-check.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -23,6 +27,13 @@ export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
 export const LEGACY_RETIREMENT_BEACON = '/js/legacy-retirement-beacon.js';
 export const RUNTIME_CONFIG_SCRIPT = 'runtime-config.js';
 export const CLIENT_REDIRECT_STUB_MARKER = 'name="aver-legacy-artifact" content="redirect-stub"';
+
+export function retirementRedirectsInstalledFromConfig(source) {
+  const config = String(source || '');
+  return /from '\.\/tooling\/gate-f-retirement-redirects\.mjs'/.test(config)
+    && /const LEGACY_RETIREMENT_REDIRECTS\s*=\s*buildLegacyRetirementRedirects\(/.test(config)
+    && /return \[[\s\S]*\.\.\.LEGACY_RETIREMENT_REDIRECTS/.test(config);
+}
 
 function walkFiles(root, accept, prefix = '') {
   const files = [];
@@ -82,7 +93,10 @@ export function summarizeCorePlayers(policy = CORE_PLAYER_AFFINITY_POLICY) {
   };
 }
 
-export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
+export function collectNextMigrationStatus(
+  frontendRoot = FRONTEND,
+  { corePlayerPolicy = CORE_PLAYER_AFFINITY_POLICY } = {},
+) {
   const sourceAppPages = [...new Set(walkFiles(path.join(frontendRoot, 'app'), (name) => /^page\.(tsx|ts)$/.test(name))
     .map(appPageRoute)
     .filter(Boolean))]
@@ -92,7 +106,18 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
   const publicHtmlPaths = walkFiles(path.join(frontendRoot, 'public'), (name) => name.endsWith('.html'))
     .map((relative) => `/${relative}`)
     .sort();
-  const redirects = redirectSourcesFromConfig(readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8'));
+  const configSource = readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8');
+  const redirects = redirectSourcesFromConfig(configSource);
+  const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
+  const retirementRedirectRules = retirementRedirectsInstalled
+    ? buildLegacyRetirementRedirects(publicHtmlPaths)
+    : [];
+  for (const redirect of retirementRedirectRules) {
+    redirects.set(redirect.source, {
+      destination: redirect.destination,
+      permanent: redirect.permanent,
+    });
+  }
   const clientRedirectPaths = publicHtmlPaths.filter((publicPath) => (
     readFileSync(path.join(frontendRoot, 'public', publicPath.slice(1)), 'utf8')
       .includes(CLIENT_REDIRECT_STUB_MARKER)
@@ -103,10 +128,16 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
     return !source.includes(`src="${LEGACY_RETIREMENT_BEACON}"`)
       || !source.includes(RUNTIME_CONFIG_SCRIPT);
   });
-  const corePlayers = summarizeCorePlayers();
+  const corePlayers = summarizeCorePlayers(corePlayerPolicy);
   const ownership = findCollisions();
+  // Once final redirects are installed, keep proving an App Router owner for
+  // every retired artifact. Scoping only to still-renderable paths would make
+  // this inventory empty and allow a redirect-to-404 regression to look green.
+  const replacementPaths = retirementRedirectsInstalled
+    ? publicHtmlPaths
+    : legacyHtml.renderable;
   const legacyReplacement = buildLegacyReplacementInventory(
-    legacyHtml.renderable,
+    replacementPaths,
     productAppPages,
   );
   const blockers = [];
@@ -132,7 +163,7 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
   if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     scope: 'static-code-cutover',
     scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
     appPages: {
@@ -154,6 +185,12 @@ export function collectNextMigrationStatus(frontendRoot = FRONTEND) {
       renderablePaths: legacyHtml.renderable,
     },
     legacyReplacement,
+    legacyRetirementRedirects: {
+      installed: retirementRedirectsInstalled,
+      artifactSet: RETIREMENT_ARTIFACT_SET,
+      rules: retirementRedirectRules.length,
+      sourcePaths: [...new Set(retirementRedirectRules.map((entry) => entry.source))].length,
+    },
     corePlayers,
     routeOwnershipCollisions: ownership.collisions,
     gateFObservationReady: telemetryMissingPaths.length === 0,
@@ -167,7 +204,7 @@ function printHuman(report) {
   console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
   console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.serverRedirected} server-redirected; ${report.legacyHtml.clientRedirectStubs} client redirect stubs; ${report.legacyHtml.directlyRenderable} still directly renderable`);
   console.log(`  Gate F telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
-  console.log(`  Legacy replacements: ${report.legacyReplacement.nextRoutePresent}/${report.legacyReplacement.total} renderable paths have an App Router owner`);
+  console.log(`  Legacy replacements: ${report.legacyReplacement.nextRoutePresent}/${report.legacyReplacement.total} retirement-scope paths have an App Router owner`);
   console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
   console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);
   console.log(`  Static cutover ready: ${report.staticCutoverReady ? 'YES' : 'NO'}`);

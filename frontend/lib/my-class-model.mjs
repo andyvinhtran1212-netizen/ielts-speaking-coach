@@ -1,4 +1,8 @@
-import { admitCorePlayerFromLegacyUrl, corePlayerUrl } from './core-player-affinity.mjs';
+import {
+  admitCorePlayer,
+  admitCorePlayerFromLegacyUrl,
+  corePlayerUrl,
+} from './core-player-affinity.mjs';
 
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
@@ -221,6 +225,21 @@ export function awaitingWriting(row) {
     && row.writingExpected === true && Boolean(row.passedAt) && !row.submittedAt;
 }
 
+/** One canonical action decision for both current and history groups. */
+export function assignmentAction(row) {
+  if (row?.assignment?.skill === 'course' && row.submittedAt) {
+    return { kind: 'review', label: 'Xem kết quả' };
+  }
+  if (row?.assignment?.skill === 'speaking'
+      && (row.submittedAt || (row.isMissing && row.state !== 'assigned'))) {
+    return { kind: 'review', label: 'Xem lại bài' };
+  }
+  if (!row?.isMissing && !row?.submittedAt) {
+    return { kind: 'start', label: awaitingWriting(row) ? 'Tiếp tục bài' : 'Làm bài' };
+  }
+  return null;
+}
+
 export function assignmentSubtitle(row) {
   const cfg = row?.assignment?.content || {};
   if (row?.assignment?.skill === 'speaking') {
@@ -293,6 +312,11 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   const skill = textOf(row.skill);
   if (!SKILLS.has(skill)) return null;
 
+  const resultSessionId = textOf(row.result_session_id);
+  if (resultSessionId && skill === 'speaking') {
+    return { kind: 'result', url: `/result?id=${encodeURIComponent(resultSessionId)}` };
+  }
+
   const sessionId = textOf(row.session_id);
   if (sessionId && skill === 'speaking') {
     // A NULL claim means the session was created but no stable player has
@@ -315,7 +339,13 @@ export function normalizeClassStartResponse(value, expectedItemId) {
     }
   }
   const bankId = textOf(row.bank_id);
-  if (bankId && skill === 'course') return { kind: 'course', bankId };
+  if (bankId && skill === 'course') {
+    if (row.review_only != null && typeof row.review_only !== 'boolean') return null;
+    return {
+      kind: 'course', bankId, itemId: expectedItemId,
+      reviewOnly: row.review_only === true,
+    };
+  }
 
   const params = objectOf(row.session_params);
   if (params && skill === 'speaking') {
@@ -330,9 +360,32 @@ export function normalizeClassStartResponse(value, expectedItemId) {
     } };
   }
 
-  const openUrl = textOf(row.open_url);
-  if (!openUrl || !['reading', 'listening'].includes(skill)) return null;
+  if (!['reading', 'listening'].includes(skill)) return null;
   const surface = skill === 'reading' ? 'reading_exam' : 'listening_test';
+  const playerSurface = textOf(row.player_surface);
+  const playerQuery = objectOf(row.player_query);
+  if (playerSurface || playerQuery) {
+    if (playerSurface !== surface || !playerQuery) return null;
+    const queryKeys = Object.keys(playerQuery).sort();
+    const identityKey = skill === 'reading' ? 'test_id' : 'id';
+    if (queryKeys.join(',') !== ['class_item', identityKey].sort().join(',')) return null;
+    const identity = textOf(playerQuery[identityKey]);
+    const classItem = textOf(playerQuery.class_item);
+    if (!identity || classItem !== expectedItemId) return null;
+    try {
+      return {
+        kind: 'admission',
+        url: admitCorePlayer(surface, { [identityKey]: identity, class_item: classItem }),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // N-1 backend compatibility: old responses carried a stable Legacy path.
+  // Re-enter runtime admission so those responses cannot pin a fresh attempt.
+  const openUrl = textOf(row.open_url);
+  if (!openUrl) return null;
   try {
     return {
       kind: 'admission',

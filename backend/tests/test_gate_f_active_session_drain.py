@@ -1,6 +1,6 @@
 """Gate F exact active-session drain inventory.
 
-The endpoint must never turn a capped scan, missing timestamp or failed count
+The endpoint must never turn a capped scan, missing expiry or failed count
 into a plausible zero that could authorize Legacy player retirement.
 """
 
@@ -31,6 +31,10 @@ class _Query:
         self._filters.append(("lte", field, value))
         return self
 
+    def gt(self, field, value):
+        self._filters.append(("gt", field, value))
+        return self
+
     def is_(self, field, value):
         self._filters.append(("is", field, value))
         return self
@@ -49,6 +53,9 @@ class _Query:
                 return False
             if operation == "lte":
                 if value is None or self._timestamp(value) > self._timestamp(expected):
+                    return False
+            if operation == "gt":
+                if value is None or self._timestamp(value) <= self._timestamp(expected):
                     return False
             if operation == "is" and expected == "null" and value is not None:
                 return False
@@ -91,12 +98,21 @@ def _client(monkeypatch, tables, *, missing_count=False):
     return TestClient(app)
 
 
-def _row(*, status="in_progress", started_at=None, renderer_affinity=None):
+def _row(
+    *,
+    status="in_progress",
+    started_at=None,
+    renderer_affinity=None,
+    resume_expires_at=None,
+    renderer_affinity_expires_at=None,
+):
     return {
         "id": "resource",
         "status": status,
         "started_at": started_at,
         "renderer_affinity": renderer_affinity,
+        "resume_expires_at": resume_expires_at,
+        "renderer_affinity_expires_at": renderer_affinity_expires_at,
     }
 
 
@@ -104,31 +120,45 @@ def _iso(value):
     return value.isoformat()
 
 
-def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatch):
+def test_counts_only_unexpired_legacy_or_unclaimed_state_and_missing_expiry(monkeypatch):
     now = datetime.now(timezone.utc)
     cutover = now - timedelta(days=2)
     old = _iso(cutover - timedelta(minutes=1))
     new = _iso(cutover + timedelta(minutes=1))
+    expired = _iso(now - timedelta(minutes=1))
+    live = _iso(now + timedelta(hours=1))
     tables = {
         "sessions": [
-            _row(started_at=old),
-            _row(started_at=new),
-            _row(started_at=None),
-            _row(status="completed", started_at=old),
+            _row(started_at=old, renderer_affinity="legacy", resume_expires_at=live),
+            _row(started_at=old, renderer_affinity="legacy", resume_expires_at=expired),
+            _row(started_at=new, renderer_affinity="next", resume_expires_at=live),
+            _row(started_at=old, renderer_affinity=None, resume_expires_at=live),
+            _row(started_at=old, renderer_affinity="legacy", resume_expires_at=None),
+            _row(status="completed", started_at=old, renderer_affinity="legacy"),
         ],
-        "reading_test_attempts": [_row(started_at=new)],
+        "reading_test_attempts": [
+            _row(started_at=old, renderer_affinity="legacy", resume_expires_at=expired),
+        ],
         "listening_test_attempts": [],
         "dictation_attempts": [
-            _row(started_at=old),
-            _row(started_at=new),
-            _row(status="completed", started_at=old),
+            _row(started_at=old, renderer_affinity="legacy", resume_expires_at=live),
+            _row(status="completed", started_at=old, renderer_affinity="legacy"),
         ],
         "writing_assignments": [
-            _row(status="pending", renderer_affinity="legacy"),
-            _row(status="in_progress", renderer_affinity="legacy"),
-            _row(status="in_progress", renderer_affinity=None),
-            _row(status="in_progress", renderer_affinity="next"),
-            _row(status="submitted", renderer_affinity="legacy"),
+            _row(status="pending", renderer_affinity="legacy",
+                 renderer_affinity_expires_at=live),
+            _row(status="in_progress", renderer_affinity="legacy",
+                 renderer_affinity_expires_at=expired),
+            _row(status="in_progress", renderer_affinity=None,
+                 renderer_affinity_expires_at=live),
+            _row(status="in_progress", renderer_affinity="next",
+                 renderer_affinity_expires_at=live),
+            _row(status="pending", renderer_affinity="legacy",
+                 renderer_affinity_expires_at=None),
+            _row(status="pending", renderer_affinity=None,
+                 renderer_affinity_expires_at=None),
+            _row(status="submitted", renderer_affinity="legacy",
+                 renderer_affinity_expires_at=live),
         ],
     }
 
@@ -140,27 +170,31 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["schema_version"] == 3
+    assert body["schema_version"] == 4
     speaking = body["surfaces"]["speaking"]
     assert speaking == {
         "table": "sessions",
         "active_status": "in_progress",
-        "active_total": 3,
-        "pre_cutover_active": 1,
-        "missing_started_at": 1,
-        "legacy_blocking": 2,
-        "post_cutover_active": 1,
+        "active_total": 5,
+        "legacy_unexpired": 1,
+        "unclaimed_unexpired": 1,
+        "next_unexpired": 1,
+        "missing_resume_expires_at": 1,
+        "expired_audit_rows": 1,
+        "legacy_blocking": 3,
         "exact": True,
     }
     dictation = body["surfaces"]["listening_dictation"]
     assert dictation == {
         "table": "dictation_attempts",
         "active_status": "in_progress",
-        "active_total": 2,
-        "pre_cutover_active": 1,
-        "missing_started_at": 0,
+        "active_total": 1,
+        "legacy_unexpired": 1,
+        "unclaimed_unexpired": 0,
+        "next_unexpired": 0,
+        "missing_resume_expires_at": 0,
+        "expired_audit_rows": 0,
         "legacy_blocking": 1,
-        "post_cutover_active": 1,
         "exact": True,
     }
     writing = body["surfaces"]["writing_assignment"]
@@ -169,27 +203,40 @@ def test_counts_pre_cutover_and_missing_timestamps_as_legacy_blockers(monkeypatc
         "blocking_renderer_affinities": ["legacy", None],
         "active_statuses": ["pending", "in_progress"],
         "legacy_pending": 1,
-        "legacy_in_progress": 1,
+        "legacy_in_progress": 0,
         "unclaimed_in_progress": 1,
+        "missing_renderer_lease": 1,
         "legacy_blocking": 3,
         "exact": True,
     }
-    assert body["legacy_blocking_total"] == 6
+    assert body["surfaces"]["reading_exam"]["expired_audit_rows"] == 1
+    assert body["legacy_blocking_total"] == 7
     assert body["stateful_legacy_drain_zero"] is False
     assert body["retirement_decision"] == "pending-additional-gate-f-evidence"
 
 
-def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeypatch):
+def test_zero_only_when_every_live_legacy_dependency_is_exactly_zero(monkeypatch):
     now = datetime.now(timezone.utc)
     cutover = now - timedelta(days=1)
     after = _iso(now - timedelta(hours=1))
+    expired = _iso(now - timedelta(minutes=1))
+    live = _iso(now + timedelta(hours=1))
     tables = {
-        "sessions": [_row(started_at=after)],
+        "sessions": [
+            _row(started_at=after, renderer_affinity="next", resume_expires_at=live),
+            _row(started_at=after, renderer_affinity="legacy", resume_expires_at=expired),
+        ],
         "reading_test_attempts": [],
-        "listening_test_attempts": [_row(started_at=after)],
-        "dictation_attempts": [_row(started_at=after)],
+        "listening_test_attempts": [
+            _row(started_at=after, renderer_affinity="next", resume_expires_at=live),
+        ],
+        "dictation_attempts": [
+            _row(started_at=after, renderer_affinity="next", resume_expires_at=live),
+        ],
         "writing_assignments": [
-            _row(status="pending", renderer_affinity="next"),
+            _row(status="pending", renderer_affinity="next",
+                 renderer_affinity_expires_at=live),
+            _row(status="pending", renderer_affinity=None),
             _row(status="submitted", renderer_affinity="legacy"),
         ],
     }
@@ -203,9 +250,10 @@ def test_zero_only_when_every_stateful_pre_cutover_count_is_exactly_zero(monkeyp
     assert body["exact"] is True
     assert body["legacy_blocking_total"] == 0
     assert body["stateful_legacy_drain_zero"] is True
-    assert body["surfaces"]["speaking"]["post_cutover_active"] == 1
-    assert body["surfaces"]["listening_test"]["post_cutover_active"] == 1
-    assert body["surfaces"]["listening_dictation"]["post_cutover_active"] == 1
+    assert body["surfaces"]["speaking"]["next_unexpired"] == 1
+    assert body["surfaces"]["speaking"]["expired_audit_rows"] == 1
+    assert body["surfaces"]["listening_test"]["next_unexpired"] == 1
+    assert body["surfaces"]["listening_dictation"]["next_unexpired"] == 1
     assert body["surfaces"]["writing_assignment"]["legacy_blocking"] == 0
 
 

@@ -298,6 +298,7 @@ def test_active_student_returns_all_skill_cards(fake_db, aggregator):
     assert payload["totals"]["grammar_lessons_viewed"] == 1
     assert payload["totals"]["vocab_words_learned"] == 1
     assert payload["skills"]["vocabulary"]["flashcards_due"] == 1
+    assert payload["skills"]["vocabulary"]["primary_cta_url"] == "/vocabulary/hub#flashcards"
 
 
 def test_brand_new_student_returns_zeros_not_errors(fake_db, aggregator):
@@ -314,6 +315,7 @@ def test_brand_new_student_returns_zeros_not_errors(fake_db, aggregator):
     assert payload["skills"]["speaking"]["last_activity_at"] is None
     assert payload["streak"]["current_days"] == 0
     assert payload["streak"]["longest_days"] == 0
+    assert payload["skills"]["vocabulary"]["primary_cta_url"] == "/vocabulary/hub#vocab-topics"
     assert "_errors" not in payload, (
         f"Expected no errors for empty student, got {payload.get('_errors')}"
     )

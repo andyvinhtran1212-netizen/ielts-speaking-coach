@@ -2514,14 +2514,15 @@ export interface paths {
         };
         /**
          * Gate F Legacy Active Session Drain
-         * @description Gate F exact inventory of stateful attempts admitted before cutover.
+         * @description Gate F exact inventory of still-resumable Legacy player state.
          *
-         *     Before the admission flip every core-player launch resolves to Legacy, so
-         *     an ``in_progress`` row whose ``started_at`` is at or before the verified
-         *     cutover timestamp remains a possible Legacy renderer dependency. Missing
-         *     timestamps fail closed and count as blockers. This endpoint is read-only;
-         *     a non-zero result must drain naturally or be covered by a versioned,
-         *     owner-approved exception before any Legacy player is retired.
+         *     Renderer affinity is canonical after migrations 215–221. Migration 224
+         *     adds a hard resume/lease deadline, so an ancient audit row is not mistaken
+         *     for a live browser dependency. A Legacy or unclaimed row blocks only while
+         *     its canonical deadline is still in the future. Missing deadlines fail
+         *     closed. The cutoff remains the versioned release timestamp, but post-cutover
+         *     Legacy admissions also block — silently allowing one would hide a routing
+         *     regression.
          *
          *     The result deliberately does not claim that Gate F passed. Zero stateful
          *     rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
@@ -27978,6 +27979,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -28186,6 +28188,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;

@@ -75,6 +75,7 @@ def _sessions(*, sitting_id=None, attempt_id="00000000-0000-4000-8000-0000000000
         {
             "id": f"p{part}", "user_id": "user-1", "mode": "test_full", "part": part,
             "topic": f"Topic {part}", "status": "completed", "started_at": "2026-08-09T01:00:00Z",
+            "resume_expires_at": "2999-01-01T00:00:00+00:00",
             "sitting_id": sitting_id, "full_test_attempt_id": attempt_id,
             "overall_band": 6 + part / 2, "band_fc": 6.0, "band_lr": 6.5,
             "band_gra": 7.0, "band_p": 7.5,

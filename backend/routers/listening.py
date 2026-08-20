@@ -57,6 +57,12 @@ from services.listening_grader import (
 from services import listening_fulltest_import
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
+from services.active_player_lifecycle import (
+    is_active_player_expired_error,
+    is_resume_active,
+    require_resume_active,
+    resume_expires_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -5156,6 +5162,8 @@ def _dictation_attempt_or_404(
         raise HTTPException(403, "Lượt chép chính tả thuộc học viên khác.")
     if require_in_progress and row.get("status") != "in_progress":
         raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+    if require_in_progress:
+        require_resume_active(row)
     return row
 
 
@@ -5175,12 +5183,13 @@ def _dictation_attempt_response(row: dict) -> dict:
         "status": row.get("status"),
         "renderer_affinity": row.get("renderer_affinity"),
         "started_at": row.get("started_at") or row.get("created_at"),
+        "resume_expires_at": row.get("resume_expires_at"),
         "units": row.get("units_snapshot") or [],
         "answers": _dictation_attempt_answers(str(row.get("id"))),
     }
 
 
-def _find_in_progress_dictation_attempt(
+def _find_latest_in_progress_dictation_attempt(
     user_id: str,
     test_id: str,
     section_num: int,
@@ -5192,6 +5201,16 @@ def _find_in_progress_dictation_attempt(
         .order("created_at", desc=True).limit(1).execute()
     )
     return res.data[0] if res.data else None
+
+
+def _find_in_progress_dictation_attempt(
+    user_id: str,
+    test_id: str,
+    section_num: int,
+) -> dict | None:
+    """Read-only resume lookup; expired audit rows are not resumable."""
+    row = _find_latest_in_progress_dictation_attempt(user_id, test_id, section_num)
+    return row if row and is_resume_active(row) else None
 
 
 def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[dict]:
@@ -5238,12 +5257,23 @@ async def start_dictation_attempt(
     """Resume the one active section attempt, or create it without destroying progress."""
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"))
-    existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
-    if existing:
-        return {**_dictation_attempt_response(existing), "created": False}
+    previous = _find_latest_in_progress_dictation_attempt(
+        user["id"], test_id, section_num,
+    )
+    if previous and is_resume_active(previous):
+        return {**_dictation_attempt_response(previous), "created": False}
+    if previous:
+        # Preserve every answer row, but retire the expired parent from the
+        # partial one-active index before creating a fresh attempt. This stays
+        # on POST; the GET resume lookup above remains strictly read-only.
+        supabase_admin.table("dictation_attempts").update({
+            "status": "abandoned",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", previous["id"]).eq("status", "in_progress").execute()
 
     units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
     now = datetime.now(timezone.utc).isoformat()
+    expires_at = resume_expires_at(now)
     attempt_id = str(uuid.uuid4())
     payload = {
         "id": attempt_id,
@@ -5253,6 +5283,7 @@ async def start_dictation_attempt(
         "status": "in_progress",
         "units_snapshot": units_snapshot,
         "started_at": now,
+        "resume_expires_at": expires_at,
         "created_at": now,
         "updated_at": now,
     }
@@ -5283,7 +5314,9 @@ async def claim_dictation_attempt_renderer_affinity(
     authorization: str | None = Header(default=None),
 ):
     user = await _require_auth(authorization)
-    _dictation_attempt_or_404(str(attempt_id), user["id"], require_in_progress=True)
+    owned_attempt = _dictation_attempt_or_404(
+        str(attempt_id), user["id"], require_in_progress=True,
+    )
     try:
         result = supabase_admin.rpc(
             "fn_claim_dictation_attempt_renderer_affinity",
@@ -5295,6 +5328,9 @@ async def claim_dictation_attempt_renderer_affinity(
         ).execute()
     except Exception as exc:
         logger.error("[dictation-affinity] claim failed attempt=%s: %s", attempt_id, exc)
+        if is_active_player_expired_error(exc):
+            require_resume_active(owned_attempt)
+            raise HTTPException(410, "Lượt chép chính tả đã hết thời gian tiếp tục.") from exc
         raise HTTPException(500, "Không thể xác nhận phiên bản Dictation.")
     rows = result.data or []
     if len(rows) != 1:
@@ -5352,6 +5388,9 @@ async def grade_and_save_dictation_attempt_sentence(
             .eq("status", "in_progress").execute()
     except Exception as exc:
         logger.error("[dictation-attempt] sentence save failed attempt=%s: %s", attempt_id, exc)
+        if is_active_player_expired_error(exc):
+            require_resume_active(attempt)
+            raise HTTPException(410, "Lượt chép chính tả đã hết thời gian tiếp tục.") from exc
         if _is_dictation_attempt_conflict(exc):
             raise HTTPException(409, "Lượt làm bài đã thay đổi; hãy tải lại tiến độ.")
         raise HTTPException(500, "Không lưu được tiến độ câu này.")
@@ -5414,18 +5453,24 @@ def _mark_dictation_attempt_completed(row: dict, user_id: str) -> None:
     if not attempt_id:
         return
     now = row.get("completed_at") or datetime.now(timezone.utc).isoformat()
+    mutation_observed_at = datetime.now(timezone.utc).isoformat()
     try:
         updated = (
             supabase_admin.table("dictation_attempts")
             .update({"status": "completed", "completed_at": now, "updated_at": now})
             .eq("id", attempt_id).eq("user_id", user_id)
-            .eq("status", "in_progress").execute()
+            .eq("status", "in_progress")
+            .gt("resume_expires_at", mutation_observed_at)
+            .execute()
         )
         if updated.data:
             return
         current = _dictation_attempt_or_404(str(attempt_id), user_id)
-        if current.get("status") != "completed":
-            raise RuntimeError("dictation attempt did not transition to completed")
+        if current.get("status") == "completed":
+            return
+        if current.get("status") == "in_progress":
+            require_resume_active(current)
+        raise HTTPException(409, "Lượt làm bài đã thay đổi; hãy tải lại trạng thái.")
     except HTTPException:
         raise
     except Exception as exc:
@@ -5464,7 +5509,9 @@ async def submit_listening_dictation_session(
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             return _dictation_session_response(existing)
-        attempt = _dictation_attempt_or_404(str(body.attempt_id), user["id"])
+        attempt = _dictation_attempt_or_404(
+            str(body.attempt_id), user["id"], require_in_progress=True,
+        )
         if attempt.get("status") != "in_progress":
             raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
         _assert_dictation_attempt_submission(attempt, body)
@@ -5547,6 +5594,10 @@ async def submit_listening_dictation_session(
     try:
         supabase_admin.table("dictation_sessions").insert(row).execute()
     except Exception as exc:  # pragma: no cover
+        if is_active_player_expired_error(exc):
+            raise HTTPException(
+                410, "Lượt chép chính tả đã hết thời gian tiếp tục."
+            ) from exc
         if _is_unique_violation(exc):
             existing = (
                 _dictation_session_by_request(user["id"], body.client_request_id)
@@ -6070,7 +6121,10 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     query = (
         supabase_admin.table("listening_test_attempts")
-        .select("id, started_at, created_at, answers, renderer_affinity")
+        .select(
+            "id, started_at, created_at, answers, renderer_affinity, "
+            "resume_expires_at, status"
+        )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
@@ -6100,7 +6154,7 @@ async def get_in_progress_listening_attempt(
         # (Codex review, PR #834).
         query = query.is_("sitting_id", "null")
     res = query.order("created_at", desc=True).limit(1).execute()
-    if not res.data:
+    if not res.data or not is_resume_active(res.data[0]):
         return {"attempt": None}
     row = res.data[0]
     return {
@@ -6114,6 +6168,7 @@ async def get_in_progress_listening_attempt(
                 if str(a.get("user_answer") or "").strip()
             ],
             "renderer_affinity": row.get("renderer_affinity"),
+            "resume_expires_at": row.get("resume_expires_at"),
         }
     }
 
@@ -6177,12 +6232,16 @@ async def start_listening_test_attempt(
     )
 
     attempt_id = str(uuid.uuid4())
+    started_at = datetime.now(timezone.utc).isoformat()
+    expires_at = resume_expires_at(started_at)
     payload = {
         "id":      attempt_id,
         "test_id": test_id,
         "user_id": user["id"],
         "status":  "in_progress",
         "answers": [],
+        "started_at": started_at,
+        "resume_expires_at": expires_at,
     }
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
@@ -6199,6 +6258,8 @@ async def start_listening_test_attempt(
     return {
         "attempt_id": attempt_id,
         "status": "in_progress",
+        "started_at": started_at,
+        "resume_expires_at": expires_at,
         "renderer_affinity": None if affinity_aware else "legacy",
     }
 
@@ -6227,7 +6288,8 @@ async def claim_listening_attempt_renderer_affinity(
 ):
     """Claim a stable Listening player on first boot; never move it later."""
     user = await _require_auth(authorization)
-    _fetch_attempt_or_404(str(attempt_id), user["id"])
+    owned_attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    require_resume_active(owned_attempt)
     try:
         result = supabase_admin.rpc(
             "fn_claim_listening_attempt_renderer_affinity",
@@ -6244,6 +6306,9 @@ async def claim_listening_attempt_renderer_affinity(
             body.renderer_affinity,
             exc,
         )
+        if is_active_player_expired_error(exc):
+            require_resume_active(owned_attempt)
+            raise HTTPException(410, "Attempt đã hết thời gian tiếp tục.") from exc
         raise HTTPException(
             500, "Không thể xác nhận phiên bản player. Hãy tải lại trang."
         )
@@ -6303,6 +6368,7 @@ async def patch_listening_test_attempt_answer(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    require_resume_active(attempt)
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
     # A practice attempt is scored on the FIRST answer to each question, which
@@ -6326,6 +6392,7 @@ async def patch_listening_test_attempt_answer(
         # The RPC also enforces status='in_progress', so a NULL here means the
         # attempt was submitted between the check above and the write — a real
         # race, and the honest answer is that the edit did not land.
+        require_resume_active(attempt)
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     return {"attempt_id": attempt_id, "answer_count": count}
 
@@ -6460,6 +6527,7 @@ async def check_listening_practice_answer(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+    require_resume_active(attempt)
 
     test_res = (
         supabase_admin.table("listening_tests")
@@ -6495,6 +6563,7 @@ async def check_listening_practice_answer(
             # The RPC re-checks status, so NULL means the attempt was submitted
             # between our read and the write. Say so instead of returning a
             # grade for an answer that was never stored.
+            require_resume_active(attempt)
             raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
         recorded = bool(wrote)
         if recorded:
@@ -6589,6 +6658,7 @@ async def submit_listening_test_attempt(
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
+    require_resume_active(attempt)
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
@@ -6613,7 +6683,7 @@ async def submit_listening_test_attempt(
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    (
+    finalized = (
         supabase_admin.table("listening_test_attempts")
         .update({
             "status":          "submitted",
@@ -6624,8 +6694,15 @@ async def submit_listening_test_attempt(
             "submitted_at":    now_iso,
         })
         .eq("id", attempt_id)
+        .eq("status", "in_progress")
+        .gt("resume_expires_at", now_iso)
         .execute()
     )
+    if not finalized.data:
+        fresh = _fetch_attempt_or_404(attempt_id, user["id"])
+        if fresh.get("status") == "in_progress":
+            require_resume_active(fresh)
+        raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
     # Sealed 4-skill mock: grade + persist above (the admin's draft), but never
     # expose the score to the student until the sitting is released.

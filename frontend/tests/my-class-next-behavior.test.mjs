@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
+  assignmentAction,
   nextDue,
   normalizeClassStartResponse,
   normalizeMyClassResponse,
@@ -146,6 +147,36 @@ describe('deadline helpers', () => {
 });
 
 describe('assignment start contract', () => {
+  test('a submitted course item remains actionable as a result, not a new attempt', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        state: 'submitted', submitted_at: '2026-08-19T18:23:55Z', score: 50,
+      })],
+      progress: { total: 1, submitted: 1, todo: 0, missing: 0, late: 0, on_time_pct: 100 },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Xem kết quả',
+    });
+  });
+
+  test('course review intent survives the strict start-response boundary', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'course',
+      bank_id: 'bank-1', review_only: true,
+    }, 'item-1'), {
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1', reviewOnly: true,
+    });
+  });
+
+  test('completed Speaking sessions go to canonical result, never a historical player', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking',
+      result_session_id: 'done/1', renderer_affinity: 'legacy',
+    }, 'item-1'), {
+      kind: 'result', url: '/result?id=done%2F1',
+    });
+  });
+
   test('existing Speaking sessions keep their persisted stable renderer', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-1',
@@ -189,7 +220,28 @@ describe('assignment start contract', () => {
     });
   });
 
-  test('legacy Reading/Listening response URLs re-enter the runtime admission switch', () => {
+  test('canonical Reading/Listening response semantics enter runtime admission', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'item-1' },
+      open_url: '/core-player/launch?surface=reading_exam&test_id=CAM19-T3&class_item=item-1',
+    }, 'item-1'), {
+      kind: 'admission',
+      url: '/core-player/launch?surface=reading_exam&test_id=CAM19-T3&class_item=item-1',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'listening',
+      player_surface: 'listening_test',
+      player_query: { id: 'test-7', class_item: 'item-1' },
+      open_url: '/core-player/launch?surface=listening_test&id=test-7&class_item=item-1',
+    }, 'item-1'), {
+      kind: 'admission',
+      url: '/core-player/launch?surface=listening_test&id=test-7&class_item=item-1',
+    });
+  });
+
+  test('legacy N-1 Reading/Listening response URLs re-enter runtime admission', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'reading',
       open_url: '/pages/reading-exam.html?test_id=CAM19-T3&class_item=item-1',
@@ -207,6 +259,21 @@ describe('assignment start contract', () => {
   });
 
   test('foreign, mismatched and unrecognized destinations fail closed', () => {
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'listening_test',
+      player_query: { id: 'test-7', class_item: 'item-1' },
+    }, 'item-1'), null);
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'other' },
+    }, 'item-1'), null);
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'item-1', extra: 'unsafe' },
+    }, 'item-1'), null);
     assert.equal(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'reading',
       open_url: 'https://evil.example/pages/reading-exam.html?test_id=x&class_item=item-1',

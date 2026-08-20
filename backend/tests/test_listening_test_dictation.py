@@ -178,6 +178,7 @@ class _Q:
         self._mode = "select"
         self._payload = None
         self._eq: list[tuple[str, object]] = []
+        self._gt: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
         self._orders: list[tuple[str, bool]] = []
 
@@ -186,6 +187,7 @@ class _Q:
     def upsert(self, p, **_kw): self._mode = "upsert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
+    def gt(self, c, v): self._gt.append((c, v)); return self
     def in_(self, c, vals):
         values = list(vals)
         self.fake.in_filter_sizes.append((self.name, c, len(values)))
@@ -204,6 +206,9 @@ class _Q:
                 if r.get(c) not in v[1]:
                     return False
             elif r.get(c) != v:
+                return False
+        for c, v in self._gt:
+            if r.get(c) is None or not (r.get(c) > v):
                 return False
         # ilike_or_filter sinh 'col.ilike."%pat%"' (value quoted + escaped) —
         # strip cả ngoặc kép lẫn % để so substring, case-insensitive.
@@ -723,6 +728,45 @@ def test_dictation_attempt_completion_requires_saved_canonical_answers(monkeypat
     )
     assert replay["session_id"] == completed["session_id"]
     assert len(fake.tables["dictation_sessions"]) == 1
+
+
+def test_dictation_completion_translates_database_expiry_guard(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1,
+        body=listening_router.DictationAttemptStartRequest(
+            renderer_affinity_protocol="claim-v1"),
+        authorization=authz,
+    ))
+    attempt_id = UUID(started["attempt_id"])
+    _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        attempt_id, 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="hello there", listen_count=1, time_seconds=4),
+        authorization=authz,
+    ))
+
+    original_execute = _Q.execute
+
+    def expire_at_completion_insert(query):
+        if query.name == "dictation_sessions" and query._mode == "insert":
+            raise RuntimeError("active_player_expired")
+        return original_execute(query)
+
+    monkeypatch.setattr(_Q, "execute", expire_at_completion_insert)
+    with pytest.raises(HTTPException) as excinfo:
+        _submit_session(
+            test["id"], 1,
+            [{"sentence_idx": 0, "user_transcript": "hello there",
+              "listen_count": 1, "time_seconds": 4}],
+            authz, attempt_id=attempt_id, client_request_id=uuid4(),
+        )
+
+    assert excinfo.value.status_code == 410
+    assert fake.tables["dictation_sessions"] == []
+    assert fake.tables["dictation_attempts"][0]["status"] == "in_progress"
 
 
 def test_submit_dictation_session_persists_and_reports(monkeypatch):

@@ -230,6 +230,7 @@ def test_d6_two_patches_for_different_qnums_each_upsert_reading_attempt_answers(
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{
         "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
         "status": "in_progress",
+        "resume_expires_at": "2099-01-01T00:00:00+00:00",
     }])
     chain.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[
         {"q_num": 1}, {"q_num": 2},
@@ -265,7 +266,8 @@ def test_d6_submit_returns_grade_with_skill_breakdown():
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
         MagicMock(data=[{
             "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
-            "status": "in_progress", "started_at": started_at, "answers": [],
+            "status": "in_progress", "started_at": started_at,
+            "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
         }]),
         MagicMock(data=[{
             "id": "test-uuid", "test_id": "INT-LIVE-001",

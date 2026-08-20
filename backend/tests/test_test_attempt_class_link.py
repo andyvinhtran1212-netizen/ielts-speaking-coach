@@ -168,6 +168,7 @@ class _RecordingTable:
 
 _FREE = {"id": "att-FREE", "user_id": "user-1", "test_id": "uuid-1",
          "status": "in_progress", "started_at": "2026-08-01T00:00:00+00:00",
+         "resume_expires_at": "2999-01-01T00:00:00+00:00",
          "answers": [], "class_assignment_item_id": None, "sitting_id": None}
 _HOMEWORK = {**_FREE, "id": "att-HW", "class_assignment_item_id": "item-1"}
 

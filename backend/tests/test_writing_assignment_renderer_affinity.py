@@ -1,6 +1,7 @@
 """Writing assignment renderer affinity is atomic, owner-scoped and nullable until claim."""
 
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import UUID
 
@@ -56,6 +57,36 @@ def test_migration_preserves_ambiguous_history_and_claims_active_rows_atomically
     assert "TO service_role" in MIGRATION
     assert "SET renderer_affinity = 'legacy'" not in MIGRATION
     assert "ALTER COLUMN renderer_affinity SET DEFAULT" not in MIGRATION
+
+
+def test_expired_writing_lease_is_presented_as_reclaimable_without_losing_data():
+    now = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
+    row = {
+        "id": str(AID),
+        "status": "in_progress",
+        "renderer_affinity": "legacy",
+        "renderer_affinity_claimed_at": (now - timedelta(days=2)).isoformat(),
+        "renderer_affinity_expires_at": (now - timedelta(days=1)).isoformat(),
+        "writing_prompts": {"title": "kept"},
+    }
+
+    assert mod._writing_renderer_lease_active(row, now=now) is False
+    effective = mod._effective_writing_renderer(row)
+    assert effective["renderer_affinity"] is None
+    assert effective["renderer_affinity_expires_at"] is None
+    assert effective["writing_prompts"] == {"title": "kept"}
+    assert row["renderer_affinity"] == "legacy"
+
+
+def test_active_writing_lease_remains_sticky():
+    now = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
+    row = {
+        "status": "in_progress",
+        "renderer_affinity": "next",
+        "renderer_affinity_expires_at": (now + timedelta(seconds=1)).isoformat(),
+    }
+    assert mod._writing_renderer_lease_active(row, now=now) is True
+    assert mod._effective_writing_renderer(row) is row
 
 
 @pytest.mark.asyncio

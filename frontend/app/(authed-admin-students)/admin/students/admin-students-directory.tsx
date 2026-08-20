@@ -83,7 +83,7 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
         <div className="asd-profile__columns">
           <section><h3>Bài viết gần đây</h3><ul>{essays.length ? essays.map((item, index) => {
             const essay = record(item); const band = bandFromEssay(essay);
-            return <li key={String(essay.id || index)}><a href={`/pages/admin/writing/grade.html?essay_id=${encodeURIComponent(String(essay.id || ''))}`}>{dateLabel(essay.created_at)} · {band == null ? String(essay.status || '—') : `Band ${String(band)}`}</a>{essay.is_flagged ? <small>Đã gắn cờ</small> : null}</li>;
+            return <li key={String(essay.id || index)}><a href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(essay.id || ''))}`}>{dateLabel(essay.created_at)} · {band == null ? String(essay.status || '—') : `Band ${String(band)}`}</a>{essay.is_flagged ? <small>Đã gắn cờ</small> : null}</li>;
           }) : <li>Chưa có bài viết.</li>}</ul></section>
           <section><h3>Bài đã giao</h3><ul>{assignments.length ? assignments.map((item, index) => {
             const assignment = record(item); const prompt = record(assignment.writing_prompts);
@@ -98,7 +98,7 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
         </div> : <p className="asd-muted">Không đọc được dữ liệu listening.</p>}</section>
         <section><h3>Lịch sử nộp bài</h3><ul className="asd-history">{history.length ? history.map((item, index) => {
           const row = record(item);
-          return <li key={String(row.id || index)}><a href={`/pages/admin/writing/grade.html?essay_id=${encodeURIComponent(String(row.id || ''))}`}>{dateLabel(row.created_at)} · {String(row.task_type || '—')}</a><small>{String(row.status || '—')}</small></li>;
+          return <li key={String(row.id || index)}><a href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(row.id || ''))}`}>{dateLabel(row.created_at)} · {String(row.task_type || '—')}</a><small>{String(row.status || '—')}</small></li>;
         }) : <li>Chưa có bài nộp.</li>}</ul></section>
       </div> : null}
     </Dialog>

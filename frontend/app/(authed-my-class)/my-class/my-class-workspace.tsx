@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import {
+  assignmentAction,
   assignmentSubtitle,
   awaitingWriting,
   isKnownPlayerSurface,
@@ -64,10 +65,11 @@ type ClassSnapshot = {
 type Snapshot = { hasClass: false } | ClassSnapshot | null;
 
 type StartTarget =
-  | { kind: 'course'; bankId: string }
+  | { kind: 'course'; bankId: string; itemId: string; reviewOnly: boolean }
   | { kind: 'player'; surface: string; query: Record<string, string> }
   | { kind: 'stable-player'; url: string }
   | { kind: 'admission'; url: string }
+  | { kind: 'result'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
     } };
@@ -139,12 +141,10 @@ function TaskCard({
   row, starting, onStart,
 }: { row: Assignment; starting: boolean; onStart: (row: Assignment) => void }) {
   const partial = awaitingWriting(row);
+  const action = assignmentAction(row);
   const state = row.submittedAt ? 'done' : row.isMissing ? 'missing' : 'todo';
   const stateLabel = row.submittedAt ? (row.isLate ? 'Đã nộp trễ' : 'Đã nộp')
     : row.isMissing ? 'Đã quá hạn' : partial ? 'Còn phần tự luận' : 'Cần hoàn thành';
-  const canReview = row.assignment.skill === 'speaking'
-    && (Boolean(row.submittedAt) || (row.isMissing && row.state !== 'assigned'));
-  const canStart = !row.isMissing && !row.submittedAt;
   const subtitle = assignmentSubtitle(row);
 
   return (
@@ -168,14 +168,14 @@ function TaskCard({
           <p className="mc-item-sub">{row.assignment.instructions}</p>
         )}
       </div>
-      {(canReview || canStart) && (
+      {action && (
         <button
-          className={`av-button ${canReview ? 'av-button-secondary' : 'av-button-primary'}`}
+          className={`av-button ${action.kind === 'review' ? 'av-button-secondary' : 'av-button-primary'}`}
           type="button"
           disabled={starting}
           onClick={() => onStart(row)}
         >
-          {starting ? 'Đang mở…' : canReview ? 'Xem lại bài' : partial ? 'Tiếp tục bài' : 'Làm bài'}
+          {starting ? 'Đang mở…' : action.label}
         </button>
       )}
     </article>
@@ -502,7 +502,9 @@ export function MyClassWorkspace() {
       const target = normalizeClassStartResponse(raw, row.itemId) as StartTarget | null;
       if (!target) throw new Error('Máy chủ không trả điểm đến hợp lệ cho bài này.');
       if (target.kind === 'course') {
-        window.location.assign(`/course-exercises?bank=${encodeURIComponent(target.bankId)}`);
+        const view = target.reviewOnly ? '&view=writing' : '';
+        const item = target.reviewOnly ? `&class_item=${encodeURIComponent(target.itemId)}` : '';
+        window.location.assign(`/course-exercises?bank=${encodeURIComponent(target.bankId)}${view}${item}`);
         return;
       }
       if (target.kind === 'player') {
@@ -515,6 +517,10 @@ export function MyClassWorkspace() {
         return;
       }
       if (target.kind === 'admission') {
+        window.location.assign(target.url);
+        return;
+      }
+      if (target.kind === 'result') {
         window.location.assign(target.url);
         return;
       }

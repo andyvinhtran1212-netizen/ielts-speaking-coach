@@ -238,7 +238,10 @@ describe('current admission policy preserves behavior', () => {
     assert.match(SESSION_ROUTER, /renderer_affinity_protocol: Literal\["claim-v1"\]/);
     assert.match(API_CLIENT, /renderer_affinity_protocol = 'claim-v1'/);
     assert.match(CLASS_STUDENT_ROUTER,
-      /"renderer_affinity": existing\["renderer_affinity"\]/);
+      /response\["renderer_affinity"\] = existing\["renderer_affinity"\]/);
+    assert.match(CLASS_STUDENT_ROUTER,
+      /response\["result_session_id"\] = existing\["id"\]/,
+      'completed class work must route to canonical result, not a retired player');
     const nextClaim = PRACTICE_BOOTSTRAP.indexOf("'/renderer-affinity'");
     const nextRead = PRACTICE_BOOTSTRAP.indexOf("'/sessions/' + encodedSessionId,");
     assert.ok(nextClaim !== -1 && nextClaim < nextRead,

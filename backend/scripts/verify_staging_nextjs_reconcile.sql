@@ -1,12 +1,30 @@
--- Read-only postcondition audit for reconcile_staging_nextjs_migrations.py.
+-- Read-only 215-221 schema postcondition audit.
 --
--- Verify the durable final contracts of migrations 215-221 before recording
--- their missing staging ledger rows.  This script deliberately does not replay
--- migration 217: NULL is now a legitimate transient claim-v1 session state.
+-- Staging uses this before recording audited out-of-band history; production
+-- reuses it after the normal locked forward runner.  This script deliberately
+-- does not replay migration 217: NULL is now a legitimate transient claim-v1
+-- session state.
+
+\if :{?REQUIRE_GAP_CLOSED}
+\else
+\set REQUIRE_GAP_CLOSED 0
+\endif
+\if :{?REQUIRE_ACTIVE_PLAYER_TTL}
+\else
+\set REQUIRE_ACTIVE_PLAYER_TTL 0
+\endif
+SELECT set_config(
+    'aver.verify_active_player_ttl_contract',
+    :'REQUIRE_ACTIVE_PLAYER_TTL',
+    false
+);
 
 DO $$
 DECLARE
     missing text[] := ARRAY[]::text[];
+    renderer_columns_ready boolean := true;
+    active_player_ttl_required boolean :=
+        current_setting('aver.verify_active_player_ttl_contract', true) = '1';
     expected_column record;
     expected_constraint record;
     expected_function record;
@@ -51,6 +69,9 @@ BEGIN
                 'column-contract:' || expected_column.table_name || '.' ||
                 expected_column.column_name
             );
+            IF expected_column.column_name = 'renderer_affinity' THEN
+                renderer_columns_ready := false;
+            END IF;
         END IF;
     END LOOP;
 
@@ -82,24 +103,29 @@ BEGIN
         END IF;
     END LOOP;
 
-    IF EXISTS (
-        SELECT 1 FROM public.sessions
-         WHERE renderer_affinity IS NOT NULL
-           AND renderer_affinity NOT IN ('legacy', 'next')
-        UNION ALL
-        SELECT 1 FROM public.reading_test_attempts
-         WHERE renderer_affinity IS NOT NULL
-           AND renderer_affinity NOT IN ('legacy', 'next')
-        UNION ALL
-        SELECT 1 FROM public.listening_test_attempts
-         WHERE renderer_affinity IS NOT NULL
-           AND renderer_affinity NOT IN ('legacy', 'next')
-        UNION ALL
-        SELECT 1 FROM public.writing_assignments
-         WHERE renderer_affinity IS NOT NULL
-           AND renderer_affinity NOT IN ('legacy', 'next')
-    ) THEN
-        missing := array_append(missing, 'data:invalid-renderer-affinity');
+    -- PL/pgSQL prepares statements lazily.  Keep the data query in a nested
+    -- branch so a pre-migration database reports the missing column contracts
+    -- instead of aborting with an unstructured undefined-column error.
+    IF renderer_columns_ready THEN
+        IF EXISTS (
+            SELECT 1 FROM public.sessions
+             WHERE renderer_affinity IS NOT NULL
+               AND renderer_affinity NOT IN ('legacy', 'next')
+            UNION ALL
+            SELECT 1 FROM public.reading_test_attempts
+             WHERE renderer_affinity IS NOT NULL
+               AND renderer_affinity NOT IN ('legacy', 'next')
+            UNION ALL
+            SELECT 1 FROM public.listening_test_attempts
+             WHERE renderer_affinity IS NOT NULL
+               AND renderer_affinity NOT IN ('legacy', 'next')
+            UNION ALL
+            SELECT 1 FROM public.writing_assignments
+             WHERE renderer_affinity IS NOT NULL
+               AND renderer_affinity NOT IN ('legacy', 'next')
+        ) THEN
+            missing := array_append(missing, 'data:invalid-renderer-affinity');
+        END IF;
     END IF;
 
     -- Pin signatures, return shapes, security posture and exact PL/pgSQL bodies.
@@ -108,32 +134,43 @@ BEGIN
             ('fn_claim_session_renderer_affinity',
              'p_session_id uuid, p_user_id uuid, p_renderer_affinity text',
              'TABLE(session_id uuid, renderer_affinity text)',
-             '2f5b6519d526254965c8bfb529b213f7'),
+             '2f5b6519d526254965c8bfb529b213f7',
+             '5a3381529e27e915c4eee22e15286fb0'),
             ('fn_create_session_daily_capped_v3',
              'p_session_id uuid, p_user_id uuid, p_mode text, p_part integer, p_topic text, p_day_start timestamp with time zone, p_max_daily integer, p_renderer_affinity text',
              'SETOF sessions',
+             'e46027336e1600d9c5d047a43c925745',
              'e46027336e1600d9c5d047a43c925745'),
             ('fn_claim_reading_attempt_renderer_affinity',
              'p_attempt_id uuid, p_user_id uuid, p_anon_id text, p_renderer_affinity text',
              'TABLE(attempt_id uuid, renderer_affinity text)',
-             'b4a4c894e90bcb2a32fd7bb259163ee3'),
+             'b4a4c894e90bcb2a32fd7bb259163ee3',
+             '8868e352ff2c0f9e7e322e0e9ce1b0b8'),
             ('fn_claim_listening_attempt_renderer_affinity',
              'p_attempt_id uuid, p_user_id uuid, p_renderer_affinity text',
              'TABLE(attempt_id uuid, renderer_affinity text)',
-             '2842017df386c84b2e5238f775b69974'),
+             '2842017df386c84b2e5238f775b69974',
+             '28c44e17d25d8847687d215f33163bd2'),
             ('fn_claim_dictation_attempt_renderer_affinity',
              'p_attempt_id uuid, p_user_id uuid, p_renderer_affinity text',
              'TABLE(attempt_id uuid, renderer_affinity text)',
-             '85bb3019c78d7bfbacc654fb318417f2'),
+             '85bb3019c78d7bfbacc654fb318417f2',
+             '69e63b480164af02984b98256e788faa'),
             ('fn_guard_dictation_attempt_answer_mutation', '', 'trigger',
-             '896b94c98cc824f176d62b10698c4a90'),
+             '896b94c98cc824f176d62b10698c4a90',
+             '8a58657a7c3cfa5f3bf2ff3b15592452'),
             ('fn_finalize_dictation_attempt_from_session', '', 'trigger',
+             '3fd91fe4608ed893d6ce91137ba3c663',
              '3fd91fe4608ed893d6ce91137ba3c663'),
             ('fn_claim_writing_assignment_renderer_affinity',
              'p_assignment_id uuid, p_student_id uuid, p_renderer_affinity text',
              'TABLE(assignment_id uuid, renderer_affinity text)',
-             'ec67178c7a6ad9ec03d87270585ba61d')
-        ) AS expected(function_name, arguments, result, body_md5)
+             'ec67178c7a6ad9ec03d87270585ba61d',
+             '2e64b00c4f95a73075d1d6cb37bc0476')
+        ) AS expected(
+            function_name, arguments, result, pre_224_body_md5,
+            post_224_body_md5
+        )
     LOOP
         IF NOT EXISTS (
             SELECT 1
@@ -149,7 +186,11 @@ BEGIN
                AND NOT p.prosecdef
                AND p.provolatile = 'v'
                AND p.proconfig = ARRAY['search_path=public, pg_temp']::text[]
-               AND md5(p.prosrc) = expected_function.body_md5
+               AND md5(p.prosrc) = CASE
+                     WHEN active_player_ttl_required
+                     THEN expected_function.post_224_body_md5
+                     ELSE expected_function.pre_224_body_md5
+                   END
                AND has_function_privilege('service_role', p.oid, 'EXECUTE')
                AND NOT EXISTS (
                     SELECT 1
@@ -212,6 +253,11 @@ BEGIN
                            )
                        AND a.attnum > 0
                        AND NOT a.attisdropped
+                       AND (
+                            NOT active_player_ttl_required
+                            OR expected_table.table_name <> 'dictation_attempts'
+                            OR a.attname <> 'resume_expires_at'
+                       )
               ) actual
              WHERE actual.fingerprint = expected_table.column_hash
                AND actual.item_count = expected_table.column_count
@@ -238,6 +284,15 @@ BEGIN
                      WHERE con.conrelid = to_regclass(
                                format('public.%I', expected_table.table_name)
                            )
+                       -- PostgreSQL 18 exposes NOT NULL as contype=n; nullability
+                       -- is already pinned in the column fingerprint above.
+                       AND con.contype <> 'n'
+                       AND (
+                            NOT active_player_ttl_required
+                            OR expected_table.table_name <> 'dictation_attempts'
+                            OR con.conname <>
+                               'dictation_attempt_resume_expiry_within_ttl'
+                       )
               ) actual
              WHERE actual.fingerprint = expected_table.constraint_hash
                AND actual.item_count = expected_table.constraint_count
@@ -357,7 +412,7 @@ BEGIN
     END LOOP;
 
     IF array_length(missing, 1) IS NOT NULL THEN
-        RAISE EXCEPTION 'staging Next.js migration verification failed: %',
+        RAISE EXCEPTION 'Next.js migration verification failed: %',
             array_to_string(missing, ', ');
     END IF;
 END;
@@ -373,10 +428,10 @@ BEGIN
         SELECT 1 FROM public.sessions WHERE renderer_affinity IS NULL
     ) THEN
         RAISE EXCEPTION
-            'staging Next.js migration verification failed: data:speaking-gap-null';
+            'Next.js migration verification failed: data:speaking-gap-null';
     END IF;
 END;
 $$;
 \endif
 
-SELECT 'verified staging Next.js migration contracts 215-221' AS result;
+SELECT 'verified Next.js migration contracts 215-221' AS result;

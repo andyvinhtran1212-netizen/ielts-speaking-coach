@@ -173,7 +173,7 @@ function ReviewLinks({ data, sittingId }: {
         icon: '✍️',
         title: `Nhận xét Writing ${taskLabel(task)}`,
         hint: 'Chữa bài chi tiết',
-        href: `/pages/writing-result.html?id=${encodeURIComponent(task.essay_id)}`,
+        href: `/writing/result?id=${encodeURIComponent(task.essay_id)}`,
       });
     }
   });
