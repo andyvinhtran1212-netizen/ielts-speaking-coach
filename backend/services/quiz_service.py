@@ -2478,8 +2478,88 @@ _COURSE_SECTION_LABELS = {
 }
 
 
+COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1 = "hybrid_question_count_v1"
+_COURSE_WEIGHT_EQUAL_SHARE = 0.5
+
+
+def _normalize_course_weights(
+    raw: dict[str, float], required: list[str],
+) -> dict[str, float]:
+    """Chuẩn hoá về đúng 100%, kể cả sau khi làm tròn từng phần."""
+    total = sum(raw.values()) or 1
+    normalized = {name: round(raw[name] / total * 100, 2)
+                  for name in required}
+    if required:
+        last = required[-1]
+        normalized[last] = round(
+            normalized[last] + 100 - sum(normalized.values()), 2)
+    return normalized
+
+
+def course_section_weight_snapshot(
+    *, questions: list[dict], meta: dict | None = None,
+    pronunciation_sets: list[dict] | None = None,
+) -> dict:
+    """Chụp hình dạng bank và trọng số hybrid tại lúc GIAO bài.
+
+    Một nửa trọng số chia đều theo kỹ năng, một nửa theo số đơn vị được giao.
+    Nhờ vậy 90 câu trắc nghiệm có thêm bằng chứng thì nặng hơn 10 câu viết,
+    nhưng không thể nuốt gần hết điểm tổng như phép chia thuần 90/142.
+
+    Kết quả được lưu vào ``class_assignments.content_config``. Việc chụp lúc
+    giao là một phần của hợp đồng chấm: re-import bank sau đó không được đổi
+    luật dưới chân học viên, và revision 20 câu vẫn dùng số câu của đề gốc.
+    """
+    meta = meta if isinstance(meta, dict) else {}
+    pronunciation_sets = pronunciation_sets or []
+    counts: dict[str, int] = {}
+
+    quiz_n = sum(1 for row in questions if row.get("type") != "writing")
+    writing_n = sum(1 for row in questions if row.get("type") == "writing")
+    if quiz_n:
+        counts["quiz"] = quiz_n
+    if writing_n:
+        counts["writing"] = writing_n
+
+    reading = meta.get("short_reading")
+    reading_answers = (reading.get("answers")
+                       if isinstance(reading, dict) else None)
+    if isinstance(reading_answers, list) and reading_answers:
+        counts["reading"] = len(reading_answers)
+
+    listening = meta.get("short_listening")
+    solution = listening.get("solution") if isinstance(listening, dict) else None
+    listening_answers = (solution.get("answers")
+                         if isinstance(solution, dict) else None)
+    if isinstance(listening_answers, list) and listening_answers:
+        counts["listening"] = len(listening_answers)
+
+    if pronunciation_sets:
+        sentences = pronunciation_sets[0].get("sentences")
+        if not isinstance(sentences, list) or not sentences:
+            raise ValueError("Bộ phát âm đang bật nhưng chưa có câu mẫu.")
+        counts["pronunciation"] = len(sentences)
+
+    required = list(counts)
+    if not required:
+        raise ValueError("Bộ bài tập chưa có nội dung có thể chấm.")
+    total_units = sum(counts.values())
+    section_share = 1 / len(required)
+    raw = {
+        name: (_COURSE_WEIGHT_EQUAL_SHARE * section_share
+               + (1 - _COURSE_WEIGHT_EQUAL_SHARE)
+               * counts[name] / total_units)
+        for name in required
+    }
+    return {
+        "weight_policy": COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1,
+        "section_counts": counts,
+        "section_weights": _normalize_course_weights(raw, required),
+    }
+
+
 def _course_section_weights(assignment: dict, required: list[str]) -> dict[str, float]:
-    """Trọng số của các phần hiện diện; mặc định chia đều và luôn chuẩn hoá 100%."""
+    """Đọc trọng số đã chụp; bài legacy vắng cấu hình giữ phép chia đều cũ."""
     configured = ((assignment.get("content_config") or {}).get("section_weights")
                   if assignment else None)
     configured = configured if isinstance(configured, dict) else {}
@@ -2497,13 +2577,7 @@ def _course_section_weights(assignment: dict, required: list[str]) -> dict[str, 
         raw[name] = value
     if not valid_override:
         raw = {name: 1 for name in required}
-    total = sum(raw.values()) or 1
-    normalized = {name: round(value / total * 100, 2)
-                  for name, value in raw.items()}
-    if required:
-        last = required[-1]
-        normalized[last] = round(normalized[last] + 100 - sum(normalized.values()), 2)
-    return normalized
+    return _normalize_course_weights(raw, required)
 
 
 def _course_completion_evidence(

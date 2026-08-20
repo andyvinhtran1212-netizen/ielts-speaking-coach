@@ -76,6 +76,63 @@ def test_weights_are_complete_and_normalize_to_exactly_one_hundred():
     assert sum(custom.values()) == 100
 
 
+def _questions(quiz_n: int, writing_n: int) -> list[dict]:
+    return ([{"id": f"q-{i}", "type": "mcq"} for i in range(quiz_n)]
+            + [{"id": f"w-{i}", "type": "writing"}
+               for i in range(writing_n)])
+
+
+def _extra_meta(*, reading_n: int = 0, listening_n: int = 0) -> dict:
+    meta = {}
+    if reading_n:
+        meta["short_reading"] = {
+            "answers": [{"id": f"r-{i}"} for i in range(reading_n)],
+        }
+    if listening_n:
+        meta["short_listening"] = {"solution": {
+            "answers": [{"id": f"l-{i}"} for i in range(listening_n)],
+        }}
+    return meta
+
+
+def test_hybrid_question_count_policy_matches_course_1_shapes():
+    cases = [
+        ((90, 10, 0, 0, 0), {"quiz": 70.0, "writing": 30.0}),
+        ((90, 10, 10, 0, 0),
+         {"quiz": 57.58, "writing": 21.21, "reading": 21.21}),
+        ((90, 10, 10, 20, 0),
+         {"quiz": 47.12, "writing": 16.35, "reading": 16.35,
+          "listening": 20.18}),
+        ((90, 10, 10, 20, 12),
+         {"quiz": 41.69, "writing": 13.52, "reading": 13.52,
+          "listening": 17.04, "pronunciation": 14.23}),
+    ]
+    for (quiz_n, writing_n, reading_n, listening_n, pronunciation_n), expected in cases:
+        pronunciation = ([{"sentences": [f"s-{i}" for i in range(pronunciation_n)]}]
+                         if pronunciation_n else [])
+        snap = qs.course_section_weight_snapshot(
+            questions=_questions(quiz_n, writing_n),
+            meta=_extra_meta(reading_n=reading_n, listening_n=listening_n),
+            pronunciation_sets=pronunciation,
+        )
+        assert snap["weight_policy"] == "hybrid_question_count_v1"
+        assert snap["section_weights"] == expected
+        assert round(sum(snap["section_weights"].values()), 2) == 100
+
+
+def test_snapshotted_weights_win_over_retake_question_count():
+    assignment = {"content_config": {
+        "weight_policy": "hybrid_question_count_v1",
+        "section_counts": {"quiz": 90, "writing": 10},
+        "section_weights": {"quiz": 70, "writing": 30},
+    }}
+    # Lượt revision chỉ có 20 câu, nhưng required sections vẫn đọc đúng bản
+    # chụp của đề 90+10 lúc giao bài.
+    assert qs._course_section_weights(
+        assignment, ["quiz", "writing"],
+    ) == {"quiz": 70.0, "writing": 30.0}
+
+
 def test_incomplete_sections_never_write_a_verdict_or_hand_in():
     attempt = _attempt()
     state = {

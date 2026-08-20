@@ -121,6 +121,10 @@ Treat these as invariants:
 
 - Session history and dashboard must read the same persisted fields that finalize/regrade flows update.
 - Response-level grading is not complete until session-level aggregates are updated when needed.
+- Course-exercise weights are assignment-scoped truth: new assignments snapshot
+  `weight_policy`, `section_counts`, and `section_weights` in `content_config`.
+  Do not recompute a completed attempt from the current bank shape, and do not
+  let a shorter revision change the section weights captured from the full bank.
 - Grammar Wiki slugs, category/group mapping, related_pages, next_articles, and metadata must stay internally consistent.
 - `access_codes.is_used`, `used_by`, and `used_at` must never be cleared after activation.
 - `user_code_assignments` is the canonical source for admin user-visibility; `access_codes.used_by` is the fallback for codes activated before that table existed.

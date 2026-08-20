@@ -35,6 +35,7 @@ from services.quiz_service import (
     bank_has_mcq,
     course_bank_is_multisection,
     course_hand_in_score,
+    course_section_weight_snapshot,
     reconcile_course_items,
 )
 from services.class_assignment_service import (
@@ -649,7 +650,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     course_id = _cohort_course_id(cohort_id)
 
     rows = (supabase_admin.table("quiz_banks")
-            .select("id, code, title, skill_area, course_id, lesson_no, words_count")
+            .select("id, code, title, skill_area, course_id, lesson_no, words_count, meta")
             .eq("id", body.content_id).limit(1).execute().data) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy bộ bài tập này.")
@@ -664,10 +665,28 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 
     # Bank rỗng vẫn "tồn tại". Giao nó nghĩa là học viên mở ra một trang trắng và
     # không có gì nói vì sao.
-    n = (supabase_admin.table("quiz_questions").select("id", count="exact")
-         .eq("bank_id", bank["id"]).limit(1).execute())
-    if not (n.count or 0):
+    # Đếm trên TOÀN bank. Một select không range bị PostgREST cắt khoảng 1000
+    # dòng; nếu bank lớn hơn, trọng số sẽ bị chụp thấp mà không có lỗi nào đỏ.
+    questions = _paged(
+        supabase_admin, "quiz_questions", "id, type",
+        lambda q: q.eq("bank_id", bank["id"]),
+    )
+    if not questions:
         raise HTTPException(400, "Bộ bài tập này chưa có câu hỏi nào.")
+
+    pronunciation_sets = (
+        supabase_admin.table("course_pronunciation_sets").select("id, sentences")
+        .eq("bank_id", bank["id"]).eq("is_active", True).limit(1)
+        .execute().data
+    ) or []
+    try:
+        weight_snapshot = course_section_weight_snapshot(
+            questions=questions,
+            meta=bank.get("meta"),
+            pronunciation_sets=pronunciation_sets,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -679,15 +698,16 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             f"(bài giao \"{dup[0].get('title')}\").")
 
     cfg = {
-        # Chỉ nhãn để hiển thị. Câu hỏi KHÔNG chụp vào đây: khác kho Speaking,
-        # đề bài tập tới tay học viên qua endpoint quiz đã có cổng riêng, và chụp
-        # thêm một bản ở đây là tạo ra một nguồn sự thật thứ hai để trôi.
+        # Không chụp NỘI DUNG câu hỏi — đề vẫn có đúng một nguồn. Chỉ chụp hình
+        # dạng + trọng số tại lúc giao để một lần re-import sau đó không đổi luật
+        # tính điểm của bài học viên đang làm.
         "test_title": bank["title"],
         "lesson_no":  bank.get("lesson_no"),
         "bank_code":  bank.get("code"),
+        **weight_snapshot,
     }
-    # Cổng thuộc-bài: chỉ ghi khi admin ĐẶT — vắng mặt nghĩa là "theo mặc định
-    # hiện hành", và mặc định được phép tiến hoá mà không phải sửa bài giao cũ.
+    # Cổng thuộc-bài: pass/revision chỉ ghi khi admin đặt. Riêng trọng số luôn
+    # chụp ở trên vì luật chấm không được tiến hoá giữa một bài đã giao.
     if body.pass_pct is not None:
         cfg["pass_pct"] = body.pass_pct
     if body.retake_size is not None:

@@ -116,6 +116,10 @@ Recording has 3 sub-states managed by `_showRecSub(name)`:
 - Prefer fixing the source of truth (database write, backend response) over patching the display.
 - Do not use optimistic local state that can diverge from backend truth. After mutations, refetch canonical state.
 - `access_codes.is_used`, `used_by`, and `used_at` are immutable after activation. Never clear them.
+- Course-exercise weighting is frozen per assignment in `content_config`
+  (`weight_policy`, `section_counts`, `section_weights`). Completed attempts keep
+  their stored section weights, and a revision must not derive new weights from
+  its smaller question sample.
 
 ### Feedback-related bugs — inspection checklist
 When debugging a feedback-quality issue, inspect all five layers in order:
