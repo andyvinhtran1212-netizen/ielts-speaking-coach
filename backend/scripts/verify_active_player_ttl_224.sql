@@ -1,4 +1,4 @@
--- Read-only postcondition audit for migration 224_active_player_resume_ttl.sql.
+-- Read-only postcondition audit for migration 224 plus forward remediation 225.
 -- Intended to be included by the locked production verifier after migration
 -- execution. It is also safe to run directly inside a read-only transaction.
 
@@ -157,6 +157,7 @@ BEGIN
             ('fn_guard_speaking_response_mutation()', false, false,
              ARRAY['active_player_expired', 'resume_expires_at',
                    'TG_OP = ''INSERT''', 'parent_status = ''in_progress''',
+                   'parent_status IS DISTINCT FROM ''submitted''',
                    'NEW.audio_storage_path IS DISTINCT FROM OLD.audio_storage_path',
                    'NEW.raw_transcript_text IS DISTINCT FROM OLD.raw_transcript_text']),
             ('fn_guard_dictation_attempt_answer_mutation()', false, false,

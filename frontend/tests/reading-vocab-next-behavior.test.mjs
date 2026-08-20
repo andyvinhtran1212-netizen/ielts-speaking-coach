@@ -15,6 +15,7 @@ const BEHAVIOR = read(
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const BROWSER_FLOW = read('tooling', 'verify-reading-vocab-flow.mjs');
 const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const LEGACY_BEHAVIOR = read('public', 'js', 'reading-vocab.js');
 
 describe('/reading/vocab — native React behavior', () => {
   test('removes legacy module injection, hydration sentinel and watchdog', () => {
@@ -51,6 +52,9 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
     assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
     assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
+    assert.match(LEGACY_BEHAVIOR, /const PAGE_SIZE = 24/);
+    assert.match(LEGACY_BEHAVIOR, /qs\.set\('offset', String\(STATE\.offset\)\)/);
+    assert.match(LEGACY_BEHAVIOR, /Xem thêm \(\$\{STATE\.items\.length\}\/\$\{STATE\.total\}\)/);
   });
 
   test('normalizes malformed payloads and renders authored data declaratively', () => {

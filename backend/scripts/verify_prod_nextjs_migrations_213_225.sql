@@ -1,4 +1,4 @@
--- Read-only production postcondition audit for migrations 213-224.
+-- Read-only production postcondition audit for migrations 213-225.
 --
 -- The standard forward runner remains the only writer. This verifier runs in
 -- a read-only transaction, reuses the exact 215-221 schema fingerprints, then
@@ -36,7 +36,8 @@ BEGIN
             ('221_writing_assignment_renderer_affinity.sql'),
             ('222_course_pronunciation_submissions.sql'),
             ('223_course_pronunciation_service_role_grants.sql'),
-            ('224_active_player_resume_ttl.sql')
+            ('224_active_player_resume_ttl.sql'),
+            ('225_allow_admitted_speaking_grade_after_submit.sql')
         ) AS expected(filename)
     LOOP
         IF NOT EXISTS (
@@ -284,7 +285,7 @@ BEGIN
 
     IF array_length(missing, 1) IS NOT NULL THEN
         RAISE EXCEPTION
-            'production Next.js migrations 213-224 verification failed: %',
+            'production Next.js migrations 213-225 verification failed: %',
             array_to_string(missing, ', ');
     END IF;
 END;
@@ -292,6 +293,6 @@ $$;
 
 \ir verify_active_player_ttl_224.sql
 
-SELECT 'verified production Next.js migration contracts 213-224' AS result;
+SELECT 'verified production Next.js migration contracts 213-225' AS result;
 
 COMMIT;

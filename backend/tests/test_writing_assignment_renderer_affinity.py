@@ -71,7 +71,7 @@ def test_expired_writing_lease_is_presented_as_reclaimable_without_losing_data()
     }
 
     assert mod._writing_renderer_lease_active(row, now=now) is False
-    effective = mod._effective_writing_renderer(row)
+    effective = mod._effective_writing_renderer(row, now=now)
     assert effective["renderer_affinity"] is None
     assert effective["renderer_affinity_expires_at"] is None
     assert effective["writing_prompts"] == {"title": "kept"}
@@ -86,7 +86,7 @@ def test_active_writing_lease_remains_sticky():
         "renderer_affinity_expires_at": (now + timedelta(seconds=1)).isoformat(),
     }
     assert mod._writing_renderer_lease_active(row, now=now) is True
-    assert mod._effective_writing_renderer(row) is row
+    assert mod._effective_writing_renderer(row, now=now) is row
 
 
 @pytest.mark.asyncio

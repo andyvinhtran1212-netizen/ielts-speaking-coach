@@ -742,13 +742,17 @@
   </main>
 
   <!-- ─── TOPIC MODAL ──────────────────────────────────────────────── -->
-  <div id="topic-modal" class="modal-backdrop" onclick="handleModalBackdropClick(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <div id="topic-modal" class="modal-backdrop" hidden inert aria-hidden="true"
+       onclick="handleModalBackdropClick(event)">
+    <div class="modal-box" role="dialog" aria-modal="true"
+         aria-labelledby="topic-modal-title" tabindex="-1"
+         onclick="event.stopPropagation()">
 
       <!-- Header -->
       <div class="flex items-center justify-between mb-5">
-        <h2 class="font-bold text-base">Chọn chủ đề luyện tập</h2>
-        <button onclick="closeTopicModal()"
+        <h2 id="topic-modal-title" class="font-bold text-base">Chọn chủ đề luyện tập</h2>
+        <button id="modal-close" type="button" aria-label="Đóng hộp thoại chọn chủ đề"
+                onclick="closeTopicModal()"
                 class="w-8 h-8 flex items-center justify-center rounded-full transition"
                 style="background:var(--av-surface-card);color:var(--av-text-secondary);"
                 onmouseover="this.style.background='var(--av-primary-soft)'"
@@ -762,13 +766,13 @@
 
       <!-- Tabs -->
       <div class="flex gap-1.5 mb-5 p-1 rounded-xl" style="background:var(--av-surface-sunken);">
-        <button id="tab-list" class="topic-tab active" onclick="switchTopicTab('list')">
+        <button id="tab-list" type="button" class="topic-tab active" onclick="switchTopicTab('list')">
           📚 Chọn từ danh sách
         </button>
-        <button id="tab-custom" class="topic-tab" onclick="switchTopicTab('custom')">
+        <button id="tab-custom" type="button" class="topic-tab" onclick="switchTopicTab('custom')">
           ✏️ Tự nhập chủ đề
         </button>
-        <button id="tab-myq" class="topic-tab" onclick="switchTopicTab('myq')">
+        <button id="tab-myq" type="button" class="topic-tab" onclick="switchTopicTab('myq')">
           ✍️ Câu hỏi riêng
         </button>
       </div>
@@ -821,7 +825,7 @@
       <p id="modal-error" class="modal-error"></p>
 
       <!-- Confirm -->
-      <button id="btn-confirm" class="btn-confirm mt-4" onclick="confirmTopicAndStart()">
+      <button id="btn-confirm" type="button" class="btn-confirm mt-4" onclick="confirmTopicAndStart()">
         🚀 Bắt đầu tạo câu hỏi
       </button>
 
@@ -1537,8 +1541,11 @@
     var _modalPart = 1;
     var _modalMode = 'practice';
     var _activeTopicTab = 'list';
+    var _topicModalTrigger = null;
 
     async function openTopicModal(part, mode) {
+      _topicModalTrigger = document.activeElement instanceof HTMLElement
+        ? document.activeElement : null;
       _modalPart = part;
       _modalMode = mode || 'practice';
 
@@ -1559,8 +1566,12 @@
       select.disabled = true;
 
       var modal = document.getElementById('topic-modal');
+      modal.hidden = false;
+      modal.inert = false;
+      modal.setAttribute('aria-hidden', 'false');
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
+      document.getElementById('modal-close').focus();
 
       try {
         var session = await requireAuth();
@@ -1590,12 +1601,53 @@
     function closeTopicModal() {
       var modal = document.getElementById('topic-modal');
       modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.inert = true;
+      modal.hidden = true;
       document.body.style.overflow = '';
+      if (_topicModalTrigger) _topicModalTrigger.focus();
+      _topicModalTrigger = null;
     }
 
     function handleModalBackdropClick(e) {
       if (e.target === document.getElementById('topic-modal')) closeTopicModal();
     }
+
+    document.addEventListener('keydown', function (e) {
+      var modal = document.getElementById('topic-modal');
+      if (!modal || !modal.classList.contains('open')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeTopicModal();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusable = Array.prototype.filter.call(
+        modal.querySelectorAll(
+          'button:not([disabled]), select:not([disabled]), input:not([disabled]), ' +
+          'textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ),
+        function (el) {
+          var style = window.getComputedStyle(el);
+          return !el.hidden && el.getAttribute('aria-hidden') !== 'true' &&
+            style.display !== 'none' && style.visibility !== 'hidden';
+        }
+      );
+      if (!focusable.length) {
+        e.preventDefault();
+        modal.querySelector('[role="dialog"]').focus();
+        return;
+      }
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
 
     function switchTopicTab(tab) {
       _activeTopicTab = tab;

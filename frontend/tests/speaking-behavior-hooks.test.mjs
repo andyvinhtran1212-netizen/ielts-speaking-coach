@@ -31,6 +31,7 @@ const SHELL = stripComments(readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8
 const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'))
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'))
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-charts.ts'), 'utf8'));
+const LEGACY_SOURCE = readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8');
 
 const shellIds = new Set([...SHELL.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
@@ -93,6 +94,15 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     }
     assert.doesNotMatch(SHELL, /<option[^>]*\bselected\b/,
       'React select phải dùng defaultValue/value thay vì selected trên option');
+    assert.match(LEGACY_SOURCE,
+      /id="topic-modal"[^>]*\bhidden\b[^>]*\binert\b[^>]*aria-hidden="true"/,
+      'rollback leg cũng phải đóng modal ban đầu để parity không lộ nội dung ẩn');
+    assert.match(LEGACY_SOURCE,
+      /role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="topic-modal-title"/);
+    for (const contract of [
+      "e.key === 'Escape'", "e.key !== 'Tab'", '_topicModalTrigger.focus()',
+      'modal.inert = true', 'modal.hidden = true', 'modal.hidden = false',
+    ]) assert.ok(LEGACY_SOURCE.includes(contract), `legacy thiếu contract modal: ${contract}`);
   });
 
   test('mọi id hằng trong $(\'…\') đều tồn tại ở vỏ', () => {

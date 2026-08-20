@@ -1,4 +1,4 @@
-"""Contracts for the read-only production 213-224 postcondition verifier."""
+"""Contracts for the read-only production 213-225 postcondition verifier."""
 
 import importlib.util
 from pathlib import Path
@@ -10,7 +10,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = BACKEND_ROOT / "scripts" / "verify_prod_nextjs_migrations.py"
-VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_nextjs_migrations_213_224.sql"
+VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_prod_nextjs_migrations_213_225.sql"
 AFFINITY_VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_staging_nextjs_reconcile.sql"
 TTL_VERIFY_PATH = BACKEND_ROOT / "scripts" / "verify_active_player_ttl_224.sql"
 
@@ -107,9 +107,10 @@ def test_sql_is_read_only_and_covers_the_exact_forward_gap():
             (222, "course_pronunciation_submissions.sql"),
             (223, "course_pronunciation_service_role_grants.sql"),
             (224, "active_player_resume_ttl.sql"),
+            (225, "allow_admitted_speaking_grade_after_submit.sql"),
         )
     ]
-    assert re.findall(r"'((?:21[3-9]|22[0-4])_[^']+\.sql)'", sql) == expected
+    assert re.findall(r"'((?:21[3-9]|22[0-5])_[^']+\.sql)'", sql) == expected
     assert "direct-client-table-grant" in sql
     assert "service-role-" in sql
     assert "unexpected-client-policy" in sql
