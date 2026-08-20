@@ -505,9 +505,36 @@ export function CourseBehavior() {
         // ngồi trước màn hình vừa xong; quay lại sau khi đi xem chỗ khác mà vẫn
         // thấy nút "Nộp luôn" chờ sẵn là dựng lại đúng cú bấm-một-nhát.
         writing.disarm();
-        done.innerHTML = writing.submitted ? writing.renderResult() : writing.renderForm();
+        done.innerHTML = (writing.submitted ? writing.renderResult() : writing.renderForm())
+          + (runner.reviewOnly
+            ? '<div class="cx-next cx-next--inline">'
+              + '<button class="av-button av-button-secondary" id="cx-review-home" type="button">Quay lại tổng kết</button></div>'
+            : '');
         if (!writing.submitted) syncWritingNote();
         const st = $('cx-stage'); if (st) st.hidden = true;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      /** Landing chỉ-đọc: giữ cả báo cáo MCQ lẫn phần viết trong tầm tay. */
+      function renderReviewHub() {
+        const q = $('cx-q'); if (q) q.hidden = true;
+        const next = $('cx-next'); if (next) next.hidden = true;
+        const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
+        const report = $('cx-report'); if (report) report.hidden = true;
+        const done = $('cx-done');
+        if (!done) return;
+        done.hidden = false;
+        done.innerHTML = '<div class="cx-verdict" data-v="review">'
+          + '<div class="cx-verdict__hero"><div>'
+          + '<p class="cx-verdict__eyebrow">Bài đã nộp</p>'
+          + '<p class="cx-verdict__title">Kết quả của bạn đã được lưu</p>'
+          + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
+          + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
+          + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
+          + (writingReady && writing.submitted
+            ? '<button class="av-button av-button-primary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
+            : '')
+          + '</div></div></div>';
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
@@ -792,28 +819,7 @@ export function CourseBehavior() {
         // course item. Open the persisted marking directly and never enter the
         // quiz mutation flow again.
         await writingLoaded;
-        if (requestedView === 'writing' && writingReady && writing.submitted) {
-          renderWriting();
-        } else {
-          const q = $('cx-q'); if (q) q.hidden = true;
-          const next = $('cx-next'); if (next) next.hidden = true;
-          const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
-          const done = $('cx-done');
-          if (done) {
-            done.hidden = false;
-            done.innerHTML = '<div class="cx-verdict" data-v="review">'
-              + '<div class="cx-verdict__hero"><div>'
-              + '<p class="cx-verdict__eyebrow">Bài đã nộp</p>'
-              + '<p class="cx-verdict__title">Kết quả của bạn đã được lưu</p>'
-              + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
-              + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
-              + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
-              + (writingReady && writing.submitted
-                ? '<button class="av-button av-button-primary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
-                : '')
-              + '</div></div></div>';
-          }
-        }
+        renderReviewHub();
       } else if (!runner.total && runner.hasWriting) {
         await writingLoaded;
         renderWriting();
@@ -836,6 +842,7 @@ export function CourseBehavior() {
         if (t.id === 'cx-resend') return void renderDone();
         if (t.id === 'cx-see-report') return void showReport();
         if (t.id === 'cx-writing') return renderWriting();
+        if (t.id === 'cx-review-home') return renderReviewHub();
         if (t.id === 'cx-reading-open') return renderReading();
         if (t.id === 'cx-listening-open') return void openListening();
         if (t.id === 'cx-pronunciation-open') return void openPronunciation();

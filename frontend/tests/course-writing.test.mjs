@@ -443,6 +443,24 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
   test('bank chỉ có tự luận vào THẲNG màn tự luận', () => {
     assert.match(PAGE, /if \(!runner\.total && runner\.hasWriting\)/);
   });
+
+  test('review bank hỗn hợp mở hub trước và giữ cả MCQ lẫn tự luận reachable', () => {
+    const hubStart = PAGE.indexOf('function renderReviewHub()');
+    const hubEnd = PAGE.indexOf('/**', hubStart + 10);
+    const hub = PAGE.slice(hubStart, hubEnd);
+    assert.match(hub, /id="cx-see-report"/);
+    assert.match(hub, /id="cx-writing"/);
+
+    const reviewStart = PAGE.indexOf('if (runner.reviewOnly) {', hubEnd);
+    const reviewEnd = PAGE.indexOf('} else if', reviewStart);
+    const landing = PAGE.slice(reviewStart, reviewEnd);
+    assert.match(landing, /renderReviewHub\(\)/);
+    assert.doesNotMatch(landing, /renderWriting\(\)/,
+      'landing không được tự nhảy vào writing rồi giấu báo cáo MCQ');
+
+    assert.match(PAGE, /id="cx-review-home"/,
+      'đọc writing xong phải quay lại được hub mà không reload');
+  });
 });
 
 describe('dây nối bước xác nhận ở trang', () => {
