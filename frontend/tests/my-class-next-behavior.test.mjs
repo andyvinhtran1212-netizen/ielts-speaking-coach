@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
+  assignmentAction,
   nextDue,
   normalizeClassStartResponse,
   normalizeMyClassResponse,
@@ -146,6 +147,27 @@ describe('deadline helpers', () => {
 });
 
 describe('assignment start contract', () => {
+  test('a submitted course item remains actionable as a result, not a new attempt', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        state: 'submitted', submitted_at: '2026-08-19T18:23:55Z', score: 50,
+      })],
+      progress: { total: 1, submitted: 1, todo: 0, missing: 0, late: 0, on_time_pct: 100 },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Xem kết quả',
+    });
+  });
+
+  test('course review intent survives the strict start-response boundary', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'course',
+      bank_id: 'bank-1', review_only: true,
+    }, 'item-1'), {
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1', reviewOnly: true,
+    });
+  });
+
   test('existing Speaking sessions go through the runtime admission switch', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-1',

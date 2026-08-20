@@ -211,6 +211,19 @@ describe('cái bẫy', () => {
 // ── MỘT PHIÊN = MỘT CHẶNG ─────────────────────────────────────────────────
 
 describe('vòng đời phiên', () => {
+  test('mở kết quả đã nộp không đọc resume và không dựng session mới', async () => {
+    const questions = [mcq(0), essay(1)];
+    const api = fakeApi({
+      questions,
+      mastery: { item_id: 'it1', passed_at: '2026-08-19T18:08:58Z', review_only: true },
+    });
+    const r = createRunner({ api, storage: memStore(), now: () => 1000 });
+    await r.load('b1');
+    assert.equal(r.reviewOnly, true);
+    assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
+    assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+  });
+
   test('mỗi chặng mở một phiên MỚI', async () => {
     // Dùng lại một phiên cho mọi chặng thì chặng 2 ghi đè lên một phiên đã chốt
     // bằng con số của riêng nó — giáo viên chỉ thấy chặng cuối.

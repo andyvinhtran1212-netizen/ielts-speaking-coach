@@ -27451,6 +27451,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -27659,6 +27660,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;

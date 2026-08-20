@@ -221,6 +221,21 @@ export function awaitingWriting(row) {
     && row.writingExpected === true && Boolean(row.passedAt) && !row.submittedAt;
 }
 
+/** One canonical action decision for both current and history groups. */
+export function assignmentAction(row) {
+  if (row?.assignment?.skill === 'course' && row.submittedAt) {
+    return { kind: 'review', label: 'Xem kết quả' };
+  }
+  if (row?.assignment?.skill === 'speaking'
+      && (row.submittedAt || (row.isMissing && row.state !== 'assigned'))) {
+    return { kind: 'review', label: 'Xem lại bài' };
+  }
+  if (!row?.isMissing && !row?.submittedAt) {
+    return { kind: 'start', label: awaitingWriting(row) ? 'Tiếp tục bài' : 'Làm bài' };
+  }
+  return null;
+}
+
 export function assignmentSubtitle(row) {
   const cfg = row?.assignment?.content || {};
   if (row?.assignment?.skill === 'speaking') {
@@ -298,7 +313,13 @@ export function normalizeClassStartResponse(value, expectedItemId) {
     return { kind: 'player', surface: 'speaking', query: { session_id: sessionId } };
   }
   const bankId = textOf(row.bank_id);
-  if (bankId && skill === 'course') return { kind: 'course', bankId };
+  if (bankId && skill === 'course') {
+    if (row.review_only != null && typeof row.review_only !== 'boolean') return null;
+    return {
+      kind: 'course', bankId, itemId: expectedItemId,
+      reviewOnly: row.review_only === true,
+    };
+  }
 
   const params = objectOf(row.session_params);
   if (params && skill === 'speaking') {

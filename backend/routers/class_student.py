@@ -383,6 +383,18 @@ async def start_assignment(
             "accepting":     bool(is_accepting_submissions(assignment)),
         }
 
+    # Bài theo buổi ĐÃ NỘP mở lại ở lane chỉ-đọc. Đặt trước cổng deadline giống
+    # Speaking: hết hạn chặn lượt làm mới, không xoá quyền xem kết quả đã lưu.
+    # `review_only` đi tới runner để nó tuyệt đối không dựng quiz session mới.
+    if assignment.get("skill") == "course" and item.get("submitted_at"):
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "course",
+            "bank_id":       assignment.get("content_id"),
+            "review_only":   True,
+        }
+
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.
     if not is_accepting_submissions(assignment):
