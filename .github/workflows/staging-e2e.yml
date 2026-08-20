@@ -1,5 +1,6 @@
 # Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
-# fixture smoke stays in backend-tests.yml). Nightly + manual. NOT PR-blocking:
+# fixture smoke stays in backend-tests.yml). Four times daily + manual. NOT
+# PR-blocking:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
 # Required repo secrets:
@@ -21,7 +22,12 @@ on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
     # suite, which Vercel Cron Jobs (URL-invoking functions) cannot host.
-    - cron: "30 20 * * *" # 03:30 Asia/Ho_Chi_Minh, daily
+    # Space the four evidence runs six hours apart so the shared staging
+    # identities never overlap: 03:30, 09:30, 15:30 and 21:30 Asia/Ho_Chi_Minh.
+    - cron: "30 2,8,14,20 * * *"
+  # Dispatch manual evidence runs with `--ref main`. The job still checks out
+  # and tests `staging` below, while keeping the streak cache in the same
+  # default-branch scope as scheduled runs.
   workflow_dispatch:
 
 jobs:
