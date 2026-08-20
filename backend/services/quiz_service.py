@@ -1152,7 +1152,7 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
     """
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
-             "last_stage": None, "stage": 0}
+             "last_stage": None, "stage": 0, "retake": None}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -1165,15 +1165,32 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     # newest such boundary until PASS: a near-pass full rerun changes the latest
     # action to `retake`, but must not make the older failed sessions reappear.
     retry_after = None
+    retake_allowed = False
+    recorded_session_ids: set[str] = set()
+    latest_attempt_at = None
     if item_id:
         try:
             ledger = (supabase_admin.table("class_assignment_items")
                       .select("passed_at, mastery").eq("id", item_id)
                       .limit(1).execute().data) or []
-            if ledger and not ledger[0].get("passed_at"):
-                attempts = ((ledger[0].get("mastery") or {}).get("attempts")) or []
-                cfg_threshold = int((ledger[0].get("mastery") or {}).get(
+            if ledger:
+                state = ledger[0]
+                attempts = ((state.get("mastery") or {}).get("attempts")) or []
+                cfg_threshold = int((state.get("mastery") or {}).get(
                     "threshold") or PASS_PCT_DEFAULT)
+                recorded_session_ids = {
+                    str(session_id)
+                    for attempt in attempts
+                    for session_id in (attempt.get("sessions") or [])
+                    if session_id
+                }
+                if attempts:
+                    latest_attempt_at = _at(attempts[-1].get("at"))
+                retake_allowed = bool(
+                    not state.get("passed_at") and attempts
+                    and _recorded_next_action(attempts[-1], cfg_threshold) == "retake"
+                )
+            if ledger and not ledger[0].get("passed_at"):
                 retry_after = _full_retry_boundary(attempts, cfg_threshold)
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] course-resume mastery read failed item=%s: %s",
@@ -1195,12 +1212,33 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     # Phiên của MỤC BÀI GIAO khác (chuyển lớp, giao lại cùng bank) là lượt khác.
     # So sánh cả hai chiều: mục None chỉ khớp mục None.
     rows = [r for r in rows if (r.get("class_assignment_item_id") or None) == item_id]
-    # `kind` vắng mặt trên phiên cũ (trước mig 189) — coi như 'run'.
-    rows = [r for r in rows if (r.get("kind") or "run") == "run"]
     if retry_after:
         rows = [r for r in rows
                 if (_at(r.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
                 > retry_after]
+    # Một revision chưa được ghi vào mastery ledger vẫn là bài đang làm, kể cả
+    # phiên đã chốt nhưng request `/course/verdict` bị rớt mạng. Giữ đúng MỘT
+    # phiên mới nhất; session_id sẽ làm seed để trình duyệt dựng lại cùng mẫu và
+    # cùng hoán vị đáp án trên mọi thiết bị, không cần lưu đáp án vào schema.
+    pending_retakes = []
+    if retake_allowed:
+        for row in rows:
+            if ((row.get("kind") or "run") != "retake"
+                    or row["id"] in recorded_session_ids):
+                continue
+            created_at = _at(row.get("created_at"))
+            # Verdict mới nhất supersede mọi revision đã tồn tại trước nó,
+            # kể cả một tab cũ mở revision nhưng chưa nộp. Chỉ nhìn "chưa có
+            # trong ledger" sẽ kéo tab cũ ấy sống lại sau khi revision mới hơn
+            # đã được chấm và ghi sổ.
+            if (latest_attempt_at is not None
+                    and (created_at is None or created_at <= latest_attempt_at)):
+                continue
+            pending_retakes.append(row)
+    pending_retake = (max(pending_retakes, key=lambda r: r.get("created_at") or "")
+                      if pending_retakes else None)
+    # `kind` vắng mặt trên phiên cũ (trước mig 189) — coi như 'run'.
+    rows = [r for r in rows if (r.get("kind") or "run") == "run"]
 
     # ĐÃ CHỐT phải là `ended_by='completed'`. `ended_at` được đặt cả khi TẠM
     # DỪNG, nên đếm theo nó là gọi một chặng bỏ giữa chừng là chặng đã xong —
@@ -1250,11 +1288,13 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
-                        if usable else len(completed))}
-    if not open_rows:
+                        if usable else len(completed)), "retake": None}
+    ids = [r["id"] for r in open_rows]
+    if pending_retake:
+        ids.append(pending_retake["id"])
+    if not ids:
         return result
 
-    ids = [r["id"] for r in open_rows]
     try:
         att = (supabase_admin.table("quiz_attempts")
                .select("session_id, qid, is_correct, created_at")
@@ -1267,6 +1307,25 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     by_session: dict[str, list[dict]] = {}
     for a in att:
         by_session.setdefault(a["session_id"], []).append(a)
+    if pending_retake:
+        seen_retake: set[str] = set()
+        retake_answers = []
+        for a in by_session.get(pending_retake["id"], []):
+            if not a.get("qid") or a["qid"] in seen_retake:
+                continue
+            seen_retake.add(a["qid"])
+            retake_answers.append({
+                "qid": a["qid"], "is_correct": bool(a.get("is_correct")),
+            })
+        result["retake"] = {
+            "session_id": pending_retake["id"],
+            "answered": retake_answers,
+            "completed": pending_retake.get("ended_by") == "completed",
+            "right": int(pending_retake.get("total_correct") or 0),
+            "graded": int(pending_retake.get("total_questions") or 0),
+        }
+    if not open_rows:
+        return result
     # Phiên dở dang ĐÁNG khôi phục = phiên NHIỀU BÀI NHẤT, hoà thì lấy mới nhất.
     # Không lấy "mới nhất" đơn thuần: tải lại trang giữa chặng từng đẻ ra vài
     # phiên cho CÙNG một chặng, và phiên mới nhất thường là phiên ít bài nhất.
@@ -3607,7 +3666,10 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
         )
         if scoped_bank_ids is not None:
             sq = sq.in_("bank_id", scoped_bank_ids)
-        sessions = sq.order("started_at", desc=True).limit(20).execute().data or []
+        # “Phiên gần đây” chỉ là phiên đã kết thúc. Trang mở quiz đã INSERT một
+        # dòng; nếu người học đóng ngay thì ended_at=NULL và mọi ô kết quả trống.
+        sessions = (sq.not_.is_("ended_at", "null")
+                    .order("started_at", desc=True).limit(20).execute().data or [])
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
 

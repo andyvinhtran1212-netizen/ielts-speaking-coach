@@ -85,6 +85,9 @@ describe('/reading/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /hidden=\{!module\}/);
     assert.match(BEHAVIOR, /onClick=\{\(\) => setModule\(''\)\}/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message|state\.message/);
+    assert.doesNotMatch(SHELL, /nhịp ngắn|chưa có đủ 60 phút/,
+      'mini test có thể được admin cấu hình 60 phút nên không được hứa là bài ngắn');
+    assert.match(SHELL, /Thời lượng hiển thị theo cấu hình của từng đề/);
   });
 
   test('runs its browser-backed flow unconditionally in the parity gate', () => {

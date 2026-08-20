@@ -31,14 +31,14 @@ describe('writing dashboard — 3 workflow groups', () => {
 
 describe('writing dashboard — every tile → a functional page', () => {
   const TILES = [
-    ['Soạn bài viết',        '/pages/admin/writing/new.html'],
-    ['Thư viện prompt',      '/pages/admin/writing/prompts.html'],
-    ['Mẹo viết',             '/pages/admin/writing/tips.html'],
+    ['Soạn bài viết',        '/admin/writing/new'],
+    ['Thư viện prompt',      '/admin/writing/prompts'],
+    ['Mẹo viết',             '/admin/writing/tips'],
     ['Hàng chờ chấm',        '/admin/writing/queue'],
-    ['Yêu cầu chấm lại',     '/pages/admin/writing/regrade-requests.html'],
-    ['Hàng đợi Instructor',  '/pages/admin/writing/instructor-queue.html'],
-    ['Gán bài tập',          '/pages/admin/writing/assignments.html'],
-    ['Lớp học',              '/pages/admin/writing/cohorts.html'],
+    ['Yêu cầu chấm lại',     '/admin/writing/regrade-requests'],
+    ['Hàng đợi Instructor',  '/admin/writing/instructor-queue'],
+    ['Gán bài tập',          '/admin/writing/assignments'],
+    ['Lớp học',              '/admin/writing/cohorts'],
     ['Học viên',             '/admin/students'],
   ];
   for (const [label, href] of TILES) {

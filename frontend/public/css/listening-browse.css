@@ -86,6 +86,9 @@
     border-top: 1px solid var(--av-border-default);
   }
   .mode-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
     font-size: var(--av-fs-xs);
     padding: 4px 10px;
     border-radius: var(--av-radius-sm);
@@ -117,5 +120,17 @@
     background: var(--av-error-soft); color: var(--av-error);
     border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); font-size: var(--av-fs-sm);
     text-align: left;
+  }
+  .browse-pagination {
+    display: grid;
+    justify-items: center;
+    gap: var(--av-space-3);
+    padding-top: var(--av-space-2);
+  }
+  .browse-pagination .av-button { min-height: 44px; }
+  .browse-pagination__error {
+    margin: 0;
+    color: var(--av-error);
+    font-size: var(--av-fs-sm);
   }
   [hidden] { display: none !important; }

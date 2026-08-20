@@ -78,6 +78,23 @@ const CREATED_AT_RUNTIME = new Set(['flashcards-tab-sub']);
 const DYNAMIC_PREFIXES = ['mtab-', 'tab-', 'prac-part-', 'prac-tp-part-', 'pbp-card-'];
 
 describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
+  test('modal chủ đề có semantics và vòng đời focus đầy đủ', () => {
+    assert.match(SHELL, /id="topic-modal"[^>]*\bhidden\b[^>]*aria-hidden="true"/,
+      'modal đóng ban đầu phải rời khỏi cây tương tác');
+    assert.match(SHELL, /role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="topic-modal-title"/,
+      'hộp thoại phải được screen reader nhận diện và có tên');
+    assert.match(SHELL, /id="modal-close"[^>]*aria-label="Đóng hộp thoại chọn chủ đề"/,
+      'nút chỉ có biểu tượng phải có accessible name');
+    for (const contract of [
+      "e.key === 'Escape'", "e.key !== 'Tab'", 'topicModalTrigger?.focus()',
+      'modal.inert = true', 'modal.hidden = true', 'modal.hidden = false',
+    ]) {
+      assert.ok(BEHAVIOR.includes(contract), `thiếu contract modal: ${contract}`);
+    }
+    assert.doesNotMatch(SHELL, /<option[^>]*\bselected\b/,
+      'React select phải dùng defaultValue/value thay vì selected trên option');
+  });
+
   test('mọi id hằng trong $(\'…\') đều tồn tại ở vỏ', () => {
     const used = new Set([...BEHAVIOR.matchAll(/\$\('([^']+)'\)/g)].map((m) => m[1]));
     assert.ok(used.size >= 15, `phải tìm thấy nhiều id, chỉ thấy ${used.size} — regex hỏng?`);

@@ -129,6 +129,12 @@ describe('parity với trang legacy', () => {
     assert.match(CARDS, /\/grammar\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
   });
 
+  test('mỗi nhóm chỉ mở trước một phần danh sách và cho mở rộng bằng details native', () => {
+    assert.match(CARDS, /const GROUP_ARTICLE_PREVIEW = 5/);
+    assert.match(CARDS, /<details className="gw-group-more">/);
+    assert.match(CARDS, /<summary>Xem thêm \{remaining\.length\} bài<\/summary>/);
+  });
+
   test('mọi điểm vào tìm kiếm đều trỏ route Next canonical', () => {
     assert.match(PAGE, /href="\/grammar\/search\?q=ielts"/);
     assert.match(SEARCH, /window\.location\.assign\(`\/grammar\/search\?q=/);

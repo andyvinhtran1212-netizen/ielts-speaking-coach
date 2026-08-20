@@ -19,3 +19,14 @@
 .vp-progress-link { display: inline-block; margin-top: var(--av-space-8);
   color: var(--av-primary); font-size: var(--av-fs-sm); text-decoration: none; font-weight: var(--av-fw-semibold); }
 .vp-progress-link:hover { color: var(--av-primary-hover); }
+.vp-bank-progress { display: grid; gap: var(--av-space-2); margin-top: var(--av-space-4); }
+.vp-bank-progress__row { display: flex; justify-content: space-between; gap: var(--av-space-3);
+  color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
+.vp-bank-progress__row strong { color: var(--av-primary); font-family: var(--av-font-mono); }
+.vp-bank-progress__track { display: block; height: 6px; overflow: hidden;
+  border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); }
+.vp-bank-progress__track > span { display: block; height: 100%; border-radius: inherit;
+  background: var(--av-primary); }
+.vp-bank-progress.is-unavailable { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.vp-progress-warning { margin: var(--av-space-4) 0 0; color: var(--av-warning);
+  font-size: var(--av-fs-xs); }

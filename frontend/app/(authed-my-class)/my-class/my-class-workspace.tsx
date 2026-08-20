@@ -167,6 +167,11 @@ function TaskCard({
         {row.assignment.instructions && (
           <p className="mc-item-sub">{row.assignment.instructions}</p>
         )}
+        {row.isMissing && !action && (
+          <p className="mc-item-next-step">
+            Hạn nộp đã đóng. Liên hệ giảng viên nếu bạn cần được mở lại bài.
+          </p>
+        )}
       </div>
       {action && (
         <button

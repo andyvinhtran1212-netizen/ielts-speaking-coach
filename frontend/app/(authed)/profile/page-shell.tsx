@@ -43,7 +43,7 @@ export function ProfileShell() {
         {/* ── STATS (readonly) ───────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-3">
           <div className="stat-card">
-            <p className="stat-card__label text-xs mb-1">Tổng sessions</p>
+            <p className="stat-card__label text-xs mb-1">Buổi Speaking đã hoàn thành</p>
             <p id="stat-sessions" className="stat-card__value text-2xl font-bold">—</p>
           </div>
           <div className="stat-card">

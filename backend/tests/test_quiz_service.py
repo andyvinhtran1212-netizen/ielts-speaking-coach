@@ -69,6 +69,9 @@ class _FakeQuery:
     def eq(self, c, v): self._filters.append((c, v)); return self
     def neq(self, c, v): self._filters.append(("neq", c, v)); return self
     def in_(self, c, vals): self._filters.append(("in", c, list(vals))); return self
+    @property
+    def not_(self): return self
+    def is_(self, c, v): self._filters.append(("not_is", c, v)); return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
     # PostgREST range() is an inclusive offset window — the paging primitive
@@ -550,6 +553,9 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
     assert b["code"] == "L14" and b["mastered"] == 2 and b["in_progress"] == 1
     assert b["words_count"] == 29
     assert out["recent_sessions"][0]["accuracy"] == 0.8
+    session_reads = [c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "select"]
+    assert any(("not_is", "ended_at", "null") in c["filters"] for c in session_reads), \
+        "recent_sessions phải lọc phiên chưa kết thúc trước LIMIT"
     # Lifetime totals — the abandoned (ended_at-less) session is EXCLUDED so the
     # count isn't inflated by opening the quiz and leaving.
     t = out["totals"]

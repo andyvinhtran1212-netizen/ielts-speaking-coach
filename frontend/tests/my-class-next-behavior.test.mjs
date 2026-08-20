@@ -308,6 +308,8 @@ describe('native route ownership', () => {
       'a failed old-account mutation must not toast into the new account');
     assert.match(layout, /\/js\/toast\.js/,
       'start errors must have the global toast implementation the workspace calls');
+    assert.match(workspace, /Hạn nộp đã đóng\. Liên hệ giảng viên nếu bạn cần được mở lại bài\./,
+      'bài quá hạn không có action phải nói rõ bước tiếp theo thay vì kết thúc cụt');
   });
 
   test('all canonical inbound links use the clean route', () => {

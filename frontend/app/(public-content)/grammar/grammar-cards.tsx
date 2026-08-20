@@ -36,6 +36,8 @@ export type Group = {
   articles?: Article[];
 };
 
+const GROUP_ARTICLE_PREVIEW = 5;
+
 /** URL sạch của bài viết — nay là route Next canonical (pilot 2, 28/07). */
 export const articleUrl = (category: string, slug: string) =>
   `/grammar/${encodeURIComponent(category)}/${encodeURIComponent(slug)}`;
@@ -217,6 +219,50 @@ export function CategoryCards({ categories }: { categories?: Category[] }) {
   );
 }
 
+function GroupArticleRow({ article, color }: { article: Article; color: string }) {
+  if (article.status === 'planned') {
+    return (
+      <div className="group-article-row flex items-center gap-2 px-2 py-1">
+        <span className="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0" />
+        <span className="text-sm text-white/28 flex-1 truncate">{article.title}</span>
+        <span className="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
+          Sắp ra mắt
+        </span>
+      </div>
+    );
+  }
+  if (article.status === 'updating') {
+    return (
+      <div className="group-article-row flex items-center gap-2 px-2 py-1">
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#fbbf24' }} />
+        <a
+          href={articleUrl(article.category, article.slug)}
+          className="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate"
+        >
+          {article.title}
+        </a>
+        <span
+          className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
+          style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}
+        >
+          Đang cập nhật
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="group-article-row flex items-center gap-2 px-2 py-1">
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+      <a
+        href={articleUrl(article.category, article.slug)}
+        className="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate"
+      >
+        {article.title}
+      </a>
+    </div>
+  );
+}
+
 /** Thẻ nhóm chủ đề — điều hướng chính của trang chủ Grammar. */
 export function GroupCards({ groups }: { groups?: Group[] }) {
   if (!groups?.length) return <Empty span>Chưa có dữ liệu nhóm chủ đề.</Empty>;
@@ -225,6 +271,9 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
       {groups.map((g) => {
         const pal = GROUP_PALETTE[g.color || 'teal'] || GROUP_PALETTE.teal;
         const pct = g.article_count > 0 ? Math.round((g.complete_count / g.article_count) * 100) : 0;
+        const articles = g.articles || [];
+        const preview = articles.slice(0, GROUP_ARTICLE_PREVIEW);
+        const remaining = articles.slice(GROUP_ARTICLE_PREVIEW);
         return (
           <div key={g.title} className="group-card rounded-2xl p-5 border" style={{ background: pal.bg, borderColor: pal.border }}>
             <div className="flex items-start gap-3 mb-4">
@@ -255,49 +304,19 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
             </div>
 
             <div className="space-y-0.5">
-              {(g.articles || []).map((a) => {
-                if (a.status === 'planned') {
-                  return (
-                    <div key={a.slug || a.title} className="group-article-row flex items-center gap-2 px-2 py-1">
-                      <span className="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0" />
-                      <span className="text-sm text-white/28 flex-1 truncate">{a.title}</span>
-                      <span className="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
-                        Sắp ra mắt
-                      </span>
-                    </div>
-                  );
-                }
-                if (a.status === 'updating') {
-                  return (
-                    <div key={a.slug} className="group-article-row flex items-center gap-2 px-2 py-1">
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#fbbf24' }} />
-                      <a
-                        href={articleUrl(a.category, a.slug)}
-                        className="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate"
-                      >
-                        {a.title}
-                      </a>
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}
-                      >
-                        Đang cập nhật
-                      </span>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={a.slug} className="group-article-row flex items-center gap-2 px-2 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: pal.hex }} />
-                    <a
-                      href={articleUrl(a.category, a.slug)}
-                      className="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate"
-                    >
-                      {a.title}
-                    </a>
+              {preview.map((article) => (
+                <GroupArticleRow key={article.slug || article.title} article={article} color={pal.hex} />
+              ))}
+              {remaining.length > 0 ? (
+                <details className="gw-group-more">
+                  <summary>Xem thêm {remaining.length} bài</summary>
+                  <div className="space-y-0.5 gw-group-more__list">
+                    {remaining.map((article) => (
+                      <GroupArticleRow key={article.slug || article.title} article={article} color={pal.hex} />
+                    ))}
                   </div>
-                );
-              })}
+                </details>
+              ) : null}
             </div>
           </div>
         );

@@ -19,7 +19,7 @@ export function ReadingMiniTestShell({
             <a className="rv-back" href="/home">← Trang chủ</a>
             <p className="rv-kicker">READING LAB · MINI TEST</p>
             <h1>Một đoạn văn, <span>một phiên luyện tập trung.</span></h1>
-            <p className="subtitle">Luyện theo nhịp ngắn với giao diện và phần chữa bài giống Full Test — phù hợp khi bạn chưa có đủ 60 phút.</p>
+            <p className="subtitle">Mỗi đề tập trung vào một đoạn văn và dùng cùng giao diện chữa bài như Full Test. Thời lượng hiển thị theo cấu hình của từng đề.</p>
           </div>
           <dl className="rv-header__stats" aria-label="Cấu trúc Mini Test">
             <div><dt id="rv-total-count">{totalCount}</dt><dd>mini test</dd></div>

@@ -31,13 +31,14 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, skill\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, skill, offset, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
     assert.match(BEHAVIOR, /query\.set\('difficulty', difficulty\)/);
     assert.match(BEHAVIOR, /query\.set\('skill', skill\)/);
-    assert.match(BEHAVIOR, /query\.set\('limit', '50'\)/);
+    assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_SIZE\)\)/);
+    assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
     assert.match(BEHAVIOR, /`\/api\/reading\/skill\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
@@ -49,7 +50,7 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
     assert.match(BEHAVIOR, /if \(!slug\) return \[\]/);
     assert.match(BEHAVIOR, /SKILL_LABEL\[skill\] \|\| skill/);
-    assert.match(BEHAVIOR, /normalizeTotal\(payload, exercises\.length\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ exercises\.length\)/);
     assert.match(BEHAVIOR, /new Set\(state\.exercises\.map/);
     assert.match(BEHAVIOR, /displaySkillTitle\(fullTitle\)/);
     assert.match(BEHAVIOR, /encodeURIComponent\(exercise\.slug\)/);
@@ -82,6 +83,9 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(SHELL, /focusCount = '—'/);
     assert.match(SHELL, /totalCount = '—'/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
+    assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
+    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
     assert.match(BEHAVIOR, /setDifficulty\(''\)[\s\S]*setSkill\(''\)/);
     assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message/);

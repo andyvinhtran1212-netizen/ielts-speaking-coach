@@ -257,20 +257,14 @@ describe('Sprint 13.1 — editor cancel/back links no longer point to /admin.htm
     });
   }
 
-  test('admin-chrome NAV_GROUPS carries new content + create slugs', () => {
+  test('admin-chrome exposes the inventory but not editors missing content context', () => {
     const chrome = read('js', 'components', 'aver-admin-chrome.js');
-    // The listening group must own slugs for content and create — Sprint
-    // 13.2 will flip the create slug to a real page; for now it
-    // re-routes to the content list.
     assert.match(chrome, /slug:\s*['"]content['"]/);
-    assert.match(chrome, /slug:\s*['"]create['"]/);
-    // Existing editor slugs MUST stay in place. (The mini-test session-mixer
-    // slug was retired when that builder was repurposed away.)
-    for (const s of ['segments', 'gist', 'tf', 'mcq']) {
-      assert.match(
+    for (const s of ['create', 'segments', 'gist', 'tf', 'mcq']) {
+      assert.doesNotMatch(
         chrome,
         new RegExp(`slug:\\s*['"]${s}['"]`),
-        `Sprint 13.1 must not retire existing listening sub-slug ${s}`,
+        `editor ${s} requires content_id and must not be a context-free sidebar entry`,
       );
     }
   });

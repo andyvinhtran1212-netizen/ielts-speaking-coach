@@ -2362,3 +2362,124 @@ and component teardown discards an unfinished blob and releases every track.
 - Full TypeScript, OpenAPI drift generation and 640px responsive CSS rules are
   checked before publication; a signed-in device pass remains the deployment
   check for real microphone permission and Safari `audio/mp4` capture.
+
+---
+
+# Whole-web UI/UX completion audit — learner + admin
+
+> Audit date: 2026-08-20
+> Scope: revalidation and remediation closure for the two whole-web passes:
+> admin operations surfaces and learner-visible pages/flows.
+
+## Summary
+
+The high-impact findings were contract and state-truth problems rather than a
+missing visual system. The remediation preserves Aver's shared semantic tokens,
+the Grammar editorial subsystem and the Reading exam subsystem while fixing
+session truth, resume behavior, navigation dead ends, loading/error states,
+catalog density and responsive interaction targets.
+
+## Critical issues resolved
+
+### Issue: Course revision could be lost or rebuilt as a different test
+
+**Current State**: An unledgered revision is returned by the canonical resume
+endpoint. Its server session ID deterministically seeds both question selection
+and option order, including across devices. A completed revision whose verdict
+request failed restores the result and retries only the verdict.
+
+**Problem**: Revision state was treated as ephemeral; reload or network failure
+could replace the 20-question sample, lose progress or finalize a session twice.
+
+**Recommendation**: Keep the session/ledger boundary in
+`backend/services/quiz_service.py` and deterministic reconstruction in
+`frontend/public/js/course-runner.js`; do not move canonical progress to local
+storage.
+
+**Impact**: Learners resume the same revision and a verdict retry cannot create
+or patch a second attempt.
+
+**Implementation Notes**: No migration was required. Recorded ledger session
+IDs exclude completed revisions from future resume responses.
+
+## High priority improvements resolved
+
+- Dashboard and progress totals count completed sessions only; recently opened
+  but abandoned rows no longer masquerade as completed practice.
+- Speaking history distinguishes read failure from a genuinely empty history.
+- Writing deadlines exclude overdue work; MY CLASS keeps expired work closed
+  and explains that the learner must contact the instructor to reopen it.
+- Reading Vocab, Reading Skill and Listening Browse use 24-row server
+  pagination. Load-more failures retain prior cards and retry the same page.
+- Vocabulary Practice renders canonical per-bank progress as independent
+  enrichment. Malformed numeric values normalize to zero instead of `NaN`.
+- Admin Writing links use native canonical routes. Listening chrome no longer
+  exposes contextless authoring editors that require `content_id`; independent
+  import, inventory, attempts, report and audit destinations remain visible.
+- Speaking's topic picker is initially absent from the accessibility tree and
+  has dialog semantics, Escape close, Tab containment and focus restoration.
+- React-owned Speaking selects use `defaultValue` rather than `selected` on
+  child options, removing the runtime warning without changing DOM behavior.
+- Learner load failures no longer display raw transport messages such as
+  `Failed to fetch`; actionable backend-owned 4xx explanations remain visible.
+- A revision left open in an older tab is discarded once a newer revision
+  verdict has entered the mastery ledger. Only an unledgered revision created
+  after the latest canonical verdict can be resumed.
+
+## Design-system boundary and preserved exceptions
+
+- Shared semantic `--av-*` foundations remain canonical; meaningful KPI labels
+  were promoted from faint to muted without globally weakening the faint token.
+- Grammar's editorial typography and Reading's exam-paper chrome are intentional
+  product modes, not inconsistencies to normalize.
+- Listening rows with an explicit empty `available_modes` list truthfully show
+  that no exercise mode exists; `null` remains a separate lookup-failure state.
+- Horizontally scrollable mobile top navigation is contained inside the chrome;
+  the document itself has no horizontal overflow. This is not treated as a page
+  layout failure.
+- Mini tests may validly have a configured 60-minute duration. Copy describes
+  one-passage/configured-duration practice rather than inventing a duration cap.
+- User-name differences require canonical account/data verification and are not
+  patched in presentation code. Gate E/F and migration state are operational,
+  not UI findings.
+
+## Verification
+
+- Full frontend contract suite passed before the final completion guards and
+  again after them (exit 0); the final focused frontend gate passed 115 tests.
+- Current backend resume/quiz/dashboard regression: 83 passed. The earlier
+  broader backend run passed 112 with 1 skipped.
+- Production build compiled TypeScript and generated all 132 routes.
+- Public Grammar browser checks at 1440×900 and 390×844 found no document
+  overflow; disclosure controls measure 44px.
+- Authenticated read-only browser check covered nine learner routes against
+  staging truth. A fixture render then covered populated learner/admin states at
+  1440×900 and 390×844: no page errors, no document overflow and no visible
+  button/input/select/textarea target below 24px.
+- Populated pagination checks moved Listening, Reading Vocab and Reading Skill
+  from 24 to 25 unique cards on both viewports. MY CLASS exposed the overdue
+  next-step copy; Vocabulary rejected malformed progress without `NaN`.
+- Admin shadow-DOM navigation exposed only canonical native Writing links and
+  context-valid Listening destinations at both viewports.
+- Claude Sonnet reviewed the production diff independently in read-only mode.
+  One valid concurrent-tab retake finding was fixed and covered by regression
+  tests. The reported account-pagination bleed was rejected because all three
+  libraries remount on `key={accountKey || status}`; the remaining total-count,
+  completed-status and retake-number notes were rejected against canonical
+  backend and runner contracts.
+
+## Design system packet
+
+- **Scope**: learner app shell, public editorial content and admin operations.
+- **Primary mode**: cross-surface alignment; shared foundations with distinct
+  learning modes.
+- **Foundations**: semantic tokens, Plus Jakarta Sans for product UI, 4px spacing
+  scale, visible focus, reduced-motion baseline and responsive containment.
+- **Primitive policy**: keep `av-*` learner primitives and `adm-*` admin
+  primitives shared; course player, exam chrome and authoring tools stay local.
+- **Promotion threshold**: only promote a local pattern after reuse on at least
+  two surfaces and light/dark plus responsive evidence.
+- **Open decision**: none required for this remediation batch.
+
+This packet defines shared UI governance; page-level responsive and accessibility
+remediation remains owned by each affected workflow and its regression tests.

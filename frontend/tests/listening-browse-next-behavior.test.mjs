@@ -31,7 +31,7 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, filters\]/);
+    assert.match(BEHAVIOR, /\[accountKey, filters, offset, retryKey\]/);
   });
 
   test('keeps all three controlled canonical filters', () => {
@@ -49,9 +49,11 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_LIMIT\)\)/);
     assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
-    assert.match(BEHAVIOR, /if \(pageItems\.length < PAGE_LIMIT\) return all/);
-    assert.match(BEHAVIOR, /Danh sách vượt \$\{MAX_PAGES \* PAGE_LIMIT\} mục/);
-    assert.match(BEHAVIOR, /fetchAllContent\(filters, controller\.signal\)/);
+    assert.match(BEHAVIOR, /fetchContentPage\(filters, offset, controller\.signal\)/);
+    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_LIMIT\)/);
+    assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{state\.total\}\)/);
+    assert.match(BEHAVIOR, /Các bài đã tải vẫn được giữ lại/);
+    assert.match(BEHAVIOR, /setRetryKey\(\(current\) => current \+ 1\)/);
     assert.match(BEHAVIOR, /\{ signal \}/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
   });

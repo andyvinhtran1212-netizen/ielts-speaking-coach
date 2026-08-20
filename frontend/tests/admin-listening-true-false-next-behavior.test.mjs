@@ -115,7 +115,7 @@ describe('native True/False route and persistence contract', () => {
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
     assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/tf\.html'\)/);
-    assert.match(CHROME, /slug: 'tf',[^\n]+href: '\/admin\/listening'/);
+    assert.doesNotMatch(CHROME, /slug: 'tf'/);
     assert.match(LIST, /\/admin\/listening\/tf\?content_id=/);
     assert.match(DETAIL, /item\.type === 'true_false' \? `\/admin\/listening\/tf\?content_id=/);
     assert.match(LEDGER, /`\/admin\/listening\/tf`[^\n]+required `content_id`; optional exact `exercise_id`/);

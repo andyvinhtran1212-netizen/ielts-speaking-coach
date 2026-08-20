@@ -159,7 +159,7 @@ function MistakeQuestionView({ question }: { question: MistakeQuestion }) {
 function MistakesSection({ data, error }: { data: MistakesPayload | null; error: string | null }) {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
 
-  if (error) return <p className="pg-empty">Không tải được danh sách câu sai: {error}</p>;
+  if (error) return <p className="pg-empty">Không tải được danh sách câu sai. Vui lòng thử lại.</p>;
   if (!data) return <p className="pg-empty">Đang tải câu trả lời sai…</p>;
 
   const items = data.items || [];
@@ -372,7 +372,10 @@ export function QuizProgressBehavior() {
         setProgressState({ key: requestKey, value: payload });
       } catch (error: any) {
         if (error?.name !== 'AbortError' && !disposed) {
-          setProgressErrorState({ key: requestKey, value: error?.message || String(error) });
+          setProgressErrorState({
+            key: requestKey,
+            value: 'Không tải được thống kê. Vui lòng thử lại.',
+          });
         }
         return;
       }
@@ -388,7 +391,7 @@ export function QuizProgressBehavior() {
         if (!disposed && payload != null) setMistakesState({ key: requestKey, value: payload });
       } catch (error: any) {
         if (error?.name !== 'AbortError' && !disposed) {
-          setMistakesErrorState({ key: requestKey, value: error?.message || String(error) });
+          setMistakesErrorState({ key: requestKey, value: 'load-failed' });
         }
       }
     })();
@@ -404,7 +407,7 @@ export function QuizProgressBehavior() {
       {status === 'initial-loading' || (status === 'signed-in' && !progress && !progressError) ? (
         <p className="pg-empty">Đang tải…</p>
       ) : null}
-      {progressError ? <p className="pg-err">Không tải được thống kê: {progressError}</p> : null}
+      {progressError ? <p className="pg-err">{progressError}</p> : null}
       {progress ? (
         <ProgressContent progress={progress}>
           <h2 className="pg-h2">Câu tôi đã trả lời sai</h2>

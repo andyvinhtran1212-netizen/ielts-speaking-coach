@@ -331,6 +331,18 @@ def test_chart_data_respects_limit():
     assert payload["summary"]["total_sessions"] == 30
 
 
+def test_total_sessions_counts_completed_sessions_only():
+    c = _Client()
+    c.rows["sessions"] = [
+        _session("done", status="completed"),
+        _session("open", status="in_progress"),
+        _session("failed", status="analysis_failed"),
+    ]
+    payload = dashboard_aggregator.get_dashboard_payload(c, "u-1")
+    assert payload["summary"]["total_sessions"] == 1
+    assert [row["id"] for row in payload["sessions"]] == ["done"]
+
+
 # ── HIGH-1 decoupling ───────────────────────────────────────────────────────
 
 

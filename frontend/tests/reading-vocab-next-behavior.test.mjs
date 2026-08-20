@@ -33,20 +33,24 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, offset, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
     assert.match(BEHAVIOR, /query\.set\('difficulty', difficulty\)/);
     assert.match(BEHAVIOR, /query\.set\('tag', tag\)/);
-    assert.match(BEHAVIOR, /query\.set\('limit', '50'\)/);
+    assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_SIZE\)\)/);
+    assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
     assert.match(BEHAVIOR, /`\/api\/reading\/vocab\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /signal: controller\.signal/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
-    assert.match(BEHAVIOR, /normalizeTotal\(payload, passages\.length\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ passages\.length\)/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
+    assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
+    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
   });
 
   test('normalizes malformed payloads and renders authored data declaratively', () => {
@@ -67,7 +71,8 @@ describe('/reading/vocab — native React behavior', () => {
 
   test('preserves filters, first-load tag seeding and passage destinations', () => {
     assert.match(BEHAVIOR, /setAvailableTags\(\(current\) =>/);
-    assert.match(BEHAVIOR, /if \(current\.length\) return current/);
+    assert.match(BEHAVIOR, /\.\.\.current, \.\.\.passages\.flatMap/,
+      'tag options phải tích lũy từ các trang đã tải');
     assert.match(BEHAVIOR, /id="filter-difficulty"/);
     assert.match(BEHAVIOR, /id="filter-tag"/);
     assert.match(BEHAVIOR, /id="rv-result-count"[^>]*aria-live="polite"/);

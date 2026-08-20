@@ -56,7 +56,7 @@ export function SpeakingShell() {
             </div>
 
             <div className="stat-card rounded-2xl p-5">
-              <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--av-text-muted)" }}>Tổng sessions</p>
+              <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--av-text-muted)" }}>Buổi đã hoàn thành</p>
               <p id="stat-total" className="text-3xl font-extrabold text-white"><span className="skeleton" style={{ display: "inline-block", width: "3rem", height: "1.75rem", verticalAlign: "middle" }}>&nbsp;</span></p>
               <p className="text-xs mt-1" style={{ color: "var(--av-text-muted)" }}>Kể từ khi tham gia</p>
             </div>
@@ -276,6 +276,10 @@ export function SpeakingShell() {
                 <div className="skeleton" style={{ height: "2.25rem", borderRadius: "var(--av-radius-md)" }}></div>
               </div>
 
+              <div id="history-error" className="speaking-history-error hidden" role="alert">
+                Không tải được lịch sử. Kiểm tra kết nối rồi thử lại.
+              </div>
+
               {/* Empty state (hidden until loadHistory confirms zero sessions) */}
               <div id="history-empty" className="ds-empty hidden">
                 <div className="ds-empty-icon">📭</div>
@@ -409,8 +413,8 @@ export function SpeakingShell() {
               <div className="mb-3">
                 <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--av-text-muted)" }}>Chủ đề từ thư viện</label>
                 <div style={{ position: "relative" }}>
-                  <select id="prac-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                    <option value="" disabled selected>— Chọn tab để tải... —</option>
+                  <select id="prac-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                    <option value="" disabled>— Chọn tab để tải... —</option>
                   </select>
                   <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
                 </div>
@@ -511,8 +515,8 @@ export function SpeakingShell() {
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--av-text-muted)" }}>Từ thư viện</label>
                   <div style={{ position: "relative" }}>
-                    <select id="pbp-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                      <option value="" disabled selected>— Đang tải... —</option>
+                    <select id="pbp-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                      <option value="" disabled>— Đang tải... —</option>
                     </select>
                     <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
                   </div>
@@ -641,13 +645,13 @@ export function SpeakingShell() {
         </main>
 
         {/* ─── TOPIC MODAL ──────────────────────────────────────────────── */}
-        <div id="topic-modal" className="modal-backdrop">
-          <div className="modal-box">
+        <div id="topic-modal" className="modal-backdrop" hidden aria-hidden="true">
+          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-base">Chọn chủ đề luyện tập</h2>
-              <button id="modal-close" className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
+              <h2 id="topic-modal-title" className="font-bold text-base">Chọn chủ đề luyện tập</h2>
+              <button id="modal-close" type="button" aria-label="Đóng hộp thoại chọn chủ đề" className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
             </div>
 
             {/* Subtitle */}
@@ -657,13 +661,13 @@ export function SpeakingShell() {
 
             {/* Tabs */}
             <div className="flex gap-1.5 mb-5 p-1 rounded-xl" style={{ background: "var(--av-surface-sunken)" }}>
-              <button id="tab-list" className="topic-tab active">
+              <button id="tab-list" type="button" className="topic-tab active">
                 📚 Chọn từ danh sách
               </button>
-              <button id="tab-custom" className="topic-tab">
+              <button id="tab-custom" type="button" className="topic-tab">
                 ✏️ Tự nhập chủ đề
               </button>
-              <button id="tab-myq" className="topic-tab">
+              <button id="tab-myq" type="button" className="topic-tab">
                 ✍️ Câu hỏi riêng
               </button>
             </div>
@@ -672,8 +676,8 @@ export function SpeakingShell() {
             <div id="panel-list">
               <label className="block text-xs font-medium mb-2" style={{ color: "var(--av-text-muted)" }}>Chủ đề đề xuất</label>
               <div id="topic-select-wrap" style={{ position: "relative" }}>
-                <select id="topic-select" className="topic-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                  <option value="" disabled selected>— Đang tải danh sách... —</option>
+                <select id="topic-select" className="topic-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                  <option value="" disabled>— Đang tải danh sách... —</option>
                 </select>
                 <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
               </div>
@@ -706,7 +710,7 @@ export function SpeakingShell() {
             <p id="modal-error" className="modal-error"></p>
 
             {/* Confirm */}
-            <button id="btn-confirm" className="btn-confirm mt-4">
+            <button id="btn-confirm" type="button" className="btn-confirm mt-4">
               🚀 Bắt đầu tạo câu hỏi
             </button>
 
