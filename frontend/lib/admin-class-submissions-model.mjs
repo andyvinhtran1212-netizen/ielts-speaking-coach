@@ -53,6 +53,13 @@ export function normalizeEffort(value) {
         minutes: finite(row.minutes), questions: Math.max(0, finite(row.questions) || 0),
         correct: Math.max(0, finite(row.correct) || 0), accuracy: finite(row.accuracy),
         median_sec: finite(row.median_sec), idle_sec: Math.max(0, finite(row.idle_sec) || 0), last_at: nullableText(row.last_at),
+        attempts: Math.max(0, finite(row.attempts) || 0), combined_pct: finite(row.combined_pct),
+        sections_done: Math.max(0, finite(row.sections_done) || 0), sections_total: Math.max(0, finite(row.sections_total) || 0),
+        attempt_minutes: Math.max(0, finite(row.attempt_minutes) || 0),
+        section_results: Array.isArray(row.section_results) ? row.section_results.map((value) => {
+          const section = object(value);
+          return { key: text(section.key), label: text(section.label) || text(section.key), pct: finite(section.pct), duration_sec: Math.max(0, finite(section.duration_sec) || 0), carried: section.carried === true };
+        }).filter((section) => section.key) : [],
       };
     }).filter(Boolean),
     axes: payload.axes.map((item) => {
@@ -71,7 +78,7 @@ export function normalizeStudentReport(value) {
     totals: { answered: finite(totals.answered) || 0, correct: finite(totals.correct) || 0, median_sec: finite(totals.median_sec), active_sec: finite(totals.active_sec), idle_sec: finite(totals.idle_sec), bank_title: nullableText(totals.bank_title) },
     history: payload.history.map((item, index) => {
       const row = object(item);
-      return { number: finite(row.number) || index + 1, phase: text(row.phase), session_count: finite(row.session_count) || 0, pct: finite(row.pct), next_action: text(row.next_action), at: nullableText(row.at) };
+      return { number: finite(row.number) || index + 1, phase: text(row.phase), session_count: finite(row.session_count) || 0, pct: finite(row.pct), next_action: text(row.next_action), at: nullableText(row.at), completed: row.completed !== false, duration_sec: Math.max(0, finite(row.duration_sec) || 0), sections: Array.isArray(row.sections) ? row.sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key), pct: finite(section.pct), duration_sec: Math.max(0, finite(section.duration_sec) || 0), carried: section.carried === true }; }).filter((section) => section.key) : [] };
     }),
     questions: payload.questions.map((item) => {
       const row = object(item);

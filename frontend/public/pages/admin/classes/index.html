@@ -149,16 +149,18 @@
        đọc bằng màu trước rồi mới đọc chữ.
          Bỏ dở            → error   (cần can thiệp)
          Đang làm         → warning (đang chạy, chưa cần lo)
-         Chưa nộp tự luận → info    (gần xong, còn đúng một phần)
+         Còn phần chưa xong → info  (đã xong quiz, còn nội dung khác)
+         Chưa đạt           → error (cần làm lại sau khi hoàn thành đủ)
          Xong             → muted   (không cần chú ý nữa)
          Chưa mở          → faint   (im lặng nhất)
-       `awaiting_writing` trước đây dùng `--av-accent`. Amber có ĐÚNG MỘT vai —
+       Trạng thái gần xong trước đây dùng `--av-accent`. Amber có ĐÚNG MỘT vai —
        con số quan trọng nhất màn hình — và dùng lại lần hai là làm nó hết nghĩa
        "nhìn đây". Đổi sang `--av-warning` cũng không được: nó đã là màu của
        "Đang làm", và gộp hai trạng thái vào một màu còn tệ hơn chỗ cũ. */
     .cl-effort-state[data-s="stalled"]   { color: var(--av-error); }
     .cl-effort-state[data-s="doing"]     { color: var(--av-warning); }
-    .cl-effort-state[data-s="awaiting_writing"] { color: var(--av-info); }
+    .cl-effort-state[data-s="completing_sections"] { color: var(--av-info); }
+    .cl-effort-state[data-s="needs_retry"] { color: var(--av-error); }
     .cl-effort-state[data-s="done"]      { color: var(--av-text-muted); }
     .cl-effort-state[data-s="untouched"] { color: var(--av-text-faint); }
     /* Thanh trục cả lớp là BIỂU ĐỒ, không phải con số quan trọng nhất màn hình.

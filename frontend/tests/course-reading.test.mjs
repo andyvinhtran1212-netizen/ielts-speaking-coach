@@ -40,7 +40,7 @@ test('renderer keeps passage, vocabulary and both question modes', () => {
   assert.match(html, /book/);
   assert.match(html, /type="radio"/);
   assert.match(html, /type="text"/);
-  assert.match(html, /disabled>Đối chiếu bài đọc/);
+  assert.match(html, /disabled>Nộp phần đọc/);
   assert.match(html, /id="cr-back"/);
   assert.match(html, /cr-question__prompt/);
   assert.match(html, /hoàn thành đủ 2 câu/);
@@ -51,6 +51,7 @@ test('solution is requested only after every reading answer exists', async () =>
   const api = { post: async (_path, body) => {
     calls += 1;
     assert.deepEqual(body.answers, { 'r-01': 'T', 'r-02': 'a' });
+    assert.equal(typeof body.duration_sec, 'number');
     return { translation: 'Mai đọc sách.', answers: [
       { id: 'r-01', answer: 'T', explanation: 'Đúng.' },
       { id: 'r-02', answer: 'a', explanation: 'Phụ âm.' },

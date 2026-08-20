@@ -94,7 +94,7 @@ function uuid() {
 
 const indexedDbDraftStore = { put: dbPut, get: dbGet, delete: dbDelete };
 
-export function createPronunciation({ api, userId, draftStore = indexedDbDraftStore }) {
+export function createPronunciation({ api, userId, draftStore = indexedDbDraftStore, now = () => Date.now() }) {
   let bankId = null;
   let exercise = null;
   let latest = null;
@@ -112,6 +112,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
   let clientId = null;
   let submitting = false;
   let errorMessage = '';
+  let startedAt = 0;
   const recordings = new Map();
   const objectUrls = new Map();
 
@@ -343,6 +344,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     form.append('bank_id', bankId);
     form.append('client_id', clientId);
     form.append('sentence_ids', JSON.stringify(ids));
+    form.append('duration_sec', String(Math.max(0, Math.round((now() - startedAt) / 1000))));
     ids.forEach((id) => {
       const blob = recordings.get(id);
       const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
@@ -369,6 +371,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
       const state = await api.get('/api/quiz/course/pronunciation?bank_id=' + encodeURIComponent(bankId));
       exercise = state?.exercise || null;
       latest = state?.latest_attempt || null;
+      startedAt = now();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
         const [cachedActive, cachedClientId] = await Promise.all([
@@ -409,6 +412,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     get count() { return sentences().length; },
     get isRecording() { return !!recordingId; },
     get submitting() { return submitting; },
+    get course() { return latest?.course || null; },
     load,
     render,
     select(index) { selected = Math.max(0, Math.min(sentences().length - 1, Number(index) || 0)); },
@@ -429,6 +433,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
       clearRecordings();
       await clearAttemptCache();
       clientId = uuid();
+      startedAt = now();
       await persistActiveAttempt();
     },
     destroy() {

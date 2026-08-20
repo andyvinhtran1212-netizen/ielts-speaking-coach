@@ -33,6 +33,7 @@ from services import tts_audio
 from routers.admin import require_admin
 from services.quiz_service import (
     bank_has_mcq,
+    course_bank_is_multisection,
     course_hand_in_score,
     reconcile_course_items,
 )
@@ -1147,8 +1148,11 @@ async def assignment_tally(
     # `bank_has_mcq` tự lo chiều an toàn khi đọc hỏng — `_course_bank_shape`
     # KHÔNG ném, nên một `try/except` ở đây không bắt được gì (codex #994).
     has_mcq = False
+    course_is_multisection = False
     if assignment.get("skill") == "course":
         has_mcq = bank_has_mcq(assignment.get("content_id"))
+        course_is_multisection = course_bank_is_multisection(
+            assignment.get("content_id"), supabase_admin)
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1175,6 +1179,11 @@ async def assignment_tally(
         for it in items:
             w = writing_by_item.get(it["id"])
             if not w:
+                continue
+            # Với bài nhiều phần, submission writing chỉ là MỘT phần. Điểm và
+            # dấu thu bài phải do sổ hợp nhất ghi sau khi quiz/reading/listening/
+            # pronunciation đều xong; bảng admin không được tự suy ngược.
+            if course_is_multisection:
                 continue
             if it.get("submitted_at"):
                 # ĐIỀN BÙ. Đã chốt sổ nhưng ô điểm còn trống nghĩa là lượt chốt

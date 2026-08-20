@@ -291,11 +291,27 @@ def test_course_reading_solution_uses_a_separate_guarded_read():
             "id": _BANK, "is_published": True, "skill_area": "grammar",
             "meta": {"short_reading": reading},
         }],
+        ("course_section_submissions", "select"): [],
+        ("course_section_submissions", "insert"): [{
+            "total": 1, "correct": 1, "score": 100,
+            "duration_sec": 0, "submitted_at": "2026-08-20T00:00:00Z",
+        }],
     })
-    with patch.object(quiz_service, "supabase_admin", fake):
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }), \
+         patch.object(quiz_service, "refresh_course_completion",
+                      return_value={"completed": False}):
         out = quiz_service.course_reading_solution(
             user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
-    assert out == reading
+    assert out["translation"] == reading["translation"]
+    assert out["answers"] == reading["answers"]
+    assert out["result"]["pct"] == 100
+    inserted = next(c for c in fake.calls
+                    if c["table"] == "course_section_submissions" and c["op"] == "insert")
+    assert inserted["payload"]["class_assignment_item_id"] == "item-1"
+    assert inserted["payload"]["answers"] == {"r-01": "T"}
     assert len([c for c in fake.calls if c["table"] == "quiz_banks"]) == 2
 
 
@@ -313,7 +329,9 @@ def test_course_reading_solution_rejects_an_incomplete_attempt():
             "meta": {"short_reading": reading},
         }],
     })
-    with patch.object(quiz_service, "supabase_admin", fake):
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for",
+                      return_value={"id": "item-1", "assignment_id": "asg-1"}):
         with pytest.raises(HTTPException) as exc:
             quiz_service.course_reading_solution(
                 user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
@@ -333,8 +351,18 @@ def test_course_listening_solution_is_guarded_and_requires_every_answer():
             "id": _BANK, "is_published": True, "skill_area": "grammar",
             "meta": {"short_listening": {"solution": solution}},
         }],
+        ("course_section_submissions", "select"): [],
+        ("course_section_submissions", "insert"): [{
+            "total": 2, "correct": 2, "score": 100,
+            "duration_sec": 0, "submitted_at": "2026-08-20T00:00:00Z",
+        }],
     })
-    with patch.object(quiz_service, "supabase_admin", fake):
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }), \
+         patch.object(quiz_service, "refresh_course_completion",
+                      return_value={"completed": False}):
         with pytest.raises(HTTPException) as exc:
             quiz_service.course_listening_solution(
                 user_id=_USER, bank_id=_BANK, submitted_answers={"l-A1": "A"})
@@ -342,7 +370,9 @@ def test_course_listening_solution_is_guarded_and_requires_every_answer():
         out = quiz_service.course_listening_solution(
             user_id=_USER, bank_id=_BANK,
             submitted_answers={"l-A1": "A", "l-D1": "T"})
-    assert out == solution
+    assert out["talk_transcript"] == solution["talk_transcript"]
+    assert out["answers"] == solution["answers"]
+    assert out["result"]["correct"] == 2
 
 
 def test_course_listening_audio_refreshes_urls_without_leaking_solution():

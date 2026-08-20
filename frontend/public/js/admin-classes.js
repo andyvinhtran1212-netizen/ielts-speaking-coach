@@ -2601,10 +2601,8 @@ async function submitCourseHomework(title) {
 
 const EFFORT_STATE = {
   stalled:          'Bỏ dở',
-  // Xong CHẶNG chưa phải xong BÀI: phần tự luận nằm ngoài vòng chặng, nên gộp
-  // hai chuyện lại là báo rằng em ấy đã hoàn thành trong khi còn mười câu chưa
-  // động tới (ca thật: em Phương Anh Nguyễn, 9/9 chặng, 0 câu viết).
-  awaiting_writing: 'Chưa nộp tự luận',
+  completing_sections: 'Còn phần chưa xong',
+  needs_retry:      'Chưa đạt · cần làm lại',
   doing:            'Đang làm',
   done:             'Xong',
   untouched:        'Chưa mở',
@@ -2646,17 +2644,19 @@ async function openEffort(bankId, assignmentId, title) {
     return;
   }
   const body = rows.map((x) => {
-    const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
+    const progress = x.sections_total
+      ? `${x.sections_done}/${x.sections_total} phần`
+      : `${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''} chặng`;
+    const combined = x.combined_pct == null ? '—' : Math.round(x.combined_pct) + '%';
+    const minutes = x.attempt_minutes || x.minutes;
     return `<tr>
       <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
         noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
-      <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
-      <td class="cl-effort-num">${r.writing_total
-        ? (x.wrote ? 'đã nộp' : '—') : ''}</td>
-      <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
-      <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
-      <td class="cl-effort-num">${acc}</td>
+      <td class="cl-effort-num">${progress}</td>
+      <td class="cl-effort-num">${x.attempts || 0}</td>
+      <td class="cl-effort-num">${combined}</td>
+      <td class="cl-effort-num">${minutes ? minutes + '′' : '—'}</td>
     </tr>`;
   }).join('');
 
@@ -2683,12 +2683,11 @@ async function openEffort(bankId, assignmentId, title) {
 
   $('effort-body').innerHTML = warn
     + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
-    + '<th>Chặng</th>'
-    + (r.writing_total ? `<th>Tự luận (${r.writing_total} câu)</th>` : '<th></th>')
-    + '<th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
+    + '<th>Hoàn thành</th><th>Lượt đã chấm</th><th>Điểm tổng gần nhất</th>'
+    + '<th>Tổng thời gian</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
-    + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '
-    + 'từ lúc mở tới lúc đóng — đóng tab rồi mở lại hôm sau không thành “một ngày rưỡi”.</p>'
+    + '<p class="adm-hint">Thời gian cộng từ lúc mỗi phần được mở trong lượt làm, không suy từ '
+    + 'khoảng cách giữa hai timestamp trên máy chủ.</p>'
     + axesHtml;
 }
 

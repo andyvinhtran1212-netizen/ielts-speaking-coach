@@ -227,6 +227,27 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Course multi-section completion gate (2026-08-20)
+
+- Replaced the premature MCQ-only verdict with one learner-facing completion
+  checklist for every section actually present in the assigned bank: quiz,
+  sentence writing, short reading, listening and pronunciation.
+- Partial work remains resumable and is labelled “Đang hoàn thành”; pass/fail
+  language, the combined percentage and the assignment hand-in are withheld
+  until every required section has a canonical result.
+- Reading and listening now use explicit submit actions instead of “self-study”
+  wording. Their result bars show section accuracy and return learners to the
+  same completion checklist, so the next unfinished section is always visible.
+- The admin effort table prioritizes completion state, latest combined score,
+  number of graded attempts and total active time. The learner drill-down shows
+  a per-attempt section breakdown rather than forcing teachers to infer the
+  total from unrelated screens.
+- Accessibility contract: progress uses text plus native progress semantics;
+  incomplete/complete states never rely on colour alone; existing shared
+  buttons, table containment and focus styles are reused rather than creating a
+  new control family.
+
+
 ### Native `/instructor/grade` migration (2026-08-16)
 
 - Replaced the legacy stacked cards and browser confirmations with a focused

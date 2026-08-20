@@ -1,4 +1,4 @@
-/** Bài nghe ngắn đi kèm bài tập theo buổi; tự luyện, không cộng mastery. */
+/** Bài nghe ngắn: draft nhẹ ở máy, nộp đủ một lần và tính vào điểm tổng hợp. */
 
 const esc = (value) => String(value == null ? '' : value)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -7,11 +7,12 @@ const esc = (value) => String(value == null ? '' : value)
 export const listeningDraftKey = (bankId, userId) =>
   `cl:${userId || 'anon'}:${bankId}`;
 
-export function createListening({ api, storage, userId }) {
+export function createListening({ api, storage, userId, now = () => Date.now() }) {
   let bankId = null;
   let data = null;
   let draft = {};
   let solution = null;
+  let startedAt = 0;
 
   const questions = () => (data?.sections || [])
     .flatMap((section) => section.questions || []);
@@ -81,6 +82,7 @@ export function createListening({ api, storage, userId }) {
       <details><summary>Xem bản dịch tham khảo</summary><p>${esc(solution.talk_translation)}</p></details>
     </section>` : '';
 
+    const result = solution?.result;
     return `<article class="cl-shell">
       <button class="cl-back" id="cl-back" type="button">← Quay lại tổng kết</button>
       <header class="cl-hero"><div><p class="cl-kicker">Bài luyện nghe · 4 phần</p>
@@ -89,11 +91,11 @@ export function createListening({ api, storage, userId }) {
       <div class="cl-guide" role="note"><strong>Cách làm</strong><span>Nghe trước khi nhìn lại lựa chọn. Bạn có thể phát lại audio; transcript và đáp án chỉ mở sau khi hoàn thành đủ bài.</span></div>
       <div class="cl-sections">${sections}</div>${transcript}
       <footer class="cl-bar" id="cl-bar"><p>${solution
-        ? '<strong>Đã đối chiếu.</strong> Phần nghe này là bài tự luyện, không cộng vào điểm trắc nghiệm.'
+        ? `<strong>Đã nộp phần nghe.</strong> ${result ? `${result.correct}/${result.total} câu đúng · ${Math.round(result.pct)}%.` : 'Kết quả đã được lưu.'}`
         : miss.length ? `Còn <strong>${miss.length}</strong> câu chưa trả lời.`
           : `Đã trả lời đủ ${questions().length} câu. Bạn có thể mở đáp án và transcript.`}</p>
         ${solution ? '' : `<button class="av-button av-button-primary" id="cl-check" type="button"${
-          miss.length ? ' disabled' : ''}>Đối chiếu bài nghe</button>`}</footer>
+          miss.length ? ' disabled' : ''}>Nộp phần nghe</button>`}</footer>
     </article>`;
   }
 
@@ -101,11 +103,14 @@ export function createListening({ api, storage, userId }) {
     get exists() { return !!data; },
     get count() { return questions().length; },
     get missing() { return missing(); },
+    get result() { return solution?.result || null; },
+    get course() { return solution?.result?.course || null; },
     load(bank) {
       bankId = bank?.id;
       data = bank?.meta?.short_listening || null;
       draft = data ? loadDraft() : {};
       solution = null;
+      startedAt = now();
       return !!data;
     },
     write(qid, value) {
@@ -117,6 +122,7 @@ export function createListening({ api, storage, userId }) {
       if (!data || missing().length) return false;
       solution = await api.post('/api/quiz/course/listening-solution', {
         bank_id: bankId, answers: { ...draft },
+        duration_sec: Math.max(0, Math.round((now() - startedAt) / 1000)),
       });
       return true;
     },

@@ -11155,6 +11155,11 @@ export interface components {
             client_id: string;
             /** Sentence Ids */
             sentence_ids: string;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
             /** Recordings */
             recordings: string[];
         };
@@ -11329,13 +11334,15 @@ export interface components {
         CourseListeningBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CoursePatch */
         CoursePatch: {
@@ -11354,13 +11361,15 @@ export interface components {
         CourseReadingBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CourseVerdictBody */
         CourseVerdictBody: {
@@ -11373,13 +11382,15 @@ export interface components {
         CourseWritingBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CreateEssayRequest */
         CreateEssayRequest: {

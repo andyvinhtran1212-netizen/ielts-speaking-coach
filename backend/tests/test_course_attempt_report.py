@@ -88,7 +88,7 @@ def test_stalled_students_sort_to_the_top():
     src = _src()
     i = src.index("_ORDER = {")
     order = eval(src[i + len("_ORDER = "):src.index("}", i) + 1])  # noqa: S307
-    assert order["stalled"] < order["awaiting_writing"] < order["done"]
+    assert order["stalled"] < order["completing_sections"] < order["done"]
     assert order["doing"] < order["done"]
 
 
@@ -124,9 +124,7 @@ def test_an_unknown_stage_count_never_reports_done():
     """Không đếm được số chặng thì KHÔNG được kết luận "xong": đoán ở đây là
     báo với giáo viên rằng một em đã hoàn thành trong khi không ai biết."""
     src = _src()
-    i = src.index("total_stages")
-    seg = src[i:i + 260]
-    assert "if total_stages and" in seg, "0 = chưa biết, và chưa biết thì không xong"
+    assert "elif total_stages and" in src, "0 = chưa biết, và chưa biết thì không xong"
     stage_src = inspect.getsource(qs._course_stage_count)
     assert "return 0" in stage_src, "đọc hỏng phải trả 0, không phải đoán"
 
@@ -180,26 +178,17 @@ def test_a_student_removed_after_submitting_is_still_shown():
 # ── Xong CHẶNG chưa phải xong BÀI ───────────────────────────────────────────
 
 def test_finishing_every_stage_is_not_finishing_the_task():
-    """Phần tự luận nằm NGOÀI vòng chặng. Gộp hai chuyện lại là báo với giáo
-    viên rằng một em đã hoàn thành trong khi em ấy còn mười câu chưa động tới.
-
-    Ca thật: em Phương Anh Nguyễn — 9/9 chặng, 0 câu tự luận, mục bài giao đã
-    `graded` 80 điểm. Nhìn từ phía giáo viên em ấy trông như đã xong, và không
-    có mặt đọc nào nói khác đi.
-    """
+    """Xong quiz chưa phải xong toàn bộ section của bài giao."""
     src = _src()
-    assert '"awaiting_writing"' in src
-    i = src.index("total_stages and len(done) >= total_stages")
-    seg = src[i:i + 420]
-    assert 'out["writing_total"]' in seg and "wrote" in seg, \
-        "'xong' phải hỏi CẢ phần tự luận"
+    assert '"completing_sections"' in src
+    assert 'item_row.get("passed_at")' in src
 
 
-def test_a_bank_without_writing_still_reaches_done():
-    """Bộ đề không có câu tự luận thì xong chặng LÀ xong — đừng bắt cả lớp kẹt
-    ở một trạng thái không lối ra."""
+def test_only_canonical_pass_reaches_done():
+    """Báo cáo không tự suy done từ một loại evidence riêng lẻ."""
     src = _src()
-    assert 'not out["writing_total"] or wrote' in src
+    assert 'if item_row.get("passed_at")' in src
+    assert 'state = "done"' in src
 
 
 def test_the_writing_lookup_is_scoped_to_the_assignment_item():
@@ -220,8 +209,8 @@ def test_a_failed_writing_read_is_flagged_too():
 def test_work_to_do_sorts_above_finished_work():
     """Bảng này là danh sách VIỆC. Em đã xong nằm cuối, em cần nhắc nằm đầu."""
     src = _src()
-    assert '_ORDER = {"stalled": 0, "awaiting_writing": 1' in src
-    assert '"done": 4' in src
+    assert '_ORDER = {"stalled": 0, "needs_retry": 1, "completing_sections": 2' in src
+    assert '"done": 5' in src
 
 
 def test_every_helper_that_swallows_a_read_error_also_reports_it():
