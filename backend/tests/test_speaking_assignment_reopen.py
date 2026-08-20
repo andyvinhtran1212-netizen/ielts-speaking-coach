@@ -126,6 +126,33 @@ async def test_past_deadline_without_any_session_is_still_refused():
 
 
 @pytest.mark.asyncio
+async def test_submitted_course_reopens_as_read_only_after_deadline():
+    item = {**_ITEM, "submitted_at": "2026-08-19T18:23:55+00:00"}
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05", content_config={},
+        due_at="2000-01-01T00:00:00+00:00",
+    )
+    out, log = await _start(sessions=[], assignment=assignment, item=item)
+    assert out == {
+        "item_id": "it1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-grammar-05", "review_only": True,
+    }
+    assert not [entry for entry in log if entry[1] == "update"], \
+        "xem kết quả không được đổi lại state/opened_at của bài đã nộp"
+
+
+@pytest.mark.asyncio
+async def test_unsubmitted_course_remains_closed_after_deadline():
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05", content_config={},
+        due_at="2000-01-01T00:00:00+00:00",
+    )
+    with pytest.raises(HTTPException) as exc:
+        await _start(sessions=[], assignment=assignment)
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_still_accepting_says_so():
     out, _ = await _start(sessions=_sess())
     assert out["accepting"] is True

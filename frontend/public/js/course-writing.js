@@ -245,9 +245,10 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     /** Về bước một. Gọi khi bấm "đọc lại", và khi em ấy gõ thêm. */
     disarm() { armed = false; },
 
-    async load(id) {
+    async load(id, assignmentItemId = null) {
       bankId = id;
-      const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(id));
+      const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(id)
+        + (assignmentItemId ? '&class_item=' + encodeURIComponent(assignmentItemId) : ''));
       itemId = (r && r.item_id) || null;
       questions = (r && r.questions) || [];
       submitted = !!(r && r.submitted);

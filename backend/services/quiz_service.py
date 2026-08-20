@@ -346,20 +346,24 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 
 
-def _assignment_item_for(bank_id: str, user_id: str) -> dict | None:
+def _assignment_item_for(
+    bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
+    assignment_item_id: str | None = None,
+) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
     ĐÚNG BA ĐIỀU KIỆN mà `POST /api/class/assignments/{item}/start` đã đòi, và
     dùng lại CHÍNH hai hàm ấy chứ không chép luật:
 
       · bài giao còn mở      (`is_assignment_open` — chưa lưu trữ, đã tới ngày)
-      · còn nhận bài         (`is_accepting_submissions` — chưa quá hạn)
+      · còn nhận bài         (`is_accepting_submissions` — chưa quá hạn), HOẶC
+        đã nộp và caller chỉ xin quyền đọc kết quả (`allow_submitted_review`)
       · đúng lớp HIỆN TẠI    (em chuyển lớp thì mất quyền, dù dòng mục còn đó)
 
-    Thiếu ba cái này thì một đường dẫn đã lưu vào bookmark còn trả về TOÀN BỘ câu
-    hỏi kèm đáp án mãi mãi — kể cả sau khi bài giao bị lưu trữ, sau hạn nộp, hay
-    sau khi em ấy đã chuyển sang lớp khác. Cổng ở đây phải nói cùng một câu với
-    lệnh mở bài, nếu không thì lệnh kia chỉ là một gợi ý.
+    Thiếu các cổng này thì một bookmark còn trả về TOÀN BỘ câu hỏi kèm đáp án
+    mãi mãi. Sau hạn chỉ có ngoại lệ hẹp cho mục ĐÃ NỘP và caller read-only;
+    lưu trữ hoặc chuyển lớp vẫn chặn tuyệt đối. Cổng ở đây phải nói cùng một câu
+    với lệnh mở bài, nếu không thì lệnh kia chỉ là một gợi ý.
     """
     try:
         asg = (supabase_admin.table("class_assignments").select("*")
@@ -371,24 +375,32 @@ def _assignment_item_for(bank_id: str, user_id: str) -> dict | None:
         if not student:
             return None
         cohorts = {s.get("cohort_id") for s in student}
-        live = [a for a in asg
-                if is_assignment_open(a)
-                and is_accepting_submissions(a)
-                and a.get("cohort_id") in cohorts]
-        if not live:
+        owned = [a for a in asg
+                 if is_assignment_open(a) and a.get("cohort_id") in cohorts]
+        if not owned:
             return None
         sids = [s["id"] for s in student]
-        rows = (supabase_admin.table("class_assignment_items")
-                .select("id, assignment_id, student_id")
-                .in_("assignment_id", [a["id"] for a in live]).in_("student_id", sids)
-                .limit(1).execute().data) or []
+        item_query = (supabase_admin.table("class_assignment_items")
+                      .select("id, assignment_id, student_id, submitted_at")
+                      .in_("assignment_id", [a["id"] for a in owned])
+                      .in_("student_id", sids))
+        if assignment_item_id:
+            item_query = item_query.eq("id", assignment_item_id)
+        rows = (item_query.execute().data) or []
         if not rows:
+            return None
+        owned_by_id = {a["id"]: a for a in owned}
+        eligible = [row for row in rows
+                    if is_accepting_submissions(owned_by_id.get(row.get("assignment_id")) or {})
+                    or (allow_submitted_review and row.get("submitted_at"))]
+        if not eligible:
             return None
         # Carry the deadline already read above to the player. Authorization is
         # still checked again when the stage is finalized.
-        live_by_id = {a["id"]: a for a in live}
-        item = dict(rows[0])
-        item["due_at"] = (live_by_id.get(item.get("assignment_id")) or {}).get("due_at")
+        item = dict(eligible[0])
+        assignment = owned_by_id.get(item.get("assignment_id")) or {}
+        item["due_at"] = assignment.get("due_at")
+        item["accepting"] = bool(is_accepting_submissions(assignment))
         return item
     except Exception as exc:  # noqa: BLE001
         # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
@@ -399,6 +411,23 @@ def _assignment_item_for(bank_id: str, user_id: str) -> dict | None:
 
 def _has_assignment_for(bank_id: str, user_id: str) -> bool:
     return _assignment_item_for(bank_id, user_id) is not None
+
+
+def _assignment_item_for_review(
+    bank_id: str, user_id: str, assignment_item_id: str | None = None,
+) -> dict | None:
+    """Live item first; submitted-after-deadline fallback for read paths only."""
+    current = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+    if current:
+        return current
+    if assignment_item_id:
+        return _assignment_item_for(
+            bank_id, user_id, allow_submitted_review=True,
+            assignment_item_id=assignment_item_id,
+        )
+    return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
 
 
 def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
@@ -426,7 +455,7 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
-        item = _assignment_item_for(bank_id, user_id) if user_id else None
+        item = _assignment_item_for_review(bank_id, user_id) if user_id else None
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
@@ -453,6 +482,10 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
                 "retake_size": cfg["retake_size"],
                 "retakes": sum(1 for a in att if a.get("phase") == "retake"),
                 "due_at": item.get("due_at"),
+                # Một bài đã nộp mở lại là màn đọc. Runner không được dựng phiên
+                # quiz mới chỉ vì học viên bấm "Xem kết quả".
+                "review_only": bool(item.get("submitted_at")),
+                "accepting": bool(item.get("accepting")),
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
@@ -580,7 +613,9 @@ def course_listening_audio(*, user_id: str, bank_id: str) -> dict:
     return _course_listening_for_play(listening)
 
 
-def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:
+def _bank_meta_or_404(
+    bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
+) -> dict:
     """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
     is_published) — no questions, no word_cards. Used by start_session, which just
     needs `code` + the published check; pulling the full get_bank_for_play there
@@ -602,11 +637,24 @@ def _bank_meta_or_404(bank_id: str, user_id: str | None = None) -> dict:
     # ghi và giáo viên đọc thành chưa làm. Hai cổng cho cùng một bank phải nói
     # cùng một câu.
     if bank.get("skill_area") == COURSE_AREA:
-        if not user_id or not _has_assignment_for(bank_id, user_id):
+        item = (_assignment_item_for(
+            bank_id, user_id, allow_submitted_review=allow_submitted_review,
+        ) if user_id else None)
+        if not item:
             raise HTTPException(404, "Không tìm thấy bank")
     elif not bank.get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     return bank
+
+
+def _bank_meta_for_review_or_404(bank_id: str, user_id: str) -> dict:
+    """Normal gate first; submitted-after-deadline fallback for reads only."""
+    try:
+        return _bank_meta_or_404(bank_id, user_id)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+    return _bank_meta_or_404(bank_id, user_id, allow_submitted_review=True)
 
 
 def _word_cards_for(bank: dict) -> dict:
@@ -1876,18 +1924,22 @@ def _reconcile_chunk(item_ids: list[str], bank_of, stamp, db=None) -> None:
               if done.get("total_questions") else None)
 
 
-def course_writing_state(*, user_id: str, bank_id: str) -> dict:
+def course_writing_state(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
     """Phần tự luận của bank này: đề, và bản chấm nếu đã nộp.
 
     Trả cả `submitted` để trang biết hiện KHUNG VIẾT hay hiện BẢN CHẤM — trạng
     thái ấy do server giữ, không do localStorage: xoá bộ nhớ trình duyệt không
     được biến một lượt đã dùng thành một lượt mới.
     """
-    _bank_meta_or_404(bank_id, user_id)
     # Đọc theo MỤC BÀI GIAO, không theo (bank, học viên): giao LẠI cùng bộ bài
     # là một lượt MỚI, và đọc theo bank sẽ lôi bài của lần giao trước ra rồi báo
     # "đã nộp" cho một bài chưa ai làm (codex #935).
-    item = _assignment_item_for(bank_id, user_id)
+    item = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
+    if assignment_item_id and not item:
+        raise HTTPException(404, "Không tìm thấy bài đã nộp")
+    _bank_meta_for_review_or_404(bank_id, user_id)
     try:
         qs = (supabase_admin.table("quiz_questions")
               .select("qid, prompt, explain, points, item_key, subtype, order")
@@ -2546,14 +2598,16 @@ def _report_pages(table: str, cols: str, shape, *, order: str = "id", db=None):
         start += _REPORT_PAGE
 
 
-def _course_review_gate(bank_id: str, user_id: str) -> dict | None:
+def _course_review_gate(
+    bank_id: str, user_id: str, assignment_item_id: str | None = None,
+) -> dict | None:
     """None = cho xem. Ngược lại trả phần thân nói VÌ SAO chưa cho.
 
     Đọc hỏng thì CHO XEM: đây là màn ôn tập, và chặn một em đã đạt khỏi bài của
     chính em ấy vì một lượt đọc phụ trợ là cái giá đắt hơn. Rủi ro ngược lại chỉ
     xảy ra khi cơ sở dữ liệu đang lỗi, và lúc ấy em ấy cũng không làm bài được.
     """
-    item = _assignment_item_for(bank_id, user_id)
+    item = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
     if not item:
         return None          # không phải bài giao theo lớp: giữ nguyên như cũ
     try:
@@ -2572,7 +2626,8 @@ def _course_review_gate(bank_id: str, user_id: str) -> dict | None:
 
 
 def course_answer_report(*, user_id: str, bank_id: str,
-                         assignment_id: str | None = None) -> dict:
+                         assignment_id: str | None = None,
+                         assignment_item_id: str | None = None) -> dict:
     """Bài làm CHI TIẾT của một học viên: câu nào đúng, câu nào sai, em chọn gì,
     đáp án là gì, và vì sao phương án em chọn sai.
 
@@ -2614,7 +2669,8 @@ def course_answer_report(*, user_id: str, bank_id: str,
     #
     # Ngưỡng do giáo viên đặt (`mastery_config`), không phải hằng số ở đây.
     # Chỉ áp cho đường của HỌC VIÊN — giáo viên chấm bài, không làm bài.
-    locked = _course_review_gate(bank_id, user_id) if not assignment_id else None
+    locked = (_course_review_gate(bank_id, user_id, assignment_item_id)
+              if not assignment_id else None)
 
     # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
     # chính em ấy — đường của học viên tự xem lại bài mình.
@@ -2623,7 +2679,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
     # viên: cổng ấy đòi bài còn mở và còn hạn, nên mở "Bài từng em" cho một bài
     # đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc giáo viên cần đọc nhất
     # (codex cục bộ 06/08). Quyền đã kiểm ở tầng tuyến (require_admin).
-    bank = ({} if assignment_id else _bank_meta_or_404(bank_id, user_id))
+    bank = ({} if assignment_id else _bank_meta_for_review_or_404(bank_id, user_id))
     if assignment_id:
         try:
             rows = (supabase_admin.table("quiz_banks").select("id, title")
@@ -2643,7 +2699,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
                 "class_assignment_items", "id, student_id",
                 lambda q: q.eq("assignment_id", assignment_id))}
         else:
-            it = _assignment_item_for(bank_id, user_id)
+            it = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
             item_ids = {it["id"]} if it else set()
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] answer-report items failed: %s", exc)

@@ -168,7 +168,7 @@ def test_the_teacher_path_does_not_go_through_the_learner_gate():
     "Bài từng em" cho một bài đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc cần
     đọc nhất. Quyền đã kiểm ở tầng tuyến (require_admin)."""
     src = _src()
-    assert '({} if assignment_id else _bank_meta_or_404(' in src
+    assert '({} if assignment_id else _bank_meta_for_review_or_404(' in src
 
 
 def test_one_rule_for_axes_scores_and_time():

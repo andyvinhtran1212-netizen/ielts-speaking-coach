@@ -93,11 +93,13 @@ export function CourseBehavior() {
       if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
 
       const bankId = new URLSearchParams(location.search).get('bank');
+      const requestedView = new URLSearchParams(location.search).get('view');
+      const requestedItem = new URLSearchParams(location.search).get('class_item');
       if (!bankId) return fail('Thiếu mã bài tập trên đường dẫn (?bank=…).');
 
       runner = createRunner({ api, storage: window.localStorage });
       try {
-        await runner.load(bankId);
+        await runner.load(bankId, { reviewOnly: requestedView === 'writing' && Boolean(requestedItem) });
       } catch (err: any) {
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
@@ -149,7 +151,7 @@ export function CourseBehavior() {
       // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một
       // cờ `false` làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới khi
       // học viên tự tải lại trang và thắng cuộc đua (codex #935).
-      const writingLoaded = writing.load(bankId)
+      const writingLoaded = writing.load(bankId, runner.reviewOnly ? requestedItem : null)
         .then(() => { writingReady = true; })
         .catch(() => { writingReady = false; });
 
@@ -475,7 +477,9 @@ export function CourseBehavior() {
         box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try {
           const d = await api.get('/api/quiz/course/report?bank_id='
-            + encodeURIComponent(bankId!));
+            + encodeURIComponent(bankId!)
+            + (runner.reviewOnly && requestedItem
+              ? '&class_item=' + encodeURIComponent(requestedItem) : ''));
           // `renderReport` tự biết `d.locked`: nó vẽ trục và nói điều kiện mở
           // mức hai. Không cần nhánh riêng ở đây.
           box.innerHTML = CR.renderReport(d);
@@ -783,7 +787,34 @@ export function CourseBehavior() {
       // Bank CHỈ có câu tự luận: không có chặng nào để chạy, và một phiên quiz
       // rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào
       // (codex #935). Vào thẳng màn tự luận.
-      if (!runner.total && runner.hasWriting) {
+      if (runner.reviewOnly) {
+        // `/start` only emits this destination for a canonically submitted
+        // course item. Open the persisted marking directly and never enter the
+        // quiz mutation flow again.
+        await writingLoaded;
+        if (requestedView === 'writing' && writingReady && writing.submitted) {
+          renderWriting();
+        } else {
+          const q = $('cx-q'); if (q) q.hidden = true;
+          const next = $('cx-next'); if (next) next.hidden = true;
+          const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
+          const done = $('cx-done');
+          if (done) {
+            done.hidden = false;
+            done.innerHTML = '<div class="cx-verdict" data-v="review">'
+              + '<div class="cx-verdict__hero"><div>'
+              + '<p class="cx-verdict__eyebrow">Bài đã nộp</p>'
+              + '<p class="cx-verdict__title">Kết quả của bạn đã được lưu</p>'
+              + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
+              + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
+              + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
+              + (writingReady && writing.submitted
+                ? '<button class="av-button av-button-primary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
+                : '')
+              + '</div></div></div>';
+          }
+        }
+      } else if (!runner.total && runner.hasWriting) {
         await writingLoaded;
         renderWriting();
       } else if (runner.isStageDone()) renderDone(); else renderQuestion();

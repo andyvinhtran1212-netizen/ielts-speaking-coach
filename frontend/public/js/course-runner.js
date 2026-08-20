@@ -156,6 +156,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // bank ở lớp mới là một MỤC KHÁC — phiên cũ thuộc mục cũ, verdict bác chúng,
   // và màn kết quả khôi phục sẽ kẹt không mở nổi phiên mới (codex #928 R5).
   let itemId = null;
+  // Bài đã nộp chỉ được đọc. Cờ này do backend suy từ submitted_at; URL hay
+  // localStorage không thể tự bật quyền review.
+  let reviewOnly = false;
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -431,6 +434,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get mode() { return mode; },
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
+    get reviewOnly() { return reviewOnly; },
     stageQuestions,
 
     current() {
@@ -440,10 +444,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
     isStageDone() { return at >= stageQuestions().length; },
 
-    async load(bankId) {
+    async load(bankId, options = {}) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
       bank = r.bank;
       this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
+      // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
+      // vẫn do các endpoint backend kiểm bằng assignment item.
+      reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
       qs = r.questions || [];
@@ -455,6 +462,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       qs = qs.filter(function (q) { return q.type !== 'writing'; });
       if (!qs.length && !writingQs.length) {
         throw new Error('Bài tập này chưa có câu hỏi nào.');
+      }
+      // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
+      // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.
+      if (reviewOnly) {
+        sessionId = null; sessionFailed = false; resumedFinal = false;
+        stageStartedAt = now(); shownAt = now();
+        return bank;
       }
       rev = fingerprint(qs);
       const local = restore();

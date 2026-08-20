@@ -66,6 +66,16 @@ async function load(opts = {}) {
   return { w, api, storage };
 }
 
+test('review load pins the persisted result to its assignment item', async () => {
+  const api = fakeApi({ submitted: true });
+  const writing = createWriting({ api, storage: memStore(), userId: 'u1' });
+  await writing.load('b1', 'item-old');
+  assert.equal(
+    api.calls.get[0],
+    '/api/quiz/course/writing?bank_id=b1&class_item=item-old',
+  );
+});
+
 // ── Sai → sửa trên cùng một dòng ─────────────────────────────────────────────
 
 describe('inlineDiff', () => {
@@ -416,7 +426,7 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
   test('giữ LỜI HỨA của lượt nạp, không chỉ một cờ', () => {
     // Cờ `false` lúc vẽ làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới
     // khi học viên tự tải lại trang và thắng cuộc đua.
-    assert.match(PAGE, /const writingLoaded = writing\.load\(bankId\)/);
+    assert.match(PAGE, /const writingLoaded = writing\.load\(bankId,/);
     const i = PAGE.indexOf('async function renderVerdict');
     const body = PAGE.slice(i, i + 700);
     assert.ok(/await writingLoaded;/.test(body), 'renderVerdict phải chờ lượt nạp ấy');

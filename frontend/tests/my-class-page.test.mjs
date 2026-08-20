@@ -562,6 +562,16 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
     assert.match(html, /Xem lại bài/);
   });
 
+  test('bài course ĐÃ NỘP mở lại được để đọc phần tự luận đã chấm', () => {
+    const html = itemRow(row({
+      submitted_at: 'x',
+      assignment: { id: 'a1', title: 'Grammar 05', skill: 'course',
+                    due_at: null, content_config: {} },
+    }), { action: false });
+    assert.match(html, /data-action="start"/);
+    assert.match(html, /Xem kết quả/);
+  });
+
   test('kỹ năng khác chưa có màn xem lại thì KHÔNG hứa suông', () => {
     const html = itemRow(
       row({ submitted_at: 'x', assignment: { id: 'a1', title: 'Bài', skill: 'reading',
