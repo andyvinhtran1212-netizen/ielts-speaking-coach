@@ -20,6 +20,10 @@
  *   hề tới máy chủ.
  */
 
+import { formatCourseExplanation } from './course-explanation-format.js';
+
+export { formatCourseExplanation };
+
 // Mười câu một chặng. 100 câu liền một mạch quá dài cho một buổi tối, và một
 // lượt bỏ dở thì không có chỗ nào để nói "em đã làm tới đâu".
 export const STAGE = 10;

@@ -52,7 +52,7 @@ export function CourseBehavior() {
     let pauseSectionTimers: () => void = () => {};
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, KEYS, DANG }, CW, RD, LD, PD, CR, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, formatCourseExplanation, KEYS, DANG }, CW, RD, LD, PD, CR, api] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
         import(/* webpackIgnore: true */ '/js/course-reading.js' as any),
@@ -240,7 +240,7 @@ export function CourseBehavior() {
               + '</button>').join('')
             + '</div>';
         }
-        body += '<div id="cx-why"></div>';
+        body += '<div id="cx-why" role="status" aria-live="polite" aria-atomic="true"></div>';
 
         $('cx-q')!.innerHTML = body;
         $('cx-q')!.hidden = false;
@@ -282,7 +282,8 @@ export function CourseBehavior() {
         $('cx-why')!.innerHTML = `<div class="cx-answer-summary" data-ok="${res.correct}">`
           + `<div><strong>${res.correct ? 'Chính xác' : 'Chưa đúng'}</strong>`
           + `<span>Đáp án đúng: ${esc(KEYS[q.answer])}${answerText ? ` · ${md(answerText)}` : ''}</span></div></div>`
-          + `<div class="cx-why"><span class="cx-why__label">Giải thích</span>${md(res.explain)}`
+          + `<div class="cx-why"><h2 class="cx-why__label">Giải thích</h2>`
+          + `<div class="course-explain">${formatCourseExplanation(res.explain)}</div>`
           + (q.item_key ? `<span class="cx-why__axis">Trục: ${esc(q.item_key)}</span>` : '')
           + '</div>';
         $('cx-next')!.innerHTML =
@@ -298,7 +299,7 @@ export function CourseBehavior() {
         $('cx-selfcheck')!.innerHTML = '<div class="cx-selfcheck">'
           + '<p><strong>Tự đối chiếu.</strong> Câu này không chấm máy — so bài của bạn '
           + 'với đáp án mẫu bên dưới.</p>'
-          + md(res.explain).split('\n\n').map((p: string) => `<p>${p}</p>`).join('')
+          + `<div class="course-explain">${formatCourseExplanation(res.explain)}</div>`
           + '</div>';
         $('cx-next')!.innerHTML =
           '<button class="av-button av-button-primary" id="cx-go" type="button">Câu tiếp</button>';

@@ -68,6 +68,19 @@ table.pg-sess td { color: var(--av-text-secondary); font-variant-numeric: tabula
 .pg-mk__ans.is-right { color: var(--av-success, var(--av-primary)); }
 .pg-mk__explain { margin-top: var(--av-space-2); font-size: var(--av-fs-sm);
   color: var(--av-text-muted); line-height: var(--av-lh-relaxed); }
+.course-explain { display: grid; gap: var(--av-space-2); min-width: 0;
+  overflow-wrap: anywhere; }
+.course-explain__paragraph, .course-explain__lead { margin: 0; }
+.course-explain__lead { color: var(--av-text-primary);
+  font-weight: var(--av-fw-semibold); }
+.course-explain__list { display: grid; gap: var(--av-space-2); margin: 0;
+  padding-inline-start: 1.25rem; }
+.course-explain__list li { padding-inline-start: var(--av-space-1); }
+.course-explain__list li::marker { color: var(--av-primary);
+  font-weight: var(--av-fw-bold); }
+.course-explain__emphasis { padding: 1px 4px; border-radius: 4px;
+  background: var(--av-primary-soft); color: var(--av-primary);
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .pg-mk__hint { margin-top: var(--av-space-1); font-size: var(--av-fs-sm);
   color: var(--av-text-faint); }
 .pg-cap { color: var(--av-text-faint); font-size: var(--av-fs-xs);

@@ -53,7 +53,7 @@ export function CourseShell() {
         <div id="cx-error" className="cx-empty" hidden></div>
 
         {/* Một câu, dựng lại mỗi lần chuyển. */}
-        <section id="cx-q" className="cx-q" hidden aria-live="polite"></section>
+        <section id="cx-q" className="cx-q" hidden></section>
 
         <div className="cx-next" id="cx-next" hidden></div>
 
