@@ -77,11 +77,12 @@ await page.getByRole('heading', { name: 'Nhận bài, chấm nháp & trả kết
 const rosterError = page.getByText(/Không tải được bảng lớp/);
 await rosterError.waitFor();
 check('roster lookup lỗi hiển thị unavailable thay vì empty', await page.getByText('Chưa có học viên nào trong kỳ thi này.').count() === 0);
+check('pipeline không biến trạng thái chưa biết thành bốn số 0', await page.locator('.mrr-pipeline').count() === 0);
 failRoster = false;
 await page.getByRole('button', { name: 'Thử lại bảng lớp' }).click();
 await page.getByRole('button', { name: 'Nguyễn An' }).waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-reviews-redesign.png', fullPage: true });
-check('retry đọc lại roster canonical và giữ định danh kỳ thi', await page.getByText('MOCK-1 — Kỳ thi tháng 8').count() === 1 && requests.filter((item) => item.path === '/admin/mock-exams/exam-1/roster').length >= 2);
+check('retry đọc lại roster canonical và mở pipeline thật', await page.getByText('MOCK-1 — Kỳ thi tháng 8').count() === 1 && await page.locator('.mrr-pipeline').count() === 1 && requests.filter((item) => item.path === '/admin/mock-exams/exam-1/roster').length >= 2);
 
 const readingRetest = page.locator('.mrr-flags label[title="Reading"] input');
 await readingRetest.click();

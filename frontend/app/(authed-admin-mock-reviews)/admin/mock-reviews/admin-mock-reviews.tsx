@@ -69,6 +69,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
   const [summary, setSummary] = useState<RetestSummary | null>(null);
   const [examTitle, setExamTitle] = useState('');
   const [loading, setLoading] = useState(true);
+  const [rosterLoaded, setRosterLoaded] = useState(false);
   const [rosterError, setRosterError] = useState('');
   const [summaryError, setSummaryError] = useState('');
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -111,19 +112,19 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
   }, [examId, profile.id]);
 
   const loadRoster = useCallback(async (silent = false) => {
-    if (!examId) { setLoading(false); setRosterError('Thiếu mock_exam_id; chọn một kỳ thi từ workspace Mock Test.'); return null; }
+    if (!examId) { setLoading(false); setRosterLoaded(false); setRosterError('Thiếu mock_exam_id; chọn một kỳ thi từ workspace Mock Test.'); return null; }
     const request = ++requestRef.current;
     const account = profile.id;
-    if (!silent) setLoading(true);
+    if (!silent) { setLoading(true); setRosterLoaded(false); }
     try {
       const normalized = normalizeReviewRoster(await window.api.get<unknown>(`/admin/mock-exams/${encodeURIComponent(examId)}/roster`)) as { rows: RosterRow[]; malformedCount: number } | null;
       if (request !== requestRef.current || accountRef.current !== account) return null;
       if (!normalized) throw new Error('Bảng duyệt sai contract.');
-      rowsRef.current = normalized.rows; setRows(normalized.rows); setSelected(new Set()); setRosterError('');
+      rowsRef.current = normalized.rows; setRows(normalized.rows); setSelected(new Set()); setRosterError(''); setRosterLoaded(true);
       if (normalized.malformedCount) setNotice({ kind: 'warning', message: `${normalized.malformedCount} dòng sai contract/duplicate đã bị loại; chưa thể coi bảng này là đầy đủ.` });
       return normalized.rows;
     } catch (caught) {
-      if (request === requestRef.current && accountRef.current === account) { setRows([]); rowsRef.current = []; setRosterError(`Không tải được bảng lớp: ${messageOf(caught)}`); }
+      if (request === requestRef.current && accountRef.current === account) { setRows([]); rowsRef.current = []; setRosterLoaded(false); setRosterError(`Không tải được bảng lớp: ${messageOf(caught)}`); }
       return null;
     } finally { if (request === requestRef.current && accountRef.current === account) setLoading(false); }
   }, [examId, profile.id]);
@@ -131,7 +132,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
   useEffect(() => {
     let dead = false;
     const account = profile.id;
-    setExamTitle(''); setDetail(null); setNotice(null); setSkips([]); setSummary(null); setSummaryError('');
+    setExamTitle(''); setDetail(null); setNotice(null); setSkips([]); setSummary(null); setSummaryError(''); setRosterLoaded(false);
     if (!examId) { setLoading(false); setRosterError('Thiếu mock_exam_id; chọn một kỳ thi từ workspace Mock Test.'); return () => { dead = true; }; }
     void loadRoster(); void loadSummary();
     (async () => {
@@ -304,7 +305,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
     {notice && <div className={`mrr-alert is-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</div>}
     {detailError && <div className="mrr-state is-error" role="alert">{detailError}<button className="adm-btn-secondary" type="button" onClick={() => setDetailError('')}>Đóng</button></div>}
     {!detail && <>
-      <section className="mrr-pipeline" aria-label="Tiến độ bàn chấm"><article><span>Chờ nhận</span><strong>{reviewCounts.queued}</strong><small>hồ sơ chưa có giám khảo</small></article><article><span>Đang chấm nháp</span><strong>{reviewCounts.working}</strong><small>đã claim hoặc đang sửa</small></article><article><span>Sẵn sàng trả</span><strong>{reviewCounts.reviewed}</strong><small>đã chốt band cuối</small></article><article className="is-done"><span>Đã trả kết quả</span><strong>{reviewCounts.released}</strong><small>học viên đã xem được</small></article></section>
+      {rosterLoaded && !loading && !rosterError ? <section className="mrr-pipeline" aria-label="Tiến độ bàn chấm"><article><span>Chờ nhận</span><strong>{reviewCounts.queued}</strong><small>hồ sơ chưa có giám khảo</small></article><article><span>Đang chấm nháp</span><strong>{reviewCounts.working}</strong><small>đã claim hoặc đang sửa</small></article><article><span>Sẵn sàng trả</span><strong>{reviewCounts.reviewed}</strong><small>đã chốt band cuối</small></article><article className="is-done"><span>Đã trả kết quả</span><strong>{reviewCounts.released}</strong><small>học viên đã xem được</small></article></section> : null}
       {summaryError ? <div className="mrr-state is-error" role="alert">{summaryError}<button className="adm-btn-secondary" type="button" onClick={() => void loadSummary()}>Thử lại tổng kết</button></div> : summary && <section className="mrr-summary"><div><span>Đã duyệt</span><strong>{summary.reviewedSittings}/{summary.totalSittings}</strong></div><div><span>Cần test lại</span><strong>{summary.needsRetestCount}</strong></div>{MOCK_REVIEW_SKILLS.map((skill: string) => <div key={skill}><span>{LABEL[skill]}</span><strong>{summary.perSkill[skill]}</strong></div>)}</section>}
       {summary?.students.length ? <details className="mrr-retest-list"><summary>Danh sách {summary.students.length} học viên cần test lại</summary>{summary.students.map((student) => <p key={student.sittingId}><strong>{student.studentName}</strong> — {student.skills.length ? student.skills.map((skill) => LABEL[skill]).join(', ') : 'đánh dấu sớm, chưa chọn kỹ năng'}</p>)}</details> : null}
       {rosterError ? <div className="mrr-state is-error" role="alert">{rosterError}<button className="adm-btn-primary" type="button" onClick={() => void loadRoster()}>Thử lại bảng lớp</button></div> : loading ? <div className="mrr-state" role="status">Đang tải bảng lớp canonical…</div> : <section className="mrr-roster-card">
