@@ -9,6 +9,7 @@ export default function ReadingPlayerLayout({ children }: { children: ReactNode 
         '/css/reading-exam-mockup.css',
         '/css/reading-exam.css',
         '/css/reading-exam-next.css',
+        '/css/exam-result-next.css',
       ]}
       extraScripts={
         <>
@@ -19,7 +20,7 @@ export default function ReadingPlayerLayout({ children }: { children: ReactNode 
         </>
       }
       utilityLayer={false}
-      bodyClass="exam-chrome"
+      bodyClass="exam-chrome reading-next-player-page"
     >
       {children}
     </AuthedShell>

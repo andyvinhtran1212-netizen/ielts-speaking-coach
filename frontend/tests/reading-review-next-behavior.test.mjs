@@ -138,6 +138,14 @@ describe('native Reading review route contract', () => {
     assert.match(CLIENT, /Câu \$\{item\.q_num\}.*xem trước/);
   });
 
+  test('starts with incorrect answers and reveals a filtered card from the palette', () => {
+    assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(firstWrong \? 'wrong' : 'all'\)\)/);
+    assert.match(CLIENT, /filter === 'wrong' \? !item\.correct/);
+    assert.match(CLIENT, /if \(filter !== 'all'[\s\S]{0,100}setFilter\('all'\)/);
+    assert.match(CLIENT, /Tự tìm bằng chứng/);
+    assert.match(CLIENT, /Phân tích bẫy/);
+  });
+
   test('activates both native micro-check parity flows on an identified attempt', () => {
     assert.match(WRITE_FLOW, /route: `\/reading\/review\?attempt_id=\$\{ATTEMPT\}`/);
     assert.doesNotMatch(WRITE_FLOW, /nextPending/);

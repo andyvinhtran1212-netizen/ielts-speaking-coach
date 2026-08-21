@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -100,11 +100,9 @@ function optionValue(option: Option) {
   return String(option.label ?? option.text ?? '');
 }
 
-function optionText(option: Option) {
+function optionBodyText(option: Option) {
   if (typeof option === 'string') return option;
-  const label = String(option.label ?? '');
-  const text = String(option.text ?? '');
-  return label && text ? `${label}. ${text}` : label || text;
+  return String(option.text ?? option.label ?? '');
 }
 
 function questionOptions(question: Question) {
@@ -180,12 +178,25 @@ function QuestionControl({ question, value, onChange }: {
     && !(type === 'summary_completion' && options.length);
   if (inline) return <InlineGap question={question} value={value} onChange={onChange} />;
 
+  if (type === 'true_false_not_given' || type === 'yes_no_not_given') {
+    const choices = type === 'true_false_not_given'
+      ? ['TRUE', 'FALSE', 'NOT GIVEN']
+      : ['YES', 'NO', 'NOT GIVEN'];
+    return <div className="exam-q__options exam-q__options--claims" role="radiogroup" aria-label={`Answer ${question.q_num}`}>
+      {choices.map((choice) => <label className="exam-q__option exam-q__option--claim" key={choice}>
+        <input type="radio" name={`q-${question.q_num}`} value={choice} checked={value === choice} onChange={() => onChange(choice)} />
+        <span className="exam-q__option-text">{choice}</span>
+      </label>)}
+    </div>;
+  }
+
   if (type === 'mcq_single') {
     return <div className="exam-q__options">{options.map((option) => {
       const answer = optionValue(option);
       return <label className="exam-q__option" key={answer}>
         <input type="radio" name={`q-${question.q_num}`} value={answer} checked={value === answer} onChange={() => onChange(answer)} />
-        <span className="exam-q__option-text">{optionText(option)}</span>
+        <span className="exam-q__option-prefix">{optionValue(option)}</span>
+        <span className="exam-q__option-text">{optionBodyText(option)}</span>
       </label>;
     })}</div>;
   }
@@ -210,16 +221,15 @@ function QuestionControl({ question, value, onChange }: {
               onChange([...next].join(','));
             }}
           />
-          <span className="exam-q__option-text">{optionText(option)}</span>
+          <span className="exam-q__option-prefix">{optionValue(option)}</span>
+          <span className="exam-q__option-text">{optionBodyText(option)}</span>
         </label>;
       })}
     </div>;
   }
 
   let selectOptions: string[] | null = null;
-  if (type === 'true_false_not_given') selectOptions = ['TRUE', 'FALSE', 'NOT GIVEN'];
-  else if (type === 'yes_no_not_given') selectOptions = ['YES', 'NO', 'NOT GIVEN'];
-  else if (['matching_headings', 'matching_features', 'matching_sentence_endings'].includes(type)
+  if (['matching_headings', 'matching_sentence_endings'].includes(type)
       || (type === 'summary_completion' && options.length)) {
     selectOptions = options.map(optionValue);
   } else if (type === 'matching_information') {
@@ -250,22 +260,26 @@ function QuestionControl({ question, value, onChange }: {
   );
 }
 
-function QuestionCard({ question, answer, saveState, flagged, onAnswer, onFlag }: {
+function QuestionCard({ question, answer, saveState, flagged, current, onAnswer, onFlag, onCurrent }: {
   question: Question;
   answer: string;
   saveState?: 'retrying' | 'failed';
   flagged: boolean;
+  current: boolean;
   onAnswer(value: string): void;
   onFlag(): void;
+  onCurrent(): void;
 }) {
   const options = questionOptions(question);
   const hasInlinePrompt = /_{2,}/.test(String(question.prompt || ''))
     && !(question.question_type === 'summary_completion' && options.length);
   return (
     <article
-      className={`exam-q${answer ? ' is-answered' : ''}${saveState ? ' is-unsaved' : ''}`}
+      className={`exam-q${answer ? ' is-answered' : ''}${saveState ? ' is-unsaved' : ''}${current ? ' is-current' : ''}`}
       data-q={question.q_num}
       id={`q-${question.q_num}`}
+      onFocus={onCurrent}
+      onClick={onCurrent}
     >
       <span className="exam-q__num">{question.q_num}</span>
       <div className="exam-q__body">
@@ -277,7 +291,9 @@ function QuestionCard({ question, answer, saveState, flagged, onAnswer, onFlag }
           {saveState === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
         </small> : null}
       </div>
-      <button className="exam-q__flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>⚑</button>
+      <button className="exam-q__flag" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>
+        <span aria-hidden="true">{flagged ? 'Reviewing' : 'Review'}</span>
+      </button>
     </article>
   );
 }
@@ -301,8 +317,10 @@ type QuestionRunProps = {
   answers: AnswerMap;
   saveStates: SaveState;
   flagged: Set<number>;
+  currentQuestion: number;
   onAnswer(qNum: number, value: string): void;
   onFlag(qNum: number): void;
+  onCurrent(qNum: number): void;
 };
 
 function SaveHint({ state }: { state?: 'retrying' | 'failed' }) {
@@ -315,28 +333,38 @@ function SaveHint({ state }: { state?: 'retrying' | 'failed' }) {
 function QuestionBank({ type, options }: { type: string; options: Option[] }) {
   const title = BANK_TITLES[type];
   if (!title || !options.length) return null;
-  return <aside className="reading-next-question-bank" aria-label={title}>
-    <p className="reading-next-question-bank__title">{title}</p>
-    <ol>{options.map((option) => <li key={optionValue(option)}>{optionText(option)}</li>)}</ol>
+  const family = type === 'matching_headings' ? 'headings'
+    : type === 'matching_features' ? 'features'
+      : type === 'matching_sentence_endings' ? 'endings' : 'word-bank';
+  return <aside className={`exam-${family}-box`} aria-label={title}>
+    <p className={`exam-${family}-box__title`}>{title}</p>
+    <ol className={`exam-${family}-box__list`}>{options.map((option) => <li className={`exam-${family}-box__item`} key={optionValue(option)}>
+      <strong className={`exam-${family}-box__roman`}>{optionValue(option)}</strong>
+      <span className={`exam-${family}-box__text`}>{optionBodyText(option)}</span>
+    </li>)}</ol>
   </aside>;
 }
 
-function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, onAnswer, onFlag }: {
+function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, current, onAnswer, onFlag, onCurrent }: {
   question: Question;
   sharedOptions?: Option[];
   answer: string;
   saveState?: 'retrying' | 'failed';
   flagged: boolean;
+  current: boolean;
   onAnswer(value: string): void;
   onFlag(): void;
+  onCurrent(): void;
 }) {
   const controlQuestion = sharedOptions?.length
     ? { ...question, payload: { ...question.payload, options: sharedOptions } }
     : question;
   return <span
-    className={`reading-next-flow-gap${answer ? ' is-answered' : ''}${saveState ? ' is-unsaved' : ''}`}
+    className={`reading-next-flow-gap${answer ? ' is-answered' : ''}${saveState ? ' is-unsaved' : ''}${current ? ' is-current' : ''}`}
     data-q={question.q_num}
     id={`q-${question.q_num}`}
+    onClick={onCurrent}
+    onFocus={onCurrent}
   >
     <span className="exam-summary__gnum">{question.q_num}</span>{' '}
     <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} />
@@ -345,7 +373,7 @@ function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, 
   </span>;
 }
 
-function FlowingCompletionRun({ run, answers, saveStates, flagged, onAnswer, onFlag }: Omit<QuestionRunProps, 'part'>) {
+function FlowingCompletionRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const first = run[0];
   const type = String(first.question_type || '');
   const summary = String(first.payload?.template?.summary_text || '');
@@ -367,8 +395,10 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, onAnswer, onF
         answer={answers.get(qNum) || ''}
         saveState={saveStates.get(qNum)}
         flagged={flagged.has(qNum)}
+        current={currentQuestion === qNum}
         onAnswer={(value) => onAnswer(qNum, value)}
         onFlag={() => onFlag(qNum)}
+        onCurrent={() => onCurrent(qNum)}
       /> : match[0]);
       last = match.index + match[0].length;
     }
@@ -398,7 +428,7 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, onAnswer, onF
   </div>;
 }
 
-function DiagramImageRun({ run, answers, saveStates, flagged, onAnswer, onFlag }: Omit<QuestionRunProps, 'part'>) {
+function DiagramImageRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const first = run[0];
   const type = String(first.question_type || '');
   return <div className="exam-diagram-container" data-question-type={type}>
@@ -408,9 +438,11 @@ function DiagramImageRun({ run, answers, saveStates, flagged, onAnswer, onFlag }
       alt={`${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
     />
     <ol className="exam-diagram-rows">{run.map((question) => <li
-      className={`exam-diagram-row${saveStates.has(question.q_num) ? ' is-unsaved' : ''}`}
+      className={`exam-diagram-row${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
       id={`q-${question.q_num}`}
       key={question.q_num}
+      onClick={() => onCurrent(question.q_num)}
+      onFocus={() => onCurrent(question.q_num)}
     >
       <span className="exam-diagram-row__num">{question.q_num}</span>
       <span className="exam-diagram-row__prompt">{question.prompt || ''}</span>
@@ -428,7 +460,32 @@ function DiagramImageRun({ run, answers, saveStates, flagged, onAnswer, onFlag }
   </div>;
 }
 
-function QuestionRun({ run, part, answers, saveStates, flagged, onAnswer, onFlag }: QuestionRunProps) {
+function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
+  const options = questionOptions(run[0]);
+  return <div className="reading-next-match-matrix-wrap">
+    <table className="reading-next-match-matrix">
+      <thead><tr><th scope="col">Statement</th>{options.map((option) => <th scope="col" key={optionValue(option)}>{optionValue(option)}</th>)}<th scope="col">Review</th></tr></thead>
+      <tbody>{run.map((question) => <tr
+        className={`${answers.has(question.q_num) ? 'is-answered' : ''}${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
+        id={`q-${question.q_num}`}
+        key={question.q_num}
+        onClick={() => onCurrent(question.q_num)}
+        onFocus={() => onCurrent(question.q_num)}
+      >
+        <th scope="row"><span className="exam-q__num">{question.q_num}</span><span>{question.prompt || ''}</span></th>
+        {options.map((option) => {
+          const value = optionValue(option);
+          return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
+            <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
+          </label></td>;
+        })}
+        <td><button className="reading-next-matrix-review" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} onClick={() => onFlag(question.q_num)}>Review</button></td>
+      </tr>)}</tbody>
+    </table>
+  </div>;
+}
+
+function QuestionRun({ run, part, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: QuestionRunProps) {
   const first = run[0];
   const type = String(first.question_type || '');
   const options = questionOptions(first);
@@ -442,51 +499,82 @@ function QuestionRun({ run, part, answers, saveStates, flagged, onAnswer, onFlag
       {readingQuestionInstruction(run, part)}
     </div>
     {hasBank ? <QuestionBank type={type} options={options} /> : null}
-    {hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} onAnswer={onAnswer} onFlag={onFlag} />
-      : hasFlowingTemplate ? <FlowingCompletionRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} onAnswer={onAnswer} onFlag={onFlag} />
+    {type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+      : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+      : hasFlowingTemplate ? <FlowingCompletionRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
         : run.map((question) => <QuestionCard
           key={question.q_num}
           question={question}
           answer={answers.get(question.q_num) || ''}
           saveState={saveStates.get(question.q_num)}
           flagged={flagged.has(question.q_num)}
+          current={currentQuestion === question.q_num}
           onAnswer={(value) => onAnswer(question.q_num, value)}
           onFlag={() => onFlag(question.q_num)}
+          onCurrent={() => onCurrent(question.q_num)}
         />)}
   </section>;
 }
 
-function ResultView({ result, attemptId, anonId, from, sittingId }: {
+function ResultView({ result, title, attemptId, anonId, from, sittingId }: {
   result: any;
+  title: string;
   attemptId: string | null;
   anonId: string | null;
   from: string | null;
   sittingId: string | null;
 }) {
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
+  const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
+  const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
+  const answered = rows.filter((row: any) => String(row.user_answer ?? '').trim()).length;
+  const needsReview = Math.max(0, maxScore - score);
+  const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
   return (
-    <main className="exam-state-shell exam-state-shell--results reading-next-state">
-      <div className="exam-card exam-card--results">
-        <h1 className="exam-card__title">Kết quả</h1>
-        <div className="exam-results-band-row">
-          <div className="exam-results-score">{result?.score ?? '—'}/{result?.max_score ?? rows.length}</div>
-          <div className="exam-results-band">Band {result?.band_estimate == null ? '—' : Number(result.band_estimate).toFixed(1)}</div>
-        </div>
-        <table className="reading-next-result-table">
-          <thead><tr><th>Câu</th><th>Bài làm</th><th>Kết quả</th></tr></thead>
-          <tbody>{rows.map((row: any) => (
-            <tr key={row.q_num}>
-              <td>{row.q_num}</td>
-              <td>{row.user_answer || '—'}</td>
-              <td className={row.correct ? 'is-correct' : 'is-wrong'}>{row.correct ? 'Đúng' : 'Chưa đúng'}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-        <div className="reading-next-results-actions">
-          {attemptId ? <a className="exam-btn exam-btn--primary" href={readingReviewHref(attemptId, { anonId, from, sittingId })}>Xem chữa bài chi tiết →</a> : null}
-          <a className="exam-btn" href={readingLibraryHref(from, sittingId)}>← Quay lại kho đề</a>
-        </div>
-      </div>
+    <main className="exam-result-shell reading-next-state">
+      <section className="exam-result-page" aria-labelledby="reading-result-title">
+        <header className="exam-result-heading">
+          <div>
+            <p className="exam-result-eyebrow">READING · FULL TEST COMPLETE</p>
+            <h1 id="reading-result-title">Kết quả bài thi</h1>
+            <p>{title}</p>
+          </div>
+          <span className="exam-result-status">Đã nộp bài</span>
+        </header>
+
+        <section className="exam-result-hero" aria-label="Tổng quan kết quả">
+          <div className="exam-result-band">
+            <span>Estimated band</span>
+            <strong>{result?.band_estimate == null ? '—' : Number(result.band_estimate).toFixed(1)}</strong>
+            <small>Kết quả luyện tập</small>
+          </div>
+          <div className="exam-result-metrics">
+            <div><span>Đúng</span><strong>{score}<small>/{maxScore}</small></strong></div>
+            <div><span>Tỉ lệ chính xác</span><strong>{accuracy}<small>%</small></strong></div>
+            <div><span>Đã trả lời</span><strong>{answered}<small>/{maxScore}</small></strong></div>
+            <div><span>Cần xem lại</span><strong>{needsReview}</strong></div>
+          </div>
+        </section>
+
+        <section className="exam-result-review-card" aria-labelledby="reading-result-review-title">
+          <div className="exam-result-section-heading">
+            <div><p>QUESTION MAP</p><h2 id="reading-result-review-title">Tổng quan {maxScore} câu</h2></div>
+            <div className="exam-result-legend" aria-label="Chú thích"><span className="is-correct" />Đúng <span className="is-wrong" />Cần xem lại <span className="is-empty" />Bỏ trống</div>
+          </div>
+          <div className="exam-result-question-map">{rows.map((row: any) => {
+            const empty = !String(row.user_answer ?? '').trim();
+            return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Câu ${row.q_num}: ${empty ? 'bỏ trống' : row.correct ? 'đúng' : 'cần xem lại'}`} key={row.q_num}>{row.q_num}</span>;
+          })}</div>
+        </section>
+
+        <section className="exam-result-next-step">
+          <div><p className="exam-result-eyebrow">BƯỚC TIẾP THEO</p><h2>{needsReview ? `Chữa ${needsReview} câu chưa đúng` : 'Xem lại cách làm bài'}</h2><p>Đối chiếu bài đọc, đáp án và phân tích bẫy theo từng câu. Kết quả chi tiết chỉ hiển thị trong không gian chữa bài.</p></div>
+          <div className="exam-result-actions">
+            {attemptId ? <a className="exam-btn exam-btn--primary" href={readingReviewHref(attemptId, { anonId, from, sittingId })}>Vào chữa bài <span aria-hidden="true">→</span></a> : null}
+            <a className="exam-btn" href={readingLibraryHref(from, sittingId)}>Về kho đề</a>
+          </div>
+        </section>
+      </section>
     </main>
   );
 }
@@ -503,18 +591,25 @@ export function ReadingExamSession() {
   const answersRef = useRef<AnswerMap>(answers);
   const [saveStates, setSaveStates] = useState<SaveState>(() => new Map());
   const [currentPart, setCurrentPart] = useState(1);
+  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [splitPercent, setSplitPercent] = useState(50);
+  const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number } | null>(null);
   const [flagged, setFlagged] = useState<Set<number>>(() => new Set());
   const [remaining, setRemaining] = useState(0);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [displaySize, setDisplaySize] = useState('medium');
   const [displayTheme, setDisplayTheme] = useState('default');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const coordinatorRef = useRef<any>(null);
   const collectionFrozenRef = useRef(false);
   const ownerRef = useRef<string | null>(null);
   const bootKeyRef = useRef<string | null>(null);
   const autoSubmittedRef = useRef(false);
   const autoEnteredMockRef = useRef(false);
+  const selectedRangeRef = useRef<Range | null>(null);
+  const highlightRangesRef = useRef<Range[]>([]);
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
@@ -590,6 +685,7 @@ export function ReadingExamSession() {
     if (normalized.inProgress && !await claimAttempt(normalized.inProgress.attempt_id)) return;
     setTest(normalized.test);
     setCurrentPart(Number(normalized.test.passages[0]?.passage_order || 1));
+    setCurrentQuestion(Number(normalized.test.questions[0]?.q_num || 1));
     if (normalized.inProgress) {
       const restored = answersFromRows(normalized.inProgress.answers);
       answersRef.current = restored;
@@ -756,6 +852,7 @@ export function ReadingExamSession() {
 
   const updateAnswer = useCallback((qNum: number, value: string) => {
     if (collectionFrozenRef.current) return;
+    setCurrentQuestion(qNum);
     const next = new Map(answersRef.current);
     if (value) next.set(qNum, value); else next.delete(qNum);
     answersRef.current = next;
@@ -846,8 +943,55 @@ export function ReadingExamSession() {
   const total = test?.total_questions || test?.questions.length || 0;
   const backHref = readingLibraryHref(params?.from, params?.sittingId);
 
+  const jumpToQuestion = (qNum: number) => {
+    const target = (test?.questions || []).find((question) => question.q_num === qNum);
+    if (!target) return;
+    setCurrentQuestion(qNum);
+    setCurrentPart(Number(target.passage_order || 1));
+    requestAnimationFrame(() => document.getElementById(`q-${qNum}`)?.scrollIntoView({ block: 'center' }));
+  };
+
+  const moveQuestion = (offset: number) => {
+    const ordered = test?.questions || [];
+    const index = Math.max(0, ordered.findIndex((question) => question.q_num === currentQuestion));
+    const next = ordered[index + offset];
+    if (next) jumpToQuestion(next.q_num);
+  };
+
+  const offerHighlight = (event: ReactMouseEvent<HTMLElement>) => {
+    const selection = window.getSelection();
+    if (!(CSS as any).highlights || !(window as any).Highlight || !selection || selection.isCollapsed || !selection.toString().trim() || !selection.rangeCount) {
+      setSelectionMenu(null);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!event.currentTarget.contains(range.commonAncestorContainer)) return;
+    selectedRangeRef.current = range.cloneRange();
+    setSelectionMenu({ x: Math.min(window.innerWidth - 190, Math.max(12, event.clientX)), y: Math.min(window.innerHeight - 54, Math.max(12, event.clientY + 10)) });
+  };
+
+  const applyHighlight = () => {
+    const range = selectedRangeRef.current;
+    const registry = (CSS as any).highlights;
+    const Highlight = (window as any).Highlight;
+    if (range && registry && Highlight) {
+      highlightRangesRef.current.push(range);
+      registry.set('reading-highlight', new Highlight(...highlightRangesRef.current));
+    }
+    window.getSelection()?.removeAllRanges();
+    selectedRangeRef.current = null;
+    setSelectionMenu(null);
+  };
+
+  const clearHighlights = () => {
+    (CSS as any).highlights?.delete?.('reading-highlight');
+    highlightRangesRef.current = [];
+    setSelectionMenu(null);
+  };
+
   if (phase === 'results') return <ResultView
     result={result}
+    title={test?.title || 'IELTS Reading Practice Test'}
     attemptId={attempt?.attempt_id || null}
     anonId={anonCapability() || null}
     from={params?.from || null}
@@ -859,26 +1003,28 @@ export function ReadingExamSession() {
       <a className="vh" href="#exam-questions">Skip to test content</a>
       <header className="exam-topbar" role="banner">
         <div className="exam-topbar__left">
-          <div className="exam-topbar__candidate">Candidate <b>{user?.email || (params?.share ? 'Guest' : '—')}</b></div>
-          <div className="exam-topbar__section">{test?.title || 'Reading Test'}</div>
+          <div className="exam-topbar__candidate">Aver Learning <b>{user?.email || (params?.share ? 'Guest candidate' : 'Candidate')}</b></div>
+          <div className="exam-topbar__section">IELTS Reading Practice · {test?.title || 'Reading Test'}</div>
         </div>
         <div className="exam-timer-wrap" hidden={!['inprogress', 'submitting'].includes(phase) || !!params?.mockEmbed}>
           <div className="exam-timer" data-state={remaining <= 300 ? 'critical' : remaining <= 600 ? 'warning' : 'normal'} role="timer" aria-live="off">{formatTime(remaining)}</div>
           <div className="exam-timer__label">time remaining</div>
         </div>
         <div className="exam-topbar__right">
-          <label className="exam-tool">Text
-            <select value={displaySize} onChange={(event) => setDisplaySize(event.target.value)}>
-              <option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option>
-            </select>
-          </label>
-          <label className="exam-tool">Theme
-            <select value={displayTheme} onChange={(event) => setDisplayTheme(event.target.value)}>
-              <option value="default">Default</option><option value="cream">Cream</option><option value="dark">Dark</option><option value="yellow-on-blue">Yellow / blue</option>
-            </select>
-          </label>
+          <button className="exam-tool" type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>Options</button>
+          <button className="exam-tool" type="button" onClick={() => setHelpOpen(true)}>Help</button>
         </div>
       </header>
+      {settingsOpen ? <aside className="exam-settings" aria-label="Reading display options">
+        <p className="exam-settings__title">Text size</p>
+        <label className="reading-next-setting-field"><span>Size</span><select value={displaySize} onChange={(event) => setDisplaySize(event.target.value)}>
+          <option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option>
+        </select></label>
+        <p className="exam-settings__title">Colour theme</p>
+        <label className="reading-next-setting-field"><span>Theme</span><select value={displayTheme} onChange={(event) => setDisplayTheme(event.target.value)}>
+          <option value="default">Default</option><option value="cream">Black on cream</option><option value="dark">White on black</option><option value="yellow-on-blue">Yellow on blue</option>
+        </select></label>
+      </aside> : null}
 
       {phase === 'loading' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đang tải bài thi…</p></main> : null}
       {phase === 'error' ? <main className="exam-state-shell reading-next-state">
@@ -900,9 +1046,36 @@ export function ReadingExamSession() {
         </div>
       </main> : null}
       {['inprogress', 'submitting'].includes(phase) && test ? <>
-        <main className="exam-split reading-next-state" id="reading-next-player">
+        <section className="reading-next-part-strip" aria-label={`Part ${currentPart}`}>
+          <strong>Part {currentPart}</strong>
+          <span>{questions.length ? `Read the text and answer questions ${questions[0].q_num}–${questions.at(-1)?.q_num}.` : 'Read the text and answer the questions.'}</span>
+        </section>
+        <main className="exam-split reading-next-state" id="reading-next-player" style={{ '--exam-split-left': `${splitPercent}%` } as CSSProperties} onMouseUp={offerHighlight}>
           <section className="exam-passage" aria-label="Reading passage"><PassageView passage={currentPassage} /></section>
-          <div className="exam-divider" role="separator" aria-orientation="vertical" aria-label="Reading panels" />
+          <div
+            className="exam-divider"
+            role="separator"
+            tabIndex={0}
+            aria-orientation="vertical"
+            aria-label="Resize passage and question panels"
+            aria-valuemin={30}
+            aria-valuemax={70}
+            aria-valuenow={Math.round(splitPercent)}
+            onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+            onPointerMove={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+              const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+              if (!bounds?.width) return;
+              setSplitPercent(Math.min(70, Math.max(30, (event.clientX - bounds.left) / bounds.width * 100)));
+            }}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              if (event.key === 'Home') setSplitPercent(30);
+              else if (event.key === 'End') setSplitPercent(70);
+              else setSplitPercent((value) => Math.min(70, Math.max(30, value + (event.key === 'ArrowLeft' ? -2 : 2))));
+            }}
+          />
           <section className="exam-questions" id="exam-questions" aria-label="Questions">
             <div className="exam-questions__part-heading"><strong>Part {currentPart}</strong>{questions.length ? ` — Questions ${questions[0].q_num}–${questions.at(-1)?.q_num}` : ''}</div>
             <div className="reading-next-question-group">{questionRuns.map((run) => <QuestionRun
@@ -912,23 +1085,31 @@ export function ReadingExamSession() {
               answers={answers}
               saveStates={saveStates}
               flagged={flagged}
+              currentQuestion={currentQuestion}
               onAnswer={updateAnswer}
               onFlag={toggleFlag}
+              onCurrent={setCurrentQuestion}
             />)}</div>
           </section>
         </main>
+        {selectionMenu ? <div className="reading-next-selection-tools" style={{ left: selectionMenu.x, top: selectionMenu.y }} role="toolbar" aria-label="Selected text tools"><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={applyHighlight}>Highlight</button>{highlightRangesRef.current.length ? <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={clearHighlights}>Clear all</button> : null}</div> : null}
         <footer className="exam-palette" role="navigation" aria-label="Question palette">
           <div className="exam-palette__grid" role="group" aria-label={`Questions 1 to ${total}`}>
-            {(test.questions || []).map((question) => <button
-              className={`exam-palette__q${answers.has(question.q_num) ? ' is-answered' : ''}${flagged.has(question.q_num) ? ' is-flagged' : ''}${saveStates.has(question.q_num) ? ' is-unsaved' : ''}`}
-              data-q={question.q_num}
-              key={question.q_num}
-              type="button"
-              onClick={() => {
-                setCurrentPart(Number(question.passage_order || 1));
-                requestAnimationFrame(() => document.getElementById(`q-${question.q_num}`)?.scrollIntoView({ block: 'center' }));
-              }}
-            >{question.q_num}</button>)}
+            {passages.map((passage) => {
+              const part = Number(passage.passage_order || 1);
+              const partQuestions = (test.questions || []).filter((question) => Number(question.passage_order || 1) === part);
+              return <div className="exam-palette__group" key={part}>
+                <span className="exam-palette__group-label">PART {part}</span>
+                <div className="exam-palette__group-btns">{partQuestions.map((question) => <button
+                  className={`exam-palette__q${answers.has(question.q_num) ? ' is-answered' : ''}${flagged.has(question.q_num) ? ' is-flagged' : ''}${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${saveStates.get(question.q_num) === 'failed' ? ' is-save-failed' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
+                  aria-label={`Question ${question.q_num}${answers.has(question.q_num) ? ', answered' : ', not answered'}${flagged.has(question.q_num) ? ', marked for review' : ''}${currentQuestion === question.q_num ? ', current' : ''}`}
+                  data-q={question.q_num}
+                  key={question.q_num}
+                  type="button"
+                  onClick={() => jumpToQuestion(question.q_num)}
+                >{question.q_num}</button>)}</div>
+              </div>;
+            })}
           </div>
           {saveStates.size ? <p className="reading-next-save-banner" role="status">
             {unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}
@@ -936,9 +1117,10 @@ export function ReadingExamSession() {
             {unsavedFailed ? <button type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}
           </p> : null}
           <div className="exam-palette__actions">
-            <div className="exam-palette__nav" role="group" aria-label="Previous or next passage">
-              <button className="exam-palette__nav-btn" type="button" disabled={currentPart <= Number(passages[0]?.passage_order || 1)} onClick={() => setCurrentPart((part) => part - 1)}>← Part</button>
-              <button className="exam-palette__nav-btn" type="button" disabled={currentPart >= Number(passages.at(-1)?.passage_order || currentPart)} onClick={() => setCurrentPart((part) => part + 1)}>Part →</button>
+            <label className="reading-next-review-toggle"><input type="checkbox" checked={flagged.has(currentQuestion)} onChange={() => toggleFlag(currentQuestion)} /> Review</label>
+            <div className="exam-palette__nav" role="group" aria-label="Previous or next question">
+              <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions[0]?.q_num} onClick={() => moveQuestion(-1)}>← Previous</button>
+              <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions.at(-1)?.q_num} onClick={() => moveQuestion(1)}>Next →</button>
             </div>
             {!params?.mockEmbed ? <button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang nộp…' : 'Submit'}</button> : null}
           </div>
@@ -952,6 +1134,14 @@ export function ReadingExamSession() {
           <h2 id="reading-next-submit-title">Nộp bài?</h2>
           <p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p>
           <div className="exam-modal__actions"><button className="exam-btn" type="button" onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="exam-btn exam-btn--primary" type="button" onClick={() => void submit()}>Nộp bài</button></div>
+        </div>
+      </div> : null}
+      {helpOpen ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-help-title">
+        <div className="exam-modal__backdrop" onClick={() => setHelpOpen(false)} />
+        <div className="exam-modal__panel reading-next-submit-panel">
+          <h2 id="reading-next-help-title">Reading test help</h2>
+          <ul className="reading-next-help-list"><li>Use the divider to balance the passage and question panes.</li><li>Select text in the passage or questions to highlight it for this attempt.</li><li>Choose a question number to move between parts.</li><li>Mark Review to turn that question into a circle in the bottom bar.</li><li>Options changes text size and colour theme without affecting your answers.</li></ul>
+          <div className="exam-modal__actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => setHelpOpen(false)}>Close help</button></div>
         </div>
       </div> : null}
     </>

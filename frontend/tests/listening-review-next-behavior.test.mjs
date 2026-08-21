@@ -126,6 +126,9 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(wrong \? 'wrong' : 'all'\)\)/);
     assert.match(CLIENT, /if \(filter !== 'all'[\s\S]{0,100}setFilter\('all'\)/);
     assert.match(CLIENT, /filter === 'wrong' \? !item\.correct/);
+    assert.match(CLIENT, /Nghe lại đúng đoạn/);
+    assert.match(CLIENT, /Đối chiếu transcript/);
+    assert.match(CLIENT, /Phân tích paraphrase/);
   });
 
   test('real audio window drives full-track seek and transcript anchor highlight', () => {

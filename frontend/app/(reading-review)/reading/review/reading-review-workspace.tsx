@@ -25,6 +25,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
+type ReviewFilter = 'wrong' | 'all' | 'correct';
 
 const SKILL_LABELS: Record<string, string> = {
   skimming: 'Đọc lướt ý chính',
@@ -384,6 +385,7 @@ export function ReadingReviewWorkspace() {
   const [mode, setMode] = useState<PassageMode>('original');
   const [highlight, setHighlight] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const [filter, setFilter] = useState<ReviewFilter>('all');
   const surveyRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef(0);
 
@@ -451,8 +453,11 @@ export function ReadingReviewWorkspace() {
           return;
         }
         setSnapshot({ ownerKey: ownerKey!, data: normalized });
-        setCurrentPart(normalized.review[0].passage_order);
-        setCurrentQuestion(normalized.review[0].q_num);
+        const firstWrong = normalized.review.find((item: any) => !item.correct);
+        const firstItem = firstWrong || normalized.review[0];
+        setCurrentPart(firstItem.passage_order);
+        setCurrentQuestion(firstItem.q_num);
+        setFilter(normalized.preview ? 'all' : (firstWrong ? 'wrong' : 'all'));
         setMode('original');
         setPhase('ready');
       } catch (caught) {
@@ -480,10 +485,14 @@ export function ReadingReviewWorkspace() {
     return () => document.body.classList.remove('is-exam-preview');
   }, [data?.preview]);
 
-  const currentItems = useMemo(() => (data?.review || []).filter((item: any) => item.passage_order === currentPart), [currentPart, data]);
+  const allCurrentItems = useMemo(() => (data?.review || []).filter((item: any) => item.passage_order === currentPart), [currentPart, data]);
+  const currentItems = useMemo(() => allCurrentItems.filter((item: any) => (
+    filter === 'wrong' ? !item.correct : filter === 'correct' ? item.correct : true
+  )), [allCurrentItems, filter]);
   const passage = useMemo(() => (data?.passages || []).find((item: any) => item.passage_order === currentPart) || null, [currentPart, data]);
   const back = useMemo(() => readingReviewBackTarget(params), [params]);
   const skills = useMemo(() => readingReviewSkillRows(data?.skillBreakdown, SKILL_LABELS), [data]);
+  const wrongCount = data?.review.filter((item: any) => !item.correct).length || 0;
 
   useEffect(() => {
     const host = surveyRef.current;
@@ -507,12 +516,13 @@ export function ReadingReviewWorkspace() {
   }, [data, params?.anonId]);
 
   const selectQuestion = useCallback((item: any) => {
+    if (filter !== 'all' && ((filter === 'wrong') === item.correct)) setFilter('all');
     setCurrentPart(item.passage_order);
     setCurrentQuestion(item.q_num);
     setHighlight(null);
     setExpanded((previous) => new Set(previous).add(item.q_num));
     requestAnimationFrame(() => document.getElementById(`reading-review-q-${item.q_num}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }, []);
+  }, [filter]);
 
   const locate = useCallback((excerpt: string) => {
     setMode('original');
@@ -549,9 +559,17 @@ export function ReadingReviewWorkspace() {
         <PassagePane passage={passage} mode={mode} highlight={highlight} onMode={(next) => { setMode(next); setHighlight(null); }} />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions rr-review" aria-label="Chữa từng câu">
-          <div className="rr-review__bar">
-            <h2 className="rr-review__title">Chữa từng câu — Phần {currentPart}</h2>
-            <button type="button" className="rr-expand-all" aria-pressed={currentItems.every((item: any) => expanded.has(item.q_num))} onClick={() => {
+          <header className="rr-review-header">
+            <div><p className="rr-review-header__eyebrow">KIỂM TRA ĐÁP ÁN</p><h1>Chữa từng câu</h1><p className="rr-review-header__copy">{data.preview
+              ? `${data.review.length} câu trong đề · Xem đáp án, trích đoạn nguồn và lời giải trước khi xuất bản.`
+              : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>
+            {!data.preview ? <div className="rr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
+              ['wrong', 'Cần xem lại'], ['all', 'Tất cả'], ['correct', 'Đúng'],
+            ] as [ReviewFilter, string][]).map(([value, label]) => <button type="button" className={`rr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}
+          </header>
+          <div className="rr-review-tools">
+            <span>Passage {currentPart} · {currentItems.length} câu đang hiển thị</span>
+            <button type="button" className="rr-expand-all" aria-pressed={currentItems.length > 0 && currentItems.every((item: any) => expanded.has(item.q_num))} disabled={!currentItems.length} onClick={() => {
               const allOpen = currentItems.every((item: any) => expanded.has(item.q_num));
               setExpanded((previous) => {
                 const next = new Set(previous);
@@ -559,10 +577,11 @@ export function ReadingReviewWorkspace() {
                 return next;
               });
               if (allOpen) setHighlight(null);
-            }}>{currentItems.every((item: any) => expanded.has(item.q_num)) ? 'Thu gọn tất cả' : 'Mở tất cả'}</button>
+            }}>{currentItems.length > 0 && currentItems.every((item: any) => expanded.has(item.q_num)) ? 'Thu gọn tất cả' : 'Mở tất cả'}</button>
           </div>
+          {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b>Tự tìm bằng chứng</span><span><b>2</b>So đáp án</span><span><b>3</b>Phân tích bẫy</span></div> : null}
           <div ref={surveyRef} />
-          <div className="rr-cards">{currentItems.map((item: any) => <QuestionCard
+          <div className="rr-cards">{currentItems.length ? currentItems.map((item: any) => <QuestionCard
             item={item}
             expanded={expanded.has(item.q_num)}
             preview={data.preview}
@@ -575,7 +594,7 @@ export function ReadingReviewWorkspace() {
             })}
             onLocate={locate}
             key={item.q_num}
-          />)}</div>
+          />) : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>
         </section>
       </main>
       <footer className="exam-palette" role="navigation" aria-label="Chọn câu để chữa">
