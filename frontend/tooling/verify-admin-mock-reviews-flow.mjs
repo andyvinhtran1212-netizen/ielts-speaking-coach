@@ -73,13 +73,14 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(`${BASE}/admin/mock-reviews?mock_exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Duyệt bài & công bố' }).waitFor();
+await page.getByRole('heading', { name: 'Nhận bài, chấm nháp & trả kết quả' }).waitFor();
 const rosterError = page.getByText(/Không tải được bảng lớp/);
 await rosterError.waitFor();
 check('roster lookup lỗi hiển thị unavailable thay vì empty', await page.getByText('Chưa có học viên nào trong kỳ thi này.').count() === 0);
 failRoster = false;
 await page.getByRole('button', { name: 'Thử lại bảng lớp' }).click();
 await page.getByRole('button', { name: 'Nguyễn An' }).waitFor();
+if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-reviews-redesign.png', fullPage: true });
 check('retry đọc lại roster canonical và giữ định danh kỳ thi', await page.getByText('MOCK-1 — Kỳ thi tháng 8').count() === 1 && requests.filter((item) => item.path === '/admin/mock-exams/exam-1/roster').length >= 2);
 
 const readingRetest = page.locator('.mrr-flags label[title="Reading"] input');
@@ -95,7 +96,7 @@ await page.getByText('Nguyễn An', { exact: true }).waitFor();
 await page.locator('.mrr-skill-result').getByText(/Kết quả/).waitFor();
 check('detail tải độc lập L/R và trạng thái Writing', ['/api/listening/tests/attempts/listen-1/review', '/api/reading/test/attempts/read-1/review', '/admin/writing/essays/essay-1/status', '/admin/writing/essays/essay-2/status'].every((path) => requests.some((item) => item.path === path)));
 
-await page.getByRole('button', { name: 'Nhận duyệt' }).click();
+await page.getByRole('button', { name: 'Nhận bài để chấm' }).click();
 await page.getByText('Đã nhận hồ sơ.').waitFor();
 check('claim chỉ thành công sau readback đúng owner', review.claimed_by === adminId && requests.filter((item) => item.path === '/admin/mock-reviews/review-1').length >= 2);
 
@@ -113,11 +114,11 @@ check('Speaking assessment refetch tạo input band extra', Boolean(review.ai_dr
 const bandInputs = page.locator('.mrr-band-grid input[type="number"]');
 check('band cuối điền sẵn L/R/W/S từ draft canonical', await bandInputs.count() === 4 && await bandInputs.nth(3).inputValue() === '7');
 await page.getByLabel('Nhận xét tổng cho học viên').fill('Nền tảng tốt, tiếp tục giữ nhịp.');
-await page.getByRole('button', { name: 'Lưu band cuối' }).click();
+await page.getByRole('button', { name: 'Lưu & chốt band' }).click();
 await page.getByText('Đã lưu band cuối và đọc lại hồ sơ canonical.').waitFor();
 check('final bands backend tính overall và canonical status reviewed', review.status === 'reviewed' && review.final_bands.overall === 7);
 
-await page.getByRole('button', { name: 'Công bố kết quả' }).click();
+await page.getByRole('button', { name: 'Trả kết quả' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận công bố' }).click();
 await page.getByText('Đã công bố kết quả cho học viên.').waitFor();
 check('release dùng dialog và chỉ đóng sau canonical released', review.status === 'released');

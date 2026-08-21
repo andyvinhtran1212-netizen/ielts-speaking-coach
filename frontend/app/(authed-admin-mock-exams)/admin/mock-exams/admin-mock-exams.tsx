@@ -123,6 +123,12 @@ export function AdminMockExams() {
   }, [profile.id]);
 
   const cohortNames = useMemo(() => new Map(cohorts.map((row) => [row.id, row.name || row.id])), [cohorts]);
+  const examCounts = useMemo(() => ({
+    drafts: exams.filter((row) => row.status === 'draft').length,
+    published: exams.filter((row) => row.status === 'published').length,
+    open: exams.filter((row) => row.isOpen).length,
+    retakes: exams.filter((row) => row.examMode === 'retake').length,
+  }), [exams]);
 
   const mutate = async (key: string, operation: () => Promise<unknown>, success: string, postcondition: () => boolean) => {
     setBusyKey(key); setNotice(null);
@@ -196,7 +202,9 @@ export function AdminMockExams() {
 
   return (
     <main className="mex-shell">
-      <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Definition & assignment</p><h1>Quản lý đề thi</h1><p>Tạo cấu hình, publish, mở kỳ và chuyển phần từ trạng thái backend hiện tại.</p></div><a className="adm-btn-secondary" href="/admin/mock-tests">Mock Test cockpit</a></header>
+      <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Soạn & giao đề</p><h1>Quản lý đề thi</h1><p>Tạo bản nháp, gắn nội dung, giao đúng lớp và chuyển đề sang phòng thi live.</p></div><a className="adm-btn-secondary" href="/admin/mock-tests">Trung tâm vận hành</a></header>
+      <section className="mex-overview" aria-label="Tổng quan quản lý đề"><div><span>Tổng đề</span><strong>{exams.length}</strong></div><div><span>Đang soạn</span><strong>{examCounts.drafts}</strong></div><div><span>Đã publish</span><strong>{examCounts.published}</strong></div><div className={examCounts.open ? 'is-live' : ''}><span>Phòng đang mở</span><strong>{examCounts.open}</strong></div><div><span>Đề test lại</span><strong>{examCounts.retakes}</strong></div></section>
+      <nav className="aop-workflow" aria-label="Quy trình vận hành đề thi"><div className="aop-workflow__step is-current"><b>01</b><span><strong>Soạn đề</strong><small>Nội dung & thời lượng</small></span></div><div className="aop-workflow__step is-current"><b>02</b><span><strong>Giao đề</strong><small>Publish & gán lớp</small></span></div><div className="aop-workflow__step"><b>03</b><span><strong>Phòng live</strong><small>Mở phần & theo dõi</small></span></div><div className="aop-workflow__step"><b>04</b><span><strong>Thu bài</strong><small>Sweep & đối chiếu</small></span></div><div className="aop-workflow__step"><b>05</b><span><strong>Chấm nháp</strong><small>Nhận hồ sơ & chốt band</small></span></div><div className="aop-workflow__step"><b>06</b><span><strong>Trả kết quả</strong><small>Công bố canonical</small></span></div></nav>
       {notice && <div className={`mex-alert is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</div>}
       {examContractWarning && <div className="mex-alert is-warning" role="alert">{examContractWarning}</div>}
       {pickerWarning && <div className="mex-alert is-error" role="alert">{pickerWarning}</div>}
@@ -204,7 +212,7 @@ export function AdminMockExams() {
       <ExamCreateForm readings={readings} listenings={listenings} prompts={prompts} cohorts={cohorts} disabled={busyKey === 'create' || Boolean(pickerWarning)} onCreate={create} onError={(message) => setNotice({ kind: 'error', message })} />
 
       <section className="mex-list-section">
-        <div className="mex-section-head"><div><p className="mex-kicker">Canonical inventory</p><h2>Danh sách đề</h2></div><button className="adm-btn-secondary" type="button" onClick={() => void loadExams()} disabled={loading}>Tải lại</button></div>
+        <div className="mex-section-head"><div><p className="mex-kicker">02 · Giao đề</p><h2>Kho đề vận hành</h2><p className="mex-section-copy">Chọn đúng hành động tiếp theo theo trạng thái canonical của từng đề.</p></div><button className="adm-btn-secondary" type="button" onClick={() => void loadExams()} disabled={loading}>Tải lại</button></div>
         {loading && !exams.length ? <div className="mex-empty" role="status">Đang tải danh sách đề…</div> : !exams.length ? <div className="mex-empty">Chưa có đề nào.</div> : <div className="mex-exam-grid">{exams.map((exam) => {
           const snapshot = progress[exam.id];
           const active = snapshot?.activeSection || exam.activeSection;
@@ -216,12 +224,13 @@ export function AdminMockExams() {
           // visible and Advance stays locked until final-save ACKs settle.
           const canAdvance = !isRetake && exam.status === 'published' && Boolean(snapshot) && active === 'not_started' && Boolean(next);
           return <article className="mex-card mex-exam" key={exam.id}>
-            <div className="mex-exam-head"><div><strong>{exam.code || 'Chưa có mã'}</strong><h3>{exam.title || 'Chưa có tiêu đề'}</h3></div><div className="mex-pill-row"><span className={`mex-pill is-${exam.status}`}>{exam.status}</span><span className="mex-pill">{isRetake ? 'Retake' : 'Sequential'}</span>{!isRetake && <span className={`mex-pill ${exam.isOpen ? 'is-open' : ''}`}>{exam.isOpen ? 'Đang mở' : 'Đóng'}</span>}</div></div>
+            <div className="mex-exam-head"><div><strong>{exam.code || 'Chưa có mã'}</strong><h3>{exam.title || 'Chưa có tiêu đề'}</h3></div><div className="mex-pill-row"><span className={`mex-pill is-${exam.status}`}>{exam.status === 'published' ? 'Đã publish' : exam.status === 'draft' ? 'Bản nháp' : exam.status}</span><span className="mex-pill">{isRetake ? 'Test lại' : 'Theo lớp'}</span>{!isRetake && <span className={`mex-pill ${exam.isOpen ? 'is-open' : ''}`}>{exam.isOpen ? 'Phòng đang mở' : 'Phòng đóng'}</span>}</div></div>
+            <ol className="mex-exam-flow" aria-label="Tiến trình đề"><li className="is-done">Soạn đề</li><li className={exam.status === 'published' ? 'is-done' : 'is-current'}>Publish & giao</li><li className={exam.isOpen || active !== 'not_started' ? 'is-done' : exam.status === 'published' ? 'is-current' : ''}>Phòng thi</li><li className={active === 'done' ? 'is-done' : active !== 'not_started' ? 'is-current' : ''}>Thu & chấm</li></ol>
             <dl className="mex-meta"><div><dt>Lớp</dt><dd>{exam.cohortId ? cohortNames.get(exam.cohortId) || exam.cohortId : isRetake ? 'Gán từng học viên' : 'Chưa gán'}</dd></div><div><dt>Phần hiện tại</dt><dd>{SECTION_LABEL[active] || active}</dd></div></dl>
             {!isRetake && snapshot && <div className="mex-progress-row">{['listening', 'reading', 'writing'].filter((section) => section === 'writing' || (section === 'listening' ? exam.listeningTestId : exam.readingTestId)).map((section) => { const item = snapshot.sections[section] || { submitted: 0, total: 0 }; return <span key={section} className={active === section ? 'is-active' : ''}><strong>{SECTION_LABEL[section]}</strong>{item.submitted}/{item.total} đã nộp{active === section && item.total > item.submitted ? ` · ${item.total - item.submitted} đang làm` : ''}</span>; })}</div>}
             {!isRetake && exam.status === 'published' && !snapshot && <div className="mex-alert is-warning">Không có snapshot tiến độ; thao tác chuyển phần đã bị khóa.</div>}
             <div className="mex-card-actions">
-              {exam.status === 'draft' && <button className="adm-btn-secondary" type="button" onClick={() => void publish(exam)} disabled={busy}>Publish</button>}
+              {exam.status === 'draft' && <button className="adm-btn-primary" type="button" onClick={() => void publish(exam)} disabled={busy}>Publish & sẵn sàng giao</button>}
               {isRetake ? <button className="adm-btn-primary" type="button" onClick={() => setAssignmentExam(exam)} disabled={busy}>Gán test lại</button> : <>
                 {!(active === 'done' && !exam.isOpen) && <button className={exam.isOpen ? 'adm-btn-secondary' : 'adm-btn-primary'} type="button" onClick={() => void toggleOpen(exam)} disabled={busy || (exam.status !== 'published' && !exam.isOpen)}>{exam.isOpen ? 'Đóng kỳ' : 'Mở kỳ'}</button>}
                 {active === 'done' && !exam.isOpen && <span className="mex-ended">Kỳ thi đã kết thúc</span>}
