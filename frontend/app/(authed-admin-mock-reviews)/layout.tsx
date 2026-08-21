@@ -15,6 +15,7 @@ export default function AdminMockReviewsLayout({ children }: { children: ReactNo
         '/css/aver-design/admin-buttons.css',
         '/css/aver-design/admin-status.css',
         '/css/admin-mock-reviews-next.css',
+        '/css/admin-exam-ops-next.css',
       ]}
     >
       {children}

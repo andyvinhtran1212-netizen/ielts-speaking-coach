@@ -2681,3 +2681,92 @@ remediation remains owned by each affected workflow and its regression tests.
   an intrinsic-width overflow in the Listening review grid before sign-off.
 - Demo screenshots use canonical-shaped 40-question submitted payloads and keep
   developer overlays out of the learner-facing evidence.
+
+---
+
+## Admin Mock Test operations wave — 2026-08-21
+
+### Validated audit findings
+
+#### Fragmented workflow language and hierarchy
+
+- **Root cause:** `/admin/mock-tests`, `/admin/mock-exams`, `/admin/mock-live`
+  and `/admin/mock-reviews` exposed the same lifecycle as separate tools with
+  different headings, English/Vietnamese status labels and no persistent model
+  of the next operational step.
+- **Severity:** Medium.
+- **Impact:** admins had to remember whether publish, open, collect, claim,
+  final-band and release belonged to the current screen; this increased the
+  risk of acting on the wrong exam or mistaking “claim” for learner submission.
+- **Impacted files/functions:** `admin-mock-tests.tsx` (`TABS`, cockpit shell),
+  `admin-mock-exams.tsx` (inventory actions), `admin-mock-live.tsx` (command
+  room), `admin-mock-reviews.tsx` (review roster and release workspace).
+- **Minimal fix applied:** introduce one route-local operations language and a
+  six-stage workflow: Soạn đề → Giao đề → Phòng live → Thu bài → Chấm nháp →
+  Trả kết quả. Backend statuses and mutation contracts remain unchanged.
+- **Verification:** source/model tests, TypeScript build, and populated desktop
+  plus mobile visual checks across all four routes.
+
+#### Flat exam creation form hid sequencing and review context
+
+- **Root cause:** eleven fields were presented in one four-column grid with the
+  submit action detached from the consequences of creating a draft.
+- **Severity:** Medium.
+- **Impact:** weak scan order, easy content/duration omission and unclear
+  difference between saving a draft, publishing and assigning a test.
+- **Impacted file/function:** `exam-create-form.tsx` (`ExamCreateForm`).
+- **Minimal fix applied:** group fields into identity/audience, published exam
+  content and timing/review fieldsets; add a sticky draft summary and explicit
+  next-step copy without changing `buildExamCreatePayload()`.
+- **Verification:** create-payload contract tests; keyboard and responsive form
+  pass; confirm sequential mode still requires a cohort and retake does not.
+
+#### Live-room command priority competed with monitoring data
+
+- **Root cause:** exam identity, timer, destructive/open controls and phase
+  actions shared one visual level; the roster did not expose the active paper
+  sequence above the command area.
+- **Severity:** Critical for operational UX; no backend correctness defect was
+  found.
+- **Impact:** during a timed session an operator could take longer to identify
+  whether the room was collecting, paused or safe to advance.
+- **Impacted file/function:** `admin-mock-live.tsx` (`AdminMockLive`).
+- **Minimal fix applied:** add a section phase rail, isolate the priority queue,
+  preserve the existing `collectionSweepCompletedSection` gate and keep table
+  identity/header visible while scanning horizontally.
+- **Verification:** live model/source guard tests must continue to prove that
+  Advance remains disabled until final-save collection is canonical.
+
+#### Review queue mixed selection, AI draft grading and release actions
+
+- **Root cause:** a single bulk toolbar placed selection metadata, Writing tier,
+  claim, final-band and irreversible release controls in one undifferentiated
+  row.
+- **Severity:** Medium.
+- **Impact:** eligibility counts were hard to associate with their action and
+  the difference between “receive for grading” and “return to learner” was weak.
+- **Impacted file/function:** `admin-mock-reviews.tsx` (`AdminMockReviews`).
+- **Minimal fix applied:** expose queue-stage counts; group selection, Writing
+  draft grading and canonical bulk actions; rename display copy to “Nhận bài”
+  and “Trả kết quả” while preserving claim/release endpoints and reconciliation.
+- **Verification:** review behavior/model tests; bulk partial-refusal test; full
+  reload must match immediate post-action status.
+
+### Design-system packet for this wave
+
+- **Scope:** admin Mock Test cockpit, exam definition/assignment, live room,
+  pacing evidence and review/release workspace.
+- **Primary mode:** cross-surface alignment, not a global token rewrite.
+- **Foundations:** existing semantic `--av-*` tokens, operational low-elevation
+  surfaces, mono only for IDs/timers/counts, 44px critical controls, sticky data
+  context, visible focus and reduced-motion support.
+- **Primitive policy:** shared lifecycle primitives use `aop-*`; route contracts
+  and domain layouts retain `mts-*`, `mex-*`, `mlv-*`, `mpn-*` and `mrr-*`.
+- **Surface guidance:** one dominant next action per state; destructive actions
+  remain isolated; canonical snapshot warnings stay visible and never collapse
+  into empty states.
+- **Accessibility:** semantic nav/section labels, horizontally contained dense
+  tables, visible focus, 44px actions and mobile workflow scrolling.
+- **Route-outs:** backend/API/schema changes, grading policy and exact-thinking-
+  time inference are out of scope. Pacing timestamps remain last-save evidence.
+- **Open decisions:** none; all labels map onto existing canonical operations.

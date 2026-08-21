@@ -26,11 +26,11 @@ type Exam = {
 type Tab = 'manage' | 'live' | 'review' | 'writing';
 type Stage = 'all' | 'draft' | 'live' | 'closed';
 
-const TABS: { id: Tab; label: string; needsExam: boolean; legacy: boolean }[] = [
-  { id: 'manage', label: 'Quản lý đề', needsExam: false, legacy: false },
-  { id: 'live', label: 'Phòng thi trực tiếp', needsExam: true, legacy: false },
-  { id: 'review', label: 'Duyệt bài thi', needsExam: true, legacy: false },
-  { id: 'writing', label: 'Chấm Writing', needsExam: false, legacy: false },
+const TABS: { id: Tab; label: string; description: string; needsExam: boolean; legacy: boolean }[] = [
+  { id: 'manage', label: 'Quản lý & giao đề', description: 'Soạn, publish, gán lớp', needsExam: false, legacy: false },
+  { id: 'live', label: 'Phòng thi live', description: 'Mở phòng, thu bài', needsExam: true, legacy: false },
+  { id: 'review', label: 'Nhận & chấm bài', description: 'Nhận hồ sơ, chốt band', needsExam: true, legacy: false },
+  { id: 'writing', label: 'Chấm Writing', description: 'Hàng chờ chấm nháp', needsExam: false, legacy: false },
 ];
 const STAGES: { id: Stage; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
@@ -54,6 +54,7 @@ export function AdminMockTests() {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [stage, setStage] = useState<Stage>('all');
+  const [query, setQuery] = useState('');
   const [exams, setExams] = useState<Exam[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -120,7 +121,16 @@ export function AdminMockTests() {
     if (requestedExam && exams.some((exam) => exam.id === requestedExam)) setSelectedId(requestedExam);
   }, [exams, requestedExam]);
 
-  const shown = useMemo(() => filterMockExams(exams, stage) as Exam[], [exams, stage]);
+  const shown = useMemo(() => {
+    const staged = filterMockExams(exams, stage) as Exam[];
+    const needle = query.trim().toLocaleLowerCase('vi');
+    return needle ? staged.filter((exam) => `${exam.code} ${exam.title}`.toLocaleLowerCase('vi').includes(needle)) : staged;
+  }, [exams, query, stage]);
+  const counts = useMemo(() => ({
+    draft: exams.filter((exam) => mockExamStage(exam) === 'draft').length,
+    live: exams.filter((exam) => mockExamStage(exam) === 'live').length,
+    closed: exams.filter((exam) => mockExamStage(exam) === 'closed').length,
+  }), [exams]);
   const selected = exams.find((exam) => exam.id === selectedId) || null;
   const selectionHidden = Boolean(selected && !shown.some((exam) => exam.id === selected.id));
   const activeTab = TABS.find((item) => item.id === tab) || TABS[0];
@@ -180,12 +190,30 @@ export function AdminMockTests() {
     <main className="mts-shell">
       <header className="mts-hero">
         <div>
-          <p className="mts-eyebrow">Operations · Four-skill assessment</p>
-          <h1>Mock Test cockpit</h1>
-          <p>Chọn đúng đề trước khi mở phòng thi hoặc duyệt bài; trạng thái lấy trực tiếp từ backend.</p>
+          <p className="mts-eyebrow">Assessment operations</p>
+          <h1>Trung tâm vận hành Mock Test</h1>
+          <p>Một luồng xuyên suốt từ soạn và giao đề đến coi thi, thu bài, chấm nháp và trả kết quả.</p>
         </div>
         <a className="adm-btn-secondary" href="/admin">Tổng quan Admin</a>
       </header>
+
+      <section className="mts-overview" aria-label="Tổng quan đề thi">
+        <div><span>Tổng số đề</span><strong>{exams.length}</strong></div>
+        <div><span>Đang soạn</span><strong>{counts.draft}</strong></div>
+        <div className={counts.live ? 'is-live' : ''}><span>Đang mở phòng</span><strong>{counts.live}</strong></div>
+        <div><span>Đã đóng</span><strong>{counts.closed}</strong></div>
+      </section>
+
+      <nav className="aop-workflow" aria-label="Quy trình vận hành đề thi">
+        {[
+          ['01', 'Soạn đề', 'Nội dung & thời lượng', 'manage'],
+          ['02', 'Giao đề', 'Publish & gán lớp', 'manage'],
+          ['03', 'Phòng live', 'Mở phần & theo dõi', 'live'],
+          ['04', 'Thu bài', 'Sweep & đối chiếu', 'live'],
+          ['05', 'Chấm nháp', 'Nhận hồ sơ & chốt band', 'review'],
+          ['06', 'Trả kết quả', 'Công bố canonical', 'review'],
+        ].map(([number, label, description, owner]) => <div className={`aop-workflow__step${tab === owner ? ' is-current' : ''}`} key={number}><b>{number}</b><span><strong>{label}</strong><small>{description}</small></span></div>)}
+      </nav>
 
       {error && <div className="mts-alert is-error" role="alert"><strong>{exams.length ? 'Không làm mới được; đang giữ snapshot cũ.' : 'Không tải được danh sách đề.'}</strong><span>{error}</span></div>}
       {notice && <div className="mts-alert is-warning" role="alert">{notice}</div>}
@@ -199,6 +227,7 @@ export function AdminMockTests() {
           <div className="mts-filters" aria-label="Lọc trạng thái đề">
             {STAGES.map((item) => <button key={item.id} type="button" className={stage === item.id ? 'is-active' : ''} aria-pressed={stage === item.id} onClick={() => setStage(item.id)}>{item.label}</button>)}
           </div>
+          <label className="mts-search"><span className="aop-visually-hidden">Tìm đề thi</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã hoặc tên đề…" /></label>
           {selectionHidden && <div className="mts-alert is-warning" role="status">Đề đang thao tác bị ẩn bởi bộ lọc. Chọn một đề đang hiển thị để đổi phạm vi.</div>}
           {loading && !exams.length
             ? <div className="mts-rail__state" role="status">Đang tải đề thi…</div>
@@ -212,7 +241,7 @@ export function AdminMockTests() {
 
         <section className="mts-panel" aria-labelledby={`mts-tab-${tab}`}>
           <nav className="mts-tabs" role="tablist" aria-label="Không gian Mock Test">
-            {TABS.map((item, index) => <button key={item.id} id={`mts-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls="mts-panel" tabIndex={tab === item.id ? 0 : -1} data-needs-exam={item.needsExam ? '' : undefined} onKeyDown={(event) => onTabKey(event, index)} onClick={() => activateTab(item.id)}>{item.label}</button>)}
+            {TABS.map((item, index) => <button key={item.id} id={`mts-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls="mts-panel" tabIndex={tab === item.id ? 0 : -1} data-needs-exam={item.needsExam ? '' : undefined} onKeyDown={(event) => onTabKey(event, index)} onClick={() => activateTab(item.id)}><strong>{item.label}</strong><small>{item.description}</small></button>)}
           </nav>
           {activeTab.legacy && <div className="mts-migration-note" role="status"><span>MODULE ROLLBACK</span> Workspace điều phối đã là Next.js; module nghiệp vụ này vẫn chạy bản HTML trong batch hiện tại.</div>}
           {activeTab.needsExam && selected && <div className="mts-context"><span>Đang thao tác trên</span><strong>{selected.code || selected.id}</strong><span>{selected.title}</span></div>}

@@ -28,6 +28,8 @@ describe('/admin/mock-reviews native ownership', () => {
 
   test('fails closed on missing identity and keeps lookup failures distinct from empty truth', () => {
     for (const token of ['Thiếu mock_exam_id', 'Không tải được bảng lớp', 'Thử lại bảng lớp', 'Không tải được tổng kết test lại', 'normalizeReviewRoster', 'normalizeRetestSummary', 'requestRef.current', 'detailRequestRef.current', 'accountRef.current !== account']) assert.ok(COMPONENT.includes(token), token);
+    assert.match(COMPONENT, /rosterLoaded && !loading && !rosterError \? <section className="mrr-pipeline"/);
+    assert.match(COMPONENT, /setRosterLoaded\(false\); setRosterError\(`Không tải được bảng lớp:/);
     assert.doesNotMatch(COMPONENT, /catch\s*\([^)]*\)\s*\{\s*\}/);
   });
 
