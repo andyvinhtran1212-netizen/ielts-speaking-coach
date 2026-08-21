@@ -25,7 +25,7 @@
 
 .exam-result-heading {
   margin-bottom: var(--av-space-6);
-  padding-bottom: var(--av-space-5);
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--exam-border-default);
 }
 
@@ -112,7 +112,7 @@
   justify-content: center;
   flex-direction: column;
   min-width: 0;
-  padding: var(--av-space-5) clamp(18px, 4vw, 38px);
+  padding: 20px clamp(18px, 4vw, 38px);
 }
 
 .exam-result-metrics > div:nth-child(odd) { border-right: 1px solid var(--exam-border-default); }
@@ -123,7 +123,7 @@
 
 .exam-result-parts,
 .exam-result-review-card {
-  margin-bottom: var(--av-space-5);
+  margin-bottom: 20px;
   padding: clamp(18px, 3vw, 28px);
   border: 1px solid var(--exam-border-default);
   background: var(--exam-surface-card);

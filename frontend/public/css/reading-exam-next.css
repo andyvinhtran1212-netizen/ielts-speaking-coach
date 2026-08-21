@@ -303,7 +303,7 @@
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 3px;
-  color: #fff;
+  color: var(--av-text-on-primary);
   font-size: 12px;
   cursor: pointer;
 }
@@ -333,7 +333,7 @@
 
 ::highlight(reading-highlight) {
   color: inherit;
-  background: #f6dc6b;
+  background: var(--ielts-current-ring);
 }
 
 .reading-next-selection-tools {
@@ -341,7 +341,7 @@
   z-index: 80;
   display: flex;
   border: 1px solid var(--exam-border-strong);
-  background: #27384f;
+  background: var(--ielts-navy-2);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
 }
 
@@ -350,7 +350,7 @@
   padding: 5px 11px;
   border: 0;
   background: transparent;
-  color: #fff;
+  color: var(--av-text-on-primary);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -358,7 +358,7 @@
 
 .reading-next-selection-tools button + button { border-left: 1px solid rgba(255, 255, 255, .3); }
 .reading-next-selection-tools button:hover { background: rgba(255, 255, 255, .12); }
-.reading-next-selection-tools button:focus-visible { outline: 2px solid #f6dc6b; outline-offset: -3px; }
+.reading-next-selection-tools button:focus-visible { outline: 2px solid var(--ielts-current-ring); outline-offset: -3px; }
 
 @media (max-width: 760px) {
   .reading-next-player-page.reading-next-testing {

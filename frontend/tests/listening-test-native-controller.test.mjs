@@ -268,6 +268,13 @@ describe('native Listening test route contract', () => {
     assert.match(page, /if \(qNum\) setCurrentQuestion\(qNum\)/);
   });
 
+  test('uses a Safari 15-safe testing-state hook for page overflow', () => {
+    const css = read('frontend/public/css/listening-test-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.listening-next-player-page\.listening-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('listening-next-testing', testing\)/);
+  });
+
   test('uses canonical load, resume, start, answer and submit endpoints', () => {
     assert.match(page, /\/api\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}/);
     assert.match(page, /\/attempts\/in-progress/);

@@ -650,6 +650,12 @@ export function ListeningTestSession() {
     }
   }, [activeSection, allQuestions, currentTime, testData?.cue_points]);
 
+  useEffect(() => {
+    const testing = ['inprogress', 'submitting'].includes(phase);
+    document.body.classList.toggle('listening-next-testing', testing);
+    return () => document.body.classList.remove('listening-next-testing');
+  }, [phase]);
+
   if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} />;
 
   const activeSectionData = sections.find((section: any) => Number(section.section_num) === activeSection);
