@@ -125,6 +125,23 @@ def test_list_assignments_reports_and_removes_sentinel_row():
     assert len(r.json()["assignments"]) == 500
 
 
+def test_cohort_list_filter_keeps_stamped_rows_and_limits_legacy_rows_to_roster():
+    from routers.admin_writing_assignments import _cohort_assignment_filter
+
+    cohort_id = "00000000-0000-0000-0000-00000000eeee"
+    assert _cohort_assignment_filter(cohort_id, [_STUDENT_ID]) == (
+        f"cohort_id.eq.{cohort_id},"
+        f"and(cohort_id.is.null,student_id.in.({_STUDENT_ID}))"
+    )
+
+
+def test_cohort_list_filter_keeps_stamped_history_after_last_member_leaves():
+    from routers.admin_writing_assignments import _cohort_assignment_filter
+
+    cohort_id = "00000000-0000-0000-0000-00000000eeee"
+    assert _cohort_assignment_filter(cohort_id, []) == f"cohort_id.eq.{cohort_id}"
+
+
 def test_create_single_assignment_returns_count_one_no_duplicates():
     """Create one assignment for one student — no existing duplicates →
     `duplicates_warning` is empty."""
@@ -183,6 +200,7 @@ def test_create_with_request_id_uses_atomic_idempotency_rpc():
     assert name == "fn_create_writing_assignments_idempotent"
     assert args["p_request_id"] == request_id
     assert args["p_student_ids"] == [_STUDENT_ID]
+    assert "cohort_id" not in args["p_request_payload"]
     mock_db.table.return_value.insert.assert_not_called()
 
 

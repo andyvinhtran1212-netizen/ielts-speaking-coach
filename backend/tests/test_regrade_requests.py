@@ -203,6 +203,50 @@ def test_admin_list_reads_all_lanes_from_one_rpc_snapshot():
     })
 
 
+def test_admin_list_preserves_secondary_class_filter_context_in_decoration():
+    secondary = "00000000-0000-0000-0000-0000000000b2"
+    source = [{"id": _REQ, "student_id": _STUDENT["id"], "essay_id": _ESSAY}]
+    db = _rpc_db({"requests": source, "capped": False})
+    decorated = [{**source[0], "cohort_name": "Lớp B"}]
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db), \
+         patch("routers.admin_writing_regrade._decorate", return_value=decorated) as decorate:
+        r = TestClient(_app()).get(
+            f"/admin/writing/regrade-requests?cohort_id={secondary}", headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    decorate.assert_called_once_with(source, preferred_cohort_id=secondary)
+    assert r.json()["requests"][0]["cohort_name"] == "Lớp B"
+
+
+def test_decorate_labels_secondary_class_selected_by_canonical_filter():
+    from routers import admin_writing_regrade as module
+
+    primary = "00000000-0000-0000-0000-0000000000a1"
+    secondary = "00000000-0000-0000-0000-0000000000b2"
+    db = _routed_db({
+        "students": [{
+            "id": _STUDENT["id"], "full_name": "Phương Anh",
+            "student_code": "C1-001", "cohort_id": primary,
+        }],
+        "cohorts": [
+            {"id": primary, "name": "Lớp A"},
+            {"id": secondary, "name": "Lớp B"},
+        ],
+        "writing_essays": [{
+            "id": _ESSAY, "prompt_text": "Prompt", "task_type": "task2",
+            "status": "delivered",
+        }],
+        "writing_feedback_current": [],
+    })
+    with patch.object(module, "supabase_admin", db):
+        row = module._decorate(
+            [{"id": _REQ, "student_id": _STUDENT["id"], "essay_id": _ESSAY}],
+            preferred_cohort_id=secondary,
+        )[0]
+    assert row["cohort_name"] == "Lớp B"
+
+
 def test_admin_accept_un_delivers_essay():
     db = _rpc_db({"ok": True, "request": {"id": _REQ, "status": "accepted", "essay_id": _ESSAY}})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \

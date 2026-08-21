@@ -136,6 +136,17 @@ def _read_assignment_request_receipt(
     return {**receipt, "replayed": True}
 
 
+def _cohort_assignment_filter(cohort_id: str, active_student_ids: list[str]) -> str:
+    """Keep stamped history; membership only broadens legacy NULL-origin rows."""
+    stamped = f"cohort_id.eq.{cohort_id}"
+    if not active_student_ids:
+        return stamped
+    student_ids = ",".join(dict.fromkeys(active_student_ids))
+    return (
+        f"{stamped},and(cohort_id.is.null,student_id.in.({student_ids}))"
+    )
+
+
 # ── Request bodies ────────────────────────────────────────────────────
 
 
@@ -245,13 +256,12 @@ async def list_assignments(
     rows without provenance retain the historical membership-based fallback."""
     await require_admin(authorization)
 
-    # Resolve cohort → student_ids before querying assignments.
+    # Stamped rows retain their immutable class origin after roster changes.
+    # Current membership is consulted only for legacy/direct NULL-origin rows.
     cohort_student_ids: Optional[list[str]] = None
     if cohort_id:
         cohort_student_ids = active_student_ids_for_cohort(
             supabase_admin, str(cohort_id))
-        if not cohort_student_ids:
-            return {"assignments": [], "capped": False}
 
     q = (
         supabase_admin.table("writing_assignments")
@@ -274,8 +284,7 @@ async def list_assignments(
     if prompt_id:
         q = q.eq("prompt_id", str(prompt_id))
     if cohort_student_ids is not None:
-        q = q.in_("student_id", cohort_student_ids)
-        q = q.or_(f"cohort_id.eq.{cohort_id},cohort_id.is.null")
+        q = q.or_(_cohort_assignment_filter(str(cohort_id), cohort_student_ids))
     if status_filter:
         q = q.eq("status", status_filter)
 

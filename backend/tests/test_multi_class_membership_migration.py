@@ -5,6 +5,8 @@ from pathlib import Path
 
 SQL = (Path(__file__).parents[1] / "migrations" /
        "217_student_cohort_memberships.sql").read_text(encoding="utf-8")
+SQL_218 = (Path(__file__).parents[1] / "migrations" /
+           "218_writing_idempotency_optional_cohort.sql").read_text(encoding="utf-8")
 
 
 def test_migration_is_additive_and_backfills_legacy_primary_class():
@@ -48,3 +50,12 @@ def test_membership_mutations_and_assignment_rpcs_are_backend_only():
     ):
         assert f"REVOKE EXECUTE ON FUNCTION {function}" in SQL
     assert "FROM PUBLIC, anon, authenticated" in SQL
+
+
+def test_followup_migration_restores_idempotent_individual_writing_gives():
+    assert "IF v_cohort_id IS NOT NULL THEN" in SQL_218
+    assert "IF v_cohort_id IS NULL THEN" not in SQL_218
+    assert "student_id, cohort_id, assignment_group_id" in SQL_218
+    assert "v_cohort_id, v_group_id" in SQL_218
+    assert "REVOKE ALL ON FUNCTION" in SQL_218
+    assert "TO service_role" in SQL_218
