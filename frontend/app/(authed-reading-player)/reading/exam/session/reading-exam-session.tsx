@@ -100,6 +100,11 @@ function optionValue(option: Option) {
   return String(option.label ?? option.text ?? '');
 }
 
+function optionPrefix(option: Option) {
+  if (typeof option === 'string') return '';
+  return String(option.label ?? '');
+}
+
 function optionBodyText(option: Option) {
   if (typeof option === 'string') return option;
   return String(option.text ?? option.label ?? '');
@@ -193,9 +198,10 @@ function QuestionControl({ question, value, onChange }: {
   if (type === 'mcq_single') {
     return <div className="exam-q__options">{options.map((option) => {
       const answer = optionValue(option);
+      const prefix = optionPrefix(option);
       return <label className="exam-q__option" key={answer}>
         <input type="radio" name={`q-${question.q_num}`} value={answer} checked={value === answer} onChange={() => onChange(answer)} />
-        <span className="exam-q__option-prefix">{optionValue(option)}</span>
+        {prefix ? <span className="exam-q__option-prefix">{prefix}</span> : null}
         <span className="exam-q__option-text">{optionBodyText(option)}</span>
       </label>;
     })}</div>;
@@ -207,6 +213,7 @@ function QuestionControl({ question, value, onChange }: {
     return <div className="exam-q__options exam-q__options--multi" role="group" aria-label={`Answer ${question.q_num}`}>
       {options.map((option) => {
         const answer = optionValue(option);
+        const prefix = optionPrefix(option);
         const checked = selected.has(answer);
         const locked = !checked && choose > 0 && selected.size >= choose;
         return <label className="exam-q__option exam-q__option--checkbox" key={answer}>
@@ -221,7 +228,7 @@ function QuestionControl({ question, value, onChange }: {
               onChange([...next].join(','));
             }}
           />
-          <span className="exam-q__option-prefix">{optionValue(option)}</span>
+          {prefix ? <span className="exam-q__option-prefix">{prefix}</span> : null}
           <span className="exam-q__option-text">{optionBodyText(option)}</span>
         </label>;
       })}
@@ -338,10 +345,13 @@ function QuestionBank({ type, options }: { type: string; options: Option[] }) {
       : type === 'matching_sentence_endings' ? 'endings' : 'word-bank';
   return <aside className={`exam-${family}-box`} aria-label={title}>
     <p className={`exam-${family}-box__title`}>{title}</p>
-    <ol className={`exam-${family}-box__list`}>{options.map((option) => <li className={`exam-${family}-box__item`} key={optionValue(option)}>
-      <strong className={`exam-${family}-box__roman`}>{optionValue(option)}</strong>
-      <span className={`exam-${family}-box__text`}>{optionBodyText(option)}</span>
-    </li>)}</ol>
+    <ol className={`exam-${family}-box__list`}>{options.map((option) => {
+      const prefix = optionPrefix(option);
+      return <li className={`exam-${family}-box__item`} key={optionValue(option)}>
+        {prefix ? <strong className={`exam-${family}-box__roman`}>{prefix}</strong> : null}
+        <span className={`exam-${family}-box__text`}>{optionBodyText(option)}</span>
+      </li>;
+    })}</ol>
   </aside>;
 }
 
@@ -988,6 +998,12 @@ export function ReadingExamSession() {
     highlightRangesRef.current = [];
     setSelectionMenu(null);
   };
+
+  useEffect(() => {
+    const testing = ['inprogress', 'submitting'].includes(phase);
+    document.body.classList.toggle('reading-next-testing', testing);
+    return () => document.body.classList.remove('reading-next-testing');
+  }, [phase]);
 
   if (phase === 'results') return <ResultView
     result={result}

@@ -7,7 +7,7 @@
   height: 100%;
 }
 
-.reading-next-player-page:has(.reading-next-part-strip) {
+.reading-next-player-page.reading-next-testing {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
@@ -361,7 +361,7 @@
 .reading-next-selection-tools button:focus-visible { outline: 2px solid #f6dc6b; outline-offset: -3px; }
 
 @media (max-width: 760px) {
-  .reading-next-player-page:has(.reading-next-part-strip) {
+  .reading-next-player-page.reading-next-testing {
     display: block;
     min-height: 100vh;
     height: auto;

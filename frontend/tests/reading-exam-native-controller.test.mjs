@@ -329,6 +329,20 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /> Review<\/label>/);
   });
 
+  test('uses a Safari 15-safe testing-state hook for the four-row exam grid', () => {
+    const css = read('frontend/public/css/reading-exam-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.reading-next-player-page\.reading-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('reading-next-testing', testing\)/);
+  });
+
+  test('renders string options once and reserves prefixes for labeled objects', () => {
+    assert.match(page, /function optionPrefix\(option: Option\)/);
+    assert.match(page, /if \(typeof option === 'string'\) return '';/);
+    assert.match(page, /prefix \? <span className="exam-q__option-prefix">\{prefix\}<\/span> : null/);
+    assert.match(page, /prefix \? <strong className=\{`exam-\$\{family\}-box__roman`\}>\{prefix\}<\/strong> : null/);
+  });
+
   test('hands completion off from a scannable result summary to protected review detail', () => {
     assert.match(layout, /exam-result-next\.css/);
     assert.match(page, /READING · FULL TEST COMPLETE/);

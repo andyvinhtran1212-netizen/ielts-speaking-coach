@@ -642,8 +642,13 @@ export function ListeningTestSession() {
     for (const cue of testData.cue_points) {
       if (cue?.type === 'section_start' && Number(cue.timestamp_seconds) <= currentTime + 0.5 && Number(cue.section_num) > nextSection) nextSection = Number(cue.section_num);
     }
-    if (nextSection !== activeSection) setActiveSection(nextSection);
-  }, [activeSection, currentTime, testData?.cue_points]);
+    if (nextSection !== activeSection) {
+      setActiveSection(nextSection);
+      const firstQuestion = allQuestions.find(({ sectionNum }: any) => Number(sectionNum) === nextSection);
+      const qNum = Number(firstQuestion?.question?.q_num || 0);
+      if (qNum) setCurrentQuestion(qNum);
+    }
+  }, [activeSection, allQuestions, currentTime, testData?.cue_points]);
 
   if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} />;
 

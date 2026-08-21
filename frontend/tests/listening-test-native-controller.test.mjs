@@ -262,6 +262,12 @@ describe('native Listening test route contract', () => {
     assert.match(page, /querySelector<HTMLElement>\(`\[data-q-group~/);
   });
 
+  test('keeps the current question synchronized when an audio cue advances the Part', () => {
+    assert.match(page, /nextSection !== activeSection[\s\S]*setActiveSection\(nextSection\)/);
+    assert.match(page, /allQuestions\.find\(\(\{ sectionNum \}: any\) => Number\(sectionNum\) === nextSection\)/);
+    assert.match(page, /if \(qNum\) setCurrentQuestion\(qNum\)/);
+  });
+
   test('uses canonical load, resume, start, answer and submit endpoints', () => {
     assert.match(page, /\/api\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}/);
     assert.match(page, /\/attempts\/in-progress/);
