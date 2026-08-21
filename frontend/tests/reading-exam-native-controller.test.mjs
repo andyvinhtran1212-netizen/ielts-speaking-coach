@@ -308,6 +308,49 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /function DiagramImageRun/);
     assert.match(page, /readingQuestionInstruction\(run, part\)/);
   });
+
+  test('preserves the interaction model of each Reading question type', () => {
+    assert.match(page, /choices\.map\(\(choice\) => <label className="exam-q__option exam-q__option--claim"/);
+    assert.match(page, /type="radio" name=\{`q-\$\{question\.q_num\}`\}/);
+    assert.match(page, /function MatchingMatrixRun/);
+    assert.match(page, /type === 'matching_features'/);
+    assert.match(page, /type === 'matching_headings' \? 'headings'/);
+    assert.match(page, /type === 'matching_sentence_endings' \? 'endings'/);
+    assert.match(page, /className=\{`exam-\$\{family\}-box`\}/);
+  });
+
+  test('ships computer-test navigation, resizable panes and selection highlighting', () => {
+    assert.match(page, /exam-palette__group/);
+    assert.match(page, /is-current/);
+    assert.match(page, /aria-valuemin=\{30\}/);
+    assert.match(page, /setPointerCapture/);
+    assert.match(page, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
+    assert.match(page, /CSS as any\)\.highlights/);
+    assert.match(page, /> Review<\/label>/);
+  });
+
+  test('uses a Safari 15-safe testing-state hook for the four-row exam grid', () => {
+    const css = read('frontend/public/css/reading-exam-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.reading-next-player-page\.reading-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('reading-next-testing', testing\)/);
+  });
+
+  test('renders string options once and reserves prefixes for labeled objects', () => {
+    assert.match(page, /function optionPrefix\(option: Option\)/);
+    assert.match(page, /if \(typeof option === 'string'\) return '';/);
+    assert.match(page, /prefix \? <span className="exam-q__option-prefix">\{prefix\}<\/span> : null/);
+    assert.match(page, /prefix \? <strong className=\{`exam-\$\{family\}-box__roman`\}>\{prefix\}<\/strong> : null/);
+  });
+
+  test('hands completion off from a scannable result summary to protected review detail', () => {
+    assert.match(layout, /exam-result-next\.css/);
+    assert.match(page, /READING · FULL TEST COMPLETE/);
+    assert.match(page, /exam-result-question-map/);
+    assert.match(page, /Kết quả chi tiết chỉ hiển thị trong không gian chữa bài/);
+    assert.match(page, /readingReviewHref\(attemptId, \{ anonId, from, sittingId \}\)/);
+    assert.doesNotMatch(page, /<td>\{row\.expected/);
+  });
 });
 
 function callbacksId(callback) {

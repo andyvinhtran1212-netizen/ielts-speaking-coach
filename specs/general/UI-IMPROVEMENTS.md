@@ -2486,6 +2486,204 @@ remediation remains owned by each affected workflow and its regression tests.
 
 ---
 
+# Reading and Listening full-test fidelity audit
+
+> Audit date: 2026-08-21
+> Scope: native Next Reading `/reading/exam/session` and Listening
+> `/listening/test/session`, their stylesheet cascades, canonical attempt/save/
+> submit contracts, the internal interactive-HTML standard, and current official
+> IELTS on-computer sample/familiarisation surfaces.
+
+## Validated findings and remediation
+
+### High — the Listening full test looked and behaved like a learner dashboard
+
+- **Root cause:** `ListeningTestSession()` mounted the global `aver-chrome`, a
+  sticky media-player card with elapsed/total progress, a wide card-like paper,
+  and a flat 40-question grid. The same audio controls served both practice and
+  full-test modes even though their learning contracts are intentionally
+  different.
+- **Impact:** the visible hierarchy trained the learner to look for a media
+  scrubber and product navigation rather than the recording status, current
+  part, question paper and exam navigator used during a computer-delivered test.
+- **Impacted files/functions:**
+  `frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`
+  (`ListeningTestSession`, `startAudio`) and
+  `frontend/public/css/listening-test-next.css`.
+- **Minimal fix applied:** neutral exam top bar; explicit headphone/Play gate;
+  one-shot full-test audio status with no seek timeline; practice-only pause and
+  seek controls; flat institutional question canvas; bottom palette grouped by
+  Part with current, answered, review and save states.
+- **Verification:** source-contract tests pin the practice/full-test split and
+  one-shot latch; keyboard and pointer navigation are checked at desktop and
+  narrow widths; answer autosave and submit continue to use the canonical APIs.
+
+### Medium — choice and matching tasks were flattened into generic controls
+
+- **Root cause:** the React ports preserved data and scoring contracts but used
+  a shared `<select>` fallback for Reading T/F/NG, Y/N/NG and Matching Features,
+  and Listening matching. This discarded the comparison model of each task.
+- **Impact:** learners could not scan all choices at once; matching features did
+  not resemble the row-by-option matrix used by the official computer sample;
+  claim-evaluation tasks felt like completion gaps.
+- **Impacted files/functions:**
+  `reading-exam-session.tsx` (`QuestionControl`, `QuestionRun`,
+  `MatchingMatrixRun`) and `listening-test-session.tsx` (`Exercise`,
+  `MatchingMatrixTemplate`).
+- **Minimal fix applied:** vertical radios for T/F/NG and Y/N/NG; radios for
+  single-choice and checkboxes for multiple-choice; matrix renderers for feature
+  matching; option-bank plus constrained select retained for heading/endings,
+  map and plan-label tasks; authored inline form/table/note/summary templates
+  remain structurally distinct.
+- **Verification:** renderer source tests cover each dispatch branch; typecheck
+  rejects prop/answer-shape drift; desktop and mobile QA checks matrix overflow.
+
+### Medium — Reading lacked complete computer-test navigation affordances
+
+- **Root cause:** the native player had the split-view CSS foundation, but its
+  divider was inert and the palette did not expose a current question or grouped
+  Part model. The React route also omitted the selection highlight affordance
+  present in the official familiarisation UI.
+- **Impact:** pane balance could not be adjusted, Previous/Next acted at the
+  wrong information level, and learners had weaker position/review awareness.
+- **Impacted files/functions:**
+  `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx`
+  (`ReadingExamSession`, `QuestionCard`, `QuestionRun`) and
+  `frontend/public/css/reading-exam-next.css`.
+- **Minimal fix applied:** pointer- and keyboard-operable 30–70% divider;
+  current-question tracking; grouped Part palette; Previous/Next by question;
+  local Review markers; selection toolbar using the browser Highlight API;
+  display Options and Help without changing answer state.
+- **Verification:** divider exposes separator ARIA range state and Arrow/Home/
+  End keys; question palette states and radio/matrix branches are source-tested;
+  independent pane scrolling is visually checked at 1280×720.
+
+### Low — inherited “paper” typography misrepresented the current exam mode
+
+- **Root cause:** `ielts-test-paper.css` intentionally used Georgia and rounded
+  paper cards from an earlier Cambridge-book metaphor.
+- **Impact:** the test looked like a printable worksheet instead of a modern
+  institutional computer test and reduced visual continuity between Reading and
+  Listening.
+- **Impacted file:** `frontend/public/css/listening-test-next.css` (final cascade
+  override; the legacy shared stylesheet remains intact for legacy dependants).
+- **Minimal fix applied:** system sans typography, neutral gray/white surfaces,
+  square controls, restrained accent use and a full-viewport test canvas.
+- **Verification:** computed typography, surface, focus and containment are
+  checked in the native Next route; no broad change is made to legacy pages.
+
+## Preserved canonical behavior and boundaries
+
+- Attempt ownership, renderer affinity, resume offsets, class sitting hooks,
+  debounced autosave, unload flush, failed-save retry, sealed mock flow and
+  server submit/grading contracts are unchanged.
+- The redesign is a faithful training simulation, not a copied IELTS product:
+  it keeps Aver Learning identification and does not reproduce protected IELTS
+  logos or claim official affiliation.
+- Desktop is the fidelity target. Small screens use a deliberate training
+  fallback (stacked content and horizontally contained matrices/palettes) rather
+  than squeezing a desktop examination layout into an unusable viewport.
+- Highlighting is local to the active rendered attempt and is not part of the
+  canonical answer contract. Persisted notes would require a separate approved
+  data contract and are not invented as optimistic client state.
+
+---
+
+# Reading and Listening result + review continuity audit
+
+> Audit date: 2026-08-21
+> Scope: submitted full-test result states and native Reading/Listening review
+> workspaces on desktop and narrow training viewports.
+
+## Validated findings and remediation
+
+### High — completion screens exposed answer-key detail without a learning hierarchy
+
+- **Root cause:** both native players rendered every `per_question` row directly
+  after submit; Listening also printed `user_answer → expected` before the
+  learner entered the review workspace. Score, section signal and next action
+  competed with a long technical answer dump.
+- **Impact:** a 40-row table pushed the primary review action below the fold and
+  encouraged answer scanning instead of evidence-led correction. Reading and
+  Listening also ended the same exam journey with unrelated visual structures.
+- **Impacted files/functions:**
+  `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx`
+  (`ResultView`),
+  `frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`
+  (`ResultView`), both player layouts, and
+  `frontend/public/css/exam-result-next.css`.
+- **Minimal fix applied:** one shared completion hierarchy with submitted state,
+  estimated band, canonical raw score, answered count, correction count,
+  Listening Part breakdown and a compact right/wrong/blank question map. Full
+  expected answers remain in the server-gated review route. Primary CTA enters
+  review; dictation/library remain secondary.
+- **Verification:** native controller tests require the shared result layer and
+  reject reintroduction of the old expected-answer row; result fixtures are
+  checked for 40-question containment at desktop and mobile.
+
+### Medium — Reading review did not prioritize incorrect answers
+
+- **Root cause:** the workspace opened the first canonical item and always
+  rendered every question in the active passage, although the bottom palette
+  already knew each verdict.
+- **Impact:** learners with a small error set had to scan all forty questions;
+  the review flow did not state whether to locate evidence before revealing the
+  explanation.
+- **Impacted files/functions:**
+  `frontend/app/(reading-review)/reading/review/reading-review-workspace.tsx`
+  (`ReadingReviewWorkspace`, `selectQuestion`) and
+  `frontend/public/css/reading-review-next.css`.
+- **Minimal fix applied:** start on the first incorrect item when one exists;
+  add incorrect/all/correct filters; preserve palette access by automatically
+  revealing a filtered-out target; add an explicit evidence → answer → trap
+  sequence and an honest empty-filter state.
+- **Verification:** source-contract tests pin the default and palette reveal
+  behavior; the passage locate, translation, distractor, micro-check and
+  feedback contracts remain covered by their existing tests.
+
+### Medium — Listening review had strong tools but weak process orientation
+
+- **Root cause:** audio seek, transcript highlight and solution accordions were
+  individually present, but the header did not tell learners how to combine
+  them. Score was compressed into one unstructured text string.
+- **Impact:** learners could open the explanation before listening again and
+  miss the core Listening correction loop.
+- **Impacted files/functions:**
+  `frontend/app/(authed-listening-review)/listening/review/listening-review-workspace.tsx`
+  and `frontend/public/css/listening-review-next.css`.
+- **Minimal fix applied:** explicit listen → transcript → paraphrase sequence,
+  separate band/raw-score pills, while retaining wrong-first filtering, exact
+  audio-window seek, transcript anchors, skills and authored explanation blocks.
+- **Verification:** contract tests keep real audio-window seek and transcript
+  anchors server-owned; the new process cues are pinned in the native review
+  suite.
+
+## Preserved contracts and constraints
+
+- Server result, band, section breakdown and per-question verdicts remain the
+  canonical source. The UI only derives display counts from that submitted
+  payload and never updates persistence.
+- Review ownership, anonymous Reading capability, submitted/approved gates,
+  admin preview neutrality, feedback widgets, knowledge links and audio timing
+  are unchanged.
+- Result screens intentionally do not reveal expected answers; they summarize
+  performance and route the learner into the protected pedagogical workspace.
+- Reading and Listening retain task-specific review tools: passage evidence and
+  distractor analysis for Reading; exact audio windows, transcript and
+  paraphrase analysis for Listening.
+
+## Verification
+
+- Focused native controller/review regression: 68 tests passed.
+- TypeScript check passed and the production build generated all 132 routes.
+- Four populated result/review browser fixtures passed at 1280×720 and
+  390×844. Each asserted `scrollWidth <= clientWidth`; visual QA found and fixed
+  an intrinsic-width overflow in the Listening review grid before sign-off.
+- Demo screenshots use canonical-shaped 40-question submitted payloads and keep
+  developer overlays out of the learner-facing evidence.
+
+---
+
 ## Admin Mock Test operations wave — 2026-08-21
 
 ### Validated audit findings

@@ -84,6 +84,11 @@ export default {
     { wait: 900 },
     { click: '#btn-start' },
     { wait: 600 },
+    // Next adds a deliberate headphones gate before the one-shot recording.
+    // Legacy has no such modal, so keep this optional while the required
+    // `/submit` write below still fails closed if Next cannot leave the gate.
+    { clickIfPresent: '.listening-next-audio-prompt .ft-control-btn' },
+    { wait: 200 },
     // Gõ ba đáp án. `.ft-q-input[data-q-num]` là đúng phần tử người dùng gõ
     // (`listening-test-player.js:389`).
     { fill: ['.ft-q-input[data-q-num="1"]', FX.answers[0].user_answer] },

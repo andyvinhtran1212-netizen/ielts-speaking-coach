@@ -231,6 +231,50 @@ describe('native Listening test route contract', () => {
     assert.match(page, /listeningTableCellLines\(cell\)/);
   });
 
+  test('uses an exam shell and distinct renderers for different Listening tasks', () => {
+    assert.doesNotMatch(page, /<aver-chrome active="listening"/);
+    assert.match(page, /exam-topbar listening-next-topbar/);
+    assert.match(page, /function MatchingMatrixTemplate/);
+    assert.match(page, /kind === 'matching'.*MatchingMatrixTemplate/);
+    assert.match(page, /\['mcq_letter_label', 'plan_label'\].*SelectTemplate/);
+    assert.match(page, /FormTemplate/);
+    assert.match(page, /TableTemplate/);
+    assert.match(page, /NotesTemplate/);
+  });
+
+  test('separates one-shot full-test audio from seekable practice audio', () => {
+    assert.match(page, /listening-next-audio-prompt/);
+    assert.match(page, /cannot pause, rewind or play it again/);
+    assert.match(page, /practice \? <>/);
+    assert.match(page, /Audio progress \(kéo để tua\)/);
+    assert.match(page, /audioPromptOpen.*!isPracticeListeningTest/s);
+    assert.match(page, /setAudioPromptOpen\(false\)/);
+  });
+
+  test('groups question navigation by Part and exposes current, review and save states', () => {
+    assert.match(page, /listening-next-palette-group/);
+    assert.match(page, /qNum === currentQuestion \? ' current'/);
+    assert.match(page, /reviewQuestions\.has\(qNum\)/);
+    assert.match(page, /moveQuestion\(-1\)/);
+    assert.match(page, /moveQuestion\(1\)/);
+    assert.match(page, /id=\{`q-\$\{qNum\}`\} data-q-num=\{qNum\}/);
+    assert.match(page, /data-q-group=\{slots\.join\(' '\)\}/);
+    assert.match(page, /querySelector<HTMLElement>\(`\[data-q-group~/);
+  });
+
+  test('keeps the current question synchronized when an audio cue advances the Part', () => {
+    assert.match(page, /nextSection !== activeSection[\s\S]*setActiveSection\(nextSection\)/);
+    assert.match(page, /allQuestions\.find\(\(\{ sectionNum \}: any\) => Number\(sectionNum\) === nextSection\)/);
+    assert.match(page, /if \(qNum\) setCurrentQuestion\(qNum\)/);
+  });
+
+  test('uses a Safari 15-safe testing-state hook for page overflow', () => {
+    const css = read('frontend/public/css/listening-test-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.listening-next-player-page\.listening-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('listening-next-testing', testing\)/);
+  });
+
   test('uses canonical load, resume, start, answer and submit endpoints', () => {
     assert.match(page, /\/api\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}/);
     assert.match(page, /\/attempts\/in-progress/);
@@ -249,8 +293,17 @@ describe('native Listening test route contract', () => {
     assert.match(page, /if \(!clean\)/);
     assert.match(page, /coordinatorRef\.current\?\.snapshot\?\.\(\)\.size/);
     assert.match(page, /audio\.ended \|\| audioEnded/);
-    assert.match(page, /'▶ Tiếp tục'/);
+    assert.match(page, /▶ Tiếp tục/);
     assert.match(page, /flushPage = \(\) => \{ void coordinator\.flush\(\{ keepalive: true \}\); \}/);
     assert.match(page, /flushHidden = \(\) => \{ if \(document\.visibilityState === 'hidden'\) void coordinator\.flush\(\); \}/);
+  });
+
+  test('summarizes the completed test before sending answer detail to review', () => {
+    assert.match(layout, /exam-result-next\.css/);
+    assert.match(page, /LISTENING · FULL TEST COMPLETE/);
+    assert.match(page, /exam-result-part-grid/);
+    assert.match(page, /exam-result-question-map/);
+    assert.match(page, /listeningReviewHref\(attempt\.attempt_id, from\)/);
+    assert.doesNotMatch(page, /→ \{row\.expected/);
   });
 });

@@ -64,6 +64,12 @@ const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await context.addInitScript(([key, value]) => {
   try { localStorage.setItem(key, value); } catch (_) {}
+  try {
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      value() { return Promise.resolve(); },
+    });
+  } catch (_) {}
 }, [storageKey(SB), fakeSession]);
 const page = await context.newPage();
 const pageErrors = [];
@@ -170,6 +176,7 @@ await page.getByRole('heading', { name: 'Native Listening fixture' }).waitFor();
 check('dark route boots canonical test and prestart', await page.getByRole('button', { name: 'Bắt đầu test' }).isVisible());
 
 await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
 await page.getByLabel('Answer 1').fill('library');
 await page.waitForFunction(() => true, null, { timeout: 600 });
 await page.waitForTimeout(700);
@@ -180,12 +187,13 @@ check(
 
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
 check('reload resumes the same answer', await page.getByLabel('Answer 1').inputValue() === 'library');
 
 await page.getByLabel('Answer 2').fill('blue');
 await page.waitForTimeout(700);
 await page.getByText('1 câu chưa lưu được lên máy chủ.').waitFor();
-await page.getByRole('button', { name: 'Nộp bài' }).click();
+await page.getByRole('button', { name: 'Submit answers' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
 await page.waitForTimeout(100);
 check('terminal partial save blocks finalization', state.submits === 0 && await page.getByText('1 câu chưa lưu được lên máy chủ.').isVisible());
@@ -194,10 +202,11 @@ state.rejectQ2 = false;
 await page.getByRole('button', { name: 'Thử lại' }).click();
 await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').length === 0);
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
-await page.getByRole('button', { name: 'Nộp bài' }).click();
+await page.getByRole('button', { name: 'Submit answers' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
-await page.locator('.listening-next-score strong').filter({ hasText: /^2\/2$/ }).waitFor();
-check('clean submit renders canonical result once', state.submits === 1);
+await page.getByRole('heading', { name: 'Kết quả bài thi' }).waitFor();
+const scoreText = await page.getByLabel('Tổng quan kết quả').locator('.exam-result-metrics strong').first().textContent();
+check('clean submit renders canonical result once', state.submits === 1 && scoreText?.replace(/\s/g, '') === '2/2');
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(
   'fixture handles APIs with zero production-backend egress',

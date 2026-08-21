@@ -411,7 +411,7 @@ export function ListeningReviewWorkspace() {
       <div className="lr-topbar__left"><a className="lr-back" href={back.href}>{back.label}</a><span className="lr-test-label">{data?.title || 'Chữa bài'}</span></div>
       <div className="lr-topbar__right">
         {data?.preview ? <p className="lr-preview-banner" role="status">XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và không có điểm; đáp án + giải thích là thật.</p> : null}
-        {data && !data.preview ? <div className="lr-summary" aria-live="polite">{listeningBandLabel(data)} · {data.score}/{data.maxScore}</div> : null}
+        {data && !data.preview ? <div className="lr-summary" aria-live="polite"><span>{listeningBandLabel(data)}</span><span>Đúng {data.score}/{data.maxScore}</span></div> : null}
       </div>
     </header>
 
@@ -432,6 +432,7 @@ export function ListeningReviewWorkspace() {
             ['wrong', 'Cần xem lại'], ['all', 'Tất cả'], ['correct', 'Đúng'],
           ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}</header>
           <div className="lr-review">
+            {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b>Nghe lại đúng đoạn</span><span><b>2</b>Đối chiếu transcript</span><span><b>3</b>Phân tích paraphrase</span></div> : null}
             {skills.length && filter !== 'correct' && !data.preview ? <section className="lr-skills-panel" aria-label="Kĩ năng cần luyện"><h3 className="lr-skills-panel__title">🎯 Kĩ năng cần luyện</h3><p className="lr-skills-panel__sub">Tổng hợp từ các câu sai — ưu tiên luyện kĩ năng xuất hiện nhiều nhất.</p><div className="lr-skills-panel__chips">{skills.map((skill) => <span className="lr-skill-chip" title={skill.label} key={skill.code}><span className="lr-skill-chip__code">{skill.code}</span>{skill.label}<span className="lr-skill-chip__count">×{skill.count}</span></span>)}</div><a className="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a></section> : null}
             <div ref={surveyRef} />
             {visibleItems.map((item: any) => <QuestionCard
