@@ -98,24 +98,25 @@ await page.getByRole('heading', { name: 'Quản lý đề thi' }).waitFor();
 await initialReads;
 check('backend-owned admin gate và toàn bộ picker canonical chạy', initialPaths.every((path) => requests.some((item) => item.path === path)));
 await page.locator('.mex-progress-row').first().waitFor();
+if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-exams-redesign.png', fullPage: true });
 check('progress published hiển thị trạng thái thật', await page.locator('.mex-progress-row').filter({ hasText: '2/3 đã nộp' }).count() >= 1);
 
 await page.getByLabel('Mã đề *').fill('NEW-1');
 await page.getByLabel('Tiêu đề *').fill('Đề mới');
-await page.getByLabel('Chế độ').selectOption('retake');
-await page.getByRole('button', { name: 'Tạo đề nháp' }).click();
+await page.getByLabel('Hình thức giao').selectOption('retake');
+await page.getByRole('button', { name: 'Lưu đề nháp' }).click();
 await page.getByText('Đã tạo đề nháp từ dữ liệu backend.').waitFor();
 const createRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/mock-exams');
 check('create retake gửi cohort null và reconcile bằng GET', createRequest?.body?.exam_mode === 'retake' && createRequest?.body?.cohort_id === null && requests.filter((item) => item.method === 'GET' && item.path === '/admin/mock-exams').length >= 2);
 
 await page.getByLabel('Mã đề *').fill('AMBIG-1');
 await page.getByLabel('Tiêu đề *').fill('Đề phản hồi gián đoạn');
-await page.getByRole('button', { name: 'Tạo đề nháp' }).click();
+await page.getByRole('button', { name: 'Lưu đề nháp' }).click();
 await page.getByText('Đã xác nhận AMBIG-1 được tạo dù phản hồi ban đầu bị gián đoạn.').waitFor();
 check('create mơ hồ không được retry và chỉ báo thành công sau canonical refetch', requests.filter((item) => item.method === 'POST' && item.path === '/admin/mock-exams' && item.body?.code === 'AMBIG-1').length === 1 && exams.filter((row) => row.code === 'AMBIG-1').length === 1);
 
 const draftCard = page.getByRole('article').filter({ hasText: 'DRAFT-1' });
-await draftCard.getByRole('button', { name: 'Publish' }).click();
+await draftCard.getByRole('button', { name: 'Publish & sẵn sàng giao' }).click();
 await page.getByText('Đã publish DRAFT-1.').waitFor();
 check('publish dùng PATCH canonical rồi refetch', requests.some((item) => item.method === 'PATCH' && item.path === '/admin/mock-exams/draft-1' && item.body?.status === 'published'));
 
