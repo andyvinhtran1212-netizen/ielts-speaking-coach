@@ -30,11 +30,11 @@ export async function mount() {
   $('vp-list').innerHTML = banks.map((b) => {
     const n = b.words_count || 0;
     return '<a class="mode-card" href="/pages/quiz.html?bank=' + encodeURIComponent(b.id) + '">'
-      + '<div class="head"><div class="icon">📚</div><span class="arrow">→</span></div>'
+      + '<div class="head"><div class="vp-bank-state">Chưa bắt đầu</div><span class="arrow">→</span></div>'
       + '<h3>' + esc(b.title || b.code || 'Bài luyện') + '</h3>'
       + '<p class="lede vp-meta">'
       + (b.code ? '<span class="vp-code">' + esc(b.code) + '</span> · ' : '')
-      + n + ' từ · học tới khi thuộc</p>'
+      + n + ' từ</p>'
       + '</a>';
   }).join('');
   $('vp-list').classList.remove('hidden');

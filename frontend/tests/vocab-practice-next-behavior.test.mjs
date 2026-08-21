@@ -34,6 +34,7 @@ describe('/vocabulary/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /'\/api\/quiz\/banks\?skill_area=vocab'/);
     assert.match(BEHAVIOR, /'\/api\/quiz\/progress\?skill_area=vocab'/);
     assert.match(BEHAVIOR, /Promise\.allSettled\(\[/);
+    assert.match(BEHAVIOR, /totals\?: \{[\s\S]*words_mastered\?: number \| null/);
   });
 
   test('renders authored bank metadata declaratively and URL-encodes ids', () => {
@@ -50,6 +51,8 @@ describe('/vocabulary/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /<button type="button"[\s\S]*?Thử lại/);
     assert.match(BEHAVIOR, /href="\/quiz\/progress\?skill_area=vocab"/);
     assert.match(BEHAVIOR, /Đã thuộc \{mastered\}\/\{total\}/);
+    assert.match(BEHAVIOR, /progress \? progress\.wordsMastered : '—'/);
+    assert.doesNotMatch(BEHAVIOR, /result\.mastered \+=/);
     assert.match(BEHAVIOR, /role="progressbar"/);
     assert.match(BEHAVIOR, /Number\.isFinite\(numeric\)/);
     assert.match(BEHAVIOR, /Danh sách bài vẫn dùng được, nhưng tiến độ từng bài chưa đồng bộ/);

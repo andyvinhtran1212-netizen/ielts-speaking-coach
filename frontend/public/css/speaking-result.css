@@ -1,4 +1,5 @@
 .spr-wrap { max-width: var(--av-width-read); padding-bottom: var(--av-space-16); }
+.spr-wrap .hidden { display: none; }
 .spr-wrap .subpage-header { margin-bottom: var(--av-space-4); }
 .spr-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--av-space-6); padding: clamp(24px, 4vw, 36px); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-xl); background: var(--av-surface-card); box-shadow: var(--av-shadow-sm); }
 .spr-hero > div { max-width: 570px; }

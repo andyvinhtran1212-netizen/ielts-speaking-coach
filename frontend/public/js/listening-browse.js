@@ -136,7 +136,7 @@ function render() {
       c.accent_tag ? `<span class="meta-pill">${escapeHtml(c.accent_tag)}</span>` : '',
       c.cefr_level ? `<span class="meta-pill is-brand">${escapeHtml(c.cefr_level)}</span>` : '',
       c.ielts_section ? `<span class="meta-pill">Section ${c.ielts_section}</span>` : '',
-      mins > 0 ? `<span class="meta-pill">${mins}p</span>` : '',
+      mins > 0 ? `<span class="meta-pill">${mins} phút</span>` : '',
     ].join('');
 
     card.innerHTML = `

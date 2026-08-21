@@ -23,7 +23,15 @@ interface VocabBankProgress {
 }
 
 interface VocabProgressPayload {
+  totals?: {
+    words_mastered?: number | null;
+  };
   banks?: VocabBankProgress[];
+}
+
+interface VocabProgressSummary {
+  banks: Map<string, VocabBankProgress>;
+  wordsMastered: number;
 }
 
 interface KeyedState<T> {
@@ -41,7 +49,7 @@ export function VocabPracticeBehavior() {
   const requestKey = status === 'signed-in' && user?.id ? user.id : null;
   const [banksState, setBanksState] = useState<KeyedState<VocabBank[]> | null>(null);
   const [errorState, setErrorState] = useState<KeyedState<string> | null>(null);
-  const [progressState, setProgressState] = useState<KeyedState<Map<string, VocabBankProgress>> | null>(null);
+  const [progressState, setProgressState] = useState<KeyedState<VocabProgressSummary> | null>(null);
   const [progressErrorState, setProgressErrorState] = useState<KeyedState<boolean> | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
 
@@ -116,7 +124,12 @@ export function VocabPracticeBehavior() {
           ? progressResult.value.banks : [];
         setProgressState({
           key: requestKey,
-          value: new Map(rows.filter((row) => row?.bank_id).map((row) => [row.bank_id, row])),
+          value: {
+            banks: new Map(rows.filter((row) => row?.bank_id).map((row) => [row.bank_id, row])),
+            // The same vocabulary item can belong to multiple banks. Only the
+            // backend total is canonical because it counts mastered items once.
+            wordsMastered: nonNegativeNumber(progressResult.value?.totals?.words_mastered),
+          },
         });
         setProgressErrorState({ key: requestKey, value: false });
       } else if (!(progressResult.reason instanceof DOMException
@@ -149,17 +162,16 @@ export function VocabPracticeBehavior() {
   );
 
   const aggregate = banks.reduce((result, bank) => {
-    const bankProgress = progress?.get(bank.id);
-    result.mastered += nonNegativeNumber(bankProgress?.mastered);
+    const bankProgress = progress?.banks.get(bank.id);
     result.inProgress += nonNegativeNumber(bankProgress?.in_progress);
     return result;
-  }, { mastered: 0, inProgress: 0 });
+  }, { inProgress: 0 });
 
   return (
     <>
       <section className="vp-summary" aria-label="Tổng quan tiến độ">
         <div><span>Bộ bài đang mở</span><strong>{banks.length}</strong></div>
-        <div><span>Từ đã thuộc</span><strong>{progress ? aggregate.mastered : '—'}</strong></div>
+        <div><span>Từ đã thuộc</span><strong>{progress ? progress.wordsMastered : '—'}</strong></div>
         <div><span>Đang ghi nhớ</span><strong>{progress ? aggregate.inProgress : '—'}</strong></div>
       </section>
 
@@ -177,7 +189,7 @@ export function VocabPracticeBehavior() {
             const wordsCount = typeof bank.words_count === 'number' && Number.isFinite(bank.words_count)
               ? Math.max(0, bank.words_count)
               : 0;
-            const bankProgress = progress?.get(bank.id);
+            const bankProgress = progress?.banks.get(bank.id);
             const mastered = nonNegativeNumber(bankProgress?.mastered);
             const tracked = nonNegativeNumber(bankProgress?.in_progress);
             const total = Math.max(

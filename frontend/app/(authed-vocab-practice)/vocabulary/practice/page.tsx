@@ -26,8 +26,9 @@ export default function VocabPracticePage() {
             <p className="vp-eyebrow">Luyện tập chủ động</p>
             <h1 id="vp-title">Biến từ mới thành vốn từ của bạn</h1>
             <p>
-              Luyện theo từng bộ, sửa ngay những từ còn nhầm và tiếp tục đúng nơi
-              bạn đã dừng. Tiến độ được lưu tự động sau mỗi phiên.
+              Luyện theo từng bộ tới khi thuộc trọn vẹn cả list từ, sửa ngay
+              những từ còn nhầm và tiếp tục đúng nơi bạn đã dừng. Tiến độ được
+              lưu tự động sau mỗi phiên.
             </p>
           </div>
           <a className="vp-hero__link" href="/quiz/progress?skill_area=vocab">

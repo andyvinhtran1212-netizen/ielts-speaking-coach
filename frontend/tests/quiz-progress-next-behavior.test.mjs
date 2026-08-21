@@ -88,4 +88,11 @@ describe('/quiz/progress — canonical entry points', () => {
       assert.doesNotMatch(source, /\/pages\/quiz-progress\.html/);
     }
   });
+
+  test('legacy session rows retain mobile table labels', () => {
+    const progress = read('public', 'js', 'quiz-progress.js');
+    for (const label of ['Bộ', 'Chính xác', 'Đã thuộc', 'Thời gian', 'Kết thúc']) {
+      assert.match(progress, new RegExp(`data-label=["']${label}["']`));
+    }
+  });
 });

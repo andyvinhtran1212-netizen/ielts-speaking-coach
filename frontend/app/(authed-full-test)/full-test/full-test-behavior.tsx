@@ -30,7 +30,7 @@ function ExamAction({ exam }: { exam: MockExamSummary }) {
       <div className="ft-action is-blocked">
         <p><strong>Đang có một lượt thi khác.</strong><span>Hoàn thành lượt đó trước khi mở kỳ thi này.</span></p>
         <a
-          className="ft-button is-secondary"
+          className="av-button av-button-secondary"
           href={`/mock-exam?sitting=${encodeURIComponent(exam.blocked_by_sitting_id)}`}
         >
           Quay lại bài đang thi <span aria-hidden="true">→</span>
@@ -43,7 +43,7 @@ function ExamAction({ exam }: { exam: MockExamSummary }) {
     ? `/mock-exam?sitting=${encodeURIComponent(exam.my_sitting_id)}`
     : `/mock-exam?code=${encodeURIComponent(exam.code)}`;
   return (
-    <a className="ft-button" href={target}>
+    <a className="av-button av-button-primary" href={target}>
       {exam.my_sitting_id ? 'Tiếp tục bài đang làm' : 'Bắt đầu kỳ thi'} <span aria-hidden="true">→</span>
     </a>
   );

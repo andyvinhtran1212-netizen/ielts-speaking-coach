@@ -15,6 +15,8 @@ const BEHAVIOR = read(
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const MOCK_RESULT = read('public', 'js', 'mock-result.js');
+const LEGACY_RESULT = read('public', 'js', 'speaking-result.js');
+const LEGACY_CSS = read('public', 'css', 'speaking-result.css');
 
 describe('/speaking/result — native React behavior', () => {
   test('does not inject the legacy module or watchdog', () => {
@@ -67,5 +69,14 @@ describe('/speaking/result — canonical entry point', () => {
   test('TRF links to the canonical route, never the rollback HTML', () => {
     assert.match(MOCK_RESULT, /href:\s*'\/speaking\/result\?sitting='/);
     assert.doesNotMatch(MOCK_RESULT, /\/pages\/speaking-result\.html\?sitting=/);
+  });
+
+  test('legacy metrics retain mobile table labels', () => {
+    assert.match(LEGACY_RESULT, /var labels = \['Chỉ số', 'Của bạn', 'Trung bình lớp'\]/);
+    assert.match(LEGACY_RESULT, /td\.dataset\.label = labels\[index\]/);
+  });
+
+  test('legacy state machine can actually hide inactive states', () => {
+    assert.match(LEGACY_CSS, /\.spr-wrap \.hidden \{ display: none; \}/);
   });
 });

@@ -123,6 +123,9 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(LEGACY_HTML, /id="state-error" role="alert"/);
     assert.match(LEGACY_JS, /Không tải được thống kê\. Vui lòng thử lại\./);
     assert.match(LEGACY_JS, /setAttribute\('aria-pressed'/);
+    for (const label of ['Dạng', 'Số bài', 'Đúng TB', 'Hoàn thành']) {
+      assert.match(LEGACY_JS, new RegExp(`data-label=["']${label}["']`));
+    }
     assert.doesNotMatch(LEGACY_JS, /e && e\.message|e\.message/);
   });
 
