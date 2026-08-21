@@ -22,6 +22,7 @@ class _Table:
 
     def select(self, *_args, **_kwargs): return self
     def limit(self, *_args): return self
+    def order(self, *_args, **_kwargs): return self
     def eq(self, field, value):
         self.filters.append((field, value))
         return self
@@ -131,6 +132,83 @@ def test_snapshotted_weights_win_over_retake_question_count():
     assert qs._course_section_weights(
         assignment, ["quiz", "writing"],
     ) == {"quiz": 70.0, "writing": 30.0}
+
+
+def test_live_sections_added_after_assignment_do_not_change_in_progress_shape():
+    attempt = _attempt()
+    assignment = {"id": "asg-1", "content_config": {
+        "pass_pct": 80,
+        "weight_policy": "hybrid_question_count_v1",
+        "section_counts": {"quiz": 90, "writing": 10},
+        "section_weights": {"quiz": 70, "writing": 30},
+    }}
+    state = {
+        "class_assignment_items": [{
+            "id": "item-1", "assignment_id": "asg-1", "passed_at": None,
+            "submitted_at": None, "score": None,
+            "mastery": {"attempts": [attempt]}, "updated_at": "t0",
+        }],
+        "class_assignments": [assignment],
+        # Reading, listening và pronunciation được thêm vào bank sau lúc giao.
+        "quiz_banks": [{"id": "bank-1", "meta": _extra_meta(
+            reading_n=10, listening_n=20)}],
+        "quiz_questions": [
+            {"id": "q-1", "bank_id": "bank-1", "type": "mcq"},
+            {"id": "w-1", "bank_id": "bank-1", "type": "writing"},
+        ],
+        "course_pronunciation_sets": [{
+            "id": "pron-1", "bank_id": "bank-1", "is_active": True,
+        }],
+    }
+    with patch.object(qs, "supabase_admin", _db(state)):
+        out = qs.refresh_course_completion(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+        )
+
+    assert out["completed"] is False and out["remaining"] == ["writing"]
+    assert [row["key"] for row in out["sections"]] == ["quiz", "writing"]
+
+
+def test_live_sections_removed_after_assignment_do_not_change_completed_result():
+    attempt = {
+        "phase": "run", "sessions": ["session-1"], "completed": True,
+        "pct": 85.0, "at": "finished", "next_action": "passed",
+        "duration_sec": 1200,
+        "sections": {
+            "quiz": {"completed": True, "pct": 85, "weight": 57.58},
+            "writing": {"completed": True, "pct": 80, "weight": 21.21},
+            "reading": {"completed": True, "pct": 90, "weight": 21.21},
+        },
+    }
+    state = {
+        "class_assignment_items": [{
+            "id": "item-1", "assignment_id": "asg-1", "passed_at": "finished",
+            "submitted_at": "finished", "score": 85.0,
+            "mastery": {"attempts": [attempt]}, "updated_at": "t0",
+        }],
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "pass_pct": 80,
+            "weight_policy": "hybrid_question_count_v1",
+            "section_counts": {"quiz": 90, "writing": 10, "reading": 10},
+            "section_weights": {"quiz": 57.58, "writing": 21.21,
+                                "reading": 21.21},
+        }}],
+        # Live bank chỉ còn quiz; writing và reading đã bị gỡ sau lúc giao.
+        "quiz_banks": [{"id": "bank-1", "meta": {}}],
+        "quiz_questions": [{
+            "id": "q-1", "bank_id": "bank-1", "type": "mcq",
+        }],
+    }
+    with patch.object(qs, "supabase_admin", _db(state)):
+        out = qs.refresh_course_completion(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+        )
+
+    assert out["completed"] is True and out["passed"] is True
+    assert out["pct"] == 85.0
+    assert [row["key"] for row in out["sections"]] == [
+        "quiz", "writing", "reading",
+    ]
 
 
 def test_incomplete_sections_never_write_a_verdict_or_hand_in():

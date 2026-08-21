@@ -135,6 +135,13 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     }
   });
 
+  test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {
+    assert.match(SRC, /writingSection && writingReady/);
+    assert.match(SRC, /readingSection && reading\.exists/);
+    assert.match(SRC, /listeningSection && listening\.exists/);
+    assert.match(SRC, /pronunciationSection && pronunciationReady/);
+  });
+
   test('quay lại từ từng phần sẽ đọc lại kết luận canonical', () => {
     assert.match(SRC, /t\.id === 'cr-back'[\s\S]{0,180}renderVerdict\(\)/);
     assert.match(SRC, /t\.id === 'cl-back'[\s\S]{0,180}renderVerdict\(\)/);

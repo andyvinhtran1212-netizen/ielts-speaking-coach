@@ -394,25 +394,33 @@ export function CourseBehavior() {
         lastVerdict = v;
         const sectionRows = Array.isArray(v.sections) ? v.sections : [];
         const sectionOf = (key: string) => sectionRows.find((row: any) => row.key === key);
-        const writingDone = sectionOf('writing')?.completed === true;
-        const readingDone = sectionOf('reading')?.completed === true;
-        const listeningDone = sectionOf('listening')?.completed === true;
-        const pronunciationDone = sectionOf('pronunciation')?.completed === true;
+        const writingSection = sectionOf('writing');
+        const readingSection = sectionOf('reading');
+        const listeningSection = sectionOf('listening');
+        const pronunciationSection = sectionOf('pronunciation');
+        const writingDone = writingSection?.completed === true;
+        const readingDone = readingSection?.completed === true;
+        const listeningDone = listeningSection?.completed === true;
+        const pronunciationDone = pronunciationSection?.completed === true;
         // Còn phần tự luận thì nói ra — dù đạt hay chưa. Học viên đi hết mười
         // chặng rồi dừng ở đây sẽ không bao giờ biết còn mười câu nữa.
-        const more = (writingReady && runner.hasWriting && !writingDone && !writing.submitted)
+        // `sectionRows` là shape ĐÃ CHỤP lúc giao. Bank live có thể được thêm
+        // một phần sau đó; phần mới không thuộc bài này và không được mọc nút.
+        const more = (writingSection && writingReady && runner.hasWriting
+          && !writingDone && !writing.submitted)
           ? '<button class="av-button av-button-primary" id="cx-writing" type="button">'
             + `Làm phần tự luận (${runner.writing.length} câu)</button>`
-          : (writingReady && writing.submitted
+          : (writingSection && writingReady && writing.submitted
               ? '<button class="av-button av-button-secondary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
-        const readMore = reading.exists && !readingDone
+        const readMore = readingSection && reading.exists && !readingDone
           ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">'
             + `Làm bài đọc ngắn (${reading.count} câu)</button>` : '';
-        const listenMore = listening.exists && !listeningDone
+        const listenMore = listeningSection && listening.exists && !listeningDone
           ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">'
             + `Làm bài nghe (${listening.count} câu)</button>` : '';
-        const pronunciationMore = pronunciationReady && pronunciation.exists && !pronunciationDone
+        const pronunciationMore = pronunciationSection && pronunciationReady
+          && pronunciation.exists && !pronunciationDone
           ? '<button class="av-button av-button-secondary" id="cx-pronunciation-open" type="button">'
             + `Luyện phát âm (${pronunciation.count} câu)</button>` : '';
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.

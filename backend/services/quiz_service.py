@@ -2558,6 +2558,31 @@ def course_section_weight_snapshot(
     }
 
 
+def _snapshotted_course_sections(assignment: dict | None) -> list[str] | None:
+    """Các phần đã được giao; ``None`` nghĩa là assignment legacy dùng bank live."""
+    cfg = (assignment or {}).get("content_config") or {}
+    if cfg.get("weight_policy") != COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1:
+        return None
+    counts = cfg.get("section_counts")
+    if not isinstance(counts, dict) or not counts:
+        raise HTTPException(500, "Bài giao thiếu bản chụp cấu trúc tính điểm.")
+    unknown = set(counts) - set(_COURSE_SECTION_LABELS)
+    valid = []
+    for name in _COURSE_SECTION_LABELS:
+        if name not in counts:
+            continue
+        try:
+            amount = float(counts[name])
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            raise HTTPException(500, "Bản chụp cấu trúc tính điểm không hợp lệ.")
+        valid.append(name)
+    if unknown or not valid:
+        raise HTTPException(500, "Bản chụp cấu trúc tính điểm không hợp lệ.")
+    return valid
+
+
 def _course_section_weights(assignment: dict, required: list[str]) -> dict[str, float]:
     """Đọc trọng số đã chụp; bài legacy vắng cấu hình giữ phép chia đều cũ."""
     configured = ((assignment.get("content_config") or {}).get("section_weights")
@@ -2576,12 +2601,17 @@ def _course_section_weights(assignment: dict, required: list[str]) -> dict[str, 
             break
         raw[name] = value
     if not valid_override:
+        if _snapshotted_course_sections(assignment) is not None:
+            # Assignment policy mới luôn có một bản chụp đầy đủ. Rơi về chia
+            # đều ở đây sẽ âm thầm đổi luật chấm, chính điều snapshot phải chặn.
+            raise HTTPException(500, "Bài giao thiếu bản chụp trọng số hợp lệ.")
         raw = {name: 1 for name in required}
     return _normalize_course_weights(raw, required)
 
 
 def _course_completion_evidence(
     *, bank_id: str, item_id: str, user_id: str, attempt: dict | None,
+    assignment: dict | None = None,
 ) -> tuple[list[str], dict[str, dict], dict[str, str | None]]:
     """Đọc hình dạng đề và kết quả canonical của từng phần cho đúng item."""
     try:
@@ -2596,22 +2626,25 @@ def _course_completion_evidence(
         raise HTTPException(500, f"Lỗi đọc cấu trúc bài tập: {exc}")
 
     meta = (bank_rows[0].get("meta") or {}) if bank_rows else {}
-    required: list[str] = []
+    live_required: list[str] = []
     if any(q.get("type") != "writing" for q in questions):
-        required.append("quiz")
+        live_required.append("quiz")
     if any(q.get("type") == "writing" for q in questions):
-        required.append("writing")
+        live_required.append("writing")
     reading = meta.get("short_reading")
     if (isinstance(reading, dict) and isinstance(reading.get("answers"), list)
             and reading.get("answers")):
-        required.append("reading")
+        live_required.append("reading")
     listening = meta.get("short_listening")
     solution = listening.get("solution") if isinstance(listening, dict) else None
     if (isinstance(solution, dict) and isinstance(solution.get("answers"), list)
             and solution.get("answers")):
-        required.append("listening")
+        live_required.append("listening")
     if pronunciation_sets:
-        required.append("pronunciation")
+        live_required.append("pronunciation")
+    # Assignment mới dùng hình dạng đã chụp tại lúc giao. Chỉ assignment legacy
+    # mới tiếp tục đọc live shape để giữ nguyên contract trước policy này.
+    required = _snapshotted_course_sections(assignment) or live_required
 
     results: dict[str, dict] = {}
     artifacts: dict[str, str | None] = {"quiz": None, "writing": None}
@@ -2741,6 +2774,7 @@ def refresh_course_completion(
         attempt = attempts[-1] if attempts else None
         required, results, artifacts = _course_completion_evidence(
             bank_id=bank_id, item_id=item_id, user_id=user_id, attempt=attempt,
+            assignment=assignment,
         )
         if not attempt:
             # Bank không có trắc nghiệm vẫn cần một lượt hợp nhất. Bank có quiz
@@ -2867,7 +2901,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         asg = (supabase_admin.table("class_assignments")
                .select("id, content_config")
                .eq("id", item["assignment_id"]).limit(1).execute().data) or []
-        cfg = mastery_config(asg[0] if asg else None)
+        assignment = asg[0] if asg else {}
+        cfg = mastery_config(assignment)
 
         rows = (supabase_admin.table("quiz_sessions")
                 .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by, "
@@ -3007,7 +3042,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
                 and existing_attempt.get("pct") is not None):
             required, evidence, artifacts = _course_completion_evidence(
                 bank_id=bank_id, item_id=item["id"], user_id=user_id,
-                attempt=existing_attempt,
+                attempt=existing_attempt, assignment=assignment,
             )
             weights = {name: float(((existing_attempt.get("sections") or {})
                                     .get(name) or {}).get("weight") or 0)
@@ -3056,9 +3091,8 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
                                  "quiz": quiz_result}
         required, evidence, artifacts = _course_completion_evidence(
             bank_id=bank_id, item_id=item["id"], user_id=user_id,
-            attempt=candidate,
+            attempt=candidate, assignment=assignment,
         )
-        assignment = asg[0] if asg else {}
         weights = _course_section_weights(assignment, required)
         snapshot = {name: {**evidence[name], "weight": weights[name]}
                     for name in required if name in evidence}
