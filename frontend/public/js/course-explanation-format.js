@@ -24,23 +24,45 @@ function inline(text) {
   );
 }
 
-function listBlock(lines, ordered) {
+const UNORDERED = /^\s*[-*•]\s+(.+)$/;
+const ORDERED = /^\s*\d+[.)]\s+(.+)$/;
+
+function listBlock(items, ordered, legacy = false) {
   const tag = ordered ? 'ol' : 'ul';
-  const marker = ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*•]\s+(.+)$/;
-  return `<${tag} class="course-explain__list">`
-    + lines.map((line) => `<li>${inline(line.match(marker)[1])}</li>`).join('')
+  const classes = 'course-explain__list' + (legacy ? ' course-explain__list--legacy' : '');
+  return `<${tag} class="${classes}">`
+    + items.map((item) => `<li>${inline(item)}</li>`).join('')
     + `</${tag}>`;
 }
 
-function authoredBlock(block) {
+function authoredBlocks(block) {
   const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (lines.length && lines.every((line) => /^\s*[-*•]\s+/.test(line))) {
-    return listBlock(lines, false);
-  }
-  if (lines.length && lines.every((line) => /^\s*\d+[.)]\s+/.test(line))) {
-    return listBlock(lines, true);
-  }
-  return `<p class="course-explain__paragraph">${inline(lines.join(' '))}</p>`;
+  const result = [];
+  let run = null;
+
+  const flush = () => {
+    if (!run) return;
+    if (run.kind === 'paragraph') {
+      result.push({ kind: 'paragraph', text: run.items.join(' ') });
+    } else {
+      result.push({ kind: run.kind, items: run.items });
+    }
+    run = null;
+  };
+
+  lines.forEach((line) => {
+    const unordered = line.match(UNORDERED);
+    const ordered = line.match(ORDERED);
+    const kind = unordered ? 'unordered-list' : ordered ? 'ordered-list' : 'paragraph';
+    const value = unordered ? unordered[1] : ordered ? ordered[1] : line;
+    if (!run || run.kind !== kind) {
+      flush();
+      run = { kind, items: [] };
+    }
+    run.items.push(value);
+  });
+  flush();
+  return result;
 }
 
 function legacySentences(text) {
@@ -54,26 +76,33 @@ function legacySentences(text) {
     .filter(Boolean);
 }
 
-export function formatCourseExplanation(value) {
+export function parseCourseExplanation(value) {
   const text = String(value == null ? '' : value).replace(/\r\n?/g, '\n').trim();
-  if (!text) return '';
+  if (!text) return [];
 
   const blocks = text.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
-  const hasAuthoredList = blocks.some((block) => {
-    const lines = block.split('\n').filter((line) => line.trim());
-    return lines.length > 0 && (lines.every((line) => /^\s*[-*•]\s+/.test(line))
-      || lines.every((line) => /^\s*\d+[.)]\s+/.test(line)));
-  });
+  const hasAuthoredList = blocks.some((block) => block.split('\n')
+    .some((line) => UNORDERED.test(line) || ORDERED.test(line)));
 
   if (blocks.length === 1 && !hasAuthoredList && text.length >= 240) {
     const sentences = legacySentences(text.replace(/\s*\n\s*/g, ' '));
     if (sentences.length >= 3) {
-      return `<p class="course-explain__lead">${inline(sentences[0])}</p>`
-        + `<ul class="course-explain__list course-explain__list--legacy">`
-        + sentences.slice(1).map((sentence) => `<li>${inline(sentence)}</li>`).join('')
-        + '</ul>';
+      return [
+        { kind: 'lead', text: sentences[0] },
+        { kind: 'unordered-list', items: sentences.slice(1), legacy: true },
+      ];
     }
   }
 
-  return blocks.map(authoredBlock).join('');
+  return blocks.flatMap(authoredBlocks);
+}
+
+export function formatCourseExplanation(value) {
+  return parseCourseExplanation(value).map((block) => {
+    if (block.kind === 'ordered-list') return listBlock(block.items, true);
+    if (block.kind === 'unordered-list') return listBlock(block.items, false, block.legacy);
+    const className = block.kind === 'lead'
+      ? 'course-explain__lead' : 'course-explain__paragraph';
+    return `<p class="${className}">${inline(block.text)}</p>`;
+  }).join('');
 }

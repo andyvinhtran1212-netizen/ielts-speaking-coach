@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatCourseExplanation }
+import { formatCourseExplanation, parseCourseExplanation }
   from '../public/js/course-explanation-format.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -27,6 +27,21 @@ describe('safe explanation block formatter', () => {
     assert.match(html, /<ul class="course-explain__list">/);
     assert.match(html, /<ol class="course-explain__list">/);
     assert.equal((html.match(/<li>/g) || []).length, 4);
+  });
+
+  test('tokenizes lead and list runs without requiring a blank line', () => {
+    const blocks = parseCourseExplanation(
+      '**Quy tắc:**\n- ý một\n- ý hai\nBước tiếp theo:\n1. Đọc lại\n2. Shadow theo',
+    );
+    assert.deepEqual(blocks, [
+      { kind: 'paragraph', text: '**Quy tắc:**' },
+      { kind: 'unordered-list', items: ['ý một', 'ý hai'] },
+      { kind: 'paragraph', text: 'Bước tiếp theo:' },
+      { kind: 'ordered-list', items: ['Đọc lại', 'Shadow theo'] },
+    ]);
+    const html = formatCourseExplanation('**Quy tắc:**\n- ý một\n- ý hai');
+    assert.match(html, /<p[^>]*>.*Quy tắc.*<\/p><ul/s);
+    assert.ok(!/[-•] ý/.test(html), 'marker phải thành semantics, không còn chữ thô');
   });
 
   test('structures only long legacy prose with at least three complete sentences', () => {
@@ -59,10 +74,12 @@ describe('one explanation contract across learner and admin surfaces', () => {
     read('public', 'js', 'quiz-progress.js'),
     read('public', 'js', 'admin-classes.js'),
     read('app', '(authed)', 'course-exercises', 'course-behavior.tsx'),
+    read('app', '(authed-quiz-progress)', 'quiz', 'progress', 'quiz-progress-behavior.tsx'),
   ];
 
   test('every explanation renderer uses the shared safe formatter', () => {
-    sources.forEach((source) => assert.match(source, /formatCourseExplanation\(/));
+    sources.slice(0, 5).forEach((source) => assert.match(source, /formatCourseExplanation\(/));
+    assert.match(sources[5], /parseCourseExplanation\(/);
   });
 
   test('immediate feedback announces only the new result region', () => {
