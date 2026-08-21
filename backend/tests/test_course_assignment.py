@@ -66,12 +66,16 @@ def _full(**over):
 
 # ── Nhận ─────────────────────────────────────────────────────────────────────
 
-def test_a_valid_bank_resolves_with_display_labels_only():
-    """Câu hỏi KHÔNG chụp vào bài giao: đề tới tay học viên qua endpoint quiz đã
-    có cổng riêng, và chụp thêm một bản ở đây là tạo nguồn sự thật thứ hai."""
+def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
+    """Không chụp nội dung đề, nhưng phải chụp luật tính điểm lúc giao."""
     bank_id, cfg = _resolve(_full())
     assert bank_id == "bank-1"
-    assert cfg == {"test_title": "Buổi 1", "lesson_no": 1, "bank_code": "C1-B01"}
+    assert cfg == {
+        "test_title": "Buổi 1", "lesson_no": 1, "bank_code": "C1-B01",
+        "weight_policy": "hybrid_question_count_v1",
+        "section_counts": {"quiz": 1},
+        "section_weights": {"quiz": 100.0},
+    }
     assert "questions" not in cfg and "question_ids" not in cfg
 
 
