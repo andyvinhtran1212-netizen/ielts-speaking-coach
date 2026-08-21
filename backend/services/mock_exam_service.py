@@ -502,10 +502,14 @@ def retire_abandoned_sittings() -> dict:
 
 
 def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
-    resp = supabase_admin.table("students").select("cohort_id").eq(
-        "user_id", str(user_id),
-    ).execute()
-    return any(str(r.get("cohort_id")) == str(cohort_id) for r in (resp.data or []))
+    from services.class_membership_service import active_cohort_ids_for_student
+
+    students = (supabase_admin.table("students").select("id, cohort_id")
+                .eq("user_id", str(user_id)).limit(1).execute().data) or []
+    if not students:
+        return False
+    return str(cohort_id) in active_cohort_ids_for_student(
+        supabase_admin, students[0])
 
 
 def _assert_window_open(exam: dict) -> None:

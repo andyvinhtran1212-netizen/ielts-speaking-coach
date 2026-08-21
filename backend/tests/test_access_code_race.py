@@ -90,7 +90,8 @@ class _RaceClient:
 
     def __init__(self, *, update_claims, reread_used_by=None,
                  user_is_active=False, first_is_used=False, first_used_by=None,
-                 reread_raises=False, cohort_id=None, students_insert_id=None):
+                 reread_raises=False, cohort_id=None, students_insert_id=None,
+                 existing_student=None):
         self.calls: list[dict] = []
         self._update_claims = update_claims
         self._reread_used_by = reread_used_by
@@ -100,6 +101,7 @@ class _RaceClient:
         self._reread_raises = reread_raises
         self._cohort_id = cohort_id              # set → code is an enroll-signal (cohort) code
         self._students_insert_id = students_insert_id
+        self._existing_student = existing_student
         self._ac_selects = 0
 
     def table(self, name):
@@ -137,6 +139,8 @@ class _RaceClient:
             r.data = [{"id": _USER_ID, "role": "user", "is_active": self._user_is_active}]
         elif t == "students" and a == "insert":
             r.data = [{"id": self._students_insert_id}] if self._students_insert_id else []
+        elif t == "students" and a == "select" and self._existing_student:
+            r.data = [self._existing_student]
         # students select → [] (no target → enroll INSERT branch); every other
         # write (users update, students delete, assignments upsert) → [].
         return r
@@ -282,3 +286,24 @@ def test_loser_enrollment_side_effects_are_undone(monkeypatch):
 
     assigns = [c for c in client.calls if c["table"] == "user_code_assignments"]
     assert not assigns, "loser must not create an assignment row"
+
+
+def test_loser_removes_only_the_provisional_new_class_membership(monkeypatch):
+    client = _patch(
+        monkeypatch, update_claims=False, reread_used_by=_OTHER_USER,
+        user_is_active=True, cohort_id="cohort-new",
+        existing_student={
+            "id": "student-1", "user_id": _USER_ID,
+            "instructor_id": None, "cohort_id": "cohort-old",
+        },
+    )
+    removed = []
+    monkeypatch.setattr(
+        auth_module, "remove_student",
+        lambda _db, *, student_id, cohort_id: removed.append((student_id, cohort_id)),
+    )
+
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 400
+    assert removed == [("student-1", "cohort-new")]

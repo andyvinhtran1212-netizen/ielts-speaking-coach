@@ -84,6 +84,8 @@ function normalizeLesson(value) {
       || attachments.some((item) => !item)) return null;
   return {
     id,
+    cohortId: textOf(row.cohort_id) || null,
+    cohortName: optionalText(row.cohort_name),
     title,
     lessonNo,
     lessonDate: optionalText(row.lesson_date),
@@ -125,6 +127,8 @@ function normalizeAssignment(value) {
     isMissing: row.is_missing,
     assignment: {
       id: assignmentId,
+      cohortId: textOf(assignment.cohort_id) || null,
+      cohortName: optionalText(assignment.cohort_name),
       title,
       skill,
       instructions: optionalText(assignment.instructions),
@@ -186,12 +190,16 @@ export function normalizeMyClassResponse(value) {
   if (!degraded) return null;
 
   const classInfo = normalizeClass(row.class);
+  const rawClasses = Array.isArray(row.classes) ? row.classes : null;
+  const parsedClasses = rawClasses?.map(normalizeClass) || null;
+  const classes = parsedClasses && parsedClasses.every((item) => item && item.id)
+    ? parsedClasses : classInfo?.id ? [classInfo] : null;
   const rawAssignments = Array.isArray(row.assignments) ? row.assignments : null;
   const assignments = rawAssignments?.map(normalizeAssignment) || null;
   const rawLessons = Array.isArray(row.lessons) ? row.lessons : null;
   const lessons = rawLessons?.map(normalizeLesson) || null;
   const progress = normalizeProgress(row.progress);
-  if (classInfo === undefined || progress === undefined) return null;
+  if (classInfo === undefined || !classes || progress === undefined) return null;
 
   const warnings = [...degraded];
   const validAssignments = !warnings.includes('assignments')
@@ -209,6 +217,7 @@ export function normalizeMyClassResponse(value) {
   return {
     hasClass: true,
     classInfo,
+    classes,
     assignments: validAssignments,
     lessons: validLessons,
     progress: validProgress,

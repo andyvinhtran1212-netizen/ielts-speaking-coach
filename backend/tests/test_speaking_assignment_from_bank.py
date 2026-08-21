@@ -349,6 +349,9 @@ async def test_start_refuses_a_lapsed_task_with_409_not_404():
                                     "assignment_id": "a1", "state": "assigned"}],
         "class_assignments": [dict(lapsed, cohort_id="c1", skill="speaking",
                                    content_config={})],
+        "student_cohort_memberships": [{
+            "id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True,
+        }],
     }
     db = type("DB", (), {})()
     db.table = lambda n: _T(tables.get(n, []))

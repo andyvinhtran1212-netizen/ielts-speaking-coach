@@ -229,6 +229,29 @@ def test_fanout_request_id_rejects_changed_cohort_size_before_rpc():
     mock_db.rpc.assert_not_called()
 
 
+def test_fanout_atomic_roster_race_is_reported_as_conflict():
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.side_effect = RuntimeError(
+        "writing_assignment_request_roster_changed"
+    )
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db), \
+         patch("routers.admin_writing_assignments._read_assignment_request_receipt", return_value=None), \
+         patch("routers.admin_writing_assignments.active_student_ids_for_cohort", return_value=[_STUDENT_ID]):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={
+                "request_id": "00000000-0000-4000-8000-000000000123",
+                "prompt_id": _PROMPT_ID,
+                "cohort_id": "00000000-0000-0000-0000-00000000eeee",
+                "expected_student_count": 1,
+            },
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Sĩ số lớp đã thay đổi" in r.json()["detail"]
+
+
 def test_fanout_replay_returns_original_receipt_before_reading_changed_cohort():
     """A lost-response retry is governed by its immutable request receipt,
     not by cohort membership that may have changed after the original commit."""

@@ -62,6 +62,7 @@ from services.class_assignment_service import (
     reconcile_ledger_from_sessions,
     reconcile_test_attempts,
 )
+from services.class_membership_service import student_is_active_in_cohort
 
 logger = logging.getLogger(__name__)
 
@@ -1552,18 +1553,12 @@ async def student_work(
     await require_admin(authorization)
     _require_cohort(cohort_id)
 
-    # Lọc theo CẢ `cohort_id`. Chỉ lọc theo id thì bất kỳ admin nào đoán được
-    # một id học viên đều đọc được bài của em ấy qua đường của lớp mình — và
-    # mục bài tập CỐ Ý sống sót khi học viên chuyển lớp, nên một em đã rời đi
-    # vẫn còn dòng ở lớp này để lộ ra. Sổ điểm danh là `students.cohort_id`
-    # (WF-1), đúng thứ `_roster_student_ids` dùng để phát bài (codex cục bộ).
-    students = (
-        supabase_admin.table("students")
-        .select("id, full_name, student_code, user_id")
-        .eq("id", student_id).eq("cohort_id", cohort_id)
-        .limit(1).execute().data
-    ) or []
-    if not students:
+    students = (supabase_admin.table("students")
+                .select("id, full_name, student_code, user_id, cohort_id")
+                .eq("id", student_id).limit(1).execute().data) or []
+    if not students or not student_is_active_in_cohort(
+        supabase_admin, student_id, cohort_id, students[0].get("cohort_id")
+    ):
         raise HTTPException(404, "Không tìm thấy học viên trong lớp này")
     student = students[0]
 

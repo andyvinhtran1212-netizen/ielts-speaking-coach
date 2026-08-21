@@ -98,10 +98,11 @@
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
-      // Membership truth lives on students.cohort_id. cohort_name is only a
-      // display enrichment and can be missing when the batched name lookup
-      // fails; treating that failure as "unassigned" would make this KPI lie.
-      var unassigned = rows.filter(function (r) { return !r.cohort_id; }).length;
+      // Canonical truth is the active membership array. The legacy pointer is
+      // only a rollout fallback; lookup failure must never look unassigned.
+      var unassigned = rows.filter(function (r) {
+        return !(r.cohorts || []).length && !r.cohort_id && !r.membership_lookup_failed;
+      }).length;
       var upcoming = rows.filter(function (r) {
         if (!r.target_date) return false;
         var d = new Date(r.target_date + 'T00:00:00');
@@ -120,10 +121,13 @@
       tb.innerHTML = rows.map(function (r) {
         var code  = esc(r.student_code);
         var name  = esc(r.full_name);
-        var lop   = r.cohort_name ? esc(r.cohort_name) : '—';   // unassigned → "—" (no silent-fail)
+        var cohortNames = (r.cohorts || []).map(function (item) { return item.name; }).filter(Boolean);
+        var legacyLop = r.cohort_name ? esc(r.cohort_name) : '—';
+        var lop   = cohortNames.length ? esc(cohortNames.join(', '))
+          : r.membership_lookup_failed ? '⚠ lookup failed' : legacyLop;
         var goal  = goalCell(r);
         var checked = _selectedIds.has(r.id) ? ' checked' : '';
-        var cohortAttr = r.cohort_name ? esc(r.cohort_name) : '';
+        var cohortAttr = esc(cohortNames.join(', ') || r.cohort_name || '');
         return '<tr>' +
           '<td class="th-check"><input type="checkbox" class="row-check" aria-label="Chọn ' + name + '" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +

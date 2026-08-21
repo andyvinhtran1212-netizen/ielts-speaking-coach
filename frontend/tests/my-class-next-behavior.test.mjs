@@ -53,6 +53,27 @@ describe('canonical My Class snapshot boundary', () => {
     assert.deepEqual(result.warnings, []);
   });
 
+  test('preserves two active classes and attributes each task to its class', () => {
+    const second = assignment({ item_id: 'item-2', assignment: {
+      ...assignment().assignment, id: 'assignment-2', cohort_id: 'class-2',
+      cohort_name: 'SAT–SUN',
+    } });
+    const first = assignment({ assignment: {
+      ...assignment().assignment, cohort_id: 'class-1', cohort_name: 'TUE–FRI',
+    } });
+    const result = normalizeMyClassResponse(payload({
+      classes: [
+        { id: 'class-1', name: 'TUE–FRI', course: { code: 'C1', name: 'Foundation' } },
+        { id: 'class-2', name: 'SAT–SUN', course: { code: 'C2', name: 'Speaking' } },
+      ],
+      assignments: [first, second],
+      progress: { total: 2, submitted: 0, todo: 2, missing: 0, late: 0, on_time_pct: null },
+    }));
+    assert.deepEqual(result.classes.map((item) => item.id), ['class-1', 'class-2']);
+    assert.deepEqual(result.assignments.map((item) => item.assignment.cohortName),
+      ['TUE–FRI', 'SAT–SUN']);
+  });
+
   test('no class is an ordinary state', () => {
     assert.deepEqual(normalizeMyClassResponse({ has_class: false }), { hasClass: false });
   });

@@ -63,6 +63,9 @@
 .asd-cohort.is-unknown { color: var(--av-warning); font-weight: var(--av-fw-semibold); }
 .asd-cohort.is-missing { color: var(--av-error); }
 .asd-cohort.is-unassigned { color: var(--av-text-muted); }
+.asd-cohort-list { display: flex; max-width: 280px; flex-wrap: wrap; gap: 6px; }
+.asd-cohort-list .adm-chip { white-space: normal; line-height: 1.25; }
+.asd-cohort-warning { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
 .asd-goal { min-width: 120px; display: flex; flex-direction: column; gap: 3px; }
 .asd-goal strong { font-family: var(--av-font-mono); font-size: var(--av-fs-sm); }
 .asd-goal span { color: var(--av-text-muted); font-size: var(--av-fs-xs); }

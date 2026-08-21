@@ -211,10 +211,14 @@ async function loadClassStrip(api: any, cancelled: () => boolean) {
 
   const p = data.progress;
   const cls = data.class || {};
+  const classes = Array.isArray(data.classes) ? data.classes : [];
   const nameEl = $('class-strip-name');
-  if (nameEl) nameEl.textContent = cls.name || 'Lớp của tôi';
+  if (nameEl) nameEl.textContent = classes.length > 1
+    ? `${classes.length} lớp đang học` : cls.name || 'Lớp của tôi';
   const metaEl = $('class-strip-meta');
-  if (metaEl) metaEl.textContent = cls.course ? cls.course.name : '';
+  if (metaEl) metaEl.textContent = classes.length > 1
+    ? classes.map((item: any) => item?.name).filter(Boolean).join(' · ')
+    : cls.course ? cls.course.name : '';
 
   // Khối assignments suy giảm nghĩa là ta KHÔNG BIẾT con số. Nói vậy, đừng in
   // ra một con số không ai tính.

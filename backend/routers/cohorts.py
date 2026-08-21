@@ -20,6 +20,12 @@ from database import supabase_admin
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
+from services.class_membership_service import (
+    active_students_for_cohort,
+    add_student,
+    add_students,
+    remove_student,
+)
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -157,11 +163,7 @@ _ZERO_USAGE = {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}
 
 @router.get("/{cohort_id}/members")
 async def cohort_members(cohort_id: str, authorization: str | None = Header(default=None)):
-    """WF-1 — a cohort's CLASS ROSTER = students WHERE `students.cohort_id` =
-    cohort_id. This is the single source of truth: the SAME column writing
-    fan-out (`cohort_assignment_service`) and the grade-by-class matrix
-    (`admin_writing_cohorts`) read, so what the admin sees here is exactly who
-    gets writing assigned + graded (no split-brain).
+    """Canonical active roster from ``student_cohort_memberships``.
 
     Each member carries `student_code` + `full_name`; per-member activity
     (sessions / last_active / ai_cost) is joined via `students.user_id` when the
@@ -179,14 +181,9 @@ async def cohort_members(cohort_id: str, authorization: str | None = Header(defa
     cohort = cohort_rows[0]
 
     try:
-        students = (
-            supabase_admin.table("students")
-            .select("id, student_code, full_name, user_id")
-            .eq("cohort_id", cohort_id)
-            .order("full_name")
-            .execute()
-            .data
-        ) or []
+        students = active_students_for_cohort(
+            supabase_admin, cohort_id, "id, student_code, full_name, user_id")
+        students.sort(key=lambda row: (row.get("full_name") or "").casefold())
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải thành viên: {exc}")
 
@@ -266,7 +263,7 @@ async def remove_cohort_member(
         raise HTTPException(500, f"Lỗi khi gỡ thành viên: {exc}")
 
 
-# ── WF-1 — CLASS ROSTER (students.cohort_id) ─────────────────────────────────
+# ── CANONICAL MULTI-CLASS ROSTER ─────────────────────────────────────────────
 # Distinct from the code-issue /members endpoints above: these manage the
 # canonical class roster (the column writing fan-out + grade-matrix read) by
 # directly assigning EXISTING students, WITHOUT issuing any access code.
@@ -283,11 +280,8 @@ async def assign_student_to_cohort(
     body: AssignStudentRequest,
     authorization: str | None = Header(default=None),
 ):
-    """WF-1 — add an EXISTING student to this cohort's roster by setting
-    `students.cohort_id`. Issues NO access code (entitlement is separate).
-    Idempotent. The student then appears in GET /members and receives writing
-    fan-out + shows in the grade-by-class matrix."""
-    await require_admin(authorization)
+    """Add an existing student without removing their other classes."""
+    admin = await require_admin(authorization)
 
     cohort = (
         supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
@@ -302,9 +296,10 @@ async def assign_student_to_cohort(
         raise HTTPException(404, "Không tìm thấy học viên")
 
     try:
-        supabase_admin.table("students").update(
-            {"cohort_id": cohort_id}
-        ).eq("id", body.student_id).execute()
+        add_student(
+            supabase_admin, student_id=body.student_id, cohort_id=cohort_id,
+            added_by=admin.get("id") if isinstance(admin, dict) else None,
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
@@ -321,10 +316,8 @@ async def bulk_assign_students_to_cohort(
     body: BulkAssignStudentsRequest,
     authorization: str | None = Header(default=None),
 ):
-    """WF-1 — assign MANY existing students to this cohort in one atomic
-    UPDATE (set students.cohort_id for all given ids). No codes issued.
-    Re-assigning students already in the cohort is a harmless no-op."""
-    await require_admin(authorization)
+    """Add many existing students atomically without moving them."""
+    admin = await require_admin(authorization)
 
     cohort = (
         supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
@@ -333,16 +326,14 @@ async def bulk_assign_students_to_cohort(
         raise HTTPException(404, "Không tìm thấy lớp")
 
     try:
-        r = (
-            supabase_admin.table("students")
-            .update({"cohort_id": cohort_id})
-            .in_("id", body.student_ids)
-            .execute()
+        assigned = add_students(
+            supabase_admin, student_ids=body.student_ids, cohort_id=cohort_id,
+            added_by=admin.get("id") if isinstance(admin, dict) else None,
         )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
-    return {"ok": True, "cohort_id": cohort_id, "assigned": len(r.data or [])}
+    return {"ok": True, "cohort_id": cohort_id, "assigned": assigned}
 
 
 @router.delete("/{cohort_id}/students/{student_id}", status_code=204)
@@ -351,22 +342,11 @@ async def remove_student_from_cohort(
     student_id: str,
     authorization: str | None = Header(default=None),
 ):
-    """WF-1 — remove a student from this cohort's roster (clear
-    `students.cohort_id`). Only clears when the student is currently in THIS
-    cohort (no-op otherwise, so a stale request can't yank a student out of a
-    different class). Access codes / entitlement are NOT touched."""
+    """Remove only this membership; other classes and entitlement stay intact."""
     await require_admin(authorization)
 
-    srow = (
-        supabase_admin.table("students").select("id, cohort_id").eq("id", student_id).limit(1).execute().data
-    ) or []
-    if not srow or srow[0].get("cohort_id") != cohort_id:
-        return   # not found or not in this cohort → nothing to clear
-
     try:
-        supabase_admin.table("students").update(
-            {"cohort_id": None}
-        ).eq("id", student_id).execute()
+        remove_student(supabase_admin, student_id=student_id, cohort_id=cohort_id)
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi gỡ học viên khỏi lớp: {exc}")
 
