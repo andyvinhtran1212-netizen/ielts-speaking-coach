@@ -141,7 +141,7 @@ check('reads the canonical attempt once and preserves the mini-test return',
   reviewReads[0] === ATTEMPT_ID
     && await page.getByRole('link', { name: '← Mini tests' }).getAttribute('href') === '/listening/mini-test');
 check('canonical score, band and weakness summary render',
-  (await page.locator('.lr-summary').innerText()) === 'Band 5.5 · 1/2'
+  (await page.locator('.lr-summary span').allInnerTexts()).join('|') === 'Band 5.5|Đúng 1/2'
     && (await page.getByRole('region', { name: 'Kĩ năng cần luyện' }).innerText()).includes('K2'));
 check('wrong-answer focus is the student default',
   await page.locator('.lr-card').count() === 1
