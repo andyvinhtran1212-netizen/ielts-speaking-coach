@@ -247,7 +247,10 @@ def test_an_empty_class_asks_for_nothing_else():
     db = _DB(_tables(students=[]))
     out = cohort_progress(db, COHORT)
     assert out == {"students": [], "degraded": []}
-    assert db.queries == ["students"], "no skill query should run for an empty roster"
+    assert not any(table in db.queries for table in (
+        "sessions", "writing_essays", "reading_test_attempts",
+        "listening_test_attempts", "class_assignments")), \
+        "no skill query should run for an empty roster"
 
 
 # ── nguồn dữ liệu phải TRÙNG với các màn admin đã có (Codex review) ─────

@@ -111,12 +111,15 @@ def _fanout_db(student_ids, already_ids, created_rows):
 
 def test_fanout_creates_for_all_students():
     db = _fanout_db(["s1", "s2", "s3"], [], [{"id": "a1"}, {"id": "a2"}, {"id": "a3"}])
-    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(), assigned_by="admin")
+    cohort_id = uuid.uuid4()
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=cohort_id, assigned_by="admin")
     assert r["student_count"] == 3
     assert r["created_count"] == 3
     assert r["duplicates_warning"] == []
     assert r["group_id"] is not None
     assert len(r["assignment_ids"]) == 3
+    sent = db.table.return_value.insert.call_args[0][0]
+    assert {row["cohort_id"] for row in sent} == {str(cohort_id)}
 
 
 def test_fanout_allow_and_warn_when_student_already_has_a_prompt():
@@ -205,6 +208,26 @@ def test_cohort_list_aggregates_activity():
     assert cohorts["c1"]["essays_delivered"] == 1    # e2 delivered
     assert cohorts["c2"]["student_count"] == 1
     assert cohorts["c2"]["active_assignments"] == 1  # not_submitted counts as active
+
+
+def test_cohort_list_uses_writing_origin_for_a_two_class_student():
+    table_map = {
+        "cohorts": [{"id": "c1", "name": "Lớp A"}, {"id": "c2", "name": "Lớp B"}],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
+            {"id": "m2", "student_id": "s1", "cohort_id": "c2", "is_active": True},
+        ],
+        "writing_assignments": [
+            {"student_id": "s1", "cohort_id": "c1", "essay_id": None, "status": "pending"},
+        ],
+    }
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", _db(table_map)):
+        r = _client().get("/admin/writing/cohorts", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    cohorts = {row["id"]: row for row in r.json()["cohorts"]}
+    assert cohorts["c1"]["active_assignments"] == 1
+    assert cohorts["c2"]["active_assignments"] == 0
 
 
 # ── Cohort detail matrix ──────────────────────────────────────────────

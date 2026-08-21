@@ -48,6 +48,11 @@ from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from services.class_membership_service import (
+    active_students_for_cohort,
+    student_is_active_in_cohort,
+)
+
 logger = logging.getLogger(__name__)
 
 # The centre teaches in Vietnam and the deadline is a wall-clock rule ("7h tối"),
@@ -128,22 +133,7 @@ def _roster_student_ids(db, cohort_id: str) -> List[Dict[str, Any]]:
     could repeat or skip rows, and here that means a student silently not
     receiving the homework.
     """
-    rows: List[Dict[str, Any]] = []
-    start = 0
-    while True:
-        page = (
-            db.table("students")
-            .select("id, user_id, full_name")
-            .eq("cohort_id", cohort_id)
-            .order("id")
-            .range(start, start + _PAGE - 1)
-            .execute()
-            .data
-        ) or []
-        rows.extend(page)
-        if len(page) < _PAGE:
-            return rows
-        start += _PAGE
+    return active_students_for_cohort(db, cohort_id, "id, user_id, full_name")
 
 
 def create_class_assignment(
@@ -958,11 +948,11 @@ def validate_class_item_for_session(
     if not is_accepting_submissions(assignment):
         raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
-    # Moving a student between classes only rewrites students.cohort_id; the old
-    # class's item rows survive. Without this a transferred student could still
-    # start — and be recorded against — their previous class's homework.
-    if assignment.get("cohort_id") != student[0].get("cohort_id"):
-        raise TaskMismatchError("Bài tập không thuộc lớp hiện tại của bạn")
+    if not student_is_active_in_cohort(
+        db, student[0]["id"], str(assignment.get("cohort_id") or ""),
+        student[0].get("cohort_id"),
+    ):
+        raise TaskMismatchError("Bạn không còn thuộc lớp đã giao bài này")
 
     cfg = assignment.get("content_config") or {}
     expected_mode = cfg.get("mode") or "practice"
@@ -1026,10 +1016,11 @@ def validate_class_item_for_test(db, user_id: str, item_id: str,
     if not is_accepting_submissions(assignment):
         raise DeadlinePassedError("Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
-    # A transferred student keeps their old item rows; the old class's homework
-    # is not theirs to hand in any more.
-    if assignment.get("cohort_id") != student[0].get("cohort_id"):
-        raise TaskMismatchError("Bài tập không thuộc lớp hiện tại của bạn")
+    if not student_is_active_in_cohort(
+        db, student[0]["id"], str(assignment.get("cohort_id") or ""),
+        student[0].get("cohort_id"),
+    ):
+        raise TaskMismatchError("Bạn không còn thuộc lớp đã giao bài này")
 
     if assignment.get("skill") != skill:
         raise TaskMismatchError("Bài tập này không phải bài của kỹ năng đang làm.")

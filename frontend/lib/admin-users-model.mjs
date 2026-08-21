@@ -76,6 +76,8 @@ export function normalizeUser(value) {
     .map(normalizeSummaryCode)
     .filter(Boolean);
   const role = text(row.role).toLowerCase();
+  const cohortNames = Array.isArray(row.cohort_names)
+    ? row.cohort_names.map(text).filter(Boolean) : [];
   return {
     id,
     email: text(row.email),
@@ -85,6 +87,8 @@ export function normalizeUser(value) {
     role: ROLES.has(role) ? role : 'student',
     sessions_today: Math.max(0, finite(row.sessions_today)),
     cohort_name: text(row.cohort_name) || null,
+    cohort_names: cohortNames,
+    cohort_lookup_failed: Boolean(row.cohort_lookup_failed),
     code_summary: {
       codes,
       code_count: Math.max(codes.length, finite(summary.code_count)),
@@ -153,7 +157,7 @@ export function normalizeCohortsPayload(value) {
 function userSortValue(user, field) {
   if (field === 'display_name') return user.display_name.toLocaleLowerCase('vi');
   if (field === 'role') return user.role;
-  if (field === 'cohort_name') return (user.cohort_name || '').toLocaleLowerCase('vi');
+  if (field === 'cohort_name') return (user.cohort_names.join(' ') || user.cohort_name || '').toLocaleLowerCase('vi');
   if (field === 'code_type') return user.code_summary.code_type || '';
   if (field === 'code_status') return user.code_summary.has_active_code ? 0 : 1;
   return user.created_at || '';

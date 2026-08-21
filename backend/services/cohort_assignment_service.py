@@ -1,9 +1,8 @@
 """services/cohort_assignment_service.py — Sprint 19.2 cohort fan-out.
 
 "Giao bài theo lớp": create one writing_assignments row per
-(student × prompt) for a cohort from a single template. Cohort
-membership is derived from students.cohort_id (Discovery D1 — no
-cohort_id on writing_assignments, no new tables).
+(student × prompt) for a cohort from a single template. The canonical active
+membership roster selects recipients, and every new row records its cohort.
 
 W-ASSIGN: a single fan-out can carry N prompts and stamps every row it
 creates with a shared `assignment_group_id` + `name` + `allow_soft_check`
@@ -25,6 +24,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
+
+from services.class_membership_service import active_students_for_cohort
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +86,14 @@ def fan_out_assignment(
     if owner_id is not None:
         _verify_fanout_ownership(db, str(owner_id), prompt_strs, cohort_str)
 
-    students = (
-        db.table("students").select("id, instructor_id").eq("cohort_id", cohort_str).execute()
-    )
-    student_rows = students.data or []
+    student_rows = active_students_for_cohort(db, cohort_str, "id, instructor_id")
+    if not student_rows:
+        # Rolling compatibility with a backend/test fixture that predates
+        # migration 217. The migration backfill makes this branch dormant in
+        # production after rollout.
+        legacy = (db.table("students").select("id, instructor_id")
+                  .eq("cohort_id", cohort_str).execute().data) or []
+        student_rows = legacy if isinstance(legacy, list) else []
     student_ids = [s["id"] for s in student_rows]
 
     # W-3 — student-branch gate. Cohort ownership (above) is the primary gate; here
@@ -130,6 +135,7 @@ def fan_out_assignment(
         {
             "prompt_id":           pid,
             "student_id":          sid,
+            "cohort_id":           cohort_str,
             "assignment_group_id": group_id,
             "name":                name,
             "allow_soft_check":    allow_soft_check,

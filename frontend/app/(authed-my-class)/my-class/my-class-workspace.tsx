@@ -28,6 +28,8 @@ type Assignment = {
   isMissing: boolean;
   assignment: {
     id: string;
+    cohortId: string | null;
+    cohortName: string | null;
     title: string;
     skill: string;
     instructions: string | null;
@@ -44,6 +46,8 @@ type Assignment = {
 
 type Lesson = {
   id: string;
+  cohortId: string | null;
+  cohortName: string | null;
   title: string;
   lessonNo: number | null;
   lessonDate: string | null;
@@ -55,6 +59,8 @@ type ClassSnapshot = {
   hasClass: true;
   classInfo: { id: string | null; name: string | null; description: string | null;
     course: { code: string; name: string } | null } | null;
+  classes: Array<{ id: string | null; name: string | null; description: string | null;
+    course: { code: string; name: string } | null }>;
   assignments: Assignment[] | null;
   lessons: Lesson[] | null;
   progress: { total: number; submitted: number; todo: number; missing: number;
@@ -150,6 +156,7 @@ function TaskCard({
       <div className="mc-item-main">
         <div className="mc-item-meta">
           <span className="mc-item-kind">{SKILL_LABEL[row.assignment.skill]}</span>
+          {row.assignment.cohortName && <span className="mc-item-class">{row.assignment.cohortName}</span>}
           <span className="mc-item-state" data-state={state}>{stateLabel}</span>
         </div>
         <p className="mc-item-title">{row.assignment.title}</p>
@@ -248,6 +255,7 @@ function Lessons({ lessons }: { lessons: Lesson[] | null }) {
             <div className="mc-lesson-no">{lesson.lessonNo != null ? `Buổi ${lesson.lessonNo}` : ''}</div>
             <div className="mc-lesson-main">
               <p className="mc-lesson-title">{lesson.title}</p>
+              {lesson.cohortName && <p className="mc-lesson-class">{lesson.cohortName}</p>}
               {calendarDate(lesson.lessonDate) && <p className="mc-item-sub">{calendarDate(lesson.lessonDate)}</p>}
               {lesson.bodyMarkdown && <div className="mc-lesson-body"><Markdown value={lesson.bodyMarkdown} /></div>}
               {lesson.attachments.length > 0 && (
@@ -281,20 +289,32 @@ function ReadyView({
   onRetry: () => void;
   onStart: (row: Assignment) => void;
 }) {
-  const assignments = snapshot.assignments;
+  const [activeClass, setActiveClass] = useState('all');
+  const classIds = new Set(snapshot.classes.map((item) => item.id).filter(Boolean));
+  useEffect(() => {
+    if (activeClass !== 'all' && !classIds.has(activeClass)) setActiveClass('all');
+  }, [activeClass, snapshot.classes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const assignments = snapshot.assignments == null ? null : snapshot.assignments.filter(
+    (row) => activeClass === 'all' || row.assignment.cohortId === activeClass);
+  const lessons = snapshot.lessons == null ? null : snapshot.lessons.filter(
+    (row) => activeClass === 'all' || row.cohortId === activeClass);
+  const selectedClass = activeClass === 'all' ? null
+    : snapshot.classes.find((item) => item.id === activeClass) || null;
   const due = assignments ? nextDue(assignments) : null;
   const left = due ? due.at - now : 0;
   const missing = assignments?.filter((row) => row.isMissing) || [];
   const todo = assignments?.filter((row) => !row.submittedAt && !row.isMissing) || [];
   const done = assignments?.filter((row) => row.submittedAt) || [];
-  const course = snapshot.classInfo?.course;
+  const course = selectedClass?.course || (snapshot.classes.length === 1 ? snapshot.classInfo?.course : null);
   const warnings = snapshot.warnings.map((key: string) => WARNING_COPY[key] || `Một phần dữ liệu chưa sẵn sàng (${key}).`);
   if (refreshError) warnings.push(refreshError);
-  const stats = snapshot.progress ? [
-    { value: snapshot.progress.todo, label: 'Cần nộp' },
-    { value: snapshot.progress.missing, label: 'Quá hạn', alarm: snapshot.progress.missing > 0 },
-    { value: snapshot.progress.submitted, label: 'Đã nộp' },
-    { value: snapshot.progress.onTimePct == null ? '—' : `${snapshot.progress.onTimePct}%`, label: 'Đúng hạn' },
+  const filteredSubmitted = assignments?.filter((row) => row.submittedAt) || [];
+  const filteredLate = filteredSubmitted.filter((row) => row.isLate).length;
+  const stats = assignments ? [
+    { value: todo.length, label: 'Cần nộp' },
+    { value: missing.length, label: 'Quá hạn', alarm: missing.length > 0 },
+    { value: done.length, label: 'Đã nộp' },
+    { value: filteredSubmitted.length ? `${Math.round((filteredSubmitted.length - filteredLate) / filteredSubmitted.length * 100)}%` : '—', label: 'Đúng hạn' },
   ] : [{ value: '—', label: 'Chưa đọc được bài tập' }];
 
   return (
@@ -302,7 +322,7 @@ function ReadyView({
       <header className="mc-hero">
         <div className="mc-head">
           <p className="mc-eyebrow">MY CLASS</p>
-          <h1>{snapshot.classInfo?.name || 'Lớp của tôi'}</h1>
+          <h1>{selectedClass?.name || (snapshot.classes.length > 1 ? `${snapshot.classes.length} lớp đang học` : snapshot.classInfo?.name) || 'Lớp của tôi'}</h1>
           {course && <div className="mc-course"><span className="mc-course-code">{course.code}</span>{course.name}</div>}
           <p className="mc-lead">Theo dõi việc cần làm, nhịp nộp bài và nội dung mới nhất từ lớp.</p>
         </div>
@@ -314,6 +334,13 @@ function ReadyView({
           ))}
         </section>
       </header>
+
+      {snapshot.classes.length > 1 && (
+        <nav className="mc-class-switcher" aria-label="Chọn lớp đang xem">
+          <button type="button" className={activeClass === 'all' ? 'is-active' : ''} aria-pressed={activeClass === 'all'} onClick={() => setActiveClass('all')}>Tất cả <span>{snapshot.assignments?.length ?? '—'}</span></button>
+          {snapshot.classes.map((item) => <button type="button" key={item.id || item.name} className={activeClass === item.id ? 'is-active' : ''} aria-pressed={activeClass === item.id} onClick={() => item.id && setActiveClass(item.id)}>{item.name || 'Lớp chưa đặt tên'} <span>{snapshot.assignments?.filter((row) => row.assignment.cohortId === item.id).length ?? '—'}</span></button>)}
+        </nav>
+      )}
 
       {warnings.length > 0 && (
         <div className="mc-warn" role="alert">
@@ -366,7 +393,7 @@ function ReadyView({
         </div>
         <aside className="mc-aside" aria-label="Nhịp học và nội dung buổi học">
           {assignments && <ClassRhythm assignments={assignments} now={now} />}
-          <Lessons lessons={snapshot.lessons} />
+          <Lessons lessons={lessons} />
         </aside>
       </div>
     </>

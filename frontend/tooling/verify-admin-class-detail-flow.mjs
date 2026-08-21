@@ -38,9 +38,9 @@ let members = [
   { student_id: 'st-b', student_code: 'B001', name: 'Bình', user_id: null, sessions: null, last_active: null, ai_cost_usd: null },
 ];
 const students = [
-  { id: 'st-a', student_code: 'A001', full_name: 'Andy', cohort_id: cohortId, cohort_name: cohort.name },
-  { id: 'st-b', student_code: 'B001', full_name: 'Bình', cohort_id: cohortId, cohort_name: cohort.name },
-  { id: 'st-c', student_code: 'C001', full_name: 'Chi', cohort_id: 'old-class', cohort_name: 'Lớp cũ' },
+  { id: 'st-a', student_code: 'A001', full_name: 'Andy', cohort_id: cohortId, cohort_name: cohort.name, cohorts: [{ id: cohortId, name: cohort.name, is_primary: true }] },
+  { id: 'st-b', student_code: 'B001', full_name: 'Bình', cohort_id: cohortId, cohort_name: cohort.name, cohorts: [{ id: cohortId, name: cohort.name, is_primary: true }] },
+  { id: 'st-c', student_code: 'C001', full_name: 'Chi', cohort_id: 'old-class', cohort_name: 'Lớp cũ', cohorts: [{ id: 'old-class', name: 'Lớp cũ', is_primary: true }] },
 ];
 let lessons = [{ id: 'lesson-1', title: 'Grammar 1 <script>alert(1)</script>', lesson_no: 1, lesson_date: '2026-08-10', body_md: 'Articles and nouns', attachments: [{ label: 'Tài liệu', url: 'https://example.com/doc' }, { label: 'Unsafe', url: 'javascript:alert(1)' }], is_published: true }];
 let failCourses = true;
@@ -186,10 +186,10 @@ check('edit lớp gửi explicit null và canonical reload', classBody.code_pref
 await page.getByRole('button', { name: 'Thêm học viên' }).click();
 const memberDialog = page.getByRole('dialog');
 await memberDialog.getByLabel('Học viên').selectOption('st-c');
-check('chuyển lớp được cảnh báo trước mutation', await memberDialog.getByText(/Học viên hiện thuộc Lớp cũ/).count() === 1);
-await memberDialog.getByRole('button', { name: 'Xếp vào lớp' }).click();
-await page.getByText('Đã chuyển học viên sang lớp này.', { exact: true }).waitFor({ state: 'visible' });
-check('xếp học viên rồi canonical reload', await page.getByText('Chi', { exact: true }).count() === 1 && hasCanonicalReadAfter('POST', new RegExp(`/admin/cohorts/${cohortId}/students$`), `/admin/cohorts/${cohortId}/members`));
+check('thêm lớp giữ nguyên lớp cũ được giải thích trước mutation', await memberDialog.getByText(/Các lớp đang học sẽ được giữ nguyên: Lớp cũ/).count() === 1);
+await memberDialog.getByRole('button', { name: 'Thêm vào lớp' }).click();
+await page.getByText('Đã thêm học viên vào lớp; các lớp đang học khác được giữ nguyên.', { exact: true }).waitFor({ state: 'visible' });
+check('thêm học viên rồi canonical reload', await page.getByText('Chi', { exact: true }).count() === 1 && hasCanonicalReadAfter('POST', new RegExp(`/admin/cohorts/${cohortId}/students$`), `/admin/cohorts/${cohortId}/members`));
 
 await page.getByRole('tab', { name: /Tiến độ 4 kỹ năng/ }).click();
 await page.locator('#acx-panel-progress tr').filter({ hasText: 'Chi' }).waitFor({ state: 'visible' });

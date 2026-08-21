@@ -33,9 +33,9 @@ async function launchChromium() {
 
 const cohorts = [{ id: 'co-active', name: 'Lớp Nền Tảng', is_active: true }];
 let students = [
-  { id: 'st-a', student_code: 'A001', full_name: 'Andy <img src=x onerror=alert(1)>', user_id: null, cohort_id: null, cohort_name: null, cohort_lookup_failed: true, target_band: 7.5, current_band_estimate: 6.5, target_date: '2026-09-01', persona_notes: 'Ghi chú <script>alert(1)</script>' },
-  { id: 'st-b', student_code: 'B001', full_name: 'Bình', user_id: 'user-b', cohort_id: 'co-missing', cohort_name: null, cohort_lookup_failed: true, target_band: null, current_band_estimate: null, target_date: null, persona_notes: null },
-  { id: 'st-c', student_code: 'C001', full_name: 'Chi', user_id: 'user-c', cohort_id: 'co-active', cohort_name: 'Lớp Nền Tảng', cohort_lookup_failed: true, target_band: 8, current_band_estimate: 7, target_date: null, persona_notes: null },
+  { id: 'st-a', student_code: 'A001', full_name: 'Andy <img src=x onerror=alert(1)>', user_id: null, cohort_id: null, cohort_name: null, cohorts: [], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: 7.5, current_band_estimate: 6.5, target_date: '2026-09-01', persona_notes: 'Ghi chú <script>alert(1)</script>' },
+  { id: 'st-b', student_code: 'B001', full_name: 'Bình', user_id: 'user-b', cohort_id: 'co-missing', cohort_name: null, cohorts: [{ id: 'co-missing', name: null, is_primary: true }], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: null, current_band_estimate: null, target_date: null, persona_notes: null },
+  { id: 'st-c', student_code: 'C001', full_name: 'Chi', user_id: 'user-c', cohort_id: 'co-active', cohort_name: 'Lớp Nền Tảng', cohorts: [{ id: 'co-active', name: 'Lớp Nền Tảng', is_primary: true }], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: 8, current_band_estimate: 7, target_date: null, persona_notes: null },
 ];
 let failStudentReads = false;
 let failWritingSummary = true;
@@ -91,7 +91,7 @@ await page.route('**/*', async (route) => {
   }
   if (parsed.pathname === '/admin/students' && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}');
-    const row = { id: 'st-new', user_id: null, cohort_id: null, cohort_name: null, cohort_lookup_failed: false, ...body };
+    const row = { id: 'st-new', user_id: null, cohort_id: null, cohort_name: null, cohorts: [], cohort_lookup_failed: false, membership_lookup_failed: false, ...body };
     students = [row, ...students];
     return json(row, 201);
   }
@@ -122,7 +122,14 @@ await page.route('**/*', async (route) => {
     }
     const body = JSON.parse(request.postData() || '{}');
     for (const student of students) if (body.student_ids.includes(student.id)) {
-      student.cohort_id = bulkMatch[1]; student.cohort_name = 'Lớp Nền Tảng'; student.cohort_lookup_failed = false;
+      student.cohorts ||= [];
+      if (!student.cohorts.some((item) => item.id === bulkMatch[1])) {
+        student.cohorts.push({ id: bulkMatch[1], name: 'Lớp Nền Tảng', is_primary: !student.cohort_id });
+      }
+      if (!student.cohort_id) {
+        student.cohort_id = bulkMatch[1]; student.cohort_name = 'Lớp Nền Tảng';
+      }
+      student.cohort_lookup_failed = false; student.membership_lookup_failed = false;
     }
     return json({ ok: true, assigned: body.student_ids.length, cohort_id: bulkMatch[1] });
   }
@@ -191,35 +198,35 @@ check('edit gửi explicit null cho trường tuỳ chọn rồi canonical reloa
   && writeHasLaterCanonicalRead('PATCH', /^\/admin\/students\/st-a$/));
 
 await page.locator('tr').filter({ hasText: 'Andy' }).getByRole('checkbox').check();
-await page.getByLabel('Lớp đích').selectOption('co-active');
+await page.getByLabel('Lớp cần thêm').selectOption('co-active');
 delayNextBulkWrite = true;
-await page.getByRole('button', { name: 'Xếp vào lớp' }).click();
+await page.getByRole('button', { name: 'Thêm vào lớp' }).click();
 await page.waitForTimeout(80);
 check('checkbox bị khóa trong lúc bulk write đang chạy',
   await page.getByLabel('Chọn tất cả học viên trong kết quả').isDisabled()
   && await page.locator('tr').filter({ hasText: 'Andy' }).getByRole('checkbox').isDisabled());
-await page.getByText('Đã xếp 1 học viên vào lớp.', { exact: true }).waitFor({ state: 'visible' });
-check('xếp lớp bulk rồi canonical reload',
+await page.getByText('Đã thêm 1 học viên vào lớp; các lớp khác được giữ nguyên.', { exact: true }).waitFor({ state: 'visible' });
+check('thêm lớp bulk rồi canonical reload',
   writeHasLaterCanonicalRead('POST', /^\/admin\/cohorts\/co-active\/students\/bulk$/)
   && await page.locator('tr').filter({ hasText: 'Andy' }).getByText('Lớp Nền Tảng', { exact: true }).count() === 1);
 
 await page.locator('tr').filter({ hasText: 'Bình' }).getByRole('checkbox').check();
-await page.getByLabel('Lớp đích').selectOption('co-active');
+await page.getByLabel('Lớp cần thêm').selectOption('co-active');
 failNextStudentRead = true;
-await page.getByRole('button', { name: 'Xếp vào lớp' }).click();
+await page.getByRole('button', { name: 'Thêm vào lớp' }).click();
 await page.getByText(/Tuy nhiên chưa tải lại được dữ liệu chuẩn/).waitFor({ state: 'visible' });
 check('write thành công nhưng reload lỗi vẫn xoá selection để không gửi lặp',
-  await page.getByRole('region', { name: 'Xếp lớp hàng loạt' }).count() === 0);
+  await page.getByRole('region', { name: 'Thêm lớp hàng loạt' }).count() === 0);
 
 await page.locator('tr').filter({ hasText: 'Chi' }).getByRole('checkbox').check();
-await page.getByLabel('Lớp đích').selectOption('co-active');
+await page.getByLabel('Lớp cần thêm').selectOption('co-active');
 delayNextBulkWrite = true;
-await page.getByRole('button', { name: 'Xếp vào lớp' }).click();
+await page.getByRole('button', { name: 'Thêm vào lớp' }).click();
 await page.waitForTimeout(80);
 check('stale retry và search bị khóa trong lúc mutation',
   await page.getByRole('button', { name: 'Thử lại' }).isDisabled()
   && await page.getByLabel('Tìm học viên').isDisabled());
-await page.getByText('Đã xếp 1 học viên vào lớp.', { exact: true }).waitFor({ state: 'visible' });
+await page.getByText('Đã thêm 1 học viên vào lớp; các lớp khác được giữ nguyên.', { exact: true }).waitFor({ state: 'visible' });
 
 await page.locator('input[type="file"]').setInputFiles({ name: 'students.csv', mimeType: 'text/csv', buffer: Buffer.from('student_code,full_name\nD1,Demo\n') });
 await page.getByText('1 dòng CSV chưa import được', { exact: true }).waitFor({ state: 'visible' });
