@@ -31,8 +31,8 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey\]/);
-    assert.match(BEHAVIOR, /\[accountKey, active\]/);
+    assert.match(BEHAVIOR, /\[accountKey, overviewRetry\]/);
+    assert.match(BEHAVIOR, /\[accountKey, active, tabRetry\]/);
   });
 
   test('uses overview counts to expose only real tabs in pedagogical order', () => {
@@ -92,6 +92,8 @@ describe('/listening/practice — native React behavior', () => {
     assert.match(BEHAVIOR, /id="state-loading" role="status"/);
     assert.match(BEHAVIOR, /id="state-empty" role="status"/);
     assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.match(BEHAVIOR, /setOverviewRetry\(\(value\) => value \+ 1\)/);
+    assert.match(BEHAVIOR, /setTabRetry\(\(value\) => value \+ 1\)/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 

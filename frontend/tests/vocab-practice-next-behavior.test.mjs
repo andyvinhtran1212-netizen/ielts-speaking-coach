@@ -43,14 +43,19 @@ describe('/vocabulary/practice — native React behavior', () => {
   });
 
   test('keeps loading, empty, error and progress states distinct', () => {
-    assert.match(BEHAVIOR, /Đang tải…/);
-    assert.match(BEHAVIOR, /Chưa có bài luyện nào được mở/);
+    assert.match(BEHAVIOR, /Đang chuẩn bị bài luyện/);
+    assert.match(BEHAVIOR, /Chưa có bài luyện được mở/);
     assert.match(BEHAVIOR, /Không tải được danh sách bài luyện\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /setReloadVersion\(\(value\) => value \+ 1\)/);
+    assert.match(BEHAVIOR, /<button type="button"[\s\S]*?Thử lại/);
     assert.match(BEHAVIOR, /href="\/quiz\/progress\?skill_area=vocab"/);
     assert.match(BEHAVIOR, /Đã thuộc \{mastered\}\/\{total\}/);
     assert.match(BEHAVIOR, /role="progressbar"/);
     assert.match(BEHAVIOR, /Number\.isFinite\(numeric\)/);
     assert.match(BEHAVIOR, /Danh sách bài vẫn dùng được, nhưng tiến độ từng bài chưa đồng bộ/);
+    assert.match(BEHAVIOR, /Chưa bắt đầu/);
+    assert.match(BEHAVIOR, /Đang học/);
+    assert.match(BEHAVIOR, /Đã thuộc/);
   });
 });
 

@@ -42,9 +42,12 @@ describe('/full-test — native React behavior', () => {
   });
 
   test('keeps loading, empty and error states distinct', () => {
-    assert.match(BEHAVIOR, /Đang tải…/);
+    assert.match(BEHAVIOR, /Đang chuẩn bị danh sách kỳ thi/);
     assert.match(BEHAVIOR, /Hiện chưa có kỳ thi nào được mở/);
-    assert.match(BEHAVIOR, /Không tải được danh sách:/);
+    assert.match(BEHAVIOR, /Không tải được danh sách kỳ thi\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /setReloadVersion\(\(value\) => value \+ 1\)/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|messageOf\(|String\(caught\)/);
+    assert.match(BEHAVIOR, /const ordered = \[\.\.\.exams\]\.sort/);
   });
 });
 

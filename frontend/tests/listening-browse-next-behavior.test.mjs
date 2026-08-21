@@ -70,13 +70,14 @@ describe('/listening/browse — native React behavior', () => {
 
   test('distinguishes lookup failure, genuine no-mode and list failure', () => {
     assert.match(BEHAVIOR, /Array\.isArray\(raw\.available_modes\)[\s\S]*: null/);
-    assert.match(BEHAVIOR, /⚠ Không đọc được danh sách dạng luyện/);
+    assert.match(BEHAVIOR, /Chưa đồng bộ được dạng luyện/);
     assert.match(BEHAVIOR, /Chưa có dạng luyện nào cho bài này/);
     assert.match(BEHAVIOR, /Không tải được danh sách bài nghe\. Vui lòng thử lại\./);
     assert.match(BEHAVIOR, /Chưa có bài nghe nào khớp bộ lọc\./);
     assert.match(BEHAVIOR, /id="state-loading" role="status"/);
     assert.match(BEHAVIOR, /id="state-empty" role="status"/);
     assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.match(BEHAVIOR, /state\.status === 'error'[\s\S]*setRetryKey\(\(current\) => current \+ 1\)/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 
@@ -85,7 +86,7 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /<div className="desc">\{item\.description\}<\/div>/);
     assert.match(BEHAVIOR, /meta-pill is-brand/);
     assert.match(BEHAVIOR, /Section \{item\.section\}/);
-    assert.match(BEHAVIOR, /\{item\.minutes\}p/);
+    assert.match(BEHAVIOR, /\{item\.minutes\} phút/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 

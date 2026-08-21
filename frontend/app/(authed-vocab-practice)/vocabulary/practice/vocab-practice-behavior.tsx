@@ -43,6 +43,7 @@ export function VocabPracticeBehavior() {
   const [errorState, setErrorState] = useState<KeyedState<string> | null>(null);
   const [progressState, setProgressState] = useState<KeyedState<Map<string, VocabBankProgress>> | null>(null);
   const [progressErrorState, setProgressErrorState] = useState<KeyedState<boolean> | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   // Không render dữ liệu cũ trong frame giữa lúc account đã đổi và effect kế
   // tiếp chưa chạy.
@@ -129,15 +130,49 @@ export function VocabPracticeBehavior() {
       disposed = true;
       controller.abort();
     };
-  }, [requestKey]);
+  }, [requestKey, reloadVersion]);
 
-  if (error) return <p className="vp-status is-error">{error}</p>;
-  if (!banks) return <p className="vp-status">Đang tải…</p>;
+  if (error) return (
+    <div className="vp-state is-error" role="alert">
+      <span className="vp-state__mark" aria-hidden="true">!</span>
+      <div><strong>Chưa tải được kho bài</strong><p>{error}</p></div>
+      <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>
+        Thử lại
+      </button>
+    </div>
+  );
+  if (!banks) return (
+    <div className="vp-state" role="status">
+      <span className="vp-loader" aria-hidden="true" />
+      <div><strong>Đang chuẩn bị bài luyện</strong><p>Đang đồng bộ danh sách và tiến độ của bạn…</p></div>
+    </div>
+  );
+
+  const aggregate = banks.reduce((result, bank) => {
+    const bankProgress = progress?.get(bank.id);
+    result.mastered += nonNegativeNumber(bankProgress?.mastered);
+    result.inProgress += nonNegativeNumber(bankProgress?.in_progress);
+    return result;
+  }, { mastered: 0, inProgress: 0 });
 
   return (
     <>
+      <section className="vp-summary" aria-label="Tổng quan tiến độ">
+        <div><span>Bộ bài đang mở</span><strong>{banks.length}</strong></div>
+        <div><span>Từ đã thuộc</span><strong>{progress ? aggregate.mastered : '—'}</strong></div>
+        <div><span>Đang ghi nhớ</span><strong>{progress ? aggregate.inProgress : '—'}</strong></div>
+      </section>
+
+      <div className="vp-library-head">
+        <div>
+          <p className="vp-eyebrow">Kho bài của bạn</p>
+          <h2>Chọn bộ từ để luyện tiếp</h2>
+        </div>
+        <span>{banks.length} bộ bài</span>
+      </div>
+
       {banks.length ? (
-        <div className="modes-grid">
+        <div className="vp-bank-grid">
           {banks.map((bank) => {
             const wordsCount = typeof bank.words_count === 'number' && Number.isFinite(bank.words_count)
               ? Math.max(0, bank.words_count)
@@ -151,20 +186,25 @@ export function VocabPracticeBehavior() {
               mastered + tracked,
             );
             const percent = total ? Math.min(100, Math.round(mastered / total * 100)) : 0;
+            const state = total > 0 && mastered >= total
+              ? 'Đã thuộc'
+              : mastered + tracked > 0 ? 'Đang học' : 'Chưa bắt đầu';
             return (
               <a
-                className="mode-card"
+                className="vp-bank"
                 href={`/quiz?bank=${encodeURIComponent(bank.id)}`}
                 key={bank.id}
               >
-                <div className="head">
-                  <div className="icon" aria-hidden="true">📚</div>
-                  <span className="arrow" aria-hidden="true">→</span>
+                <div className="vp-bank__head">
+                  <span className={`vp-bank__state${state === 'Đã thuộc' ? ' is-done' : state === 'Đang học' ? ' is-active' : ''}`}>
+                    {state}
+                  </span>
+                  <span className="vp-bank__arrow" aria-hidden="true">→</span>
                 </div>
                 <h3>{bank.title || bank.code || 'Bài luyện'}</h3>
-                <p className="lede vp-meta">
-                  {bank.code ? <><span className="vp-code">{bank.code}</span> · </> : null}
-                  {wordsCount} từ · học tới khi thuộc
+                <p className="vp-meta">
+                  {bank.code ? <span className="vp-code">{bank.code}</span> : null}
+                  <span>{wordsCount} từ</span>
                 </p>
                 {progressError ? (
                   <p className="vp-bank-progress is-unavailable">Chưa đọc được tiến độ</p>
@@ -185,12 +225,16 @@ export function VocabPracticeBehavior() {
                     </span>
                   </div>
                 ) : null}
+                <span className="vp-bank__cta">{state === 'Chưa bắt đầu' ? 'Bắt đầu luyện' : 'Luyện tiếp'}</span>
               </a>
             );
           })}
         </div>
       ) : (
-        <p className="vp-status">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
+        <div className="vp-state">
+          <span className="vp-state__mark" aria-hidden="true">0</span>
+          <div><strong>Chưa có bài luyện được mở</strong><p>Quay lại sau khi giáo viên xuất bản bộ từ mới.</p></div>
+        </div>
       )}
 
       {progressError && banks.length > 0 ? (
@@ -200,7 +244,7 @@ export function VocabPracticeBehavior() {
       ) : null}
 
       <a className="vp-progress-link" href="/quiz/progress?skill_area=vocab">
-        📊 Xem tiến độ của tôi →
+        <span>Xem câu cần ôn và lịch sử luyện tập</span><span aria-hidden="true">→</span>
       </a>
     </>
   );

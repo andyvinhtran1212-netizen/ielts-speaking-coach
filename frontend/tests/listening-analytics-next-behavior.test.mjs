@@ -33,7 +33,7 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, range\]/);
+    assert.match(BEHAVIOR, /\[accountKey, range, retryVersion\]/);
   });
 
   test('keeps controlled 7d/30d/all tabs and canonical analytics request', () => {
@@ -73,7 +73,9 @@ describe('/listening/analytics — native React behavior', () => {
 
   test('trusts only a known backend weakest_mode and preserves all analytics surfaces', () => {
     assert.match(BEHAVIOR, /weakestMode: isModeKey\(weakest\) \? weakest : null/);
-    assert.match(BEHAVIOR, /Dạng cần luyện thêm:/);
+    assert.match(BEHAVIOR, /Dạng cần luyện thêm/);
+    assert.match(BEHAVIOR, /mini: \{ href: '\/listening\/mini-test'/);
+    assert.match(BEHAVIOR, /MODE_ACTIONS\[data\.weakestMode\]\.href/);
     assert.match(BEHAVIOR, /id="mode-table-body"/);
     assert.match(BEHAVIOR, /id="day-chart"/);
     assert.match(BEHAVIOR, /Math\.max\(4, Math\.round\(\(day\.count \/ maxCount\) \* 100\)\)/);
@@ -96,6 +98,8 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(BEHAVIOR, /id="state-empty" role="status"/);
     assert.match(BEHAVIOR, /id="state-error" role="alert"/);
     assert.match(BEHAVIOR, /Không tải được thống kê\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /setRetryVersion\(\(value\) => value \+ 1\)/);
+    assert.match(BEHAVIOR, /data-label="Hoàn thành"/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
     assert.match(BEHAVIOR, /state\.data\.totalAttempts > 0/);
   });

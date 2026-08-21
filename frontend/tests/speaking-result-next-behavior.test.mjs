@@ -34,7 +34,7 @@ describe('/speaking/result — native React behavior', () => {
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
     assert.match(BEHAVIOR, /resultState\?\.key === requestKey/);
     assert.match(BEHAVIOR, /`\$\{user\.id\}:\$\{sittingId\}`/);
-    assert.match(BEHAVIOR, /\[requestKey, sittingId\]/);
+    assert.match(BEHAVIOR, /\[requestKey, sittingId, reloadVersion\]/);
   });
 
   test('reads the canonical released-result endpoint and reports both gates', () => {
@@ -45,9 +45,20 @@ describe('/speaking/result — native React behavior', () => {
   });
 
   test('renders all authored sections declaratively without raw HTML', () => {
-    assert.match(BEHAVIOR, /Fluency & Coherence/);
+    assert.match(BEHAVIOR, /Độ trôi chảy & mạch lạc/);
+    assert.match(BEHAVIOR, /Vốn từ/);
+    assert.match(BEHAVIOR, /Ngữ pháp/);
+    assert.match(BEHAVIOR, /Phát âm/);
     assert.match(BEHAVIOR, /Trung bình lớp/);
-    assert.match(BEHAVIOR, /Cách luyện: \{section\.advice\}/);
+    assert.match(BEHAVIOR, /Ưu tiên luyện tiếp/);
+    assert.match(BEHAVIOR, /<p>\{section\.advice\}<\/p>/);
+    assert.match(BEHAVIOR, /const noteSections = sections\.filter\(\(section\) => section\.body\)/);
+    assert.match(BEHAVIOR, /data-label="Trung bình lớp"/);
+    assert.match(BEHAVIOR, /setReloadVersion\(\(value\) => value \+ 1\)/);
+    assert.match(BEHAVIOR, /retryable: boolean/);
+    assert.match(BEHAVIOR, /error\.retryable/);
+    assert.doesNotMatch(BEHAVIOR, /error\.startsWith/);
+    assert.doesNotMatch(BEHAVIOR, /caught\?\.message|String\(caught\)/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
   });
 });

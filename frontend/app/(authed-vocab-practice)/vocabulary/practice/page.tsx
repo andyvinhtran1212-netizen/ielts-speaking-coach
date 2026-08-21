@@ -12,25 +12,31 @@ export default function VocabPracticePage() {
     <>
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="vocabulary" />
-      <div className="shell">
+      <main className="shell vp-shell">
         <header className="subpage-header">
           <div className="subpage-header__lhs">
             <a className="subpage-header__back" href="/vocabulary/hub">
               <span aria-hidden="true">←</span><span>Vocabulary</span>
             </a>
-            <span className="subpage-header__sep">|</span>
-            <h1 className="subpage-header__title">Luyện tập từ vựng</h1>
           </div>
         </header>
 
-        <h2 className="vp-hub-title">Chọn một bài để bắt đầu</h2>
-        <p className="vp-hub-sub">
-          Mỗi bài <strong>kiểm tra tới khi bạn thuộc trọn vẹn cả list từ</strong> —
-          có câu gõ tự luận, chống đoán mò và ôn lại từ hay sai. Tiến độ được lưu để bạn học tiếp ở lần sau.
-        </p>
+        <section className="vp-hero" aria-labelledby="vp-title">
+          <div>
+            <p className="vp-eyebrow">Luyện tập chủ động</p>
+            <h1 id="vp-title">Biến từ mới thành vốn từ của bạn</h1>
+            <p>
+              Luyện theo từng bộ, sửa ngay những từ còn nhầm và tiếp tục đúng nơi
+              bạn đã dừng. Tiến độ được lưu tự động sau mỗi phiên.
+            </p>
+          </div>
+          <a className="vp-hero__link" href="/quiz/progress?skill_area=vocab">
+            Xem toàn bộ tiến độ <span aria-hidden="true">→</span>
+          </a>
+        </section>
 
         <VocabPracticeBehavior />
-      </div>
+      </main>
     </>
   );
 }
