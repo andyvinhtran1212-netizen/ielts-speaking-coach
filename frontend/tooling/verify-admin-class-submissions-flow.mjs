@@ -110,18 +110,18 @@ check('không điều hướng sang rollback legacy', !page.url().includes('/pag
 check('tally giữ trạng thái và mastery chuẩn', await page.getByText('1/ 2 đã nộp', { exact: true }).count() === 1 && await page.getByText('68%', { exact: true }).count() === 1 && await page.getByText(/Chưa đạt · KTL×1/).count() === 1);
 
 await page.getByRole('tab', { name: 'Chi tiết làm bài' }).click();
-await page.locator('tr').filter({ hasText: 'An' }).getByText('8/8', { exact: true }).waitFor({ state: 'visible' });
+await page.locator('tr').filter({ hasText: 'An' }).getByText('8/8 chặng', { exact: true }).waitFor({ state: 'visible' });
 const effortTable = page.locator('#acs-panel-effort');
-check('effort phân biệt xong, chưa kích hoạt và giữ học viên đã rời lớp', await effortTable.getByText('Xong', { exact: true }).count() === 2 && await effortTable.getByText('Chưa mở', { exact: true }).count() === 1 && await effortTable.getByText('Chưa kích hoạt', { exact: true }).count() === 1 && await effortTable.getByText('Học viên đã rời lớp', { exact: true }).count() === 1);
+check('effort phân biệt xong, chưa kích hoạt và giữ học viên đã rời lớp', await effortTable.getByText('Đã đạt', { exact: true }).count() === 2 && await effortTable.getByText('Chưa mở', { exact: true }).count() === 1 && await effortTable.getByText('Chưa kích hoạt', { exact: true }).count() === 1 && await effortTable.getByText('Học viên đã rời lớp', { exact: true }).count() === 1);
 check('trục yếu cả lớp đọc từ report chuẩn', await page.getByText('Articles', { exact: true }).count() === 1 && await page.getByText('5 sai', { exact: true }).count() === 1);
 
-await page.locator('tr').filter({ hasText: 'An' }).getByRole('button', { name: 'Xem bài' }).click();
+await page.locator('tr').filter({ hasText: 'An' }).getByRole('button', { name: 'Xem từng lượt' }).click();
 await page.getByRole('heading', { name: 'An', exact: true }).waitFor({ state: 'visible' });
 check('bài từng em ghép course report và tự luận', await page.getByText('I has a cat.', { exact: true }).count() === 1 && await page.getByText('Không có trục yếu nổi bật', { exact: true }).count() === 0);
 check('history chỉ hiện session và revision đã chấm', await page.getByText('Full session', { exact: true }).count() === 1 && await page.getByText('Revision', { exact: true }).count() === 1 && await page.getByText('Làm lại toàn bộ', { exact: true }).count() === 1);
 
 await page.getByRole('tab', { name: 'Chi tiết làm bài' }).click();
-await page.locator('tr').filter({ hasText: 'Học viên đã rời lớp' }).getByRole('button', { name: 'Xem bài' }).click();
+await page.locator('tr').filter({ hasText: 'Học viên đã rời lớp' }).getByRole('button', { name: 'Xem từng lượt' }).click();
 await page.getByRole('heading', { name: 'Học viên đã rời lớp', exact: true }).waitFor({ state: 'visible' });
 await page.getByRole('button', { name: /Articles/ }).click();
 await page.getByText('Archived learner question.', { exact: true }).waitFor({ state: 'visible' });
