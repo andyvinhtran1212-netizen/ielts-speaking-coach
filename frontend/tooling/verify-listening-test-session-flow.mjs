@@ -185,7 +185,7 @@ check('reload resumes the same answer', await page.getByLabel('Answer 1').inputV
 await page.getByLabel('Answer 2').fill('blue');
 await page.waitForTimeout(700);
 await page.getByText('1 câu chưa lưu được lên máy chủ.').waitFor();
-await page.getByRole('button', { name: 'Nộp bài' }).click();
+await page.getByRole('button', { name: 'Submit answers' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
 await page.waitForTimeout(100);
 check('terminal partial save blocks finalization', state.submits === 0 && await page.getByText('1 câu chưa lưu được lên máy chủ.').isVisible());
@@ -194,7 +194,7 @@ state.rejectQ2 = false;
 await page.getByRole('button', { name: 'Thử lại' }).click();
 await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').length === 0);
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
-await page.getByRole('button', { name: 'Nộp bài' }).click();
+await page.getByRole('button', { name: 'Submit answers' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
 await page.locator('.listening-next-score strong').filter({ hasText: /^2\/2$/ }).waitFor();
 check('clean submit renders canonical result once', state.submits === 1);
