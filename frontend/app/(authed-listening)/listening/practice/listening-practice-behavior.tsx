@@ -203,6 +203,8 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
   const [active, setActive] = useState<TabKey | null>(null);
   const [cache, setCache] = useState<Partial<Record<TabKey, PracticeTest[]>>>({});
   const [tabState, setTabState] = useState<TabState>({ status: 'idle' });
+  const [overviewRetry, setOverviewRetry] = useState(0);
+  const [tabRetry, setTabRetry] = useState(0);
 
   useEffect(() => {
     if (!accountKey) {
@@ -251,7 +253,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
       disposed = true;
       controller.abort();
     };
-  }, [accountKey]);
+  }, [accountKey, overviewRetry]);
 
   useEffect(() => {
     if (!active) return;
@@ -299,7 +301,7 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
     // Cache is read at each active-tab transition; adding a fetched entry must
     // not restart the request that produced it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountKey, active]);
+  }, [accountKey, active, tabRetry]);
 
   if (overview.status === 'loading') {
     return (
@@ -324,8 +326,9 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
     return (
       <>
         <PracticeTabs />
-        <div className="error-banner" id="state-error" role="alert">
-          Không tải được Luyện nhanh. Vui lòng thử lại.
+        <div className="lp-state is-error" id="state-error" role="alert">
+          <div><strong>Chưa tải được thư viện luyện nhanh</strong><p>Không tải được Luyện nhanh. Vui lòng thử lại.</p></div>
+          <button type="button" onClick={() => setOverviewRetry((value) => value + 1)}>Thử lại</button>
         </div>
       </>
     );
@@ -334,14 +337,19 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
   const activeTab = TABS.find((tab) => tab.key === active) || null;
   const activeItems = active && hasTab(cache, active) ? cache[active] || [] : [];
   const groups = active ? groupTests(active, activeItems) : [];
+  const total = TABS.reduce((sum, tab) => sum + overview.counts[tab.key], 0);
 
   return (
     <>
-      <PracticeTabs counts={overview.counts} active={active} onSelect={setActive} />
+      <div className="lp-toolbar">
+        <PracticeTabs counts={overview.counts} active={active} onSelect={setActive} />
+        <span>{total} bài đang mở</span>
+      </div>
 
       {tabState.status === 'error' ? (
-        <div className="error-banner" id="state-error" role="alert">
-          Không tải được danh sách bài luyện. Vui lòng thử lại.
+        <div className="lp-state is-error" id="state-error" role="alert">
+          <div><strong>Chưa tải được nhóm bài này</strong><p>Không tải được danh sách bài luyện. Vui lòng thử lại.</p></div>
+          <button type="button" onClick={() => setTabRetry((value) => value + 1)}>Thử lại</button>
         </div>
       ) : (
         <div id="practice-body">
@@ -349,7 +357,10 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
             {tabState.status === 'loading' ? <p className="lp-lede" role="status">Đang tải…</p> : null}
             {tabState.status === 'ready' && activeTab ? (
               <>
-                <p className="lp-lede">{activeTab.lede}</p>
+                <div className="lp-panel-head">
+                  <div><p className="lp-eyebrow">{activeTab.label}</p><h2>{activeTab.lede}</h2></div>
+                  <span>{activeItems.length} bài</span>
+                </div>
                 {!activeItems.length ? (
                   <div className="empty-state" id="state-tab-empty" role="status">
                     Nhóm này hiện chưa có bài luyện khả dụng.
@@ -373,7 +384,11 @@ function ListeningPracticeLibrary({ accountKey }: { accountKey: string | null })
                             data-test-id={test.id}
                             key={test.key}
                           >
-                            <div className="lt-card-title">{test.title}</div>
+                            <div className="lt-card-head">
+                              <span>{completed ? 'Đã hoàn thành' : 'Chưa bắt đầu'}</span>
+                              {test.trap ? <small>{test.trap}</small> : null}
+                            </div>
+                            <h4 className="lt-card-title">{test.title}</h4>
                             <div className="lt-card-stats">
                               {test.bestScore != null ? (
                                 <>Tốt nhất <strong>{test.bestScore}</strong> · </>

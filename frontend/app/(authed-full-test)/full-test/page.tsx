@@ -12,16 +12,22 @@ export default function FullTestPage() {
     <>
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="mock" />
-      <div className="ft-wrap">
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--av-text-primary)', marginBottom: 4 }}>
-          Thi thử Full Test 4 kỹ năng
-        </h1>
-        <p className="ft-muted" style={{ marginBottom: 20 }}>
-          Listening → Reading → Writing, giám thị mở lần lượt từng phần và mỗi phần có đồng hồ riêng; Speaking vấn đáp riêng. Bài thu kín — giám khảo chấm và trả điểm sau. Mỗi lúc chỉ làm được một kỳ thi.
-        </p>
-
+      <main className="shell ft-wrap">
+        <header className="subpage-header">
+          <div className="subpage-header__lhs">
+            <a className="subpage-header__back" href="/home"><span aria-hidden="true">←</span><span>Trang chủ</span></a>
+          </div>
+        </header>
+        <section className="ft-hero">
+          <div>
+            <p className="ft-eyebrow">Thi thử 4 kỹ năng</p>
+            <h1>Không gian thi được điều phối như ngày thi thật</h1>
+            <p>Hoàn thành Listening, Reading và Writing theo thứ tự giám thị mở; Speaking được tổ chức riêng. Mỗi lúc bạn chỉ có một lượt thi đang hoạt động.</p>
+          </div>
+          <div className="ft-hero__note"><span>Kết quả</span><strong>Giám khảo duyệt trước khi trả</strong></div>
+        </section>
         <FullTestBehavior />
-      </div>
+      </main>
     </>
   );
 }

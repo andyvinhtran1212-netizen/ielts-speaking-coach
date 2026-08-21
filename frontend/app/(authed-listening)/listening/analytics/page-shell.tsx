@@ -2,18 +2,21 @@ import type { ReactNode } from 'react';
 
 export function ListeningAnalyticsShell({ children }: { children: ReactNode }) {
   return (
-    <div className="shell">
-      <main className="analytics-shell">
-        <header className="analytics-header">
-          <p className="eyebrow"><a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại</a></p>
-          <h1>Thống kê <span className="accent">Listening</span></h1>
-          <p className="subtitle">
-            Theo dõi tiến độ luyện nghe của bạn theo dạng bài và theo thời gian.
-          </p>
-        </header>
-
-        {children}
-      </main>
-    </div>
+    <main className="shell analytics-shell">
+      <header className="subpage-header">
+        <div className="subpage-header__lhs">
+          <a className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></a>
+        </div>
+      </header>
+      <section className="analytics-hero">
+        <div>
+          <p className="analytics-eyebrow">Tiến độ luyện nghe</p>
+          <h1>Biết điểm yếu để luyện đúng bài</h1>
+          <p>Đọc xu hướng, xem mức hoàn thành và bắt đầu ngay với dạng bài đang kéo điểm xuống.</p>
+        </div>
+        <a href="/listening/practice">Luyện ngay <span aria-hidden="true">→</span></a>
+      </section>
+      {children}
+    </main>
   );
 }

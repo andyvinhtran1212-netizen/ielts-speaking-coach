@@ -31,7 +31,7 @@ const LANDING = read('js', 'vocab-landing.js');
 describe('quiz-progress.html — mistakes review', () => {
   test('renders a dedicated section fed by /api/quiz/mistakes', () => {
     assert.match(PROGRESS, /id=["']pg-mistakes["']/);
-    assert.match(PROGRESS, /Câu tôi đã trả lời sai/);
+    assert.match(PROGRESS, /Câu bạn từng trả lời sai/);
     assert.match(PROGRESS, /\/api\/quiz\/mistakes/);
   });
 

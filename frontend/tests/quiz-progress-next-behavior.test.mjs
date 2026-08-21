@@ -36,17 +36,19 @@ describe('/quiz/progress — native React behavior', () => {
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
     assert.match(BEHAVIOR, /progressState\?\.key === requestKey/);
-    assert.match(BEHAVIOR, /\[requestKey, skill\]/);
+    assert.match(BEHAVIOR, /\[requestKey, skill, reloadVersion\]/);
   });
 
   test('scopes both canonical reads and keeps mistakes failure independent', () => {
-    assert.match(BEHAVIOR, /`\/api\/quiz\/progress\$\{query\}`/);
-    assert.match(BEHAVIOR, /`\/api\/quiz\/mistakes\$\{query\}`/);
+    assert.match(BEHAVIOR, /`\/api\/quiz\/progress\$\{queryFor\(skill\)\}`/);
+    assert.match(BEHAVIOR, /`\/api\/quiz\/mistakes\$\{queryFor\(skill\)\}`/);
     assert.match(BEHAVIOR, /setProgressState\(\{ key: requestKey, value: payload \}\)/);
     assert.match(BEHAVIOR, /setMistakesError/);
     assert.match(BEHAVIOR, /Mistakes là enrichment độc lập/);
     assert.match(BEHAVIOR, /Không tải được thống kê\. Vui lòng thử lại\./);
-    assert.match(BEHAVIOR, /Không tải được danh sách câu sai\. Vui lòng thử lại\./);
+    assert.match(BEHAVIOR, /Chưa tải được câu cần ôn/);
+    assert.match(BEHAVIOR, /onRetry=\{\(\) => setMistakesReloadVersion/);
+    assert.match(BEHAVIOR, /\[requestKey, skill, mistakesReloadVersion\]/);
     assert.doesNotMatch(BEHAVIOR, /Không tải được thống kê: \{progressError\}/);
   });
 
@@ -54,8 +56,17 @@ describe('/quiz/progress — native React behavior', () => {
     assert.match(BEHAVIOR, /function FormattedText/);
     assert.match(BEHAVIOR, /<strong key=/);
     assert.match(BEHAVIOR, /aria-label="chỗ trống"/);
+    assert.match(BEHAVIOR, /<span><FormattedText value=\{question\.hint\} \/><\/span>/);
     assert.match(BEHAVIOR, /function safeArticleUrl/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
+  });
+
+  test('provides section navigation and a mobile-readable session contract', () => {
+    assert.match(BEHAVIOR, /href="#tong-quan"/);
+    assert.match(BEHAVIOR, /href="#can-on"/);
+    assert.match(BEHAVIOR, /href="#lich-su"/);
+    assert.match(BEHAVIOR, /data-label="Chính xác"/);
+    assert.doesNotMatch(BEHAVIOR, /📊|💡|📖|🎉/);
   });
 });
 
@@ -75,6 +86,13 @@ describe('/quiz/progress — canonical entry points', () => {
     for (const source of [quiz, practice, landing]) {
       assert.match(source, /\/quiz\/progress/);
       assert.doesNotMatch(source, /\/pages\/quiz-progress\.html/);
+    }
+  });
+
+  test('legacy session rows retain mobile table labels', () => {
+    const progress = read('public', 'js', 'quiz-progress.js');
+    for (const label of ['Bộ', 'Chính xác', 'Đã thuộc', 'Thời gian', 'Kết thúc']) {
+      assert.match(progress, new RegExp(`data-label=["']${label}["']`));
     }
   });
 });

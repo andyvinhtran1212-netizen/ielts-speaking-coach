@@ -24,25 +24,18 @@ interface KeyedState<T> {
   value: T;
 }
 
-function messageOf(caught: unknown) {
-  return caught instanceof Error ? caught.message : String(caught);
-}
-
 function ExamAction({ exam }: { exam: MockExamSummary }) {
   if (exam.blocked_by_sitting_id) {
     return (
-      <>
-        <p className="ft-muted" style={{ color: 'var(--av-warning)', margin: '0 0 8px' }}>
-          <strong>Bạn đang có một bài thi chưa hoàn thành.</strong> Hãy hoàn thành bài đó trước.
-        </p>
+      <div className="ft-action is-blocked">
+        <p><strong>Đang có một lượt thi khác.</strong><span>Hoàn thành lượt đó trước khi mở kỳ thi này.</span></p>
         <a
-          className="av-btn"
-          style={{ display: 'inline-block' }}
+          className="av-button av-button-secondary"
           href={`/mock-exam?sitting=${encodeURIComponent(exam.blocked_by_sitting_id)}`}
         >
-          ← Quay lại bài đang thi
+          Quay lại bài đang thi <span aria-hidden="true">→</span>
         </a>
-      </>
+      </div>
     );
   }
 
@@ -50,8 +43,8 @@ function ExamAction({ exam }: { exam: MockExamSummary }) {
     ? `/mock-exam?sitting=${encodeURIComponent(exam.my_sitting_id)}`
     : `/mock-exam?code=${encodeURIComponent(exam.code)}`;
   return (
-    <a className="av-btn av-btn--primary" style={{ display: 'inline-block' }} href={target}>
-      {exam.my_sitting_id ? 'Tiếp tục bài đang làm →' : 'Bắt đầu →'}
+    <a className="av-button av-button-primary" href={target}>
+      {exam.my_sitting_id ? 'Tiếp tục bài đang làm' : 'Bắt đầu kỳ thi'} <span aria-hidden="true">→</span>
     </a>
   );
 }
@@ -63,16 +56,26 @@ function ExamCard({ exam }: { exam: MockExamSummary }) {
   const sla = exam.review_sla_days || 3;
 
   return (
-    <article className="ft-card">
-      <div className="ft-title">
-        {exam.title || exam.code}
-        {retake ? <> <span className="av-badge av-badge-warning">Test lại</span></> : null}
+    <article className={`ft-card${exam.my_sitting_id ? ' is-active' : ''}${exam.blocked_by_sitting_id ? ' is-blocked' : ''}`}>
+      <div className="ft-card__head">
+        <span className={`ft-kind${retake ? ' is-retake' : ''}`}>{retake ? 'Bài thi lại' : 'Full test'}</span>
+        <span className="ft-code">{exam.code}</span>
       </div>
-      <p className="ft-muted" style={{ margin: '6px 0 12px' }}>
+      <h2 className="ft-title">{exam.title || exam.code}</h2>
+      <p className="ft-description">
         {retake
-          ? 'Bài test lại — chỉ làm kĩ năng được giao, có hẹn giờ, web tự thu bài khi hết giờ.'
-          : `Listening → Reading → Writing, giám thị mở lần lượt từng phần · Trả kết quả trong ~${sla} ngày.`}
+          ? 'Chỉ làm kỹ năng được giao. Đồng hồ vẫn chạy độc lập và hệ thống tự thu bài khi hết giờ.'
+          : 'Ba phần thi viết được mở lần lượt; Speaking được giáo viên tổ chức và chấm riêng.'}
       </p>
+      {!retake ? (
+        <ol className="ft-timeline" aria-label="Trình tự kỳ thi">
+          <li><span>L</span><div><strong>Listening</strong><small>Nghe và nộp bài</small></div></li>
+          <li><span>R</span><div><strong>Reading</strong><small>Đọc hiểu</small></div></li>
+          <li><span>W</span><div><strong>Writing</strong><small>Viết học thuật</small></div></li>
+          <li><span>S</span><div><strong>Speaking</strong><small>Thi với giáo viên</small></div></li>
+        </ol>
+      ) : null}
+      <div className="ft-review-note"><span>Thời gian trả kết quả</span><strong>Khoảng {sla} ngày</strong></div>
       <ExamAction exam={exam} />
     </article>
   );
@@ -83,6 +86,7 @@ export function FullTestBehavior() {
   const requestKey = status === 'signed-in' && user?.id ? user.id : null;
   const [examState, setExamState] = useState<KeyedState<MockExamSummary[]> | null>(null);
   const [errorState, setErrorState] = useState<KeyedState<string> | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   const exams = examState?.key === requestKey ? examState.value : null;
   const error = errorState?.key === requestKey ? errorState.value : null;
@@ -132,7 +136,7 @@ export function FullTestBehavior() {
         if (!disposed && !(caught instanceof DOMException && caught.name === 'AbortError')) {
           setErrorState({
             key: requestKey,
-            value: `Không tải được danh sách: ${messageOf(caught)}`,
+            value: 'Không tải được danh sách kỳ thi. Vui lòng thử lại.',
           });
         }
       }
@@ -142,21 +146,32 @@ export function FullTestBehavior() {
       disposed = true;
       controller.abort();
     };
-  }, [requestKey]);
+  }, [requestKey, reloadVersion]);
 
   if (error) {
-    return <div className="ft-card" style={{ textAlign: 'center', color: 'var(--av-error)' }}>{error}</div>;
+    return (
+      <div className="ft-state is-error" role="alert">
+        <div><strong>Chưa tải được kỳ thi</strong><p>{error}</p></div>
+        <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>Thử lại</button>
+      </div>
+    );
   }
   if (!exams) {
-    return <div className="ft-muted" style={{ textAlign: 'center', padding: '40px 0' }}>Đang tải…</div>;
+    return <div className="ft-state" role="status"><div><strong>Đang chuẩn bị danh sách kỳ thi</strong><p>Đang kiểm tra lượt thi và quyền truy cập của bạn…</p></div></div>;
   }
   if (!exams.length) {
     return (
-      <div className="ft-card" style={{ textAlign: 'center' }}>
-        <p className="ft-muted">Hiện chưa có kỳ thi nào được mở. Quay lại khi giám khảo mở kỳ nhé.</p>
+      <div className="ft-state">
+        <div><strong>Hiện chưa có kỳ thi nào được mở</strong><p>Quay lại khi giám khảo công bố lịch thi mới.</p></div>
       </div>
     );
   }
 
-  return <div>{exams.map((exam) => <ExamCard exam={exam} key={exam.id} />)}</div>;
+  const ordered = [...exams].sort((first, second) => Number(Boolean(second.my_sitting_id)) - Number(Boolean(first.my_sitting_id)));
+  return (
+    <section className="ft-library" aria-labelledby="ft-library-title">
+      <div className="ft-library__head"><div><p className="ft-eyebrow">Kỳ thi của bạn</p><h2 id="ft-library-title">Chọn kỳ thi để tiếp tục</h2></div><span>{exams.length} kỳ thi</span></div>
+      <div className="ft-list">{ordered.map((exam) => <ExamCard exam={exam} key={exam.id} />)}</div>
+    </section>
+  );
 }

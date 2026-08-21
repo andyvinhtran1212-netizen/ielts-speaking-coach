@@ -18,6 +18,13 @@ const MODE_LABELS = {
   practice: 'Luyện nhanh',
 } as const;
 
+const MODE_ACTIONS = {
+  mini: { href: '/listening/mini-test', label: 'Chọn mini test' },
+  drill: { href: '/listening/skills', label: 'Luyện theo kỹ năng' },
+  full: { href: '/listening/tests', label: 'Chọn full test' },
+  practice: { href: '/listening/practice', label: 'Luyện nhanh' },
+} as const;
+
 type RangeKey = typeof RANGES[number][0];
 type ModeKey = keyof typeof MODE_LABELS;
 
@@ -187,14 +194,19 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
   const summary = overall(data);
   const maxCount = Math.max(1, ...data.byDay.map((day) => day.count));
   return (
-    <div id="analytics-surface" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--av-space-6)' }}>
+    <div className="analytics-surface" id="analytics-surface">
       {data.weakestMode && (
         <div className="weakest-banner" id="weakest-banner">
-          Dạng cần luyện thêm: {MODE_LABELS[data.weakestMode]} (điểm thấp nhất trong khoảng này).
+          <div>
+            <span>Dạng cần luyện thêm</span>
+            <strong>{MODE_LABELS[data.weakestMode]}</strong>
+            <p>Đây là dạng có điểm thấp nhất trong khoảng đang xem. Bắt đầu với một phiên ngắn để cải thiện đúng điểm yếu.</p>
+          </div>
+          <a href={MODE_ACTIONS[data.weakestMode].href}>{MODE_ACTIONS[data.weakestMode].label} <span aria-hidden="true">→</span></a>
         </div>
       )}
 
-      <section className="summary-grid">
+      <section className="summary-grid" aria-label="Tổng quan kết quả">
         <div className="stat-card">
           <span className="stat-label">Tổng số lượt làm</span>
           <span className="stat-value" id="stat-total">{data.totalAttempts}</span>
@@ -213,7 +225,7 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
       </section>
 
       <section className="section-card">
-        <h2>Theo dạng bài</h2>
+        <div className="analytics-section-head"><div><p>So sánh</p><h2>Theo dạng bài</h2></div></div>
         <table className="mode-table">
           <thead>
             <tr>
@@ -228,10 +240,10 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
               const metric = data.byMode[mode];
               return (
                 <tr data-mode={mode} key={mode}>
-                  <td>{MODE_LABELS[mode]}</td>
-                  <td className="num">{metric.count}</td>
-                  <td className="num">{percent(metric.avgScore)}</td>
-                  <td className="num">{percent(metric.completion)}</td>
+                  <td data-label="Dạng">{MODE_LABELS[mode]}</td>
+                  <td className="num" data-label="Số bài">{metric.count}</td>
+                  <td className="num" data-label="Đúng TB">{percent(metric.avgScore)}</td>
+                  <td className="num" data-label="Hoàn thành">{percent(metric.completion)}</td>
                 </tr>
               );
             })}
@@ -240,7 +252,7 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
       </section>
 
       <section className="section-card">
-        <h2>Theo ngày (14 ngày gần nhất)</h2>
+        <div className="analytics-section-head"><div><p>Xu hướng</p><h2>14 ngày gần nhất</h2></div><span>Chiều cao cột = số lượt làm</span></div>
         <div className="day-chart" id="day-chart">
           {data.byDay.map((day) => {
             const height = Math.max(4, Math.round((day.count / maxCount) * 100));
@@ -253,6 +265,8 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
                 style={{ height: `${height}px` }}
                 data-has-data={day.count > 0 ? '1' : '0'}
                 title={title}
+                role="img"
+                aria-label={title}
                 key={day.key}
               />
             );
@@ -264,12 +278,12 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
       </section>
 
       <section className="section-card">
-        <h2>Hoạt động gần đây</h2>
+        <div className="analytics-section-head"><div><p>Lịch sử</p><h2>Hoạt động gần đây</h2></div><span>{data.recentAttempts.length} lượt</span></div>
         <ul className="recent-list" id="recent-list">
           {data.recentAttempts.map((attempt) => (
             <li key={attempt.key}>
               <span className="recent-mode">{attempt.title}</span>
-              <span style={{ color: 'var(--av-text-muted)', fontFamily: 'var(--av-font-mono)', fontSize: 'var(--av-fs-xs)' }}>
+              <span className="recent-date">
                 {attempt.date}
               </span>
               <span className={`recent-score${attempt.perfect ? ' is-perfect' : ''}`}>
@@ -278,6 +292,7 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
             </li>
           ))}
         </ul>
+        {!data.recentAttempts.length ? <p className="analytics-empty-inline">Chưa có hoạt động gần đây.</p> : null}
       </section>
     </div>
   );
@@ -297,6 +312,7 @@ export function ListeningAnalyticsBehavior() {
 function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string | null }) {
   const [range, setRange] = useState<RangeKey>('30d');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [retryVersion, setRetryVersion] = useState(0);
 
   useEffect(() => {
     if (!accountKey) {
@@ -334,7 +350,7 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string | null
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, range]);
+  }, [accountKey, range, retryVersion]);
 
   const changeRange = (nextRange: RangeKey) => {
     if (nextRange === range) return;
@@ -354,11 +370,13 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string | null
         <div className="empty-state" id="state-empty" role="status">
           <p><strong>Chưa có dữ liệu luyện tập trong khoảng này.</strong></p>
           <p>Bắt đầu một bài nghe để thấy thống kê.</p>
+          <a href="/listening/practice">Bắt đầu luyện nghe</a>
         </div>
       )}
       {state.status === 'error' && (
-        <div className="error-banner" id="state-error" role="alert">
-          Không tải được thống kê. Vui lòng thử lại.
+        <div className="analytics-state is-error" id="state-error" role="alert">
+          <div><strong>Chưa tải được thống kê</strong><p>Không tải được thống kê. Vui lòng thử lại.</p></div>
+          <button type="button" onClick={() => setRetryVersion((value) => value + 1)}>Thử lại</button>
         </div>
       )}
       {state.status === 'ready' && state.data.totalAttempts > 0 && (

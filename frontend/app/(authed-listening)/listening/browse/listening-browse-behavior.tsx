@@ -48,14 +48,6 @@ type LoadState =
   | { status: 'ready'; items: ListeningContent[]; total: number }
   | { status: 'error' };
 
-const labelStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  fontSize: 'var(--av-fs-xs)',
-  color: 'var(--av-text-muted)',
-} as const;
-
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -123,9 +115,18 @@ function FiltersBar({ filters, onChange }: {
   onChange: (key: keyof Filters, value: string) => void;
 }) {
   return (
-    <div className="browse-filters">
-      <label style={labelStyle}>
-        Accent
+    <details className="browse-filter-panel" open>
+      <summary>
+        <span>Bộ lọc bài nghe</span>
+        <span className="browse-filter-count">
+          {Object.values(filters).filter(Boolean).length
+            ? `${Object.values(filters).filter(Boolean).length} đang dùng`
+            : 'Tất cả'}
+        </span>
+      </summary>
+      <div className="browse-filters">
+      <label>
+        Giọng đọc
         <select id="filter-accent" value={filters.accent} onChange={(event) => onChange('accent', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="us_general">US</option>
@@ -135,8 +136,8 @@ function FiltersBar({ filters, onChange }: {
           <option value="other">Khác</option>
         </select>
       </label>
-      <label style={labelStyle}>
-        CEFR
+      <label>
+        Trình độ CEFR
         <select id="filter-cefr" value={filters.cefr} onChange={(event) => onChange('cefr', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="A2">A2</option>
@@ -146,8 +147,8 @@ function FiltersBar({ filters, onChange }: {
           <option value="C2">C2</option>
         </select>
       </label>
-      <label style={labelStyle}>
-        Section
+      <label>
+        Phần thi
         <select id="filter-section" value={filters.section} onChange={(event) => onChange('section', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="1">Section 1</option>
@@ -156,13 +157,14 @@ function FiltersBar({ filters, onChange }: {
           <option value="4">Section 4</option>
         </select>
       </label>
-    </div>
+      </div>
+    </details>
   );
 }
 
 function ModeLinks({ item }: { item: ListeningContent }) {
   if (item.availableModes === null) {
-    return <span className="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>;
+    return <span className="mode-empty is-warning">Chưa đồng bộ được dạng luyện</span>;
   }
   const links = MODE_LINKS.filter(([mode]) => item.availableModes?.includes(mode));
   if (!links.length) {
@@ -177,17 +179,17 @@ function ModeLinks({ item }: { item: ListeningContent }) {
 
 function ContentCard({ item }: { item: ListeningContent }) {
   return (
-    <div className="content-card" data-content-id={item.id}>
+    <article className="content-card" data-content-id={item.id}>
+      <div className="content-card__head"><span>Bài nghe</span>{item.minutes > 0 ? <small>{item.minutes} phút</small> : null}</div>
       <h3>{item.title}</h3>
       <div className="desc">{item.description}</div>
       <div className="meta-row">
         {item.accent && <span className="meta-pill">{item.accent}</span>}
         {item.cefr && <span className="meta-pill is-brand">{item.cefr}</span>}
         {item.section && <span className="meta-pill">Section {item.section}</span>}
-        {item.minutes > 0 && <span className="meta-pill">{item.minutes}p</span>}
       </div>
-      <div className="mode-links"><ModeLinks item={item} /></div>
-    </div>
+      <div className="mode-links"><strong>Chọn dạng luyện</strong><div><ModeLinks item={item} /></div></div>
+    </article>
   );
 }
 
@@ -284,12 +286,17 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
         <div className="empty-state" id="state-empty" role="status">Chưa có bài nghe nào khớp bộ lọc.</div>
       )}
       {state.status === 'error' && (
-        <div className="error-banner" id="state-error" role="alert">
-          Không tải được danh sách bài nghe. Vui lòng thử lại.
+        <div className="browse-state is-error" id="state-error" role="alert">
+          <div><strong>Chưa tải được kho bài nghe</strong><p>Không tải được danh sách bài nghe. Vui lòng thử lại.</p></div>
+          <button type="button" onClick={() => setRetryKey((current) => current + 1)}>Thử lại</button>
         </div>
       )}
       {state.status === 'ready' && state.items.length > 0 && (
         <>
+          <div className="browse-results-head">
+            <div><p className="browse-eyebrow">Kết quả</p><h2>{state.total} bài nghe phù hợp</h2></div>
+            <span>Đang hiển thị {shown}</span>
+          </div>
           <div className="content-grid" id="content-grid">
             {state.items.map((item) => <ContentCard item={item} key={item.key} />)}
           </div>

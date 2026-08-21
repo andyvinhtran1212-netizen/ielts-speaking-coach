@@ -97,11 +97,11 @@ check('authored metadata được React escape',
   (await page.locator('[data-content-id="content-one"] h3').innerText()) === 'Travel <script>'
     && (await page.locator('[data-content-id="content-one"] .desc').innerText()) === 'Airport & hotel'
     && await page.locator('.content-card script').count() === 0);
-check('metadata pills giữ accent, CEFR, section và duration',
+check('card giữ accent, CEFR, section và duration',
   (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('uk_rp')
     && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('B2')
     && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('Section 1')
-    && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('1p'));
+    && (await page.locator('[data-content-id="content-one"] .content-card__head').innerText()).includes('1 phút'));
 const modeLinks = page.locator('[data-content-id="content-one"] .mode-link');
 check('chỉ render mode được backend báo theo thứ tự sư phạm',
   await modeLinks.count() === 2
@@ -117,7 +117,7 @@ check('empty array là no-mode thật',
     .includes('Chưa có dạng luyện nào'));
 check('missing hoặc malformed modes là lookup failure, không giả no-data',
   (await page.locator('[data-content-id="content-unreadable"] .mode-empty').innerText())
-    .includes('Không đọc được'));
+    .includes('Chưa đồng bộ được'));
 check('request đầu dùng paging contract không kèm filter rỗng',
   observedQueries[0]?.limit === '24' && observedQueries[0]?.offset === '0'
     && observedQueries[0]?.accent === null && observedQueries[0]?.cefr === null

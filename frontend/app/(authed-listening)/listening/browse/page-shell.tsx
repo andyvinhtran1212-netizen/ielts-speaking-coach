@@ -2,18 +2,21 @@ import type { ReactNode } from 'react';
 
 export function ListeningBrowseShell({ children }: { children: ReactNode }) {
   return (
-    <div className="shell">
-      <main className="browse-shell">
-        <header className="browse-header">
-          <p className="eyebrow"><a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại</a></p>
-          <h1>Kho bài nghe <span className="accent">·</span> <span style={{ color: "var(--av-text-muted)" }}>Browse</span></h1>
-          <p className="subtitle">
-            Chọn một bài nghe rồi bắt đầu luyện với dạng bài bạn muốn.
-          </p>
-        </header>
-
-        {children}
-      </main>
-    </div>
+    <main className="shell browse-shell">
+      <header className="subpage-header">
+        <div className="subpage-header__lhs">
+          <a className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></a>
+        </div>
+      </header>
+      <section className="browse-hero">
+        <div>
+          <p className="browse-eyebrow">Thư viện luyện nghe</p>
+          <h1>Tìm bài nghe phù hợp với mục tiêu hôm nay</h1>
+          <p>Lọc theo giọng đọc, trình độ và phần thi; sau đó chọn đúng dạng luyện bạn muốn tập trung.</p>
+        </div>
+        <a href="/listening/analytics">Xem tiến độ <span aria-hidden="true">→</span></a>
+      </section>
+      {children}
+    </main>
   );
 }

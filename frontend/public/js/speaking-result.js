@@ -56,8 +56,11 @@
       });
       metrics.forEach(function (mrow) {
         var tr = tbl.insertRow();
-        [mrow.label, mrow.value, mrow.class_avg].forEach(function (t) {
-          tr.insertCell().textContent = t == null ? '—' : t;
+        var labels = ['Chỉ số', 'Của bạn', 'Trung bình lớp'];
+        [mrow.label, mrow.value, mrow.class_avg].forEach(function (t, index) {
+          var td = tr.insertCell();
+          td.dataset.label = labels[index];
+          td.textContent = t == null ? '—' : t;
         });
       });
       host.appendChild(tbl);

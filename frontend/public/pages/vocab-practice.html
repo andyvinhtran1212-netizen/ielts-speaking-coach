@@ -38,23 +38,26 @@
         <a class="subpage-header__back" href="/vocabulary/hub">
           <span aria-hidden="true">←</span><span>Vocabulary</span>
         </a>
-        <span class="subpage-header__sep">|</span>
-        <h1 class="subpage-header__title">Luyện tập từ vựng</h1>
       </div>
     </header>
 
-    <h2 class="vp-hub-title">Chọn một bài để bắt đầu</h2>
-    <p class="vp-hub-sub">
-      Mỗi bài <strong>kiểm tra tới khi bạn thuộc trọn vẹn cả list từ</strong> —
-      có câu gõ tự luận, chống đoán mò và ôn lại từ hay sai. Tiến độ được lưu để bạn học tiếp ở lần sau.
-    </p>
+    <section class="vp-hero" aria-labelledby="vp-title">
+      <div>
+        <p class="vp-eyebrow">Luyện tập chủ động</p>
+        <h1 id="vp-title">Biến từ mới thành vốn từ của bạn</h1>
+        <p>Luyện theo từng bộ tới khi thuộc trọn vẹn cả list từ, sửa ngay những từ còn nhầm và tiếp tục đúng nơi bạn đã dừng. Tiến độ được lưu tự động sau mỗi phiên.</p>
+      </div>
+      <a class="vp-hero__link" href="/quiz/progress?skill_area=vocab">Xem toàn bộ tiến độ <span aria-hidden="true">→</span></a>
+    </section>
+
+    <h2 class="vp-hub-title">Chọn bộ từ để luyện tiếp</h2>
 
     <p id="vp-loading" class="vp-status">Đang tải…</p>
     <div id="vp-list" class="modes-grid hidden"></div>
     <p id="vp-empty" class="vp-status hidden">Chưa có bài luyện nào được mở. Vui lòng quay lại sau.</p>
     <p id="vp-error" class="vp-status is-error hidden"></p>
 
-    <a id="vp-progress" class="vp-progress-link hidden" href="/quiz/progress?skill_area=vocab">📊 Xem tiến độ của tôi →</a>
+    <a id="vp-progress" class="vp-progress-link hidden" href="/quiz/progress?skill_area=vocab">Xem câu cần ôn và lịch sử luyện tập</a>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
