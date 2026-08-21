@@ -33,7 +33,7 @@ export async function mount() {
       + '<div class="head"><div class="vp-bank-state">Chưa bắt đầu</div><span class="arrow">→</span></div>'
       + '<h3>' + esc(b.title || b.code || 'Bài luyện') + '</h3>'
       + '<p class="lede vp-meta">'
-      + (b.code ? '<span class="vp-code">' + esc(b.code) + '</span> · ' : '')
+      + (b.code ? '<span class="vp-code">' + esc(b.code) + '</span> ' : '')
       + n + ' từ</p>'
       + '</a>';
   }).join('');
