@@ -16,6 +16,8 @@
  * là học viên chỉ phải học nó một lần.
  */
 
+import { formatCourseExplanation } from './course-explanation-format.js';
+
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml
   ? window.WC.escapeHtml(s)
   : String(s == null ? '' : s)
@@ -70,7 +72,7 @@ function questionCard(q) {
       <dd><b>${esc(answer)}</b> ${esc(q.answer_text || '')}</dd>`}
     </dl>
     ${q.why_wrong ? `<p class="cr-q__why">${esc(q.why_wrong)}</p>` : ''}
-    ${q.explain ? `<p class="cr-q__explain">${esc(q.explain)}</p>` : ''}
+    ${q.explain ? `<div class="cr-q__explain course-explain">${formatCourseExplanation(q.explain)}</div>` : ''}
     ${q.seconds != null ? `<p class="cr-q__time">${esc(q.seconds)} giây</p>` : ''}
   </li>`;
 }

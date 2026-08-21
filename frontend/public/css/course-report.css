@@ -191,6 +191,37 @@
   line-height: 1.5;
   color: var(--av-text-muted);
 }
+.course-explain {
+  display: grid;
+  gap: var(--av-space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.course-explain__paragraph,
+.course-explain__lead { margin: 0; }
+.course-explain__lead {
+  color: var(--av-text-primary);
+  font-weight: var(--av-fw-semibold);
+}
+.course-explain__list {
+  display: grid;
+  gap: var(--av-space-2);
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+.course-explain__list li { padding-inline-start: var(--av-space-1); }
+.course-explain__list li::marker {
+  color: var(--av-primary);
+  font-weight: var(--av-fw-bold);
+}
+.course-explain__emphasis {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .cr-q__time {
   margin: var(--av-space-2) 0 0;
   font-family: var(--av-font-mono);

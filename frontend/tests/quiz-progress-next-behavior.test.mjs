@@ -54,6 +54,16 @@ describe('/quiz/progress — native React behavior', () => {
     assert.match(BEHAVIOR, /function safeArticleUrl/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
   });
+
+  test('renders explanation blocks on the live React route', () => {
+    assert.match(BEHAVIOR, /parseCourseExplanation/);
+    assert.match(BEHAVIOR, /function ExplanationBlocks/);
+    assert.match(BEHAVIOR, /<p className=\{className\}/);
+    assert.match(BEHAVIOR, /<ul className=\{className\}/);
+    assert.match(BEHAVIOR, /<ol className="course-explain__list"/);
+    assert.match(BEHAVIOR, /<ExplanationBlocks value=\{question\.explain\}/);
+    assert.doesNotMatch(BEHAVIOR, /dangerouslySetInnerHTML|__html/);
+  });
 });
 
 describe('/quiz/progress — canonical entry points', () => {

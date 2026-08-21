@@ -20,6 +20,7 @@
  */
 
 import { usdLabel, countLabel, lastActiveLabel } from './admin-usage-util.js';
+import { formatCourseExplanation } from './course-explanation-format.js';
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
@@ -1346,7 +1347,7 @@ function renderStudentWriting(d) {
       <span class="cw-item__no">Câu ${i + 1}</span>
       <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
-      ${g.explain ? `<div class="cw-model">${cwMd(g.explain)}</div>` : ''}
+      ${g.explain ? `<div class="cw-model course-explain">${formatCourseExplanation(g.explain)}</div>` : ''}
     </article>`;
   }).join('');
 

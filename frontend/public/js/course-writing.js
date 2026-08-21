@@ -12,6 +12,7 @@
  */
 
 import { createActiveTimer } from './course-active-timer.js';
+import { formatCourseExplanation } from './course-explanation-format.js';
 
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml(s)
@@ -414,7 +415,9 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         // Đáp án mẫu cũng từ BẢN CHỤP: đề soạn lại mà lấy `q.explain` thì bài
         // cũ đứng cạnh đáp án mẫu của một đề khác (codex #935).
         const modelText = g.explain || q.explain || '';
-        const model = modelText ? `<div class="cw-model">${md(modelText)}</div>` : '';
+        const model = modelText
+          ? `<div class="cw-model course-explain">${formatCourseExplanation(modelText)}</div>`
+          : '';
         // Đề lấy từ BẢN CHỤP trước, đề hiện hành chỉ là phương án dự phòng.
         const ask = g.prompt || q.prompt || '';
         return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>

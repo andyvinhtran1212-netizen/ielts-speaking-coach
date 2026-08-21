@@ -549,6 +549,114 @@ None found that require a schema or grading rewrite.
 - **Verification:** full fail → full retry → near pass → revision → pass; compare
   the table against persisted mastery attempts after reload.
 
+### Answer-explanation rendering follow-up (2026-08-21)
+
+#### Issue: Authored explanation structure is flattened into one text block
+
+- **Root cause:** `course-runner.js:49` and `course-writing.js:23` implement an
+  inline-only formatter: escape HTML, then replace `**…**` with `<mark>`. The
+  immediate MCQ renderer at `course-behavior.tsx:282` injects that result
+  directly inside one `.cx-why` container. The writing result renderer at
+  `course-writing.js:416` does the same inside `.cw-model`. Neither formatter
+  creates paragraphs, lists, headings, or explicit label/value groups.
+- **Severity:** Medium.
+- **Impact:** learners receive the correct answer and canonical explanation, but
+  must parse several independent teaching claims as one grey paragraph. The
+  cost is highest on “find the error / why wrong / constraint” questions, where
+  the learner needs to compare the chosen distractor, the correct rule, and the
+  repair step rather than reread prose.
+- **Evidence:** production contains 500 populated explanations across C1-B01 to
+  C1-B05. All five banks have ten multiline writing explanations with authored
+  blank-line sections and bold labels; the current renderer collapses those
+  line breaks. C1-B05's 90 MCQ explanations are authored as single paragraphs;
+  the longest is 527 characters, so renderer support alone will preserve future
+  lists but existing long MCQ content also needs deliberate list markers.
+- **Impacted files:** `frontend/public/js/course-runner.js:40-50`,
+  `frontend/app/(authed)/course-exercises/course-behavior.tsx:270-287`,
+  `frontend/public/js/course-writing.js:16-24,414-424`, and
+  `frontend/public/css/course-exercises.css:832-845,1108-1124`.
+- **Suggested minimal fix:** introduce one small, safe course-content formatter
+  that escapes first and supports only the authored subset actually needed:
+  `**strong label**`, blank-line paragraphs, `-`/`*`/`•` unordered items and
+  `1.` ordered items. Render the first explanatory paragraph as the lead rule,
+  subsequent authored items as a semantic list, and labels such as “Đáp án
+  mẫu”, “Cũng được chấp nhận”, and “Chấm thế nào” as strong text—not generic
+  browser-yellow `<mark>` elements. Preserve authored list boundaries. For the
+  legacy single-paragraph MCQ bank only, use a bounded fallback (at least 240
+  characters and three complete sentences): keep the first sentence as the
+  lead and make later complete sentences bullets. Never split commas or
+  semicolons, and never transform shorter prose.
+- **Target hierarchy:** retain the existing correctness summary first; show the
+  chosen-distractor trap second when present; then show a labelled “Vì sao”
+  panel with a short lead, 2–4 authored bullets, and the existing topic axis as
+  quiet metadata. Highlight only grammar forms, correct repairs, or explicit
+  author labels—not whole sentences.
+- **Verification:** fixture explanations covering one paragraph, several
+  paragraphs, unordered and ordered lists, bold labels, empty content and
+  hostile HTML; then light/dark and 390px/desktop visual checks on correct,
+  wrong, writing-result and long-explanation states.
+
+#### Issue: The same explanation has three incompatible render contracts
+
+- **Root cause:** immediate feedback uses `md()`, writing review duplicates a
+  second `md()`, the shared learner/admin answer report escapes `q.explain` into
+  one `<p>` at `course-report.js:61-74`, and the durable mistake page sends the
+  value through the prompt formatter at `quiz-progress.js:41-54`. Admin writing
+  additionally carries a fourth copy, `cwMd()` in `admin-classes.js:1298`.
+- **Severity:** Medium.
+- **Impact:** the same canonical explanation can show highlights in one place,
+  literal Markdown or flattened whitespace in another. Learner and teacher may
+  discuss screens that visually emphasize different evidence.
+- **Impacted files:** `course-behavior.tsx`, `course-writing.js`,
+  `course-report.js`, `quiz-progress.js`, `admin-classes.js`,
+  `course-exercises.css`, `course-report.css`, and `quiz-progress.css`.
+- **Suggested minimal fix:** make the safe formatter a shared pure module and
+  use it for explanation content on all learner/admin course surfaces. Keep
+  prompt formatting separate: a question stem and an explanation have different
+  block semantics. No backend or database migration is required; the canonical
+  `explain` string is already preserved by `quiz_service.py:3424-3470` and
+  `quiz_service.py:4200-4209`.
+- **Verification:** one shared formatter contract test plus parity assertions
+  proving that immediate feedback, learner report, admin report, writing result,
+  and mistake history emit the same paragraph/list/strong structure.
+
+#### Issue: Feedback announcement semantics are broader than the changed result
+
+- **Root cause:** `#cx-q` is the polite live region, while answering mutates only
+  `#cx-why` and adds the next button. The explanation label is a styled `<span>`,
+  not a heading tied to the explanation panel.
+- **Severity:** Low.
+- **Impact:** visual users see a local result, but assistive technology may
+  announce too much of the question card or provide no useful heading when the
+  learner navigates back through the new content.
+- **Impacted files:** `page-shell.tsx:50-51` and
+  `course-behavior.tsx:282-289`.
+- **Suggested minimal fix:** give the result summary its own concise polite
+  status, make “Vì sao” a real heading, and connect the explanation region with
+  `aria-labelledby`. Preserve keyboard position unless testing shows that moving
+  focus to the result is necessary; never force focus past the explanation to
+  “Câu tiếp”.
+- **Verification:** VoiceOver/NVDA pass for correct and wrong selection, followed
+  by keyboard navigation through the trap, explanation heading/list, and next
+  action without duplicate full-question announcements.
+
+#### Positive observations to preserve
+
+- Backend answer/report paths return the canonical raw explanation and keep
+  distractor-specific `why_wrong` separate; no content has been lost in transit.
+- HTML is escaped before the current limited Markdown substitution. The richer
+  renderer must retain this fail-closed order and must not accept arbitrary HTML.
+- The existing correctness summary, text state badges, selected-distractor trap,
+  semantic color tokens, and responsive answer card already establish the right
+  top-level reading order.
+
+#### Audit limitation
+
+- Chrome had no connected browser session during this audit, so findings are
+  based on production content queries and renderer/CSS contracts. A signed-in
+  production screenshot pass remains required before calling the visual repair
+  complete.
+
 ## Positive observations to preserve
 
 - Immediate answer feedback and distractor-specific explanations are valuable.
