@@ -229,7 +229,7 @@
 .mc-section-head > p {
   max-width: 35ch;
   margin: 0;
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-xs);
   text-align: right;
 }
@@ -294,7 +294,7 @@
 
 .mc-item-kind {
   border: 1px solid var(--av-border-default);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
 }
 
 .mc-item-state {

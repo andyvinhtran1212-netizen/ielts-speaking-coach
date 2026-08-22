@@ -86,6 +86,34 @@ await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click(); 
 check('thiếu non-first assignment giữ receipt chờ đối chiếu', Boolean(await page.evaluate((key) => sessionStorage.getItem(key), `awa-pending-receipt:${adminId}`)) && await page.getByRole('dialog').count() === 1);
 await page.evaluate((key) => sessionStorage.removeItem(key), `awa-pending-receipt:${adminId}`); await page.reload({ waitUntil: 'domcontentloaded' });
 
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=s1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const prefillDialog = page.getByRole('dialog'); await prefillDialog.waitFor();
+const prefilledStudent = prefillDialog.locator('.awa-option').filter({ hasText: 'Lan' }).locator('input[type="checkbox"]');
+const prefilledPrompt = prefillDialog.locator('.awa-option').filter({ hasText: 'Discuss public transport' }).locator('input[type="checkbox"]');
+check('deep link chỉ chọn ID đã xác minh từ nguồn chuẩn', await prefilledStudent.isChecked() && await prefilledPrompt.isChecked());
+await prefillDialog.getByRole('button', { name: 'Đóng' }).click();
+await prefillDialog.waitFor({ state: 'hidden' });
+await page.waitForFunction(() => !new URL(location.href).searchParams.has('assign_student') && !new URL(location.href).searchParams.has('prompt_id'), undefined, { timeout: 3000 }).catch(() => {});
+check('đóng deep link dọn tham số chọn sẵn khỏi URL', !new URL(page.url()).searchParams.has('assign_student') && !new URL(page.url()).searchParams.has('prompt_id'), page.url());
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=s1&assign_cohort=c1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const conflictDialog = page.getByRole('dialog'); await conflictDialog.waitFor();
+await conflictDialog.getByText(/đồng thời học viên và lớp/).waitFor();
+check('deep link xung đột không giữ ID chưa xác minh', await conflictDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await conflictDialog.getByRole('button', { name: 'Đóng' }).click(); await conflictDialog.waitFor({ state: 'hidden' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_cohort=c1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const sourceErrorDialog = page.getByRole('dialog'); await sourceErrorDialog.waitFor();
+await sourceErrorDialog.getByText(/Chưa thể xác minh dữ liệu chọn sẵn/).waitFor();
+check('nguồn canonical lỗi không prefill một phần đối tượng hoặc đề', await sourceErrorDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await sourceErrorDialog.getByRole('button', { name: 'Đóng' }).click(); await sourceErrorDialog.waitFor({ state: 'hidden' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=ghost&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const missingDialog = page.getByRole('dialog'); await missingDialog.waitFor();
+await missingDialog.getByText(/Không tìm thấy học viên/).waitFor();
+check('ID không tồn tại xoá toàn bộ prefill thay vì giữ riêng đề', await missingDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await missingDialog.getByRole('button', { name: 'Đóng' }).click(); await missingDialog.waitFor({ state: 'hidden' });
+
 await page.setViewportSize({ width: 390, height: 844 }); await page.getByText('Buổi kiểm tra', { exact: true }).waitFor();
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awa-row')).gridTemplateColumns.split(' ').length }));
 check('mobile một cột và không tràn viewport', !mobile.overflow && mobile.columns === 1, JSON.stringify(mobile));

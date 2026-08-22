@@ -110,14 +110,14 @@ const climateCard = page.getByRole('article').filter({ has: page.getByRole('head
 await climateCard.getByRole('button', { name: 'Dành cho kỳ thi' }).click();
 await page.getByRole('button', { name: 'Chuyển sang đề thi' }).click();
 await page.getByText(/Đã áp dụng thay đổi/).waitFor();
-check('student → exam mutation được đọc lại canonical', active.find((row) => row.id === 'p2')?.exam_only === true && await climateCard.getByText('Exam only', { exact: true }).count() === 1);
+check('student → exam mutation được đọc lại canonical', active.find((row) => row.id === 'p2')?.exam_only === true && await climateCard.getByText('Chỉ kỳ thi', { exact: true }).count() === 1);
 
-await page.getByRole('button', { name: 'Tạo prompt' }).click();
+await page.getByRole('button', { name: 'Tạo đề' }).click();
 await page.getByLabel('Tiêu đề').fill('New education prompt');
 await page.getByLabel('Đề bài').fill('Discuss whether universities should require every student to study environmental science.');
-await page.getByLabel('Tags').fill('education, environment');
+await page.getByLabel('Thẻ nội dung').fill('education, environment');
 failNextCreatedDetail = true;
-await page.getByRole('button', { name: 'Lưu prompt' }).click();
+await page.getByRole('button', { name: 'Lưu đề' }).click();
 await page.getByRole('button', { name: 'Thử đối chiếu lại' }).waitFor();
 check('create ACK nhưng readback lỗi không được phép POST lần hai', requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'POST').length === 1);
 await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click();
@@ -141,8 +141,8 @@ await page.getByRole('button', { name: /Đang hoạt động/ }).click();
 await page.getByRole('heading', { name: 'Climate policy' }).waitFor();
 failNextList = true;
 await page.getByRole('button', { name: 'Làm mới' }).click();
-await page.getByText('Snapshot đang stale', { exact: true }).waitFor();
-check('refresh lỗi giữ snapshot và gắn nhãn stale', await page.getByRole('heading', { name: 'Climate policy' }).count() === 1);
+await page.getByText('Dữ liệu đang xem có thể đã cũ', { exact: true }).waitFor();
+check('refresh lỗi giữ dữ liệu lần tải trước và cảnh báo rõ', await page.getByRole('heading', { name: 'Climate policy' }).count() === 1);
 check('readAll song song nhưng mỗi lifecycle không tự chồng poll', maxActiveReads <= 2, `max=${maxActiveReads}`);
 
 await page.setViewportSize({ width: 390, height: 844 });

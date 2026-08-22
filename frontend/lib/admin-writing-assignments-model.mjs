@@ -90,11 +90,27 @@ export function assignmentFilters(raw = {}) {
   return { status, cohort: textOf(raw.cohort), q: textOf(raw.q).slice(0, 120) };
 }
 
-export function assignmentHref(filters) {
+export function assignmentPrefill(raw = {}) {
+  const studentId = textOf(raw.studentId || raw.assign_student).slice(0, 128);
+  const cohortId = textOf(raw.cohortId || raw.assign_cohort).slice(0, 128);
+  const promptId = textOf(raw.promptId || raw.prompt_id).slice(0, 128);
+  return {
+    studentId: studentId && !cohortId ? studentId : '',
+    cohortId: cohortId && !studentId ? cohortId : '',
+    promptId,
+    conflict: Boolean(studentId && cohortId),
+  };
+}
+
+export function assignmentHref(filters, prefill = {}) {
   const normalized = assignmentFilters(filters); const params = new URLSearchParams();
   if (normalized.status !== 'all') params.set('status', normalized.status);
   if (normalized.cohort) params.set('cohort', normalized.cohort);
   if (normalized.q) params.set('q', normalized.q);
+  const target = assignmentPrefill(prefill);
+  if (!target.conflict && target.studentId) params.set('assign_student', target.studentId);
+  if (!target.conflict && target.cohortId) params.set('assign_cohort', target.cohortId);
+  if (target.promptId) params.set('prompt_id', target.promptId);
   const query = params.toString(); return `/admin/writing/assignments${query ? `?${query}` : ''}`;
 }
 

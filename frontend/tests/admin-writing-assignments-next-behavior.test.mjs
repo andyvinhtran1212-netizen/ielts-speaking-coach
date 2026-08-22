@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  assignmentFilters, assignmentHref, groupAssignments, normalizeAssignmentList,
+  assignmentFilters, assignmentHref, assignmentPrefill, groupAssignments, normalizeAssignmentList,
   normalizeCreateReceipt, normalizeFanoutReceipt, receiptMatchesVerification,
   normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, isDefinitiveClientRejection, validateAssignmentDraft,
 } from '../lib/admin-writing-assignments-model.mjs';
@@ -43,6 +43,15 @@ describe('Admin Writing Assignments native model', () => {
     assert.equal(validateAssignmentDraft({ mode: 'cohort', cohortId: 'c1', isTimed: false, deadline: '' }, 2, 0, 7).expectedCount, 14);
   });
 
+  test('builds one canonical prefill contract without mixing individual and cohort targets', () => {
+    assert.deepEqual(assignmentPrefill({ assign_student: ' s1 ', prompt_id: ' p1 ' }), { studentId: 's1', cohortId: '', promptId: 'p1', conflict: false });
+    assert.deepEqual(assignmentPrefill({ assign_cohort: ' c1 ', prompt_id: 'p1' }), { studentId: '', cohortId: 'c1', promptId: 'p1', conflict: false });
+    assert.deepEqual(assignmentPrefill({ assign_student: 's1', assign_cohort: 'c1' }), { studentId: '', cohortId: '', promptId: '', conflict: true });
+    assert.equal(assignmentHref({}, { studentId: 's1', promptId: 'p1' }), '/admin/writing/assignments?assign_student=s1&prompt_id=p1');
+    assert.equal(assignmentHref({}, { cohortId: 'c1' }), '/admin/writing/assignments?assign_cohort=c1');
+    assert.equal(assignmentHref({}, { studentId: 's1', cohortId: 'c1' }), '/admin/writing/assignments');
+  });
+
   test('accepts only exact immutable mutation receipts and matching readback', () => {
     const requestId = '00000000-0000-4000-8000-000000000123';
     const receipt = normalizeCreateReceipt({ count: 2, group_id: 'g1', created: [{ id: 'a1' }, { id: 'a2' }], duplicates_warning: ['s1'] }, 2, requestId);
@@ -71,6 +80,21 @@ describe('/admin/writing/assignments native ownership and safety', () => {
     assert.match(COMPONENT, /Promise\.allSettled/); assert.match(COMPONENT, /sourceErrors\.students/); assert.match(COMPONENT, /sourceErrors\.cohorts/); assert.match(COMPONENT, /sourceErrors\.prompts/);
     assert.match(COMPONENT, /awa-pending-request:/); assert.match(COMPONENT, /crypto\.randomUUID\(\)/); assert.match(COMPONENT, /receiptMatchesVerification/); assert.match(COMPONENT, /const canonical = await loadList\(true\)/);
     assert.match(COMPONENT, /Thử đối chiếu lại/); assert.match(COMPONENT, /isDefinitiveClientRejection\(statusCode\)/); assert.match(COMPONENT, /Không có bài nào được tạo từ yêu cầu cũ/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
+  });
+
+  test('validates student, cohort and prompt prefills against loaded canonical options', () => {
+    for (const token of ['assign_student', 'assign_cohort', 'prompt_id', 'optionsReady', 'Không tìm thấy học viên', 'Không tìm thấy lớp', 'Không tìm thấy đề Writing']) assert.ok(COMPONENT.includes(token), token);
+    assert.match(COMPONENT, /sourceErrors\.students/);
+    assert.match(COMPONENT, /sourceErrors\.cohorts/);
+    assert.match(COMPONENT, /sourceErrors\.prompts/);
+    assert.match(COMPONENT, /window\.history\.replaceState\(window\.history\.state, '', cleanHref\)/);
+    assert.match(COMPONENT, /`student:\$\{prefill\.studentId\}\|cohort:\$\{prefill\.cohortId\}\|prompt:\$\{prefill\.promptId\}`/);
+    assert.match(COMPONENT, /if \(prefill\.conflict\)[\s\S]*deepLinkHandled\.current = prefillKey;[\s\S]*setSelectedStudents\(new Set\(\)\); setSelectedPrompts\(new Set\(\)\)/);
+    assert.match(COMPONENT, /if \(sourceError\)[\s\S]*deepLinkHandled\.current = prefillKey;[\s\S]*setSelectedStudents\(new Set\(\)\); setSelectedPrompts\(new Set\(\)\)/);
+    assert.match(COMPONENT, /deepLinkHandled\.current = ''; void loadOptions\(\)/);
+    const listEffect = COMPONENT.match(/useEffect\(\(\) => \{ setSnapshot\(null\);[\s\S]*?\}, \[profile\.id, loadList\]\);/)?.[0] || '';
+    assert.ok(listEffect);
+    assert.doesNotMatch(listEffect, /setOptionsReady\(false\)/);
   });
 
   test('keeps legacy capabilities and governed responsive interaction', () => {
