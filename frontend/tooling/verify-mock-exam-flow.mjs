@@ -405,9 +405,13 @@ const noLocalBackup = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
 }), { localDraftWritesFail: true });
 await noLocalBackup.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await noLocalBackup.page.getByLabel('Bài viết Task 1').fill('Text that cannot enter browser storage.');
+await noLocalBackup.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
 check('Writing warns truthfully when browser storage cannot hold a local backup',
   await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng/).isVisible());
+await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+check('successful server autosave does not hide a persistent local-backup failure',
+  noLocalBackup.state.writingDrafts.length >= 1
+    && await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).isVisible());
 await noLocalBackup.context.close();
 
 const noBackupOrServer = await fixturePage(browser, mockState({

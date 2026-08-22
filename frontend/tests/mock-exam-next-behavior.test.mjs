@@ -92,7 +92,9 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /pendingCollectionSection === 'writing'[\s\S]*await bridge\.flush\(\)[\s\S]*acknowledgeCollectionFlush/);
     assert.match(RUNNER, /return true;[\s\S]*catch \{ return false; \}/);
     assert.match(RUNNER, /setLocalBackupFailed\(!writeLocalDraft/);
+    assert.match(RUNNER, /const task1BackedUp = writeLocalDraft[\s\S]*const task2BackedUp = writeLocalDraft[\s\S]*setLocalBackupFailed\(!task1BackedUp \|\| !task2BackedUp\)/);
     assert.match(RUNNER, /Trình duyệt không tạo được bản dự phòng trên thiết bị/);
+    assert.match(RUNNER, /Đã lưu lên máy chủ lúc/);
     assert.match(RUNNER, /Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/);
     assert.doesNotMatch(RUNNER, /bài vẫn giữ trên máy này/);
   });
