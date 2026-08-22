@@ -2812,3 +2812,196 @@ remains the source of deadline and membership truth.
   full-reload state.
 - Light/dark visual QA at 1280px, 768px and 375px; keyboard through filters,
   attempt selector, accordion and Inspect actions.
+
+---
+
+# Mock Exam resilience and live-operations audit — 2026-08-22
+
+## Summary
+
+The sequential Listening → Reading → Writing journey and the admin live room
+were audited as one distributed workflow: canonical paper readiness, shared
+clock admission, embedded-player flush, answer autosave, Writing local backup,
+audio recovery, collection ACKs, and stale live snapshots. The remediation is
+fail-closed where an irreversible exam action depends on fresh server truth,
+but keeps the learner in the current attempt while recoverable network or media
+failures are retried.
+
+## Critical issues
+
+### Issue: an unservable paper could start the shared section clock
+
+**Root cause:** published status and the admin content picker were treated as
+sufficient readiness evidence. Opening or advancing an exam did not re-check
+that referenced Listening/Reading rows still existed and were published, that
+Listening had a storage path and positive duration, or that configured Writing
+prompts still matched their task slot. The service also trusted IDs from the
+picker without proving that both LR papers were `test_type=full`.
+
+**Severity:** Critical.
+
+**Impacted files:** `backend/services/mock_exam_service.py`
+(`admin_update_exam()`, `set_open()`, `_advance_from()` and the new canonical
+readiness helpers) and `backend/tests/test_mock_exam_workflow.py`.
+
+**Suggested minimal fix:** validate canonical content before publish, before
+opening the room, and immediately before stamping the next section clock. Treat
+lookup uncertainty as not ready. Run validation before the atomic mode-change
+RPC so a mixed failed PATCH cannot leave `exam_mode` changed behind an error.
+On an already-published exam, validate only the section whose paper or duration
+is being repaired; a broken historical Listening asset must not prevent an
+admin from repairing the future Writing paper.
+
+**Verification:** reject missing/unpublished Reading, missing/zero-duration
+Listening audio, non-full LR papers, wrong-slot Writing prompts, and a mixed
+mode/content patch; also prove a future paper can be repaired after a consumed
+historical asset breaks and that closing remains available in that condition;
+assert status, mode, `active_section`, and `{section}_started_at` remain
+unchanged. A valid published paper must still open and advance normally.
+
+### Issue: a stale admin snapshot still looked operational
+
+**Root cause:** a failed live refresh retained the last useful snapshot, but its
+clock continued ticking locally and mutation controls remained enabled. That
+made an old client estimate look current and allowed open, collect,
+advance, recollect, or void decisions without fresh canonical state.
+
+**Severity:** Critical for live operations.
+
+**Impacted files:**
+`frontend/app/(authed-admin-mock-live)/admin/mock-live/admin-mock-live.tsx`,
+`frontend/lib/admin-mock-live-model.mjs`,
+`frontend/public/css/admin-mock-live-next.css`, and their model/browser gates.
+
+**Suggested minimal fix:** retain the snapshot for situational awareness, label
+it explicitly as stale, freeze its clock, close any pending destructive dialog,
+and disable every risky mutation until a canonical refresh succeeds. Preserve
+one explicit idempotent `Đóng kỳ khẩn` action while the stale snapshot says the
+room was open: backend closing is intentionally always legal and reduces harm
+even when the confirming live read is unavailable. Reject partial
+student section maps, malformed clocks, malformed server time, and retake rows
+whose section keys differ from their assigned skills.
+
+**Verification:** inject a 503 on the live endpoint, wait longer than one clock
+tick, and assert the displayed time is unchanged and all coordination actions
+except emergency close are disabled; assert emergency close sends exactly
+`is_open=false`, then restore the endpoint and verify canonical closed state and
+re-enabled controls. Model fixtures must reject missing/extra sections and
+invalid timing.
+
+## High-priority improvements
+
+### Issue: Listening media failure had no in-attempt recovery path
+
+**Root cause:** `<audio>` load/decode errors and rejected `play()` promises only
+changed internal playback state. A signed URL could expire or a connection
+could drop after the section clock began, leaving the learner with no diagnosis
+or way to request a fresh URL.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`,
+`frontend/public/css/listening-test-next.css`, and Listening controller/browser
+tests.
+
+**Suggested minimal fix:** show a persistent accessible alert that truthfully
+states the exam clock continues, refresh the canonical test payload to obtain a
+new signed URL, remount the audio element, and resume from the shared mock clock
+for a sitting. For a standalone attempt in the same tab, retain the media
+element's last heard `currentTime` so time spent before the learner first pressed
+Play is not incorrectly counted as heard audio. Retry automatically when the
+browser returns online while keeping an explicit manual retry.
+
+**Verification:** serve a broken media URL first, confirm the alert, replace it
+with a decodable WAV, click “Tải lại audio”, and assert recovery happens in the
+same attempt without losing answers or restarting the section.
+
+### Issue: the parent could acknowledge an embedded flush it never performed
+
+**Root cause:** a missing iframe/content window resolved the parent flush as if
+it succeeded, and the three-second timeout was shorter than the embedded save
+coordinator's retry ladder.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx`, embedded
+Reading/Listening flush contracts, and `verify-mock-exam-flow.mjs`.
+
+**Suggested minimal fix:** missing or unreachable embeds must reject, malformed
+ACKs must reject, and the parent timeout must cover the child retry window. Only
+`unsaved: 0` from the exact frame and origin may release the server flush ACK.
+
+**Verification:** delay a final embedded PATCH, fail the first Reading PATCH,
+and omit `unsaved` once. Assert the paper remains mounted and inert, no server
+ACK is sent early, and unmount occurs only after the latest answer persists and
+an explicit clean ACK returns.
+
+### Issue: Writing copy overpromised a local backup
+
+**Root cause:** local-storage writes swallowed quota/privacy exceptions, while
+the failure message always claimed the essay remained on the device.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx` and its unit and
+browser flow gates.
+
+**Suggested minimal fix:** make local backup writes return success/failure and
+show the stronger “keep this tab open until server saved” warning when storage
+is unavailable. Offline and final-submit copy must distinguish in-memory,
+device-local, and server-persisted states instead of treating them as equal.
+When server autosave and local backup fail together, compose both facts into one
+warning instead of letting the local-storage message hide the server failure.
+
+**Verification:** force `Storage.setItem()` to throw for mock Writing draft keys
+and verify the warning appears immediately. Separately verify newer unsynced
+local drafts win restore, server autosave clears the dirty state, final-submit
+retries reuse one immutable payload, and an ACK-lost submission reconciles from
+canonical server state without duplication. A combined failure fixture must
+show the stronger two-layer warning without false reassurance.
+
+## Positive observations to preserve
+
+- Native Reading and Listening coordinators already expose per-answer unsaved
+  state, retry transient failures, retain terminal failures visibly, flush on
+  `pagehide`/hidden state with keepalive, and retry when connectivity returns.
+- Reading final submit sends the full current in-memory answer map after its
+  flush; the mock parent independently refuses to ACK while the child snapshot
+  still contains unsaved answers.
+- Writing already combines server autosave, a versioned local draft, keepalive
+  flush, bounded final-submit retry, and canonical readback after a lost ACK.
+- Collection already freezes the paper before its ACK, and the backend sweep is
+  gated by per-sitting flush acknowledgements rather than optimistic UI state.
+- The runner already reports offline/blur/resume evidence as neutral integrity
+  signals; the admin pacing view explicitly warns that these are not proof of
+  misconduct.
+
+## False positives rejected during validation
+
+- Reading's standalone submit does not need to abort when an individual PATCH
+  remains failed: the submit body contains the complete in-memory answer map.
+  In mock collection, the stronger parent/child `unsaved` handshake still
+  blocks an early sweep.
+- The live payload's `live: false` value is not currently emitted by the
+  backend, so no new attention flag was added for a state that has no canonical
+  producer.
+- Listening duration fallback remains useful for legacy standalone attempts,
+  but publish/open/advance now prevent a configured mock section from reaching
+  the shared clock without canonical positive audio duration.
+
+## Release verification
+
+- Backend: full mock workflow and result endpoint suites, including readiness,
+  mode atomicity, shared clocks, collection and submission reconciliation.
+- Frontend: mock runner, Listening/Reading native controllers, admin live model,
+  API auth/transport, and sealed-section contract suites.
+- Browser: hermetic native mock journey, Listening broken-audio recovery, and
+  admin stale-snapshot failure injection; no production egress.
+- Build: strict TypeScript plus production Next.js build so Client Component and
+  global CSS ordering are validated in the shipped mode.
+- Independent review: send only the final repository diff to Claude with tool
+  access disabled; remediate any validated P0–P2 finding and rerun the affected
+  layer plus the full focused gates.

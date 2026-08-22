@@ -17,11 +17,13 @@
 .listening-next-modal-panel h2 { margin-top: 0; }
 .listening-next-shell audio { display: none; }
 .listening-next-shell .ft-audio-controls input[type="range"] { accent-color: var(--av-brand-teal-700); }
+.listening-next-shell .ft-audio-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--av-error); border-radius: var(--av-radius-md); background: var(--av-error-soft); color: var(--av-error); font-size: 13px; font-weight: 700; }
 .listening-next-shell .progress-square.is-unsaved { border-color: var(--av-warning); background: var(--av-warning-soft); }
 .listening-next-shell .progress-square.is-save-failed { border-color: var(--av-error); background: var(--av-error-soft); }
 @media (max-width: 640px) {
   .listening-next-shell { width: min(100% - 20px, 1120px); padding-top: 16px; }
   .listening-next-shell .ft-prestart, .listening-next-shell .ielts-section { padding: 18px; }
   .listening-next-shell .ielts-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .listening-next-shell .ft-audio-error { align-items: stretch; flex-direction: column; }
   .listening-next-submit-row .btn-submit-final { width: 100%; }
 }

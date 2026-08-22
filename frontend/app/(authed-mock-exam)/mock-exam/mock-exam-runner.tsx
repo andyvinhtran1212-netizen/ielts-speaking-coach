@@ -81,11 +81,12 @@ interface WritingBridge {
 
 const POLL_MS = 8_000;
 const WARN_SECONDS = 120;
+const EMBED_FLUSH_TIMEOUT_MS = 8_000;
 const SUBMIT_RETRY_DELAYS = [2_000, 5_000, 10_000, 20_000] as const;
 const CONNECTION_MESSAGES: Record<Exclude<ConnectionState, null>, string> = {
-  offline: '⚠ Đang mất kết nối với máy chủ — bài của bạn vẫn được giữ, hệ thống sẽ tự thử lại.',
+  offline: '⚠ Đang mất kết nối với máy chủ — câu trả lời vẫn đang giữ trong tab này. Đừng đóng hoặc tải lại; hệ thống sẽ tự thử lại.',
   submitting: '⏳ Đang nộp bài — kết nối chập chờn, hệ thống đang thử lại…',
-  submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; giám thị vẫn thu được bài của bạn khi hết giờ.',
+  submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; hệ thống sẽ tiếp tục thử lại và giám thị có thể thu phần dữ liệu đã lưu.',
 };
 
 function statusOf(caught: unknown) {
@@ -137,7 +138,8 @@ function readLocalDraft(sittingId: string, task: 'task1' | 'task2') {
 function writeLocalDraft(sittingId: string, task: 'task1' | 'task2', text: string, synced: boolean) {
   try {
     localStorage.setItem(localDraftKey(sittingId, task), JSON.stringify({ text, ts: Date.now(), synced }));
-  } catch {}
+    return true;
+  } catch { return false; }
 }
 
 function clearLocalDrafts(sittingId: string) {
@@ -266,6 +268,7 @@ function WritingWorkspace({ state, register, locked = false }: {
   const [task1, setTask1] = useState(initial.task1.text);
   const [task2, setTask2] = useState(initial.task2.text);
   const [saveCue, setSaveCue] = useState<SaveCue>('idle');
+  const [localBackupFailed, setLocalBackupFailed] = useState(false);
   const [savedAt, setSavedAt] = useState<string>('');
   const [narrow, setNarrow] = useState(false);
   const [layout, setLayout] = useState<Layout>(() => {
@@ -328,6 +331,7 @@ function WritingWorkspace({ state, register, locked = false }: {
         dirtyRef.current = false;
         writeLocalDraft(sittingId, 'task1', body.task1_text, true);
         writeLocalDraft(sittingId, 'task2', body.task2_text, true);
+        setLocalBackupFailed(false);
         setSavedAt(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
         setSaveCue('saved');
       }
@@ -366,7 +370,7 @@ function WritingWorkspace({ state, register, locked = false }: {
     if (locked) return;
     if (which === 'task1') { task1Ref.current = value; setTask1(value); }
     else { task2Ref.current = value; setTask2(value); }
-    writeLocalDraft(sittingId, which, value, false);
+    setLocalBackupFailed(!writeLocalDraft(sittingId, which, value, false));
     schedule();
   }, [locked, schedule, sittingId]);
 
@@ -480,9 +484,11 @@ function WritingWorkspace({ state, register, locked = false }: {
             >Task {index + 1}</button>
           ))}
         </div>
-        <span className={`mw-savecue${saveCue === 'failed' ? ' is-failed' : ''}`} role="status" aria-live="polite">
-          {saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
-            : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bài vẫn giữ trên máy này, sẽ tự thử lại.' : ''}
+        <span className={`mw-savecue${saveCue === 'failed' || localBackupFailed ? ' is-failed' : ''}`} role="status" aria-live="polite">
+          {localBackupFailed && saveCue === 'failed' ? 'Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng — tuyệt đối không đóng hoặc tải lại tab; hệ thống vẫn đang thử lại.'
+            : localBackupFailed ? 'Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab đến khi hiện “Đã lưu”.'
+            : saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
+              : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn, hệ thống sẽ tự thử lại.' : ''}
         </span>
         <div className="mw-layout" role="group" aria-label="Bố cục đề và khung viết">
           <span className="mw-layout__label">Bố cục đề:</span>
@@ -801,11 +807,13 @@ export function MockExamRunner() {
 
   const flushEmbed = useCallback((section: Section) => new Promise<void>((resolve, reject) => {
     const frame = frameRef.current;
-    if (!frame?.contentWindow) { resolve(); return; }
+    if (!frame?.contentWindow) { reject(new Error('mock-embed-not-ready')); return; }
     let settled = false;
+    let timeout: number | null = null;
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
+      if (timeout != null) window.clearTimeout(timeout);
       window.removeEventListener('message', message);
       if (error) reject(error); else resolve();
     };
@@ -820,8 +828,16 @@ export function MockExamRunner() {
       finish(unsaved > 0 ? new Error('mock-embed-unsaved-answers') : undefined);
     };
     window.addEventListener('message', message);
-    frame.contentWindow.postMessage({ type: 'mock-flush' }, window.location.origin);
-    window.setTimeout(() => finish(new Error('mock-embed-flush-timeout')), 3_000);
+    try {
+      frame.contentWindow.postMessage({ type: 'mock-flush' }, window.location.origin);
+    } catch {
+      finish(new Error('mock-embed-postmessage-failed'));
+      return;
+    }
+    timeout = window.setTimeout(
+      () => finish(new Error('mock-embed-flush-timeout')),
+      EMBED_FLUSH_TIMEOUT_MS,
+    );
   }), []);
 
   const acknowledgeCollectionFlush = useCallback(async (section: Section) => {

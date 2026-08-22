@@ -54,7 +54,7 @@ function normalizeStudentSection(raw) {
   };
 }
 
-function normalizeLiveStudent(raw) {
+function normalizeLiveStudent(raw, configuredSections, examMode) {
   if (!raw || typeof raw !== 'object') return null;
   const studentName = TEXT(raw.student_name);
   if (!studentName || !raw.sections || typeof raw.sections !== 'object') return null;
@@ -65,6 +65,18 @@ function normalizeLiveStudent(raw) {
     if (!section) return null;
     sections[key] = section;
   }
+  let assignedSkills = null;
+  if (Array.isArray(raw.assigned_skills)) {
+    assignedSkills = raw.assigned_skills.map(TEXT);
+    if (assignedSkills.some((item) => !TEST_SECTION.has(item))
+        || new Set(assignedSkills).size !== assignedSkills.length) return null;
+  }
+  const sectionKeys = Object.keys(sections);
+  const expectedSections = examMode === 'retake' && assignedSkills
+    ? assignedSkills
+    : configuredSections;
+  if (sectionKeys.length !== expectedSections.length
+      || expectedSections.some((section) => !sectionKeys.includes(section))) return null;
   const speaking = raw.speaking && typeof raw.speaking === 'object' ? raw.speaking : {};
   const integrity = raw.integrity && typeof raw.integrity === 'object' ? raw.integrity : {};
   return {
@@ -75,9 +87,7 @@ function normalizeLiveStudent(raw) {
     started: raw.started === true,
     inRoster: raw.in_roster !== false,
     needsRetest: raw.needs_retest === true,
-    assignedSkills: Array.isArray(raw.assigned_skills)
-      ? raw.assigned_skills.map(TEXT).filter((item) => TEST_SECTION.has(item))
-      : null,
+    assignedSkills,
     sections,
     speaking: {
       required: speaking.required === true,
@@ -124,7 +134,15 @@ export function normalizeLiveSnapshot(raw) {
       expected: counts.expected,
     };
   }
-  const students = raw.students.map(normalizeLiveStudent);
+  const serverTime = TEXT(raw.server_time);
+  const sectionDurationSeconds = nullableNonNegative(exam.section_duration_seconds);
+  const sectionTimeLeftSeconds = nullableNonNegative(exam.section_time_left_seconds);
+  if (!serverTime || Number.isNaN(Date.parse(serverTime))
+      || (exam.section_duration_seconds != null && sectionDurationSeconds == null)
+      || (exam.section_time_left_seconds != null && sectionTimeLeftSeconds == null)) return null;
+  const students = raw.students.map((student) => normalizeLiveStudent(
+    student, configuredSections, examMode,
+  ));
   if (students.some((student) => !student)) return null;
   if (students.some((student) => Object.keys(student.sections).some((key) => !configuredSections.includes(key)))) return null;
   const sittingIds = students.map((student) => student.sittingId).filter(Boolean);
@@ -146,8 +164,8 @@ export function normalizeLiveSnapshot(raw) {
       collectedSection,
       collectionSweepCompletedSection,
       sectionStartedAt: TEXT(exam.section_started_at) || null,
-      sectionDurationSeconds: nullableNonNegative(exam.section_duration_seconds),
-      sectionTimeLeftSeconds: nullableNonNegative(exam.section_time_left_seconds),
+      sectionDurationSeconds,
+      sectionTimeLeftSeconds,
       configuredSections,
       cohortId: TEXT(exam.cohort_id) || null,
     },
@@ -159,7 +177,7 @@ export function normalizeLiveSnapshot(raw) {
     },
     sections,
     students,
-    serverTime: TEXT(raw.server_time) || null,
+    serverTime,
   };
 }
 

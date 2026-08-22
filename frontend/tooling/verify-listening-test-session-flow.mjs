@@ -40,6 +40,18 @@ const state = {
   answers: new Map(),
   starts: 0, patches: [], submits: 0, rejectQ2: true,
 };
+let audioReady = false;
+function silentWav() {
+  const sampleRate = 8000;
+  const samples = 2000;
+  const wav = Buffer.alloc(44 + samples, 128);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + samples, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate, 28); wav.writeUInt16LE(1, 32); wav.writeUInt16LE(8, 34);
+  wav.write('data', 36); wav.writeUInt32LE(samples, 40);
+  return wav;
+}
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
@@ -74,6 +86,10 @@ page.on('dialog', async (dialog) => dialog.accept());
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
+  if (url.origin === 'https://audio.fixture') {
+    if (!audioReady) return route.abort('failed');
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() });
+  }
   if (FORCE_PRODUCTION_RUNTIME && request.method() === 'GET' && url.pathname === '/js/runtime-config.js') {
     return route.fulfill({
       status: 200,
@@ -102,7 +118,14 @@ await page.route('**/*', async (route) => {
   }
   if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}`) {
     interceptedApiRequests += 1;
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testPayload), headers: cors });
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        ...testPayload,
+        audio_url: `https://audio.fixture/${audioReady ? 'ready' : 'broken'}.wav`,
+      }),
+      headers: cors,
+    });
   }
   if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}/attempts/in-progress`) {
     interceptedApiRequests += 1;
@@ -157,6 +180,12 @@ await page.getByRole('heading', { name: 'Native Listening fixture' }).waitFor();
 check('dark route boots canonical test and prestart', await page.getByRole('button', { name: 'Bắt đầu test' }).isVisible());
 
 await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+await page.getByText(/Không tải được dữ liệu audio/).waitFor();
+audioReady = true;
+await page.getByRole('button', { name: 'Tải lại audio' }).click();
+await page.waitForFunction(() => document.querySelectorAll('.ft-audio-error').length === 0);
+check('audio failure is visible and a refreshed signed URL recovers in-place',
+  await page.getByRole('button', { name: 'Play' }).isVisible() && interceptedApiRequests >= 4);
 await page.getByLabel('Answer 1').fill('library');
 await page.waitForFunction(() => true, null, { timeout: 600 });
 await page.waitForTimeout(700);
@@ -180,7 +209,7 @@ await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').l
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
 await page.getByRole('button', { name: 'Nộp bài' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
-await page.getByText('2/2', { exact: true }).waitFor();
+await page.locator('.listening-next-score').getByText('2/2', { exact: true }).waitFor();
 check('clean submit renders canonical result once', state.submits === 1);
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(

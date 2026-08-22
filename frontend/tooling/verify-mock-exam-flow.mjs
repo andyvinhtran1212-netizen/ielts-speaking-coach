@@ -65,17 +65,26 @@ async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
   finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
-  deferFlushAck = false, readingFlushFailsOnce = false,
+  deferFlushAck = false, readingFlushFailsOnce = false, localDraftWritesFail = false,
 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
+  await context.addInitScript(([key, value, sittingId, seededDrafts, failDraftWrites]) => {
     try {
       localStorage.setItem(key, value);
       for (const [task, draft] of Object.entries(seededDrafts)) {
         localStorage.setItem(`mock-writing:${sittingId}:${task}`, JSON.stringify(draft));
       }
     } catch (_) {}
-  }, [storageKey(SB), session, SITTING_ID, drafts]);
+    if (failDraftWrites) {
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function setItem(nextKey, nextValue) {
+        if (String(nextKey).startsWith(`mock-writing:${sittingId}:`)) {
+          throw new DOMException('Fixture storage quota exceeded', 'QuotaExceededError');
+        }
+        return originalSetItem.call(this, nextKey, nextValue);
+      };
+    }
+  }, [storageKey(SB), session, SITTING_ID, drafts, localDraftWritesFail]);
   const page = await context.newPage();
   if (fakeClock) await page.clock.install({ time: new Date() });
   const errors = [];
@@ -392,6 +401,25 @@ check('Writing collection persists the latest draft before its server ACK',
     && collectedWriting.state.collectionOrder.slice(-2).join(',') === 'writing-save,flush-ack:writing');
 await collectedWriting.context.close();
 
+const noLocalBackup = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { localDraftWritesFail: true });
+await noLocalBackup.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await noLocalBackup.page.getByLabel('Bài viết Task 1').fill('Text that cannot enter browser storage.');
+check('Writing warns truthfully when browser storage cannot hold a local backup',
+  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng/).isVisible());
+await noLocalBackup.context.close();
+
+const noBackupOrServer = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { localDraftWritesFail: true, writingDraftAlwaysFails: true });
+await noBackupOrServer.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).waitFor();
+check('Writing reports simultaneous server and local-backup failure without false reassurance',
+  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
+await noBackupOrServer.context.close();
+
 const writingState = mockState({
   active_section: 'writing', section_time_left_seconds: 1, section_duration_seconds: 60,
 });
@@ -503,12 +531,12 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, staleRead, listening, collectedListening, collectedWriting, writing, forceCollected, pausedRetry, boundedFailure]
+  [waiting, retake, staleRead, listening, collectedListening, collectedWriting, noLocalBackup, writing, forceCollected, pausedRetry, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
-    ...collectedWriting.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
+    ...collectedWriting.egress, ...noLocalBackup.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
     ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...collectedWriting.errors, ...writing.errors, ...forceCollected.errors,
-    ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
+    ...noLocalBackup.errors, ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();
 

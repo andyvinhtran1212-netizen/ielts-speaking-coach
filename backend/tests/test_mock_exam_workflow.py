@@ -313,12 +313,257 @@ def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
     }
     if listening:
         exam["listening_test_id"] = str(uuid4())
-        fake.seed("listening_tests", {"id": exam["listening_test_id"],
-                                      "full_audio_duration_seconds": 1800})
+        fake.seed("listening_tests", {
+            "id": exam["listening_test_id"],
+            "status": "published",
+            "test_type": "full",
+            "full_audio_storage_path": f"mock/{exam['listening_test_id']}.mp3",
+            "full_audio_duration_seconds": 1800,
+        })
     if reading:
         exam["reading_test_id"] = str(uuid4())
+        fake.seed("reading_tests", {
+            "id": exam["reading_test_id"],
+            "status": "published",
+            "test_type": "full",
+            "total_questions": 40,
+        })
     fake.seed("mock_exams", exam)
     return exam
+
+
+# ── canonical content readiness gates ─────────────────────────────────
+
+
+def test_publish_refuses_listening_without_playable_audio(fake_db, svc):
+    exam_id = str(uuid4())
+    listening_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-AUDIO", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "listening_test_id": listening_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("listening_tests", {
+        "id": listening_id, "status": "published", "test_type": "full",
+        "full_audio_storage_path": None,
+        "full_audio_duration_seconds": None,
+    })
+
+    with pytest.raises(ValueError, match="audio phát được"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_storage_path"] = "mock/ready.mp3"
+    listening["full_audio_duration_seconds"] = 1800
+    assert svc.admin_update_exam(exam_id, {"status": "published"})["status"] == "published"
+
+
+def test_publish_refuses_an_unpublished_reading_paper(fake_db, svc):
+    exam_id = str(uuid4())
+    reading_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-READING", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "reading_test_id": reading_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("reading_tests", {
+        "id": reading_id, "status": "draft", "test_type": "full",
+    })
+
+    with pytest.raises(ValueError, match="Reading chưa được publish"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+@pytest.mark.parametrize("table,column", [
+    ("listening_tests", "listening_test_id"),
+    ("reading_tests", "reading_test_id"),
+])
+def test_publish_refuses_a_non_full_lrw_paper(fake_db, svc, table, column):
+    exam_id = str(uuid4())
+    paper_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-MINI", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        column: paper_id, "reading_minutes": 60, "writing_minutes": 60,
+    })
+    paper = {
+        "id": paper_id, "status": "published", "test_type": "mini",
+    }
+    if table == "listening_tests":
+        paper.update({
+            "full_audio_storage_path": "mock/mini.mp3",
+            "full_audio_duration_seconds": 600,
+        })
+    fake_db.seed(table, paper)
+
+    with pytest.raises(ValueError, match="phải là đề full test"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+def test_open_revalidates_audio_after_publish(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_storage_path"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="audio phát được"):
+        svc.set_open(exam["id"], True, "admin")
+    assert fake_db.rows("mock_exams")[0]["is_open"] is False
+
+
+def test_close_remains_available_when_published_content_is_broken(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=True, reading=False)
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    assert svc.set_open(exam["id"], False, "admin")["is_open"] is False
+
+
+def test_editing_future_content_does_not_revalidate_a_consumed_broken_section(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    fake_db.rows("mock_exams")[0].update({
+        "active_section": "reading",
+        "collected_section": "reading",
+        "collection_sweep_completed_section": "reading",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+    prompt_id = str(uuid4())
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": "task2", "prompt_text": "Discuss.",
+    })
+
+    updated = svc.admin_update_exam(exam["id"], {
+        "writing_task2_prompt_id": prompt_id,
+    })
+    assert updated["writing_task2_prompt_id"] == prompt_id
+    assert svc.advance_section(
+        exam["id"], "admin", expected_section="reading",
+    )["active_section"] == "writing"
+
+
+def test_advance_does_not_start_a_clock_for_broken_audio(fake_db, svc):
+    exam = _seed_exam(fake_db, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_duration_seconds"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="thời lượng audio"):
+        svc.advance_section(exam["id"], "admin", expected_section="not_started")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("listening_started_at") is None
+
+
+def test_mixed_mode_and_content_patch_validates_before_mode_rpc(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_duration_seconds"] = None
+
+    with pytest.raises(ValueError, match="thời lượng audio"):
+        svc.admin_update_exam(exam["id"], {
+            "exam_mode": "retake",
+            "listening_test_id": listening["id"],
+        })
+
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert (fresh.get("exam_mode") or "sequential") == "sequential"
+
+
+def test_publish_rejects_a_writing_prompt_in_the_wrong_slot(fake_db, svc):
+    exam_id = str(uuid4())
+    prompt_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-WRITING", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "writing_task1_prompt_id": prompt_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": "task2", "prompt_text": "Discuss.",
+    })
+
+    with pytest.raises(ValueError, match="Task 1 đang trỏ nhầm loại đề"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+@pytest.mark.parametrize("slot,task_type", [
+    ("writing_task1_prompt_id", "task1_academic"),
+    ("writing_task2_prompt_id", "task2"),
+])
+def test_deactivated_writing_prompt_blocks_publish(fake_db, svc, slot, task_type):
+    exam_id = str(uuid4())
+    prompt_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-ARCHIVED", "title": "Draft",
+        "status": "draft", "is_open": False, "active_section": "not_started",
+        slot: prompt_id, "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+        "is_active": False,
+    })
+
+    with pytest.raises(ValueError, match="đã bị vô hiệu hóa"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    fresh = fake_db.rows("mock_exams")[0]
+    assert fresh["status"] == "draft"
+    assert fresh["active_section"] == "not_started"
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_open_without_changing_state(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, is_open=False, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.set_open(exam["id"], True, "admin")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["is_open"] is False
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_advance_without_starting_clock(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.advance_section(exam["id"], "admin", expected_section="not_started")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
 
 
 # ── create_sitting ────────────────────────────────────────────────────
@@ -611,7 +856,8 @@ def test_available_reading_tests_includes_already_reserved(fake_db, svc):
                                    "title": "Draft test", "status": "draft",
                                    "test_type": "full",
                                    "metadata": {}, "created_at": "2026-01-01T00:00:00+00:00"})
-    _seed_exam(fake_db)["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
+    exam = _seed_exam(fake_db, reading=False)
+    exam["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
 
     ids = {t["id"] for t in svc.admin_available_reading_tests()}
     assert ids == {"R-1"}  # reused-but-published in, mini + draft out
@@ -783,6 +1029,9 @@ def test_attach_attempt_rejects_wrong_test(fake_db, svc):
     """Finding 2: cannot attach an attempt of a different (easier) test."""
     exam = _seed_exam(fake_db, listening=False)
     exam["reading_test_id"] = "the-real-test"      # exam now pins a reading test
+    fake_db.seed("reading_tests", {
+        "id": "the-real-test", "status": "published", "test_type": "full",
+    })
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     svc.advance_section(exam["id"], str(uuid4()))
@@ -1908,7 +2157,7 @@ def test_promote_writing_essays_snapshots_reviewed_task1_facts(fake_db, svc):
         "prompt_image_analysis_reviewed": True,
     })
     fake_db.seed("writing_prompts", {
-        "id": prompt2, "task_type": "task1_academic",
+        "id": prompt2, "task_type": "task2",
         "prompt_text": "Describe the other chart.", "title": "T2",
         "prompt_image_url": "https://img/y.png",
         "prompt_image_analysis": {"facts": ["should not appear"]},
