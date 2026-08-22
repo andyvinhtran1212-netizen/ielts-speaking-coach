@@ -225,7 +225,11 @@ export function CourseBehavior() {
           + `<span class="cx-tag"><b>${esc(q.subtype || '')}</b>${esc(DANG[q.subtype] || '')}</span>`
           + dots(q.points) + '</div>'
           + `<p class="cx-q__ask">${md(ask)}</p>`
-          + (spec ? `<div class="cx-spec">${md(spec)}</div>` : '');
+          + (spec ? `<div class="cx-spec">${md(spec)}</div>` : '')
+          + (q.audio_url && !isWrite
+            ? '<audio class="cx-question-audio" id="cx-question-audio" controls preload="none" '
+              + 'aria-label="Nghe phần tiếng Anh của câu hỏi"></audio>'
+            : '');
 
         if (isWrite) {
           body += '<textarea class="cx-write" id="cx-write" '
@@ -243,6 +247,8 @@ export function CourseBehavior() {
         body += '<div id="cx-why" role="status" aria-live="polite" aria-atomic="true"></div>';
 
         $('cx-q')!.innerHTML = body;
+        const questionAudio = $('cx-question-audio') as HTMLAudioElement | null;
+        if (questionAudio) questionAudio.src = String(q.audio_url);
         $('cx-q')!.hidden = false;
         $('cx-done')!.hidden = true;
         $('cx-next')!.hidden = false;

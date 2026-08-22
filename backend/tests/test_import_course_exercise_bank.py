@@ -94,6 +94,20 @@ def _listening(**over):
     return r
 
 
+def _pronunciation(**over):
+    r = {
+        "kind": "pronunciation", "id": "TM20-B01-PHAT-AM",
+        "vai_tro": "bài luyện phát âm — nghe và nhắc lại",
+        "lang": "en-GB", "voice": "bf_emma",
+        "sentences": [
+            {"so": number, "text": f"English sentence number {number}."}
+            for number in range(1, 13)
+        ],
+    }
+    r.update(over)
+    return r
+
+
 def _audio_zip(path, names=("A1.mp3", "B1.mp3", "C1.mp3", "D.mp3")):
     with zipfile.ZipFile(path, "w") as archive:
         for name in names:
@@ -152,6 +166,22 @@ def test_every_distractor_carries_its_trap(tmp_path):
     assert "N4" in row["why_wrong"]["1"]
 
 
+def test_only_the_english_line_is_marked_for_question_audio():
+    row = mod._mcq_row(_mcq(de=(
+        "Chọn cụm giới từ đúng.\n"
+        "The council **works with local clinics** near the market."
+    )), 0)
+    assert row["segments"] == {
+        "question_audio_text": "The council works with local clinics near the market."
+    }
+
+
+def test_an_english_gap_is_spoken_as_blank():
+    assert mod._english_audio_text("Điền từ.\nThe clinic is ____ the market.") == (
+        "The clinic is blank the market."
+    )
+
+
 def test_the_CORRECT_option_gets_no_trap_entry(tmp_path):
     """Nguồn để ô của đáp án đúng rỗng. Đưa nó vào `why_wrong` sẽ hiện ra một
     dòng "vì sao sai" bên cạnh chính đáp án đúng."""
@@ -195,7 +225,8 @@ def test_a_broken_short_reading_is_refused_before_any_write(tmp_path, broken):
 
 def test_listening_is_bank_metadata_and_audio_paths_are_hash_scoped(tmp_path):
     _audio_zip(tmp_path / "audio.zip")
-    rows, _reading_meta, listening = mod._normalise([_mcq(), _listening()])
+    rows, _reading_meta, listening, _pronunciation_meta = mod._normalise(
+        [_mcq(), _listening()])
     prepared, uploads = mod._prepare_listening_audio(
         listening, tmp_path / "KBT-buoi-01.jsonl")
     assert len(rows) == 1
@@ -214,9 +245,31 @@ def test_listening_is_bank_metadata_and_audio_paths_are_hash_scoped(tmp_path):
 ])
 def test_listening_zip_must_exactly_match_jsonl_before_any_write(tmp_path, names):
     _audio_zip(tmp_path / "audio.zip", names)
-    _rows, _reading_meta, listening = mod._normalise([_mcq(), _listening()])
+    _rows, _reading_meta, listening, _pronunciation_meta = mod._normalise(
+        [_mcq(), _listening()])
     with pytest.raises(SystemExit):
         mod._prepare_listening_audio(listening, tmp_path / "KBT-buoi-01.jsonl")
+
+
+def test_pronunciation_requirement_is_validated_and_kept_in_bank_meta(tmp_path):
+    db = _db()
+    _run(tmp_path, db, [_mcq(), _pronunciation()], "--commit")
+    requirement = db.tables["quiz_banks"][0]["meta"]["pronunciation_requirement"]
+    assert requirement["sentence_count"] == 12
+    assert requirement["locale"] == "en-GB"
+    assert requirement["voice_engine"] == "kokoro"
+    assert requirement["voice"] == "bf_emma"
+    assert len(requirement["content_hash"]) == 64
+    assert len(_rpc_rows(db)[0][2]["p_rows"]) == 1
+
+
+def test_pronunciation_numbers_must_be_one_through_twelve_before_any_write(tmp_path):
+    broken = _pronunciation()
+    broken["sentences"][5]["so"] = 9
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), broken], "--commit")
+    assert db.writes == []
 
 
 def test_difficulty_becomes_points(tmp_path):

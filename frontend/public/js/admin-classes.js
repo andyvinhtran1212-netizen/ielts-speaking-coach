@@ -2030,14 +2030,20 @@ async function loadCourseBanks() {
       : '<option value="">Chưa có buổi nào giao được</option>';
 
     const given = items.filter((b) => b.already_given).length;
-    const empty = items.filter((b) => !b.already_given && !b.ready).length;
+    const unavailable = items.filter((b) => !b.already_given && !b.ready);
+    const empty = unavailable.filter((b) => !b.question_count).length;
+    const noAudio = unavailable.filter((b) => b.missing_audio > 0).length;
+    const noPronunciation = unavailable.filter((b) => b.pronunciation_required
+      && !b.pronunciation_ready).length;
     const bits = [];
     if (given) bits.push(`${given} buổi lớp này đã làm`);
     if (empty) bits.push(`${empty} buổi chưa nạp câu hỏi`);
+    if (noAudio) bits.push(`${noAudio} buổi thiếu audio câu tiếng Anh`);
+    if (noPronunciation) bits.push(`${noPronunciation} buổi thiếu bộ phát âm`);
     note.textContent = items.length
       ? (bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '')
       : 'Khoá này chưa có bộ bài tập nào.';
-    note.dataset.tone = (empty || !items.length) ? 'warn' : 'ok';
+    note.dataset.tone = (unavailable.length || !items.length) ? 'warn' : 'ok';
   } catch (err) {
     if (!stillCurrent()) return;
     sel.innerHTML = '<option value="">Không đọc được kho bài tập</option>';

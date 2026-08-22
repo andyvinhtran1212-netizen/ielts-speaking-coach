@@ -14,7 +14,6 @@ Example:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import logging
 import sys
@@ -23,6 +22,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 logger = logging.getLogger(__name__)
+
+from services.course_pronunciation_manifest import pronunciation_content_hash  # noqa: E402
 
 
 def _load(path: Path) -> tuple[dict, str]:
@@ -56,8 +57,13 @@ def _load(path: Path) -> tuple[dict, str]:
         if not text or len(text) > 500:
             raise SystemExit(f"Câu thứ {order} trống hoặc dài quá 500 ký tự.")
         ids.add(sentence_id)
-    canonical = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return data, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    content_hash = pronunciation_content_hash(
+        sentences=[sentence["text"] for sentence in sentences],
+        locale=data["locale"],
+        voice_engine=data["voice_engine"],
+        voice=data["voice"],
+    )
+    return data, content_hash
 
 
 def _bank(code: str, supabase_admin) -> dict:

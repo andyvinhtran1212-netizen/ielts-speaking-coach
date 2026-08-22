@@ -1,0 +1,71 @@
+{
+  "bank_code": "C1-B06",
+  "title": "Phát âm & Shadowing — Giới từ và cụm danh từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [0.85, 1.0],
+  "sentences": [
+    {
+      "id": "C1-B06-PRON-01",
+      "order": 1,
+      "text": "My uncle works at a small clinic near the market."
+    },
+    {
+      "id": "C1-B06-PRON-02",
+      "order": 2,
+      "text": "Crowds of visitors wait at the temple gate in the heavy afternoon heat every single day."
+    },
+    {
+      "id": "C1-B06-PRON-03",
+      "order": 3,
+      "text": "Seafood restaurants line the road on the eastern side of the island near Nha Trang."
+    },
+    {
+      "id": "C1-B06-PRON-04",
+      "order": 4,
+      "text": "Office workers in the tall new buildings near the lake start work at eight every morning."
+    },
+    {
+      "id": "C1-B06-PRON-05",
+      "order": 5,
+      "text": "Air quality in Hanoi becomes much worse in the winter months of December and January."
+    },
+    {
+      "id": "C1-B06-PRON-06",
+      "order": 6,
+      "text": "The city’s council announces its new transport plan on the first Friday of every month."
+    },
+    {
+      "id": "C1-B06-PRON-07",
+      "order": 7,
+      "text": "Every morning, thousands of factory workers travel to the industrial park by bus or motorbike."
+    },
+    {
+      "id": "C1-B06-PRON-08",
+      "order": 8,
+      "text": "Heavy lorries carry sand and stone along the narrow village road towards the city centre."
+    },
+    {
+      "id": "C1-B06-PRON-09",
+      "order": 9,
+      "text": "Visitors walk through the museum’s three floors and its quiet garden in about two hours."
+    },
+    {
+      "id": "C1-B06-PRON-10",
+      "order": 10,
+      "text": "Because of heavy rain last week, farmers in the delta lost part of their harvest."
+    },
+    {
+      "id": "C1-B06-PRON-11",
+      "order": 11,
+      "text": "In spite of its small size, my home town offers plenty of cheap accommodation for tourists."
+    },
+    {
+      "id": "C1-B06-PRON-12",
+      "order": 12,
+      "text": "Owing to rising fuel prices, many young workers in the city now choose cheaper motorbikes."
+    }
+  ]
+}
