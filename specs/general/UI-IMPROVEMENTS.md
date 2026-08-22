@@ -2513,8 +2513,9 @@ and component teardown discards an unfinished blob and releases every track.
 - Students, class homework and prompt inventory had no direct path to the
   Writing assignment ledger. Each now links to one assignment URL contract
   with a student, cohort or prompt prefill. The destination validates every ID
-  against its loaded canonical source before selecting it and rejects an
-  ambiguous student-plus-cohort target.
+  against its canonical picker snapshot or exact detail endpoint before
+  selecting it, including entities outside list caps and archived classes, and
+  rejects an ambiguous student-plus-cohort target.
 - The native student and class ledgers remain separate: “Gửi bài chấm” still
   submits on behalf of a learner, while “Giao bài Writing” creates a Writing
   assignment. Writing is not inserted into the class-homework backend contract.
@@ -2551,3 +2552,61 @@ and component teardown discards an unfinished blob and releases every track.
   production build to avoid React development replay noise.
 - A successful Next production build is required to close TypeScript and route
   integration for all touched surfaces.
+
+---
+
+ # Multi-class membership UX — 2026-08-21
+
+## Summary
+
+The admin and learner class surfaces now treat class membership as additive.
+One learner can remain active in two classes, receive each class's assignments,
+and see the source class beside every task and lesson.
+
+## Critical issues resolved
+
+### Issue: “Add to class” silently moved a learner
+
+**Current State**: Single and bulk admin actions now write an active membership
+and explicitly say that existing classes are preserved.
+
+**Problem**: The previous label suggested addition while the backend overwrote
+`students.cohort_id`, hiding the old class's work.
+
+**Recommendation**: Keep “Thêm vào lớp” additive. If transfer is introduced,
+ship it as a separate destructive action with a confirmation listing every
+membership that will end.
+
+**Impact**: Admin intent and persisted roster truth stay aligned after reload.
+
+**Implementation Notes**: Student rows render class chips; the class picker
+disables only a membership that already exists in the current class.
+
+### Issue: Learner work from different classes was indistinguishable
+
+**Current State**: My Class exposes `Tất cả` plus one 44px class control per
+active membership. Tasks and lessons carry their class name, and the home card
+summarizes the number of active classes.
+
+**Problem**: A flat unlabelled list makes deadlines and lesson notes ambiguous.
+
+**Recommendation**: Preserve the aggregate view for cross-class prioritization
+and class filters for focused work; never remove source labels from the
+aggregate view.
+
+**Impact**: Learners can act on the nearest deadline without losing class
+context and can isolate one timetable when needed.
+
+**Implementation Notes**: The class switcher scrolls horizontally on narrow
+screens, uses `aria-pressed`, visible focus and semantic buttons. The backend
+remains the source of deadline and membership truth.
+
+## Verification
+
+- Add a learner to class B while they remain in A; compare immediate admin
+  state with a full reload on both class rosters and the student directory.
+- Give one task from each class; confirm `Tất cả`, A and B show the correct
+  counts, task labels, lesson labels and nearest deadline.
+- Remove only A; confirm B remains visible and an A assignment can no longer be
+  opened while historical A submission evidence remains intact.
+ - Keyboard through the class switcher and verify 375px horizontal containment.

@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from config import settings
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
+from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard
 from services import admin_reading_dashboard
 from services.access_code_permissions import (
@@ -873,21 +874,37 @@ async def list_users(authorization: str | None = Header(default=None)):
     for u in users:
         u["sessions_today"] = today_counts.get(u["id"], 0)
 
-    # WF-1 — class label per user: user → students.user_id → students.cohort_id
-    # → cohorts.name. TWO batched queries (students-by-user + cohorts), no N+1.
-    # Users without a linked student or unassigned class → cohort_name None
-    # (UI shows "—"). Lookup failure is non-fatal (the list still renders).
-    cohort_name_by_user: dict[str, str] = {}
+    # Class labels per user from the canonical active membership roster. Keep
+    # cohort_name as the compatibility primary label; cohort_names is complete.
+    cohort_names_by_user: dict[str, list[str]] = {}
+    primary_name_by_user: dict[str, str] = {}
+    cohort_lookup_failed = False
     user_ids = [u["id"] for u in users]
     if user_ids:
         try:
             srows = (
                 supabase_admin.table("students")
-                .select("user_id, cohort_id")
+                .select("id, user_id, cohort_id")
                 .in_("user_id", user_ids)
                 .execute()
             ).data or []
-            cohort_ids = list({s["cohort_id"] for s in srows if s.get("cohort_id")})
+            try:
+                memberships = active_memberships_for_students(
+                    supabase_admin, [s.get("id") for s in srows])
+            except Exception as exc:
+                cohort_lookup_failed = True
+                logger.warning("list_users: membership lookup failed: %s", exc)
+                memberships = []
+            membership_ids_by_student: dict[str, list[str]] = {}
+            for membership in memberships:
+                membership_ids_by_student.setdefault(
+                    membership["student_id"], []).append(membership["cohort_id"])
+            # Rolling/test compatibility: migration 217 backfills every legacy
+            # pointer. If a row is absent, retain that visible association.
+            for student in srows:
+                if not membership_ids_by_student.get(student.get("id")) and student.get("cohort_id"):
+                    membership_ids_by_student[student["id"]] = [student["cohort_id"]]
+            cohort_ids = list({cid for ids in membership_ids_by_student.values() for cid in ids})
             names: dict[str, str] = {}
             if cohort_ids:
                 cr = (
@@ -898,13 +915,24 @@ async def list_users(authorization: str | None = Header(default=None)):
                 ).data or []
                 names = {c["id"]: (c.get("name") or "") for c in cr}
             for s in srows:
-                if s.get("user_id") and s.get("cohort_id"):
-                    cohort_name_by_user[s["user_id"]] = names.get(s["cohort_id"])
+                uid = s.get("user_id")
+                if not uid:
+                    continue
+                ids = membership_ids_by_student.get(s.get("id"), [])
+                cohort_names_by_user[uid] = sorted(
+                    (names[cid] for cid in ids if names.get(cid)), key=str.casefold)
+                if s.get("cohort_id") and names.get(s["cohort_id"]):
+                    primary_name_by_user[uid] = names[s["cohort_id"]]
+                elif cohort_names_by_user[uid]:
+                    primary_name_by_user[uid] = cohort_names_by_user[uid][0]
         except Exception as exc:
+            cohort_lookup_failed = True
             logger.warning("list_users: cohort lookup failed: %s", exc)
 
     for u in users:
-        u["cohort_name"] = cohort_name_by_user.get(u["id"])
+        u["cohort_name"] = primary_name_by_user.get(u["id"])
+        u["cohort_names"] = cohort_names_by_user.get(u["id"], [])
+        u["cohort_lookup_failed"] = cohort_lookup_failed
 
     # Merge access-codes (the merged "Người dùng" tab): each user's LIVE
     # code(s) — code/type/permissions-union/status — via a BATCHED summary
@@ -2363,10 +2391,8 @@ async def generate_and_assign_code(
         expires_at=body.expires_at,
     )
 
-    # WF-1 class-roster bridge: a direct (cohort-linked) code enrolls the user
-    # into that class via students.cohort_id — the SAME column the roster /
-    # writing fan-out / grade-matrix read, mirroring /auth/activate. Defensive:
-    # a failure (or a user with no students row) never blocks the assignment.
+    # A direct cohort-linked code adds that class membership without revoking
+    # any class the learner already attends. Entitlement remains independent.
     if body.cohort_id:
         try:
             srow = (
@@ -2374,9 +2400,10 @@ async def generate_and_assign_code(
                 .eq("user_id", body.user_id).limit(1).execute().data
             ) or []
             if srow:
-                supabase_admin.table("students").update(
-                    {"cohort_id": body.cohort_id}
-                ).eq("id", srow[0]["id"]).execute()
+                add_student(
+                    supabase_admin, student_id=srow[0]["id"],
+                    cohort_id=body.cohort_id, added_by=actor,
+                )
         except Exception as e:
             logger.warning(
                 "[admin] cohort bridge failed for user=%s code=%s: %s",

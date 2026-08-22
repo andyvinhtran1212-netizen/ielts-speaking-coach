@@ -433,7 +433,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
       const canonical = await loadOverview(true);
       setMemberPicker(false); setSelectedStudent(''); invalidateProgress();
       setBanner(canonical
-        ? { kind: 'success', text: selectedStudentRow?.cohort_id && selectedStudentRow.cohort_id !== cohortId ? 'Đã chuyển học viên sang lớp này.' : 'Đã thêm học viên vào lớp.' }
+        ? { kind: 'success', text: 'Đã thêm học viên vào lớp; các lớp đang học khác được giữ nguyên.' }
         : { kind: 'error', text: 'Đã xếp lớp nhưng chưa đọc lại được sổ điểm danh chuẩn.' });
     } catch (caught) { setStudentsError(messageOf(caught)); }
     finally { setBusy(false); }
@@ -640,10 +640,11 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
         </form>
       </Dialog>
 
-      <Dialog open={memberPicker} title="Thêm học viên vào lớp" description="Xếp lớp dùng students.cohort_id. Nếu chọn học viên đang ở lớp khác, học viên sẽ được chuyển sang lớp này; tài khoản và mã truy cập không đổi." busy={busy} onClose={() => setMemberPicker(false)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setMemberPicker(false)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="acx-member-form" disabled={busy || studentsLoading || !selectedStudent}>{busy ? 'Đang xếp lớp…' : 'Xếp vào lớp'}</button></>}>
+      <Dialog open={memberPicker} title="Thêm học viên vào lớp" description="Thao tác này thêm một lớp đang học và không gỡ học viên khỏi các lớp khác. Tài khoản và mã truy cập không đổi." busy={busy} onClose={() => setMemberPicker(false)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setMemberPicker(false)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="acx-member-form" disabled={busy || studentsLoading || !selectedStudent}>{busy ? 'Đang thêm…' : 'Thêm vào lớp'}</button></>}>
         <form id="acx-member-form" className="acd-form" onSubmit={addMember}>
-          <Field label="Học viên" hint="Danh sách tối đa 200 hồ sơ; dùng Danh bạ học viên nếu cần tìm ngoài phạm vi này."><select autoFocus value={selectedStudent} onChange={(event) => { setSelectedStudent(event.target.value); setStudentsError(''); }} disabled={studentsLoading || busy}><option value="">{studentsLoading ? 'Đang tải…' : 'Chọn học viên'}</option>{students.map((student) => <option key={student.id} value={student.id} disabled={student.cohort_id === cohortId}>{student.full_name} · {student.student_code}{student.cohort_id === cohortId ? ' · đã trong lớp' : student.cohort_name ? ` · từ ${student.cohort_name}` : ''}</option>)}</select></Field>
-          {selectedStudentRow?.cohort_id && selectedStudentRow.cohort_id !== cohortId && <div className="acd-warning">Học viên hiện thuộc {selectedStudentRow.cohort_name || 'một lớp khác'} và sẽ được chuyển sang lớp này.</div>}
+          <Field label="Học viên" hint="Danh sách tối đa 200 hồ sơ; dùng Danh bạ học viên nếu cần tìm ngoài phạm vi này."><select autoFocus value={selectedStudent} onChange={(event) => { setSelectedStudent(event.target.value); setStudentsError(''); }} disabled={studentsLoading || busy}><option value="">{studentsLoading ? 'Đang tải…' : 'Chọn học viên'}</option>{students.map((student) => { const alreadyHere = student.cohorts.some((item) => item.id === cohortId); const names = student.cohorts.map((item) => item.name).filter(Boolean).join(', '); return <option key={student.id} value={student.id} disabled={alreadyHere}>{student.full_name} · {student.student_code}{alreadyHere ? ' · đã trong lớp' : names ? ` · đang học ${names}` : ''}{student.membership_lookup_failed || student.cohort_lookup_failed ? ' · ⚠ lớp chưa đọc đủ' : ''}</option>; })}</select></Field>
+          {selectedStudentRow?.membership_lookup_failed || selectedStudentRow?.cohort_lookup_failed ? <div className="acd-warning">Không đọc được đầy đủ danh sách lớp hiện tại. Thao tác thêm vẫn an toàn và không gỡ lớp khác; hãy tải lại để xác nhận.</div> : null}
+          {selectedStudentRow?.cohorts.length ? <div className="acd-note">Các lớp đang học sẽ được giữ nguyên: {selectedStudentRow.cohorts.map((item) => item.name || 'Lớp không đọc được tên').join(', ')}.</div> : null}
           {studentsError && <div className="acd-inline-error" role="alert">{studentsError}</div>}
         </form>
       </Dialog>

@@ -27,12 +27,15 @@ describe('Writing assignment handoff entry points', () => {
     assert.match(classBackend, /Writing is absent on purpose:[\s\S]+_TEST_SKILLS = \{"reading": "reading_tests", "listening": "listening_tests"\}/);
   });
 
-  test('an active prompt can hand its canonical id to the assignment picker', () => {
+  test('a prompt can hand its canonical id to a snapshot-or-detail verified picker', () => {
     assert.match(prompts, /assignmentHref\(\{\}, \{ promptId: prompt\.id \}\)[^\n]+Giao đề này/);
     assert.match(assignments, /assignmentPrefill/);
-    assert.match(assignments, /students\.some\(\(item\) => item\.id === prefill\.studentId\)/);
-    assert.match(assignments, /cohorts\.some\(\(item\) => item\.id === prefill\.cohortId\)/);
-    assert.match(assignments, /prompts\.some\(\(item\) => item\.id === prefill\.promptId\)/);
+    assert.match(assignments, /students\.find\(\(item\) => item\.id === prefill\.studentId\)/);
+    assert.match(assignments, /cohorts\.find\(\(item\) => item\.id === prefill\.cohortId\)/);
+    assert.match(assignments, /prompts\.find\(\(item\) => item\.id === prefill\.promptId\)/);
+    assert.match(assignments, /normalizeStudentDetail/);
+    assert.match(assignments, /normalizeCohortDetail/);
+    assert.match(assignments, /normalizePromptDetail/);
   });
 
   test('learner Writing remains the canonical inbox for Writing assignments', () => {

@@ -85,6 +85,25 @@ export function normalizeCohortOptions(raw) {
   return { rows, malformedCount: payload.cohorts.length - rows.length };
 }
 
+export function normalizePromptDetail(raw, expectedId) {
+  const parsed = normalizePromptOptions({ prompts: [raw] });
+  const row = parsed?.rows?.[0] || null;
+  return row?.id === textOf(expectedId) ? row : null;
+}
+
+export function normalizeStudentDetail(raw, expectedId) {
+  const parsed = normalizeStudentOptions([raw]);
+  const row = parsed?.rows?.[0] || null;
+  return row?.id === textOf(expectedId) ? row : null;
+}
+
+export function normalizeCohortDetail(raw, expectedId) {
+  const payload = objectOf(raw);
+  const parsed = normalizeCohortOptions({ cohorts: [payload?.cohort] });
+  const row = parsed?.rows?.[0] || null;
+  return row?.id === textOf(expectedId) ? row : null;
+}
+
 export function assignmentFilters(raw = {}) {
   const status = STATUSES.has(textOf(raw.status)) ? textOf(raw.status) : 'all';
   return { status, cohort: textOf(raw.cohort), q: textOf(raw.q).slice(0, 120) };

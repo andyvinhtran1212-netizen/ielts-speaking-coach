@@ -42,6 +42,7 @@ from fastapi.responses import JSONResponse
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.class_membership_service import active_memberships_for_students
 
 logger = logging.getLogger(__name__)
 
@@ -172,13 +173,25 @@ def _first_reading_attempt_only(rows: list[dict]) -> list[dict]:
     return list(first_by_key.values())
 
 
-def _bucket_students_by_cohort(students: list[dict], cohort_name_by_id: dict[str, str]) -> list[dict]:
-    """Group students by cohort_id. Students with NULL cohort_id bucket
-    into the synthetic "Đại trà" group (matches Andy's vocabulary)."""
+def _bucket_students_by_cohort(students: list[dict], cohort_name_by_id: dict[str, str],
+                               memberships: list[dict] | None = None) -> list[dict]:
+    """Count every active membership; students in no class remain Đại trà."""
     counts: Counter = Counter()
-    for s in students:
-        cid = s.get("cohort_id")
-        counts[cid] += 1
+    if memberships is None:
+        for student in students:
+            counts[student.get("cohort_id")] += 1
+    else:
+        active_by_student: dict[str, set[str]] = {}
+        for row in memberships:
+            if row.get("student_id") and row.get("cohort_id"):
+                active_by_student.setdefault(row["student_id"], set()).add(row["cohort_id"])
+        for student in students:
+            cohort_ids = active_by_student.get(student["id"])
+            if cohort_ids:
+                for cohort_id in cohort_ids:
+                    counts[cohort_id] += 1
+            else:
+                counts[None] += 1
     out: list[dict] = []
     for cid, n in counts.items():
         out.append({
@@ -212,6 +225,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     cohorts = _safe_select(
         supabase_admin.table("cohorts").select("id, name").eq("is_active", True)
     )
+    try:
+        memberships = active_memberships_for_students(
+            supabase_admin, [student.get("id") for student in students])
+    except Exception as exc:
+        logger.warning("[admin_overview] membership lookup failed; using legacy primary: %s", exc)
+        memberships = None
+    if not memberships and any(student.get("cohort_id") for student in students):
+        memberships = None
     cohort_name_by_id = {c["id"]: c.get("name") or "" for c in cohorts}
 
     # Sessions provides Speaking activity AND active-user signal.
@@ -523,7 +544,8 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "total":      len(students),
             "active_7d":  len(active_7d),
             "active_30d": len(active_30d),
-            "by_cohort":  _bucket_students_by_cohort(students, cohort_name_by_id),
+            "by_cohort":  _bucket_students_by_cohort(
+                students, cohort_name_by_id, memberships),
         },
         "skills": {
             "speaking": {

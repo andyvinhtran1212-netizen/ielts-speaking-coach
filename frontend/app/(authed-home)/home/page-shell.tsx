@@ -162,7 +162,7 @@ export function HomeShell() {
             </span>
           </div>
           <div className="sub-metric" id="class-strip-sub">
-            Bài tập và nội dung buổi học của lớp bạn.
+            Bài tập và nội dung buổi học từ tất cả các lớp của bạn.
           </div>
           <div className="footer">
             <span className="last-activity" id="class-strip-alarm" />

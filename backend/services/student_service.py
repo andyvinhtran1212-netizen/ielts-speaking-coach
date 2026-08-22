@@ -18,6 +18,7 @@ from fastapi import HTTPException
 
 from database import supabase_admin
 from services.pg_search import ilike_or_filter
+from services.class_membership_service import active_memberships_for_students
 
 logger = logging.getLogger(__name__)
 
@@ -99,22 +100,27 @@ def list_students(
     r = q.range(offset, offset + limit - 1).execute()
     rows = r.data or []
 
-    # WF-1 — enrich each row with its class name (students.cohort_id →
-    # cohorts.name) via ONE batched lookup (no N+1; mirrors the access-code
-    # list's cohort_name precedent). Unassigned → cohort_name None so the UI
-    # renders "—" rather than silently dropping it.
-    cohort_lookup_failed = not _attach_cohort_names(rows)
+    cohort_lookup_failed = not _attach_cohort_memberships(rows)
     for row in rows:
         row["cohort_lookup_failed"] = cohort_lookup_failed
     return rows
 
 
-def _attach_cohort_names(rows: list[dict]) -> bool:
-    """Set `cohort_name` on each row from its `cohort_id` (in place). One
-    batched cohorts query. Returns whether the lookup completed. A lookup
-    failure leaves cohort_name=None but is explicitly exposed by list_students
-    as cohort_lookup_failed so assigned students never look unassigned."""
-    cohort_ids = list({r.get("cohort_id") for r in rows if r.get("cohort_id")})
+def _attach_cohort_memberships(rows: list[dict]) -> bool:
+    """Attach every active class, while retaining primary legacy fields."""
+    try:
+        memberships = active_memberships_for_students(
+            supabase_admin, [row.get("id") for row in rows])
+    except Exception:
+        memberships = []
+        membership_lookup_ok = False
+    else:
+        membership_lookup_ok = True
+
+    cohort_ids = list({m.get("cohort_id") for m in memberships if m.get("cohort_id")})
+    if not membership_lookup_ok:
+        cohort_ids.extend(r.get("cohort_id") for r in rows if r.get("cohort_id"))
+        cohort_ids = list(set(cohort_ids))
     names: dict[str, str] = {}
     if cohort_ids:
         try:
@@ -132,9 +138,25 @@ def _attach_cohort_names(rows: list[dict]) -> bool:
             lookup_ok = True
     else:
         lookup_ok = True
+    by_student: dict[str, list[dict]] = {}
+    for membership in memberships:
+        by_student.setdefault(membership["student_id"], []).append(membership)
     for r in rows:
+        attached = sorted(
+            ({"id": m["cohort_id"], "name": names.get(m["cohort_id"]),
+              "is_primary": m["cohort_id"] == r.get("cohort_id")}
+             for m in by_student.get(r["id"], [])),
+            key=lambda value: (not value["is_primary"], value["name"] or "", value["id"]),
+        )
+        # During a failed membership read, expose the legacy pointer as unknown
+        # rather than turning a real association into "unassigned".
+        if not membership_lookup_ok and r.get("cohort_id"):
+            attached = [{"id": r["cohort_id"], "name": names.get(r["cohort_id"]),
+                         "is_primary": True}]
+        r["cohorts"] = attached
         r["cohort_name"] = names.get(r.get("cohort_id"))
-    return lookup_ok
+        r["membership_lookup_failed"] = not membership_lookup_ok
+    return membership_lookup_ok and lookup_ok
 
 
 def _iso_to_dt(s):
@@ -241,6 +263,8 @@ def get_student_with_history(student_id: str) -> dict:
         raise HTTPException(404, "Student not found")
 
     student = dict(sr.data[0])
+    lookup_ok = _attach_cohort_memberships([student])
+    student["cohort_lookup_failed"] = not lookup_ok
 
     er = (
         supabase_admin.table("writing_essays")

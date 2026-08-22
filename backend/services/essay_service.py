@@ -47,6 +47,7 @@ from services.writing_history import (
 )
 from services.band_rounding import overall_from_criteria
 from services.mistake_authenticity import drop_noncorrection_mistakes
+from services.class_membership_service import active_student_ids_for_cohort
 
 logger = logging.getLogger(__name__)
 
@@ -1319,7 +1320,7 @@ def list_essays(
 
     Enrichment is BATCHED — exactly three extra queries regardless of page size
     (students, feedback, assignments), so there is no N+1. `cohort_id` scopes to
-    essays whose student is in that cohort (students.cohort_id, WF-1).
+    essays whose student has an active membership in that cohort.
 
     W-3 — `owner_id` None = admin see-all (unchanged). When set (instructor mode),
     the result is scoped to owned essays (2-branch: assignment ∪ student) and any
@@ -1363,13 +1364,9 @@ def list_essays(
     if student_id:
         q = q.eq("student_id", student_id)
     if cohort_id:
-        # Cohort scope = essays whose student is in this cohort. students.cohort_id
-        # is the single source of class membership (WF-1).
-        sc = (
-            supabase_admin.table("students")
-            .select("id").eq("cohort_id", cohort_id).execute()
-        )
-        cohort_student_ids = [row["id"] for row in (sc.data or [])]
+        # Cohort scope starts from the canonical active membership roster.
+        cohort_student_ids = active_student_ids_for_cohort(
+            supabase_admin, cohort_id)
         if not cohort_student_ids:
             return []
         q = q.in_("student_id", cohort_student_ids)

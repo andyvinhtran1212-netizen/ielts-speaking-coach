@@ -126,6 +126,16 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   border: 1px solid color-mix(in srgb, var(--av-warning) 35%, transparent);
 }
 
+.acd-note {
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-primary-border);
+  border-radius: var(--av-radius-md);
+  background: var(--av-primary-soft);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  line-height: 1.5;
+}
+
 .acd-workspace {
   min-width: 0;
   padding: var(--av-space-4);

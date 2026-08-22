@@ -208,12 +208,21 @@ export function normalizeStudentOptions(value) {
   return value.map((item) => {
     const row = object(item);
     const id = text(row.id);
+    const cohorts = Array.isArray(row.cohorts) ? row.cohorts.map((item) => {
+      const membership = object(item);
+      const cohortId = text(membership.id);
+      return cohortId ? { id: cohortId, name: nullableText(membership.name),
+        is_primary: Boolean(membership.is_primary) } : null;
+    }).filter(Boolean) : [];
     return id ? {
       id,
       student_code: text(row.student_code) || 'Chưa có mã',
       full_name: text(row.full_name) || 'Học viên chưa đặt tên',
       cohort_id: nullableText(row.cohort_id),
       cohort_name: nullableText(row.cohort_name),
+      cohorts,
+      membership_lookup_failed: Boolean(row.membership_lookup_failed),
+      cohort_lookup_failed: Boolean(row.cohort_lookup_failed),
     } : null;
   }).filter(Boolean);
 }

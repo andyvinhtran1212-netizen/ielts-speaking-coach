@@ -260,7 +260,7 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
                 <td>{summary.code_type ? <span className="adm-chip">{codeTypeLabel(summary.code_type)}</span> : '—'}</td>
                 <td><span className="au-permission-summary">{summary.permissions.length ? summary.permissions.join(', ') : '—'}</span></td>
                 <td>{summary.has_active_code ? <span className="adm-status-pill is-active">Có mã active</span> : <span className="adm-status-pill is-inactive">Không có mã active</span>}</td>
-                <td>{user.cohort_name || '—'}</td>
+                <td>{user.cohort_names.length ? <div className="au-cohort-list">{user.cohort_names.map((name) => <span className="adm-chip" key={name}>{name}</span>)}{user.cohort_lookup_failed ? <span className="au-warning-text">⚠ lookup failed</span> : null}</div> : user.cohort_lookup_failed ? <span className="au-warning-text">⚠ Không đọc được lớp</span> : user.cohort_name || '—'}</td>
                 <td><span className={`au-role is-${user.role}`}>{user.role}</span></td>
                 <td className="au-number">{user.sessions_today.toLocaleString('vi-VN')}</td>
                 <td>{user.is_active ? <span className="adm-status-pill is-active">Active</span> : <span className="adm-status-pill is-revoked">Inactive</span>}</td>

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   assignmentFilters, assignmentHref, assignmentPrefill, groupAssignments, normalizeAssignmentList,
-  normalizeCreateReceipt, normalizeFanoutReceipt, receiptMatchesVerification,
+  normalizeCohortDetail, normalizeCreateReceipt, normalizeFanoutReceipt, normalizePromptDetail, normalizeStudentDetail, receiptMatchesVerification,
   normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, isDefinitiveClientRejection, validateAssignmentDraft,
 } from '../lib/admin-writing-assignments-model.mjs';
 
@@ -52,6 +52,15 @@ describe('Admin Writing Assignments native model', () => {
     assert.equal(assignmentHref({}, { studentId: 's1', cohortId: 'c1' }), '/admin/writing/assignments');
   });
 
+  test('normalizes exact detail fallbacks for entities outside capped picker snapshots', () => {
+    assert.deepEqual(normalizeStudentDetail({ id: 's-old', full_name: 'Lan cũ', student_code: 'S-OLD' }, 's-old'), { id: 's-old', name: 'Lan cũ', code: 'S-OLD', cohortId: null });
+    assert.deepEqual(normalizePromptDetail({ id: 'p-old', title: 'Legacy prompt', task_type: 'task2', difficulty: null }, 'p-old'), { id: 'p-old', title: 'Legacy prompt', taskType: 'task2', difficulty: null });
+    assert.deepEqual(normalizeCohortDetail({ cohort: { id: 'c-old', name: 'Archived class', student_count: 4 } }, 'c-old'), { id: 'c-old', name: 'Archived class', studentCount: 4 });
+    assert.equal(normalizeStudentDetail({ id: 'other' }, 's-old'), null);
+    assert.equal(normalizePromptDetail({ id: 'p-old', task_type: 'bad' }, 'p-old'), null);
+    assert.equal(normalizeCohortDetail({ cohort: { id: 'c-old', name: 'Archived class' } }, 'c-old'), null);
+  });
+
   test('accepts only exact immutable mutation receipts and matching readback', () => {
     const requestId = '00000000-0000-4000-8000-000000000123';
     const receipt = normalizeCreateReceipt({ count: 2, group_id: 'g1', created: [{ id: 'a1' }, { id: 'a2' }], duplicates_warning: ['s1'] }, 2, requestId);
@@ -82,15 +91,19 @@ describe('/admin/writing/assignments native ownership and safety', () => {
     assert.match(COMPONENT, /Thử đối chiếu lại/); assert.match(COMPONENT, /isDefinitiveClientRejection\(statusCode\)/); assert.match(COMPONENT, /Không có bài nào được tạo từ yêu cầu cũ/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
   });
 
-  test('validates student, cohort and prompt prefills against loaded canonical options', () => {
-    for (const token of ['assign_student', 'assign_cohort', 'prompt_id', 'optionsReady', 'Không tìm thấy học viên', 'Không tìm thấy lớp', 'Không tìm thấy đề Writing']) assert.ok(COMPONENT.includes(token), token);
+  test('validates prefills against snapshots or exact canonical detail fallbacks', () => {
+    for (const token of ['assign_student', 'assign_cohort', 'prompt_id', 'optionsReady', 'Không tìm thấy ${label}', 'Dữ liệu chi tiết ${label} không đúng contract canonical']) assert.ok(COMPONENT.includes(token), token);
     assert.match(COMPONENT, /sourceErrors\.students/);
     assert.match(COMPONENT, /sourceErrors\.cohorts/);
     assert.match(COMPONENT, /sourceErrors\.prompts/);
     assert.match(COMPONENT, /window\.history\.replaceState\(window\.history\.state, '', cleanHref\)/);
     assert.match(COMPONENT, /`student:\$\{prefill\.studentId\}\|cohort:\$\{prefill\.cohortId\}\|prompt:\$\{prefill\.promptId\}`/);
     assert.match(COMPONENT, /if \(prefill\.conflict\)[\s\S]*deepLinkHandled\.current = prefillKey;[\s\S]*setSelectedStudents\(new Set\(\)\); setSelectedPrompts\(new Set\(\)\)/);
-    assert.match(COMPONENT, /if \(sourceError\)[\s\S]*deepLinkHandled\.current = prefillKey;[\s\S]*setSelectedStudents\(new Set\(\)\); setSelectedPrompts\(new Set\(\)\)/);
+    assert.match(COMPONENT, /\/admin\/students\/\$\{encodeURIComponent\(prefill\.studentId\)\}/);
+    assert.match(COMPONENT, /\/admin\/writing\/cohorts\/\$\{encodeURIComponent\(prefill\.cohortId\)\}/);
+    assert.match(COMPONENT, /\/admin\/writing\/prompts\/\$\{encodeURIComponent\(prefill\.promptId\)\}/);
+    assert.match(COMPONENT, /Promise\.allSettled/);
+    assert.match(COMPONENT, /prefillSequence\.current/);
     assert.match(COMPONENT, /deepLinkHandled\.current = ''; void loadOptions\(\)/);
     const listEffect = COMPONENT.match(/useEffect\(\(\) => \{ setSnapshot\(null\);[\s\S]*?\}, \[profile\.id, loadList\]\);/)?.[0] || '';
     assert.ok(listEffect);

@@ -144,13 +144,14 @@ describe('admin users model — hostile and partial payloads', () => {
     const rows = normalizeUsersPayload([
       null,
       { email: 'missing@example.test' },
-      { id: 'u1', email: '<img src=x>', role: 'owner', sessions_today: '4', code_summary: { codes: [{ id: 'c1', code: '<script>' }], permissions: ['all', null], has_active_code: true } },
+      { id: 'u1', email: '<img src=x>', role: 'owner', sessions_today: '4', cohort_names: ['Lớp A', 'Lớp B'], code_summary: { codes: [{ id: 'c1', code: '<script>' }], permissions: ['all', null], has_active_code: true } },
     ]);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].role, 'student');
     assert.equal(rows[0].sessions_today, 4);
     assert.equal(rows[0].code_summary.codes[0].code, '<script>');
     assert.deepEqual(rows[0].code_summary.permissions, ['all']);
+    assert.deepEqual(rows[0].cohort_names, ['Lớp A', 'Lớp B']);
   });
 
   test('normalizes lookup failures, fallback owners and quota without inventing associations', () => {

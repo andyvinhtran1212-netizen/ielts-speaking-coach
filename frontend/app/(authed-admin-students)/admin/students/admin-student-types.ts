@@ -6,6 +6,8 @@ export type Student = {
   cohort_id: string | null;
   cohort_name: string | null;
   cohort_lookup_failed: boolean;
+  membership_lookup_failed: boolean;
+  cohorts: Array<{ id: string; name: string | null; is_primary: boolean }>;
   target_band: number | null;
   current_band_estimate: number | null;
   target_date: string | null;

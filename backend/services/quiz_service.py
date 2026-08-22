@@ -29,6 +29,7 @@ from services.class_assignment_service import (
     _at,
     mark_item_submitted,
 )
+from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
 
@@ -376,7 +377,7 @@ def _assignment_item_for(
       · bài giao còn mở      (`is_assignment_open` — chưa lưu trữ, đã tới ngày)
       · còn nhận bài         (`is_accepting_submissions` — chưa quá hạn), HOẶC
         đã nộp và caller chỉ xin quyền đọc kết quả (`allow_submitted_review`)
-      · đúng lớp HIỆN TẠI    (em chuyển lớp thì mất quyền, dù dòng mục còn đó)
+      · thuộc một lớp đang học (rời lớp thì mất quyền, dù dòng mục còn đó)
 
     Thiếu các cổng này thì một bookmark còn trả về TOÀN BỘ câu hỏi kèm đáp án
     mãi mãi. Sau hạn chỉ có ngoại lệ hẹp cho mục ĐÃ NỘP và caller read-only;
@@ -392,7 +393,11 @@ def _assignment_item_for(
                    .eq("user_id", user_id).execute().data) or []
         if not student:
             return None
-        cohorts = {s.get("cohort_id") for s in student}
+        cohorts = {
+            cohort_id
+            for row in student
+            for cohort_id in active_cohort_ids_for_student(supabase_admin, row)
+        }
         owned = [a for a in asg
                  if is_assignment_open(a) and a.get("cohort_id") in cohorts]
         if not owned:
