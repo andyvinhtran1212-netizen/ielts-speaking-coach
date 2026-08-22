@@ -3016,6 +3016,13 @@ show the stronger two-layer warning without false reassurance.
   and `test_deactivated_writing_prompt_blocks_open_without_changing_state`
   already prove that the explicit `sections=None` path validates all configured
   sections and leaves the room closed when readiness fails.
+- Accepted post-merge inline P2: every new Writing edit now clears the prior
+  server-saved cue immediately. When device backup is unavailable, the debounce
+  window shows an unsaved-device warning until the newer snapshot receives its
+  own server ACK; it no longer reassures the learner using an ACK for stale text.
+- Accepted follow-up inline P2: edits after a failed server autosave preserve
+  the server-failure cue. This keeps both the server-only warning (device backup
+  succeeded) and the combined server/device warning visible while retry is due.
 
 ## Release verification
 

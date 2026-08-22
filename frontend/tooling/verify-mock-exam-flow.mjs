@@ -412,7 +412,26 @@ await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng tr�
 check('successful server autosave does not hide a persistent local-backup failure',
   noLocalBackup.state.writingDrafts.length >= 1
     && await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).isVisible());
+await noLocalBackup.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a new unsaved edit immediately clears the stale server-saved reassurance',
+  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab/).isVisible()
+    && !await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc/).isVisible());
+await noLocalBackup.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+check('the server-saved cue returns only after the newer draft is acknowledged',
+  noLocalBackup.state.writingDrafts.length >= 2);
 await noLocalBackup.context.close();
+
+const serverOnlyFailure = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { writingDraftAlwaysFails: true });
+await serverOnlyFailure.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).waitFor();
+await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a later edit preserves the server-failure cue when device backup still works',
+  await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).isVisible());
+await serverOnlyFailure.context.close();
 
 const noBackupOrServer = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
@@ -421,6 +440,9 @@ await noBackupOrServer.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { wa
 await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
 await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).waitFor();
 check('Writing reports simultaneous server and local-backup failure without false reassurance',
+  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
+await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a later edit preserves the combined server-and-device failure cue',
   await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
 await noBackupOrServer.context.close();
 
