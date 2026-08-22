@@ -256,7 +256,8 @@ def test_pronunciation_requirement_is_validated_and_kept_in_bank_meta(tmp_path):
     _run(tmp_path, db, [_mcq(), _pronunciation()], "--commit")
     requirement = db.tables["quiz_banks"][0]["meta"]["pronunciation_requirement"]
     assert requirement["sentence_count"] == 12
-    assert requirement["language"] == "en-GB"
+    assert requirement["locale"] == "en-GB"
+    assert requirement["voice_engine"] == "kokoro"
     assert requirement["voice"] == "bf_emma"
     assert len(requirement["content_hash"]) == 64
     assert len(_rpc_rows(db)[0][2]["p_rows"]) == 1

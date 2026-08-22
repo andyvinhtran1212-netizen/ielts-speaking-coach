@@ -7,6 +7,8 @@ import sys
 import zipfile
 from unittest.mock import patch
 
+import pytest
+
 from scripts import pregen_course_question_audio as mod
 
 
@@ -39,8 +41,36 @@ def test_pack_must_match_the_exact_text_and_voice(tmp_path):
             "items": [{"storage_path": storage_path, "text": "Read me.",
                        "voice": "bf_emma"}],
         }))
-    archive, _manifest = mod._read_pack(pack, planned)
+    with patch.object(mod, "_validate_mp3") as validate:
+        archive, _manifest = mod._read_pack(pack, planned)
     archive.close()
+    validate.assert_called_once_with(b"ID3audio", "Q1")
+
+
+def test_a_malformed_pack_fails_before_any_upload_or_url_stamp(tmp_path):
+    questions = [{"id": "q1", "qid": "Q1", "segments": {
+        "question_audio_text": "Read me."}, "audio_url": None}]
+    storage_path = mod.tts_audio.audio_path("Read me.", "bf_emma", mod.ENGINE)
+    pack = tmp_path / "broken.zip"
+    with zipfile.ZipFile(pack, "w") as archive:
+        archive.writestr(storage_path, b"")
+        archive.writestr("manifest.json", json.dumps({
+            "engine": "kokoro",
+            "items": [{"storage_path": storage_path, "text": "Read me.",
+                       "voice": "bf_emma"}],
+        }))
+
+    with patch.object(mod, "_bank", return_value={"id": "b1", "code": "C1-B06"}), \
+         patch.object(mod, "_question_rows", return_value=questions), \
+         patch.object(mod.tts_audio, "upload_mp3") as upload, \
+         patch.object(mod.supabase_admin, "table") as table, \
+         patch.object(sys, "argv", [
+             "prog", "--bank", "C1-B06", "--tts-pack", str(pack), "--commit",
+         ]):
+        with pytest.raises(SystemExit):
+            mod.main()
+    upload.assert_not_called()
+    table.assert_not_called()
 
 
 def test_dry_run_never_calls_kokoro_or_writes():

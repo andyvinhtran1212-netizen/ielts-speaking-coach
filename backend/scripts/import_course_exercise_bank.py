@@ -52,6 +52,7 @@ from pathlib import Path
 from config import settings
 from database import supabase_admin
 from services import quiz_why_wrong
+from services.course_pronunciation_manifest import pronunciation_content_hash
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("import-course-bank")
@@ -427,15 +428,15 @@ def _pronunciation_meta(r: dict) -> dict:
                 f"[{pronunciation_id}] câu phát âm {expected} trống hoặc quá dài.")
         canonical.append(text)
     voice = _required_text(r.get("voice"), "giọng đọc", pronunciation_id)
-    language = _required_text(r.get("lang"), "ngôn ngữ", pronunciation_id)
-    digest = hashlib.sha256(
-        json.dumps({"voice": voice, "sentences": canonical}, ensure_ascii=False,
-                   sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    locale = _required_text(r.get("lang"), "ngôn ngữ", pronunciation_id)
+    voice_engine = str(r.get("voice_engine") or "kokoro").strip()
+    digest = pronunciation_content_hash(
+        sentences=canonical, locale=locale, voice_engine=voice_engine, voice=voice)
     return {
         "id": pronunciation_id,
         "role": _required_text(r.get("vai_tro"), "vai trò", pronunciation_id),
-        "language": language,
+        "locale": locale,
+        "voice_engine": voice_engine,
         "voice": voice,
         "sentence_count": len(canonical),
         "content_hash": digest,
@@ -622,7 +623,7 @@ def main() -> int:
                     listening_questions, len(audio_uploads))
     if pronunciation:
         logger.info("Phát âm: %d câu · %s · giọng %s",
-                    pronunciation["sentence_count"], pronunciation["language"],
+                    pronunciation["sentence_count"], pronunciation["locale"],
                     pronunciation["voice"])
 
     if not commit:

@@ -15,11 +15,15 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import logging
 import sys
 import zipfile
 from pathlib import Path
+
+from pydub import AudioSegment
+from pydub.exceptions import CouldntDecodeError
 
 from database import supabase_admin
 from services import tts_audio
@@ -28,6 +32,7 @@ logger = logging.getLogger("pregen-course-question-audio")
 
 ENGINE = "kokoro"
 DEFAULT_VOICE = "bf_emma"
+_MP3_MAGIC = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 
 
 def _bank(code: str) -> dict:
@@ -75,10 +80,26 @@ def _plan(questions: list[dict]) -> list[dict]:
     return planned
 
 
+def _validate_mp3(data: bytes, qid: str | None) -> None:
+    """Reject empty/truncated/non-decodable clips before the first upload."""
+    if not data.startswith(_MP3_MAGIC):
+        raise SystemExit(f"Clip TTS của {qid or 'câu không rõ'} không phải MP3.")
+    try:
+        audio = AudioSegment.from_file(io.BytesIO(data), format="mp3")
+    except (CouldntDecodeError, OSError, ValueError) as exc:
+        raise SystemExit(
+            f"Clip TTS của {qid or 'câu không rõ'} không giải mã được: {exc}") from exc
+    if len(audio) <= 0:
+        raise SystemExit(f"Clip TTS của {qid or 'câu không rõ'} không có âm thanh.")
+
+
 def _read_pack(path: Path, planned: list[dict]) -> tuple[zipfile.ZipFile, dict]:
     if not path.is_file():
         raise SystemExit(f"Không thấy gói TTS {path}.")
-    archive = zipfile.ZipFile(path)
+    try:
+        archive = zipfile.ZipFile(path)
+    except zipfile.BadZipFile as exc:
+        raise SystemExit(f"Không đọc được gói TTS {path}: {exc}") from exc
     try:
         manifest = json.loads(archive.read("manifest.json"))
     except (KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
@@ -99,6 +120,12 @@ def _read_pack(path: Path, planned: list[dict]) -> tuple[zipfile.ZipFile, dict]:
         if item.get("text") != row["text"] or item.get("voice") != row["voice"]:
             archive.close()
             raise SystemExit(f"Manifest TTS không khớp nội dung {row.get('qid')}.")
+        try:
+            clip = archive.read(storage_path)
+            _validate_mp3(clip, row.get("qid"))
+        except (KeyError, zipfile.BadZipFile, SystemExit):
+            archive.close()
+            raise
     return archive, packed
 
 

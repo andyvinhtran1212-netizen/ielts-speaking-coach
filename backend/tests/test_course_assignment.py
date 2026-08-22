@@ -43,6 +43,25 @@ def _db(**tables):
 _COHORT = {"id": "co-1", "name": "Lớp A", "course_id": "c-1"}
 _BANK = {"id": "bank-1", "code": "C1-B01", "title": "Buổi 1", "skill_area": "course",
          "course_id": "c-1", "lesson_no": 1, "words_count": 100}
+_PRON_SENTENCES = [
+    {"id": f"s{number}", "order": number, "text": f"Sentence {number}."}
+    for number in range(1, 13)
+]
+_PRON_REQUIREMENT = {
+    "sentence_count": 12,
+    "locale": "en-GB",
+    "voice_engine": "kokoro",
+    "voice": "bf_emma",
+    "content_hash": adm.pronunciation_content_hash(
+        sentences=[sentence["text"] for sentence in _PRON_SENTENCES],
+        locale="en-GB", voice_engine="kokoro", voice="bf_emma"),
+}
+_PRON_SET = {
+    "id": "pron-1", "bank_id": "bank-1", "is_active": True,
+    "sentences": _PRON_SENTENCES,
+    "locale": "en-GB", "voice_engine": "kokoro", "voice": "bf_emma",
+    "content_hash": _PRON_REQUIREMENT["content_hash"],
+}
 
 
 def _body(**over):
@@ -120,22 +139,31 @@ def test_a_bank_with_missing_required_question_audio_is_refused():
 
 
 def test_a_bank_with_required_pronunciation_needs_an_active_set():
-    required_bank = {**_BANK, "meta": {"pronunciation_requirement": {
-        "sentence_count": 12,
-    }}}
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
     with pytest.raises(HTTPException) as exc:
         _resolve(_full(quiz_banks=[required_bank]))
-    assert "phần phát âm bắt buộc" in exc.value.detail
+    assert "không khớp nội dung bắt buộc" in exc.value.detail
 
     bank_id, config = _resolve(_full(
         quiz_banks=[required_bank],
-        course_pronunciation_sets=[{
-            "id": "pron-1", "bank_id": "bank-1", "is_active": True,
-            "sentences": [{"id": f"s{i}"} for i in range(12)],
-        }],
+        course_pronunciation_sets=[_PRON_SET],
     ))
     assert bank_id == "bank-1"
     assert config["section_counts"]["pronunciation"] == 12
+
+
+def test_a_stale_active_pronunciation_set_is_refused():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    stale = {**_PRON_SET, "sentences": [
+        *_PRON_SENTENCES[:-1],
+        {**_PRON_SENTENCES[-1], "text": "A revised final sentence."},
+    ]}
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(
+            quiz_banks=[required_bank], course_pronunciation_sets=[stale]))
+    assert "không khớp nội dung bắt buộc" in exc.value.detail
 
 
 def test_an_unknown_bank_is_404():
@@ -201,9 +229,8 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
 
 @pytest.mark.asyncio
 async def test_the_library_exposes_audio_and_pronunciation_readiness():
-    required_bank = {**_BANK, "meta": {"pronunciation_requirement": {
-        "sentence_count": 12,
-    }}}
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
     db = _db(
         cohorts=[_COHORT],
         quiz_banks=[required_bank],
@@ -224,6 +251,34 @@ async def test_the_library_exposes_audio_and_pronunciation_readiness():
     assert bank["pronunciation_required"] is True
     assert bank["pronunciation_ready"] is False
     assert bank["ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_library_rejects_a_stale_active_pronunciation_set():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    stale = {**_PRON_SET, "content_hash": "stale"}
+    db = _db(
+        cohorts=[_COHORT], quiz_banks=[required_bank],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-1"}],
+        course_pronunciation_sets=[stale], class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert out["items"][0]["pronunciation_ready"] is False
+    assert out["items"][0]["ready"] is False
+
+    matching_db = _db(
+        cohorts=[_COHORT], quiz_banks=[required_bank],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-1"}],
+        course_pronunciation_sets=[_PRON_SET], class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", matching_db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        matching = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert matching["items"][0]["pronunciation_ready"] is True
+    assert matching["items"][0]["ready"] is True
 
 
 def _async(v):

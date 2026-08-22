@@ -31,6 +31,7 @@ from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
+from services.course_pronunciation_manifest import pronunciation_content_hash
 from services.quiz_service import (
     bank_has_mcq,
     course_bank_is_multisection,
@@ -641,6 +642,37 @@ def _pick_set_questions(body: "AssignmentCreate", eligible: list, qs: list) -> l
     return [in_set[i] for i in sorted(ids, key=lambda i: in_set[i].get("order_num") or 0)]
 
 
+def _pronunciation_set_matches(requirement, sets: list[dict]) -> bool:
+    """Require the active set to be the exact content declared by the importer."""
+    if not requirement:
+        return bool(sets)
+    if not isinstance(requirement, dict) or not sets:
+        return False
+    registered = sets[0]
+    sentences = registered.get("sentences")
+    try:
+        expected_count = int(requirement.get("sentence_count"))
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(sentences, list) or any(
+            not isinstance(sentence, dict) for sentence in sentences):
+        return False
+    actual_hash = pronunciation_content_hash(
+        sentences=[sentence.get("text") for sentence in sentences],
+        locale=registered.get("locale"),
+        voice_engine=registered.get("voice_engine"),
+        voice=registered.get("voice"),
+    )
+    return (
+        len(sentences) == expected_count
+        and actual_hash == requirement.get("content_hash")
+        and registered.get("content_hash") == actual_hash
+        and registered.get("locale") == requirement.get("locale")
+        and registered.get("voice_engine") == requirement.get("voice_engine")
+        and registered.get("voice") == requirement.get("voice")
+    )
+
+
 def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn một bộ bài tập theo buổi từ kho của khoá mà lớp thuộc về.
 
@@ -687,12 +719,15 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             "chưa có audio.")
 
     pronunciation_sets = (
-        supabase_admin.table("course_pronunciation_sets").select("id, sentences")
+        supabase_admin.table("course_pronunciation_sets").select(
+            "id, sentences, content_hash, locale, voice_engine, voice")
         .eq("bank_id", bank["id"]).eq("is_active", True).limit(1)
         .execute().data
     ) or []
-    if (bank.get("meta") or {}).get("pronunciation_requirement") and not pronunciation_sets:
-        raise HTTPException(400, "Bộ bài tập chưa đăng ký phần phát âm bắt buộc.")
+    requirement = (bank.get("meta") or {}).get("pronunciation_requirement")
+    if requirement and not _pronunciation_set_matches(requirement, pronunciation_sets):
+        raise HTTPException(
+            400, "Bộ phát âm đang thiếu hoặc không khớp nội dung bắt buộc.")
     try:
         weight_snapshot = course_section_weight_snapshot(
             questions=questions,
@@ -773,18 +808,23 @@ async def list_course_banks(
                 if not str(q.get("audio_url") or "").strip():
                     missing_audio[bank_id] = missing_audio.get(bank_id, 0) + 1
 
-    pronunciation_ready = set()
+    pronunciation_sets = {}
     for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
-        rows = (supabase_admin.table("course_pronunciation_sets").select("bank_id")
+        rows = (supabase_admin.table("course_pronunciation_sets").select(
+                    "bank_id, sentences, content_hash, locale, voice_engine, voice")
                 .in_("bank_id", chunk).eq("is_active", True).execute().data) or []
-        pronunciation_ready.update(row["bank_id"] for row in rows if row.get("bank_id"))
+        pronunciation_sets.update({
+            row["bank_id"]: row for row in rows if row.get("bank_id")})
 
     items = []
     for bank in banks:
         bank_id = bank["id"]
         pronunciation_required = bool(
             (bank.get("meta") or {}).get("pronunciation_requirement"))
-        pronunciation_is_ready = bank_id in pronunciation_ready
+        pronunciation_is_ready = _pronunciation_set_matches(
+            (bank.get("meta") or {}).get("pronunciation_requirement"),
+            [pronunciation_sets[bank_id]] if bank_id in pronunciation_sets else [],
+        )
         items.append({
             "id":                    bank_id,
             "code":                  bank.get("code"),

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from scripts.import_course_exercise_bank import _pronunciation_meta
 from scripts.setup_course_pronunciation import _load
 
 
@@ -26,3 +27,19 @@ def test_b06_has_the_requested_twelve_renumbered_kokoro_sentences():
         "cheaper motorbikes."
     )
     assert len(content_hash) == 64
+
+
+def test_import_requirement_and_registered_set_use_the_same_content_hash():
+    data, registered_hash = _load(CONTENT)
+    requirement = _pronunciation_meta({
+        "id": "TM20-B06-PHAT-AM",
+        "vai_tro": "bài luyện phát âm — nghe và nhắc lại",
+        "lang": data["locale"],
+        "voice_engine": data["voice_engine"],
+        "voice": data["voice"],
+        "sentences": [
+            {"so": sentence["order"], "text": sentence["text"]}
+            for sentence in data["sentences"]
+        ],
+    })
+    assert requirement["content_hash"] == registered_hash
