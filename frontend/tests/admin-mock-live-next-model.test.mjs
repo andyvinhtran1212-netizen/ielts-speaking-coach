@@ -74,6 +74,33 @@ test('live snapshot preserves unknown roster and rejects partial/malformed stude
   const malformed = livePayload();
   malformed.students[1].sections.listening.state = 'mystery';
   assert.equal(normalizeLiveSnapshot(malformed), null);
+  const missingSection = livePayload();
+  delete missingSection.students[0].sections.reading;
+  assert.equal(normalizeLiveSnapshot(missingSection), null);
+  const malformedClock = livePayload();
+  malformedClock.exam.section_time_left_seconds = -1;
+  assert.equal(normalizeLiveSnapshot(malformedClock), null);
+  const malformedServerTime = livePayload();
+  malformedServerTime.server_time = 'not-a-time';
+  assert.equal(normalizeLiveSnapshot(malformedServerTime), null);
+});
+
+test('retake rows require exactly their assigned skill subset', () => {
+  const payload = livePayload();
+  payload.exam.exam_mode = 'retake';
+  payload.exam.active_section = 'not_started';
+  payload.exam.section_started_at = null;
+  payload.exam.section_duration_seconds = null;
+  payload.exam.section_time_left_seconds = null;
+  for (const student of payload.students) {
+    student.assigned_skills = ['listening'];
+    student.sections = { listening: student.sections.listening };
+  }
+  assert.equal(normalizeLiveSnapshot(payload).students[0].assignedSkills[0], 'listening');
+  payload.students[0].sections.reading = {
+    state: 'waiting', answered: null, total: 40, submitted_at: null, last_activity_at: null,
+  };
+  assert.equal(normalizeLiveSnapshot(payload), null);
 });
 
 test('attention filters include absent, blank, stalled and missed persisted states', () => {
@@ -140,7 +167,8 @@ test('native routes own auth, exact identities, irreversible guards and accessib
   ]) assert.ok(existsSync(join(ROOT, ...path)), path.join('/'));
   assert.match(livePage, /AdminAccessGate/);
   assert.match(pacingPage, /AdminAccessGate/);
-  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'collectionSweepCompletedSection', 'collecting', 'readyToAdvance', 'Đang thu bài…', 'Thu bài trước', 'loadSnapshot(examId)', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
+  for (const token of ['normalizePublishedExams', 'normalizeLiveSnapshot', 'accountRef.current', 'requestRef.current', 'selectedRef.current', 'from_section', 'collectedSection', 'collectionSweepCompletedSection', 'collecting', 'readyToAdvance', 'Đang thu bài…', 'Thu bài trước', 'loadSnapshot(examId)', 'refreshNow', 'Không thao tác lại', '5_000']) assert.ok(live.includes(token), token);
+  assert.match(live, /const refreshNow = async \(\) => \{[\s\S]*if \(canonical\) setNotice\(null\)/);
   assert.doesNotMatch(live, /prompt\s*\(/);
   assert.match(dialog, /import \{ Dialog \}/);
   assert.match(dialog, /<Dialog/);
@@ -153,4 +181,18 @@ test('native routes own auth, exact identities, irreversible guards and accessib
   assert.match(pacing, /lần sửa cuối cùng/);
   assert.match(cockpitModel, /return `\/admin\/mock-live\?exam_id=/);
   assert.doesNotMatch(cockpitModel, /pages\/admin\/mock-live\/index\.html\?exam_id/);
+});
+
+test('a stale canonical snapshot freezes the clock, blocks risky mutations and preserves emergency close', () => {
+  const live = read('app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
+  const css = read('public', 'css', 'admin-mock-live-next.css');
+  assert.match(live, /const snapshotStale = Boolean\(refreshError\)/);
+  assert.match(live, /snapshotStale \? 'Snapshot cũ · đồng hồ đã đóng băng'/);
+  assert.match(live, /refreshError && !forceClose/);
+  assert.match(live, /Đóng kỳ khẩn/);
+  assert.match(live, /toggleOpen\(true\)/);
+  assert.match(live, /disabled=\{Boolean\(busyKey\) \|\| snapshotStale\}/);
+  assert.match(live, /Cập nhật snapshot trước/);
+  assert.match(live, /setVoidTarget\(null\)/);
+  assert.match(css, /\.mlv-clock\.is-stale/);
 });

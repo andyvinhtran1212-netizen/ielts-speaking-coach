@@ -53,6 +53,10 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /event\.source !== frame\.contentWindow/);
     assert.match(RUNNER, /mock-embed-unsaved-answers/);
     assert.match(RUNNER, /mock-embed-invalid-flush-response/);
+    assert.match(RUNNER, /mock-embed-not-ready/);
+    assert.doesNotMatch(RUNNER, /!frame\?\.contentWindow\) \{ resolve\(\)/);
+    assert.match(RUNNER, /EMBED_FLUSH_TIMEOUT_MS = 8_000/);
+    assert.match(RUNNER, /window\.clearTimeout\(timeout\)/);
     assert.match(RUNNER, /typeof unsaved !== 'number'/);
     const submit = RUNNER.split('const doSubmit')[1].split('const submitSection')[0];
     assert.ok(submit.indexOf('await flushEmbed(section)') < submit.indexOf('const domainPath'));
@@ -86,6 +90,11 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /isMockSubmitSettled/);
     assert.match(RUNNER, /const settled = isMockSubmitSettled\(state, 'writing'\)[\s\S]*activeSection === 'writing'/);
     assert.match(RUNNER, /pendingCollectionSection === 'writing'[\s\S]*await bridge\.flush\(\)[\s\S]*acknowledgeCollectionFlush/);
+    assert.match(RUNNER, /return true;[\s\S]*catch \{ return false; \}/);
+    assert.match(RUNNER, /setLocalBackupFailed\(!writeLocalDraft/);
+    assert.match(RUNNER, /Trình duyệt không tạo được bản dự phòng trên thiết bị/);
+    assert.match(RUNNER, /Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/);
+    assert.doesNotMatch(RUNNER, /bài vẫn giữ trên máy này/);
   });
 
   test('ships responsive accessible panes and a hermetic browser gate', () => {
