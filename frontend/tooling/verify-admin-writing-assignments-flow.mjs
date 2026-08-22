@@ -13,7 +13,7 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const hostile = '<img src=x onerror="window.__assignmentXss=1">';
 const assignment = (overrides = {}) => ({ id: 'a-old', status: 'pending', prompt_id: 'p1', student_id: 's1', assignment_group_id: 'g-old', name: hostile, deadline: null, instructions: null, created_at: '2026-08-13T00:00:00Z', submitted_at: null, graded_at: null, delivered_at: null, essay_id: null, allow_soft_check: false, is_timed: false, time_limit_minutes: null, auto_submitted: false, writing_prompts: { id: 'p1', title: 'Discuss public transport', task_type: 'task2', difficulty: 'intermediate' }, students: { id: 's1', student_code: 'S001', full_name: 'Lan' }, ...overrides });
-let rows = [assignment()]; const committedRequests = new Map();
+let rows = [assignment()]; let cohortSourceFails = true; const committedRequests = new Map();
 
 const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
@@ -27,8 +27,13 @@ await page.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (path === '/auth/me') return json({ id: adminId, email: 'admin-writing-assignments@local', role: 'admin' });
   if (path === '/admin/writing/prompts' && method === 'GET') return json({ prompts: [{ id: 'p1', title: 'Discuss public transport', task_type: 'task2', difficulty: 'intermediate' }] });
+  if (path === '/admin/writing/prompts/p-old' && method === 'GET') return json({ id: 'p-old', title: 'Prompt outside newest 500', task_type: 'task2', difficulty: 'advanced' });
   if (path === '/admin/students' && method === 'GET') return json(parsed.searchParams.get('offset') === '0' ? [{ id: 's1', full_name: 'Lan', student_code: 'S001', cohort_id: null }] : []);
-  if (path === '/admin/writing/cohorts' && method === 'GET') return json({ detail: 'fixture cohort source unavailable' }, 503);
+  if (path === '/admin/students/s-old' && method === 'GET') return json({ id: 's-old', full_name: 'Học viên ngoài 2.000', student_code: 'S-OLD', cohort_id: null });
+  if (path === '/admin/students/ghost' && method === 'GET') return json({ detail: 'not found' }, 404);
+  if (path === '/admin/writing/cohorts' && method === 'GET') return cohortSourceFails ? json({ detail: 'fixture cohort source unavailable' }, 503) : json({ cohorts: [{ id: 'c1', name: 'Active class', student_count: 2 }] });
+  if (path === '/admin/writing/cohorts/c1' && method === 'GET') return json({ detail: 'fixture cohort detail unavailable' }, 503);
+  if (path === '/admin/writing/cohorts/c-old' && method === 'GET') return json({ cohort: { id: 'c-old', name: 'Archived class', student_count: 3 } });
   if (path === '/admin/writing/assignments' && method === 'GET') return json({ assignments: rows, capped: false });
   if (path === '/admin/writing/assignments' && method === 'POST') {
     const body = request.postDataJSON(); const existing = committedRequests.get(body.request_id);
@@ -85,6 +90,49 @@ await page.reload({ waitUntil: 'domcontentloaded' }); await page.getByRole('dial
 await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click(); await page.getByText(/Chưa xác minh đủ mọi assignment/).waitFor();
 check('thiếu non-first assignment giữ receipt chờ đối chiếu', Boolean(await page.evaluate((key) => sessionStorage.getItem(key), `awa-pending-receipt:${adminId}`)) && await page.getByRole('dialog').count() === 1);
 await page.evaluate((key) => sessionStorage.removeItem(key), `awa-pending-receipt:${adminId}`); await page.reload({ waitUntil: 'domcontentloaded' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=s1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const prefillDialog = page.getByRole('dialog'); await prefillDialog.waitFor();
+const prefilledStudent = prefillDialog.locator('.awa-option').filter({ hasText: 'Lan' }).locator('input[type="checkbox"]');
+const prefilledPrompt = prefillDialog.locator('.awa-option').filter({ hasText: 'Discuss public transport' }).locator('input[type="checkbox"]');
+check('deep link chỉ chọn ID đã xác minh từ nguồn chuẩn', await prefilledStudent.isChecked() && await prefilledPrompt.isChecked());
+await prefillDialog.getByRole('button', { name: 'Đóng' }).click();
+await prefillDialog.waitFor({ state: 'hidden' });
+await page.waitForFunction(() => !new URL(location.href).searchParams.has('assign_student') && !new URL(location.href).searchParams.has('prompt_id'), undefined, { timeout: 3000 }).catch(() => {});
+check('đóng deep link dọn tham số chọn sẵn khỏi URL', !new URL(page.url()).searchParams.has('assign_student') && !new URL(page.url()).searchParams.has('prompt_id'), page.url());
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=s-old&prompt_id=p-old`, { waitUntil: 'domcontentloaded' });
+const cappedFallbackDialog = page.getByRole('dialog'); await cappedFallbackDialog.waitFor();
+const oldStudent = cappedFallbackDialog.locator('.awa-option').filter({ hasText: 'Học viên ngoài 2.000' }).locator('input[type="checkbox"]');
+const oldPrompt = cappedFallbackDialog.locator('.awa-option').filter({ hasText: 'Prompt outside newest 500' }).locator('input[type="checkbox"]');
+await oldStudent.waitFor(); await oldPrompt.waitFor();
+check('ID ngoài snapshot giới hạn được xác minh qua detail endpoints', await oldStudent.isChecked() && await oldPrompt.isChecked() && requests.some((item) => item.path === '/admin/students/s-old') && requests.some((item) => item.path === '/admin/writing/prompts/p-old'));
+await cappedFallbackDialog.getByRole('button', { name: 'Đóng' }).click(); await cappedFallbackDialog.waitFor({ state: 'hidden' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=s1&assign_cohort=c1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const conflictDialog = page.getByRole('dialog'); await conflictDialog.waitFor();
+await conflictDialog.getByText(/đồng thời học viên và lớp/).waitFor();
+check('deep link xung đột không giữ ID chưa xác minh', await conflictDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await conflictDialog.getByRole('button', { name: 'Đóng' }).click(); await conflictDialog.waitFor({ state: 'hidden' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_cohort=c1&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const sourceErrorDialog = page.getByRole('dialog'); await sourceErrorDialog.waitFor();
+await sourceErrorDialog.getByText(/Chưa thể xác minh lớp từ liên kết/).waitFor();
+check('nguồn canonical lỗi không prefill một phần đối tượng hoặc đề', await sourceErrorDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await sourceErrorDialog.getByRole('button', { name: 'Đóng' }).click(); await sourceErrorDialog.waitFor({ state: 'hidden' });
+
+cohortSourceFails = false;
+await page.goto(`${BASE}/admin/writing/assignments?assign_cohort=c-old&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const archivedCohortDialog = page.getByRole('dialog'); await archivedCohortDialog.waitFor();
+await archivedCohortDialog.getByRole('option', { name: /Archived class/ }).waitFor({ state: 'attached' });
+check('lớp archive ngoài danh sách active được xác minh qua detail endpoint', await archivedCohortDialog.getByLabel('Lớp').inputValue() === 'c-old' && await archivedCohortDialog.locator('.awa-option').filter({ hasText: 'Discuss public transport' }).locator('input[type="checkbox"]').isChecked());
+await archivedCohortDialog.getByRole('button', { name: 'Đóng' }).click(); await archivedCohortDialog.waitFor({ state: 'hidden' });
+
+await page.goto(`${BASE}/admin/writing/assignments?assign_student=ghost&prompt_id=p1`, { waitUntil: 'domcontentloaded' });
+const missingDialog = page.getByRole('dialog'); await missingDialog.waitFor();
+await missingDialog.getByText(/Không tìm thấy học viên/).waitFor();
+check('ID không tồn tại xoá toàn bộ prefill thay vì giữ riêng đề', await missingDialog.locator('input[type="checkbox"]:checked').count() === 0);
+await missingDialog.getByRole('button', { name: 'Đóng' }).click(); await missingDialog.waitFor({ state: 'hidden' });
 
 await page.setViewportSize({ width: 390, height: 844 }); await page.getByText('Buổi kiểm tra', { exact: true }).waitFor();
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awa-row')).gridTemplateColumns.split(' ').length }));

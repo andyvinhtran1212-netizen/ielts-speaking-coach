@@ -26,7 +26,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   font-size: clamp(1.65rem, 3vw, 2.35rem);
   letter-spacing: var(--av-tracking-tight);
 }
-.acd-header h1 span { color: var(--av-brand-teal-700); }
+.acd-header h1 span { color: var(--av-primary); }
 .acd-header p:not(.acd-eyebrow) {
   max-width: 760px;
   margin: var(--av-space-2) 0 0;
@@ -36,7 +36,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
 }
 .acd-eyebrow {
   margin: 0 0 var(--av-space-1);
-  color: var(--av-brand-teal-700);
+  color: var(--av-primary);
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-semibold);
   letter-spacing: var(--av-tracking-widest);
@@ -63,11 +63,11 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   gap: 2px;
 }
 .acd-tabs a span { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); }
-.acd-tabs a small { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.acd-tabs a small { color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
 .acd-tabs a.is-active {
   border-color: var(--av-border-default);
   background: var(--av-surface-card);
-  color: var(--av-brand-teal-800);
+  color: var(--av-primary);
   box-shadow: var(--av-shadow-sm);
 }
 .acd-tabs a:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
@@ -89,7 +89,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   gap: var(--av-space-3);
 }
 .acd-kpi > span {
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-xs);
   letter-spacing: var(--av-tracking-wide);
   text-transform: uppercase;
@@ -155,7 +155,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
 .acd-toolbar > button { min-height: 40px; }
 .acd-field { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .acd-field > span {
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-semibold);
   letter-spacing: var(--av-tracking-wide);
@@ -174,7 +174,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   font-size: var(--av-fs-sm);
 }
 .acd-field textarea { resize: vertical; }
-.acd-field small { color: var(--av-text-muted); font-size: var(--av-fs-xs); line-height: 1.45; }
+.acd-field small { color: var(--av-text-secondary); font-size: var(--av-fs-xs); line-height: 1.45; }
 .acd-field input:focus-visible, .acd-field select:focus-visible, .acd-field textarea:focus-visible {
   outline: 2px solid var(--av-primary);
   outline-offset: 1px;
@@ -184,7 +184,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
 .acd-result-bar {
   padding-top: var(--av-space-1);
   border-top: 1px solid var(--av-border-subtle);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -199,7 +199,7 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   border: 1px dashed var(--av-border-default);
   border-radius: var(--av-radius-lg);
   background: var(--av-surface-sunken);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -261,14 +261,14 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
 }
 .acd-class-cell, .acd-course-cell, .acd-roster-cell { display: flex; flex-direction: column; gap: 4px; }
 .acd-class-cell { min-width: 220px; }
-.acd-class-cell a { width: fit-content; color: var(--av-brand-teal-800); font-weight: var(--av-fw-semibold); text-underline-offset: 3px; }
-.acd-class-cell span, .acd-course-cell small { max-width: 280px; color: var(--av-text-muted); font-size: var(--av-fs-xs); line-height: 1.4; overflow-wrap: anywhere; }
+.acd-class-cell a { width: fit-content; color: var(--av-primary); font-weight: var(--av-fw-semibold); text-underline-offset: 3px; }
+.acd-class-cell span, .acd-course-cell small { max-width: 280px; color: var(--av-text-secondary); font-size: var(--av-fs-xs); line-height: 1.4; overflow-wrap: anywhere; }
 .acd-course-cell { min-width: 200px; align-items: flex-start; }
 .acd-roster-cell { min-width: 150px; }
 .acd-roster-cell strong { font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
 .acd-roster-cell span { width: fit-content; color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
 .acd-unknown { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
-.acd-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
+.acd-muted { color: var(--av-text-secondary); font-size: var(--av-fs-xs); font-style: italic; }
 .acd-actions { min-width: 245px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--av-space-2); }
 .acd-actions button:disabled { opacity: .5; cursor: not-allowed; }
 

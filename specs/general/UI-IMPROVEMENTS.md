@@ -2494,7 +2494,68 @@ and component teardown discards an unfinished blob and releases every track.
 
 ---
 
-# Multi-class membership UX — 2026-08-21
+# Admin assignment surfaces — light/dark and workflow closure
+
+> Audit closure: 2026-08-21
+> Scope: Admin Students, Class Homework, Writing Prompts, Writing Assignments,
+> plus shared class and My Class readability styles.
+
+## Validated root causes and fixes
+
+- Writing assignment and prompt states used fixed teal palette values. Those
+  values had 1.02–1.15:1 contrast on dark surfaces. Operational states now use
+  semantic theme roles (`--av-primary`, `--av-primary-soft`,
+  `--av-primary-border`, `--av-text-on-primary`).
+- Meaningful 10–12px metadata used the decorative muted text role. The affected
+  labels now use `--av-text-secondary`, which measures at least 4.5:1 against
+  the light page and card surfaces. Muted colour remains only on decorative
+  arrows and rhythm cells.
+- Students, class homework and prompt inventory had no direct path to the
+  Writing assignment ledger. Each now links to one assignment URL contract
+  with a student, cohort or prompt prefill. The destination validates every ID
+  against its canonical picker snapshot or exact detail endpoint before
+  selecting it, including entities outside list caps and archived classes, and
+  rejects an ambiguous student-plus-cohort target.
+- The native student and class ledgers remain separate: “Gửi bài chấm” still
+  submits on behalf of a learner, while “Giao bài Writing” creates a Writing
+  assignment. Writing is not inserted into the class-homework backend contract.
+- Student and class tables no longer depend on a 980–1080px minimum width on
+  phones. They become labelled cards so identity, class/account/goal, due date,
+  progress and actions remain visible without horizontal page overflow.
+- Mixed English/internal terms in the primary prompt and assignment workflow
+  were replaced with learner-facing Vietnamese labels where they affected task
+  comprehension; persisted API field names and backend contracts are unchanged.
+
+## False positives explicitly rejected
+
+- Theme initialization was not broken; the fault was page-local fixed palette
+  usage, so the shared token values were not globally changed.
+- The learner Writing dashboard remains the canonical Writing inbox. My Class
+  does not need to duplicate the Writing assignment ledger.
+- A four-request peak in the prompt browser fixture occurs only under React dev
+  effect replay. The same production build fixture peaks at two parallel reads,
+  one per lifecycle, while stale-response guards remain active.
+- Decorative muted glyphs are not treated as readable copy and are intentionally
+  excluded from the AA text assertion.
+
+## Verification
+
+- Theme and responsive contracts cover fixed-palette exclusion, semantic state
+  roles, measured light-theme AA contrast, labelled mobile cards and phone-width
+  prompt actions.
+- Deep-link tests cover exact student/cohort/prompt serialization, ambiguous
+  target rejection, canonical option validation and preservation of the two
+  distinct admin Writing actions.
+- Fixture browser flows cover canonical readback, idempotent assignment retry,
+  prompt lifecycle writes, hostile-text escaping, mobile containment and the
+  separate class/student ledgers. The prompt concurrency assertion is run on the
+  production build to avoid React development replay noise.
+- A successful Next production build is required to close TypeScript and route
+  integration for all touched surfaces.
+
+---
+
+ # Multi-class membership UX — 2026-08-21
 
 ## Summary
 
@@ -2548,4 +2609,4 @@ remains the source of deadline and membership truth.
   counts, task labels, lesson labels and nearest deadline.
 - Remove only A; confirm B remains visible and an A assignment can no longer be
   opened while historical A submission evidence remains intact.
-- Keyboard through the class switcher and verify 375px horizontal containment.
+ - Keyboard through the class switcher and verify 375px horizontal containment.

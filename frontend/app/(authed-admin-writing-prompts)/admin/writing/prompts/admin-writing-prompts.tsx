@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
   normalizePromptDeactivate,
   normalizePromptReanalysis,
@@ -20,7 +21,7 @@ import {
 import type { AnalysisDraft, Difficulty, PromptAction, PromptDraft, TaskType, WritingPrompt } from './admin-writing-prompts-types';
 
 const TASK_LABELS: Record<TaskType, string> = { task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2' };
-const DIFFICULTY_LABELS: Record<Difficulty, string> = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
 const EMPTY_DRAFT: PromptDraft = { title: '', taskType: 'task2', promptText: '', difficulty: '', tags: '', imageUrl: '', imagePublicId: '' };
 const EMPTY_ANALYSIS: AnalysisDraft = { chartType: 'mixed', overview: '', keyFeatures: '', notableData: '', axesOrCategories: '', gradingNote: '' };
 
@@ -156,7 +157,7 @@ export function AdminWritingPrompts() {
       return data;
     } catch (caught) {
       if (requestId === sequence.current && profileRef.current === account) {
-        setListError(`${preserve && current ? 'Không thể làm mới — đang giữ snapshot trước. ' : ''}${messageOf(caught)}`);
+        setListError(`${preserve && current ? 'Không thể làm mới — đang giữ dữ liệu lần tải trước. ' : ''}${messageOf(caught)}`);
       }
       return null;
     } finally {
@@ -319,19 +320,19 @@ export function AdminWritingPrompts() {
 
   return <main className="awp-shell">
     <header className="awp-header">
-      <div><p className="acd-eyebrow">Writing · Content operations</p><h1>Kho đề Writing</h1><p>Tạo prompt, kiểm soát phạm vi sử dụng và duyệt dữ kiện hình trước khi chúng tham gia chấm bài.</p></div>
-      <div className="awp-header__actions"><a className="adm-btn-secondary" href="/admin/writing">← Writing workspace</a><button className="adm-btn-primary" type="button" onClick={() => openEditor(null)}>Tạo prompt</button></div>
+      <div><p className="acd-eyebrow">Writing · Quản lý nội dung</p><h1>Kho đề Writing</h1><p>Tạo đề, kiểm soát phạm vi sử dụng và duyệt dữ kiện hình trước khi chúng tham gia chấm bài.</p></div>
+      <div className="awp-header__actions"><a className="adm-btn-secondary" href="/admin/writing">← Không gian Writing</a><button className="adm-btn-primary" type="button" onClick={() => openEditor(null)}>Tạo đề</button></div>
     </header>
 
     <section className="awp-overview" aria-label="Tổng quan kho đề theo bộ lọc máy chủ">
-      <div><span>Đang hoạt động</span><strong>{counts.active}</strong><small>Trong bộ lọc server</small></div>
+      <div><span>Đang hoạt động</span><strong>{counts.active}</strong><small>Trong bộ lọc máy chủ</small></div>
       <div><span>Đã lưu trữ</span><strong>{counts.archived}</strong><small>Có thể khôi phục</small></div>
       <div><span>Chỉ dùng cho thi</span><strong>{counts.exam}</strong><small>Không hiện khi tự luyện</small></div>
       <div><span>Cần xử lý answer key</span><strong>{counts.review}</strong><small>Sẵn sàng hoặc lỗi</small></div>
     </section>
 
     <StatusBanner banner={banner} />
-    {listError && <div className="awp-stale" role="alert"><div><strong>{current ? 'Snapshot đang stale' : 'Không tải được kho đề'}</strong><span>{listError}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void load(true)} disabled={loading}>{loading ? 'Đang thử lại…' : 'Thử lại'}</button></div>}
+    {listError && <div className="awp-stale" role="alert"><div><strong>{current ? 'Dữ liệu đang xem có thể đã cũ' : 'Không tải được kho đề'}</strong><span>{listError}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void load(true)} disabled={loading}>{loading ? 'Đang thử lại…' : 'Thử lại'}</button></div>}
     {current?.malformed ? <div className="awp-warning" role="status"><strong>⚠ {current.malformed} bản ghi không hợp lệ đã bị loại</strong><span>Không dùng dữ liệu sai định dạng để đưa ra quyết định vận hành.</span></div> : null}
     {current?.capped ? <div className="awp-warning" role="status"><strong>Đã chạm giới hạn 500 bản ghi</strong><span>Tìm kiếm phía client chỉ áp dụng trên tập đang tải; hãy thu hẹp Task hoặc độ khó.</span></div> : null}
 
@@ -342,28 +343,28 @@ export function AdminWritingPrompts() {
       </div>
       <div className="awp-filters">
         <label><span>Task</span><select value={filters.taskType} onChange={(event) => navigate({ taskType: event.target.value })}><option value="">Tất cả task</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option><option value="task2">Task 2</option></select></label>
-        <label><span>Độ khó</span><select value={filters.difficulty} onChange={(event) => navigate({ difficulty: event.target.value })}><option value="">Tất cả mức</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+        <label><span>Độ khó</span><select value={filters.difficulty} onChange={(event) => navigate({ difficulty: event.target.value })}><option value="">Tất cả mức</option><option value="beginner">Cơ bản</option><option value="intermediate">Trung cấp</option><option value="advanced">Nâng cao</option></select></label>
         <label><span>Phạm vi</span><select value={filters.visibility} onChange={(event) => navigate({ visibility: event.target.value as Filters['visibility'] })}><option value="all">Tất cả</option><option value="student">Thư viện học viên</option><option value="exam">Chỉ kỳ thi</option></select></label>
         <form onSubmit={(event) => { event.preventDefault(); navigate({ q: searchDraft }); }}><label htmlFor="awp-search">Tìm trong tập đang tải</label><div><input id="awp-search" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Tiêu đề, nội dung hoặc tag…"/><button className="adm-btn-secondary" type="submit">Tìm</button></div></form>
       </div>
     </section>
 
     <section className="awp-library" aria-labelledby="awp-library-title">
-      <header><div><p className="acd-eyebrow">{filters.lifecycle === 'active' ? 'Active library' : 'Archive'}</p><h2 id="awp-library-title">{visibleRows.length} prompt phù hợp</h2><p>{current ? `Đối chiếu lúc ${formatTime(current.readAt)}` : 'Đang chờ dữ liệu canonical'}</p></div><button className="adm-btn-secondary" type="button" onClick={() => void load(true)} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></header>
+      <header><div><p className="acd-eyebrow">{filters.lifecycle === 'active' ? 'Thư viện đang hoạt động' : 'Kho lưu trữ'}</p><h2 id="awp-library-title">{visibleRows.length} đề phù hợp</h2><p>{current ? `Đối chiếu lúc ${formatTime(current.readAt)}` : 'Đang chờ dữ liệu chuẩn'}</p></div><button className="adm-btn-secondary" type="button" onClick={() => void load(true)} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></header>
       {!current && loading ? <div className="awp-empty" role="status"><span className="awp-spinner"/><h3>Đang tải kho đề…</h3></div> : null}
-      {current && !visibleRows.length ? <div className="awp-empty"><h3>Không có prompt phù hợp</h3><p>Đổi bộ lọc hoặc tạo prompt mới cho thư viện này.</p></div> : null}
+      {current && !visibleRows.length ? <div className="awp-empty"><h3>Không có đề phù hợp</h3><p>Đổi bộ lọc hoặc tạo đề mới cho thư viện này.</p></div> : null}
       <div className="awp-grid">{visibleRows.map((prompt) => {
         const analysis = promptAnalysisState(prompt);
         return <article className="awp-card" key={prompt.id}>
           <div className="awp-card__visual">{prompt.imageUrl ? <img src={prompt.imageUrl} alt={`Hình minh hoạ cho ${prompt.title}`} loading="lazy"/> : <div aria-hidden="true"><span>{prompt.taskType === 'task1_academic' ? 'T1A' : prompt.taskType === 'task1_general' ? 'T1G' : 'T2'}</span></div>}<span className={`awp-analysis is-${analysis.key}`}>{analysis.label}</span></div>
-          <div className="awp-card__body"><div className="awp-card__meta"><span>{TASK_LABELS[prompt.taskType]}</span>{prompt.difficulty && <span>{DIFFICULTY_LABELS[prompt.difficulty]}</span>}<span className={prompt.examOnly ? 'is-exam' : 'is-student'}>{prompt.examOnly ? 'Exam only' : 'Student library'}</span></div><h3>{prompt.title}</h3><p>{prompt.promptText}</p><div className="awp-tags">{prompt.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>{prompt.analysisError && <div className="awp-card__error">{prompt.analysisError}</div>}{prompt.malformedOptional ? <div className="awp-card__error">Metadata answer key không nhất quán; cần phân tích/duyệt lại.</div> : null}</div>
-          <footer>{filters.lifecycle === 'active' ? <><button className="adm-btn-secondary" type="button" onClick={() => openEditor(prompt)}>Sửa prompt</button>{prompt.taskType === 'task1_academic' && prompt.imageUrl ? prompt.analysisStatus === 'pending' ? <button className="adm-btn-secondary" type="button" disabled>Đang phân tích…</button> : <button className="adm-btn-secondary" type="button" onClick={() => prompt.analysisStatus === 'ready' ? openAnalysis(prompt) : setConfirming({ kind: 'reanalyze', prompt })}>{prompt.analysisStatus === 'ready' ? 'Duyệt answer key' : 'Phân tích hình'}</button> : null}<button className="adm-btn-secondary" type="button" onClick={() => setConfirming({ kind: 'visibility', prompt })}>{prompt.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button><button className="adm-btn-danger" type="button" onClick={() => setConfirming({ kind: 'archive', prompt })}>Lưu trữ</button></> : <button className="adm-btn-primary" type="button" onClick={() => setConfirming({ kind: 'restore', prompt })}>Khôi phục prompt</button>}</footer>
+          <div className="awp-card__body"><div className="awp-card__meta"><span>{TASK_LABELS[prompt.taskType]}</span>{prompt.difficulty && <span>{DIFFICULTY_LABELS[prompt.difficulty]}</span>}<span className={prompt.examOnly ? 'is-exam' : 'is-student'}>{prompt.examOnly ? 'Chỉ kỳ thi' : 'Thư viện học viên'}</span></div><h3>{prompt.title}</h3><p>{prompt.promptText}</p><div className="awp-tags">{prompt.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>{prompt.analysisError && <div className="awp-card__error">{prompt.analysisError}</div>}{prompt.malformedOptional ? <div className="awp-card__error">Dữ liệu đáp án không nhất quán; cần phân tích hoặc duyệt lại.</div> : null}</div>
+          <footer>{filters.lifecycle === 'active' ? <><a className="adm-btn-primary" href={assignmentHref({}, { promptId: prompt.id })}>Giao đề này</a><button className="adm-btn-secondary" type="button" onClick={() => openEditor(prompt)}>Sửa prompt</button>{prompt.taskType === 'task1_academic' && prompt.imageUrl ? prompt.analysisStatus === 'pending' ? <button className="adm-btn-secondary" type="button" disabled>Đang phân tích…</button> : <button className="adm-btn-secondary" type="button" onClick={() => prompt.analysisStatus === 'ready' ? openAnalysis(prompt) : setConfirming({ kind: 'reanalyze', prompt })}>{prompt.analysisStatus === 'ready' ? 'Duyệt answer key' : 'Phân tích hình'}</button> : null}<button className="adm-btn-secondary" type="button" onClick={() => setConfirming({ kind: 'visibility', prompt })}>{prompt.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button><button className="adm-btn-danger" type="button" onClick={() => setConfirming({ kind: 'archive', prompt })}>Lưu trữ</button></> : <button className="adm-btn-primary" type="button" onClick={() => setConfirming({ kind: 'restore', prompt })}>Khôi phục prompt</button>}</footer>
         </article>;
       })}</div>
     </section>
 
-    <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo prompt mới' : 'Sửa prompt'} description="Nội dung prompt và hình nguồn. Answer key được duyệt ở workspace riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : pendingCreate.current ? 'Thử đối chiếu lại' : 'Lưu prompt'}</button></>}>
-      <div className="awp-form"><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Tags" hint="Phân cách bằng dấu phẩy; tối đa 20 tags."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
+    <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo đề mới' : 'Sửa đề'} description="Nội dung đề và hình nguồn. Đáp án được duyệt ở không gian riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : pendingCreate.current ? 'Thử đối chiếu lại' : 'Lưu đề'}</button></>}>
+      <div className="awp-form"><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Cơ bản</option><option value="intermediate">Trung cấp</option><option value="advanced">Nâng cao</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Thẻ nội dung" hint="Phân cách bằng dấu phẩy; tối đa 20 thẻ."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
         {draft.taskType === 'task1_academic' ? <section className="awp-image-field"><div><strong>Hình Task 1 Academic</strong><span>PNG, JPG hoặc WebP · tối đa 5 MB. File chỉ upload khi bạn bấm Lưu.</span></div>{!removeImage && (localImagePreview || draft.imageUrl) ? <div className="awp-image-preview">{localImagePreview ? <img src={localImagePreview} alt="Xem trước hình mới"/> : <img src={draft.imageUrl} alt="Hình hiện tại"/>}<button className="adm-btn-secondary" type="button" onClick={() => { setImageFile(null); setRemoveImage(true); }}>Bỏ hình</button></div> : <label className="awp-upload"><span>Chọn hình từ máy</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { setImageFile(event.target.files?.[0] || null); setRemoveImage(false); }}/></label>}</section> : null}
         {formError && <div className="acd-form-error" role="alert">{formError}</div>}
       </div>
