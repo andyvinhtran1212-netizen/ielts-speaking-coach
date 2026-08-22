@@ -326,6 +326,7 @@ def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
             "id": exam["reading_test_id"],
             "status": "published",
             "test_type": "full",
+            "total_questions": 40,
         })
     fake.seed("mock_exams", exam)
     return exam
