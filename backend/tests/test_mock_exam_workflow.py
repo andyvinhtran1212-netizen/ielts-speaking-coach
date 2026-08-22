@@ -489,6 +489,83 @@ def test_publish_rejects_a_writing_prompt_in_the_wrong_slot(fake_db, svc):
     assert fake_db.rows("mock_exams")[0]["status"] == "draft"
 
 
+@pytest.mark.parametrize("slot,task_type", [
+    ("writing_task1_prompt_id", "task1_academic"),
+    ("writing_task2_prompt_id", "task2"),
+])
+def test_deactivated_writing_prompt_blocks_publish(fake_db, svc, slot, task_type):
+    exam_id = str(uuid4())
+    prompt_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-ARCHIVED", "title": "Draft",
+        "status": "draft", "is_open": False, "active_section": "not_started",
+        slot: prompt_id, "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+        "is_active": False,
+    })
+
+    with pytest.raises(ValueError, match="đã bị vô hiệu hóa"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    fresh = fake_db.rows("mock_exams")[0]
+    assert fresh["status"] == "draft"
+    assert fresh["active_section"] == "not_started"
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_open_without_changing_state(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, is_open=False, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.set_open(exam["id"], True, "admin")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["is_open"] is False
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_advance_without_starting_clock(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.advance_section(exam["id"], "admin", expected_section="not_started")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
+
+
 # ── create_sitting ────────────────────────────────────────────────────
 
 

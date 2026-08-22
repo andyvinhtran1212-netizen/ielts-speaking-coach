@@ -2108,11 +2108,13 @@ def _exam_content_readiness_issues(
             if not prompt_id:
                 continue
             row = _exam_content_row(
-                "writing_prompts", prompt_id, "id,task_type,prompt_text",
+                "writing_prompts", prompt_id, "id,task_type,prompt_text,is_active",
             )
             if not row:
                 issues.append(f"{label} không còn tồn tại")
                 continue
+            if row.get("is_active") is False:
+                issues.append(f"{label} đã bị vô hiệu hóa")
             task_type = str(row.get("task_type") or "")
             type_matches = task_type.startswith("task1") if expected == "task1" else task_type == "task2"
             if not type_matches:
