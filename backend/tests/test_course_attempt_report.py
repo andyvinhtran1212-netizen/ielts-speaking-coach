@@ -251,13 +251,14 @@ class _AssignmentDB:
     def table(self, _name): return self._Query()
 
 
-def _run_report_with_pages(rows):
+def _run_report_with_pages(rows, *, required_sections=None):
     def pages(table, *_a, **_k):
         return [dict(row) for row in rows.get(table, [])]
 
     with patch.object(qs, "supabase_admin", _AssignmentDB()), \
          patch.object(qs, "_report_pages", pages), \
-         patch.object(qs, "course_required_sections", lambda *_a: []), \
+         patch.object(qs, "course_required_sections",
+                      lambda *_a: list(required_sections or [])), \
          patch.object(qs, "_course_stage_count", lambda *_a: (1, 0, True)):
         return qs.course_attempt_report(bank_id="b1", assignment_id="a1")
 
@@ -272,6 +273,24 @@ def test_a_malformed_mastery_row_does_not_crash_the_whole_effort_report():
     })
     assert out["stale"] is True and len(out["students"]) == 1
     assert out["students"][0]["flags"][0]["code"] == "course_summary_unavailable"
+
+
+def test_effort_report_counts_completed_legacy_quiz_only_attempt_as_one_of_one():
+    out = _run_report_with_pages({
+        "class_assignment_items": [{
+            "id": "i1", "student_id": "st1",
+            "passed_at": "2026-08-22T01:00:00+00:00",
+            "mastery": {"attempts": [{
+                "phase": "run", "pct": 82, "next_action": "passed",
+                "sessions": ["q1"],
+            }]},
+        }],
+        "students": [{"id": "st1", "user_id": "u1"}],
+    }, required_sections=["quiz"])
+    learner = out["students"][0]
+    assert (learner["sections_done"], learner["sections_total"]) == (1, 1)
+    assert learner["missing_sections"] == []
+    assert learner["section_results"][0]["pct"] == 82
 
 
 def test_a_reliable_axis_ranks_before_a_one_student_perfect_rate():

@@ -156,6 +156,16 @@ describe('bảng session & revision', () => {
     assert.ok(!/Chưa có câu nào được chấm/.test(html));
   });
 
+  test('báo cáo không có câu quiz vẫn hiện kết luận mastery', () => {
+    const html = renderReport({
+      questions: [], totals: {}, history,
+      summary: { latest_pct: 80, latest_action: 'passed', pass_pct: 75 },
+    });
+    assert.match(html, /Kết luận gần nhất/);
+    assert.match(html, /Đã đạt/);
+    assert.match(html, /80% · ngưỡng đạt 75%/);
+  });
+
   test('lượt chưa đủ phần không bịa phần trăm hay kết luận đã ghi nhận', () => {
     const html = renderAttemptHistory([{
       number: 1, phase: 'run', completed: false, pct: null,

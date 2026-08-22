@@ -166,9 +166,18 @@ export function renderReport(data, opts = {}) {
     ? '<p class="cr-stale">Chưa đọc được đầy đủ bài làm — vài câu có thể thiếu. '
       + 'Mở lại để thử lại.</p>'
     : '';
+  const hasDecision = summary.latest_pct != null || summary.latest_action
+    || summary.pass_pct != null;
+  const decision = hasDecision ? `<section class="cr-decision">
+      <div><p>Kết luận gần nhất</p><strong>${esc(NEXT_LABEL[summary.latest_action] || 'Chưa có kết luận')}</strong>
+      <span>${summary.latest_pct == null ? 'Chưa có lượt hoàn thành đủ phần.'
+        : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
+      <b>${summary.latest_pct == null ? '—' : `${esc(Math.round(summary.latest_pct))}%`}</b>
+    </section>` : '';
   if (!qs.length) {
-    return warn + history + (warn || history ? '' : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một '
-      + 'chặng là báo cáo hiện ra ở đây.</p>');
+    const empty = warn || history || decision ? ''
+      : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một chặng là báo cáo hiện ra ở đây.</p>';
+    return `<div class="cr">${warn}${decision}${history}${empty}</div>`;
   }
   const groups = groupByAxis(qs);
   const weak = groups.filter(needsWork);
@@ -194,12 +203,7 @@ export function renderReport(data, opts = {}) {
 
   return `<div class="cr">
     ${warn}
-    <section class="cr-decision">
-      <div><p>Kết luận gần nhất</p><strong>${esc(NEXT_LABEL[summary.latest_action] || 'Chưa có kết luận')}</strong>
-      <span>${summary.latest_pct == null ? 'Chưa có lượt hoàn thành đủ phần.'
-        : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
-      <b>${summary.latest_pct == null ? '—' : `${esc(Math.round(summary.latest_pct))}%`}</b>
-    </section>
+    ${decision}
     <section class="cr-hero">
       <div class="cr-hero__main">${hero}</div>
       <p class="cr-hero__count">

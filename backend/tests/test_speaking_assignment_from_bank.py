@@ -613,6 +613,27 @@ async def test_an_unknown_course_shape_is_explicit_not_a_real_zero_denominator()
 
 
 @pytest.mark.asyncio
+async def test_tally_counts_completed_legacy_quiz_only_attempt_as_one_of_one():
+    item = {**_item("s0"), "passed_at": "2026-08-22T01:00:00+00:00",
+            "mastery": {"attempts": [{
+                "phase": "run", "pct": 82, "next_action": "passed",
+                "sessions": ["q1"],
+            }]}}
+    db = _tally_db([item], due="2099-01-01T19:00:00+07:00")
+    db._a.update({"skill": "course", "content_id": "bank-1", "content_config": {}})
+    with patch.object(mod, "reconcile_course_items", lambda *_a: 0), \
+         patch.object(mod, "_course_writing_count", lambda *_a: (0, True)), \
+         patch.object(mod, "bank_has_mcq", lambda *_a: True), \
+         patch.object(mod, "course_bank_is_multisection", lambda *_a: False), \
+         patch.object(mod, "course_required_sections", lambda *_a: ["quiz"]):
+        out = await _tally(db)
+
+    learner = out["students"][0]
+    assert (learner["sections_done"], learner["sections_total"]) == (1, 1)
+    assert learner["missing_sections"] == []
+
+
+@pytest.mark.asyncio
 async def test_the_unsubmitted_come_first():
     """Đây là danh sách việc cần làm của giáo viên, không phải bảng điểm."""
     db = _tally_db([

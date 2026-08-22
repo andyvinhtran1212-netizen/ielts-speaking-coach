@@ -374,6 +374,21 @@ def course_admin_summary(
     missing_sections = []
     for name in required:
         result = present.get(name)
+        # Quiz-only banks intentionally keep the legacy compact ledger shape:
+        # the completed quiz lives at the attempt top level instead of under
+        # ``sections.quiz``.  Treat that canonical shape as the sole required
+        # section; otherwise every completed legacy assignment reads as 0/1
+        # with a fabricated "missing Quiz" warning in both admin reports.
+        if (name == "quiz" and len(required) == 1
+                and not isinstance(result, dict)
+                and latest.get("pct") is not None
+                and latest.get("completed", True)):
+            result = {
+                "completed": True,
+                "pct": latest.get("pct"),
+                "duration_sec": latest.get("duration_sec") or 0,
+                "weight": 100,
+            }
         section_complete = (isinstance(result, dict)
                             and result.get("completed", result.get("pct") is not None))
         if section_complete:

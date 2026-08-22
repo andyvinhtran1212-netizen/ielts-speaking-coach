@@ -173,6 +173,18 @@ def test_admin_summary_uses_required_sections_for_the_denominator():
     assert any(flag["code"] == "course_missing_section" for flag in out["flags"])
 
 
+def test_admin_summary_counts_completed_legacy_quiz_only_attempt_as_its_section():
+    item = {"passed_at": "2026-08-22T01:00:00+00:00", "mastery": {"attempts": [{
+        "phase": "run", "pct": 82, "next_action": "passed", "sessions": ["q1"],
+    }]}}
+    out = qs.course_admin_summary(item, {"content_config": {"pass_pct": 75}},
+                                  required_sections=["quiz"])
+    assert (out["sections_done"], out["sections_total"]) == (1, 1)
+    assert out["missing_sections"] == []
+    assert out["section_results"][0]["key"] == "quiz"
+    assert out["section_results"][0]["pct"] == 82
+
+
 def test_admin_summary_flags_repeated_failure_with_evidence():
     item = {"passed_at": None, "mastery": {"attempts": [
         {"completed": True, "pct": 50, "next_action": "retry_full", "sections": {}},
