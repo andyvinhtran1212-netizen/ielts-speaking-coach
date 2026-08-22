@@ -357,10 +357,13 @@ function WritingWorkspace({ state, register, locked = false }: {
 
   const schedule = useCallback(() => {
     dirtyRef.current = true;
-    retryRef.current = 0;
+    // A new edit does not make an outstanding server failure disappear. Keep
+    // its bounded retry timer/budget; otherwise a keystroke cancels the timer,
+    // starts a fresh request, and downgrades the visible failure warning.
+    const retryPending = retryRef.current > 0;
     const delta = Math.abs(task1Ref.current.length - lastSavedRef.current.task1.length)
       + Math.abs(task2Ref.current.length - lastSavedRef.current.task2.length);
-    if (delta >= 400 && !inFlightRef.current) { void flush(); return; }
+    if (delta >= 400 && !inFlightRef.current && !retryPending) { void flush(); return; }
     if (timerRef.current == null) {
       timerRef.current = window.setTimeout(() => { timerRef.current = null; void flush(); }, 15_000);
     }
@@ -370,6 +373,10 @@ function WritingWorkspace({ state, register, locked = false }: {
     if (locked) return;
     if (which === 'task1') { task1Ref.current = value; setTask1(value); }
     else { task2Ref.current = value; setTask2(value); }
+    // The last server ACK covers the previous snapshot, not this edit. Reset
+    // the cue immediately so a learner is never told the current text is saved
+    // during the debounce window (especially when device backup is unavailable).
+    setSaveCue((current) => current === 'failed' ? current : 'idle');
     setLocalBackupFailed(!writeLocalDraft(sittingId, which, value, false));
     schedule();
   }, [locked, schedule, sittingId]);
