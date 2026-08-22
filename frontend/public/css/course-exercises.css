@@ -1022,6 +1022,13 @@
   font-size: var(--av-fs-base);
 }
 
+.cx-question-audio {
+  display: block;
+  width: min(100%, 28rem);
+  height: 42px;
+  margin: calc(-1 * var(--av-space-2)) 0 var(--av-space-6);
+}
+
 .cx-opts { gap: var(--av-space-3); }
 
 .cx-opt {

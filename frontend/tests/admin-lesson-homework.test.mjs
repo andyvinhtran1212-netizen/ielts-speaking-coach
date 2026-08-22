@@ -705,6 +705,23 @@ describe('giao bài tập theo buổi', () => {
     assert.match(note, /1 buổi chưa nạp câu hỏi/);
   });
 
+  test('bank thiếu audio hoặc bộ phát âm bị chặn với lý do vận hành rõ ràng', async () => {
+    const p = load({ kind: 'daily', banks: [
+      { id: 'b1', lesson_no: 1, title: 'Buổi 1', question_count: 100,
+        already_given: false, ready: false, missing_audio: 3,
+        pronunciation_required: false, pronunciation_ready: false },
+      { id: 'b2', lesson_no: 2, title: 'Buổi 2', question_count: 100,
+        already_given: false, ready: false, missing_audio: 0,
+        pronunciation_required: true, pronunciation_ready: false },
+    ] });
+    p.nodes['hf-skill'].value = 'course';
+    await p.loadCourseBanks();
+    assert.doesNotMatch(p.nodes['hf-cbank'].innerHTML, /Buổi 1|Buổi 2/);
+    assert.match(p.nodes['hf-cbank-note'].textContent, /1 buổi thiếu audio câu tiếng Anh/);
+    assert.match(p.nodes['hf-cbank-note'].textContent, /1 buổi thiếu bộ phát âm/);
+    assert.equal(p.nodes['hf-cbank-note'].dataset.tone, 'warn');
+  });
+
   test('gửi đi payload GỌN — bộ đề quyết định tất cả', async () => {
     const p = load({ kind: 'daily' });
     p.nodes['hf-skill'].value = 'course';

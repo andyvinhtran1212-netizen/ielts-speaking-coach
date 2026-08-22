@@ -108,6 +108,36 @@ def test_an_EMPTY_bank_is_refused():
     assert "chưa có câu hỏi" in exc.value.detail
 
 
+def test_a_bank_with_missing_required_question_audio_is_refused():
+    db = _full(quiz_questions=[{
+        "id": "q1", "bank_id": "bank-1", "type": "mcq",
+        "segments": {"question_audio_text": "Read this sentence."},
+        "audio_url": None,
+    }])
+    with pytest.raises(HTTPException) as exc:
+        _resolve(db)
+    assert "1 câu tiếng Anh chưa có audio" in exc.value.detail
+
+
+def test_a_bank_with_required_pronunciation_needs_an_active_set():
+    required_bank = {**_BANK, "meta": {"pronunciation_requirement": {
+        "sentence_count": 12,
+    }}}
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_banks=[required_bank]))
+    assert "phần phát âm bắt buộc" in exc.value.detail
+
+    bank_id, config = _resolve(_full(
+        quiz_banks=[required_bank],
+        course_pronunciation_sets=[{
+            "id": "pron-1", "bank_id": "bank-1", "is_active": True,
+            "sentences": [{"id": f"s{i}"} for i in range(12)],
+        }],
+    ))
+    assert bank_id == "bank-1"
+    assert config["section_counts"]["pronunciation"] == 12
+
+
 def test_an_unknown_bank_is_404():
     db = _full(quiz_banks=[])
     with pytest.raises(HTTPException) as exc:
@@ -167,6 +197,33 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
     assert by[1]["ready"] is True and by[1]["already_given"] is False
     assert by[2]["already_given"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_the_library_exposes_audio_and_pronunciation_readiness():
+    required_bank = {**_BANK, "meta": {"pronunciation_requirement": {
+        "sentence_count": 12,
+    }}}
+    db = _db(
+        cohorts=[_COHORT],
+        quiz_banks=[required_bank],
+        quiz_questions=[{
+            "id": "q1", "bank_id": "bank-1",
+            "segments": {"question_audio_text": "Read this sentence."},
+            "audio_url": None,
+        }],
+        course_pronunciation_sets=[],
+        class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    bank = out["items"][0]
+    assert bank["question_audio_count"] == 1
+    assert bank["missing_audio"] == 1
+    assert bank["pronunciation_required"] is True
+    assert bank["pronunciation_ready"] is False
+    assert bank["ready"] is False
 
 
 def _async(v):
