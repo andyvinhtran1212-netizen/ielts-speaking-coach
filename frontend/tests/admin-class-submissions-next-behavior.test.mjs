@@ -18,14 +18,30 @@ const BROWSER = read('tooling', 'verify-admin-class-submissions-flow.mjs');
 
 describe('admin class submissions model', () => {
   test('keeps canonical tally states and unknown scores distinct', () => {
-    const out = normalizeTally({ assignment: { id: 'a1', title: 'Grammar 2', skill: 'course' }, sealed: true, homework_stale: true, students: [
+    const out = normalizeTally({ assignment: { id: 'a1', title: 'Grammar 2', skill: 'course' }, sealed: true, homework_stale: true, sections_shape_unknown: true, students: [
       { student_id: 's1', status: 'missing', score: null, flags: [] },
       { student_id: 's2', status: 'submitted', score: '75', passed_at: null, verdicts: 0, retakes: 0, has_writing: true, flags: [{ severity: 'high', label: 'Cần xem', why: 'Lỗi chấm', action: 'Mở bài' }] },
     ], counts: { total: 2, submitted: 1, missing: 1, flagged: 1 } });
     assert.equal(out.students[0].score, null);
     assert.equal(out.students[1].score, 75);
     assert.equal(out.homework_stale, true);
+    assert.equal(out.sections_shape_unknown, true);
     assert.equal(out.counts.submitted, 1);
+  });
+
+  test('keeps course learning outcome separate from operational hand-in state', () => {
+    const out = normalizeTally({ assignment: { id: 'a1', title: 'Grammar 1', skill: 'course' }, students: [{
+      student_id: 's1', status: 'pending', submitted_at: null, score: 70,
+      course_state: 'near_pass', next_action: 'retake', pass_pct: 75, near_pass_pct: 65,
+      sections_done: 1, sections_total: 2,
+      missing_sections: [{ key: 'writing', label: 'Tự luận' }],
+      flags: [],
+    }], counts: { total: 1, submitted: 0, near_pass: 1, flagged: 0 } });
+    assert.equal(out.students[0].status, 'pending');
+    assert.equal(out.students[0].course_state, 'near_pass');
+    assert.equal(out.students[0].missing_sections[0].label, 'Tự luận');
+    assert.equal(out.students[0].flags.length, 0);
+    assert.equal(out.counts.near_pass, 1);
   });
 
   test('normalizes effort without dropping unactivated or untouched students', () => {
@@ -34,6 +50,20 @@ describe('admin class submissions model', () => {
     assert.equal(out.students[0].user_id, null);
     assert.equal(out.students[2].student_id, null);
     assert.equal(out.axes[0].wrong, 3);
+  });
+
+  test('preserves class misconception denominators and affected learners', () => {
+    const out = normalizeEffort({ students: [], axes: [{
+      axis: 'Linking verbs', wrong: 12, attempted: 20, wrong_rate: .6,
+      affected_students: 8, student_sample: 13, affected_rate: .615,
+      median_sec: 41, scope: 'first_attempt', sample_low: false,
+    }] });
+    assert.equal(out.axes[0].attempted, 20);
+    assert.equal(out.axes[0].affected_students, 8);
+    assert.equal(out.axes[0].student_sample, 13);
+    assert.equal(out.axes[0].sample_low, false);
+    const low = normalizeEffort({ students: [], axes: [{ axis: 'Articles', affected_students: 1, student_sample: 2 }] });
+    assert.equal(low.axes[0].sample_low, true, 'frontend cũ/mới vẫn nhận ra mẫu nhỏ khi field chưa rollout');
   });
 
   test('keeps aggregate attempt count, duration and per-section scores', () => {
@@ -52,9 +82,11 @@ describe('admin class submissions model', () => {
   });
 
   test('groups report questions by canonical axis and preserves mastery history', () => {
-    const report = normalizeStudentReport({ questions: [{ qid: 'q1', item_key: 'Articles', is_correct: false }, { qid: 'q2', item_key: 'Articles', is_correct: true }], history: [{ number: 1, phase: 'full', pct: 70, next_action: 'retake' }], totals: { answered: 2, correct: 1 } });
+    const report = normalizeStudentReport({ questions: [{ qid: 'q1', item_key: 'Articles', is_correct: false }, { qid: 'q2', item_key: 'Articles', is_correct: true }], history: [{ number: 1, phase: 'full', pct: 70, next_action: 'retake' }], totals: { answered: 2, correct: 1, scope: 'baseline_quiz' }, summary: { pass_pct: 75, near_pass_pct: 65, latest_pct: 70, latest_action: 'retake', baseline_quiz_pct: 50, baseline_correct: 1, baseline_answered: 2 } });
     assert.equal(groupReportQuestions(report.questions)[0].wrong, 1);
     assert.equal(report.history[0].next_action, 'retake');
+    assert.equal(report.summary.latest_pct, 70);
+    assert.equal(report.summary.baseline_quiz_pct, 50);
   });
 
   test('preserves incomplete attempts and their section timing in student history', () => {
@@ -96,6 +128,18 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /row\.sections\.map/);
     assert.match(UI, /row\.duration_sec/);
     assert.match(UI, /Điểm tổng chỉ có sau khi mọi phần bắt buộc hoàn thành/);
+  });
+
+  test('renders an outcome funnel, action queue and labelled score scopes', () => {
+    assert.match(UI, /Tổng kết/);
+    assert.match(UI, /Cần admin xem/);
+    assert.match(UI, /Gần đạt · Revision/);
+    assert.match(UI, /Điểm tổng gần nhất/);
+    assert.match(UI, /Trắc nghiệm lượt đầu/);
+    assert.match(UI, /Câu sai/);
+    assert.match(UI, /affected_students/);
+    assert.match(UI, /Mẫu nhỏ · chỉ tham khảo/);
+    assert.match(UI, /Chưa xác định được các phần bắt buộc/);
   });
 
   test('deep-links an assignment natively and reloads canonical truth after return', () => {

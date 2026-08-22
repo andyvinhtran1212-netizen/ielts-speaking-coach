@@ -244,7 +244,7 @@ describe('xong chặng chưa phải xong toàn bộ bài', () => {
 
   test('modal tổng hợp số phần, lượt, điểm gộp và tổng thời gian', () => {
     const i = CODE.indexOf('async function openEffort');
-    const body = CODE.slice(i, i + 3400);
+    const body = CODE.slice(i, i + 6000);
     for (const label of ['Hoàn thành', 'Lượt đã chấm', 'Điểm tổng gần nhất', 'Tổng thời gian']) {
       assert.ok(body.includes(label), `thiếu cột ${label}`);
     }

@@ -140,6 +140,84 @@ def test_threshold_75_has_an_exact_ten_point_near_pass_band(pct, action):
     assert qs.mastery_next_action(pct, 75) == action
 
 
+def _summary_assignment(pass_pct=75):
+    return {"content_config": {
+        "pass_pct": pass_pct,
+        "weight_policy": qs.COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1,
+        "section_counts": {"quiz": 90, "writing": 10},
+        "section_weights": {"quiz": 75, "writing": 25},
+    }}
+
+
+def test_admin_summary_separates_near_pass_from_hand_in_receipt():
+    item = {"submitted_at": None, "passed_at": None, "mastery": {"attempts": [{
+        "completed": True, "pct": 70, "next_action": "retake",
+        "sections": {"quiz": {"pct": 70}, "writing": {"pct": 70}},
+    }]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "near_pass"
+    assert out["latest_pct"] == 70
+    assert out["sections_done"] == 2 and out["sections_total"] == 2
+    assert out["flags"] == [], "gần đạt là outcome, không phải cảnh báo admin"
+
+
+def test_admin_summary_uses_required_sections_for_the_denominator():
+    item = {"passed_at": None, "mastery": {"attempts": [{
+        "completed": False, "pct": None,
+        "sections": {"quiz": {"pct": 82, "duration_sec": 600}},
+    }]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "in_progress"
+    assert (out["sections_done"], out["sections_total"]) == (1, 2)
+    assert out["missing_sections"] == [{"key": "writing", "label": "Viết câu"}]
+    assert any(flag["code"] == "course_missing_section" for flag in out["flags"])
+
+
+def test_admin_summary_counts_completed_legacy_quiz_only_attempt_as_its_section():
+    item = {"passed_at": "2026-08-22T01:00:00+00:00", "mastery": {"attempts": [{
+        "phase": "run", "pct": 82, "next_action": "passed", "sessions": ["q1"],
+    }]}}
+    out = qs.course_admin_summary(item, {"content_config": {"pass_pct": 75}},
+                                  required_sections=["quiz"])
+    assert (out["sections_done"], out["sections_total"]) == (1, 1)
+    assert out["missing_sections"] == []
+    assert out["section_results"][0]["key"] == "quiz"
+    assert out["section_results"][0]["pct"] == 82
+
+
+def test_admin_summary_flags_repeated_failure_with_evidence():
+    item = {"passed_at": None, "mastery": {"attempts": [
+        {"completed": True, "pct": 50, "next_action": "retry_full", "sections": {}},
+        {"completed": True, "pct": 60, "next_action": "retry_full", "sections": {}},
+    ]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "retry_full"
+    repeated = next(flag for flag in out["flags"]
+                    if flag["code"] == "course_repeated_failure")
+    assert "50.0%" in repeated["why"] and "60.0%" in repeated["why"]
+
+
+def test_admin_summary_keeps_prior_repeated_failure_while_a_new_attempt_is_in_progress():
+    item = {"passed_at": None, "mastery": {"attempts": [
+        {"completed": True, "pct": 50, "next_action": "retry_full", "sections": {}},
+        {"completed": True, "pct": 60, "next_action": "retry_full", "sections": {}},
+        {"completed": False, "pct": None,
+         "sections": {"quiz": {"pct": 80, "completed": True}}},
+    ]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "in_progress"
+    assert out["latest_pct"] == 60
+    assert {flag["code"] for flag in out["flags"]} == {
+        "course_repeated_failure", "course_missing_section",
+    }
+
+
+def test_legacy_required_sections_use_the_live_bank_shape_once_snapshot_is_absent():
+    with patch.object(qs, "_course_live_required_sections",
+                      lambda bank_id: ["quiz", "writing"] if bank_id == "bank-1" else []):
+        assert qs.course_required_sections({"content_id": "bank-1"}) == ["quiz", "writing"]
+
+
 # ── Lượt chính: server tự chấm, kết luận đúng, ghi đúng ──────────────────────
 
 def test_run_pass_writes_verdict():

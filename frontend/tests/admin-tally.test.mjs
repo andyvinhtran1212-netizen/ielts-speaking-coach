@@ -86,6 +86,13 @@ describe('trạng thái từng dòng', () => {
     assert.match(tallyRow({ name: 'F', status: 'pending' }), /chưa nộp/);
     assert.match(tallyRow({ name: 'G', status: 'missing' }), /không nộp/);
   });
+
+  test('bài course hiện kết quả học tập thay vì gọi lượt chưa đạt là chưa nộp', () => {
+    const html = tallyRow({ name: 'H', status: 'pending', submitted_at: null,
+      score: 70, course_state: 'near_pass', pass_pct: 75, flags: [] }, 'course');
+    assert.match(html, /gần đạt · Revision/);
+    assert.doesNotMatch(html, /chưa nộp/);
+  });
 });
 
 describe('giờ đọc theo giờ Việt Nam', () => {
@@ -102,6 +109,16 @@ describe('giờ đọc theo giờ Việt Nam', () => {
 });
 
 describe('trước hạn và sau hạn phải phân biệt được', () => {
+  test('course headline đếm đã đạt, không đổi tên pass count thành đã nộp', () => {
+    const html = renderTally(tally({
+      assignment: { id: 'a1', title: 'Grammar', skill: 'course', due_at: DUE },
+      counts: { total: 13, submitted: 5, passed: 5, near_pass: 2, retry_full: 3 },
+    }));
+    assert.match(html, /5<small>\/13 đã đạt/);
+    assert.match(html, /2 gần đạt · 3 làm lại toàn bài/);
+    assert.doesNotMatch(html, /\/13 đã nộp/);
+  });
+
   test('trước hạn: đang nhận bài, danh sách còn đổi', () => {
     const html = renderTally(tally({ counts: { total: 30, submitted: 24, missing: 0 } }));
     assert.match(html, /data-state="live"/);
@@ -136,6 +153,11 @@ describe('trước hạn và sau hạn phải phân biệt được', () => {
   test('sổ chưa đối chiếu được thì nói ra', () => {
     const html = renderTally(tally({ homework_stale: true }));
     assert.match(html, /chưa đối chiếu được/i);
+  });
+
+  test('không đọc được cấu trúc phần khác mẫu số không thật', () => {
+    const html = renderTally(tally({ homework_stale: true, sections_shape_unknown: true }));
+    assert.match(html, /chưa xác định được các phần bắt buộc/i);
   });
 });
 

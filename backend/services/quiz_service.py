@@ -344,6 +344,153 @@ def _course_attempt_history(attempts: list[dict], pass_pct: int) -> list[dict]:
     return history
 
 
+def course_admin_summary(
+    item: dict, assignment: dict | None = None,
+    *, required_sections: list[str] | None = None,
+) -> dict:
+    """One canonical, read-only summary for the admin course-work surfaces.
+
+    ``submitted_at`` is an operational receipt and, for mastery assignments,
+    may intentionally remain empty until the learner passes.  It therefore
+    cannot answer the teacher's different question: what learning outcome does
+    this learner currently have?  Keep that decision next to the mastery rules
+    so tally, effort and student detail do not each invent their own meaning.
+    """
+    cfg = mastery_config(assignment)
+    attempts = list(((item.get("mastery") or {}).get("attempts")) or [])
+    completed = [row for row in attempts
+                 if row.get("completed", row.get("pct") is not None)
+                 and row.get("pct") is not None]
+    latest = attempts[-1] if attempts else {}
+    latest_completed = completed[-1] if completed else {}
+    action = _recorded_next_action(latest_completed, cfg["pass_pct"])
+
+    if required_sections is None:
+        required_sections = course_required_sections(assignment)
+    required = [name for name in required_sections
+                if name in _COURSE_SECTION_LABELS]
+    present = latest.get("sections") or {}
+    section_results = []
+    missing_sections = []
+    for name in required:
+        result = present.get(name)
+        # Quiz-only banks intentionally keep the legacy compact ledger shape:
+        # the completed quiz lives at the attempt top level instead of under
+        # ``sections.quiz``.  Treat that canonical shape as the sole required
+        # section; otherwise every completed legacy assignment reads as 0/1
+        # with a fabricated "missing Quiz" warning in both admin reports.
+        if (name == "quiz" and len(required) == 1
+                and not isinstance(result, dict)
+                and latest.get("pct") is not None
+                and latest.get("completed", True)):
+            result = {
+                "completed": True,
+                "pct": latest.get("pct"),
+                "duration_sec": latest.get("duration_sec") or 0,
+                "weight": 100,
+            }
+        section_complete = (isinstance(result, dict)
+                            and result.get("completed", result.get("pct") is not None))
+        if section_complete:
+            section_results.append({
+                "key": name,
+                "label": _COURSE_SECTION_LABELS[name],
+                "pct": result.get("pct"),
+                "duration_sec": int(result.get("duration_sec") or 0),
+                "weight": result.get("weight"),
+                "carried": result.get("carried") is True,
+            })
+        else:
+            missing_sections.append({"key": name, "label": _COURSE_SECTION_LABELS[name]})
+
+    latest_is_incomplete = bool(latest) and not latest.get(
+        "completed", latest.get("pct") is not None)
+    if item.get("passed_at"):
+        state = "passed"
+    elif latest_is_incomplete:
+        state = "in_progress"
+    elif action == "retake":
+        state = "near_pass"
+    elif action == "retry_full":
+        state = "retry_full"
+    elif attempts:
+        state = "in_progress"
+    else:
+        state = "untouched"
+
+    flags = []
+    if item.get("passed_at") and not completed:
+        flags.append({
+            "code": "course_ledger_mismatch", "severity": "high",
+            "label": "Kết quả không đồng nhất",
+            "why": "Mục bài đã ghi đạt nhưng không có lượt hoàn thành tương ứng trong sổ tiến độ.",
+            "action": "Mở bài và kiểm tra sổ mastery trước khi dùng kết quả.",
+        })
+    # `near_pass` và `retry_full` là kết quả học tập bình thường, không phải sự
+    # cố cần admin can thiệp. Đưa mọi lượt chưa đạt lần đầu vào `flags` làm hàng
+    # đợi "Cần admin xem" đầy gần như cả lớp và chôn mất lỗi ledger/bỏ dở thật.
+    # Chúng vẫn hiện rõ trong outcome funnel; chỉ thất bại LẶP LẠI mới thành cờ.
+    failed = [row for row in completed
+              if _recorded_next_action(row, cfg["pass_pct"]) != "passed"]
+    if len(failed) >= 2:
+        scores = ", ".join(f"{float(row['pct']):.1f}%" for row in failed[-3:])
+        flags.append({
+            "code": "course_repeated_failure", "severity": "high",
+            "label": "Chưa đạt qua nhiều lượt",
+            "why": f"{len(failed)} lượt hoàn thành chưa đạt; các lượt gần nhất: {scores}.",
+            "action": "Inspect lịch sử và misconception lặp lại trước khi giao thêm lượt.",
+        })
+    if latest_is_incomplete and missing_sections:
+        labels = ", ".join(row["label"] for row in missing_sections)
+        flags.append({
+            "code": "course_missing_section", "severity": "medium",
+            "label": "Thiếu phần bắt buộc",
+            "why": f"Lượt hiện tại chưa có kết quả: {labels}.",
+            "action": "Kiểm tra tiến độ và nhắc học viên hoàn tất đúng phần còn thiếu.",
+        })
+
+    return {
+        "state": state,
+        "pass_pct": cfg["pass_pct"],
+        "near_pass_pct": near_pass_pct(cfg["pass_pct"]),
+        "latest_pct": (float(latest_completed["pct"]) if latest_completed else None),
+        "next_action": action,
+        "attempts": len(completed),
+        "retakes": sum(1 for row in completed if row.get("phase") == "retake"),
+        "attempt_minutes": round(sum(int(row.get("duration_sec") or 0)
+                                     for row in completed) / 60, 1),
+        "current_attempt_minutes": (round(int(latest.get("duration_sec") or 0) / 60, 1)
+                                    if latest_is_incomplete else 0),
+        "sections_done": len(section_results),
+        "sections_total": len(required),
+        "section_results": section_results,
+        "missing_sections": missing_sections,
+        "flags": flags,
+    }
+
+
+def unavailable_course_admin_summary(
+    item: dict, assignment: dict | None = None,
+    *, required_sections: list[str] | None = None,
+) -> dict:
+    """Safe per-row degradation when a stored mastery payload is malformed."""
+    summary = course_admin_summary(
+        {}, assignment, required_sections=required_sections or [])
+    fallback_state = ("passed" if item.get("passed_at") else
+                      "in_progress" if item.get("mastery") else "untouched")
+    return {
+        **summary,
+        "state": fallback_state,
+        "flags": [{
+            "code": "course_summary_unavailable",
+            "severity": "high",
+            "label": "Không đọc được kết quả",
+            "why": "Sổ mastery của học viên có dữ liệu không hợp lệ.",
+            "action": "Mở bài và đối chiếu sổ mastery trước khi dùng kết quả.",
+        }],
+    }
+
+
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
     q = supabase_admin.table("quiz_banks").select(
         "id, topic_id, code, title, skill_area, words_count, updated_at"
@@ -2614,11 +2761,8 @@ def _course_section_weights(assignment: dict, required: list[str]) -> dict[str, 
     return _normalize_course_weights(raw, required)
 
 
-def _course_completion_evidence(
-    *, bank_id: str, item_id: str, user_id: str, attempt: dict | None,
-    assignment: dict | None = None,
-) -> tuple[list[str], dict[str, dict], dict[str, str | None]]:
-    """Đọc hình dạng đề và kết quả canonical của từng phần cho đúng item."""
+def _course_live_required_sections(bank_id: str) -> list[str]:
+    """Required sections for legacy assignments that predate shape snapshots."""
     try:
         bank_rows = (supabase_admin.table("quiz_banks").select("meta")
                      .eq("id", bank_id).limit(1).execute().data) or []
@@ -2628,28 +2772,52 @@ def _course_completion_evidence(
                               .select("id").eq("bank_id", bank_id)
                               .eq("is_active", True).limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc cấu trúc bài tập: {exc}")
+        raise HTTPException(500, f"Lỗi đọc cấu trúc bài tập: {exc}") from exc
 
     meta = (bank_rows[0].get("meta") or {}) if bank_rows else {}
-    live_required: list[str] = []
+    required: list[str] = []
     if any(q.get("type") != "writing" for q in questions):
-        live_required.append("quiz")
+        required.append("quiz")
     if any(q.get("type") == "writing" for q in questions):
-        live_required.append("writing")
+        required.append("writing")
     reading = meta.get("short_reading")
     if (isinstance(reading, dict) and isinstance(reading.get("answers"), list)
             and reading.get("answers")):
-        live_required.append("reading")
+        required.append("reading")
     listening = meta.get("short_listening")
     solution = listening.get("solution") if isinstance(listening, dict) else None
     if (isinstance(solution, dict) and isinstance(solution.get("answers"), list)
             and solution.get("answers")):
-        live_required.append("listening")
+        required.append("listening")
     if pronunciation_sets:
-        live_required.append("pronunciation")
+        required.append("pronunciation")
+    return required
+
+
+def course_required_sections(
+    assignment: dict | None, bank_id: str | None = None,
+) -> list[str]:
+    """Một mẫu số phần bắt buộc dùng chung cho mọi mặt admin.
+
+    Bài mới giữ snapshot trong ``content_config``. Bài cũ trước snapshot phải
+    đọc hình dạng bank hiện tại; nếu tally dùng ``[]`` còn attempt-report dùng
+    bank thật thì hai tab sẽ cho hai mẫu số khác nhau về cùng một bài.
+    """
+    snap = _snapshotted_course_sections(assignment)
+    if snap:
+        return snap
+    resolved_bank_id = bank_id or (assignment or {}).get("content_id")
+    return _course_live_required_sections(resolved_bank_id) if resolved_bank_id else []
+
+
+def _course_completion_evidence(
+    *, bank_id: str, item_id: str, user_id: str, attempt: dict | None,
+    assignment: dict | None = None,
+) -> tuple[list[str], dict[str, dict], dict[str, str | None]]:
+    """Đọc hình dạng đề và kết quả canonical của từng phần cho đúng item."""
     # Assignment mới dùng hình dạng đã chụp tại lúc giao. Chỉ assignment legacy
     # mới tiếp tục đọc live shape để giữ nguyên contract trước policy này.
-    required = _snapshotted_course_sections(assignment) or live_required
+    required = course_required_sections(assignment, bank_id)
 
     results: dict[str, dict] = {}
     artifacts: dict[str, str | None] = {"quiz": None, "writing": None}
@@ -3301,7 +3469,9 @@ def course_answer_report(*, user_id: str, bank_id: str,
     câu trong một chặng, nhưng làm lại chặng (đóng tab giữa chừng) sinh ra lượt
     thứ hai — và cái giáo viên muốn đọc là lần em ấy thật sự nghĩ.
     """
-    out: dict = {"questions": [], "totals": {}, "history": [], "stale": False}
+    out: dict = {"questions": [], "totals": {}, "history": [], "summary": {},
+                 "stale": False}
+    threshold = PASS_PCT_DEFAULT
 
     # ── CỔNG HAI MỨC ────────────────────────────────────────────────────────
     #
@@ -3342,6 +3512,11 @@ def course_answer_report(*, user_id: str, bank_id: str,
         try:
             rows = (supabase_admin.table("quiz_banks").select("id, title")
                     .eq("id", bank_id).limit(1).execute().data) or []
+            assignment_rows = (supabase_admin.table("class_assignments")
+                               .select("id, content_config").eq("id", assignment_id)
+                               .limit(1).execute().data) or []
+            if assignment_rows:
+                threshold = mastery_config(assignment_rows[0])["pass_pct"]
         except Exception as exc:  # noqa: BLE001
             # Chỉ mất TÊN bộ đề, không mất bài làm — nhưng vẫn phải nói ra:
             # mọi lượt đọc hỏng đều bật cờ, không có ngoại lệ "lỗi nhẹ".
@@ -3351,14 +3526,18 @@ def course_answer_report(*, user_id: str, bank_id: str,
         bank = rows[0] if rows else {}
 
     item_ids: set[str] = set()
+    item_rows: list[dict] = []
     try:
         if assignment_id:
-            item_ids = {i["id"] for i in _report_pages(
+            item_rows = _report_pages(
                 "class_assignment_items", "id, student_id",
-                lambda q: q.eq("assignment_id", assignment_id))}
+                lambda q: q.eq("assignment_id", assignment_id))
+            item_ids = {i["id"] for i in item_rows}
         else:
             it = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
             item_ids = {it["id"]} if it else set()
+            if item_ids:
+                item_rows = [{"id": next(iter(item_ids)), "student_id": None}]
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] answer-report items failed: %s", exc)
         out["stale"] = True
@@ -3384,23 +3563,57 @@ def course_answer_report(*, user_id: str, bank_id: str,
     # the exact assignment item represented by this report.
     progress_ids = {x.get("class_assignment_item_id") for x in owned_sessions
                     if x.get("class_assignment_item_id")}
+    if not progress_ids and not assignment_id:
+        progress_ids = set(item_ids)
+    if not progress_ids and assignment_id:
+        # Bank chỉ-có-Writing không tạo quiz_session, nên session không thể chỉ
+        # ra item của học viên. Nối user → student → item thay vì trả summary rỗng.
+        try:
+            student_rows = _report_pages(
+                "students", "id", lambda q: q.eq("user_id", user_id))
+            target_student_ids = {row["id"] for row in student_rows if row.get("id")}
+            progress_ids = {x["id"] for x in item_rows
+                            if x.get("student_id") in target_student_ids}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] answer-report learner item failed: %s", exc)
+            out["stale"] = True
+    progress = None
     if progress_ids:
         try:
             progress_rows = _report_pages(
                 "class_assignment_items", "id, mastery",
                 lambda q: q.in_("id", list(progress_ids)))
-            # A learner has one live item for a bank. The teacher path is also
-            # scoped to one user above, so sessions identify that user's item.
             progress = next((x for x in progress_rows if x.get("mastery")), None)
-            mastery = (progress or {}).get("mastery") or {}
-            threshold = int(mastery.get("threshold")
-                            or ((locked or {}).get("threshold") if locked else 0)
-                            or PASS_PCT_DEFAULT)
-            out["history"] = _course_attempt_history(
-                mastery.get("attempts") or [], threshold)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("[quiz] answer-report history failed: %s", exc)
+            logger.warning("[quiz] answer-report history item failed: %s", exc)
             out["stale"] = True
+    mastery = (progress or {}).get("mastery") or {}
+    try:
+        threshold = int(mastery.get("threshold")
+                        or ((locked or {}).get("threshold") if locked else 0)
+                        or threshold)
+        out["history"] = _course_attempt_history(
+            mastery.get("attempts") or [], threshold)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] answer-report history failed: %s", exc)
+        out["stale"] = True
+
+    completed_history = [row for row in out["history"]
+                         if row.get("completed") and row.get("pct") is not None]
+    latest = completed_history[-1] if completed_history else None
+    # Dựng kết luận TRƯỚC các return của đường quiz. Writing-only vẫn có mastery
+    # history và quyết định đạt/fail dù hoàn toàn không có quiz_session.
+    out["summary"] = {
+        "pass_pct": threshold,
+        "near_pass_pct": near_pass_pct(threshold),
+        "latest_pct": latest.get("pct") if latest else None,
+        "latest_action": latest.get("next_action") if latest else None,
+        "latest_attempt_number": latest.get("number") if latest else None,
+        "latest_sections": latest.get("sections") if latest else [],
+        "baseline_quiz_pct": None,
+        "baseline_correct": 0,
+        "baseline_answered": 0,
+    }
 
     sessions = [x for x in owned_sessions if (x.get("kind") or "run") == "run"]
     if not sessions:
@@ -3518,6 +3731,14 @@ def course_answer_report(*, user_id: str, bank_id: str,
         "idle_sec":   round(sum(max(0.0, x - IDLE_CUTOFF_SEC) for x in secs)),
         "idle_cutoff_sec": IDLE_CUTOFF_SEC,
         "bank_title": bank.get("title"),
+        "scope": "baseline_quiz",
+    }
+    baseline_pct = (round(out["totals"]["correct"] / out["totals"]["answered"] * 100, 1)
+                    if out["totals"]["answered"] else None)
+    out["summary"] = {**out["summary"],
+        "baseline_quiz_pct": baseline_pct,
+        "baseline_correct": out["totals"]["correct"],
+        "baseline_answered": out["totals"]["answered"],
     }
     return out
 
@@ -3582,6 +3803,19 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     out: dict = {"students": [], "axes": [], "bank_id": bank_id,
                  "stages_total": 0, "writing_total": 0, "stale": False,
                  "idle_cutoff_sec": IDLE_CUTOFF_SEC}
+
+    assignment: dict = {}
+    required_sections: list[str] = []
+    try:
+        assignment_rows = (supabase_admin.table("class_assignments")
+                           .select("id, content_config").eq("id", assignment_id)
+                           .limit(1).execute().data) or []
+        assignment = assignment_rows[0] if assignment_rows else {}
+        required_sections = course_required_sections(assignment, bank_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report assignment shape failed asg=%s: %s",
+                       assignment_id, exc)
+        out["stale"] = True
 
     # Sổ người nhận của CHÍNH bài giao này = danh sách học viên của báo cáo.
     try:
@@ -3663,6 +3897,9 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     with_work: set[str] = set()
     slow: dict[str, list[int]] = {}
     wrong: dict[str, int] = {}
+    attempted: dict[str, int] = {}
+    students_by_axis: dict[str, set[str]] = {}
+    affected_by_axis: dict[str, set[str]] = {}
     # Thời gian theo TỪNG HỌC VIÊN, để bảng lớp nói được "em nào chậm bất
     # thường" mà không phải mở từng báo cáo một.
     per_user_secs: dict[str, list[float]] = {}
@@ -3735,8 +3972,12 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         # từ đề — hai mặt đọc phải cùng một nguồn (codex cục bộ 06/08).
         key = axis_of.get(a.get("qid")) or a.get("item_key")
         a["is_correct"] = _ok(a)
-        if key and not a["is_correct"]:
-            wrong[key] = wrong.get(key, 0) + 1
+        if key:
+            attempted[key] = attempted.get(key, 0) + 1
+            students_by_axis.setdefault(key, set()).add(uid)
+            if not a["is_correct"]:
+                wrong[key] = wrong.get(key, 0) + 1
+                affected_by_axis.setdefault(key, set()).add(uid)
         ms = a.get("response_time_ms")
         if isinstance(ms, (int, float)) and ms > 0:
             if key:
@@ -3769,13 +4010,18 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         wrote = (item_of_student.get(sid) in submitted_writing) if sid else False
         item_row = item_row_of_student.get(sid) or {}
         mastery_attempts = list(((item_row.get("mastery") or {}).get("attempts")) or [])
-        completed_attempts = [a for a in mastery_attempts
-                              if a.get("completed", a.get("pct") is not None)]
         latest_attempt = mastery_attempts[-1] if mastery_attempts else {}
-        latest_sections = latest_attempt.get("sections") or {}
-        sections_total = len(latest_sections)
-        sections_done = sum(1 for value in latest_sections.values()
-                            if isinstance(value, dict) and value.get("completed", True))
+        try:
+            summary = course_admin_summary(
+                item_row, assignment, required_sections=required_sections)
+        except Exception as exc:  # noqa: BLE001
+            # Một JSONB mastery hỏng chỉ làm dòng ấy không đọc được; tab tiến độ
+            # của cả lớp vẫn phải mở và nói rõ dữ liệu đang stale.
+            logger.warning("[quiz] attempt-report summary failed item=%s: %s",
+                           item_row.get("id"), exc)
+            out["stale"] = True
+            summary = unavailable_course_admin_summary(
+                item_row, assignment, required_sections=required_sections)
         latest_complete = bool(latest_attempt) and latest_attempt.get(
             "completed", latest_attempt.get("pct") is not None)
         if item_row.get("passed_at"):
@@ -3803,6 +4049,14 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
                     state = "stalled"
             except ValueError:
                 pass
+        row_flags = list(summary["flags"])
+        if state == "stalled":
+            row_flags.append({
+                "code": "course_stalled", "severity": "medium",
+                "label": "Bỏ dở quá 24 giờ",
+                "why": "Học viên đã có câu trả lời nhưng không tiếp tục trong hơn 24 giờ.",
+                "action": "Mở tiến độ, xác nhận phần đang dở rồi nhắc học viên tiếp tục.",
+            })
         mine = sorted(per_user_secs.get(uid) or []) if uid else []
         out["students"].append({
             "student_id":  sid,
@@ -3819,21 +4073,18 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             "correct":     right,
             "accuracy":    round(right / asked, 3) if asked else None,
             "last_at":     last or None,
-            "attempts":    len(completed_attempts),
-            "combined_pct": (float(latest_attempt.get("pct"))
-                               if latest_complete and latest_attempt.get("pct") is not None
-                               else None),
-            "sections_done": sections_done,
-            "sections_total": sections_total,
-            "section_results": [{
-                "key": key,
-                "label": _COURSE_SECTION_LABELS.get(key, key),
-                "pct": value.get("pct"),
-                "duration_sec": int(value.get("duration_sec") or 0),
-                "carried": value.get("carried") is True,
-            } for key, value in latest_sections.items() if isinstance(value, dict)],
-            "attempt_minutes": round(sum(int(a.get("duration_sec") or 0)
-                                         for a in mastery_attempts) / 60, 1),
+            "attempts":    summary["attempts"],
+            "combined_pct": summary["latest_pct"],
+            "next_action": summary["next_action"],
+            "pass_pct": summary["pass_pct"],
+            "near_pass_pct": summary["near_pass_pct"],
+            "sections_done": summary["sections_done"],
+            "sections_total": summary["sections_total"],
+            "section_results": summary["section_results"],
+            "missing_sections": summary["missing_sections"],
+            "flags": row_flags,
+            "attempt_minutes": summary["attempt_minutes"],
+            "current_attempt_minutes": summary["current_attempt_minutes"],
         })
 
     # Việc cần làm lên đầu: bỏ dở trước, rồi tới xong-chặng-chưa-nộp-viết.
@@ -3843,12 +4094,32 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
 
     # Trục vướng nhất của CẢ LỚP: nhiều lỗi sai, và tốn thời gian.
     axes = []
-    for key, n in wrong.items():
+    for key, n_attempted in attempted.items():
+        n_wrong = wrong.get(key, 0)
+        if not n_wrong:
+            continue
         times = sorted(slow.get(key) or [])
         med = times[len(times) // 2] if times else None
-        axes.append({"axis": key, "wrong": n,
-                     "median_sec": round(med / 1000, 1) if med else None})
-    axes.sort(key=lambda a: -a["wrong"])
+        student_sample = len(students_by_axis.get(key) or set())
+        affected_students = len(affected_by_axis.get(key) or set())
+        axes.append({
+            "axis": key,
+            "wrong": n_wrong,
+            "attempted": n_attempted,
+            "wrong_rate": round(n_wrong / n_attempted, 3) if n_attempted else None,
+            "affected_students": affected_students,
+            "student_sample": student_sample,
+            "affected_rate": (round(affected_students / student_sample, 3)
+                              if student_sample else None),
+            "median_sec": round(med / 1000, 1) if med else None,
+            "scope": "first_attempt",
+            # Ba học viên là mẫu tối thiểu để xếp một misconception như tín hiệu
+            # cấp LỚP. Lớp nhỏ vẫn thấy dữ liệu, nhưng nó nằm sau mẫu đủ lớn và UI
+            # nói rõ chỉ nên tham khảo thay vì biến 1/1 thành kết luận rộng.
+            "sample_low": student_sample < 3,
+        })
+    axes.sort(key=lambda a: (a["sample_low"], -(a["affected_rate"] or 0),
+                             -(a["wrong_rate"] or 0), -a["wrong"]))
     out["axes"] = axes[:15]
     return out
 

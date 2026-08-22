@@ -8,6 +8,7 @@ câu hỏi của giáo viên đều không trả lời được — và quan tr�
 from __future__ import annotations
 
 import inspect
+from unittest.mock import patch
 
 from services import quiz_service as qs
 
@@ -80,6 +81,13 @@ def test_the_axes_carry_both_how_wrong_and_how_slow():
     chưa hiểu, câu chậm mà đúng là chưa thạo."""
     src = _src()
     assert '"wrong"' in src and '"median_sec"' in src
+
+
+def test_small_axis_samples_are_labelled_and_rank_after_reliable_samples():
+    src = _src()
+    assert '"sample_low": student_sample < 3' in src
+    sort_at = src.index("axes.sort")
+    assert 'a["sample_low"]' in src[sort_at:sort_at + 180]
 
 
 def test_stalled_students_sort_to_the_top():
@@ -230,3 +238,88 @@ def test_every_helper_that_swallows_a_read_error_also_reports_it():
     caller = _src()
     assert "_count_ok" in caller and 'out["stale"] = True' in caller[
         caller.index("_count_ok"):caller.index("_count_ok") + 200]
+
+
+class _AssignmentDB:
+    class _Query:
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self):
+            return type("Resp", (), {"data": [{"id": "a1", "content_config": {}}]})()
+
+    def table(self, _name): return self._Query()
+
+
+def _run_report_with_pages(rows, *, required_sections=None):
+    def pages(table, *_a, **_k):
+        return [dict(row) for row in rows.get(table, [])]
+
+    with patch.object(qs, "supabase_admin", _AssignmentDB()), \
+         patch.object(qs, "_report_pages", pages), \
+         patch.object(qs, "course_required_sections",
+                      lambda *_a: list(required_sections or [])), \
+         patch.object(qs, "_course_stage_count", lambda *_a: (1, 0, True)):
+        return qs.course_attempt_report(bank_id="b1", assignment_id="a1")
+
+
+def test_a_malformed_mastery_row_does_not_crash_the_whole_effort_report():
+    out = _run_report_with_pages({
+        "class_assignment_items": [{
+            "id": "i1", "student_id": "st1", "passed_at": None,
+            "mastery": {"attempts": [{"completed": True, "pct": "bad"}]},
+        }],
+        "students": [{"id": "st1", "user_id": "u1"}],
+    })
+    assert out["stale"] is True and len(out["students"]) == 1
+    assert out["students"][0]["flags"][0]["code"] == "course_summary_unavailable"
+
+
+def test_effort_report_counts_completed_legacy_quiz_only_attempt_as_one_of_one():
+    out = _run_report_with_pages({
+        "class_assignment_items": [{
+            "id": "i1", "student_id": "st1",
+            "passed_at": "2026-08-22T01:00:00+00:00",
+            "mastery": {"attempts": [{
+                "phase": "run", "pct": 82, "next_action": "passed",
+                "sessions": ["q1"],
+            }]},
+        }],
+        "students": [{"id": "st1", "user_id": "u1"}],
+    }, required_sections=["quiz"])
+    learner = out["students"][0]
+    assert (learner["sections_done"], learner["sections_total"]) == (1, 1)
+    assert learner["missing_sections"] == []
+    assert learner["section_results"][0]["pct"] == 82
+
+
+def test_a_reliable_axis_ranks_before_a_one_student_perfect_rate():
+    items = [{"id": f"i{n}", "student_id": f"st{n}", "passed_at": None,
+              "mastery": None} for n in range(1, 4)]
+    sessions = [{
+        "id": f"s{n}", "user_id": f"u{n}", "kind": "run",
+        "class_assignment_item_id": f"i{n}", "ended_at": "2026-08-20T01:00:00+00:00",
+        "started_at": "2026-08-20T00:50:00+00:00", "duration_sec": 600,
+    } for n in range(1, 4)]
+    attempts = [
+        {"session_id": "s1", "qid": "qa", "answer_given": "0", "is_correct": False,
+         "response_time_ms": 1000, "created_at": "2026-08-20T00:51:00+00:00"},
+        {"session_id": "s1", "qid": "qb", "answer_given": "0", "is_correct": False,
+         "response_time_ms": 1000, "created_at": "2026-08-20T00:52:00+00:00"},
+        {"session_id": "s2", "qid": "qb", "answer_given": "1", "is_correct": True,
+         "response_time_ms": 1000, "created_at": "2026-08-20T00:52:00+00:00"},
+        {"session_id": "s3", "qid": "qb", "answer_given": "1", "is_correct": True,
+         "response_time_ms": 1000, "created_at": "2026-08-20T00:52:00+00:00"},
+    ]
+    out = _run_report_with_pages({
+        "class_assignment_items": items,
+        "students": [{"id": f"st{n}", "user_id": f"u{n}"} for n in range(1, 4)],
+        "quiz_sessions": sessions,
+        "quiz_attempts": attempts,
+        "quiz_questions": [
+            {"qid": "qa", "answer": 1, "type": "mcq", "item_key": "Sparse"},
+            {"qid": "qb", "answer": 1, "type": "mcq", "item_key": "Reliable"},
+        ],
+    })
+    assert [axis["axis"] for axis in out["axes"]] == ["Reliable", "Sparse"]
+    assert [axis["sample_low"] for axis in out["axes"]] == [False, True]

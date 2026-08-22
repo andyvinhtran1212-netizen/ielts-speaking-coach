@@ -125,14 +125,17 @@ export function renderAttemptHistory(history) {
         </tr></thead>
         <tbody>${rows.map((row, i) => {
           const phase = row.phase === 'retake' ? 'Revision' : 'Full session';
-          const next = NEXT_LABEL[row.next_action] || 'Đã ghi nhận';
-          const state = row.next_action === 'passed' ? 'pass'
+          const completed = row.completed !== false;
+          const next = completed ? (NEXT_LABEL[row.next_action] || 'Đã ghi nhận') : 'Làm nốt các phần';
+          const state = !completed ? 'progress' : row.next_action === 'passed' ? 'pass'
             : row.next_action === 'retry_full' ? 'retry' : 'revise';
           return `<tr${i === rows.length - 1 ? ' data-current="true"' : ''}>
             <td data-label="Lượt"><b>#${esc(row.number || i + 1)}</b></td>
             <td data-label="Hình thức">${esc(phase)}</td>
             <td data-label="Session">${esc(row.session_count || 0)}</td>
-            <td data-label="Kết quả"><strong>${esc(row.pct)}%</strong></td>
+            <td data-label="Kết quả"><strong>${completed
+              ? (row.pct == null ? '—' : esc(row.pct) + '%')
+              : 'Đang hoàn thành'}</strong></td>
             <td data-label="Bước tiếp"><span class="cr-history__state" data-state="${state}">${esc(next)}</span></td>
             <td data-label="Thời gian">${esc(historyDate(row.at))}</td>
           </tr>`;
@@ -155,6 +158,7 @@ export function renderReport(data, opts = {}) {
   // — nên ở đây chỉ cần đừng vẽ thẻ câu rỗng, và nói ra điều kiện mở mức hai.
   const locked = !!(data && data.locked);
   const t = (data && data.totals) || {};
+  const summary = (data && data.summary) || {};
   // Máy chủ nói nó ĐỌC THIẾU. Vẽ như thường là đưa ra một bản tổng kết trông
   // đầy đủ mà sai — và khi thiếu SẠCH thì "chưa có câu nào được chấm" là một
   // khẳng định lượt đọc hỏng không chứng minh được (codex cục bộ 06/08).
@@ -162,9 +166,18 @@ export function renderReport(data, opts = {}) {
     ? '<p class="cr-stale">Chưa đọc được đầy đủ bài làm — vài câu có thể thiếu. '
       + 'Mở lại để thử lại.</p>'
     : '';
+  const hasDecision = summary.latest_pct != null || summary.latest_action
+    || summary.pass_pct != null;
+  const decision = hasDecision ? `<section class="cr-decision">
+      <div><p>Kết luận gần nhất</p><strong>${esc(NEXT_LABEL[summary.latest_action] || 'Chưa có kết luận')}</strong>
+      <span>${summary.latest_pct == null ? 'Chưa có lượt hoàn thành đủ phần.'
+        : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
+      <b>${summary.latest_pct == null ? '—' : `${esc(Math.round(summary.latest_pct))}%`}</b>
+    </section>` : '';
   if (!qs.length) {
-    return warn + history + (warn || history ? '' : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một '
-      + 'chặng là báo cáo hiện ra ở đây.</p>');
+    const empty = warn || history || decision ? ''
+      : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một chặng là báo cáo hiện ra ở đây.</p>';
+    return `<div class="cr">${warn}${decision}${history}${empty}</div>`;
   }
   const groups = groupByAxis(qs);
   const weak = groups.filter(needsWork);
@@ -180,15 +193,17 @@ export function renderReport(data, opts = {}) {
        <p class="cr-hero__axis">Cả bài đều vững</p>`;
 
   const stats = [
-    ['đúng', `${t.correct || 0}/${t.answered || 0}`],
-    ['giây/câu', t.median_sec == null ? '—' : String(t.median_sec)],
-    ['làm bài', t.active_sec ? Math.round(t.active_sec / 60) + ' phút' : '—'],
+    ['trắc nghiệm lượt đầu', summary.baseline_quiz_pct == null ? '—' : `${summary.baseline_quiz_pct}%`],
+    ['đúng lượt đầu', `${t.correct || 0}/${t.answered || 0}`],
+    ['trung vị mỗi câu', t.median_sec == null ? '—' : `${t.median_sec} giây`],
+    ['thời gian trả lời', t.active_sec ? Math.round(t.active_sec / 60) + ' phút' : '—'],
     // Chỉ hiện khi CÓ — một dòng "rời máy 0 giây" là nhiễu.
     ...(t.idle_sec ? [['rời máy', Math.round(t.idle_sec / 60) + ' phút']] : []),
   ];
 
   return `<div class="cr">
     ${warn}
+    ${decision}
     <section class="cr-hero">
       <div class="cr-hero__main">${hero}</div>
       <p class="cr-hero__count">
