@@ -573,6 +573,46 @@ async def test_a_student_with_no_account_is_not_counted_as_missing():
 
 
 @pytest.mark.asyncio
+async def test_one_malformed_course_summary_marks_only_that_row_stale():
+    db = _tally_db([_item("s0")], due="2099-01-01T19:00:00+07:00")
+    db._a.update({"skill": "course", "content_id": "bank-1", "content_config": {}})
+    safe = {
+        "state": "untouched", "next_action": None, "pass_pct": 75,
+        "near_pass_pct": 65, "sections_done": 0, "sections_total": 1,
+        "missing_sections": [{"key": "quiz", "label": "Trắc nghiệm"}],
+        "retakes": 0, "attempts": 0, "flags": [],
+    }
+    with patch.object(mod, "reconcile_course_items", lambda *_a: 0), \
+         patch.object(mod, "_course_writing_count", lambda *_a: (0, True)), \
+         patch.object(mod, "bank_has_mcq", lambda *_a: True), \
+         patch.object(mod, "course_bank_is_multisection", lambda *_a: False), \
+         patch.object(mod, "course_required_sections", lambda *_a: ["quiz"]), \
+         patch.object(mod, "course_admin_summary",
+                      side_effect=[ValueError("bad pct"), safe]):
+        out = await _tally(db)
+
+    assert out["homework_stale"] is True
+    assert out["counts"]["total"] == 1
+    assert out["students"][0]["flags"][0]["code"] == "course_summary_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_course_shape_is_explicit_not_a_real_zero_denominator():
+    db = _tally_db([_item("s0")], due="2099-01-01T19:00:00+07:00")
+    db._a.update({"skill": "course", "content_id": "bank-1", "content_config": {}})
+    with patch.object(mod, "reconcile_course_items", lambda *_a: 0), \
+         patch.object(mod, "_course_writing_count", lambda *_a: (0, True)), \
+         patch.object(mod, "bank_has_mcq", lambda *_a: True), \
+         patch.object(mod, "course_bank_is_multisection", lambda *_a: False), \
+         patch.object(mod, "course_required_sections",
+                      side_effect=RuntimeError("shape unavailable")):
+        out = await _tally(db)
+
+    assert out["homework_stale"] is True
+    assert out["sections_shape_unknown"] is True
+
+
+@pytest.mark.asyncio
 async def test_the_unsubmitted_come_first():
     """Đây là danh sách việc cần làm của giáo viên, không phải bảng điểm."""
     db = _tally_db([

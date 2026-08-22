@@ -33,10 +33,13 @@ from services import tts_audio
 from routers.admin import require_admin
 from services.quiz_service import (
     bank_has_mcq,
+    course_admin_summary,
     course_bank_is_multisection,
     course_hand_in_score,
+    course_required_sections,
     course_section_weight_snapshot,
     reconcile_course_items,
+    unavailable_course_admin_summary,
 )
 from services.class_assignment_service import (
     CLASS_TZ,
@@ -1174,6 +1177,16 @@ async def assignment_tally(
         has_mcq = bank_has_mcq(assignment.get("content_id"))
         course_is_multisection = course_bank_is_multisection(
             assignment.get("content_id"), supabase_admin)
+    course_sections: list[str] = []
+    sections_shape_unknown = False
+    if assignment.get("skill") == "course":
+        try:
+            course_sections = course_required_sections(assignment)
+        except Exception as exc:  # noqa: BLE001
+            stale = True
+            sections_shape_unknown = True
+            logger.warning("[class] course section shape failed asg=%s: %s",
+                           assignment_id, exc)
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1280,7 +1293,28 @@ async def assignment_tally(
     for it in items:
         s = students.get(it["student_id"]) or {}
         status_ = _hand_in_status(it, s, due, sealed)
-        flags = flags_by_session.get(it.get("artifact_id")) or []
+        course_summary = None
+        if assignment.get("skill") == "course":
+            try:
+                course_summary = course_admin_summary(
+                    it, assignment, required_sections=course_sections)
+            except Exception as exc:  # noqa: BLE001
+                stale = True
+                logger.warning("[class] course summary shape failed item=%s: %s",
+                               it.get("id"), exc)
+                # Dữ liệu hỏng ở MỘT học viên không được làm sập bảng cả lớp.
+                # Dựng shape rỗng an toàn rồi gắn cờ kỹ thuật có hành động rõ;
+                # không gọi lại với chính payload hỏng vì lỗi pct/duration sẽ
+                # ném lần hai y hệt và thoát khỏi khối except.
+                course_summary = unavailable_course_admin_summary(
+                    it, assignment, required_sections=course_sections)
+            if not s.get("user_id"):
+                # Chưa kích hoạt = chưa từng có quyền mở bài. Đếm em ấy vào
+                # "chưa mở" sẽ biến vấn đề tài khoản thành vấn đề học tập.
+                course_summary = {**course_summary, "state": "no_account", "flags": []}
+        flags = ((course_summary or {}).get("flags")
+                 if course_summary is not None
+                 else flags_by_session.get(it.get("artifact_id"))) or []
         out.append({
             "student_id":   it["student_id"],
             "name":         s.get("full_name") or "",
@@ -1293,17 +1327,25 @@ async def assignment_tally(
             # phải nằm ngay cạnh tên em ấy.
             "flags":        flags,
             "flag_level":   speaking_flags.worst(flags),
+            "course_state": (course_summary or {}).get("state"),
+            "next_action":  (course_summary or {}).get("next_action"),
+            "pass_pct":     (course_summary or {}).get("pass_pct"),
+            "near_pass_pct": (course_summary or {}).get("near_pass_pct"),
+            "sections_done": (course_summary or {}).get("sections_done", 0),
+            "sections_total": (course_summary or {}).get("sections_total", 0),
+            "missing_sections": (course_summary or {}).get("missing_sections", []),
             # Cổng thuộc bài (chỉ bài course có): đạt/chưa + số lần kiểm tra
             # lại. "Trượt 2 lần rồi mới đạt" là tín hiệu cần kèm cặp — nó phải
             # tới mắt giáo viên, không nằm im trong jsonb.
             "passed_at":    it.get("passed_at"),
-            "retakes":      sum(1 for a in ((it.get("mastery") or {}).get("attempts") or [])
-                                if a.get("phase") == "retake"),
+            "retakes":      ((course_summary or {}).get("retakes")
+                               if course_summary is not None else 0),
             # Số lượt ĐÃ XÉT. mark_item_submitted đóng dấu submitted ngay chặng
             # đầu, nên "đã nộp mà chưa passed_at" chưa chắc là trượt — có thể
             # em ấy đang làm dở. Chỉ khi đã có ít nhất một lượt xét mới được
             # nói "chưa đạt" (codex R6).
-            "verdicts":     len(((it.get("mastery") or {}).get("attempts")) or []),
+            "verdicts":     ((course_summary or {}).get("attempts")
+                               if course_summary is not None else 0),
             # Đường mở thẳng bài làm: nghe audio + đọc nhận xét. Không có nó thì
             # giáo viên phải tự mò trong danh sách phiên toàn hệ thống, nên trên
             # thực tế không ai nghe bài của học viên mình cả. `artifact_kind` đi
@@ -1342,10 +1384,17 @@ async def assignment_tally(
             # vẫn là đã nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa
             # làm bài, trong khi lỗi nằm ở phía hệ thống.
             "flagged":   sum(1 for r in out if r["flags"]),
+            "passed": sum(1 for r in out if r.get("course_state") == "passed"),
+            "near_pass": sum(1 for r in out if r.get("course_state") == "near_pass"),
+            "retry_full": sum(1 for r in out if r.get("course_state") == "retry_full"),
+            "in_progress": sum(1 for r in out if r.get("course_state") == "in_progress"),
+            "untouched": sum(1 for r in out if r.get("course_state") == "untouched"),
         },
     }
     if stale:
         result["homework_stale"] = True
+    if sections_shape_unknown:
+        result["sections_shape_unknown"] = True
     return result
 
 

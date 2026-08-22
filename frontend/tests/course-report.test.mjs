@@ -155,6 +155,17 @@ describe('bảng session & revision', () => {
     assert.match(html, /cr-history/);
     assert.ok(!/Chưa có câu nào được chấm/.test(html));
   });
+
+  test('lượt chưa đủ phần không bịa phần trăm hay kết luận đã ghi nhận', () => {
+    const html = renderAttemptHistory([{
+      number: 1, phase: 'run', completed: false, pct: null,
+      session_count: 1, next_action: null, at: null,
+    }]);
+    assert.match(html, /Đang hoàn thành/);
+    assert.match(html, /Làm nốt các phần/);
+    assert.doesNotMatch(html, /Kết quả"><strong>%/);
+    assert.doesNotMatch(html, /Đã ghi nhận/);
+  });
 });
 
 describe('mực = chỗ cần chú ý (cùng quy ước với bảng Speaking)', () => {

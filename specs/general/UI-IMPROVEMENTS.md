@@ -2610,3 +2610,205 @@ remains the source of deadline and membership truth.
 - Remove only A; confirm B remains visible and an A assignment can no longer be
   opened while historical A submission evidence remains intact.
  - Keyboard through the class switcher and verify 375px horizontal containment.
+
+---
+
+# Admin course-Grammar result and inspection content audit — 2026-08-22
+
+> Validated against the production C1 “GRAMMAR 01” assignment on both the
+> legacy class workspace and the native Next.js class workspace. This is an
+> information/content audit only; no grading or submission behaviour changed.
+
+## Critical issues
+
+### Issue: completed failed attempts are presented as “not submitted”
+
+- **Root cause:** course completion only stamps `submitted_at` after the learner
+  passes, while the generic tally derives hand-in state exclusively from
+  `submitted_at`. A completed failed run is therefore labelled `pending` or
+  `missing`, even when it has a canonical score and next action.
+- **Severity:** Critical.
+- **Observed impact:** four C1 learners with completed 47–70% results appeared
+  as “chưa nộp”; the 5/13 headline was effectively a pass count labelled as a
+  submission count. Admin outreach can target the wrong learners for the wrong
+  reason.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`refresh_course_completion()`),
+  `backend/routers/admin_class_assignments.py` (`_hand_in_status()`,
+  `assignment_tally()`), `frontend/public/js/admin-classes.js` (`tallyRow()`),
+  and `frontend/app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-submissions.tsx`.
+- **Suggested minimal fix:** keep the immutable mastery ledger as truth and add
+  an explicit course learning state to each tally row. For course assignments,
+  replace “Ai nộp” with an outcome summary: Đã đạt, Gần đạt / Revision, Cần làm
+  lại toàn bài, Thiếu phần, Đang làm, Chưa mở. Keep deadline/hand-in state as a
+  separate operational field instead of using it as the learning verdict.
+- **Verification:** fixture one learner in each outcome and deadline state;
+  assert the API, immediate UI, and full reload agree, and a completed failed
+  attempt is never described as “chưa nộp”.
+
+### Issue: the completion denominator is derived from existing evidence
+
+- **Root cause:** `course_attempt_report()` sets `sections_total` to
+  `len(latest_attempt.sections)`. Missing required sections are absent from that
+  object, so the denominator shrinks to the work already present.
+- **Severity:** Critical.
+- **Observed impact:** a learner was labelled “Còn phần chưa xong” and “1/1
+  phần” on the same row. The admin still cannot see which required section is
+  missing.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_attempt_report()`), both class submission renderers, and their
+  report/model tests.
+- **Suggested minimal fix:** derive `sections_total` from the assignment's
+  canonical required-section snapshot, count only completed required sections,
+  and return `missing_sections[{key,label}]`.
+- **Verification:** cover quiz-only, writing-only and every multi-section
+  permutation; a quiz-complete/writing-missing attempt must say “1/2 · thiếu Tự
+  luận”, never “1/1”.
+
+## High-priority improvements
+
+### Issue: the individual report mixes different scoring scopes without labels
+
+- **Root cause:** `course_answer_report()` builds question groups and top stats
+  from the earliest response ever recorded for each question, while the history
+  uses the latest canonical mastery attempts and the combined weighted result.
+- **Severity:** Medium.
+- **Observed impact:** the C1 report showed 44/90 in the hero beside a latest
+  53.4% result; a passed learner showed 76/90 quiz answers beside 77.2% overall.
+  Both values can be valid, but the UI makes them look like the same metric.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_answer_report()`), `frontend/public/js/course-report.js`
+  (`renderReport()`), and the native `Report` component.
+- **Suggested minimal fix:** expose labelled `baseline_quiz`,
+  `latest_attempt`, `section_results`, `history` and `delta`. Lead with “Điểm
+  tổng gần nhất” and next action; label the diagnostic as “Trắc nghiệm lượt
+  đầu”. Add an attempt selector for per-question inspection, defaulting to the
+  latest completed full run.
+- **Verification:** use one multi-attempt learner and one weighted multi-section
+  learner; every displayed value must name its attempt, section and scoring
+  scope, and the latest value must match the canonical ledger.
+
+### Issue: the legacy history renderer invents a result for an incomplete run
+
+- **Root cause:** `renderAttemptHistory()` appends `%` to a null percentage and
+  maps an absent `next_action` to “Đã ghi nhận”. The backend correctly returns
+  `completed: false`; the legacy renderer ignores it.
+- **Severity:** Medium.
+- **Observed impact:** production displayed “Kết quả % · Đã ghi nhận · —” for
+  an in-progress learner. The Next.js renderer already avoids this error.
+- **Impacted files:** `frontend/public/js/course-report.js`
+  (`renderAttemptHistory()`), `frontend/tests/course-report.test.mjs`.
+- **Suggested minimal fix:** port the native semantics: show “Đang hoàn thành”,
+  “Làm nốt các phần”, existing section scores and the missing-section label;
+  never render a percent suffix for `null`.
+- **Verification:** add an incomplete-history fixture with `pct: null`, no
+  timestamp and one missing section; assert that no bare `%`, false completion
+  copy or invented timestamp appears.
+
+### Issue: class difficulty ranking has no denominator or affected-learner count
+
+- **Root cause:** class axes expose only raw wrong count and median seconds,
+  aggregated from first responses. They omit attempts, error rate, affected
+  students, eligible students and the aggregation scope.
+- **Severity:** Medium.
+- **Observed impact:** “23 sai” can mean a broadly misunderstood concept or
+  simply an axis with more questions. Admin cannot separate teaching need from
+  a potentially flawed question.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_attempt_report()` axes aggregation), both class effort renderers.
+- **Suggested minimal fix:** return and display `affected_students / eligible`,
+  `wrong / attempted`, error rate, median time, sample size and scope. Rank by
+  affected-learner rate with a minimum sample; surface a neutral “Kiểm tra chất
+  lượng câu hỏi” flag when a high error rate is broad and concentrated.
+- **Verification:** compare axes with different question counts and sparse
+  samples; rankings must not be driven by raw exposure alone.
+
+### Issue: course Grammar has no actionable admin flag contract
+
+- **Root cause:** tally flags are currently computed only for Speaking. Grammar
+  has enough canonical evidence to detect intervention and data-quality needs,
+  but none is transformed into an admin action queue.
+- **Severity:** Medium.
+- **Impacted files:** `backend/routers/admin_class_assignments.py`
+  (`assignment_tally()`), course report services, both admin renderers.
+- **Suggested minimal fix:** produce server-side course flags with evidence and
+  a concrete action: near pass (revision eligible), repeated full failure,
+  stalled over 24h, no improvement across completed attempts, persistent
+  misconception, missing required section, deadline risk, suspicious timing
+  for review, and data/system mismatch. Use non-accusatory language and never
+  infer cheating from timing alone.
+- **Verification:** one fixture per flag plus negative boundary fixtures (for
+  example 64.9%, 65%, 74.9%, 75% when the pass threshold is 75%); every flag
+  states what happened, why it matters and what the admin can inspect.
+
+## Proposed information architecture
+
+1. **Tổng kết / Cần xử lý:** outcome funnel, due-state context and a prioritized
+   queue of evidence-backed flags. Primary CTA: “Inspect”.
+2. **Tiến độ lớp:** learner rows with latest overall score, threshold, required
+   sections, attempt trend and contextualised time (`5 lượt · 386 phút tổng ·
+   77 phút/lượt`; idle remains explicitly approximate).
+3. **Inspect học viên:** decision card first (current outcome, score versus
+   threshold, next required action), weighted section cards, attempt trend,
+   top three persistent misconceptions, then detailed questions. Default the
+   question list to wrong answers; keep “Tất cả câu” and an attempt selector.
+4. **Inspect câu:** preserve the existing prompt, learner answer, correct answer,
+   misconception-specific `why_wrong`, explanation and response time. Keep the
+   writing submission in the same learner view rather than making admin switch
+   to a disconnected report.
+
+## Positive observations to preserve
+
+- Canonical mastery history, section weights and per-question explanations are
+  already available and substantially more useful than a score-only report.
+- Stale/partial reads are visible instead of silently rendered as empty data.
+- The effort report already distinguishes untouched, doing, stalled,
+  incomplete-section, retry and passed states and sorts actionable states first.
+- The native Next.js history renderer correctly handles incomplete runs and is
+  the best semantic baseline for legacy parity.
+
+## Implementation record — first remediation wave
+
+- Added a canonical read-only course summary so learning outcome no longer
+  inherits the generic `submitted_at` label. The admin funnel now separates
+  passed, near-pass Revision, full retry, in-progress, untouched and
+  unactivated learners.
+- Required-section progress now uses the assignment snapshot, returns explicit
+  missing-section labels and refuses to count a partial section as complete.
+- Near-pass and full-retry remain explicit outcomes but no longer become admin
+  flags on a learner's first unsuccessful run. The action queue is reserved for
+  repeated failure, missing sections in an active attempt, stalled work and
+  ledger/data mismatch, so routine learning states do not bury real intervention.
+- Individual reports now label baseline quiz evidence separately from the
+  latest weighted course result, lead with the current decision and section
+  scores, and default detailed inspection to wrong answers with progressive
+  disclosure.
+- Class misconceptions now include affected learners, learner sample, wrong
+  attempts, error rate, median response time and an explicit first-attempt
+  scope. Axes with no errors are not presented as class problems; samples below
+  three learners rank after reliable samples and are labelled “Mẫu nhỏ · chỉ
+  tham khảo” instead of being presented as a class-wide conclusion.
+- Legacy assignments without a required-section snapshot now resolve their bank
+  shape once and share that denominator across tally and effort reports. A
+  malformed learner ledger marks only that row and the report as stale rather
+  than returning a class-wide 500 in either tally or effort. If the assignment
+  shape itself cannot be read, both admin surfaces say the required-section
+  denominator is unknown instead of presenting zero as a real denominator.
+- Writing-only course reports now build the canonical mastery decision before
+  the quiz-session path, preserving result/history even when no quiz session can
+  exist.
+- The legacy surface received the same semantic corrections for course outcome,
+  incomplete history, required sections and misconception denominators; the
+  native Next.js surface owns the richer action queue and inspection layout.
+
+## Release verification
+
+- Backend contract tests for course outcome, required sections, score scopes,
+  flag boundaries and stale reads.
+- Renderer tests for null values, incomplete attempts, labels and progressive
+  disclosure in both legacy and Next.js paths.
+- Signed-in production-like fixture covering passed, near-pass, full retry,
+  missing section, stalled and untouched learners; compare immediate and
+  full-reload state.
+- Light/dark visual QA at 1280px, 768px and 375px; keyboard through filters,
+  attempt selector, accordion and Inspect actions.
