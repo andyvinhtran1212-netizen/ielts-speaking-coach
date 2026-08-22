@@ -329,9 +329,9 @@ function WritingWorkspace({ state, register, locked = false }: {
       retryRef.current = 0;
       if (task1Ref.current === body.task1_text && task2Ref.current === body.task2_text) {
         dirtyRef.current = false;
-        writeLocalDraft(sittingId, 'task1', body.task1_text, true);
-        writeLocalDraft(sittingId, 'task2', body.task2_text, true);
-        setLocalBackupFailed(false);
+        const task1BackedUp = writeLocalDraft(sittingId, 'task1', body.task1_text, true);
+        const task2BackedUp = writeLocalDraft(sittingId, 'task2', body.task2_text, true);
+        setLocalBackupFailed(!task1BackedUp || !task2BackedUp);
         setSavedAt(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
         setSaveCue('saved');
       }
@@ -486,6 +486,7 @@ function WritingWorkspace({ state, register, locked = false }: {
         </div>
         <span className={`mw-savecue${saveCue === 'failed' || localBackupFailed ? ' is-failed' : ''}`} role="status" aria-live="polite">
           {localBackupFailed && saveCue === 'failed' ? 'Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng — tuyệt đối không đóng hoặc tải lại tab; hệ thống vẫn đang thử lại.'
+            : localBackupFailed && saveCue === 'saved' ? `Đã lưu lên máy chủ lúc ${savedAt}, nhưng trình duyệt không tạo được bản dự phòng trên thiết bị.`
             : localBackupFailed ? 'Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab đến khi hiện “Đã lưu”.'
             : saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
               : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn, hệ thống sẽ tự thử lại.' : ''}

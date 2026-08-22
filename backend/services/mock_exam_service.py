@@ -2399,8 +2399,12 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
             raise SittingConflictError(
                 "Kỳ thi đã kết thúc — không mở lại được. Tạo đề mới nếu cần thi lại."
             )
+        active_section = exam.get("active_section") or "not_started"
+        readiness_sections = (
+            (active_section,) if active_section in _LRW_ORDER else None
+        )
         try:
-            _require_exam_content_ready(exam)
+            _require_exam_content_ready(exam, sections=readiness_sections)
         except ValueError as exc:
             raise SittingConflictError(str(exc)) from exc
     resp = supabase_admin.table("mock_exams").update({

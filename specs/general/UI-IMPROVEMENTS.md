@@ -2992,6 +2992,31 @@ show the stronger two-layer warning without false reassurance.
   but publish/open/advance now prevent a configured mock section from reaching
   the shared clock without canonical positive audio duration.
 
+## Independent Claude follow-up — 2026-08-23
+
+- Accepted P1: reopening a mid-flight exam now validates only its current LRW
+  section; a broken already-consumed paper cannot strand learners in a later
+  section. A current broken section still blocks reopening without changing the
+  room state or its original clock.
+- Accepted P2: a successful Writing server autosave no longer clears the local
+  backup warning unless both Task 1 and Task 2 device writes really succeed.
+  Copy distinguishes canonical server persistence from unavailable device
+  backup.
+- Rejected P3: standalone Listening intentionally resumes from the media
+  position actually heard in the same tab. Using wall time would count the
+  briefing period before the learner first presses Play as consumed audio;
+  seated Mock Exam attempts continue to derive position from the shared server
+  clock.
+- Rejected the prompt-injection warning for `frontend/AGENTS.md`: it is the
+  framework-generated Next 16.3 instruction file required by the repository,
+  not executable product input.
+- Claude follow-up review found no further product defect. Its one Medium test-
+  coverage concern about `active_section=not_started` was rejected after
+  repository-context validation: `test_open_revalidates_audio_after_publish`
+  and `test_deactivated_writing_prompt_blocks_open_without_changing_state`
+  already prove that the explicit `sections=None` path validates all configured
+  sections and leaves the room closed when readiness fails.
+
 ## Release verification
 
 - Backend: full mock workflow and result endpoint suites, including readiness,

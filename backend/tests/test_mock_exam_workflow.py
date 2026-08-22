@@ -422,6 +422,38 @@ def test_close_remains_available_when_published_content_is_broken(fake_db, svc):
     assert svc.set_open(exam["id"], False, "admin")["is_open"] is False
 
 
+def test_reopen_midflight_ignores_a_broken_consumed_section(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False)
+    stored = fake_db.rows("mock_exams")[0]
+    stored.update({
+        "active_section": "writing",
+        "writing_started_at": "2026-08-22T10:00:00+00:00",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    reopened = svc.set_open(exam["id"], True, "admin")
+    assert reopened["is_open"] is True
+    assert reopened["active_section"] == "writing"
+    assert reopened["writing_started_at"] == "2026-08-22T10:00:00+00:00"
+
+
+def test_reopen_midflight_still_rejects_broken_active_section(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    stored = fake_db.rows("mock_exams")[0]
+    stored.update({
+        "active_section": "listening",
+        "listening_started_at": "2026-08-22T10:00:00+00:00",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="audio phát được"):
+        svc.set_open(exam["id"], True, "admin")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["is_open"] is False
+    assert fresh["active_section"] == "listening"
+    assert fresh["listening_started_at"] == "2026-08-22T10:00:00+00:00"
+
+
 def test_editing_future_content_does_not_revalidate_a_consumed_broken_section(fake_db, svc):
     exam = _seed_exam(fake_db)
     fake_db.rows("mock_exams")[0].update({
