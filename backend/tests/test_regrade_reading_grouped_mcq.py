@@ -168,6 +168,84 @@ def test_backfill_detects_result_or_mock_draft_drift():
     assert backfill._result_changed(stale_attempt, result, matching_draft) is True
 
 
+def test_backfill_preserves_unrelated_historical_grading_rows():
+    fresh_group = _reversed_group_result()
+    historical_non_group = {
+        "q_num": 1,
+        "correct": False,
+        "user_answer": "historical user answer",
+        "expected": "historical key",
+        "alternatives": [],
+        "skill_tag": "inference",
+        "explanation": "historical explanation",
+        "passage_order": 1,
+    }
+    fresh_result = {
+        **fresh_group,
+        "per_question": [
+            {
+                **historical_non_group,
+                "correct": True,
+                "expected": "replacement import key",
+                "explanation": "replacement import explanation",
+            },
+            *fresh_group["per_question"],
+        ],
+    }
+    attempt = {
+        "id": "attempt-history",
+        "grading_details": [
+            historical_non_group,
+            {
+                "q_num": 21,
+                "correct": False,
+                "skill_tag": "detail",
+                "passage_order": 2,
+            },
+            {
+                "q_num": 22,
+                "correct": False,
+                "skill_tag": "detail",
+                "passage_order": 2,
+            },
+        ],
+    }
+    key = [
+        {"q_num": 1},
+        {"q_num": 21, "group_type": "grouped_mcq_single"},
+        {"q_num": 22, "group_type": "grouped_mcq_single"},
+    ]
+
+    merged = backfill._merge_grouped_result(attempt, fresh_result, key, "academic")
+
+    assert merged["per_question"][0] == historical_non_group
+    assert merged["score"] == 2
+    assert merged["skill_breakdown"] == {
+        "inference": {"correct": 0, "total": 1},
+        "detail": {"correct": 2, "total": 2},
+    }
+
+
+def test_backfill_refuses_attempt_without_historical_grading_snapshot():
+    result = _reversed_group_result()
+    key = [
+        {"q_num": 21, "group_type": "grouped_mcq_single"},
+        {"q_num": 22, "group_type": "grouped_mcq_single"},
+    ]
+
+    try:
+        backfill._merge_grouped_result(
+            {"id": "attempt-no-snapshot", "grading_details": []},
+            result,
+            key,
+            "academic",
+        )
+    except RuntimeError as error:
+        assert "thiếu grading_details lịch sử" in str(error)
+    else:
+        raise AssertionError("missing historical snapshot must stop the backfill")
+
+
 def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):
     rows = [{"id": f"attempt-{index:04d}"} for index in range(1005)]
     fake = _PagedDatabase(rows)

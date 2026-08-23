@@ -175,6 +175,69 @@ def _result_changed(attempt: dict, result: dict, drafts: dict[str, dict | None])
     return persisted_changed or draft_changed
 
 
+def _merge_grouped_result(
+    attempt: dict,
+    fresh_result: dict,
+    answer_key: list[dict],
+    module: str,
+) -> dict:
+    """Replace only grouped rows in the immutable submitted grading snapshot."""
+    grouped_q_nums = {
+        row.get("q_num")
+        for row in answer_key
+        if row.get("group_type") == "grouped_mcq_single"
+        and isinstance(row.get("q_num"), int)
+    }
+    persisted = attempt.get("grading_details")
+    if not isinstance(persisted, list) or not persisted:
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} thiếu grading_details lịch sử — dừng, không chấm lại toàn đề"
+        )
+    if any(
+        not isinstance(row, dict) or not isinstance(row.get("q_num"), int)
+        for row in persisted
+    ):
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} có grading_details không hợp lệ — dừng"
+        )
+
+    persisted_q_nums = {row["q_num"] for row in persisted}
+    if len(persisted_q_nums) != len(persisted):
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} có q_num lịch sử trùng nhau — dừng"
+        )
+    missing = grouped_q_nums - persisted_q_nums
+    if missing:
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} thiếu snapshot grouped q_num {sorted(missing)} — dừng"
+        )
+
+    grouped_fresh = {
+        row.get("q_num"): row
+        for row in fresh_result.get("per_question") or []
+        if row.get("q_num") in grouped_q_nums
+    }
+    if grouped_q_nums - set(grouped_fresh):
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} không tạo đủ verdict grouped — dừng"
+        )
+
+    merged = [
+        grouped_fresh.get(row.get("q_num"), row)
+        for row in persisted
+    ]
+    merged.sort(key=lambda row: row.get("q_num") or 0)
+    score = sum(1 for row in merged if row.get("correct"))
+    return {
+        "score": score,
+        "max_score": len(merged),
+        "band_estimate": grader.band_estimate(score, module=module),
+        "per_question": merged,
+        "skill_breakdown": grader.rollup_skill_breakdown(merged),
+        "by_part": grader.by_part_breakdown(merged),
+    }
+
+
 def _apply_regrade(attempt: dict, result: dict) -> None:
     (
         supabase_admin.table("reading_test_attempts")
@@ -260,10 +323,16 @@ def main() -> int:
     drafts = _review_drafts([row.get("sitting_id") for row in attempts])
     changed: list[tuple[dict, dict]] = []
     for attempt in attempts:
-        result = grader.grade_attempt(
+        fresh_result = grader.grade_attempt(
             attempt.get("answers") or [],
             keys[attempt["test_id"]],
             module=modules[attempt["test_id"]],
+        )
+        result = _merge_grouped_result(
+            attempt,
+            fresh_result,
+            keys[attempt["test_id"]],
+            modules[attempt["test_id"]],
         )
         if _result_changed(attempt, result, drafts):
             changed.append((attempt, result))
