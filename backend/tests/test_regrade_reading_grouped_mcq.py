@@ -67,6 +67,12 @@ class _PagedDatabase:
         return _PagedQuery(self)
 
 
+class _PagedTestsDatabase(_PagedDatabase):
+    def table(self, name):
+        assert name == "reading_tests"
+        return _PagedQuery(self)
+
+
 def _reversed_group_result():
     options = [
         {"label": "A", "text": "Alpha"},
@@ -168,6 +174,17 @@ def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):
     monkeypatch.setattr(backfill, "supabase_admin", fake)
 
     fetched = backfill._attempts_for_test("test-1")
+
+    assert fetched == rows
+    assert fake.ranges == [(0, 999), (1000, 1999)]
+
+
+def test_backfill_paginates_default_test_scan_past_postgrest_cap(monkeypatch):
+    rows = [{"id": f"test-{index:04d}"} for index in range(1005)]
+    fake = _PagedTestsDatabase(rows)
+    monkeypatch.setattr(backfill, "supabase_admin", fake)
+
+    fetched = backfill._all_test_rows()
 
     assert fetched == rows
     assert fake.ranges == [(0, 999), (1000, 1999)]

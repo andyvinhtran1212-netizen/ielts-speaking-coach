@@ -102,6 +102,24 @@ def _attempts_for_test(test_uuid: str) -> list[dict]:
         offset += _PAGE_SIZE
 
 
+def _all_test_rows() -> list[dict]:
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        result = (
+            supabase_admin.table("reading_tests")
+            .select("id,test_id,module")
+            .order("id")
+            .range(offset, offset + _PAGE_SIZE - 1)
+            .execute()
+        )
+        page = result.data or []
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            return rows
+        offset += _PAGE_SIZE
+
+
 def _batches(values: list[str], size: int = _IN_FILTER_BATCH):
     for index in range(0, len(values), size):
         yield values[index:index + size]
@@ -206,12 +224,7 @@ def _targets(args: argparse.Namespace) -> tuple[list[dict], dict[str, list[dict]
         test_rows = [_test_row(args.test)]
         attempts = _attempts_for_test(test_rows[0]["id"])
     else:
-        test_rows = (
-            supabase_admin.table("reading_tests")
-            .select("id,test_id,module")
-            .execute()
-            .data or []
-        )
+        test_rows = _all_test_rows()
         attempts = []
 
     keys: dict[str, list[dict]] = {}
