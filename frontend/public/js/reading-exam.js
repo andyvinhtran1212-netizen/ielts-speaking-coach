@@ -628,7 +628,8 @@
     mcq_multi: function (range, ctx) {
       var n = ctx.optionsCount || 5;
       var lettersUpper = String.fromCharCode(64 + n);    // 5 → "E"
-      return 'Questions ' + range + ': Choose TWO letters, A–' + lettersUpper + '.';
+      return 'Questions ' + range + ': Choose ' + (ctx.choose === 3 ? 'THREE' : 'TWO') +
+        ' letters, A–' + lettersUpper + '.';
     },
     matching_information: function (range, ctx) {
       return 'Questions ' + range + ': Reading Passage ' + ctx.part +
@@ -699,9 +700,10 @@
       // means `position: sticky` computes its containing block as the
       // section, and the box scrolls off naturally when the section's
       // bottom edge reaches the top of the pane.
-      var typeRuns = _consecutiveTypeRuns(partQs);
+      var typeRuns = _displayQuestionRuns(partQs);
       typeRuns.forEach(function (run) {
         var type = run[0].question_type;
+        var groupedMcqChoose = _groupedMcqChooseCount(run);
         var rangeLabel = _qRangeLabel(run);
 
         var groupEl = document.createElement('section');
@@ -711,7 +713,7 @@
         var instructionEl = document.createElement('div');
         instructionEl.className = 'exam-questions__instructions exam-questions__instructions--type';
         instructionEl.setAttribute('data-question-type', type);
-        var template = QTYPE_INSTRUCTIONS[type];
+        var template = QTYPE_INSTRUCTIONS[groupedMcqChoose ? 'mcq_multi' : type];
         // optionsCount: matching_headings uses the heading-bank size; mcq uses
         // the choice count. Read from the FIRST question in the run as a
         // representative — same-typed runs in real IELTS share the same
@@ -724,7 +726,7 @@
         var wordLimit = (run[0].payload && run[0].payload.word_limit) || '';
         var ctx = { part: part, optionsCount: optionsCount, wordLimit: wordLimit };
         var instrText = template
-          ? template(rangeLabel, ctx)
+          ? template(rangeLabel, groupedMcqChoose ? Object.assign({}, ctx, { choose: groupedMcqChoose }) : ctx)
           : 'Questions ' + rangeLabel + '.';
         // reading-review-locate-exam-format B2/B3 — bold/enlarge the
         // "Questions X–Y" header + bold the format restrictions (word limits,
@@ -777,6 +779,12 @@
           groupEl.appendChild(diagramBox);
           host.appendChild(groupEl);
           return; // skip the mono-block path for this run
+        }
+
+        if (groupedMcqChoose) {
+          groupEl.appendChild(_renderGroupedMcqRun(run));
+          host.appendChild(groupEl);
+          return;
         }
 
         // Sprint 20.14e — completion FLOWING block (Standards §2A.10 /
@@ -1162,6 +1170,141 @@
     }
     runs.push(cur);
     return runs;
+  }
+
+  function _mcqOptionFingerprint(q) {
+    var options = (q && q.payload && Array.isArray(q.payload.options)) ? q.payload.options : [];
+    return JSON.stringify(options.map(function (o) {
+      return (typeof o === 'string')
+        ? [o, o]
+        : [String(o && (o.label != null ? o.label : o.text) || ''), String(o && o.text || '')];
+    }));
+  }
+
+  // Cambridge represents "Questions 21-22: choose TWO" as two independently
+  // graded mcq_single rows. Keep that backend contract, but render the rows as
+  // the one checkbox group the paper describes. Tight detection prevents an
+  // ordinary run of single-answer MCQs from being merged accidentally.
+  function _groupedMcqChooseCount(run) {
+    if (!Array.isArray(run) || run.length < 2 || run.length > 3) return 0;
+    var first = run[0];
+    if (!first || first.question_type !== 'mcq_single') return 0;
+    var prompt = String(first.prompt || '').trim();
+    var authored = /\b(TWO|THREE)\b/i.exec(prompt);
+    var choose = authored && authored[1].toUpperCase() === 'TWO' ? 2
+      : authored && authored[1].toUpperCase() === 'THREE' ? 3 : 0;
+    if (choose !== run.length) return 0;
+    var fingerprint = _mcqOptionFingerprint(first);
+    for (var i = 0; i < run.length; i++) {
+      var q = run[i];
+      if (!q || q.question_type !== 'mcq_single' ||
+          Number(q.q_num) !== Number(first.q_num) + i ||
+          String(q.prompt || '').trim() !== prompt ||
+          _mcqOptionFingerprint(q) !== fingerprint) return 0;
+    }
+    return choose;
+  }
+
+  function _displayQuestionRuns(qs) {
+    var output = [];
+    _consecutiveTypeRuns(qs).forEach(function (typeRun) {
+      if (!typeRun[0] || typeRun[0].question_type !== 'mcq_single') {
+        output.push(typeRun); return;
+      }
+      var ordinary = [];
+      var flushOrdinary = function () {
+        if (ordinary.length) output.push(ordinary);
+        ordinary = [];
+      };
+      for (var i = 0; i < typeRun.length;) {
+        var first = typeRun[i];
+        var prompt = String(first.prompt || '').trim();
+        var fingerprint = _mcqOptionFingerprint(first);
+        var end = i + 1;
+        while (end < typeRun.length &&
+               String(typeRun[end].prompt || '').trim() === prompt &&
+               _mcqOptionFingerprint(typeRun[end]) === fingerprint &&
+               Number(typeRun[end].q_num) === Number(typeRun[end - 1].q_num) + 1) end++;
+        var candidate = typeRun.slice(i, end);
+        if (_groupedMcqChooseCount(candidate)) {
+          flushOrdinary(); output.push(candidate);
+        } else {
+          Array.prototype.push.apply(ordinary, candidate);
+        }
+        i = end;
+      }
+      flushOrdinary();
+    });
+    return output;
+  }
+
+  function _groupedMcqChanged(run, box) {
+    var selected = [];
+    var boxes = box.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) selected.push(boxes[i].value);
+    var choose = _groupedMcqChooseCount(run);
+    var lock = selected.length >= choose;
+    for (var j = 0; j < boxes.length; j++) boxes[j].disabled = !boxes[j].checked && lock;
+    run.forEach(function (q, index) { _summaryGapChanged(q.q_num, selected[index] || ''); });
+    box.classList.toggle('is-answered', selected.length > 0);
+    if (lock) liveSay('Choose ' + choose + ' answers — limit reached.');
+  }
+
+  function _renderGroupedMcqRun(run) {
+    var first = run[0];
+    var choose = _groupedMcqChooseCount(run);
+    var card = document.createElement('div');
+    card.className = 'exam-q exam-q--grouped-mcq';
+    card.id = 'q-' + first.q_num;
+    card.dataset.q = String(first.q_num);
+    card.dataset.groupedQnums = run.map(function (q) { return q.q_num; }).join(',');
+
+    var nums = document.createElement('div');
+    nums.className = 'exam-grouped-mcq__numbers';
+    nums.setAttribute('aria-label', 'Questions ' + first.q_num + ' to ' + run[run.length - 1].q_num);
+    run.forEach(function (q, index) {
+      var num = document.createElement('span');
+      num.className = 'exam-q__num';
+      num.textContent = String(q.q_num);
+      if (index) num.id = 'q-' + q.q_num;
+      nums.appendChild(num);
+    });
+
+    var body = document.createElement('div');
+    body.className = 'exam-q__body';
+    var prompt = document.createElement('p');
+    prompt.className = 'exam-q__prompt';
+    prompt.textContent = first.prompt || '';
+    body.appendChild(prompt);
+    var options = document.createElement('div');
+    options.className = 'exam-q__options exam-q__options--multi';
+    options.setAttribute('role', 'group');
+    options.setAttribute('aria-label', 'Choose ' + choose + ' answers for questions ' +
+      first.q_num + ' to ' + run[run.length - 1].q_num);
+    ((first.payload && first.payload.options) || []).forEach(function (o) {
+      var isString = typeof o === 'string';
+      var val = isString ? o : (o.label != null ? String(o.label) : String(o.text || ''));
+      var prefix = isString ? '' : (o.label != null ? String(o.label) : '');
+      var text = isString ? o : String(o.text || '');
+      options.appendChild(checkboxOption('q-' + first.q_num + '-' + run[run.length - 1].q_num,
+        val, prefix, text));
+    });
+    options.addEventListener('change', function () { _groupedMcqChanged(run, card); });
+    body.appendChild(options);
+
+    var flags = document.createElement('div');
+    flags.className = 'exam-grouped-mcq__flags';
+    run.forEach(function (q) {
+      var flag = document.createElement('button');
+      flag.type = 'button'; flag.className = 'exam-q__flag';
+      flag.setAttribute('aria-pressed', SESSION.flagged.has(q.q_num) ? 'true' : 'false');
+      flag.setAttribute('aria-label', 'Flag question ' + q.q_num + ' for review');
+      flag.textContent = '⚑ ' + q.q_num;
+      flag.addEventListener('click', function () { toggleFlag(q.q_num, flag); });
+      flags.appendChild(flag);
+    });
+    card.appendChild(nums); card.appendChild(body); card.appendChild(flags);
+    return card;
   }
 
   function renderQuestion(q) {
@@ -1911,6 +2054,15 @@
           (window.CSS && CSS.escape ? CSS.escape(String(value)) : String(value).replace(/"/g, '\\"')) + '"]');
         if (radio) { radio.checked = true; markAnswered(qNum); }
       } catch (e) {}
+    });
+    document.querySelectorAll('.exam-q--grouped-mcq').forEach(function (card) {
+      var qNums = String(card.dataset.groupedQnums || '').split(',').map(Number);
+      var selected = new Set(qNums.map(function (qNum) { return SESSION.answers.get(qNum); }).filter(Boolean));
+      var boxes = card.querySelectorAll('input[type="checkbox"]');
+      for (var i = 0; i < boxes.length; i++) boxes[i].checked = selected.has(boxes[i].value);
+      var lock = selected.size >= qNums.length;
+      for (var j = 0; j < boxes.length; j++) boxes[j].disabled = !boxes[j].checked && lock;
+      card.classList.toggle('is-answered', selected.size > 0);
     });
   }
 
