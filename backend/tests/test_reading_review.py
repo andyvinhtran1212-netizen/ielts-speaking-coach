@@ -182,6 +182,50 @@ def test_grouped_mcq_review_uses_matched_answer_rationale_not_display_slot():
     assert review[1]["solution"]["steps"] == "Rich solution for D."
 
 
+def test_grouped_mcq_review_wrong_picks_keep_authored_rich_solutions():
+    attempt = dict(_SUBMITTED_ATTEMPT, score=0, grading_details=[
+        {
+            "q_num": 21, "correct": False, "user_answer": "A", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for D.", "group": "grouped_mcq_single",
+            "rationale_q_num": 21,
+        },
+        {
+            "q_num": 22, "correct": False, "user_answer": "C", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for B.", "group": "grouped_mcq_single",
+            "rationale_q_num": 22,
+        },
+    ])
+    questions = [
+        {
+            "q_num": 21, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Rich solution for D."}},
+            "passage_id": "p1",
+        },
+        {
+            "q_num": 22, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Rich solution for B."}},
+            "passage_id": "p1",
+        },
+    ]
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests": [_TEST_ROW],
+        "reading_passages": _PASSAGES,
+        "reading_questions": questions,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        response = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+
+    assert response.status_code == 200
+    review = response.json()["review"]
+    assert [row["solution"]["steps"] for row in review] == [
+        "Rich solution for D.", "Rich solution for B.",
+    ]
+
+
 def test_admin_preview_grouped_mcq_keeps_each_authored_rich_solution():
     synthetic = {
         "test_id": "t-uuid",

@@ -219,7 +219,30 @@ def test_legacy_grouped_mcq_awards_one_mark_per_distinct_correct_letter():
     )
     assert partial["score"] == 1
     assert {row["expected"] for row in partial["per_question"]} == {"B, D"}
+    assert [row["rationale_q_num"] for row in partial["per_question"]] == [22, 21]
+    assert [row["skill_tag"] for row in partial["per_question"]] == [
+        "skill_for_b", "skill_for_d",
+    ]
     assert duplicate["score"] == 1
+
+
+def test_legacy_grouped_mcq_wrong_picks_keep_distinct_canonical_rationales():
+    key = _legacy_grouped_mcq_key()
+
+    result = grade_attempt(
+        [{"q_num": 21, "user_answer": "A"}, {"q_num": 22, "user_answer": "C"}],
+        key,
+    )
+
+    assert result["score"] == 0
+    assert [row["rationale_q_num"] for row in result["per_question"]] == [21, 22]
+    assert [row["explanation"] for row in result["per_question"]] == [
+        "Rationale for D.", "Rationale for B.",
+    ]
+    assert result["skill_breakdown"] == {
+        "skill_for_d": {"correct": 0, "total": 1},
+        "skill_for_b": {"correct": 0, "total": 1},
+    }
 
 
 # ── matching_* family (letter match — regression on existing path) ────

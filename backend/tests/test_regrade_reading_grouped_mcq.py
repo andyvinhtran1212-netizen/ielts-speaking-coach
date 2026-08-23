@@ -210,6 +210,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
             "group_key": "verified-group",
             "answer": "D",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
         {
             "q_num": 22,
@@ -217,6 +218,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
             "group_key": "verified-group",
             "answer": "B",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
     ]
 
@@ -266,6 +268,7 @@ def test_backfill_refuses_attempt_without_historical_grading_snapshot():
             "group_key": "group-21",
             "answer": "D",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
         {
             "q_num": 22,
@@ -273,6 +276,7 @@ def test_backfill_refuses_attempt_without_historical_grading_snapshot():
             "group_key": "group-21",
             "answer": "B",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
     ]
 
@@ -302,6 +306,9 @@ def test_cam17_test3_manifest_locks_verified_group_version_and_answers():
     assert {row["_manifest_effective_from"] for row in key} == {
         "2026-08-23T02:03:51.881949+00:00",
     }
+    assert {row["_manifest_effective_until"] for row in key} == {
+        "2026-08-23T02:48:07+00:00",
+    }
 
 
 def test_backfill_refuses_attempt_started_before_verified_group_version():
@@ -325,13 +332,34 @@ def test_backfill_refuses_attempt_started_before_verified_group_version():
         raise AssertionError("pre-manifest attempt must not be regraded")
 
 
+def test_backfill_refuses_attempt_started_after_verified_group_version():
+    key = backfill._manifest_answer_key(
+        "c3b2b054-0a21-4587-a787-d67a2518136f",
+    )
+    attempt = {
+        "id": "attempt-after-verified-version",
+        "started_at": "2026-08-23T02:48:07+00:00",
+        "grading_details": [
+            {"q_num": 21, "correct": False, "user_answer": "C", "expected": "B"},
+            {"q_num": 22, "correct": False, "user_answer": "B", "expected": "C"},
+        ],
+    }
+
+    try:
+        backfill._merge_grouped_result(attempt, key)
+    except RuntimeError as error:
+        assert "có sau verified grouped manifest" in str(error)
+    else:
+        raise AssertionError("post-manifest attempt must not be regraded")
+
+
 def test_backfill_refuses_historical_key_that_does_not_match_verified_group():
     key = backfill._manifest_answer_key(
         "c3b2b054-0a21-4587-a787-d67a2518136f",
     )
     attempt = {
         "id": "attempt-different-historical-key",
-        "started_at": "2026-08-23T03:00:00+00:00",
+        "started_at": "2026-08-23T02:47:55+00:00",
         "grading_details": [
             {"q_num": 21, "correct": False, "user_answer": "C", "expected": "A"},
             {"q_num": 22, "correct": False, "user_answer": "A", "expected": "C"},
@@ -344,6 +372,62 @@ def test_backfill_refuses_historical_key_that_does_not_match_verified_group():
         assert "expected snapshot không khớp verified group" in str(error)
     else:
         raise AssertionError("mismatched historical answer key must not be regraded")
+
+
+def test_backfill_commit_skips_invalid_attempt_and_updates_valid_attempt(
+    monkeypatch,
+    capsys,
+):
+    key = [
+        {
+            "q_num": 21,
+            "group_type": "grouped_mcq_single",
+            "group_key": "verified-group",
+            "answer": "D",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
+        },
+        {
+            "q_num": 22,
+            "group_type": "grouped_mcq_single",
+            "group_key": "verified-group",
+            "answer": "B",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
+        },
+    ]
+    invalid = {
+        "id": "invalid-attempt",
+        "test_id": "test-1",
+        "started_at": "2026-08-23T01:00:00+00:00",
+        "grading_details": [
+            {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
+            {"q_num": 22, "correct": False, "user_answer": "D", "expected": "B"},
+        ],
+    }
+    valid = {
+        "id": "valid-attempt",
+        "test_id": "test-1",
+        "score": 0,
+        "band_estimate": None,
+        "started_at": "2026-08-23T03:00:00+00:00",
+        "grading_details": [
+            {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
+            {"q_num": 22, "correct": False, "user_answer": "D", "expected": "B"},
+        ],
+    }
+    applied = []
+    monkeypatch.setattr(backfill, "_targets", lambda _args: ([invalid, valid], {"test-1": key}))
+    monkeypatch.setattr(backfill, "_review_drafts", lambda _ids: {})
+    monkeypatch.setattr(backfill, "_confirmed_reading_bands", lambda _ids: [])
+    monkeypatch.setattr(backfill, "_apply_regrade", lambda attempt, result: applied.append((attempt, result)))
+    monkeypatch.setattr(backfill.sys, "argv", ["regrade", "--commit"])
+
+    assert backfill.main() == 1
+    assert [attempt["id"] for attempt, _result in applied] == ["valid-attempt"]
+    output = capsys.readouterr().out
+    assert "invalid-" in output
+    assert "bỏ qua: 1" in output
 
 
 def test_backfill_infers_academic_band_from_submitted_score_snapshot():
@@ -374,6 +458,7 @@ def test_backfill_infers_academic_band_from_submitted_score_snapshot():
             "group_key": "group-21",
             "answer": "D",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
         {
             "q_num": 22,
@@ -381,6 +466,7 @@ def test_backfill_infers_academic_band_from_submitted_score_snapshot():
             "group_key": "group-21",
             "answer": "B",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
     ]
 
@@ -425,6 +511,7 @@ def test_backfill_preserves_none_when_low_score_stays_below_band_floor():
             "group_key": "group-21",
             "answer": "D",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
         {
             "q_num": 22,
@@ -432,6 +519,7 @@ def test_backfill_preserves_none_when_low_score_stays_below_band_floor():
             "group_key": "group-21",
             "answer": "B",
             "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
+            "_manifest_effective_until": "2026-08-23T04:00:00+00:00",
         },
     ]
 

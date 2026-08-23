@@ -293,15 +293,42 @@ def grade_attempt(
                 },
                 key=normalize_answer,
             ))
+            matched_by_q_num: dict[int, dict[str, Any] | None] = {}
             for grouped_row in group:
                 grouped_q_num = grouped_row["q_num"]
                 grouped_user_row = user_by_q.get(grouped_q_num) or {}
                 grouped_user_answer = grouped_user_row.get("user_answer")
                 pick = normalize_answer(str(grouped_user_answer or ""))
                 matched_rows = remaining_by_answer.get(pick) or []
-                matched_row = matched_rows.pop(0) if pick and matched_rows else None
+                matched_by_q_num[grouped_q_num] = (
+                    matched_rows.pop(0) if pick and matched_rows else None
+                )
+
+            # A wrong/missing pick still needs the authored rationale for the
+            # canonical answer that was not claimed by another slot. Pair the
+            # remaining keys deterministically so review keeps rich solutions
+            # and the skill rollup still contains each canonical task once.
+            unclaimed = sorted(
+                (row for rows in remaining_by_answer.values() for row in rows),
+                key=lambda row: row.get("q_num") or 0,
+            )
+            rationale_by_q_num: dict[int, dict[str, Any] | None] = {}
+            for grouped_row in group:
+                grouped_q_num = grouped_row["q_num"]
+                matched_row = matched_by_q_num[grouped_q_num]
+                rationale_by_q_num[grouped_q_num] = (
+                    matched_row if matched_row is not None
+                    else (unclaimed.pop(0) if unclaimed else None)
+                )
+
+            for grouped_row in group:
+                grouped_q_num = grouped_row["q_num"]
+                grouped_user_row = user_by_q.get(grouped_q_num) or {}
+                grouped_user_answer = grouped_user_row.get("user_answer")
+                matched_row = matched_by_q_num[grouped_q_num]
+                rationale_row = rationale_by_q_num[grouped_q_num]
                 is_correct = matched_row is not None
-                if matched_row is None:
+                if rationale_row is None:
                     group_explanations = [
                         f"{row.get('answer')}: {row.get('explanation')}"
                         for row in group
@@ -310,8 +337,8 @@ def grade_attempt(
                     explanation = "\n\n".join(group_explanations) or None
                     alternatives = []
                 else:
-                    explanation = matched_row.get("explanation")
-                    alternatives = matched_row.get("alternatives") or []
+                    explanation = rationale_row.get("explanation")
+                    alternatives = rationale_row.get("alternatives") or []
                 per_question.append({
                     "q_num":         grouped_q_num,
                     "correct":       is_correct,
@@ -322,16 +349,19 @@ def grade_attempt(
                     "expected":      expected_group_display,
                     "alternatives":  alternatives,
                     "skill_tag":     (
-                        matched_row.get("skill_tag") if matched_row
+                        rationale_row.get("skill_tag") if rationale_row
                         else grouped_row.get("skill_tag")
                     ),
                     "explanation":   explanation,
                     "passage_order": grouped_row.get("passage_order"),
                     "group":         "grouped_mcq_single",
-                    # The accepted letter may originate from another stored
-                    # slot. Review uses this canonical identity for the rich
-                    # payload.solution instead of joining by display q_num.
-                    "rationale_q_num": matched_row.get("q_num") if matched_row else None,
+                    # The matched or still-unclaimed canonical letter may
+                    # originate from another stored slot. Review uses this
+                    # identity for the correct rich payload.solution instead
+                    # of joining by the arbitrary display q_num.
+                    "rationale_q_num": (
+                        rationale_row.get("q_num") if rationale_row else None
+                    ),
                 })
             continue
 
