@@ -32,6 +32,41 @@ class _FakeDatabase:
         return _Query(self, name)
 
 
+class _PagedQuery:
+    def __init__(self, owner):
+        self.owner = owner
+        self.bounds = (0, backfill._PAGE_SIZE - 1)
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def order(self, column):
+        assert column == "id"
+        return self
+
+    def range(self, start, end):
+        self.bounds = (start, end)
+        self.owner.ranges.append(self.bounds)
+        return self
+
+    def execute(self):
+        start, end = self.bounds
+        return type("Result", (), {"data": self.owner.rows[start:end + 1]})()
+
+
+class _PagedDatabase:
+    def __init__(self, rows):
+        self.rows = rows
+        self.ranges = []
+
+    def table(self, name):
+        assert name == "reading_test_attempts"
+        return _PagedQuery(self)
+
+
 def _reversed_group_result():
     options = [
         {"label": "A", "text": "Alpha"},
@@ -125,3 +160,14 @@ def test_backfill_detects_result_or_mock_draft_drift():
 
     stale_attempt = {**current, "grading_details": []}
     assert backfill._result_changed(stale_attempt, result, matching_draft) is True
+
+
+def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):
+    rows = [{"id": f"attempt-{index:04d}"} for index in range(1005)]
+    fake = _PagedDatabase(rows)
+    monkeypatch.setattr(backfill, "supabase_admin", fake)
+
+    fetched = backfill._attempts_for_test("test-1")
+
+    assert fetched == rows
+    assert fake.ranges == [(0, 999), (1000, 1999)]

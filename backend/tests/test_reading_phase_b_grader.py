@@ -151,6 +151,7 @@ def _legacy_grouped_mcq_key():
             "payload": {"options": options},
             "answer": {"answer": "D", "alternatives": []},
             "skill_tag": "detail",
+            "explanation": "Rationale for D.",
             "passage_id": "p2",
         },
         {
@@ -160,6 +161,7 @@ def _legacy_grouped_mcq_key():
             "payload": {"options": options},
             "answer": {"answer": "B", "alternatives": []},
             "skill_tag": "detail",
+            "explanation": "Rationale for B.",
             "passage_id": "p2",
         },
     ]
@@ -184,6 +186,10 @@ def test_legacy_grouped_mcq_grades_reversed_stored_keys_as_unordered_set():
     assert result["score"] == 2
     assert [row["correct"] for row in result["per_question"]] == [True, True]
     assert {row["expected"] for row in result["per_question"]} == {"B, D"}
+    assert [row["rationale_q_num"] for row in result["per_question"]] == [22, 21]
+    assert [row["explanation"] for row in result["per_question"]] == [
+        "Rationale for B.", "Rationale for D.",
+    ]
 
     # Existing attempts created by the old two-radio renderer may have the
     # same correct set in the opposite slots; they must remain gradeable too.

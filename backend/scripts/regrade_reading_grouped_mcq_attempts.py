@@ -38,6 +38,8 @@ _ATTEMPT_COLS = (
 _QUESTION_COLS = (
     "q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id"
 )
+_PAGE_SIZE = 1000
+_IN_FILTER_BATCH = 200
 
 
 def _answer_key(test_uuid: str) -> list[dict]:
@@ -81,45 +83,61 @@ def _test_row(identifier: str) -> dict:
 
 
 def _attempts_for_test(test_uuid: str) -> list[dict]:
-    result = (
-        supabase_admin.table("reading_test_attempts")
-        .select(_ATTEMPT_COLS)
-        .eq("test_id", test_uuid)
-        .eq("status", "submitted")
-        .execute()
-    )
-    return result.data or []
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        result = (
+            supabase_admin.table("reading_test_attempts")
+            .select(_ATTEMPT_COLS)
+            .eq("test_id", test_uuid)
+            .eq("status", "submitted")
+            .order("id")
+            .range(offset, offset + _PAGE_SIZE - 1)
+            .execute()
+        )
+        page = result.data or []
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            return rows
+        offset += _PAGE_SIZE
+
+
+def _batches(values: list[str], size: int = _IN_FILTER_BATCH):
+    for index in range(0, len(values), size):
+        yield values[index:index + size]
 
 
 def _review_drafts(sitting_ids: list[str]) -> dict[str, dict | None]:
     ids = sorted({str(value) for value in sitting_ids if value})
-    if not ids:
-        return {}
-    result = (
-        supabase_admin.table("mock_exam_reviews")
-        .select("sitting_id,ai_draft")
-        .in_("sitting_id", ids)
-        .execute()
-    )
+    rows: list[dict] = []
+    for batch in _batches(ids):
+        result = (
+            supabase_admin.table("mock_exam_reviews")
+            .select("sitting_id,ai_draft")
+            .in_("sitting_id", batch)
+            .execute()
+        )
+        rows.extend(result.data or [])
     return {
         str(row["sitting_id"]): (row.get("ai_draft") or {}).get("reading")
-        for row in (result.data or [])
+        for row in rows
     }
 
 
 def _confirmed_reading_bands(sitting_ids: list[str]) -> list[str]:
     ids = sorted({str(value) for value in sitting_ids if value})
-    if not ids:
-        return []
-    result = (
-        supabase_admin.table("mock_exam_reviews")
-        .select("sitting_id,final_bands")
-        .in_("sitting_id", ids)
-        .execute()
-    )
+    rows: list[dict] = []
+    for batch in _batches(ids):
+        result = (
+            supabase_admin.table("mock_exam_reviews")
+            .select("sitting_id,final_bands")
+            .in_("sitting_id", batch)
+            .execute()
+        )
+        rows.extend(result.data or [])
     return [
         str(row["sitting_id"])
-        for row in (result.data or [])
+        for row in rows
         if (row.get("final_bands") or {}).get("reading") is not None
     ]
 

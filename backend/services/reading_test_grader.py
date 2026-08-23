@@ -280,11 +280,11 @@ def grade_attempt(
                 continue
             graded_groups.add(group_key)
             group = sorted(grouped_mcq[group_key], key=lambda row: row.get("q_num") or 0)
-            remaining = {
-                normalize_answer(str(row.get("answer") or ""))
-                for row in group
-            }
-            remaining.discard("")
+            remaining_by_answer: dict[str, list[dict[str, Any]]] = {}
+            for row in group:
+                normalized = normalize_answer(str(row.get("answer") or ""))
+                if normalized:
+                    remaining_by_answer.setdefault(normalized, []).append(row)
             expected_group_display = ", ".join(sorted(
                 {
                     str(row.get("answer"))
@@ -298,9 +298,20 @@ def grade_attempt(
                 grouped_user_row = user_by_q.get(grouped_q_num) or {}
                 grouped_user_answer = grouped_user_row.get("user_answer")
                 pick = normalize_answer(str(grouped_user_answer or ""))
-                is_correct = bool(pick) and pick in remaining
-                if is_correct:
-                    remaining.remove(pick)
+                matched_rows = remaining_by_answer.get(pick) or []
+                matched_row = matched_rows.pop(0) if pick and matched_rows else None
+                is_correct = matched_row is not None
+                if matched_row is None:
+                    group_explanations = [
+                        f"{row.get('answer')}: {row.get('explanation')}"
+                        for row in group
+                        if row.get("answer") is not None and row.get("explanation")
+                    ]
+                    explanation = "\n\n".join(group_explanations) or None
+                    alternatives = []
+                else:
+                    explanation = matched_row.get("explanation")
+                    alternatives = matched_row.get("alternatives") or []
                 per_question.append({
                     "q_num":         grouped_q_num,
                     "correct":       is_correct,
@@ -309,11 +320,15 @@ def grade_attempt(
                     # Showing the old slot key can contradict `correct=True`,
                     # so every row reports the complete unordered answer set.
                     "expected":      expected_group_display,
-                    "alternatives":  grouped_row.get("alternatives") or [],
+                    "alternatives":  alternatives,
                     "skill_tag":     grouped_row.get("skill_tag"),
-                    "explanation":   grouped_row.get("explanation"),
+                    "explanation":   explanation,
                     "passage_order": grouped_row.get("passage_order"),
                     "group":         "grouped_mcq_single",
+                    # The accepted letter may originate from another stored
+                    # slot. Review uses this canonical identity for the rich
+                    # payload.solution instead of joining by display q_num.
+                    "rationale_q_num": matched_row.get("q_num") if matched_row else None,
                 })
             continue
 

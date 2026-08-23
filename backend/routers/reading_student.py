@@ -1374,12 +1374,16 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         # persisted explanation stays empty).
         explanation = g["explanation"] if "explanation" in g else ctx.get("explanation")
         item["explanation"] = explanation
-        item["solution"] = sol_by_qnum.get(qn)
+        rationale_qn = g.get("rationale_q_num")
+        solution_qn = rationale_qn if isinstance(rationale_qn, int) else (
+            None if g.get("group") == "grouped_mcq_single" else qn
+        )
+        item["solution"] = sol_by_qnum.get(solution_qn)
         # Phase 0.3 — normalized stepper view-model (reconciles rich prose
         # solutions AND plain `explanation` into one stepper shape + surfaces
         # kp_refs). Backward-compatible: `solution` above is kept untouched.
         item["stepper"] = reading_solution.build_stepper(
-            sol_by_qnum.get(qn), explanation)
+            sol_by_qnum.get(solution_qn), explanation)
         # Phase 2 FE: attach {title, category} to each kp_ref so the stepper can
         # show article titles and deep-link grammar refs.
         if item["stepper"]:

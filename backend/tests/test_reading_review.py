@@ -135,6 +135,53 @@ def test_review_legacy_grading_row_falls_back_to_current_explanation():
     assert r.json()["review"][0]["explanation"].startswith("Gravity is named")
 
 
+def test_grouped_mcq_review_uses_matched_answer_rationale_not_display_slot():
+    attempt = dict(_SUBMITTED_ATTEMPT, score=2, grading_details=[
+        {
+            "q_num": 21, "correct": True, "user_answer": "B", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for B.", "group": "grouped_mcq_single",
+            "rationale_q_num": 22,
+        },
+        {
+            "q_num": 22, "correct": True, "user_answer": "D", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for D.", "group": "grouped_mcq_single",
+            "rationale_q_num": 21,
+        },
+    ])
+    questions = [
+        {
+            "q_num": 21, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "explanation": "Rationale for D.",
+            "payload": {"solution": {"steps": "Rich solution for D."}},
+            "passage_id": "p1",
+        },
+        {
+            "q_num": 22, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "explanation": "Rationale for B.",
+            "payload": {"solution": {"steps": "Rich solution for B."}},
+            "passage_id": "p1",
+        },
+    ]
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests": [_TEST_ROW],
+        "reading_passages": _PASSAGES,
+        "reading_questions": questions,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        response = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+
+    assert response.status_code == 200
+    review = response.json()["review"]
+    assert review[0]["explanation"] == "Rationale for B."
+    assert review[0]["solution"]["steps"] == "Rich solution for B."
+    assert review[1]["explanation"] == "Rationale for D."
+    assert review[1]["solution"]["steps"] == "Rich solution for D."
+
+
 def test_review_requires_auth():
     assert _client().get("/api/reading/test/attempts/a-uuid/review").status_code == 401
 
