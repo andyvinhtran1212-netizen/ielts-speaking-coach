@@ -1376,7 +1376,9 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         item["explanation"] = explanation
         rationale_qn = g.get("rationale_q_num")
         solution_qn = rationale_qn if isinstance(rationale_qn, int) else (
-            None if g.get("group") == "grouped_mcq_single" else qn
+            qn if attempt.get("_admin_preview") else (
+                None if g.get("group") == "grouped_mcq_single" else qn
+            )
         )
         item["solution"] = sol_by_qnum.get(solution_qn)
         # Phase 0.3 — normalized stepper view-model (reconciles rich prose

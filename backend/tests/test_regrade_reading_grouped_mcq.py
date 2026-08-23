@@ -181,6 +181,8 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
     }
     attempt = {
         "id": "attempt-history",
+        "score": 19,
+        "band_estimate": 5.5,
         "grading_details": [
             historical_non_group,
             {
@@ -225,7 +227,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
         },
     ]
 
-    merged = backfill._merge_grouped_result(attempt, key, "academic")
+    merged = backfill._merge_grouped_result(attempt, key)
 
     assert merged["per_question"][0] == historical_non_group
     assert merged["per_question"][1] == {
@@ -250,9 +252,13 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
     }
 
     rerun = backfill._merge_grouped_result(
-        {"id": "attempt-history", "grading_details": merged["per_question"]},
+        {
+            "id": "attempt-history",
+            "score": merged["score"],
+            "band_estimate": merged["band_estimate"],
+            "grading_details": merged["per_question"],
+        },
         key,
-        "academic",
     )
     assert rerun == merged
 
@@ -275,12 +281,66 @@ def test_backfill_refuses_attempt_without_historical_grading_snapshot():
         backfill._merge_grouped_result(
             {"id": "attempt-no-snapshot", "grading_details": []},
             key,
-            "academic",
         )
     except RuntimeError as error:
         assert "thiếu grading_details lịch sử" in str(error)
     else:
         raise AssertionError("missing historical snapshot must stop the backfill")
+
+
+def test_backfill_infers_academic_band_from_submitted_score_snapshot():
+    non_group = [
+        {
+            "q_num": q_num,
+            "correct": True,
+            "skill_tag": "detail",
+            "passage_order": 1,
+        }
+        for q_num in [*range(1, 21), 23, 24]
+    ]
+    attempt = {
+        "id": "attempt-academic-before-module-reimport",
+        "score": 22,
+        "band_estimate": 5.5,
+        "grading_details": [
+            *non_group,
+            {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
+            {"q_num": 22, "correct": False, "user_answer": "D", "expected": "B"},
+        ],
+    }
+    key_after_general_training_reimport = [
+        {
+            "q_num": 21,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
+        {
+            "q_num": 22,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
+    ]
+
+    result = backfill._merge_grouped_result(
+        attempt,
+        key_after_general_training_reimport,
+    )
+
+    assert result["score"] == 24
+    assert result["band_estimate"] == 6.0
+
+
+def test_backfill_refuses_ambiguous_submission_band_table():
+    try:
+        backfill._submission_module({
+            "id": "attempt-ambiguous-module",
+            "score": 3,
+            "band_estimate": None,
+        })
+    except RuntimeError as error:
+        assert "không suy ra chắc chắn bảng band" in str(error)
+    else:
+        raise AssertionError("ambiguous historical band table must stop the backfill")
 
 
 def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):

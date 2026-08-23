@@ -4,8 +4,8 @@
 Cambridge choose-TWO/THREE tasks are stored as consecutive ``mcq_single``
 rows. Before the grouped-set grader, a correct set in the opposite DB slot
 order could persist a wrong score, band, per-question verdict, and skill
-rollup. This rerunnable backfill rebuilds the canonical key with the same
-grader used by submit and only writes rows whose persisted result differs.
+rollup. This rerunnable backfill applies unordered matching to the immutable
+submission snapshot and only writes rows whose persisted result differs.
 
 Dry-run is the default::
 
@@ -175,10 +175,25 @@ def _result_changed(attempt: dict, result: dict, drafts: dict[str, dict | None])
     return persisted_changed or draft_changed
 
 
+def _submission_module(attempt: dict) -> str:
+    """Infer the immutable band table from the persisted score/band pair."""
+    score = attempt.get("score")
+    persisted_band = attempt.get("band_estimate")
+    if (
+        isinstance(score, int)
+        and not isinstance(score, bool)
+        and persisted_band is not None
+        and grader.band_estimate(score, module="academic") == persisted_band
+    ):
+        return "academic"
+    raise RuntimeError(
+        f"attempt {attempt.get('id')} không suy ra chắc chắn bảng band lúc submitted — dừng"
+    )
+
+
 def _merge_grouped_result(
     attempt: dict,
     answer_key: list[dict],
-    module: str,
 ) -> dict:
     """Fix grouped ordering using only the immutable submitted snapshot."""
     groups: dict[str, list[int]] = {}
@@ -271,10 +286,15 @@ def _merge_grouped_result(
     merged = [replacements.get(row["q_num"], row) for row in persisted]
     merged.sort(key=lambda row: row.get("q_num") or 0)
     score = sum(1 for row in merged if row.get("correct"))
+    if score == attempt.get("score"):
+        next_band = attempt.get("band_estimate")
+    else:
+        submission_module = _submission_module(attempt)
+        next_band = grader.band_estimate(score, module=submission_module)
     return {
         "score": score,
         "max_score": len(merged),
-        "band_estimate": grader.band_estimate(score, module=module),
+        "band_estimate": next_band,
         "per_question": merged,
         "skill_breakdown": grader.rollup_skill_breakdown(merged),
         "by_part": grader.by_part_breakdown(merged),
@@ -302,7 +322,7 @@ def _apply_regrade(attempt: dict, result: dict) -> None:
         })
 
 
-def _targets(args: argparse.Namespace) -> tuple[list[dict], dict[str, list[dict]], dict[str, str]]:
+def _targets(args: argparse.Namespace) -> tuple[list[dict], dict[str, list[dict]]]:
     if args.attempt:
         result = (
             supabase_admin.table("reading_test_attempts")
@@ -334,20 +354,18 @@ def _targets(args: argparse.Namespace) -> tuple[list[dict], dict[str, list[dict]
         attempts = []
 
     keys: dict[str, list[dict]] = {}
-    modules: dict[str, str] = {}
     affected_ids: set[str] = set()
     for test in test_rows:
         key = _answer_key(test["id"])
         if not _has_grouped_mcq(key):
             continue
         keys[test["id"]] = key
-        modules[test["id"]] = test.get("module") or "academic"
         affected_ids.add(test["id"])
         if not args.attempt and not args.test:
             attempts.extend(_attempts_for_test(test["id"]))
 
     attempts = [row for row in attempts if row.get("test_id") in affected_ids]
-    return attempts, keys, modules
+    return attempts, keys
 
 
 def main() -> int:
@@ -358,7 +376,7 @@ def main() -> int:
     parser.add_argument("--commit", action="store_true", help="write changes (default: dry-run)")
     args = parser.parse_args()
 
-    attempts, keys, modules = _targets(args)
+    attempts, keys = _targets(args)
     if not attempts:
         print("không có attempt submitted nào thuộc đề grouped MCQ — không làm gì.")
         return 0
@@ -369,7 +387,6 @@ def main() -> int:
         result = _merge_grouped_result(
             attempt,
             keys[attempt["test_id"]],
-            modules[attempt["test_id"]],
         )
         if _result_changed(attempt, result, drafts):
             changed.append((attempt, result))

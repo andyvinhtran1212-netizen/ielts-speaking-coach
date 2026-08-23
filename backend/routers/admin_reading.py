@@ -1380,6 +1380,7 @@ async def admin_preview_reading_test(
 
     synthetic = {
         "test_id":          test_uuid,
+        "_admin_preview":   True,
         # 'submitted' is what makes the page render the review layout; nothing
         # is persisted, so this is a rendering hint, not a claim.
         "status":           "submitted",
