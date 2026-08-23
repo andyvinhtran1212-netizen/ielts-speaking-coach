@@ -183,6 +183,7 @@ def test_legacy_grouped_mcq_grades_reversed_stored_keys_as_unordered_set():
     )
     assert result["score"] == 2
     assert [row["correct"] for row in result["per_question"]] == [True, True]
+    assert {row["expected"] for row in result["per_question"]} == {"B, D"}
 
     # Existing attempts created by the old two-radio renderer may have the
     # same correct set in the opposite slots; they must remain gradeable too.
@@ -204,6 +205,7 @@ def test_legacy_grouped_mcq_awards_one_mark_per_distinct_correct_letter():
         key,
     )
     assert partial["score"] == 1
+    assert {row["expected"] for row in partial["per_question"]} == {"B, D"}
     assert duplicate["score"] == 1
 
 

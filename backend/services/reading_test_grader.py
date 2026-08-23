@@ -285,6 +285,14 @@ def grade_attempt(
                 for row in group
             }
             remaining.discard("")
+            expected_group_display = ", ".join(sorted(
+                {
+                    str(row.get("answer"))
+                    for row in group
+                    if row.get("answer") is not None
+                },
+                key=normalize_answer,
+            ))
             for grouped_row in group:
                 grouped_q_num = grouped_row["q_num"]
                 grouped_user_row = user_by_q.get(grouped_q_num) or {}
@@ -293,16 +301,14 @@ def grade_attempt(
                 is_correct = bool(pick) and pick in remaining
                 if is_correct:
                     remaining.remove(pick)
-                grouped_primary = grouped_row.get("answer")
-                grouped_candidates = (
-                    grouped_primary if isinstance(grouped_primary, list) else [grouped_primary]
-                )
-                grouped_candidates = [value for value in grouped_candidates if value is not None]
                 per_question.append({
                     "q_num":         grouped_q_num,
                     "correct":       is_correct,
                     "user_answer":   grouped_user_answer or "",
-                    "expected":      ", ".join(str(value) for value in grouped_candidates),
+                    # A grouped task has no canonical q_num→letter ordering.
+                    # Showing the old slot key can contradict `correct=True`,
+                    # so every row reports the complete unordered answer set.
+                    "expected":      expected_group_display,
                     "alternatives":  grouped_row.get("alternatives") or [],
                     "skill_tag":     grouped_row.get("skill_tag"),
                     "explanation":   grouped_row.get("explanation"),
