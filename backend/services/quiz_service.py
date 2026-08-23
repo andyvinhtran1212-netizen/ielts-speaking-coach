@@ -45,9 +45,6 @@ _LESSON_SRC_RE = re.compile(r"^L\d")
 # and serve agree on which questions are audio questions.
 _AUDIO_TOKEN = "{{audio}}"
 _COURSE_LISTENING_TTL = 7200
-_COURSE_SUPPLEMENT_TYPES = frozenset({
-    "course_reading", "course_listening", "course_pronunciation",
-})
 
 
 def _is_course_quiz_question(row: dict) -> bool:
@@ -1527,14 +1524,16 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     # thường, còn chặn học viên khỏi bài tập vì một lượt đọc phụ trợ thì tệ hơn.
     try:
         order = _course_mcq_order(bank_id)
+        order_ok = True
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume order read failed bank=%s: %s", bank_id, exc)
         order = []
+        order_ok = False
     answered_all = _course_answered_qids(completed) if order else None
     # Không đọc được thứ tự đề HAY không đọc được câu đã làm ⇒ lùi về cách cũ
     # (đếm phiên). Cách cũ sai ở các ca lẻ, nhưng nó KHÔNG bao giờ trả 0 cho một
     # em đã xong 8 chặng.
-    usable = bool(order) and answered_all is not None
+    usable = order_ok and bool(order) and answered_all is not None
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
@@ -1551,6 +1550,15 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume attempts failed bank=%s: %s", bank_id, exc)
         return result
+
+    # Client cũ từng ghi Reading/Listening/Pronunciation (và MCQ opt-out) vào
+    # chính quiz session. Nếu đếm các dòng ấy để chọn phiên, một phiên bổ trợ
+    # dài hơn sẽ luôn thắng phiên Grammar thật và frontend từ chối resume vì
+    # QID không khớp tiền tố đề. Khi đọc được contract bank, chỉ evidence
+    # Grammar canonical mới được tham gia cả việc chọn phiên lẫn payload trả về.
+    if order_ok:
+        grammar_qids = set(order)
+        att = [a for a in att if a.get("qid") in grammar_qids]
 
     by_session: dict[str, list[dict]] = {}
     for a in att:
@@ -3160,9 +3168,9 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     key = {q["qid"]: q for q in qrows
            if q.get("qid") and _is_course_quiz_question(q)
            and q.get("answer") is not None}
-    known_supplements = {q["qid"] for q in qrows
-                         if q.get("qid")
-                         and q.get("type") in _COURSE_SUPPLEMENT_TYPES}
+    known_non_quiz = {q["qid"] for q in qrows
+                      if q.get("qid") and q.get("type") != "writing"
+                      and not _is_course_quiz_question(q)}
     if not key:
         raise HTTPException(422, "Bộ đề không có câu trắc nghiệm nào")
     # Vân tay đề tại thời điểm xét — thứ tự độc lập (sort theo qid) vì nó phục
@@ -3188,7 +3196,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
             # bank vào lane Grammar. Chúng không được tính điểm, nhưng cũng không
             # được làm hỏng 90 câu Grammar hợp lệ đã lưu. Qid thật sự xa lạ vẫn
             # bị bác để client không thể tự co mẫu số.
-            if qid in known_supplements:
+            if qid in known_non_quiz:
                 continue
             raise HTTPException(422, "Có lượt làm không thuộc bộ đề này")
         if qid in seen:
@@ -3783,21 +3791,14 @@ def _course_stage_count(bank_id: str) -> tuple[int, int, bool]:
     dừng trước phần viết trông y hệt một em đã hoàn thành — và đó đúng là điều
     đã xảy ra với em Phương Anh Nguyễn.
     """
-    try:
-        total = (supabase_admin.table("quiz_questions").select("id", count="exact")
-                 .eq("bank_id", bank_id).limit(1).execute()).count or 0
-        writing = (supabase_admin.table("quiz_questions").select("id", count="exact")
-                   .eq("bank_id", bank_id).eq("type", "writing").limit(1).execute()).count or 0
-    except Exception as exc:  # noqa: BLE001
+    mcq_qids, writing, ok = _course_bank_shape(bank_id)
+    if not ok:
         # Không đếm được thì trả 0, và `0` được đọc là "chưa biết": nhánh gọi
         # KHÔNG bao giờ kết luận "xong" khi chưa biết cần bao nhiêu chặng.
-        #
-        # Nhưng phải NÓI RA — trả 0 im lặng thì báo cáo hiện `stale: false` rồi
-        # diễn giải tiến độ bằng dữ liệu thiếu (codex cục bộ, 05/08).
-        logger.warning("[quiz] stage count failed bank=%s: %s", bank_id, exc)
+        # `_course_bank_shape` đã log lỗi và trả cờ đọc-được để mặt admin bật
+        # `stale`, thay vì diễn giải dữ liệu thiếu như một con số thật.
         return 0, 0, False
-    graded = max(0, total - writing)
-    return -(-graded // 10), writing, True    # làm tròn lên, không cần import math
+    return -(-len(mcq_qids) // 10), writing, True
 
 
 def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:

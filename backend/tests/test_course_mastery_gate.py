@@ -257,6 +257,24 @@ def test_run_ignores_known_supplement_rows_and_attempts_in_mixed_bank():
     assert quiz["total"] == 10
 
 
+def test_run_ignores_same_bank_mcq_explicitly_opted_out_of_mastery():
+    ss = _sessions(2)
+    opted_out = {
+        "bank_id": "bank-1", "qid": "practice-only", "answer": 2,
+        "type": "mcq", "counts_toward_mastery": False,
+    }
+    questions = _questions(10) + [opted_out]
+    given = {**_given(10, wrong=1), "practice-only": 2}
+    out, _ = _verdict(
+        sessions=ss, questions=questions,
+        attempts=_attempts(ss, given),
+    )
+    assert out["passed"] is True
+    assert out["pct"] == 90.0
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["total"] == 10
+
+
 def test_run_fail_offers_retake_and_keeps_not_passed():
     ss = _sessions(2)
     out, log = _verdict(sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)))

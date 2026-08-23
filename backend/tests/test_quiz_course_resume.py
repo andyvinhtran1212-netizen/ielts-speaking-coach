@@ -287,6 +287,35 @@ def test_the_stage_comes_from_the_work_in_progress():
     assert sv["session_id"] == "s3" and len(sv["answered"]) == 8
 
 
+def test_resume_chooses_grammar_work_not_a_longer_legacy_supplement_session():
+    """Client cũ từng ghi row bổ trợ vào quiz session. Mười row ấy không được
+    thắng một phiên Grammar thật có năm câu rồi làm frontend bỏ cả hai."""
+    questions = [
+        {"bank_id": BANK, "qid": f"q{i:02d}", "type": "mcq", "order": i}
+        for i in range(90)
+    ] + [
+        {"bank_id": BANK, "qid": f"read-{i}", "type": "course_reading",
+         "counts_toward_mastery": False, "order": 90 + i}
+        for i in range(10)
+    ]
+    sv = _resume(
+        sessions=[
+            _sess("legacy-supplements", created="2026-08-06T01:00:00+00:00"),
+            _sess("grammar", created="2026-08-06T02:00:00+00:00"),
+        ],
+        attempts=[
+            {"session_id": "legacy-supplements", "qid": f"read-{i}"}
+            for i in range(10)
+        ] + [
+            {"session_id": "grammar", "qid": f"q{i:02d}"}
+            for i in range(5)
+        ],
+        questions=questions,
+    )
+    assert sv["session_id"] == "grammar"
+    assert [a["qid"] for a in sv["answered"]] == [f"q{i:02d}" for i in range(5)]
+
+
 def test_a_full_retry_does_not_resume_sessions_from_the_failed_run():
     """Dưới vùng gần đạt là failed attempt: lần mở sau phải ở chặng 1."""
     mastery = {"threshold": 75, "attempts": [{
