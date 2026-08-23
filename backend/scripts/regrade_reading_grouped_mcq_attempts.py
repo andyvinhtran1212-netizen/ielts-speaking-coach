@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -32,40 +33,44 @@ from services.mock_review_workflow import _merge_review_ai_draft  # noqa: E402
 
 
 _ATTEMPT_COLS = (
-    "id,user_id,test_id,status,score,band_estimate,answers,sitting_id,"
+    "id,user_id,test_id,status,score,band_estimate,answers,sitting_id,started_at,"
     "grading_details,skill_breakdown"
-)
-_QUESTION_COLS = (
-    "q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id"
 )
 _PAGE_SIZE = 1000
 _IN_FILTER_BATCH = 200
+_VERIFIED_GROUP_MANIFESTS = {
+    # Cam 17 Test 3 was imported/updated at 02:03:51Z; the live sitting began
+    # at 02:47Z. This static manifest proves q21–22 were already a choose-TWO
+    # group (B/C) before every in-scope submission instead of inferring history
+    # from mutable reading_questions rows.
+    "c3b2b054-0a21-4587-a787-d67a2518136f": {
+        "effective_from": "2026-08-23T02:03:51.881949+00:00",
+        "groups": (
+            {"q_nums": (21, 22), "expected": ("B", "C")},
+        ),
+    },
+}
 
 
-def _answer_key(test_uuid: str) -> list[dict]:
-    passages = (
-        supabase_admin.table("reading_passages")
-        .select("id,passage_order")
-        .eq("test_id", test_uuid)
-        .eq("library", "l3_test")
-        .execute()
-    )
-    passage_order_by_id = {
-        row["id"]: row.get("passage_order") for row in (passages.data or [])
-    }
-    if not passage_order_by_id:
-        raise RuntimeError(f"đề {test_uuid} thiếu passage l3_test — dừng, không đoán")
-    questions = (
-        supabase_admin.table("reading_questions")
-        .select(_QUESTION_COLS)
-        .in_("passage_id", list(passage_order_by_id))
-        .execute()
-    )
-    return grader.collect_answer_key(questions.data or [], passage_order_by_id)
-
-
-def _has_grouped_mcq(answer_key: list[dict]) -> bool:
-    return any(row.get("group_type") == "grouped_mcq_single" for row in answer_key)
+def _manifest_answer_key(test_uuid: str) -> list[dict]:
+    manifest = _VERIFIED_GROUP_MANIFESTS.get(test_uuid)
+    if not manifest:
+        return []
+    rows: list[dict] = []
+    for group_index, group in enumerate(manifest["groups"], start=1):
+        q_nums = group["q_nums"]
+        expected = group["expected"]
+        if len(q_nums) != len(expected):
+            raise RuntimeError(f"manifest {test_uuid} group {group_index} không cân — dừng")
+        for q_num, answer in zip(q_nums, expected):
+            rows.append({
+                "q_num": q_num,
+                "answer": answer,
+                "group_type": "grouped_mcq_single",
+                "group_key": f"verified-{test_uuid}-{group_index}",
+                "_manifest_effective_from": manifest["effective_from"],
+            })
+    return rows
 
 
 def _test_row(identifier: str) -> dict:
@@ -91,24 +96,6 @@ def _attempts_for_test(test_uuid: str) -> list[dict]:
             .select(_ATTEMPT_COLS)
             .eq("test_id", test_uuid)
             .eq("status", "submitted")
-            .order("id")
-            .range(offset, offset + _PAGE_SIZE - 1)
-            .execute()
-        )
-        page = result.data or []
-        rows.extend(page)
-        if len(page) < _PAGE_SIZE:
-            return rows
-        offset += _PAGE_SIZE
-
-
-def _all_test_rows() -> list[dict]:
-    rows: list[dict] = []
-    offset = 0
-    while True:
-        result = (
-            supabase_admin.table("reading_tests")
-            .select("id,test_id,module")
             .order("id")
             .range(offset, offset + _PAGE_SIZE - 1)
             .execute()
@@ -197,6 +184,7 @@ def _merge_grouped_result(
 ) -> dict:
     """Fix grouped ordering using only the immutable submitted snapshot."""
     groups: dict[str, list[int]] = {}
+    manifest_rows_by_group: dict[str, list[dict]] = {}
     for row in answer_key:
         if row.get("group_type") != "grouped_mcq_single":
             continue
@@ -205,6 +193,7 @@ def _merge_grouped_result(
         if not group_key or not isinstance(q_num, int):
             raise RuntimeError("answer key grouped MCQ thiếu group_key/q_num — dừng")
         groups.setdefault(str(group_key), []).append(q_num)
+        manifest_rows_by_group.setdefault(str(group_key), []).append(row)
     grouped_q_nums = {q_num for q_nums in groups.values() for q_num in q_nums}
     persisted = attempt.get("grading_details")
     if not isinstance(persisted, list) or not persisted:
@@ -230,10 +219,44 @@ def _merge_grouped_result(
             f"attempt {attempt.get('id')} thiếu snapshot grouped q_num {sorted(missing)} — dừng"
         )
 
+    effective_values = {
+        row.get("_manifest_effective_from")
+        for rows in manifest_rows_by_group.values()
+        for row in rows
+    }
+    if len(effective_values) != 1 or None in effective_values:
+        raise RuntimeError("verified group manifest thiếu effective_from duy nhất — dừng")
+    try:
+        started_at = datetime.fromisoformat(str(attempt.get("started_at") or ""))
+        effective_from = datetime.fromisoformat(str(next(iter(effective_values))))
+    except ValueError as error:
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} thiếu started_at hợp lệ — dừng"
+        ) from error
+    if started_at < effective_from:
+        raise RuntimeError(
+            f"attempt {attempt.get('id')} có trước verified grouped manifest — dừng"
+        )
+
     persisted_by_q = {row["q_num"]: row for row in persisted}
     replacements: dict[int, dict] = {}
-    for q_nums in groups.values():
+    for group_key, q_nums in groups.items():
         historical = [persisted_by_q[q_num] for q_num in sorted(q_nums)]
+        historical_expected = {
+            grader.normalize_answer(token)
+            for row in historical
+            for token in str(row.get("expected") or "").split(",")
+            if grader.normalize_answer(token)
+        }
+        manifest_expected = {
+            grader.normalize_answer(str(row.get("answer") or ""))
+            for row in manifest_rows_by_group[group_key]
+            if grader.normalize_answer(str(row.get("answer") or ""))
+        }
+        if historical_expected != manifest_expected:
+            raise RuntimeError(
+                f"attempt {attempt.get('id')} expected snapshot không khớp verified group — dừng"
+            )
         already_grouped = [
             row.get("group") == "grouped_mcq_single" for row in historical
         ]
@@ -356,14 +379,18 @@ def _targets(args: argparse.Namespace) -> tuple[list[dict], dict[str, list[dict]
         test_rows = [_test_row(args.test)]
         attempts = _attempts_for_test(test_rows[0]["id"])
     else:
-        test_rows = _all_test_rows()
+        test_rows = [_test_row(test_uuid) for test_uuid in _VERIFIED_GROUP_MANIFESTS]
         attempts = []
 
     keys: dict[str, list[dict]] = {}
     affected_ids: set[str] = set()
     for test in test_rows:
-        key = _answer_key(test["id"])
-        if not _has_grouped_mcq(key):
+        key = _manifest_answer_key(test["id"])
+        if not key:
+            if args.attempt or args.test:
+                raise SystemExit(
+                    f"đề {test['id']} chưa có verified grouped manifest — không chấm lại"
+                )
             continue
         keys[test["id"]] = key
         affected_ids.add(test["id"])

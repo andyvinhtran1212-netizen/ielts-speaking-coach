@@ -67,12 +67,6 @@ class _PagedDatabase:
         return _PagedQuery(self)
 
 
-class _PagedTestsDatabase(_PagedDatabase):
-    def table(self, name):
-        assert name == "reading_tests"
-        return _PagedQuery(self)
-
-
 def _reversed_group_result():
     options = [
         {"label": "A", "text": "Alpha"},
@@ -183,6 +177,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
         "id": "attempt-history",
         "score": 19,
         "band_estimate": 5.5,
+        "started_at": "2026-08-23T03:00:00+00:00",
         "grading_details": [
             historical_non_group,
             {
@@ -212,18 +207,16 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
         {
             "q_num": 21,
             "group_type": "grouped_mcq_single",
-            "group_key": "current-import-group",
-            "answer": "A",
-            "skill_tag": "replacement-skill",
-            "explanation": "replacement A explanation",
+            "group_key": "verified-group",
+            "answer": "D",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
         {
             "q_num": 22,
             "group_type": "grouped_mcq_single",
-            "group_key": "current-import-group",
-            "answer": "C",
-            "skill_tag": "replacement-skill",
-            "explanation": "replacement C explanation",
+            "group_key": "verified-group",
+            "answer": "B",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
     ]
 
@@ -257,6 +250,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
             "id": "attempt-history",
             "score": merged["score"],
             "band_estimate": merged["band_estimate"],
+            "started_at": "2026-08-23T03:00:00+00:00",
             "grading_details": merged["per_question"],
         },
         key,
@@ -270,11 +264,15 @@ def test_backfill_refuses_attempt_without_historical_grading_snapshot():
             "q_num": 21,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "D",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
         {
             "q_num": 22,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "B",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
     ]
 
@@ -287,6 +285,65 @@ def test_backfill_refuses_attempt_without_historical_grading_snapshot():
         assert "thiếu grading_details lịch sử" in str(error)
     else:
         raise AssertionError("missing historical snapshot must stop the backfill")
+
+
+def test_cam17_test3_manifest_locks_verified_group_version_and_answers():
+    key = backfill._manifest_answer_key(
+        "c3b2b054-0a21-4587-a787-d67a2518136f",
+    )
+
+    assert [(row["q_num"], row["answer"]) for row in key] == [
+        (21, "B"),
+        (22, "C"),
+    ]
+    assert {row["group_key"] for row in key} == {
+        "verified-c3b2b054-0a21-4587-a787-d67a2518136f-1",
+    }
+    assert {row["_manifest_effective_from"] for row in key} == {
+        "2026-08-23T02:03:51.881949+00:00",
+    }
+
+
+def test_backfill_refuses_attempt_started_before_verified_group_version():
+    key = backfill._manifest_answer_key(
+        "c3b2b054-0a21-4587-a787-d67a2518136f",
+    )
+    attempt = {
+        "id": "attempt-before-verified-version",
+        "started_at": "2026-08-23T02:03:51+00:00",
+        "grading_details": [
+            {"q_num": 21, "correct": False, "user_answer": "C", "expected": "B"},
+            {"q_num": 22, "correct": False, "user_answer": "B", "expected": "C"},
+        ],
+    }
+
+    try:
+        backfill._merge_grouped_result(attempt, key)
+    except RuntimeError as error:
+        assert "có trước verified grouped manifest" in str(error)
+    else:
+        raise AssertionError("pre-manifest attempt must not be regraded")
+
+
+def test_backfill_refuses_historical_key_that_does_not_match_verified_group():
+    key = backfill._manifest_answer_key(
+        "c3b2b054-0a21-4587-a787-d67a2518136f",
+    )
+    attempt = {
+        "id": "attempt-different-historical-key",
+        "started_at": "2026-08-23T03:00:00+00:00",
+        "grading_details": [
+            {"q_num": 21, "correct": False, "user_answer": "C", "expected": "A"},
+            {"q_num": 22, "correct": False, "user_answer": "A", "expected": "C"},
+        ],
+    }
+
+    try:
+        backfill._merge_grouped_result(attempt, key)
+    except RuntimeError as error:
+        assert "expected snapshot không khớp verified group" in str(error)
+    else:
+        raise AssertionError("mismatched historical answer key must not be regraded")
 
 
 def test_backfill_infers_academic_band_from_submitted_score_snapshot():
@@ -303,6 +360,7 @@ def test_backfill_infers_academic_band_from_submitted_score_snapshot():
         "id": "attempt-academic-before-module-reimport",
         "score": 22,
         "band_estimate": 5.5,
+        "started_at": "2026-08-23T03:00:00+00:00",
         "grading_details": [
             *non_group,
             {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
@@ -314,11 +372,15 @@ def test_backfill_infers_academic_band_from_submitted_score_snapshot():
             "q_num": 21,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "D",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
         {
             "q_num": 22,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "B",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
     ]
 
@@ -349,6 +411,7 @@ def test_backfill_preserves_none_when_low_score_stays_below_band_floor():
         "id": "attempt-low-score",
         "score": 1,
         "band_estimate": None,
+        "started_at": "2026-08-23T03:00:00+00:00",
         "grading_details": [
             {"q_num": 1, "correct": True, "skill_tag": "detail"},
             {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
@@ -360,11 +423,15 @@ def test_backfill_preserves_none_when_low_score_stays_below_band_floor():
             "q_num": 21,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "D",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
         {
             "q_num": 22,
             "group_type": "grouped_mcq_single",
             "group_key": "group-21",
+            "answer": "B",
+            "_manifest_effective_from": "2026-08-23T02:03:51+00:00",
         },
     ]
 
@@ -380,17 +447,6 @@ def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):
     monkeypatch.setattr(backfill, "supabase_admin", fake)
 
     fetched = backfill._attempts_for_test("test-1")
-
-    assert fetched == rows
-    assert fake.ranges == [(0, 999), (1000, 1999)]
-
-
-def test_backfill_paginates_default_test_scan_past_postgrest_cap(monkeypatch):
-    rows = [{"id": f"test-{index:04d}"} for index in range(1005)]
-    fake = _PagedTestsDatabase(rows)
-    monkeypatch.setattr(backfill, "supabase_admin", fake)
-
-    fetched = backfill._all_test_rows()
 
     assert fetched == rows
     assert fake.ranges == [(0, 999), (1000, 1999)]
