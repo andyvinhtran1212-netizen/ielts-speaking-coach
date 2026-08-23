@@ -795,6 +795,70 @@ describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
   });
 });
 
+describe('tương thích tiến độ trước khi tách lane Grammar (PR #1291)', () => {
+  function oldShape() {
+    return [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i)),
+      sectionQuestion(1, 'mcq', { counts_toward_mastery: true }),
+      sectionQuestion(2, 'mcq', { counts_toward_mastery: true }),
+      sectionQuestion(3, 'mcq', {
+        counts_toward_mastery: true, options: null, answer: null,
+      }),
+    ];
+  }
+
+  function canonicalShape(over = {}) {
+    return [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i, i === 0 ? over : {})),
+      sectionQuestion(1, 'course_reading'),
+      sectionQuestion(2, 'course_listening'),
+      sectionQuestion(3, 'course_pronunciation', { options: null, answer: null }),
+    ];
+  }
+
+  test('phiên Grammar đang dở được nhận lại, không quay về câu đầu', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    const list = first.r.stageQuestions();
+    for (let i = 0; i < 5; i++) {
+      first.r.show(); first.r.answer(list[i].answer); first.r.next();
+    }
+    await first.r.leave();
+
+    const second = await run({ storage: store, questions: canonicalShape() });
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.at, 5, 'phải tiếp tục ở câu Grammar thứ 6');
+    assert.equal(second.r.runSessionCount, 0);
+    assert.equal(second.api.calls.post.filter(
+      (c) => c.path === '/api/quiz/sessions').length, 0,
+      'dùng lại phiên canonical trên server, không mở phiên mới từ chặng 1');
+  });
+
+  test('chặng Grammar đã chốt được giữ khi fingerprint chỉ hẹp lane', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    await playStage(first.r);
+
+    const second = await run({ storage: store, questions: canonicalShape() });
+    assert.equal(second.r.stage, 1, 'server phải đưa học viên tới chặng Grammar 2');
+    assert.equal(second.r.runSessionCount, 1);
+  });
+
+  test('đổi đáp án thật vẫn reset, không mượn đường tương thích legacy', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    await playStage(first.r);
+
+    const second = await run({
+      storage: store, questions: canonicalShape({ answer: 1 }),
+    });
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.at, 0);
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên chấm theo đáp án cũ không được lẫn vào lượt mới');
+  });
+});
+
 describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
   test('chuyển lớp → giao lại cùng bank: mục khác là lượt mới sạch', async () => {
     const store = memStore();
