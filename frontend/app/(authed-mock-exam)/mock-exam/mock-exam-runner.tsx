@@ -16,6 +16,8 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   MOCK_LIVE_STATUSES,
   MOCK_SECTION_LABELS,
+  MOCK_WRITING_GUIDANCE,
+  MOCK_WRITING_TIME_SHARE_TOTAL,
   canDiscardWritingDrafts,
   chooseWritingDraft,
   configuredMockSections,
@@ -27,6 +29,7 @@ import {
   mockSpeakingHref,
   mockSpeakingTopic,
   mockWordCount,
+  mockWritingTimeAllocation,
   normalizeIntegrity,
   normalizeMockExamState,
   parseLocalWritingDraft,
@@ -58,6 +61,7 @@ interface MockState {
     writingTask1: Prompt | null;
     writingTask2: Prompt | null;
     speakingTopicSet: Record<string, unknown>;
+    writingMinutes: number;
     reviewSlaDays: number;
   };
   examMode: 'sequential' | 'retake';
@@ -69,6 +73,7 @@ interface MockState {
 }
 
 interface Prompt {
+  taskType: string | null;
   title: string;
   promptText: string;
   promptImageUrl: string | null;
@@ -253,9 +258,10 @@ function SubmittedCard({ state, onSpeaking, openingSpeaking }: {
   );
 }
 
-function WritingWorkspace({ state, register, locked = false }: {
+function WritingWorkspace({ state, register, remaining, locked = false }: {
   state: MockState;
   register(bridge: WritingBridge | null): void;
+  remaining: number;
   locked?: boolean;
 }) {
   const sittingId = state.sitting.id;
@@ -474,6 +480,39 @@ function WritingWorkspace({ state, register, locked = false }: {
   };
   const prompt = task === 'task1' ? state.exam.writingTask1 : state.exam.writingTask2;
   const value = task === 'task1' ? task1 : task2;
+  const counts = { task1: mockWordCount(task1), task2: mockWordCount(task2) };
+  const guidance = MOCK_WRITING_GUIDANCE[task];
+  const timeAllocation = mockWritingTimeAllocation(
+    state.sectionDurationSeconds,
+    state.exam.writingMinutes,
+  );
+  const recommendedMinutes = task === 'task1'
+    ? timeAllocation.task1Minutes
+    : timeAllocation.task2Minutes;
+  const timeGuidance = recommendedMinutes == null
+    ? `Gợi ý khoảng ${guidance.timeShare}/${MOCK_WRITING_TIME_SHARE_TOTAL} thời gian`
+    : `Gợi ý ${recommendedMinutes} phút`;
+  const currentCount = counts[task];
+  const targetReached = currentCount >= guidance.minWords;
+  const taskVariant = task === 'task1' && prompt?.taskType === 'task1_academic' ? 'Academic'
+    : task === 'task1' && prompt?.taskType === 'task1_general' ? 'General Training' : null;
+  const taskInstruction = task === 'task2'
+    ? 'Trình bày lập trường rõ ràng, phát triển luận điểm và dùng ví dụ phù hợp.'
+    : prompt?.taskType === 'task1_academic'
+      ? 'Tóm tắt và so sánh các đặc điểm chính của thông tin trực quan; không cần nêu ý kiến cá nhân.'
+      : prompt?.taskType === 'task1_general'
+        ? 'Viết một lá thư đúng vai trò, mục đích và giọng điệu được yêu cầu; bao quát các ý gợi dẫn.'
+        : 'Thực hiện đúng yêu cầu trong đề và trình bày một câu trả lời hoàn chỉnh.';
+  const shortTasks = (['task1', 'task2'] as const).filter((name) => (
+    counts[name] < MOCK_WRITING_GUIDANCE[name].minWords
+  ));
+  const taskStatus = (name: 'task1' | 'task2') => {
+    const count = counts[name];
+    const target = MOCK_WRITING_GUIDANCE[name].minWords;
+    if (count === 0) return 'Chưa bắt đầu';
+    if (count >= target) return 'Đạt mức tối thiểu';
+    return `${count}/${target} từ`;
+  };
   const splitStyle = { '--mw-split': `${split}%` } as CSSProperties;
 
   return (
@@ -488,7 +527,10 @@ function WritingWorkspace({ state, register, locked = false }: {
               role="tab"
               type="button"
               onClick={() => setTask(name)}
-            >Task {index + 1}</button>
+            >
+              <span className="me-tab__label">Task {index + 1}</span>
+              <span className="me-tab__status">{taskStatus(name)}</span>
+            </button>
           ))}
         </div>
         <span className={`mw-savecue${saveCue === 'failed' || localBackupFailed ? ' is-failed' : ''}`} role="status" aria-live="polite">
@@ -514,10 +556,33 @@ function WritingWorkspace({ state, register, locked = false }: {
           ))}
         </div>
       </div>
+      {remaining > 0 && remaining <= 600 && shortTasks.length ? (
+        <div className="mw-time-guidance">
+          <strong>Còn {formatMockTime(remaining)}</strong>
+          <span>
+            {shortTasks.map((name) => `Task ${name === 'task1' ? '1' : '2'} còn thiếu ${MOCK_WRITING_GUIDANCE[name].minWords - counts[name]} từ`).join(' · ')}.
+             Đây là mốc độ dài, không phải đánh giá chất lượng bài viết.
+          </span>
+        </div>
+      ) : null}
       <div className="mw-split" data-layout={layout} ref={splitRef} style={splitStyle}>
         <section className="mw-pane mw-pane--prompt" aria-label="Đề bài">
-          <div className="me-muted me-prompt-text">
-            {prompt ? <>{prompt.title ? <strong>{prompt.title} — </strong> : null}{prompt.promptText}</> : `(Không có đề ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
+          <header className="mw-prompt-head">
+            <p>WRITING TASK {task === 'task1' ? '1' : '2'}</p>
+            <h1>{prompt?.title || `Task ${task === 'task1' ? '1' : '2'}`}</h1>
+            <div className="mw-task-meta" aria-label="Thông tin task">
+              <span>Ít nhất {guidance.minWords} từ</span>
+              <span>{timeGuidance}</span>
+              {taskVariant ? <span>{taskVariant}</span> : null}
+              {guidance.scoreWeight === 2 ? <span>Trọng số gấp 2 Task 1</span> : null}
+            </div>
+          </header>
+          <aside className="mw-instructions">
+            <strong>Hướng dẫn</strong>
+            <p>{taskInstruction}</p>
+          </aside>
+          <div className="me-prompt-text">
+            {prompt?.promptText || `(Không có đề ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
           </div>
           {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Biểu đồ hoặc hình minh hoạ của đề Task 1" /> : null}
         </section>
@@ -537,15 +602,35 @@ function WritingWorkspace({ state, register, locked = false }: {
           onPointerUp={pointerUp}
         />
         <section className="mw-pane mw-pane--editor" aria-label="Khung viết bài">
+          <header className="mw-editor-head">
+            <div><span>BÀI LÀM</span><strong>Task {task === 'task1' ? '1' : '2'}</strong></div>
+            <span className={`mw-target-state${targetReached ? ' is-ready' : ''}`}>
+              {targetReached ? 'Đã đạt mức tối thiểu' : `Còn ${guidance.minWords - currentCount} từ đến mức tối thiểu`}
+            </span>
+          </header>
           <textarea
             aria-label={`Bài viết ${task === 'task1' ? 'Task 1' : 'Task 2'}`}
+            aria-describedby={`mock-writing-count-${task}`}
+            autoCorrect="off"
             className="me-essay"
             placeholder={`Viết ${task === 'task1' ? 'Task 1' : 'Task 2'}…`}
             readOnly={locked}
+            spellCheck={false}
             value={value}
             onChange={(event) => edit(task, event.target.value)}
           />
-          <div className="me-count">{mockWordCount(value)} từ</div>
+          <div className="mw-count-row" id={`mock-writing-count-${task}`}>
+            <strong>{currentCount} từ</strong>
+            <span>Mức tối thiểu: {guidance.minWords} từ</span>
+          </div>
+          <div
+            aria-label={`Tiến độ số từ Task ${task === 'task1' ? '1' : '2'}`}
+            aria-valuemax={guidance.minWords}
+            aria-valuemin={0}
+            aria-valuenow={Math.min(currentCount, guidance.minWords)}
+            className={`mw-word-progress${targetReached ? ' is-ready' : ''}`}
+            role="progressbar"
+          ><span style={{ width: `${Math.min(100, currentCount / guidance.minWords * 100)}%` }} /></div>
         </section>
       </div>
     </div>
@@ -1078,7 +1163,7 @@ export function MockExamRunner() {
       {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">⚠ Sắp hết giờ phần này — bài sẽ tự nộp khi hết giờ.</div> : null}
       <section className="me-panels" aria-label={renderedSection ? `Phần thi ${renderedSection}` : 'Phần thi'}>
         {renderedSection === 'writing'
-          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} locked={awaitingCollectionFlush} />
+          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} remaining={remaining} locked={awaitingCollectionFlush} />
           : frameSrc
             ? <iframe inert={awaitingCollectionFlush} ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
             : <ErrorCard message="Kỳ thi thiếu nội dung cho phần đang mở. Liên hệ giám thị." />}

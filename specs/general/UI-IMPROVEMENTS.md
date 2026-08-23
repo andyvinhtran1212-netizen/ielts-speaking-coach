@@ -3037,3 +3037,115 @@ show the stronger two-layer warning without false reassurance.
 - Independent review: send only the final repository diff to Claude with tool
   access disabled; remediate any validated P0–P2 finding and rerun the affected
   layer plus the full focused gates.
+
+---
+
+# Learner Mock Test exam-fidelity remediation — 2026-08-23
+
+## Summary
+
+The Mock runner already shares Reading and Listening through the stable core
+player admission route, but fresh admission remains on Legacy while the latest
+native redesign is staged behind Gate E. This batch deliberately does not flip
+renderer policy. It removes Mock-only nested learner chrome from the admitted
+Legacy Listening player and upgrades the native Mock Writing workspace without
+changing answer, timer, save, collection or submission contracts.
+
+## High-priority improvements completed
+
+### Issue: Listening exposed a second product navigation inside the exam room
+
+**Current state:** the embedded Legacy page rendered `<aver-chrome>` plus its
+library header below the Mock room timer.
+
+**Problem:** duplicate navigation consumed exam space and offered an irrelevant
+escape route, while Reading correctly retained only its task-specific exam
+tools.
+
+**Recommendation applied:** scope embed CSS to `body.av-page`; hide the learner
+chrome and library header, widen the Listening paper to the Mock viewport, and
+leave Reading's `.exam-topbar` untouched.
+
+**Impact:** one room-level timer and navigation hierarchy, with skill-specific
+audio and question controls preserved.
+
+### Issue: Writing showed a generic editor without task-completion guidance
+
+**Current state:** Task tabs carried no progress, the editor showed only a raw
+word count, and learners received no persistent 150/250-word, 20/40-minute or
+Task 2 weighting context.
+
+**Problem:** a learner could reach automatic collection with a blank or very
+short task without noticing, even though the admin queue later applies those
+same word minimums.
+
+**Recommendation applied:** add canonical per-task guidance, honest tab states,
+structured prompt hierarchy, word progress and a ten-minute short-task warning.
+“Enough words” is never labelled “complete” and the warning explicitly states
+that length is not a quality judgement. Spellcheck and autocorrect are disabled
+for exam fidelity. Existing server/device save truth remains unchanged.
+
+**Impact:** learners can allocate attention between both tasks and identify an
+incomplete-length response before collection without receiving false quality
+reassurance.
+
+## Positive observations preserved
+
+- Reading keeps its display settings, Hide/Help controls, split paper and exam
+  palette; the Mock embed patch does not flatten task-specific behavior.
+- Writing keeps four pane layouts, pointer and keyboard resizing, responsive
+  stacking, canonical autosave, local recovery and collection freeze.
+- No renderer cutover, API, schema, scoring or timer behavior changes are part
+  of this UI remediation.
+
+## Verification
+
+- Focused source/model suite: 48 tests passed.
+- Strict TypeScript: `tsc --noEmit --incremental false` passed.
+- Hermetic browser journey: 34/34 checks passed, including desktop, 390×844,
+  dark theme, page-level overflow, save failure, lost ACK and collection flows.
+- Visual QA used populated Writing fixtures at 1280×900, 390×844 and dark
+  1280×900. Developer cache overlays are excluded from product assessment.
+
+## Independent Claude review
+
+- Accepted P2: Task 1 guidance now reads canonical `task_type` and distinguishes
+  Academic visual-information analysis from General Training letter writing;
+  unknown historical types receive neutral instructions instead of guessed
+  chart guidance.
+- Accepted the coverage part of Claude's Listening selector concern: regression
+  tests now pin the actual Legacy Listening `av-page`/`ft-shell` DOM and the
+  separate Reading `exam-chrome`/`exam-topbar` DOM, not only hook source text.
+- Rejected the claimed cross-surface regression after repository validation:
+  the admitted Reading page uses `body.exam-chrome`, never `body.av-page`, so
+  the Listening-only selector cannot remove Reading tools.
+- Rejected the warning-token concern: `--av-warning-soft` is defined in light,
+  explicit dark and system-dark token scopes and was visually checked in dark
+  mode.
+- Rejected the heading concern: the Writing prompt heading is the sole `<h1>`
+  in the mounted exam-workspace state; waiting/submitted states are mutually
+  exclusive, and Task switching keeps exactly one page heading mounted.
+- Claude's final follow-up confirmed all four concerns closed and found no new
+  actionable P0–P2 issue; Gate E admission remains unchanged.
+
+## Final independent-review remediation
+
+- The ten-minute Writing guidance is visual context only. Its ticking clock is
+  no longer an `aria-live` region, preventing per-second screen-reader
+  announcements from masking autosave and collection messages.
+- Task 1/2 time guidance now follows the canonical server section duration at a
+  1:2 allocation. A 40-minute section shows 13/27 minutes rather than the fixed
+  20/40-minute full-test recommendation; extremely short fixtures fall back to
+  proportional wording instead of impossible minute totals.
+- Active-tab progress text now uses the full on-primary token. The previous 78%
+  alpha colour measured about 4.00:1 on the light primary surface and did not
+  meet WCAG AA for small text.
+- Browser QA now freezes the 09:00 countdown, exercises the final-ten-minute
+  banner in dark mode, checks its computed background, and covers the 900px
+  toolbar band. Listening/Reading source sentinels also match body classes and
+  hidden selectors structurally instead of relying on whitespace-exact strings.
+- Follow-up review hardened the same contracts further: configured-duration
+  fallback and zero/invalid inputs are covered in model tests, the 1:2 time
+  ratio is derived from one canonical guidance table, warning text uses the
+  primary readable text token, and Listening tests pin the direct-child DOM
+  relationships required by the embed selectors.
