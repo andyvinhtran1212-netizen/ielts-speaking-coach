@@ -49,6 +49,7 @@ _VERIFIED_GROUP_MANIFESTS = {
         # attempts began between 02:47:53.054214Z and 02:48:06.259367Z.
         # Future imports/attempts can therefore never enter this backfill.
         "effective_until": "2026-08-23T02:48:07+00:00",
+        "module": "academic",
         "groups": (
             {"q_nums": (21, 22), "expected": ("B", "C")},
         ),
@@ -74,6 +75,7 @@ def _manifest_answer_key(test_uuid: str) -> list[dict]:
                 "group_key": f"verified-{test_uuid}-{group_index}",
                 "_manifest_effective_from": manifest["effective_from"],
                 "_manifest_effective_until": manifest["effective_until"],
+                "_manifest_module": manifest["module"],
             })
     return rows
 
@@ -167,7 +169,7 @@ def _result_changed(attempt: dict, result: dict, drafts: dict[str, dict | None])
     return persisted_changed or draft_changed
 
 
-def _submission_module(attempt: dict) -> str:
+def _submission_module(attempt: dict, verified_module: str | None = None) -> str:
     """Infer the immutable band table from the persisted score/band pair."""
     score = attempt.get("score")
     persisted_band = attempt.get("band_estimate")
@@ -177,6 +179,18 @@ def _submission_module(attempt: dict) -> str:
         and persisted_band is not None
         and grader.band_estimate(score, module="academic") == persisted_band
     ):
+        return "academic"
+    if (
+        verified_module == "academic"
+        and isinstance(score, int)
+        and not isinstance(score, bool)
+        and score < 4
+        and persisted_band is None
+    ):
+        # Below the published floor, the persisted score/band pair cannot
+        # identify a module. The immutable manifest can: this exact cohort is
+        # verified Academic, so a correction crossing raw 4 can be banded
+        # without consulting mutable reading_tests.module.
         return "academic"
     raise RuntimeError(
         f"attempt {attempt.get('id')} không suy ra chắc chắn bảng band lúc submitted — dừng"
@@ -236,6 +250,15 @@ def _merge_grouped_result(
         value is None for value in next(iter(effective_windows), ())
     ):
         raise RuntimeError("verified group manifest thiếu version window duy nhất — dừng")
+    manifest_modules = {
+        row.get("_manifest_module")
+        for rows in manifest_rows_by_group.values()
+        for row in rows
+        if row.get("_manifest_module") is not None
+    }
+    if len(manifest_modules) > 1:
+        raise RuntimeError("verified group manifest có module không nhất quán — dừng")
+    verified_module = next(iter(manifest_modules), None)
     try:
         started_at = datetime.fromisoformat(str(attempt.get("started_at") or ""))
         effective_from_raw, effective_until_raw = next(iter(effective_windows))
@@ -361,7 +384,7 @@ def _merge_grouped_result(
         # inference and must not abort the rest of a batch.
         next_band = None
     else:
-        submission_module = _submission_module(attempt)
+        submission_module = _submission_module(attempt, verified_module)
         next_band = grader.band_estimate(score, module=submission_module)
     return {
         "score": score,

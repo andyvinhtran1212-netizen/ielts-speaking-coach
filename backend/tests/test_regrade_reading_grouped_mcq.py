@@ -309,6 +309,7 @@ def test_cam17_test3_manifest_locks_verified_group_version_and_answers():
     assert {row["_manifest_effective_until"] for row in key} == {
         "2026-08-23T02:48:07+00:00",
     }
+    assert {row["_manifest_module"] for row in key} == {"academic"}
 
 
 def test_backfill_refuses_attempt_started_before_verified_group_version():
@@ -477,6 +478,29 @@ def test_backfill_infers_academic_band_from_submitted_score_snapshot():
 
     assert result["score"] == 24
     assert result["band_estimate"] == 6.0
+
+
+def test_backfill_uses_verified_module_when_low_score_crosses_band_floor():
+    attempt = {
+        "id": "attempt-low-score-crosses-floor",
+        "score": 2,
+        "band_estimate": None,
+        "started_at": "2026-08-23T02:47:55+00:00",
+        "grading_details": [
+            {"q_num": 1, "correct": True, "skill_tag": "detail"},
+            {"q_num": 2, "correct": True, "skill_tag": "detail"},
+            {"q_num": 21, "correct": False, "user_answer": "C", "expected": "B"},
+            {"q_num": 22, "correct": False, "user_answer": "B", "expected": "C"},
+        ],
+    }
+    key = backfill._manifest_answer_key(
+        "c3b2b054-0a21-4587-a787-d67a2518136f",
+    )
+
+    result = backfill._merge_grouped_result(attempt, key)
+
+    assert result["score"] == 4
+    assert result["band_estimate"] == 2.5
 
 
 def test_backfill_refuses_ambiguous_submission_band_table():
