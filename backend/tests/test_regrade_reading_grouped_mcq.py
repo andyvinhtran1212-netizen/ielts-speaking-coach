@@ -169,7 +169,6 @@ def test_backfill_detects_result_or_mock_draft_drift():
 
 
 def test_backfill_preserves_unrelated_historical_grading_rows():
-    fresh_group = _reversed_group_result()
     historical_non_group = {
         "q_num": 1,
         "correct": False,
@@ -180,18 +179,6 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
         "explanation": "historical explanation",
         "passage_order": 1,
     }
-    fresh_result = {
-        **fresh_group,
-        "per_question": [
-            {
-                **historical_non_group,
-                "correct": True,
-                "expected": "replacement import key",
-                "explanation": "replacement import explanation",
-            },
-            *fresh_group["per_question"],
-        ],
-    }
     attempt = {
         "id": "attempt-history",
         "grading_details": [
@@ -199,44 +186,94 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
             {
                 "q_num": 21,
                 "correct": False,
-                "skill_tag": "detail",
+                "user_answer": "B",
+                "expected": "D",
+                "alternatives": ["historical D alternative"],
+                "skill_tag": "historical-detail-21",
+                "explanation": "historical D explanation",
                 "passage_order": 2,
             },
             {
                 "q_num": 22,
                 "correct": False,
-                "skill_tag": "detail",
+                "user_answer": "D",
+                "expected": "B",
+                "alternatives": ["historical B alternative"],
+                "skill_tag": "historical-detail-22",
+                "explanation": "historical B explanation",
                 "passage_order": 2,
             },
         ],
     }
     key = [
         {"q_num": 1},
-        {"q_num": 21, "group_type": "grouped_mcq_single"},
-        {"q_num": 22, "group_type": "grouped_mcq_single"},
+        {
+            "q_num": 21,
+            "group_type": "grouped_mcq_single",
+            "group_key": "current-import-group",
+            "answer": "A",
+            "skill_tag": "replacement-skill",
+            "explanation": "replacement A explanation",
+        },
+        {
+            "q_num": 22,
+            "group_type": "grouped_mcq_single",
+            "group_key": "current-import-group",
+            "answer": "C",
+            "skill_tag": "replacement-skill",
+            "explanation": "replacement C explanation",
+        },
     ]
 
-    merged = backfill._merge_grouped_result(attempt, fresh_result, key, "academic")
+    merged = backfill._merge_grouped_result(attempt, key, "academic")
 
     assert merged["per_question"][0] == historical_non_group
+    assert merged["per_question"][1] == {
+        "q_num": 21,
+        "correct": True,
+        "user_answer": "B",
+        "expected": "B, D",
+        "alternatives": ["historical B alternative"],
+        "skill_tag": "historical-detail-21",
+        "explanation": "historical B explanation",
+        "passage_order": 2,
+        "group": "grouped_mcq_single",
+        "rationale_q_num": 22,
+    }
+    assert merged["per_question"][2]["explanation"] == "historical D explanation"
+    assert merged["per_question"][2]["rationale_q_num"] == 21
     assert merged["score"] == 2
     assert merged["skill_breakdown"] == {
         "inference": {"correct": 0, "total": 1},
-        "detail": {"correct": 2, "total": 2},
+        "historical-detail-21": {"correct": 1, "total": 1},
+        "historical-detail-22": {"correct": 1, "total": 1},
     }
+
+    rerun = backfill._merge_grouped_result(
+        {"id": "attempt-history", "grading_details": merged["per_question"]},
+        key,
+        "academic",
+    )
+    assert rerun == merged
 
 
 def test_backfill_refuses_attempt_without_historical_grading_snapshot():
-    result = _reversed_group_result()
     key = [
-        {"q_num": 21, "group_type": "grouped_mcq_single"},
-        {"q_num": 22, "group_type": "grouped_mcq_single"},
+        {
+            "q_num": 21,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
+        {
+            "q_num": 22,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
     ]
 
     try:
         backfill._merge_grouped_result(
             {"id": "attempt-no-snapshot", "grading_details": []},
-            result,
             key,
             "academic",
         )

@@ -177,17 +177,20 @@ def _result_changed(attempt: dict, result: dict, drafts: dict[str, dict | None])
 
 def _merge_grouped_result(
     attempt: dict,
-    fresh_result: dict,
     answer_key: list[dict],
     module: str,
 ) -> dict:
-    """Replace only grouped rows in the immutable submitted grading snapshot."""
-    grouped_q_nums = {
-        row.get("q_num")
-        for row in answer_key
-        if row.get("group_type") == "grouped_mcq_single"
-        and isinstance(row.get("q_num"), int)
-    }
+    """Fix grouped ordering using only the immutable submitted snapshot."""
+    groups: dict[str, list[int]] = {}
+    for row in answer_key:
+        if row.get("group_type") != "grouped_mcq_single":
+            continue
+        group_key = row.get("group_key")
+        q_num = row.get("q_num")
+        if not group_key or not isinstance(q_num, int):
+            raise RuntimeError("answer key grouped MCQ thiếu group_key/q_num — dừng")
+        groups.setdefault(str(group_key), []).append(q_num)
+    grouped_q_nums = {q_num for q_nums in groups.values() for q_num in q_nums}
     persisted = attempt.get("grading_details")
     if not isinstance(persisted, list) or not persisted:
         raise RuntimeError(
@@ -212,20 +215,60 @@ def _merge_grouped_result(
             f"attempt {attempt.get('id')} thiếu snapshot grouped q_num {sorted(missing)} — dừng"
         )
 
-    grouped_fresh = {
-        row.get("q_num"): row
-        for row in fresh_result.get("per_question") or []
-        if row.get("q_num") in grouped_q_nums
-    }
-    if grouped_q_nums - set(grouped_fresh):
-        raise RuntimeError(
-            f"attempt {attempt.get('id')} không tạo đủ verdict grouped — dừng"
-        )
+    persisted_by_q = {row["q_num"]: row for row in persisted}
+    replacements: dict[int, dict] = {}
+    for q_nums in groups.values():
+        historical = [persisted_by_q[q_num] for q_num in sorted(q_nums)]
+        already_grouped = [
+            row.get("group") == "grouped_mcq_single" for row in historical
+        ]
+        if all(already_grouped):
+            replacements.update({row["q_num"]: row for row in historical})
+            continue
+        if any(already_grouped):
+            raise RuntimeError(
+                f"attempt {attempt.get('id')} có snapshot grouped dở dang — dừng"
+            )
 
-    merged = [
-        grouped_fresh.get(row.get("q_num"), row)
-        for row in persisted
-    ]
+        remaining_by_answer: dict[str, list[dict]] = {}
+        for row in historical:
+            expected = str(row.get("expected") or "").strip()
+            normalized = grader.normalize_answer(expected)
+            if not normalized or "," in expected:
+                raise RuntimeError(
+                    f"attempt {attempt.get('id')} thiếu expected lịch sử đơn trị ở q{row['q_num']} — dừng"
+                )
+            remaining_by_answer.setdefault(normalized, []).append(row)
+
+        expected_display = ", ".join(sorted(
+            {str(row.get("expected")).strip() for row in historical},
+            key=grader.normalize_answer,
+        ))
+        group_explanation = "\n\n".join(
+            f"{row.get('expected')}: {row.get('explanation')}"
+            for row in historical
+            if row.get("explanation")
+        ) or None
+
+        for display_row in historical:
+            pick = grader.normalize_answer(str(display_row.get("user_answer") or ""))
+            matched_rows = remaining_by_answer.get(pick) or []
+            matched_row = matched_rows.pop(0) if pick and matched_rows else None
+            replacement = {
+                **display_row,
+                "correct": matched_row is not None,
+                "expected": expected_display,
+                "group": "grouped_mcq_single",
+                "rationale_q_num": matched_row.get("q_num") if matched_row else None,
+                "explanation": (
+                    matched_row.get("explanation") if matched_row else group_explanation
+                ),
+            }
+            if matched_row:
+                replacement["alternatives"] = matched_row.get("alternatives") or []
+            replacements[display_row["q_num"]] = replacement
+
+    merged = [replacements.get(row["q_num"], row) for row in persisted]
     merged.sort(key=lambda row: row.get("q_num") or 0)
     score = sum(1 for row in merged if row.get("correct"))
     return {
@@ -323,14 +366,8 @@ def main() -> int:
     drafts = _review_drafts([row.get("sitting_id") for row in attempts])
     changed: list[tuple[dict, dict]] = []
     for attempt in attempts:
-        fresh_result = grader.grade_attempt(
-            attempt.get("answers") or [],
-            keys[attempt["test_id"]],
-            module=modules[attempt["test_id"]],
-        )
         result = _merge_grouped_result(
             attempt,
-            fresh_result,
             keys[attempt["test_id"]],
             modules[attempt["test_id"]],
         )
