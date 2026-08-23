@@ -23,6 +23,7 @@ persist to `reading_test_attempts` (mig 087, RLS user-scoped).
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from services.listening_test_grader import answer_matches, normalize_answer
@@ -125,6 +126,23 @@ def by_part_breakdown(
 # ── Per-answer-key extraction (mirrors listening's collect_answer_key) ─
 
 
+def _option_fingerprint(payload: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    """Mirror the two Reading renderers' option-bank equality contract."""
+    options = payload.get("options") or []
+    fingerprint: list[tuple[str, str]] = []
+    for option in options:
+        if isinstance(option, str):
+            fingerprint.append((option, option))
+            continue
+        if isinstance(option, dict):
+            text = str(option.get("text") or "")
+            label = option.get("label")
+            fingerprint.append((str(label if label is not None else text), text))
+            continue
+        fingerprint.append(("", ""))
+    return tuple(fingerprint)
+
+
 def collect_answer_key(
     question_rows: list[dict[str, Any]],
     passage_order_by_id: dict[str, int] | None = None,
@@ -160,7 +178,48 @@ def collect_answer_key(
             "skill_tag":     row.get("skill_tag"),
             "explanation":   row.get("explanation"),
             "passage_order": (passage_order_by_id or {}).get(row.get("passage_id")),
+            # Internal grouping metadata. These values never leave the grader;
+            # they let legacy Cambridge choose-TWO/THREE rows retain their
+            # independently persisted q_nums while being scored as one set.
+            "_passage_id":    row.get("passage_id"),
+            "_prompt":        str(row.get("prompt") or "").strip(),
+            "_options":       _option_fingerprint(row.get("payload") or {}),
         })
+
+    ordered = sorted(out, key=lambda item: item.get("q_num") or 0)
+    index = 0
+    while index < len(ordered):
+        first = ordered[index]
+        prompt = first.get("_prompt") or ""
+        authored = re.search(r"\b(TWO|THREE)\b", prompt, flags=re.IGNORECASE)
+        choose = 2 if authored and authored.group(1).upper() == "TWO" else (
+            3 if authored and authored.group(1).upper() == "THREE" else 0
+        )
+        if first.get("question_type") != "mcq_single" or not choose:
+            index += 1
+            continue
+
+        end = index + 1
+        while end < len(ordered):
+            current = ordered[end]
+            previous = ordered[end - 1]
+            if (
+                current.get("question_type") != "mcq_single"
+                or current.get("_prompt") != prompt
+                or current.get("_options") != first.get("_options")
+                or current.get("_passage_id") != first.get("_passage_id")
+                or current.get("q_num") != previous.get("q_num") + 1
+            ):
+                break
+            end += 1
+
+        candidate = ordered[index:end]
+        if len(candidate) == choose:
+            group_key = f"grouped-mcq-{first['q_num']}"
+            for item in candidate:
+                item["group_key"] = group_key
+                item["group_type"] = "grouped_mcq_single"
+        index = end
     return out
 
 
@@ -195,6 +254,13 @@ def grade_attempt(
     user_by_q = {ua.get("q_num"): ua for ua in user_answers if isinstance(ua.get("q_num"), int)}
     per_question: list[dict[str, Any]] = []
 
+    grouped_mcq: dict[str, list[dict[str, Any]]] = {}
+    for ak in answer_key:
+        group_key = ak.get("group_key")
+        if group_key and ak.get("group_type") == "grouped_mcq_single":
+            grouped_mcq.setdefault(group_key, []).append(ak)
+    graded_groups: set[str] = set()
+
     for ak in sorted(answer_key, key=lambda r: r.get("q_num") or 0):
         q_num = ak.get("q_num")
         if not isinstance(q_num, int):
@@ -207,6 +273,43 @@ def grade_attempt(
         ua_row = user_by_q.get(q_num) or {}
         user_answer = ua_row.get("user_answer")
         qtype = ak.get("question_type")
+
+        group_key = ak.get("group_key")
+        if group_key and ak.get("group_type") == "grouped_mcq_single":
+            if group_key in graded_groups:
+                continue
+            graded_groups.add(group_key)
+            group = sorted(grouped_mcq[group_key], key=lambda row: row.get("q_num") or 0)
+            remaining = {
+                normalize_answer(str(row.get("answer") or ""))
+                for row in group
+            }
+            remaining.discard("")
+            for grouped_row in group:
+                grouped_q_num = grouped_row["q_num"]
+                grouped_user_row = user_by_q.get(grouped_q_num) or {}
+                grouped_user_answer = grouped_user_row.get("user_answer")
+                pick = normalize_answer(str(grouped_user_answer or ""))
+                is_correct = bool(pick) and pick in remaining
+                if is_correct:
+                    remaining.remove(pick)
+                grouped_primary = grouped_row.get("answer")
+                grouped_candidates = (
+                    grouped_primary if isinstance(grouped_primary, list) else [grouped_primary]
+                )
+                grouped_candidates = [value for value in grouped_candidates if value is not None]
+                per_question.append({
+                    "q_num":         grouped_q_num,
+                    "correct":       is_correct,
+                    "user_answer":   grouped_user_answer or "",
+                    "expected":      ", ".join(str(value) for value in grouped_candidates),
+                    "alternatives":  grouped_row.get("alternatives") or [],
+                    "skill_tag":     grouped_row.get("skill_tag"),
+                    "explanation":   grouped_row.get("explanation"),
+                    "passage_order": grouped_row.get("passage_order"),
+                    "group":         "grouped_mcq_single",
+                })
+            continue
 
         # Sprint 20.14b — mcq_multi uses set-equality, not the default
         # "any candidate matches" semantics. The user picks N checkboxes;

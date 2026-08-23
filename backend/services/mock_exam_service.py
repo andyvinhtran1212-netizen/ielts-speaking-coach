@@ -2493,7 +2493,7 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
         passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
         q_rows = (
             supabase_admin.table("reading_questions")
-            .select("q_num,answer,skill_tag,explanation,passage_id")
+            .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
             .in_("passage_id", list(passage_order_by_id.keys())).execute().data
             if passage_order_by_id else []
         )
