@@ -10,6 +10,12 @@ export const MOCK_SECTION_LABELS = Object.freeze({
   reading: '📖 Reading',
   writing: '✍️ Writing',
 });
+export const MOCK_WRITING_GUIDANCE = Object.freeze({
+  task1: Object.freeze({ minWords: 150, timeShare: 1, scoreWeight: 1 }),
+  task2: Object.freeze({ minWords: 250, timeShare: 2, scoreWeight: 2 }),
+});
+export const MOCK_WRITING_TIME_SHARE_TOTAL = Object.values(MOCK_WRITING_GUIDANCE)
+  .reduce((total, guidance) => total + guidance.timeShare, 0);
 
 const ALL_STATUSES = new Set([...MOCK_LIVE_STATUSES, ...MOCK_TERMINAL_STATUSES]);
 const ACTIVE_SECTIONS = new Set(['not_started', 'done', ...MOCK_SECTION_ORDER]);
@@ -220,6 +226,23 @@ export function formatMockTime(seconds) {
   const mm = String(minutes).padStart(2, '0');
   const ss = String(rest).padStart(2, '0');
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+export function mockWritingTimeAllocation(durationSeconds, fallbackMinutes = 60) {
+  const seconds = finiteNonNegative(durationSeconds);
+  const fallback = finiteNonNegative(fallbackMinutes, 60);
+  const totalMinutes = Math.max(1, Math.round(seconds === null ? fallback : seconds / 60));
+  if (totalMinutes < MOCK_WRITING_TIME_SHARE_TOTAL) {
+    return Object.freeze({ totalMinutes, task1Minutes: null, task2Minutes: null });
+  }
+  const task1Minutes = Math.max(1, Math.round(
+    totalMinutes * MOCK_WRITING_GUIDANCE.task1.timeShare / MOCK_WRITING_TIME_SHARE_TOTAL,
+  ));
+  return Object.freeze({
+    totalMinutes,
+    task1Minutes,
+    task2Minutes: Math.max(1, totalMinutes - task1Minutes),
+  });
 }
 
 export function mockWordCount(value) {

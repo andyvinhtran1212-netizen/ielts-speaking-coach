@@ -101,6 +101,28 @@ describe('/mock-exam native runner ownership', () => {
     assert.doesNotMatch(RUNNER, /bài vẫn giữ trên máy này/);
   });
 
+  test('Writing exposes exam guidance without claiming word count means completion', () => {
+    assert.match(RUNNER, /MOCK_WRITING_GUIDANCE/);
+    assert.match(RUNNER, /Ít nhất \{guidance\.minWords\} từ/);
+    assert.match(RUNNER, /mockWritingTimeAllocation/);
+    assert.match(RUNNER, /Gợi ý \$\{recommendedMinutes\} phút/);
+    assert.match(RUNNER, /guidance\.timeShare\}\/\$\{MOCK_WRITING_TIME_SHARE_TOTAL\} thời gian/);
+    assert.match(RUNNER, /Trọng số gấp 2 Task 1/);
+    assert.match(RUNNER, /prompt\?\.taskType === 'task1_academic'/);
+    assert.match(RUNNER, /prompt\?\.taskType === 'task1_general'/);
+    assert.match(RUNNER, /Tóm tắt và so sánh các đặc điểm chính/);
+    assert.match(RUNNER, /Viết một lá thư đúng vai trò/);
+    assert.match(RUNNER, /không phải đánh giá chất lượng bài viết/);
+    assert.match(RUNNER, /role="progressbar"/);
+    assert.doesNotMatch(RUNNER, /className="mw-time-guidance" role="status"/);
+    assert.match(RUNNER, /spellCheck=\{false\}/);
+    assert.doesNotMatch(RUNNER, /Hoàn thành Task/);
+    const writingWorkspace = RUNNER.match(
+      /function WritingWorkspace[\s\S]*?\n}\n\nexport function MockExamRunner/,
+    )?.[0] || '';
+    assert.equal((writingWorkspace.match(/<h1[\s>]/g) || []).length, 1);
+  });
+
   test('ships responsive accessible panes and a hermetic browser gate', () => {
     assert.match(RUNNER, /role="separator"/);
     assert.match(RUNNER, /aria-orientation=\{narrow/);
